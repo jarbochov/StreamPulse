@@ -6,29 +6,27 @@
     <title>Stream Credits</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Jersey+20&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root {
-            --credits-font: 'Inter', sans-serif;
-            --credits-color: #ffffff;
-            --credits-accent: #9147ff;
-            --credits-bg: transparent;
-            --credits-speed: 60s;
-            --section-gap: 3rem;
+            --text-outline-color: #00000066;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: "Jersey 20", sans-serif;
+            font-size: 3vw;
+            color: rgb(214, 227, 225);
+            text-shadow: -1px -1px 0 var(--text-outline-color), 1px -1px 0 var(--text-outline-color), -1px 1px 0 var(--text-outline-color), 1px 1px 0 var(--text-outline-color);
         }
 
         body {
             width: 1920px;
             height: 1080px;
-            background: var(--credits-bg);
-            font-family: var(--credits-font);
-            color: var(--credits-color);
+            background: transparent;
             overflow: hidden;
             display: flex;
             justify-content: center;
@@ -37,117 +35,138 @@
 
         #credits-container {
             width: 100%;
-            max-width: 1200px;
             text-align: center;
             position: absolute;
-            bottom: 0;
-            animation: scroll-up var(--credits-speed) linear forwards;
+            transform: translate(0, 20%);
+            opacity: 1;
+            transition: opacity 2s;
         }
 
-        @keyframes scroll-up {
+        #credits-container.scrollIt {
+            animation: scroll-credits linear forwards;
+        }
+
+        #credits-container.fadeOut {
+            opacity: 0;
+        }
+
+        @keyframes scroll-credits {
             from {
-                transform: translateY(100%);
+                transform: translate(0, 20%);
             }
             to {
-                transform: translateY(-100%);
+                transform: translate(0, -100%);
             }
+        }
+
+        #social-links-container {
+            position: fixed;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            opacity: 0;
+            transition: opacity 2s;
+        }
+
+        #social-links-container.fadeIn {
+            opacity: 1;
         }
 
         .section {
-            margin-bottom: var(--section-gap);
+            margin-top: 100px;
+            margin-bottom: 100px;
         }
 
-        .section-header {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: var(--credits-accent);
+        h1 {
+            font-size: 6vw;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin-bottom: 2rem;
-            text-shadow: 0 0 20px rgba(145, 71, 255, 0.5);
         }
 
-        .title {
-            font-size: 4rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            text-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+        h2 {
+            font-size: 6vw;
+            text-transform: uppercase;
         }
 
-        .subtitle {
-            font-size: 2rem;
-            font-weight: 300;
-            margin-bottom: 4rem;
-            opacity: 0.9;
+        h3 {
+            font-size: 3.7vw;
+            text-transform: uppercase;
+        }
+
+        .smallerheader {
+            font-size: 25px;
+        }
+
+        .header-img {
+            max-width: 80%;
+            height: auto;
+            margin: 0 auto 50px auto;
+            display: block;
+        }
+
+        .people-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .people-list.two-col .person {
+            flex-basis: 50%;
+        }
+
+        .people-list.three-col .person {
+            flex-basis: 33.333%;
         }
 
         .person {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            margin: 0.75rem 0;
-            font-size: 1.5rem;
-            font-weight: 400;
+            padding: 10px 0;
+            font-size: 3vw;
+            line-height: 150%;
         }
 
-        .person-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: 2px solid var(--credits-accent);
-            object-fit: cover;
+        .emote-item {
+            display: inline-block;
+            margin: 20px 30px;
+            text-align: center;
         }
 
-        .person-name {
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        .emote-img {
+            width: 48px;
+            height: 48px;
+            display: block;
+            margin: 0 auto 10px auto;
         }
 
-        .person-detail {
-            font-size: 1.2rem;
-            opacity: 0.7;
-            margin-left: 0.5rem;
+        .emote-name {
+            font-size: 2.5vw;
+        }
+
+        .emote-stats {
+            font-size: 2vw;
+            opacity: 0.8;
         }
 
         .hashtag-item {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            margin: 1rem 0;
-            font-size: 1.8rem;
-            font-weight: 600;
+            padding: 10px 0;
+            font-size: 3vw;
+            line-height: 150%;
         }
 
         .hashtag-tag {
-            color: var(--credits-accent);
+            color: rgb(145, 71, 255);
         }
 
-        .hashtag-stats {
-            font-size: 1.2rem;
-            opacity: 0.7;
-            font-weight: 400;
-        }
-
-        .closing {
-            font-size: 3rem;
-            font-weight: 600;
-            margin-top: 6rem;
-            margin-bottom: 4rem;
-            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
-        }
-
-        .spacer {
-            height: 4rem;
-        }
-
-        .large-spacer {
-            height: 8rem;
+        .social-icon {
+            font-size: 4vw;
+            margin: 0 20px;
+            color: rgb(214, 227, 225);
         }
     </style>
 </head>
 <body>
     <div id="credits-container"></div>
+    <div id="social-links-container"></div>
 
     <script>
         // ============================================================================
@@ -180,9 +199,11 @@
             chatters: new Map(), // username -> { chatname, chatimg, type, messageCount }
             followers: [], // { chatname, chatimg, timestamp }
             subscribers: [], // { chatname, membership, chatimg }
+            giftSubs: [], // { chatname, chatimg }
             bits: [], // { chatname, amount, chatimg }
             donations: [], // { chatname, amount, chatimg }
-            hashtags: new Map() // hashtag -> { count, users: Set }
+            hashtags: new Map(), // hashtag -> { count, users: Set }
+            emotes: new Map() // emote name -> { count, imageUrl, users: Set }
         };
 
         const prefetchedData = {
@@ -277,14 +298,23 @@
                 console.log(`[New Follower] ${chatname}`);
             }
 
-            // Track new subscribers
+            // Track new subscribers and gift subs
             if (data.membership && chatname) {
-                liveData.subscribers.push({
-                    chatname: chatname,
-                    membership: data.membership,
-                    chatimg: chatimg
-                });
-                console.log(`[New Subscriber] ${chatname} - ${data.membership}`);
+                // Check if this is a gift sub
+                if (data.membership.toLowerCase().includes('gift') || data.contentimg) {
+                    liveData.giftSubs.push({
+                        chatname: chatname,
+                        chatimg: chatimg
+                    });
+                    console.log(`[Gift Sub] ${chatname}`);
+                } else {
+                    liveData.subscribers.push({
+                        chatname: chatname,
+                        membership: data.membership,
+                        chatimg: chatimg
+                    });
+                    console.log(`[New Subscriber] ${chatname} - ${data.membership}`);
+                }
             }
 
             // Track bits/donations
@@ -305,9 +335,34 @@
                 }
             }
 
-            // Track hashtags
+            // Track emotes from chatmessage <img> tags
             if (data.chatmessage) {
-                const hashtags = data.chatmessage.match(/#\w+/g);
+                const emoteRegex = /<img[^>]+alt="([^"]+)"[^>]+src="([^"]+)"[^>]*>/gi;
+                let emoteMatch;
+                while ((emoteMatch = emoteRegex.exec(data.chatmessage)) !== null) {
+                    const emoteName = emoteMatch[1];
+                    const emoteUrl = emoteMatch[2];
+                    
+                    if (!liveData.emotes.has(emoteName)) {
+                        liveData.emotes.set(emoteName, {
+                            count: 0,
+                            imageUrl: emoteUrl,
+                            users: new Set()
+                        });
+                    }
+                    const emoteData = liveData.emotes.get(emoteName);
+                    emoteData.count++;
+                    if (chatname) {
+                        emoteData.users.add(chatname);
+                    }
+                }
+            }
+
+            // Track hashtags - strip HTML first
+            if (data.chatmessage) {
+                // Strip HTML tags before parsing hashtags
+                const strippedMessage = data.chatmessage.replace(/<[^>]+>/g, '');
+                const hashtags = strippedMessage.match(/#\w+/g);
                 if (hashtags) {
                     hashtags.forEach(tag => {
                         const normalizedTag = tag.toLowerCase();
@@ -382,85 +437,125 @@
         
         function renderCredits() {
             const container = document.getElementById('credits-container');
+            const socialLinksContainer = document.getElementById('social-links-container');
             let html = '';
 
-            // Header
+            // Header image
             html += '<div class="section">';
-            html += '<div class="title">Thanks for Watching!</div>';
-            html += '<div class="subtitle">Stream Credits</div>';
+            html += '<img src="https://cdn.streamelements.com/uploads/638fc6af-7d92-4f44-9fae-3d7cb65375a8.gif" class="header-img" alt="Header">';
             html += '</div>';
 
-            html += '<div class="large-spacer"></div>';
+            // Header text
+            html += '<div class="section">';
+            html += '<h1>Thank you for your support!</h1>';
+            html += '<h3>The room where it happens</h3>';
+            html += '</div>';
 
             // Subscribers section
             const allSubs = mergeSubscribers();
             if (allSubs.length > 0) {
                 html += '<div class="section">';
-                html += '<div class="section-header">Subscribers</div>';
+                html += '<h2>Subscribers</h2>';
+                html += '<h3>Remember to feed your Wii U a disc</h3>';
+                html += '<div class="people-list two-col">';
                 allSubs.forEach(sub => {
-                    html += '<div class="person">';
-                    if (sub.chatimg) {
-                        html += `<img src="${sub.chatimg}" class="person-avatar" alt="">`;
-                    }
-                    html += `<span class="person-name">${escapeHtml(sub.name)}</span>`;
+                    html += `<div class="person">${escapeHtml(sub.name)}`;
                     if (sub.tier) {
-                        html += `<span class="person-detail">(${sub.tier})</span>`;
+                        html += ` (${escapeHtml(sub.tier)})`;
                     }
                     html += '</div>';
                 });
                 html += '</div>';
-                html += '<div class="spacer"></div>';
+                html += '</div>';
+            }
+
+            // New Followers section
+            const allFollowers = mergeFollowers();
+            if (allFollowers.length > 0) {
+                html += '<div class="section">';
+                html += '<h2>New Followers</h2>';
+                html += '<h3>(not a cult)</h3>';
+                html += '<div class="people-list three-col">';
+                allFollowers.forEach(follower => {
+                    html += `<div class="person">${escapeHtml(follower.name)}</div>`;
+                });
+                html += '</div>';
+                html += '</div>';
+            }
+
+            // Donations section
+            if (liveData.donations.length > 0) {
+                html += '<div class="section">';
+                html += '<h2>Donators</h2>';
+                html += '<h3 class="smallerheader">Can I have fifty dollars?</h3>';
+                html += '<div class="people-list two-col">';
+                liveData.donations.forEach(donation => {
+                    html += `<div class="person">${escapeHtml(donation.chatname)}`;
+                    html += ` (${escapeHtml(donation.amount)})</div>`;
+                });
+                html += '</div>';
+                html += '</div>';
+            }
+
+            // Gift Subs section
+            if (liveData.giftSubs.length > 0) {
+                html += '<div class="section">';
+                html += '<h2>Gift Subs</h2>';
+                html += '<div class="people-list two-col">';
+                liveData.giftSubs.forEach(gift => {
+                    html += `<div class="person">${escapeHtml(gift.chatname)}</div>`;
+                });
+                html += '</div>';
+                html += '</div>';
             }
 
             // Bits/Cheers section
             const allBits = mergeBits();
             if (allBits.length > 0) {
                 html += '<div class="section">';
-                html += '<div class="section-header">Top Cheers</div>';
+                html += '<h2>Cheerers</h2>';
+                html += '<div class="people-list two-col">';
                 allBits.forEach(bit => {
-                    html += '<div class="person">';
-                    if (bit.chatimg) {
-                        html += `<img src="${bit.chatimg}" class="person-avatar" alt="">`;
-                    }
-                    html += `<span class="person-name">${escapeHtml(bit.name)}</span>`;
-                    html += `<span class="person-detail">${escapeHtml(bit.amount)}</span>`;
-                    html += '</div>';
+                    html += `<div class="person">${escapeHtml(bit.name)}`;
+                    html += ` (${escapeHtml(bit.amount)})</div>`;
                 });
                 html += '</div>';
-                html += '<div class="spacer"></div>';
+                html += '</div>';
             }
 
-            // Donations section
-            if (liveData.donations.length > 0) {
+            // Top Emotes section
+            const topEmotes = getTopEmotes(5);
+            if (topEmotes.length > 0) {
                 html += '<div class="section">';
-                html += '<div class="section-header">Donations</div>';
-                liveData.donations.forEach(donation => {
-                    html += '<div class="person">';
-                    if (donation.chatimg) {
-                        html += `<img src="${donation.chatimg}" class="person-avatar" alt="">`;
-                    }
-                    html += `<span class="person-name">${escapeHtml(donation.chatname)}</span>`;
-                    html += `<span class="person-detail">${escapeHtml(donation.amount)}</span>`;
+                html += '<h2>Top Emotes</h2>';
+                html += '<h3>Chat\'s Mood Board</h3>';
+                html += '<div>';
+                topEmotes.forEach(emote => {
+                    html += '<div class="emote-item">';
+                    html += `<img src="${emote.imageUrl}" class="emote-img" alt="${escapeHtml(emote.name)}">`;
+                    html += `<div class="emote-name">${escapeHtml(emote.name)}</div>`;
+                    html += `<div class="emote-stats">${emote.count} uses by ${emote.uniqueUsers} chatters</div>`;
                     html += '</div>';
                 });
                 html += '</div>';
-                html += '<div class="spacer"></div>';
+                html += '</div>';
             }
 
-            // New Followers section
-            if (liveData.followers.length > 0) {
+            // Trending Hashtags section
+            const topHashtags = getTopHashtags(10);
+            if (topHashtags.length > 0) {
                 html += '<div class="section">';
-                html += '<div class="section-header">New Followers</div>';
-                liveData.followers.forEach(follower => {
-                    html += '<div class="person">';
-                    if (follower.chatimg) {
-                        html += `<img src="${follower.chatimg}" class="person-avatar" alt="">`;
-                    }
-                    html += `<span class="person-name">${escapeHtml(follower.chatname)}</span>`;
+                html += '<h2>Trending Hashtags</h2>';
+                html += '<h3>What we\'re talking about</h3>';
+                html += '<div class="people-list three-col">';
+                topHashtags.forEach(hashtag => {
+                    html += '<div class="hashtag-item">';
+                    html += `<span class="hashtag-tag">${escapeHtml(hashtag.tag)}</span>`;
+                    html += ` (${hashtag.count} uses)`;
                     html += '</div>';
                 });
                 html += '</div>';
-                html += '<div class="spacer"></div>';
+                html += '</div>';
             }
 
             // Chatters section
@@ -469,41 +564,49 @@
             
             if (sortedChatters.length > 0) {
                 html += '<div class="section">';
-                html += '<div class="section-header">Today's Chatters</div>';
+                html += '<h2>Today\'s Chatters</h2>';
+                html += '<h3>The Peanut Gallery</h3>';
+                html += '<div class="people-list three-col">';
                 sortedChatters.forEach(chatter => {
-                    html += '<div class="person">';
-                    if (chatter.chatimg) {
-                        html += `<img src="${chatter.chatimg}" class="person-avatar" alt="">`;
-                    }
-                    html += `<span class="person-name">${escapeHtml(chatter.chatname)}</span>`;
-                    html += `<span class="person-detail">(${chatter.messageCount} messages)</span>`;
-                    html += '</div>';
+                    html += `<div class="person">${escapeHtml(chatter.chatname)}</div>`;
                 });
                 html += '</div>';
-                html += '<div class="spacer"></div>';
-            }
-
-            // Trending Hashtags section
-            const topHashtags = getTopHashtags(10);
-            if (topHashtags.length > 0) {
-                html += '<div class="section">';
-                html += '<div class="section-header">Trending Hashtags</div>';
-                topHashtags.forEach(hashtag => {
-                    html += '<div class="hashtag-item">';
-                    html += `<span class="hashtag-tag">${escapeHtml(hashtag.tag)}</span>`;
-                    html += `<span class="hashtag-stats">${hashtag.count} uses by ${hashtag.uniqueUsers} chatters</span>`;
-                    html += '</div>';
-                });
                 html += '</div>';
-                html += '<div class="spacer"></div>';
             }
 
-            // Closing
-            html += '<div class="large-spacer"></div>';
-            html += '<div class="closing">See you next stream! 💜</div>';
-            html += '<div class="large-spacer"></div>';
+            // Ending statement
+            html += '<div class="section">';
+            html += '<h1>Never forget that you\'re awesome and that you matter. Thanks for being you!</h1>';
+            html += '</div>';
 
             container.innerHTML = html;
+
+            // Social links
+            let socialHtml = '';
+            socialHtml += '<h2>SEE YA NEXT TIME!</h2>';
+            socialHtml += '<h3>Follow For More Randomness</h3>';
+            socialHtml += '<div>';
+            socialHtml += '<a href="https://www.threads.net/@jarbochov" class="social-icon"><i class="fab fa-threads"></i></a>';
+            socialHtml += '<a href="https://social.4score7pongs.com/@jarbochov" class="social-icon"><i class="fab fa-mastodon"></i></a>';
+            socialHtml += '<a href="https://bsky.app/profile/wyomingjarbo.com" class="social-icon">🦋</a>';
+            socialHtml += '<a href="https://wyomingjarbo.com" class="social-icon"><i class="fas fa-globe"></i></a>';
+            socialHtml += '</div>';
+            socialLinksContainer.innerHTML = socialHtml;
+
+            // Start scroll animation after delay
+            const socialLinkDelay = 82000; // 82 seconds default
+            setTimeout(() => {
+                container.style.animationDuration = `${socialLinkDelay / 1000}s`;
+                container.classList.add('scrollIt');
+                
+                // After scroll completes, fade out credits and fade in social links
+                setTimeout(() => {
+                    container.classList.add('fadeOut');
+                    setTimeout(() => {
+                        socialLinksContainer.classList.add('fadeIn');
+                    }, 2000);
+                }, socialLinkDelay);
+            }, 100);
         }
 
         // ============================================================================
@@ -536,6 +639,30 @@
             });
 
             return Array.from(subsMap.values());
+        }
+
+        function mergeFollowers() {
+            const followersMap = new Map();
+
+            // Add pre-fetched followers
+            prefetchedData.followers.forEach(follower => {
+                const name = follower.user_name || follower.user_login;
+                if (name) {
+                    followersMap.set(name.toLowerCase(), {
+                        name: name
+                    });
+                }
+            });
+
+            // Add live followers
+            liveData.followers.forEach(follower => {
+                const key = follower.chatname.toLowerCase();
+                followersMap.set(key, {
+                    name: follower.chatname
+                });
+            });
+
+            return Array.from(followersMap.values());
         }
 
         function mergeBits() {
@@ -591,6 +718,20 @@
                 .slice(0, limit);
 
             return hashtags;
+        }
+
+        function getTopEmotes(limit) {
+            const emotes = Array.from(liveData.emotes.entries())
+                .map(([name, data]) => ({
+                    name: name,
+                    count: data.count,
+                    imageUrl: data.imageUrl,
+                    uniqueUsers: data.users.size
+                }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, limit);
+
+            return emotes;
         }
 
         function escapeHtml(text) {
