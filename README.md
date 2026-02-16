@@ -179,7 +179,7 @@ file:///path/to/credits.html?session=abc123&speed=1.5&datapath=./custom-data
 The credits scroll duration can be set to exactly match your end-of-stream music:
 
 | Music Length | URL Parameter |
-|---|---|
+| --- | --- |
 | 60 seconds | `?duration=60` |
 | 75 seconds | `?duration=75` |
 | 82 seconds | `?duration=82` (default) |
@@ -281,8 +281,9 @@ Edit the CSS in credits.html to customize appearance:
 
 ```css
 --text-outline-color: #00000066;  /* Text outline shadow */
---scroll-duration: 82s;           /* Total scroll duration — sync with your music! */
 ```
+
+The `--scroll-duration` variable is set dynamically via JavaScript based on URL parameters (defaults to 82s).
 
 The overlay uses the **Jersey 20** Google Font with `rgb(214, 227, 225)` text color for a retro arcade aesthetic.
 
