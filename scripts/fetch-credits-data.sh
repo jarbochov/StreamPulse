@@ -105,7 +105,7 @@ while true; do
     TOTAL_SUBS=$((TOTAL_SUBS + PAGE_COUNT))
     
     # Append to temp file
-    CURRENT_DATA=$(cat "$TEMP_SUBS_FILE" | jq -r '.data')
+    CURRENT_DATA=$(jq -r '.data' "$TEMP_SUBS_FILE")
     MERGED_DATA=$(echo "$CURRENT_DATA $PAGE_DATA" | jq -s 'add')
     echo "{\"data\":$MERGED_DATA}" > "$TEMP_SUBS_FILE"
     
@@ -178,7 +178,7 @@ while true; do
     TOTAL_FOLLOWERS=$((TOTAL_FOLLOWERS + PAGE_COUNT))
     
     # Append to temp file
-    CURRENT_DATA=$(cat "$TEMP_FOLLOWERS_FILE" | jq -r '.data')
+    CURRENT_DATA=$(jq -r '.data' "$TEMP_FOLLOWERS_FILE")
     MERGED_DATA=$(echo "$CURRENT_DATA $PAGE_DATA" | jq -s 'add')
     echo "{\"data\":$MERGED_DATA}" > "$TEMP_FOLLOWERS_FILE"
     

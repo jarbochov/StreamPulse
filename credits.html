@@ -162,6 +162,7 @@
         
         if (!SESSION_ID) {
             console.error('ERROR: No session ID provided. Add ?session=YOUR_SESSION_ID to the URL');
+            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;font-family:sans-serif;text-align:center;"><div><h1>⚠️ Configuration Error</h1><p>No session ID provided. Add <code>?session=YOUR_SESSION_ID</code> to the URL.</p></div></div>';
         }
 
         // Adjust animation speed based on multiplier
@@ -468,7 +469,7 @@
             
             if (sortedChatters.length > 0) {
                 html += '<div class="section">';
-                html += '<div class="section-header">Today\'s Chatters</div>';
+                html += '<div class="section-header">Today's Chatters</div>';
                 sortedChatters.forEach(chatter => {
                     html += '<div class="person">';
                     if (chatter.chatimg) {
