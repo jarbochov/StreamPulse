@@ -43,7 +43,7 @@
         }
 
         #credits-container.scrollIt {
-            animation: scroll-credits linear forwards;
+            animation: scroll-credits var(--scroll-duration, 82s) linear forwards;
         }
 
         #credits-container.fadeOut {
@@ -176,7 +176,8 @@
         const urlParams = new URLSearchParams(window.location.search);
         const SESSION_ID = urlParams.get('session');
         const WSS_SERVER = urlParams.get('server') || 'wss://io.socialstream.ninja';
-        const SPEED_MULTIPLIER = parseFloat(urlParams.get('speed')) || 1.0;
+        const DURATION = parseFloat(urlParams.get('duration')) || null;
+        const SPEED_MULTIPLIER = parseFloat(urlParams.get('speed')) || null;
         const DATA_PATH = urlParams.get('datapath') || './data';
         
         if (!SESSION_ID) {
@@ -184,12 +185,17 @@
             document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;font-family:sans-serif;text-align:center;"><div><h1>⚠️ Configuration Error</h1><p>No session ID provided. Add <code>?session=YOUR_SESSION_ID</code> to the URL.</p></div></div>';
         }
 
-        // Adjust animation speed based on multiplier
-        if (SPEED_MULTIPLIER !== 1.0) {
-            const baseSpeed = 60; // seconds
-            const adjustedSpeed = baseSpeed / SPEED_MULTIPLIER;
-            document.documentElement.style.setProperty('--credits-speed', `${adjustedSpeed}s`);
+        // Calculate scroll duration - duration takes priority over speed
+        let scrollDuration = 82; // default matches original StreamElements timing
+        if (DURATION) {
+            scrollDuration = DURATION;
+        } else if (SPEED_MULTIPLIER) {
+            scrollDuration = 82 / SPEED_MULTIPLIER;
         }
+
+        // Set CSS variable for animation duration
+        document.documentElement.style.setProperty('--scroll-duration', `${scrollDuration}s`);
+        console.log('[Config] Scroll duration set to:', scrollDuration, 'seconds');
 
         // ============================================================================
         // DATA STORAGE
@@ -594,9 +600,8 @@
             socialLinksContainer.innerHTML = socialHtml;
 
             // Start scroll animation after delay
-            const socialLinkDelay = 82000; // 82 seconds default
+            const socialLinkDelay = scrollDuration * 1000; // Convert to milliseconds
             setTimeout(() => {
-                container.style.animationDuration = `${socialLinkDelay / 1000}s`;
                 container.classList.add('scrollIt');
                 
                 // After scroll completes, fade out credits and fade in social links
@@ -749,7 +754,9 @@
             console.log('[Init] Starting stream credits overlay...');
             console.log('[Init] Session ID:', SESSION_ID);
             console.log('[Init] WSS Server:', WSS_SERVER);
+            console.log('[Init] Duration:', DURATION, 'seconds (URL parameter)');
             console.log('[Init] Speed Multiplier:', SPEED_MULTIPLIER);
+            console.log('[Init] Effective Scroll Duration:', scrollDuration, 'seconds');
             console.log('[Init] Data Path:', DATA_PATH);
 
             // Load pre-fetched data
