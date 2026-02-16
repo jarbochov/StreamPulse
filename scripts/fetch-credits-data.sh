@@ -6,6 +6,15 @@
 # This script fetches subscriber, bits, and follower data from Twitch API
 # using the Twitch CLI and saves them as JSON files for the credits overlay.
 #
+# Required Twitch OAuth Scopes:
+#   - channel:read:subscriptions  (for /subscriptions endpoint)
+#   - bits:read                    (for /bits/leaderboard endpoint)
+#   - moderator:read:followers     (for /channels/followers endpoint)
+#
+# The script will automatically request a token with these scopes.
+# If automatic token validation fails, run manually:
+#   twitch token -u -s "channel:read:subscriptions bits:read moderator:read:followers"
+#
 # Usage:
 #   ./fetch-credits-data.sh [BROADCASTER_ID]
 #
@@ -53,6 +62,26 @@ if ! command -v twitch &> /dev/null; then
     log_error "Install it from: https://dev.twitch.tv/docs/cli/"
     exit 1
 fi
+
+# ============================================================================
+# Token Validation - Ensure proper OAuth scopes
+# ============================================================================
+
+REQUIRED_SCOPES="channel:read:subscriptions bits:read moderator:read:followers"
+
+log_info "Validating Twitch token with required scopes..."
+log_info "Required scopes: $REQUIRED_SCOPES"
+
+# Request a user token with the required scopes
+# This will reuse an existing valid token or prompt for OAuth if needed
+if ! twitch token -u -s "$REQUIRED_SCOPES" > /dev/null 2>&1; then
+    log_warn "Could not validate token automatically."
+    log_warn "Please run manually: twitch token -u -s \"$REQUIRED_SCOPES\""
+    log_warn "Then re-run this script."
+    exit 1
+fi
+
+log_info "Token validated successfully"
 
 # Check if broadcaster ID is provided
 if [ -z "$BROADCASTER_ID" ]; then
@@ -103,6 +132,12 @@ while true; do
     PAGE_DATA=$(echo "$RESPONSE" | jq -r '.data')
     PAGE_COUNT=$(echo "$PAGE_DATA" | jq 'length')
     TOTAL_SUBS=$((TOTAL_SUBS + PAGE_COUNT))
+    
+    # Check if response might indicate missing scopes
+    if [ "$PAGE_COUNT" -eq 0 ] && [ -z "$CURSOR" ] && [ $PAGE -eq 1 ]; then
+        log_warn "Subscriptions returned empty data. This may indicate missing OAuth scopes."
+        log_warn "Try running: twitch token -u -s \"$REQUIRED_SCOPES\""
+    fi
     
     # Append to temp file
     CURRENT_DATA=$(jq -r '.data' "$TEMP_SUBS_FILE")

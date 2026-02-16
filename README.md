@@ -101,8 +101,11 @@ The credits automatically scroll with a cinematic aesthetic, perfect for end-of-
 # Install Twitch CLI (macOS example)
 brew install twitch-cli
 
-# Authenticate with Twitch
+# Configure with your Twitch app credentials
 twitch configure
+
+# Get a user token with required scopes
+twitch token -u -s "channel:read:subscriptions bits:read moderator:read:followers"
 
 # Test authentication
 twitch token
@@ -304,6 +307,12 @@ To trigger data fetches with a Stream Deck button:
 Or set up a scheduled trigger to refresh data every 5-10 minutes during stream.
 
 ## Troubleshooting
+
+### Empty data in JSON files
+- The most common cause is missing OAuth scopes on your Twitch token
+- Run: `twitch token -u -s "channel:read:subscriptions bits:read moderator:read:followers"`
+- This opens a browser for OAuth authorization — approve the requested permissions
+- Re-run the fetch script after getting a new token
 
 ### Credits not loading
 - Check browser console in OBS (right-click source → Interact → F12)
