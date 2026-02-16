@@ -133,12 +133,6 @@ while true; do
     PAGE_COUNT=$(echo "$PAGE_DATA" | jq 'length')
     TOTAL_SUBS=$((TOTAL_SUBS + PAGE_COUNT))
     
-    # Check if response might indicate missing scopes
-    if [ "$PAGE_COUNT" -eq 0 ] && [ -z "$CURSOR" ] && [ $PAGE -eq 1 ]; then
-        log_warn "Subscriptions returned empty data. This may indicate missing OAuth scopes."
-        log_warn "Try running: twitch token -u -s \"$REQUIRED_SCOPES\""
-    fi
-    
     # Append to temp file
     CURRENT_DATA=$(jq -r '.data' "$TEMP_SUBS_FILE")
     MERGED_DATA=$(echo "$CURRENT_DATA $PAGE_DATA" | jq -s 'add')
@@ -146,6 +140,12 @@ while true; do
     
     # Check for next page
     CURSOR=$(echo "$RESPONSE" | jq -r '.pagination.cursor // empty')
+    
+    # Check if response might indicate missing scopes
+    if [ "$PAGE_COUNT" -eq 0 ] && [ -z "$CURSOR" ] && [ $PAGE -eq 1 ]; then
+        log_warn "Subscriptions returned empty data. This may indicate missing OAuth scopes."
+        log_warn "Try running: twitch token -u -s \"$REQUIRED_SCOPES\""
+    fi
     
     if [ -z "$CURSOR" ]; then
         break
