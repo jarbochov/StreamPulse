@@ -136,14 +136,14 @@ while ($true) {
     $TotalSubs += $PageCount
     $AllSubs += $PageData
     
+    # Check for next page
+    $Cursor = $Response.pagination.cursor
+    
     # Check if response might indicate missing scopes
-    if ($PageCount -eq 0 -and $Page -eq 1) {
+    if ($PageCount -eq 0 -and $Page -eq 1 -and [string]::IsNullOrEmpty($Cursor)) {
         Write-Log "Subscriptions returned empty data. This may indicate missing OAuth scopes." -Level "WARN"
         Write-Log "Try running: twitch token -u -s `"$RequiredScopes`"" -Level "WARN"
     }
-    
-    # Check for next page
-    $Cursor = $Response.pagination.cursor
     
     if ([string]::IsNullOrEmpty($Cursor)) {
         break
