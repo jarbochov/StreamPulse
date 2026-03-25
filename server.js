@@ -817,6 +817,9 @@ function processChatMessage(msg) {
     const chatname = msg.chatname;
     if (!chatname) return;
 
+    // Normalize SSN field names (eventType → event)
+    if (msg.eventType && !msg.event) msg.event = msg.eventType;
+
     // Banned users are completely excluded from everything
     if (BANNED_USERS.includes(chatname.toLowerCase())) return;
 
@@ -933,15 +936,13 @@ function processChatMessage(msg) {
     }
 
     // Track raids
-    if (msg.event === 'raid' || (msg.chatmessage && msg.chatmessage.toLowerCase().includes('raid'))) {
-        if (msg.event === 'raid') {
-            const alreadyRaided = chatData.raids.some(r => r.chatname === chatname);
-            if (!alreadyRaided) {
-                const viewers = msg.chatmessage ? (msg.chatmessage.match(/(\d+)/) || [])[1] : null;
-                chatData.raids.push({ chatname, chatimg: msg.chatimg, viewers: viewers ? parseInt(viewers) : null, timestamp: Date.now() });
-                console.log(`[SSN] Raid: ${chatname}${viewers ? ` with ${viewers} viewers` : ''}`);
-                fireWebhook('raid', { user: chatname, viewers: viewers || '?', message: `${chatname} raided${viewers ? ` with ${viewers} viewers` : ''}!` });
-            }
+    if (msg.event === 'raid') {
+        const alreadyRaided = chatData.raids.some(r => r.chatname === chatname);
+        if (!alreadyRaided) {
+            const viewers = msg.chatmessage ? (msg.chatmessage.match(/(\d+)/) || [])[1] : null;
+            chatData.raids.push({ chatname, chatimg: msg.chatimg, viewers: viewers ? parseInt(viewers) : null, timestamp: Date.now() });
+            console.log(`[SSN] Raid: ${chatname}${viewers ? ` with ${viewers} viewers` : ''}`);
+            fireWebhook('raid', { user: chatname, viewers: viewers || '?', message: `${chatname} raided${viewers ? ` with ${viewers} viewers` : ''}!` });
         }
     }
 
@@ -1050,6 +1051,14 @@ const MIME_TYPES = {
 function buildChatPdfHtml(title, subtitle, messages) {
     const escHtml = s => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+    // Deterministic username → HSL color (readable on white PDF background)
+    function userColor(name) {
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+        const hue = ((hash >>> 0) % 360);
+        return `hsl(${hue}, 65%, 38%)`;
+    }
+
     const sanitizeMsg = (html) => {
         if (!html) return '';
         // Keep only img tags, strip everything else
@@ -1079,7 +1088,7 @@ function buildChatPdfHtml(title, subtitle, messages) {
 
         return `<div class="msg">
             <div class="content-col">
-                <div class="name-row"><span class="user">${escHtml(m.user)}</span>${badges}<span class="time">${formatTime(m.ts)}</span></div>
+                <div class="name-row"><span class="user" style="color:${userColor(m.user)}">${escHtml(m.user)}</span>${badges}<span class="time">${formatTime(m.ts)}</span></div>
                 ${replyHtml}
                 <div class="text">${display}</div>
             </div>
@@ -1095,7 +1104,7 @@ function buildChatPdfHtml(title, subtitle, messages) {
     .msg { margin-bottom: 6px; page-break-inside: avoid; }
     .content-col { min-width: 0; }
     .name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-bottom: 1px; }
-    .user { font-weight: 600; color: #1f6feb; font-size: 10px; }
+    .user { font-weight: 600; font-size: 10px; }
     .time { font-size: 8px; color: #888; margin-left: auto; }
     .badge { font-size: 7px; color: #888; background: #f0f0f0; border-radius: 3px; padding: 1px 4px; white-space: nowrap; }
     .text { font-size: 10px; word-wrap: break-word; overflow-wrap: break-word; }
@@ -1700,11 +1709,26 @@ const server = http.createServer(async (req, res) => {
         const params = new URL(req.url, `http://localhost`).searchParams;
         const format = params.get('format') || 'tsv';
         const session = params.get('session') || 'current';
+        const rawQuery = (params.get('q') || '').trim();
+        const typeFilter = params.get('type') || '';
+        const userFilter = (params.get('user') || '').toLowerCase();
 
         // Load messages
         let messages = [];
         let sessionLabel = session;
-        if (session === 'current') {
+        if (session === 'all') {
+            // Global search export: current + all archived sessions
+            messages = [...chatLog];
+            sessionLabel = 'all-sessions';
+            if (fs.existsSync(SESSIONS_DIR)) {
+                const logFiles = fs.readdirSync(SESSIONS_DIR)
+                    .filter(f => f.startsWith('chatlog-') && f.endsWith('.jsonl'))
+                    .sort();
+                for (const logFile of logFiles) {
+                    messages.push(...readChatLogFile(path.join(SESSIONS_DIR, logFile)));
+                }
+            }
+        } else if (session === 'current') {
             messages = chatLog;
             sessionLabel = 'current-session';
         } else {
@@ -1713,6 +1737,26 @@ const server = http.createServer(async (req, res) => {
             if (logFile.startsWith(SESSIONS_DIR) && fs.existsSync(logFile)) {
                 messages = readChatLogFile(logFile);
             }
+        }
+
+        // Apply filters (matching the client-side logic)
+        if (userFilter) {
+            messages = messages.filter(m => (m.user || '').toLowerCase() === userFilter);
+        }
+        if (typeFilter === 'links') {
+            messages = messages.filter(m =>
+                (m.urls && m.urls.length > 0) || (m.message && /https?:\/\//.test(m.message))
+            );
+        } else if (typeFilter === 'events') {
+            messages = messages.filter(m => m.event);
+        } else if (typeFilter === 'donations') {
+            messages = messages.filter(m => m.donation);
+        }
+        if (rawQuery) {
+            const lower = rawQuery.toLowerCase();
+            messages = messages.filter(m =>
+                (m.message || '').toLowerCase().includes(lower) || (m.user || '').toLowerCase().includes(lower)
+            );
         }
 
         const formatTime = (ts) => {
@@ -1980,9 +2024,20 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/highlights/export' && req.method === 'GET') {
         const format = url.searchParams.get('format');
         const sessionFilter = url.searchParams.get('session');
+        const userFilter = (url.searchParams.get('user') || '').toLowerCase();
+        const rawQuery = (url.searchParams.get('q') || '').trim().toLowerCase();
         let data = highlights;
         if (sessionFilter) {
-            data = highlights.filter(h => h.session === sessionFilter);
+            data = data.filter(h => h.session === sessionFilter);
+        }
+        if (userFilter) {
+            data = data.filter(h => (h.user || '').toLowerCase() === userFilter);
+        }
+        if (rawQuery) {
+            data = data.filter(h =>
+                (h.user || '').toLowerCase().includes(rawQuery) ||
+                (h.message || '').toLowerCase().includes(rawQuery)
+            );
         }
 
         const formatTime = (ts) => {

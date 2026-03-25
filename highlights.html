@@ -52,7 +52,7 @@
         .chat-msg:hover { background: #161b2280; }
         .chat-avatar { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; margin-top: 2px; }
         .chat-meta { flex: 1; min-width: 0; }
-        .chat-user { color: #58a6ff; font-weight: 600; font-size: 0.8rem; margin-right: 0.4rem; }
+        .chat-user { font-weight: 600; font-size: 0.8rem; margin-right: 0.4rem; }
         .chat-text { word-break: break-word; line-height: 1.4; font-size: 0.85rem; }
         .chat-text img { height: 18px; vertical-align: middle; }
         .chat-text a { color: #58a6ff; text-decoration: underline; }
@@ -150,10 +150,18 @@
         setTimeout(() => t.classList.remove('show'), 2500);
     }
 
+    function userColor(name) {
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+        const hue = ((hash >>> 0) % 360);
+        return `hsl(${hue}, 70%, 65%)`;
+    }
+
     let allHighlights = [];
 
     async function loadHighlights() {
         const content = document.getElementById('content');
+        const urlSession = new URLSearchParams(window.location.search).get('session') || '';
         try {
             const res = await fetch('/api/highlights');
             allHighlights = await res.json();
@@ -176,7 +184,7 @@
                     <input type="text" id="search" placeholder="Search highlights..." oninput="filterHighlights()">
                     <select id="session-filter" onchange="filterHighlights()">
                         <option value="">All Sessions</option>
-                        ${sessions.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
+                        ${sessions.map(s => `<option value="${escapeHtml(s)}"${s === urlSession ? ' selected' : ''}>${escapeHtml(s)}</option>`).join('')}
                     </select>
                     <select id="user-filter" onchange="filterHighlights()">
                         <option value="">All Users</option>
@@ -192,6 +200,7 @@
                 <div id="results"></div>
             `;
             content.innerHTML = html;
+            if (urlSession) document.getElementById('session-filter').value = urlSession;
             filterHighlights();
         } catch {
             content.innerHTML = '<div class="empty">Failed to load highlights</div>';
@@ -238,7 +247,7 @@
                 return `<div class="chat-msg">
                     ${h.avatar ? `<img class="chat-avatar" src="${h.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
                     <div class="chat-meta">
-                        <div><span class="chat-user">${escapeHtml(h.user)}</span>
+                        <div><span class="chat-user" style="color:${userColor(h.user)}">${escapeHtml(h.user)}</span>
                         <button class="pin-btn pinned" onclick="unpinHighlight(this, ${h.ts}, '${escapeHtml(h.user)}')" title="Unpin">⭐</button></div>
                         <div class="chat-text">${displayHtml}</div>
                         <div class="chat-pinned-at">Pinned ${formatDate(h.pinnedAt)}</div>
@@ -267,8 +276,12 @@
 
     function exportHighlights(format) {
         const sessionFilter = document.getElementById('session-filter')?.value || '';
+        const userFilter = document.getElementById('user-filter')?.value || '';
+        const query = (document.getElementById('search')?.value || '').trim();
         const params = new URLSearchParams({ format });
         if (sessionFilter) params.set('session', sessionFilter);
+        if (userFilter) params.set('user', userFilter);
+        if (query) params.set('q', query);
         const a = document.createElement('a');
         a.href = `/api/highlights/export?${params}`;
         a.download = `highlights.${format}`;

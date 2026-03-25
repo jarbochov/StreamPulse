@@ -76,7 +76,7 @@
         .chat-msg:last-child { border-bottom: none; }
         .chat-msg img.chat-avatar { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; margin-top: 2px; }
         .chat-msg .chat-meta { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-        .chat-msg .chat-user { font-weight: 600; font-size: 0.8rem; color: #58a6ff; }
+        .chat-msg .chat-user { font-weight: 600; font-size: 0.8rem; }
         .chat-msg .chat-text { word-break: break-word; line-height: 1.4; }
         .chat-msg .chat-text img { height: 18px; vertical-align: middle; }
         .chat-msg .chat-time { font-size: 0.7rem; color: #484f58; flex-shrink: 0; margin-top: 3px; }
@@ -233,6 +233,14 @@
         const div = document.createElement('div');
         div.textContent = str || '';
         return div.innerHTML;
+    }
+
+    // Deterministic username → HSL color (readable on dark backgrounds)
+    function userColor(name) {
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+        const hue = ((hash >>> 0) % 360);
+        return `hsl(${hue}, 70%, 65%)`;
     }
 
     // Sanitize HTML from SSN — only allow img tags (for emotes), strip everything else
@@ -472,9 +480,9 @@
         const exportSession = isLive ? 'current' : encodeURIComponent(filename);
         document.getElementById('pane-chatlog').innerHTML = `
             <div class="export-bar">
-                <a class="export-btn" href="/api/chat-log/export?format=tsv&session=${exportSession}" download>📄 Export TSV</a>
-                <a class="export-btn" href="/api/chat-log/export?format=txt&session=${exportSession}" download>📝 Export Text</a>
-                <a class="export-btn" href="/api/chat-log/export?format=pdf&session=${exportSession}" download>📕 Export PDF</a>
+                <button class="export-btn" onclick="exportChatLog('tsv')">📄 Export TSV</button>
+                <button class="export-btn" onclick="exportChatLog('txt')">📝 Export Text</button>
+                <button class="export-btn" onclick="exportChatLog('pdf')">📕 Export PDF</button>
             </div>
             <div class="chat-search">
                 <input type="text" id="chatlog-filter" placeholder="Filter messages..." onkeydown="if(event.key==='Enter')filterChatLog()">
@@ -701,7 +709,7 @@
         return `<div class="chat-msg">
             ${m.avatar ? `<img class="chat-avatar" src="${m.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
             <div class="chat-meta">
-                <div><span class="chat-user">${escapeHtml(m.user)}</span>${badges}<button class="${pinClass}" onclick="togglePin(this)" ${pinData}>${pinStar}</button></div>
+                <div><span class="chat-user" style="color:${userColor(m.user)}">${escapeHtml(m.user)}</span>${badges}<button class="${pinClass}" onclick="togglePin(this)" ${pinData}>${pinStar}</button></div>
                 <div class="chat-text">${displayHtml}</div>
                 ${sessionTag}
             </div>
@@ -814,6 +822,34 @@
         renderChatLogMessages(messages);
     }
 
+    function exportChatLog(format) {
+        const session = activeSessionFile === '__current__' ? 'current' : activeSessionFile;
+        const params = new URLSearchParams({ format, session });
+        const query = (document.getElementById('chatlog-filter')?.value || '').trim();
+        if (query) params.set('q', query);
+        if (linksFilterActive) params.set('type', 'links');
+        const a = document.createElement('a');
+        a.href = `/api/chat-log/export?${params}`;
+        a.download = `chat-log.${format}`;
+        a.click();
+    }
+
+    function exportSearchResults(format) {
+        const query = (document.getElementById('global-search-input')?.value || '').trim();
+        const type = globalSearchTypeFilter;
+        const params = new URLSearchParams({ format, session: 'all' });
+        if (query.startsWith('@')) {
+            params.set('user', query.slice(1));
+        } else if (query) {
+            params.set('q', query);
+        }
+        if (type) params.set('type', type);
+        const a = document.createElement('a');
+        a.href = `/api/chat-log/export?${params}`;
+        a.download = `search-results.${format}`;
+        a.click();
+    }
+
     async function globalSearch() {
         const input = document.getElementById('global-search-input');
         const query = (input?.value || '').trim();
@@ -855,6 +891,11 @@
                 <div class="detail-header">
                     <h2>🔍 Search: ${label}</h2>
                     <span style="color: #8b949e; font-size: 0.85rem;">${data.total} result${data.total !== 1 ? 's' : ''}</span>
+                    <div class="export-bar" style="margin-left:auto;">
+                        <button class="export-btn" onclick="exportSearchResults('tsv')">📄 TSV</button>
+                        <button class="export-btn" onclick="exportSearchResults('txt')">📝 TXT</button>
+                        <button class="export-btn" onclick="exportSearchResults('pdf')">📕 PDF</button>
+                    </div>
                 </div>
                 <div style="padding: 1.25rem; overflow-y: auto; flex: 1;" id="search-results"></div>
             `;
@@ -885,6 +926,17 @@
         if (!pane) return;
         pane.innerHTML = '<div class="chat-log-loading">Loading highlights...</div>';
 
+        // Determine the active session name to pre-filter
+        let activeSessionName = '';
+        if (activeSessionFile && activeSessionFile !== '__current__') {
+            activeSessionName = activeSessionFile;
+        } else if (activeSessionFile === '__current__' && activeSession) {
+            // Build session filename from current session startedAt
+            const dt = new Date(activeSession.startedAt);
+            const pad = n => String(n).padStart(2, '0');
+            activeSessionName = `chat-${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}-${pad(dt.getMinutes())}.json`;
+        }
+
         try {
             const res = await fetch('/api/highlights');
             const allHighlights = await res.json();
@@ -897,7 +949,10 @@
 
             // Build session options from unique sessions
             const sessions = [...new Set(allHighlights.map(h => h.session || 'unknown'))].sort((a, b) => b.localeCompare(a));
-            const sessionOptions = sessions.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+            const sessionOptions = sessions.map(s => {
+                const selected = (s === activeSessionName) ? ' selected' : '';
+                return `<option value="${escapeHtml(s)}"${selected}>${escapeHtml(s)}</option>`;
+            }).join('');
 
             let html = `<div class="chatlog-toolbar">
                 <input type="text" id="highlights-search" placeholder="Search highlights..." class="chat-search-input" oninput="filterHighlights()">
@@ -913,6 +968,14 @@
             </div>`;
             html += '<div id="highlights-results"></div>';
             pane.innerHTML = html;
+
+            // Pre-select session filter if we have a match
+            if (activeSessionName) {
+                const sel = document.getElementById('highlights-session-filter');
+                if (sel && [...sel.options].some(o => o.value === activeSessionName)) {
+                    sel.value = activeSessionName;
+                }
+            }
             filterHighlights();
         } catch {
             pane.innerHTML = '<div class="empty">Failed to load highlights</div>';
@@ -959,7 +1022,7 @@
                 return `<div class="chat-msg">
                     ${h.avatar ? `<img class="chat-avatar" src="${h.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
                     <div class="chat-meta">
-                        <div><span class="chat-user">${escapeHtml(h.user)}</span>
+                        <div><span class="chat-user" style="color:${userColor(h.user)}">${escapeHtml(h.user)}</span>
                         <button class="pin-btn pinned" onclick="unpinHighlight(this, ${h.ts}, '${escapeHtml(h.user)}')" title="Unpin">⭐</button></div>
                         <div class="chat-text">${displayHtml}</div>
                         <div class="chat-session-tag">Pinned ${formatDateTimestamp(h.pinnedAt)}</div>
@@ -974,8 +1037,10 @@
 
     function exportHighlights(format) {
         const sessionFilter = document.getElementById('highlights-session-filter')?.value || '';
+        const query = (document.getElementById('highlights-search')?.value || '').trim();
         const params = new URLSearchParams({ format });
         if (sessionFilter) params.set('session', sessionFilter);
+        if (query) params.set('q', query);
         const a = document.createElement('a');
         a.href = `/api/highlights/export?${params}`;
         a.download = `highlights.${format}`;
