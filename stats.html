@@ -28,8 +28,8 @@
             background: transparent;
             overflow: hidden;
             display: flex;
-            justify-content: center;
-            align-items: flex-start;
+            flex-direction: column;
+            align-items: center;
             padding: 40px;
         }
 
@@ -90,10 +90,11 @@
         }
 
         .hashtag-name {
-            color: rgb(145, 71, 255);
+            color: rgb(255, 255, 255);
         }
 
         .filter-info {
+            width: 100%;
             text-align: center;
             font-size: 1.2vw;
             opacity: 0.5;
@@ -102,6 +103,7 @@
     </style>
 </head>
 <body>
+    <div class="filter-info" id="filter-info"></div>
     <div class="stats-container" id="stats-container">
         <p style="font-size: 2vw; text-align: center; width: 100%;">Loading stats...</p>
     </div>
@@ -149,11 +151,10 @@
                 .sort((a, b) => b[1].count - a[1].count)
                 .slice(0, LIMIT);
 
-            let html = '';
+            const filterEl = document.getElementById('filter-info');
+            filterEl.textContent = DAYS ? `Last ${DAYS} days` : '';
 
-            if (DAYS) {
-                html += `<div class="filter-info" style="width:100%">Last ${DAYS} days</div>`;
-            }
+            let html = '';
 
             // Chatters column
             html += '<div class="stats-column">';

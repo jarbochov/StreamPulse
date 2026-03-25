@@ -326,7 +326,7 @@ function renderCredits() {
 
     // Trending Hashtags
     if (sec.hashtags.enabled !== false) {
-        const topHashtags = getTopHashtags(10);
+        const topHashtags = getTopHashtags(35);
         if (topHashtags.length > 0) {
             html += '<div class="section">';
             html += sectionHeader(sec.hashtags.title, sec.hashtags.subtitle);
@@ -384,6 +384,10 @@ function renderCredits() {
     socialLinksContainer.innerHTML = socialHtml;
 
     // Start scroll animation
+    const creditsHeight = container.scrollHeight;
+    document.documentElement.style.setProperty('--credits-height', `${creditsHeight}px`);
+    console.log('[Credits] Content height:', creditsHeight, 'px');
+
     const socialLinkDelay = scrollDuration * 1000;
     setTimeout(() => {
         container.classList.add('scrollIt');
@@ -551,9 +555,7 @@ function startCredits() {
     console.log('[Credits] Starting credits roll!');
     console.log(`[Credits] Live data: ${liveData.chatters.size} chatters, ${liveData.emotes.size} emotes, ${liveData.hashtags.size} hashtags`);
 
-    loadPrefetchedData().then(() => {
-        renderCredits();
-    });
+    renderCredits();
 }
 
 async function init() {
