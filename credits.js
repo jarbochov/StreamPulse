@@ -668,7 +668,7 @@ function startCredits() {
 }
 
 async function init() {
-    console.log('[Init] Starting stream credits overlay...');
+    console.log('[Init] Starting StreamPulse overlay...');
 
     // Load server config
     try {

@@ -34,7 +34,7 @@ lsof -ti:8080 | xargs kill
 
 ```bash
 #!/bin/bash
-cd /path/to/stream-credits
+cd /path/to/streampulse
 
 case "$1" in
   start)

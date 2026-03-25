@@ -1885,7 +1885,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/backup' && req.method === 'GET') {
         const now = new Date();
         const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-        const filename = `stream-credits-backup-${dateStr}.zip`;
+        const filename = `streampulse-backup-${dateStr}.zip`;
 
         res.writeHead(200, {
             'Content-Type': 'application/zip',
@@ -2187,7 +2187,7 @@ const server = http.createServer(async (req, res) => {
         const payload = JSON.stringify({
             embeds: [{
                 title: '🧪 Test Webhook',
-                description: 'Stream Credits webhook is working!',
+                description: 'StreamPulse webhook is working!',
                 color: 0x58a6ff,
                 fields: [
                     { name: 'Server', value: `http://localhost:${PORT}`, inline: true },
@@ -2262,7 +2262,7 @@ const server = http.createServer(async (req, res) => {
 // ============================================================================
 
 console.log('============================================');
-console.log('  Stream Credits Server');
+console.log('  StreamPulse Server');
 console.log('============================================');
 
 // WebSocket server for live overlay push
