@@ -86,6 +86,7 @@
         .chat-msg .badge-sub { background: #a371f730; color: #a371f7; }
         .chat-msg .chat-session-tag { font-size: 0.7rem; color: #484f58; margin-top: 0.15rem; }
         .chat-msg .chat-text a { color: #58a6ff; text-decoration: underline; }
+        .chat-reply-quote { font-size: 0.75rem; color: #6e7681; border-left: 2px solid #30363d; padding-left: 0.5rem; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
         .chat-msg .pin-btn { background: none; border: none; cursor: pointer; font-size: 0.75rem; padding: 0.1rem 0.2rem; margin-left: 0.3rem; opacity: 0.35; transition: opacity 0.2s; color: #e1e4e8; vertical-align: middle; }
         .chat-msg .pin-btn:hover { opacity: 1; color: #f0c040; }
         .chat-msg .pin-btn.pinned { opacity: 1; color: #f0c040; }
@@ -644,8 +645,21 @@
         return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
 
-    function linkifyText(text) {
-        return text.replace(/(https?:\/\/[^\s<>"')\]]+)/gi, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+    function linkifyText(html) {
+        // Only linkify URLs in text segments, not inside HTML tags
+        return html.replace(/(<[^>]+>)|((https?:\/\/[^\s<>"')\]]+))/gi, (match, tag, _, url) => {
+            if (tag) return tag; // preserve HTML tags untouched
+            return `<a href="${url}" target="_blank" rel="noopener">${url}</a>`;
+        });
+    }
+
+    function formatReply(html) {
+        // SSN reply format: "original message text:  @username reply text"
+        const replyMatch = html.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
+        if (replyMatch) {
+            return `<div class="chat-reply-quote">↩ ${replyMatch[1]}</div>${replyMatch[3]}`;
+        }
+        return html;
     }
 
     function renderChatMessage(m, showSession, sessionName) {
@@ -662,9 +676,9 @@
         const sName = sessionName || m.session || (activeSessionFile === '__current__' ? 'current' : activeSessionFile) || '';
         const pinData = `data-ts="${m.ts}" data-user="${escapeHtml(m.user)}" data-msg="${escapeHtml(m.message || '')}" data-html="${escapeHtml(m.messageHtml || '')}" data-avatar="${escapeHtml(m.avatar || '')}" data-session="${escapeHtml(sName)}"`;
 
-        // Linkify plain text in messageHtml display
         let displayHtml = m.messageHtml ? sanitizeHtml(m.messageHtml) : escapeHtml(m.message);
         displayHtml = linkifyText(displayHtml);
+        displayHtml = formatReply(displayHtml);
 
         return `<div class="chat-msg">
             ${m.avatar ? `<img class="chat-avatar" src="${m.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
@@ -923,6 +937,7 @@
             html += items.map(h => {
                 let displayHtml = h.messageHtml ? sanitizeHtml(h.messageHtml) : escapeHtml(h.message);
                 displayHtml = linkifyText(displayHtml);
+                displayHtml = formatReply(displayHtml);
                 return `<div class="chat-msg">
                     ${h.avatar ? `<img class="chat-avatar" src="${h.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
                     <div class="chat-meta">

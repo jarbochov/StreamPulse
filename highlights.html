@@ -56,6 +56,7 @@
         .chat-text { word-break: break-word; line-height: 1.4; font-size: 0.85rem; }
         .chat-text img { height: 18px; vertical-align: middle; }
         .chat-text a { color: #58a6ff; text-decoration: underline; }
+        .chat-reply-quote { font-size: 0.75rem; color: #6e7681; border-left: 2px solid #30363d; padding-left: 0.5rem; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
         .chat-time { color: #484f58; font-size: 0.65rem; white-space: nowrap; margin-top: 2px; flex-shrink: 0; }
         .chat-pinned-at { font-size: 0.7rem; color: #484f58; margin-top: 2px; }
 
@@ -117,7 +118,18 @@
     }
 
     function linkifyText(html) {
-        return html.replace(/(https?:\/\/[^\s<>"')\]]+)/gi, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+        return html.replace(/(<[^>]+>)|((https?:\/\/[^\s<>"')\]]+))/gi, (match, tag, _, url) => {
+            if (tag) return tag;
+            return `<a href="${url}" target="_blank" rel="noopener">${url}</a>`;
+        });
+    }
+
+    function formatReply(html) {
+        const replyMatch = html.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
+        if (replyMatch) {
+            return `<div class="chat-reply-quote">↩ ${replyMatch[1]}</div>${replyMatch[3]}`;
+        }
+        return html;
     }
 
     function formatTimestamp(ts) {
@@ -222,6 +234,7 @@
             html += items.map(h => {
                 let displayHtml = h.messageHtml ? sanitizeHtml(h.messageHtml) : escapeHtml(h.message);
                 displayHtml = linkifyText(displayHtml);
+                displayHtml = formatReply(displayHtml);
                 return `<div class="chat-msg">
                     ${h.avatar ? `<img class="chat-avatar" src="${h.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
                     <div class="chat-meta">

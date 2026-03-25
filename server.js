@@ -6,7 +6,7 @@ const path = require('path');
 const https = require('https');
 const { exec } = require('child_process');
 const WebSocket = require('ws');
-const PDFDocument = require('pdfkit');
+const puppeteer = require('puppeteer');
 const archiver = require('archiver');
 const AdmZip = require('adm-zip');
 
@@ -709,13 +709,26 @@ function archiveSession() {
                 }
                 // Use local time so the date matches what the streamer sees
                 const sessionDateTime = localDateTimeStr(prevChat.startedAt);
-                let archiveName = `chat-${sessionDateTime}.json`;
-                let counter = 2;
-                while (fs.existsSync(path.join(SESSIONS_DIR, archiveName))) {
-                    archiveName = `chat-${sessionDateTime}-${counter}.json`;
-                    counter++;
+                const archiveName = `chat-${sessionDateTime}.json`;
+                const archivePath = path.join(SESSIONS_DIR, archiveName);
+
+                // Skip if this session was already archived (same startedAt)
+                if (fs.existsSync(archivePath)) {
+                    try {
+                        const existing = JSON.parse(fs.readFileSync(archivePath, 'utf8'));
+                        if (existing.startedAt === prevChat.startedAt) {
+                            // Update the archive with latest data (more messages may have arrived)
+                            fs.copyFileSync(chatPath, archivePath);
+                            console.log(`[Session] Updated existing archive → data/sessions/${archiveName}`);
+                            if (fs.existsSync(CHAT_LOG_PATH)) {
+                                const logArchiveName = archiveName.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
+                                fs.copyFileSync(CHAT_LOG_PATH, path.join(SESSIONS_DIR, logArchiveName));
+                            }
+                            return archiveName;
+                        }
+                    } catch (_) { /* corrupted file, overwrite */ }
                 }
-                fs.copyFileSync(chatPath, path.join(SESSIONS_DIR, archiveName));
+                fs.copyFileSync(chatPath, archivePath);
                 console.log(`[Session] Archived → data/sessions/${archiveName}`);
 
                 // Archive chat log alongside the session
@@ -1005,81 +1018,77 @@ const MIME_TYPES = {
     '.ico': 'image/x-icon'
 };
 
-function renderPdfMessage(doc, messageHtml, plainMessage) {
-    if (!messageHtml) {
-        doc.text('  ' + (plainMessage || ''));
-        return;
-    }
+function buildChatPdfHtml(title, subtitle, messages) {
+    const escHtml = s => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-    const parts = [];
-    let lastIndex = 0;
-    const imgRe = /<img[^>]+alt="([^"]*)"[^>]*>/gi;
-    let match;
+    const sanitizeMsg = (html) => {
+        if (!html) return '';
+        // Keep only img tags, strip everything else
+        return html.replace(/<(?!img\b)[^>]+>/gi, '').replace(/&#?\w+;/g, '');
+    };
 
-    while ((match = imgRe.exec(messageHtml)) !== null) {
-        const beforeHtml = messageHtml.substring(lastIndex, match.index);
-        const beforeText = beforeHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '');
-        if (beforeText) parts.push({ type: 'text', value: beforeText });
+    const formatTime = (ts) => {
+        if (!ts) return '';
+        return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    };
 
-        const emoteName = match[1];
-        const cached = emoteCache.get(emoteName);
-        if (cached && (cached.format === 'png' || cached.format === 'jpeg') && fs.existsSync(cached.path)) {
-            parts.push({ type: 'emote', name: emoteName, path: cached.path });
-        } else {
-            parts.push({ type: 'text', value: `[${emoteName || '?'}]` });
+    const renderMessage = (m) => {
+        let badges = '';
+        if (m.membership) badges += `<span class="badge">${escHtml(m.membership)}</span>`;
+        if (m.event) badges += `<span class="badge">${escHtml(m.event)}</span>`;
+        if (m.donation) badges += `<span class="badge">${escHtml(m.donation)}</span>`;
+
+        let display = m.messageHtml ? sanitizeMsg(m.messageHtml) : escHtml(m.message);
+
+        const plainMsg = m.message || '';
+        const replyMatch = plainMsg.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
+        let replyHtml = '';
+        if (replyMatch) {
+            replyHtml = `<div class="reply-quote">↩ ${escHtml(replyMatch[1].substring(0, 100))}${replyMatch[1].length > 100 ? '...' : ''}</div>`;
+            display = m.messageHtml ? sanitizeMsg(m.messageHtml) : escHtml(replyMatch[3]);
         }
-        lastIndex = match.index + match[0].length;
+
+        return `<div class="msg">
+            <div class="content-col">
+                <div class="name-row"><span class="user">${escHtml(m.user)}</span>${badges}<span class="time">${formatTime(m.ts)}</span></div>
+                ${replyHtml}
+                <div class="text">${display}</div>
+            </div>
+        </div>`;
+    };
+
+    return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+    @page { margin: 40px; size: A4; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 10px; color: #222; line-height: 1.4; }
+    h1 { font-size: 18px; margin: 0 0 2px; }
+    .subtitle { font-size: 11px; color: #666; margin-bottom: 16px; }
+    .msg { margin-bottom: 6px; page-break-inside: avoid; }
+    .content-col { min-width: 0; }
+    .name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-bottom: 1px; }
+    .user { font-weight: 600; color: #1f6feb; font-size: 10px; }
+    .time { font-size: 8px; color: #888; margin-left: auto; }
+    .badge { font-size: 7px; color: #888; background: #f0f0f0; border-radius: 3px; padding: 1px 4px; white-space: nowrap; }
+    .text { font-size: 10px; word-wrap: break-word; overflow-wrap: break-word; }
+    .text img { height: 16px; vertical-align: middle; }
+    .reply-quote { font-size: 8px; color: #888; border-left: 2px solid #ccc; padding-left: 6px; margin: 2px 0; }
+</style></head><body>
+    <h1>${escHtml(title)}</h1>
+    <div class="subtitle">${escHtml(subtitle)}</div>
+    ${messages.map(renderMessage).join('\n')}
+</body></html>`;
+}
+
+async function generatePdf(htmlContent) {
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+    try {
+        const page = await browser.newPage();
+        await page.setContent(htmlContent, { waitUntil: 'networkidle0', timeout: 30000 });
+        const pdf = await page.pdf({ format: 'A4', margin: { top: '40px', bottom: '40px', left: '40px', right: '40px' }, printBackground: true });
+        return pdf;
+    } finally {
+        await browser.close();
     }
-
-    const afterHtml = messageHtml.substring(lastIndex);
-    const afterText = afterHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '');
-    if (afterText) parts.push({ type: 'text', value: afterText });
-
-    if (parts.length === 0) {
-        doc.text('  ' + (plainMessage || ''));
-        return;
-    }
-
-    const startX = doc.x;
-    let currentX = startX + 10;
-    const lineHeight = 12;
-    const emoteSize = 12;
-    const maxX = doc.page.width - doc.page.margins.right;
-
-    for (const part of parts) {
-        if (part.type === 'text') {
-            const textWidth = doc.widthOfString(part.value);
-            if (currentX + textWidth > maxX) {
-                doc.y += lineHeight;
-                currentX = startX;
-                if (doc.y > doc.page.height - 60) {
-                    doc.addPage();
-                    currentX = doc.page.margins.left + 10;
-                }
-            }
-            doc.fontSize(9).fillColor('#333333').text(part.value, currentX, doc.y, { continued: false, lineBreak: false });
-            currentX += textWidth;
-        } else if (part.type === 'emote') {
-            if (currentX + emoteSize > maxX) {
-                doc.y += lineHeight;
-                currentX = startX;
-                if (doc.y > doc.page.height - 60) {
-                    doc.addPage();
-                    currentX = doc.page.margins.left + 10;
-                }
-            }
-            try {
-                doc.image(part.path, currentX, doc.y, { width: emoteSize, height: emoteSize });
-                currentX += emoteSize + 2;
-            } catch {
-                const fallback = `[${part.name}]`;
-                doc.fontSize(9).fillColor('#333333').text(fallback, currentX, doc.y, { continued: false, lineBreak: false });
-                currentX += doc.widthOfString(fallback);
-            }
-        }
-    }
-    doc.y += lineHeight;
-    doc.x = startX;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -1644,7 +1653,17 @@ const server = http.createServer(async (req, res) => {
             return d.toLocaleString();
         };
 
-        const safeFilename = sessionLabel.replace(/[^a-zA-Z0-9_-]/g, '_');
+        // Build a clean "Chat Log - Mar 24 2026 - 1-15 PM" label and filename
+        let friendlyLabel = sessionLabel;
+        const dateMatch = sessionLabel.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})/);
+        if (dateMatch) {
+            const d = new Date(`${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}T${dateMatch[4]}:${dateMatch[5]}:00`);
+            friendlyLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                + ' - ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        } else if (sessionLabel === 'current-session') {
+            friendlyLabel = 'Current Session';
+        }
+        const cleanFilename = `Chat Log - ${friendlyLabel}`.replace(/[^a-zA-Z0-9 _-]/g, '');
 
         if (format === 'tsv') {
             const header = 'Timestamp\tUser\tMessage\tEvent\tDonation\tMembership';
@@ -1654,7 +1673,7 @@ const server = http.createServer(async (req, res) => {
             const content = header + '\n' + rows.join('\n');
             res.writeHead(200, {
                 'Content-Type': 'text/tab-separated-values',
-                'Content-Disposition': `attachment; filename="chatlog-${safeFilename}.tsv"`
+                'Content-Disposition': `attachment; filename="${cleanFilename}.tsv"`
             });
             res.end(content);
             return;
@@ -1667,46 +1686,30 @@ const server = http.createServer(async (req, res) => {
                 if (m.donation) line += ` [${m.donation}]`;
                 return line;
             });
-            const content = `Chat Log — ${sessionLabel}\n${'='.repeat(40)}\n${messages.length} messages\n\n` + lines.join('\n');
+            const content = `Chat Log — ${friendlyLabel}\n${'='.repeat(40)}\n${messages.length} messages\n\n` + lines.join('\n');
             res.writeHead(200, {
                 'Content-Type': 'text/plain',
-                'Content-Disposition': `attachment; filename="chatlog-${safeFilename}.txt"`
+                'Content-Disposition': `attachment; filename="${cleanFilename}.txt"`
             });
             res.end(content);
             return;
         }
 
         if (format === 'pdf') {
-            const doc = new PDFDocument({ size: 'A4', margin: 40 });
-            res.writeHead(200, {
-                'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename="chatlog-${safeFilename}.pdf"`
-            });
-            doc.pipe(res);
-
-            doc.fontSize(16).text(`Chat Log — ${sessionLabel}`, { underline: true });
-            doc.fontSize(10).text(`${messages.length} messages`, { color: '#666' });
-            doc.moveDown();
-
-            for (const m of messages) {
-                const time = formatTime(m.ts);
-                let badges = '';
-                if (m.event) badges += ` [${m.event}]`;
-                if (m.donation) badges += ` [${m.donation}]`;
-                if (m.membership) badges += ` [${m.membership}]`;
-
-                // Check if we need a new page
-                if (doc.y > doc.page.height - 60) {
-                    doc.addPage();
-                }
-
-                doc.fontSize(7).fillColor('#888888').text(time, { continued: false });
-                doc.fontSize(9).fillColor('#1f6feb').text(m.user + (badges ? badges : ''), { continued: false });
-                renderPdfMessage(doc, m.messageHtml, m.message);
-                doc.moveDown(0.3);
+            try {
+                const htmlContent = buildChatPdfHtml(`Chat Log — ${friendlyLabel}`, `${messages.length} messages`, messages);
+                const pdfBuffer = await generatePdf(htmlContent);
+                res.writeHead(200, {
+                    'Content-Type': 'application/pdf',
+                    'Content-Disposition': `attachment; filename="${cleanFilename}.pdf"`,
+                    'Content-Length': pdfBuffer.length
+                });
+                res.end(pdfBuffer);
+            } catch (err) {
+                console.error('[PDF] Export failed:', err.message);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'PDF generation failed: ' + err.message }));
             }
-
-            doc.end();
             return;
         }
 
@@ -1964,48 +1967,23 @@ const server = http.createServer(async (req, res) => {
         }
 
         if (format === 'pdf') {
-            const doc = new PDFDocument({ size: 'A4', margin: 40 });
             const title = sessionFilter
                 ? `Highlights — ${sessionFilter}`
                 : 'Highlights Export';
-            res.writeHead(200, {
-                'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename="${safeFilename}.pdf"`
-            });
-            doc.pipe(res);
-
-            doc.fontSize(16).text(title, { underline: true });
-            doc.fontSize(10).text(`${data.length} highlights`, { color: '#666' });
-            doc.moveDown();
-
-            const groups = {};
-            data.forEach(h => {
-                const s = h.session || 'unknown';
-                if (!groups[s]) groups[s] = [];
-                groups[s].push(h);
-            });
-
-            for (const [session, items] of Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]))) {
-                if (doc.y > doc.page.height - 80) {
-                    doc.addPage();
-                }
-                doc.fontSize(11).fillColor('#1f6feb').text(`Session: ${session}`, { underline: true });
-                doc.moveDown(0.3);
-
-                for (const h of items) {
-                    if (doc.y > doc.page.height - 60) {
-                        doc.addPage();
-                    }
-                    const time = formatTime(h.ts);
-                    doc.fontSize(7).fillColor('#888888').text(time, { continued: false });
-                    doc.fontSize(9).fillColor('#1f6feb').text(h.user, { continued: false });
-                    renderPdfMessage(doc, h.messageHtml, h.message);
-                    doc.moveDown(0.3);
-                }
-                doc.moveDown(0.5);
+            try {
+                const htmlContent = buildChatPdfHtml(title, `${data.length} highlights`, data);
+                const pdfBuffer = await generatePdf(htmlContent);
+                res.writeHead(200, {
+                    'Content-Type': 'application/pdf',
+                    'Content-Disposition': `attachment; filename="${safeFilename}.pdf"`,
+                    'Content-Length': pdfBuffer.length
+                });
+                res.end(pdfBuffer);
+            } catch (err) {
+                console.error('[PDF] Highlights export failed:', err.message);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'PDF generation failed: ' + err.message }));
             }
-
-            doc.end();
             return;
         }
 
