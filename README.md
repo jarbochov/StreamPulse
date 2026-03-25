@@ -63,6 +63,8 @@ The credits automatically scroll with a cinematic aesthetic, perfect for end-of-
            │  - New follows                   │
            │  - New subs/memberships          │
            │  - Bits/donations                │
+           │  - Emote tracking (Twitch/BTTV/  │
+           │    7TV/FFZ)                      │
            │  - Hashtag tracking              │
            └──────────────────────────────────┘
 ```
@@ -99,8 +101,11 @@ The credits automatically scroll with a cinematic aesthetic, perfect for end-of-
 # Install Twitch CLI (macOS example)
 brew install twitch-cli
 
-# Authenticate with Twitch
+# Configure with your Twitch app credentials
 twitch configure
+
+# Get a user token with required scopes
+twitch token -u -s "channel:read:subscriptions bits:read moderator:read:followers"
 
 # Test authentication
 twitch token
@@ -154,17 +159,42 @@ The credits.html file accepts several URL parameters:
 
 - `session` (required) - Your SocialStream Ninja session ID
 - `server` (optional) - Custom WSS URL, defaults to `wss://io.socialstream.ninja`
-- `speed` (optional) - Scroll speed multiplier, defaults to 1.0
-  - Higher = faster (e.g., `speed=2` for 2x speed)
-  - Lower = slower (e.g., `speed=0.5` for half speed)
+- `duration` (optional) - Exact scroll duration in seconds. Perfect for syncing with music. Default: 82s
+  - Example: `?duration=75` for a 75-second scroll
+  - Takes priority over `speed` if both are provided
+- `speed` (optional) - Scroll speed multiplier relative to the default 82s duration
+  - Example: `speed=2` → 41s, `speed=0.5` → 164s
+  - Only used if `duration` is not provided
 - `datapath` (optional) - Path to data directory, defaults to `./data`
 
 Example with custom parameters:
 ```
+file:///path/to/credits.html?session=abc123&duration=82
 file:///path/to/credits.html?session=abc123&speed=1.5&datapath=./custom-data
 ```
 
+**💡 Tip:** Use the `duration` parameter to match your end-of-stream music exactly!
+
 ## How It Works
+
+### 🎵 Syncing Credits with Music
+
+The credits scroll duration can be set to exactly match your end-of-stream music:
+
+| Music Length | URL Parameter |
+| --- | --- |
+| 60 seconds | `?duration=60` |
+| 75 seconds | `?duration=75` |
+| 82 seconds | `?duration=82` (default) |
+| 90 seconds | `?duration=90` |
+| 120 seconds | `?duration=120` |
+
+Example:
+```
+credits.html?session=YOUR_SESSION_ID&duration=82
+```
+
+**💡 Tip:** Use a Bitfocus Companion button to trigger both the credits OBS source and the music simultaneously for perfect sync!
 
 ### Pre-fetched Data (Twitch API)
 
@@ -192,11 +222,22 @@ The credits.html file connects to SSN WebSocket Channel 4 and tracks:
 3. **New Subscribers**: Users who subscribed during the stream
    - Detected via populated `membership` field
    
-4. **Bits/Donations**: Bits and monetary donations
-   - Detected via populated `hasDonation` field
+4. **Gift Subs**: Gift subscriptions detected via:
+   - `membership` field containing "gift"
+   - Presence of `contentimg` field
    
-5. **Hashtags**: Trending hashtags from chat messages
-   - Parsed from `chatmessage` field using regex `/#\w+/g`
+5. **Bits/Donations**: Bits and monetary donations
+   - Detected via populated `hasDonation` field
+   - Separated into bits vs other donations
+   
+6. **Emotes**: Top 5 most-used emotes from chat
+   - Tracked by parsing `<img>` tags from SSN's `chatmessage` field
+   - SSN converts Twitch native emotes, BTTV, 7TV, and FFZ emotes to `<img>` tags
+   - Top 5 displayed with actual emote images from CDN
+   - Shows usage count and unique user count
+   
+7. **Hashtags**: Trending hashtags from chat messages
+   - Parsed from `chatmessage` field using regex `/#\w+/g` (HTML stripped first)
    - Tracked with count and unique user count
    - Top 10 displayed in credits
 
@@ -213,21 +254,27 @@ SocialStream Ninja uses a channel-based WebSocket system:
 When the OBS source becomes visible, the credits automatically start scrolling:
 
 **Sections (in order):**
-1. Stream title / "Thanks for watching" header
-2. Subscribers (merged pre-fetched + live data)
-3. Top Cheers / Bits (merged pre-fetched leaderboard + live bits)
-4. Donations (live only from SSN)
-5. New Followers (live from SSN)
-6. Today's Chatters (live from SSN, sorted by message count)
-7. Trending Hashtags (top 10 by count with unique user stats)
-8. Closing message
+1. Header image (animated GIF) + "Thank you for your support!" + "The room where it happens"
+2. Subscribers — "Remember to feed your Wii U a disc" (2-column layout)
+3. New Followers — "(not a cult)" (3-column layout)
+4. Donators — "Can I have fifty dollars?" (2-column layout)
+5. Gift Subs (2-column layout)
+6. Cheerers (2-column layout with bits amounts)
+7. Top Emotes — "Chat's Mood Board" (top 5 with actual emote images from CDN, usage count, and unique user count)
+8. Trending Hashtags — "What we're talking about" (top 10 with usage stats)
+9. Today's Chatters — "The Peanut Gallery" (3-column layout, sorted by message count)
+10. Ending statement: "Never forget that you're awesome and that you matter. Thanks for being you!"
+11. Social links fade-in: Threads, Mastodon, Bluesky, Website
 
 **Styling:**
 - Transparent background for OBS overlay compatibility
-- Clean white typography with Twitch purple accents
-- User avatars displayed as circular thumbnails
-- Smooth CSS scroll animation using translateY
-- Cinematic movie credits aesthetic
+- **Jersey 20** Google Font with retro arcade aesthetic
+- `rgb(214, 227, 225)` text color with dark text outline (`--text-outline-color: #00000066`)
+- Multi-column layouts (2-column and 3-column for different sections)
+- Font Awesome 6.5.1 for social link icons
+- Smooth CSS scroll animation with configurable duration
+- Credits fade-out → social links fade-in transition
+- Empty sections automatically hidden
 
 ## Customization
 
@@ -236,21 +283,12 @@ When the OBS source becomes visible, the credits automatically start scrolling:
 Edit the CSS in credits.html to customize appearance:
 
 ```css
---credits-font: 'Inter', sans-serif;
---credits-color: #ffffff;
---credits-accent: #9147ff;  /* Twitch purple */
---credits-bg: transparent;
---credits-speed: 60s;       /* Animation duration */
---section-gap: 3rem;        /* Space between sections */
+--text-outline-color: #00000066;  /* Text outline shadow */
 ```
 
-### Speed Adjustment
+The `--scroll-duration` variable is set dynamically via JavaScript based on URL parameters (defaults to 82s).
 
-Use the `speed` URL parameter for quick adjustments:
-```
-?session=abc123&speed=1.5   (50% faster)
-?session=abc123&speed=0.75  (25% slower)
-```
+The overlay uses the **Jersey 20** Google Font with `rgb(214, 227, 225)` text color for a retro arcade aesthetic.
 
 ## Bitfocus Companion Integration
 
@@ -269,6 +307,12 @@ To trigger data fetches with a Stream Deck button:
 Or set up a scheduled trigger to refresh data every 5-10 minutes during stream.
 
 ## Troubleshooting
+
+### Empty data in JSON files
+- The most common cause is missing OAuth scopes on your Twitch token
+- Run: `twitch token -u -s "channel:read:subscriptions bits:read moderator:read:followers"`
+- This opens a browser for OAuth authorization — approve the requested permissions
+- Re-run the fetch script after getting a new token
 
 ### Credits not loading
 - Check browser console in OBS (right-click source → Interact → F12)

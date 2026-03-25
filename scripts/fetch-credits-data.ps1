@@ -4,6 +4,15 @@
 # This script fetches subscriber, bits, and follower data from Twitch API
 # using the Twitch CLI and saves them as JSON files for the credits overlay.
 #
+# Required Twitch OAuth Scopes:
+#   - channel:read:subscriptions  (for /subscriptions endpoint)
+#   - bits:read                    (for /bits/leaderboard endpoint)
+#   - moderator:read:followers     (for /channels/followers endpoint)
+#
+# The script will automatically request a token with these scopes.
+# If automatic token validation fails, run manually:
+#   twitch token -u -s "channel:read:subscriptions bits:read moderator:read:followers"
+#
 # Usage:
 #   .\fetch-credits-data.ps1 [BROADCASTER_ID]
 #
@@ -50,6 +59,28 @@ try {
 } catch {
     Write-Log "Twitch CLI is not installed or not in PATH" -Level "ERROR"
     Write-Log "Install it from: https://dev.twitch.tv/docs/cli/" -Level "ERROR"
+    exit 1
+}
+
+# ============================================================================
+# Token Validation - Ensure proper OAuth scopes
+# ============================================================================
+
+$RequiredScopes = "channel:read:subscriptions bits:read moderator:read:followers"
+
+Write-Log "Validating Twitch token with required scopes..."
+Write-Log "Required scopes: $RequiredScopes"
+
+try {
+    $tokenOutput = twitch token -u -s $RequiredScopes 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Token validation failed"
+    }
+    Write-Log "Token validated successfully"
+} catch {
+    Write-Log "Could not validate token automatically." -Level "WARN"
+    Write-Log "Please run manually: twitch token -u -s `"$RequiredScopes`"" -Level "WARN"
+    Write-Log "Then re-run this script." -Level "WARN"
     exit 1
 }
 
@@ -107,6 +138,12 @@ while ($true) {
     
     # Check for next page
     $Cursor = $Response.pagination.cursor
+    
+    # Check if response might indicate missing scopes
+    if ($PageCount -eq 0 -and $Page -eq 1 -and [string]::IsNullOrEmpty($Cursor)) {
+        Write-Log "Subscriptions returned empty data. This may indicate missing OAuth scopes." -Level "WARN"
+        Write-Log "Try running: twitch token -u -s `"$RequiredScopes`"" -Level "WARN"
+    }
     
     if ([string]::IsNullOrEmpty($Cursor)) {
         break
