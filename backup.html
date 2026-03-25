@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Credits — Backup & Restore</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .nav { display: flex; gap: 0.75rem; }
+        .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
+        .nav a:hover { color: #e1e4e8; background: #21262d; }
+
+        .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; }
+        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 1rem; }
+
+        .btn { padding: 0.6rem 1rem; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #e1e4e8; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-align: center; text-decoration: none; display: inline-block; }
+        .btn:hover { border-color: #58a6ff; background: #1a2332; }
+        .btn.danger { border-color: #f8514950; }
+        .btn.danger:hover { border-color: #f85149; background: #2d1b1e; }
+        .btn.wide { width: 100%; }
+        .btn.primary { border-color: #1f6feb; background: #1a2332; }
+        .btn.primary:hover { background: #1f3a5f; }
+
+        .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+
+        .backup-list { max-height: 400px; overflow-y: auto; }
+        .backup-item { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid #21262d; font-size: 0.85rem; }
+        .backup-item:last-child { border-bottom: none; }
+        .backup-item .name { flex: 1; color: #e1e4e8; }
+        .backup-item .size { color: #8b949e; margin-right: 1rem; font-size: 0.8rem; }
+        .backup-item .date { color: #8b949e; margin-right: 1rem; font-size: 0.8rem; }
+
+        .info-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.75rem 1rem; font-size: 0.8rem; color: #8b949e; margin-bottom: 1rem; }
+        .info-box code { color: #58a6ff; }
+
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
+        .toast.show { opacity: 1; }
+
+        .nav .dropdown { position: relative; display: flex; align-items: center; }
+        .nav .dropdown-toggle { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
+        .nav .dropdown-toggle:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
+        .nav .dropdown:hover .dropdown-menu { display: block; }
+        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+        .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
+
+        .status-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 10px; font-size: 0.7rem; font-weight: 600; }
+        .status-badge.on { background: #23883030; color: #3fb950; }
+        .status-badge.off { background: #f8514920; color: #f85149; }
+
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .header { flex-direction: column; gap: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Stream Credits <span>Backup & Restore</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <div class="container">
+        <!-- Manual Backup -->
+        <div class="card">
+            <h2>📦 Create Backup</h2>
+            <div class="info-box">
+                Downloads a ZIP containing your <code>config.json</code>, <code>stats.json</code>, all session archives, Twitch data snapshots, banned hashtags, and highlights. Does <strong>not</strong> include your Twitch OAuth token (you'll need to re-auth after restore).
+            </div>
+            <a class="btn wide primary" href="/api/backup" download>📦 Download Full Backup</a>
+        </div>
+
+        <!-- Restore -->
+        <div class="card">
+            <h2>📥 Restore from Backup</h2>
+            <div class="info-box">
+                Upload a previously downloaded backup ZIP to restore all data. This will <strong>overwrite</strong> current stats, config, and session archives. The server will reload in-memory data automatically.
+            </div>
+            <div style="margin-bottom: 0.75rem;">
+                <input type="file" id="restore-file" accept=".zip" style="font-size: 0.85rem; color: #8b949e; width: 100%;">
+            </div>
+            <button class="btn wide danger" onclick="restoreBackup()">⚠️ Restore from ZIP</button>
+            <div id="restore-result" style="margin-top: 0.75rem; font-size: 0.8rem; display: none;"></div>
+        </div>
+
+        <!-- Auto-backup Settings -->
+        <div class="card">
+            <h2>⚙️ Auto-Backup Settings</h2>
+            <div class="info-box">
+                When enabled, a backup ZIP is automatically saved to <code>data/backups/</code> each time a session ends. The last 10 auto-backups are kept.
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+                <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" id="auto-backup-toggle" onchange="toggleAutoBackup()">
+                    Auto-backup on session end
+                </label>
+                <span class="status-badge" id="auto-backup-status">—</span>
+            </div>
+        </div>
+
+        <!-- Auto-backup History -->
+        <div class="card">
+            <h2>📁 Auto-Backup History</h2>
+            <div class="backup-list" id="backup-list">
+                <div style="color: #484f58; text-align: center; padding: 1rem; font-size: 0.85rem;">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    async function restoreBackup() {
+        const fileInput = document.getElementById('restore-file');
+        if (!fileInput.files.length) { showToast('Select a backup ZIP file first'); return; }
+        if (!confirm('⚠️ Restore from backup? This will OVERWRITE all current data including stats, config, and sessions.')) return;
+        const resultEl = document.getElementById('restore-result');
+        resultEl.style.display = 'block';
+        resultEl.style.color = '#8b949e';
+        resultEl.textContent = 'Restoring...';
+        try {
+            const res = await fetch('/api/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/zip' },
+                body: fileInput.files[0]
+            });
+            const data = await res.json();
+            if (data.status === 'restored') {
+                resultEl.style.color = '#3fb950';
+                resultEl.innerHTML = `✅ Restored <strong>${data.files}</strong> files: <code style="color:#58a6ff;">${data.restored.join(', ')}</code>`;
+                showToast(`Restored ${data.files} files!`);
+            } else {
+                resultEl.style.color = '#f85149';
+                resultEl.textContent = `❌ ${data.error || 'Restore failed'}`;
+                showToast(data.error || 'Restore failed');
+            }
+        } catch (err) {
+            resultEl.style.color = '#f85149';
+            resultEl.textContent = `❌ ${err.message}`;
+            showToast('Restore failed');
+        }
+    }
+
+    async function toggleAutoBackup() {
+        const enabled = document.getElementById('auto-backup-toggle').checked;
+        try {
+            const res = await fetch('/api/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ auto_backup_on_session_end: enabled })
+            });
+            if (res.ok) {
+                showToast(enabled ? 'Auto-backup enabled' : 'Auto-backup disabled');
+                updateAutoBackupBadge(enabled);
+            }
+        } catch { showToast('Failed to save setting'); }
+    }
+
+    function updateAutoBackupBadge(enabled) {
+        const badge = document.getElementById('auto-backup-status');
+        badge.textContent = enabled ? 'ON' : 'OFF';
+        badge.className = `status-badge ${enabled ? 'on' : 'off'}`;
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function formatDate(filename) {
+        const m = filename.match(/backup-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})/);
+        if (!m) return filename;
+        return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`;
+    }
+
+    async function loadBackups() {
+        const list = document.getElementById('backup-list');
+        try {
+            const res = await fetch('/api/backups');
+            if (!res.ok) throw new Error('Failed to load');
+            const data = await res.json();
+
+            if (!data.backups || data.backups.length === 0) {
+                list.innerHTML = '<div style="color: #484f58; text-align: center; padding: 1rem; font-size: 0.85rem;">No auto-backups yet. Enable auto-backup above and end a session to create one.</div>';
+                return;
+            }
+
+            list.innerHTML = data.backups.map(b => `
+                <div class="backup-item">
+                    <span class="name">📦 ${b.name}</span>
+                    <span class="date">${formatDate(b.name)}</span>
+                    <span class="size">${formatFileSize(b.size)}</span>
+                    <a class="btn" href="/api/backups/${encodeURIComponent(b.name)}" download style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">⬇ Download</a>
+                </div>
+            `).join('');
+        } catch {
+            list.innerHTML = '<div style="color: #484f58; text-align: center; padding: 1rem; font-size: 0.85rem;">Could not load backup list</div>';
+        }
+    }
+
+    async function loadConfig() {
+        try {
+            const res = await fetch('/api/config');
+            const data = await res.json();
+            const enabled = !!data.auto_backup_on_session_end;
+            document.getElementById('auto-backup-toggle').checked = enabled;
+            updateAutoBackupBadge(enabled);
+        } catch { /* ignore */ }
+    }
+
+    loadConfig();
+    loadBackups();
+    </script>
+</body>
+</html>

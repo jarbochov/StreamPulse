@@ -7,6 +7,8 @@ const https = require('https');
 const { exec } = require('child_process');
 const WebSocket = require('ws');
 const PDFDocument = require('pdfkit');
+const archiver = require('archiver');
+const AdmZip = require('adm-zip');
 
 // ============================================================================
 // CONFIG
@@ -35,6 +37,62 @@ const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who
 const DATA_DIR = path.join(__dirname, 'data');
 const BANNED_HASHTAGS_PATH = path.join(DATA_DIR, '.banned-hashtags.json');
 const CHAT_LOG_PATH = path.join(DATA_DIR, 'chat-log.jsonl');
+const HIGHLIGHTS_PATH = path.join(DATA_DIR, 'highlights.jsonl');
+const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
+const EMOTE_CACHE_DIR = path.join(DATA_DIR, 'emote-cache');
+
+// Emote image cache: emote name → { path, format }
+const emoteCache = new Map();
+try {
+    if (fs.existsSync(EMOTE_CACHE_DIR)) {
+        for (const file of fs.readdirSync(EMOTE_CACHE_DIR)) {
+            const ext = path.extname(file).slice(1).toLowerCase();
+            const name = path.basename(file, path.extname(file));
+            if (ext) {
+                const format = ext === 'jpg' ? 'jpeg' : ext;
+                emoteCache.set(name, { path: path.join(EMOTE_CACHE_DIR, file), format });
+            }
+        }
+        if (emoteCache.size > 0) console.log(`[Emote Cache] Loaded ${emoteCache.size} cached emotes`);
+    }
+} catch { /* start fresh */ }
+
+async function cacheEmote(name, url) {
+    if (emoteCache.has(name)) return;
+    try {
+        if (!fs.existsSync(EMOTE_CACHE_DIR)) fs.mkdirSync(EMOTE_CACHE_DIR, { recursive: true });
+        const safeName = name.replace(/[^a-zA-Z0-9]/g, '_');
+
+        const download = (targetUrl, redirects = 0) => {
+            if (redirects > 3) return;
+            const mod = targetUrl.startsWith('https') ? https : http;
+            mod.get(targetUrl, (resp) => {
+                if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
+                    download(resp.headers.location, redirects + 1);
+                    return;
+                }
+                if (resp.statusCode !== 200) { resp.resume(); return; }
+                const ct = (resp.headers['content-type'] || '').toLowerCase();
+                let ext = 'png';
+                let format = 'png';
+                if (ct.includes('jpeg') || ct.includes('jpg')) { ext = 'jpeg'; format = 'jpeg'; }
+                else if (ct.includes('gif')) { ext = 'gif'; format = 'gif'; }
+                else if (ct.includes('webp')) { ext = 'webp'; format = 'webp'; }
+                else if (ct.includes('png')) { ext = 'png'; format = 'png'; }
+                const filePath = path.join(EMOTE_CACHE_DIR, `${safeName}.${ext}`);
+                const ws = fs.createWriteStream(filePath);
+                resp.pipe(ws);
+                ws.on('finish', () => {
+                    ws.close();
+                    emoteCache.set(name, { path: filePath, format });
+                    console.log(`[Emote Cache] Cached: ${name}`);
+                });
+                ws.on('error', () => { try { fs.unlinkSync(filePath); } catch {} });
+            }).on('error', () => {});
+        };
+        download(url);
+    } catch { /* silently fail */ }
+}
 
 // Session state
 let sessionActive = true;
@@ -51,6 +109,150 @@ try {
 function saveBannedHashtags() {
     fs.writeFileSync(BANNED_HASHTAGS_PATH, JSON.stringify([...bannedHashtags], null, 2));
 }
+
+// ============================================================================
+// HIGHLIGHTS (Pin/Unpin chat messages)
+// ============================================================================
+
+let highlights = [];
+
+function loadHighlights() {
+    try {
+        if (fs.existsSync(HIGHLIGHTS_PATH)) {
+            highlights = fs.readFileSync(HIGHLIGHTS_PATH, 'utf8')
+                .split('\n').filter(l => l.trim())
+                .map(l => { try { return JSON.parse(l); } catch { return null; } })
+                .filter(Boolean);
+            console.log(`[Highlights] Loaded ${highlights.length} highlights`);
+        }
+    } catch { /* start fresh */ }
+}
+
+function saveHighlights() {
+    const lines = highlights.map(h => JSON.stringify(h)).join('\n');
+    fs.writeFileSync(HIGHLIGHTS_PATH, lines ? lines + '\n' : '');
+}
+
+loadHighlights();
+
+// ============================================================================
+// WEBHOOKS (Discord)
+// ============================================================================
+
+let webhookQueue = [];
+let webhookTimer = null;
+
+const WEBHOOK_COLORS = {
+    follow: 0x3fb950,    // green
+    subscribe: 0xa371f7, // purple
+    raid: 0xe3b341,      // orange
+    bits: 0xd29922,      // yellow
+    donation: 0x58a6ff   // blue
+};
+
+function fireWebhook(eventType, data) {
+    const wh = config.webhooks;
+    if (!wh || !wh.enabled || !wh.discord_url) return;
+    if (wh.events && !wh.events.includes(eventType)) return;
+
+    webhookQueue.push({ eventType, data, ts: Date.now() });
+
+    const batchMs = ((wh.batch_seconds || 5) * 1000);
+    if (webhookTimer) clearTimeout(webhookTimer);
+    webhookTimer = setTimeout(flushWebhooks, batchMs);
+}
+
+function flushWebhooks() {
+    webhookTimer = null;
+    if (webhookQueue.length === 0) return;
+
+    const batch = webhookQueue.splice(0);
+    const embeds = batch.map(item => ({
+        title: `${item.eventType.charAt(0).toUpperCase() + item.eventType.slice(1)}`,
+        description: item.data.message || `${item.data.user || 'Unknown'}`,
+        color: WEBHOOK_COLORS[item.eventType] || 0x58a6ff,
+        fields: Object.entries(item.data)
+            .filter(([k]) => k !== 'message')
+            .map(([k, v]) => ({ name: k, value: String(v || ''), inline: true })),
+        timestamp: new Date(item.ts).toISOString()
+    })).slice(0, 10); // Discord max 10 embeds
+
+    const payload = JSON.stringify({ embeds });
+    try {
+        const urlObj = new URL(config.webhooks.discord_url);
+        const reqLib = urlObj.protocol === 'https:' ? https : http;
+        const req = reqLib.request(urlObj, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+        }, (res) => {
+            if (res.statusCode >= 400) {
+                console.warn(`[Webhook] Discord returned ${res.statusCode}`);
+            }
+            res.resume();
+        });
+        req.on('error', (err) => console.warn(`[Webhook] Error: ${err.message}`));
+        req.write(payload);
+        req.end();
+    } catch (err) {
+        console.warn(`[Webhook] Send error: ${err.message}`);
+    }
+}
+
+// ============================================================================
+// RATE LIMITING
+// ============================================================================
+
+const rateLimitMap = new Map(); // IP -> { reads: [], mutations: [] }
+
+function checkRateLimit(req, res) {
+    const rl = config.rate_limit;
+    if (!rl || !rl.enabled) return false;
+
+    const ip = req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    const windowMs = 60000;
+
+    if (!rateLimitMap.has(ip)) {
+        rateLimitMap.set(ip, { reads: [], mutations: [] });
+    }
+    const entry = rateLimitMap.get(ip);
+
+    // Prune old entries
+    entry.reads = entry.reads.filter(t => now - t < windowMs);
+    entry.mutations = entry.mutations.filter(t => now - t < windowMs);
+
+    const method = req.method;
+    if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
+        const limit = rl.mutation_per_minute || 30;
+        if (entry.mutations.length >= limit) {
+            res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
+            res.end(JSON.stringify({ error: 'Rate limit exceeded (mutations)', retry_after: 60 }));
+            return true;
+        }
+        entry.mutations.push(now);
+    } else {
+        const limit = rl.requests_per_minute || 120;
+        if (entry.reads.length >= limit) {
+            res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
+            res.end(JSON.stringify({ error: 'Rate limit exceeded', retry_after: 60 }));
+            return true;
+        }
+        entry.reads.push(now);
+    }
+    return false;
+}
+
+// Clean up stale rate limit entries every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of rateLimitMap) {
+        entry.reads = entry.reads.filter(t => now - t < 60000);
+        entry.mutations = entry.mutations.filter(t => now - t < 60000);
+        if (entry.reads.length === 0 && entry.mutations.length === 0) {
+            rateLimitMap.delete(ip);
+        }
+    }
+}, 300000);
 
 function openBrowser(url) {
     const cmd = process.platform === 'darwin' ? 'open' :
@@ -532,6 +734,46 @@ function archiveSession() {
     return null;
 }
 
+function performAutoBackup() {
+    if (!config.auto_backup_on_session_end) return;
+    try {
+        if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+        const now = new Date();
+        const stamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}`;
+        const backupPath = path.join(BACKUPS_DIR, `backup-${stamp}.zip`);
+        const zip = new AdmZip();
+        const filesToBackup = [
+            { src: CONFIG_PATH, dest: 'config.json' },
+            { src: STATS_PATH, dest: 'data/stats.json' },
+            { src: BANNED_HASHTAGS_PATH, dest: 'data/.banned-hashtags.json' },
+            { src: path.join(DATA_DIR, 'subs.json'), dest: 'data/subs.json' },
+            { src: path.join(DATA_DIR, 'bits.json'), dest: 'data/bits.json' },
+            { src: path.join(DATA_DIR, 'followers.json'), dest: 'data/followers.json' },
+            { src: HIGHLIGHTS_PATH, dest: 'data/highlights.jsonl' }
+        ];
+        for (const f of filesToBackup) {
+            if (fs.existsSync(f.src)) zip.addLocalFile(f.src, path.dirname(f.dest), path.basename(f.dest));
+        }
+        if (fs.existsSync(SESSIONS_DIR)) {
+            zip.addLocalFolder(SESSIONS_DIR, 'data/sessions');
+        }
+        zip.writeZip(backupPath);
+        console.log(`[Backup] Auto-backup saved → ${backupPath}`);
+
+        // Keep only last 10 auto-backups
+        const backups = fs.readdirSync(BACKUPS_DIR)
+            .filter(f => f.startsWith('backup-') && f.endsWith('.zip'))
+            .sort();
+        while (backups.length > 10) {
+            const oldest = backups.shift();
+            fs.unlinkSync(path.join(BACKUPS_DIR, oldest));
+            console.log(`[Backup] Removed old backup: ${oldest}`);
+        }
+    } catch (err) {
+        console.warn(`[Backup] Auto-backup failed: ${err.message}`);
+    }
+}
+
 function resetChatData() {
     chatData.chatters = {};
     chatData.followers = [];
@@ -563,6 +805,7 @@ function processChatMessage(msg) {
     // Append to chat log BEFORE stats exclusion (captures all non-banned users)
     if (config.chat_log_enabled !== false) {
         const plainText = msg.chatmessage ? msg.chatmessage.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '';
+        const urls = (plainText.match(/https?:\/\/[^\s<>"')\]]+/gi) || []);
         chatLog.push({
             ts: Date.now(),
             user: chatname,
@@ -572,8 +815,22 @@ function processChatMessage(msg) {
             type: msg.type || null,
             event: msg.event || null,
             donation: msg.hasDonation || null,
-            membership: msg.membership || null
+            membership: msg.membership || null,
+            urls: urls.length > 0 ? urls : undefined
         });
+
+        // Extract and cache emotes from messageHtml
+        if (msg.chatmessage) {
+            const imgRegex = /<img[^>]+src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>|<img[^>]+alt="([^"]*)"[^>]*src="([^"]+)"[^>]*>/gi;
+            let imgMatch;
+            while ((imgMatch = imgRegex.exec(msg.chatmessage)) !== null) {
+                const src = imgMatch[1] || imgMatch[4];
+                const alt = imgMatch[2] || imgMatch[3];
+                if (src && alt && !emoteCache.has(alt)) {
+                    cacheEmote(alt, src);
+                }
+            }
+        }
     }
 
     // Excluded users appear in chat log but not in stats/overlay
@@ -600,6 +857,7 @@ function processChatMessage(msg) {
         if (!alreadyFollowed) {
             chatData.followers.push({ chatname, chatimg: msg.chatimg, timestamp: Date.now() });
             console.log(`[SSN] Follow: ${chatname}`);
+            fireWebhook('follow', { user: chatname, message: `${chatname} followed!` });
         }
     }
 
@@ -610,9 +868,11 @@ function processChatMessage(msg) {
             if (msg.membership.toLowerCase().includes('gift') || msg.contentimg) {
                 chatData.giftSubs.push({ chatname, chatimg: msg.chatimg });
                 console.log(`[SSN] Gift Sub: ${chatname}`);
+                fireWebhook('subscribe', { user: chatname, type: 'gift', message: `${chatname} gifted a sub!` });
             } else {
                 chatData.subscribers.push({ chatname, membership: msg.membership, chatimg: msg.chatimg });
                 console.log(`[SSN] Sub: ${chatname} - ${msg.membership}`);
+                fireWebhook('subscribe', { user: chatname, tier: msg.membership, message: `${chatname} subscribed! (${msg.membership})` });
             }
         }
     }
@@ -622,9 +882,11 @@ function processChatMessage(msg) {
         if (msg.hasDonation.toLowerCase().includes('bit')) {
             chatData.bits.push(donation);
             console.log(`[SSN] Bits: ${chatname} - ${msg.hasDonation}`);
+            fireWebhook('bits', { user: chatname, amount: msg.hasDonation, message: `${chatname} cheered ${msg.hasDonation}` });
         } else {
             chatData.donations.push(donation);
             console.log(`[SSN] Donation: ${chatname} - ${msg.hasDonation}`);
+            fireWebhook('donation', { user: chatname, amount: msg.hasDonation, message: `${chatname} donated ${msg.hasDonation}` });
         }
     }
 
@@ -636,6 +898,7 @@ function processChatMessage(msg) {
                 const viewers = msg.chatmessage ? (msg.chatmessage.match(/(\d+)/) || [])[1] : null;
                 chatData.raids.push({ chatname, chatimg: msg.chatimg, viewers: viewers ? parseInt(viewers) : null, timestamp: Date.now() });
                 console.log(`[SSN] Raid: ${chatname}${viewers ? ` with ${viewers} viewers` : ''}`);
+                fireWebhook('raid', { user: chatname, viewers: viewers || '?', message: `${chatname} raided${viewers ? ` with ${viewers} viewers` : ''}!` });
             }
         }
     }
@@ -742,9 +1005,89 @@ const MIME_TYPES = {
     '.ico': 'image/x-icon'
 };
 
+function renderPdfMessage(doc, messageHtml, plainMessage) {
+    if (!messageHtml) {
+        doc.text('  ' + (plainMessage || ''));
+        return;
+    }
+
+    const parts = [];
+    let lastIndex = 0;
+    const imgRe = /<img[^>]+alt="([^"]*)"[^>]*>/gi;
+    let match;
+
+    while ((match = imgRe.exec(messageHtml)) !== null) {
+        const beforeHtml = messageHtml.substring(lastIndex, match.index);
+        const beforeText = beforeHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '');
+        if (beforeText) parts.push({ type: 'text', value: beforeText });
+
+        const emoteName = match[1];
+        const cached = emoteCache.get(emoteName);
+        if (cached && (cached.format === 'png' || cached.format === 'jpeg') && fs.existsSync(cached.path)) {
+            parts.push({ type: 'emote', name: emoteName, path: cached.path });
+        } else {
+            parts.push({ type: 'text', value: `[${emoteName || '?'}]` });
+        }
+        lastIndex = match.index + match[0].length;
+    }
+
+    const afterHtml = messageHtml.substring(lastIndex);
+    const afterText = afterHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '');
+    if (afterText) parts.push({ type: 'text', value: afterText });
+
+    if (parts.length === 0) {
+        doc.text('  ' + (plainMessage || ''));
+        return;
+    }
+
+    const startX = doc.x;
+    let currentX = startX + 10;
+    const lineHeight = 12;
+    const emoteSize = 12;
+    const maxX = doc.page.width - doc.page.margins.right;
+
+    for (const part of parts) {
+        if (part.type === 'text') {
+            const textWidth = doc.widthOfString(part.value);
+            if (currentX + textWidth > maxX) {
+                doc.y += lineHeight;
+                currentX = startX;
+                if (doc.y > doc.page.height - 60) {
+                    doc.addPage();
+                    currentX = doc.page.margins.left + 10;
+                }
+            }
+            doc.fontSize(9).fillColor('#333333').text(part.value, currentX, doc.y, { continued: false, lineBreak: false });
+            currentX += textWidth;
+        } else if (part.type === 'emote') {
+            if (currentX + emoteSize > maxX) {
+                doc.y += lineHeight;
+                currentX = startX;
+                if (doc.y > doc.page.height - 60) {
+                    doc.addPage();
+                    currentX = doc.page.margins.left + 10;
+                }
+            }
+            try {
+                doc.image(part.path, currentX, doc.y, { width: emoteSize, height: emoteSize });
+                currentX += emoteSize + 2;
+            } catch {
+                const fallback = `[${part.name}]`;
+                doc.fontSize(9).fillColor('#333333').text(fallback, currentX, doc.y, { continued: false, lineBreak: false });
+                currentX += doc.widthOfString(fallback);
+            }
+        }
+    }
+    doc.y += lineHeight;
+    doc.x = startX;
+}
+
 const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     const pathname = url.pathname;
+
+    // Rate limiting
+    if (checkRateLimit(req, res)) return;
 
     // Auth endpoints
     if (pathname === '/auth/twitch') {
@@ -806,7 +1149,7 @@ const server = http.createServer(async (req, res) => {
                     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
                     // Only allow safe fields to be edited
-                    const safeFields = ['days_filter', 'subs_source', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits'];
+                    const safeFields = ['days_filter', 'subs_source', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'webhooks', 'rate_limit'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             current[key] = updates[key];
@@ -826,6 +1169,9 @@ const server = http.createServer(async (req, res) => {
                     BANNED_USERS = (config.banned_users || []).map(u => u.toLowerCase());
                     config.hashtags_enabled = current.hashtags_enabled;
                     config.chat_log_enabled = current.chat_log_enabled;
+                    config.auto_backup_on_session_end = current.auto_backup_on_session_end;
+                    config.webhooks = current.webhooks;
+                    config.rate_limit = current.rate_limit;
 
                     console.log('[Config] Updated and hot-reloaded');
                     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -849,7 +1195,10 @@ const server = http.createServer(async (req, res) => {
             exclude_users: config.exclude_users || [],
             banned_users: config.banned_users || [],
             days_filter: config.days_filter || 30,
-            credits: config.credits || {}
+            credits: config.credits || {},
+            auto_backup_on_session_end: config.auto_backup_on_session_end || false,
+            webhooks: config.webhooks || { enabled: false, discord_url: '', events: ['raid', 'subscribe', 'donation', 'bits', 'follow'], batch_seconds: 5 },
+            rate_limit: config.rate_limit || { enabled: false, requests_per_minute: 120, mutation_per_minute: 30 }
         }));
         return;
     }
@@ -904,6 +1253,7 @@ const server = http.createServer(async (req, res) => {
         saveStats();
         saveChatLog();
         const archiveName = archiveSession();
+        performAutoBackup();
         resetChatData();
         sessionActive = false;
         broadcastToOverlays('update', chatData);
@@ -1206,6 +1556,7 @@ const server = http.createServer(async (req, res) => {
         const query = (params.get('q') || '').toLowerCase();
         const user = (params.get('user') || '').toLowerCase();
         const session = params.get('session') || 'all';
+        const type = params.get('type') || '';
         const limit = parseInt(params.get('limit')) || 200;
         const offset = parseInt(params.get('offset')) || 0;
 
@@ -1216,6 +1567,16 @@ const server = http.createServer(async (req, res) => {
             return messages.filter(m => {
                 if (user && m.user.toLowerCase() !== user) return false;
                 if (query && !m.message.toLowerCase().includes(query)) return false;
+                if (type === 'links') {
+                    if (!((m.urls && m.urls.length > 0) || (m.message && m.message.match(/https?:\/\//))))
+                        return false;
+                }
+                if (type === 'events') {
+                    if (!m.event) return false;
+                }
+                if (type === 'donations') {
+                    if (!m.donation) return false;
+                }
                 return true;
             }).map(m => ({ ...m, session: sessionName }));
         }
@@ -1332,6 +1693,7 @@ const server = http.createServer(async (req, res) => {
                 let badges = '';
                 if (m.event) badges += ` [${m.event}]`;
                 if (m.donation) badges += ` [${m.donation}]`;
+                if (m.membership) badges += ` [${m.membership}]`;
 
                 // Check if we need a new page
                 if (doc.y > doc.page.height - 60) {
@@ -1339,8 +1701,8 @@ const server = http.createServer(async (req, res) => {
                 }
 
                 doc.fontSize(7).fillColor('#888888').text(time, { continued: false });
-                doc.fontSize(9).fillColor('#1f6feb').text(m.user + (badges ? badges : ''), { continued: true });
-                doc.fillColor('#333333').text('  ' + m.message);
+                doc.fontSize(9).fillColor('#1f6feb').text(m.user + (badges ? badges : ''), { continued: false });
+                renderPdfMessage(doc, m.messageHtml, m.message);
                 doc.moveDown(0.3);
             }
 
@@ -1350,6 +1712,418 @@ const server = http.createServer(async (req, res) => {
 
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Invalid format. Use: tsv, txt, or pdf' }));
+        return;
+    }
+
+    // ========================================================================
+    // BACKUP / RESTORE
+    // ========================================================================
+
+    // List auto-backups
+    if (pathname === '/api/backups' && req.method === 'GET') {
+        try {
+            if (!fs.existsSync(BACKUPS_DIR)) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ backups: [] }));
+                return;
+            }
+            const files = fs.readdirSync(BACKUPS_DIR)
+                .filter(f => f.endsWith('.zip'))
+                .sort().reverse();
+            const backups = files.map(f => {
+                const stat = fs.statSync(path.join(BACKUPS_DIR, f));
+                return { name: f, size: stat.size, created: stat.mtime.toISOString() };
+            });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ backups }));
+        } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    // Download a specific auto-backup
+    if (pathname.startsWith('/api/backups/') && req.method === 'GET') {
+        const filename = decodeURIComponent(pathname.slice('/api/backups/'.length));
+        if (!filename || filename.includes('..') || filename.includes('/')) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Invalid filename' }));
+            return;
+        }
+        const filePath = path.join(BACKUPS_DIR, filename);
+        if (!filePath.startsWith(BACKUPS_DIR) || !fs.existsSync(filePath)) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Backup not found' }));
+            return;
+        }
+        const stat = fs.statSync(filePath);
+        res.writeHead(200, {
+            'Content-Type': 'application/zip',
+            'Content-Disposition': `attachment; filename="${filename}"`,
+            'Content-Length': stat.size
+        });
+        fs.createReadStream(filePath).pipe(res);
+        return;
+    }
+
+    if (pathname === '/api/backup' && req.method === 'GET') {
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+        const filename = `stream-credits-backup-${dateStr}.zip`;
+
+        res.writeHead(200, {
+            'Content-Type': 'application/zip',
+            'Content-Disposition': `attachment; filename="${filename}"`
+        });
+
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        archive.pipe(res);
+
+        const filesToBackup = [
+            { src: CONFIG_PATH, name: 'config.json' },
+            { src: STATS_PATH, name: 'data/stats.json' },
+            { src: BANNED_HASHTAGS_PATH, name: 'data/.banned-hashtags.json' },
+            { src: path.join(DATA_DIR, 'subs.json'), name: 'data/subs.json' },
+            { src: path.join(DATA_DIR, 'bits.json'), name: 'data/bits.json' },
+            { src: path.join(DATA_DIR, 'followers.json'), name: 'data/followers.json' },
+            { src: HIGHLIGHTS_PATH, name: 'data/highlights.jsonl' }
+        ];
+
+        for (const f of filesToBackup) {
+            if (fs.existsSync(f.src)) {
+                archive.file(f.src, { name: f.name });
+            }
+        }
+
+        if (fs.existsSync(SESSIONS_DIR)) {
+            archive.directory(SESSIONS_DIR, 'data/sessions');
+        }
+
+        archive.finalize();
+        return;
+    }
+
+    if (pathname === '/api/restore' && req.method === 'POST') {
+        const chunks = [];
+        req.on('data', chunk => chunks.push(chunk));
+        req.on('end', () => {
+            try {
+                const buffer = Buffer.concat(chunks);
+                const zip = new AdmZip(buffer);
+                const entries = zip.getEntries();
+
+                // Validate: must have at least stats.json
+                const hasStats = entries.some(e => e.entryName === 'data/stats.json' || e.entryName === 'stats.json');
+                if (!hasStats) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Invalid backup: missing stats.json' }));
+                    return;
+                }
+
+                let restored = [];
+                for (const entry of entries) {
+                    if (entry.isDirectory) continue;
+                    const name = entry.entryName;
+                    let destPath;
+
+                    if (name === 'config.json') {
+                        destPath = CONFIG_PATH;
+                    } else if (name.startsWith('data/')) {
+                        destPath = path.join(__dirname, name);
+                    } else {
+                        continue;
+                    }
+
+                    // Security check
+                    if (!destPath.startsWith(__dirname)) continue;
+
+                    const dir = path.dirname(destPath);
+                    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                    fs.writeFileSync(destPath, entry.getData());
+                    restored.push(name);
+                }
+
+                // Reload in-memory data
+                try {
+                    if (fs.existsSync(STATS_PATH)) {
+                        statsData = JSON.parse(fs.readFileSync(STATS_PATH, 'utf8'));
+                        console.log('[Restore] Reloaded stats data');
+                    }
+                } catch (err) { console.warn('[Restore] Stats reload failed:', err.message); }
+
+                try {
+                    if (fs.existsSync(BANNED_HASHTAGS_PATH)) {
+                        bannedHashtags = new Set(JSON.parse(fs.readFileSync(BANNED_HASHTAGS_PATH, 'utf8')));
+                        console.log('[Restore] Reloaded banned hashtags');
+                    }
+                } catch { /* ignore */ }
+
+                try {
+                    if (fs.existsSync(CONFIG_PATH)) {
+                        config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+                        console.log('[Restore] Reloaded config');
+                    }
+                } catch { /* ignore */ }
+
+                loadHighlights();
+
+                console.log(`[Restore] Restored ${restored.length} files`);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'restored', files: restored.length, restored }));
+            } catch (err) {
+                console.error('[Restore] Error:', err.message);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: `Restore failed: ${err.message}` }));
+            }
+        });
+        return;
+    }
+
+    // ========================================================================
+    // HIGHLIGHTS EXPORT
+    // ========================================================================
+
+    if (pathname === '/api/highlights/pin-last' && req.method === 'POST') {
+        if (chatLog.length === 0) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'No chat messages yet' }));
+            return;
+        }
+        const last = chatLog[chatLog.length - 1];
+        const already = highlights.some(h => h.ts === last.ts && h.user === last.user);
+        if (already) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'already_pinned', user: last.user, message: last.message }));
+            return;
+        }
+        const sessionName = 'chat-' + localDateTimeStr(chatData.startedAt) + '.json';
+        highlights.push({ ts: last.ts, user: last.user, message: last.message || '', messageHtml: last.messageHtml || '', avatar: last.avatar || null, session: sessionName, pinnedAt: Date.now() });
+        saveHighlights();
+        console.log(`[Highlights] Pinned last message from ${last.user}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'pinned', user: last.user, message: last.message }));
+        return;
+    }
+
+    if (pathname === '/api/highlights/export' && req.method === 'GET') {
+        const format = url.searchParams.get('format');
+        const sessionFilter = url.searchParams.get('session');
+        let data = highlights;
+        if (sessionFilter) {
+            data = highlights.filter(h => h.session === sessionFilter);
+        }
+
+        const formatTime = (ts) => {
+            if (!ts) return '';
+            const d = new Date(ts);
+            return d.toLocaleString();
+        };
+
+        const safeFilename = sessionFilter
+            ? 'highlights-' + sessionFilter.replace(/[^a-zA-Z0-9_-]/g, '_')
+            : 'highlights';
+
+        if (format === 'tsv') {
+            const header = 'Timestamp\tUser\tMessage\tSession\tPinned At';
+            const rows = data.map(h =>
+                `${formatTime(h.ts)}\t${h.user}\t${(h.message || '').replace(/\t/g, ' ')}\t${h.session || ''}\t${formatTime(h.pinnedAt)}`
+            );
+            const content = header + '\n' + rows.join('\n');
+            res.writeHead(200, {
+                'Content-Type': 'text/tab-separated-values',
+                'Content-Disposition': `attachment; filename="${safeFilename}.tsv"`
+            });
+            res.end(content);
+            return;
+        }
+
+        if (format === 'txt') {
+            const groups = {};
+            data.forEach(h => {
+                const s = h.session || 'unknown';
+                if (!groups[s]) groups[s] = [];
+                groups[s].push(h);
+            });
+
+            let content = 'Highlights Export\n=================\n';
+            for (const [session, items] of Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]))) {
+                content += `\n--- Session: ${session} ---\n\n`;
+                for (const h of items) {
+                    const time = formatTime(h.ts);
+                    const timeStr = time ? time.split(', ').pop() || time : '';
+                    content += `[${timeStr}] ${h.user}: ${h.message || ''}\n`;
+                }
+            }
+            res.writeHead(200, {
+                'Content-Type': 'text/plain',
+                'Content-Disposition': `attachment; filename="${safeFilename}.txt"`
+            });
+            res.end(content);
+            return;
+        }
+
+        if (format === 'pdf') {
+            const doc = new PDFDocument({ size: 'A4', margin: 40 });
+            const title = sessionFilter
+                ? `Highlights — ${sessionFilter}`
+                : 'Highlights Export';
+            res.writeHead(200, {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `attachment; filename="${safeFilename}.pdf"`
+            });
+            doc.pipe(res);
+
+            doc.fontSize(16).text(title, { underline: true });
+            doc.fontSize(10).text(`${data.length} highlights`, { color: '#666' });
+            doc.moveDown();
+
+            const groups = {};
+            data.forEach(h => {
+                const s = h.session || 'unknown';
+                if (!groups[s]) groups[s] = [];
+                groups[s].push(h);
+            });
+
+            for (const [session, items] of Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]))) {
+                if (doc.y > doc.page.height - 80) {
+                    doc.addPage();
+                }
+                doc.fontSize(11).fillColor('#1f6feb').text(`Session: ${session}`, { underline: true });
+                doc.moveDown(0.3);
+
+                for (const h of items) {
+                    if (doc.y > doc.page.height - 60) {
+                        doc.addPage();
+                    }
+                    const time = formatTime(h.ts);
+                    doc.fontSize(7).fillColor('#888888').text(time, { continued: false });
+                    doc.fontSize(9).fillColor('#1f6feb').text(h.user, { continued: false });
+                    renderPdfMessage(doc, h.messageHtml, h.message);
+                    doc.moveDown(0.3);
+                }
+                doc.moveDown(0.5);
+            }
+
+            doc.end();
+            return;
+        }
+
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid format. Use: tsv, txt, or pdf' }));
+        return;
+    }
+
+    // ========================================================================
+    // HIGHLIGHTS (Pin/Unpin)
+    // ========================================================================
+
+    if (pathname === '/api/highlights') {
+        if (req.method === 'GET') {
+            const sessionFilter = url.searchParams.get('session');
+            let result = highlights;
+            if (sessionFilter) {
+                result = highlights.filter(h => h.session === sessionFilter);
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+            return;
+        }
+
+        if (req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', () => {
+                try {
+                    const { ts, user, message, messageHtml, avatar, session } = JSON.parse(body);
+                    if (!ts || !user) throw new Error('Missing ts or user');
+                    highlights.push({ ts, user, message: message || '', messageHtml: messageHtml || '', avatar: avatar || null, session: session || 'unknown', pinnedAt: Date.now() });
+                    saveHighlights();
+                    console.log(`[Highlights] Pinned message from ${user}`);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ status: 'pinned', count: highlights.length }));
+                } catch (err) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message }));
+                }
+            });
+            return;
+        }
+
+        if (req.method === 'DELETE') {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', () => {
+                try {
+                    const { ts, user } = JSON.parse(body);
+                    if (!ts || !user) throw new Error('Missing ts or user');
+                    const before = highlights.length;
+                    highlights = highlights.filter(h => !(h.ts === ts && h.user === user));
+                    saveHighlights();
+                    console.log(`[Highlights] Unpinned message from ${user} (${before - highlights.length} removed)`);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ status: 'unpinned', count: highlights.length }));
+                } catch (err) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message }));
+                }
+            });
+            return;
+        }
+    }
+
+    // ========================================================================
+    // WEBHOOK TEST
+    // ========================================================================
+
+    if (pathname === '/api/webhook/test' && req.method === 'POST') {
+        const wh = config.webhooks;
+        if (!wh || !wh.enabled || !wh.discord_url) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Webhooks not enabled or no Discord URL configured' }));
+            return;
+        }
+        const payload = JSON.stringify({
+            embeds: [{
+                title: '🧪 Test Webhook',
+                description: 'Stream Credits webhook is working!',
+                color: 0x58a6ff,
+                fields: [
+                    { name: 'Server', value: `http://localhost:${PORT}`, inline: true },
+                    { name: 'Events', value: (wh.events || []).join(', ') || 'all', inline: true }
+                ],
+                timestamp: new Date().toISOString()
+            }]
+        });
+        try {
+            const urlObj = new URL(wh.discord_url);
+            const reqLib = urlObj.protocol === 'https:' ? https : http;
+            const whReq = reqLib.request(urlObj, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+            }, (whRes) => {
+                let data = '';
+                whRes.on('data', chunk => data += chunk);
+                whRes.on('end', () => {
+                    if (whRes.statusCode < 300) {
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ status: 'sent', discord_status: whRes.statusCode }));
+                    } else {
+                        res.writeHead(502, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: `Discord returned ${whRes.statusCode}`, body: data.substring(0, 200) }));
+                    }
+                });
+            });
+            whReq.on('error', (err) => {
+                res.writeHead(502, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: err.message }));
+            });
+            whReq.write(payload);
+            whReq.end();
+        } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
         return;
     }
 

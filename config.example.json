@@ -18,6 +18,20 @@
   "chat_log_enabled": true,
   "exclude_users": [],
   "banned_users": [],
+  "auto_backup_on_session_end": false,
+
+  "webhooks": {
+    "enabled": false,
+    "discord_url": "",
+    "events": ["raid", "subscribe", "donation", "bits", "follow"],
+    "batch_seconds": 5
+  },
+
+  "rate_limit": {
+    "enabled": false,
+    "requests_per_minute": 120,
+    "mutation_per_minute": 30
+  },
 
   "credits": {
     "header": {

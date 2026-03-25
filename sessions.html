@@ -35,18 +35,22 @@
 
         .detail-panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow-y: auto; display: flex; flex-direction: column; }
         .detail-panel .placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: #484f58; font-size: 0.9rem; }
-        .detail-header { padding: 1rem 1.25rem; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .detail-header { padding: 0.75rem 1.25rem; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
         .detail-header h2 { font-size: 1rem; }
+        .detail-header-actions { display: flex; gap: 0.4rem; }
+        .detail-header-actions button { background: #21262d; border: 1px solid #30363d; color: #8b949e; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .detail-header-actions button:hover { color: #e1e4e8; border-color: #58a6ff; }
+        .detail-header-actions button.active { border-color: #58a6ff; color: #58a6ff; background: #1a2332; }
         .detail-close { background: none; border: none; color: #8b949e; font-size: 1.2rem; cursor: pointer; }
         .detail-close:hover { color: #e1e4e8; }
 
-        .detail-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 0.5rem; padding: 1rem 1.25rem; border-bottom: 1px solid #30363d; flex-shrink: 0; }
-        .detail-stat { text-align: center; padding: 0.5rem; background: #0d1117; border-radius: 6px; }
-        .detail-stat .value { font-size: 1.3rem; font-weight: 700; color: #58a6ff; }
-        .detail-stat .label { font-size: 0.7rem; color: #8b949e; margin-top: 0.15rem; }
+        .detail-stats { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.75rem 1.25rem; border-bottom: 1px solid #30363d; flex-shrink: 0; }
+        .detail-stat { text-align: center; padding: 0.4rem 0.6rem; background: #0d1117; border-radius: 6px; min-width: 65px; flex: 1 0 auto; }
+        .detail-stat .value { font-size: 1.1rem; font-weight: 700; color: #58a6ff; }
+        .detail-stat .label { font-size: 0.65rem; color: #8b949e; margin-top: 0.1rem; }
 
-        .detail-tabs { display: flex; border-bottom: 1px solid #30363d; padding: 0 1.25rem; flex-shrink: 0; }
-        .tab { padding: 0.75rem 1rem; font-size: 0.85rem; color: #8b949e; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .detail-tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid #30363d; padding: 0 0.5rem; flex-shrink: 0; }
+        .tab { padding: 0.6rem 0.7rem; font-size: 0.78rem; color: #8b949e; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
         .tab:hover { color: #e1e4e8; }
         .tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
 
@@ -81,11 +85,29 @@
         .chat-msg .badge-donation { background: #3fb95030; color: #3fb950; }
         .chat-msg .badge-sub { background: #a371f730; color: #a371f7; }
         .chat-msg .chat-session-tag { font-size: 0.7rem; color: #484f58; margin-top: 0.15rem; }
+        .chat-msg .chat-text a { color: #58a6ff; text-decoration: underline; }
+        .chat-msg .pin-btn { background: none; border: none; cursor: pointer; font-size: 0.75rem; padding: 0.1rem 0.2rem; margin-left: 0.3rem; opacity: 0.35; transition: opacity 0.2s; color: #e1e4e8; vertical-align: middle; }
+        .chat-msg .pin-btn:hover { opacity: 1; color: #f0c040; }
+        .chat-msg .pin-btn.pinned { opacity: 1; color: #f0c040; }
         .chat-log-info { font-size: 0.8rem; color: #484f58; margin-bottom: 0.5rem; }
         .chat-log-loading { text-align: center; color: #484f58; padding: 2rem; }
         .chat-log-more { text-align: center; margin-top: 0.75rem; }
         .chat-log-more button { background: #21262d; border: 1px solid #30363d; color: #8b949e; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.8rem; cursor: pointer; }
         .chat-log-more button:hover { color: #e1e4e8; border-color: #58a6ff; }
+        .filter-toggle { background: #21262d; border: 1px solid #30363d; color: #8b949e; border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.8rem; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+        .filter-toggle:hover { color: #e1e4e8; border-color: #58a6ff; }
+        .filter-toggle.active { border-color: #58a6ff; color: #58a6ff; background: #1a2332; }
+        .highlight-group { margin-bottom: 1rem; }
+        .highlight-group h3 { font-size: 0.85rem; color: #58a6ff; margin-bottom: 0.5rem; padding-bottom: 0.35rem; border-bottom: 1px solid #21262d; }
+
+        .chatlog-toolbar { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; align-items: center; flex-wrap: wrap; }
+        .chatlog-toolbar .chat-search-input { flex: 1; min-width: 120px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.5rem 0.75rem; color: #e1e4e8; font-size: 0.85rem; outline: none; }
+        .chatlog-toolbar .chat-search-input:focus { border-color: #58a6ff; }
+        .chat-filter-select { background: #161b22; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; padding: 0.3rem 0.5rem; font-size: 0.8rem; outline: none; }
+        .chat-filter-select:focus { border-color: #58a6ff; }
+        .chatlog-export-group { display: flex; gap: 0.3rem; margin-left: auto; }
+        .chatlog-export-group .btn-sm { background: #21262d; border: 1px solid #30363d; color: #8b949e; border-radius: 4px; padding: 0.3rem 0.6rem; font-size: 0.75rem; cursor: pointer; white-space: nowrap; }
+        .chatlog-export-group .btn-sm:hover { color: #e1e4e8; border-color: #58a6ff; }
 
         /* Cross-session search */
         .global-search { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
@@ -139,23 +161,8 @@
 <body>
     <div class="header">
         <h1>Session <span>History</span></h1>
-        <div class="nav">
-            <a href="/dashboard.html">Dashboard</a>
-            <a href="/credits.html">Credits</a>
-            <a href="/credits.html?preview=true" target="_blank">Preview</a>
-            <a href="/stats.html">Stats</a>
-            <a href="/hashtags.html">Hashtags</a>
-            <div class="dropdown">
-                <a href="#" class="dropdown-toggle">Manage ▾</a>
-                <div class="dropdown-menu">
-                    <a href="/config-editor.html">⚙️ Config</a>
-                    <a href="/manage-hashtags.html">🏷️ Hashtag Tools</a>
-                    <a href="/sessions.html">📁 Sessions</a>
-                </div>
-            </div>
-            <a href="/api.html">API</a>
-            <a href="/docs.html">Docs</a>
-        </div>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
     </div>
 
     <div class="container">
@@ -177,6 +184,11 @@
                     <input type="text" id="global-search-input" placeholder="🔍 Search all chats..." onkeydown="if(event.key==='Enter')globalSearch()">
                     <button onclick="globalSearch()">Search</button>
                 </div>
+                <div style="display:flex;gap:0.35rem;margin-bottom:0.5rem;flex-wrap:wrap;">
+                    <button class="filter-toggle" onclick="globalSearchType('links', this)">🔗 Links</button>
+                    <button class="filter-toggle" onclick="globalSearchType('events', this)">📢 Events</button>
+                    <button class="filter-toggle" onclick="globalSearchType('donations', this)">💰 Donations</button>
+                </div>
                 <div class="session-list" id="session-list">
                     <div class="empty">Loading sessions...</div>
                 </div>
@@ -195,6 +207,8 @@
     let compareMode = false;
     let compareSelections = [];
     let chatLogCache = {};  // cache loaded chat logs by session name
+    let highlightsCache = null;  // cached highlights from server
+    let globalSearchTypeFilter = '';
 
     function escapeHtml(str) {
         const div = document.createElement('div');
@@ -207,19 +221,20 @@
         if (!html) return '';
         const div = document.createElement('div');
         div.innerHTML = html;
-        // Remove script tags, event handlers, and non-img elements
         div.querySelectorAll('script, iframe, object, embed, link, style').forEach(el => el.remove());
-        div.querySelectorAll('*').forEach(el => {
-            if (el.tagName !== 'IMG') {
-                el.replaceWith(document.createTextNode(el.textContent));
-                return;
+        // Process deepest elements first so nested <img> tags survive
+        const els = [...div.querySelectorAll('*')].reverse();
+        els.forEach(el => {
+            if (el.tagName === 'IMG') {
+                const src = el.getAttribute('src');
+                const alt = el.getAttribute('alt');
+                Array.from(el.attributes).forEach(attr => el.removeAttribute(attr.name));
+                if (src) el.setAttribute('src', src);
+                if (alt) el.setAttribute('alt', alt);
+            } else {
+                // Unwrap: replace element with its children (preserves nested <img>)
+                el.replaceWith(...el.childNodes);
             }
-            // For img tags, only keep src and alt
-            const src = el.getAttribute('src');
-            const alt = el.getAttribute('alt');
-            Array.from(el.attributes).forEach(attr => el.removeAttribute(attr.name));
-            if (src) el.setAttribute('src', src);
-            if (alt) el.setAttribute('alt', alt);
         });
         return div.innerHTML;
     }
@@ -314,7 +329,6 @@
             { id: 'chatters', label: 'Chatters' },
             { id: 'emotes', label: 'Emotes' },
             { id: 'hashtags', label: 'Hashtags' },
-            { id: 'chatlog', label: '💬 Chat Log' },
             { id: 'subs', label: 'Subs' },
             { id: 'giftsubs', label: 'Gift Subs' },
             { id: 'followers', label: 'Followers' },
@@ -323,9 +337,18 @@
             { id: 'raids', label: 'Raids' }
         ];
 
+        // Chat Log and Highlights are action buttons, not stat tabs
+        const toolPanes = [
+            { id: 'chatlog', label: '💬 Chat Log' },
+            { id: 'highlights', label: '⭐ Highlights' }
+        ];
+
         panel.innerHTML = `
             <div class="detail-header">
                 <h2>${escapeHtml(title)}</h2>
+                <div class="detail-header-actions">
+                    ${toolPanes.map(t => `<button onclick="switchTool('${t.id}', this)">${t.label}</button>`).join('')}
+                </div>
             </div>
             <div class="detail-stats">
                 ${stats.map(s => `<div class="detail-stat"><div class="value">${s.v}</div><div class="label">${s.l}</div></div>`).join('')}
@@ -335,6 +358,7 @@
             </div>
             <div class="tab-content">
                 ${tabs.map((t, i) => `<div class="tab-pane${i === 0 ? ' active' : ''}" id="pane-${t.id}"></div>`).join('')}
+                ${toolPanes.map(t => `<div class="tab-pane" id="pane-${t.id}"></div>`).join('')}
             </div>
         `;
 
@@ -436,21 +460,59 @@
             <div class="chat-search">
                 <input type="text" id="chatlog-filter" placeholder="Filter messages..." onkeydown="if(event.key==='Enter')filterChatLog()">
                 <button onclick="filterChatLog()">Filter</button>
+                <button class="filter-toggle" id="links-toggle" onclick="toggleLinksFilter(this)">🔗 Links</button>
             </div>
             <div class="chat-log-info" id="chatlog-info"></div>
             <div id="chatlog-messages"><div class="chat-log-loading">Click to load chat log...</div></div>
         `;
         chatLogCache[filename] = null; // mark as not yet loaded
+
+        // Highlights pane
+        document.getElementById('pane-highlights').innerHTML = '<div class="chat-log-loading">Loading highlights...</div>';
+    }
+
+    let linksFilterActive = false;
+
+    function toggleLinksFilter(btn) {
+        linksFilterActive = !linksFilterActive;
+        btn.classList.toggle('active', linksFilterActive);
+        filterChatLog();
     }
 
     function switchTab(id, el) {
+        // Deactivate all tabs and tool buttons
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.detail-header-actions button').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
         el.classList.add('active');
         document.getElementById(`pane-${id}`).classList.add('active');
-        // Lazy load chat log on first tab switch
+    }
+
+    function switchTool(id, btn) {
+        const isActive = btn.classList.contains('active');
+        // Deactivate all tabs and tool buttons
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.detail-header-actions button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+        if (isActive) {
+            // Toggle off — go back to first stat tab
+            const firstTab = document.querySelector('.tab');
+            if (firstTab) { firstTab.classList.add('active'); }
+            const firstPane = document.querySelector('.tab-pane');
+            if (firstPane) { firstPane.classList.add('active'); }
+            return;
+        }
+
+        btn.classList.add('active');
+        document.getElementById(`pane-${id}`).classList.add('active');
+
+        // Lazy load chat log on first open
         if (id === 'chatlog' && activeSessionFile && !chatLogCache[activeSessionFile]) {
             loadChatLog(activeSessionFile);
+        }
+        if (id === 'highlights') {
+            loadHighlightsTab();
         }
     }
 
@@ -582,7 +644,11 @@
         return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
 
-    function renderChatMessage(m, showSession) {
+    function linkifyText(text) {
+        return text.replace(/(https?:\/\/[^\s<>"')\]]+)/gi, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+    }
+
+    function renderChatMessage(m, showSession, sessionName) {
         let badges = '';
         if (m.event) badges += `<span class="chat-badge badge-event">${escapeHtml(m.event)}</span>`;
         if (m.donation) badges += `<span class="chat-badge badge-donation">${escapeHtml(m.donation)}</span>`;
@@ -590,16 +656,68 @@
 
         const sessionTag = showSession ? `<div class="chat-session-tag">${escapeHtml(m.session || '')}</div>` : '';
 
+        const isPinned = highlightsCache && highlightsCache.some(h => h.ts === m.ts && h.user === m.user);
+        const pinStar = isPinned ? '⭐' : '☆';
+        const pinClass = isPinned ? 'pin-btn pinned' : 'pin-btn';
+        const sName = sessionName || m.session || (activeSessionFile === '__current__' ? 'current' : activeSessionFile) || '';
+        const pinData = `data-ts="${m.ts}" data-user="${escapeHtml(m.user)}" data-msg="${escapeHtml(m.message || '')}" data-html="${escapeHtml(m.messageHtml || '')}" data-avatar="${escapeHtml(m.avatar || '')}" data-session="${escapeHtml(sName)}"`;
+
+        // Linkify plain text in messageHtml display
+        let displayHtml = m.messageHtml ? sanitizeHtml(m.messageHtml) : escapeHtml(m.message);
+        displayHtml = linkifyText(displayHtml);
+
         return `<div class="chat-msg">
             ${m.avatar ? `<img class="chat-avatar" src="${m.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
             <div class="chat-meta">
-                <div><span class="chat-user">${escapeHtml(m.user)}</span>${badges}</div>
-                <div class="chat-text">${m.messageHtml ? sanitizeHtml(m.messageHtml) : escapeHtml(m.message)}</div>
+                <div><span class="chat-user">${escapeHtml(m.user)}</span>${badges}<button class="${pinClass}" onclick="togglePin(this)" ${pinData}>${pinStar}</button></div>
+                <div class="chat-text">${displayHtml}</div>
                 ${sessionTag}
             </div>
             <span class="chat-time">${formatTimestamp(m.ts)}</span>
         </div>`;
     }
+
+    async function loadHighlightsCache() {
+        try {
+            const res = await fetch('/api/highlights');
+            highlightsCache = await res.json();
+        } catch { highlightsCache = []; }
+    }
+
+    async function togglePin(btn) {
+        const ts = parseInt(btn.dataset.ts);
+        const user = btn.dataset.user;
+        const isPinned = btn.classList.contains('pinned');
+
+        if (isPinned) {
+            await fetch('/api/highlights', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ts, user })
+            });
+            btn.textContent = '☆';
+            btn.classList.remove('pinned');
+            if (highlightsCache) highlightsCache = highlightsCache.filter(h => !(h.ts === ts && h.user === user));
+        } else {
+            await fetch('/api/highlights', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ts, user,
+                    message: btn.dataset.msg,
+                    messageHtml: btn.dataset.html,
+                    avatar: btn.dataset.avatar,
+                    session: btn.dataset.session
+                })
+            });
+            btn.textContent = '⭐';
+            btn.classList.add('pinned');
+            if (highlightsCache) highlightsCache.push({ ts, user, session: btn.dataset.session });
+        }
+    }
+
+    // Load highlights cache on page load
+    loadHighlightsCache();
 
     async function loadChatLog(filename) {
         const msgContainer = document.getElementById('chatlog-messages');
@@ -630,7 +748,8 @@
             msgContainer.innerHTML = '<div class="empty">No messages found</div>';
             return;
         }
-        let html = display.map(m => renderChatMessage(m, false)).join('');
+        const sName = activeSessionFile === '__current__' ? 'current' : activeSessionFile;
+        let html = display.map(m => renderChatMessage(m, false, sName)).join('');
         if (messages.length > showLimit) {
             html += `<div class="chat-log-more"><button onclick="renderChatLogMessages(chatLogCache[activeSessionFile] || [], ${showLimit + 200})">Load more (${messages.length - showLimit} remaining)</button></div>`;
         }
@@ -639,23 +758,35 @@
 
     function filterChatLog() {
         const query = (document.getElementById('chatlog-filter')?.value || '').toLowerCase();
-        const messages = chatLogCache[activeSessionFile] || [];
-        if (!query) {
-            renderChatLogMessages(messages);
-            return;
+        let messages = chatLogCache[activeSessionFile] || [];
+
+        if (linksFilterActive) {
+            messages = messages.filter(m =>
+                (m.urls && m.urls.length > 0) || (m.message && m.message.match(/https?:\/\//))
+            );
         }
-        const filtered = messages.filter(m =>
-            m.message.toLowerCase().includes(query) || m.user.toLowerCase().includes(query)
-        );
+
+        if (query) {
+            messages = messages.filter(m =>
+                m.message.toLowerCase().includes(query) || m.user.toLowerCase().includes(query)
+            );
+        }
+
         const infoEl = document.getElementById('chatlog-info');
-        if (infoEl) infoEl.textContent = `${filtered.length} of ${messages.length} messages match "${query}"`;
-        renderChatLogMessages(filtered);
+        const total = chatLogCache[activeSessionFile]?.length || 0;
+        if (query || linksFilterActive) {
+            if (infoEl) infoEl.textContent = `${messages.length} of ${total} messages${query ? ` match "${query}"` : ''}${linksFilterActive ? ' (links only)' : ''}`;
+        } else {
+            if (infoEl) infoEl.textContent = `${total} message${total !== 1 ? 's' : ''} recorded`;
+        }
+        renderChatLogMessages(messages);
     }
 
     async function globalSearch() {
         const input = document.getElementById('global-search-input');
         const query = (input?.value || '').trim();
-        if (!query) return;
+        const type = globalSearchTypeFilter;
+        if (!query && !type) return;
 
         const panel = document.getElementById('detail-panel');
         document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
@@ -678,14 +809,19 @@
             } else {
                 url = `/api/chat-log/search?q=${encodeURIComponent(query)}&limit=500`;
             }
+            if (type) {
+                url += `&type=${encodeURIComponent(type)}`;
+            }
 
             const res = await fetch(url);
             const data = await res.json();
             const results = data.results || [];
 
+            const label = query ? `"${escapeHtml(query)}"` : type;
+
             panel.innerHTML = `
                 <div class="detail-header">
-                    <h2>🔍 Search: "${escapeHtml(query)}"</h2>
+                    <h2>🔍 Search: ${label}</h2>
                     <span style="color: #8b949e; font-size: 0.85rem;">${data.total} result${data.total !== 1 ? 's' : ''}</span>
                 </div>
                 <div style="padding: 1.25rem; overflow-y: auto; flex: 1;" id="search-results"></div>
@@ -697,15 +833,8 @@
             } else {
                 container.innerHTML = results.map(m => {
                     const sessionLabel = m.session === 'current' ? '🟢 Current Session' : m.session;
-                    return `<div class="chat-msg">
-                        ${m.avatar ? `<img class="chat-avatar" src="${m.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
-                        <div class="chat-meta">
-                            <div><span class="chat-user">${escapeHtml(m.user)}</span></div>
-                            <div class="chat-text">${m.messageHtml ? sanitizeHtml(m.messageHtml) : escapeHtml(m.message)}</div>
-                            <div class="chat-session-tag">${escapeHtml(sessionLabel)} · ${formatDateTimestamp(m.ts)}</div>
-                        </div>
-                        <span class="chat-time">${formatTimestamp(m.ts)}</span>
-                    </div>`;
+                    m.session = sessionLabel;
+                    return renderChatMessage(m, true, m.session);
                 }).join('');
                 if (data.total > results.length) {
                     container.innerHTML += `<div class="chat-log-info" style="text-align:center;margin-top:1rem;">Showing ${results.length} of ${data.total} results</div>`;
@@ -717,6 +846,132 @@
                 <div style="padding: 1.25rem;"><div class="empty">Search failed. Make sure the server is running.</div></div>
             `;
         }
+    }
+
+    async function loadHighlightsTab() {
+        const pane = document.getElementById('pane-highlights');
+        if (!pane) return;
+        pane.innerHTML = '<div class="chat-log-loading">Loading highlights...</div>';
+
+        try {
+            const res = await fetch('/api/highlights');
+            const allHighlights = await res.json();
+            highlightsCache = allHighlights;
+
+            if (allHighlights.length === 0) {
+                pane.innerHTML = '<div class="empty">No pinned messages yet. Click ☆ on chat messages to pin them.</div>';
+                return;
+            }
+
+            // Build session options from unique sessions
+            const sessions = [...new Set(allHighlights.map(h => h.session || 'unknown'))].sort((a, b) => b.localeCompare(a));
+            const sessionOptions = sessions.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+
+            let html = `<div class="chatlog-toolbar">
+                <input type="text" id="highlights-search" placeholder="Search highlights..." class="chat-search-input" oninput="filterHighlights()">
+                <select id="highlights-session-filter" class="chat-filter-select" onchange="filterHighlights()">
+                    <option value="">All Sessions</option>
+                    ${sessionOptions}
+                </select>
+                <div class="chatlog-export-group">
+                    <button class="btn-sm" onclick="exportHighlights('txt')">TXT</button>
+                    <button class="btn-sm" onclick="exportHighlights('tsv')">TSV</button>
+                    <button class="btn-sm" onclick="exportHighlights('pdf')">PDF</button>
+                </div>
+            </div>`;
+            html += '<div id="highlights-results"></div>';
+            pane.innerHTML = html;
+            filterHighlights();
+        } catch {
+            pane.innerHTML = '<div class="empty">Failed to load highlights</div>';
+        }
+    }
+
+    function filterHighlights() {
+        const container = document.getElementById('highlights-results');
+        if (!container || !highlightsCache) return;
+
+        const query = (document.getElementById('highlights-search')?.value || '').toLowerCase();
+        const sessionFilter = document.getElementById('highlights-session-filter')?.value || '';
+
+        let filtered = highlightsCache;
+        if (sessionFilter) {
+            filtered = filtered.filter(h => (h.session || 'unknown') === sessionFilter);
+        }
+        if (query) {
+            filtered = filtered.filter(h =>
+                (h.user || '').toLowerCase().includes(query) ||
+                (h.message || '').toLowerCase().includes(query)
+            );
+        }
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<div class="empty">No highlights match your filters.</div>';
+            return;
+        }
+
+        const groups = {};
+        filtered.forEach(h => {
+            const s = h.session || 'unknown';
+            if (!groups[s]) groups[s] = [];
+            groups[s].push(h);
+        });
+
+        let html = '';
+        for (const [session, items] of Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]))) {
+            html += `<div class="highlight-group"><h3>${escapeHtml(session)}</h3>`;
+            html += items.map(h => {
+                let displayHtml = h.messageHtml ? sanitizeHtml(h.messageHtml) : escapeHtml(h.message);
+                displayHtml = linkifyText(displayHtml);
+                return `<div class="chat-msg">
+                    ${h.avatar ? `<img class="chat-avatar" src="${h.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
+                    <div class="chat-meta">
+                        <div><span class="chat-user">${escapeHtml(h.user)}</span>
+                        <button class="pin-btn pinned" onclick="unpinHighlight(this, ${h.ts}, '${escapeHtml(h.user)}')" title="Unpin">⭐</button></div>
+                        <div class="chat-text">${displayHtml}</div>
+                        <div class="chat-session-tag">Pinned ${formatDateTimestamp(h.pinnedAt)}</div>
+                    </div>
+                    <span class="chat-time">${formatTimestamp(h.ts)}</span>
+                </div>`;
+            }).join('');
+            html += '</div>';
+        }
+        container.innerHTML = html;
+    }
+
+    function exportHighlights(format) {
+        const sessionFilter = document.getElementById('highlights-session-filter')?.value || '';
+        const params = new URLSearchParams({ format });
+        if (sessionFilter) params.set('session', sessionFilter);
+        const a = document.createElement('a');
+        a.href = `/api/highlights/export?${params}`;
+        a.download = `highlights.${format}`;
+        a.click();
+    }
+
+    async function unpinHighlight(btn, ts, user) {
+        await fetch('/api/highlights', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ts, user })
+        });
+        if (highlightsCache) highlightsCache = highlightsCache.filter(h => !(h.ts === ts && h.user === user));
+        loadHighlightsTab();
+    }
+
+    function globalSearchType(type, btn) {
+        // Toggle filter
+        if (globalSearchTypeFilter === type) {
+            globalSearchTypeFilter = '';
+            btn.classList.remove('active');
+        } else {
+            globalSearchTypeFilter = type;
+            document.querySelectorAll('.filter-toggle').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+        // Trigger search with the type filter
+        const input = document.getElementById('global-search-input');
+        globalSearch();
     }
 
     loadSessions();

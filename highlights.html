@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Credits — Highlights</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #f0c040; }
+        .nav { display: flex; gap: 0.75rem; align-items: center; }
+        .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
+        .nav a:hover { color: #e1e4e8; background: #21262d; }
+
+        .nav .dropdown { position: relative; display: flex; align-items: center; }
+        .nav .dropdown-toggle { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
+        .nav .dropdown-toggle:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
+        .nav .dropdown:hover .dropdown-menu { display: block; }
+        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+        .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
+
+        .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; }
+
+        .toolbar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+        .toolbar input[type="text"] { flex: 1; min-width: 180px; padding: 0.5rem 0.75rem; background: #161b22; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; font-size: 0.85rem; outline: none; }
+        .toolbar input[type="text"]:focus { border-color: #58a6ff; }
+        .toolbar select { padding: 0.5rem 0.75rem; background: #161b22; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; font-size: 0.85rem; outline: none; }
+        .toolbar select:focus { border-color: #58a6ff; }
+
+        .btn { padding: 0.45rem 0.8rem; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #e1e4e8; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-block; }
+        .btn:hover { border-color: #58a6ff; background: #1a2332; }
+        .btn.primary { border-color: #1f6feb; background: #1a2332; }
+        .btn.primary:hover { background: #1f3a5f; }
+
+        .export-group { display: flex; gap: 0.3rem; align-items: center; }
+        .export-group span { font-size: 0.75rem; color: #8b949e; margin-right: 0.2rem; }
+
+        .stats-bar { display: flex; gap: 1.5rem; padding: 0.75rem 1rem; background: #161b22; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 1rem; font-size: 0.85rem; }
+        .stats-bar .stat { display: flex; gap: 0.4rem; align-items: center; }
+        .stats-bar .stat-val { color: #58a6ff; font-weight: 600; }
+        .stats-bar .stat-label { color: #8b949e; }
+
+        .session-group { margin-bottom: 1.25rem; }
+        .session-group h3 { font-size: 0.85rem; color: #58a6ff; margin-bottom: 0.5rem; padding-bottom: 0.35rem; border-bottom: 1px solid #21262d; }
+
+        .chat-msg { display: flex; gap: 0.5rem; padding: 0.35rem 0.5rem; border-radius: 4px; transition: background 0.15s; align-items: flex-start; }
+        .chat-msg:hover { background: #161b2280; }
+        .chat-avatar { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; margin-top: 2px; }
+        .chat-meta { flex: 1; min-width: 0; }
+        .chat-user { color: #58a6ff; font-weight: 600; font-size: 0.8rem; margin-right: 0.4rem; }
+        .chat-text { word-break: break-word; line-height: 1.4; font-size: 0.85rem; }
+        .chat-text img { height: 18px; vertical-align: middle; }
+        .chat-text a { color: #58a6ff; text-decoration: underline; }
+        .chat-time { color: #484f58; font-size: 0.65rem; white-space: nowrap; margin-top: 2px; flex-shrink: 0; }
+        .chat-pinned-at { font-size: 0.7rem; color: #484f58; margin-top: 2px; }
+
+        .pin-btn { background: none; border: none; cursor: pointer; font-size: 0.85rem; opacity: 0.6; transition: all 0.15s; vertical-align: middle; margin-left: 0.3rem; }
+        .pin-btn:hover { opacity: 1; color: #f0c040; }
+        .pin-btn.pinned { opacity: 0.8; color: #f0c040; }
+
+        .empty { color: #484f58; text-align: center; padding: 3rem 1rem; font-size: 0.9rem; }
+        .loading { color: #8b949e; text-align: center; padding: 2rem; }
+
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
+        .toast.show { opacity: 1; }
+
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .header { flex-direction: column; gap: 0.5rem; }
+            .toolbar { flex-direction: column; }
+            .toolbar input[type="text"] { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⭐ <span>Highlights</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <div class="container">
+        <div id="content"><div class="loading">Loading highlights...</div></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function sanitizeHtml(html) {
+        if (!html) return '';
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        div.querySelectorAll('script, iframe, object, embed, link, style').forEach(el => el.remove());
+        const els = [...div.querySelectorAll('*')].reverse();
+        els.forEach(el => {
+            if (el.tagName === 'IMG') {
+                const src = el.getAttribute('src');
+                const alt = el.getAttribute('alt');
+                Array.from(el.attributes).forEach(attr => el.removeAttribute(attr.name));
+                if (src) el.setAttribute('src', src);
+                if (alt) el.setAttribute('alt', alt);
+            } else {
+                el.replaceWith(...el.childNodes);
+            }
+        });
+        return div.innerHTML;
+    }
+
+    function linkifyText(html) {
+        return html.replace(/(https?:\/\/[^\s<>"')\]]+)/gi, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+    }
+
+    function formatTimestamp(ts) {
+        if (!ts) return '';
+        const d = new Date(ts);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatDate(ts) {
+        if (!ts) return '';
+        return new Date(ts).toLocaleString();
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    let allHighlights = [];
+
+    async function loadHighlights() {
+        const content = document.getElementById('content');
+        try {
+            const res = await fetch('/api/highlights');
+            allHighlights = await res.json();
+
+            if (allHighlights.length === 0) {
+                content.innerHTML = '<div class="empty">No pinned messages yet.<br>Click ☆ on chat messages in the Sessions page to pin them.</div>';
+                return;
+            }
+
+            const sessions = [...new Set(allHighlights.map(h => h.session || 'unknown'))].sort((a, b) => b.localeCompare(a));
+            const users = [...new Set(allHighlights.map(h => h.user))].sort((a, b) => a.localeCompare(b));
+
+            let html = `
+                <div class="stats-bar">
+                    <div class="stat"><span class="stat-val">${allHighlights.length}</span><span class="stat-label">highlights</span></div>
+                    <div class="stat"><span class="stat-val">${users.length}</span><span class="stat-label">users</span></div>
+                    <div class="stat"><span class="stat-val">${sessions.length}</span><span class="stat-label">sessions</span></div>
+                </div>
+                <div class="toolbar">
+                    <input type="text" id="search" placeholder="Search highlights..." oninput="filterHighlights()">
+                    <select id="session-filter" onchange="filterHighlights()">
+                        <option value="">All Sessions</option>
+                        ${sessions.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
+                    </select>
+                    <select id="user-filter" onchange="filterHighlights()">
+                        <option value="">All Users</option>
+                        ${users.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('')}
+                    </select>
+                    <div class="export-group">
+                        <span>Export:</span>
+                        <button class="btn" onclick="exportHighlights('txt')">TXT</button>
+                        <button class="btn" onclick="exportHighlights('tsv')">TSV</button>
+                        <button class="btn" onclick="exportHighlights('pdf')">PDF</button>
+                    </div>
+                </div>
+                <div id="results"></div>
+            `;
+            content.innerHTML = html;
+            filterHighlights();
+        } catch {
+            content.innerHTML = '<div class="empty">Failed to load highlights</div>';
+        }
+    }
+
+    function filterHighlights() {
+        const container = document.getElementById('results');
+        if (!container) return;
+
+        const query = (document.getElementById('search')?.value || '').toLowerCase();
+        const sessionFilter = document.getElementById('session-filter')?.value || '';
+        const userFilter = document.getElementById('user-filter')?.value || '';
+
+        let filtered = allHighlights;
+        if (sessionFilter) filtered = filtered.filter(h => (h.session || 'unknown') === sessionFilter);
+        if (userFilter) filtered = filtered.filter(h => h.user === userFilter);
+        if (query) {
+            filtered = filtered.filter(h =>
+                (h.user || '').toLowerCase().includes(query) ||
+                (h.message || '').toLowerCase().includes(query)
+            );
+        }
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<div class="empty">No highlights match your filters.</div>';
+            return;
+        }
+
+        const groups = {};
+        filtered.forEach(h => {
+            const s = h.session || 'unknown';
+            if (!groups[s]) groups[s] = [];
+            groups[s].push(h);
+        });
+
+        let html = '';
+        for (const [session, items] of Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]))) {
+            html += `<div class="session-group"><h3>${escapeHtml(session)} (${items.length})</h3>`;
+            html += items.map(h => {
+                let displayHtml = h.messageHtml ? sanitizeHtml(h.messageHtml) : escapeHtml(h.message);
+                displayHtml = linkifyText(displayHtml);
+                return `<div class="chat-msg">
+                    ${h.avatar ? `<img class="chat-avatar" src="${h.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
+                    <div class="chat-meta">
+                        <div><span class="chat-user">${escapeHtml(h.user)}</span>
+                        <button class="pin-btn pinned" onclick="unpinHighlight(this, ${h.ts}, '${escapeHtml(h.user)}')" title="Unpin">⭐</button></div>
+                        <div class="chat-text">${displayHtml}</div>
+                        <div class="chat-pinned-at">Pinned ${formatDate(h.pinnedAt)}</div>
+                    </div>
+                    <span class="chat-time">${formatTimestamp(h.ts)}</span>
+                </div>`;
+            }).join('');
+            html += '</div>';
+        }
+        container.innerHTML = html;
+    }
+
+    async function unpinHighlight(btn, ts, user) {
+        if (!confirm(`Unpin message from ${user}?`)) return;
+        try {
+            await fetch('/api/highlights', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ts, user })
+            });
+            allHighlights = allHighlights.filter(h => !(h.ts === ts && h.user === user));
+            showToast('Highlight removed');
+            filterHighlights();
+        } catch { showToast('Failed to unpin'); }
+    }
+
+    function exportHighlights(format) {
+        const sessionFilter = document.getElementById('session-filter')?.value || '';
+        const params = new URLSearchParams({ format });
+        if (sessionFilter) params.set('session', sessionFilter);
+        const a = document.createElement('a');
+        a.href = `/api/highlights/export?${params}`;
+        a.download = `highlights.${format}`;
+        a.click();
+    }
+
+    loadHighlights();
+    </script>
+</body>
+</html>

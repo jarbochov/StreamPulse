@@ -52,23 +52,8 @@
 <body>
     <div class="header">
         <h1>Stream Credits <span>Config</span></h1>
-        <div class="nav">
-            <a href="/dashboard.html">Dashboard</a>
-            <a href="/credits.html">Credits</a>
-            <a href="/credits.html?preview=true" target="_blank">Preview</a>
-            <a href="/stats.html">Stats</a>
-            <a href="/hashtags.html">Hashtags</a>
-            <div class="dropdown">
-                <a href="#" class="dropdown-toggle">Manage ▾</a>
-                <div class="dropdown-menu">
-                    <a href="/config-editor.html">⚙️ Config</a>
-                    <a href="/manage-hashtags.html">🏷️ Hashtag Tools</a>
-                    <a href="/sessions.html">📁 Sessions</a>
-                </div>
-            </div>
-            <a href="/api.html">API</a>
-            <a href="/docs.html">Docs</a>
-        </div>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
     </div>
 
     <div style="max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem;">
@@ -137,6 +122,10 @@
             <div class="cfg-toggle">
                 <input type="checkbox" id="cfg-chatlog-enabled" ${cfg.chat_log_enabled !== false ? 'checked' : ''}>
                 <label for="cfg-chatlog-enabled">Enable chat log capture</label>
+            </div>
+            <div class="cfg-toggle">
+                <input type="checkbox" id="cfg-auto-backup" ${cfg.auto_backup_on_session_end ? 'checked' : ''}>
+                <label for="cfg-auto-backup">Auto-backup on session end</label>
             </div>
             <div class="cfg-row">
                 <label>Exclude from Stats</label>
@@ -251,6 +240,43 @@
                 <br>Click to copy · Or use any emoji · <a href="https://fontawesome.com/search?o=r&m=free" target="_blank" style="color:#58a6ff;">Browse all FA icons ↗</a>
             </div>
 
+            <div class="cfg-section">Webhooks (Discord)</div>
+            <div class="cfg-toggle">
+                <input type="checkbox" id="cfg-wh-enabled" ${(cfg.webhooks || {}).enabled ? 'checked' : ''}>
+                <label for="cfg-wh-enabled">Enable Discord webhooks</label>
+            </div>
+            <div class="cfg-row">
+                <label>Discord URL</label>
+                <input type="text" id="cfg-wh-url" value="${escapeHtml((cfg.webhooks || {}).discord_url || '')}" placeholder="https://discord.com/api/webhooks/...">
+            </div>
+            <div class="cfg-row">
+                <label>Batch (seconds)</label>
+                <input type="number" id="cfg-wh-batch" value="${(cfg.webhooks || {}).batch_seconds || 5}" min="1" max="60">
+            </div>
+            <div style="font-size:0.8rem;color:#8b949e;margin-top:0.25rem;">Events to send:</div>
+            <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.25rem;">
+                ${['raid','subscribe','donation','bits','follow'].map(e => {
+                    const events = (cfg.webhooks || {}).events || ['raid','subscribe','donation','bits','follow'];
+                    return '<div class="cfg-toggle"><input type="checkbox" class="wh-event" value="' + e + '"' + (events.includes(e) ? ' checked' : '') + '><label>' + e + '</label></div>';
+                }).join('')}
+            </div>
+
+            <button class="btn" style="margin-top: 0.5rem;" onclick="testWebhook()">🔔 Test Webhook</button>
+
+            <div class="cfg-section">Rate Limiting</div>
+            <div class="cfg-toggle">
+                <input type="checkbox" id="cfg-rl-enabled" ${(cfg.rate_limit || {}).enabled ? 'checked' : ''}>
+                <label for="cfg-rl-enabled">Enable rate limiting</label>
+            </div>
+            <div class="cfg-row">
+                <label>Reads / min</label>
+                <input type="number" id="cfg-rl-reads" value="${(cfg.rate_limit || {}).requests_per_minute || 120}" min="1">
+            </div>
+            <div class="cfg-row">
+                <label>Mutations / min</label>
+                <input type="number" id="cfg-rl-mutations" value="${(cfg.rate_limit || {}).mutation_per_minute || 30}" min="1">
+            </div>
+
             <button class="btn wide" onclick="saveConfig()" style="margin-top: 0.5rem;">💾 Save Config</button>
         `;
     }
@@ -360,8 +386,20 @@
             active_subs_only: document.getElementById('cfg-active-subs').checked,
             hashtags_enabled: document.getElementById('cfg-hashtags-enabled').checked,
             chat_log_enabled: document.getElementById('cfg-chatlog-enabled').checked,
+            auto_backup_on_session_end: document.getElementById('cfg-auto-backup').checked,
             exclude_users: document.getElementById('cfg-exclude').value.split(',').map(s => s.trim()).filter(Boolean),
             banned_users: document.getElementById('cfg-banned').value.split(',').map(s => s.trim()).filter(Boolean),
+            webhooks: {
+                enabled: document.getElementById('cfg-wh-enabled').checked,
+                discord_url: document.getElementById('cfg-wh-url').value,
+                events: [...document.querySelectorAll('.wh-event:checked')].map(el => el.value),
+                batch_seconds: parseInt(document.getElementById('cfg-wh-batch').value) || 5
+            },
+            rate_limit: {
+                enabled: document.getElementById('cfg-rl-enabled').checked,
+                requests_per_minute: parseInt(document.getElementById('cfg-rl-reads').value) || 120,
+                mutation_per_minute: parseInt(document.getElementById('cfg-rl-mutations').value) || 30
+            },
             credits: {
                 header: {
                     title: document.getElementById('cfg-header-title').value,
@@ -398,6 +436,14 @@
                 showToast(data.error || 'Save failed');
             }
         } catch { showToast('Save failed'); }
+    }
+
+    async function testWebhook() {
+        try {
+            const res = await fetch('/api/webhook/test', { method: 'POST' });
+            const data = await res.json();
+            showToast(data.status === 'sent' ? 'Test webhook sent!' : (data.error || 'Webhook test failed'));
+        } catch { showToast('Webhook test failed'); }
     }
 
     let configLoaded = false;

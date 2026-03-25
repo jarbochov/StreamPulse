@@ -81,23 +81,8 @@
 <body>
     <div class="header">
         <h1>Stream Credits <span>API Reference</span></h1>
-        <div class="nav">
-            <a href="/dashboard.html">Dashboard</a>
-            <a href="/credits.html">Credits</a>
-            <a href="/credits.html?preview=true" target="_blank">Preview</a>
-            <a href="/stats.html">Stats</a>
-            <a href="/hashtags.html">Hashtags</a>
-            <div class="dropdown">
-                <a href="#" class="dropdown-toggle">Manage ▾</a>
-                <div class="dropdown-menu">
-                    <a href="/config-editor.html">⚙️ Config</a>
-                    <a href="/manage-hashtags.html">🏷️ Hashtag Tools</a>
-                    <a href="/sessions.html">📁 Sessions</a>
-                </div>
-            </div>
-            <a href="/api.html" class="active">API</a>
-            <a href="/docs.html">Docs</a>
-        </div>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
     </div>
 
     <div class="container">
@@ -253,7 +238,15 @@
                 {
                     method: 'GET', path: '/api/chat-log/search',
                     desc: 'Search chat messages across sessions',
-                    details: 'Query params: q (text search), user (filter by username), session ("all", "current", or specific filename), limit (default 200), offset (pagination). Prefix user search with @ in the sessions UI. Example: /api/chat-log/search?q=hello&limit=50'
+                    details: 'Query params: q (text search), user (filter by username), session ("all", "current", or specific filename), type ("links", "events", or "donations"), limit (default 200), offset (pagination). Prefix user search with @ in the sessions UI. Example: /api/chat-log/search?q=hello&limit=50&type=links',
+                    params: [
+                        { name: 'q', desc: 'Text search query', values: 'string', default: '—' },
+                        { name: 'user', desc: 'Filter by username', values: 'string', default: '—' },
+                        { name: 'session', desc: 'Session filter', values: 'all, current, filename', default: 'all' },
+                        { name: 'type', desc: 'Message type filter', values: 'links, events, donations', default: '— (all)' },
+                        { name: 'limit', desc: 'Max results', values: 'number', default: '200' },
+                        { name: 'offset', desc: 'Pagination offset', values: 'number', default: '0' }
+                    ]
                 },
                 {
                     method: 'GET', path: '/api/chat-log/export',
@@ -281,6 +274,71 @@
                     desc: 'Unban a hashtag',
                     details: 'Removes a hashtag from the banned list. Does NOT restore previously purged data. Send JSON body with { "tag": "#example" }.',
                     body: '{ "tag": "#example" }'
+                }
+            ]
+        },
+        {
+            section: 'Backup & Restore',
+            items: [
+                {
+                    method: 'GET', path: '/api/backup',
+                    desc: 'Download a full backup ZIP',
+                    details: 'Streams a ZIP file containing config.json, stats, sessions, highlights, and other data files. Excludes sensitive files (.twitch-token.json) and live session data (chat.json, chat-log.jsonl). Filename includes date: stream-credits-backup-YYYY-MM-DD.zip.'
+                },
+                {
+                    method: 'POST', path: '/api/restore',
+                    desc: 'Restore from a backup ZIP',
+                    details: 'Accepts a raw ZIP body (Content-Type: application/zip). Extracts and restores files to their correct locations, then reloads in-memory stats and config. The ZIP must contain at least data/stats.json to be valid.',
+                    body: '(raw ZIP binary body)'
+                }
+            ]
+        },
+        {
+            section: 'Highlights',
+            items: [
+                {
+                    method: 'GET', path: '/api/highlights',
+                    desc: 'List pinned/highlighted messages',
+                    details: 'Returns all highlighted messages. Supports optional ?session= query param to filter by session name.',
+                    params: [
+                        { name: 'session', desc: 'Filter by session name', values: 'session filename', default: '— (all)' }
+                    ]
+                },
+                {
+                    method: 'POST', path: '/api/highlights',
+                    desc: 'Pin a chat message',
+                    details: 'Adds a message to the highlights list. Body: { ts, user, message, messageHtml, avatar, session }. A pinnedAt timestamp is added automatically.',
+                    body: '{ "ts": 1234567890, "user": "viewer", "message": "hello", "session": "current" }'
+                },
+                {
+                    method: 'DELETE', path: '/api/highlights',
+                    desc: 'Unpin a chat message',
+                    details: 'Removes a highlight by ts and user. Body: { ts, user }.',
+                    body: '{ "ts": 1234567890, "user": "viewer" }'
+                },
+                {
+                    method: 'POST', path: '/api/highlights/pin-last',
+                    desc: 'Pin the last chat message',
+                    details: 'Pins the most recent message from the current session chat log. No request body needed. Ideal for Bitfocus Companion or Stream Deck integration. Returns the pinned user and message, or "already_pinned" if duplicate.'
+                },
+                {
+                    method: 'GET', path: '/api/highlights/export',
+                    desc: 'Export highlights',
+                    details: 'Download highlights in TXT, TSV, or PDF format. Supports optional session filter.',
+                    params: [
+                        { name: 'format', desc: 'Export format', values: 'txt, tsv, pdf', default: '— (required)' },
+                        { name: 'session', desc: 'Filter by session name', values: 'session filename', default: '— (all)' }
+                    ]
+                }
+            ]
+        },
+        {
+            section: 'Webhooks',
+            items: [
+                {
+                    method: 'POST', path: '/api/webhook/test',
+                    desc: 'Send a test Discord webhook',
+                    details: 'Sends a test embed to the configured Discord webhook URL. Requires webhooks to be enabled in config with a valid discord_url.'
                 }
             ]
         },
