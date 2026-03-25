@@ -29,9 +29,17 @@
       "donations": { "enabled": true, "title": "Donators", "subtitle": "" },
       "gift_subs": { "enabled": true, "title": "Gift Subs", "subtitle": "" },
       "cheerers": { "enabled": true, "title": "Cheerers", "subtitle": "" },
+      "raids": { "enabled": true, "title": "Raiders", "subtitle": "" },
       "emotes": { "enabled": true, "title": "Top Emotes", "subtitle": "" },
       "hashtags": { "enabled": true, "title": "Trending Hashtags", "subtitle": "" },
       "chatters": { "enabled": true, "title": "Today's Chatters", "subtitle": "" }
+    },
+    "special_thanks": {
+      "enabled": false,
+      "title": "Special Thanks",
+      "subtitle": "",
+      "columns": 1,
+      "names": []
     },
     "social": {
       "title": "Thanks for watching!",

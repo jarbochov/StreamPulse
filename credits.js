@@ -6,6 +6,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const DURATION = parseFloat(urlParams.get('duration')) || null;
 const SPEED_MULTIPLIER = parseFloat(urlParams.get('speed')) || null;
 const DATA_PATH = urlParams.get('datapath') || './data';
+const PREVIEW = urlParams.get('preview') === 'true';
 let DAYS_FILTER = parseInt(urlParams.get('days')) || 30;
 
 // Server-provided config (loaded at init)
@@ -24,6 +25,7 @@ let serverConfig = {
             donations: { enabled: true, title: 'Donators', subtitle: '' },
             gift_subs: { enabled: true, title: 'Gift Subs', subtitle: '' },
             cheerers: { enabled: true, title: 'Cheerers', subtitle: '' },
+            raids: { enabled: true, title: 'Raiders', subtitle: '' },
             emotes: { enabled: true, title: 'Top Emotes', subtitle: '' },
             hashtags: { enabled: true, title: 'Trending Hashtags', subtitle: '' },
             chatters: { enabled: true, title: "Today's Chatters", subtitle: '' }
@@ -54,6 +56,7 @@ const liveData = {
     giftSubs: [],
     bits: [],
     donations: [],
+    raids: [],
     hashtags: new Map(),
     emotes: new Map()
 };
@@ -121,88 +124,92 @@ function refreshData() {
     loadPrefetchedData();
 }
 
+// ============================================================================
+// WEBSOCKET LIVE DATA
+// ============================================================================
+
+let wsConnection = null;
+
+function connectWebSocket() {
+    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProto}//${window.location.host}`;
+    console.log(`[WS] Connecting to ${wsUrl}...`);
+
+    wsConnection = new WebSocket(wsUrl);
+
+    wsConnection.onopen = () => {
+        console.log('[WS] Connected — receiving live data');
+    };
+
+    wsConnection.onmessage = (event) => {
+        try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'snapshot' || msg.type === 'update') {
+                loadChatData(msg.data);
+            }
+        } catch (err) {
+            console.warn('[WS] Parse error:', err.message);
+        }
+    };
+
+    wsConnection.onclose = () => {
+        console.log('[WS] Disconnected — will reconnect in 5s');
+        setTimeout(connectWebSocket, 5000);
+    };
+
+    wsConnection.onerror = (err) => {
+        console.warn('[WS] Error:', err);
+    };
+}
+
+function disconnectWebSocket() {
+    if (wsConnection) {
+        wsConnection.onclose = null; // Prevent reconnect
+        wsConnection.close();
+        wsConnection = null;
+        console.log('[WS] Disconnected (credits rolling)');
+    }
+}
+
 function loadChatData(chatJson) {
-    // Merge chatters
+    // Replace data from server snapshot (not additive)
+    liveData.chatters.clear();
     if (chatJson.chatters) {
         Object.values(chatJson.chatters).forEach(chatter => {
-            if (!liveData.chatters.has(chatter.chatname)) {
-                liveData.chatters.set(chatter.chatname, {
-                    chatname: chatter.chatname,
-                    chatimg: chatter.chatimg,
-                    type: chatter.type,
-                    messageCount: chatter.messageCount || 0
-                });
-            } else {
-                liveData.chatters.get(chatter.chatname).messageCount += (chatter.messageCount || 0);
-            }
+            liveData.chatters.set(chatter.chatname, {
+                chatname: chatter.chatname,
+                chatimg: chatter.chatimg,
+                type: chatter.type,
+                messageCount: chatter.messageCount || 0
+            });
         });
     }
 
-    // Merge followers
-    if (chatJson.followers) {
-        chatJson.followers.forEach(f => {
-            liveData.followers.push({ chatname: f.chatname, chatimg: f.chatimg, timestamp: f.timestamp });
-        });
-    }
+    liveData.followers = (chatJson.followers || []).map(f => ({ chatname: f.chatname, chatimg: f.chatimg, timestamp: f.timestamp }));
+    liveData.subscribers = (chatJson.subscribers || []).map(s => ({ chatname: s.chatname, membership: s.membership, chatimg: s.chatimg }));
+    liveData.giftSubs = (chatJson.giftSubs || []).map(g => ({ chatname: g.chatname, chatimg: g.chatimg }));
+    liveData.bits = (chatJson.bits || []).map(b => ({ chatname: b.chatname, amount: b.amount, chatimg: b.chatimg }));
+    liveData.donations = (chatJson.donations || []).map(d => ({ chatname: d.chatname, amount: d.amount, chatimg: d.chatimg }));
+    liveData.raids = (chatJson.raids || []).map(r => ({ chatname: r.chatname, chatimg: r.chatimg, viewers: r.viewers }));
 
-    // Merge subscribers
-    if (chatJson.subscribers) {
-        chatJson.subscribers.forEach(s => {
-            liveData.subscribers.push({ chatname: s.chatname, membership: s.membership, chatimg: s.chatimg });
-        });
-    }
-
-    // Merge gift subs
-    if (chatJson.giftSubs) {
-        chatJson.giftSubs.forEach(g => {
-            liveData.giftSubs.push({ chatname: g.chatname, chatimg: g.chatimg });
-        });
-    }
-
-    // Merge bits
-    if (chatJson.bits) {
-        chatJson.bits.forEach(b => {
-            liveData.bits.push({ chatname: b.chatname, amount: b.amount, chatimg: b.chatimg });
-        });
-    }
-
-    // Merge donations
-    if (chatJson.donations) {
-        chatJson.donations.forEach(d => {
-            liveData.donations.push({ chatname: d.chatname, amount: d.amount, chatimg: d.chatimg });
-        });
-    }
-
-    // Merge emotes
+    liveData.emotes.clear();
     if (chatJson.emotes) {
         Object.entries(chatJson.emotes).forEach(([name, emote]) => {
-            if (!liveData.emotes.has(name)) {
-                liveData.emotes.set(name, {
-                    count: emote.count || 0,
-                    imageUrl: emote.imageUrl,
-                    users: new Set(emote.users || [])
-                });
-            } else {
-                const existing = liveData.emotes.get(name);
-                existing.count += (emote.count || 0);
-                (emote.users || []).forEach(u => existing.users.add(u));
-            }
+            liveData.emotes.set(name, {
+                count: emote.count || 0,
+                imageUrl: emote.imageUrl,
+                users: new Set(emote.users || [])
+            });
         });
     }
 
-    // Merge hashtags
+    liveData.hashtags.clear();
     if (chatJson.hashtags) {
         Object.entries(chatJson.hashtags).forEach(([tag, hashtag]) => {
-            if (!liveData.hashtags.has(tag)) {
-                liveData.hashtags.set(tag, {
-                    count: hashtag.count || 0,
-                    users: new Set(hashtag.users || [])
-                });
-            } else {
-                const existing = liveData.hashtags.get(tag);
-                existing.count += (hashtag.count || 0);
-                (hashtag.users || []).forEach(u => existing.users.add(u));
-            }
+            liveData.hashtags.set(tag, {
+                count: hashtag.count || 0,
+                users: new Set(hashtag.users || [])
+            });
         });
     }
 }
@@ -306,6 +313,18 @@ function renderCredits() {
         }
     }
 
+    // Raids
+    if (sec.raids && sec.raids.enabled !== false && liveData.raids.length > 0) {
+        html += '<div class="section">';
+        html += sectionHeader(sec.raids.title || 'Raiders', sec.raids.subtitle);
+        html += '<div class="people-list two-col">';
+        liveData.raids.forEach(r => {
+            const viewers = r.viewers ? ` (${r.viewers} viewers)` : '';
+            html += `<div class="person">${escapeHtml(r.chatname)}${viewers}</div>`;
+        });
+        html += '</div></div>';
+    }
+
     // Top Emotes
     if (sec.emotes.enabled !== false) {
         const topEmotes = getTopEmotes(5);
@@ -356,6 +375,19 @@ function renderCredits() {
         }
     }
 
+    // Special Thanks (manually curated)
+    const specialThanks = c.special_thanks || {};
+    if (specialThanks.enabled !== false && specialThanks.names && specialThanks.names.length > 0) {
+        const cols = specialThanks.columns === 2 ? 'two-col' : specialThanks.columns === 3 ? 'three-col' : '';
+        html += '<div class="section special-thanks">';
+        html += sectionHeader(specialThanks.title || 'Special Thanks', specialThanks.subtitle);
+        html += `<div class="people-list ${cols}">`;
+        specialThanks.names.forEach(name => {
+            html += `<div class="person">${escapeHtml(name)}</div>`;
+        });
+        html += '</div></div>';
+    }
+
     // Closing
     if (c.closing) {
         html += '<div class="section closing">';
@@ -382,6 +414,23 @@ function renderCredits() {
         socialHtml += '</div>';
     }
     socialLinksContainer.innerHTML = socialHtml;
+
+    // Preview mode — show everything statically, no scroll
+    if (PREVIEW) {
+        container.style.position = 'relative';
+        container.style.top = '0';
+        document.body.style.overflow = 'auto';
+        document.body.style.height = 'auto';
+        socialLinksContainer.style.position = 'relative';
+        socialLinksContainer.style.opacity = '1';
+        socialLinksContainer.style.bottom = 'auto';
+        socialLinksContainer.style.left = 'auto';
+        socialLinksContainer.style.transform = 'none';
+        socialLinksContainer.style.marginTop = '50px';
+        socialLinksContainer.style.marginBottom = '50px';
+        console.log('[Credits] Preview mode — no scrolling');
+        return;
+    }
 
     // Start scroll animation
     const creditsHeight = container.scrollHeight;
@@ -565,6 +614,9 @@ function startCredits() {
     if (creditsStarted) return;
     creditsStarted = true;
 
+    // Disconnect WebSocket — take a snapshot of data for the roll
+    disconnectWebSocket();
+
     console.log('[Credits] Starting credits roll!');
     console.log(`[Credits] Live data: ${liveData.chatters.size} chatters, ${liveData.emotes.size} emotes, ${liveData.hashtags.size} hashtags`);
 
@@ -592,6 +644,9 @@ async function init() {
     console.log('[Init] Active Subs Only:', serverConfig.active_subs_only);
 
     await loadPrefetchedData();
+
+    // Connect WebSocket for live data updates
+    connectWebSocket();
 
     startCredits();
 

@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Credits — Documentation</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .nav { display: flex; gap: 0.75rem; }
+        .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
+        .nav a:hover { color: #e1e4e8; background: #21262d; }
+        .nav a.active { color: #58a6ff; background: #1a2332; }
+
+        .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; }
+
+        .toc { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
+        .toc h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.5rem; }
+        .toc a { color: #58a6ff; text-decoration: none; font-size: 0.85rem; display: block; padding: 0.2rem 0; }
+        .toc a:hover { text-decoration: underline; }
+
+        .section-title { font-size: 1rem; font-weight: 600; color: #e1e4e8; margin: 2rem 0 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #30363d; scroll-margin-top: 1rem; }
+        .section-title:first-of-type { margin-top: 0.5rem; }
+
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
+        .card-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; cursor: pointer; user-select: none; }
+        .card-header:hover { background: #1c2128; }
+        .card-header .chevron { color: #484f58; font-size: 0.7rem; transition: transform 0.2s; margin-left: auto; flex-shrink: 0; }
+        .card.open .chevron { transform: rotate(90deg); }
+        .card-body { display: none; padding: 0 1rem 1rem; border-top: 1px solid #21262d; }
+        .card.open .card-body { display: block; padding-top: 0.75rem; }
+
+        .param-name { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85rem; color: #79c0ff; font-weight: 600; }
+        .param-desc { color: #8b949e; font-size: 0.8rem; }
+
+        .badge { font-size: 0.65rem; padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 600; vertical-align: middle; margin-left: 0.4rem; }
+        .badge.default { background: #1a2332; color: #58a6ff; border: 1px solid #30363d; }
+        .badge.required { background: #5a1e23; color: #f85149; border: 1px solid #f8514930; }
+        .badge.page { background: #1a3a1a; color: #3fb950; border: 1px solid #3fb95030; }
+        .badge.hot { background: #4a2f05; color: #d29922; border: 1px solid #d2992230; }
+
+        .detail-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.3rem; margin-top: 0.6rem; }
+        .detail-label:first-child { margin-top: 0; }
+        .detail-text { font-size: 0.85rem; color: #c9d1d9; line-height: 1.5; }
+
+        .code-block { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.6rem 0.75rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; color: #e1e4e8; margin-top: 0.35rem; overflow-x: auto; white-space: pre; }
+
+        .url-box { display: flex; align-items: center; gap: 0.5rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.5rem 0.75rem; margin-top: 0.35rem; }
+        .url-box code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; flex: 1; word-break: break-all; color: #e1e4e8; }
+        .copy-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.75rem; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+        .copy-btn:hover { border-color: #58a6ff; color: #e1e4e8; }
+        .copy-btn.copied { border-color: #3fb950; color: #3fb950; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.8rem; }
+        table th { text-align: left; color: #8b949e; font-weight: 600; padding: 0.5rem 0.75rem; background: #0d1117; border-bottom: 1px solid #30363d; }
+        table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #21262d; }
+        table code { background: #21262d; padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.8rem; }
+
+        .checklist { list-style: none; padding: 0; }
+        .checklist li { padding: 0.3rem 0; font-size: 0.85rem; }
+        .checklist li::before { content: '✅ '; }
+
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .header { flex-direction: column; gap: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Stream Credits <span>Documentation</span></h1>
+        <div class="nav">
+            <a href="/dashboard.html">Dashboard</a>
+            <a href="/credits.html">Credits</a>
+            <a href="/credits.html?preview=true" target="_blank">Preview</a>
+            <a href="/stats.html">Stats</a>
+            <a href="/sessions.html">Sessions</a>
+            <a href="/api.html">API</a>
+            <a href="/docs.html" class="active">Docs</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="toc">
+            <h2>Contents</h2>
+            <a href="#url-params">URL Parameters</a>
+            <a href="#config">config.json Reference</a>
+            <a href="#obs-setup">OBS Browser Source Setup</a>
+            <a href="#websocket">WebSocket Connection</a>
+            <a href="#data-files">Data Files & Persistence</a>
+            <a href="#companion">Bitfocus Companion Setup</a>
+        </div>
+
+        <div id="content"></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    const BASE = window.location.origin;
+
+    const sections = [
+        {
+            id: 'url-params',
+            title: 'URL Parameters',
+            groups: [
+                {
+                    name: 'credits.html — Credits Overlay',
+                    items: [
+                        { param: 'duration', type: 'number', default: '82', desc: 'Total scroll duration in seconds. Overrides speed parameter.', example: '?duration=120' },
+                        { param: 'speed', type: 'number', default: '1.0', desc: 'Speed multiplier. Scroll duration = 82 / speed. Ignored if duration is set.', example: '?speed=0.8' },
+                        { param: 'days', type: 'number', default: '30', desc: 'Filter credits data to the last N days.', example: '?days=7' },
+                        { param: 'datapath', type: 'string', default: './data', desc: 'Path to data directory. Rarely needed — server handles this.', example: '?datapath=./data' },
+                        { param: 'preview', type: 'boolean', default: 'false', desc: 'Show full credits layout without scrolling. Great for testing in OBS.', example: '?preview=true' }
+                    ]
+                },
+                {
+                    name: 'stats.html — Stats Overlay',
+                    items: [
+                        { param: 'days', type: 'number', default: '0 (all time)', desc: 'Filter stats to last N days.', example: '?days=30' },
+                        { param: 'date', type: 'string', default: '—', desc: 'Filter to a single date.', example: '?date=2026-03-14' },
+                        { param: 'from', type: 'string', default: '—', desc: 'Start date for date range filter.', example: '?from=2026-03-01' },
+                        { param: 'to', type: 'string', default: '—', desc: 'End date for date range filter.', example: '?to=2026-03-14' },
+                        { param: 'limit', type: 'number', default: '20', desc: 'Max items shown per category (chatters, emotes, hashtags).', example: '?limit=10' },
+                        { param: 'refresh', type: 'number', default: '60', desc: 'Auto-refresh interval in seconds.', example: '?refresh=30' }
+                    ]
+                },
+                {
+                    name: '/api/export — CSV Export',
+                    items: [
+                        { param: 'type', type: 'string', default: 'all', desc: 'Data type to export: chatters, emotes, hashtags, or all.', example: '?type=chatters' },
+                        { param: 'days', type: 'number', default: '0 (all time)', desc: 'Limit export to last N days.', example: '?days=30' },
+                        { param: 'date', type: 'string', default: '—', desc: 'Export single date.', example: '?date=2026-03-14' },
+                        { param: 'from', type: 'string', default: '—', desc: 'Start date for range export.', example: '?from=2026-03-01' },
+                        { param: 'to', type: 'string', default: '—', desc: 'End date for range export.', example: '?to=2026-03-14' }
+                    ]
+                }
+            ]
+        },
+        {
+            id: 'config',
+            title: 'config.json Reference',
+            groups: [
+                {
+                    name: 'Server & Connections',
+                    items: [
+                        { param: 'port', type: 'number', default: '8080', desc: 'HTTP and WebSocket server port.', restart: true },
+                        { param: 'broadcaster_id', type: 'string', default: '—', desc: 'Your Twitch broadcaster/channel ID. Required for Twitch API.', required: true, restart: true },
+                        { param: 'broadcaster_name', type: 'string', default: '""', desc: 'Display name (used in dashboard/logs).', restart: true },
+                        { param: 'twitch.client_id', type: 'string', default: '—', desc: 'Twitch application client ID for OAuth.', required: true, restart: true },
+                        { param: 'twitch.client_secret', type: 'string', default: '—', desc: 'Twitch application client secret.', required: true, restart: true },
+                        { param: 'ssn.session_id', type: 'string', default: '""', desc: 'SocialStream Ninja session ID. Required for live chat data.', restart: true },
+                        { param: 'ssn.server', type: 'string', default: 'wss://io.socialstream.ninja', desc: 'SSN WebSocket server URL. Rarely needs changing.', restart: true },
+                        { param: 'twitch_refresh_minutes', type: 'number', default: '10', desc: 'Auto-refresh interval for Twitch API data (subs, followers, bits).', restart: true }
+                    ]
+                },
+                {
+                    name: 'Filters & Behavior',
+                    note: 'These can be edited live from the dashboard config editor.',
+                    items: [
+                        { param: 'days_filter', type: 'number', default: '30', desc: 'Default days for filtering followers and stats. Can be overridden per-page via ?days= URL param.', hot: true },
+                        { param: 'subs_source', type: 'string', default: 'twitch', desc: 'Where to get subscriber data: "twitch" (API), "ssn" (live chat), or "both".', hot: true },
+                        { param: 'active_subs_only', type: 'boolean', default: 'false', desc: 'If true, only show subscribers who also sent a chat message this session.', hot: true },
+                        { param: 'exclude_users', type: 'array', default: '[]', desc: 'Usernames to exclude from all tracking. Case-insensitive. Comma-separated in dashboard.', hot: true }
+                    ]
+                },
+                {
+                    name: 'Credits Header',
+                    note: 'All hot-reloadable via dashboard config editor.',
+                    items: [
+                        { param: 'credits.header.title', type: 'string', default: '"Thank you for your support!"', desc: 'Main title displayed at the top of the credits roll.', hot: true },
+                        { param: 'credits.header.subtitle', type: 'string', default: '""', desc: 'Subtitle displayed below the title.', hot: true },
+                        { param: 'credits.header.image', type: 'string', default: '""', desc: 'URL to an image shown above the title (logo, avatar, etc).', hot: true }
+                    ]
+                },
+                {
+                    name: 'Credits Closing',
+                    items: [
+                        { param: 'credits.closing', type: 'string', default: '"Thanks for watching!"', desc: 'Closing text shown at the bottom of credits. Use \\n for line breaks.', hot: true }
+                    ]
+                },
+                {
+                    name: 'Credits Sections',
+                    note: 'Each section has enabled, title, and subtitle. Available sections: subscribers, followers, donations, gift_subs, cheerers, raids, emotes, hashtags, chatters.',
+                    items: [
+                        { param: 'credits.sections.{name}.enabled', type: 'boolean', default: 'true', desc: 'Show or hide this section in the credits roll.', hot: true },
+                        { param: 'credits.sections.{name}.title', type: 'string', default: '(varies)', desc: 'Display title for this credits section.', hot: true },
+                        { param: 'credits.sections.{name}.subtitle', type: 'string', default: '""', desc: 'Optional subtitle shown below the section title.', hot: true }
+                    ]
+                },
+                {
+                    name: 'Social Links',
+                    items: [
+                        { param: 'credits.social.title', type: 'string', default: '""', desc: 'Title shown above social links (e.g., "Find me online!").', hot: true },
+                        { param: 'credits.social.subtitle', type: 'string', default: '""', desc: 'Subtitle below the social title.', hot: true },
+                        { param: 'credits.social.links', type: 'array', default: '[]', desc: 'Array of { icon, handle } objects. Icon is a FontAwesome class (e.g., "fab fa-twitch") or an emoji.', hot: true }
+                    ]
+                }
+            ]
+        },
+        {
+            id: 'obs-setup',
+            title: 'OBS Browser Source Setup',
+            custom: true
+        },
+        {
+            id: 'websocket',
+            title: 'WebSocket Connection',
+            custom: true
+        },
+        {
+            id: 'data-files',
+            title: 'Data Files & Persistence',
+            custom: true
+        },
+        {
+            id: 'companion',
+            title: 'Bitfocus Companion Setup',
+            custom: true
+        }
+    ];
+
+    function render() {
+        const container = document.getElementById('content');
+        let html = '';
+
+        for (const section of sections) {
+            html += `<h2 class="section-title" id="${section.id}">${section.title}</h2>`;
+
+            if (section.custom) {
+                html += renderCustomSection(section.id);
+                continue;
+            }
+
+            for (const group of section.groups) {
+                html += `<div class="card open">
+                    <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                        <strong style="font-size:0.9rem;">${group.name}</strong>
+                        ${group.note ? `<span class="param-desc" style="margin-left:0.5rem;">${group.note}</span>` : ''}
+                        <span class="chevron">▶</span>
+                    </div>
+                    <div class="card-body">
+                        <table>
+                            <tr>
+                                <th>Parameter</th>
+                                <th>Type</th>
+                                <th>Default</th>
+                                <th>Description</th>
+                            </tr>
+                            ${group.items.map(item => `
+                                <tr>
+                                    <td>
+                                        <code>${item.param}</code>
+                                        ${item.required ? '<span class="badge required">Required</span>' : ''}
+                                        ${item.hot ? '<span class="badge hot">Hot-reload</span>' : ''}
+                                        ${item.restart ? '<span class="badge default">Restart</span>' : ''}
+                                    </td>
+                                    <td style="color:#8b949e;">${item.type}</td>
+                                    <td><code>${item.default}</code></td>
+                                    <td>${item.desc}${item.example ? `<div class="url-box" style="margin-top:0.3rem;"><code>${BASE}${item.example.replace('?', group.name.includes('credits.html') ? '/credits.html?' : group.name.includes('stats.html') ? '/stats.html?' : group.name.includes('export') ? '/api/export?' : '?')}</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}${item.example.replace('?', group.name.includes('credits.html') ? '/credits.html?' : group.name.includes('stats.html') ? '/stats.html?' : group.name.includes('export') ? '/api/export?' : '?')}')">Copy</button></div>` : ''}</td>
+                                </tr>
+                            `).join('')}
+                        </table>
+                    </div>
+                </div>`;
+            }
+        }
+
+        container.innerHTML = html;
+    }
+
+    function renderCustomSection(id) {
+        switch (id) {
+            case 'obs-setup': return `
+                <div class="card open">
+                    <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                        <strong style="font-size:0.9rem;">Credits Overlay</strong>
+                        <span class="chevron">▶</span>
+                    </div>
+                    <div class="card-body">
+                        <ul class="checklist">
+                            <li>In OBS → Scene → Add <strong>Browser</strong> source</li>
+                            <li>Set Width: <code>1920</code> and Height: <code>1080</code></li>
+                            <li>Set URL (copy below)</li>
+                            <li>Uncheck "Shutdown source when not visible" if triggering externally</li>
+                            <li>Use <code>?preview=true</code> to test layout without scrolling</li>
+                        </ul>
+                        <div class="detail-label">Basic URL</div>
+                        <div class="url-box"><code>${BASE}/credits.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/credits.html')">Copy</button></div>
+                        <div class="detail-label">With Custom Duration (120s) and 7-day filter</div>
+                        <div class="url-box"><code>${BASE}/credits.html?duration=120&days=7</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/credits.html?duration=120&days=7')">Copy</button></div>
+                        <div class="detail-label">Preview Mode (no scroll)</div>
+                        <div class="url-box"><code>${BASE}/credits.html?preview=true</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/credits.html?preview=true')">Copy</button></div>
+                    </div>
+                </div>
+                <div class="card open">
+                    <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                        <strong style="font-size:0.9rem;">Stats Overlay</strong>
+                        <span class="chevron">▶</span>
+                    </div>
+                    <div class="card-body">
+                        <ul class="checklist">
+                            <li>Add another <strong>Browser</strong> source</li>
+                            <li>Set Width: <code>1920</code> and Height: <code>1080</code></li>
+                            <li>Shows top chatters, emotes, and hashtags in a 3-column layout</li>
+                            <li>Auto-refreshes every 60 seconds by default</li>
+                        </ul>
+                        <div class="detail-label">Basic URL</div>
+                        <div class="url-box"><code>${BASE}/stats.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/stats.html')">Copy</button></div>
+                        <div class="detail-label">Top 10, last 7 days, refresh every 30s</div>
+                        <div class="url-box"><code>${BASE}/stats.html?limit=10&days=7&refresh=30</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/stats.html?limit=10&days=7&refresh=30')">Copy</button></div>
+                    </div>
+                </div>
+                <div class="card open">
+                    <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                        <strong style="font-size:0.9rem;">Troubleshooting</strong>
+                        <span class="chevron">▶</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="detail-text">
+                            <strong>Nothing showing?</strong> Right-click the Browser source → <em>Refresh cache of current page</em>. OBS aggressively caches.<br><br>
+                            <strong>Credits won't scroll?</strong> Make sure <code>?preview=true</code> is NOT in the URL. Credits start scrolling automatically on load.<br><br>
+                            <strong>Data stale?</strong> Check the dashboard for SSN and Twitch connection status. Hit "Fetch Twitch" to force a refresh.
+                        </div>
+                    </div>
+                </div>`;
+
+            case 'websocket': return `
+                <div class="card open">
+                    <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                        <strong style="font-size:0.9rem;">Overlay WebSocket (Server → Browser)</strong>
+                        <span class="chevron">▶</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="detail-text">The overlay (credits.js) automatically connects via WebSocket to receive live chat data updates. No configuration needed.</div>
+                        <div class="detail-label">WebSocket URL</div>
+                        <div class="url-box"><code>${BASE.replace('http','ws')}/</code><button class="copy-btn" onclick="copyUrl(this,'${BASE.replace('http','ws')}/')">Copy</button></div>
+                        <div class="detail-label">On Connect — Snapshot</div>
+                        <div class="code-block">{ "type": "snapshot", "data": { chatters, emotes, hashtags, ... } }</div>
+                        <div class="detail-label">Live Updates</div>
+                        <div class="code-block">{ "type": "update", "data": { chatters, emotes, hashtags, ... } }</div>
+                        <div class="detail-text" style="margin-top:0.5rem;color:#8b949e;">The credits overlay disconnects from the WebSocket when the scroll starts, locking in a snapshot of the data at that moment.</div>
+                    </div>
+                </div>
+                <div class="card open">
+                    <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                        <strong style="font-size:0.9rem;">SSN WebSocket (Server → SocialStream Ninja)</strong>
+                        <span class="chevron">▶</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="detail-text">The server connects to SocialStream Ninja to receive live chat, follow, sub, raid, and donation events.</div>
+                        <div class="detail-label">Requirements</div>
+                        <div class="detail-text">
+                            • Set <code>ssn.session_id</code> in config.json<br>
+                            • SSN dock page must be open in a browser tab<br>
+                            • SSN Global Settings → Mechanics → Toggle 1 and Toggle 3 must be enabled<br>
+                            • Auto-reconnects every 5 seconds if disconnected
+                        </div>
+                    </div>
+                </div>`;
+
+            case 'data-files': return `
+                <div class="card open">
+                    <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                        <strong style="font-size:0.9rem;">File Reference</strong>
+                        <span class="chevron">▶</span>
+                    </div>
+                    <div class="card-body">
+                        <table>
+                            <tr><th>File</th><th>Lifecycle</th><th>Description</th></tr>
+                            <tr><td><code>config.json</code></td><td>Persistent</td><td>All server and credits configuration. Editable via dashboard.</td></tr>
+                            <tr><td><code>data/chat.json</code></td><td>Per-session</td><td>Current session chat data. Archived and reset on session end or server restart.</td></tr>
+                            <tr><td><code>data/stats.json</code></td><td>Persistent</td><td>Cumulative stats with daily buckets. Survives restarts.</td></tr>
+                            <tr><td><code>data/.stats-backup-{1,2,3}.json</code></td><td>Rotating</td><td>3 most recent stats backups. Auto-restored if stats.json is corrupt.</td></tr>
+                            <tr><td><code>data/subs.json</code></td><td>Refreshed</td><td>Twitch subscriber list from API.</td></tr>
+                            <tr><td><code>data/bits.json</code></td><td>Refreshed</td><td>Twitch bits leaderboard from API.</td></tr>
+                            <tr><td><code>data/followers.json</code></td><td>Refreshed</td><td>Twitch recent followers from API.</td></tr>
+                            <tr><td><code>data/.twitch-token.json</code></td><td>Persistent</td><td>OAuth token (auto-refreshes). Not committed to git.</td></tr>
+                            <tr><td><code>data/.banned-hashtags.json</code></td><td>Persistent</td><td>List of banned hashtags.</td></tr>
+                            <tr><td><code>data/sessions/*.json</code></td><td>Archive</td><td>Archived chat data from previous sessions.</td></tr>
+                        </table>
+                    </div>
+                </div>`;
+
+            case 'companion': return `
+                <div class="card open">
+                    <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                        <strong style="font-size:0.9rem;">Setup Guide</strong>
+                        <span class="chevron">▶</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="detail-text">
+                            Use the <strong>Generic HTTP</strong> module in Bitfocus Companion to trigger API endpoints from physical buttons.
+                        </div>
+                        <div class="detail-label">Steps</div>
+                        <div class="detail-text">
+                            1. Add a <strong>Generic HTTP</strong> connection<br>
+                            2. Set Base URL to <code>${BASE}</code><br>
+                            3. Create buttons with <strong>GET</strong> requests to the paths below<br>
+                            4. Or use full URLs (copy from below)
+                        </div>
+                    </div>
+                </div>
+                <div class="card open">
+                    <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                        <strong style="font-size:0.9rem;">Recommended Buttons</strong>
+                        <span class="chevron">▶</span>
+                    </div>
+                    <div class="card-body">
+                        <table>
+                            <tr><th>Button Label</th><th>URL</th><th></th></tr>
+                            <tr><td>▶ Start Session</td><td><code>/api/start-session</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/start-session')">Copy URL</button></td></tr>
+                            <tr><td>🏁 End Session</td><td><code>/api/end-session</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/end-session')">Copy URL</button></td></tr>
+                            <tr><td>🔄 Refresh Twitch</td><td><code>/api/fetch</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/fetch')">Copy URL</button></td></tr>
+                            <tr><td>🗑 Reset Chat</td><td><code>/api/reset</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/reset')">Copy URL</button></td></tr>
+                            <tr><td>📊 Reset Stats</td><td><code>/api/stats/reset</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/stats/reset')">Copy URL</button></td></tr>
+                            <tr><td>⏻ Shutdown</td><td><code>/api/shutdown</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/shutdown')">Copy URL</button></td></tr>
+                            <tr><td>📋 Status Check</td><td><code>/api/status</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/status')">Copy URL</button></td></tr>
+                        </table>
+                    </div>
+                </div>`;
+
+            default: return '';
+        }
+    }
+
+    function copyUrl(btn, text) {
+        navigator.clipboard.writeText(text).then(() => {
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+        });
+    }
+
+    render();
+    </script>
+</body>
+</html>

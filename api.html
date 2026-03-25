@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Credits — API Reference</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .nav { display: flex; gap: 0.75rem; }
+        .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
+        .nav a:hover { color: #e1e4e8; background: #21262d; }
+        .nav a.active { color: #58a6ff; background: #1a2332; }
+
+        .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; }
+
+        .intro { color: #8b949e; margin-bottom: 1.5rem; font-size: 0.9rem; line-height: 1.5; }
+        .intro code { background: #21262d; padding: 0.15rem 0.4rem; border-radius: 4px; color: #e1e4e8; font-size: 0.85rem; }
+
+        .section-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: #58a6ff; margin: 2rem 0 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #21262d; }
+        .section-title:first-of-type { margin-top: 0; }
+
+        .endpoint { background: #161b22; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
+        .endpoint-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; cursor: pointer; user-select: none; }
+        .endpoint-header:hover { background: #1c2128; }
+        .method { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px; padding: 0.2rem 0.5rem; border-radius: 4px; min-width: 52px; text-align: center; flex-shrink: 0; }
+        .method.get { background: #0d419d; color: #79c0ff; }
+        .method.post { background: #1a4731; color: #3fb950; }
+        .method.put { background: #4a2f05; color: #d29922; }
+        .method.delete { background: #5a1e23; color: #f85149; }
+        .method.ws { background: #2d1b4e; color: #bc8cff; }
+        .endpoint-path { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85rem; flex: 1; }
+        .endpoint-desc { color: #8b949e; font-size: 0.8rem; }
+        .endpoint-chevron { color: #484f58; font-size: 0.7rem; transition: transform 0.2s; }
+        .endpoint.open .endpoint-chevron { transform: rotate(90deg); }
+
+        .endpoint-body { display: none; padding: 0 1rem 1rem; border-top: 1px solid #21262d; }
+        .endpoint.open .endpoint-body { display: block; padding-top: 0.75rem; }
+
+        .detail-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.35rem; margin-top: 0.75rem; }
+        .detail-label:first-child { margin-top: 0; }
+        .detail-text { font-size: 0.85rem; color: #c9d1d9; line-height: 1.5; }
+
+        .url-box { display: flex; align-items: center; gap: 0.5rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.5rem 0.75rem; margin-top: 0.35rem; }
+        .url-box code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; flex: 1; word-break: break-all; color: #e1e4e8; }
+        .copy-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.75rem; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+        .copy-btn:hover { border-color: #58a6ff; color: #e1e4e8; }
+        .copy-btn.copied { border-color: #3fb950; color: #3fb950; }
+
+        .param-table { width: 100%; border-collapse: collapse; margin-top: 0.35rem; font-size: 0.8rem; }
+        .param-table th { text-align: left; color: #8b949e; font-weight: 600; padding: 0.4rem 0.75rem; background: #0d1117; }
+        .param-table td { padding: 0.4rem 0.75rem; border-top: 1px solid #21262d; }
+        .param-table code { background: #21262d; padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.8rem; }
+
+        .companion-badge { display: inline-block; font-size: 0.65rem; background: #1a2332; color: #58a6ff; border: 1px solid #30363d; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.5rem; vertical-align: middle; }
+
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
+        .toast.show { opacity: 1; }
+
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .header { flex-direction: column; gap: 0.5rem; }
+            .endpoint-header { flex-wrap: wrap; }
+            .endpoint-desc { width: 100%; margin-top: 0.25rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Stream Credits <span>API Reference</span></h1>
+        <div class="nav">
+            <a href="/dashboard.html">Dashboard</a>
+            <a href="/credits.html">Credits</a>
+            <a href="/credits.html?preview=true" target="_blank">Preview</a>
+            <a href="/stats.html">Stats</a>
+            <a href="/sessions.html">Sessions</a>
+            <a href="/api.html" class="active">API</a>
+            <a href="/docs.html">Docs</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="intro">
+            Base URL: <code id="base-url">http://localhost:8080</code>
+            — All endpoints return JSON unless noted. Use these URLs directly in
+            <strong>Bitfocus Companion</strong> Generic HTTP module actions.
+        </div>
+
+        <div id="endpoints"></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    const BASE = window.location.origin;
+    document.getElementById('base-url').textContent = BASE;
+
+    const endpoints = [
+        {
+            section: 'Session Lifecycle',
+            items: [
+                {
+                    method: 'GET', path: '/api/status',
+                    desc: 'Server health, connections, session stats, hourly volume',
+                    companion: true,
+                    details: 'Returns uptime, SSN connection state, Twitch token status, overlay client count, session counters, sessionActive flag, and hourly message volume data.'
+                },
+                {
+                    method: 'GET', path: '/api/start-session',
+                    desc: 'Start a new session (reset data, re-fetch Twitch)',
+                    companion: true,
+                    details: 'Resets all chat data, sets a new startedAt timestamp, marks sessionActive=true, and triggers a Twitch API refresh. Use after ending a session to begin a new stream.'
+                },
+                {
+                    method: 'GET', path: '/api/end-session',
+                    desc: 'Archive session data and reset for next stream',
+                    companion: true,
+                    details: 'Saves current chat data, archives it to data/sessions/, resets all counters, and marks sessionActive=false. Server keeps running — call /api/start-session when ready.'
+                },
+                {
+                    method: 'GET', path: '/api/shutdown',
+                    desc: 'Archive session and gracefully stop the server',
+                    companion: true,
+                    details: 'Archives session data then shuts down the Node.js process. The server will need to be restarted with npm start.'
+                },
+                {
+                    method: 'GET', path: '/api/reset',
+                    desc: 'Clear session chat data without archiving',
+                    companion: true,
+                    details: 'Resets all in-memory chat data (chatters, emotes, hashtags, subs, etc.) without archiving. Does not affect persistent stats.'
+                }
+            ]
+        },
+        {
+            section: 'Twitch',
+            items: [
+                {
+                    method: 'GET', path: '/api/fetch',
+                    desc: 'Trigger Twitch API data refresh',
+                    companion: true,
+                    details: 'Fetches subscribers, followers, bits, and cheerers from the Twitch API using the stored OAuth token. Returns counts of each data type fetched.'
+                },
+                {
+                    method: 'GET', path: '/auth/twitch',
+                    desc: 'Start Twitch OAuth authorization flow',
+                    details: 'Opens the Twitch authorization page. After approval, redirects to /auth/callback which stores the token. Open this in a browser — not suitable for Companion.'
+                }
+            ]
+        },
+        {
+            section: 'Configuration',
+            items: [
+                {
+                    method: 'GET', path: '/api/config',
+                    desc: 'Get current config (sections, social links, options)',
+                    details: 'Returns the full credits configuration including section titles, subtitles, enabled/disabled state, social links, header, closing, and filter settings.'
+                },
+                {
+                    method: 'PUT', path: '/api/config',
+                    desc: 'Update config (hot-reload, no restart needed)',
+                    details: 'Accepts JSON body with editable fields: days_filter, subs_source, active_subs_only, exclude_users, and credits (sections, header, closing, social_links). Saves to config.json and hot-reloads immediately.',
+                    body: '{\n  "credits": {\n    "header": { "title": "My Stream" },\n    "sections": { "chatters": { "enabled": true, "title": "Chatters" } }\n  }\n}'
+                }
+            ]
+        },
+        {
+            section: 'Stats & Data',
+            items: [
+                {
+                    method: 'GET', path: '/api/stats',
+                    desc: 'Raw persistent stats JSON (daily buckets)',
+                    details: 'Returns the full stats.json with cumulative daily-bucketed data for chatters, emotes, hashtags, subscribers, followers, raids, giftSubs, bits, and donations.'
+                },
+                {
+                    method: 'GET', path: '/api/stats/reset',
+                    desc: 'Clear all persistent stats',
+                    companion: true,
+                    details: 'Resets the entire stats.json to empty. This cannot be undone (but auto-backups exist in data/.stats-backup-*.json).'
+                },
+                {
+                    method: 'POST', path: '/api/stats/migrate',
+                    desc: 'Migrate stats from old format to daily buckets',
+                    details: 'Converts legacy flat-count stats format to the daily bucket format. Use the /migrate.html page for a guided migration experience.'
+                },
+                {
+                    method: 'GET', path: '/api/export',
+                    desc: 'Export stats as CSV',
+                    details: 'Downloads a CSV file of stats data. Supports date filtering.',
+                    params: [
+                        { name: 'type', desc: 'Data type to export', values: 'chatters, emotes, hashtags, all', default: 'all' },
+                        { name: 'days', desc: 'Limit to last N days', values: 'number', default: '0 (all time)' },
+                        { name: 'date', desc: 'Single date filter', values: 'YYYY-MM-DD', default: '—' },
+                        { name: 'from', desc: 'Start date for range', values: 'YYYY-MM-DD', default: '—' },
+                        { name: 'to', desc: 'End date for range', values: 'YYYY-MM-DD', default: '—' }
+                    ]
+                }
+            ]
+        },
+        {
+            section: 'Sessions',
+            items: [
+                {
+                    method: 'GET', path: '/api/sessions',
+                    desc: 'List archived session files',
+                    details: 'Returns an array of archived session filenames (e.g., chat-2026-03-14-19-30.json), sorted newest first.'
+                },
+                {
+                    method: 'GET', path: '/api/sessions/:file',
+                    desc: 'Get a specific archived session\'s data',
+                    details: 'Returns the full chat data JSON for a specific archived session. Replace :file with the filename from /api/sessions.'
+                }
+            ]
+        },
+        {
+            section: 'Hashtag Moderation',
+            items: [
+                {
+                    method: 'GET', path: '/api/hashtags/banned',
+                    desc: 'List banned hashtags and active session hashtags',
+                    details: 'Returns { banned: [...], session: [{ tag, count }] } with all currently banned hashtags and active session hashtags with their counts.'
+                },
+                {
+                    method: 'POST', path: '/api/hashtags/banned',
+                    desc: 'Ban a hashtag',
+                    details: 'Bans a hashtag and purges it from both session chat data and persistent stats. Send JSON body with { "tag": "#example" }.',
+                    body: '{ "tag": "#example" }'
+                },
+                {
+                    method: 'DELETE', path: '/api/hashtags/banned',
+                    desc: 'Unban a hashtag',
+                    details: 'Removes a hashtag from the banned list. Does NOT restore previously purged data. Send JSON body with { "tag": "#example" }.',
+                    body: '{ "tag": "#example" }'
+                }
+            ]
+        },
+        {
+            section: 'WebSocket',
+            items: [
+                {
+                    method: 'WS', path: '/',
+                    desc: 'Live chatData push to overlay clients',
+                    details: 'Connect via WebSocket to receive live chat data updates. On connect, receives a { type: "snapshot", data: chatData } message. Subsequent updates arrive as { type: "update", data: chatData }. The overlay (credits.js) uses this for real-time data.',
+                    wsUrl: true
+                }
+            ]
+        }
+    ];
+
+    function render() {
+        const container = document.getElementById('endpoints');
+        container.innerHTML = endpoints.map(section => `
+            <div class="section-title">${section.section}</div>
+            ${section.items.map((ep, i) => {
+                const id = `ep-${section.section.replace(/\s/g, '')}-${i}`;
+                const methodClass = ep.method.toLowerCase();
+                const fullUrl = ep.wsUrl ? BASE.replace('http', 'ws') + ep.path : BASE + ep.path;
+                return `
+                <div class="endpoint" id="${id}">
+                    <div class="endpoint-header" onclick="toggleEndpoint('${id}')">
+                        <span class="method ${methodClass}">${ep.method}</span>
+                        <span class="endpoint-path">${ep.path}</span>
+                        <span class="endpoint-desc">${ep.desc}${ep.companion ? '<span class=companion-badge>Companion</span>' : ''}</span>
+                        <span class="endpoint-chevron">▶</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <div class="detail-label">Description</div>
+                        <div class="detail-text">${ep.details}</div>
+
+                        ${ep.companion ? `
+                        <div class="detail-label">Bitfocus Companion URL</div>
+                        <div class="url-box">
+                            <code>${fullUrl}</code>
+                            <button class="copy-btn" onclick="copyUrl(this, '${fullUrl}')">Copy</button>
+                        </div>
+                        ` : !ep.wsUrl ? `
+                        <div class="detail-label">URL</div>
+                        <div class="url-box">
+                            <code>${fullUrl}</code>
+                            <button class="copy-btn" onclick="copyUrl(this, '${fullUrl}')">Copy</button>
+                        </div>
+                        ` : `
+                        <div class="detail-label">WebSocket URL</div>
+                        <div class="url-box">
+                            <code>${fullUrl}</code>
+                            <button class="copy-btn" onclick="copyUrl(this, '${fullUrl}')">Copy</button>
+                        </div>
+                        `}
+
+                        ${ep.params ? `
+                        <div class="detail-label">Query Parameters</div>
+                        <table class="param-table">
+                            <tr><th>Param</th><th>Description</th><th>Values</th><th>Default</th></tr>
+                            ${ep.params.map(p => `<tr><td><code>${p.name}</code></td><td>${p.desc}</td><td>${p.values}</td><td>${p.default}</td></tr>`).join('')}
+                        </table>
+                        ` : ''}
+
+                        ${ep.body ? `
+                        <div class="detail-label">Request Body</div>
+                        <div class="url-box" style="white-space: pre; font-size: 0.8rem;">
+                            <code>${ep.body}</code>
+                            <button class="copy-btn" onclick="copyUrl(this, \`${ep.body.replace(/`/g, '\\`')}\`)">Copy</button>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>`;
+            }).join('')}
+        `).join('');
+    }
+
+    function toggleEndpoint(id) {
+        document.getElementById(id).classList.toggle('open');
+    }
+
+    function copyUrl(btn, text) {
+        navigator.clipboard.writeText(text).then(() => {
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = 'Copy';
+                btn.classList.remove('copied');
+            }, 1500);
+        });
+    }
+
+    render();
+    </script>
+</body>
+</html>

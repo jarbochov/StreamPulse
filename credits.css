@@ -131,6 +131,23 @@ h3 {
     line-height: 150%;
 }
 
+.special-thanks .person {
+    font-size: 4vw;
+    padding: 14px 0;
+}
+
+.special-thanks .people-list .person {
+    flex-basis: 100%;
+}
+
+.special-thanks .people-list.two-col .person {
+    flex-basis: 50%;
+}
+
+.special-thanks .people-list.three-col .person {
+    flex-basis: 33.333%;
+}
+
 .emote-item {
     display: inline-block;
     margin: 20px 30px;

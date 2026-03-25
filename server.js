@@ -18,7 +18,7 @@ if (!fs.existsSync(CONFIG_PATH)) {
     process.exit(1);
 }
 
-const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+let config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 const PORT = config.port || 8080;
 const BROADCASTER_ID = config.broadcaster_id;
 const BROADCASTER_NAME = config.broadcaster_name || '';
@@ -31,6 +31,23 @@ const REFRESH_MINUTES = config.twitch_refresh_minutes || 10;
 const SUBS_SOURCE = config.subs_source || 'twitch';       // "twitch", "ssn", or "both"
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = path.join(__dirname, 'data');
+const BANNED_HASHTAGS_PATH = path.join(DATA_DIR, '.banned-hashtags.json');
+
+// Session state
+let sessionActive = true;
+
+// Load banned hashtags (persisted across restarts)
+let bannedHashtags = new Set();
+try {
+    if (fs.existsSync(BANNED_HASHTAGS_PATH)) {
+        bannedHashtags = new Set(JSON.parse(fs.readFileSync(BANNED_HASHTAGS_PATH, 'utf8')));
+        console.log(`[Config] Loaded ${bannedHashtags.size} banned hashtags`);
+    }
+} catch { /* start fresh */ }
+
+function saveBannedHashtags() {
+    fs.writeFileSync(BANNED_HASHTAGS_PATH, JSON.stringify([...bannedHashtags], null, 2));
+}
 
 function openBrowser(url) {
     const cmd = process.platform === 'darwin' ? 'open' :
@@ -249,8 +266,10 @@ const chatData = {
     giftSubs: [],
     bits: [],
     donations: [],
+    raids: [],
     hashtags: {},
     emotes: {},
+    hourlyMessages: {},
     startedAt: new Date().toISOString(),
     lastUpdated: null,
     messageCount: 0
@@ -279,11 +298,34 @@ function loadStats() {
             statsData = JSON.parse(fs.readFileSync(STATS_PATH, 'utf8'));
             console.log(`[Stats] Loaded: ${Object.keys(statsData.chatters).length} chatters, ${Object.keys(statsData.emotes).length} emotes, ${Object.keys(statsData.hashtags).length} hashtags`);
         }
-    } catch { console.warn('[Stats] Could not load stats.json — starting fresh'); }
+    } catch (err) {
+        console.warn(`[Stats] stats.json corrupt: ${err.message} — attempting backup restore`);
+        // Try rotating backups (most recent first)
+        for (let i = 1; i <= 3; i++) {
+            const backupPath = path.join(DATA_DIR, `.stats-backup-${i}.json`);
+            try {
+                if (fs.existsSync(backupPath)) {
+                    statsData = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+                    console.log(`[Stats] Restored from backup ${i}`);
+                    saveStats();
+                    return;
+                }
+            } catch { /* try next */ }
+        }
+        console.warn('[Stats] No valid backups found — starting fresh');
+    }
 }
 
+let statsBackupRotation = 1;
+
 function saveStats() {
-    fs.writeFileSync(STATS_PATH, JSON.stringify(statsData, null, 2));
+    const data = JSON.stringify(statsData, null, 2);
+    fs.writeFileSync(STATS_PATH, data);
+
+    // Rotating backup (cycles through 1, 2, 3)
+    const backupPath = path.join(DATA_DIR, `.stats-backup-${statsBackupRotation}.json`);
+    fs.writeFileSync(backupPath, data);
+    statsBackupRotation = (statsBackupRotation % 3) + 1;
 }
 
 function updateStats(chatname, msg) {
@@ -389,6 +431,7 @@ function updateStats(chatname, msg) {
         if (hashtags) {
             hashtags.forEach(h => {
                 const normalized = h.toLowerCase();
+                if (bannedHashtags.has(normalized)) return;
                 if (!statsData.hashtags[normalized]) {
                     statsData.hashtags[normalized] = { firstUsed: nowISO, lastUsed: nowISO, days: {} };
                 }
@@ -396,6 +439,15 @@ function updateStats(chatname, msg) {
                 statsData.hashtags[normalized].lastUsed = now;
             });
         }
+    }
+
+    // Track raids in stats
+    if (msg.event === 'raid') {
+        if (!statsData.raids[chatname]) {
+            statsData.raids[chatname] = { firstSeen: nowISO, lastSeen: nowISO, days: {} };
+        }
+        statsData.raids[chatname].days[today] = (statsData.raids[chatname].days[today] || 0) + 1;
+        statsData.raids[chatname].lastSeen = nowISO;
     }
 }
 
@@ -407,6 +459,50 @@ function saveChatData() {
     fs.writeFileSync(path.join(DATA_DIR, 'chat.json'), JSON.stringify(chatData, null, 2));
 }
 
+function archiveSession() {
+    const chatPath = path.join(DATA_DIR, 'chat.json');
+    try {
+        if (fs.existsSync(chatPath)) {
+            const prevChat = JSON.parse(fs.readFileSync(chatPath, 'utf8'));
+            if (prevChat.messageCount > 0) {
+                if (!fs.existsSync(SESSIONS_DIR)) {
+                    fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+                }
+                const sessionDate = (prevChat.startedAt || new Date().toISOString()).slice(0, 10);
+                let archiveName = `chat-${sessionDate}.json`;
+                let counter = 2;
+                while (fs.existsSync(path.join(SESSIONS_DIR, archiveName))) {
+                    archiveName = `chat-${sessionDate}-${counter}.json`;
+                    counter++;
+                }
+                fs.copyFileSync(chatPath, path.join(SESSIONS_DIR, archiveName));
+                console.log(`[Session] Archived → data/sessions/${archiveName}`);
+                return archiveName;
+            }
+        }
+    } catch (err) {
+        console.warn('[Session] Could not archive:', err.message);
+    }
+    return null;
+}
+
+function resetChatData() {
+    chatData.chatters = {};
+    chatData.followers = [];
+    chatData.subscribers = [];
+    chatData.giftSubs = [];
+    chatData.bits = [];
+    chatData.donations = [];
+    chatData.raids = [];
+    chatData.hashtags = {};
+    chatData.emotes = {};
+    chatData.hourlyMessages = {};
+    chatData.messageCount = 0;
+    chatData.startedAt = new Date().toISOString();
+    chatData.lastUpdated = null;
+    saveChatData();
+}
+
 function processChatMessage(msg) {
     if (msg.bot === true) return;
     const chatname = msg.chatname;
@@ -414,6 +510,11 @@ function processChatMessage(msg) {
     if (EXCLUDE_USERS.includes(chatname.toLowerCase())) return;
 
     chatData.messageCount++;
+
+    // Track hourly message volume
+    const hour = new Date().toISOString().slice(0, 13); // "YYYY-MM-DDTHH"
+    chatData.hourlyMessages[hour] = (chatData.hourlyMessages[hour] || 0) + 1;
+
     updateStats(chatname, msg);
 
     // Track chatters (only regular messages, not events)
@@ -457,6 +558,18 @@ function processChatMessage(msg) {
         }
     }
 
+    // Track raids
+    if (msg.event === 'raid' || (msg.chatmessage && msg.chatmessage.toLowerCase().includes('raid'))) {
+        if (msg.event === 'raid') {
+            const alreadyRaided = chatData.raids.some(r => r.chatname === chatname);
+            if (!alreadyRaided) {
+                const viewers = msg.chatmessage ? (msg.chatmessage.match(/(\d+)/) || [])[1] : null;
+                chatData.raids.push({ chatname, chatimg: msg.chatimg, viewers: viewers ? parseInt(viewers) : null, timestamp: Date.now() });
+                console.log(`[SSN] Raid: ${chatname}${viewers ? ` with ${viewers} viewers` : ''}`);
+            }
+        }
+    }
+
     if (msg.chatmessage) {
         // Debug: log raw chatmessage to see emote format
         if (msg.chatmessage.includes('<img')) {
@@ -489,6 +602,7 @@ function processChatMessage(msg) {
         if (hashtags) {
             hashtags.forEach(tag => {
                 const normalized = tag.toLowerCase();
+                if (bannedHashtags.has(normalized)) return;
                 if (!chatData.hashtags[normalized]) {
                     chatData.hashtags[normalized] = { count: 0, users: [] };
                 }
@@ -500,6 +614,8 @@ function processChatMessage(msg) {
         }
     }
 
+    // Broadcast update to connected overlay clients
+    broadcastToOverlays('update', chatData);
 }
 
 function connectSSN() {
@@ -608,12 +724,49 @@ const server = http.createServer(async (req, res) => {
 
     // API endpoints
     if (pathname === '/api/config') {
+        if (req.method === 'PUT') {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', () => {
+                try {
+                    const updates = JSON.parse(body);
+                    const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+
+                    // Only allow safe fields to be edited
+                    const safeFields = ['days_filter', 'subs_source', 'active_subs_only', 'exclude_users', 'credits'];
+                    for (const key of safeFields) {
+                        if (updates[key] !== undefined) {
+                            current[key] = updates[key];
+                        }
+                    }
+
+                    fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
+
+                    // Hot-reload config vars
+                    config.credits = current.credits;
+                    config.days_filter = current.days_filter;
+                    config.subs_source = current.subs_source;
+                    config.active_subs_only = current.active_subs_only;
+                    config.exclude_users = current.exclude_users;
+
+                    console.log('[Config] Updated and hot-reloaded');
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ status: 'saved', message: 'Config updated and applied' }));
+                } catch (err) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message }));
+                }
+            });
+            return;
+        }
+
+        // GET — return editable config fields
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
-            subs_source: SUBS_SOURCE,
-            active_subs_only: ACTIVE_SUBS_ONLY,
+            subs_source: config.subs_source || 'twitch',
+            active_subs_only: config.active_subs_only || false,
             broadcaster_name: BROADCASTER_NAME,
-            exclude_users: EXCLUDE_USERS,
+            exclude_users: config.exclude_users || [],
             days_filter: config.days_filter || 30,
             credits: config.credits || {}
         }));
@@ -636,13 +789,20 @@ const server = http.createServer(async (req, res) => {
                 messages: chatData.messageCount,
                 chatters: Object.keys(chatData.chatters).length,
                 emotes: Object.keys(chatData.emotes).length,
-                hashtags: Object.keys(chatData.hashtags).length
+                hashtags: Object.keys(chatData.hashtags).length,
+                raids: chatData.raids.length,
+                subscribers: chatData.subscribers.length,
+                followers: chatData.followers.length
             },
             twitch: {
                 broadcaster_id: BROADCASTER_ID || null,
                 hasToken: !!twitchAccessToken,
                 refreshMinutes: REFRESH_MINUTES
-            }
+            },
+            overlayClients: overlayClients.size,
+            sessionActive,
+            startedAt: chatData.startedAt,
+            hourlyMessages: chatData.hourlyMessages
         };
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(status, null, 2));
@@ -650,20 +810,54 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/reset') {
-        chatData.chatters = {};
-        chatData.followers = [];
-        chatData.subscribers = [];
-        chatData.giftSubs = [];
-        chatData.bits = [];
-        chatData.donations = [];
-        chatData.hashtags = {};
-        chatData.emotes = {};
-        chatData.messageCount = 0;
-        chatData.startedAt = new Date().toISOString();
-        saveChatData();
+        resetChatData();
+        broadcastToOverlays('update', chatData);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'reset', message: 'Chat data cleared' }));
         console.log('[API] Chat data reset');
+        return;
+    }
+
+    if (pathname === '/api/end-session') {
+        saveChatData();
+        saveStats();
+        const archiveName = archiveSession();
+        resetChatData();
+        sessionActive = false;
+        broadcastToOverlays('update', chatData);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ended', archived: archiveName, message: 'Session archived and reset. Server still running.' }));
+        console.log('[API] Session ended — ready for next stream');
+        return;
+    }
+
+    if (pathname === '/api/start-session') {
+        resetChatData();
+        sessionActive = true;
+        broadcastToOverlays('update', chatData);
+        // Re-fetch Twitch data for the new session
+        if (twitchAccessToken && BROADCASTER_ID) {
+            fetchTwitchData();
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'started', startedAt: chatData.startedAt, message: 'New session started.' }));
+        console.log('[API] New session started');
+        return;
+    }
+
+    if (pathname === '/api/shutdown') {
+        saveChatData();
+        saveStats();
+        const archiveName = archiveSession();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'shutting_down', archived: archiveName, message: 'Server shutting down...' }));
+        console.log('[API] Shutdown requested');
+        setTimeout(() => {
+            if (ssnSocket) ssnSocket.close();
+            server.close();
+            console.log('[Server] Goodbye!');
+            process.exit(0);
+        }, 500);
         return;
     }
 
@@ -685,6 +879,80 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ status: 'reset', message: 'Stats data cleared' }));
         console.log('[API] Stats data reset');
         return;
+    }
+
+    // Hashtag moderation endpoints
+    if (pathname === '/api/hashtags/banned') {
+        if (req.method === 'GET') {
+            // List all banned hashtags + current session/stats hashtags
+            const sessionHashtags = Object.entries(chatData.hashtags || {})
+                .map(([tag, d]) => ({ tag, count: d.count || 0, source: 'session' }))
+                .sort((a, b) => b.count - a.count);
+            const statsHashtags = Object.entries(statsData.hashtags || {})
+                .map(([tag, d]) => {
+                    const total = d.days ? Object.values(d.days).reduce((s, c) => s + c, 0) : 0;
+                    return { tag, count: total, source: 'stats' };
+                })
+                .sort((a, b) => b.count - a.count);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ banned: [...bannedHashtags], session: sessionHashtags, stats: statsHashtags }));
+            return;
+        }
+
+        if (req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', () => {
+                try {
+                    const { tag } = JSON.parse(body);
+                    if (!tag) throw new Error('Missing tag');
+                    const normalized = tag.toLowerCase().startsWith('#') ? tag.toLowerCase() : `#${tag.toLowerCase()}`;
+
+                    bannedHashtags.add(normalized);
+                    saveBannedHashtags();
+
+                    // Purge from session chat data
+                    delete chatData.hashtags[normalized];
+                    saveChatData();
+
+                    // Purge from persistent stats
+                    delete statsData.hashtags[normalized];
+                    saveStats();
+
+                    broadcastToOverlays('update', chatData);
+                    console.log(`[Moderation] Banned hashtag: ${normalized}`);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ status: 'banned', tag: normalized }));
+                } catch (err) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message }));
+                }
+            });
+            return;
+        }
+
+        if (req.method === 'DELETE') {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', () => {
+                try {
+                    const { tag } = JSON.parse(body);
+                    if (!tag) throw new Error('Missing tag');
+                    const normalized = tag.toLowerCase().startsWith('#') ? tag.toLowerCase() : `#${tag.toLowerCase()}`;
+
+                    bannedHashtags.delete(normalized);
+                    saveBannedHashtags();
+
+                    console.log(`[Moderation] Unbanned hashtag: ${normalized}`);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ status: 'unbanned', tag: normalized }));
+                } catch (err) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message }));
+                }
+            });
+            return;
+        }
     }
 
     if (pathname === '/api/stats/migrate' && req.method === 'POST') {
@@ -726,6 +994,100 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    if (pathname === '/api/export') {
+        const params = new URL(req.url, `http://localhost`).searchParams;
+        const type = params.get('type') || 'all';
+        const days = parseInt(params.get('days')) || 0;
+        const date = params.get('date') || '';
+        const from = params.get('from') || '';
+        const to = params.get('to') || '';
+
+        // Determine date range
+        let range = null;
+        if (date) {
+            range = { from: date, to: date };
+        } else if (from || to) {
+            range = { from: from || '1970-01-01', to: to || '9999-12-31' };
+        } else if (days) {
+            const now = new Date();
+            const cutoff = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate() - days).padStart(2, '0')}`;
+            const fromDate = new Date(Date.now() - days * 86400000);
+            range = { from: `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, '0')}-${String(fromDate.getDate()).padStart(2, '0')}`, to: '9999-12-31' };
+        }
+
+        function sumBuckets(days, range) {
+            if (!days) return 0;
+            let total = 0;
+            for (const [d, count] of Object.entries(days)) {
+                if (!range || (d >= range.from && d <= range.to)) total += count;
+            }
+            return total;
+        }
+
+        let csv = '';
+        const types = type === 'all' ? ['chatters', 'emotes', 'hashtags', 'subscribers', 'followers', 'bits', 'donations', 'raids'] : [type];
+
+        for (const t of types) {
+            const data = statsData[t];
+            if (!data || typeof data !== 'object') continue;
+
+            if (t === 'chatters') {
+                csv += 'type,name,count,first_seen,last_seen\n';
+                Object.entries(data).forEach(([name, d]) => {
+                    const count = sumBuckets(d.days, range);
+                    if (count > 0) csv += `chatter,"${name}",${count},${d.firstSeen || ''},${d.lastSeen || ''}\n`;
+                });
+            } else if (t === 'emotes') {
+                csv += 'type,name,count,first_used,last_used\n';
+                Object.entries(data).forEach(([name, d]) => {
+                    const count = sumBuckets(d.days, range);
+                    if (count > 0) csv += `emote,"${name}",${count},${d.firstUsed || ''},${d.lastUsed || ''}\n`;
+                });
+            } else if (t === 'hashtags') {
+                csv += 'type,name,count,first_used,last_used\n';
+                Object.entries(data).forEach(([tag, d]) => {
+                    const count = sumBuckets(d.days, range);
+                    if (count > 0) csv += `hashtag,"${tag}",${count},${d.firstUsed || ''},${d.lastUsed || ''}\n`;
+                });
+            } else if (t === 'bits') {
+                csv += 'type,name,amount,first_seen,last_seen\n';
+                Object.entries(data).forEach(([name, d]) => {
+                    const amount = sumBuckets(d.days, range);
+                    if (amount > 0) csv += `bits,"${name}",${amount},${d.firstSeen || ''},${d.lastSeen || ''}\n`;
+                });
+            } else {
+                csv += `type,name,count,first_seen,last_seen\n`;
+                Object.entries(data).forEach(([name, d]) => {
+                    const count = sumBuckets(d.days, range);
+                    if (count > 0) csv += `${t},"${name}",${count},${d.firstSeen || ''},${d.lastSeen || ''}\n`;
+                });
+            }
+            csv += '\n';
+        }
+
+        const filename = `stats-export-${type}-${new Date().toISOString().slice(0, 10)}.csv`;
+        res.writeHead(200, {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': `attachment; filename="${filename}"`
+        });
+        res.end(csv);
+        return;
+    }
+
+    // Serve individual session files
+    const sessionMatch = pathname.match(/^\/api\/sessions\/(.+\.json)$/);
+    if (sessionMatch) {
+        const sessionFile = path.join(SESSIONS_DIR, sessionMatch[1]);
+        if (!sessionFile.startsWith(SESSIONS_DIR) || !fs.existsSync(sessionFile)) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Session not found' }));
+            return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(fs.readFileSync(sessionFile, 'utf8'));
+        return;
+    }
+
     // Static file serving
     let filePath = pathname === '/' ? '/credits.html' : pathname;
     filePath = path.join(__dirname, filePath);
@@ -763,42 +1125,48 @@ console.log('============================================');
 console.log('  Stream Credits Server');
 console.log('============================================');
 
+// WebSocket server for live overlay push
+const overlayWss = new WebSocket.Server({ server });
+const overlayClients = new Set();
+
+overlayWss.on('connection', (ws) => {
+    overlayClients.add(ws);
+    console.log(`[WS] Overlay client connected (${overlayClients.size} total)`);
+
+    // Send current data snapshot immediately
+    ws.send(JSON.stringify({ type: 'snapshot', data: chatData }));
+
+    ws.on('close', () => {
+        overlayClients.delete(ws);
+        console.log(`[WS] Overlay client disconnected (${overlayClients.size} total)`);
+    });
+});
+
+function broadcastToOverlays(type, payload) {
+    const msg = JSON.stringify({ type, data: payload });
+    for (const client of overlayClients) {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(msg);
+        }
+    }
+}
+
 server.listen(PORT, () => {
-    console.log(`  HTTP:    http://localhost:${PORT}`);
-    console.log(`  Credits: http://localhost:${PORT}/credits.html`);
-    console.log(`  Stats:   http://localhost:${PORT}/stats.html`);
-    console.log(`  Migrate: http://localhost:${PORT}/migrate.html`);
-    console.log(`  Status:  http://localhost:${PORT}/api/status`);
-    console.log(`  Fetch:   http://localhost:${PORT}/api/fetch`);
-    console.log(`  Reset:   http://localhost:${PORT}/api/reset`);
+    console.log(`  HTTP:      http://localhost:${PORT}`);
+    console.log(`  Credits:   http://localhost:${PORT}/credits.html`);
+    console.log(`  Stats:     http://localhost:${PORT}/stats.html`);
+    console.log(`  Dashboard: http://localhost:${PORT}/dashboard.html`);
+    console.log(`  Sessions:  http://localhost:${PORT}/sessions.html`);
+    console.log(`  Migrate:   http://localhost:${PORT}/migrate.html`);
+    console.log(`  Export:    http://localhost:${PORT}/api/export?type=all`);
+    console.log(`  WebSocket: ws://localhost:${PORT} (overlay push)`);
     console.log('============================================\n');
 
     // Archive previous session's chat data before clearing
-    const chatPath = path.join(DATA_DIR, 'chat.json');
-    try {
-        if (fs.existsSync(chatPath)) {
-            const prevChat = JSON.parse(fs.readFileSync(chatPath, 'utf8'));
-            if (prevChat.messageCount > 0) {
-                if (!fs.existsSync(SESSIONS_DIR)) {
-                    fs.mkdirSync(SESSIONS_DIR, { recursive: true });
-                }
-                const sessionDate = (prevChat.startedAt || new Date().toISOString()).slice(0, 10);
-                let archiveName = `chat-${sessionDate}.json`;
-                let counter = 2;
-                while (fs.existsSync(path.join(SESSIONS_DIR, archiveName))) {
-                    archiveName = `chat-${sessionDate}-${counter}.json`;
-                    counter++;
-                }
-                fs.copyFileSync(chatPath, path.join(SESSIONS_DIR, archiveName));
-                console.log(`[Startup] Archived previous session → data/sessions/${archiveName}`);
-            }
-        }
-    } catch (err) {
-        console.warn('[Startup] Could not archive previous chat:', err.message);
-    }
+    archiveSession();
 
     // Auto-clear session chat data on startup
-    saveChatData();
+    resetChatData();
     console.log('[Startup] Chat data cleared for new session');
 
     // Load persistent stats

@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Credits — Dashboard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .nav { display: flex; gap: 0.75rem; }
+        .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
+        .nav a:hover { color: #e1e4e8; background: #21262d; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; padding: 1.5rem 2rem; max-width: 960px; margin: 0 auto; }
+        .full-width { grid-column: 1 / -1; }
+
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; }
+        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 1rem; }
+
+        .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+        .stat { text-align: center; padding: 0.75rem; background: #0d1117; border-radius: 6px; }
+        .stat .value { font-size: 1.8rem; font-weight: 700; color: #58a6ff; }
+        .stat .label { font-size: 0.75rem; color: #8b949e; margin-top: 0.25rem; }
+        .stat.wide { grid-column: 1 / -1; }
+
+        .indicator { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; font-size: 0.9rem; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .dot.green { background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+        .dot.red { background: #f85149; box-shadow: 0 0 6px #f85149; }
+        .dot.yellow { background: #d29922; box-shadow: 0 0 6px #d29922; }
+
+        .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .btn { padding: 0.6rem 1rem; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #e1e4e8; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-align: center; }
+        .btn:hover { border-color: #58a6ff; background: #1a2332; }
+        .btn.danger { border-color: #f8514950; }
+        .btn.danger:hover { border-color: #f85149; background: #2d1b1e; }
+        .btn.wide { grid-column: 1 / -1; }
+
+        .chatters-list { max-height: 300px; overflow-y: auto; }
+        .chatter { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0; border-bottom: 1px solid #21262d; font-size: 0.85rem; }
+        .chatter:last-child { border-bottom: none; }
+        .chatter img { width: 24px; height: 24px; border-radius: 50%; }
+        .chatter .name { flex: 1; }
+        .chatter .count { color: #8b949e; font-size: 0.8rem; }
+
+        .event-log { max-height: 200px; overflow-y: auto; font-size: 0.8rem; }
+        .event { padding: 0.3rem 0; border-bottom: 1px solid #21262d; color: #8b949e; }
+        .event .type { color: #58a6ff; font-weight: 600; }
+        .event .time { color: #484f58; }
+
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
+        .toast.show { opacity: 1; }
+
+        .hashtag-list { display: flex; flex-wrap: wrap; gap: 0.4rem; max-height: 200px; overflow-y: auto; }
+        .hashtag-pill { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-size: 0.8rem; cursor: default; }
+        .hashtag-pill .tag { font-weight: 600; }
+        .hashtag-pill .count { opacity: 0.7; font-size: 0.75rem; }
+        .hashtag-pill .ban-btn { background: none; border: none; color: inherit; opacity: 0.5; cursor: pointer; font-size: 0.75rem; padding: 0 0.15rem; }
+        .hashtag-pill .ban-btn:hover { opacity: 1; }
+        .hashtag-pill.active { background: #1a2332; border: 1px solid #30363d; color: #58a6ff; }
+        .hashtag-pill.banned { background: #2d1b1e; border: 1px solid #f8514950; color: #f85149; }
+        .hashtag-pill.banned .unban-btn { background: none; border: none; color: #f85149; opacity: 0.6; cursor: pointer; font-size: 0.75rem; padding: 0 0.15rem; }
+        .hashtag-pill.banned .unban-btn:hover { opacity: 1; }
+        .toast.show { opacity: 1; }
+
+        .bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 0; }
+        .bar { background: #1f6feb; border-radius: 2px 2px 0 0; width: 100%; min-height: 2px; transition: height 0.3s; }
+        .bar-label { font-size: 0.55rem; color: #484f58; margin-top: 0.25rem; writing-mode: vertical-rl; max-height: 40px; overflow: hidden; }
+        .bar-count { font-size: 0.6rem; color: #8b949e; margin-bottom: 0.15rem; }
+
+        .cfg-row { display: flex; align-items: center; gap: 0.75rem; }
+        .cfg-row label { font-size: 0.85rem; color: #8b949e; min-width: 120px; }
+        .cfg-row input, .cfg-row select, .cfg-row textarea { flex: 1; padding: 0.4rem 0.6rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.85rem; font-family: inherit; }
+        .cfg-row textarea { min-height: 60px; resize: vertical; }
+        .cfg-section { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #58a6ff; padding-top: 0.5rem; border-top: 1px solid #21262d; }
+        .cfg-toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #8b949e; }
+        .cfg-toggle input[type="checkbox"] { accent-color: #58a6ff; }
+
+        @media (max-width: 768px) {
+            .grid { padding: 1rem; }
+            .header { flex-direction: column; gap: 0.5rem; }
+            .cfg-row { flex-direction: column; align-items: stretch; }
+            .cfg-row label { min-width: unset; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Stream Credits <span>Dashboard</span></h1>
+        <div class="nav">
+            <a href="/dashboard.html">Dashboard</a>
+            <a href="/credits.html">Credits</a>
+            <a href="/credits.html?preview=true" target="_blank">Preview</a>
+            <a href="/stats.html">Stats</a>
+            <a href="/sessions.html">Sessions</a>
+            <a href="/api.html">API</a>
+            <a href="/docs.html">Docs</a>
+        </div>
+    </div>
+
+    <div class="grid">
+        <!-- Connection Status -->
+        <div class="card">
+            <h2>Server Status</h2>
+            <div id="server-status">
+                <div class="indicator">
+                    <div class="dot" id="dot-server"></div>
+                    <span>Server: <span id="uptime">—</span></span>
+                </div>
+                <div class="indicator">
+                    <div class="dot" id="dot-ssn"></div>
+                    <span>SSN WebSocket: <span id="ssn-status">—</span></span>
+                </div>
+                <div class="indicator">
+                    <div class="dot" id="dot-twitch"></div>
+                    <span>Twitch Token: <span id="twitch-status">—</span></span>
+                </div>
+                <div class="indicator">
+                    <div class="dot" id="dot-ws"></div>
+                    <span>Overlay Clients: <span id="ws-clients">0</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Session Stats -->
+        <div class="card">
+            <h2>Current Session</h2>
+            <div class="status-grid">
+                <div class="stat">
+                    <div class="value" id="stat-messages">0</div>
+                    <div class="label">Messages</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="stat-chatters">0</div>
+                    <div class="label">Chatters</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="stat-emotes">0</div>
+                    <div class="label">Emotes</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="stat-hashtags">0</div>
+                    <div class="label">Hashtags</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="stat-subs">0</div>
+                    <div class="label">Subscribers</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="stat-followers">0</div>
+                    <div class="label">Followers</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="stat-raids">0</div>
+                    <div class="label">Raids</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="stat-donations">0</div>
+                    <div class="label">Donations</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card">
+            <h2>Quick Actions</h2>
+            <div class="actions">
+                <button class="btn" onclick="fetchTwitch()">🔄 Fetch Twitch</button>
+                <button class="btn" onclick="reauthTwitch()">🔑 Re-auth Twitch</button>
+                <button class="btn danger" onclick="resetChat()">🗑 Reset Chat</button>
+                <button class="btn danger" onclick="resetStats()">📊 Reset Stats</button>
+                <a class="btn wide" href="/api/export?type=all" download>📥 Export CSV (All Stats)</a>
+            </div>
+            <div style="border-top: 1px solid #30363d; margin-top: 0.75rem; padding-top: 0.75rem;">
+                <h2 style="margin-bottom: 0.5rem;">Session Lifecycle</h2>
+                <div class="actions">
+                    <button class="btn" id="session-toggle-btn" onclick="toggleSession()" style="border-color: #d2992250;">🏁 End Session</button>
+                    <button class="btn danger" onclick="shutdownServer()">⏻ Shutdown</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Message Volume -->
+        <div class="card full-width">
+            <h2>Message Volume (Hourly)</h2>
+            <div id="volume-chart" style="display: flex; align-items: flex-end; gap: 2px; height: 120px; padding-top: 0.5rem;">
+                <div class="empty" style="width: 100%;">No message data yet</div>
+            </div>
+        </div>
+
+        <!-- Active Chatters -->
+        <div class="card full-width">
+            <h2>Active Chatters <span id="chatter-count" style="color: #58a6ff;"></span></h2>
+            <div class="chatters-list" id="chatters-list">
+                <div style="color: #484f58; padding: 1rem; text-align: center;">No chatters yet</div>
+            </div>
+        </div>
+
+        <!-- Hashtag Moderation -->
+        <div class="card full-width">
+            <h2>Hashtag Moderation</h2>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                <input type="text" id="ban-input" placeholder="#hashtag" style="flex: 1; padding: 0.5rem 0.75rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.9rem;">
+                <button class="btn" onclick="banHashtag()" style="white-space: nowrap;">🚫 Ban</button>
+            </div>
+
+            <div id="banned-list" style="margin-bottom: 1.25rem;"></div>
+
+            <h3 style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.75rem;">Active Hashtags (Session)</h3>
+            <div id="session-hashtags" class="hashtag-list">
+                <div style="color: #484f58; text-align: center; padding: 0.5rem; font-size: 0.85rem;">No hashtags yet</div>
+            </div>
+        </div>
+
+        <!-- Config Editor -->
+        <div class="card full-width">
+            <h2>Config Editor</h2>
+            <div id="config-editor" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <div class="empty">Loading config...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    let refreshInterval;
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function formatUptime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        if (h > 0) return `${h}h ${m}m ${s}s`;
+        if (m > 0) return `${m}m ${s}s`;
+        return `${s}s`;
+    }
+
+    async function refresh() {
+        try {
+            const res = await fetch('/api/status');
+            if (!res.ok) throw new Error('Status fetch failed');
+            const data = await res.json();
+
+            // Server
+            document.getElementById('dot-server').className = 'dot green';
+            document.getElementById('uptime').textContent = formatUptime(data.uptime);
+
+            // SSN
+            const ssnDot = document.getElementById('dot-ssn');
+            const ssnText = document.getElementById('ssn-status');
+            if (data.ssn.connected) {
+                ssnDot.className = 'dot green';
+                ssnText.textContent = `Connected (${data.ssn.session})`;
+            } else if (data.ssn.session) {
+                ssnDot.className = 'dot red';
+                ssnText.textContent = 'Disconnected';
+            } else {
+                ssnDot.className = 'dot yellow';
+                ssnText.textContent = 'Not configured';
+            }
+
+            // Twitch
+            const twitchDot = document.getElementById('dot-twitch');
+            const twitchText = document.getElementById('twitch-status');
+            if (data.twitch.hasToken) {
+                twitchDot.className = 'dot green';
+                twitchText.textContent = 'Active';
+            } else {
+                twitchDot.className = 'dot red';
+                twitchText.textContent = 'Not authenticated';
+            }
+
+            // WebSocket clients
+            document.getElementById('dot-ws').className = data.overlayClients > 0 ? 'dot green' : 'dot yellow';
+            document.getElementById('ws-clients').textContent = data.overlayClients;
+
+            // Session stats
+            document.getElementById('stat-messages').textContent = data.ssn.messages.toLocaleString();
+            document.getElementById('stat-chatters').textContent = data.ssn.chatters;
+            document.getElementById('stat-emotes').textContent = data.ssn.emotes;
+            document.getElementById('stat-hashtags').textContent = data.ssn.hashtags;
+            document.getElementById('stat-subs').textContent = data.ssn.subscribers || 0;
+            document.getElementById('stat-followers').textContent = data.ssn.followers || 0;
+            document.getElementById('stat-raids').textContent = data.ssn.raids || 0;
+            document.getElementById('stat-donations').textContent = 0;
+
+            // Volume chart
+            renderVolumeChart(data.hourlyMessages || {});
+
+            // Session toggle button
+            const toggleBtn = document.getElementById('session-toggle-btn');
+            _sessionActive = data.sessionActive;
+            if (_sessionActive) {
+                toggleBtn.textContent = '🏁 End Session';
+                toggleBtn.style.borderColor = '#d2992250';
+            } else {
+                toggleBtn.textContent = '▶ Start Session';
+                toggleBtn.style.borderColor = '#23883050';
+            }
+
+        } catch {
+            document.getElementById('dot-server').className = 'dot red';
+            document.getElementById('uptime').textContent = 'Offline';
+        }
+
+        // Fetch chatters
+        try {
+            const chatRes = await fetch('/data/chat.json');
+            if (chatRes.ok) {
+                const chatData = await chatRes.json();
+                renderChatters(chatData.chatters || {});
+                document.getElementById('stat-donations').textContent = (chatData.donations || []).length + (chatData.bits || []).length;
+            }
+        } catch { /* ignore */ }
+
+        // Fetch hashtag moderation data
+        try {
+            const hashRes = await fetch('/api/hashtags/banned');
+            if (hashRes.ok) {
+                const hashData = await hashRes.json();
+                renderBannedHashtags(hashData.banned || []);
+                renderSessionHashtags(hashData.session || [], hashData.banned || []);
+            }
+        } catch { /* ignore */ }
+    }
+
+    function renderChatters(chatters) {
+        const list = document.getElementById('chatters-list');
+        const entries = Object.values(chatters).sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0));
+        document.getElementById('chatter-count').textContent = entries.length > 0 ? `(${entries.length})` : '';
+
+        if (entries.length === 0) {
+            list.innerHTML = '<div style="color: #484f58; padding: 1rem; text-align: center;">No chatters yet</div>';
+            return;
+        }
+
+        list.innerHTML = entries.map(c => `
+            <div class="chatter">
+                ${c.chatimg ? `<img src="${c.chatimg}" alt="" onerror="this.style.display='none'">` : '<div style="width:24px;height:24px;border-radius:50%;background:#21262d;"></div>'}
+                <span class="name">${escapeHtml(c.chatname)}</span>
+                <span class="count">${c.messageCount || 0} msgs</span>
+            </div>
+        `).join('');
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str || '';
+        return div.innerHTML;
+    }
+
+    async function fetchTwitch() {
+        showToast('Fetching Twitch data...');
+        try {
+            const res = await fetch('/api/fetch');
+            const data = await res.json();
+            showToast(`Twitch: ${data.subs || 0} subs, ${data.followers || 0} followers`);
+        } catch { showToast('Fetch failed'); }
+    }
+
+    function reauthTwitch() {
+        window.open('/auth/twitch', '_blank');
+        showToast('Opening Twitch auth...');
+    }
+
+    async function resetChat() {
+        if (!confirm('Reset all chat data for this session?')) return;
+        try {
+            await fetch('/api/reset');
+            showToast('Chat data reset');
+            refresh();
+        } catch { showToast('Reset failed'); }
+    }
+
+    async function resetStats() {
+        if (!confirm('Reset ALL persistent stats? This cannot be undone.')) return;
+        try {
+            await fetch('/api/stats/reset');
+            showToast('Stats reset');
+            refresh();
+        } catch { showToast('Reset failed'); }
+    }
+
+    function renderBannedHashtags(banned) {
+        const el = document.getElementById('banned-list');
+        if (banned.length === 0) {
+            el.innerHTML = '<div style="color: #484f58; font-size: 0.8rem;">No banned hashtags</div>';
+            return;
+        }
+        el.innerHTML = '<div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.5rem;">Banned</div>' +
+            '<div class="hashtag-list">' + banned.map(tag =>
+                `<span class="hashtag-pill banned">
+                    <span class="tag">${escapeHtml(tag)}</span>
+                    <button class="unban-btn" onclick="unbanHashtag('${escapeHtml(tag)}')" title="Unban">✕</button>
+                </span>`
+            ).join('') + '</div>';
+    }
+
+    function renderSessionHashtags(hashtags, banned) {
+        const el = document.getElementById('session-hashtags');
+        const filtered = hashtags.filter(h => !banned.includes(h.tag));
+        if (filtered.length === 0) {
+            el.innerHTML = '<div style="color: #484f58; text-align: center; padding: 0.5rem; font-size: 0.85rem;">No hashtags yet</div>';
+            return;
+        }
+        el.innerHTML = filtered.map(h =>
+            `<span class="hashtag-pill active">
+                <span class="tag">${escapeHtml(h.tag)}</span>
+                <span class="count">×${h.count}</span>
+                <button class="ban-btn" onclick="banHashtagDirect('${escapeHtml(h.tag)}')" title="Ban">🚫</button>
+            </span>`
+        ).join('');
+    }
+
+    async function banHashtag() {
+        const input = document.getElementById('ban-input');
+        const tag = input.value.trim();
+        if (!tag) return;
+        try {
+            const res = await fetch('/api/hashtags/banned', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag })
+            });
+            const data = await res.json();
+            if (data.status === 'banned') {
+                showToast(`Banned ${data.tag}`);
+                input.value = '';
+                refresh();
+            } else {
+                showToast(data.error || 'Failed');
+            }
+        } catch { showToast('Ban failed'); }
+    }
+
+    async function banHashtagDirect(tag) {
+        try {
+            const res = await fetch('/api/hashtags/banned', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag })
+            });
+            const data = await res.json();
+            if (data.status === 'banned') {
+                showToast(`Banned ${data.tag}`);
+                refresh();
+            }
+        } catch { showToast('Ban failed'); }
+    }
+
+    async function unbanHashtag(tag) {
+        try {
+            const res = await fetch('/api/hashtags/banned', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag })
+            });
+            const data = await res.json();
+            if (data.status === 'unbanned') {
+                showToast(`Unbanned ${data.tag}`);
+                refresh();
+            }
+        } catch { showToast('Unban failed'); }
+    }
+
+    // Allow Enter key in ban input
+    document.getElementById('ban-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') banHashtag();
+    });
+
+    // Volume chart
+    function renderVolumeChart(hourly) {
+        const chart = document.getElementById('volume-chart');
+        const entries = Object.entries(hourly).sort((a, b) => a[0].localeCompare(b[0]));
+        if (entries.length === 0) {
+            chart.innerHTML = '<div class="empty" style="width: 100%;">No message data yet</div>';
+            return;
+        }
+        const max = Math.max(...entries.map(e => e[1]), 1);
+        chart.innerHTML = entries.map(([hour, count]) => {
+            const pct = (count / max) * 100;
+            const label = hour.slice(11) + ':00'; // "HH:00"
+            return `<div class="bar-col">
+                <div class="bar-count">${count}</div>
+                <div class="bar" style="height: ${pct}%;"></div>
+                <div class="bar-label">${label}</div>
+            </div>`;
+        }).join('');
+    }
+
+    // Session lifecycle
+    let _sessionActive = true;
+    async function toggleSession() {
+        if (_sessionActive) {
+            if (!confirm('End session? This will archive chat data and reset for the next stream. Server keeps running.')) return;
+            try {
+                const res = await fetch('/api/end-session');
+                const data = await res.json();
+                _sessionActive = false;
+                showToast(data.archived ? `Archived: ${data.archived}` : 'Session ended');
+                refresh();
+            } catch { showToast('End session failed'); }
+        } else {
+            try {
+                const res = await fetch('/api/start-session');
+                const data = await res.json();
+                _sessionActive = true;
+                showToast('New session started');
+                refresh();
+            } catch { showToast('Start session failed'); }
+        }
+    }
+
+    async function shutdownServer() {
+        if (!confirm('Shut down the server? This will archive data and stop the process.')) return;
+        try {
+            await fetch('/api/shutdown');
+            showToast('Server shutting down...');
+            clearInterval(refreshInterval);
+        } catch { showToast('Shutdown failed'); }
+    }
+
+    // Config editor
+    let configLoaded = false;
+
+    async function loadConfigEditor() {
+        if (configLoaded) return;
+        try {
+            const res = await fetch('/api/config');
+            if (!res.ok) return;
+            const cfg = await res.json();
+            configLoaded = true;
+            renderConfigEditor(cfg);
+        } catch { /* ignore */ }
+    }
+
+    function renderConfigEditor(cfg) {
+        const el = document.getElementById('config-editor');
+        const sec = cfg.credits?.sections || {};
+        const social = cfg.credits?.social || {};
+        const st = cfg.credits?.special_thanks || { enabled: false, title: 'Special Thanks', subtitle: '', names: [] };
+
+        el.innerHTML = `
+            <div class="cfg-section">General</div>
+            <div class="cfg-row">
+                <label>Days Filter</label>
+                <input type="number" id="cfg-days-filter" value="${cfg.days_filter || 30}" min="1">
+            </div>
+            <div class="cfg-row">
+                <label>Subs Source</label>
+                <select id="cfg-subs-source">
+                    <option value="twitch"${cfg.subs_source === 'twitch' ? ' selected' : ''}>Twitch</option>
+                    <option value="ssn"${cfg.subs_source === 'ssn' ? ' selected' : ''}>SSN</option>
+                    <option value="both"${cfg.subs_source === 'both' ? ' selected' : ''}>Both</option>
+                </select>
+            </div>
+            <div class="cfg-toggle">
+                <input type="checkbox" id="cfg-active-subs" ${cfg.active_subs_only ? 'checked' : ''}>
+                <label for="cfg-active-subs">Active subs only (only subs who chatted)</label>
+            </div>
+            <div class="cfg-row">
+                <label>Exclude Users</label>
+                <input type="text" id="cfg-exclude" value="${(cfg.exclude_users || []).join(', ')}" placeholder="user1, user2">
+            </div>
+            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Separate usernames with commas</div>
+
+            <div class="cfg-section">Credits Header</div>
+            <div class="cfg-row">
+                <label>Image URL</label>
+                <input type="text" id="cfg-header-image" value="${escapeHtml(cfg.credits?.header?.image || '')}">
+            </div>
+            <div class="cfg-row">
+                <label>Title</label>
+                <input type="text" id="cfg-header-title" value="${escapeHtml(cfg.credits?.header?.title || '')}">
+            </div>
+            <div class="cfg-row">
+                <label>Subtitle</label>
+                <input type="text" id="cfg-header-subtitle" value="${escapeHtml(cfg.credits?.header?.subtitle || '')}">
+            </div>
+
+            <div class="cfg-section">Sections</div>
+            ${Object.entries(sec).map(([key, s]) => `
+                <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0;">
+                    <input type="checkbox" id="cfg-sec-${key}-enabled" ${s.enabled !== false ? 'checked' : ''} style="accent-color: #58a6ff;">
+                    <input type="text" id="cfg-sec-${key}-title" value="${escapeHtml(s.title || '')}" style="flex: 1; padding: 0.3rem 0.5rem; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e1e4e8; font-size: 0.8rem;">
+                    <input type="text" id="cfg-sec-${key}-subtitle" value="${escapeHtml(s.subtitle || '')}" placeholder="subtitle" style="flex: 1; padding: 0.3rem 0.5rem; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e1e4e8; font-size: 0.8rem;">
+                </div>
+            `).join('')}
+
+            <div class="cfg-section">Special Thanks</div>
+            <div class="cfg-toggle" style="margin-bottom:0.5rem;">
+                <input type="checkbox" id="cfg-st-enabled" ${st.enabled !== false ? 'checked' : ''}>
+                <label for="cfg-st-enabled">Show Special Thanks section</label>
+            </div>
+            <div class="cfg-row">
+                <label>Title</label>
+                <input type="text" id="cfg-st-title" value="${escapeHtml(st.title || 'Special Thanks')}">
+            </div>
+            <div class="cfg-row">
+                <label>Subtitle</label>
+                <input type="text" id="cfg-st-subtitle" value="${escapeHtml(st.subtitle || '')}">
+            </div>
+            <div class="cfg-row">
+                <label>Columns</label>
+                <select id="cfg-st-columns">
+                    <option value="1"${(st.columns || 1) === 1 ? ' selected' : ''}>1 — One per line</option>
+                    <option value="2"${st.columns === 2 ? ' selected' : ''}>2 — Two columns</option>
+                    <option value="3"${st.columns === 3 ? ' selected' : ''}>3 — Three columns</option>
+                </select>
+            </div>
+            <div id="special-thanks-editor">
+                ${(st.names || []).map((name, i) => specialThanksRow(name, i)).join('')}
+            </div>
+            <button class="btn" onclick="addSpecialThanks()" style="margin-top: 0.5rem; width: auto;">＋ Add Name</button>
+
+            <div class="cfg-section">Closing</div>
+            <div class="cfg-row">
+                <label>Text</label>
+                <textarea id="cfg-closing">${escapeHtml(cfg.credits?.closing || '')}</textarea>
+            </div>
+            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Use \\n for line breaks</div>
+
+            <div class="cfg-section">Social Links</div>
+            <div class="cfg-row">
+                <label>Title</label>
+                <input type="text" id="cfg-social-title" value="${escapeHtml(social.title || '')}">
+            </div>
+            <div class="cfg-row">
+                <label>Subtitle</label>
+                <input type="text" id="cfg-social-subtitle" value="${escapeHtml(social.subtitle || '')}">
+            </div>
+            <div id="social-links-editor">
+                ${(social.links || []).map((link, i) => socialLinkRow(link, i)).join('')}
+            </div>
+            <button class="btn" onclick="addSocialLink()" style="margin-top: 0.5rem; width: auto;">＋ Add Social Link</button>
+            <div style="font-size:0.75rem;color:#484f58;margin-top:0.5rem;line-height:1.6;">
+                <strong style="color:#8b949e;">Common icons:</strong>
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-twitch')" title="Click to copy">fab fa-twitch</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-youtube')" title="Click to copy">fab fa-youtube</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-twitter')" title="Click to copy">fab fa-twitter</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-instagram')" title="Click to copy">fab fa-instagram</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-tiktok')" title="Click to copy">fab fa-tiktok</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-discord')" title="Click to copy">fab fa-discord</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-threads')" title="Click to copy">fab fa-threads</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-mastodon')" title="Click to copy">fab fa-mastodon</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-github')" title="Click to copy">fab fa-github</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-linkedin')" title="Click to copy">fab fa-linkedin</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fas fa-globe')" title="Click to copy">fas fa-globe</span>
+                <br>Click to copy · Or use any emoji · <a href="https://fontawesome.com/search?o=r&m=free" target="_blank" style="color:#58a6ff;">Browse all FA icons ↗</a>
+            </div>
+
+            <button class="btn wide" onclick="saveConfig()" style="margin-top: 0.5rem;">💾 Save Config</button>
+        `;
+    }
+
+    function specialThanksRow(name, index) {
+        return `
+            <div class="st-row" style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid #21262d;">
+                <span style="display:flex;flex-direction:column;gap:1px;">
+                    <button onclick="moveSpecialThanks(${index},-1)" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:0.6rem;padding:0;line-height:1;" title="Move up">▲</button>
+                    <button onclick="moveSpecialThanks(${index},1)" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:0.6rem;padding:0;line-height:1;" title="Move down">▼</button>
+                </span>
+                <input type="text" class="st-name" value="${escapeHtml(name)}" placeholder="Name" style="flex:1;padding:0.3rem 0.5rem;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e1e4e8;font-size:0.8rem;">
+                <button onclick="removeSpecialThanks(this)" style="background:none;border:none;color:#f85149;cursor:pointer;font-size:1rem;padding:0.2rem 0.4rem;" title="Remove">✕</button>
+            </div>`;
+    }
+
+    function addSpecialThanks() {
+        const editor = document.getElementById('special-thanks-editor');
+        const index = editor.querySelectorAll('.st-row').length;
+        editor.insertAdjacentHTML('beforeend', specialThanksRow('', index));
+    }
+
+    function removeSpecialThanks(btn) {
+        btn.closest('.st-row').remove();
+    }
+
+    function moveSpecialThanks(index, direction) {
+        const editor = document.getElementById('special-thanks-editor');
+        const rows = [...editor.querySelectorAll('.st-row')];
+        const target = index + direction;
+        if (target < 0 || target >= rows.length) return;
+        const names = getSpecialThanksNames();
+        [names[index], names[target]] = [names[target], names[index]];
+        editor.innerHTML = names.map((n, i) => specialThanksRow(n, i)).join('');
+    }
+
+    function getSpecialThanksNames() {
+        const names = [];
+        document.querySelectorAll('.st-row .st-name').forEach(input => {
+            if (input.value.trim()) names.push(input.value.trim());
+        });
+        return names;
+    }
+
+    function socialLinkRow(link, index) {
+        return `
+            <div class="social-link-row" data-index="${index}" style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid #21262d;">
+                <span style="display:flex;flex-direction:column;gap:1px;">
+                    <button onclick="moveSocialLink(${index},-1)" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:0.6rem;padding:0;line-height:1;" title="Move up">▲</button>
+                    <button onclick="moveSocialLink(${index},1)" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:0.6rem;padding:0;line-height:1;" title="Move down">▼</button>
+                </span>
+                <input type="text" class="sl-icon" value="${escapeHtml(link.icon || '')}" placeholder="fab fa-twitch or 🦋" style="width:140px;padding:0.3rem 0.5rem;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e1e4e8;font-size:0.8rem;">
+                <input type="text" class="sl-handle" value="${escapeHtml(link.handle || '')}" placeholder="username" style="flex:1;padding:0.3rem 0.5rem;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e1e4e8;font-size:0.8rem;">
+                <button onclick="removeSocialLink(this)" style="background:none;border:none;color:#f85149;cursor:pointer;font-size:1rem;padding:0.2rem 0.4rem;" title="Remove">✕</button>
+            </div>`;
+    }
+
+    function moveSocialLink(index, direction) {
+        const editor = document.getElementById('social-links-editor');
+        const rows = [...editor.querySelectorAll('.social-link-row')];
+        const target = index + direction;
+        if (target < 0 || target >= rows.length) return;
+        // Read current values before moving
+        const links = getSocialLinks();
+        [links[index], links[target]] = [links[target], links[index]];
+        editor.innerHTML = links.map((l, i) => socialLinkRow(l, i)).join('');
+    }
+
+    function addSocialLink() {
+        const editor = document.getElementById('social-links-editor');
+        const rows = editor.querySelectorAll('.social-link-row');
+        const index = rows.length;
+        editor.insertAdjacentHTML('beforeend', socialLinkRow({ icon: '', handle: '' }, index));
+    }
+
+    function removeSocialLink(btn) {
+        const row = btn.closest('.social-link-row');
+        row.remove();
+    }
+
+    function getSocialLinks() {
+        const links = [];
+        document.querySelectorAll('.social-link-row').forEach(row => {
+            const icon = row.querySelector('.sl-icon').value.trim();
+            const handle = row.querySelector('.sl-handle').value.trim();
+            if (icon || handle) links.push({ icon, handle });
+        });
+        return links;
+    }
+
+    async function saveConfig() {
+        const sec = {};
+        document.querySelectorAll('[id^="cfg-sec-"]').forEach(el => {
+            const match = el.id.match(/cfg-sec-(.+)-(enabled|title|subtitle)/);
+            if (match) {
+                const [, key, field] = match;
+                if (!sec[key]) sec[key] = {};
+                sec[key][field] = field === 'enabled' ? el.checked : el.value;
+            }
+        });
+
+        const cfg = {
+            days_filter: parseInt(document.getElementById('cfg-days-filter').value) || 30,
+            subs_source: document.getElementById('cfg-subs-source').value,
+            active_subs_only: document.getElementById('cfg-active-subs').checked,
+            exclude_users: document.getElementById('cfg-exclude').value.split(',').map(s => s.trim()).filter(Boolean),
+            credits: {
+                header: {
+                    title: document.getElementById('cfg-header-title').value,
+                    subtitle: document.getElementById('cfg-header-subtitle').value,
+                    image: document.getElementById('cfg-header-image').value
+                },
+                closing: document.getElementById('cfg-closing').value,
+                sections: sec,
+                special_thanks: {
+                    enabled: document.getElementById('cfg-st-enabled').checked,
+                    title: document.getElementById('cfg-st-title').value,
+                    subtitle: document.getElementById('cfg-st-subtitle').value,
+                    columns: parseInt(document.getElementById('cfg-st-columns').value) || 1,
+                    names: getSpecialThanksNames()
+                },
+                social: {
+                    title: document.getElementById('cfg-social-title').value,
+                    subtitle: document.getElementById('cfg-social-subtitle').value,
+                    links: getSocialLinks()
+                }
+            }
+        };
+
+        try {
+            const res = await fetch('/api/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cfg)
+            });
+            const data = await res.json();
+            if (data.status === 'saved') {
+                showToast('Config saved and applied!');
+            } else {
+                showToast(data.error || 'Save failed');
+            }
+        } catch { showToast('Save failed'); }
+    }
+
+    refresh();
+    loadConfigEditor();
+    refreshInterval = setInterval(refresh, 3000);
+    </script>
+</body>
+</html>

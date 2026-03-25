@@ -4,11 +4,21 @@ A configurable stream credits and stats overlay system for OBS, powered by a uni
 
 ## Features
 
-- **Credits Roll** — Cinematic scrolling credits with subscribers, followers, chatters, emotes, hashtags, and more
+- **Credits Roll** — Cinematic scrolling credits with subscribers, followers, chatters, emotes, hashtags, raids, and more
 - **Live Stats Overlay** — Persistent top chatters, emotes, and hashtags across sessions
 - **Unified Server** — One `npm start` command runs HTTP serving, SSN chat collection, and Twitch API fetching
 - **Fully Configurable** — All section titles, subtitles, social links, and enabled/disabled state controlled via `config.json`
 - **Twitch OAuth** — Browser-based authorization with automatic token refresh
+- **WebSocket Push** — Live data pushed to overlays via WebSocket (no more stale data)
+- **Preview Mode** — `?preview=true` renders credits without scrolling for layout testing
+- **Raid Tracking** — Detects and displays raid events from SSN
+- **Dashboard** — Web UI for server status, session stats, config editor, message volume chart, and quick actions
+- **Session History** — Browse and inspect archived sessions, side-by-side session comparison
+- **CSV Export** — Download stats as CSV with date range filtering
+- **Config Editor** — Live-edit credits sections, social links, filters directly from the dashboard
+- **Session Lifecycle** — End Session (archive + reset) and Shutdown endpoints for Companion integration
+- **Stats Backup** — Rotating backups of stats.json with auto-restore on corruption
+- **Hashtag Moderation** — Ban/unban hashtags with purge from stats and chat data
 - **Auto-clear** — Chat data resets each startup; persistent stats accumulate across sessions
 - **Companion Ready** — API endpoints for triggering fetches, resets, and status checks
 
@@ -27,6 +37,10 @@ On first run, a browser window opens for Twitch authorization. After that, the s
 - Credits: `http://localhost:8080/credits.html`
 - Stats: `http://localhost:8080/stats.html`
 
+**Management Pages:**
+- Dashboard: `http://localhost:8080/dashboard.html`
+- Sessions: `http://localhost:8080/sessions.html`
+
 ## Data Flow
 
 ```
@@ -41,17 +55,17 @@ On first run, a browser window opens for Twitch authorization. After that, the s
                     │   data/chat.json      data/subs.json     │
                     │   data/stats.json     data/bits.json     │
                     │                       data/followers.json│
-                    │      ┌─────────────┐                     │
-                    │      │ HTTP Server │                     │
-                    │      └──────┬──────┘                     │
-                    └─────────────┼────────────────────────────┘
-                                  │ serves
-                    ┌─────────────┴─────────────┐
-                    ▼                           ▼
-          ┌──────────────────┐       ┌──────────────────┐
-          │  credits.html    │       │  stats.html      │
-          │  (OBS source)    │       │  (OBS source)    │
-          └──────────────────┘       └──────────────────┘
+                    │  ┌─────────────┐  ┌──────────────────┐   │
+                    │  │ HTTP Server │  │ WebSocket Server │   │
+                    │  └──────┬──────┘  └────────┬─────────┘   │
+                    └─────────┼──────────────────┼─────────────┘
+                              │ serves           │ pushes live data
+              ┌───────────────┼─────────┐        │
+              ▼               ▼         ▼        ▼
+    ┌──────────────┐  ┌──────────┐  ┌──────────────────┐
+    │ credits.html │  │stats.html│  │  dashboard.html   │
+    │ (OBS source) │  │(OBS src) │  │  sessions.html    │
+    └──────────────┘  └──────────┘  └──────────────────┘
 ```
 
 ## Prerequisites
@@ -106,6 +120,7 @@ On first run, a browser window opens for Twitch authorization. After that, the s
       "donations":   { "enabled": true, "title": "Donators", "subtitle": "" },
       "gift_subs":   { "enabled": true, "title": "Gift Subs", "subtitle": "" },
       "cheerers":    { "enabled": true, "title": "Cheerers", "subtitle": "" },
+      "raids":       { "enabled": true, "title": "Raiders", "subtitle": "" },
       "emotes":      { "enabled": true, "title": "Top Emotes", "subtitle": "" },
       "hashtags":    { "enabled": true, "title": "Trending Hashtags", "subtitle": "" },
       "chatters":    { "enabled": true, "title": "Today's Chatters", "subtitle": "" }
@@ -158,6 +173,7 @@ Each entry in `credits.social.links`:
 | `speed` | | Speed multiplier (only if `duration` not set) |
 | `days` | config value | Override days_filter from config |
 | `datapath` | `./data` | Path to data directory |
+| `preview` | `false` | Set to `true` to show all credits without scrolling |
 
 ### stats.html
 
@@ -191,15 +207,23 @@ http://localhost:8080/credits.html?duration=75
 
 | Endpoint | Description |
 | --- | --- |
-| `GET /api/status` | Server health, SSN connection, data counts |
+| `GET /api/status` | Server health, SSN connection, data counts, hourly volume |
 | `GET /api/config` | Current config (sections, social links, options) |
+| `PUT /api/config` | Update config (hot-reload, no restart needed) |
 | `GET /api/fetch` | Trigger Twitch API data refresh |
 | `GET /api/reset` | Clear session chat data |
+| `GET /api/end-session` | Archive session + reset data (server keeps running) |
+| `GET /api/start-session` | Start a new session (resets data, re-fetches Twitch) |
+| `GET /api/shutdown` | Archive session + graceful server shutdown |
 | `GET /api/stats` | Raw persistent stats JSON (daily buckets) |
 | `GET /api/stats/reset` | Clear all persistent stats |
 | `POST /api/stats/migrate` | Migrate stats from old format to daily buckets |
+| `GET/POST/DELETE /api/hashtags/banned` | Hashtag moderation (list/ban/unban) |
 | `GET /api/sessions` | List archived session files |
+| `GET /api/sessions/:file` | Get a specific archived session's data |
+| `GET /api/export` | Export stats as CSV (`?type=chatters\|emotes\|all`, `?days=30`) |
 | `GET /auth/twitch` | Start Twitch OAuth flow |
+| `ws://localhost:8080` | WebSocket — live chatData push to overlay clients |
 
 ## Bitfocus Companion Integration
 
@@ -209,6 +233,9 @@ Use the **Generic HTTP** module:
 | --- | --- |
 | Refresh Twitch data | `GET http://localhost:8080/api/fetch` |
 | Reset chat data | `GET http://localhost:8080/api/reset` |
+| End session (archive + reset) | `GET http://localhost:8080/api/end-session` |
+| Start new session | `GET http://localhost:8080/api/start-session` |
+| Shutdown server | `GET http://localhost:8080/api/shutdown` |
 | Check status | `GET http://localhost:8080/api/status` |
 
 ## Data Persistence
@@ -259,13 +286,15 @@ Data is saved to disk every 5 seconds and on graceful shutdown (Ctrl+C).
 
 ```
 stream-credits/
-├── server.js              # Unified server (HTTP + SSN + Twitch + OAuth)
+├── server.js              # Unified server (HTTP + WebSocket + SSN + Twitch + OAuth)
 ├── config.json            # Your config and credentials (git-ignored)
 ├── config.example.json    # Template config
 ├── credits.html           # Credits overlay (HTML shell)
 ├── credits.css            # Credits overlay styles
 ├── credits.js             # Credits overlay client logic
 ├── stats.html             # Stats overlay (top chatters/emotes/hashtags)
+├── dashboard.html         # Dashboard UI (status, actions, live chatters)
+├── sessions.html          # Session history viewer
 ├── migrate.html           # Stats migration tool (old format → daily buckets)
 ├── package.json           # Node.js dependencies
 ├── .gitignore             # Git ignore patterns
