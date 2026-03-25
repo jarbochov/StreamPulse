@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Credits — Config</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .nav { display: flex; gap: 0.75rem; }
+        .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
+        .nav a:hover { color: #e1e4e8; background: #21262d; }
+
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; }
+        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 1rem; }
+
+        .cfg-row { display: flex; align-items: center; gap: 0.75rem; }
+        .cfg-row label { font-size: 0.85rem; color: #8b949e; min-width: 120px; }
+        .cfg-row input, .cfg-row select, .cfg-row textarea { flex: 1; padding: 0.4rem 0.6rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.85rem; font-family: inherit; }
+        .cfg-row textarea { min-height: 60px; resize: vertical; }
+        .cfg-section { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #58a6ff; padding-top: 0.5rem; border-top: 1px solid #21262d; }
+        .cfg-toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #8b949e; }
+        .cfg-toggle input[type="checkbox"] { accent-color: #58a6ff; }
+
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
+        .toast.show { opacity: 1; }
+
+        .btn { padding: 0.6rem 1rem; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #e1e4e8; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-align: center; }
+        .btn:hover { border-color: #58a6ff; background: #1a2332; }
+        .btn.wide { grid-column: 1 / -1; }
+
+        .nav .dropdown { position: relative; display: flex; align-items: center; }
+        .nav .dropdown-toggle { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
+        .nav .dropdown-toggle:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
+        .nav .dropdown:hover .dropdown-menu { display: block; }
+        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+        .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
+
+        @media (max-width: 768px) {
+            .header { flex-direction: column; gap: 0.5rem; }
+            .cfg-row { flex-direction: column; align-items: stretch; }
+            .cfg-row label { min-width: unset; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Stream Credits <span>Config</span></h1>
+        <div class="nav">
+            <a href="/dashboard.html">Dashboard</a>
+            <a href="/credits.html">Credits</a>
+            <a href="/credits.html?preview=true" target="_blank">Preview</a>
+            <a href="/stats.html">Stats</a>
+            <a href="/hashtags.html">Hashtags</a>
+            <div class="dropdown">
+                <a href="#" class="dropdown-toggle">Manage ▾</a>
+                <div class="dropdown-menu">
+                    <a href="/config-editor.html">⚙️ Config</a>
+                    <a href="/manage-hashtags.html">🏷️ Hashtag Tools</a>
+                    <a href="/sessions.html">📁 Sessions</a>
+                </div>
+            </div>
+            <a href="/api.html">API</a>
+            <a href="/docs.html">Docs</a>
+        </div>
+    </div>
+
+    <div style="max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem;">
+        <div class="card">
+            <h2>Config Editor</h2>
+            <div id="config-editor" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <div class="empty">Loading config...</div>
+            </div>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str || '';
+        return div.innerHTML;
+    }
+
+    async function loadConfigEditor() {
+        if (configLoaded) return;
+        try {
+            const res = await fetch('/api/config');
+            if (!res.ok) return;
+            const cfg = await res.json();
+            configLoaded = true;
+            renderConfigEditor(cfg);
+        } catch { /* ignore */ }
+    }
+
+    function renderConfigEditor(cfg) {
+        const el = document.getElementById('config-editor');
+        const sec = cfg.credits?.sections || {};
+        const social = cfg.credits?.social || {};
+        const st = cfg.credits?.special_thanks || { enabled: false, title: 'Special Thanks', subtitle: '', names: [] };
+
+        el.innerHTML = `
+            <div class="cfg-section">General</div>
+            <div class="cfg-row">
+                <label>Days Filter</label>
+                <input type="number" id="cfg-days-filter" value="${cfg.days_filter || 30}" min="1">
+            </div>
+            <div class="cfg-row">
+                <label>Subs Source</label>
+                <select id="cfg-subs-source">
+                    <option value="twitch"${cfg.subs_source === 'twitch' ? ' selected' : ''}>Twitch</option>
+                    <option value="ssn"${cfg.subs_source === 'ssn' ? ' selected' : ''}>SSN</option>
+                    <option value="both"${cfg.subs_source === 'both' ? ' selected' : ''}>Both</option>
+                </select>
+            </div>
+            <div class="cfg-toggle">
+                <input type="checkbox" id="cfg-active-subs" ${cfg.active_subs_only ? 'checked' : ''}>
+                <label for="cfg-active-subs">Active subs only (only subs who chatted)</label>
+            </div>
+            <div class="cfg-toggle">
+                <input type="checkbox" id="cfg-hashtags-enabled" ${cfg.hashtags_enabled !== false ? 'checked' : ''}>
+                <label for="cfg-hashtags-enabled">Enable hashtag tracking</label>
+            </div>
+            <div class="cfg-row">
+                <label>Exclude Users</label>
+                <input type="text" id="cfg-exclude" value="${(cfg.exclude_users || []).join(', ')}" placeholder="user1, user2">
+            </div>
+            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Separate usernames with commas</div>
+
+            <div class="cfg-section">Credits Header</div>
+            <div class="cfg-row">
+                <label>Image URL</label>
+                <input type="text" id="cfg-header-image" value="${escapeHtml(cfg.credits?.header?.image || '')}">
+            </div>
+            <div class="cfg-row">
+                <label>Title</label>
+                <input type="text" id="cfg-header-title" value="${escapeHtml(cfg.credits?.header?.title || '')}">
+            </div>
+            <div class="cfg-row">
+                <label>Subtitle</label>
+                <input type="text" id="cfg-header-subtitle" value="${escapeHtml(cfg.credits?.header?.subtitle || '')}">
+            </div>
+
+            <div class="cfg-section">Sections</div>
+            ${Object.entries(sec).map(([key, s]) => `
+                <div style="padding: 0.5rem 0; border-bottom: 1px solid #21262d;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+                        <input type="checkbox" id="cfg-sec-${key}-enabled" ${s.enabled !== false ? 'checked' : ''} style="accent-color: #58a6ff;">
+                        <span style="font-size: 0.85rem; color: #e1e4e8; min-width: 100px; font-weight: 500;">${escapeHtml(key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))}</span>
+                        ${(key === 'donations' || key === 'cheerers') ? `
+                            <label style="font-size: 0.7rem; color: #8b949e; margin-left: auto;">Source</label>
+                            <select id="cfg-sec-${key}-source" style="padding: 0.25rem 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e1e4e8; font-size: 0.75rem; width: 90px;">
+                                <option value="session"${(s.source || 'session') === 'session' ? ' selected' : ''}>Session</option>
+                                <option value="stats"${s.source === 'stats' ? ' selected' : ''}>Last ${cfg.days_filter || 30}d</option>
+                            </select>` : ''}
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; padding-left: 1.5rem;">
+                        <div style="flex: 1;">
+                            <label style="font-size: 0.65rem; color: #484f58; display: block; margin-bottom: 0.15rem;">Title</label>
+                            <input type="text" id="cfg-sec-${key}-title" value="${escapeHtml(s.title || '')}" style="width: 100%; padding: 0.3rem 0.5rem; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e1e4e8; font-size: 0.8rem;">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="font-size: 0.65rem; color: #484f58; display: block; margin-bottom: 0.15rem;">Subtitle</label>
+                            <input type="text" id="cfg-sec-${key}-subtitle" value="${escapeHtml(s.subtitle || '')}" placeholder="optional" style="width: 100%; padding: 0.3rem 0.5rem; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e1e4e8; font-size: 0.8rem;">
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+
+            <div class="cfg-section">Special Thanks</div>
+            <div class="cfg-toggle" style="margin-bottom:0.5rem;">
+                <input type="checkbox" id="cfg-st-enabled" ${st.enabled !== false ? 'checked' : ''}>
+                <label for="cfg-st-enabled">Show Special Thanks section</label>
+            </div>
+            <div class="cfg-row">
+                <label>Title</label>
+                <input type="text" id="cfg-st-title" value="${escapeHtml(st.title || 'Special Thanks')}">
+            </div>
+            <div class="cfg-row">
+                <label>Subtitle</label>
+                <input type="text" id="cfg-st-subtitle" value="${escapeHtml(st.subtitle || '')}">
+            </div>
+            <div class="cfg-row">
+                <label>Columns</label>
+                <select id="cfg-st-columns">
+                    <option value="1"${(st.columns || 1) === 1 ? ' selected' : ''}>1 — One per line</option>
+                    <option value="2"${st.columns === 2 ? ' selected' : ''}>2 — Two columns</option>
+                    <option value="3"${st.columns === 3 ? ' selected' : ''}>3 — Three columns</option>
+                </select>
+            </div>
+            <div id="special-thanks-editor">
+                ${(st.names || []).map((name, i) => specialThanksRow(name, i)).join('')}
+            </div>
+            <button class="btn" onclick="addSpecialThanks()" style="margin-top: 0.5rem; width: auto;">＋ Add Name</button>
+
+            <div class="cfg-section">Closing</div>
+            <div class="cfg-row">
+                <label>Text</label>
+                <textarea id="cfg-closing">${escapeHtml(cfg.credits?.closing || '')}</textarea>
+            </div>
+            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Use \\n for line breaks</div>
+
+            <div class="cfg-section">Social Links</div>
+            <div class="cfg-row">
+                <label>Title</label>
+                <input type="text" id="cfg-social-title" value="${escapeHtml(social.title || '')}">
+            </div>
+            <div class="cfg-row">
+                <label>Subtitle</label>
+                <input type="text" id="cfg-social-subtitle" value="${escapeHtml(social.subtitle || '')}">
+            </div>
+            <div id="social-links-editor">
+                ${(social.links || []).map((link, i) => socialLinkRow(link, i)).join('')}
+            </div>
+            <button class="btn" onclick="addSocialLink()" style="margin-top: 0.5rem; width: auto;">＋ Add Social Link</button>
+            <div style="font-size:0.75rem;color:#484f58;margin-top:0.5rem;line-height:1.6;">
+                <strong style="color:#8b949e;">Common icons:</strong>
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-twitch')" title="Click to copy">fab fa-twitch</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-youtube')" title="Click to copy">fab fa-youtube</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-twitter')" title="Click to copy">fab fa-twitter</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-instagram')" title="Click to copy">fab fa-instagram</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-tiktok')" title="Click to copy">fab fa-tiktok</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-discord')" title="Click to copy">fab fa-discord</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-threads')" title="Click to copy">fab fa-threads</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-mastodon')" title="Click to copy">fab fa-mastodon</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-github')" title="Click to copy">fab fa-github</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-linkedin')" title="Click to copy">fab fa-linkedin</span> ·
+                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fas fa-globe')" title="Click to copy">fas fa-globe</span>
+                <br>Click to copy · Or use any emoji · <a href="https://fontawesome.com/search?o=r&m=free" target="_blank" style="color:#58a6ff;">Browse all FA icons ↗</a>
+            </div>
+
+            <button class="btn wide" onclick="saveConfig()" style="margin-top: 0.5rem;">💾 Save Config</button>
+        `;
+    }
+
+    function specialThanksRow(name, index) {
+        return `
+            <div class="st-row" style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid #21262d;">
+                <span style="display:flex;flex-direction:column;gap:1px;">
+                    <button onclick="moveSpecialThanks(${index},-1)" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:0.6rem;padding:0;line-height:1;" title="Move up">▲</button>
+                    <button onclick="moveSpecialThanks(${index},1)" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:0.6rem;padding:0;line-height:1;" title="Move down">▼</button>
+                </span>
+                <input type="text" class="st-name" value="${escapeHtml(name)}" placeholder="Name" style="flex:1;padding:0.3rem 0.5rem;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e1e4e8;font-size:0.8rem;">
+                <button onclick="removeSpecialThanks(this)" style="background:none;border:none;color:#f85149;cursor:pointer;font-size:1rem;padding:0.2rem 0.4rem;" title="Remove">✕</button>
+            </div>`;
+    }
+
+    function addSpecialThanks() {
+        const editor = document.getElementById('special-thanks-editor');
+        const index = editor.querySelectorAll('.st-row').length;
+        editor.insertAdjacentHTML('beforeend', specialThanksRow('', index));
+    }
+
+    function removeSpecialThanks(btn) {
+        btn.closest('.st-row').remove();
+    }
+
+    function moveSpecialThanks(index, direction) {
+        const editor = document.getElementById('special-thanks-editor');
+        const rows = [...editor.querySelectorAll('.st-row')];
+        const target = index + direction;
+        if (target < 0 || target >= rows.length) return;
+        const names = getSpecialThanksNames();
+        [names[index], names[target]] = [names[target], names[index]];
+        editor.innerHTML = names.map((n, i) => specialThanksRow(n, i)).join('');
+    }
+
+    function getSpecialThanksNames() {
+        const names = [];
+        document.querySelectorAll('.st-row .st-name').forEach(input => {
+            if (input.value.trim()) names.push(input.value.trim());
+        });
+        return names;
+    }
+
+    function socialLinkRow(link, index) {
+        return `
+            <div class="social-link-row" data-index="${index}" style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid #21262d;">
+                <span style="display:flex;flex-direction:column;gap:1px;">
+                    <button onclick="moveSocialLink(${index},-1)" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:0.6rem;padding:0;line-height:1;" title="Move up">▲</button>
+                    <button onclick="moveSocialLink(${index},1)" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:0.6rem;padding:0;line-height:1;" title="Move down">▼</button>
+                </span>
+                <input type="text" class="sl-icon" value="${escapeHtml(link.icon || '')}" placeholder="fab fa-twitch or 🦋" style="width:140px;padding:0.3rem 0.5rem;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e1e4e8;font-size:0.8rem;">
+                <input type="text" class="sl-handle" value="${escapeHtml(link.handle || '')}" placeholder="username" style="flex:1;padding:0.3rem 0.5rem;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e1e4e8;font-size:0.8rem;">
+                <button onclick="removeSocialLink(this)" style="background:none;border:none;color:#f85149;cursor:pointer;font-size:1rem;padding:0.2rem 0.4rem;" title="Remove">✕</button>
+            </div>`;
+    }
+
+    function moveSocialLink(index, direction) {
+        const editor = document.getElementById('social-links-editor');
+        const rows = [...editor.querySelectorAll('.social-link-row')];
+        const target = index + direction;
+        if (target < 0 || target >= rows.length) return;
+        // Read current values before moving
+        const links = getSocialLinks();
+        [links[index], links[target]] = [links[target], links[index]];
+        editor.innerHTML = links.map((l, i) => socialLinkRow(l, i)).join('');
+    }
+
+    function addSocialLink() {
+        const editor = document.getElementById('social-links-editor');
+        const rows = editor.querySelectorAll('.social-link-row');
+        const index = rows.length;
+        editor.insertAdjacentHTML('beforeend', socialLinkRow({ icon: '', handle: '' }, index));
+    }
+
+    function removeSocialLink(btn) {
+        const row = btn.closest('.social-link-row');
+        row.remove();
+    }
+
+    function getSocialLinks() {
+        const links = [];
+        document.querySelectorAll('.social-link-row').forEach(row => {
+            const icon = row.querySelector('.sl-icon').value.trim();
+            const handle = row.querySelector('.sl-handle').value.trim();
+            if (icon || handle) links.push({ icon, handle });
+        });
+        return links;
+    }
+
+    async function saveConfig() {
+        const sec = {};
+        document.querySelectorAll('[id^="cfg-sec-"]').forEach(el => {
+            const match = el.id.match(/cfg-sec-(.+)-(enabled|title|subtitle|source)/);
+            if (match) {
+                const [, key, field] = match;
+                if (!sec[key]) sec[key] = {};
+                if (field === 'enabled') sec[key][field] = el.checked;
+                else if (field === 'source') sec[key][field] = el.value;
+                else sec[key][field] = el.value;
+            }
+        });
+
+        const cfg = {
+            days_filter: parseInt(document.getElementById('cfg-days-filter').value) || 30,
+            subs_source: document.getElementById('cfg-subs-source').value,
+            active_subs_only: document.getElementById('cfg-active-subs').checked,
+            hashtags_enabled: document.getElementById('cfg-hashtags-enabled').checked,
+            exclude_users: document.getElementById('cfg-exclude').value.split(',').map(s => s.trim()).filter(Boolean),
+            credits: {
+                header: {
+                    title: document.getElementById('cfg-header-title').value,
+                    subtitle: document.getElementById('cfg-header-subtitle').value,
+                    image: document.getElementById('cfg-header-image').value
+                },
+                closing: document.getElementById('cfg-closing').value,
+                sections: sec,
+                special_thanks: {
+                    enabled: document.getElementById('cfg-st-enabled').checked,
+                    title: document.getElementById('cfg-st-title').value,
+                    subtitle: document.getElementById('cfg-st-subtitle').value,
+                    columns: parseInt(document.getElementById('cfg-st-columns').value) || 1,
+                    names: getSpecialThanksNames()
+                },
+                social: {
+                    title: document.getElementById('cfg-social-title').value,
+                    subtitle: document.getElementById('cfg-social-subtitle').value,
+                    links: getSocialLinks()
+                }
+            }
+        };
+
+        try {
+            const res = await fetch('/api/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cfg)
+            });
+            const data = await res.json();
+            if (data.status === 'saved') {
+                showToast('Config saved and applied!');
+            } else {
+                showToast(data.error || 'Save failed');
+            }
+        } catch { showToast('Save failed'); }
+    }
+
+    let configLoaded = false;
+    loadConfigEditor();
+    </script>
+</body>
+</html>

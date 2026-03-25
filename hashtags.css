@@ -1,0 +1,114 @@
+:root {
+    --text-outline-color: #00000066;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Jersey 20", sans-serif;
+    color: rgb(214, 227, 225);
+    text-shadow: -1px -1px 0 var(--text-outline-color), 1px -1px 0 var(--text-outline-color),
+                 -1px 1px 0 var(--text-outline-color), 1px 1px 0 var(--text-outline-color);
+}
+
+body {
+    width: 1920px;
+    height: 1080px;
+    background: transparent;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+/* ============================================================
+   SCROLL VIEW (credits-style)
+   ============================================================ */
+
+#scroll-container {
+    width: 100%;
+    text-align: center;
+    position: absolute;
+    top: 1080px;
+    padding: 40px 80px;
+}
+
+#scroll-container.scrollIt {
+    animation: scroll-hashtags var(--scroll-duration, 60s) linear forwards;
+}
+
+@keyframes scroll-hashtags {
+    from { top: 1080px; }
+    to   { top: calc(-1 * var(--content-height, 3000px)); }
+}
+
+#scroll-container h1 {
+    font-size: 6vw;
+    text-transform: uppercase;
+    margin-bottom: 60px;
+}
+
+.scroll-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+}
+
+.scroll-item {
+    padding: 10px 0;
+    font-size: 3vw;
+    line-height: 150%;
+    text-align: center;
+}
+
+/* Scroll column variants */
+.scroll-list.cols-1 .scroll-item { flex-basis: 100%; }
+.scroll-list.cols-2 .scroll-item { flex-basis: 50%; }
+.scroll-list.cols-3 .scroll-item { flex-basis: 33.333%; }
+.scroll-list.cols-4 .scroll-item { flex-basis: 25%; }
+.scroll-list.cols-5 .scroll-item { flex-basis: 20%; }
+.scroll-list.cols-6 .scroll-item { flex-basis: 16.666%; }
+
+/* Size variants for scroll */
+.scroll-item.size-sm { font-size: 2vw; padding: 6px 0; }
+.scroll-item.size-md { font-size: 3vw; padding: 10px 0; }
+.scroll-item.size-lg { font-size: 4vw; padding: 14px 0; }
+
+.scroll-item .tag { color: #fff; }
+.scroll-item .count { opacity: 0.6; font-size: 0.7em; margin-left: 0.3em; }
+
+/* ============================================================
+   GRID / CLOUD VIEW
+   ============================================================ */
+
+#grid-container {
+    width: 1920px;
+    height: 1080px;
+    position: relative;
+    overflow: hidden;
+}
+
+.grid-tag {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3em;
+    padding: 8px 18px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    transition: transform 0.2s;
+}
+
+.grid-tag .tag { color: #fff; }
+.grid-tag .count { opacity: 0.5; font-size: 0.65em; }
+
+/* Filter info */
+.filter-info {
+    position: fixed;
+    bottom: 20px;
+    right: 30px;
+    font-size: 1vw;
+    opacity: 0.3;
+    z-index: 10;
+}

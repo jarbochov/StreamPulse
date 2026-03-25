@@ -14,6 +14,7 @@
   "days_filter": 30,
   "subs_source": "twitch",
   "active_subs_only": false,
+  "hashtags_enabled": true,
   "exclude_users": [],
 
   "credits": {
@@ -26,9 +27,9 @@
     "sections": {
       "subscribers": { "enabled": true, "title": "Subscribers", "subtitle": "" },
       "followers": { "enabled": true, "title": "New Followers", "subtitle": "" },
-      "donations": { "enabled": true, "title": "Donators", "subtitle": "" },
+      "donations": { "enabled": true, "title": "Donators", "subtitle": "", "source": "session" },
       "gift_subs": { "enabled": true, "title": "Gift Subs", "subtitle": "" },
-      "cheerers": { "enabled": true, "title": "Cheerers", "subtitle": "" },
+      "cheerers": { "enabled": true, "title": "Cheerers", "subtitle": "", "source": "session" },
       "raids": { "enabled": true, "title": "Raiders", "subtitle": "" },
       "emotes": { "enabled": true, "title": "Top Emotes", "subtitle": "" },
       "hashtags": { "enabled": true, "title": "Trending Hashtags", "subtitle": "" },

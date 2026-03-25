@@ -75,6 +75,15 @@
 
         .session-checkbox { margin-right: 0.5rem; accent-color: #58a6ff; }
 
+        .nav .dropdown { position: relative; display: flex; align-items: center; }
+        .nav .dropdown-toggle { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
+        .nav .dropdown-toggle:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
+        .nav .dropdown:hover .dropdown-menu { display: block; }
+        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+        .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
+
         @media (max-width: 768px) {
             .container { padding: 1rem; }
             .session-item { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
@@ -90,7 +99,15 @@
             <a href="/credits.html">Credits</a>
             <a href="/credits.html?preview=true" target="_blank">Preview</a>
             <a href="/stats.html">Stats</a>
-            <a href="/sessions.html">Sessions</a>
+            <a href="/hashtags.html">Hashtags</a>
+            <div class="dropdown">
+                <a href="#" class="dropdown-toggle">Manage ▾</a>
+                <div class="dropdown-menu">
+                    <a href="/config-editor.html">⚙️ Config</a>
+                    <a href="/manage-hashtags.html">🏷️ Hashtag Tools</a>
+                    <a href="/sessions.html">📁 Sessions</a>
+                </div>
+            </div>
             <a href="/api.html">API</a>
             <a href="/docs.html">Docs</a>
         </div>

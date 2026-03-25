@@ -425,6 +425,7 @@ function updateStats(chatname, msg) {
         }
 
         // Track hashtags
+        if (config.hashtags_enabled !== false) {
         const stripped = msg.chatmessage.replace(/<[^>]+>/g, '');
         const decoded = stripped.replace(/&#?\w+;/g, '');
         const hashtags = decoded.match(/#[a-zA-Z]\w{1,}/g);
@@ -438,6 +439,7 @@ function updateStats(chatname, msg) {
                 statsData.hashtags[normalized].days[today] = (statsData.hashtags[normalized].days[today] || 0) + 1;
                 statsData.hashtags[normalized].lastUsed = now;
             });
+        }
         }
     }
 
@@ -598,6 +600,7 @@ function processChatMessage(msg) {
 
         const stripped = msg.chatmessage.replace(/<[^>]+>/g, '');
         const decoded2 = stripped.replace(/&#?\w+;/g, '');
+        if (config.hashtags_enabled !== false) {
         const hashtags = decoded2.match(/#[a-zA-Z]\w{1,}/g);
         if (hashtags) {
             hashtags.forEach(tag => {
@@ -611,6 +614,7 @@ function processChatMessage(msg) {
                     chatData.hashtags[normalized].users.push(chatname);
                 }
             });
+        }
         }
     }
 
@@ -733,7 +737,7 @@ const server = http.createServer(async (req, res) => {
                     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
                     // Only allow safe fields to be edited
-                    const safeFields = ['days_filter', 'subs_source', 'active_subs_only', 'exclude_users', 'credits'];
+                    const safeFields = ['days_filter', 'subs_source', 'active_subs_only', 'exclude_users', 'hashtags_enabled', 'credits'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             current[key] = updates[key];
@@ -748,6 +752,7 @@ const server = http.createServer(async (req, res) => {
                     config.subs_source = current.subs_source;
                     config.active_subs_only = current.active_subs_only;
                     config.exclude_users = current.exclude_users;
+                    config.hashtags_enabled = current.hashtags_enabled;
 
                     console.log('[Config] Updated and hot-reloaded');
                     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -765,6 +770,7 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({
             subs_source: config.subs_source || 'twitch',
             active_subs_only: config.active_subs_only || false,
+            hashtags_enabled: config.hashtags_enabled !== false,
             broadcaster_name: BROADCASTER_NAME,
             exclude_users: config.exclude_users || [],
             days_filter: config.days_filter || 30,
@@ -1155,6 +1161,7 @@ server.listen(PORT, () => {
     console.log(`  HTTP:      http://localhost:${PORT}`);
     console.log(`  Credits:   http://localhost:${PORT}/credits.html`);
     console.log(`  Stats:     http://localhost:${PORT}/stats.html`);
+    console.log(`  Hashtags:  http://localhost:${PORT}/hashtags.html`);
     console.log(`  Dashboard: http://localhost:${PORT}/dashboard.html`);
     console.log(`  Sessions:  http://localhost:${PORT}/sessions.html`);
     console.log(`  Migrate:   http://localhost:${PORT}/migrate.html`);

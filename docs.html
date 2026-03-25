@@ -64,6 +64,15 @@
         .checklist li { padding: 0.3rem 0; font-size: 0.85rem; }
         .checklist li::before { content: '✅ '; }
 
+        .nav .dropdown { position: relative; display: flex; align-items: center; }
+        .nav .dropdown-toggle { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
+        .nav .dropdown-toggle:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
+        .nav .dropdown:hover .dropdown-menu { display: block; }
+        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+        .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
+
         @media (max-width: 768px) {
             .container { padding: 1rem; }
             .header { flex-direction: column; gap: 0.5rem; }
@@ -78,7 +87,15 @@
             <a href="/credits.html">Credits</a>
             <a href="/credits.html?preview=true" target="_blank">Preview</a>
             <a href="/stats.html">Stats</a>
-            <a href="/sessions.html">Sessions</a>
+            <a href="/hashtags.html">Hashtags</a>
+            <div class="dropdown">
+                <a href="#" class="dropdown-toggle">Manage ▾</a>
+                <div class="dropdown-menu">
+                    <a href="/config-editor.html">⚙️ Config</a>
+                    <a href="/manage-hashtags.html">🏷️ Hashtag Tools</a>
+                    <a href="/sessions.html">📁 Sessions</a>
+                </div>
+            </div>
             <a href="/api.html">API</a>
             <a href="/docs.html" class="active">Docs</a>
         </div>
@@ -137,6 +154,27 @@
                         { param: 'date', type: 'string', default: '—', desc: 'Export single date.', example: '?date=2026-03-14' },
                         { param: 'from', type: 'string', default: '—', desc: 'Start date for range export.', example: '?from=2026-03-01' },
                         { param: 'to', type: 'string', default: '—', desc: 'End date for range export.', example: '?to=2026-03-14' }
+                    ]
+                },
+                {
+                    name: 'hashtags.html — Hashtags Overlay',
+                    items: [
+                        { param: 'view', type: 'string', default: 'scroll', desc: 'Display mode: "scroll" (credits-style) or "grid" (tag cloud).', example: '?view=grid' },
+                        { param: 'sort', type: 'string', default: 'count', desc: 'Sort order: "count" (most used), "alpha" (A-Z), "recent" (newest first).', example: '?sort=alpha' },
+                        { param: 'columns', type: 'number', default: '3', desc: 'Number of columns (1–6). Used in scroll view.', example: '?columns=2' },
+                        { param: 'limit', type: 'number', default: '0 (all)', desc: 'Max hashtags to show. 0 = show all.', example: '?limit=50' },
+                        { param: 'min', type: 'number', default: '0 (all)', desc: 'Minimum usage count to display a hashtag. Great for filtering noise.', example: '?min=3' },
+                        { param: 'days', type: 'number', default: '0 (all time)', desc: 'Filter to last N days.', example: '?days=30' },
+                        { param: 'date', type: 'string', default: '—', desc: 'Filter to a single date.', example: '?date=2026-03-14' },
+                        { param: 'from', type: 'string', default: '—', desc: 'Start date for range.', example: '?from=2026-03-01' },
+                        { param: 'to', type: 'string', default: '—', desc: 'End date for range.', example: '?to=2026-03-14' },
+                        { param: 'size', type: 'string', default: 'md', desc: 'Font size: "sm", "md", or "lg".', example: '?size=lg' },
+                        { param: 'weight', type: 'boolean', default: 'false', desc: 'Grid only: continuous font scaling by count (true tag cloud). Default uses 3 tiers.', example: '?weight=true' },
+                        { param: 'scroll', type: 'boolean', default: 'false', desc: 'Grid only: auto-scroll if content overflows.', example: '?scroll=true' },
+                        { param: 'counts', type: 'boolean', default: 'true', desc: 'Show usage count next to each hashtag.', example: '?counts=false' },
+                        { param: 'title', type: 'string', default: 'All Hashtags', desc: 'Custom title text (scroll view only).', example: '?title=Tonight%27s%20Tags' },
+                        { param: 'duration', type: 'number', default: '0 (auto)', desc: 'Scroll duration in seconds. 0 = auto-calculated based on content length.', example: '?duration=60' },
+                        { param: 'refresh', type: 'number', default: '60', desc: 'Auto-refresh interval in seconds (grid view only).', example: '?refresh=30' }
                     ]
                 }
             ]
@@ -261,7 +299,7 @@
                                     </td>
                                     <td style="color:#8b949e;">${item.type}</td>
                                     <td><code>${item.default}</code></td>
-                                    <td>${item.desc}${item.example ? `<div class="url-box" style="margin-top:0.3rem;"><code>${BASE}${item.example.replace('?', group.name.includes('credits.html') ? '/credits.html?' : group.name.includes('stats.html') ? '/stats.html?' : group.name.includes('export') ? '/api/export?' : '?')}</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}${item.example.replace('?', group.name.includes('credits.html') ? '/credits.html?' : group.name.includes('stats.html') ? '/stats.html?' : group.name.includes('export') ? '/api/export?' : '?')}')">Copy</button></div>` : ''}</td>
+                                    <td>${item.desc}${item.example ? `<div class="url-box" style="margin-top:0.3rem;"><code>${BASE}${item.example.replace('?', group.name.includes('credits.html') ? '/credits.html?' : group.name.includes('stats.html') ? '/stats.html?' : group.name.includes('hashtags.html') ? '/hashtags.html?' : group.name.includes('export') ? '/api/export?' : '?')}</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}${item.example.replace('?', group.name.includes('credits.html') ? '/credits.html?' : group.name.includes('stats.html') ? '/stats.html?' : group.name.includes('hashtags.html') ? '/hashtags.html?' : group.name.includes('export') ? '/api/export?' : '?')}')">Copy</button></div>` : ''}</td>
                                 </tr>
                             `).join('')}
                         </table>
@@ -313,6 +351,26 @@
                         <div class="url-box"><code>${BASE}/stats.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/stats.html')">Copy</button></div>
                         <div class="detail-label">Top 10, last 7 days, refresh every 30s</div>
                         <div class="url-box"><code>${BASE}/stats.html?limit=10&days=7&refresh=30</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/stats.html?limit=10&days=7&refresh=30')">Copy</button></div>
+                    </div>
+                </div>
+                <div class="card open">
+                    <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                        <strong style="font-size:0.9rem;">Hashtags Overlay</strong>
+                        <span class="chevron">▶</span>
+                    </div>
+                    <div class="card-body">
+                        <ul class="checklist">
+                            <li>Add another <strong>Browser</strong> source</li>
+                            <li>Set Width: <code>1920</code> and Height: <code>1080</code></li>
+                            <li>Two view modes: scrolling (credits-style) or grid (tag cloud)</li>
+                            <li>Use the Dashboard <strong>Hashtag Overlay Builder</strong> to generate URLs</li>
+                        </ul>
+                        <div class="detail-label">Scroll View (default, 3 columns)</div>
+                        <div class="url-box"><code>${BASE}/hashtags.html?view=scroll&columns=3</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/hashtags.html?view=scroll&columns=3')">Copy</button></div>
+                        <div class="detail-label">Grid / Tag Cloud with weighted sizing</div>
+                        <div class="url-box"><code>${BASE}/hashtags.html?view=grid&weight=true&size=lg</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/hashtags.html?view=grid&weight=true&size=lg')">Copy</button></div>
+                        <div class="detail-label">Last 7 days, top 50, alphabetical</div>
+                        <div class="url-box"><code>${BASE}/hashtags.html?days=7&limit=50&sort=alpha</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/hashtags.html?days=7&limit=50&sort=alpha')">Copy</button></div>
                     </div>
                 </div>
                 <div class="card open">

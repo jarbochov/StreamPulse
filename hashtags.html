@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>All Hashtags</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jersey+20&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="hashtags.css">
+</head>
+<body>
+    <!-- Scroll view container -->
+    <div id="scroll-container" style="display: none;">
+        <h1 id="scroll-title">All Hashtags</h1>
+        <div class="scroll-list" id="scroll-list"></div>
+    </div>
+
+    <!-- Grid/cloud view container -->
+    <div id="grid-container" style="display: none;"></div>
+
+    <div class="filter-info" id="filter-info"></div>
+
+    <script>
+    // ================================================================
+    // URL PARAMETERS
+    // ================================================================
+    const urlParams = new URLSearchParams(window.location.search);
+
+    const VIEW     = urlParams.get('view') || 'scroll';
+    const SORT     = urlParams.get('sort') || 'count';
+    const COLUMNS  = Math.min(6, Math.max(1, parseInt(urlParams.get('columns')) || 3));
+    const LIMIT    = parseInt(urlParams.get('limit')) || 0;
+    const DAYS     = parseInt(urlParams.get('days')) || 0;
+    const DATE     = urlParams.get('date') || '';
+    const FROM     = urlParams.get('from') || '';
+    const TO       = urlParams.get('to') || '';
+    const REFRESH  = parseInt(urlParams.get('refresh')) || 60;
+    const SCROLL   = urlParams.get('scroll') === 'true';
+    const SIZE     = urlParams.get('size') || 'md';
+    const WEIGHT   = urlParams.get('weight') === 'true';
+    const COUNTS   = urlParams.get('counts') !== 'false';
+    const TITLE    = urlParams.get('title') || 'All Hashtags';
+    const DURATION = parseInt(urlParams.get('duration')) || 0;
+    const MIN      = parseInt(urlParams.get('min')) || 0;
+
+    // ================================================================
+    // HELPERS
+    // ================================================================
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function getDateRange() {
+        if (DATE) return { from: DATE, to: DATE };
+        if (FROM || TO) return { from: FROM || '1970-01-01', to: TO || '9999-12-31' };
+        if (DAYS) {
+            const from = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            return { from, to: '9999-12-31' };
+        }
+        return null;
+    }
+
+    function sumBuckets(days, range) {
+        if (!days || typeof days !== 'object') return 0;
+        let total = 0;
+        for (const [date, count] of Object.entries(days)) {
+            if (!range || (date >= range.from && date <= range.to)) {
+                total += count;
+            }
+        }
+        return total;
+    }
+
+    function getCount(entry, range) {
+        if (entry.days) return sumBuckets(entry.days, range);
+        return entry.count || 0;
+    }
+
+    function getLastDate(entry) {
+        if (entry.lastUsed) return entry.lastUsed;
+        if (entry.days) {
+            const dates = Object.keys(entry.days).sort();
+            return dates[dates.length - 1] || '';
+        }
+        return '';
+    }
+
+    function getFilterLabel() {
+        if (DATE) return `Date: ${DATE}`;
+        if (FROM && TO) return `${FROM} to ${TO}`;
+        if (FROM) return `From ${FROM}`;
+        if (TO) return `Until ${TO}`;
+        if (DAYS) return `Last ${DAYS} days`;
+        return '';
+    }
+
+    // Sort hashtags based on SORT param
+    function sortHashtags(hashtags) {
+        switch (SORT) {
+            case 'alpha':
+                return hashtags.sort((a, b) => a.tag.localeCompare(b.tag));
+            case 'recent':
+                return hashtags.sort((a, b) => {
+                    const da = getLastDate(a.data);
+                    const db = getLastDate(b.data);
+                    return db.localeCompare(da);
+                });
+            case 'count':
+            default:
+                return hashtags.sort((a, b) => b.count - a.count);
+        }
+    }
+
+    // ================================================================
+    // SCROLL VIEW
+    // ================================================================
+    function renderScrollView(hashtags) {
+        const container = document.getElementById('scroll-container');
+        const list = document.getElementById('scroll-list');
+        const titleEl = document.getElementById('scroll-title');
+
+        titleEl.textContent = TITLE;
+        container.style.display = 'block';
+        list.className = `scroll-list cols-${COLUMNS}`;
+
+        let html = '';
+        hashtags.forEach(h => {
+            const countHtml = COUNTS ? `<span class="count">(${h.count})</span>` : '';
+            html += `<div class="scroll-item size-${SIZE}">
+                <span class="tag">${escapeHtml(h.tag)}</span>${countHtml}
+            </div>`;
+        });
+
+        list.innerHTML = html;
+
+        // Calculate scroll animation
+        requestAnimationFrame(() => {
+            const contentHeight = container.scrollHeight;
+            container.style.setProperty('--content-height', `${contentHeight}px`);
+
+            // Use explicit duration if set, otherwise auto-calculate at ~50px/s
+            const totalDistance = 1080 + contentHeight;
+            const duration = DURATION > 0 ? DURATION : totalDistance / 50;
+            container.style.setProperty('--scroll-duration', `${duration}s`);
+
+            container.classList.add('scrollIt');
+        });
+    }
+
+    // ================================================================
+    // GRID / CLOUD VIEW — center-weighted spiral layout
+    // ================================================================
+    function renderGridView(hashtags) {
+        const container = document.getElementById('grid-container');
+        container.style.display = 'block';
+        container.style.position = 'relative';
+        container.style.overflow = SCROLL ? 'hidden' : 'hidden';
+
+        const W = 1920, H = 1080;
+        const PAD = 40;
+        const n = hashtags.length;
+        if (n === 0) { container.innerHTML = ''; return; }
+
+        // Sort by count descending so largest are placed first (center)
+        const sorted = [...hashtags].sort((a, b) => b.count - a.count);
+        const maxCount = sorted[0].count;
+        const minCount = sorted[sorted.length - 1].count;
+
+        // Dynamic font sizing based on count
+        const sizeScale = SIZE === 'sm' ? 0.7 : SIZE === 'lg' ? 1.4 : 1.0;
+        const basePx = Math.max(10, Math.min(60, 800 / Math.sqrt(n))) * sizeScale;
+
+        function getFontSize(count) {
+            if (!WEIGHT && n > 1) {
+                // Tiered: rank-based
+                const rank = sorted.findIndex(h => h.count === count);
+                const pct = rank / n;
+                if (pct < 0.15) return basePx * 2.5;
+                if (pct < 0.50) return basePx * 1.4;
+                return basePx * 0.8;
+            }
+            // Weighted continuous
+            const range = maxCount - minCount || 1;
+            const ratio = (count - minCount) / range;
+            return basePx * (0.5 + ratio * 2.0);
+        }
+
+        // Measure tags off-screen to get bounding boxes
+        const measurer = document.createElement('div');
+        measurer.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;top:-9999px;left:-9999px;';
+        measurer.style.fontFamily = '"Jersey 20", sans-serif';
+        document.body.appendChild(measurer);
+
+        const items = sorted.map(h => {
+            const fs = getFontSize(h.count);
+            const label = h.tag + (COUNTS ? ` (${h.count})` : '');
+            measurer.style.fontSize = fs + 'px';
+            measurer.textContent = label;
+            const w = measurer.offsetWidth + 28;  // padding
+            const ht = measurer.offsetHeight + 14;
+            return { tag: h.tag, count: h.count, label, fontSize: fs, w, h: ht, x: 0, y: 0 };
+        });
+        document.body.removeChild(measurer);
+
+        // Spiral placement: start at center, place each tag at first non-overlapping spot
+        const cx = W / 2, cy = H / 2;
+        const placed = [];
+
+        function overlaps(item) {
+            const ax1 = item.x - item.w / 2, ax2 = item.x + item.w / 2;
+            const ay1 = item.y - item.h / 2, ay2 = item.y + item.h / 2;
+            for (const p of placed) {
+                const bx1 = p.x - p.w / 2, bx2 = p.x + p.w / 2;
+                const by1 = p.y - p.h / 2, by2 = p.y + p.h / 2;
+                if (ax1 < bx2 && ax2 > bx1 && ay1 < by2 && ay2 > by1) return true;
+            }
+            return false;
+        }
+
+        items.forEach((item, idx) => {
+            if (idx === 0) {
+                item.x = cx;
+                item.y = cy;
+                placed.push(item);
+                return;
+            }
+
+            // Archimedean spiral search
+            let angle = 0;
+            const step = 0.3;
+            const radiusStep = 3;
+            let found = false;
+            for (let i = 0; i < 5000; i++) {
+                angle += step;
+                const r = radiusStep * angle;
+                item.x = cx + r * Math.cos(angle);
+                item.y = cy + r * Math.sin(angle);
+
+                if (!overlaps(item)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                item.x = cx + (Math.random() - 0.5) * (W - PAD * 2);
+                item.y = cy + (Math.random() - 0.5) * (H - PAD * 2);
+            }
+            placed.push(item);
+        });
+
+        // Calculate bounding box of all placed items, then scale + center to fill viewport
+        let bx1 = Infinity, by1 = Infinity, bx2 = -Infinity, by2 = -Infinity;
+        placed.forEach(p => {
+            bx1 = Math.min(bx1, p.x - p.w / 2);
+            by1 = Math.min(by1, p.y - p.h / 2);
+            bx2 = Math.max(bx2, p.x + p.w / 2);
+            by2 = Math.max(by2, p.y + p.h / 2);
+        });
+        const bw = bx2 - bx1, bh = by2 - by1;
+        const scale = Math.min((W - PAD * 2) / bw, (H - PAD * 2) / bh, 2.0);
+        const bcx = (bx1 + bx2) / 2, bcy = (by1 + by2) / 2;
+
+        let html = '';
+        placed.forEach(p => {
+            const sx = (p.x - bcx) * scale + W / 2;
+            const sy = (p.y - bcy) * scale + H / 2;
+            const fs = p.fontSize * scale;
+            const countHtml = COUNTS ? `<span class="count">(${p.count})</span>` : '';
+            html += `<div class="grid-tag" style="position:absolute;left:${sx.toFixed(1)}px;top:${sy.toFixed(1)}px;transform:translate(-50%,-50%);font-size:${fs.toFixed(1)}px;white-space:nowrap;">
+                <span class="tag">${escapeHtml(p.tag)}</span>${countHtml}
+            </div>`;
+        });
+
+        container.innerHTML = html;
+    }
+
+    // ================================================================
+    // MAIN
+    // ================================================================
+    async function loadHashtags() {
+        try {
+            const res = await fetch('/api/stats');
+            if (!res.ok) throw new Error('Stats fetch failed');
+            const data = await res.json();
+
+            const range = getDateRange();
+
+            let hashtags = Object.entries(data.hashtags || {})
+                .map(([tag, d]) => ({ tag, count: getCount(d, range), data: d }))
+                .filter(h => h.count > 0 && h.count >= (MIN || 1));
+
+            hashtags = sortHashtags(hashtags);
+
+            if (LIMIT > 0) {
+                hashtags = hashtags.slice(0, LIMIT);
+            }
+
+            // Show filter info
+            const label = getFilterLabel();
+            if (label) {
+                document.getElementById('filter-info').textContent = label;
+            }
+
+            if (VIEW === 'grid') {
+                renderGridView(hashtags);
+            } else {
+                renderScrollView(hashtags);
+            }
+        } catch (err) {
+            console.error('[Hashtags] Load error:', err);
+        }
+    }
+
+    loadHashtags();
+
+    // Auto-refresh only reloads data (for grid view staying on screen)
+    if (VIEW === 'grid' && REFRESH > 0) {
+        setInterval(() => {
+            document.getElementById('grid-container').classList.remove('auto-scroll');
+            loadHashtags();
+        }, REFRESH * 1000);
+    }
+    </script>
+</body>
+</html>

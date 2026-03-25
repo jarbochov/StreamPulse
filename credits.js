@@ -22,9 +22,9 @@ let serverConfig = {
         sections: {
             subscribers: { enabled: true, title: 'Subscribers', subtitle: '' },
             followers: { enabled: true, title: 'New Followers', subtitle: '' },
-            donations: { enabled: true, title: 'Donators', subtitle: '' },
+            donations: { enabled: true, title: 'Donators', subtitle: '', source: 'session' },
             gift_subs: { enabled: true, title: 'Gift Subs', subtitle: '' },
-            cheerers: { enabled: true, title: 'Cheerers', subtitle: '' },
+            cheerers: { enabled: true, title: 'Cheerers', subtitle: '', source: 'session' },
             raids: { enabled: true, title: 'Raiders', subtitle: '' },
             emotes: { enabled: true, title: 'Top Emotes', subtitle: '' },
             hashtags: { enabled: true, title: 'Trending Hashtags', subtitle: '' },
@@ -66,6 +66,9 @@ const prefetchedData = {
     bits: [],
     followers: []
 };
+
+// Stats data (loaded when sections use 'stats' source)
+let statsData = null;
 
 // ============================================================================
 // PRE-FETCHED DATA LOADING
@@ -278,14 +281,24 @@ function renderCredits() {
     }
 
     // Donations
-    if (sec.donations.enabled !== false && liveData.donations.length > 0) {
-        html += '<div class="section">';
-        html += sectionHeader(sec.donations.title, sec.donations.subtitle);
-        html += '<div class="people-list two-col">';
-        liveData.donations.forEach(d => {
-            html += `<div class="person">${escapeHtml(d.chatname)} (${escapeHtml(d.amount)})</div>`;
-        });
-        html += '</div></div>';
+    if (sec.donations.enabled !== false) {
+        const useStats = sec.donations.source === 'stats';
+        let donationsList;
+        if (useStats) {
+            donationsList = mergeStatsDonations();
+        } else {
+            donationsList = liveData.donations.map(d => ({ chatname: d.chatname, amount: d.amount }));
+        }
+        if (donationsList.length > 0) {
+            html += '<div class="section">';
+            html += sectionHeader(sec.donations.title, sec.donations.subtitle);
+            html += '<div class="people-list two-col">';
+            donationsList.forEach(d => {
+                const detail = useStats ? `×${d.count}` : d.amount;
+                html += `<div class="person">${escapeHtml(d.chatname)} (${escapeHtml(detail)})</div>`;
+            });
+            html += '</div></div>';
+        }
     }
 
     // Gift Subs
@@ -301,7 +314,8 @@ function renderCredits() {
 
     // Cheerers
     if (sec.cheerers.enabled !== false) {
-        const allBits = mergeBits();
+        const useStats = sec.cheerers.source === 'stats';
+        const allBits = useStats ? mergeStatsBits() : mergeBits();
         if (allBits.length > 0) {
             html += '<div class="section">';
             html += sectionHeader(sec.cheerers.title, sec.cheerers.subtitle);
@@ -574,6 +588,36 @@ function mergeBits() {
         .sort((a, b) => b.score - a.score);
 }
 
+// Pull donations from stats.json filtered by DAYS_FILTER
+function mergeStatsDonations() {
+    if (!statsData || !statsData.donations) return [];
+    const cutoff = new Date(Date.now() - DAYS_FILTER * 86400000).toISOString().slice(0, 10);
+    return Object.entries(statsData.donations)
+        .map(([name, d]) => {
+            const total = Object.entries(d.days || {})
+                .filter(([day]) => day >= cutoff)
+                .reduce((sum, [, c]) => sum + c, 0);
+            return { chatname: name, count: total, chatimg: d.chatimg };
+        })
+        .filter(d => d.count > 0)
+        .sort((a, b) => b.count - a.count);
+}
+
+// Pull bits/cheerers from stats.json filtered by DAYS_FILTER
+function mergeStatsBits() {
+    if (!statsData || !statsData.bits) return [];
+    const cutoff = new Date(Date.now() - DAYS_FILTER * 86400000).toISOString().slice(0, 10);
+    return Object.entries(statsData.bits)
+        .map(([name, b]) => {
+            const total = Object.entries(b.days || {})
+                .filter(([day]) => day >= cutoff)
+                .reduce((sum, [, amt]) => sum + amt, 0);
+            return { name, amount: `${total} bits`, chatimg: b.chatimg, score: total };
+        })
+        .filter(b => b.score > 0)
+        .sort((a, b) => b.score - a.score);
+}
+
 function getTopHashtags(limit) {
     return Array.from(liveData.hashtags.entries())
         .map(([tag, data]) => ({
@@ -644,6 +688,18 @@ async function init() {
     console.log('[Init] Active Subs Only:', serverConfig.active_subs_only);
 
     await loadPrefetchedData();
+
+    // Load stats data if any section uses 'stats' source
+    const sec = serverConfig.credits?.sections || {};
+    if (sec.donations?.source === 'stats' || sec.cheerers?.source === 'stats') {
+        try {
+            const statsRes = await fetch('/api/stats');
+            if (statsRes.ok) {
+                statsData = await statsRes.json();
+                console.log('[Stats] Loaded stats data for credits');
+            }
+        } catch { /* use session data as fallback */ }
+    }
 
     // Connect WebSocket for live data updates
     connectWebSocket();
