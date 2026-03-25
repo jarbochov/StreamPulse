@@ -1,6 +1,9 @@
 # Fetched API data (contains sensitive subscriber info)
 data/*.json
 
+# Config (contains secrets)
+config.json
+
 # Dependencies
 node_modules/
 

@@ -71,289 +71,240 @@ The credits automatically scroll with a cinematic aesthetic, perfect for end-of-
 
 ### Data Flow
 
-1. **Pre-Stream Setup**: Configure Twitch CLI and SocialStream Ninja
-2. **Before/During Stream**: Run `fetch-credits-data.sh` (manually or via Bitfocus Companion) to fetch current subs/bits/followers
-3. **During Stream**: credits.html connects to SSN WebSocket Channel 4 to collect live data
-4. **End of Stream**: Toggle OBS browser source visibility - credits auto-play and scroll
-5. **Live Updates**: Script auto-refreshes JSON data every 60 seconds, SSN provides real-time events
+1. **Setup**: Fill in `config.json` with your Twitch and SSN credentials
+2. **Start of Stream**: Run `npm start` (or `node server.js`) — this starts the HTTP server, connects to SSN, and fetches Twitch data
+3. **During Stream**: The server collects chat data (chatters, emotes, hashtags, follows, subs, donations) in the background and auto-refreshes Twitch API data
+4. **End of Stream**: Show the credits OBS browser source — it loads all collected data and scrolls
+5. **Companion Integration**: Hit `http://localhost:8080/api/fetch` to trigger a Twitch data refresh, or `http://localhost:8080/api/reset` to clear chat data for a new session
 
 ## Prerequisites
 
 ### Required
-- **OBS Studio** - For displaying the browser source overlay
-- **Twitch CLI** - For fetching subscriber and follower data
-  - Install: https://dev.twitch.tv/docs/cli/
-  - Authenticate: `twitch configure`
-- **SocialStream Ninja Extension** - For live chat/event data
+- **Node.js** (v18+) — https://nodejs.org/
+- **OBS Studio** — For displaying the browser source overlay
+- **Twitch Application** — Create one at https://dev.twitch.tv/console/apps
+  - Note your Client ID and Client Secret
+- **SocialStream Ninja Extension** — For live chat/event data
   - Install: https://socialstream.ninja/
-  - Enable API toggles in extension settings
-  - Note your Session ID from the extension
+  - Enable Toggles 1 and 3 in Global Settings → Mechanics
+  - Keep the dock page open during stream
+  - Note your Session ID from the dock page URL
 
 ### Optional but Recommended
-- **Bitfocus Companion** - For triggering data fetches via button press
+- **Bitfocus Companion** — For triggering API endpoints via button press
   - Install: https://bitfocus.io/companion
 
 ## Setup Instructions
 
-### 1. Install and Configure Twitch CLI
+### 1. Install Dependencies
 
 ```bash
-# Install Twitch CLI (macOS example)
-brew install twitch-cli
-
-# Configure with your Twitch app credentials
-twitch configure
-
-# Get a user token with required scopes
-twitch token -u -s "channel:read:subscriptions bits:read moderator:read:followers"
-
-# Test authentication
-twitch token
+npm install
 ```
 
-### 2. Set Up SocialStream Ninja
+### 2. Configure
 
-1. Install the SocialStream Ninja browser extension
-2. Configure it for your Twitch channel
-3. In extension settings:
-   - Enable "API Toggles"
-   - Enable "Channel 4" for chat messages
-   - Note your unique Session ID (shown in extension)
-
-### 3. Fetch Initial Data
-
-Run the fetch script to get current subscriber/follower data:
+Copy the example config and fill in your credentials:
 
 ```bash
-# macOS/Linux
-chmod +x scripts/fetch-credits-data.sh
-./scripts/fetch-credits-data.sh YOUR_BROADCASTER_ID
+cp config.example.json config.json
+```
 
-# Or set environment variable
-export BROADCASTER_ID=your_broadcaster_id
-./scripts/fetch-credits-data.sh
+Edit `config.json`:
 
-# Windows
-.\scripts\fetch-credits-data.ps1 YOUR_BROADCASTER_ID
+```json
+{
+  "port": 8080,
+  "broadcaster_id": "YOUR_BROADCASTER_ID",
+  "twitch": {
+    "client_id": "YOUR_TWITCH_CLIENT_ID",
+    "client_secret": "YOUR_TWITCH_CLIENT_SECRET"
+  },
+  "ssn": {
+    "session_id": "YOUR_SSN_SESSION_ID",
+    "server": "wss://io.socialstream.ninja"
+  },
+  "twitch_refresh_minutes": 10,
+  "days_filter": 30
+}
 ```
 
 To find your Broadcaster ID:
 ```bash
-twitch api get /users?login=YOUR_TWITCH_USERNAME
+# Use the Twitch API or look up your numeric ID at twitchtracker.com
 ```
 
-### 4. Add to OBS
+### 3. Set Up SocialStream Ninja
+
+1. Install the SocialStream Ninja browser extension
+2. Configure it for your Twitch channel
+3. In Global Settings → Mechanics, enable:
+   - Toggle 1: "Enable remote API control of extension"
+   - Toggle 3: "Send chat messages to API server"
+4. Open the dock page and note your Session ID from the URL
+
+### 4. Start the Server
+
+```bash
+npm start
+# or: node server.js
+```
+
+The server will:
+- Start an HTTP server on the configured port
+- Connect to SSN and start collecting chat data
+- Fetch Twitch subscriber/follower/bits data
+- Auto-refresh Twitch data every N minutes (configurable)
+
+### 5. Add to OBS
 
 1. Add a new **Browser Source** to your OBS scene
-2. Set the URL to the local file path or web server:
+2. Set the URL to:
    ```
-   file:///absolute/path/to/credits.html?session=YOUR_SSN_SESSION_ID
+   http://localhost:8080/credits.html
    ```
+   Optional parameters: `?duration=82&days=30`
 3. Recommended dimensions: 1920x1080 (or match your canvas)
-4. Check "Shutdown source when not visible" (allows reconnection)
-5. Initially hide the source - show it when you want credits to play
+4. Show the source when you want credits to play
 
-### 5. Configure URL Parameters
+### 6. URL Parameters
 
-The credits.html file accepts several URL parameters:
+The credits overlay accepts URL parameters for customization:
 
-- `session` (required) - Your SocialStream Ninja session ID
-- `server` (optional) - Custom WSS URL, defaults to `wss://io.socialstream.ninja`
-- `duration` (optional) - Exact scroll duration in seconds. Perfect for syncing with music. Default: 82s
-  - Example: `?duration=75` for a 75-second scroll
-  - Takes priority over `speed` if both are provided
-- `speed` (optional) - Scroll speed multiplier relative to the default 82s duration
-  - Example: `speed=2` → 41s, `speed=0.5` → 164s
-  - Only used if `duration` is not provided
-- `datapath` (optional) - Path to data directory, defaults to `./data`
+- `duration` (optional) - Scroll duration in seconds. Default: 82s
+- `speed` (optional) - Speed multiplier (e.g. `2` = twice as fast). Only used if `duration` is not set
+- `days` (optional) - Only show followers from last N days. Default: 30
+- `datapath` (optional) - Path to data directory. Default: `./data`
 
-Example with custom parameters:
+Examples:
 ```
-file:///path/to/credits.html?session=abc123&duration=82
-file:///path/to/credits.html?session=abc123&speed=1.5&datapath=./custom-data
+http://localhost:8080/credits.html?duration=82
+http://localhost:8080/credits.html?duration=120&days=7
 ```
-
-**💡 Tip:** Use the `duration` parameter to match your end-of-stream music exactly!
 
 ## How It Works
 
+### Architecture
+
+```
+┌─────────────┐     ┌──────────────────────────────────────────┐
+│  SSN Dock   │────▶│              server.js                   │
+│  (browser)  │ WSS │  ┌─────────────┐  ┌──────────────────┐  │
+└─────────────┘     │  │ SSN Collect  │  │ Twitch API Fetch │  │
+                    │  │ (WebSocket)  │  │ (auto-refresh)   │  │
+                    │  └──────┬──────┘  └────────┬─────────┘  │
+                    │         │ writes            │ writes     │
+                    │         ▼                   ▼            │
+                    │      data/chat.json    data/subs.json    │
+                    │                        data/bits.json    │
+                    │      ┌─────────────┐   data/followers.json│
+                    │      │ HTTP Server │                     │
+                    │      └──────┬──────┘                     │
+                    └─────────────┼────────────────────────────┘
+                                  │ serves
+                                  ▼
+                    ┌─────────────────────────┐
+                    │  OBS Browser Source      │
+                    │  credits.html/css/js     │
+                    │  (reads data/*.json)     │
+                    └─────────────────────────┘
+```
+
 ### 🎵 Syncing Credits with Music
 
-The credits scroll duration can be set to exactly match your end-of-stream music:
+Use the `duration` parameter to match your end-of-stream music:
 
 | Music Length | URL Parameter |
 | --- | --- |
 | 60 seconds | `?duration=60` |
-| 75 seconds | `?duration=75` |
 | 82 seconds | `?duration=82` (default) |
-| 90 seconds | `?duration=90` |
 | 120 seconds | `?duration=120` |
 
-Example:
-```
-credits.html?session=YOUR_SESSION_ID&duration=82
-```
+**💡 Tip:** Use a Companion button to trigger both the credits OBS source and the music simultaneously!
 
-**💡 Tip:** Use a Bitfocus Companion button to trigger both the credits OBS source and the music simultaneously for perfect sync!
+### Data Sources
 
-### Pre-fetched Data (Twitch API)
+**Twitch API** (fetched by server.js):
+- **Subscribers** — Current subscriber list with tiers
+- **Bits Leaderboard** — Top cheerers for the current month
+- **Followers** — Recent follower list (filterable by days)
 
-The fetch scripts use Twitch CLI to get:
-- **Subscribers**: Current subscriber list with tiers
-- **Bits Leaderboard**: Top cheerers for the current stream
-- **Followers**: Recent follower list
+**SocialStream Ninja** (collected by server.js via WebSocket):
+- **Chatters** — Unique users who sent messages (excludes bots)
+- **New Followers/Subscribers** — Detected from SSN events
+- **Gift Subs / Bits / Donations** — Detected from SSN events
+- **Emotes** — Top 5 most-used emotes with images
+- **Hashtags** — Top 10 trending hashtags
 
-This data is written to JSON files in the `data/` directory and refreshed:
-- Manually by running the script
-- Automatically every 60 seconds while credits.html is loaded
-- Via Bitfocus Companion button (if configured)
+### API Endpoints
 
-### Live Data (SocialStream Ninja)
-
-The credits.html file connects to SSN WebSocket Channel 4 and tracks:
-
-1. **Chatters**: Unique users who sent messages during the stream
-   - Tracked by username with message count
-   - Excludes bots (where `data.bot === true`)
-   
-2. **New Followers**: Users who followed during the stream
-   - Detected via `event === "follow"`
-   
-3. **New Subscribers**: Users who subscribed during the stream
-   - Detected via populated `membership` field
-   
-4. **Gift Subs**: Gift subscriptions detected via:
-   - `membership` field containing "gift"
-   - Presence of `contentimg` field
-   
-5. **Bits/Donations**: Bits and monetary donations
-   - Detected via populated `hasDonation` field
-   - Separated into bits vs other donations
-   
-6. **Emotes**: Top 5 most-used emotes from chat
-   - Tracked by parsing `<img>` tags from SSN's `chatmessage` field
-   - SSN converts Twitch native emotes, BTTV, 7TV, and FFZ emotes to `<img>` tags
-   - Top 5 displayed with actual emote images from CDN
-   - Shows usage count and unique user count
-   
-7. **Hashtags**: Trending hashtags from chat messages
-   - Parsed from `chatmessage` field using regex `/#\w+/g` (HTML stripped first)
-   - Tracked with count and unique user count
-   - Top 10 displayed in credits
-
-### SSN Channel System
-
-SocialStream Ninja uses a channel-based WebSocket system:
-- **Channel 4**: Chat messages and events (what we use)
-- Connection message: `{ join: SESSION_ID, in: 4, out: 3 }`
-- Messages may be wrapped in `data.overlayNinja` - the code unwraps them
-- Implements automatic reconnection (SSN times out after ~60s of inactivity)
-
-### Credits Rendering
-
-When the OBS source becomes visible, the credits automatically start scrolling:
-
-**Sections (in order):**
-1. Header image (animated GIF) + "Thank you for your support!" + "The room where it happens"
-2. Subscribers — "Remember to feed your Wii U a disc" (2-column layout)
-3. New Followers — "(not a cult)" (3-column layout)
-4. Donators — "Can I have fifty dollars?" (2-column layout)
-5. Gift Subs (2-column layout)
-6. Cheerers (2-column layout with bits amounts)
-7. Top Emotes — "Chat's Mood Board" (top 5 with actual emote images from CDN, usage count, and unique user count)
-8. Trending Hashtags — "What we're talking about" (top 10 with usage stats)
-9. Today's Chatters — "The Peanut Gallery" (3-column layout, sorted by message count)
-10. Ending statement: "Never forget that you're awesome and that you matter. Thanks for being you!"
-11. Social links fade-in: Threads, Mastodon, Bluesky, Website
-
-**Styling:**
-- Transparent background for OBS overlay compatibility
-- **Jersey 20** Google Font with retro arcade aesthetic
-- `rgb(214, 227, 225)` text color with dark text outline (`--text-outline-color: #00000066`)
-- Multi-column layouts (2-column and 3-column for different sections)
-- Font Awesome 6.5.1 for social link icons
-- Smooth CSS scroll animation with configurable duration
-- Credits fade-out → social links fade-in transition
-- Empty sections automatically hidden
-
-## Customization
-
-### CSS Variables
-
-Edit the CSS in credits.html to customize appearance:
-
-```css
---text-outline-color: #00000066;  /* Text outline shadow */
-```
-
-The `--scroll-duration` variable is set dynamically via JavaScript based on URL parameters (defaults to 82s).
-
-The overlay uses the **Jersey 20** Google Font with `rgb(214, 227, 225)` text color for a retro arcade aesthetic.
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/api/status` | GET | Server health, SSN connection state, data counts |
+| `/api/fetch` | GET | Trigger a Twitch data refresh |
+| `/api/reset` | GET | Clear chat data for a new session |
 
 ## Bitfocus Companion Integration
 
-To trigger data fetches with a Stream Deck button:
+Use the **Generic HTTP** module in Companion:
 
-1. Add a "Generic" → "Shell Command" button
-2. Command (macOS/Linux):
-   ```bash
-   cd /path/to/stream-credits && ./scripts/fetch-credits-data.sh YOUR_BROADCASTER_ID
-   ```
-3. Command (Windows):
-   ```powershell
-   cd C:\path\to\stream-credits; .\scripts\fetch-credits-data.ps1 YOUR_BROADCASTER_ID
-   ```
-
-Or set up a scheduled trigger to refresh data every 5-10 minutes during stream.
+- **Refresh Twitch data**: `GET http://localhost:8080/api/fetch`
+- **Reset chat data**: `GET http://localhost:8080/api/reset`
+- **Check status**: `GET http://localhost:8080/api/status`
 
 ## Troubleshooting
 
-### Empty data in JSON files
-- The most common cause is missing OAuth scopes on your Twitch token
-- Run: `twitch token -u -s "channel:read:subscriptions bits:read moderator:read:followers"`
-- This opens a browser for OAuth authorization — approve the requested permissions
-- Re-run the fetch script after getting a new token
-
-### Credits not loading
-- Check browser console in OBS (right-click source → Interact → F12)
-- Verify session ID is correct
-- Ensure SocialStream Ninja extension is running and configured
+### Credits not loading / No data showing
+- Ensure `node server.js` is running
+- Check that OBS URL is `http://localhost:8080/credits.html`
+- Right-click the OBS source → "Refresh cache of current page"
 
 ### No subscribers/followers showing
-- Run the fetch script: `./scripts/fetch-credits-data.sh YOUR_BROADCASTER_ID`
-- Check that JSON files exist in `data/` directory
-- Verify Twitch CLI is authenticated: `twitch token`
+- Check `config.json` has valid Twitch `client_id`, `client_secret`, and `broadcaster_id`
+- Hit `http://localhost:8080/api/fetch` in a browser to trigger a manual fetch
+- Check terminal for Twitch API error messages
+- Note: Subscriptions endpoint requires a user token with `channel:read:subscriptions` scope (app tokens may not work)
+
+### No SSN/chat data
+- Ensure SSN dock page is open in a browser
+- Enable Toggles 1 and 3 in SSN Global Settings → Mechanics
+- Verify session ID in `config.json` matches your SSN dock URL
+- Check `http://localhost:8080/api/status` — `ssn.connected` should be `true`
 
 ### WebSocket connection issues
-- SSN WebSocket drops connections after ~60s - this is normal, reconnection is automatic
-- Check that Channel 4 is enabled in SSN extension settings
-- Verify the session ID matches the one shown in SSN extension
-
-### Missing live data
-- Ensure SSN extension is active during the stream
-- Check that API toggles are enabled in extension settings
-- Bot messages are intentionally filtered out
+- SSN connections may drop — the server auto-reconnects
+- Check terminal output for `[SSN]` log messages
 
 ## File Structure
 
 ```
 stream-credits/
-├── README.md              # This file
-├── credits.html           # Main OBS browser source
-├── .gitignore            # Git ignore patterns
-├── data/                 # Pre-fetched Twitch data
+├── server.js              # Unified server (HTTP + SSN + Twitch)
+├── config.json            # Your credentials (git-ignored)
+├── config.example.json    # Template config
+├── credits.html           # OBS browser source (HTML shell)
+├── credits.css            # Overlay styles
+├── credits.js             # Overlay client-side logic
+├── package.json           # Node.js config and dependencies
+├── .gitignore             # Git ignore patterns
+├── data/                  # Generated data (git-ignored)
 │   ├── .gitkeep
-│   ├── subs.json         # (generated, git-ignored)
-│   ├── bits.json         # (generated, git-ignored)
-│   └── followers.json    # (generated, git-ignored)
-└── scripts/
-    ├── fetch-credits-data.sh   # Bash script for macOS/Linux
-    └── fetch-credits-data.ps1  # PowerShell script for Windows
+│   ├── subs.json          # Twitch subscribers
+│   ├── bits.json          # Twitch bits leaderboard
+│   ├── followers.json     # Twitch followers
+│   └── chat.json          # SSN collected chat data
+└── scripts/               # Legacy standalone scripts
+    ├── fetch-credits-data.sh
+    ├── fetch-credits-data.ps1
+    ├── collect-chat.js
+    └── serve.sh
 ```
 
 ## Security Note
 
-The `data/*.json` files are git-ignored because they contain sensitive subscriber information. Never commit these files to version control.
+- `config.json` contains your Twitch credentials and is git-ignored — never commit it
+- `data/*.json` files contain subscriber information and are git-ignored
+- The server only listens on localhost by default
 
 ## License
 
@@ -362,6 +313,6 @@ Custom project for Jarbochov's stream.
 ## Credits
 
 Built with:
-- [Twitch API](https://dev.twitch.tv/docs/api/) via Twitch CLI
+- [Twitch API](https://dev.twitch.tv/docs/api/)
 - [SocialStream Ninja](https://socialstream.ninja/) by Steve Seguin
-- [OBS Studio](https://obsproject.com/) 
+- [OBS Studio](https://obsproject.com/)

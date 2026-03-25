@@ -1,0 +1,14 @@
+{
+  "port": 8080,
+  "broadcaster_id": "YOUR_BROADCASTER_ID",
+  "twitch": {
+    "client_id": "YOUR_TWITCH_CLIENT_ID",
+    "client_secret": "YOUR_TWITCH_CLIENT_SECRET"
+  },
+  "ssn": {
+    "session_id": "YOUR_SSN_SESSION_ID",
+    "server": "wss://io.socialstream.ninja"
+  },
+  "twitch_refresh_minutes": 10,
+  "days_filter": 30
+}

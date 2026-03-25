@@ -1,0 +1,169 @@
+:root {
+    --text-outline-color: #00000066;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Jersey 20", sans-serif;
+    font-size: 3vw;
+    color: rgb(214, 227, 225);
+    text-shadow: -1px -1px 0 var(--text-outline-color), 1px -1px 0 var(--text-outline-color), -1px 1px 0 var(--text-outline-color), 1px 1px 0 var(--text-outline-color);
+}
+
+body {
+    width: 1920px;
+    height: 1080px;
+    background: transparent;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+#credits-container {
+    width: 100%;
+    text-align: center;
+    position: absolute;
+    transform: translate(0, 20%);
+    opacity: 1;
+    transition: opacity 2s;
+}
+
+#credits-container.scrollIt {
+    animation: scroll-credits var(--scroll-duration, 82s) linear forwards;
+}
+
+#credits-container.fadeOut {
+    opacity: 0;
+}
+
+@keyframes scroll-credits {
+    from {
+        transform: translate(0, 20%);
+    }
+    to {
+        transform: translate(0, -100%);
+    }
+}
+
+#social-links-container {
+    position: fixed;
+    bottom: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 2s;
+}
+
+#social-links-container.fadeIn {
+    opacity: 1;
+}
+
+#social-links-container h2 {
+    margin-bottom: 20px;
+}
+
+#social-links-container h3 {
+    margin-bottom: 30px;
+}
+
+.section {
+    margin-top: 100px;
+    margin-bottom: 100px;
+}
+
+h1 {
+    font-size: 6vw;
+    text-transform: uppercase;
+}
+
+h2 {
+    font-size: 6vw;
+    text-transform: uppercase;
+}
+
+h3 {
+    font-size: 3.7vw;
+    text-transform: uppercase;
+}
+
+.smallerheader {
+    font-size: 25px;
+}
+
+.header-img {
+    max-width: 80%;
+    height: auto;
+    margin: 0 auto 50px auto;
+    display: block;
+}
+
+.people-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+}
+
+.people-list.two-col .person {
+    flex-basis: 50%;
+}
+
+.people-list.three-col .person {
+    flex-basis: 33.333%;
+}
+
+.person {
+    padding: 10px 0;
+    font-size: 3vw;
+    line-height: 150%;
+}
+
+.emote-item {
+    display: inline-block;
+    margin: 20px 30px;
+    text-align: center;
+}
+
+.emote-img {
+    width: 48px;
+    height: 48px;
+    display: block;
+    margin: 0 auto 10px auto;
+}
+
+.emote-name {
+    font-size: 2.5vw;
+}
+
+.emote-stats {
+    font-size: 2vw;
+    opacity: 0.8;
+}
+
+.hashtag-item {
+    padding: 10px 0;
+    font-size: 3vw;
+    line-height: 150%;
+}
+
+.hashtag-tag {
+    color: rgb(145, 71, 255);
+}
+
+.social-icon {
+    font-size: 4vw;
+    margin: 0 20px;
+    color: rgb(214, 227, 225);
+}
+
+.social-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 3vw;
+    margin: 0 25px;
+}

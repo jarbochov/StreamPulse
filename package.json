@@ -1,0 +1,24 @@
+{
+  "name": "stream-credits",
+  "version": "1.0.0",
+  "description": "A hybrid stream credits overlay system for OBS that combines pre-fetched Twitch API data with live stream data from SocialStream Ninja (SSN).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jarbochov/stream-credits.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jarbochov/stream-credits/issues"
+  },
+  "homepage": "https://github.com/jarbochov/stream-credits#readme",
+  "dependencies": {
+    "ws": "^8.19.0"
+  }
+}
