@@ -12,27 +12,29 @@
   },
   "twitch_refresh_minutes": 10,
   "days_filter": 30,
-  "subs_source": "twitch",
   "active_subs_only": false,
   "hashtags_enabled": true,
   "chat_log_enabled": true,
   "exclude_users": [],
   "banned_users": [],
   "auto_backup_on_session_end": false,
-
   "webhooks": {
     "enabled": false,
     "discord_url": "",
-    "events": ["raid", "subscribe", "donation", "bits", "follow"],
+    "events": [
+      "raid",
+      "subscribe",
+      "donation",
+      "bits",
+      "follow"
+    ],
     "batch_seconds": 5
   },
-
   "rate_limit": {
     "enabled": false,
     "requests_per_minute": 120,
     "mutation_per_minute": 30
   },
-
   "credits": {
     "header": {
       "image": "",
@@ -41,15 +43,53 @@
     },
     "closing": "Thanks for watching!",
     "sections": {
-      "subscribers": { "enabled": true, "title": "Subscribers", "subtitle": "" },
-      "followers": { "enabled": true, "title": "New Followers", "subtitle": "" },
-      "donations": { "enabled": true, "title": "Donators", "subtitle": "", "source": "session" },
-      "gift_subs": { "enabled": true, "title": "Gift Subs", "subtitle": "" },
-      "cheerers": { "enabled": true, "title": "Cheerers", "subtitle": "", "source": "session" },
-      "raids": { "enabled": true, "title": "Raiders", "subtitle": "" },
-      "emotes": { "enabled": true, "title": "Top Emotes", "subtitle": "" },
-      "hashtags": { "enabled": true, "title": "Trending Hashtags", "subtitle": "" },
-      "chatters": { "enabled": true, "title": "Today's Chatters", "subtitle": "" }
+      "subscribers": {
+        "enabled": true,
+        "title": "Subscribers",
+        "subtitle": ""
+      },
+      "followers": {
+        "enabled": true,
+        "title": "New Followers",
+        "subtitle": ""
+      },
+      "donations": {
+        "enabled": true,
+        "title": "Donators",
+        "subtitle": "",
+        "source": "session"
+      },
+      "gift_subs": {
+        "enabled": true,
+        "title": "Gift Subs",
+        "subtitle": ""
+      },
+      "cheerers": {
+        "enabled": true,
+        "title": "Cheerers",
+        "subtitle": "",
+        "source": "session"
+      },
+      "raids": {
+        "enabled": true,
+        "title": "Raiders",
+        "subtitle": ""
+      },
+      "emotes": {
+        "enabled": true,
+        "title": "Top Emotes",
+        "subtitle": ""
+      },
+      "hashtags": {
+        "enabled": true,
+        "title": "Trending Hashtags",
+        "subtitle": ""
+      },
+      "chatters": {
+        "enabled": true,
+        "title": "Today's Chatters",
+        "subtitle": ""
+      }
     },
     "special_thanks": {
       "enabled": false,

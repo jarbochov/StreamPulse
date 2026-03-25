@@ -32,7 +32,7 @@ const TWITCH_CLIENT_SECRET = config.twitch?.client_secret;
 const SSN_SESSION_ID = config.ssn?.session_id;
 const SSN_SERVER = config.ssn?.server || 'wss://io.socialstream.ninja';
 const REFRESH_MINUTES = config.twitch_refresh_minutes || 10;
-const SUBS_SOURCE = config.subs_source || 'twitch';       // "twitch", "ssn", or "both"
+
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = path.join(__dirname, 'data');
 const BANNED_HASHTAGS_PATH = path.join(DATA_DIR, '.banned-hashtags.json');
@@ -560,7 +560,7 @@ function updateStats(chatname, msg) {
     }
 
     // Track follow events
-    if (msg.event === 'follow') {
+    if (msg.event === 'follow' || msg.event === 'new_follower') {
         if (!statsData.followers[chatname]) {
             statsData.followers[chatname] = {
                 chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}
@@ -570,9 +570,14 @@ function updateStats(chatname, msg) {
         statsData.followers[chatname].lastSeen = nowISO;
     }
 
-    // Track subscriber events
-    if (msg.membership && msg.event) {
-        if (msg.membership.toLowerCase().includes('gift') || msg.contentimg) {
+    // Track subscriber events using SSN's documented event names
+    // membership + subtitle alone is badge info, NOT a sub event
+    const STATS_SUB_EVENTS = ['new_subscriber', 'resub', 'subscription_gift', 'sponsorship', 'giftpurchase', 'giftredemption'];
+    const isStatsSubEvent = STATS_SUB_EVENTS.includes(msg.event) || (msg.membership && msg.event);
+    if (isStatsSubEvent) {
+        const isGift = msg.event === 'subscription_gift' || msg.event === 'giftpurchase' ||
+            (msg.membership && msg.membership.toLowerCase().includes('gift')) || msg.contentimg;
+        if (isGift) {
             if (!statsData.giftSubs[chatname]) {
                 statsData.giftSubs[chatname] = {
                     chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}
@@ -583,7 +588,7 @@ function updateStats(chatname, msg) {
         } else {
             if (!statsData.subscribers[chatname]) {
                 statsData.subscribers[chatname] = {
-                    membership: msg.membership, chatimg: msg.chatimg,
+                    membership: msg.membership || msg.event, chatimg: msg.chatimg,
                     firstSeen: nowISO, lastSeen: nowISO, days: {}
                 };
             }
@@ -865,7 +870,7 @@ function processChatMessage(msg) {
         chatData.chatters[chatname].messageCount++;
     }
 
-    if (msg.event === 'follow') {
+    if (msg.event === 'follow' || msg.event === 'new_follower') {
         const alreadyFollowed = chatData.followers.some(f => f.chatname === chatname);
         if (!alreadyFollowed) {
             chatData.followers.push({ chatname, chatimg: msg.chatimg, timestamp: Date.now() });
@@ -874,18 +879,42 @@ function processChatMessage(msg) {
         }
     }
 
-    // Only track new sub *events*, not the membership badge on every message
-    if (msg.membership && msg.event) {
+    // Log any event or membership data from SSN for debugging
+    if (msg.membership || msg.event || msg.hasDonation || msg.title || msg.subtitle || msg.contentimg) {
+        const debugEntry = {
+            ts: new Date().toISOString(),
+            chatname,
+            event: msg.event, membership: msg.membership, hasDonation: msg.hasDonation,
+            title: msg.title, subtitle: msg.subtitle, type: msg.type,
+            contentimg: msg.contentimg ? '(present)' : undefined,
+            chatmessage: (msg.chatmessage || '').substring(0, 100)
+        };
+        console.log(`[SSN] Event data from ${chatname}:`, JSON.stringify(debugEntry));
+        try {
+            fs.appendFileSync(path.join(DATA_DIR, 'ssn-debug.log'), JSON.stringify(debugEntry) + '\n');
+        } catch (_) {}
+    }
+
+    // Track sub events using SSN's documented event names
+    // Twitch WS: new_subscriber, resub, subscription_gift
+    // YouTube: sponsorship, giftpurchase, giftredemption
+    // Kick WS: new_subscriber, resub, subscription_gift
+    // IMPORTANT: membership + subtitle alone is just badge info on regular chat (e.g. "Subscriber" + "48-Months")
+    const SUB_EVENTS = ['new_subscriber', 'resub', 'subscription_gift', 'sponsorship', 'giftpurchase', 'giftredemption'];
+    const isSubEvent = SUB_EVENTS.includes(msg.event) || (msg.membership && msg.event);
+    if (isSubEvent) {
         const alreadySubbed = chatData.subscribers.some(s => s.chatname === chatname);
         if (!alreadySubbed) {
-            if (msg.membership.toLowerCase().includes('gift') || msg.contentimg) {
-                chatData.giftSubs.push({ chatname, chatimg: msg.chatimg });
-                console.log(`[SSN] Gift Sub: ${chatname}`);
+            const isGift = msg.event === 'subscription_gift' || msg.event === 'giftpurchase' ||
+                (msg.membership && msg.membership.toLowerCase().includes('gift')) || msg.contentimg;
+            if (isGift) {
+                chatData.giftSubs.push({ chatname, chatimg: msg.chatimg, event: msg.event || null });
+                console.log(`[SSN] Gift Sub: ${chatname} (event=${msg.event})`);
                 fireWebhook('subscribe', { user: chatname, type: 'gift', message: `${chatname} gifted a sub!` });
             } else {
-                chatData.subscribers.push({ chatname, membership: msg.membership, chatimg: msg.chatimg });
-                console.log(`[SSN] Sub: ${chatname} - ${msg.membership}`);
-                fireWebhook('subscribe', { user: chatname, tier: msg.membership, message: `${chatname} subscribed! (${msg.membership})` });
+                chatData.subscribers.push({ chatname, membership: msg.membership || null, subtitle: msg.subtitle || null, chatimg: msg.chatimg, event: msg.event || null });
+                console.log(`[SSN] Sub: ${chatname} - ${msg.membership || msg.event}${msg.subtitle ? ' (' + msg.subtitle + ')' : ''}`);
+                fireWebhook('subscribe', { user: chatname, tier: msg.membership, detail: msg.subtitle, message: `${chatname} subscribed! (${msg.membership || msg.event})` });
             }
         }
     }
@@ -1158,7 +1187,7 @@ const server = http.createServer(async (req, res) => {
                     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
                     // Only allow safe fields to be edited
-                    const safeFields = ['days_filter', 'subs_source', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'webhooks', 'rate_limit'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'webhooks', 'rate_limit'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             current[key] = updates[key];
@@ -1170,7 +1199,7 @@ const server = http.createServer(async (req, res) => {
                     // Hot-reload config vars
                     config.credits = current.credits;
                     config.days_filter = current.days_filter;
-                    config.subs_source = current.subs_source;
+
                     config.active_subs_only = current.active_subs_only;
                     config.exclude_users = current.exclude_users;
                     config.banned_users = current.banned_users;
@@ -1196,7 +1225,7 @@ const server = http.createServer(async (req, res) => {
         // GET — return editable config fields
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
-            subs_source: config.subs_source || 'twitch',
+
             active_subs_only: config.active_subs_only || false,
             hashtags_enabled: config.hashtags_enabled !== false,
             chat_log_enabled: config.chat_log_enabled !== false,
@@ -1562,12 +1591,51 @@ const server = http.createServer(async (req, res) => {
     // Cross-session chat log search
     if (pathname === '/api/chat-log/search') {
         const params = new URL(req.url, `http://localhost`).searchParams;
-        const query = (params.get('q') || '').toLowerCase();
-        const user = (params.get('user') || '').toLowerCase();
+        const rawQuery = (params.get('q') || '').trim();
+        let user = (params.get('user') || '').toLowerCase();
         const session = params.get('session') || 'all';
         const type = params.get('type') || '';
         const limit = parseInt(params.get('limit')) || 200;
         const offset = parseInt(params.get('offset')) || 0;
+
+        // Parse query: extract user:xxx and from:xxx filters, support quoted phrases and AND/OR
+        let queryText = rawQuery;
+        const userFilterMatch = queryText.match(/(?:user|from):(\S+)/i);
+        if (userFilterMatch) {
+            user = userFilterMatch[1].toLowerCase();
+            queryText = queryText.replace(userFilterMatch[0], '').trim();
+        }
+
+        // Parse remaining text into search terms with AND/OR logic
+        // "quoted phrase" stays together, OR separates alternatives, everything else is AND
+        function parseSearchTerms(q) {
+            if (!q) return null;
+            // Split by OR (case-insensitive)
+            const orGroups = q.split(/\bOR\b/i).map(g => g.trim()).filter(Boolean);
+            return orGroups.map(group => {
+                const terms = [];
+                const quoted = /(?:"([^"]+)"|(\S+))/g;
+                let m;
+                while ((m = quoted.exec(group)) !== null) {
+                    const term = (m[1] || m[2]).toLowerCase();
+                    if (term !== 'and') terms.push(term);
+                }
+                return terms;
+            });
+        }
+
+        const searchFilter = parseSearchTerms(queryText);
+        // searchFilter: array of OR-groups, each group is array of AND-terms
+        // e.g. 'pizza AND cheese OR tacos' → [['pizza','cheese'], ['tacos']]
+
+        function matchesSearch(text) {
+            if (!searchFilter) return true;
+            const lower = text.toLowerCase();
+            // Match if ANY or-group has ALL its and-terms present
+            return searchFilter.some(andTerms =>
+                andTerms.every(term => lower.includes(term))
+            );
+        }
 
         let allResults = [];
 
@@ -1575,7 +1643,7 @@ const server = http.createServer(async (req, res) => {
         function searchMessages(messages, sessionName) {
             return messages.filter(m => {
                 if (user && m.user.toLowerCase() !== user) return false;
-                if (query && !m.message.toLowerCase().includes(query)) return false;
+                if (!matchesSearch(m.message)) return false;
                 if (type === 'links') {
                     if (!((m.urls && m.urls.length > 0) || (m.message && m.message.match(/https?:\/\//))))
                         return false;

@@ -103,14 +103,6 @@
                 <label>Days Filter</label>
                 <input type="number" id="cfg-days-filter" value="${cfg.days_filter || 30}" min="1">
             </div>
-            <div class="cfg-row">
-                <label>Subs Source</label>
-                <select id="cfg-subs-source">
-                    <option value="twitch"${cfg.subs_source === 'twitch' ? ' selected' : ''}>Twitch</option>
-                    <option value="ssn"${cfg.subs_source === 'ssn' ? ' selected' : ''}>SSN</option>
-                    <option value="both"${cfg.subs_source === 'both' ? ' selected' : ''}>Both</option>
-                </select>
-            </div>
             <div class="cfg-toggle">
                 <input type="checkbox" id="cfg-active-subs" ${cfg.active_subs_only ? 'checked' : ''}>
                 <label for="cfg-active-subs">Active subs only (only subs who chatted)</label>
@@ -382,7 +374,6 @@
 
         const cfg = {
             days_filter: parseInt(document.getElementById('cfg-days-filter').value) || 30,
-            subs_source: document.getElementById('cfg-subs-source').value,
             active_subs_only: document.getElementById('cfg-active-subs').checked,
             hashtags_enabled: document.getElementById('cfg-hashtags-enabled').checked,
             chat_log_enabled: document.getElementById('cfg-chatlog-enabled').checked,

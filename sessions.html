@@ -116,6 +116,12 @@
         .global-search input:focus { border-color: #58a6ff; }
         .global-search button { background: #1f6feb; border: none; color: white; border-radius: 6px; padding: 0.45rem 0.65rem; font-size: 0.8rem; cursor: pointer; }
         .global-search button:hover { background: #388bfd; }
+        .search-hints { margin-bottom: 0.5rem; font-size: 0.7rem; color: #8b949e; }
+        .search-hints summary { cursor: pointer; color: #58a6ff; font-size: 0.75rem; }
+        .search-hints summary:hover { text-decoration: underline; }
+        .hints-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin-top: 6px; }
+        .hints-grid code { background: #161b22; padding: 1px 5px; border-radius: 3px; color: #e1e4e8; font-size: 0.7rem; white-space: nowrap; }
+        .hints-grid span { color: #8b949e; }
 
         .compare-bar { display: none; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.5rem 1rem; align-items: center; gap: 0.75rem; }
         .compare-bar.show { display: flex; }
@@ -185,6 +191,18 @@
                     <input type="text" id="global-search-input" placeholder="🔍 Search all chats..." onkeydown="if(event.key==='Enter')globalSearch()">
                     <button onclick="globalSearch()">Search</button>
                 </div>
+                <details class="search-hints">
+                    <summary>Search tips</summary>
+                    <div class="hints-grid">
+                        <code>pizza</code><span>Messages containing "pizza"</span>
+                        <code>pizza cheese</code><span>Contains both words (AND)</span>
+                        <code>pizza OR tacos</code><span>Contains either word</span>
+                        <code>"good game"</code><span>Exact phrase</span>
+                        <code>user:ChatFan42</code><span>Messages from a user</span>
+                        <code>user:ChatFan42 pizza</code><span>From user, containing "pizza"</span>
+                        <code>@ChatFan42</code><span>Shorthand for user filter</span>
+                    </div>
+                </details>
                 <div style="display:flex;gap:0.35rem;margin-bottom:0.5rem;flex-wrap:wrap;">
                     <button class="filter-toggle" onclick="globalSearchType('links', this)">🔗 Links</button>
                     <button class="filter-toggle" onclick="globalSearchType('events', this)">📢 Events</button>
