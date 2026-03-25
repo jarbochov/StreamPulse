@@ -1,13 +1,18 @@
 :root {
+    --font-family: "Jersey 20", sans-serif;
+    --text-color: rgb(214, 227, 225);
+    --accent-color: rgb(255, 255, 255);
+    --bg-color: transparent;
     --text-outline-color: #00000066;
+    --font-scale: 1;
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: "Jersey 20", sans-serif;
-    color: rgb(214, 227, 225);
+    font-family: var(--font-family);
+    color: var(--text-color);
     text-shadow: -1px -1px 0 var(--text-outline-color), 1px -1px 0 var(--text-outline-color),
                  -1px 1px 0 var(--text-outline-color), 1px 1px 0 var(--text-outline-color);
 }
@@ -15,7 +20,7 @@
 body {
     width: 1920px;
     height: 1080px;
-    background: transparent;
+    background: var(--bg-color);
     overflow: hidden;
     display: flex;
     justify-content: center;
@@ -44,7 +49,7 @@ body {
 }
 
 #scroll-container h1 {
-    font-size: 6vw;
+    font-size: calc(6vw * var(--font-scale));
     text-transform: uppercase;
     margin-bottom: 60px;
 }
@@ -58,7 +63,7 @@ body {
 
 .scroll-item {
     padding: 10px 0;
-    font-size: 3vw;
+    font-size: calc(3vw * var(--font-scale));
     line-height: 150%;
     text-align: center;
 }
@@ -72,11 +77,11 @@ body {
 .scroll-list.cols-6 .scroll-item { flex-basis: 16.666%; }
 
 /* Size variants for scroll */
-.scroll-item.size-sm { font-size: 2vw; padding: 6px 0; }
-.scroll-item.size-md { font-size: 3vw; padding: 10px 0; }
-.scroll-item.size-lg { font-size: 4vw; padding: 14px 0; }
+.scroll-item.size-sm { font-size: calc(2vw * var(--font-scale)); padding: 6px 0; }
+.scroll-item.size-md { font-size: calc(3vw * var(--font-scale)); padding: 10px 0; }
+.scroll-item.size-lg { font-size: calc(4vw * var(--font-scale)); padding: 14px 0; }
 
-.scroll-item .tag { color: #fff; }
+.scroll-item .tag { color: var(--accent-color); }
 .scroll-item .count { opacity: 0.6; font-size: 0.7em; margin-left: 0.3em; }
 
 /* ============================================================
@@ -100,7 +105,7 @@ body {
     transition: transform 0.2s;
 }
 
-.grid-tag .tag { color: #fff; }
+.grid-tag .tag { color: var(--accent-color); }
 .grid-tag .count { opacity: 0.5; font-size: 0.65em; }
 
 /* Filter info */

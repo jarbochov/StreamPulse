@@ -34,6 +34,27 @@ let serverConfig = {
     }
 };
 
+function applyTheme(cfg) {
+    const t = cfg.theme;
+    if (!t) return;
+    const r = document.documentElement.style;
+    if (t.font_family) {
+        r.setProperty('--font-family', `"${t.font_family}", sans-serif`);
+        if (t.font_import) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = t.font_import;
+            document.head.appendChild(link);
+        }
+    }
+    if (t.text_color) r.setProperty('--text-color', t.text_color);
+    if (t.accent_color) r.setProperty('--accent-color', t.accent_color);
+    if (t.background_color) r.setProperty('--bg-color', t.background_color);
+    if (t.text_outline === false) r.setProperty('--text-outline-color', 'transparent');
+    else if (t.text_outline_color) r.setProperty('--text-outline-color', t.text_outline_color);
+    if (t.font_scale) r.setProperty('--font-scale', t.font_scale);
+}
+
 // Calculate scroll duration - duration takes priority over speed
 let scrollDuration = 82;
 if (DURATION) {
@@ -675,6 +696,7 @@ async function init() {
         const configRes = await fetch('/api/config');
         if (configRes.ok) {
             serverConfig = await configRes.json();
+            applyTheme(serverConfig);
             if (!urlParams.has('days')) DAYS_FILTER = serverConfig.days_filter || 30;
             console.log('[Config] Server config loaded:', JSON.stringify(serverConfig));
         }

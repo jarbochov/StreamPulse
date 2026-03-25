@@ -80,6 +80,31 @@
         return div.innerHTML;
     }
 
+    function rgbToHex(color) {
+        if (!color || color === 'transparent') return '#000000';
+        if (color.startsWith('#')) return color.slice(0, 7);
+        const m = color.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+        if (!m) return '#000000';
+        return '#' + [m[1], m[2], m[3]].map(c => parseInt(c).toString(16).padStart(2, '0')).join('');
+    }
+
+    const GOOGLE_FONT_MAP = {
+        'Jersey 20': 'Jersey+20',
+        'Bangers': 'Bangers',
+        'Press Start 2P': 'Press+Start+2P',
+        'Permanent Marker': 'Permanent+Marker',
+        'Bungee': 'Bungee',
+        'Fredoka One': 'Fredoka+One',
+        'Russo One': 'Russo+One',
+        'Orbitron': 'Orbitron',
+        'Silkscreen': 'Silkscreen'
+    };
+
+    function fontImportUrl(name) {
+        const encoded = GOOGLE_FONT_MAP[name] || name.replace(/\s+/g, '+');
+        return `https://fonts.googleapis.com/css2?family=${encoded}&display=swap`;
+    }
+
     async function loadConfigEditor() {
         if (configLoaded) return;
         try {
@@ -96,6 +121,7 @@
         const sec = cfg.credits?.sections || {};
         const social = cfg.credits?.social || {};
         const st = cfg.credits?.special_thanks || { enabled: false, title: 'Special Thanks', subtitle: '', names: [] };
+        const theme = cfg.theme || {};
 
         el.innerHTML = `
             <div class="cfg-section">General</div>
@@ -129,6 +155,59 @@
                 <input type="text" id="cfg-banned" value="${(cfg.banned_users || []).join(', ')}" placeholder="user1, user2">
             </div>
             <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Completely excluded from everything — stats, overlay, and chat logs</div>
+
+            <div class="cfg-section">Overlay Theme</div>
+            <div style="font-size:0.75rem;color:#484f58;margin-bottom:0.5rem;">Applies to credits, stats, and hashtag overlays</div>
+            <div class="cfg-row">
+                <label>Font</label>
+                <select id="cfg-theme-font" style="flex:1;">
+                    <option value="Jersey 20"${(theme.font_family || 'Jersey 20') === 'Jersey 20' ? ' selected' : ''}>Jersey 20 (default)</option>
+                    <option value="Bangers"${theme.font_family === 'Bangers' ? ' selected' : ''}>Bangers</option>
+                    <option value="Press Start 2P"${theme.font_family === 'Press Start 2P' ? ' selected' : ''}>Press Start 2P</option>
+                    <option value="Permanent Marker"${theme.font_family === 'Permanent Marker' ? ' selected' : ''}>Permanent Marker</option>
+                    <option value="Bungee"${theme.font_family === 'Bungee' ? ' selected' : ''}>Bungee</option>
+                    <option value="Fredoka One"${theme.font_family === 'Fredoka One' ? ' selected' : ''}>Fredoka One</option>
+                    <option value="Russo One"${theme.font_family === 'Russo One' ? ' selected' : ''}>Russo One</option>
+                    <option value="Orbitron"${theme.font_family === 'Orbitron' ? ' selected' : ''}>Orbitron</option>
+                    <option value="Silkscreen"${theme.font_family === 'Silkscreen' ? ' selected' : ''}>Silkscreen</option>
+                    <option value="__custom"${!['Jersey 20','Bangers','Press Start 2P','Permanent Marker','Bungee','Fredoka One','Russo One','Orbitron','Silkscreen',''].includes(theme.font_family) ? ' selected' : ''}>Custom…</option>
+                </select>
+            </div>
+            <div id="cfg-theme-custom-font-row" class="cfg-row" style="display:${!['Jersey 20','Bangers','Press Start 2P','Permanent Marker','Bungee','Fredoka One','Russo One','Orbitron','Silkscreen',''].includes(theme.font_family) ? 'flex' : 'none'};">
+                <label>Custom Font</label>
+                <input type="text" id="cfg-theme-custom-font" value="${escapeHtml(!['Jersey 20','Bangers','Press Start 2P','Permanent Marker','Bungee','Fredoka One','Russo One','Orbitron','Silkscreen',''].includes(theme.font_family) ? theme.font_family : '')}" placeholder="Google Font name">
+            </div>
+            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Any <a href="https://fonts.google.com/" target="_blank" style="color:#58a6ff;">Google Font</a> name works with "Custom"</div>
+            <div class="cfg-row">
+                <label>Text Color</label>
+                <input type="color" id="cfg-theme-text-color" value="${rgbToHex(theme.text_color || 'rgb(214, 227, 225)')}" style="flex:0 0 50px;height:32px;padding:2px;cursor:pointer;">
+                <input type="text" id="cfg-theme-text-color-text" value="${escapeHtml(theme.text_color || 'rgb(214, 227, 225)')}" style="flex:1;" placeholder="rgb(214, 227, 225)">
+            </div>
+            <div class="cfg-row">
+                <label>Accent Color</label>
+                <input type="color" id="cfg-theme-accent-color" value="${rgbToHex(theme.accent_color || 'rgb(255, 255, 255)')}" style="flex:0 0 50px;height:32px;padding:2px;cursor:pointer;">
+                <input type="text" id="cfg-theme-accent-color-text" value="${escapeHtml(theme.accent_color || 'rgb(255, 255, 255)')}" style="flex:1;" placeholder="rgb(255, 255, 255)">
+            </div>
+            <div class="cfg-row">
+                <label>Background</label>
+                <input type="color" id="cfg-theme-bg-color" value="${rgbToHex(theme.background_color || 'transparent')}" style="flex:0 0 50px;height:32px;padding:2px;cursor:pointer;">
+                <input type="text" id="cfg-theme-bg-color-text" value="${escapeHtml(theme.background_color || 'transparent')}" style="flex:1;" placeholder="transparent">
+            </div>
+            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Use "transparent" for OBS chroma-free capture</div>
+            <div class="cfg-toggle">
+                <input type="checkbox" id="cfg-theme-outline" ${theme.text_outline !== false ? 'checked' : ''}>
+                <label for="cfg-theme-outline">Text outline / shadow</label>
+            </div>
+            <div class="cfg-row" id="cfg-theme-outline-color-row" style="display:${theme.text_outline !== false ? 'flex' : 'none'};">
+                <label>Outline Color</label>
+                <input type="color" id="cfg-theme-outline-color" value="${(theme.text_outline_color || '#00000066').slice(0, 7)}" style="flex:0 0 50px;height:32px;padding:2px;cursor:pointer;">
+                <input type="text" id="cfg-theme-outline-color-text" value="${escapeHtml(theme.text_outline_color || '#00000066')}" style="flex:1;" placeholder="#00000066">
+            </div>
+            <div class="cfg-row">
+                <label>Font Scale</label>
+                <input type="range" id="cfg-theme-font-scale" min="0.5" max="2" step="0.05" value="${theme.font_scale || 1}" style="flex:1;">
+                <span id="cfg-theme-font-scale-label" style="min-width:40px;text-align:center;font-size:0.85rem;">${theme.font_scale || 1}×</span>
+            </div>
 
             <div class="cfg-section">Credits Header</div>
             <div class="cfg-row">
@@ -271,6 +350,28 @@
 
             <button class="btn wide" onclick="saveConfig()" style="margin-top: 0.5rem;">💾 Save Config</button>
         `;
+
+        // Wire up theme interactive controls
+        document.getElementById('cfg-theme-font').addEventListener('change', function() {
+            document.getElementById('cfg-theme-custom-font-row').style.display = this.value === '__custom' ? 'flex' : 'none';
+        });
+        document.getElementById('cfg-theme-outline').addEventListener('change', function() {
+            document.getElementById('cfg-theme-outline-color-row').style.display = this.checked ? 'flex' : 'none';
+        });
+        document.getElementById('cfg-theme-font-scale').addEventListener('input', function() {
+            document.getElementById('cfg-theme-font-scale-label').textContent = this.value + '×';
+        });
+        // Sync color pickers with text inputs
+        ['text-color', 'accent-color', 'bg-color', 'outline-color'].forEach(key => {
+            const picker = document.getElementById('cfg-theme-' + key);
+            const text = document.getElementById('cfg-theme-' + key + '-text');
+            if (picker && text) {
+                picker.addEventListener('input', () => { text.value = picker.value; });
+                text.addEventListener('change', () => {
+                    try { picker.value = rgbToHex(text.value); } catch {}
+                });
+            }
+        });
     }
 
     function specialThanksRow(name, index) {
@@ -372,6 +473,13 @@
             }
         });
 
+        const fontSelect = document.getElementById('cfg-theme-font').value;
+        const fontFamily = fontSelect === '__custom'
+            ? document.getElementById('cfg-theme-custom-font').value.trim() || 'Jersey 20'
+            : fontSelect;
+        const outlineEnabled = document.getElementById('cfg-theme-outline').checked;
+        const fontScale = parseFloat(document.getElementById('cfg-theme-font-scale').value) || 1;
+
         const cfg = {
             days_filter: parseInt(document.getElementById('cfg-days-filter').value) || 30,
             active_subs_only: document.getElementById('cfg-active-subs').checked,
@@ -380,6 +488,16 @@
             auto_backup_on_session_end: document.getElementById('cfg-auto-backup').checked,
             exclude_users: document.getElementById('cfg-exclude').value.split(',').map(s => s.trim()).filter(Boolean),
             banned_users: document.getElementById('cfg-banned').value.split(',').map(s => s.trim()).filter(Boolean),
+            theme: {
+                font_family: fontFamily,
+                font_import: fontImportUrl(fontFamily),
+                text_color: document.getElementById('cfg-theme-text-color-text').value.trim() || 'rgb(214, 227, 225)',
+                accent_color: document.getElementById('cfg-theme-accent-color-text').value.trim() || 'rgb(255, 255, 255)',
+                background_color: document.getElementById('cfg-theme-bg-color-text').value.trim() || 'transparent',
+                text_outline: outlineEnabled,
+                text_outline_color: outlineEnabled ? (document.getElementById('cfg-theme-outline-color-text').value.trim() || '#00000066') : '#00000066',
+                font_scale: fontScale
+            },
             webhooks: {
                 enabled: document.getElementById('cfg-wh-enabled').checked,
                 discord_url: document.getElementById('cfg-wh-url').value,

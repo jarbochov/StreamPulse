@@ -157,6 +157,16 @@ All other settings can be edited live via the [Config Editor](http://localhost:8
 
 Credits sections, social links, and the special thanks section are all configurable via the Config Editor or directly in `config.json` under the `credits` key. Each section supports `enabled`, `title`, and `subtitle`.
 
+### Overlay Theme
+
+Customize the look of all overlays (credits, stats, hashtags) from the Config Editor under **Overlay Theme**:
+
+- **Font** — Choose from popular Google Fonts or enter any custom Google Font name
+- **Text / Accent Colors** — Color pickers with manual hex/rgb input
+- **Background** — Set to `transparent` for OBS (default), or pick a color for previewing
+- **Text Outline** — Toggle the shadow outline on/off, pick outline color
+- **Font Scale** — Scale all overlay text proportionally (0.5× – 2×)
+
 ### Discord Webhooks
 
 Optional webhook notifications for stream events:

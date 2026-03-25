@@ -1,21 +1,26 @@
 :root {
+    --font-family: "Jersey 20", sans-serif;
+    --text-color: rgb(214, 227, 225);
+    --accent-color: rgb(255, 255, 255);
+    --bg-color: transparent;
     --text-outline-color: #00000066;
+    --font-scale: 1;
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: "Jersey 20", sans-serif;
-    font-size: 3vw;
-    color: rgb(214, 227, 225);
+    font-family: var(--font-family);
+    font-size: calc(3vw * var(--font-scale));
+    color: var(--text-color);
     text-shadow: -1px -1px 0 var(--text-outline-color), 1px -1px 0 var(--text-outline-color), -1px 1px 0 var(--text-outline-color), 1px 1px 0 var(--text-outline-color);
 }
 
 body {
     width: 1920px;
     height: 1080px;
-    background: transparent;
+    background: var(--bg-color);
     overflow: hidden;
     display: flex;
     justify-content: center;
@@ -77,24 +82,24 @@ body {
 
 .closing {
     margin-top: 400px;
-    font-size: 4vw !important;
+    font-size: calc(4vw * var(--font-scale)) !important;
     font-weight: bold;
     line-height: 3rem;
 }
 
 h1 {
-    font-size: 6vw;
+    font-size: calc(6vw * var(--font-scale));
     text-transform: uppercase;
 }
 
 h2 {
-    font-size: 6vw;
+    font-size: calc(6vw * var(--font-scale));
     text-transform: uppercase;
     margin-bottom:30px;
 }
 
 h3 {
-    font-size: 3.7vw;
+    font-size: calc(3.7vw * var(--font-scale));
     text-transform: uppercase;
     margin-bottom:30px;
 }
@@ -127,12 +132,12 @@ h3 {
 
 .person {
     padding: 10px 0;
-    font-size: 3vw;
+    font-size: calc(3vw * var(--font-scale));
     line-height: 150%;
 }
 
 .special-thanks .person {
-    font-size: 4vw;
+    font-size: calc(4vw * var(--font-scale));
     padding: 14px 0;
 }
 
@@ -162,18 +167,18 @@ h3 {
 }
 
 .emote-name {
-    font-size: 2.5vw;
+    font-size: calc(2.5vw * var(--font-scale));
 }
 
 .emote-stats {
-    font-size: 2vw;
+    font-size: calc(2vw * var(--font-scale));
     opacity: 0.8;
 }
 
 .hashtag-item {
     padding: 8px 0;
     margin-bottom: 10px;
-    font-size: 2vw;
+    font-size: calc(2vw * var(--font-scale));
     line-height: 140%;
 }
 
@@ -185,12 +190,12 @@ h3 {
 }
 
 .hashtag-tag {
-    color: rgb(255, 255, 255);
+    color: var(--accent-color);
 }
 
 .social-icon {
-    font-size: 2vw;
-    color: rgb(214, 227, 225);
+    font-size: calc(2vw * var(--font-scale));
+    color: var(--text-color);
 }
 
 .social-item {
@@ -198,10 +203,10 @@ h3 {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    font-size: 2vw;
+    font-size: calc(2vw * var(--font-scale));
     margin: 8px 0;
 }
 
 .social-item span {
-    font-size: 2vw;
+    font-size: calc(2vw * var(--font-scale));
 }

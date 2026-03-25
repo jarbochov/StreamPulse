@@ -1196,7 +1196,7 @@ const server = http.createServer(async (req, res) => {
                     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
                     // Only allow safe fields to be edited
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'webhooks', 'rate_limit'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'webhooks', 'rate_limit', 'theme'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             current[key] = updates[key];
@@ -1219,6 +1219,7 @@ const server = http.createServer(async (req, res) => {
                     config.auto_backup_on_session_end = current.auto_backup_on_session_end;
                     config.webhooks = current.webhooks;
                     config.rate_limit = current.rate_limit;
+                    config.theme = current.theme;
 
                     console.log('[Config] Updated and hot-reloaded');
                     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1245,7 +1246,8 @@ const server = http.createServer(async (req, res) => {
             credits: config.credits || {},
             auto_backup_on_session_end: config.auto_backup_on_session_end || false,
             webhooks: config.webhooks || { enabled: false, discord_url: '', events: ['raid', 'subscribe', 'donation', 'bits', 'follow'], batch_seconds: 5 },
-            rate_limit: config.rate_limit || { enabled: false, requests_per_minute: 120, mutation_per_minute: 30 }
+            rate_limit: config.rate_limit || { enabled: false, requests_per_minute: 120, mutation_per_minute: 30 },
+            theme: config.theme || {}
         }));
         return;
     }

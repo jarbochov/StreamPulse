@@ -9,15 +9,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Jersey+20&display=swap" rel="stylesheet">
     <style>
         :root {
+            --font-family: "Jersey 20", sans-serif;
+            --text-color: rgb(214, 227, 225);
+            --accent-color: rgb(255, 255, 255);
+            --bg-color: transparent;
             --text-outline-color: #00000066;
+            --font-scale: 1;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: "Jersey 20", sans-serif;
-            color: rgb(214, 227, 225);
+            font-family: var(--font-family);
+            color: var(--text-color);
             text-shadow: -1px -1px 0 var(--text-outline-color), 1px -1px 0 var(--text-outline-color),
                          -1px 1px 0 var(--text-outline-color), 1px 1px 0 var(--text-outline-color);
         }
@@ -25,7 +30,7 @@
         body {
             width: 1920px;
             height: 1080px;
-            background: transparent;
+            background: var(--bg-color);
             overflow: hidden;
             display: flex;
             flex-direction: column;
@@ -46,7 +51,7 @@
         }
 
         h2 {
-            font-size: 3vw;
+            font-size: calc(3vw * var(--font-scale));
             text-align: center;
             margin-bottom: 20px;
         }
@@ -60,7 +65,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 8px 12px;
-            font-size: 1.8vw;
+            font-size: calc(1.8vw * var(--font-scale));
             border-bottom: 1px solid rgba(214, 227, 225, 0.1);
         }
 
@@ -90,13 +95,13 @@
         }
 
         .hashtag-name {
-            color: rgb(255, 255, 255);
+            color: var(--accent-color);
         }
 
         .filter-info {
             width: 100%;
             text-align: center;
-            font-size: 1.2vw;
+            font-size: calc(1.2vw * var(--font-scale));
             opacity: 0.5;
             margin-bottom: 30px;
         }
@@ -244,11 +249,36 @@
             container.innerHTML = html;
         }
 
+        function applyTheme(cfg) {
+            const t = cfg.theme;
+            if (!t) return;
+            const r = document.documentElement.style;
+            if (t.font_family) {
+                r.setProperty('--font-family', `"${t.font_family}", sans-serif`);
+                if (t.font_import) {
+                    const link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    link.href = t.font_import;
+                    document.head.appendChild(link);
+                }
+            }
+            if (t.text_color) r.setProperty('--text-color', t.text_color);
+            if (t.accent_color) r.setProperty('--accent-color', t.accent_color);
+            if (t.background_color) r.setProperty('--bg-color', t.background_color);
+            if (t.text_outline === false) r.setProperty('--text-outline-color', 'transparent');
+            else if (t.text_outline_color) r.setProperty('--text-outline-color', t.text_outline_color);
+            if (t.font_scale) r.setProperty('--font-scale', t.font_scale);
+        }
+
         async function loadStats() {
             try {
-                const res = await fetch('/api/stats');
-                if (res.ok) {
-                    const data = await res.json();
+                const [statsRes, cfgRes] = await Promise.all([
+                    fetch('/api/stats'),
+                    fetch('/api/config')
+                ]);
+                if (cfgRes.ok) applyTheme(await cfgRes.json());
+                if (statsRes.ok) {
+                    const data = await statsRes.json();
                     renderStats(data);
                 }
             } catch (err) {

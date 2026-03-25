@@ -191,7 +191,7 @@
         // Measure tags off-screen to get bounding boxes
         const measurer = document.createElement('div');
         measurer.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;top:-9999px;left:-9999px;';
-        measurer.style.fontFamily = '"Jersey 20", sans-serif';
+        measurer.style.fontFamily = getComputedStyle(document.documentElement).getPropertyValue('--font-family') || '"Jersey 20", sans-serif';
         document.body.appendChild(measurer);
 
         const items = sorted.map(h => {
@@ -280,9 +280,34 @@
     // ================================================================
     // MAIN
     // ================================================================
+    function applyTheme(cfg) {
+        const t = cfg.theme;
+        if (!t) return;
+        const r = document.documentElement.style;
+        if (t.font_family) {
+            r.setProperty('--font-family', `"${t.font_family}", sans-serif`);
+            if (t.font_import) {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = t.font_import;
+                document.head.appendChild(link);
+            }
+        }
+        if (t.text_color) r.setProperty('--text-color', t.text_color);
+        if (t.accent_color) r.setProperty('--accent-color', t.accent_color);
+        if (t.background_color) r.setProperty('--bg-color', t.background_color);
+        if (t.text_outline === false) r.setProperty('--text-outline-color', 'transparent');
+        else if (t.text_outline_color) r.setProperty('--text-outline-color', t.text_outline_color);
+        if (t.font_scale) r.setProperty('--font-scale', t.font_scale);
+    }
+
     async function loadHashtags() {
         try {
-            const res = await fetch('/api/stats');
+            const [res, cfgRes] = await Promise.all([
+                fetch('/api/stats'),
+                fetch('/api/config')
+            ]);
+            if (cfgRes.ok) applyTheme(await cfgRes.json());
             if (!res.ok) throw new Error('Stats fetch failed');
             const data = await res.json();
 
