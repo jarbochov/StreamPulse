@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Stats</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jersey+20&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --text-outline-color: #00000066;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Jersey 20", sans-serif;
+            color: rgb(214, 227, 225);
+            text-shadow: -1px -1px 0 var(--text-outline-color), 1px -1px 0 var(--text-outline-color),
+                         -1px 1px 0 var(--text-outline-color), 1px 1px 0 var(--text-outline-color);
+        }
+
+        body {
+            width: 1920px;
+            height: 1080px;
+            background: transparent;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px;
+        }
+
+        .stats-container {
+            width: 100%;
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+        }
+
+        .stats-column {
+            flex: 1;
+            max-width: 580px;
+        }
+
+        h2 {
+            font-size: 3vw;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .stats-list {
+            list-style: none;
+        }
+
+        .stats-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            font-size: 1.8vw;
+            border-bottom: 1px solid rgba(214, 227, 225, 0.1);
+        }
+
+        .stats-item .rank {
+            width: 40px;
+            opacity: 0.6;
+        }
+
+        .stats-item .name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .stats-item .count {
+            text-align: right;
+            min-width: 80px;
+            opacity: 0.8;
+        }
+
+        .emote-img {
+            width: 28px;
+            height: 28px;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        .hashtag-name {
+            color: rgb(145, 71, 255);
+        }
+
+        .filter-info {
+            text-align: center;
+            font-size: 1.2vw;
+            opacity: 0.5;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="stats-container" id="stats-container">
+        <p style="font-size: 2vw; text-align: center; width: 100%;">Loading stats...</p>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const DAYS = parseInt(urlParams.get('days')) || 0;
+        const LIMIT = parseInt(urlParams.get('limit')) || 20;
+        const REFRESH = parseInt(urlParams.get('refresh')) || 60;
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function filterByDays(obj, dateField) {
+            if (!DAYS) return obj;
+            const cutoff = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000).toISOString();
+            const filtered = {};
+            for (const [key, val] of Object.entries(obj)) {
+                if (val[dateField] && val[dateField] >= cutoff) {
+                    filtered[key] = val;
+                }
+            }
+            return filtered;
+        }
+
+        function renderStats(data) {
+            const container = document.getElementById('stats-container');
+
+            const chatters = filterByDays(data.chatters || {}, 'lastSeen');
+            const emotes = filterByDays(data.emotes || {}, 'lastUsed');
+            const hashtags = filterByDays(data.hashtags || {}, 'lastUsed');
+
+            const topChatters = Object.entries(chatters)
+                .sort((a, b) => b[1].messageCount - a[1].messageCount)
+                .slice(0, LIMIT);
+
+            const topEmotes = Object.entries(emotes)
+                .sort((a, b) => b[1].count - a[1].count)
+                .slice(0, LIMIT);
+
+            const topHashtags = Object.entries(hashtags)
+                .sort((a, b) => b[1].count - a[1].count)
+                .slice(0, LIMIT);
+
+            let html = '';
+
+            if (DAYS) {
+                html += `<div class="filter-info" style="width:100%">Last ${DAYS} days</div>`;
+            }
+
+            // Chatters column
+            html += '<div class="stats-column">';
+            html += '<h2>Top Chatters</h2>';
+            html += '<ul class="stats-list">';
+            topChatters.forEach(([name, data], i) => {
+                html += `<li class="stats-item">
+                    <span class="rank">${i + 1}.</span>
+                    <span class="name">${escapeHtml(name)}</span>
+                    <span class="count">${data.messageCount} msgs</span>
+                </li>`;
+            });
+            if (topChatters.length === 0) html += '<li class="stats-item"><span class="name">No data yet</span></li>';
+            html += '</ul></div>';
+
+            // Emotes column
+            html += '<div class="stats-column">';
+            html += '<h2>Top Emotes</h2>';
+            html += '<ul class="stats-list">';
+            topEmotes.forEach(([name, data], i) => {
+                const img = data.imageUrl ? `<img src="${data.imageUrl}" class="emote-img" alt="${escapeHtml(name)}">` : '';
+                html += `<li class="stats-item">
+                    <span class="rank">${i + 1}.</span>
+                    <span class="name">${img}${escapeHtml(name)}</span>
+                    <span class="count">${data.count}x</span>
+                </li>`;
+            });
+            if (topEmotes.length === 0) html += '<li class="stats-item"><span class="name">No data yet</span></li>';
+            html += '</ul></div>';
+
+            // Hashtags column
+            html += '<div class="stats-column">';
+            html += '<h2>Top Hashtags</h2>';
+            html += '<ul class="stats-list">';
+            topHashtags.forEach(([tag, data], i) => {
+                html += `<li class="stats-item">
+                    <span class="rank">${i + 1}.</span>
+                    <span class="name hashtag-name">${escapeHtml(tag)}</span>
+                    <span class="count">${data.count}x</span>
+                </li>`;
+            });
+            if (topHashtags.length === 0) html += '<li class="stats-item"><span class="name">No data yet</span></li>';
+            html += '</ul></div>';
+
+            container.innerHTML = html;
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/stats');
+                if (res.ok) {
+                    const data = await res.json();
+                    renderStats(data);
+                }
+            } catch (err) {
+                console.error('[Stats] Load error:', err);
+            }
+        }
+
+        loadStats();
+        setInterval(loadStats, REFRESH * 1000);
+    </script>
+</body>
+</html>

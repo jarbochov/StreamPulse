@@ -1,6 +1,7 @@
 {
   "port": 8080,
   "broadcaster_id": "YOUR_BROADCASTER_ID",
+  "broadcaster_name": "YOUR_TWITCH_USERNAME",
   "twitch": {
     "client_id": "YOUR_TWITCH_CLIENT_ID",
     "client_secret": "YOUR_TWITCH_CLIENT_SECRET"
@@ -10,5 +11,32 @@
     "server": "wss://io.socialstream.ninja"
   },
   "twitch_refresh_minutes": 10,
-  "days_filter": 30
+  "days_filter": 30,
+  "subs_source": "twitch",
+  "active_subs_only": false,
+  "exclude_users": [],
+
+  "credits": {
+    "header": {
+      "image": "",
+      "title": "Thank you for your support!",
+      "subtitle": ""
+    },
+    "closing": "Thanks for watching!",
+    "sections": {
+      "subscribers": { "enabled": true, "title": "Subscribers", "subtitle": "" },
+      "followers": { "enabled": true, "title": "New Followers", "subtitle": "" },
+      "donations": { "enabled": true, "title": "Donators", "subtitle": "" },
+      "gift_subs": { "enabled": true, "title": "Gift Subs", "subtitle": "" },
+      "cheerers": { "enabled": true, "title": "Cheerers", "subtitle": "" },
+      "emotes": { "enabled": true, "title": "Top Emotes", "subtitle": "" },
+      "hashtags": { "enabled": true, "title": "Trending Hashtags", "subtitle": "" },
+      "chatters": { "enabled": true, "title": "Today's Chatters", "subtitle": "" }
+    },
+    "social": {
+      "title": "Thanks for watching!",
+      "subtitle": "",
+      "links": []
+    }
+  }
 }

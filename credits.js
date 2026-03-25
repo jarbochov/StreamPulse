@@ -6,7 +6,31 @@ const urlParams = new URLSearchParams(window.location.search);
 const DURATION = parseFloat(urlParams.get('duration')) || null;
 const SPEED_MULTIPLIER = parseFloat(urlParams.get('speed')) || null;
 const DATA_PATH = urlParams.get('datapath') || './data';
-const DAYS_FILTER = parseInt(urlParams.get('days')) || 30;
+let DAYS_FILTER = parseInt(urlParams.get('days')) || 30;
+
+// Server-provided config (loaded at init)
+let serverConfig = {
+    subs_source: 'twitch',
+    active_subs_only: false,
+    broadcaster_name: '',
+    exclude_users: [],
+    days_filter: 30,
+    credits: {
+        header: { image: '', title: 'Thank you for your support!', subtitle: '' },
+        closing: 'Thanks for watching!',
+        sections: {
+            subscribers: { enabled: true, title: 'Subscribers', subtitle: '' },
+            followers: { enabled: true, title: 'New Followers', subtitle: '' },
+            donations: { enabled: true, title: 'Donators', subtitle: '' },
+            gift_subs: { enabled: true, title: 'Gift Subs', subtitle: '' },
+            cheerers: { enabled: true, title: 'Cheerers', subtitle: '' },
+            emotes: { enabled: true, title: 'Top Emotes', subtitle: '' },
+            hashtags: { enabled: true, title: 'Trending Hashtags', subtitle: '' },
+            chatters: { enabled: true, title: "Today's Chatters", subtitle: '' }
+        },
+        social: { title: '', subtitle: '', links: [] }
+    }
+};
 
 // Calculate scroll duration - duration takes priority over speed
 let scrollDuration = 82;
@@ -190,167 +214,179 @@ function loadChatData(chatJson) {
 function renderCredits() {
     const container = document.getElementById('credits-container');
     const socialLinksContainer = document.getElementById('social-links-container');
+    const c = serverConfig.credits;
+    const sec = c.sections;
     let html = '';
 
+    // Helper for section titles
+    function sectionHeader(title, subtitle) {
+        let h = `<h2>${escapeHtml(title)}</h2>`;
+        if (subtitle) h += `<h3>${escapeHtml(subtitle)}</h3>`;
+        return h;
+    }
+
     // Header image
-    html += '<div class="section">';
-    html += '<img src="https://cdn.streamelements.com/uploads/638fc6af-7d92-4f44-9fae-3d7cb65375a8.gif" class="header-img" alt="Header">';
-    html += '</div>';
+    if (c.header.image) {
+        html += '<div class="section">';
+        html += `<img src="${c.header.image}" class="header-img" alt="Header">`;
+        html += '</div>';
+    }
 
     // Header text
-    html += '<div class="section">';
-    html += '<h1>Thank you for your support!</h1>';
-    html += '<h3>The room where it happens</h3>';
-    html += '</div>';
-
-    // Subscribers section
-    const allSubs = mergeSubscribers();
-    if (allSubs.length > 0) {
+    if (c.header.title) {
         html += '<div class="section">';
-        html += '<h2>Subscribers</h2>';
-        html += '<h3>Remember to feed your Wii U a disc</h3>';
+        html += `<h1>${escapeHtml(c.header.title)}</h1>`;
+        if (c.header.subtitle) html += `<h3>${escapeHtml(c.header.subtitle)}</h3>`;
+        html += '</div>';
+    }
+
+    // Subscribers
+    if (sec.subscribers.enabled !== false) {
+        const allSubs = mergeSubscribers();
+        if (allSubs.length > 0) {
+            html += '<div class="section">';
+            html += sectionHeader(sec.subscribers.title, sec.subscribers.subtitle);
+            html += '<div class="people-list two-col">';
+            allSubs.forEach(sub => {
+                html += `<div class="person">${escapeHtml(sub.name)}`;
+                if (sub.tier) html += ` (${escapeHtml(sub.tier)})`;
+                html += '</div>';
+            });
+            html += '</div></div>';
+        }
+    }
+
+    // Followers
+    if (sec.followers.enabled !== false) {
+        const allFollowers = mergeFollowers();
+        if (allFollowers.length > 0) {
+            html += '<div class="section">';
+            html += sectionHeader(sec.followers.title, sec.followers.subtitle);
+            html += '<div class="people-list three-col">';
+            allFollowers.forEach(f => {
+                html += `<div class="person">${escapeHtml(f.name)}</div>`;
+            });
+            html += '</div></div>';
+        }
+    }
+
+    // Donations
+    if (sec.donations.enabled !== false && liveData.donations.length > 0) {
+        html += '<div class="section">';
+        html += sectionHeader(sec.donations.title, sec.donations.subtitle);
         html += '<div class="people-list two-col">';
-        allSubs.forEach(sub => {
-            html += `<div class="person">${escapeHtml(sub.name)}`;
-            if (sub.tier) {
-                html += ` (${escapeHtml(sub.tier)})`;
-            }
-            html += '</div>';
+        liveData.donations.forEach(d => {
+            html += `<div class="person">${escapeHtml(d.chatname)} (${escapeHtml(d.amount)})</div>`;
         });
-        html += '</div>';
-        html += '</div>';
+        html += '</div></div>';
     }
 
-    // New Followers section
-    const allFollowers = mergeFollowers();
-    if (allFollowers.length > 0) {
+    // Gift Subs
+    if (sec.gift_subs.enabled !== false && liveData.giftSubs.length > 0) {
         html += '<div class="section">';
-        html += '<h2>New Followers</h2>';
-        html += '<h3>(not a cult)</h3>';
-        html += '<div class="people-list three-col">';
-        allFollowers.forEach(follower => {
-            html += `<div class="person">${escapeHtml(follower.name)}</div>`;
-        });
-        html += '</div>';
-        html += '</div>';
-    }
-
-    // Donations section
-    if (liveData.donations.length > 0) {
-        html += '<div class="section">';
-        html += '<h2>Donators</h2>';
-        html += '<h3 class="smallerheader">Can I have fifty dollars?</h3>';
+        html += sectionHeader(sec.gift_subs.title, sec.gift_subs.subtitle);
         html += '<div class="people-list two-col">';
-        liveData.donations.forEach(donation => {
-            html += `<div class="person">${escapeHtml(donation.chatname)}`;
-            html += ` (${escapeHtml(donation.amount)})</div>`;
+        liveData.giftSubs.forEach(g => {
+            html += `<div class="person">${escapeHtml(g.chatname)}</div>`;
         });
-        html += '</div>';
-        html += '</div>';
+        html += '</div></div>';
     }
 
-    // Gift Subs section
-    if (liveData.giftSubs.length > 0) {
+    // Cheerers
+    if (sec.cheerers.enabled !== false) {
+        const allBits = mergeBits();
+        if (allBits.length > 0) {
+            html += '<div class="section">';
+            html += sectionHeader(sec.cheerers.title, sec.cheerers.subtitle);
+            html += '<div class="people-list two-col">';
+            allBits.forEach(b => {
+                html += `<div class="person">${escapeHtml(b.name)} (${escapeHtml(b.amount)})</div>`;
+            });
+            html += '</div></div>';
+        }
+    }
+
+    // Top Emotes
+    if (sec.emotes.enabled !== false) {
+        const topEmotes = getTopEmotes(5);
+        if (topEmotes.length > 0) {
+            html += '<div class="section">';
+            html += sectionHeader(sec.emotes.title, sec.emotes.subtitle);
+            html += '<div>';
+            topEmotes.forEach(emote => {
+                html += '<div class="emote-item">';
+                html += `<img src="${emote.imageUrl}" class="emote-img" alt="${escapeHtml(emote.name)}">`;
+                html += `<div class="emote-name">${escapeHtml(emote.name)}</div>`;
+                html += `<div class="emote-stats">${emote.count} uses by ${emote.uniqueUsers} chatters</div>`;
+                html += '</div>';
+            });
+            html += '</div></div>';
+        }
+    }
+
+    // Trending Hashtags
+    if (sec.hashtags.enabled !== false) {
+        const topHashtags = getTopHashtags(10);
+        if (topHashtags.length > 0) {
+            html += '<div class="section">';
+            html += sectionHeader(sec.hashtags.title, sec.hashtags.subtitle);
+            html += '<div class="hashtag-list">';
+            topHashtags.forEach(hashtag => {
+                html += '<div class="hashtag-item">';
+                html += `<span class="hashtag-tag">${escapeHtml(hashtag.tag)}</span>`;
+                html += ` (${hashtag.count})`;
+                html += '</div>';
+            });
+            html += '</div></div>';
+        }
+    }
+
+    // Chatters
+    if (sec.chatters.enabled !== false) {
+        const sortedChatters = Array.from(liveData.chatters.values())
+            .sort((a, b) => b.messageCount - a.messageCount);
+        if (sortedChatters.length > 0) {
+            html += '<div class="section">';
+            html += sectionHeader(sec.chatters.title, sec.chatters.subtitle);
+            html += '<div class="people-list three-col">';
+            sortedChatters.forEach(chatter => {
+                html += `<div class="person">${escapeHtml(chatter.chatname)}</div>`;
+            });
+            html += '</div></div>';
+        }
+    }
+
+    // Closing
+    if (c.closing) {
         html += '<div class="section">';
-        html += '<h2>Gift Subs</h2>';
-        html += '<div class="people-list two-col">';
-        liveData.giftSubs.forEach(gift => {
-            html += `<div class="person">${escapeHtml(gift.chatname)}</div>`;
-        });
-        html += '</div>';
+        html += escapeHtml(c.closing);
         html += '</div>';
     }
-
-    // Bits/Cheers section
-    const allBits = mergeBits();
-    if (allBits.length > 0) {
-        html += '<div class="section">';
-        html += '<h2>Cheerers</h2>';
-        html += '<div class="people-list two-col">';
-        allBits.forEach(bit => {
-            html += `<div class="person">${escapeHtml(bit.name)}`;
-            html += ` (${escapeHtml(bit.amount)})</div>`;
-        });
-        html += '</div>';
-        html += '</div>';
-    }
-
-    // Top Emotes section
-    const topEmotes = getTopEmotes(5);
-    if (topEmotes.length > 0) {
-        html += '<div class="section">';
-        html += '<h2>Top Emotes</h2>';
-        html += '<h3>Chat\'s Mood Board</h3>';
-        html += '<div>';
-        topEmotes.forEach(emote => {
-            html += '<div class="emote-item">';
-            html += `<img src="${emote.imageUrl}" class="emote-img" alt="${escapeHtml(emote.name)}">`;
-            html += `<div class="emote-name">${escapeHtml(emote.name)}</div>`;
-            html += `<div class="emote-stats">${emote.count} uses by ${emote.uniqueUsers} chatters</div>`;
-            html += '</div>';
-        });
-        html += '</div>';
-        html += '</div>';
-    }
-
-    // Trending Hashtags section
-    const topHashtags = getTopHashtags(10);
-    if (topHashtags.length > 0) {
-        html += '<div class="section">';
-        html += '<h2>Trending Hashtags</h2>';
-        html += '<h3>What we\'re talking about</h3>';
-        html += '<div class="people-list three-col">';
-        topHashtags.forEach(hashtag => {
-            html += '<div class="hashtag-item">';
-            html += `<span class="hashtag-tag">${escapeHtml(hashtag.tag)}</span>`;
-            html += ` (${hashtag.count} uses)`;
-            html += '</div>';
-        });
-        html += '</div>';
-        html += '</div>';
-    }
-
-    // Chatters section
-    const sortedChatters = Array.from(liveData.chatters.values())
-        .sort((a, b) => b.messageCount - a.messageCount);
-
-    if (sortedChatters.length > 0) {
-        html += '<div class="section">';
-        html += '<h2>Today\'s Chatters</h2>';
-        html += '<h3>The Peanut Gallery</h3>';
-        html += '<div class="people-list three-col">';
-        sortedChatters.forEach(chatter => {
-            html += `<div class="person">${escapeHtml(chatter.chatname)}</div>`;
-        });
-        html += '</div>';
-        html += '</div>';
-    }
-
-    // Ending statement
-    html += '<div class="section">';
-    html += '<h1>Never forget that you\'re awesome and that you matter. Thanks for being you!</h1>';
-    html += '</div>';
 
     container.innerHTML = html;
 
     // Social links
+    const social = c.social;
     let socialHtml = '';
-    socialHtml += '<h2>SEE YA NEXT TIME!</h2>';
-    socialHtml += '<h3>Follow For More Randomness</h3>';
-    socialHtml += '<div>';
-    socialHtml += '<div class="social-item"><i class="fab fa-threads social-icon"></i> <span>@jarbochov</span></div>';
-    socialHtml += '<div class="social-item"><i class="fab fa-mastodon social-icon"></i> <span>@jarbochov</span></div>';
-    socialHtml += '<div class="social-item">🦋 <span>@wyomingjarbo.com</span></div>';
-    socialHtml += '<div class="social-item"><i class="fas fa-globe social-icon"></i> <span>wyomingjarbo.com</span></div>';
-    socialHtml += '</div>';
+    if (social.title) socialHtml += `<h2>${escapeHtml(social.title)}</h2>`;
+    if (social.subtitle) socialHtml += `<h3>${escapeHtml(social.subtitle)}</h3>`;
+    if (social.links && social.links.length > 0) {
+        socialHtml += '<div>';
+        social.links.forEach(link => {
+            const isEmoji = !link.icon.includes(' ');
+            const iconHtml = isEmoji
+                ? `${link.icon} `
+                : `<i class="${escapeHtml(link.icon)} social-icon"></i> `;
+            socialHtml += `<div class="social-item">${iconHtml}<span>${escapeHtml(link.handle)}</span></div>`;
+        });
+        socialHtml += '</div>';
+    }
     socialLinksContainer.innerHTML = socialHtml;
 
     // Start scroll animation
     const socialLinkDelay = scrollDuration * 1000;
     setTimeout(() => {
         container.classList.add('scrollIt');
-
-        // After scroll completes, fade out credits and fade in social links
         setTimeout(() => {
             container.classList.add('fadeOut');
             setTimeout(() => {
@@ -366,26 +402,46 @@ function renderCredits() {
 
 function mergeSubscribers() {
     const subsMap = new Map();
+    const broadcasterKey = serverConfig.broadcaster_name?.toLowerCase() || '';
+    const source = serverConfig.subs_source || 'twitch';
 
-    prefetchedData.subs.forEach(sub => {
-        const name = sub.user_name || sub.user_login;
-        if (name) {
-            subsMap.set(name.toLowerCase(), {
-                name: name,
-                tier: sub.tier ? `Tier ${sub.tier / 1000}` : '',
-                chatimg: null
-            });
-        }
-    });
-
-    liveData.subscribers.forEach(sub => {
-        const key = sub.chatname.toLowerCase();
-        subsMap.set(key, {
-            name: sub.chatname,
-            tier: sub.membership || '',
-            chatimg: sub.chatimg
+    // Twitch API subs
+    if (source === 'twitch' || source === 'both') {
+        prefetchedData.subs.forEach(sub => {
+            const name = sub.user_name || sub.user_login;
+            if (name && name.toLowerCase() !== broadcasterKey) {
+                subsMap.set(name.toLowerCase(), {
+                    name: name,
+                    tier: sub.tier ? `Tier ${sub.tier / 1000}` : '',
+                    chatimg: null
+                });
+            }
         });
-    });
+    }
+
+    // SSN live subs
+    if (source === 'ssn' || source === 'both') {
+        liveData.subscribers.forEach(sub => {
+            const key = sub.chatname.toLowerCase();
+            if (key !== broadcasterKey) {
+                subsMap.set(key, {
+                    name: sub.chatname,
+                    tier: sub.membership || '',
+                    chatimg: sub.chatimg
+                });
+            }
+        });
+    }
+
+    // Filter to only active chatters if configured
+    if (serverConfig.active_subs_only) {
+        const activeChatters = new Set(
+            Array.from(liveData.chatters.keys()).map(k => k.toLowerCase())
+        );
+        return Array.from(subsMap.values()).filter(sub =>
+            activeChatters.has(sub.name.toLowerCase())
+        );
+    }
 
     return Array.from(subsMap.values());
 }
@@ -393,10 +449,11 @@ function mergeSubscribers() {
 function mergeFollowers() {
     const followersMap = new Map();
     const cutoff = Date.now() - (DAYS_FILTER * 24 * 60 * 60 * 1000);
+    const broadcasterKey = serverConfig.broadcaster_name?.toLowerCase() || '';
 
     prefetchedData.followers.forEach(follower => {
         const name = follower.user_name || follower.user_login;
-        if (name && follower.followed_at) {
+        if (name && name.toLowerCase() !== broadcasterKey && follower.followed_at) {
             const followedAt = new Date(follower.followed_at).getTime();
             if (followedAt >= cutoff) {
                 followersMap.set(name.toLowerCase(), { name: name });
@@ -406,7 +463,9 @@ function mergeFollowers() {
 
     liveData.followers.forEach(follower => {
         const key = follower.chatname.toLowerCase();
-        followersMap.set(key, { name: follower.chatname });
+        if (key !== broadcasterKey) {
+            followersMap.set(key, { name: follower.chatname });
+        }
     });
 
     return Array.from(followersMap.values());
@@ -499,10 +558,23 @@ function startCredits() {
 
 async function init() {
     console.log('[Init] Starting stream credits overlay...');
+
+    // Load server config
+    try {
+        const configRes = await fetch('/api/config');
+        if (configRes.ok) {
+            serverConfig = await configRes.json();
+            if (!urlParams.has('days')) DAYS_FILTER = serverConfig.days_filter || 30;
+            console.log('[Config] Server config loaded:', JSON.stringify(serverConfig));
+        }
+    } catch { /* use defaults */ }
+
     console.log('[Init] Duration:', DURATION, 'seconds (URL parameter)');
     console.log('[Init] Effective Scroll Duration:', scrollDuration, 'seconds');
     console.log('[Init] Data Path:', DATA_PATH);
     console.log('[Init] Days Filter:', DAYS_FILTER, 'days');
+    console.log('[Init] Subs Source:', serverConfig.subs_source);
+    console.log('[Init] Active Subs Only:', serverConfig.active_subs_only);
 
     await loadPrefetchedData();
 
