@@ -6,6 +6,7 @@ const path = require('path');
 const https = require('https');
 const { exec } = require('child_process');
 const WebSocket = require('ws');
+const PDFDocument = require('pdfkit');
 
 // ============================================================================
 // CONFIG
@@ -22,7 +23,8 @@ let config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 const PORT = config.port || 8080;
 const BROADCASTER_ID = config.broadcaster_id;
 const BROADCASTER_NAME = config.broadcaster_name || '';
-const EXCLUDE_USERS = (config.exclude_users || []).map(u => u.toLowerCase());
+let EXCLUDE_USERS = (config.exclude_users || []).map(u => u.toLowerCase());
+let BANNED_USERS = (config.banned_users || []).map(u => u.toLowerCase());
 const TWITCH_CLIENT_ID = config.twitch?.client_id;
 const TWITCH_CLIENT_SECRET = config.twitch?.client_secret;
 const SSN_SESSION_ID = config.ssn?.session_id;
@@ -32,6 +34,7 @@ const SUBS_SOURCE = config.subs_source || 'twitch';       // "twitch", "ssn", or
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = path.join(__dirname, 'data');
 const BANNED_HASHTAGS_PATH = path.join(DATA_DIR, '.banned-hashtags.json');
+const CHAT_LOG_PATH = path.join(DATA_DIR, 'chat-log.jsonl');
 
 // Session state
 let sessionActive = true;
@@ -275,6 +278,10 @@ const chatData = {
     messageCount: 0
 };
 
+// Chat log — individual messages stored separately from aggregates
+let chatLog = [];
+let chatLogFlushed = 0;
+
 // Persistent stats — survives restarts, daily bucket tracking
 const STATS_PATH = path.join(DATA_DIR, 'stats.json');
 const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
@@ -346,7 +353,7 @@ function updateStats(chatname, msg) {
             };
         }
         statsData.chatters[chatname].days[today] = (statsData.chatters[chatname].days[today] || 0) + 1;
-        statsData.chatters[chatname].lastSeen = now;
+        statsData.chatters[chatname].lastSeen = nowISO;
         if (msg.chatimg) statsData.chatters[chatname].chatimg = msg.chatimg;
     }
 
@@ -358,7 +365,7 @@ function updateStats(chatname, msg) {
             };
         }
         statsData.followers[chatname].days[today] = (statsData.followers[chatname].days[today] || 0) + 1;
-        statsData.followers[chatname].lastSeen = now;
+        statsData.followers[chatname].lastSeen = nowISO;
     }
 
     // Track subscriber events
@@ -370,7 +377,7 @@ function updateStats(chatname, msg) {
                 };
             }
             statsData.giftSubs[chatname].days[today] = (statsData.giftSubs[chatname].days[today] || 0) + 1;
-            statsData.giftSubs[chatname].lastSeen = now;
+            statsData.giftSubs[chatname].lastSeen = nowISO;
         } else {
             if (!statsData.subscribers[chatname]) {
                 statsData.subscribers[chatname] = {
@@ -379,7 +386,7 @@ function updateStats(chatname, msg) {
                 };
             }
             statsData.subscribers[chatname].days[today] = (statsData.subscribers[chatname].days[today] || 0) + 1;
-            statsData.subscribers[chatname].lastSeen = now;
+            statsData.subscribers[chatname].lastSeen = nowISO;
         }
     }
 
@@ -394,7 +401,7 @@ function updateStats(chatname, msg) {
             const match = msg.hasDonation.match(/(\d+)/);
             const amount = match ? parseInt(match[1]) : 0;
             statsData.bits[chatname].days[today] = (statsData.bits[chatname].days[today] || 0) + amount;
-            statsData.bits[chatname].lastSeen = now;
+            statsData.bits[chatname].lastSeen = nowISO;
         } else {
             if (!statsData.donations[chatname]) {
                 statsData.donations[chatname] = {
@@ -402,7 +409,7 @@ function updateStats(chatname, msg) {
                 };
             }
             statsData.donations[chatname].days[today] = (statsData.donations[chatname].days[today] || 0) + 1;
-            statsData.donations[chatname].lastSeen = now;
+            statsData.donations[chatname].lastSeen = nowISO;
         }
     }
 
@@ -461,6 +468,34 @@ function saveChatData() {
     fs.writeFileSync(path.join(DATA_DIR, 'chat.json'), JSON.stringify(chatData, null, 2));
 }
 
+function saveChatLog() {
+    if (chatLog.length > chatLogFlushed) {
+        const newEntries = chatLog.slice(chatLogFlushed);
+        const lines = newEntries.map(e => JSON.stringify(e)).join('\n') + '\n';
+        fs.appendFileSync(CHAT_LOG_PATH, lines);
+        chatLogFlushed = chatLog.length;
+    }
+}
+
+function readChatLogFile(filepath) {
+    if (!fs.existsSync(filepath)) return [];
+    return fs.readFileSync(filepath, 'utf8')
+        .split('\n')
+        .filter(line => line.trim())
+        .map(line => { try { return JSON.parse(line); } catch { return null; } })
+        .filter(Boolean);
+}
+
+function localDateTimeStr(isoStr) {
+    const d = new Date(isoStr || Date.now());
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const h = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    return `${y}-${mo}-${day}T${h}-${mi}`;
+}
+
 function archiveSession() {
     const chatPath = path.join(DATA_DIR, 'chat.json');
     try {
@@ -470,15 +505,24 @@ function archiveSession() {
                 if (!fs.existsSync(SESSIONS_DIR)) {
                     fs.mkdirSync(SESSIONS_DIR, { recursive: true });
                 }
-                const sessionDate = (prevChat.startedAt || new Date().toISOString()).slice(0, 10);
-                let archiveName = `chat-${sessionDate}.json`;
+                // Use local time so the date matches what the streamer sees
+                const sessionDateTime = localDateTimeStr(prevChat.startedAt);
+                let archiveName = `chat-${sessionDateTime}.json`;
                 let counter = 2;
                 while (fs.existsSync(path.join(SESSIONS_DIR, archiveName))) {
-                    archiveName = `chat-${sessionDate}-${counter}.json`;
+                    archiveName = `chat-${sessionDateTime}-${counter}.json`;
                     counter++;
                 }
                 fs.copyFileSync(chatPath, path.join(SESSIONS_DIR, archiveName));
                 console.log(`[Session] Archived → data/sessions/${archiveName}`);
+
+                // Archive chat log alongside the session
+                if (fs.existsSync(CHAT_LOG_PATH)) {
+                    const logArchiveName = archiveName.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
+                    fs.copyFileSync(CHAT_LOG_PATH, path.join(SESSIONS_DIR, logArchiveName));
+                    console.log(`[Session] Chat log archived → data/sessions/${logArchiveName}`);
+                }
+
                 return archiveName;
             }
         }
@@ -502,6 +546,9 @@ function resetChatData() {
     chatData.messageCount = 0;
     chatData.startedAt = new Date().toISOString();
     chatData.lastUpdated = null;
+    chatLog = [];
+    chatLogFlushed = 0;
+    try { if (fs.existsSync(CHAT_LOG_PATH)) fs.unlinkSync(CHAT_LOG_PATH); } catch {}
     saveChatData();
 }
 
@@ -509,6 +556,27 @@ function processChatMessage(msg) {
     if (msg.bot === true) return;
     const chatname = msg.chatname;
     if (!chatname) return;
+
+    // Banned users are completely excluded from everything
+    if (BANNED_USERS.includes(chatname.toLowerCase())) return;
+
+    // Append to chat log BEFORE stats exclusion (captures all non-banned users)
+    if (config.chat_log_enabled !== false) {
+        const plainText = msg.chatmessage ? msg.chatmessage.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '';
+        chatLog.push({
+            ts: Date.now(),
+            user: chatname,
+            avatar: msg.chatimg || null,
+            message: plainText.trim(),
+            messageHtml: msg.chatmessage || '',
+            type: msg.type || null,
+            event: msg.event || null,
+            donation: msg.hasDonation || null,
+            membership: msg.membership || null
+        });
+    }
+
+    // Excluded users appear in chat log but not in stats/overlay
     if (EXCLUDE_USERS.includes(chatname.toLowerCase())) return;
 
     chatData.messageCount++;
@@ -652,6 +720,7 @@ function connectSSN() {
     ssnSocket.on('close', () => {
         console.log('[SSN] Disconnected. Reconnecting in 3s...');
         saveChatData();
+        saveChatLog();
         clearTimeout(ssnReconnectTimer);
         ssnReconnectTimer = setTimeout(connectSSN, 3000);
     });
@@ -737,7 +806,7 @@ const server = http.createServer(async (req, res) => {
                     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
                     // Only allow safe fields to be edited
-                    const safeFields = ['days_filter', 'subs_source', 'active_subs_only', 'exclude_users', 'hashtags_enabled', 'credits'];
+                    const safeFields = ['days_filter', 'subs_source', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             current[key] = updates[key];
@@ -752,7 +821,11 @@ const server = http.createServer(async (req, res) => {
                     config.subs_source = current.subs_source;
                     config.active_subs_only = current.active_subs_only;
                     config.exclude_users = current.exclude_users;
+                    config.banned_users = current.banned_users;
+                    EXCLUDE_USERS = (config.exclude_users || []).map(u => u.toLowerCase());
+                    BANNED_USERS = (config.banned_users || []).map(u => u.toLowerCase());
                     config.hashtags_enabled = current.hashtags_enabled;
+                    config.chat_log_enabled = current.chat_log_enabled;
 
                     console.log('[Config] Updated and hot-reloaded');
                     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -771,8 +844,10 @@ const server = http.createServer(async (req, res) => {
             subs_source: config.subs_source || 'twitch',
             active_subs_only: config.active_subs_only || false,
             hashtags_enabled: config.hashtags_enabled !== false,
+            chat_log_enabled: config.chat_log_enabled !== false,
             broadcaster_name: BROADCASTER_NAME,
             exclude_users: config.exclude_users || [],
+            banned_users: config.banned_users || [],
             days_filter: config.days_filter || 30,
             credits: config.credits || {}
         }));
@@ -827,6 +902,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/end-session') {
         saveChatData();
         saveStats();
+        saveChatLog();
         const archiveName = archiveSession();
         resetChatData();
         sessionActive = false;
@@ -854,6 +930,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/shutdown') {
         saveChatData();
         saveStats();
+        saveChatLog();
         const archiveName = archiveSession();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'shutting_down', archived: archiveName, message: 'Server shutting down...' }));
@@ -988,7 +1065,7 @@ const server = http.createServer(async (req, res) => {
                 return;
             }
             const files = fs.readdirSync(SESSIONS_DIR)
-                .filter(f => f.endsWith('.json'))
+                .filter(f => f.startsWith('chat-') && f.endsWith('.json'))
                 .sort()
                 .reverse();
             res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1015,8 +1092,6 @@ const server = http.createServer(async (req, res) => {
         } else if (from || to) {
             range = { from: from || '1970-01-01', to: to || '9999-12-31' };
         } else if (days) {
-            const now = new Date();
-            const cutoff = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate() - days).padStart(2, '0')}`;
             const fromDate = new Date(Date.now() - days * 86400000);
             range = { from: `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, '0')}-${String(fromDate.getDate()).padStart(2, '0')}`, to: '9999-12-31' };
         }
@@ -1080,6 +1155,23 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    // Chat log for a specific session (must be before session file handler)
+    const chatLogMatch = pathname.match(/^\/api\/sessions\/(.+\.json)\/chat-log$/);
+    if (chatLogMatch) {
+        const sessionName = chatLogMatch[1];
+        const logName = sessionName.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
+        const logFile = path.join(SESSIONS_DIR, logName);
+        if (!logFile.startsWith(SESSIONS_DIR)) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Forbidden' }));
+            return;
+        }
+        const messages = readChatLogFile(logFile);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ session: sessionName, count: messages.length, messages }));
+        return;
+    }
+
     // Serve individual session files
     const sessionMatch = pathname.match(/^\/api\/sessions\/(.+\.json)$/);
     if (sessionMatch) {
@@ -1091,6 +1183,173 @@ const server = http.createServer(async (req, res) => {
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(fs.readFileSync(sessionFile, 'utf8'));
+        return;
+    }
+
+    // Current session data (live)
+    if (pathname === '/api/chat') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(chatData));
+        return;
+    }
+
+    // Current session chat log
+    if (pathname === '/api/chat-log') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ session: 'current', count: chatLog.length, messages: chatLog }));
+        return;
+    }
+
+    // Cross-session chat log search
+    if (pathname === '/api/chat-log/search') {
+        const params = new URL(req.url, `http://localhost`).searchParams;
+        const query = (params.get('q') || '').toLowerCase();
+        const user = (params.get('user') || '').toLowerCase();
+        const session = params.get('session') || 'all';
+        const limit = parseInt(params.get('limit')) || 200;
+        const offset = parseInt(params.get('offset')) || 0;
+
+        let allResults = [];
+
+        // Helper to search messages from a session
+        function searchMessages(messages, sessionName) {
+            return messages.filter(m => {
+                if (user && m.user.toLowerCase() !== user) return false;
+                if (query && !m.message.toLowerCase().includes(query)) return false;
+                return true;
+            }).map(m => ({ ...m, session: sessionName }));
+        }
+
+        if (session === 'all' || session === 'current') {
+            allResults.push(...searchMessages(chatLog, 'current'));
+        }
+
+        if (session === 'all') {
+            // Search all archived sessions
+            if (fs.existsSync(SESSIONS_DIR)) {
+                const logFiles = fs.readdirSync(SESSIONS_DIR)
+                    .filter(f => f.startsWith('chatlog-') && f.endsWith('.jsonl'))
+                    .sort()
+                    .reverse();
+                for (const logFile of logFiles) {
+                    const messages = readChatLogFile(path.join(SESSIONS_DIR, logFile));
+                    const sessionName = logFile.replace('chatlog-', 'chat-').replace('.jsonl', '.json');
+                    allResults.push(...searchMessages(messages, sessionName));
+                }
+            }
+        } else if (session !== 'current') {
+            // Search a specific archived session
+            const logName = session.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
+            const logFile = path.join(SESSIONS_DIR, logName);
+            if (logFile.startsWith(SESSIONS_DIR) && fs.existsSync(logFile)) {
+                const messages = readChatLogFile(logFile);
+                allResults.push(...searchMessages(messages, session));
+            }
+        }
+
+        // Sort by timestamp descending (most recent first)
+        allResults.sort((a, b) => b.ts - a.ts);
+
+        const total = allResults.length;
+        const paged = allResults.slice(offset, offset + limit);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ total, offset, limit, count: paged.length, results: paged }));
+        return;
+    }
+
+    // Chat log export (TSV, TXT, PDF)
+    if (pathname === '/api/chat-log/export') {
+        const params = new URL(req.url, `http://localhost`).searchParams;
+        const format = params.get('format') || 'tsv';
+        const session = params.get('session') || 'current';
+
+        // Load messages
+        let messages = [];
+        let sessionLabel = session;
+        if (session === 'current') {
+            messages = chatLog;
+            sessionLabel = 'current-session';
+        } else {
+            const logName = session.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
+            const logFile = path.join(SESSIONS_DIR, logName);
+            if (logFile.startsWith(SESSIONS_DIR) && fs.existsSync(logFile)) {
+                messages = readChatLogFile(logFile);
+            }
+        }
+
+        const formatTime = (ts) => {
+            if (!ts) return '';
+            const d = new Date(ts);
+            return d.toLocaleString();
+        };
+
+        const safeFilename = sessionLabel.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+        if (format === 'tsv') {
+            const header = 'Timestamp\tUser\tMessage\tEvent\tDonation\tMembership';
+            const rows = messages.map(m =>
+                `${formatTime(m.ts)}\t${m.user}\t${m.message.replace(/\t/g, ' ')}\t${m.event || ''}\t${m.donation || ''}\t${m.membership || ''}`
+            );
+            const content = header + '\n' + rows.join('\n');
+            res.writeHead(200, {
+                'Content-Type': 'text/tab-separated-values',
+                'Content-Disposition': `attachment; filename="chatlog-${safeFilename}.tsv"`
+            });
+            res.end(content);
+            return;
+        }
+
+        if (format === 'txt') {
+            const lines = messages.map(m => {
+                let line = `[${formatTime(m.ts)}] ${m.user}: ${m.message}`;
+                if (m.event) line += ` [${m.event}]`;
+                if (m.donation) line += ` [${m.donation}]`;
+                return line;
+            });
+            const content = `Chat Log — ${sessionLabel}\n${'='.repeat(40)}\n${messages.length} messages\n\n` + lines.join('\n');
+            res.writeHead(200, {
+                'Content-Type': 'text/plain',
+                'Content-Disposition': `attachment; filename="chatlog-${safeFilename}.txt"`
+            });
+            res.end(content);
+            return;
+        }
+
+        if (format === 'pdf') {
+            const doc = new PDFDocument({ size: 'A4', margin: 40 });
+            res.writeHead(200, {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `attachment; filename="chatlog-${safeFilename}.pdf"`
+            });
+            doc.pipe(res);
+
+            doc.fontSize(16).text(`Chat Log — ${sessionLabel}`, { underline: true });
+            doc.fontSize(10).text(`${messages.length} messages`, { color: '#666' });
+            doc.moveDown();
+
+            for (const m of messages) {
+                const time = formatTime(m.ts);
+                let badges = '';
+                if (m.event) badges += ` [${m.event}]`;
+                if (m.donation) badges += ` [${m.donation}]`;
+
+                // Check if we need a new page
+                if (doc.y > doc.page.height - 60) {
+                    doc.addPage();
+                }
+
+                doc.fontSize(7).fillColor('#888888').text(time, { continued: false });
+                doc.fontSize(9).fillColor('#1f6feb').text(m.user + (badges ? badges : ''), { continued: true });
+                doc.fillColor('#333333').text('  ' + m.message);
+                doc.moveDown(0.3);
+            }
+
+            doc.end();
+            return;
+        }
+
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid format. Use: tsv, txt, or pdf' }));
         return;
     }
 
@@ -1198,10 +1457,11 @@ server.listen(PORT, () => {
         console.log(`[Twitch] Auto-refresh every ${REFRESH_MINUTES} minutes`);
     }
 
-    // Save chat/stats to disk every 5 seconds
+    // Save chat/stats/log to disk every 5 seconds
     setInterval(() => {
         saveChatData();
         saveStats();
+        saveChatLog();
     }, 5000);
 });
 
@@ -1210,6 +1470,7 @@ process.on('SIGINT', () => {
     console.log('\n[Server] Shutting down...');
     saveChatData();
     saveStats();
+    saveChatLog();
     if (ssnSocket) ssnSocket.close();
     server.close();
     console.log('[Server] Data saved. Goodbye!');

@@ -15,7 +15,9 @@
   "subs_source": "twitch",
   "active_subs_only": false,
   "hashtags_enabled": true,
+  "chat_log_enabled": true,
   "exclude_users": [],
+  "banned_users": [],
 
   "credits": {
     "header": {

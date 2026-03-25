@@ -233,6 +233,36 @@
             ]
         },
         {
+            section: 'Chat Logs',
+            items: [
+                {
+                    method: 'GET', path: '/api/chat',
+                    desc: 'Live chat data (current session)',
+                    details: 'Returns the current session chat data object with chatters, messages, events, emotes, hashtags, subscribers, followers, donations, bits, raids, giftSubs, and session metadata. Used by the live Current Session view.'
+                },
+                {
+                    method: 'GET', path: '/api/chat-log',
+                    desc: 'Current session chat log',
+                    details: 'Returns all individual chat messages from the current session. Each message includes: ts (timestamp), user, avatar, message (plain text), messageHtml (raw HTML with emotes), type, event, donation, membership.'
+                },
+                {
+                    method: 'GET', path: '/api/sessions/:file/chat-log',
+                    desc: 'Archived session chat log',
+                    details: 'Returns chat log for a specific archived session. Replace :file with the session filename (e.g., chat-2026-03-14.json). Only available for sessions recorded after chat logging was enabled.'
+                },
+                {
+                    method: 'GET', path: '/api/chat-log/search',
+                    desc: 'Search chat messages across sessions',
+                    details: 'Query params: q (text search), user (filter by username), session ("all", "current", or specific filename), limit (default 200), offset (pagination). Prefix user search with @ in the sessions UI. Example: /api/chat-log/search?q=hello&limit=50'
+                },
+                {
+                    method: 'GET', path: '/api/chat-log/export',
+                    desc: 'Export chat log as TSV, TXT, or PDF',
+                    details: 'Query params: format ("tsv", "txt", or "pdf"), session ("current" or specific filename). Returns a downloadable file. Example: /api/chat-log/export?format=pdf&session=chat-2026-03-23T19-30.json'
+                }
+            ]
+        },
+        {
             section: 'Hashtag Moderation',
             items: [
                 {

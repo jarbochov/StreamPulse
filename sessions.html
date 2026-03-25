@@ -15,35 +15,42 @@
         .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
         .nav a:hover { color: #e1e4e8; background: #21262d; }
 
-        .container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem 2rem; }
 
-        .session-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .layout { display: grid; grid-template-columns: 300px 1fr; gap: 1rem; height: calc(100vh - 80px); }
 
-        .session-item { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem 1.25rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: space-between; }
+        .sidebar { display: flex; flex-direction: column; gap: 0.5rem; overflow: hidden; }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; }
+        .sidebar-header h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; }
+
+        .session-list { display: flex; flex-direction: column; gap: 0.35rem; overflow-y: auto; flex: 1; padding-right: 0.25rem; }
+        .session-list::-webkit-scrollbar { width: 4px; }
+        .session-list::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+        .session-item { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 0.6rem 0.75rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
         .session-item:hover { border-color: #58a6ff; background: #1a2332; }
         .session-item.active { border-color: #58a6ff; background: #1a2332; }
-        .session-date { font-weight: 600; font-size: 1rem; }
-        .session-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: #8b949e; }
-        .session-meta .badge { background: #21262d; padding: 0.2rem 0.6rem; border-radius: 4px; }
+        .session-date { font-weight: 600; font-size: 0.85rem; }
+        .session-meta { font-size: 0.7rem; color: #484f58; margin-left: auto; }
 
-        .detail-panel { margin-top: 1.5rem; background: #161b22; border: 1px solid #30363d; border-radius: 8px; display: none; }
-        .detail-panel.open { display: block; }
-        .detail-header { padding: 1.25rem; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
-        .detail-header h2 { font-size: 1.1rem; }
+        .detail-panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow-y: auto; display: flex; flex-direction: column; }
+        .detail-panel .placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: #484f58; font-size: 0.9rem; }
+        .detail-header { padding: 1rem 1.25rem; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .detail-header h2 { font-size: 1rem; }
         .detail-close { background: none; border: none; color: #8b949e; font-size: 1.2rem; cursor: pointer; }
         .detail-close:hover { color: #e1e4e8; }
 
-        .detail-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.5rem; padding: 1.25rem; border-bottom: 1px solid #30363d; }
+        .detail-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 0.5rem; padding: 1rem 1.25rem; border-bottom: 1px solid #30363d; flex-shrink: 0; }
         .detail-stat { text-align: center; padding: 0.5rem; background: #0d1117; border-radius: 6px; }
         .detail-stat .value { font-size: 1.3rem; font-weight: 700; color: #58a6ff; }
         .detail-stat .label { font-size: 0.7rem; color: #8b949e; margin-top: 0.15rem; }
 
-        .detail-tabs { display: flex; border-bottom: 1px solid #30363d; padding: 0 1.25rem; }
+        .detail-tabs { display: flex; border-bottom: 1px solid #30363d; padding: 0 1.25rem; flex-shrink: 0; }
         .tab { padding: 0.75rem 1rem; font-size: 0.85rem; color: #8b949e; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
         .tab:hover { color: #e1e4e8; }
         .tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
 
-        .tab-content { padding: 1.25rem; max-height: 400px; overflow-y: auto; }
+        .tab-content { padding: 1rem 1.25rem; overflow-y: auto; flex: 1; }
         .tab-pane { display: none; }
         .tab-pane.active { display: block; }
 
@@ -55,13 +62,49 @@
 
         .empty { color: #484f58; text-align: center; padding: 2rem; font-size: 0.9rem; }
 
-        .compare-bar { display: none; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.75rem 1.25rem; margin-bottom: 1rem; align-items: center; gap: 0.75rem; }
+        /* Chat log styles */
+        .chat-search { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+        .chat-search input { flex: 1; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.5rem 0.75rem; color: #e1e4e8; font-size: 0.85rem; outline: none; }
+        .chat-search input:focus { border-color: #58a6ff; }
+        .chat-search button { background: #21262d; border: 1px solid #30363d; color: #8b949e; border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+        .chat-search button:hover { color: #e1e4e8; border-color: #58a6ff; }
+        .chat-msg { display: flex; gap: 0.6rem; padding: 0.4rem 0; border-bottom: 1px solid #21262d; font-size: 0.85rem; align-items: flex-start; }
+        .chat-msg:last-child { border-bottom: none; }
+        .chat-msg img.chat-avatar { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; margin-top: 2px; }
+        .chat-msg .chat-meta { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+        .chat-msg .chat-user { font-weight: 600; font-size: 0.8rem; color: #58a6ff; }
+        .chat-msg .chat-text { word-break: break-word; line-height: 1.4; }
+        .chat-msg .chat-text img { height: 18px; vertical-align: middle; }
+        .chat-msg .chat-time { font-size: 0.7rem; color: #484f58; flex-shrink: 0; margin-top: 3px; }
+        .chat-msg .chat-badge { display: inline-block; font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 3px; margin-left: 0.35rem; }
+        .chat-msg .badge-event { background: #1f6feb30; color: #58a6ff; }
+        .chat-msg .badge-donation { background: #3fb95030; color: #3fb950; }
+        .chat-msg .badge-sub { background: #a371f730; color: #a371f7; }
+        .chat-msg .chat-session-tag { font-size: 0.7rem; color: #484f58; margin-top: 0.15rem; }
+        .chat-log-info { font-size: 0.8rem; color: #484f58; margin-bottom: 0.5rem; }
+        .chat-log-loading { text-align: center; color: #484f58; padding: 2rem; }
+        .chat-log-more { text-align: center; margin-top: 0.75rem; }
+        .chat-log-more button { background: #21262d; border: 1px solid #30363d; color: #8b949e; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.8rem; cursor: pointer; }
+        .chat-log-more button:hover { color: #e1e4e8; border-color: #58a6ff; }
+
+        /* Cross-session search */
+        .global-search { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .global-search input { flex: 1; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.45rem 0.65rem; color: #e1e4e8; font-size: 0.8rem; outline: none; }
+        .global-search input:focus { border-color: #58a6ff; }
+        .global-search button { background: #1f6feb; border: none; color: white; border-radius: 6px; padding: 0.45rem 0.65rem; font-size: 0.8rem; cursor: pointer; }
+        .global-search button:hover { background: #388bfd; }
+
+        .compare-bar { display: none; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.5rem 1rem; align-items: center; gap: 0.75rem; }
         .compare-bar.show { display: flex; }
-        .compare-bar span { font-size: 0.85rem; color: #8b949e; }
+        .compare-bar span { font-size: 0.8rem; color: #8b949e; }
         .compare-bar .sel { color: #58a6ff; font-weight: 600; }
         .compare-btn { padding: 0.4rem 0.8rem; background: #1f6feb; border: none; border-radius: 6px; color: white; font-size: 0.8rem; cursor: pointer; }
         .compare-btn:hover { background: #388bfd; }
         .compare-btn.cancel { background: #21262d; color: #8b949e; }
+
+        .export-bar { display: flex; gap: 0.4rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+        .export-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+        .export-btn:hover { color: #e1e4e8; border-color: #58a6ff; background: #1a2332; }
 
         .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
         .compare-col { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; }
@@ -86,7 +129,9 @@
 
         @media (max-width: 768px) {
             .container { padding: 1rem; }
-            .session-item { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+            .layout { grid-template-columns: 1fr; height: auto; }
+            .session-list { max-height: 250px; }
+            .session-item { flex-direction: row; }
             .header { flex-direction: column; gap: 0.5rem; }
         }
     </style>
@@ -120,36 +165,62 @@
             <button class="compare-btn cancel" onclick="cancelCompare()">Cancel</button>
         </div>
 
-        <div style="margin-bottom: 0.75rem;">
-            <button class="compare-btn" id="compare-toggle" onclick="toggleCompareMode()" style="background: #21262d; color: #8b949e;">📊 Compare Sessions</button>
-        </div>
-
-        <div class="session-list" id="session-list">
-            <div class="empty">Loading sessions...</div>
-        </div>
-
         <div class="compare-grid" id="compare-grid" style="display: none;"></div>
 
-        <div class="detail-panel" id="detail-panel">
-            <div class="detail-header">
-                <h2 id="detail-title">Session Details</h2>
-                <button class="detail-close" onclick="closeDetail()">✕</button>
+        <div class="layout" id="main-layout">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h2>Sessions</h2>
+                    <button class="compare-btn" id="compare-toggle" onclick="toggleCompareMode()" style="background: #21262d; color: #8b949e; font-size: 0.75rem; padding: 0.3rem 0.6rem;">📊 Compare</button>
+                </div>
+                <div class="global-search">
+                    <input type="text" id="global-search-input" placeholder="🔍 Search all chats..." onkeydown="if(event.key==='Enter')globalSearch()">
+                    <button onclick="globalSearch()">Search</button>
+                </div>
+                <div class="session-list" id="session-list">
+                    <div class="empty">Loading sessions...</div>
+                </div>
             </div>
-            <div class="detail-stats" id="detail-stats"></div>
-            <div class="detail-tabs" id="detail-tabs"></div>
-            <div class="tab-content" id="tab-content"></div>
+
+            <div class="detail-panel" id="detail-panel">
+                <div class="placeholder">Select a session to view details</div>
+            </div>
         </div>
     </div>
 
     <script>
     let sessions = [];
     let activeSession = null;
+    let activeSessionFile = null;
     let compareMode = false;
     let compareSelections = [];
+    let chatLogCache = {};  // cache loaded chat logs by session name
 
     function escapeHtml(str) {
         const div = document.createElement('div');
         div.textContent = str || '';
+        return div.innerHTML;
+    }
+
+    // Sanitize HTML from SSN — only allow img tags (for emotes), strip everything else
+    function sanitizeHtml(html) {
+        if (!html) return '';
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        // Remove script tags, event handlers, and non-img elements
+        div.querySelectorAll('script, iframe, object, embed, link, style').forEach(el => el.remove());
+        div.querySelectorAll('*').forEach(el => {
+            if (el.tagName !== 'IMG') {
+                el.replaceWith(document.createTextNode(el.textContent));
+                return;
+            }
+            // For img tags, only keep src and alt
+            const src = el.getAttribute('src');
+            const alt = el.getAttribute('alt');
+            Array.from(el.attributes).forEach(attr => el.removeAttribute(attr.name));
+            if (src) el.setAttribute('src', src);
+            if (alt) el.setAttribute('alt', alt);
+        });
         return div.innerHTML;
     }
 
@@ -159,22 +230,29 @@
             sessions = await res.json();
 
             const list = document.getElementById('session-list');
-            if (sessions.length === 0) {
-                list.innerHTML = '<div class="empty">No archived sessions yet. Sessions are archived when the server restarts.</div>';
-                return;
-            }
 
-            list.innerHTML = sessions.map(f => {
-                const dateMatch = f.match(/chat-(\d{4}-\d{2}-\d{2})/);
-                const dateStr = dateMatch ? dateMatch[1] : f.replace('.json', '');
-                return `<div class="session-item" data-file="${f}" onclick="handleSessionClick('${f}', this)">
-                    <input type="checkbox" class="session-checkbox" style="display: none;" onclick="event.stopPropagation(); toggleCompareSelection('${f}')">
-                    <span class="session-date">${dateStr}</span>
-                    <div class="session-meta">
-                        <span class="badge">${f}</span>
-                    </div>
-                </div>`;
-            }).join('');
+            // Always show current live session at the top
+            let html = `<div class="session-item" data-file="__current__" onclick="handleSessionClick('__current__', this)" style="border-color: #238636; background: #0d1117;">
+                <span class="session-date">🟢 Current Session</span>
+                <span class="session-meta">Live</span>
+            </div>`;
+
+            if (sessions.length === 0) {
+                html += '<div class="empty" style="padding: 1rem;">No archived sessions yet.</div>';
+            } else {
+                html += sessions.map(f => {
+                    const dateMatch = f.match(/chat-(\d{4}-\d{2}-\d{2})/);
+                    const dateStr = dateMatch ? dateMatch[1] : f.replace('.json', '');
+                    const timeMatch = f.match(/T(\d{2})-(\d{2})/);
+                    const timeStr = timeMatch ? `${timeMatch[1]}:${timeMatch[2]}` : '';
+                    return `<div class="session-item" data-file="${f}" onclick="handleSessionClick('${f}', this)">
+                        <input type="checkbox" class="session-checkbox" style="display: none;" onclick="event.stopPropagation(); toggleCompareSelection('${f}')">
+                        <span class="session-date">${dateStr}</span>
+                        <span class="session-meta">${timeStr}</span>
+                    </div>`;
+                }).join('');
+            }
+            list.innerHTML = html;
         } catch {
             document.getElementById('session-list').innerHTML = '<div class="empty">Failed to load sessions</div>';
         }
@@ -183,10 +261,17 @@
     async function loadSession(filename, el) {
         document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
         el.classList.add('active');
+        activeSessionFile = filename;
 
         try {
-            const res = await fetch(`/api/sessions/${filename}`);
-            const data = await res.json();
+            let data;
+            if (filename === '__current__') {
+                const res = await fetch('/api/chat');
+                data = await res.json();
+            } else {
+                const res = await fetch(`/api/sessions/${filename}`);
+                data = await res.json();
+            }
             activeSession = data;
             renderDetail(data, filename);
         } catch {
@@ -196,10 +281,10 @@
 
     function renderDetail(data, filename) {
         const panel = document.getElementById('detail-panel');
-        panel.classList.add('open');
 
+        const isLive = filename === '__current__';
         const dateMatch = filename.match(/chat-(\d{4}-\d{2}-\d{2})/);
-        document.getElementById('detail-title').textContent = dateMatch ? `Session — ${dateMatch[1]}` : filename;
+        const title = isLive ? '🟢 Current Session' : (dateMatch ? `Session — ${dateMatch[1]}` : filename);
 
         const chatters = Object.keys(data.chatters || {}).length;
         const messages = data.messageCount || 0;
@@ -208,32 +293,50 @@
         const subs = (data.subscribers || []).length;
         const followers = (data.followers || []).length;
         const raids = (data.raids || []).length;
+        const donations = (data.donations || []).length;
+        const bits = (data.bits || []).length;
+        const giftSubs = (data.giftSubs || []).length;
 
-        document.getElementById('detail-stats').innerHTML = [
+        const stats = [
             { v: messages, l: 'Messages' },
             { v: chatters, l: 'Chatters' },
             { v: emotes, l: 'Emotes' },
             { v: hashtags, l: 'Hashtags' },
             { v: subs, l: 'Subs' },
+            { v: giftSubs, l: 'Gift Subs' },
             { v: followers, l: 'Followers' },
+            { v: donations, l: 'Donations' },
+            { v: bits, l: 'Cheers' },
             { v: raids, l: 'Raids' }
-        ].map(s => `<div class="detail-stat"><div class="value">${s.v}</div><div class="label">${s.l}</div></div>`).join('');
+        ];
 
         const tabs = [
             { id: 'chatters', label: 'Chatters' },
             { id: 'emotes', label: 'Emotes' },
             { id: 'hashtags', label: 'Hashtags' },
+            { id: 'chatlog', label: '💬 Chat Log' },
             { id: 'subs', label: 'Subs' },
+            { id: 'giftsubs', label: 'Gift Subs' },
             { id: 'followers', label: 'Followers' },
+            { id: 'donations', label: 'Donations' },
+            { id: 'cheerers', label: 'Cheerers' },
             { id: 'raids', label: 'Raids' }
         ];
 
-        document.getElementById('detail-tabs').innerHTML = tabs.map((t, i) =>
-            `<div class="tab${i === 0 ? ' active' : ''}" onclick="switchTab('${t.id}', this)">${t.label}</div>`
-        ).join('');
-
-        const content = document.getElementById('tab-content');
-        content.innerHTML = tabs.map((t, i) => `<div class="tab-pane${i === 0 ? ' active' : ''}" id="pane-${t.id}"></div>`).join('');
+        panel.innerHTML = `
+            <div class="detail-header">
+                <h2>${escapeHtml(title)}</h2>
+            </div>
+            <div class="detail-stats">
+                ${stats.map(s => `<div class="detail-stat"><div class="value">${s.v}</div><div class="label">${s.l}</div></div>`).join('')}
+            </div>
+            <div class="detail-tabs">
+                ${tabs.map((t, i) => `<div class="tab${i === 0 ? ' active' : ''}" onclick="switchTab('${t.id}', this)">${t.label}</div>`).join('')}
+            </div>
+            <div class="tab-content">
+                ${tabs.map((t, i) => `<div class="tab-pane${i === 0 ? ' active' : ''}" id="pane-${t.id}"></div>`).join('')}
+            </div>
+        `;
 
         // Chatters
         const chatterEntries = Object.values(data.chatters || {}).sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0));
@@ -274,6 +377,15 @@
             </div>`).join('')
             : '<div class="empty">No subscribers</div>';
 
+        // Gift Subs
+        const giftSubEntries = data.giftSubs || [];
+        document.getElementById('pane-giftsubs').innerHTML = giftSubEntries.length
+            ? giftSubEntries.map(g => `<div class="entry">
+                ${g.chatimg ? `<img src="${g.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
+                <span class="name">${escapeHtml(g.chatname)}</span>
+            </div>`).join('')
+            : '<div class="empty">No gift subs</div>';
+
         // Followers
         const followerEntries = data.followers || [];
         document.getElementById('pane-followers').innerHTML = followerEntries.length
@@ -282,6 +394,26 @@
                 <span class="name">${escapeHtml(f.chatname)}</span>
             </div>`).join('')
             : '<div class="empty">No followers</div>';
+
+        // Donations
+        const donationEntries = data.donations || [];
+        document.getElementById('pane-donations').innerHTML = donationEntries.length
+            ? donationEntries.map(d => `<div class="entry">
+                ${d.chatimg ? `<img src="${d.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
+                <span class="name">${escapeHtml(d.chatname)}</span>
+                ${d.amount ? `<span class="count">${escapeHtml(d.amount)}</span>` : ''}
+            </div>`).join('')
+            : '<div class="empty">No donations</div>';
+
+        // Cheerers (bits)
+        const bitEntries = data.bits || [];
+        document.getElementById('pane-cheerers').innerHTML = bitEntries.length
+            ? bitEntries.map(b => `<div class="entry">
+                ${b.chatimg ? `<img src="${b.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
+                <span class="name">${escapeHtml(b.chatname)}</span>
+                ${b.amount ? `<span class="count">${escapeHtml(b.amount)}</span>` : ''}
+            </div>`).join('')
+            : '<div class="empty">No cheerers</div>';
 
         // Raids
         const raidEntries = data.raids || [];
@@ -292,6 +424,23 @@
                 ${r.viewers ? `<span class="count">${r.viewers} viewers</span>` : ''}
             </div>`).join('')
             : '<div class="empty">No raids</div>';
+
+        // Chat Log — lazy loaded when tab is clicked
+        const exportSession = isLive ? 'current' : encodeURIComponent(filename);
+        document.getElementById('pane-chatlog').innerHTML = `
+            <div class="export-bar">
+                <a class="export-btn" href="/api/chat-log/export?format=tsv&session=${exportSession}" download>📄 Export TSV</a>
+                <a class="export-btn" href="/api/chat-log/export?format=txt&session=${exportSession}" download>📝 Export Text</a>
+                <a class="export-btn" href="/api/chat-log/export?format=pdf&session=${exportSession}" download>📕 Export PDF</a>
+            </div>
+            <div class="chat-search">
+                <input type="text" id="chatlog-filter" placeholder="Filter messages..." onkeydown="if(event.key==='Enter')filterChatLog()">
+                <button onclick="filterChatLog()">Filter</button>
+            </div>
+            <div class="chat-log-info" id="chatlog-info"></div>
+            <div id="chatlog-messages"><div class="chat-log-loading">Click to load chat log...</div></div>
+        `;
+        chatLogCache[filename] = null; // mark as not yet loaded
     }
 
     function switchTab(id, el) {
@@ -299,10 +448,14 @@
         document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
         el.classList.add('active');
         document.getElementById(`pane-${id}`).classList.add('active');
+        // Lazy load chat log on first tab switch
+        if (id === 'chatlog' && activeSessionFile && !chatLogCache[activeSessionFile]) {
+            loadChatLog(activeSessionFile);
+        }
     }
 
     function closeDetail() {
-        document.getElementById('detail-panel').classList.remove('open');
+        document.getElementById('detail-panel').innerHTML = '<div class="placeholder">Select a session to view details</div>';
         document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
     }
 
@@ -392,7 +545,10 @@
             { label: 'Emotes', fn: d => Object.keys(d.emotes || {}).length },
             { label: 'Hashtags', fn: d => Object.keys(d.hashtags || {}).length },
             { label: 'Subscribers', fn: d => (d.subscribers || []).length },
+            { label: 'Gift Subs', fn: d => (d.giftSubs || []).length },
             { label: 'Followers', fn: d => (d.followers || []).length },
+            { label: 'Donations', fn: d => (d.donations || []).length },
+            { label: 'Cheerers', fn: d => (d.bits || []).length },
             { label: 'Raids', fn: d => (d.raids || []).length },
         ];
 
@@ -412,6 +568,155 @@
         }
 
         grid.innerHTML = renderCol(name1, data1, data2) + renderCol(name2, data2, data1);
+    }
+
+    function formatTimestamp(ts) {
+        if (!ts) return '';
+        const d = new Date(ts);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function formatDateTimestamp(ts) {
+        if (!ts) return '';
+        const d = new Date(ts);
+        return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function renderChatMessage(m, showSession) {
+        let badges = '';
+        if (m.event) badges += `<span class="chat-badge badge-event">${escapeHtml(m.event)}</span>`;
+        if (m.donation) badges += `<span class="chat-badge badge-donation">${escapeHtml(m.donation)}</span>`;
+        if (m.membership) badges += `<span class="chat-badge badge-sub">${escapeHtml(m.membership)}</span>`;
+
+        const sessionTag = showSession ? `<div class="chat-session-tag">${escapeHtml(m.session || '')}</div>` : '';
+
+        return `<div class="chat-msg">
+            ${m.avatar ? `<img class="chat-avatar" src="${m.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
+            <div class="chat-meta">
+                <div><span class="chat-user">${escapeHtml(m.user)}</span>${badges}</div>
+                <div class="chat-text">${m.messageHtml ? sanitizeHtml(m.messageHtml) : escapeHtml(m.message)}</div>
+                ${sessionTag}
+            </div>
+            <span class="chat-time">${formatTimestamp(m.ts)}</span>
+        </div>`;
+    }
+
+    async function loadChatLog(filename) {
+        const msgContainer = document.getElementById('chatlog-messages');
+        const infoEl = document.getElementById('chatlog-info');
+        if (!msgContainer) return;
+        msgContainer.innerHTML = '<div class="chat-log-loading">Loading chat log...</div>';
+
+        try {
+            const url = filename === '__current__' ? '/api/chat-log' : `/api/sessions/${filename}/chat-log`;
+            const res = await fetch(url);
+            const data = await res.json();
+            chatLogCache[filename] = data.messages || [];
+            const messages = chatLogCache[filename];
+            infoEl.textContent = `${messages.length} message${messages.length !== 1 ? 's' : ''} recorded`;
+            renderChatLogMessages(messages);
+        } catch {
+            msgContainer.innerHTML = '<div class="empty">No chat log available for this session</div>';
+            infoEl.textContent = '';
+        }
+    }
+
+    function renderChatLogMessages(messages, limit) {
+        const msgContainer = document.getElementById('chatlog-messages');
+        if (!msgContainer) return;
+        const showLimit = limit || 200;
+        const display = messages.slice(0, showLimit);
+        if (messages.length === 0) {
+            msgContainer.innerHTML = '<div class="empty">No messages found</div>';
+            return;
+        }
+        let html = display.map(m => renderChatMessage(m, false)).join('');
+        if (messages.length > showLimit) {
+            html += `<div class="chat-log-more"><button onclick="renderChatLogMessages(chatLogCache[activeSessionFile] || [], ${showLimit + 200})">Load more (${messages.length - showLimit} remaining)</button></div>`;
+        }
+        msgContainer.innerHTML = html;
+    }
+
+    function filterChatLog() {
+        const query = (document.getElementById('chatlog-filter')?.value || '').toLowerCase();
+        const messages = chatLogCache[activeSessionFile] || [];
+        if (!query) {
+            renderChatLogMessages(messages);
+            return;
+        }
+        const filtered = messages.filter(m =>
+            m.message.toLowerCase().includes(query) || m.user.toLowerCase().includes(query)
+        );
+        const infoEl = document.getElementById('chatlog-info');
+        if (infoEl) infoEl.textContent = `${filtered.length} of ${messages.length} messages match "${query}"`;
+        renderChatLogMessages(filtered);
+    }
+
+    async function globalSearch() {
+        const input = document.getElementById('global-search-input');
+        const query = (input?.value || '').trim();
+        if (!query) return;
+
+        const panel = document.getElementById('detail-panel');
+        document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
+        activeSessionFile = null;
+
+        panel.innerHTML = `
+            <div class="detail-header">
+                <h2>🔍 Search Results</h2>
+            </div>
+            <div style="padding: 1.25rem;">
+                <div class="chat-log-loading">Searching all sessions...</div>
+            </div>
+        `;
+
+        try {
+            // Determine if query looks like a username filter (no spaces, starts with @)
+            let url;
+            if (query.startsWith('@')) {
+                url = `/api/chat-log/search?user=${encodeURIComponent(query.slice(1))}&limit=500`;
+            } else {
+                url = `/api/chat-log/search?q=${encodeURIComponent(query)}&limit=500`;
+            }
+
+            const res = await fetch(url);
+            const data = await res.json();
+            const results = data.results || [];
+
+            panel.innerHTML = `
+                <div class="detail-header">
+                    <h2>🔍 Search: "${escapeHtml(query)}"</h2>
+                    <span style="color: #8b949e; font-size: 0.85rem;">${data.total} result${data.total !== 1 ? 's' : ''}</span>
+                </div>
+                <div style="padding: 1.25rem; overflow-y: auto; flex: 1;" id="search-results"></div>
+            `;
+
+            const container = document.getElementById('search-results');
+            if (results.length === 0) {
+                container.innerHTML = '<div class="empty">No results found</div>';
+            } else {
+                container.innerHTML = results.map(m => {
+                    const sessionLabel = m.session === 'current' ? '🟢 Current Session' : m.session;
+                    return `<div class="chat-msg">
+                        ${m.avatar ? `<img class="chat-avatar" src="${m.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
+                        <div class="chat-meta">
+                            <div><span class="chat-user">${escapeHtml(m.user)}</span></div>
+                            <div class="chat-text">${m.messageHtml ? sanitizeHtml(m.messageHtml) : escapeHtml(m.message)}</div>
+                            <div class="chat-session-tag">${escapeHtml(sessionLabel)} · ${formatDateTimestamp(m.ts)}</div>
+                        </div>
+                        <span class="chat-time">${formatTimestamp(m.ts)}</span>
+                    </div>`;
+                }).join('');
+                if (data.total > results.length) {
+                    container.innerHTML += `<div class="chat-log-info" style="text-align:center;margin-top:1rem;">Showing ${results.length} of ${data.total} results</div>`;
+                }
+            }
+        } catch {
+            panel.innerHTML = `
+                <div class="detail-header"><h2>🔍 Search</h2></div>
+                <div style="padding: 1.25rem;"><div class="empty">Search failed. Make sure the server is running.</div></div>
+            `;
+        }
     }
 
     loadSessions();

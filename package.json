@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/jarbochov/stream-credits#readme",
   "dependencies": {
+    "pdfkit": "^0.18.0",
     "ws": "^8.19.0"
   }
 }

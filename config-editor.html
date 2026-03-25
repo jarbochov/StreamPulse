@@ -134,11 +134,20 @@
                 <input type="checkbox" id="cfg-hashtags-enabled" ${cfg.hashtags_enabled !== false ? 'checked' : ''}>
                 <label for="cfg-hashtags-enabled">Enable hashtag tracking</label>
             </div>
+            <div class="cfg-toggle">
+                <input type="checkbox" id="cfg-chatlog-enabled" ${cfg.chat_log_enabled !== false ? 'checked' : ''}>
+                <label for="cfg-chatlog-enabled">Enable chat log capture</label>
+            </div>
             <div class="cfg-row">
-                <label>Exclude Users</label>
+                <label>Exclude from Stats</label>
                 <input type="text" id="cfg-exclude" value="${(cfg.exclude_users || []).join(', ')}" placeholder="user1, user2">
             </div>
-            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Separate usernames with commas</div>
+            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Hidden from stats &amp; overlay, but still appear in chat logs</div>
+            <div class="cfg-row">
+                <label>Banned Users</label>
+                <input type="text" id="cfg-banned" value="${(cfg.banned_users || []).join(', ')}" placeholder="user1, user2">
+            </div>
+            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Completely excluded from everything — stats, overlay, and chat logs</div>
 
             <div class="cfg-section">Credits Header</div>
             <div class="cfg-row">
@@ -350,7 +359,9 @@
             subs_source: document.getElementById('cfg-subs-source').value,
             active_subs_only: document.getElementById('cfg-active-subs').checked,
             hashtags_enabled: document.getElementById('cfg-hashtags-enabled').checked,
+            chat_log_enabled: document.getElementById('cfg-chatlog-enabled').checked,
             exclude_users: document.getElementById('cfg-exclude').value.split(',').map(s => s.trim()).filter(Boolean),
+            banned_users: document.getElementById('cfg-banned').value.split(',').map(s => s.trim()).filter(Boolean),
             credits: {
                 header: {
                     title: document.getElementById('cfg-header-title').value,

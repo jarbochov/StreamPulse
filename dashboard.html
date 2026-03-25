@@ -306,6 +306,7 @@
     function renderChatters(chatters) {
         const entries = Object.values(chatters).sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0));
         document.getElementById('chatter-count').textContent = entries.length > 0 ? `(${entries.length})` : '';
+        const list = document.getElementById('chatters-list');
 
         if (entries.length === 0) {
             list.innerHTML = '<div style="color: #484f58; padding: 1rem; text-align: center;">No chatters yet</div>';
