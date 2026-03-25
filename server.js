@@ -256,13 +256,20 @@ const chatData = {
     messageCount: 0
 };
 
-// Persistent stats — survives restarts, timestamped entries
+// Persistent stats — survives restarts, daily bucket tracking
 const STATS_PATH = path.join(DATA_DIR, 'stats.json');
+const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
 let statsData = {
-    chatters: {},    // { name: { messageCount, lastSeen, firstSeen, chatimg, type } }
-    emotes: {},      // { name: { count, imageUrl, lastUsed, firstUsed } }
-    hashtags: {},    // { tag: { count, lastUsed, firstUsed } }
-    totalMessages: 0,
+    totalMessages: {},  // { "YYYY-MM-DD": count }
+    chatters: {},       // { name: { chatimg, type, firstSeen, lastSeen, days: { "YYYY-MM-DD": count } } }
+    emotes: {},         // { name: { imageUrl, firstUsed, lastUsed, days: { "YYYY-MM-DD": count } } }
+    hashtags: {},       // { tag: { firstUsed, lastUsed, days: { "YYYY-MM-DD": count } } }
+    subscribers: {},    // { name: { membership, chatimg, firstSeen, lastSeen, days: { "YYYY-MM-DD": count } } }
+    followers: {},      // { name: { chatimg, firstSeen, lastSeen, days: { "YYYY-MM-DD": count } } }
+    giftSubs: {},       // { name: { chatimg, firstSeen, lastSeen, days: { "YYYY-MM-DD": count } } }
+    bits: {},           // { name: { chatimg, firstSeen, lastSeen, days: { "YYYY-MM-DD": amount } } }
+    donations: {},      // { name: { chatimg, firstSeen, lastSeen, days: { "YYYY-MM-DD": count } } }
+    raids: {},          // { name: { firstSeen, lastSeen, days: { "YYYY-MM-DD": count } } }
     createdAt: new Date().toISOString()
 };
 
@@ -280,20 +287,81 @@ function saveStats() {
 }
 
 function updateStats(chatname, msg) {
-    const now = new Date().toISOString();
-    statsData.totalMessages++;
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const nowISO = now.toISOString();
 
-    // Track chatter
+    // Total messages per day
+    if (!statsData.totalMessages) statsData.totalMessages = {};
+    statsData.totalMessages[today] = (statsData.totalMessages[today] || 0) + 1;
+
+    // Track chatter (regular messages only, not events)
     if (!msg.event && chatname) {
         if (!statsData.chatters[chatname]) {
             statsData.chatters[chatname] = {
-                messageCount: 0, chatimg: msg.chatimg, type: msg.type,
-                firstSeen: now, lastSeen: now
+                chatimg: msg.chatimg, type: msg.type,
+                firstSeen: nowISO, lastSeen: nowISO, days: {}
             };
         }
-        statsData.chatters[chatname].messageCount++;
+        statsData.chatters[chatname].days[today] = (statsData.chatters[chatname].days[today] || 0) + 1;
         statsData.chatters[chatname].lastSeen = now;
         if (msg.chatimg) statsData.chatters[chatname].chatimg = msg.chatimg;
+    }
+
+    // Track follow events
+    if (msg.event === 'follow') {
+        if (!statsData.followers[chatname]) {
+            statsData.followers[chatname] = {
+                chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}
+            };
+        }
+        statsData.followers[chatname].days[today] = (statsData.followers[chatname].days[today] || 0) + 1;
+        statsData.followers[chatname].lastSeen = now;
+    }
+
+    // Track subscriber events
+    if (msg.membership && msg.event) {
+        if (msg.membership.toLowerCase().includes('gift') || msg.contentimg) {
+            if (!statsData.giftSubs[chatname]) {
+                statsData.giftSubs[chatname] = {
+                    chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}
+                };
+            }
+            statsData.giftSubs[chatname].days[today] = (statsData.giftSubs[chatname].days[today] || 0) + 1;
+            statsData.giftSubs[chatname].lastSeen = now;
+        } else {
+            if (!statsData.subscribers[chatname]) {
+                statsData.subscribers[chatname] = {
+                    membership: msg.membership, chatimg: msg.chatimg,
+                    firstSeen: nowISO, lastSeen: nowISO, days: {}
+                };
+            }
+            statsData.subscribers[chatname].days[today] = (statsData.subscribers[chatname].days[today] || 0) + 1;
+            statsData.subscribers[chatname].lastSeen = now;
+        }
+    }
+
+    // Track bits/donations
+    if (msg.hasDonation) {
+        if (msg.hasDonation.toLowerCase().includes('bit')) {
+            if (!statsData.bits[chatname]) {
+                statsData.bits[chatname] = {
+                    chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}
+                };
+            }
+            const match = msg.hasDonation.match(/(\d+)/);
+            const amount = match ? parseInt(match[1]) : 0;
+            statsData.bits[chatname].days[today] = (statsData.bits[chatname].days[today] || 0) + amount;
+            statsData.bits[chatname].lastSeen = now;
+        } else {
+            if (!statsData.donations[chatname]) {
+                statsData.donations[chatname] = {
+                    chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}
+                };
+            }
+            statsData.donations[chatname].days[today] = (statsData.donations[chatname].days[today] || 0) + 1;
+            statsData.donations[chatname].lastSeen = now;
+        }
     }
 
     // Track emotes
@@ -307,9 +375,9 @@ function updateStats(chatname, msg) {
             if (altMatch && srcMatch) {
                 const name = altMatch[1];
                 if (!statsData.emotes[name]) {
-                    statsData.emotes[name] = { count: 0, imageUrl: srcMatch[1], firstUsed: now, lastUsed: now };
+                    statsData.emotes[name] = { imageUrl: srcMatch[1], firstUsed: nowISO, lastUsed: nowISO, days: {} };
                 }
-                statsData.emotes[name].count++;
+                statsData.emotes[name].days[today] = (statsData.emotes[name].days[today] || 0) + 1;
                 statsData.emotes[name].lastUsed = now;
             }
         }
@@ -322,9 +390,9 @@ function updateStats(chatname, msg) {
             hashtags.forEach(h => {
                 const normalized = h.toLowerCase();
                 if (!statsData.hashtags[normalized]) {
-                    statsData.hashtags[normalized] = { count: 0, firstUsed: now, lastUsed: now };
+                    statsData.hashtags[normalized] = { firstUsed: nowISO, lastUsed: nowISO, days: {} };
                 }
-                statsData.hashtags[normalized].count++;
+                statsData.hashtags[normalized].days[today] = (statsData.hashtags[normalized].days[today] || 0) + 1;
                 statsData.hashtags[normalized].lastUsed = now;
             });
         }
@@ -607,13 +675,54 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/stats/reset') {
         statsData = {
-            chatters: {}, emotes: {}, hashtags: {},
-            totalMessages: 0, createdAt: new Date().toISOString()
+            totalMessages: {}, chatters: {}, emotes: {}, hashtags: {},
+            subscribers: {}, followers: {}, giftSubs: {}, bits: {},
+            donations: {}, raids: {},
+            createdAt: new Date().toISOString()
         };
         saveStats();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'reset', message: 'Stats data cleared' }));
         console.log('[API] Stats data reset');
+        return;
+    }
+
+    if (pathname === '/api/stats/migrate' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const migrated = JSON.parse(body);
+                statsData = migrated;
+                saveStats();
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'migrated', message: 'Stats data migrated to daily buckets' }));
+                console.log('[API] Stats data migrated to daily buckets');
+            } catch (err) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Invalid JSON', message: err.message }));
+            }
+        });
+        return;
+    }
+
+    if (pathname === '/api/sessions') {
+        try {
+            if (!fs.existsSync(SESSIONS_DIR)) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify([]));
+                return;
+            }
+            const files = fs.readdirSync(SESSIONS_DIR)
+                .filter(f => f.endsWith('.json'))
+                .sort()
+                .reverse();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(files));
+        } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
         return;
     }
 
@@ -658,10 +767,35 @@ server.listen(PORT, () => {
     console.log(`  HTTP:    http://localhost:${PORT}`);
     console.log(`  Credits: http://localhost:${PORT}/credits.html`);
     console.log(`  Stats:   http://localhost:${PORT}/stats.html`);
+    console.log(`  Migrate: http://localhost:${PORT}/migrate.html`);
     console.log(`  Status:  http://localhost:${PORT}/api/status`);
     console.log(`  Fetch:   http://localhost:${PORT}/api/fetch`);
     console.log(`  Reset:   http://localhost:${PORT}/api/reset`);
     console.log('============================================\n');
+
+    // Archive previous session's chat data before clearing
+    const chatPath = path.join(DATA_DIR, 'chat.json');
+    try {
+        if (fs.existsSync(chatPath)) {
+            const prevChat = JSON.parse(fs.readFileSync(chatPath, 'utf8'));
+            if (prevChat.messageCount > 0) {
+                if (!fs.existsSync(SESSIONS_DIR)) {
+                    fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+                }
+                const sessionDate = (prevChat.startedAt || new Date().toISOString()).slice(0, 10);
+                let archiveName = `chat-${sessionDate}.json`;
+                let counter = 2;
+                while (fs.existsSync(path.join(SESSIONS_DIR, archiveName))) {
+                    archiveName = `chat-${sessionDate}-${counter}.json`;
+                    counter++;
+                }
+                fs.copyFileSync(chatPath, path.join(SESSIONS_DIR, archiveName));
+                console.log(`[Startup] Archived previous session → data/sessions/${archiveName}`);
+            }
+        }
+    } catch (err) {
+        console.warn('[Startup] Could not archive previous chat:', err.message);
+    }
 
     // Auto-clear session chat data on startup
     saveChatData();

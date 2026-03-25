@@ -1,5 +1,6 @@
 # Fetched API data (contains sensitive subscriber info)
 data/*.json
+data/sessions/
 
 # Config (contains secrets)
 config.json

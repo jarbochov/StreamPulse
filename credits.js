@@ -358,8 +358,8 @@ function renderCredits() {
 
     // Closing
     if (c.closing) {
-        html += '<div class="section">';
-        html += escapeHtml(c.closing);
+        html += '<div class="section closing">';
+        html += escapeHtml(c.closing).replace(/\\n/g, '<br>');
         html += '</div>';
     }
 
@@ -388,15 +388,28 @@ function renderCredits() {
     document.documentElement.style.setProperty('--credits-height', `${creditsHeight}px`);
     console.log('[Credits] Content height:', creditsHeight, 'px');
 
-    const socialLinkDelay = scrollDuration * 1000;
+    // Calculate when closing section exits viewport
+    const totalDistance = 1080 + creditsHeight;
+    const closingEl = container.querySelector('.closing');
+    const closingBottom = closingEl
+        ? closingEl.offsetTop + closingEl.offsetHeight
+        : creditsHeight;
+    const exitRatio = (1080 + closingBottom) / totalDistance;
+    const socialLinkDelay = exitRatio * scrollDuration * 1000;
+    console.log('[Credits] Social links will appear after', (socialLinkDelay / 1000).toFixed(1), 'seconds');
+
+    // Account for fadeOut-to-fadeIn gap in the delay calculation
+    const fadeGap = 1000;
+    const adjustedDelay = Math.max(0, socialLinkDelay - fadeGap);
+
     setTimeout(() => {
         container.classList.add('scrollIt');
         setTimeout(() => {
             container.classList.add('fadeOut');
             setTimeout(() => {
                 socialLinksContainer.classList.add('fadeIn');
-            }, 2000);
-        }, socialLinkDelay);
+            }, fadeGap);
+        }, adjustedDelay);
     }, 100);
 }
 

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stats Migration Tool</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { color: #fff; margin-bottom: 10px; }
+        .subtitle { color: #888; margin-bottom: 30px; }
+        .card {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card h2 { color: #e94560; margin-bottom: 10px; font-size: 1.1em; }
+        pre {
+            background: #0f0f23;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+            color: #a0a0a0;
+        }
+        .summary { display: flex; gap: 15px; flex-wrap: wrap; margin: 15px 0; }
+        .stat-badge {
+            background: #0f3460;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        .stat-badge strong { color: #e94560; }
+        button {
+            background: #e94560;
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px 10px 0;
+        }
+        button:hover { background: #c73652; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        button.secondary { background: #0f3460; }
+        button.secondary:hover { background: #1a4a8a; }
+        .status { padding: 12px; border-radius: 6px; margin-top: 15px; font-weight: bold; }
+        .status.success { background: #1b4332; color: #52b788; }
+        .status.error { background: #4a1525; color: #e94560; }
+        .status.info { background: #0f3460; color: #a0c4ff; }
+        .needs-migration { color: #e94560; font-weight: bold; }
+        .up-to-date { color: #52b788; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>📊 Stats Migration Tool</h1>
+    <p class="subtitle">Migrate stats.json from flat counters to daily buckets</p>
+
+    <div class="card" id="current-card">
+        <h2>Current Stats Format</h2>
+        <div id="current-status">Loading...</div>
+    </div>
+
+    <div class="card" id="preview-card" style="display:none">
+        <h2>Migration Preview</h2>
+        <div id="preview-content"></div>
+    </div>
+
+    <div class="card" id="action-card" style="display:none">
+        <h2>Actions</h2>
+        <button id="migrate-btn" onclick="runMigration()">✅ Apply Migration</button>
+        <button class="secondary" onclick="downloadBackup()">💾 Download Backup First</button>
+        <div id="action-status"></div>
+    </div>
+
+    <script>
+        let currentStats = null;
+        let migratedStats = null;
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/stats');
+                currentStats = await res.json();
+                analyzeStats();
+            } catch (err) {
+                document.getElementById('current-status').innerHTML =
+                    `<div class="status error">Failed to load stats: ${err.message}</div>`;
+            }
+        }
+
+        function needsMigration(stats) {
+            // Check if any chatter has old format (messageCount instead of days)
+            for (const [, val] of Object.entries(stats.chatters || {})) {
+                if (typeof val.messageCount === 'number' && !val.days) return true;
+            }
+            for (const [, val] of Object.entries(stats.emotes || {})) {
+                if (typeof val.count === 'number' && !val.days) return true;
+            }
+            for (const [, val] of Object.entries(stats.hashtags || {})) {
+                if (typeof val.count === 'number' && !val.days) return true;
+            }
+            // Also check if totalMessages is a number (old) vs object (new)
+            if (typeof stats.totalMessages === 'number') return true;
+            return false;
+        }
+
+        function analyzeStats() {
+            const el = document.getElementById('current-status');
+            const chatters = Object.keys(currentStats.chatters || {}).length;
+            const emotes = Object.keys(currentStats.emotes || {}).length;
+            const hashtags = Object.keys(currentStats.hashtags || {}).length;
+            const subs = Object.keys(currentStats.subscribers || {}).length;
+            const followers = Object.keys(currentStats.followers || {}).length;
+            const bits = Object.keys(currentStats.bits || {}).length;
+
+            let html = '<div class="summary">';
+            html += `<span class="stat-badge"><strong>${chatters}</strong> chatters</span>`;
+            html += `<span class="stat-badge"><strong>${emotes}</strong> emotes</span>`;
+            html += `<span class="stat-badge"><strong>${hashtags}</strong> hashtags</span>`;
+            html += `<span class="stat-badge"><strong>${subs}</strong> subscribers</span>`;
+            html += `<span class="stat-badge"><strong>${followers}</strong> followers</span>`;
+            html += `<span class="stat-badge"><strong>${bits}</strong> bit cheerers</span>`;
+            html += '</div>';
+
+            if (needsMigration(currentStats)) {
+                html += '<p class="needs-migration">⚠️ Old format detected — migration needed</p>';
+                migratedStats = migrate(currentStats);
+                showPreview();
+            } else {
+                html += '<p class="up-to-date">✅ Already using daily bucket format — no migration needed</p>';
+            }
+
+            el.innerHTML = html;
+        }
+
+        function migrate(stats) {
+            const migrated = JSON.parse(JSON.stringify(stats));
+
+            // Migrate totalMessages
+            if (typeof migrated.totalMessages === 'number') {
+                const date = (migrated.createdAt || new Date().toISOString()).slice(0, 10);
+                migrated.totalMessages = { [date]: migrated.totalMessages };
+            } else if (!migrated.totalMessages) {
+                migrated.totalMessages = {};
+            }
+
+            // Migrate chatters
+            for (const [name, val] of Object.entries(migrated.chatters || {})) {
+                if (typeof val.messageCount === 'number' && !val.days) {
+                    const date = (val.firstSeen || migrated.createdAt || new Date().toISOString()).slice(0, 10);
+                    val.days = { [date]: val.messageCount };
+                    delete val.messageCount;
+                }
+            }
+
+            // Migrate emotes
+            for (const [name, val] of Object.entries(migrated.emotes || {})) {
+                if (typeof val.count === 'number' && !val.days) {
+                    const date = (val.firstUsed || migrated.createdAt || new Date().toISOString()).slice(0, 10);
+                    val.days = { [date]: val.count };
+                    delete val.count;
+                }
+            }
+
+            // Migrate hashtags
+            for (const [name, val] of Object.entries(migrated.hashtags || {})) {
+                if (typeof val.count === 'number' && !val.days) {
+                    const date = (val.firstUsed || migrated.createdAt || new Date().toISOString()).slice(0, 10);
+                    val.days = { [date]: val.count };
+                    delete val.count;
+                }
+            }
+
+            // Ensure new sections exist
+            if (!migrated.subscribers) migrated.subscribers = {};
+            if (!migrated.followers) migrated.followers = {};
+            if (!migrated.giftSubs) migrated.giftSubs = {};
+            if (!migrated.bits) migrated.bits = {};
+            if (!migrated.donations) migrated.donations = {};
+            if (!migrated.raids) migrated.raids = {};
+
+            return migrated;
+        }
+
+        function showPreview() {
+            const card = document.getElementById('preview-card');
+            const content = document.getElementById('preview-content');
+            card.style.display = 'block';
+
+            // Count total values migrated
+            let migratedChatters = 0, migratedEmotes = 0, migratedHashtags = 0;
+            for (const val of Object.values(migratedStats.chatters || {})) {
+                if (val.days) migratedChatters++;
+            }
+            for (const val of Object.values(migratedStats.emotes || {})) {
+                if (val.days) migratedEmotes++;
+            }
+            for (const val of Object.values(migratedStats.hashtags || {})) {
+                if (val.days) migratedHashtags++;
+            }
+
+            let html = '<div class="summary">';
+            html += `<span class="stat-badge"><strong>${migratedChatters}</strong> chatters → daily buckets</span>`;
+            html += `<span class="stat-badge"><strong>${migratedEmotes}</strong> emotes → daily buckets</span>`;
+            html += `<span class="stat-badge"><strong>${migratedHashtags}</strong> hashtags → daily buckets</span>`;
+            html += '</div>';
+
+            // Show sample
+            const sample = {};
+            const chatKeys = Object.keys(migratedStats.chatters);
+            if (chatKeys.length > 0) sample.chatters = { [chatKeys[0]]: migratedStats.chatters[chatKeys[0]] };
+            const emoteKeys = Object.keys(migratedStats.emotes);
+            if (emoteKeys.length > 0) sample.emotes = { [emoteKeys[0]]: migratedStats.emotes[emoteKeys[0]] };
+            const hashKeys = Object.keys(migratedStats.hashtags);
+            if (hashKeys.length > 0) sample.hashtags = { [hashKeys[0]]: migratedStats.hashtags[hashKeys[0]] };
+
+            html += `<p style="margin-bottom:8px; color:#888;">Sample of migrated data:</p>`;
+            html += `<pre>${JSON.stringify(sample, null, 2)}</pre>`;
+
+            content.innerHTML = html;
+
+            document.getElementById('action-card').style.display = 'block';
+        }
+
+        function downloadBackup() {
+            const blob = new Blob([JSON.stringify(currentStats, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `stats-backup-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function runMigration() {
+            const btn = document.getElementById('migrate-btn');
+            const status = document.getElementById('action-status');
+            btn.disabled = true;
+            btn.textContent = 'Migrating...';
+
+            try {
+                const res = await fetch('/api/stats/migrate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(migratedStats)
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    status.innerHTML = `<div class="status success">✅ ${result.message}. Reload this page to verify.</div>`;
+                } else {
+                    status.innerHTML = `<div class="status error">❌ ${result.error}: ${result.message}</div>`;
+                    btn.disabled = false;
+                    btn.textContent = '✅ Apply Migration';
+                }
+            } catch (err) {
+                status.innerHTML = `<div class="status error">❌ Failed: ${err.message}</div>`;
+                btn.disabled = false;
+                btn.textContent = '✅ Apply Migration';
+            }
+        }
+
+        loadStats();
+    </script>
+</body>
+</html>

@@ -111,6 +111,9 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const DAYS = parseInt(urlParams.get('days')) || 0;
+        const DATE = urlParams.get('date') || '';
+        const FROM = urlParams.get('from') || '';
+        const TO = urlParams.get('to') || '';
         const LIMIT = parseInt(urlParams.get('limit')) || 20;
         const REFRESH = parseInt(urlParams.get('refresh')) || 60;
 
@@ -120,39 +123,78 @@
             return div.innerHTML;
         }
 
-        function filterByDays(obj, dateField) {
-            if (!DAYS) return obj;
-            const cutoff = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000).toISOString();
-            const filtered = {};
-            for (const [key, val] of Object.entries(obj)) {
-                if (val[dateField] && val[dateField] >= cutoff) {
-                    filtered[key] = val;
+        // Get the date range to filter by
+        function getDateRange() {
+            if (DATE) {
+                return { from: DATE, to: DATE };
+            }
+            if (FROM || TO) {
+                return {
+                    from: FROM || '1970-01-01',
+                    to: TO || '9999-12-31'
+                };
+            }
+            if (DAYS) {
+                const from = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000)
+                    .toISOString().slice(0, 10);
+                return { from, to: '9999-12-31' };
+            }
+            return null; // no filter, sum everything
+        }
+
+        // Sum daily buckets within a date range
+        function sumBuckets(days, range) {
+            if (!days || typeof days !== 'object') return 0;
+            let total = 0;
+            for (const [date, count] of Object.entries(days)) {
+                if (!range || (date >= range.from && date <= range.to)) {
+                    total += count;
                 }
             }
-            return filtered;
+            return total;
+        }
+
+        // Backward compat: get count from old or new format
+        function getCount(entry, range) {
+            if (entry.days) return sumBuckets(entry.days, range);
+            // Old format fallback
+            return entry.messageCount || entry.count || 0;
+        }
+
+        function getFilterLabel() {
+            if (DATE) return `Date: ${DATE}`;
+            if (FROM && TO) return `${FROM} to ${TO}`;
+            if (FROM) return `From ${FROM}`;
+            if (TO) return `Until ${TO}`;
+            if (DAYS) return `Last ${DAYS} days`;
+            return '';
         }
 
         function renderStats(data) {
             const container = document.getElementById('stats-container');
+            const range = getDateRange();
 
-            const chatters = filterByDays(data.chatters || {}, 'lastSeen');
-            const emotes = filterByDays(data.emotes || {}, 'lastUsed');
-            const hashtags = filterByDays(data.hashtags || {}, 'lastUsed');
-
-            const topChatters = Object.entries(chatters)
-                .sort((a, b) => b[1].messageCount - a[1].messageCount)
+            // Build sorted lists with computed counts
+            const topChatters = Object.entries(data.chatters || {})
+                .map(([name, d]) => ({ name, count: getCount(d, range), data: d }))
+                .filter(e => e.count > 0)
+                .sort((a, b) => b.count - a.count)
                 .slice(0, LIMIT);
 
-            const topEmotes = Object.entries(emotes)
-                .sort((a, b) => b[1].count - a[1].count)
+            const topEmotes = Object.entries(data.emotes || {})
+                .map(([name, d]) => ({ name, count: getCount(d, range), data: d }))
+                .filter(e => e.count > 0)
+                .sort((a, b) => b.count - a.count)
                 .slice(0, LIMIT);
 
-            const topHashtags = Object.entries(hashtags)
-                .sort((a, b) => b[1].count - a[1].count)
+            const topHashtags = Object.entries(data.hashtags || {})
+                .map(([tag, d]) => ({ tag, count: getCount(d, range), data: d }))
+                .filter(e => e.count > 0)
+                .sort((a, b) => b.count - a.count)
                 .slice(0, LIMIT);
 
             const filterEl = document.getElementById('filter-info');
-            filterEl.textContent = DAYS ? `Last ${DAYS} days` : '';
+            filterEl.textContent = getFilterLabel();
 
             let html = '';
 
@@ -160,11 +202,11 @@
             html += '<div class="stats-column">';
             html += '<h2>Top Chatters</h2>';
             html += '<ul class="stats-list">';
-            topChatters.forEach(([name, data], i) => {
+            topChatters.forEach((entry, i) => {
                 html += `<li class="stats-item">
                     <span class="rank">${i + 1}.</span>
-                    <span class="name">${escapeHtml(name)}</span>
-                    <span class="count">${data.messageCount} msgs</span>
+                    <span class="name">${escapeHtml(entry.name)}</span>
+                    <span class="count">${entry.count} msgs</span>
                 </li>`;
             });
             if (topChatters.length === 0) html += '<li class="stats-item"><span class="name">No data yet</span></li>';
@@ -174,12 +216,12 @@
             html += '<div class="stats-column">';
             html += '<h2>Top Emotes</h2>';
             html += '<ul class="stats-list">';
-            topEmotes.forEach(([name, data], i) => {
-                const img = data.imageUrl ? `<img src="${data.imageUrl}" class="emote-img" alt="${escapeHtml(name)}">` : '';
+            topEmotes.forEach((entry, i) => {
+                const img = entry.data.imageUrl ? `<img src="${entry.data.imageUrl}" class="emote-img" alt="${escapeHtml(entry.name)}">` : '';
                 html += `<li class="stats-item">
                     <span class="rank">${i + 1}.</span>
-                    <span class="name">${img}${escapeHtml(name)}</span>
-                    <span class="count">${data.count}x</span>
+                    <span class="name">${img}${escapeHtml(entry.name)}</span>
+                    <span class="count">${entry.count}x</span>
                 </li>`;
             });
             if (topEmotes.length === 0) html += '<li class="stats-item"><span class="name">No data yet</span></li>';
@@ -189,11 +231,11 @@
             html += '<div class="stats-column">';
             html += '<h2>Top Hashtags</h2>';
             html += '<ul class="stats-list">';
-            topHashtags.forEach(([tag, data], i) => {
+            topHashtags.forEach((entry, i) => {
                 html += `<li class="stats-item">
                     <span class="rank">${i + 1}.</span>
-                    <span class="name hashtag-name">${escapeHtml(tag)}</span>
-                    <span class="count">${data.count}x</span>
+                    <span class="name hashtag-name">${escapeHtml(entry.tag)}</span>
+                    <span class="count">${entry.count}x</span>
                 </li>`;
             });
             if (topHashtags.length === 0) html += '<li class="stats-item"><span class="name">No data yet</span></li>';

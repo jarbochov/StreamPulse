@@ -75,6 +75,13 @@ body {
     margin-bottom: 100px;
 }
 
+.closing {
+    margin-top: 400px;
+    font-size: 4vw !important;
+    font-weight: bold;
+    line-height: 3rem;
+}
+
 h1 {
     font-size: 6vw;
     text-transform: uppercase;

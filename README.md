@@ -164,8 +164,18 @@ Each entry in `credits.social.links`:
 | Parameter | Default | Description |
 | --- | --- | --- |
 | `days` | all time | Only show stats from last N days |
+| `date` | | Show stats for a single date (`YYYY-MM-DD`) |
+| `from` | | Start of date range (`YYYY-MM-DD`) |
+| `to` | | End of date range (`YYYY-MM-DD`) |
 | `limit` | `20` | Top N items per column |
 | `refresh` | `60` | Auto-refresh interval in seconds |
+
+**Examples:**
+```
+stats.html?days=30              # Last 30 days
+stats.html?date=2026-02-23     # Single date
+stats.html?from=2026-02-01&to=2026-02-28  # Date range
+```
 
 ### 🎵 Syncing Credits with Music
 
@@ -185,8 +195,10 @@ http://localhost:8080/credits.html?duration=75
 | `GET /api/config` | Current config (sections, social links, options) |
 | `GET /api/fetch` | Trigger Twitch API data refresh |
 | `GET /api/reset` | Clear session chat data |
-| `GET /api/stats` | Raw persistent stats JSON |
+| `GET /api/stats` | Raw persistent stats JSON (daily buckets) |
 | `GET /api/stats/reset` | Clear all persistent stats |
+| `POST /api/stats/migrate` | Migrate stats from old format to daily buckets |
+| `GET /api/sessions` | List archived session files |
 | `GET /auth/twitch` | Start Twitch OAuth flow |
 
 ## Bitfocus Companion Integration
@@ -203,12 +215,21 @@ Use the **Generic HTTP** module:
 
 | File | Lifecycle | Contains |
 | --- | --- | --- |
-| `data/chat.json` | **Cleared on each startup** | Session chatters, subs, emotes, hashtags |
-| `data/stats.json` | **Persists across restarts** | Cumulative chatters, emotes, hashtags with timestamps |
+| `data/chat.json` | **Cleared on each startup** (archived first) | Session chatters, subs, emotes, hashtags |
+| `data/stats.json` | **Persists across restarts** | Cumulative stats with daily buckets per event type |
+| `data/sessions/` | **Persists** | Archived chat.json from previous sessions |
 | `data/subs.json` | Refreshed from Twitch API | Subscriber list |
 | `data/bits.json` | Refreshed from Twitch API | Bits leaderboard (current month) |
 | `data/followers.json` | Refreshed from Twitch API | Follower list |
 | `data/.twitch-token.json` | Persists | OAuth access/refresh tokens |
+
+### Stats Daily Buckets
+
+Stats are tracked with daily `YYYY-MM-DD` buckets for accurate date-range filtering. All event types are recorded: chatters, emotes, hashtags, subscribers, followers, gift subs, bits, donations, and raids.
+
+### Migration
+
+If you have stats data from before daily buckets were added, visit `http://localhost:8080/migrate.html` to migrate. The tool detects the old format, shows a preview, and lets you download a backup before applying.
 
 Data is saved to disk every 5 seconds and on graceful shutdown (Ctrl+C).
 
@@ -245,6 +266,7 @@ stream-credits/
 ├── credits.css            # Credits overlay styles
 ├── credits.js             # Credits overlay client logic
 ├── stats.html             # Stats overlay (top chatters/emotes/hashtags)
+├── migrate.html           # Stats migration tool (old format → daily buckets)
 ├── package.json           # Node.js dependencies
 ├── .gitignore             # Git ignore patterns
 └── data/                  # Generated data (git-ignored)
@@ -253,8 +275,9 @@ stream-credits/
     ├── bits.json          # Twitch bits leaderboard
     ├── followers.json     # Twitch followers
     ├── chat.json          # SSN session chat data (cleared on startup)
-    ├── stats.json         # Persistent stats (survives restarts)
-    └── .twitch-token.json # OAuth tokens
+    ├── stats.json         # Persistent stats with daily buckets (survives restarts)
+    ├── .twitch-token.json # OAuth tokens
+    └── sessions/          # Archived chat.json from previous sessions
 ```
 
 ## Security
