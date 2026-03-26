@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Categories</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .nav { display: flex; gap: 0.75rem; }
+        .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
+        .nav a:hover { color: #e1e4e8; background: #21262d; }
+        .dropdown { position: relative; }
+        .dropdown-toggle { cursor: pointer; }
+        .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 0.3rem; min-width: 160px; z-index: 100; margin-top: 0.25rem; }
+        .dropdown:hover .dropdown-menu { display: block; }
+        .dropdown-menu a { display: block; padding: 0.4rem 0.75rem; border-radius: 4px; white-space: nowrap; font-size: 0.82rem; }
+        .dropdown-menu a:hover { background: #21262d; }
+
+        .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; }
+
+        .filters { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; }
+        .filters label { font-size: 0.8rem; color: #8b949e; }
+        .filters input[type="date"], .filters input[type="month"] { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.4rem 0.6rem; color: #e1e4e8; font-size: 0.82rem; outline: none; }
+        .filters input:focus { border-color: #58a6ff; }
+        .filters button { background: #21262d; border: 1px solid #30363d; color: #8b949e; border-radius: 6px; padding: 0.4rem 0.75rem; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+        .filters button:hover { color: #e1e4e8; border-color: #58a6ff; }
+        .preset { padding: 0.3rem 0.6rem !important; font-size: 0.75rem !important; }
+        .preset.active { border-color: #58a6ff; color: #58a6ff; }
+
+        .summary-bar { display: flex; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+        .summary-stat { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.6rem 1rem; text-align: center; flex: 1; min-width: 120px; }
+        .summary-stat .value { font-size: 1.3rem; font-weight: 700; color: #58a6ff; }
+        .summary-stat .label { font-size: 0.7rem; color: #8b949e; margin-top: 0.15rem; }
+
+        .category-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
+        .category-header { display: flex; align-items: center; padding: 0.75rem 1rem; cursor: pointer; transition: background 0.2s; gap: 0.75rem; }
+        .category-header:hover { background: #1a2332; }
+        .category-name { font-weight: 600; font-size: 0.95rem; flex: 1; }
+        .category-time { color: #58a6ff; font-weight: 600; font-size: 0.9rem; }
+        .category-bar { height: 4px; background: #21262d; margin: 0 1rem; border-radius: 2px; }
+        .category-bar-fill { height: 100%; background: #58a6ff; border-radius: 2px; transition: width 0.3s; }
+        .category-sessions { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+        .category-sessions.open { max-height: 500px; overflow-y: auto; }
+        .category-session { display: flex; align-items: center; gap: 0.75rem; padding: 0.45rem 1rem; border-top: 1px solid #21262d; font-size: 0.8rem; }
+        .category-session .date { color: #8b949e; min-width: 85px; }
+        .category-session .title { flex: 1; color: #c9d1d9; }
+        .category-session .duration { color: #58a6ff; font-weight: 500; }
+        .session-count { font-size: 0.72rem; color: #8b949e; background: #21262d; padding: 0.15rem 0.5rem; border-radius: 10px; }
+        .category-pct { font-size: 0.72rem; color: #8b949e; min-width: 40px; text-align: right; }
+
+        .empty { color: #484f58; text-align: center; padding: 3rem; font-size: 0.9rem; }
+
+        .chart-container { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem; }
+        .chart-container h3 { font-size: 0.85rem; color: #8b949e; margin-bottom: 0.75rem; }
+        .chart-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; }
+        .chart-label { font-size: 0.78rem; min-width: 140px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .chart-bar-bg { flex: 1; height: 20px; background: #21262d; border-radius: 3px; overflow: hidden; }
+        .chart-bar-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; padding-left: 6px; font-size: 0.68rem; font-weight: 600; color: #fff; min-width: fit-content; }
+        .chart-value { font-size: 0.72rem; color: #8b949e; min-width: 55px; text-align: right; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>StreamPulse <span>Categories</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <div class="container">
+        <div class="filters">
+            <label>From</label>
+            <input type="date" id="filter-from">
+            <label>To</label>
+            <input type="date" id="filter-to">
+            <button onclick="applyFilters()">Apply</button>
+            <button onclick="clearFilters()">Clear</button>
+            <span style="border-left:1px solid #30363d; height:20px; margin:0 0.25rem;"></span>
+            <button class="preset" data-days="7" onclick="setPreset(7, this)">7d</button>
+            <button class="preset" data-days="30" onclick="setPreset(30, this)">30d</button>
+            <button class="preset" data-days="90" onclick="setPreset(90, this)">90d</button>
+            <button class="preset" data-days="365" onclick="setPreset(365, this)">1y</button>
+            <button class="preset" data-days="0" onclick="setPreset(0, this)">All</button>
+        </div>
+
+        <div class="summary-bar" id="summary-bar"></div>
+
+        <div class="chart-container" id="chart-container" style="display:none;">
+            <h3>Time Distribution</h3>
+            <div id="chart"></div>
+        </div>
+
+        <div id="category-list"></div>
+    </div>
+
+<script>
+    function escapeHtml(str) {
+        return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function formatDuration(minutes) {
+        if (minutes < 60) return `${minutes}m`;
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    }
+
+    // Color palette for chart bars
+    const COLORS = ['#58a6ff', '#3fb950', '#d29922', '#f0883e', '#f778ba', '#bc8cff', '#39d353', '#db6d28', '#79c0ff', '#a5d6ff'];
+
+    let lastData = [];
+
+    async function loadCategories() {
+        const from = document.getElementById('filter-from').value;
+        const to = document.getElementById('filter-to').value;
+        const params = new URLSearchParams();
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+
+        try {
+            const res = await fetch('/api/categories' + (params.toString() ? '?' + params : ''));
+            lastData = await res.json();
+            render(lastData);
+        } catch {
+            document.getElementById('category-list').innerHTML = '<div class="empty">Failed to load category data</div>';
+        }
+    }
+
+    function render(data) {
+        // Summary
+        const totalMinutes = data.reduce((s, c) => s + c.totalMinutes, 0);
+        const totalCategories = data.length;
+        const totalSessions = new Set(data.flatMap(c => c.sessions.map(s => s.date))).size;
+
+        document.getElementById('summary-bar').innerHTML = `
+            <div class="summary-stat"><div class="value">${totalCategories}</div><div class="label">Categories</div></div>
+            <div class="summary-stat"><div class="value">${formatDuration(totalMinutes)}</div><div class="label">Total Time</div></div>
+            <div class="summary-stat"><div class="value">${totalSessions}</div><div class="label">Sessions</div></div>
+            <div class="summary-stat"><div class="value">${data.length > 0 ? escapeHtml(data[0].name) : '—'}</div><div class="label">Most Played</div></div>
+        `;
+
+        // Chart
+        const chartEl = document.getElementById('chart-container');
+        if (data.length === 0) {
+            chartEl.style.display = 'none';
+            document.getElementById('category-list').innerHTML = '<div class="empty">No category data found for this period.<br>Stream info is captured from Twitch when sessions are active.</div>';
+            return;
+        }
+
+        chartEl.style.display = 'block';
+        const maxMin = data[0].totalMinutes || 1;
+        document.getElementById('chart').innerHTML = data.slice(0, 10).map((c, i) => {
+            const pct = (c.totalMinutes / maxMin * 100).toFixed(1);
+            const color = COLORS[i % COLORS.length];
+            return `<div class="chart-row">
+                <span class="chart-label" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+                <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${pct}%;background:${color}">${pct > 15 ? formatDuration(c.totalMinutes) : ''}</div></div>
+                <span class="chart-value">${formatDuration(c.totalMinutes)}</span>
+            </div>`;
+        }).join('');
+
+        // Category cards
+        document.getElementById('category-list').innerHTML = data.map((c, i) => {
+            const pct = totalMinutes > 0 ? (c.totalMinutes / totalMinutes * 100).toFixed(1) : 0;
+            const barPct = (c.totalMinutes / maxMin * 100).toFixed(1);
+            const color = COLORS[i % COLORS.length];
+            const sessionRows = c.sessions
+                .sort((a, b) => b.date.localeCompare(a.date))
+                .map(s => `<div class="category-session">
+                    <span class="date">${s.date}</span>
+                    <span class="title">${escapeHtml(s.title)}</span>
+                    <span class="duration">${formatDuration(s.minutes)}</span>
+                </div>`).join('');
+
+            return `<div class="category-card">
+                <div class="category-header" onclick="toggleSessions(this)">
+                    <span class="category-name" style="color:${color}">${escapeHtml(c.name)}</span>
+                    <span class="session-count">${c.sessions.length} session${c.sessions.length !== 1 ? 's' : ''}</span>
+                    <span class="category-pct">${pct}%</span>
+                    <span class="category-time">${formatDuration(c.totalMinutes)}</span>
+                </div>
+                <div class="category-bar"><div class="category-bar-fill" style="width:${barPct}%;background:${color}"></div></div>
+                <div class="category-sessions">${sessionRows}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function toggleSessions(header) {
+        const panel = header.nextElementSibling.nextElementSibling;
+        panel.classList.toggle('open');
+    }
+
+    function applyFilters() {
+        document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
+        loadCategories();
+    }
+
+    function clearFilters() {
+        document.getElementById('filter-from').value = '';
+        document.getElementById('filter-to').value = '';
+        document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
+        loadCategories();
+    }
+
+    function setPreset(days, btn) {
+        document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (days === 0) {
+            document.getElementById('filter-from').value = '';
+            document.getElementById('filter-to').value = '';
+        } else {
+            const to = new Date();
+            const from = new Date(Date.now() - days * 86400000);
+            document.getElementById('filter-to').value = to.toISOString().substring(0, 10);
+            document.getElementById('filter-from').value = from.toISOString().substring(0, 10);
+        }
+        loadCategories();
+    }
+
+    // Load on page ready
+    loadCategories();
+</script>
+</body>
+</html>

@@ -9,6 +9,7 @@
         { label: 'Dashboard', href: '/dashboard.html' },
         { label: 'Highlights', href: '/highlights.html' },
         { label: 'Sessions', href: '/sessions.html' },
+        { label: 'Categories', href: '/categories.html' },
         { label: 'Overlays ▾', children: [
             { label: 'Credits', href: '/credits.html' },
             { label: 'Credits Preview', href: '/credits.html?preview=true', target: '_blank' },

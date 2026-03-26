@@ -1527,6 +1527,85 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    if (pathname === '/api/categories') {
+        try {
+            const params = new URL(req.url, 'http://localhost').searchParams;
+            const from = params.get('from') || '';
+            const to = params.get('to') || '';
+
+            const allSessions = [];
+
+            // Current session
+            if (chatData.streamInfo && chatData.streamInfo.length > 0) {
+                allSessions.push({
+                    startedAt: chatData.startedAt,
+                    endedAt: null,
+                    streamInfo: chatData.streamInfo,
+                    messageCount: chatData.messageCount
+                });
+            }
+
+            // Archived sessions
+            if (fs.existsSync(SESSIONS_DIR)) {
+                const files = fs.readdirSync(SESSIONS_DIR)
+                    .filter(f => f.startsWith('chat-') && f.endsWith('.json'))
+                    .sort();
+                for (const file of files) {
+                    try {
+                        const d = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
+                        if (d.streamInfo && d.streamInfo.length > 0) {
+                            allSessions.push({
+                                startedAt: d.startedAt,
+                                endedAt: d.lastUpdated || d.startedAt,
+                                streamInfo: d.streamInfo,
+                                messageCount: d.messageCount || 0
+                            });
+                        }
+                    } catch {}
+                }
+            }
+
+            // Aggregate: category → { totalMinutes, sessions: [{ date, title, category, minutes }] }
+            const categories = {};
+            for (const sess of allSessions) {
+                const sessDate = (sess.startedAt || '').substring(0, 10);
+                if (from && sessDate < from) continue;
+                if (to && sessDate > to) continue;
+
+                const info = sess.streamInfo;
+                const sessionEnd = sess.endedAt ? new Date(sess.endedAt) : new Date();
+
+                for (let i = 0; i < info.length; i++) {
+                    const entry = info[i];
+                    const cat = entry.category || '(No Category)';
+                    const start = new Date(entry.changedAt);
+                    const end = i + 1 < info.length ? new Date(info[i + 1].changedAt) : sessionEnd;
+                    const minutes = Math.max(0, (end - start) / 60000);
+
+                    if (!categories[cat]) categories[cat] = { totalMinutes: 0, sessions: [] };
+                    categories[cat].totalMinutes += minutes;
+                    categories[cat].sessions.push({
+                        date: sessDate,
+                        title: entry.title,
+                        minutes: Math.round(minutes)
+                    });
+                }
+            }
+
+            // Sort by total time descending
+            const sorted = Object.entries(categories)
+                .map(([name, data]) => ({ name, totalMinutes: Math.round(data.totalMinutes), sessions: data.sessions }))
+                .sort((a, b) => b.totalMinutes - a.totalMinutes);
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(sorted));
+        } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
     if (pathname === '/api/export') {
         const params = new URL(req.url, `http://localhost`).searchParams;
         const type = params.get('type') || 'all';
