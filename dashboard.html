@@ -109,6 +109,7 @@
         <!-- Session Stats -->
         <div class="card">
             <h2>Current Session</h2>
+            <div id="stream-info-dash" style="display: none; font-size: 0.82rem; color: #e1e4e8; padding: 0.4rem 0 0.6rem; border-bottom: 1px solid #30363d; margin-bottom: 0.6rem;"></div>
             <div class="status-grid">
                 <div class="stat">
                     <div class="value" id="stat-messages">0</div>
@@ -260,6 +261,17 @@
 
             // Volume chart
             renderVolumeChart(data.hourlyMessages || {});
+
+            // Stream info
+            const siDiv = document.getElementById('stream-info-dash');
+            if (data.streamInfo && data.streamInfo.length > 0) {
+                const latest = data.streamInfo[data.streamInfo.length - 1];
+                siDiv.innerHTML = '🎬 <strong>' + escapeHtml(latest.title) + '</strong>'
+                    + (latest.category ? ' <span style="background:#1f6feb22;color:#58a6ff;font-size:0.72rem;padding:0.1rem 0.45rem;border-radius:4px;margin-left:0.3rem;">' + escapeHtml(latest.category) + '</span>' : '');
+                siDiv.style.display = 'block';
+            } else {
+                siDiv.style.display = 'none';
+            }
 
             // Session toggle button
             const toggleBtn = document.getElementById('session-toggle-btn');

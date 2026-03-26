@@ -460,6 +460,31 @@ async function fetchTwitchData() {
     }
 }
 
+async function fetchStreamInfo() {
+    if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) return;
+    const hasToken = await ensureToken();
+    if (!hasToken) return;
+
+    try {
+        const result = await twitchApiRequest('/channels', { broadcaster_id: BROADCASTER_ID });
+        if (result.status !== 200 || !result.body.data?.[0]) return;
+
+        const ch = result.body.data[0];
+        const title = ch.title || '';
+        const category = ch.game_name || '';
+        const now = new Date().toISOString();
+
+        // Only record if title or category changed from the last entry
+        const last = chatData.streamInfo[chatData.streamInfo.length - 1];
+        if (!last || last.title !== title || last.category !== category) {
+            chatData.streamInfo.push({ title, category, changedAt: now });
+            console.log(`[Twitch] Stream info: "${title}" — ${category || '(no category)'}`);
+        }
+    } catch (err) {
+        console.error('[Twitch] Stream info fetch error:', err.message);
+    }
+}
+
 // ============================================================================
 // SSN CHAT COLLECTOR
 // ============================================================================
@@ -475,6 +500,7 @@ const chatData = {
     hashtags: {},
     emotes: {},
     hourlyMessages: {},
+    streamInfo: [],
     startedAt: new Date().toISOString(),
     lastUpdated: null,
     messageCount: 0
@@ -803,6 +829,7 @@ function resetChatData() {
     chatData.hashtags = {};
     chatData.emotes = {};
     chatData.hourlyMessages = {};
+    chatData.streamInfo = [];
     chatData.messageCount = 0;
     chatData.startedAt = new Date().toISOString();
     chatData.lastUpdated = null;
@@ -1172,6 +1199,7 @@ const server = http.createServer(async (req, res) => {
                 res.writeHead(200, { 'Content-Type': 'text/html' });
                 res.end('<h1>✅ Twitch authorized!</h1><p>You can close this tab. The server will now fetch your data.</p>');
                 fetchTwitchData();
+                fetchStreamInfo();
             } catch (err) {
                 console.error('[Twitch] Auth callback error:', err.message);
                 res.writeHead(500, { 'Content-Type': 'text/html' });
@@ -1256,6 +1284,7 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'fetching' }));
         fetchTwitchData();
+        fetchStreamInfo();
         return;
     }
 
@@ -1281,7 +1310,8 @@ const server = http.createServer(async (req, res) => {
             overlayClients: overlayClients.size,
             sessionActive,
             startedAt: chatData.startedAt,
-            hourlyMessages: chatData.hourlyMessages
+            hourlyMessages: chatData.hourlyMessages,
+            streamInfo: chatData.streamInfo
         };
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(status, null, 2));
@@ -1316,9 +1346,10 @@ const server = http.createServer(async (req, res) => {
         resetChatData();
         sessionActive = true;
         broadcastToOverlays('update', chatData);
-        // Re-fetch Twitch data for the new session
+        // Re-fetch Twitch data and stream info for the new session
         if (twitchAccessToken && BROADCASTER_ID) {
             fetchTwitchData();
+            fetchStreamInfo();
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'started', startedAt: chatData.startedAt, message: 'New session started.' }));
@@ -1467,8 +1498,28 @@ const server = http.createServer(async (req, res) => {
                 .filter(f => f.startsWith('chat-') && f.endsWith('.json'))
                 .sort()
                 .reverse();
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(files));
+
+            const params = new URL(req.url, 'http://localhost').searchParams;
+            if (params.get('detail') === '1') {
+                const detailed = files.map(f => {
+                    const entry = { file: f };
+                    try {
+                        const raw = fs.readFileSync(path.join(SESSIONS_DIR, f), 'utf8');
+                        const d = JSON.parse(raw);
+                        if (d.streamInfo && d.streamInfo.length > 0) {
+                            entry.title = d.streamInfo[0].title;
+                            entry.category = d.streamInfo[0].category;
+                        }
+                        entry.messageCount = d.messageCount || 0;
+                    } catch {}
+                    return entry;
+                });
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(detailed));
+            } else {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(files));
+            }
         } catch (err) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: err.message }));
@@ -1715,13 +1766,15 @@ const server = http.createServer(async (req, res) => {
         const typeFilter = params.get('type') || '';
         const userFilter = (params.get('user') || '').toLowerCase();
 
-        // Load messages
+        // Load messages and stream info
         let messages = [];
         let sessionLabel = session;
+        let streamInfo = [];
         if (session === 'all') {
             // Global search export: current + all archived sessions
             messages = [...chatLog];
             sessionLabel = 'all-sessions';
+            streamInfo = chatData.streamInfo || [];
             if (fs.existsSync(SESSIONS_DIR)) {
                 const logFiles = fs.readdirSync(SESSIONS_DIR)
                     .filter(f => f.startsWith('chatlog-') && f.endsWith('.jsonl'))
@@ -1733,11 +1786,20 @@ const server = http.createServer(async (req, res) => {
         } else if (session === 'current') {
             messages = chatLog;
             sessionLabel = 'current-session';
+            streamInfo = chatData.streamInfo || [];
         } else {
             const logName = session.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
             const logFile = path.join(SESSIONS_DIR, logName);
             if (logFile.startsWith(SESSIONS_DIR) && fs.existsSync(logFile)) {
                 messages = readChatLogFile(logFile);
+            }
+            // Load stream info from session JSON
+            const sessionFile = path.join(SESSIONS_DIR, session);
+            if (sessionFile.startsWith(SESSIONS_DIR) && fs.existsSync(sessionFile)) {
+                try {
+                    const sData = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+                    streamInfo = sData.streamInfo || [];
+                } catch {}
             }
         }
 
@@ -1779,12 +1841,29 @@ const server = http.createServer(async (req, res) => {
         }
         const cleanFilename = `Chat Log - ${friendlyLabel}`.replace(/[^a-zA-Z0-9 _-]/g, '');
 
+        // Build stream info header for exports
+        const streamInfoText = streamInfo.length > 0
+            ? streamInfo.map((si, i) => {
+                const time = new Date(si.changedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                const prefix = i === 0 ? 'Stream' : time;
+                return `${prefix}: ${si.title}${si.category ? ` [${si.category}]` : ''}`;
+            }).join('\n')
+            : '';
+
         if (format === 'tsv') {
+            let preamble = '';
+            if (streamInfoText) {
+                preamble = streamInfo.map((si, i) => {
+                    const time = new Date(si.changedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                    const prefix = i === 0 ? 'Stream' : time;
+                    return `# ${prefix}: ${si.title}${si.category ? ` [${si.category}]` : ''}`;
+                }).join('\n') + '\n';
+            }
             const header = 'Timestamp\tUser\tMessage\tEvent\tDonation\tMembership';
             const rows = messages.map(m =>
                 `${formatTime(m.ts)}\t${m.user}\t${m.message.replace(/\t/g, ' ')}\t${m.event || ''}\t${m.donation || ''}\t${m.membership || ''}`
             );
-            const content = header + '\n' + rows.join('\n');
+            const content = preamble + header + '\n' + rows.join('\n');
             res.writeHead(200, {
                 'Content-Type': 'text/tab-separated-values',
                 'Content-Disposition': `attachment; filename="${cleanFilename}.tsv"`
@@ -1800,7 +1879,9 @@ const server = http.createServer(async (req, res) => {
                 if (m.donation) line += ` [${m.donation}]`;
                 return line;
             });
-            const content = `Chat Log — ${friendlyLabel}\n${'='.repeat(40)}\n${messages.length} messages\n\n` + lines.join('\n');
+            const header = `Chat Log — ${friendlyLabel}\n${'='.repeat(40)}`;
+            const infoBlock = streamInfoText ? `\n${streamInfoText}\n` : '';
+            const content = `${header}${infoBlock}\n${messages.length} messages\n\n` + lines.join('\n');
             res.writeHead(200, {
                 'Content-Type': 'text/plain',
                 'Content-Disposition': `attachment; filename="${cleanFilename}.txt"`
@@ -1811,7 +1892,10 @@ const server = http.createServer(async (req, res) => {
 
         if (format === 'pdf') {
             try {
-                const htmlContent = buildChatPdfHtml(`Chat Log — ${friendlyLabel}`, `${messages.length} messages`, messages);
+                const subtitle = streamInfoText
+                    ? streamInfoText.replace(/\n/g, ' • ') + ` — ${messages.length} messages`
+                    : `${messages.length} messages`;
+                const htmlContent = buildChatPdfHtml(`Chat Log — ${friendlyLabel}`, subtitle, messages);
                 const pdfBuffer = await generatePdf(htmlContent);
                 res.writeHead(200, {
                     'Content-Type': 'application/pdf',
@@ -2322,15 +2406,19 @@ server.listen(PORT, () => {
     loadStoredToken();
     if (twitchAccessToken) {
         fetchTwitchData();
+        fetchStreamInfo();
     } else if (TWITCH_CLIENT_ID) {
         const authUrl = `http://localhost:${PORT}/auth/twitch`;
         console.log(`[Twitch] No token found — opening browser to authorize...`);
         openBrowser(authUrl);
     }
 
-    // Auto-refresh Twitch data
+    // Auto-refresh Twitch data and stream info
     if (REFRESH_MINUTES > 0) {
-        setInterval(fetchTwitchData, REFRESH_MINUTES * 60 * 1000);
+        setInterval(() => {
+            fetchTwitchData();
+            fetchStreamInfo();
+        }, REFRESH_MINUTES * 60 * 1000);
         console.log(`[Twitch] Auto-refresh every ${REFRESH_MINUTES} minutes`);
     }
 

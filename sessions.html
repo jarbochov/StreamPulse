@@ -49,6 +49,12 @@
         .detail-stat .value { font-size: 1.1rem; font-weight: 700; color: #58a6ff; }
         .detail-stat .label { font-size: 0.65rem; color: #8b949e; margin-top: 0.1rem; }
 
+        .stream-info-banner { padding: 0.6rem 1.25rem; border-bottom: 1px solid #30363d; background: #0d1117; flex-shrink: 0; }
+        .stream-info-entry { font-size: 0.82rem; color: #e1e4e8; padding: 0.15rem 0; }
+        .stream-info-entry:not(:first-child) { color: #8b949e; font-size: 0.75rem; }
+        .stream-title { font-weight: 600; }
+        .stream-category { background: #1f6feb22; color: #58a6ff; font-size: 0.72rem; padding: 0.1rem 0.45rem; border-radius: 4px; margin-left: 0.4rem; }
+
         .detail-tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid #30363d; padding: 0 0.5rem; flex-shrink: 0; }
         .tab { padding: 0.6rem 0.7rem; font-size: 0.78rem; color: #8b949e; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
         .tab:hover { color: #e1e4e8; }
@@ -268,8 +274,9 @@
 
     async function loadSessions() {
         try {
-            const res = await fetch('/api/sessions');
-            sessions = await res.json();
+            const res = await fetch('/api/sessions?detail=1');
+            const detailed = await res.json();
+            sessions = detailed.map(d => typeof d === 'string' ? d : d.file);
 
             const list = document.getElementById('session-list');
 
@@ -282,15 +289,20 @@
             if (sessions.length === 0) {
                 html += '<div class="empty" style="padding: 1rem;">No archived sessions yet.</div>';
             } else {
-                html += sessions.map(f => {
+                html += detailed.map(d => {
+                    const f = typeof d === 'string' ? d : d.file;
                     const dateMatch = f.match(/chat-(\d{4}-\d{2}-\d{2})/);
                     const dateStr = dateMatch ? dateMatch[1] : f.replace('.json', '');
                     const timeMatch = f.match(/T(\d{2})-(\d{2})/);
                     const timeStr = timeMatch ? `${timeMatch[1]}:${timeMatch[2]}` : '';
-                    return `<div class="session-item" data-file="${f}" onclick="handleSessionClick('${f}', this)">
-                        <input type="checkbox" class="session-checkbox" style="display: none;" onclick="event.stopPropagation(); toggleCompareSelection('${f}')">
-                        <span class="session-date">${dateStr}</span>
-                        <span class="session-meta">${timeStr}</span>
+                    const titlePreview = d.title ? `<div style="font-size:0.68rem;color:#8b949e;margin-top:0.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${escapeHtml(d.title)}</div>` : '';
+                    return `<div class="session-item" data-file="${f}" onclick="handleSessionClick('${f}', this)" style="flex-direction:column;align-items:flex-start;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;width:100%;">
+                            <input type="checkbox" class="session-checkbox" style="display: none;" onclick="event.stopPropagation(); toggleCompareSelection('${f}')">
+                            <span class="session-date">${dateStr}</span>
+                            <span class="session-meta">${timeStr}</span>
+                        </div>
+                        ${titlePreview}
                     </div>`;
                 }).join('');
             }
@@ -370,6 +382,19 @@
             { id: 'highlights', label: '⭐ Highlights' }
         ];
 
+        // Build stream info banner
+        const streamInfo = data.streamInfo || [];
+        let streamInfoHtml = '';
+        if (streamInfo.length > 0) {
+            const entries = streamInfo.map((si, i) => {
+                const time = new Date(si.changedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                const prefix = i === 0 ? '🎬' : `${time} →`;
+                const cat = si.category ? `<span class="stream-category">${escapeHtml(si.category)}</span>` : '';
+                return `<div class="stream-info-entry">${prefix} <span class="stream-title">${escapeHtml(si.title)}</span> ${cat}</div>`;
+            });
+            streamInfoHtml = `<div class="stream-info-banner">${entries.join('')}</div>`;
+        }
+
         panel.innerHTML = `
             <div class="detail-header">
                 <h2>${escapeHtml(title)}</h2>
@@ -377,6 +402,7 @@
                     ${toolPanes.map(t => `<button onclick="switchTool('${t.id}', this)">${t.label}</button>`).join('')}
                 </div>
             </div>
+            ${streamInfoHtml}
             <div class="detail-stats">
                 ${stats.map(s => `<div class="detail-stat"><div class="value">${s.v}</div><div class="label">${s.l}</div></div>`).join('')}
             </div>
