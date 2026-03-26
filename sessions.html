@@ -394,7 +394,7 @@
         if (streamInfo.length > 0) {
             const entries = streamInfo.map((si, i) => {
                 const time = new Date(si.changedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-                const prefix = i === 0 ? `🎬 ${time}` : `${time} →`;
+                const prefix = i === 0 ? time : `${time} →`;
                 const cat = si.category ? `<span class="stream-category">${escapeHtml(si.category)}</span>` : '';
                 return `<div class="stream-info-entry">${prefix} <span class="stream-title">${escapeHtml(si.title)}</span> ${cat}</div>`;
             });
