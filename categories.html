@@ -11,15 +11,17 @@
         .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: #58a6ff; }
-        .nav { display: flex; gap: 0.75rem; }
+        .nav { display: flex; gap: 0.75rem; align-items: center; }
         .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
         .nav a:hover { color: #e1e4e8; background: #21262d; }
-        .dropdown { position: relative; }
-        .dropdown-toggle { cursor: pointer; }
-        .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 0.3rem; min-width: 160px; z-index: 100; margin-top: 0.25rem; }
-        .dropdown:hover .dropdown-menu { display: block; }
-        .dropdown-menu a { display: block; padding: 0.4rem 0.75rem; border-radius: 4px; white-space: nowrap; font-size: 0.82rem; }
-        .dropdown-menu a:hover { background: #21262d; }
+        .nav .dropdown { position: relative; display: flex; align-items: center; }
+        .nav .dropdown-toggle { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
+        .nav .dropdown-toggle:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
+        .nav .dropdown:hover .dropdown-menu { display: block; }
+        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+        .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
 
         .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; }
 
@@ -85,6 +87,14 @@
             <button class="preset" data-days="90" onclick="setPreset(90, this)">90d</button>
             <button class="preset" data-days="365" onclick="setPreset(365, this)">1y</button>
             <button class="preset" data-days="0" onclick="setPreset(0, this)">All</button>
+            <span style="border-left:1px solid #30363d; height:20px; margin:0 0.25rem;"></span>
+            <label>Sort</label>
+            <select id="sort-select" onchange="renderFromCache()" style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:0.35rem 0.5rem;color:#e1e4e8;font-size:0.8rem;outline:none;">
+                <option value="recent">Most Recent</option>
+                <option value="time">Most Played</option>
+                <option value="sessions">Most Sessions</option>
+                <option value="name">A–Z</option>
+            </select>
         </div>
 
         <div class="summary-bar" id="summary-bar"></div>
@@ -124,10 +134,29 @@
         try {
             const res = await fetch('/api/categories' + (params.toString() ? '?' + params : ''));
             lastData = await res.json();
-            render(lastData);
+            renderFromCache();
         } catch {
             document.getElementById('category-list').innerHTML = '<div class="empty">Failed to load category data</div>';
         }
+    }
+
+    function renderFromCache() {
+        const sort = document.getElementById('sort-select').value;
+        const sorted = [...lastData];
+        if (sort === 'recent') {
+            sorted.sort((a, b) => {
+                const aMax = a.sessions.reduce((m, s) => s.date > m ? s.date : m, '');
+                const bMax = b.sessions.reduce((m, s) => s.date > m ? s.date : m, '');
+                return bMax.localeCompare(aMax);
+            });
+        } else if (sort === 'time') {
+            sorted.sort((a, b) => b.totalMinutes - a.totalMinutes);
+        } else if (sort === 'sessions') {
+            sorted.sort((a, b) => b.sessions.length - a.sessions.length);
+        } else if (sort === 'name') {
+            sorted.sort((a, b) => a.name.localeCompare(b.name));
+        }
+        render(sorted);
     }
 
     function render(data) {
