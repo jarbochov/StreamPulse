@@ -573,7 +573,7 @@ function updateStats(chatname, msg) {
     // Track subscriber events using SSN's documented event names
     // membership + subtitle alone is badge info, NOT a sub event
     const STATS_SUB_EVENTS = ['new_subscriber', 'resub', 'subscription_gift', 'sponsorship', 'giftpurchase', 'giftredemption'];
-    const isStatsSubEvent = STATS_SUB_EVENTS.includes(msg.event) || (msg.membership && msg.event);
+    const isStatsSubEvent = STATS_SUB_EVENTS.includes(msg.event);
     if (isStatsSubEvent) {
         const isGift = msg.event === 'subscription_gift' || msg.event === 'giftpurchase' ||
             (msg.membership && msg.membership.toLowerCase().includes('gift')) || msg.contentimg;
@@ -904,7 +904,7 @@ function processChatMessage(msg) {
     // Kick WS: new_subscriber, resub, subscription_gift
     // IMPORTANT: membership + subtitle alone is just badge info on regular chat (e.g. "Subscriber" + "48-Months")
     const SUB_EVENTS = ['new_subscriber', 'resub', 'subscription_gift', 'sponsorship', 'giftpurchase', 'giftredemption'];
-    const isSubEvent = SUB_EVENTS.includes(msg.event) || (msg.membership && msg.event);
+    const isSubEvent = SUB_EVENTS.includes(msg.event);
     if (isSubEvent) {
         const alreadySubbed = chatData.subscribers.some(s => s.chatname === chatname);
         if (!alreadySubbed) {
