@@ -356,6 +356,11 @@
                     details: 'Returns a single music field as plain text — ideal for Bitfocus Companion or tools that can\'t parse JSON. Available fields: state, track, artist, album, year, duration, position, artwork. Example: /api/music/field/track → "Song Name"'
                 },
                 {
+                    method: 'POST', path: '/api/music/overlay',
+                    desc: 'Show/hide the music overlay',
+                    details: 'Control overlay visibility. Send JSON body { "action": "on"|"off"|"toggle" } or use query param ?action=toggle. GET returns current state { visible: true/false }. All connected overlay instances respond instantly via WebSocket.'
+                },
+                {
                     method: 'GET', path: '/api/music/artwork',
                     desc: 'Album artwork image (PNG)',
                     details: 'Serves the album art of the currently playing track as a PNG image. Returns 404 if no artwork is available. Cache-busted automatically by the overlay.'

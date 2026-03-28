@@ -494,6 +494,7 @@ const MUSIC_ART_PATH = path.join(DATA_DIR, 'music-artwork.png');
 const MUSIC_FALLBACK_ART_PATH = path.join(DATA_DIR, 'music-fallback.png');
 let musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
 let musicPollTimer = null;
+let overlayVisible = true;
 
 // --- Apple Music (macOS only, via osascript) ---
 
@@ -1832,6 +1833,35 @@ const server = http.createServer(async (req, res) => {
             res.writeHead(404, { 'Content-Type': 'text/plain' });
             res.end(`Unknown field: ${field}. Available: ${Object.keys(fields).join(', ')}`);
         }
+        return;
+    }
+
+    // Overlay visibility control: POST /api/music/overlay { action: "on"|"off"|"toggle" }
+    if (pathname === '/api/music/overlay' && req.method === 'POST') {
+        let body = '';
+        req.on('data', c => body += c);
+        req.on('end', () => {
+            let action = 'toggle';
+            try { action = JSON.parse(body).action || 'toggle'; } catch {}
+            // Also accept ?action= query param
+            const qAction = new URL(req.url, `http://${req.headers.host}`).searchParams.get('action');
+            if (qAction) action = qAction;
+
+            if (action === 'on') overlayVisible = true;
+            else if (action === 'off') overlayVisible = false;
+            else overlayVisible = !overlayVisible;
+
+            broadcastToOverlays('overlay-visibility', { visible: overlayVisible });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ visible: overlayVisible }));
+        });
+        return;
+    }
+
+    // GET to check overlay visibility state
+    if (pathname === '/api/music/overlay' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ visible: overlayVisible }));
         return;
     }
 

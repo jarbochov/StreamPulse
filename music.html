@@ -657,6 +657,13 @@
                 const msg = JSON.parse(e.data);
                 if (msg.type === 'music') {
                     render(msg.data);
+                } else if (msg.type === 'overlay-visibility') {
+                    const player = document.getElementById('player');
+                    if (msg.data.visible) {
+                        player.style.display = '';
+                    } else {
+                        player.style.display = 'none';
+                    }
                 }
             } catch {}
         };
