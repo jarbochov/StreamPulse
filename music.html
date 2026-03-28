@@ -304,6 +304,10 @@
         .player-container.visible {
             opacity: 1;
         }
+        .player-container.hidden-by-api {
+            opacity: 0 !important;
+            pointer-events: none;
+        }
         .player-container.paused {
             opacity: 0.5;
         }
@@ -551,7 +555,10 @@
             if (artOverlayTimer) clearTimeout(artOverlayTimer);
             const overlay = document.getElementById('art-overlay');
             if (overlay) {
-                setTimeout(() => overlay.classList.add('visible'), 50);
+                setTimeout(() => {
+                    overlay.classList.add('visible');
+                    requestAnimationFrame(applyDynamicMarquee);
+                }, 50);
                 if (!artPersistInfo) {
                     artOverlayTimer = setTimeout(() => overlay.classList.remove('visible'), ART_OVERLAY_DURATION);
                 }
@@ -660,9 +667,9 @@
                 } else if (msg.type === 'overlay-visibility') {
                     const player = document.getElementById('player');
                     if (msg.data.visible) {
-                        player.style.display = '';
+                        player.classList.remove('hidden-by-api');
                     } else {
-                        player.style.display = 'none';
+                        player.classList.add('hidden-by-api');
                     }
                 }
             } catch {}
