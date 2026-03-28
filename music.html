@@ -17,6 +17,7 @@
             --music-art-h: 200px;
             --music-full-w: 420px;
             --music-full-h: 120px;
+            --music-full-art: 0px;
             --music-font-scale: 1;
         }
 
@@ -63,6 +64,18 @@
             font-family: var(--music-font-family);
             margin-top: 2px;
         }
+        .mode-art .art-overlay .album-name {
+            font-size: calc(10px * var(--music-font-scale));
+            color: rgba(255,255,255,0.5);
+            font-family: var(--music-font-family);
+            margin-top: 1px;
+        }
+        .mode-art .art-overlay .year-name {
+            font-size: calc(9px * var(--music-font-scale));
+            color: rgba(255,255,255,0.35);
+            font-family: var(--music-font-family);
+            margin-top: 1px;
+        }
         .mode-art .no-art {
             width: 100%;
             height: 100%;
@@ -73,6 +86,21 @@
             font-size: calc(48px * var(--music-font-scale));
             border-radius: 8px;
         }
+
+        /* ===== NOW PLAYING LABEL (all modes) ===== */
+        .np-label {
+            font-size: calc(9px * var(--music-font-scale));
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--music-accent-color);
+            font-family: var(--music-font-family);
+            opacity: 0.85;
+            margin-bottom: 2px;
+        }
+        .mode-art .np-label { font-size: calc(8px * var(--music-font-scale)); margin-bottom: 1px; }
+        .mode-mini .np-label { font-size: calc(9px * var(--music-font-scale)); margin-bottom: 0; margin-right: 0.4rem; flex-shrink: 0; }
+        .mode-mini.layout-two .np-label,
+        .mode-mini.layout-two-album .np-label { margin-right: 0; margin-bottom: 1px; }
 
         /* ===== FULL MODE ===== */
         .mode-full {
@@ -85,16 +113,16 @@
             align-items: center;
         }
         .mode-full .artwork {
-            width: calc(var(--music-full-h) - 1rem);
-            height: calc(var(--music-full-h) - 1rem);
-            min-width: calc(var(--music-full-h) - 1rem);
+            width: var(--music-full-art-actual);
+            height: var(--music-full-art-actual);
+            min-width: var(--music-full-art-actual);
             object-fit: cover;
             border-radius: 6px;
         }
         .mode-full .no-art {
-            width: calc(var(--music-full-h) - 1rem);
-            height: calc(var(--music-full-h) - 1rem);
-            min-width: calc(var(--music-full-h) - 1rem);
+            width: var(--music-full-art-actual);
+            height: var(--music-full-art-actual);
+            min-width: var(--music-full-art-actual);
             background: rgba(255,255,255,0.1);
             display: flex;
             align-items: center;
@@ -126,6 +154,37 @@
             font-size: calc(11px * var(--music-font-scale));
             color: rgba(255,255,255,0.5);
             font-family: var(--music-font-family);
+        }
+        .mode-full .year-name {
+            font-size: calc(10px * var(--music-font-scale));
+            color: rgba(255,255,255,0.35);
+            font-family: var(--music-font-family);
+        }
+
+        /* ===== PROGRESS BAR (all modes) ===== */
+        .progress-bar {
+            width: 100%;
+            height: 3px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin-top: 0.3rem;
+            overflow: hidden;
+        }
+        .progress-bar .progress-fill {
+            height: 100%;
+            background: var(--music-accent-color);
+            border-radius: 2px;
+            transition: width 1s linear;
+        }
+        .mode-art .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            margin: 0;
+            border-radius: 0 0 8px 8px;
+            height: 3px;
+            z-index: 2;
         }
 
         /* ===== MINI MODE ===== */
@@ -193,6 +252,11 @@
         .mode-mini .sep {
             font-size: calc(11px * var(--music-font-scale));
         }
+        .mode-mini .year-name {
+            font-size: calc(10px * var(--music-font-scale));
+            color: rgba(255,255,255,0.3);
+            font-family: var(--music-font-family);
+        }
 
         /* ===== MARQUEE (all modes) ===== */
         .marquee-wrap {
@@ -241,6 +305,8 @@
     let artPersistInfo = false;
     let miniLayout = 'single';
     let hasFallbackArt = false;
+    let labelText = '♫ Now Playing';
+    let labelShow = { art: false, full: true, mini: true };
 
     const DEFAULT_ART_SVG = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#161b22"/><text x="100" y="112" text-anchor="middle" font-size="64" fill="#30363d">♫</text></svg>')}`;
 
@@ -255,12 +321,16 @@
         if (theme.accent_color) root.style.setProperty('--music-accent-color', theme.accent_color);
         if (theme.bg_color) root.style.setProperty('--music-bg-color', theme.bg_color);
         const sizes = theme.sizes || {};
-    const art = sizes.art || {};
-    const full = sizes.full || {};
-    root.style.setProperty('--music-art-w', (art.width || 200) + 'px');
-    root.style.setProperty('--music-art-h', (art.height || 200) + 'px');
-    root.style.setProperty('--music-full-w', (full.width || 420) + 'px');
-    root.style.setProperty('--music-full-h', (full.height || 120) + 'px');
+        const art = sizes.art || {};
+        const full = sizes.full || {};
+        root.style.setProperty('--music-art-w', (art.width || 200) + 'px');
+        root.style.setProperty('--music-art-h', (art.height || 200) + 'px');
+        root.style.setProperty('--music-full-w', (full.width || 420) + 'px');
+        root.style.setProperty('--music-full-h', (full.height || 120) + 'px');
+        // Full art thumbnail: 0 = auto (height - 1rem)
+        const fullArt = parseInt(theme.full_art_size) || 0;
+        root.style.setProperty('--music-full-art', fullArt ? fullArt + 'px' : '0px');
+        root.style.setProperty('--music-full-art-actual', fullArt ? fullArt + 'px' : `calc(var(--music-full-h) - 1rem)`);
         if (theme.font_scale) root.style.setProperty('--music-font-scale', theme.font_scale);
 
         if (theme.font_family && theme.font_import) {
@@ -291,8 +361,19 @@
         return musicTheme.fields[field] !== false;
     }
 
+    function renderLabel(mode) {
+        if (!labelText || !labelShow[mode]) return '';
+        return `<div class="np-label">${escapeHtml(labelText)}</div>`;
+    }
+
     function fallbackArtSrc() {
         return hasFallbackArt ? '/api/music/fallback-art?t=' + Date.now() : DEFAULT_ART_SVG;
+    }
+
+    function renderProgressBar(data) {
+        if (!showField('progress') || !data.duration) return '';
+        const pct = Math.min(100, (data.position / data.duration) * 100);
+        return `<div class="progress-bar"><div class="progress-fill" style="width:${pct.toFixed(1)}%"></div></div>`;
     }
 
     function renderArt(data) {
@@ -303,13 +384,19 @@
 
         const trackHtml = showField('track') ? `<div class="track-name">${marqueeWrap(data.track)}</div>` : '';
         const artistHtml = showField('artist') ? `<div class="artist-name">${escapeHtml(data.artist)}</div>` : '';
+        const albumHtml = showField('album') ? `<div class="album-name">${escapeHtml(data.album)}</div>` : '';
+        const yearHtml = showField('year') && data.year && String(data.year) !== '0' ? `<div class="year-name">${escapeHtml(String(data.year))}</div>` : '';
 
         return `<div class="mode-art">
             ${artHtml}
             <div class="art-overlay" id="art-overlay">
+                ${renderLabel('art')}
                 ${trackHtml}
                 ${artistHtml}
+                ${albumHtml}
+                ${yearHtml}
             </div>
+            ${renderProgressBar(data)}
         </div>`;
     }
 
@@ -322,26 +409,31 @@
         const trackHtml = showField('track') ? `<div class="track-name">${marqueeWrap(data.track)}</div>` : '';
         const artistHtml = showField('artist') ? `<div class="artist-name">${escapeHtml(data.artist)}</div>` : '';
         const albumHtml = showField('album') ? `<div class="album-name">${escapeHtml(data.album)}</div>` : '';
+        const yearHtml = showField('year') && data.year && String(data.year) !== '0' ? `<div class="year-name">${escapeHtml(String(data.year))}</div>` : '';
 
         return `<div class="mode-full">
             ${artHtml}
             <div class="meta">
+                ${renderLabel('full')}
                 ${trackHtml}
                 ${artistHtml}
                 ${albumHtml}
+                ${yearHtml}
             </div>
+            ${renderProgressBar(data)}
         </div>`;
     }
 
     function renderMini(data) {
         const layout = miniLayout || 'single';
+        const lbl = renderLabel('mini');
 
         if (layout === 'single') {
             const parts = [];
             if (showField('track')) parts.push(`<span class="track-name">${escapeHtml(data.track)}</span>`);
             if (showField('artist')) parts.push(`<span class="artist-name">${escapeHtml(data.artist)}</span>`);
             return `<div class="mode-mini layout-single">
-                <div class="meta">${parts.join('<span class="sep"> — </span>')}</div>
+                <div class="meta">${lbl}${parts.join('<span class="sep"> — </span>')}</div>
             </div>`;
         }
 
@@ -349,7 +441,7 @@
             const trackHtml = showField('track') ? `<div class="track-name">${marqueeWrap(data.track)}</div>` : '';
             const artistHtml = showField('artist') ? `<div class="artist-name">${escapeHtml(data.artist)}</div>` : '';
             return `<div class="mode-mini layout-two">
-                <div class="meta">${trackHtml}${artistHtml}</div>
+                <div class="meta">${lbl}${trackHtml}${artistHtml}</div>
             </div>`;
         }
 
@@ -360,7 +452,7 @@
         if (showField('album')) line2Parts.push(`<span class="album-name">${escapeHtml(data.album)}</span>`);
         const line2 = line2Parts.length ? `<div class="line2">${line2Parts.join('<span class="sep">·</span>')}</div>` : '';
         return `<div class="mode-mini layout-two-album">
-            <div class="meta">${trackHtml}${line2}</div>
+            <div class="meta">${lbl}${trackHtml}${line2}</div>
         </div>`;
     }
 
@@ -399,6 +491,62 @@
                 }
             }
         }
+
+        // Update progress bar without full re-render
+        if (!trackChanged && showField('progress') && data.duration) {
+            const fill = player.querySelector('.progress-fill');
+            if (fill) fill.style.width = Math.min(100, (data.position / data.duration) * 100).toFixed(1) + '%';
+        }
+    }
+
+    function applyLabelSettings(theme) {
+        const label = theme.label || {};
+        labelText = label.text ?? '♫ Now Playing';
+        labelShow = {
+            art: label.show_art ?? false,
+            full: label.show_full ?? true,
+            mini: label.show_mini ?? true
+        };
+    }
+
+    // URL param overrides (applied after config load)
+    function applyUrlOverrides() {
+        if (params.get('font')) {
+            musicTheme.font_family = params.get('font');
+            const gf = { 'Jersey 20':'Jersey+20','Press Start 2P':'Press+Start+2P','Bebas Neue':'Bebas+Neue','Fredoka One':'Fredoka+One','Bangers':'Bangers','Orbitron':'Orbitron','Righteous':'Righteous','Permanent Marker':'Permanent+Marker','Inter':'Inter' };
+            musicTheme.font_import = gf[params.get('font')] ? `https://fonts.googleapis.com/css2?family=${gf[params.get('font')]}&display=swap` : '';
+        }
+        if (params.get('textColor')) musicTheme.text_color = params.get('textColor');
+        if (params.get('accentColor')) musicTheme.accent_color = params.get('accentColor');
+        if (params.get('bgColor')) musicTheme.bg_color = params.get('bgColor');
+        if (params.get('fontScale')) musicTheme.font_scale = parseFloat(params.get('fontScale'));
+        if (params.get('w') || params.get('h')) {
+            if (!musicTheme.sizes) musicTheme.sizes = {};
+            if (!musicTheme.sizes[MODE]) musicTheme.sizes[MODE] = {};
+            if (params.get('w')) musicTheme.sizes[MODE].width = parseInt(params.get('w'));
+            if (params.get('h')) musicTheme.sizes[MODE].height = parseInt(params.get('h'));
+        }
+        if (params.get('artSize')) musicTheme.full_art_size = parseInt(params.get('artSize'));
+        if (params.has('label')) {
+            const lv = params.get('label');
+            if (!musicTheme.label) musicTheme.label = {};
+            if (lv === 'off' || lv === '') {
+                labelShow = { art: false, full: false, mini: false };
+            } else {
+                musicTheme.label.text = lv;
+                labelText = lv;
+            }
+        }
+        if (params.has('labelArt')) labelShow.art = params.get('labelArt') === '1';
+        if (params.has('labelFull')) labelShow.full = params.get('labelFull') === '1';
+        if (params.has('labelMini')) labelShow.mini = params.get('labelMini') === '1';
+        if (params.get('fields')) {
+            const allowed = params.get('fields').split(',');
+            musicTheme.fields = { track: false, artist: false, album: false, year: false, progress: false };
+            for (const f of allowed) { if (f in musicTheme.fields) musicTheme.fields[f] = true; }
+        }
+        if (params.has('persist')) artPersistInfo = params.get('persist') === '1';
+        if (params.get('layout')) miniLayout = params.get('layout');
     }
 
     // Load theme from config
@@ -410,10 +558,25 @@
                 musicTheme = cfg.music?.theme || {};
                 artPersistInfo = musicTheme.art_persist_info || false;
                 miniLayout = musicTheme.mini_layout || 'single';
+                applyLabelSettings(musicTheme);
+                applyUrlOverrides();
                 applyMusicTheme(musicTheme);
             }
         } catch {}
     }
+
+    // Listen for live theme updates from music-editor (postMessage)
+    window.addEventListener('message', (e) => {
+        if (e.data?.type === 'music-theme-update') {
+            musicTheme = e.data.theme || {};
+            artPersistInfo = musicTheme.art_persist_info || false;
+            miniLayout = musicTheme.mini_layout || 'single';
+            applyLabelSettings(musicTheme);
+            applyMusicTheme(musicTheme);
+            currentTrack = '';
+            pollNowPlaying();
+        }
+    });
 
     // WebSocket connection
     function connectWS() {

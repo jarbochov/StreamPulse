@@ -492,7 +492,7 @@ async function fetchStreamInfo() {
 
 const MUSIC_ART_PATH = path.join(DATA_DIR, 'music-artwork.png');
 const MUSIC_FALLBACK_ART_PATH = path.join(DATA_DIR, 'music-fallback.png');
-let musicState = { track: '', artist: '', album: '', state: 'stopped', artworkUrl: '' };
+let musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
 let musicPollTimer = null;
 
 function runOsascript(lines, cb) {
@@ -509,18 +509,21 @@ function pollAppleMusic() {
         '      set tName to name of current track',
         '      set tArtist to artist of current track',
         '      set tAlbum to album of current track',
-        '      return pState & "|||" & tName & "|||" & tArtist & "|||" & tAlbum',
+        '      set tYear to year of current track',
+        '      set tDur to duration of current track',
+        '      set tPos to player position',
+        '      return pState & "|||" & tName & "|||" & tArtist & "|||" & tAlbum & "|||" & tYear & "|||" & tDur & "|||" & tPos',
         '    else',
-        '      return "stopped|||||||"',
+        '      return "stopped|||||||||||"',
         '    end if',
         '  end tell',
         'else',
-        '  return "stopped|||||||"',
+        '  return "stopped|||||||||||"',
         'end if'
     ], (err, stdout) => {
         if (err) {
             if (musicState.state !== 'stopped') {
-                musicState = { track: '', artist: '', album: '', state: 'stopped', artworkUrl: '' };
+                musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
                 broadcastToOverlays('music', musicState);
             }
             return;
@@ -532,6 +535,9 @@ function pollAppleMusic() {
             track: parts[1] || '',
             artist: parts[2] || '',
             album: parts[3] || '',
+            year: parts[4] || '',
+            duration: parseFloat(parts[5]) || 0,
+            position: parseFloat(parts[6]) || 0,
             artworkUrl: ''
         };
 
@@ -568,6 +574,10 @@ function pollAppleMusic() {
             musicState = newState;
             broadcastToOverlays('music', musicState);
             console.log(`[Music] State: ${musicState.state}`);
+        } else {
+            // Update position/duration silently (for progress bar)
+            musicState.position = newState.position;
+            musicState.duration = newState.duration;
         }
     });
 }

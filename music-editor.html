@@ -156,6 +156,11 @@
                 <span style="font-size:0.72rem;color:#8b949e;">px</span>
             </div>
             <div class="cfg-row">
+                <label>Art Thumb</label>
+                <input type="number" id="size-full-art" value="0" min="0" max="400" style="max-width:70px;">
+                <span style="font-size:0.72rem;color:#8b949e;">px (0 = auto)</span>
+            </div>
+            <div class="cfg-row">
                 <label>Mini Bar</label>
                 <input type="number" id="size-mini-w" value="400" min="150" max="800" style="max-width:70px;">
                 <span style="color:#484f58;font-size:0.82rem;">×</span>
@@ -167,6 +172,17 @@
             <div class="toggle-row"><input type="checkbox" id="field-track" checked><label for="field-track">Song Title</label></div>
             <div class="toggle-row"><input type="checkbox" id="field-artist" checked><label for="field-artist">Artist</label></div>
             <div class="toggle-row"><input type="checkbox" id="field-album" checked><label for="field-album">Album</label></div>
+            <div class="toggle-row"><input type="checkbox" id="field-year"><label for="field-year">Year</label></div>
+            <div class="toggle-row"><input type="checkbox" id="field-progress"><label for="field-progress">Progress Bar</label></div>
+
+            <h3>"Now Playing" Label</h3>
+            <div class="cfg-row">
+                <label>Label Text</label>
+                <input type="text" id="label-text" value="♫ Now Playing" placeholder="♫ Now Playing">
+            </div>
+            <div class="toggle-row"><input type="checkbox" id="label-show-art"><label for="label-show-art">Show on Art mode</label></div>
+            <div class="toggle-row"><input type="checkbox" id="label-show-full" checked><label for="label-show-full">Show on Full mode</label></div>
+            <div class="toggle-row"><input type="checkbox" id="label-show-mini" checked><label for="label-show-mini">Show on Mini mode</label></div>
 
             <h3>Art Mode</h3>
             <div class="toggle-row"><input type="checkbox" id="field-art-persist"><label for="field-art-persist">Keep info visible (don't auto-hide)</label></div>
@@ -269,7 +285,9 @@
             accent_color: '#58a6ff',
             bg_color: 'rgba(0, 0, 0, 0.7)',
             font_scale: 1,
-            fields: { track: true, artist: true, album: true },
+            full_art_size: 0,
+            fields: { track: true, artist: true, album: true, year: false, progress: false },
+            label: { text: '♫ Now Playing', show_art: false, show_full: true, show_mini: true },
             art_persist_info: false,
             mini_layout: 'single',
             sizes: {
@@ -291,12 +309,76 @@
         return '#' + [m[1], m[2], m[3]].map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
     }
 
-    // Populate OBS URLs
+    // Build OBS URL with all current settings as query params
+    function buildOverlayUrl(mode) {
+        const base = `${location.protocol}//${location.host}/music.html`;
+        const p = new URLSearchParams();
+        p.set('mode', mode);
+
+        const font = document.getElementById('theme-font').value;
+        const def = DEFAULTS.theme;
+        if (font && font !== def.font_family) p.set('font', font);
+
+        const tc = document.getElementById('theme-text-color-text').value;
+        if (tc && tc !== def.text_color) p.set('textColor', tc);
+
+        const ac = document.getElementById('theme-accent-color-text').value;
+        if (ac && ac !== def.accent_color) p.set('accentColor', ac);
+
+        const bg = document.getElementById('theme-bg-color-text').value;
+        if (bg && bg !== def.bg_color) p.set('bgColor', bg);
+
+        const fs = parseFloat(document.getElementById('theme-font-scale').value) || 1;
+        if (fs !== 1) p.set('fontScale', fs);
+
+        // Mode-specific size
+        const sizeMap = { art: ['size-art-w','size-art-h'], full: ['size-full-w','size-full-h'], mini: ['size-mini-w','size-mini-h'] };
+        const [wId, hId] = sizeMap[mode];
+        const w = parseInt(document.getElementById(wId).value);
+        const h = parseInt(document.getElementById(hId).value);
+        const dw = def.sizes[mode]?.width, dh = def.sizes[mode]?.height;
+        if (w && w !== dw) p.set('w', w);
+        if (h && h !== dh) p.set('h', h);
+
+        if (mode === 'full') {
+            const artSz = parseInt(document.getElementById('size-full-art').value) || 0;
+            if (artSz > 0) p.set('artSize', artSz);
+        }
+
+        // Label
+        const labelText = document.getElementById('label-text').value;
+        if (labelText !== def.label.text) p.set('label', labelText || 'off');
+        const showMap = { art: 'label-show-art', full: 'label-show-full', mini: 'label-show-mini' };
+        const showEl = document.getElementById(showMap[mode]);
+        const defShow = def.label[`show_${mode}`];
+        if (showEl && showEl.checked !== defShow) p.set(`label${mode.charAt(0).toUpperCase()+mode.slice(1)}`, showEl.checked ? '1' : '0');
+
+        // Fields (only if changed from defaults)
+        const fields = ['track','artist','album','year','progress'];
+        const fieldVals = {};
+        let fieldsChanged = false;
+        for (const f of fields) {
+            fieldVals[f] = document.getElementById(`field-${f}`).checked;
+            if (fieldVals[f] !== (def.fields[f] ?? (f === 'track' || f === 'artist' || f === 'album'))) fieldsChanged = true;
+        }
+        if (fieldsChanged) p.set('fields', fields.filter(f => fieldVals[f]).join(','));
+
+        if (mode === 'art' && document.getElementById('field-art-persist').checked !== def.art_persist_info) {
+            p.set('persist', document.getElementById('field-art-persist').checked ? '1' : '0');
+        }
+
+        if (mode === 'mini') {
+            const layout = document.getElementById('mini-layout').value;
+            if (layout !== def.mini_layout) p.set('layout', layout);
+        }
+
+        return `${base}?${p.toString()}`;
+    }
+
     function updateUrls() {
-        const base = `${location.protocol}//${location.host}`;
-        document.getElementById('url-full').textContent = `${base}/music.html?mode=full`;
-        document.getElementById('url-art').textContent = `${base}/music.html?mode=art`;
-        document.getElementById('url-mini').textContent = `${base}/music.html?mode=mini`;
+        document.getElementById('url-full').textContent = buildOverlayUrl('full');
+        document.getElementById('url-art').textContent = buildOverlayUrl('art');
+        document.getElementById('url-mini').textContent = buildOverlayUrl('mini');
         updateObsHints();
     }
 
@@ -381,12 +463,25 @@
             document.getElementById('field-track').checked = fields.track !== false;
             document.getElementById('field-artist').checked = fields.artist !== false;
             document.getElementById('field-album').checked = fields.album !== false;
+            document.getElementById('field-year').checked = fields.year || false;
+            document.getElementById('field-progress').checked = fields.progress || false;
 
             document.getElementById('field-art-persist').checked = theme.art_persist_info || false;
             document.getElementById('mini-layout').value = theme.mini_layout || 'single';
 
+            // Full art thumbnail size
+            document.getElementById('size-full-art').value = theme.full_art_size || 0;
+
+            // Label
+            const label = theme.label || {};
+            document.getElementById('label-text').value = label.text ?? '♫ Now Playing';
+            document.getElementById('label-show-art').checked = label.show_art ?? false;
+            document.getElementById('label-show-full').checked = label.show_full ?? true;
+            document.getElementById('label-show-mini').checked = label.show_mini ?? true;
+
             updateStatus(music.enabled);
             updateObsHints();
+            updateUrls();
         } catch (err) {
             console.error('Failed to load config:', err);
         }
@@ -411,6 +506,7 @@
                 accent_color: document.getElementById('theme-accent-color-text').value,
                 bg_color: document.getElementById('theme-bg-color-text').value,
                 font_scale: parseFloat(document.getElementById('theme-font-scale').value) || 1,
+                full_art_size: parseInt(document.getElementById('size-full-art').value) || 0,
                 sizes: {
                     art: { width: parseInt(document.getElementById('size-art-w').value) || 200, height: parseInt(document.getElementById('size-art-h').value) || 200 },
                     full: { width: parseInt(document.getElementById('size-full-w').value) || 420, height: parseInt(document.getElementById('size-full-h').value) || 120 },
@@ -419,7 +515,15 @@
                 fields: {
                     track: document.getElementById('field-track').checked,
                     artist: document.getElementById('field-artist').checked,
-                    album: document.getElementById('field-album').checked
+                    album: document.getElementById('field-album').checked,
+                    year: document.getElementById('field-year').checked,
+                    progress: document.getElementById('field-progress').checked
+                },
+                label: {
+                    text: document.getElementById('label-text').value,
+                    show_art: document.getElementById('label-show-art').checked,
+                    show_full: document.getElementById('label-show-full').checked,
+                    show_mini: document.getElementById('label-show-mini').checked
                 },
                 art_persist_info: document.getElementById('field-art-persist').checked,
                 mini_layout: document.getElementById('mini-layout').value
@@ -451,6 +555,64 @@
     syncColor('theme-accent-color', 'theme-accent-color-text');
     syncColor('theme-bg-color', 'theme-bg-color-text');
 
+    // Live preview: push theme changes to iframe in real-time
+    function getCurrentTheme() {
+        const fontFamily = document.getElementById('theme-font').value;
+        return {
+            font_family: fontFamily,
+            font_import: fontImportUrl(fontFamily),
+            text_color: document.getElementById('theme-text-color-text').value,
+            accent_color: document.getElementById('theme-accent-color-text').value,
+            bg_color: document.getElementById('theme-bg-color-text').value,
+            font_scale: parseFloat(document.getElementById('theme-font-scale').value) || 1,
+            full_art_size: parseInt(document.getElementById('size-full-art').value) || 0,
+            sizes: {
+                art: { width: parseInt(document.getElementById('size-art-w').value) || 200, height: parseInt(document.getElementById('size-art-h').value) || 200 },
+                full: { width: parseInt(document.getElementById('size-full-w').value) || 420, height: parseInt(document.getElementById('size-full-h').value) || 120 },
+                mini: { width: parseInt(document.getElementById('size-mini-w').value) || 400, height: parseInt(document.getElementById('size-mini-h').value) || 40 }
+            },
+            fields: {
+                track: document.getElementById('field-track').checked,
+                artist: document.getElementById('field-artist').checked,
+                album: document.getElementById('field-album').checked,
+                year: document.getElementById('field-year').checked,
+                progress: document.getElementById('field-progress').checked
+            },
+            label: {
+                text: document.getElementById('label-text').value,
+                show_art: document.getElementById('label-show-art').checked,
+                show_full: document.getElementById('label-show-full').checked,
+                show_mini: document.getElementById('label-show-mini').checked
+            },
+            art_persist_info: document.getElementById('field-art-persist').checked,
+            mini_layout: document.getElementById('mini-layout').value
+        };
+    }
+
+    function pushLivePreview() {
+        const iframe = document.getElementById('preview-iframe');
+        if (iframe.contentWindow) {
+            iframe.contentWindow.postMessage({ type: 'music-theme-update', theme: getCurrentTheme() }, '*');
+        }
+    }
+
+    // Attach live preview to all appearance controls
+    const livePreviewIds = [
+        'theme-font', 'theme-text-color', 'theme-text-color-text',
+        'theme-accent-color', 'theme-accent-color-text', 'theme-bg-color', 'theme-bg-color-text',
+        'theme-font-scale', 'size-art-w', 'size-art-h', 'size-full-w', 'size-full-h', 'size-full-art', 'size-mini-w', 'size-mini-h',
+        'field-track', 'field-artist', 'field-album', 'field-year', 'field-progress',
+        'field-art-persist', 'mini-layout',
+        'label-text', 'label-show-art', 'label-show-full', 'label-show-mini'
+    ];
+    for (const id of livePreviewIds) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', () => { pushLivePreview(); updateUrls(); });
+            el.addEventListener('change', () => { pushLivePreview(); updateUrls(); });
+        }
+    }
+
     document.getElementById('music-poll').addEventListener('input', (e) => {
         document.getElementById('music-poll-val').textContent = e.target.value + 's';
     });
@@ -459,7 +621,7 @@
     });
 
     // Update OBS hints when sizes change
-    for (const id of ['size-art-w', 'size-art-h', 'size-full-w', 'size-full-h', 'size-mini-w', 'size-mini-h']) {
+    for (const id of ['size-art-w', 'size-art-h', 'size-full-w', 'size-full-h', 'size-full-art', 'size-mini-w', 'size-mini-h']) {
         document.getElementById(id).addEventListener('input', updateObsHints);
     }
 
