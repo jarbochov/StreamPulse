@@ -381,10 +381,37 @@
     function syncColor(pickerId, textId) {
         const picker = document.getElementById(pickerId);
         const text = document.getElementById(textId);
-        picker.addEventListener('input', () => { text.value = picker.value; });
-        text.addEventListener('change', () => {
-            try { picker.value = rgbToHex(text.value); } catch {}
+        picker.addEventListener('input', () => {
+            // Preserve alpha if text input has 8-digit hex or rgba
+            const cur = text.value.trim();
+            const alphaMatch = cur.match(/^#[0-9a-fA-F]{8}$/);
+            if (alphaMatch) {
+                text.value = picker.value + cur.slice(7);
+            } else if (cur.match(/^rgba?\(/)) {
+                // Keep rgba format, just update RGB portion
+                const a = cur.match(/,\s*([\d.]+)\s*\)$/);
+                const alpha = a ? a[1] : '1';
+                const r = parseInt(picker.value.slice(1,3), 16);
+                const g = parseInt(picker.value.slice(3,5), 16);
+                const b = parseInt(picker.value.slice(5,7), 16);
+                text.value = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            } else {
+                text.value = picker.value;
+            }
         });
+        text.addEventListener('change', () => {
+            try { picker.value = colorToHex6(text.value); } catch {}
+        });
+    }
+
+    function colorToHex6(str) {
+        // Handle rgba()
+        const rgbaM = str.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (rgbaM) return '#' + [rgbaM[1], rgbaM[2], rgbaM[3]].map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+        // Handle 8-digit hex — strip alpha for the picker
+        const hexM = str.match(/^#([0-9a-fA-F]{6})/);
+        if (hexM) return '#' + hexM[1];
+        return str;
     }
 
     function toggleVlcSettings() {
@@ -445,15 +472,15 @@
 
             const tc = theme.text_color || '#ffffff';
             document.getElementById('theme-text-color-text').value = tc;
-            try { document.getElementById('theme-text-color').value = rgbToHex(tc); } catch {}
+            try { document.getElementById('theme-text-color').value = colorToHex6(tc); } catch {}
 
             const ac = theme.accent_color || '#58a6ff';
             document.getElementById('theme-accent-color-text').value = ac;
-            try { document.getElementById('theme-accent-color').value = rgbToHex(ac); } catch {}
+            try { document.getElementById('theme-accent-color').value = colorToHex6(ac); } catch {}
 
             const bg = theme.bg_color || 'rgba(0, 0, 0, 0.7)';
             document.getElementById('theme-bg-color-text').value = bg;
-            try { document.getElementById('theme-bg-color').value = rgbToHex(bg); } catch {}
+            try { document.getElementById('theme-bg-color').value = colorToHex6(bg); } catch {}
 
             document.getElementById('theme-font-scale').value = theme.font_scale || 1;
             document.getElementById('theme-font-scale-val').textContent = (theme.font_scale || 1) + '×';
