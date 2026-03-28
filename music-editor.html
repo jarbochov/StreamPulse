@@ -146,6 +146,19 @@
             <div class="toggle-row"><input type="checkbox" id="field-track" checked><label for="field-track">Song Title</label></div>
             <div class="toggle-row"><input type="checkbox" id="field-artist" checked><label for="field-artist">Artist</label></div>
             <div class="toggle-row"><input type="checkbox" id="field-album" checked><label for="field-album">Album</label></div>
+
+            <h3>Art Mode</h3>
+            <div class="toggle-row"><input type="checkbox" id="field-art-persist"><label for="field-art-persist">Keep info visible (don't auto-hide)</label></div>
+
+            <h3>Mini Layout</h3>
+            <div class="cfg-row">
+                <label>Layout</label>
+                <select id="mini-layout">
+                    <option value="single">One line: Title — Artist</option>
+                    <option value="two">Two lines: Title / Artist</option>
+                    <option value="two-album">Two lines: Title / Artist · Album</option>
+                </select>
+            </div>
         </div>
 
         <!-- Preview -->
@@ -158,6 +171,21 @@
             </div>
             <div class="preview-frame">
                 <iframe id="preview-iframe" src="/music.html?mode=full"></iframe>
+            </div>
+        </div>
+
+        <!-- Now Playing -->
+        <div class="card full-width">
+            <h2>Now Playing <span id="np-state" class="status-badge off"><span class="dot"></span> —</span></h2>
+            <div id="np-info" style="display:flex; align-items:center; gap:1rem; min-height:60px;">
+                <div id="np-art" style="width:60px;height:60px;border-radius:6px;background:#21262d;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+                    <span style="color:#484f58;font-size:1.5rem;">🎵</span>
+                </div>
+                <div>
+                    <div id="np-track" style="font-size:0.95rem;font-weight:600;color:#e1e4e8;">—</div>
+                    <div id="np-artist" style="font-size:0.82rem;color:#58a6ff;margin-top:2px;">—</div>
+                    <div id="np-album" style="font-size:0.78rem;color:#8b949e;margin-top:1px;">—</div>
+                </div>
             </div>
         </div>
 
@@ -275,6 +303,9 @@
             document.getElementById('field-artist').checked = fields.artist !== false;
             document.getElementById('field-album').checked = fields.album !== false;
 
+            document.getElementById('field-art-persist').checked = theme.art_persist_info || false;
+            document.getElementById('mini-layout').value = theme.mini_layout || 'single';
+
             updateStatus(music.enabled);
         } catch (err) {
             console.error('Failed to load config:', err);
@@ -305,7 +336,9 @@
                     track: document.getElementById('field-track').checked,
                     artist: document.getElementById('field-artist').checked,
                     album: document.getElementById('field-album').checked
-                }
+                },
+                art_persist_info: document.getElementById('field-art-persist').checked,
+                mini_layout: document.getElementById('mini-layout').value
             }
         };
 
@@ -347,6 +380,45 @@
     // Init
     updateUrls();
     loadConfig();
+
+    // Now Playing status polling
+    async function pollNowPlaying() {
+        try {
+            const res = await fetch('/api/music/now-playing');
+            if (!res.ok) return;
+            const data = await res.json();
+            const stateEl = document.getElementById('np-state');
+            const trackEl = document.getElementById('np-track');
+            const artistEl = document.getElementById('np-artist');
+            const albumEl = document.getElementById('np-album');
+            const artEl = document.getElementById('np-art');
+
+            if (data.state === 'playing') {
+                stateEl.className = 'status-badge on';
+                stateEl.innerHTML = '<span class="dot"></span> Playing';
+            } else if (data.state === 'paused') {
+                stateEl.className = 'status-badge on';
+                stateEl.style.background = '#e3b34120';
+                stateEl.style.color = '#e3b341';
+                stateEl.innerHTML = '<span class="dot" style="background:#e3b341"></span> Paused';
+            } else {
+                stateEl.className = 'status-badge off';
+                stateEl.innerHTML = '<span class="dot"></span> Stopped';
+            }
+
+            trackEl.textContent = data.track || '—';
+            artistEl.textContent = data.artist || '—';
+            albumEl.textContent = data.album || '—';
+
+            if (data.artworkUrl) {
+                artEl.innerHTML = `<img src="${data.artworkUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+            } else {
+                artEl.innerHTML = '<span style="color:#484f58;font-size:1.5rem;">🎵</span>';
+            }
+        } catch {}
+    }
+    pollNowPlaying();
+    setInterval(pollNowPlaying, 3000);
 </script>
 </body>
 </html>

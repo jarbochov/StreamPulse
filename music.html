@@ -127,36 +127,55 @@
 
         /* ===== MINI MODE ===== */
         .mode-mini {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
             background: var(--music-bg-color);
             border-radius: 6px;
             padding: 0.35rem 0.75rem;
             max-width: 400px;
         }
-        .mode-mini .music-icon {
-            font-size: calc(14px * var(--music-font-scale));
-            flex-shrink: 0;
-        }
-        .mode-mini .meta {
+        /* single-line layout */
+        .mode-mini.layout-single .meta {
             display: flex;
-            gap: 0.35rem;
+            gap: 0.25rem;
             align-items: baseline;
             overflow: hidden;
-            min-width: 0;
-            flex: 1;
+            white-space: nowrap;
         }
+        .mode-mini.layout-single .track-name {
+            font-weight: 600;
+        }
+        .mode-mini.layout-single .sep {
+            color: rgba(255,255,255,0.3);
+            flex-shrink: 0;
+        }
+        /* two-line layout */
+        .mode-mini.layout-two .meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+            overflow: hidden;
+        }
+        /* two-line-album layout */
+        .mode-mini.layout-two-album .meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+            overflow: hidden;
+        }
+        .mode-mini.layout-two-album .line2 {
+            display: flex;
+            gap: 0.3rem;
+            align-items: baseline;
+        }
+        .mode-mini.layout-two-album .sep {
+            color: rgba(255,255,255,0.3);
+            flex-shrink: 0;
+        }
+        /* shared mini text styles */
         .mode-mini .track-name {
             font-size: calc(14px * var(--music-font-scale));
             font-weight: 600;
             color: var(--music-text-color);
             font-family: var(--music-font-family);
-        }
-        .mode-mini .sep {
-            color: rgba(255,255,255,0.3);
-            flex-shrink: 0;
-            font-size: calc(12px * var(--music-font-scale));
         }
         .mode-mini .artist-name {
             font-size: calc(12px * var(--music-font-scale));
@@ -167,6 +186,9 @@
             font-size: calc(11px * var(--music-font-scale));
             color: rgba(255,255,255,0.4);
             font-family: var(--music-font-family);
+        }
+        .mode-mini .sep {
+            font-size: calc(11px * var(--music-font-scale));
         }
 
         /* ===== MARQUEE (all modes) ===== */
@@ -213,6 +235,8 @@
     let currentTrack = '';
     let artOverlayTimer = null;
     let musicTheme = {};
+    let artPersistInfo = false;
+    let miniLayout = 'single';
 
     function escapeHtml(str) {
         return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -294,16 +318,33 @@
     }
 
     function renderMini(data) {
-        const parts = [];
-        if (showField('track')) parts.push(`<span class="track-name">${marqueeWrap(data.track)}</span>`);
-        if (showField('artist')) parts.push(`<span class="artist-name">${escapeHtml(data.artist)}</span>`);
-        if (showField('album')) parts.push(`<span class="album-name">${escapeHtml(data.album)}</span>`);
+        const layout = miniLayout || 'single';
 
-        return `<div class="mode-mini">
-            <span class="music-icon">♫</span>
-            <div class="meta">
-                ${parts.join('<span class="sep">·</span>')}
-            </div>
+        if (layout === 'single') {
+            const parts = [];
+            if (showField('track')) parts.push(`<span class="track-name">${escapeHtml(data.track)}</span>`);
+            if (showField('artist')) parts.push(`<span class="artist-name">${escapeHtml(data.artist)}</span>`);
+            return `<div class="mode-mini layout-single">
+                <div class="meta">${parts.join('<span class="sep"> — </span>')}</div>
+            </div>`;
+        }
+
+        if (layout === 'two') {
+            const trackHtml = showField('track') ? `<div class="track-name">${marqueeWrap(data.track)}</div>` : '';
+            const artistHtml = showField('artist') ? `<div class="artist-name">${escapeHtml(data.artist)}</div>` : '';
+            return `<div class="mode-mini layout-two">
+                <div class="meta">${trackHtml}${artistHtml}</div>
+            </div>`;
+        }
+
+        // two-album
+        const trackHtml = showField('track') ? `<div class="track-name">${marqueeWrap(data.track)}</div>` : '';
+        const line2Parts = [];
+        if (showField('artist')) line2Parts.push(`<span class="artist-name">${escapeHtml(data.artist)}</span>`);
+        if (showField('album')) line2Parts.push(`<span class="album-name">${escapeHtml(data.album)}</span>`);
+        const line2 = line2Parts.length ? `<div class="line2">${line2Parts.join('<span class="sep">·</span>')}</div>` : '';
+        return `<div class="mode-mini layout-two-album">
+            <div class="meta">${trackHtml}${line2}</div>
         </div>`;
     }
 
@@ -331,13 +372,15 @@
         player.classList.toggle('paused', data.state === 'paused');
         player.classList.add('visible');
 
-        // Art mode: show overlay briefly on track change
+        // Art mode: show overlay on track change
         if (MODE === 'art' && trackChanged) {
             if (artOverlayTimer) clearTimeout(artOverlayTimer);
             const overlay = document.getElementById('art-overlay');
             if (overlay) {
                 setTimeout(() => overlay.classList.add('visible'), 50);
-                artOverlayTimer = setTimeout(() => overlay.classList.remove('visible'), ART_OVERLAY_DURATION);
+                if (!artPersistInfo) {
+                    artOverlayTimer = setTimeout(() => overlay.classList.remove('visible'), ART_OVERLAY_DURATION);
+                }
             }
         }
     }
@@ -349,6 +392,8 @@
             if (res.ok) {
                 const cfg = await res.json();
                 musicTheme = cfg.music?.theme || {};
+                artPersistInfo = musicTheme.art_persist_info || false;
+                miniLayout = musicTheme.mini_layout || 'single';
                 applyMusicTheme(musicTheme);
             }
         } catch {}
