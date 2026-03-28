@@ -123,6 +123,21 @@
                 <input type="checkbox" id="wiz-persist">
                 <label for="wiz-persist">Keep info visible <span class="param-badge">persist</span></label>
             </div>
+            <div class="cfg-row">
+                <label>Brightness <span class="param-badge">artBrightness</span></label>
+                <input type="range" id="wiz-artBrightness" min="0.2" max="1" step="0.05" value="1">
+                <span id="wiz-artBrightness-val" style="font-size:0.82rem;min-width:40px;">100%</span>
+            </div>
+            <div class="cfg-row">
+                <label>Scrim <span class="param-badge">scrimColor</span></label>
+                <input type="color" id="wiz-scrimColor-pick" value="#000000">
+                <input type="text" id="wiz-scrimColor" placeholder="default" style="max-width:120px;">
+            </div>
+            <div class="cfg-row">
+                <label>Blur <span class="param-badge">artBlur</span></label>
+                <input type="range" id="wiz-artBlur" min="0" max="20" step="1" value="0">
+                <span id="wiz-artBlur-val" style="font-size:0.82rem;min-width:30px;">0px</span>
+            </div>
         </div>
 
         <!-- Appearance -->
@@ -275,6 +290,7 @@
     syncWizColor('wiz-textColor-pick', 'wiz-textColor');
     syncWizColor('wiz-accentColor-pick', 'wiz-accentColor');
     syncWizColor('wiz-bgColor-pick', 'wiz-bgColor');
+    syncWizColor('wiz-scrimColor-pick', 'wiz-scrimColor');
 
     const GOOGLE_FONT_MAP = {
         'Jersey 20': 'Jersey+20', 'Press Start 2P': 'Press+Start+2P', 'Bebas Neue': 'Bebas+Neue',
@@ -345,6 +361,15 @@
 
         theme.art_persist_info = document.getElementById('wiz-persist').checked;
 
+        const artBr = parseFloat(document.getElementById('wiz-artBrightness').value);
+        if (artBr < 1) theme.art_brightness = artBr;
+
+        const scrim = document.getElementById('wiz-scrimColor').value.trim();
+        if (scrim) theme.art_scrim_color = scrim;
+
+        const artBlur = parseInt(document.getElementById('wiz-artBlur').value);
+        if (artBlur > 0) theme.art_blur = artBlur;
+
         const layout = document.getElementById('wiz-layout').value;
         if (layout) theme.mini_layout = layout;
 
@@ -403,6 +428,15 @@
         }
 
         if (document.getElementById('wiz-persist').checked) p.set('persist', '1');
+
+        const artBr = parseFloat(document.getElementById('wiz-artBrightness').value);
+        if (artBr < 1) p.set('artBrightness', artBr);
+
+        const scrim = document.getElementById('wiz-scrimColor').value.trim();
+        if (scrim) p.set('scrimColor', scrim);
+
+        const artBlur = parseInt(document.getElementById('wiz-artBlur').value);
+        if (artBlur > 0) p.set('artBlur', artBlur);
 
         const layout = document.getElementById('wiz-layout').value;
         if (layout) p.set('layout', layout);
@@ -475,6 +509,11 @@
         document.getElementById('wiz-label').value = '';
         document.getElementById('wiz-labelMode').value = '';
         document.getElementById('wiz-persist').checked = false;
+        document.getElementById('wiz-artBrightness').value = 1;
+        document.getElementById('wiz-artBrightness-val').textContent = '100%';
+        document.getElementById('wiz-scrimColor').value = '';
+        document.getElementById('wiz-artBlur').value = 0;
+        document.getElementById('wiz-artBlur-val').textContent = '0px';
         document.getElementById('wiz-layout').value = '';
         document.getElementById('wiz-fields-override').checked = false;
         ['track','artist','album','year','progress'].forEach(f => {
@@ -490,7 +529,8 @@
     const wizIds = [
         'wiz-mode', 'wiz-font', 'wiz-textColor', 'wiz-accentColor', 'wiz-bgColor',
         'wiz-fontScale', 'wiz-w', 'wiz-h', 'wiz-artSize', 'wiz-label', 'wiz-labelMode',
-        'wiz-persist', 'wiz-layout', 'wiz-fields-override',
+        'wiz-persist', 'wiz-artBrightness', 'wiz-scrimColor', 'wiz-artBlur',
+        'wiz-layout', 'wiz-fields-override',
         'wiz-field-track', 'wiz-field-artist', 'wiz-field-album', 'wiz-field-year', 'wiz-field-progress'
     ];
     for (const id of wizIds) {
@@ -503,6 +543,12 @@
 
     document.getElementById('wiz-fontScale').addEventListener('input', (e) => {
         document.getElementById('wiz-fontScale-val').textContent = e.target.value + '×';
+    });
+    document.getElementById('wiz-artBrightness').addEventListener('input', (e) => {
+        document.getElementById('wiz-artBrightness-val').textContent = Math.round(e.target.value * 100) + '%';
+    });
+    document.getElementById('wiz-artBlur').addEventListener('input', (e) => {
+        document.getElementById('wiz-artBlur-val').textContent = e.target.value + 'px';
     });
 
     // Init
