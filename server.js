@@ -32,6 +32,7 @@ const TWITCH_CLIENT_SECRET = config.twitch?.client_secret;
 const SSN_SESSION_ID = config.ssn?.session_id;
 const SSN_SERVER = config.ssn?.server || 'wss://io.socialstream.ninja';
 const REFRESH_MINUTES = config.twitch_refresh_minutes || 10;
+const MUSIC_CONFIG = config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 };
 
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = path.join(__dirname, 'data');
@@ -482,6 +483,107 @@ async function fetchStreamInfo() {
         }
     } catch (err) {
         console.error('[Twitch] Stream info fetch error:', err.message);
+    }
+}
+
+// ============================================================================
+// MUSIC NOW-PLAYING (Apple Music via osascript)
+// ============================================================================
+
+const MUSIC_ART_PATH = path.join(DATA_DIR, 'music-artwork.png');
+let musicState = { track: '', artist: '', album: '', state: 'stopped', artworkUrl: '' };
+let musicPollTimer = null;
+
+function runOsascript(lines, cb) {
+    const args = lines.map(l => `-e '${l.replace(/'/g, "'\\''")}'`).join(' ');
+    exec(`osascript ${args}`, cb);
+}
+
+function pollAppleMusic() {
+    runOsascript([
+        'if application "Music" is running then',
+        '  tell application "Music"',
+        '    set pState to player state as string',
+        '    if pState is "playing" or pState is "paused" then',
+        '      set tName to name of current track',
+        '      set tArtist to artist of current track',
+        '      set tAlbum to album of current track',
+        '      return pState & "|||" & tName & "|||" & tArtist & "|||" & tAlbum',
+        '    else',
+        '      return "stopped|||||||"',
+        '    end if',
+        '  end tell',
+        'else',
+        '  return "stopped|||||||"',
+        'end if'
+    ], (err, stdout) => {
+        if (err) {
+            if (musicState.state !== 'stopped') {
+                musicState = { track: '', artist: '', album: '', state: 'stopped', artworkUrl: '' };
+                broadcastToOverlays('music', musicState);
+            }
+            return;
+        }
+
+        const parts = stdout.trim().split('|||');
+        const newState = {
+            state: parts[0] || 'stopped',
+            track: parts[1] || '',
+            artist: parts[2] || '',
+            album: parts[3] || '',
+            artworkUrl: ''
+        };
+
+        if (newState.state === 'stopped') {
+            if (musicState.state !== 'stopped') {
+                musicState = newState;
+                broadcastToOverlays('music', musicState);
+            }
+            return;
+        }
+
+        const trackChanged = newState.track !== musicState.track
+            || newState.artist !== musicState.artist
+            || newState.album !== musicState.album;
+        const stateChanged = newState.state !== musicState.state;
+
+        if (trackChanged) {
+            runOsascript([
+                'tell application "Music"',
+                '  set artData to raw data of artwork 1 of current track',
+                'end tell',
+                `set fRef to open for access (POSIX file "${MUSIC_ART_PATH}") with write permission`,
+                'set eof fRef to 0',
+                'write artData to fRef',
+                'close access fRef'
+            ], (artErr) => {
+                newState.artworkUrl = artErr ? '' : '/api/music/artwork?t=' + Date.now();
+                musicState = newState;
+                broadcastToOverlays('music', musicState);
+                console.log(`[Music] Now playing: ${musicState.track} — ${musicState.artist}`);
+            });
+        } else if (stateChanged) {
+            newState.artworkUrl = musicState.artworkUrl;
+            musicState = newState;
+            broadcastToOverlays('music', musicState);
+            console.log(`[Music] State: ${musicState.state}`);
+        }
+    });
+}
+
+function startMusicPolling() {
+    if (musicPollTimer) return;
+    const interval = (MUSIC_CONFIG.poll_seconds || 5) * 1000;
+    pollAppleMusic();
+    musicPollTimer = setInterval(pollAppleMusic, interval);
+    console.log(`[Music] Polling Apple Music every ${MUSIC_CONFIG.poll_seconds || 5}s`);
+}
+
+function stopMusicPolling() {
+    if (musicPollTimer) {
+        clearInterval(musicPollTimer);
+        musicPollTimer = null;
+        console.log('[Music] Polling stopped');
     }
 }
 
@@ -1224,7 +1326,7 @@ const server = http.createServer(async (req, res) => {
                     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
                     // Only allow safe fields to be edited
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'webhooks', 'rate_limit', 'theme'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'webhooks', 'rate_limit', 'theme', 'music'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             current[key] = updates[key];
@@ -1248,6 +1350,17 @@ const server = http.createServer(async (req, res) => {
                     config.webhooks = current.webhooks;
                     config.rate_limit = current.rate_limit;
                     config.theme = current.theme;
+
+                    // Hot-reload music config
+                    const prevMusicEnabled = MUSIC_CONFIG.enabled;
+                    Object.assign(MUSIC_CONFIG, current.music || {});
+                    if (MUSIC_CONFIG.enabled && !prevMusicEnabled) {
+                        startMusicPolling();
+                    } else if (!MUSIC_CONFIG.enabled && prevMusicEnabled) {
+                        stopMusicPolling();
+                        musicState = { track: '', artist: '', album: '', state: 'stopped', artworkUrl: '' };
+                        broadcastToOverlays('music', musicState);
+                    }
 
                     console.log('[Config] Updated and hot-reloaded');
                     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1275,7 +1388,8 @@ const server = http.createServer(async (req, res) => {
             auto_backup_on_session_end: config.auto_backup_on_session_end || false,
             webhooks: config.webhooks || { enabled: false, discord_url: '', events: ['raid', 'subscribe', 'donation', 'bits', 'follow'], batch_seconds: 5 },
             rate_limit: config.rate_limit || { enabled: false, requests_per_minute: 120, mutation_per_minute: 30 },
-            theme: config.theme || {}
+            theme: config.theme || {},
+            music: config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 }
         }));
         return;
     }
@@ -1523,6 +1637,34 @@ const server = http.createServer(async (req, res) => {
         } catch (err) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    // Music now-playing API
+    if (pathname === '/api/music/now-playing') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(musicState));
+        return;
+    }
+
+    if (pathname === '/api/music/artwork') {
+        try {
+            if (fs.existsSync(MUSIC_ART_PATH)) {
+                const art = fs.readFileSync(MUSIC_ART_PATH);
+                res.writeHead(200, {
+                    'Content-Type': 'image/png',
+                    'Cache-Control': 'no-cache',
+                    'Content-Length': art.length
+                });
+                res.end(art);
+            } else {
+                res.writeHead(404);
+                res.end('No artwork');
+            }
+        } catch {
+            res.writeHead(500);
+            res.end('Artwork read error');
         }
         return;
     }
@@ -2441,6 +2583,11 @@ overlayWss.on('connection', (ws) => {
     // Send current data snapshot immediately
     ws.send(JSON.stringify({ type: 'snapshot', data: chatData }));
 
+    // Send current music state if music is enabled
+    if (MUSIC_CONFIG.enabled && musicState.state !== 'stopped') {
+        ws.send(JSON.stringify({ type: 'music', data: musicState }));
+    }
+
     ws.on('close', () => {
         overlayClients.delete(ws);
         console.log(`[WS] Overlay client disconnected (${overlayClients.size} total)`);
@@ -2507,6 +2654,11 @@ server.listen(PORT, () => {
         saveStats();
         saveChatLog();
     }, 5000);
+
+    // Start music polling if enabled
+    if (MUSIC_CONFIG.enabled) {
+        startMusicPolling();
+    }
 });
 
 // Graceful shutdown

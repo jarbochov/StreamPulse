@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Music Settings</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .nav { display: flex; gap: 0.75rem; align-items: center; }
+        .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
+        .nav a:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown { position: relative; display: flex; align-items: center; }
+        .nav .dropdown-toggle { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
+        .nav .dropdown-toggle:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
+        .nav .dropdown:hover .dropdown-menu { display: block; }
+        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+        .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
+
+        .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+        .full-width { grid-column: 1 / -1; }
+
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; }
+        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 1rem; }
+        .card h3 { font-size: 0.78rem; color: #58a6ff; margin: 0.75rem 0 0.5rem; padding-top: 0.5rem; border-top: 1px solid #21262d; }
+
+        .cfg-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.6rem; }
+        .cfg-row label { font-size: 0.82rem; color: #8b949e; min-width: 100px; }
+        .cfg-row input, .cfg-row select { flex: 1; padding: 0.4rem 0.6rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.82rem; font-family: inherit; outline: none; }
+        .cfg-row input:focus, .cfg-row select:focus { border-color: #58a6ff; }
+        .cfg-row input[type="color"] { width: 36px; height: 30px; padding: 2px; cursor: pointer; flex: none; }
+        .cfg-row input[type="range"] { accent-color: #58a6ff; }
+        .cfg-row input[type="checkbox"] { flex: none; width: auto; accent-color: #58a6ff; }
+
+        .toggle-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .toggle-row label { font-size: 0.82rem; color: #c9d1d9; cursor: pointer; }
+        .toggle-row input[type="checkbox"] { accent-color: #58a6ff; }
+
+        .btn { padding: 0.5rem 1.25rem; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #e1e4e8; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+        .btn:hover { border-color: #58a6ff; }
+        .btn.primary { background: #238636; border-color: #238636; }
+        .btn.primary:hover { background: #2ea043; }
+
+        .actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+
+        .preview-frame { background: #000; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 220px; padding: 1rem; }
+        .preview-frame iframe { border: none; width: 100%; height: 100%; min-height: 200px; background: transparent; }
+
+        .status-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.6rem; border-radius: 10px; font-size: 0.72rem; }
+        .status-badge.on { background: #23883020; color: #3fb950; }
+        .status-badge.off { background: #da363420; color: #f85149; }
+        .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+        .status-badge.on .dot { background: #3fb950; }
+        .status-badge.off .dot { background: #f85149; }
+
+        .url-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.5rem 0.75rem; font-family: monospace; font-size: 0.78rem; color: #8b949e; word-break: break-all; margin-top: 0.5rem; cursor: pointer; transition: border-color 0.2s; }
+        .url-box:hover { border-color: #58a6ff; }
+        .url-box::after { content: ' 📋'; font-size: 0.7rem; }
+
+        .mode-tabs { display: flex; gap: 0.25rem; margin-bottom: 0.75rem; }
+        .mode-tab { padding: 0.35rem 0.75rem; font-size: 0.78rem; color: #8b949e; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+        .mode-tab:hover { color: #e1e4e8; border-color: #58a6ff; }
+        .mode-tab.active { color: #58a6ff; border-color: #58a6ff; background: #1a2332; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>StreamPulse <span>Music Settings</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <div class="container">
+        <!-- Enable / Status -->
+        <div class="card full-width">
+            <h2>Music Now-Playing <span id="music-status"></span></h2>
+            <div class="cfg-row">
+                <label>Enabled</label>
+                <input type="checkbox" id="music-enabled">
+                <span style="font-size:0.78rem;color:#8b949e;">Polls Apple Music for current track info</span>
+            </div>
+            <div class="cfg-row">
+                <label>Source</label>
+                <select id="music-source">
+                    <option value="apple_music">Apple Music</option>
+                </select>
+            </div>
+            <div class="cfg-row">
+                <label>Poll Interval</label>
+                <input type="range" id="music-poll" min="1" max="15" step="1" value="5">
+                <span id="music-poll-val" style="font-size:0.82rem;min-width:35px;">5s</span>
+            </div>
+        </div>
+
+        <!-- Theme / Appearance -->
+        <div class="card">
+            <h2>Appearance</h2>
+            <div class="cfg-row">
+                <label>Font</label>
+                <select id="theme-font">
+                    <option value="'Segoe UI', system-ui, sans-serif">System Default</option>
+                    <option value="Jersey 20">Jersey 20</option>
+                    <option value="Press Start 2P">Press Start 2P</option>
+                    <option value="Bebas Neue">Bebas Neue</option>
+                    <option value="Fredoka One">Fredoka One</option>
+                    <option value="Bangers">Bangers</option>
+                    <option value="Orbitron">Orbitron</option>
+                    <option value="Righteous">Righteous</option>
+                    <option value="Permanent Marker">Permanent Marker</option>
+                    <option value="Inter">Inter</option>
+                </select>
+            </div>
+            <div class="cfg-row">
+                <label>Text Color</label>
+                <input type="color" id="theme-text-color" value="#ffffff">
+                <input type="text" id="theme-text-color-text" value="#ffffff" style="max-width:100px;">
+            </div>
+            <div class="cfg-row">
+                <label>Accent Color</label>
+                <input type="color" id="theme-accent-color" value="#58a6ff">
+                <input type="text" id="theme-accent-color-text" value="#58a6ff" style="max-width:100px;">
+            </div>
+            <div class="cfg-row">
+                <label>Background</label>
+                <input type="color" id="theme-bg-color" value="#000000">
+                <input type="text" id="theme-bg-color-text" value="rgba(0, 0, 0, 0.7)" style="max-width:140px;">
+            </div>
+            <div class="cfg-row">
+                <label>Art Size</label>
+                <input type="range" id="theme-art-size" min="80" max="400" step="10" value="200">
+                <span id="theme-art-size-val" style="font-size:0.82rem;min-width:40px;">200px</span>
+            </div>
+            <div class="cfg-row">
+                <label>Font Scale</label>
+                <input type="range" id="theme-font-scale" min="0.5" max="2.5" step="0.1" value="1">
+                <span id="theme-font-scale-val" style="font-size:0.82rem;min-width:30px;">1×</span>
+            </div>
+
+            <h3>Show/Hide Fields</h3>
+            <div class="toggle-row"><input type="checkbox" id="field-track" checked><label for="field-track">Song Title</label></div>
+            <div class="toggle-row"><input type="checkbox" id="field-artist" checked><label for="field-artist">Artist</label></div>
+            <div class="toggle-row"><input type="checkbox" id="field-album" checked><label for="field-album">Album</label></div>
+        </div>
+
+        <!-- Preview -->
+        <div class="card">
+            <h2>Preview</h2>
+            <div class="mode-tabs">
+                <div class="mode-tab active" onclick="setPreviewMode('full', this)">Full</div>
+                <div class="mode-tab" onclick="setPreviewMode('art', this)">Art Only</div>
+                <div class="mode-tab" onclick="setPreviewMode('mini', this)">Mini</div>
+            </div>
+            <div class="preview-frame">
+                <iframe id="preview-iframe" src="/music.html?mode=full"></iframe>
+            </div>
+        </div>
+
+        <!-- OBS URLs -->
+        <div class="card full-width">
+            <h2>OBS Browser Source URLs</h2>
+            <p style="font-size:0.78rem;color:#8b949e;margin-bottom:0.75rem;">Click to copy. Add these as Browser Sources in OBS.</p>
+            <div class="url-box" onclick="copyUrl(this)" id="url-full"></div>
+            <div class="url-box" onclick="copyUrl(this)" id="url-art"></div>
+            <div class="url-box" onclick="copyUrl(this)" id="url-mini"></div>
+
+            <div class="actions">
+                <button class="btn primary" onclick="saveConfig()">💾 Save Settings</button>
+                <button class="btn" onclick="loadConfig()">↩ Revert</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const GOOGLE_FONT_MAP = {
+        'Jersey 20': 'Jersey+20',
+        'Press Start 2P': 'Press+Start+2P',
+        'Bebas Neue': 'Bebas+Neue',
+        'Fredoka One': 'Fredoka+One',
+        'Bangers': 'Bangers',
+        'Orbitron': 'Orbitron',
+        'Righteous': 'Righteous',
+        'Permanent Marker': 'Permanent+Marker',
+        'Inter': 'Inter'
+    };
+
+    function fontImportUrl(name) {
+        const gf = GOOGLE_FONT_MAP[name];
+        return gf ? `https://fonts.googleapis.com/css2?family=${gf}&display=swap` : '';
+    }
+
+    function rgbToHex(str) {
+        const m = str.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (!m) return str;
+        return '#' + [m[1], m[2], m[3]].map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+    }
+
+    // Populate OBS URLs
+    function updateUrls() {
+        const base = `${location.protocol}//${location.host}`;
+        document.getElementById('url-full').textContent = `${base}/music.html?mode=full`;
+        document.getElementById('url-art').textContent = `${base}/music.html?mode=art`;
+        document.getElementById('url-mini').textContent = `${base}/music.html?mode=mini`;
+    }
+
+    function copyUrl(el) {
+        navigator.clipboard.writeText(el.textContent.replace(' 📋', ''));
+        el.style.borderColor = '#3fb950';
+        setTimeout(() => el.style.borderColor = '', 1500);
+    }
+
+    function setPreviewMode(mode, tab) {
+        document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('preview-iframe').src = `/music.html?mode=${mode}`;
+    }
+
+    // Sync color pickers with text inputs
+    function syncColor(pickerId, textId) {
+        const picker = document.getElementById(pickerId);
+        const text = document.getElementById(textId);
+        picker.addEventListener('input', () => { text.value = picker.value; });
+        text.addEventListener('change', () => {
+            try { picker.value = rgbToHex(text.value); } catch {}
+        });
+    }
+
+    // Load config
+    async function loadConfig() {
+        try {
+            const res = await fetch('/api/config');
+            const cfg = await res.json();
+            const music = cfg.music || {};
+            const theme = music.theme || {};
+
+            document.getElementById('music-enabled').checked = music.enabled || false;
+            document.getElementById('music-source').value = music.source || 'apple_music';
+            document.getElementById('music-poll').value = music.poll_seconds || 5;
+            document.getElementById('music-poll-val').textContent = (music.poll_seconds || 5) + 's';
+
+            // Theme
+            if (theme.font_family) {
+                const sel = document.getElementById('theme-font');
+                for (const opt of sel.options) {
+                    if (opt.value === theme.font_family) { sel.value = opt.value; break; }
+                }
+            }
+
+            const tc = theme.text_color || '#ffffff';
+            document.getElementById('theme-text-color-text').value = tc;
+            try { document.getElementById('theme-text-color').value = rgbToHex(tc); } catch {}
+
+            const ac = theme.accent_color || '#58a6ff';
+            document.getElementById('theme-accent-color-text').value = ac;
+            try { document.getElementById('theme-accent-color').value = rgbToHex(ac); } catch {}
+
+            const bg = theme.bg_color || 'rgba(0, 0, 0, 0.7)';
+            document.getElementById('theme-bg-color-text').value = bg;
+            try { document.getElementById('theme-bg-color').value = rgbToHex(bg); } catch {}
+
+            document.getElementById('theme-art-size').value = theme.art_size || 200;
+            document.getElementById('theme-art-size-val').textContent = (theme.art_size || 200) + 'px';
+
+            document.getElementById('theme-font-scale').value = theme.font_scale || 1;
+            document.getElementById('theme-font-scale-val').textContent = (theme.font_scale || 1) + '×';
+
+            // Fields
+            const fields = theme.fields || {};
+            document.getElementById('field-track').checked = fields.track !== false;
+            document.getElementById('field-artist').checked = fields.artist !== false;
+            document.getElementById('field-album').checked = fields.album !== false;
+
+            updateStatus(music.enabled);
+        } catch (err) {
+            console.error('Failed to load config:', err);
+        }
+    }
+
+    function updateStatus(enabled) {
+        document.getElementById('music-status').innerHTML = enabled
+            ? '<span class="status-badge on"><span class="dot"></span> Active</span>'
+            : '<span class="status-badge off"><span class="dot"></span> Disabled</span>';
+    }
+
+    async function saveConfig() {
+        const fontFamily = document.getElementById('theme-font').value;
+        const musicConfig = {
+            enabled: document.getElementById('music-enabled').checked,
+            source: document.getElementById('music-source').value,
+            poll_seconds: parseInt(document.getElementById('music-poll').value) || 5,
+            theme: {
+                font_family: fontFamily,
+                font_import: fontImportUrl(fontFamily),
+                text_color: document.getElementById('theme-text-color-text').value,
+                accent_color: document.getElementById('theme-accent-color-text').value,
+                bg_color: document.getElementById('theme-bg-color-text').value,
+                art_size: parseInt(document.getElementById('theme-art-size').value) || 200,
+                font_scale: parseFloat(document.getElementById('theme-font-scale').value) || 1,
+                fields: {
+                    track: document.getElementById('field-track').checked,
+                    artist: document.getElementById('field-artist').checked,
+                    album: document.getElementById('field-album').checked
+                }
+            }
+        };
+
+        try {
+            const res = await fetch('/api/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ music: musicConfig })
+            });
+            if (res.ok) {
+                updateStatus(musicConfig.enabled);
+                // Refresh preview
+                const iframe = document.getElementById('preview-iframe');
+                iframe.src = iframe.src;
+                alert('Settings saved!');
+            } else {
+                alert('Save failed');
+            }
+        } catch (err) {
+            alert('Save error: ' + err.message);
+        }
+    }
+
+    // Wire up controls
+    syncColor('theme-text-color', 'theme-text-color-text');
+    syncColor('theme-accent-color', 'theme-accent-color-text');
+    syncColor('theme-bg-color', 'theme-bg-color-text');
+
+    document.getElementById('music-poll').addEventListener('input', (e) => {
+        document.getElementById('music-poll-val').textContent = e.target.value + 's';
+    });
+    document.getElementById('theme-art-size').addEventListener('input', (e) => {
+        document.getElementById('theme-art-size-val').textContent = e.target.value + 'px';
+    });
+    document.getElementById('theme-font-scale').addEventListener('input', (e) => {
+        document.getElementById('theme-font-scale-val').textContent = e.target.value + '×';
+    });
+
+    // Init
+    updateUrls();
+    loadConfig();
+</script>
+</body>
+</html>

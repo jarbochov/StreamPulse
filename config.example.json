@@ -45,6 +45,11 @@
     "requests_per_minute": 120,
     "mutation_per_minute": 30
   },
+  "music": {
+    "enabled": false,
+    "source": "apple_music",
+    "poll_seconds": 5
+  },
   "credits": {
     "header": {
       "image": "",

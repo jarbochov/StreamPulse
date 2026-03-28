@@ -14,10 +14,12 @@
             { label: 'Credits', href: '/credits.html' },
             { label: 'Credits Preview', href: '/credits.html?preview=true', target: '_blank' },
             { label: 'Stats', href: '/stats.html' },
-            { label: 'Hashtags', href: '/hashtags.html' }
+            { label: 'Hashtags', href: '/hashtags.html' },
+            { label: 'Music', href: '/music.html?mode=full', target: '_blank' }
         ]},
         { label: 'Manage ▾', children: [
             { label: 'Config', href: '/config-editor.html' },
+            { label: 'Music Settings', href: '/music-editor.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html' },
             { label: 'Backup & Restore', href: '/backup.html' }
         ]},

@@ -1,5 +1,6 @@
 # Fetched API data (contains sensitive subscriber info)
 data/*.json
+data/*.png
 data/sessions/
 
 # Config (contains secrets)
@@ -17,3 +18,4 @@ node_modules/
 Thumbs.db
 *.swp
 *.swo
+

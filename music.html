@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Now Playing</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: transparent; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+
+        :root {
+            --music-font-family: 'Segoe UI', system-ui, sans-serif;
+            --music-text-color: #ffffff;
+            --music-accent-color: #58a6ff;
+            --music-bg-color: rgba(0, 0, 0, 0.7);
+            --music-art-size: 200px;
+            --music-font-scale: 1;
+        }
+
+        /* ===== ART MODE ===== */
+        .mode-art {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: var(--music-art-size);
+            height: var(--music-art-size);
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+        .mode-art .artwork {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        .mode-art .art-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.85));
+            padding: 0.5rem 0.6rem;
+            transform: translateY(100%);
+            transition: transform 0.4s ease;
+            border-radius: 0 0 8px 8px;
+        }
+        .mode-art .art-overlay.visible {
+            transform: translateY(0);
+        }
+        .mode-art .art-overlay .track-name {
+            font-size: calc(14px * var(--music-font-scale));
+            font-weight: 600;
+            color: var(--music-text-color);
+            font-family: var(--music-font-family);
+        }
+        .mode-art .art-overlay .artist-name {
+            font-size: calc(11px * var(--music-font-scale));
+            color: var(--music-accent-color);
+            font-family: var(--music-font-family);
+            margin-top: 2px;
+        }
+        .mode-art .no-art {
+            width: 100%;
+            height: 100%;
+            background: var(--music-bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: calc(48px * var(--music-font-scale));
+            border-radius: 8px;
+        }
+
+        /* ===== FULL MODE ===== */
+        .mode-full {
+            display: flex;
+            gap: 0.75rem;
+            background: var(--music-bg-color);
+            border-radius: 10px;
+            padding: 0.5rem;
+            max-width: 420px;
+            align-items: center;
+        }
+        .mode-full .artwork {
+            width: calc(var(--music-art-size) * 0.45);
+            height: calc(var(--music-art-size) * 0.45);
+            min-width: calc(var(--music-art-size) * 0.45);
+            object-fit: cover;
+            border-radius: 6px;
+        }
+        .mode-full .no-art {
+            width: calc(var(--music-art-size) * 0.45);
+            height: calc(var(--music-art-size) * 0.45);
+            min-width: calc(var(--music-art-size) * 0.45);
+            background: rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: calc(28px * var(--music-font-scale));
+            border-radius: 6px;
+        }
+        .mode-full .meta {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.15rem;
+            overflow: hidden;
+            min-width: 0;
+            flex: 1;
+        }
+        .mode-full .track-name {
+            font-size: calc(16px * var(--music-font-scale));
+            font-weight: 600;
+            color: var(--music-text-color);
+            font-family: var(--music-font-family);
+        }
+        .mode-full .artist-name {
+            font-size: calc(13px * var(--music-font-scale));
+            color: var(--music-accent-color);
+            font-family: var(--music-font-family);
+        }
+        .mode-full .album-name {
+            font-size: calc(11px * var(--music-font-scale));
+            color: rgba(255,255,255,0.5);
+            font-family: var(--music-font-family);
+        }
+
+        /* ===== MINI MODE ===== */
+        .mode-mini {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            background: var(--music-bg-color);
+            border-radius: 6px;
+            padding: 0.35rem 0.75rem;
+            max-width: 400px;
+        }
+        .mode-mini .music-icon {
+            font-size: calc(14px * var(--music-font-scale));
+            flex-shrink: 0;
+        }
+        .mode-mini .meta {
+            display: flex;
+            gap: 0.35rem;
+            align-items: baseline;
+            overflow: hidden;
+            min-width: 0;
+            flex: 1;
+        }
+        .mode-mini .track-name {
+            font-size: calc(14px * var(--music-font-scale));
+            font-weight: 600;
+            color: var(--music-text-color);
+            font-family: var(--music-font-family);
+        }
+        .mode-mini .sep {
+            color: rgba(255,255,255,0.3);
+            flex-shrink: 0;
+            font-size: calc(12px * var(--music-font-scale));
+        }
+        .mode-mini .artist-name {
+            font-size: calc(12px * var(--music-font-scale));
+            color: var(--music-accent-color);
+            font-family: var(--music-font-family);
+        }
+        .mode-mini .album-name {
+            font-size: calc(11px * var(--music-font-scale));
+            color: rgba(255,255,255,0.4);
+            font-family: var(--music-font-family);
+        }
+
+        /* ===== MARQUEE (all modes) ===== */
+        .marquee-wrap {
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .marquee-wrap.scrolling .marquee-text {
+            display: inline-block;
+            animation: marquee var(--marquee-duration, 10s) linear infinite;
+            padding-right: 3rem;
+        }
+        .marquee-wrap.scrolling .marquee-text::after {
+            content: attr(data-text);
+            padding-left: 3rem;
+        }
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* ===== TRANSITIONS ===== */
+        .player-container {
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .player-container.visible {
+            opacity: 1;
+        }
+        .player-container.paused {
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div id="player" class="player-container"></div>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const MODE = params.get('mode') || 'full';
+    const MARQUEE_THRESHOLD = 30;
+    const ART_OVERLAY_DURATION = 5000;
+
+    let currentTrack = '';
+    let artOverlayTimer = null;
+    let musicTheme = {};
+
+    function escapeHtml(str) {
+        return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function applyMusicTheme(theme) {
+        const root = document.documentElement;
+        if (theme.font_family) root.style.setProperty('--music-font-family', theme.font_family);
+        if (theme.text_color) root.style.setProperty('--music-text-color', theme.text_color);
+        if (theme.accent_color) root.style.setProperty('--music-accent-color', theme.accent_color);
+        if (theme.bg_color) root.style.setProperty('--music-bg-color', theme.bg_color);
+        if (theme.art_size) root.style.setProperty('--music-art-size', theme.art_size + 'px');
+        if (theme.font_scale) root.style.setProperty('--music-font-scale', theme.font_scale);
+
+        if (theme.font_family && theme.font_import) {
+            let link = document.getElementById('music-font-link');
+            if (!link) {
+                link = document.createElement('link');
+                link.id = 'music-font-link';
+                link.rel = 'stylesheet';
+                document.head.appendChild(link);
+            }
+            link.href = theme.font_import;
+        }
+    }
+
+    function marqueeWrap(text, extraClass) {
+        const cls = extraClass || '';
+        const needsScroll = text.length > MARQUEE_THRESHOLD;
+        if (needsScroll) {
+            const speed = Math.max(5, text.length * 0.35);
+            return `<div class="marquee-wrap scrolling ${cls}" style="--marquee-duration:${speed}s"><span class="marquee-text" data-text="${escapeHtml(text)}">${escapeHtml(text)}</span></div>`;
+        }
+        return `<div class="marquee-wrap ${cls}"><span class="marquee-text">${escapeHtml(text)}</span></div>`;
+    }
+
+    // Visibility settings from theme (defaults: all shown)
+    function showField(field) {
+        if (!musicTheme.fields) return true;
+        return musicTheme.fields[field] !== false;
+    }
+
+    function renderArt(data) {
+        const artSrc = data.artworkUrl || '';
+        const artHtml = artSrc
+            ? `<img class="artwork" src="${artSrc}" alt="Album Art">`
+            : `<div class="no-art">🎵</div>`;
+
+        const trackHtml = showField('track') ? `<div class="track-name">${marqueeWrap(data.track)}</div>` : '';
+        const artistHtml = showField('artist') ? `<div class="artist-name">${escapeHtml(data.artist)}</div>` : '';
+
+        return `<div class="mode-art">
+            ${artHtml}
+            <div class="art-overlay" id="art-overlay">
+                ${trackHtml}
+                ${artistHtml}
+            </div>
+        </div>`;
+    }
+
+    function renderFull(data) {
+        const artSrc = data.artworkUrl || '';
+        const artHtml = artSrc
+            ? `<img class="artwork" src="${artSrc}" alt="Album Art">`
+            : `<div class="no-art">🎵</div>`;
+
+        const trackHtml = showField('track') ? `<div class="track-name">${marqueeWrap(data.track)}</div>` : '';
+        const artistHtml = showField('artist') ? `<div class="artist-name">${escapeHtml(data.artist)}</div>` : '';
+        const albumHtml = showField('album') ? `<div class="album-name">${escapeHtml(data.album)}</div>` : '';
+
+        return `<div class="mode-full">
+            ${artHtml}
+            <div class="meta">
+                ${trackHtml}
+                ${artistHtml}
+                ${albumHtml}
+            </div>
+        </div>`;
+    }
+
+    function renderMini(data) {
+        const parts = [];
+        if (showField('track')) parts.push(`<span class="track-name">${marqueeWrap(data.track)}</span>`);
+        if (showField('artist')) parts.push(`<span class="artist-name">${escapeHtml(data.artist)}</span>`);
+        if (showField('album')) parts.push(`<span class="album-name">${escapeHtml(data.album)}</span>`);
+
+        return `<div class="mode-mini">
+            <span class="music-icon">♫</span>
+            <div class="meta">
+                ${parts.join('<span class="sep">·</span>')}
+            </div>
+        </div>`;
+    }
+
+    function render(data) {
+        const player = document.getElementById('player');
+
+        if (!data || data.state === 'stopped' || !data.track) {
+            player.classList.remove('visible', 'paused');
+            return;
+        }
+
+        const trackKey = `${data.track}|${data.artist}|${data.album}`;
+        const trackChanged = trackKey !== currentTrack;
+        currentTrack = trackKey;
+
+        if (trackChanged) {
+            switch (MODE) {
+                case 'art': player.innerHTML = renderArt(data); break;
+                case 'mini': player.innerHTML = renderMini(data); break;
+                default: player.innerHTML = renderFull(data); break;
+            }
+        }
+
+        // Show/hide based on state
+        player.classList.toggle('paused', data.state === 'paused');
+        player.classList.add('visible');
+
+        // Art mode: show overlay briefly on track change
+        if (MODE === 'art' && trackChanged) {
+            if (artOverlayTimer) clearTimeout(artOverlayTimer);
+            const overlay = document.getElementById('art-overlay');
+            if (overlay) {
+                setTimeout(() => overlay.classList.add('visible'), 50);
+                artOverlayTimer = setTimeout(() => overlay.classList.remove('visible'), ART_OVERLAY_DURATION);
+            }
+        }
+    }
+
+    // Load theme from config
+    async function loadTheme() {
+        try {
+            const res = await fetch('/api/config');
+            if (res.ok) {
+                const cfg = await res.json();
+                musicTheme = cfg.music?.theme || {};
+                applyMusicTheme(musicTheme);
+            }
+        } catch {}
+    }
+
+    // WebSocket connection
+    function connectWS() {
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${location.host}`);
+
+        ws.onmessage = (e) => {
+            try {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'music') {
+                    render(msg.data);
+                }
+            } catch {}
+        };
+
+        ws.onclose = () => setTimeout(connectWS, 3000);
+        ws.onerror = () => ws.close();
+    }
+
+    // Also poll on interval as fallback
+    async function pollNowPlaying() {
+        try {
+            const res = await fetch('/api/music/now-playing');
+            if (res.ok) render(await res.json());
+        } catch {}
+    }
+
+    // Init
+    loadTheme().then(() => {
+        connectWS();
+        pollNowPlaying();
+        setInterval(pollNowPlaying, 5000);
+    });
+</script>
+</body>
+</html>
