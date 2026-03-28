@@ -1812,6 +1812,29 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    // Individual music field endpoints — plain text for easy integration
+    if (pathname.startsWith('/api/music/field/')) {
+        const field = pathname.split('/api/music/field/')[1];
+        const fields = {
+            state: musicState.state,
+            track: musicState.track,
+            artist: musicState.artist,
+            album: musicState.album,
+            year: musicState.year,
+            duration: String(musicState.duration),
+            position: String(musicState.position),
+            artwork: musicState.artworkUrl
+        };
+        if (field in fields) {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            res.end(fields[field]);
+        } else {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.end(`Unknown field: ${field}. Available: ${Object.keys(fields).join(', ')}`);
+        }
+        return;
+    }
+
     if (pathname === '/api/music/vlc-test') {
         const params = new URL(req.url, `http://${req.headers.host}`).searchParams;
         const host = params.get('host') || 'localhost';

@@ -347,8 +347,13 @@
             items: [
                 {
                     method: 'GET', path: '/api/music/now-playing',
-                    desc: 'Current track info and player state',
+                    desc: 'Current track info and player state (JSON)',
                     details: 'Returns the current music state: { state, track, artist, album, year, duration, position, artworkUrl }. State is "playing", "paused", or "stopped". Supports Apple Music (macOS) and VLC (cross-platform).'
+                },
+                {
+                    method: 'GET', path: '/api/music/field/{field}',
+                    desc: 'Single field as plain text',
+                    details: 'Returns a single music field as plain text — ideal for Bitfocus Companion or tools that can\'t parse JSON. Available fields: state, track, artist, album, year, duration, position, artwork. Example: /api/music/field/track → "Song Name"'
                 },
                 {
                     method: 'GET', path: '/api/music/artwork',
