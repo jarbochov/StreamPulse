@@ -327,7 +327,12 @@
 
     function applyMusicTheme(theme) {
         const root = document.documentElement;
-        if (theme.font_family) root.style.setProperty('--music-font-family', theme.font_family);
+        if (theme.font_family) {
+            // Ensure Google Font names are quoted for CSS
+            const ff = theme.font_family;
+            const quoted = ff.includes(',') || ff.startsWith("'") || ff.startsWith('"') ? ff : `'${ff}'`;
+            root.style.setProperty('--music-font-family', quoted);
+        }
         if (theme.text_color) root.style.setProperty('--music-text-color', theme.text_color);
         if (theme.accent_color) root.style.setProperty('--music-accent-color', theme.accent_color);
         if (theme.bg_color) root.style.setProperty('--music-bg-color', theme.bg_color);
@@ -344,7 +349,9 @@
         root.style.setProperty('--music-full-art-actual', fullArt ? fullArt + 'px' : `calc(var(--music-full-h) - 1rem)`);
         if (theme.font_scale) root.style.setProperty('--music-font-scale', theme.font_scale);
 
-        if (theme.font_family && theme.font_import) {
+        // Load Google Font — generate import URL if not provided
+        const fontImport = theme.font_import || generateFontImport(theme.font_family);
+        if (theme.font_family && fontImport) {
             let link = document.getElementById('music-font-link');
             if (!link) {
                 link = document.createElement('link');
@@ -352,8 +359,15 @@
                 link.rel = 'stylesheet';
                 document.head.appendChild(link);
             }
-            link.href = theme.font_import;
+            link.href = fontImport;
         }
+    }
+
+    function generateFontImport(fontFamily) {
+        if (!fontFamily || fontFamily.includes('system-ui') || fontFamily.includes('Segoe UI')) return '';
+        const name = fontFamily.replace(/'/g, '').trim();
+        const slug = name.replace(/\s+/g, '+');
+        return `https://fonts.googleapis.com/css2?family=${slug}&display=swap`;
     }
 
     function marqueeWrap(text, extraClass) {
