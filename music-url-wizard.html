@@ -52,8 +52,8 @@
         .url-output .copy-toast { position: absolute; top: -1.5rem; right: 0.5rem; font-size: 0.7rem; color: #3fb950; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
         .url-output .copy-toast.show { opacity: 1; }
 
-        .preview-frame { background: #000; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 240px; padding: 1rem; }
-        .preview-frame iframe { border: none; width: 100%; height: 100%; min-height: 220px; background: transparent; }
+        .preview-frame { background: #000; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+        .preview-frame iframe { border: none; background: transparent; }
 
         .obs-hint { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: #58a6ff; background: #1a2332; border: 1px solid #30363d; border-radius: 4px; padding: 0.2rem 0.5rem; margin-top: 0.5rem; }
 
@@ -266,20 +266,89 @@
     function syncWizColor(pickerId, textId) {
         const picker = document.getElementById(pickerId);
         const text = document.getElementById(textId);
-        picker.addEventListener('input', () => { text.value = picker.value; buildUrl(); });
+        picker.addEventListener('input', () => { text.value = picker.value; onWizChange(); });
         text.addEventListener('input', () => {
             try { picker.value = text.value.startsWith('#') ? text.value : text.value; } catch {}
-            buildUrl();
+            onWizChange();
         });
     }
     syncWizColor('wiz-textColor-pick', 'wiz-textColor');
     syncWizColor('wiz-accentColor-pick', 'wiz-accentColor');
     syncWizColor('wiz-bgColor-pick', 'wiz-bgColor');
 
+    const GOOGLE_FONT_MAP = {
+        'Jersey 20': 'Jersey+20', 'Press Start 2P': 'Press+Start+2P', 'Bebas Neue': 'Bebas+Neue',
+        'Fredoka One': 'Fredoka+One', 'Bangers': 'Bangers', 'Orbitron': 'Orbitron',
+        'Righteous': 'Righteous', 'Permanent Marker': 'Permanent+Marker', 'Inter': 'Inter'
+    };
+    function fontImportUrl(name) {
+        const gf = GOOGLE_FONT_MAP[name];
+        return gf ? `https://fonts.googleapis.com/css2?family=${gf}&display=swap` : '';
+    }
+
     // Show/hide mode-specific controls
     function updateModeUI() {
         const mode = document.getElementById('wiz-mode').value;
         document.getElementById('row-art-size').style.display = mode === 'full' ? '' : 'none';
+    }
+
+    let currentPreviewMode = 'full';
+
+    // Build the theme override object for postMessage
+    function getWizTheme() {
+        const mode = document.getElementById('wiz-mode').value;
+        const font = document.getElementById('wiz-font').value;
+        const theme = {};
+
+        if (font) { theme.font_family = font; theme.font_import = fontImportUrl(font); }
+
+        const tc = document.getElementById('wiz-textColor').value.trim();
+        if (tc) theme.text_color = tc;
+
+        const ac = document.getElementById('wiz-accentColor').value.trim();
+        if (ac) theme.accent_color = ac;
+
+        const bg = document.getElementById('wiz-bgColor').value.trim();
+        if (bg) theme.bg_color = bg;
+
+        const fs = parseFloat(document.getElementById('wiz-fontScale').value);
+        if (fs && fs !== 1) theme.font_scale = fs;
+
+        const w = parseInt(document.getElementById('wiz-w').value) || 0;
+        const h = parseInt(document.getElementById('wiz-h').value) || 0;
+        if (w || h) {
+            theme.sizes = { [mode]: {} };
+            if (w) theme.sizes[mode].width = w;
+            if (h) theme.sizes[mode].height = h;
+        }
+
+        if (mode === 'full') {
+            const artSz = parseInt(document.getElementById('wiz-artSize').value) || 0;
+            if (artSz > 0) theme.full_art_size = artSz;
+        }
+
+        // Label
+        const labelText = document.getElementById('wiz-label').value;
+        const labelMode = document.getElementById('wiz-labelMode').value;
+        theme.label = {};
+        if (labelText) theme.label.text = labelText;
+        if (labelMode === 'show') theme.label[`show_${mode}`] = true;
+        else if (labelMode === 'hide') theme.label[`show_${mode}`] = false;
+
+        // Fields
+        if (document.getElementById('wiz-fields-override').checked) {
+            theme.fields = {};
+            for (const f of ['track','artist','album','year','progress']) {
+                theme.fields[f] = document.getElementById(`wiz-field-${f}`).checked;
+            }
+        }
+
+        theme.art_persist_info = document.getElementById('wiz-persist').checked;
+
+        const layout = document.getElementById('wiz-layout').value;
+        if (layout) theme.mini_layout = layout;
+
+        return theme;
     }
 
     // Build URL from wizard controls
@@ -346,10 +415,41 @@
         const oh = h || { art: 200, full: 120, mini: 40 }[mode];
         document.getElementById('wiz-obs-hint').textContent = `OBS Browser Source → Width: ${ow}, Height: ${oh}`;
 
-        // Update preview
-        document.getElementById('wiz-preview').src = url;
-
         return url;
+    }
+
+    // Push theme to preview iframe via postMessage (real-time, no reload)
+    function pushWizPreview() {
+        const iframe = document.getElementById('wiz-preview');
+        if (iframe.contentWindow) {
+            iframe.contentWindow.postMessage({ type: 'music-theme-update', theme: getWizTheme() }, '*');
+        }
+    }
+
+    // Combined handler: build URL + push live preview (reload iframe only on mode change)
+    function onWizChange() {
+        const mode = document.getElementById('wiz-mode').value;
+        buildUrl();
+        updateWizPreviewSize();
+        if (mode !== currentPreviewMode) {
+            currentPreviewMode = mode;
+            const iframe = document.getElementById('wiz-preview');
+            iframe.src = `/music.html?mode=${mode}`;
+            iframe.onload = () => pushWizPreview();
+        } else {
+            pushWizPreview();
+        }
+    }
+
+    function updateWizPreviewSize() {
+        const iframe = document.getElementById('wiz-preview');
+        const mode = document.getElementById('wiz-mode').value;
+        const defaults = { art: [200, 200], full: [420, 120], mini: [400, 40] };
+        const w = parseInt(document.getElementById('wiz-w').value) || defaults[mode][0];
+        const h = parseInt(document.getElementById('wiz-h').value) || defaults[mode][1];
+        const extraH = mode === 'art' ? 20 : 0;
+        iframe.style.width = w + 'px';
+        iframe.style.height = (h + extraH) + 'px';
     }
 
     function copyWizUrl() {
@@ -381,6 +481,8 @@
             document.getElementById(`wiz-field-${f}`).checked = false;
         });
         updateModeUI();
+        currentPreviewMode = 'full';
+        document.getElementById('wiz-preview').src = '/music.html?mode=full';
         buildUrl();
     }
 
@@ -394,8 +496,8 @@
     for (const id of wizIds) {
         const el = document.getElementById(id);
         if (el) {
-            el.addEventListener('input', buildUrl);
-            el.addEventListener('change', () => { updateModeUI(); buildUrl(); });
+            el.addEventListener('input', onWizChange);
+            el.addEventListener('change', () => { updateModeUI(); onWizChange(); });
         }
     }
 
@@ -406,6 +508,7 @@
     // Init
     updateModeUI();
     buildUrl();
+    updateWizPreviewSize();
 </script>
 </body>
 </html>

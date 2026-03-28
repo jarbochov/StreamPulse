@@ -471,17 +471,23 @@
         </div>`;
     }
 
+    let prevState = 'stopped';
+
     function render(data) {
         const player = document.getElementById('player');
 
         if (!data || data.state === 'stopped' || !data.track) {
             player.classList.remove('visible', 'paused');
+            currentTrack = '';
+            prevState = 'stopped';
             return;
         }
 
         const trackKey = `${data.track}|${data.artist}|${data.album}`;
         const trackChanged = trackKey !== currentTrack;
+        const resumed = prevState !== 'playing' && data.state === 'playing';
         currentTrack = trackKey;
+        prevState = data.state;
 
         if (trackChanged) {
             switch (MODE) {
@@ -495,8 +501,8 @@
         player.classList.toggle('paused', data.state === 'paused');
         player.classList.add('visible');
 
-        // Art mode: show overlay on track change
-        if (MODE === 'art' && trackChanged) {
+        // Art mode: show overlay on track change OR resume from stopped/paused
+        if (MODE === 'art' && (trackChanged || resumed)) {
             if (artOverlayTimer) clearTimeout(artOverlayTimer);
             const overlay = document.getElementById('art-overlay');
             if (overlay) {
