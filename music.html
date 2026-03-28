@@ -58,24 +58,28 @@
             font-weight: 600;
             color: var(--music-text-color);
             font-family: var(--music-font-family);
+            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
         }
         .mode-art .art-overlay .artist-name {
             font-size: calc(11px * var(--music-font-scale));
             color: var(--music-accent-color);
             font-family: var(--music-font-family);
             margin-top: 2px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.7);
         }
         .mode-art .art-overlay .album-name {
             font-size: calc(10px * var(--music-font-scale));
             color: rgba(255,255,255,0.5);
             font-family: var(--music-font-family);
             margin-top: 1px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.7);
         }
         .mode-art .art-overlay .year-name {
             font-size: calc(9px * var(--music-font-scale));
             color: rgba(255,255,255,0.35);
             font-family: var(--music-font-family);
             margin-top: 1px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.7);
         }
         .mode-art .no-art {
             width: 100%;
@@ -98,7 +102,13 @@
             opacity: 0.85;
             margin-bottom: 2px;
         }
-        .mode-art .np-label { font-size: calc(8px * var(--music-font-scale)); margin-bottom: 1px; }
+        /* Art mode: label sits above the art square */
+        .art-wrapper { display: flex; flex-direction: column; align-items: center; }
+        .art-wrapper > .np-label {
+            font-size: calc(10px * var(--music-font-scale));
+            margin-bottom: 0.35rem;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+        }
         .mode-mini .np-label { font-size: calc(9px * var(--music-font-scale)); margin-bottom: 0; margin-right: 0.4rem; flex-shrink: 0; }
         .mode-mini.layout-two .np-label,
         .mode-mini.layout-two-album .np-label { margin-right: 0; margin-bottom: 1px; }
@@ -356,9 +366,11 @@
         return `<div class="marquee-wrap ${cls}"><span class="marquee-text">${escapeHtml(text)}</span></div>`;
     }
 
-    // Visibility settings from theme (defaults: all shown)
+    // Visibility settings from theme (defaults: track/artist/album on; year/progress off)
     function showField(field) {
-        if (!musicTheme.fields) return true;
+        if (!musicTheme.fields) {
+            return field !== 'year' && field !== 'progress';
+        }
         return musicTheme.fields[field] !== false;
     }
 
@@ -388,16 +400,18 @@
         const albumHtml = showField('album') ? `<div class="album-name">${escapeHtml(data.album)}</div>` : '';
         const yearHtml = showField('year') && data.year && String(data.year) !== '0' ? `<div class="year-name">${escapeHtml(String(data.year))}</div>` : '';
 
-        return `<div class="mode-art">
-            ${artHtml}
-            <div class="art-overlay" id="art-overlay">
-                ${renderLabel('art')}
-                ${trackHtml}
-                ${artistHtml}
-                ${albumHtml}
-                ${yearHtml}
+        return `<div class="art-wrapper">
+            ${renderLabel('art')}
+            <div class="mode-art">
+                ${artHtml}
+                <div class="art-overlay" id="art-overlay">
+                    ${trackHtml}
+                    ${artistHtml}
+                    ${albumHtml}
+                    ${yearHtml}
+                </div>
+                ${renderProgressBar(data)}
             </div>
-            ${renderProgressBar(data)}
         </div>`;
     }
 
@@ -420,8 +434,8 @@
                 ${artistHtml}
                 ${albumHtml}
                 ${yearHtml}
+                ${renderProgressBar(data)}
             </div>
-            ${renderProgressBar(data)}
         </div>`;
     }
 
