@@ -67,11 +67,13 @@
         .mode-tab { padding: 0.35rem 0.75rem; font-size: 0.78rem; color: #8b949e; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
         .mode-tab:hover { color: #e1e4e8; border-color: #58a6ff; }
         .mode-tab.active { color: #58a6ff; border-color: #58a6ff; background: #1a2332; }
+
+        .obs-hint { font-size: 0.68rem; color: #58a6ff; background: #1a2332; border: 1px solid #30363d; border-radius: 4px; padding: 0.15rem 0.4rem; white-space: nowrap; flex-shrink: 0; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>StreamPulse <span>Music Settings</span></h1>
+        <h1>StreamPulse <span>Music Settings</span> <span style="font-size:0.6rem;background:#4a2f05;color:#d29922;border:1px solid #d2992230;padding:0.15rem 0.4rem;border-radius:4px;vertical-align:middle;">Beta</span></h1>
         <div id="main-nav" class="nav"></div>
         <script src="/nav.js"></script>
     </div>
@@ -132,14 +134,33 @@
                 <input type="text" id="theme-bg-color-text" value="rgba(0, 0, 0, 0.7)" style="max-width:140px;">
             </div>
             <div class="cfg-row">
-                <label>Art Size</label>
-                <input type="range" id="theme-art-size" min="80" max="400" step="10" value="200">
-                <span id="theme-art-size-val" style="font-size:0.82rem;min-width:40px;">200px</span>
-            </div>
-            <div class="cfg-row">
                 <label>Font Scale</label>
                 <input type="range" id="theme-font-scale" min="0.5" max="2.5" step="0.1" value="1">
                 <span id="theme-font-scale-val" style="font-size:0.82rem;min-width:30px;">1×</span>
+            </div>
+
+            <h3>Overlay Sizes</h3>
+            <p style="font-size:0.72rem;color:#8b949e;margin-bottom:0.5rem;">Set the dimensions here, then match them in OBS → Browser Source → Width / Height.</p>
+            <div class="cfg-row">
+                <label>Art Only</label>
+                <input type="number" id="size-art-w" value="200" min="80" max="800" style="max-width:70px;">
+                <span style="color:#484f58;font-size:0.82rem;">×</span>
+                <input type="number" id="size-art-h" value="200" min="80" max="800" style="max-width:70px;">
+                <span style="font-size:0.72rem;color:#8b949e;">px</span>
+            </div>
+            <div class="cfg-row">
+                <label>Full Player</label>
+                <input type="number" id="size-full-w" value="420" min="200" max="800" style="max-width:70px;">
+                <span style="color:#484f58;font-size:0.82rem;">×</span>
+                <input type="number" id="size-full-h" value="120" min="60" max="400" style="max-width:70px;">
+                <span style="font-size:0.72rem;color:#8b949e;">px</span>
+            </div>
+            <div class="cfg-row">
+                <label>Mini Bar</label>
+                <input type="number" id="size-mini-w" value="400" min="150" max="800" style="max-width:70px;">
+                <span style="color:#484f58;font-size:0.82rem;">×</span>
+                <input type="number" id="size-mini-h" value="40" min="24" max="200" style="max-width:70px;">
+                <span style="font-size:0.72rem;color:#8b949e;">px</span>
             </div>
 
             <h3>Show/Hide Fields</h3>
@@ -149,6 +170,16 @@
 
             <h3>Art Mode</h3>
             <div class="toggle-row"><input type="checkbox" id="field-art-persist"><label for="field-art-persist">Keep info visible (don't auto-hide)</label></div>
+            <div class="cfg-row" style="margin-top:0.5rem;">
+                <label>Fallback Art</label>
+                <div style="flex:1;display:flex;align-items:center;gap:0.5rem;">
+                    <img id="fallback-preview" src="" style="width:36px;height:36px;border-radius:4px;object-fit:cover;background:#21262d;display:none;">
+                    <span id="fallback-default" style="font-size:0.78rem;color:#8b949e;">Default (music note)</span>
+                    <input type="file" id="fallback-upload" accept="image/*" style="display:none;">
+                    <button class="btn" onclick="document.getElementById('fallback-upload').click()" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Upload</button>
+                    <button class="btn" id="fallback-remove-btn" onclick="removeFallbackArt()" style="padding:0.3rem 0.6rem;font-size:0.75rem;display:none;">✕</button>
+                </div>
+            </div>
 
             <h3>Mini Layout</h3>
             <div class="cfg-row">
@@ -192,14 +223,24 @@
         <!-- OBS URLs -->
         <div class="card full-width">
             <h2>OBS Browser Source URLs</h2>
-            <p style="font-size:0.78rem;color:#8b949e;margin-bottom:0.75rem;">Click to copy. Add these as Browser Sources in OBS.</p>
-            <div class="url-box" onclick="copyUrl(this)" id="url-full"></div>
-            <div class="url-box" onclick="copyUrl(this)" id="url-art"></div>
-            <div class="url-box" onclick="copyUrl(this)" id="url-mini"></div>
+            <p style="font-size:0.78rem;color:#8b949e;margin-bottom:0.75rem;">Click to copy. Add as Browser Sources in OBS and set Width/Height to match the overlay sizes above.</p>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+                <div class="url-box" onclick="copyUrl(this)" id="url-full" style="flex:1;"></div>
+                <span id="obs-size-full" class="obs-hint"></span>
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+                <div class="url-box" onclick="copyUrl(this)" id="url-art" style="flex:1;"></div>
+                <span id="obs-size-art" class="obs-hint"></span>
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+                <div class="url-box" onclick="copyUrl(this)" id="url-mini" style="flex:1;"></div>
+                <span id="obs-size-mini" class="obs-hint"></span>
+            </div>
 
             <div class="actions">
                 <button class="btn primary" onclick="saveConfig()">💾 Save Settings</button>
                 <button class="btn" onclick="loadConfig()">↩ Revert</button>
+                <button class="btn" onclick="restoreDefaults()" style="margin-left:auto;">🔄 Restore Defaults</button>
             </div>
         </div>
     </div>
@@ -215,6 +256,28 @@
         'Righteous': 'Righteous',
         'Permanent Marker': 'Permanent+Marker',
         'Inter': 'Inter'
+    };
+
+    const DEFAULTS = {
+        enabled: false,
+        source: 'apple_music',
+        poll_seconds: 5,
+        theme: {
+            font_family: "'Segoe UI', system-ui, sans-serif",
+            font_import: '',
+            text_color: '#ffffff',
+            accent_color: '#58a6ff',
+            bg_color: 'rgba(0, 0, 0, 0.7)',
+            font_scale: 1,
+            fields: { track: true, artist: true, album: true },
+            art_persist_info: false,
+            mini_layout: 'single',
+            sizes: {
+                art: { width: 200, height: 200 },
+                full: { width: 420, height: 120 },
+                mini: { width: 400, height: 40 }
+            }
+        }
     };
 
     function fontImportUrl(name) {
@@ -234,6 +297,16 @@
         document.getElementById('url-full').textContent = `${base}/music.html?mode=full`;
         document.getElementById('url-art').textContent = `${base}/music.html?mode=art`;
         document.getElementById('url-mini').textContent = `${base}/music.html?mode=mini`;
+        updateObsHints();
+    }
+
+    function updateObsHints() {
+        const fw = document.getElementById('size-full-w').value, fh = document.getElementById('size-full-h').value;
+        const aw = document.getElementById('size-art-w').value, ah = document.getElementById('size-art-h').value;
+        const mw = document.getElementById('size-mini-w').value, mh = document.getElementById('size-mini-h').value;
+        document.getElementById('obs-size-full').textContent = `OBS: ${fw}×${fh}`;
+        document.getElementById('obs-size-art').textContent = `OBS: ${aw}×${ah}`;
+        document.getElementById('obs-size-mini').textContent = `OBS: ${mw}×${mh}`;
     }
 
     function copyUrl(el) {
@@ -291,11 +364,17 @@
             document.getElementById('theme-bg-color-text').value = bg;
             try { document.getElementById('theme-bg-color').value = rgbToHex(bg); } catch {}
 
-            document.getElementById('theme-art-size').value = theme.art_size || 200;
-            document.getElementById('theme-art-size-val').textContent = (theme.art_size || 200) + 'px';
-
             document.getElementById('theme-font-scale').value = theme.font_scale || 1;
             document.getElementById('theme-font-scale-val').textContent = (theme.font_scale || 1) + '×';
+
+            // Overlay sizes
+            const sizes = theme.sizes || DEFAULTS.theme.sizes;
+            document.getElementById('size-art-w').value = sizes.art?.width || 200;
+            document.getElementById('size-art-h').value = sizes.art?.height || 200;
+            document.getElementById('size-full-w').value = sizes.full?.width || 420;
+            document.getElementById('size-full-h').value = sizes.full?.height || 120;
+            document.getElementById('size-mini-w').value = sizes.mini?.width || 400;
+            document.getElementById('size-mini-h').value = sizes.mini?.height || 40;
 
             // Fields
             const fields = theme.fields || {};
@@ -307,6 +386,7 @@
             document.getElementById('mini-layout').value = theme.mini_layout || 'single';
 
             updateStatus(music.enabled);
+            updateObsHints();
         } catch (err) {
             console.error('Failed to load config:', err);
         }
@@ -330,8 +410,12 @@
                 text_color: document.getElementById('theme-text-color-text').value,
                 accent_color: document.getElementById('theme-accent-color-text').value,
                 bg_color: document.getElementById('theme-bg-color-text').value,
-                art_size: parseInt(document.getElementById('theme-art-size').value) || 200,
                 font_scale: parseFloat(document.getElementById('theme-font-scale').value) || 1,
+                sizes: {
+                    art: { width: parseInt(document.getElementById('size-art-w').value) || 200, height: parseInt(document.getElementById('size-art-h').value) || 200 },
+                    full: { width: parseInt(document.getElementById('size-full-w').value) || 420, height: parseInt(document.getElementById('size-full-h').value) || 120 },
+                    mini: { width: parseInt(document.getElementById('size-mini-w').value) || 400, height: parseInt(document.getElementById('size-mini-h').value) || 40 }
+                },
                 fields: {
                     track: document.getElementById('field-track').checked,
                     artist: document.getElementById('field-artist').checked,
@@ -370,16 +454,75 @@
     document.getElementById('music-poll').addEventListener('input', (e) => {
         document.getElementById('music-poll-val').textContent = e.target.value + 's';
     });
-    document.getElementById('theme-art-size').addEventListener('input', (e) => {
-        document.getElementById('theme-art-size-val').textContent = e.target.value + 'px';
-    });
     document.getElementById('theme-font-scale').addEventListener('input', (e) => {
         document.getElementById('theme-font-scale-val').textContent = e.target.value + '×';
     });
 
+    // Update OBS hints when sizes change
+    for (const id of ['size-art-w', 'size-art-h', 'size-full-w', 'size-full-h', 'size-mini-w', 'size-mini-h']) {
+        document.getElementById(id).addEventListener('input', updateObsHints);
+    }
+
+    async function restoreDefaults() {
+        if (!confirm('Reset all music settings to defaults? This will save immediately.')) return;
+        try {
+            const res = await fetch('/api/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ music: DEFAULTS })
+            });
+            if (res.ok) {
+                loadConfig();
+                const iframe = document.getElementById('preview-iframe');
+                iframe.src = iframe.src;
+            } else {
+                alert('Reset failed');
+            }
+        } catch (err) {
+            alert('Reset error: ' + err.message);
+        }
+    }
+
     // Init
     updateUrls();
     loadConfig();
+
+    // Fallback art management
+    async function checkFallbackArt() {
+        try {
+            const res = await fetch('/api/music/fallback-art', { method: 'HEAD' });
+            const preview = document.getElementById('fallback-preview');
+            const label = document.getElementById('fallback-default');
+            const removeBtn = document.getElementById('fallback-remove-btn');
+            if (res.ok) {
+                preview.src = '/api/music/fallback-art?t=' + Date.now();
+                preview.style.display = 'block';
+                label.style.display = 'none';
+                removeBtn.style.display = '';
+            } else {
+                preview.style.display = 'none';
+                label.style.display = '';
+                removeBtn.style.display = 'none';
+            }
+        } catch {}
+    }
+
+    document.getElementById('fallback-upload').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) { alert('Max 2MB'); return; }
+        const buf = await file.arrayBuffer();
+        const res = await fetch('/api/music/fallback-art', { method: 'POST', body: buf });
+        if (res.ok) checkFallbackArt();
+        else alert('Upload failed');
+    });
+
+    async function removeFallbackArt() {
+        await fetch('/api/music/fallback-art', { method: 'DELETE' });
+        checkFallbackArt();
+    }
+
+    checkFallbackArt();
 
     // Now Playing status polling
     async function pollNowPlaying() {

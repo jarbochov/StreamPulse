@@ -16,7 +16,7 @@
             { label: 'Stats', href: '/stats.html' },
             { label: 'Hashtags', href: '/hashtags.html' }
         ]},
-        { label: 'Music ▾', children: [
+        { label: 'Music (Beta) ▾', children: [
             { label: 'Settings', href: '/music-editor.html' },
             { label: 'Full Player', href: '/music.html?mode=full', target: '_blank' },
             { label: 'Art Only', href: '/music.html?mode=art', target: '_blank' },

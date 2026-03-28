@@ -491,6 +491,7 @@ async function fetchStreamInfo() {
 // ============================================================================
 
 const MUSIC_ART_PATH = path.join(DATA_DIR, 'music-artwork.png');
+const MUSIC_FALLBACK_ART_PATH = path.join(DATA_DIR, 'music-fallback.png');
 let musicState = { track: '', artist: '', album: '', state: 'stopped', artworkUrl: '' };
 let musicPollTimer = null;
 
@@ -1667,6 +1668,42 @@ const server = http.createServer(async (req, res) => {
             res.end('Artwork read error');
         }
         return;
+    }
+
+    if (pathname === '/api/music/fallback-art') {
+        if (req.method === 'GET' || req.method === 'HEAD') {
+            if (fs.existsSync(MUSIC_FALLBACK_ART_PATH)) {
+                const art = fs.readFileSync(MUSIC_FALLBACK_ART_PATH);
+                res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-cache', 'Content-Length': art.length });
+                res.end(req.method === 'HEAD' ? undefined : art);
+            } else {
+                res.writeHead(404);
+                res.end(req.method === 'HEAD' ? undefined : 'No fallback art');
+            }
+            return;
+        }
+        if (req.method === 'POST') {
+            const chunks = [];
+            req.on('data', c => chunks.push(c));
+            req.on('end', () => {
+                const buf = Buffer.concat(chunks);
+                if (buf.length > 2 * 1024 * 1024) {
+                    res.writeHead(413, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'File too large (max 2MB)' }));
+                    return;
+                }
+                fs.writeFileSync(MUSIC_FALLBACK_ART_PATH, buf);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: true }));
+            });
+            return;
+        }
+        if (req.method === 'DELETE') {
+            if (fs.existsSync(MUSIC_FALLBACK_ART_PATH)) fs.unlinkSync(MUSIC_FALLBACK_ART_PATH);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+        }
     }
 
     if (pathname === '/api/categories') {

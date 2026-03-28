@@ -13,7 +13,10 @@
             --music-text-color: #ffffff;
             --music-accent-color: #58a6ff;
             --music-bg-color: rgba(0, 0, 0, 0.7);
-            --music-art-size: 200px;
+            --music-art-w: 200px;
+            --music-art-h: 200px;
+            --music-full-w: 420px;
+            --music-full-h: 120px;
             --music-font-scale: 1;
         }
 
@@ -22,8 +25,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: var(--music-art-size);
-            height: var(--music-art-size);
+            width: var(--music-art-w);
+            height: var(--music-art-h);
             position: relative;
             overflow: hidden;
             border-radius: 8px;
@@ -78,20 +81,20 @@
             background: var(--music-bg-color);
             border-radius: 10px;
             padding: 0.5rem;
-            max-width: 420px;
+            max-width: var(--music-full-w);
             align-items: center;
         }
         .mode-full .artwork {
-            width: calc(var(--music-art-size) * 0.45);
-            height: calc(var(--music-art-size) * 0.45);
-            min-width: calc(var(--music-art-size) * 0.45);
+            width: calc(var(--music-full-h) - 1rem);
+            height: calc(var(--music-full-h) - 1rem);
+            min-width: calc(var(--music-full-h) - 1rem);
             object-fit: cover;
             border-radius: 6px;
         }
         .mode-full .no-art {
-            width: calc(var(--music-art-size) * 0.45);
-            height: calc(var(--music-art-size) * 0.45);
-            min-width: calc(var(--music-art-size) * 0.45);
+            width: calc(var(--music-full-h) - 1rem);
+            height: calc(var(--music-full-h) - 1rem);
+            min-width: calc(var(--music-full-h) - 1rem);
             background: rgba(255,255,255,0.1);
             display: flex;
             align-items: center;
@@ -237,6 +240,9 @@
     let musicTheme = {};
     let artPersistInfo = false;
     let miniLayout = 'single';
+    let hasFallbackArt = false;
+
+    const DEFAULT_ART_SVG = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#161b22"/><text x="100" y="112" text-anchor="middle" font-size="64" fill="#30363d">♫</text></svg>')}`;
 
     function escapeHtml(str) {
         return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -248,7 +254,13 @@
         if (theme.text_color) root.style.setProperty('--music-text-color', theme.text_color);
         if (theme.accent_color) root.style.setProperty('--music-accent-color', theme.accent_color);
         if (theme.bg_color) root.style.setProperty('--music-bg-color', theme.bg_color);
-        if (theme.art_size) root.style.setProperty('--music-art-size', theme.art_size + 'px');
+        const sizes = theme.sizes || {};
+    const art = sizes.art || {};
+    const full = sizes.full || {};
+    root.style.setProperty('--music-art-w', (art.width || 200) + 'px');
+    root.style.setProperty('--music-art-h', (art.height || 200) + 'px');
+    root.style.setProperty('--music-full-w', (full.width || 420) + 'px');
+    root.style.setProperty('--music-full-h', (full.height || 120) + 'px');
         if (theme.font_scale) root.style.setProperty('--music-font-scale', theme.font_scale);
 
         if (theme.font_family && theme.font_import) {
@@ -279,11 +291,15 @@
         return musicTheme.fields[field] !== false;
     }
 
+    function fallbackArtSrc() {
+        return hasFallbackArt ? '/api/music/fallback-art?t=' + Date.now() : DEFAULT_ART_SVG;
+    }
+
     function renderArt(data) {
         const artSrc = data.artworkUrl || '';
         const artHtml = artSrc
             ? `<img class="artwork" src="${artSrc}" alt="Album Art">`
-            : `<div class="no-art">🎵</div>`;
+            : `<img class="artwork" src="${fallbackArtSrc()}" alt="No Art">`;
 
         const trackHtml = showField('track') ? `<div class="track-name">${marqueeWrap(data.track)}</div>` : '';
         const artistHtml = showField('artist') ? `<div class="artist-name">${escapeHtml(data.artist)}</div>` : '';
@@ -301,7 +317,7 @@
         const artSrc = data.artworkUrl || '';
         const artHtml = artSrc
             ? `<img class="artwork" src="${artSrc}" alt="Album Art">`
-            : `<div class="no-art">🎵</div>`;
+            : `<img class="artwork" src="${fallbackArtSrc()}" alt="No Art">`;
 
         const trackHtml = showField('track') ? `<div class="track-name">${marqueeWrap(data.track)}</div>` : '';
         const artistHtml = showField('artist') ? `<div class="artist-name">${escapeHtml(data.artist)}</div>` : '';
@@ -425,8 +441,16 @@
         } catch {}
     }
 
+    // Check for custom fallback art
+    async function checkFallbackArt() {
+        try {
+            const res = await fetch('/api/music/fallback-art', { method: 'HEAD' });
+            hasFallbackArt = res.ok;
+        } catch { hasFallbackArt = false; }
+    }
+
     // Init
-    loadTheme().then(() => {
+    Promise.all([loadTheme(), checkFallbackArt()]).then(() => {
         connectWS();
         pollNowPlaying();
         setInterval(pollNowPlaying, 5000);

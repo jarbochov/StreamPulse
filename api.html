@@ -343,6 +343,21 @@
             ]
         },
         {
+            section: 'Music (Beta)',
+            items: [
+                {
+                    method: 'GET', path: '/api/music/now-playing',
+                    desc: 'Current track info and player state',
+                    details: 'Returns the current music state: { state, track, artist, album, artworkUrl }. State is "playing", "paused", or "stopped". Currently supports Apple Music on macOS only (Beta).'
+                },
+                {
+                    method: 'GET', path: '/api/music/artwork',
+                    desc: 'Album artwork image (PNG)',
+                    details: 'Serves the album art of the currently playing track as a PNG image. Returns 404 if no artwork is available. Cache-busted automatically by the overlay.'
+                }
+            ]
+        },
+        {
             section: 'WebSocket',
             items: [
                 {

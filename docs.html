@@ -94,6 +94,7 @@
             <a href="#obs-setup">OBS Browser Source Setup</a>
             <a href="#websocket">WebSocket Connection</a>
             <a href="#data-files">Data Files & Persistence</a>
+            <a href="#music">Music Now-Playing (Beta)</a>
             <a href="#companion">Bitfocus Companion Setup</a>
         </div>
 
@@ -238,6 +239,11 @@
         {
             id: 'data-files',
             title: 'Data Files & Persistence',
+            custom: true
+        },
+        {
+            id: 'music',
+            title: 'Music Now-Playing (Beta)',
             custom: true
         },
         {
@@ -428,6 +434,63 @@
                         </table>
                     </div>
                 </div>`;
+
+            case 'music': return `
+    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong style="font-size:0.9rem;">Overview</strong>
+            <span class="badge hot">Beta</span>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">
+                The Music Now-Playing system polls your local music player and displays the current track as a customizable OBS overlay. Three overlay modes are available, each as a separate Browser Source.<br><br>
+                <strong>Currently supported:</strong> Apple Music (macOS only)<br>
+                <strong>Planned:</strong> Spotify, VLC (cross-platform)<br><br>
+                Music is <strong>disabled by default</strong>. Enable it from <a href="/music-editor.html" style="color:#58a6ff;">Music Settings</a>.
+            </div>
+        </div>
+    </div>
+    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong style="font-size:0.9rem;">OBS Setup — Music Overlays</strong>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">Add each mode as a separate <strong>Browser Source</strong> in OBS. Set the Width and Height to match the overlay sizes configured in <a href="/music-editor.html" style="color:#58a6ff;">Music Settings</a>.</div>
+            <div class="detail-label">Full Player (default: 420×120)</div>
+            <div class="detail-text">Album art + song title, artist, and album in a horizontal layout.</div>
+            <div class="url-box"><code>${BASE}/music.html?mode=full</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/music.html?mode=full')">Copy</button></div>
+            <div class="detail-label">Art Only (default: 200×200)</div>
+            <div class="detail-text">Album artwork with optional info overlay. Great for a corner display.</div>
+            <div class="url-box"><code>${BASE}/music.html?mode=art</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/music.html?mode=art')">Copy</button></div>
+            <div class="detail-label">Mini Bar (default: 400×40)</div>
+            <div class="detail-text">Compact text-only bar. Configurable layout: single line, two lines, or two lines with album.</div>
+            <div class="url-box"><code>${BASE}/music.html?mode=mini</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/music.html?mode=mini')">Copy</button></div>
+        </div>
+    </div>
+    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong style="font-size:0.9rem;">config.json — Music Settings</strong>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <table>
+                <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+                <tr><td><code>music.enabled</code> <span class="badge hot">Hot-reload</span></td><td>boolean</td><td><code>false</code></td><td>Enable or disable music polling. Starts/stops without server restart.</td></tr>
+                <tr><td><code>music.source</code></td><td>string</td><td><code>"apple_music"</code></td><td>Music source. Currently only "apple_music" is supported.</td></tr>
+                <tr><td><code>music.poll_seconds</code> <span class="badge hot">Hot-reload</span></td><td>number</td><td><code>5</code></td><td>How often to poll the music player (seconds).</td></tr>
+                <tr><td><code>music.theme.font_family</code></td><td>string</td><td><code>"Segoe UI"</code></td><td>Font for overlay text.</td></tr>
+                <tr><td><code>music.theme.text_color</code></td><td>string</td><td><code>"#ffffff"</code></td><td>Primary text color.</td></tr>
+                <tr><td><code>music.theme.accent_color</code></td><td>string</td><td><code>"#58a6ff"</code></td><td>Artist name / accent color.</td></tr>
+                <tr><td><code>music.theme.bg_color</code></td><td>string</td><td><code>"rgba(0,0,0,0.7)"</code></td><td>Background color (supports transparency).</td></tr>
+                <tr><td><code>music.theme.sizes</code></td><td>object</td><td>—</td><td>Per-mode overlay dimensions: art {width,height}, full {width,height}, mini {width,height}. Match in OBS.</td></tr>
+                <tr><td><code>music.theme.fields</code></td><td>object</td><td>all true</td><td>Toggle visibility: { track, artist, album }.</td></tr>
+                <tr><td><code>music.theme.art_persist_info</code></td><td>boolean</td><td><code>false</code></td><td>Keep track info permanently visible in Art Only mode.</td></tr>
+                <tr><td><code>music.theme.mini_layout</code></td><td>string</td><td><code>"single"</code></td><td>Mini bar layout: "single", "two", or "two-album".</td></tr>
+            </table>
+        </div>
+    </div>`;
 
             case 'companion': return `
                 <div class="card open">
