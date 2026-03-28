@@ -46,8 +46,14 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: linear-gradient(transparent, var(--music-art-scrim));
-            padding: 0.5rem 0.6rem;
+            background: linear-gradient(transparent 0%, var(--music-art-scrim) 40%);
+            backdrop-filter: blur(var(--music-art-blur, 0px));
+            -webkit-backdrop-filter: blur(var(--music-art-blur, 0px));
+            padding: 0.6rem 0.6rem 0.5rem;
+            min-height: 40%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
             transform: translateY(100%);
             transition: transform 0.4s ease;
             border-radius: 0 0 8px 8px;
@@ -340,6 +346,7 @@
         if (theme.bg_color) root.style.setProperty('--music-bg-color', theme.bg_color);
         if (theme.art_scrim_color) root.style.setProperty('--music-art-scrim', theme.art_scrim_color);
         if (theme.art_brightness != null) root.style.setProperty('--music-art-brightness', theme.art_brightness);
+        if (theme.art_blur != null) root.style.setProperty('--music-art-blur', theme.art_blur + 'px');
         const sizes = theme.sizes || {};
         const art = sizes.art || {};
         const full = sizes.full || {};
@@ -560,6 +567,7 @@
         if (params.get('bgColor')) musicTheme.bg_color = params.get('bgColor');
         if (params.get('scrimColor')) musicTheme.art_scrim_color = params.get('scrimColor');
         if (params.get('artBrightness')) musicTheme.art_brightness = parseFloat(params.get('artBrightness'));
+        if (params.get('artBlur')) musicTheme.art_blur = parseInt(params.get('artBlur'));
         if (params.get('fontScale')) musicTheme.font_scale = parseFloat(params.get('fontScale'));
         if (params.get('w') || params.get('h')) {
             if (!musicTheme.sizes) musicTheme.sizes = {};
