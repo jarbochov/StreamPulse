@@ -315,7 +315,7 @@
 <script>
     const params = new URLSearchParams(window.location.search);
     const MODE = params.get('mode') || 'full';
-    const MARQUEE_THRESHOLD = 30;
+    const POLL_INTERVAL = 3000;
     const ART_OVERLAY_DURATION = 5000;
 
     let currentTrack = '';
@@ -383,13 +383,32 @@
 
     function marqueeWrap(text, extraClass) {
         const cls = extraClass || '';
-        const needsScroll = text.length > MARQUEE_THRESHOLD;
-        if (needsScroll) {
-            const speed = Math.max(5, text.length * 0.35);
-            return `<div class="marquee-wrap scrolling ${cls}" style="--marquee-duration:${speed}s"><span class="marquee-text" data-text="${escapeHtml(text)}">${escapeHtml(text)}</span></div>`;
-        }
-        return `<div class="marquee-wrap ${cls}"><span class="marquee-text">${escapeHtml(text)}</span></div>`;
+        return `<div class="marquee-wrap ${cls}"><span class="marquee-text" data-text="${escapeHtml(text)}">${escapeHtml(text)}</span></div>`;
     }
+
+    // Measure rendered text vs container, apply scrolling only when text overflows
+    function applyDynamicMarquee() {
+        const SCROLL_SPEED = 40; // pixels per second
+        document.querySelectorAll('.marquee-wrap').forEach(wrap => {
+            const span = wrap.querySelector('.marquee-text');
+            if (!span) return;
+            // Reset to measure natural width
+            wrap.classList.remove('scrolling');
+            span.style.animation = 'none';
+            // Force reflow
+            void span.offsetWidth;
+            const textW = span.scrollWidth;
+            const containerW = wrap.clientWidth;
+            if (textW > containerW) {
+                const duration = (textW + 48) / SCROLL_SPEED; // 48px = gap (3rem)
+                wrap.style.setProperty('--marquee-duration', duration + 's');
+                wrap.classList.add('scrolling');
+                span.style.animation = '';
+            }
+        });
+    }
+
+    window.addEventListener('resize', () => requestAnimationFrame(applyDynamicMarquee));
 
     // Visibility settings from theme (defaults: track/artist/album on; year/progress off)
     function showField(field) {
@@ -520,6 +539,7 @@
                 case 'mini': player.innerHTML = renderMini(data); break;
                 default: player.innerHTML = renderFull(data); break;
             }
+            requestAnimationFrame(applyDynamicMarquee);
         }
 
         // Show/hide based on state
