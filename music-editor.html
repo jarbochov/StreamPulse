@@ -151,6 +151,20 @@
                 <input type="color" id="theme-bg-color" value="#000000">
                 <input type="text" id="theme-bg-color-text" value="rgba(0, 0, 0, 0.7)" style="max-width:140px;">
             </div>
+
+            <h3>Art Mode</h3>
+            <div class="cfg-row">
+                <label>Art Brightness</label>
+                <input type="range" id="theme-art-brightness" min="0.2" max="1" step="0.05" value="1">
+                <span id="theme-art-brightness-val" style="font-size:0.82rem;min-width:40px;">100%</span>
+                <span style="font-size:0.72rem;color:#8b949e;">Dim album art for readability</span>
+            </div>
+            <div class="cfg-row">
+                <label>Scrim Color</label>
+                <input type="color" id="theme-scrim-color" value="#000000">
+                <input type="text" id="theme-scrim-color-text" value="rgba(0, 0, 0, 0.85)" style="max-width:140px;">
+                <span style="font-size:0.72rem;color:#8b949e;">Gradient over text area</span>
+            </div>
             <div class="cfg-row">
                 <label>Font Scale</label>
                 <input type="range" id="theme-font-scale" min="0.5" max="2.5" step="0.1" value="1">
@@ -303,6 +317,8 @@
             text_color: '#ffffff',
             accent_color: '#58a6ff',
             bg_color: 'rgba(0, 0, 0, 0.7)',
+            art_scrim_color: 'rgba(0, 0, 0, 0.85)',
+            art_brightness: 1,
             font_scale: 1,
             full_art_size: 0,
             fields: { track: true, artist: true, album: true, year: false, progress: false },
@@ -482,6 +498,14 @@
             document.getElementById('theme-bg-color-text').value = bg;
             try { document.getElementById('theme-bg-color').value = colorToHex6(bg); } catch {}
 
+            const scrim = theme.art_scrim_color || 'rgba(0, 0, 0, 0.85)';
+            document.getElementById('theme-scrim-color-text').value = scrim;
+            try { document.getElementById('theme-scrim-color').value = colorToHex6(scrim); } catch {}
+
+            const brightness = theme.art_brightness != null ? theme.art_brightness : 1;
+            document.getElementById('theme-art-brightness').value = brightness;
+            document.getElementById('theme-art-brightness-val').textContent = Math.round(brightness * 100) + '%';
+
             document.getElementById('theme-font-scale').value = theme.font_scale || 1;
             document.getElementById('theme-font-scale-val').textContent = (theme.font_scale || 1) + '×';
 
@@ -549,6 +573,8 @@
                 text_color: document.getElementById('theme-text-color-text').value,
                 accent_color: document.getElementById('theme-accent-color-text').value,
                 bg_color: document.getElementById('theme-bg-color-text').value,
+                art_scrim_color: document.getElementById('theme-scrim-color-text').value,
+                art_brightness: parseFloat(document.getElementById('theme-art-brightness').value) || 1,
                 font_scale: parseFloat(document.getElementById('theme-font-scale').value) || 1,
                 full_art_size: parseInt(document.getElementById('size-full-art').value) || 0,
                 sizes: {
@@ -598,6 +624,11 @@
     syncColor('theme-text-color', 'theme-text-color-text');
     syncColor('theme-accent-color', 'theme-accent-color-text');
     syncColor('theme-bg-color', 'theme-bg-color-text');
+    syncColor('theme-scrim-color', 'theme-scrim-color-text');
+
+    document.getElementById('theme-art-brightness').addEventListener('input', (e) => {
+        document.getElementById('theme-art-brightness-val').textContent = Math.round(e.target.value * 100) + '%';
+    });
 
     // Live preview: push theme changes to iframe in real-time
     function getCurrentTheme() {
@@ -608,6 +639,8 @@
             text_color: document.getElementById('theme-text-color-text').value,
             accent_color: document.getElementById('theme-accent-color-text').value,
             bg_color: document.getElementById('theme-bg-color-text').value,
+            art_scrim_color: document.getElementById('theme-scrim-color-text').value,
+            art_brightness: parseFloat(document.getElementById('theme-art-brightness').value) || 1,
             font_scale: parseFloat(document.getElementById('theme-font-scale').value) || 1,
             full_art_size: parseInt(document.getElementById('size-full-art').value) || 0,
             sizes: {
@@ -645,6 +678,7 @@
     const livePreviewIds = [
         'theme-font', 'theme-text-color', 'theme-text-color-text',
         'theme-accent-color', 'theme-accent-color-text', 'theme-bg-color', 'theme-bg-color-text',
+        'theme-scrim-color', 'theme-scrim-color-text', 'theme-art-brightness',
         'theme-font-scale', 'size-art-w', 'size-art-h', 'size-full-w', 'size-full-h', 'size-full-art', 'size-mini-w', 'size-mini-h',
         'field-track', 'field-artist', 'field-album', 'field-year', 'field-progress',
         'field-art-persist', 'mini-layout',
