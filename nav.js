@@ -18,6 +18,7 @@
         ]},
         { label: 'Music (Beta) ▾', children: [
             { label: 'Settings', href: '/music-editor.html' },
+            { label: 'URL Wizard', href: '/music-url-wizard.html' },
             { label: 'Full Player', href: '/music.html?mode=full', target: '_blank' },
             { label: 'Art Only', href: '/music.html?mode=art', target: '_blank' },
             { label: 'Mini Bar', href: '/music.html?mode=mini', target: '_blank' }

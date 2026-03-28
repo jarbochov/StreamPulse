@@ -309,76 +309,12 @@
         return '#' + [m[1], m[2], m[3]].map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
     }
 
-    // Build OBS URL with all current settings as query params
-    function buildOverlayUrl(mode) {
-        const base = `${location.protocol}//${location.host}/music.html`;
-        const p = new URLSearchParams();
-        p.set('mode', mode);
-
-        const font = document.getElementById('theme-font').value;
-        const def = DEFAULTS.theme;
-        if (font && font !== def.font_family) p.set('font', font);
-
-        const tc = document.getElementById('theme-text-color-text').value;
-        if (tc && tc !== def.text_color) p.set('textColor', tc);
-
-        const ac = document.getElementById('theme-accent-color-text').value;
-        if (ac && ac !== def.accent_color) p.set('accentColor', ac);
-
-        const bg = document.getElementById('theme-bg-color-text').value;
-        if (bg && bg !== def.bg_color) p.set('bgColor', bg);
-
-        const fs = parseFloat(document.getElementById('theme-font-scale').value) || 1;
-        if (fs !== 1) p.set('fontScale', fs);
-
-        // Mode-specific size
-        const sizeMap = { art: ['size-art-w','size-art-h'], full: ['size-full-w','size-full-h'], mini: ['size-mini-w','size-mini-h'] };
-        const [wId, hId] = sizeMap[mode];
-        const w = parseInt(document.getElementById(wId).value);
-        const h = parseInt(document.getElementById(hId).value);
-        const dw = def.sizes[mode]?.width, dh = def.sizes[mode]?.height;
-        if (w && w !== dw) p.set('w', w);
-        if (h && h !== dh) p.set('h', h);
-
-        if (mode === 'full') {
-            const artSz = parseInt(document.getElementById('size-full-art').value) || 0;
-            if (artSz > 0) p.set('artSize', artSz);
-        }
-
-        // Label
-        const labelText = document.getElementById('label-text').value;
-        if (labelText !== def.label.text) p.set('label', labelText || 'off');
-        const showMap = { art: 'label-show-art', full: 'label-show-full', mini: 'label-show-mini' };
-        const showEl = document.getElementById(showMap[mode]);
-        const defShow = def.label[`show_${mode}`];
-        if (showEl && showEl.checked !== defShow) p.set(`label${mode.charAt(0).toUpperCase()+mode.slice(1)}`, showEl.checked ? '1' : '0');
-
-        // Fields (only if changed from defaults)
-        const fields = ['track','artist','album','year','progress'];
-        const fieldVals = {};
-        let fieldsChanged = false;
-        for (const f of fields) {
-            fieldVals[f] = document.getElementById(`field-${f}`).checked;
-            if (fieldVals[f] !== (def.fields[f] ?? (f === 'track' || f === 'artist' || f === 'album'))) fieldsChanged = true;
-        }
-        if (fieldsChanged) p.set('fields', fields.filter(f => fieldVals[f]).join(','));
-
-        if (mode === 'art' && document.getElementById('field-art-persist').checked !== def.art_persist_info) {
-            p.set('persist', document.getElementById('field-art-persist').checked ? '1' : '0');
-        }
-
-        if (mode === 'mini') {
-            const layout = document.getElementById('mini-layout').value;
-            if (layout !== def.mini_layout) p.set('layout', layout);
-        }
-
-        return `${base}?${p.toString()}`;
-    }
-
+    // Build OBS URL — simple base URLs (use URL Wizard for parameterized URLs)
     function updateUrls() {
-        document.getElementById('url-full').textContent = buildOverlayUrl('full');
-        document.getElementById('url-art').textContent = buildOverlayUrl('art');
-        document.getElementById('url-mini').textContent = buildOverlayUrl('mini');
+        const base = `${location.protocol}//${location.host}`;
+        document.getElementById('url-full').textContent = `${base}/music.html?mode=full`;
+        document.getElementById('url-art').textContent = `${base}/music.html?mode=art`;
+        document.getElementById('url-mini').textContent = `${base}/music.html?mode=mini`;
         updateObsHints();
     }
 
@@ -608,8 +544,8 @@
     for (const id of livePreviewIds) {
         const el = document.getElementById(id);
         if (el) {
-            el.addEventListener('input', () => { pushLivePreview(); updateUrls(); });
-            el.addEventListener('change', () => { pushLivePreview(); updateUrls(); });
+            el.addEventListener('input', pushLivePreview);
+            el.addEventListener('change', pushLivePreview);
         }
     }
 

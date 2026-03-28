@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Music URL Wizard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .nav { display: flex; gap: 0.75rem; align-items: center; }
+        .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
+        .nav a:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown { position: relative; display: flex; align-items: center; }
+        .nav .dropdown-toggle { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
+        .nav .dropdown-toggle:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
+        .nav .dropdown:hover .dropdown-menu { display: block; }
+        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+        .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
+
+        .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+        .full-width { grid-column: 1 / -1; }
+
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; }
+        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 1rem; }
+        .card h3 { font-size: 0.78rem; color: #58a6ff; margin: 0.75rem 0 0.5rem; padding-top: 0.5rem; border-top: 1px solid #21262d; }
+
+        .cfg-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.6rem; }
+        .cfg-row label { font-size: 0.82rem; color: #8b949e; min-width: 100px; }
+        .cfg-row input, .cfg-row select { flex: 1; padding: 0.4rem 0.6rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.82rem; font-family: inherit; outline: none; }
+        .cfg-row input:focus, .cfg-row select:focus { border-color: #58a6ff; }
+        .cfg-row input[type="color"] { width: 36px; height: 30px; padding: 2px; cursor: pointer; flex: none; }
+        .cfg-row input[type="range"] { accent-color: #58a6ff; }
+        .cfg-row input[type="checkbox"] { flex: none; width: auto; accent-color: #58a6ff; }
+
+        .toggle-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .toggle-row label { font-size: 0.82rem; color: #c9d1d9; cursor: pointer; }
+        .toggle-row input[type="checkbox"] { accent-color: #58a6ff; }
+
+        .btn { padding: 0.5rem 1.25rem; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #e1e4e8; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+        .btn:hover { border-color: #58a6ff; }
+        .btn.primary { background: #238636; border-color: #238636; }
+        .btn.primary:hover { background: #2ea043; }
+
+        .url-output { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 0.75rem 1rem; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; font-size: 0.78rem; color: #7ee787; word-break: break-all; line-height: 1.5; cursor: pointer; transition: border-color 0.3s; position: relative; }
+        .url-output:hover { border-color: #58a6ff; }
+        .url-output .copy-toast { position: absolute; top: -1.5rem; right: 0.5rem; font-size: 0.7rem; color: #3fb950; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        .url-output .copy-toast.show { opacity: 1; }
+
+        .preview-frame { background: #000; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 240px; padding: 1rem; }
+        .preview-frame iframe { border: none; width: 100%; height: 100%; min-height: 220px; background: transparent; }
+
+        .obs-hint { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: #58a6ff; background: #1a2332; border: 1px solid #30363d; border-radius: 4px; padding: 0.2rem 0.5rem; margin-top: 0.5rem; }
+
+        .param-badge { display: inline-block; font-size: 0.68rem; background: #21262d; border: 1px solid #30363d; border-radius: 3px; padding: 0.1rem 0.35rem; color: #8b949e; font-family: monospace; margin-left: 0.3rem; }
+
+        .info-text { font-size: 0.78rem; color: #8b949e; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>StreamPulse <span>Music URL Wizard</span> <span style="font-size:0.6rem;background:#4a2f05;color:#d29922;border:1px solid #d2992230;padding:0.15rem 0.4rem;border-radius:4px;vertical-align:middle;">Beta</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <div class="container">
+        <!-- Intro -->
+        <div class="card full-width">
+            <h2>Build Custom Overlay URLs</h2>
+            <p class="info-text">
+                Customize each OBS overlay source independently using URL parameters. The base overlay reads from your
+                <a href="/music-editor.html" style="color:#58a6ff;">saved settings</a> — parameters here <strong>override</strong>
+                individual values per-source. Only changed parameters are added to the URL.
+            </p>
+        </div>
+
+        <!-- Mode & Sizing -->
+        <div class="card">
+            <h2>Mode & Layout</h2>
+            <div class="cfg-row">
+                <label>Mode</label>
+                <select id="wiz-mode">
+                    <option value="full">Full Player</option>
+                    <option value="art">Art Only</option>
+                    <option value="mini">Mini Bar</option>
+                </select>
+            </div>
+            <div class="cfg-row">
+                <label>Width <span class="param-badge">w</span></label>
+                <input type="number" id="wiz-w" placeholder="default" min="40" max="1200" style="max-width:90px;">
+                <span style="font-size:0.75rem;color:#484f58;">px</span>
+            </div>
+            <div class="cfg-row">
+                <label>Height <span class="param-badge">h</span></label>
+                <input type="number" id="wiz-h" placeholder="default" min="24" max="1200" style="max-width:90px;">
+                <span style="font-size:0.75rem;color:#484f58;">px</span>
+            </div>
+            <div class="cfg-row" id="row-art-size">
+                <label>Art Thumb <span class="param-badge">artSize</span></label>
+                <input type="number" id="wiz-artSize" placeholder="auto" min="0" max="400" style="max-width:90px;">
+                <span style="font-size:0.75rem;color:#484f58;">px (0 = auto)</span>
+            </div>
+
+            <h3>Mini Layout <span class="param-badge">layout</span></h3>
+            <div class="cfg-row">
+                <label>Layout</label>
+                <select id="wiz-layout">
+                    <option value="">— default —</option>
+                    <option value="single">One line: Title — Artist</option>
+                    <option value="two">Two lines: Title / Artist</option>
+                    <option value="two-album">Two lines: Title / Artist · Album</option>
+                </select>
+            </div>
+
+            <h3>Art Mode</h3>
+            <div class="toggle-row">
+                <input type="checkbox" id="wiz-persist">
+                <label for="wiz-persist">Keep info visible <span class="param-badge">persist</span></label>
+            </div>
+        </div>
+
+        <!-- Appearance -->
+        <div class="card">
+            <h2>Appearance Overrides</h2>
+            <div class="cfg-row">
+                <label>Font <span class="param-badge">font</span></label>
+                <select id="wiz-font">
+                    <option value="">— default —</option>
+                    <option value="Jersey 20">Jersey 20</option>
+                    <option value="Press Start 2P">Press Start 2P</option>
+                    <option value="Bebas Neue">Bebas Neue</option>
+                    <option value="Fredoka One">Fredoka One</option>
+                    <option value="Bangers">Bangers</option>
+                    <option value="Orbitron">Orbitron</option>
+                    <option value="Righteous">Righteous</option>
+                    <option value="Permanent Marker">Permanent Marker</option>
+                    <option value="Inter">Inter</option>
+                </select>
+            </div>
+            <div class="cfg-row">
+                <label>Text Color <span class="param-badge">textColor</span></label>
+                <input type="color" id="wiz-textColor-pick" value="#ffffff">
+                <input type="text" id="wiz-textColor" placeholder="default" style="max-width:100px;">
+            </div>
+            <div class="cfg-row">
+                <label>Accent <span class="param-badge">accentColor</span></label>
+                <input type="color" id="wiz-accentColor-pick" value="#58a6ff">
+                <input type="text" id="wiz-accentColor" placeholder="default" style="max-width:100px;">
+            </div>
+            <div class="cfg-row">
+                <label>Background <span class="param-badge">bgColor</span></label>
+                <input type="color" id="wiz-bgColor-pick" value="#000000">
+                <input type="text" id="wiz-bgColor" placeholder="default" style="max-width:120px;">
+            </div>
+            <div class="cfg-row">
+                <label>Font Scale <span class="param-badge">fontScale</span></label>
+                <input type="range" id="wiz-fontScale" min="0.5" max="3" step="0.1" value="1">
+                <span id="wiz-fontScale-val" style="font-size:0.82rem;min-width:30px;">1×</span>
+            </div>
+
+            <h3>Visible Fields <span class="param-badge">fields</span></h3>
+            <p class="info-text" style="margin-bottom:0.4rem;">Leave all unchecked to use saved defaults. Check specific fields to override.</p>
+            <div class="toggle-row"><input type="checkbox" id="wiz-field-track"><label for="wiz-field-track">Song Title</label></div>
+            <div class="toggle-row"><input type="checkbox" id="wiz-field-artist"><label for="wiz-field-artist">Artist</label></div>
+            <div class="toggle-row"><input type="checkbox" id="wiz-field-album"><label for="wiz-field-album">Album</label></div>
+            <div class="toggle-row"><input type="checkbox" id="wiz-field-year"><label for="wiz-field-year">Year</label></div>
+            <div class="toggle-row"><input type="checkbox" id="wiz-field-progress"><label for="wiz-field-progress">Progress Bar</label></div>
+            <div class="toggle-row" style="margin-top:0.3rem;">
+                <input type="checkbox" id="wiz-fields-override">
+                <label for="wiz-fields-override" style="color:#d29922;">Override fields (use checked above)</label>
+            </div>
+
+            <h3>"Now Playing" Label <span class="param-badge">label</span></h3>
+            <div class="cfg-row">
+                <label>Label Text</label>
+                <input type="text" id="wiz-label" placeholder="default (♫ Now Playing)">
+            </div>
+            <div class="cfg-row">
+                <label>Show Label</label>
+                <select id="wiz-labelMode">
+                    <option value="">— default —</option>
+                    <option value="show">Show on this mode</option>
+                    <option value="hide">Hide on this mode</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Live Preview -->
+        <div class="card full-width">
+            <h2>Preview</h2>
+            <div class="preview-frame">
+                <iframe id="wiz-preview" src="/music.html?mode=full"></iframe>
+            </div>
+        </div>
+
+        <!-- Generated URL -->
+        <div class="card full-width">
+            <h2>Generated URL</h2>
+            <p class="info-text" style="margin-bottom:0.5rem;">Click the URL to copy. Use this in OBS → Browser Source.</p>
+            <div class="url-output" id="wiz-url" onclick="copyWizUrl()">
+                <span class="copy-toast" id="copy-toast">✓ Copied!</span>
+            </div>
+            <div id="wiz-obs-hint" class="obs-hint"></div>
+            <div style="margin-top:1rem; display:flex; gap:0.75rem;">
+                <button class="btn" onclick="resetWizard()">🔄 Reset All</button>
+            </div>
+        </div>
+
+        <!-- Parameter Reference -->
+        <div class="card full-width">
+            <h2>URL Parameter Reference</h2>
+            <table style="width:100%; font-size:0.78rem; border-collapse:collapse;">
+                <thead>
+                    <tr style="border-bottom:1px solid #30363d;">
+                        <th style="text-align:left; padding:0.4rem 0.5rem; color:#8b949e;">Parameter</th>
+                        <th style="text-align:left; padding:0.4rem 0.5rem; color:#8b949e;">Type</th>
+                        <th style="text-align:left; padding:0.4rem 0.5rem; color:#8b949e;">Description</th>
+                    </tr>
+                </thead>
+                <tbody id="param-ref">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+<script>
+    const PARAMS = [
+        { key: 'mode', type: 'string', desc: 'Overlay mode: full, art, or mini', example: 'full' },
+        { key: 'font', type: 'string', desc: 'Font family name (must match available fonts)', example: 'Inter' },
+        { key: 'textColor', type: 'color', desc: 'Primary text color (hex or CSS color)', example: '#ffffff' },
+        { key: 'accentColor', type: 'color', desc: 'Accent color for artist, label, progress bar', example: '#58a6ff' },
+        { key: 'bgColor', type: 'color', desc: 'Background color (supports rgba for transparency)', example: 'rgba(0,0,0,0.7)' },
+        { key: 'fontScale', type: 'number', desc: 'Font size multiplier (0.5–3)', example: '1.2' },
+        { key: 'w', type: 'number', desc: 'Override width for the current mode (px)', example: '500' },
+        { key: 'h', type: 'number', desc: 'Override height for the current mode (px)', example: '150' },
+        { key: 'artSize', type: 'number', desc: 'Art thumbnail size in full mode (px, 0 = auto)', example: '100' },
+        { key: 'label', type: 'string', desc: 'Custom "Now Playing" label text, or "off" to hide', example: '♫ Now Playing' },
+        { key: 'labelArt', type: '0|1', desc: 'Show label on art mode (overrides saved setting)', example: '1' },
+        { key: 'labelFull', type: '0|1', desc: 'Show label on full mode', example: '0' },
+        { key: 'labelMini', type: '0|1', desc: 'Show label on mini mode', example: '1' },
+        { key: 'fields', type: 'csv', desc: 'Comma-separated visible fields: track,artist,album,year,progress', example: 'track,artist' },
+        { key: 'persist', type: '0|1', desc: 'Keep art mode info overlay visible (don\'t auto-hide)', example: '1' },
+        { key: 'layout', type: 'string', desc: 'Mini mode layout: single, two, two-album', example: 'two' }
+    ];
+
+    // Populate reference table
+    const tbody = document.getElementById('param-ref');
+    for (const p of PARAMS) {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #21262d';
+        tr.innerHTML = `
+            <td style="padding:0.4rem 0.5rem;"><code style="background:#21262d;padding:0.15rem 0.4rem;border-radius:3px;color:#7ee787;">${p.key}</code></td>
+            <td style="padding:0.4rem 0.5rem;color:#8b949e;">${p.type}</td>
+            <td style="padding:0.4rem 0.5rem;">${p.desc} <span style="color:#484f58;font-size:0.72rem;">e.g. ${p.example}</span></td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    // Sync color pickers with text inputs
+    function syncWizColor(pickerId, textId) {
+        const picker = document.getElementById(pickerId);
+        const text = document.getElementById(textId);
+        picker.addEventListener('input', () => { text.value = picker.value; buildUrl(); });
+        text.addEventListener('input', () => {
+            try { picker.value = text.value.startsWith('#') ? text.value : text.value; } catch {}
+            buildUrl();
+        });
+    }
+    syncWizColor('wiz-textColor-pick', 'wiz-textColor');
+    syncWizColor('wiz-accentColor-pick', 'wiz-accentColor');
+    syncWizColor('wiz-bgColor-pick', 'wiz-bgColor');
+
+    // Show/hide mode-specific controls
+    function updateModeUI() {
+        const mode = document.getElementById('wiz-mode').value;
+        document.getElementById('row-art-size').style.display = mode === 'full' ? '' : 'none';
+    }
+
+    // Build URL from wizard controls
+    function buildUrl() {
+        const base = `${location.protocol}//${location.host}/music.html`;
+        const p = new URLSearchParams();
+        const mode = document.getElementById('wiz-mode').value;
+        p.set('mode', mode);
+
+        const font = document.getElementById('wiz-font').value;
+        if (font) p.set('font', font);
+
+        const tc = document.getElementById('wiz-textColor').value.trim();
+        if (tc) p.set('textColor', tc);
+
+        const ac = document.getElementById('wiz-accentColor').value.trim();
+        if (ac) p.set('accentColor', ac);
+
+        const bg = document.getElementById('wiz-bgColor').value.trim();
+        if (bg) p.set('bgColor', bg);
+
+        const fs = parseFloat(document.getElementById('wiz-fontScale').value);
+        if (fs && fs !== 1) p.set('fontScale', fs);
+
+        const w = document.getElementById('wiz-w').value;
+        if (w) p.set('w', w);
+
+        const h = document.getElementById('wiz-h').value;
+        if (h) p.set('h', h);
+
+        if (mode === 'full') {
+            const artSz = document.getElementById('wiz-artSize').value;
+            if (artSz && parseInt(artSz) > 0) p.set('artSize', artSz);
+        }
+
+        const labelText = document.getElementById('wiz-label').value;
+        if (labelText) p.set('label', labelText);
+
+        const labelMode = document.getElementById('wiz-labelMode').value;
+        if (labelMode === 'show') {
+            const modeKey = `label${mode.charAt(0).toUpperCase()}${mode.slice(1)}`;
+            p.set(modeKey, '1');
+        } else if (labelMode === 'hide') {
+            const modeKey = `label${mode.charAt(0).toUpperCase()}${mode.slice(1)}`;
+            p.set(modeKey, '0');
+        }
+
+        if (document.getElementById('wiz-fields-override').checked) {
+            const fields = ['track','artist','album','year','progress']
+                .filter(f => document.getElementById(`wiz-field-${f}`).checked);
+            p.set('fields', fields.join(','));
+        }
+
+        if (document.getElementById('wiz-persist').checked) p.set('persist', '1');
+
+        const layout = document.getElementById('wiz-layout').value;
+        if (layout) p.set('layout', layout);
+
+        const url = `${base}?${p.toString()}`;
+        document.getElementById('wiz-url').childNodes[0].textContent = url;
+
+        // OBS hint
+        const ow = w || { art: 200, full: 420, mini: 400 }[mode];
+        const oh = h || { art: 200, full: 120, mini: 40 }[mode];
+        document.getElementById('wiz-obs-hint').textContent = `OBS Browser Source → Width: ${ow}, Height: ${oh}`;
+
+        // Update preview
+        document.getElementById('wiz-preview').src = url;
+
+        return url;
+    }
+
+    function copyWizUrl() {
+        const urlEl = document.getElementById('wiz-url');
+        const text = urlEl.childNodes[0].textContent;
+        navigator.clipboard.writeText(text);
+        const toast = document.getElementById('copy-toast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1500);
+    }
+
+    function resetWizard() {
+        document.getElementById('wiz-mode').value = 'full';
+        document.getElementById('wiz-font').value = '';
+        document.getElementById('wiz-textColor').value = '';
+        document.getElementById('wiz-accentColor').value = '';
+        document.getElementById('wiz-bgColor').value = '';
+        document.getElementById('wiz-fontScale').value = 1;
+        document.getElementById('wiz-fontScale-val').textContent = '1×';
+        document.getElementById('wiz-w').value = '';
+        document.getElementById('wiz-h').value = '';
+        document.getElementById('wiz-artSize').value = '';
+        document.getElementById('wiz-label').value = '';
+        document.getElementById('wiz-labelMode').value = '';
+        document.getElementById('wiz-persist').checked = false;
+        document.getElementById('wiz-layout').value = '';
+        document.getElementById('wiz-fields-override').checked = false;
+        ['track','artist','album','year','progress'].forEach(f => {
+            document.getElementById(`wiz-field-${f}`).checked = false;
+        });
+        updateModeUI();
+        buildUrl();
+    }
+
+    // Attach listeners to all controls
+    const wizIds = [
+        'wiz-mode', 'wiz-font', 'wiz-textColor', 'wiz-accentColor', 'wiz-bgColor',
+        'wiz-fontScale', 'wiz-w', 'wiz-h', 'wiz-artSize', 'wiz-label', 'wiz-labelMode',
+        'wiz-persist', 'wiz-layout', 'wiz-fields-override',
+        'wiz-field-track', 'wiz-field-artist', 'wiz-field-album', 'wiz-field-year', 'wiz-field-progress'
+    ];
+    for (const id of wizIds) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', buildUrl);
+            el.addEventListener('change', () => { updateModeUI(); buildUrl(); });
+        }
+    }
+
+    document.getElementById('wiz-fontScale').addEventListener('input', (e) => {
+        document.getElementById('wiz-fontScale-val').textContent = e.target.value + '×';
+    });
+
+    // Init
+    updateModeUI();
+    buildUrl();
+</script>
+</body>
+</html>
