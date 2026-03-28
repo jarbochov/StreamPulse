@@ -111,6 +111,10 @@
                 </div>
                 <p style="font-size:0.72rem;color:#8b949e;padding:0 0.5rem;">Enable VLC's HTTP interface: Tools → Preferences → Show All → Interface → Main interfaces → check <b>Web</b>, then set a password under Lua. Restart VLC.</p>
             </div>
+            <div id="now-playing-status" style="margin:0.75rem 0;padding:0.6rem 0.8rem;background:#0d1117;border:1px solid #30363d;border-radius:6px;display:flex;align-items:center;gap:0.75rem;">
+                <span id="np-indicator" style="width:8px;height:8px;border-radius:50%;background:#484f58;flex-shrink:0;"></span>
+                <span id="np-text" style="font-size:0.82rem;color:#8b949e;">Checking…</span>
+            </div>
             <div class="cfg-row">
                 <label>Poll Interval</label>
                 <input type="range" id="music-poll" min="1" max="15" step="1" value="5">
@@ -258,20 +262,6 @@
             </div>
         </div>
 
-        <!-- Now Playing -->
-        <div class="card full-width">
-            <h2>Now Playing <span id="np-state" class="status-badge off"><span class="dot"></span> —</span></h2>
-            <div id="np-info" style="display:flex; align-items:center; gap:1rem; min-height:60px;">
-                <div id="np-art" style="width:60px;height:60px;border-radius:6px;background:#21262d;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
-                    <span style="color:#484f58;font-size:1.5rem;">🎵</span>
-                </div>
-                <div>
-                    <div id="np-track" style="font-size:0.95rem;font-weight:600;color:#e1e4e8;">—</div>
-                    <div id="np-artist" style="font-size:0.82rem;color:#58a6ff;margin-top:2px;">—</div>
-                    <div id="np-album" style="font-size:0.78rem;color:#8b949e;margin-top:1px;">—</div>
-                </div>
-            </div>
-        </div>
 
         <!-- OBS URLs -->
         <div class="card full-width">
@@ -781,44 +771,35 @@
 
     checkFallbackArt();
 
-    // Now Playing status polling
+    // Now Playing status polling — updates top status bar
     async function pollNowPlaying() {
+        const ind = document.getElementById('np-indicator');
+        const txt = document.getElementById('np-text');
         try {
             const res = await fetch('/api/music/now-playing');
-            if (!res.ok) return;
+            if (!res.ok) throw new Error();
             const data = await res.json();
-            const stateEl = document.getElementById('np-state');
-            const trackEl = document.getElementById('np-track');
-            const artistEl = document.getElementById('np-artist');
-            const albumEl = document.getElementById('np-album');
-            const artEl = document.getElementById('np-art');
-
             if (data.state === 'playing') {
-                stateEl.className = 'status-badge on';
-                stateEl.innerHTML = '<span class="dot"></span> Playing';
+                ind.style.background = '#3fb950';
+                txt.style.color = '#e1e4e8';
+                txt.textContent = `♫ ${data.track || 'Unknown'}${data.artist ? ' — ' + data.artist : ''}`;
             } else if (data.state === 'paused') {
-                stateEl.className = 'status-badge on';
-                stateEl.style.background = '#e3b34120';
-                stateEl.style.color = '#e3b341';
-                stateEl.innerHTML = '<span class="dot" style="background:#e3b341"></span> Paused';
+                ind.style.background = '#d29922';
+                txt.style.color = '#d29922';
+                txt.textContent = `⏸ Paused — ${data.track || 'Unknown'}`;
             } else {
-                stateEl.className = 'status-badge off';
-                stateEl.innerHTML = '<span class="dot"></span> Stopped';
+                ind.style.background = '#484f58';
+                txt.style.color = '#8b949e';
+                txt.textContent = 'No music playing';
             }
-
-            trackEl.textContent = data.track || '—';
-            artistEl.textContent = data.artist || '—';
-            albumEl.textContent = data.album || '—';
-
-            if (data.artworkUrl) {
-                artEl.innerHTML = `<img src="${data.artworkUrl}" style="width:100%;height:100%;object-fit:cover;">`;
-            } else {
-                artEl.innerHTML = '<span style="color:#484f58;font-size:1.5rem;">🎵</span>';
-            }
-        } catch {}
+        } catch {
+            ind.style.background = '#f85149';
+            txt.style.color = '#f85149';
+            txt.textContent = 'Server not responding';
+        }
     }
     pollNowPlaying();
-    setInterval(pollNowPlaying, 3000);
+    setInterval(pollNowPlaying, 5000);
 </script>
 </body>
 </html>
