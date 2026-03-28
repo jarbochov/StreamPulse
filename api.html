@@ -87,7 +87,7 @@
 
     <div class="container">
         <div class="intro">
-            Base URL: <code id="base-url">http://localhost:8080</code>
+            Base URL: <code id="base-url"></code>
             — All endpoints return JSON unless noted. Use these URLs directly in
             <strong>Bitfocus Companion</strong> Generic HTTP module actions.
         </div>
@@ -348,12 +348,17 @@
                 {
                     method: 'GET', path: '/api/music/now-playing',
                     desc: 'Current track info and player state',
-                    details: 'Returns the current music state: { state, track, artist, album, artworkUrl }. State is "playing", "paused", or "stopped". Currently supports Apple Music on macOS only (Beta).'
+                    details: 'Returns the current music state: { state, track, artist, album, year, duration, position, artworkUrl }. State is "playing", "paused", or "stopped". Supports Apple Music (macOS) and VLC (cross-platform).'
                 },
                 {
                     method: 'GET', path: '/api/music/artwork',
                     desc: 'Album artwork image (PNG)',
                     details: 'Serves the album art of the currently playing track as a PNG image. Returns 404 if no artwork is available. Cache-busted automatically by the overlay.'
+                },
+                {
+                    method: 'GET', path: '/api/music/vlc-test',
+                    desc: 'Test VLC connection',
+                    details: 'Tests connectivity to VLC\'s HTTP interface. Query params: host, port, password. Returns { ok, state, track, artist } on success or { ok: false, error } on failure.'
                 }
             ]
         },

@@ -26,7 +26,7 @@ A Twitch app provides subscriber, follower, and bits data via the Twitch API.
 
 **Create your app:**
 1. Go to [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) and create a new application
-2. Set the **OAuth Redirect URL** to `http://localhost:8080/auth/callback`
+2. Set the **OAuth Redirect URL** to `http://localhost:3000/auth/callback`
 3. Note your **Client ID** and **Client Secret**
 
 ### 3. Other Requirements
@@ -50,15 +50,15 @@ npm start
 On first run, a browser window opens for Twitch authorization. After that, the server handles everything automatically.
 
 **OBS Browser Sources:**
-- Credits: `http://localhost:8080/credits.html`
-- Stats: `http://localhost:8080/stats.html`
-- Hashtags: `http://localhost:8080/hashtags.html`
+- Credits: `http://localhost:3000/credits.html`
+- Stats: `http://localhost:3000/stats.html`
+- Hashtags: `http://localhost:3000/hashtags.html`
 
 **Management Pages:**
-- Dashboard: `http://localhost:8080/dashboard.html`
-- Sessions: `http://localhost:8080/sessions.html`
-- Highlights: `http://localhost:8080/highlights.html`
-- Config: `http://localhost:8080/config-editor.html`
+- Dashboard: `http://localhost:3000/dashboard.html`
+- Sessions: `http://localhost:3000/sessions.html`
+- Highlights: `http://localhost:3000/highlights.html`
+- Config: `http://localhost:3000/config-editor.html`
 
 ## Features
 
@@ -135,7 +135,7 @@ Copy `config.example.json` to `config.json` and fill in your credentials:
 }
 ```
 
-All other settings can be edited live via the [Config Editor](http://localhost:8080/config-editor.html) — no restart needed.
+All other settings can be edited live via the [Config Editor](http://localhost:3000/config-editor.html) — no restart needed.
 
 ### Key Options
 
@@ -229,7 +229,7 @@ Optional webhook notifications for stream events:
 | `GET /api/export` | Stats CSV export (`?type=chatters\|emotes\|all`) |
 | `GET /api/backup` | Download full data backup (ZIP) |
 | `GET /auth/twitch` | Start Twitch OAuth flow |
-| `ws://localhost:8080` | WebSocket — live data push |
+| `ws://localhost:3000` | WebSocket — live data push |
 
 ## Bitfocus Companion Integration
 
@@ -237,10 +237,10 @@ Use the **Generic HTTP** module:
 
 | Action | URL |
 | --- | --- |
-| Refresh Twitch data | `GET http://localhost:8080/api/fetch` |
-| End session | `GET http://localhost:8080/api/end-session` |
-| Start new session | `GET http://localhost:8080/api/start-session` |
-| Shutdown server | `GET http://localhost:8080/api/shutdown` |
+| Refresh Twitch data | `GET http://localhost:3000/api/fetch` |
+| End session | `GET http://localhost:3000/api/end-session` |
+| Start new session | `GET http://localhost:3000/api/start-session` |
+| Shutdown server | `GET http://localhost:3000/api/shutdown` |
 
 ## Data Persistence
 
@@ -286,17 +286,17 @@ streampulse/
 1. SSN dock page must be open in a browser tab
 2. Ensure **Toggle 1** and **Toggle 3** are enabled in SSN Global Settings → Mechanics
 3. Verify `session_id` in `config.json` matches the `?session=` value in your SSN dock URL
-4. Check `http://localhost:8080/api/status` — `ssn.connected` should be `true`
+4. Check `http://localhost:3000/api/status` — `ssn.connected` should be `true`
 5. Test with the [SSN API Sandbox](https://socialstream.ninja/sampleapi.html) to verify messages are flowing
 
 ### Twitch API errors (401)
-- Visit `http://localhost:8080/auth/twitch` to re-authorize
-- Ensure `http://localhost:8080/auth/callback` is registered as an OAuth Redirect URL
+- Visit `http://localhost:3000/auth/twitch` to re-authorize
+- Ensure `http://localhost:3000/auth/callback` is registered as an OAuth Redirect URL
 - Verify `client_id` and `client_secret` in `config.json`
 
 ### Credits not loading
 - Ensure `npm start` is running
-- OBS URL: `http://localhost:8080/credits.html`
+- OBS URL: `http://localhost:3000/credits.html`
 - Right-click OBS source → "Refresh cache of current page"
 
 ## Security

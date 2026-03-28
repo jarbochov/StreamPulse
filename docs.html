@@ -445,9 +445,57 @@
         <div class="card-body">
             <div class="detail-text">
                 The Music Now-Playing system polls your local music player and displays the current track as a customizable OBS overlay. Three overlay modes are available, each as a separate Browser Source.<br><br>
-                <strong>Currently supported:</strong> Apple Music (macOS only)<br>
-                <strong>Planned:</strong> Spotify, VLC (cross-platform)<br><br>
+                <strong>Supported sources:</strong><br>
+                • <strong>Apple Music</strong> — macOS only (via AppleScript)<br>
+                • <strong>VLC Media Player</strong> — macOS, Windows, Linux (via HTTP interface)<br>
+                <strong>Planned:</strong> Spotify<br><br>
                 Music is <strong>disabled by default</strong>. Enable it from <a href="/music-editor.html" style="color:#58a6ff;">Music Settings</a>.
+            </div>
+        </div>
+    </div>
+    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong style="font-size:0.9rem;">VLC Setup Guide</strong>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">
+                VLC's built-in HTTP interface exposes a local API that StreamPulse polls for track metadata and album art. Works on <strong>macOS, Windows, and Linux</strong>.
+            </div>
+            <div class="detail-label">1. Enable VLC's HTTP Interface</div>
+            <div class="detail-text">
+                <strong>macOS:</strong> VLC → Settings<br>
+                <strong>Windows / Linux:</strong> Tools → Preferences<br><br>
+                Then in all platforms:<br>
+                • Click <strong>Show All</strong> (bottom-left) to enter advanced preferences<br>
+                • Navigate to <strong>Interface → Main interfaces</strong><br>
+                • Check <strong>Web</strong><br>
+                • Expand <strong>Main interfaces → Lua</strong><br>
+                • Set a <strong>Lua HTTP password</strong> (required for API access)<br>
+                • Click <strong>Save</strong> and <strong>restart VLC</strong>
+            </div>
+            <div class="detail-label">2. Verify VLC is Responding</div>
+            <div class="detail-text">
+                Open <code>http://localhost:8080/requests/status.json</code> in your browser.<br>
+                When prompted, leave the username blank and enter your password.<br>
+                If you see JSON data, the HTTP interface is working.
+            </div>
+            <div class="detail-label">3. Configure StreamPulse</div>
+            <div class="detail-text">
+                Go to <a href="/music-editor.html" style="color:#58a6ff;">Music Settings</a>, select <strong>VLC Media Player</strong> as the source, enter your host, port, and password, then click <strong>Test</strong> to verify the connection.
+            </div>
+            <div class="detail-label">Port Conflicts</div>
+            <div class="detail-text">
+                VLC defaults to port <strong>8080</strong>. If StreamPulse also runs on 8080, change one of them:<br>
+                • Change StreamPulse's port in <code>config.json</code> → <code>"port"</code><br>
+                • Or change VLC's port in its preferences under <strong>Lua HTTP</strong> settings
+            </div>
+            <div class="detail-label">Troubleshooting</div>
+            <div class="detail-text">
+                <strong>Connection refused:</strong> VLC isn't running, or the HTTP interface isn't enabled. Restart VLC after enabling Web.<br>
+                <strong>401 Unauthorized:</strong> Wrong password. Check the password in VLC → Lua HTTP and in StreamPulse settings.<br>
+                <strong>No artwork:</strong> Some files (e.g. WAV) may not have embedded artwork. VLC will serve art if the file's metadata includes it.<br>
+                <strong>No metadata:</strong> Some file formats have limited tags. VLC will fall back to the filename for the track title.
             </div>
         </div>
     </div>
@@ -478,14 +526,17 @@
             <table>
                 <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
                 <tr><td><code>music.enabled</code> <span class="badge hot">Hot-reload</span></td><td>boolean</td><td><code>false</code></td><td>Enable or disable music polling. Starts/stops without server restart.</td></tr>
-                <tr><td><code>music.source</code></td><td>string</td><td><code>"apple_music"</code></td><td>Music source. Currently only "apple_music" is supported.</td></tr>
+                <tr><td><code>music.source</code> <span class="badge hot">Hot-reload</span></td><td>string</td><td><code>"apple_music"</code></td><td>Music source: <code>"apple_music"</code> (macOS) or <code>"vlc"</code> (cross-platform). Changing restarts polling automatically.</td></tr>
                 <tr><td><code>music.poll_seconds</code> <span class="badge hot">Hot-reload</span></td><td>number</td><td><code>5</code></td><td>How often to poll the music player (seconds).</td></tr>
+                <tr><td><code>music.vlc.host</code></td><td>string</td><td><code>"localhost"</code></td><td>VLC HTTP interface hostname.</td></tr>
+                <tr><td><code>music.vlc.port</code></td><td>number</td><td><code>8080</code></td><td>VLC HTTP interface port.</td></tr>
+                <tr><td><code>music.vlc.password</code></td><td>string</td><td><code>""</code></td><td>VLC HTTP interface password (set in VLC → Lua HTTP).</td></tr>
                 <tr><td><code>music.theme.font_family</code></td><td>string</td><td><code>"Segoe UI"</code></td><td>Font for overlay text.</td></tr>
                 <tr><td><code>music.theme.text_color</code></td><td>string</td><td><code>"#ffffff"</code></td><td>Primary text color.</td></tr>
                 <tr><td><code>music.theme.accent_color</code></td><td>string</td><td><code>"#58a6ff"</code></td><td>Artist name / accent color.</td></tr>
                 <tr><td><code>music.theme.bg_color</code></td><td>string</td><td><code>"rgba(0,0,0,0.7)"</code></td><td>Background color (supports transparency).</td></tr>
                 <tr><td><code>music.theme.sizes</code></td><td>object</td><td>—</td><td>Per-mode overlay dimensions: art {width,height}, full {width,height}, mini {width,height}. Match in OBS.</td></tr>
-                <tr><td><code>music.theme.fields</code></td><td>object</td><td>all true</td><td>Toggle visibility: { track, artist, album }.</td></tr>
+                <tr><td><code>music.theme.fields</code></td><td>object</td><td>all true</td><td>Toggle visibility: { track, artist, album, year, progress }.</td></tr>
                 <tr><td><code>music.theme.art_persist_info</code></td><td>boolean</td><td><code>false</code></td><td>Keep track info permanently visible in Art Only mode.</td></tr>
                 <tr><td><code>music.theme.mini_layout</code></td><td>string</td><td><code>"single"</code></td><td>Mini bar layout: "single", "two", or "two-album".</td></tr>
             </table>

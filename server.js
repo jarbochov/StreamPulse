@@ -487,13 +487,15 @@ async function fetchStreamInfo() {
 }
 
 // ============================================================================
-// MUSIC NOW-PLAYING (Apple Music via osascript)
+// MUSIC NOW-PLAYING
 // ============================================================================
 
 const MUSIC_ART_PATH = path.join(DATA_DIR, 'music-artwork.png');
 const MUSIC_FALLBACK_ART_PATH = path.join(DATA_DIR, 'music-fallback.png');
 let musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
 let musicPollTimer = null;
+
+// --- Apple Music (macOS only, via osascript) ---
 
 function runOsascript(lines, cb) {
     const args = lines.map(l => `-e '${l.replace(/'/g, "'\\''")}'`).join(' ');
@@ -582,12 +584,156 @@ function pollAppleMusic() {
     });
 }
 
+// --- VLC (cross-platform, via HTTP interface) ---
+
+function pollVLC() {
+    const vlcCfg = MUSIC_CONFIG.vlc || {};
+    const host = vlcCfg.host || 'localhost';
+    const port = vlcCfg.port || 8080;
+    const password = vlcCfg.password || '';
+    const auth = Buffer.from(`:${password}`).toString('base64');
+    const url = `http://${host}:${port}/requests/status.json`;
+
+    const req = http.request(url, {
+        headers: { 'Authorization': `Basic ${auth}` },
+        timeout: 3000,
+        insecureHTTPParser: true
+    }, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                processVLCStatus(data);
+            } catch (e) {
+                if (musicState.state !== 'stopped') {
+                    musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
+                    broadcastToOverlays('music', musicState);
+                }
+            }
+        });
+    });
+
+    req.on('error', () => {
+        if (musicState.state !== 'stopped') {
+            musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
+            broadcastToOverlays('music', musicState);
+        }
+    });
+
+    req.on('timeout', () => req.destroy());
+    req.end();
+}
+
+function processVLCStatus(data) {
+    // VLC states: playing, paused, stopped
+    const vlcState = data.state || 'stopped';
+    const state = vlcState === 'playing' ? 'playing' : vlcState === 'paused' ? 'paused' : 'stopped';
+
+    if (state === 'stopped') {
+        if (musicState.state !== 'stopped') {
+            musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
+            broadcastToOverlays('music', musicState);
+        }
+        return;
+    }
+
+    // Extract metadata from VLC's category→meta info
+    const meta = (data.information && data.information.category && data.information.category.meta) || {};
+    const newState = {
+        state,
+        track: meta.title || meta.filename || data.information?.category?.meta?.title || '',
+        artist: meta.artist || '',
+        album: meta.album || '',
+        year: meta.date || '',
+        duration: data.length || 0,
+        position: Math.round((data.position || 0) * (data.length || 0)),
+        artworkUrl: ''
+    };
+
+    // If track name is empty, try to derive from filename
+    if (!newState.track && meta.filename) {
+        newState.track = meta.filename.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+    }
+
+    const trackChanged = newState.track !== musicState.track
+        || newState.artist !== musicState.artist
+        || newState.album !== musicState.album;
+    const stateChanged = newState.state !== musicState.state;
+
+    if (trackChanged) {
+        // Try to fetch album art from VLC
+        fetchVLCArtwork((artUrl) => {
+            newState.artworkUrl = artUrl;
+            musicState = newState;
+            broadcastToOverlays('music', musicState);
+            console.log(`[Music/VLC] Now playing: ${musicState.track} — ${musicState.artist}`);
+        });
+    } else if (stateChanged) {
+        newState.artworkUrl = musicState.artworkUrl;
+        musicState = newState;
+        broadcastToOverlays('music', musicState);
+        console.log(`[Music/VLC] State: ${musicState.state}`);
+    } else {
+        musicState.position = newState.position;
+        musicState.duration = newState.duration;
+    }
+}
+
+function fetchVLCArtwork(cb) {
+    const vlcCfg = MUSIC_CONFIG.vlc || {};
+    const host = vlcCfg.host || 'localhost';
+    const port = vlcCfg.port || 8080;
+    const password = vlcCfg.password || '';
+    const auth = Buffer.from(`:${password}`).toString('base64');
+    const url = `http://${host}:${port}/art`;
+
+    const req = http.request(url, {
+        headers: { 'Authorization': `Basic ${auth}` },
+        timeout: 3000,
+        insecureHTTPParser: true
+    }, (res) => {
+        if (res.statusCode !== 200) {
+            cb('');
+            return;
+        }
+        const chunks = [];
+        res.on('data', chunk => chunks.push(chunk));
+        res.on('end', () => {
+            try {
+                const artBuffer = Buffer.concat(chunks);
+                if (artBuffer.length > 0) {
+                    fs.writeFileSync(MUSIC_ART_PATH, artBuffer);
+                    cb('/api/music/artwork?t=' + Date.now());
+                } else {
+                    cb('');
+                }
+            } catch {
+                cb('');
+            }
+        });
+    });
+
+    req.on('error', () => cb(''));
+    req.on('timeout', () => { req.destroy(); cb(''); });
+    req.end();
+}
+
+// --- Unified polling start/stop ---
+
+function currentPollFn() {
+    const source = MUSIC_CONFIG.source || 'apple_music';
+    return source === 'vlc' ? pollVLC : pollAppleMusic;
+}
+
 function startMusicPolling() {
     if (musicPollTimer) return;
     const interval = (MUSIC_CONFIG.poll_seconds || 5) * 1000;
-    pollAppleMusic();
-    musicPollTimer = setInterval(pollAppleMusic, interval);
-    console.log(`[Music] Polling Apple Music every ${MUSIC_CONFIG.poll_seconds || 5}s`);
+    const pollFn = currentPollFn();
+    const source = MUSIC_CONFIG.source || 'apple_music';
+    pollFn();
+    musicPollTimer = setInterval(pollFn, interval);
+    console.log(`[Music] Polling ${source === 'vlc' ? 'VLC' : 'Apple Music'} every ${MUSIC_CONFIG.poll_seconds || 5}s`);
 }
 
 function stopMusicPolling() {
@@ -1364,13 +1510,20 @@ const server = http.createServer(async (req, res) => {
 
                     // Hot-reload music config
                     const prevMusicEnabled = MUSIC_CONFIG.enabled;
+                    const prevSource = MUSIC_CONFIG.source;
                     Object.assign(MUSIC_CONFIG, current.music || {});
                     if (MUSIC_CONFIG.enabled && !prevMusicEnabled) {
                         startMusicPolling();
                     } else if (!MUSIC_CONFIG.enabled && prevMusicEnabled) {
                         stopMusicPolling();
-                        musicState = { track: '', artist: '', album: '', state: 'stopped', artworkUrl: '' };
+                        musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
                         broadcastToOverlays('music', musicState);
+                    } else if (MUSIC_CONFIG.enabled && MUSIC_CONFIG.source !== prevSource) {
+                        // Source changed — restart polling with new source
+                        stopMusicPolling();
+                        musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
+                        broadcastToOverlays('music', musicState);
+                        startMusicPolling();
                     }
 
                     console.log('[Config] Updated and hot-reloaded');
@@ -1656,6 +1809,49 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/music/now-playing') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(musicState));
+        return;
+    }
+
+    if (pathname === '/api/music/vlc-test') {
+        const params = new URL(req.url, `http://${req.headers.host}`).searchParams;
+        const host = params.get('host') || 'localhost';
+        const port = parseInt(params.get('port')) || 8080;
+        const password = params.get('password') || '';
+        const auth = Buffer.from(`:${password}`).toString('base64');
+        const testUrl = `http://${host}:${port}/requests/status.json`;
+
+        const testReq = http.request(testUrl, {
+            headers: { 'Authorization': `Basic ${auth}` },
+            timeout: 3000,
+            insecureHTTPParser: true
+        }, (testRes) => {
+            let body = '';
+            testRes.on('data', chunk => body += chunk);
+            testRes.on('end', () => {
+                try {
+                    const data = JSON.parse(body);
+                    const meta = data.information?.category?.meta || {};
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ ok: true, state: data.state, track: meta.title || '', artist: meta.artist || '' }));
+                } catch {
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ ok: false, error: 'Invalid response from VLC' }));
+                }
+            });
+        });
+
+        testReq.on('error', (err) => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: err.code === 'ECONNREFUSED' ? 'Connection refused — is VLC running with HTTP interface enabled?' : err.message }));
+        });
+
+        testReq.on('timeout', () => {
+            testReq.destroy();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'Connection timed out' }));
+        });
+
+        testReq.end();
         return;
     }
 

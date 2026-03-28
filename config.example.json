@@ -1,5 +1,5 @@
 {
-  "port": 8080,
+  "port": 3000,
   "broadcaster_id": "YOUR_BROADCASTER_ID",
   "broadcaster_name": "YOUR_TWITCH_USERNAME",
   "twitch": {

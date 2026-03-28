@@ -85,13 +85,31 @@
             <div class="cfg-row">
                 <label>Enabled</label>
                 <input type="checkbox" id="music-enabled">
-                <span style="font-size:0.78rem;color:#8b949e;">Polls Apple Music for current track info</span>
+                <span style="font-size:0.78rem;color:#8b949e;">Polls the selected music source for current track info</span>
             </div>
             <div class="cfg-row">
                 <label>Source</label>
-                <select id="music-source">
-                    <option value="apple_music">Apple Music</option>
+                <select id="music-source" onchange="toggleVlcSettings()">
+                    <option value="apple_music">Apple Music (macOS)</option>
+                    <option value="vlc">VLC Media Player</option>
                 </select>
+            </div>
+            <div id="vlc-settings" style="display:none;">
+                <div class="cfg-row">
+                    <label>VLC Host</label>
+                    <input type="text" id="vlc-host" value="localhost" placeholder="localhost" style="width:160px;">
+                </div>
+                <div class="cfg-row">
+                    <label>VLC Port</label>
+                    <input type="number" id="vlc-port" value="8080" min="1" max="65535" style="width:100px;">
+                </div>
+                <div class="cfg-row">
+                    <label>VLC Password</label>
+                    <input type="password" id="vlc-password" placeholder="HTTP interface password" style="width:160px;">
+                    <button onclick="testVlcConnection()" style="margin-left:0.5rem;padding:0.3rem 0.7rem;border-radius:6px;background:#238636;color:#fff;border:none;cursor:pointer;font-size:0.78rem;">Test</button>
+                    <span id="vlc-test-result" style="font-size:0.78rem;margin-left:0.5rem;"></span>
+                </div>
+                <p style="font-size:0.72rem;color:#8b949e;padding:0 0.5rem;">Enable VLC's HTTP interface: Tools → Preferences → Show All → Interface → Main interfaces → check <b>Web</b>, then set a password under Lua. Restart VLC.</p>
             </div>
             <div class="cfg-row">
                 <label>Poll Interval</label>
@@ -278,6 +296,7 @@
         enabled: false,
         source: 'apple_music',
         poll_seconds: 5,
+        vlc: { host: 'localhost', port: 8080, password: '' },
         theme: {
             font_family: "'Segoe UI', system-ui, sans-serif",
             font_import: '',
@@ -368,6 +387,34 @@
         });
     }
 
+    function toggleVlcSettings() {
+        const source = document.getElementById('music-source').value;
+        document.getElementById('vlc-settings').style.display = source === 'vlc' ? '' : 'none';
+    }
+
+    async function testVlcConnection() {
+        const host = document.getElementById('vlc-host').value || 'localhost';
+        const port = document.getElementById('vlc-port').value || 8080;
+        const password = document.getElementById('vlc-password').value || '';
+        const result = document.getElementById('vlc-test-result');
+        result.textContent = 'Testing…';
+        result.style.color = '#8b949e';
+        try {
+            const res = await fetch(`/api/music/vlc-test?host=${encodeURIComponent(host)}&port=${port}&password=${encodeURIComponent(password)}`);
+            const data = await res.json();
+            if (data.ok) {
+                result.textContent = '✓ Connected' + (data.track ? ` — ${data.track}` : '');
+                result.style.color = '#3fb950';
+            } else {
+                result.textContent = '✗ ' + (data.error || 'Connection failed');
+                result.style.color = '#f85149';
+            }
+        } catch {
+            result.textContent = '✗ Server error';
+            result.style.color = '#f85149';
+        }
+    }
+
     // Load config
     async function loadConfig() {
         try {
@@ -380,6 +427,13 @@
             document.getElementById('music-source').value = music.source || 'apple_music';
             document.getElementById('music-poll').value = music.poll_seconds || 5;
             document.getElementById('music-poll-val').textContent = (music.poll_seconds || 5) + 's';
+
+            // VLC settings
+            const vlc = music.vlc || {};
+            document.getElementById('vlc-host').value = vlc.host || 'localhost';
+            document.getElementById('vlc-port').value = vlc.port || 8080;
+            document.getElementById('vlc-password').value = vlc.password || '';
+            toggleVlcSettings();
 
             // Theme
             if (theme.font_family) {
@@ -457,6 +511,11 @@
             enabled: document.getElementById('music-enabled').checked,
             source: document.getElementById('music-source').value,
             poll_seconds: parseInt(document.getElementById('music-poll').value) || 5,
+            vlc: {
+                host: document.getElementById('vlc-host').value || 'localhost',
+                port: parseInt(document.getElementById('vlc-port').value) || 8080,
+                password: document.getElementById('vlc-password').value || ''
+            },
             theme: {
                 font_family: fontFamily,
                 font_import: fontImportUrl(fontFamily),
