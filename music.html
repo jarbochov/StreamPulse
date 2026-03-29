@@ -67,8 +67,8 @@
             color: var(--music-text-color);
             font-family: var(--music-font-family);
             text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-            overflow: hidden;
-            max-width: 100%;
+            width: 100%;
+            min-width: 0;
         }
         .mode-art .art-overlay .artist-name {
             font-size: calc(11px * var(--music-font-scale));
@@ -76,6 +76,8 @@
             font-family: var(--music-font-family);
             margin-top: 2px;
             text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+            width: 100%;
+            min-width: 0;
         }
         .mode-art .art-overlay .album-name {
             font-size: calc(10px * var(--music-font-scale));
@@ -83,6 +85,8 @@
             font-family: var(--music-font-family);
             margin-top: 1px;
             text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+            width: 100%;
+            min-width: 0;
         }
         .mode-art .art-overlay .year-name {
             font-size: calc(9px * var(--music-font-scale));
