@@ -67,6 +67,8 @@
             color: var(--music-text-color);
             font-family: var(--music-font-family);
             text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+            overflow: hidden;
+            max-width: 100%;
         }
         .mode-art .art-overlay .artist-name {
             font-size: calc(11px * var(--music-font-scale));
@@ -557,7 +559,8 @@
             if (overlay) {
                 setTimeout(() => {
                     overlay.classList.add('visible');
-                    requestAnimationFrame(applyDynamicMarquee);
+                    // Wait for slide transition (400ms) before measuring marquee
+                    setTimeout(() => requestAnimationFrame(applyDynamicMarquee), 450);
                 }, 50);
                 if (!artPersistInfo) {
                     artOverlayTimer = setTimeout(() => overlay.classList.remove('visible'), ART_OVERLAY_DURATION);
