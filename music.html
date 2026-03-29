@@ -707,8 +707,21 @@
         } catch { hasFallbackArt = false; }
     }
 
+    // Check overlay visibility on load
+    async function checkOverlayVisibility() {
+        try {
+            const res = await fetch('/api/music/overlay');
+            if (res.ok) {
+                const data = await res.json();
+                if (!data.visible) {
+                    document.getElementById('player').classList.add('hidden-by-api');
+                }
+            }
+        } catch {}
+    }
+
     // Init
-    Promise.all([loadTheme(), checkFallbackArt()]).then(() => {
+    Promise.all([loadTheme(), checkFallbackArt(), checkOverlayVisibility()]).then(() => {
         connectWS();
         pollNowPlaying();
         setInterval(pollNowPlaying, 5000);

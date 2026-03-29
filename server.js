@@ -2884,6 +2884,11 @@ overlayWss.on('connection', (ws) => {
         ws.send(JSON.stringify({ type: 'music', data: musicState }));
     }
 
+    // Send current overlay visibility state
+    if (!overlayVisible) {
+        ws.send(JSON.stringify({ type: 'overlay-visibility', data: { visible: false } }));
+    }
+
     ws.on('close', () => {
         overlayClients.delete(ws);
         console.log(`[WS] Overlay client disconnected (${overlayClients.size} total)`);
