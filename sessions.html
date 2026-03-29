@@ -94,7 +94,7 @@
         .chat-msg .badge-sub { background: #a371f730; color: #a371f7; }
         .chat-msg .chat-session-tag { font-size: 0.7rem; color: #484f58; margin-top: 0.15rem; }
         .chat-msg .chat-text a { color: #58a6ff; text-decoration: underline; }
-        .chat-reply-quote { font-size: 0.75rem; color: #6e7681; border-left: 2px solid #30363d; padding-left: 0.5rem; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .chat-reply-quote { font-size: 0.75rem; color: #6e7681; border-left: 2px solid #30363d; padding-left: 0.5rem; margin-bottom: 0.25rem; overflow: hidden; text-overflow: ellipsis; max-width: 100%; font-style: italic; background: #161b22; padding: 0.2rem 0.5rem; border-radius: 0 4px 4px 0; }
         .chat-msg .pin-btn { background: none; border: none; cursor: pointer; font-size: 0.75rem; padding: 0.1rem 0.2rem; margin-left: 0.3rem; opacity: 0.35; transition: opacity 0.2s; color: #e1e4e8; vertical-align: middle; }
         .chat-msg .pin-btn:hover { opacity: 1; color: #f0c040; }
         .chat-msg .pin-btn.pinned { opacity: 1; color: #f0c040; }
@@ -712,10 +712,17 @@
     }
 
     function formatReply(html) {
-        // SSN reply format: "original message text:  @username reply text"
+        // Detect SSN HTML reply format: <i><small>quoted text:&nbsp;</small></i> @user reply
+        const htmlReplyMatch = html.match(/^<i><small>(.*?)<\/small><\/i>\s*(.*)/is);
+        if (htmlReplyMatch) {
+            const quoteText = htmlReplyMatch[1].replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '').replace(/:?\s*$/, '');
+            const replyText = htmlReplyMatch[2].replace(/^@\S+\s*/, '');
+            return `<div class="chat-reply-quote">↩ replying to: ${quoteText.substring(0, 120)}${quoteText.length > 120 ? '...' : ''}</div>${replyText}`;
+        }
+        // Fallback: plain text format "original msg:  @user reply"
         const replyMatch = html.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
         if (replyMatch) {
-            return `<div class="chat-reply-quote">↩ ${replyMatch[1]}</div>${replyMatch[3]}`;
+            return `<div class="chat-reply-quote">↩ replying to: ${replyMatch[1].substring(0, 120)}${replyMatch[1].length > 120 ? '...' : ''}</div>${replyMatch[3]}`;
         }
         return html;
     }
