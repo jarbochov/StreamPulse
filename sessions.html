@@ -711,20 +711,29 @@
         });
     }
 
-    function formatReply(html) {
+    function formatReply(rawHtml, message) {
         // Detect SSN HTML reply format: <i><small>quoted text:&nbsp;</small></i> @user reply
-        const htmlReplyMatch = html.match(/^<i><small>(.*?)<\/small><\/i>\s*(.*)/is);
-        if (htmlReplyMatch) {
-            const quoteText = htmlReplyMatch[1].replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '').replace(/:?\s*$/, '');
-            const replyText = htmlReplyMatch[2].replace(/^@\S+\s*/, '');
-            return `<div class="chat-reply-quote">↩ replying to: ${quoteText.substring(0, 120)}${quoteText.length > 120 ? '...' : ''}</div>${replyText}`;
+        if (rawHtml) {
+            const htmlReplyMatch = rawHtml.match(/^<i><small>(.*?)<\/small><\/i>\s*(.*)/is);
+            if (htmlReplyMatch) {
+                const quoteText = htmlReplyMatch[1].replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '').replace(/:?\s*$/, '');
+                const replyBody = htmlReplyMatch[2].replace(/^@\S+\s*/, '');
+                return {
+                    quote: quoteText.substring(0, 120) + (quoteText.length > 120 ? '...' : ''),
+                    body: sanitizeHtml(replyBody)
+                };
+            }
         }
         // Fallback: plain text format "original msg:  @user reply"
-        const replyMatch = html.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
+        const plainMsg = message || '';
+        const replyMatch = plainMsg.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
         if (replyMatch) {
-            return `<div class="chat-reply-quote">↩ replying to: ${replyMatch[1].substring(0, 120)}${replyMatch[1].length > 120 ? '...' : ''}</div>${replyMatch[3]}`;
+            return {
+                quote: replyMatch[1].substring(0, 120) + (replyMatch[1].length > 120 ? '...' : ''),
+                body: escapeHtml(replyMatch[3])
+            };
         }
-        return html;
+        return null;
     }
 
     function renderChatMessage(m, showSession, sessionName) {
@@ -741,9 +750,15 @@
         const sName = sessionName || m.session || (activeSessionFile === '__current__' ? 'current' : activeSessionFile) || '';
         const pinData = `data-ts="${m.ts}" data-user="${escapeHtml(m.user)}" data-msg="${escapeHtml(m.message || '')}" data-html="${escapeHtml(m.messageHtml || '')}" data-avatar="${escapeHtml(m.avatar || '')}" data-session="${escapeHtml(sName)}"`;
 
-        let displayHtml = m.messageHtml ? sanitizeHtml(m.messageHtml) : escapeHtml(m.message);
-        displayHtml = linkifyText(displayHtml);
-        displayHtml = formatReply(displayHtml);
+        // Detect reply from raw HTML before sanitization strips <i><small>
+        const reply = formatReply(m.messageHtml, m.message);
+        let displayHtml;
+        if (reply) {
+            displayHtml = `<div class="chat-reply-quote">↩ replying to: ${escapeHtml(reply.quote)}</div>${linkifyText(reply.body)}`;
+        } else {
+            displayHtml = m.messageHtml ? sanitizeHtml(m.messageHtml) : escapeHtml(m.message);
+            displayHtml = linkifyText(displayHtml);
+        }
 
         return `<div class="chat-msg">
             ${m.avatar ? `<img class="chat-avatar" src="${m.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
@@ -1055,9 +1070,14 @@
         for (const [session, items] of Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]))) {
             html += `<div class="highlight-group"><h3>${escapeHtml(session)}</h3>`;
             html += items.map(h => {
-                let displayHtml = h.messageHtml ? sanitizeHtml(h.messageHtml) : escapeHtml(h.message);
-                displayHtml = linkifyText(displayHtml);
-                displayHtml = formatReply(displayHtml);
+                const hReply = formatReply(h.messageHtml, h.message);
+                let displayHtml;
+                if (hReply) {
+                    displayHtml = `<div class="chat-reply-quote">↩ replying to: ${escapeHtml(hReply.quote)}</div>${linkifyText(hReply.body)}`;
+                } else {
+                    displayHtml = h.messageHtml ? sanitizeHtml(h.messageHtml) : escapeHtml(h.message);
+                    displayHtml = linkifyText(displayHtml);
+                }
                 return `<div class="chat-msg">
                     ${h.avatar ? `<img class="chat-avatar" src="${h.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
                     <div class="chat-meta">
