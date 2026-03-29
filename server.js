@@ -1371,19 +1371,21 @@ function buildChatPdfHtml(title, subtitle, messages) {
         // Detect reply: SSN wraps reply quote in <i><small>...</small></i>
         let replyHtml = '';
         if (m.messageHtml && /<i><small>/.test(m.messageHtml)) {
-            const quoteMatch = m.messageHtml.match(/<i><small>(.*?)<\/small><\/i>\s*/i);
+            const quoteMatch = m.messageHtml.match(/<i><small>(.*?)<\/small><\/i>\s*@?(\S*)\s*/i);
             if (quoteMatch) {
                 const quoteText = quoteMatch[1].replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '').replace(/:?\s*$/, '');
-                replyHtml = `<div class="reply-quote">↩ replying to: ${escHtml(quoteText.substring(0, 120))}${quoteText.length > 120 ? '...' : ''}</div>`;
+                const replyTo = quoteMatch[2] || '';
+                const label = replyTo ? `↩ replying to ${escHtml(replyTo)}: ` : '↩ replying to: ';
+                replyHtml = `<div class="reply-quote">${label}${escHtml(quoteText.substring(0, 120))}${quoteText.length > 120 ? '...' : ''}</div>`;
                 // Strip the reply prefix from display
-                display = sanitizeMsg(m.messageHtml.replace(/<i><small>.*?<\/small><\/i>\s*/i, ''));
+                display = sanitizeMsg(m.messageHtml.replace(/<i><small>.*?<\/small><\/i>\s*@?\S*\s*/i, ''));
             }
         } else {
             // Fallback: detect from plain text (format: "original msg:  @user reply")
             const plainMsg = m.message || '';
             const replyMatch = plainMsg.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
             if (replyMatch) {
-                replyHtml = `<div class="reply-quote">↩ replying to: ${escHtml(replyMatch[1].substring(0, 120))}${replyMatch[1].length > 120 ? '...' : ''}</div>`;
+                replyHtml = `<div class="reply-quote">↩ replying to ${escHtml(replyMatch[2])}: ${escHtml(replyMatch[1].substring(0, 120))}${replyMatch[1].length > 120 ? '...' : ''}</div>`;
                 display = m.messageHtml ? sanitizeMsg(m.messageHtml) : escHtml(replyMatch[3]);
             }
         }

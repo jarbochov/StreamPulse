@@ -717,8 +717,11 @@
             const htmlReplyMatch = rawHtml.match(/^<i><small>(.*?)<\/small><\/i>\s*(.*)/is);
             if (htmlReplyMatch) {
                 const quoteText = htmlReplyMatch[1].replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '').replace(/:?\s*$/, '');
-                const replyBody = htmlReplyMatch[2].replace(/^@\S+\s*/, '');
+                const userMatch = htmlReplyMatch[2].match(/^@(\S+)\s*/);
+                const replyTo = userMatch ? userMatch[1] : '';
+                const replyBody = userMatch ? htmlReplyMatch[2].substring(userMatch[0].length) : htmlReplyMatch[2];
                 return {
+                    user: replyTo,
                     quote: quoteText.substring(0, 120) + (quoteText.length > 120 ? '...' : ''),
                     body: sanitizeHtml(replyBody)
                 };
@@ -729,6 +732,7 @@
         const replyMatch = plainMsg.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
         if (replyMatch) {
             return {
+                user: replyMatch[2],
                 quote: replyMatch[1].substring(0, 120) + (replyMatch[1].length > 120 ? '...' : ''),
                 body: escapeHtml(replyMatch[3])
             };
@@ -754,7 +758,8 @@
         const reply = formatReply(m.messageHtml, m.message);
         let displayHtml;
         if (reply) {
-            displayHtml = `<div class="chat-reply-quote">↩ replying to: ${escapeHtml(reply.quote)}</div>${linkifyText(reply.body)}`;
+            const replyLabel = reply.user ? `↩ replying to ${reply.user}: ` : '↩ replying to: ';
+            displayHtml = `<div class="chat-reply-quote">${replyLabel}${escapeHtml(reply.quote)}</div>${linkifyText(reply.body)}`;
         } else {
             displayHtml = m.messageHtml ? sanitizeHtml(m.messageHtml) : escapeHtml(m.message);
             displayHtml = linkifyText(displayHtml);
@@ -1073,7 +1078,8 @@
                 const hReply = formatReply(h.messageHtml, h.message);
                 let displayHtml;
                 if (hReply) {
-                    displayHtml = `<div class="chat-reply-quote">↩ replying to: ${escapeHtml(hReply.quote)}</div>${linkifyText(hReply.body)}`;
+                    const hReplyLabel = hReply.user ? `↩ replying to ${hReply.user}: ` : '↩ replying to: ';
+                    displayHtml = `<div class="chat-reply-quote">${hReplyLabel}${escapeHtml(hReply.quote)}</div>${linkifyText(hReply.body)}`;
                 } else {
                     displayHtml = h.messageHtml ? sanitizeHtml(h.messageHtml) : escapeHtml(h.message);
                     displayHtml = linkifyText(displayHtml);
