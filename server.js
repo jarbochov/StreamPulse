@@ -924,9 +924,10 @@ function updateStats(chatname, msg) {
             }
         }
 
-        // Track hashtags
+        // Track hashtags — strip reply quote prefix to avoid double-counting
         if (config.hashtags_enabled !== false) {
-        const stripped = msg.chatmessage.replace(/<[^>]+>/g, '');
+        const noReply = msg.chatmessage.replace(/<i><small>.*?<\/small><\/i>\s*/gi, '');
+        const stripped = noReply.replace(/<[^>]+>/g, '');
         const decoded = stripped.replace(/&#?\w+;/g, '');
         const hashtags = decoded.match(/#[a-zA-Z]\w{1,}/g);
         if (hashtags) {
@@ -1259,7 +1260,9 @@ function processChatMessage(msg) {
             }
         }
 
-        const stripped = msg.chatmessage.replace(/<[^>]+>/g, '');
+        // Track session hashtags — strip reply quote prefix to avoid double-counting
+        const noReply2 = msg.chatmessage.replace(/<i><small>.*?<\/small><\/i>\s*/gi, '');
+        const stripped = noReply2.replace(/<[^>]+>/g, '');
         const decoded2 = stripped.replace(/&#?\w+;/g, '');
         if (config.hashtags_enabled !== false) {
         const hashtags = decoded2.match(/#[a-zA-Z]\w{1,}/g);
@@ -1365,12 +1368,24 @@ function buildChatPdfHtml(title, subtitle, messages) {
 
         let display = m.messageHtml ? sanitizeMsg(m.messageHtml) : escHtml(m.message);
 
-        const plainMsg = m.message || '';
-        const replyMatch = plainMsg.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
+        // Detect reply: SSN wraps reply quote in <i><small>...</small></i>
         let replyHtml = '';
-        if (replyMatch) {
-            replyHtml = `<div class="reply-quote">↩ ${escHtml(replyMatch[1].substring(0, 100))}${replyMatch[1].length > 100 ? '...' : ''}</div>`;
-            display = m.messageHtml ? sanitizeMsg(m.messageHtml) : escHtml(replyMatch[3]);
+        if (m.messageHtml && /<i><small>/.test(m.messageHtml)) {
+            const quoteMatch = m.messageHtml.match(/<i><small>(.*?)<\/small><\/i>\s*/i);
+            if (quoteMatch) {
+                const quoteText = quoteMatch[1].replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '').replace(/:?\s*$/, '');
+                replyHtml = `<div class="reply-quote">↩ replying to: ${escHtml(quoteText.substring(0, 120))}${quoteText.length > 120 ? '...' : ''}</div>`;
+                // Strip the reply prefix from display
+                display = sanitizeMsg(m.messageHtml.replace(/<i><small>.*?<\/small><\/i>\s*/i, ''));
+            }
+        } else {
+            // Fallback: detect from plain text (format: "original msg:  @user reply")
+            const plainMsg = m.message || '';
+            const replyMatch = plainMsg.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
+            if (replyMatch) {
+                replyHtml = `<div class="reply-quote">↩ replying to: ${escHtml(replyMatch[1].substring(0, 120))}${replyMatch[1].length > 120 ? '...' : ''}</div>`;
+                display = m.messageHtml ? sanitizeMsg(m.messageHtml) : escHtml(replyMatch[3]);
+            }
         }
 
         return `<div class="msg">
@@ -1396,7 +1411,7 @@ function buildChatPdfHtml(title, subtitle, messages) {
     .badge { font-size: 7px; color: #888; background: #f0f0f0; border-radius: 3px; padding: 1px 4px; white-space: nowrap; }
     .text { font-size: 10px; word-wrap: break-word; overflow-wrap: break-word; }
     .text img { height: 16px; vertical-align: middle; }
-    .reply-quote { font-size: 8px; color: #888; border-left: 2px solid #ccc; padding-left: 6px; margin: 2px 0; }
+    .reply-quote { font-size: 8px; color: #666; border-left: 2px solid #aaa; padding-left: 6px; margin: 2px 0 4px; font-style: italic; background: #f8f8f8; padding: 2px 6px; border-radius: 0 3px 3px 0; }
 </style></head><body>
     <h1>${escHtml(title)}</h1>
     <div class="subtitle">${escHtml(subtitle)}</div>
@@ -2377,9 +2392,12 @@ const server = http.createServer(async (req, res) => {
                 }).join('\n') + '\n';
             }
             const header = 'Timestamp\tUser\tMessage\tEvent\tDonation\tMembership';
-            const rows = messages.map(m =>
-                `${formatTime(m.ts)}\t${m.user}\t${m.message.replace(/\t/g, ' ')}\t${m.event || ''}\t${m.donation || ''}\t${m.membership || ''}`
-            );
+            const rows = messages.map(m => {
+                let msg = m.message.replace(/\t/g, ' ');
+                const replyMatch = msg.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
+                if (replyMatch) msg = `↩ ${replyMatch[1].substring(0, 80)} | ${replyMatch[3]}`;
+                return `${formatTime(m.ts)}\t${m.user}\t${msg}\t${m.event || ''}\t${m.donation || ''}\t${m.membership || ''}`;
+            });
             const content = preamble + header + '\n' + rows.join('\n');
             res.writeHead(200, {
                 'Content-Type': 'text/tab-separated-values',
@@ -2391,7 +2409,13 @@ const server = http.createServer(async (req, res) => {
 
         if (format === 'txt') {
             const lines = messages.map(m => {
-                let line = `[${formatTime(m.ts)}] ${m.user}: ${m.message}`;
+                let msg = m.message;
+                // Clean reply format: "original:  @user reply" → "↩ original | reply"
+                const replyMatch = msg.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
+                if (replyMatch) {
+                    msg = `↩ ${replyMatch[1].substring(0, 80)} | ${replyMatch[3]}`;
+                }
+                let line = `[${formatTime(m.ts)}] ${m.user}: ${msg}`;
                 if (m.event) line += ` [${m.event}]`;
                 if (m.donation) line += ` [${m.donation}]`;
                 return line;
