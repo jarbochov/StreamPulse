@@ -294,6 +294,7 @@
         .marquee-wrap.scrolling .marquee-text {
             display: inline-block;
             animation: marquee var(--marquee-duration, 10s) linear infinite;
+            animation-delay: 1.5s;
             padding-right: 3rem;
         }
         .marquee-wrap.scrolling .marquee-text::after {
@@ -301,8 +302,8 @@
             padding-left: 3rem;
         }
         @keyframes marquee {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
+            0%, 8% { transform: translateX(0); }
+            92%, 100% { transform: translateX(-50%); }
         }
 
         /* ===== TRANSITIONS ===== */
@@ -413,7 +414,8 @@
             const textW = span.scrollWidth;
             const containerW = wrap.clientWidth;
             if (textW > containerW) {
-                const duration = (textW + 48) / SCROLL_SPEED; // 48px = gap (3rem)
+                const scrollTime = (textW + 48) / SCROLL_SPEED; // time for the actual scroll
+                const duration = scrollTime / 0.84; // 8% pause at start + 8% at end = 84% scrolling
                 wrap.style.setProperty('--marquee-duration', duration + 's');
                 wrap.classList.add('scrolling');
                 span.style.animation = '';
