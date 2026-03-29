@@ -145,8 +145,8 @@
         const sorted = [...lastData];
         if (sort === 'recent') {
             sorted.sort((a, b) => {
-                const aMax = a.sessions.reduce((m, s) => s.date > m ? s.date : m, '');
-                const bMax = b.sessions.reduce((m, s) => s.date > m ? s.date : m, '');
+                const aMax = a.sessions.reduce((m, s) => (s.changedAt || s.date) > m ? (s.changedAt || s.date) : m, '');
+                const bMax = b.sessions.reduce((m, s) => (s.changedAt || s.date) > m ? (s.changedAt || s.date) : m, '');
                 return bMax.localeCompare(aMax);
             });
         } else if (sort === 'time') {

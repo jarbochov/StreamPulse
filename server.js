@@ -2039,6 +2039,7 @@ const server = http.createServer(async (req, res) => {
                     categories[cat].totalMinutes += minutes;
                     categories[cat].sessions.push({
                         date: sessDate,
+                        changedAt: entry.changedAt,
                         title: entry.title,
                         minutes: Math.round(minutes)
                     });
