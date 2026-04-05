@@ -864,14 +864,16 @@ function updateStats(chatname, msg) {
         const isGift = msg.event === 'subscription_gift' || msg.event === 'giftpurchase' ||
             (msg.membership && msg.membership.toLowerCase().includes('gift')) || msg.contentimg;
         if (isGift) {
-            // Determine the gifter: named person in chatmessage, or chatname if not "Viewer"
+            // Determine gifter using same logic as session tracking
             let statsGifter;
             if (msg.event === 'giftredemption' || (msg.membership && msg.membership.toLowerCase() === 'gift_recipient')) {
                 const giftedByMatch = (msg.subtitle || '').match(/gifted\s+by\s+(\S+)/i);
                 statsGifter = giftedByMatch ? giftedByMatch[1] : 'Anonymous';
+            } else if (chatname === 'Viewer' || chatname === 'AnAnonymousGifter') {
+                const nameAfterTo = (msg.chatmessage || '').match(/gifted\s+(?:a\s+)?(?:Tier \d\s+)?Sub(?:scription)?\s+to\s+(\S+)/i);
+                statsGifter = nameAfterTo ? nameAfterTo[1].replace(/[.!,]$/, '') : 'Anonymous';
             } else {
-                const namedInMsg = (msg.chatmessage || '').match(/gifted\s+(?:a\s+)?(?:Tier \d\s+)?Sub(?:scription)?\s+to\s+(\S+)/i);
-                statsGifter = namedInMsg ? namedInMsg[1].replace(/[.!,]$/, '') : (chatname !== 'Viewer' ? chatname : 'Anonymous');
+                statsGifter = chatname;
             }
             if (!statsData.giftSubs[statsGifter]) {
                 statsData.giftSubs[statsGifter] = {
@@ -1209,18 +1211,16 @@ function processChatMessage(msg) {
         const isGift = msg.event === 'subscription_gift' || msg.event === 'giftpurchase' ||
             (msg.membership && msg.membership.toLowerCase().includes('gift')) || msg.contentimg;
         if (isGift) {
-            // SSN subscription_gift observed format:
-            //   chatname = "Viewer" (generic placeholder, NOT useful)
-            //   chatmessage = "Viewer gifted a sub to SirChadlyOC!" — named person IS the gifter
-            //   The actual recipient is NOT included in SSN data
+            // SSN subscription_gift observed behavior:
+            //   When chatname = "Viewer" (placeholder): the named person in chatmessage is the GIFTER
+            //     e.g. chatname="Viewer", chatmessage="Viewer gifted a sub to SirChadlyOC!"
+            //     Real event: SirChadlyOC gifted to Go_Hobo_Go — SSN doesn't include recipient
+            //   When chatname = real username: standard format, chatname = gifter, "to X" = recipient
             // SSN giftredemption: chatname = recipient, subtitle may contain "Gifted by ..."
             console.log(`[SSN] Gift event raw: chatname=${chatname}, event=${msg.event}, membership=${msg.membership || ''}, subtitle=${msg.subtitle || ''}, chatmessage=${(msg.chatmessage || '').substring(0, 120)}`);
 
-            // Parse the gifter name from chatmessage ("Viewer gifted a Sub to GifterName!")
-            const namedInMsg = (msg.chatmessage || '').match(/gifted\s+(?:a\s+)?(?:Tier \d\s+)?Sub(?:scription)?\s+to\s+(\S+)/i);
-            const parsedName = namedInMsg ? namedInMsg[1].replace(/[.!,]$/, '') : null;
-
-            // Parse gifter from subtitle ("Gifted by Username") for giftredemption events
+            const nameAfterTo = (msg.chatmessage || '').match(/gifted\s+(?:a\s+)?(?:Tier \d\s+)?Sub(?:scription)?\s+to\s+(\S+)/i);
+            const parsedName = nameAfterTo ? nameAfterTo[1].replace(/[.!,]$/, '') : null;
             const giftedByMatch = (msg.subtitle || '').match(/gifted\s+by\s+(\S+)/i);
 
             let gifter, recipient;
@@ -1228,17 +1228,19 @@ function processChatMessage(msg) {
                 // giftredemption: chatname = the recipient; gifter is in subtitle
                 recipient = chatname;
                 gifter = giftedByMatch ? giftedByMatch[1] : 'Anonymous';
-            } else {
-                // subscription_gift: chatname is "Viewer" (placeholder), named person in message is the gifter
-                // Recipient is not provided by SSN
-                gifter = parsedName || (chatname !== 'Viewer' ? chatname : null) || 'Anonymous';
+            } else if (chatname === 'Viewer' || chatname === 'AnAnonymousGifter') {
+                // SSN placeholder — the real gifter name is after "to" in chatmessage
+                gifter = parsedName || 'Anonymous';
                 recipient = null;
+            } else {
+                // chatname is a real username = the gifter; name after "to" = the recipient
+                gifter = chatname;
+                recipient = parsedName || null;
             }
 
-            // Use the gifter's avatar if chatname was the generic "Viewer" placeholder
-            const gifterImg = (chatname === 'Viewer' || !msg.chatimg) ? null : msg.chatimg;
-            // Try to find gifter's avatar from chatters if available
-            const gifterAvatar = gifterImg || (chatData.chatters[gifter] ? chatData.chatters[gifter].chatimg : null);
+            // Resolve gifter's avatar (skip if chatname was a placeholder)
+            const gifterAvatar = (chatname === gifter && msg.chatimg) ? msg.chatimg
+                : (chatData.chatters[gifter] ? chatData.chatters[gifter].chatimg : null);
 
             const alreadyGifted = chatData.giftSubs.some(g => g.gifter === gifter);
             if (!alreadyGifted) {
