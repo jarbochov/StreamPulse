@@ -1217,7 +1217,7 @@ function processChatMessage(msg) {
             //     Real event: SirChadlyOC gifted to Go_Hobo_Go — SSN doesn't include recipient
             //   When chatname = real username: standard format, chatname = gifter, "to X" = recipient
             // SSN giftredemption: chatname = recipient, subtitle may contain "Gifted by ..."
-            console.log(`[SSN] Gift event raw: chatname=${chatname}, event=${msg.event}, membership=${msg.membership || ''}, subtitle=${msg.subtitle || ''}, chatmessage=${(msg.chatmessage || '').substring(0, 120)}`);
+            console.log(`[SSN] Gift event raw: chatname=${chatname}, event=${msg.event}, membership=${msg.membership || ''}, subtitle=${msg.subtitle || ''}, chatmessage=${(msg.chatmessage || '').substring(0, 120)}, meta=${JSON.stringify(msg.meta || {})}`);
 
             const nameAfterTo = (msg.chatmessage || '').match(/gifted\s+(?:a\s+)?(?:Tier \d\s+)?Sub(?:scription)?\s+to\s+(\S+)/i);
             const parsedName = nameAfterTo ? nameAfterTo[1].replace(/[.!,]$/, '') : null;
