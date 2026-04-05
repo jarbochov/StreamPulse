@@ -883,19 +883,22 @@ function updateStats(chatname, msg) {
         }
     }
 
-    // Track bits/donations
-    if (msg.hasDonation) {
-        if (msg.hasDonation.toLowerCase().includes('bit')) {
+    // Track bits/donations in stats — mirrors session tracking logic
+    if (msg.event === 'cheer' || msg.hasDonation) {
+        const bitsFromMeta = msg.meta && typeof msg.meta === 'object' ? msg.meta.bits : null;
+        const bitsFromDonation = msg.hasDonation ? (msg.hasDonation.match(/(\d+)/) || [])[1] : null;
+        const isBits = msg.event === 'cheer' || (msg.hasDonation && msg.hasDonation.toLowerCase().includes('bit'));
+
+        if (isBits) {
             if (!statsData.bits[chatname]) {
                 statsData.bits[chatname] = {
                     chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}
                 };
             }
-            const match = msg.hasDonation.match(/(\d+)/);
-            const amount = match ? parseInt(match[1]) : 0;
+            const amount = bitsFromMeta || (bitsFromDonation ? parseInt(bitsFromDonation) : 0);
             statsData.bits[chatname].days[today] = (statsData.bits[chatname].days[today] || 0) + amount;
             statsData.bits[chatname].lastSeen = nowISO;
-        } else {
+        } else if (msg.hasDonation) {
             if (!statsData.donations[chatname]) {
                 statsData.donations[chatname] = {
                     chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}
@@ -1210,13 +1213,22 @@ function processChatMessage(msg) {
         }
     }
 
-    if (msg.hasDonation) {
-        const donation = { chatname, amount: msg.hasDonation, chatimg: msg.chatimg };
-        if (msg.hasDonation.toLowerCase().includes('bit')) {
+    // Track bits/donations — SSN EventSub sends event='cheer' with meta.bits;
+    // DOM capture sets hasDonation="N bits" without an event
+    if (msg.event === 'cheer' || msg.hasDonation) {
+        const bitsFromMeta = msg.meta && typeof msg.meta === 'object' ? msg.meta.bits : null;
+        const bitsFromDonation = msg.hasDonation ? (msg.hasDonation.match(/(\d+)/) || [])[1] : null;
+        const isBits = msg.event === 'cheer' || (msg.hasDonation && msg.hasDonation.toLowerCase().includes('bit'));
+
+        if (isBits) {
+            const amount = bitsFromMeta || (bitsFromDonation ? parseInt(bitsFromDonation) : 0);
+            const label = msg.hasDonation || `${amount} bits`;
+            const donation = { chatname, amount: label, bits: amount, chatimg: msg.chatimg };
             chatData.bits.push(donation);
-            console.log(`[SSN] Bits: ${chatname} - ${msg.hasDonation}`);
-            fireWebhook('bits', { user: chatname, amount: msg.hasDonation, message: `${chatname} cheered ${msg.hasDonation}` });
-        } else {
+            console.log(`[SSN] Bits: ${chatname} - ${label} (${amount} bits)`);
+            fireWebhook('bits', { user: chatname, amount: label, message: `${chatname} cheered ${label}` });
+        } else if (msg.hasDonation) {
+            const donation = { chatname, amount: msg.hasDonation, chatimg: msg.chatimg };
             chatData.donations.push(donation);
             console.log(`[SSN] Donation: ${chatname} - ${msg.hasDonation}`);
             fireWebhook('donation', { user: chatname, amount: msg.hasDonation, message: `${chatname} donated ${msg.hasDonation}` });
