@@ -864,14 +864,21 @@ function updateStats(chatname, msg) {
         const isGift = msg.event === 'subscription_gift' || msg.event === 'giftpurchase' ||
             (msg.membership && msg.membership.toLowerCase().includes('gift')) || msg.contentimg;
         if (isGift) {
-            // Stats tracks by gifter name (chatname = gifter for gift events)
-            if (!statsData.giftSubs[chatname]) {
-                statsData.giftSubs[chatname] = {
+            // Determine the gifter using same logic as session tracking
+            let statsGifter;
+            if (msg.event === 'giftredemption' || (msg.membership && msg.membership.toLowerCase() === 'gift_recipient')) {
+                const giftedByMatch = (msg.subtitle || '').match(/gifted\s+by\s+(\S+)/i);
+                statsGifter = giftedByMatch ? giftedByMatch[1] : 'Anonymous';
+            } else {
+                statsGifter = chatname;
+            }
+            if (!statsData.giftSubs[statsGifter]) {
+                statsData.giftSubs[statsGifter] = {
                     chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}
                 };
             }
-            statsData.giftSubs[chatname].days[today] = (statsData.giftSubs[chatname].days[today] || 0) + 1;
-            statsData.giftSubs[chatname].lastSeen = nowISO;
+            statsData.giftSubs[statsGifter].days[today] = (statsData.giftSubs[statsGifter].days[today] || 0) + 1;
+            statsData.giftSubs[statsGifter].lastSeen = nowISO;
         } else {
             if (!statsData.subscribers[chatname]) {
                 statsData.subscribers[chatname] = {
@@ -1201,15 +1208,35 @@ function processChatMessage(msg) {
         const isGift = msg.event === 'subscription_gift' || msg.event === 'giftpurchase' ||
             (msg.membership && msg.membership.toLowerCase().includes('gift')) || msg.contentimg;
         if (isGift) {
-            // For gift subs, chatname = gifter; parse recipient from chatmessage
-            // SSN format: "SirChadlyOC gifted a Sub to gohobogo"
+            // SSN subscription_gift: chatname = gifter, chatmessage = "User gifted a Sub to recipient"
+            // SSN giftredemption: chatname = recipient, subtitle may contain "Gifted by ..."
+            // Log full payload for debugging gift sub structure
+            console.log(`[SSN] Gift event raw: chatname=${chatname}, event=${msg.event}, membership=${msg.membership || ''}, subtitle=${msg.subtitle || ''}, chatmessage=${(msg.chatmessage || '').substring(0, 120)}`);
+
+            // Parse recipient from chatmessage ("User gifted a Sub to recipient")
             const recipientMatch = (msg.chatmessage || '').match(/gifted\s+(?:a\s+)?(?:Tier \d\s+)?Sub(?:scription)?\s+to\s+(\S+)/i);
-            const recipient = recipientMatch ? recipientMatch[1].replace(/[.!,]$/, '') : null;
-            const alreadyGifted = chatData.giftSubs.some(g => g.gifter === chatname && g.recipient === recipient);
+            const parsedRecipient = recipientMatch ? recipientMatch[1].replace(/[.!,]$/, '') : null;
+
+            // Parse gifter from subtitle ("Gifted by Username") for giftredemption events
+            const giftedByMatch = (msg.subtitle || '').match(/gifted\s+by\s+(\S+)/i);
+
+            // Determine gifter and recipient based on event type
+            let gifter, recipient;
+            if (msg.event === 'giftredemption' || (msg.membership && msg.membership.toLowerCase() === 'gift_recipient')) {
+                // chatname = the recipient; gifter is in subtitle
+                recipient = chatname;
+                gifter = giftedByMatch ? giftedByMatch[1] : 'Anonymous';
+            } else {
+                // subscription_gift / giftpurchase: chatname = the gifter
+                gifter = chatname;
+                recipient = parsedRecipient || null;
+            }
+
+            const alreadyGifted = chatData.giftSubs.some(g => g.gifter === gifter && g.recipient === recipient);
             if (!alreadyGifted) {
-                chatData.giftSubs.push({ chatname: recipient || chatname, gifter: chatname, recipient: recipient, chatimg: msg.chatimg, event: msg.event || null });
-                console.log(`[SSN] Gift Sub: ${chatname} → ${recipient || '?'} (event=${msg.event})`);
-                fireWebhook('subscribe', { user: chatname, recipient: recipient, type: 'gift', message: `${chatname} gifted a sub to ${recipient || 'someone'}!` });
+                chatData.giftSubs.push({ chatname: gifter, gifter, recipient: recipient, chatimg: msg.chatimg, event: msg.event || null });
+                console.log(`[SSN] Gift Sub: ${gifter} → ${recipient || '?'} (event=${msg.event})`);
+                fireWebhook('subscribe', { user: gifter, recipient: recipient, type: 'gift', message: `${gifter} gifted a sub to ${recipient || 'someone'}!` });
             }
         } else {
             const alreadySubbed = chatData.subscribers.some(s => s.chatname === chatname);

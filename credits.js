@@ -211,7 +211,7 @@ function loadChatData(chatJson) {
 
     liveData.followers = (chatJson.followers || []).map(f => ({ chatname: f.chatname, chatimg: f.chatimg, timestamp: f.timestamp }));
     liveData.subscribers = (chatJson.subscribers || []).map(s => ({ chatname: s.chatname, membership: s.membership, chatimg: s.chatimg }));
-    liveData.giftSubs = (chatJson.giftSubs || []).map(g => ({ chatname: g.chatname, chatimg: g.chatimg }));
+    liveData.giftSubs = (chatJson.giftSubs || []).map(g => ({ chatname: g.chatname, gifter: g.gifter, recipient: g.recipient, chatimg: g.chatimg }));
     liveData.bits = (chatJson.bits || []).map(b => ({ chatname: b.chatname, amount: b.amount, chatimg: b.chatimg }));
     liveData.donations = (chatJson.donations || []).map(d => ({ chatname: d.chatname, amount: d.amount, chatimg: d.chatimg }));
     liveData.raids = (chatJson.raids || []).map(r => ({ chatname: r.chatname, chatimg: r.chatimg, viewers: r.viewers }));
@@ -328,7 +328,9 @@ function renderCredits() {
         html += sectionHeader(sec.gift_subs.title, sec.gift_subs.subtitle);
         html += '<div class="people-list two-col">';
         liveData.giftSubs.forEach(g => {
-            html += `<div class="person">${escapeHtml(g.chatname)}</div>`;
+            const gifter = g.gifter || g.chatname;
+            const label = g.recipient ? `${gifter} → ${g.recipient}` : gifter;
+            html += `<div class="person">${escapeHtml(label)}</div>`;
         });
         html += '</div></div>';
     }

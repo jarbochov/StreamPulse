@@ -463,10 +463,14 @@
         // Gift Subs
         const giftSubEntries = data.giftSubs || [];
         document.getElementById('pane-giftsubs').innerHTML = giftSubEntries.length
-            ? giftSubEntries.map(g => `<div class="entry">
-                ${g.chatimg ? `<img src="${g.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
-                <span class="name">${escapeHtml(g.chatname)}</span>
-            </div>`).join('')
+            ? giftSubEntries.map(g => {
+                const gifter = g.gifter || g.chatname;
+                const label = g.recipient ? `${gifter} → ${g.recipient}` : gifter;
+                return `<div class="entry">
+                    ${g.chatimg ? `<img src="${g.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
+                    <span class="name">${escapeHtml(label)}</span>
+                </div>`;
+            }).join('')
             : '<div class="empty">No gift subs</div>';
 
         // Followers
