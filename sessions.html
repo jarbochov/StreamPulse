@@ -517,9 +517,11 @@
                 <button class="export-btn" onclick="exportChatLog('pdf')">📕 Export PDF</button>
             </div>
             <div class="chat-search">
-                <input type="text" id="chatlog-filter" placeholder="Filter messages..." onkeydown="if(event.key==='Enter')filterChatLog()">
+                <input type="text" id="chatlog-filter" placeholder="Filter messages or @user..." onkeydown="if(event.key==='Enter')filterChatLog()">
                 <button onclick="filterChatLog()">Filter</button>
-                <button class="filter-toggle" id="links-toggle" onclick="toggleLinksFilter(this)">🔗 Links</button>
+                <button class="filter-toggle" id="links-toggle" onclick="toggleChatLogFilter('links', this)">🔗 Links</button>
+                <button class="filter-toggle" id="events-toggle" onclick="toggleChatLogFilter('events', this)">📢 Events</button>
+                <button class="filter-toggle" id="donations-toggle" onclick="toggleChatLogFilter('donations', this)">💰 Donations</button>
             </div>
             <div class="chat-log-info" id="chatlog-info"></div>
             <div id="chatlog-messages"><div class="chat-log-loading">Click to load chat log...</div></div>
@@ -530,11 +532,18 @@
         document.getElementById('pane-highlights').innerHTML = '<div class="chat-log-loading">Loading highlights...</div>';
     }
 
-    let linksFilterActive = false;
+    let chatLogTypeFilter = null;
 
-    function toggleLinksFilter(btn) {
-        linksFilterActive = !linksFilterActive;
-        btn.classList.toggle('active', linksFilterActive);
+    function toggleChatLogFilter(type, btn) {
+        const filterButtons = document.querySelectorAll('.chat-search .filter-toggle');
+        if (chatLogTypeFilter === type) {
+            chatLogTypeFilter = null;
+            btn.classList.remove('active');
+        } else {
+            chatLogTypeFilter = type;
+            filterButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
         filterChatLog();
     }
 
@@ -856,25 +865,38 @@
     }
 
     function filterChatLog() {
-        const query = (document.getElementById('chatlog-filter')?.value || '').toLowerCase();
+        const rawQuery = (document.getElementById('chatlog-filter')?.value || '').trim();
         let messages = chatLogCache[activeSessionFile] || [];
 
-        if (linksFilterActive) {
+        // Type filters
+        if (chatLogTypeFilter === 'links') {
             messages = messages.filter(m =>
                 (m.urls && m.urls.length > 0) || (m.message && m.message.match(/https?:\/\//))
             );
+        } else if (chatLogTypeFilter === 'events') {
+            messages = messages.filter(m => m.event);
+        } else if (chatLogTypeFilter === 'donations') {
+            messages = messages.filter(m => m.donation);
         }
 
-        if (query) {
-            messages = messages.filter(m =>
-                m.message.toLowerCase().includes(query) || m.user.toLowerCase().includes(query)
-            );
+        // Text/user query
+        if (rawQuery) {
+            if (rawQuery.startsWith('@')) {
+                const user = rawQuery.slice(1).toLowerCase();
+                messages = messages.filter(m => m.user.toLowerCase().includes(user));
+            } else {
+                const lower = rawQuery.toLowerCase();
+                messages = messages.filter(m =>
+                    m.message.toLowerCase().includes(lower) || m.user.toLowerCase().includes(lower)
+                );
+            }
         }
 
         const infoEl = document.getElementById('chatlog-info');
         const total = chatLogCache[activeSessionFile]?.length || 0;
-        if (query || linksFilterActive) {
-            if (infoEl) infoEl.textContent = `${messages.length} of ${total} messages${query ? ` match "${query}"` : ''}${linksFilterActive ? ' (links only)' : ''}`;
+        const filterLabel = chatLogTypeFilter ? ` (${chatLogTypeFilter})` : '';
+        if (rawQuery || chatLogTypeFilter) {
+            if (infoEl) infoEl.textContent = `${messages.length} of ${total} messages${rawQuery ? ` match "${rawQuery}"` : ''}${filterLabel}`;
         } else {
             if (infoEl) infoEl.textContent = `${total} message${total !== 1 ? 's' : ''} recorded`;
         }
@@ -885,8 +907,14 @@
         const session = activeSessionFile === '__current__' ? 'current' : activeSessionFile;
         const params = new URLSearchParams({ format, session });
         const query = (document.getElementById('chatlog-filter')?.value || '').trim();
-        if (query) params.set('q', query);
-        if (linksFilterActive) params.set('type', 'links');
+        if (query) {
+            if (query.startsWith('@')) {
+                params.set('user', query.slice(1));
+            } else {
+                params.set('q', query);
+            }
+        }
+        if (chatLogTypeFilter) params.set('type', chatLogTypeFilter);
         const a = document.createElement('a');
         a.href = `/api/chat-log/export?${params}`;
         a.download = `chat-log.${format}`;

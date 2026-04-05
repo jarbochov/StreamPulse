@@ -864,6 +864,7 @@ function updateStats(chatname, msg) {
         const isGift = msg.event === 'subscription_gift' || msg.event === 'giftpurchase' ||
             (msg.membership && msg.membership.toLowerCase().includes('gift')) || msg.contentimg;
         if (isGift) {
+            // Stats tracks by gifter name (chatname = gifter for gift events)
             if (!statsData.giftSubs[chatname]) {
                 statsData.giftSubs[chatname] = {
                     chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}
@@ -1197,15 +1198,22 @@ function processChatMessage(msg) {
     const SUB_EVENTS = ['new_subscriber', 'resub', 'subscription_gift', 'sponsorship', 'giftpurchase', 'giftredemption'];
     const isSubEvent = SUB_EVENTS.includes(msg.event);
     if (isSubEvent) {
-        const alreadySubbed = chatData.subscribers.some(s => s.chatname === chatname);
-        if (!alreadySubbed) {
-            const isGift = msg.event === 'subscription_gift' || msg.event === 'giftpurchase' ||
-                (msg.membership && msg.membership.toLowerCase().includes('gift')) || msg.contentimg;
-            if (isGift) {
-                chatData.giftSubs.push({ chatname, chatimg: msg.chatimg, event: msg.event || null });
-                console.log(`[SSN] Gift Sub: ${chatname} (event=${msg.event})`);
-                fireWebhook('subscribe', { user: chatname, type: 'gift', message: `${chatname} gifted a sub!` });
-            } else {
+        const isGift = msg.event === 'subscription_gift' || msg.event === 'giftpurchase' ||
+            (msg.membership && msg.membership.toLowerCase().includes('gift')) || msg.contentimg;
+        if (isGift) {
+            // For gift subs, chatname = gifter; parse recipient from chatmessage
+            // SSN format: "SirChadlyOC gifted a Sub to gohobogo"
+            const recipientMatch = (msg.chatmessage || '').match(/gifted\s+(?:a\s+)?(?:Tier \d\s+)?Sub(?:scription)?\s+to\s+(\S+)/i);
+            const recipient = recipientMatch ? recipientMatch[1].replace(/[.!,]$/, '') : null;
+            const alreadyGifted = chatData.giftSubs.some(g => g.gifter === chatname && g.recipient === recipient);
+            if (!alreadyGifted) {
+                chatData.giftSubs.push({ chatname: recipient || chatname, gifter: chatname, recipient: recipient, chatimg: msg.chatimg, event: msg.event || null });
+                console.log(`[SSN] Gift Sub: ${chatname} → ${recipient || '?'} (event=${msg.event})`);
+                fireWebhook('subscribe', { user: chatname, recipient: recipient, type: 'gift', message: `${chatname} gifted a sub to ${recipient || 'someone'}!` });
+            }
+        } else {
+            const alreadySubbed = chatData.subscribers.some(s => s.chatname === chatname);
+            if (!alreadySubbed) {
                 chatData.subscribers.push({ chatname, membership: msg.membership || null, subtitle: msg.subtitle || null, chatimg: msg.chatimg, event: msg.event || null });
                 console.log(`[SSN] Sub: ${chatname} - ${msg.membership || msg.event}${msg.subtitle ? ' (' + msg.subtitle + ')' : ''}`);
                 fireWebhook('subscribe', { user: chatname, tier: msg.membership, detail: msg.subtitle, message: `${chatname} subscribed! (${msg.membership || msg.event})` });
