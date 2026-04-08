@@ -23,7 +23,7 @@ let serverConfig = {
             subscribers: { enabled: true, title: 'Subscribers', subtitle: '' },
             followers: { enabled: true, title: 'New Followers', subtitle: '' },
             donations: { enabled: true, title: 'Donators', subtitle: '', source: 'session' },
-            gift_subs: { enabled: true, title: 'Gift Subs', subtitle: '' },
+            gift_subs: { enabled: true, title: 'Gift Subs', subtitle: '', source: 'session' },
             cheerers: { enabled: true, title: 'Cheerers', subtitle: '', source: 'session' },
             raids: { enabled: true, title: 'Raiders', subtitle: '' },
             emotes: { enabled: true, title: 'Top Emotes', subtitle: '' },
@@ -323,16 +323,22 @@ function renderCredits() {
     }
 
     // Gift Subs
-    if (sec.gift_subs.enabled !== false && liveData.giftSubs.length > 0) {
-        html += '<div class="section">';
-        html += sectionHeader(sec.gift_subs.title, sec.gift_subs.subtitle);
-        html += '<div class="people-list two-col">';
-        liveData.giftSubs.forEach(g => {
-            const gifter = g.gifter || g.chatname;
-            const label = g.recipient ? `${gifter} → ${g.recipient}` : gifter;
-            html += `<div class="person">${escapeHtml(label)}</div>`;
-        });
-        html += '</div></div>';
+    if (sec.gift_subs.enabled !== false) {
+        const useStats = sec.gift_subs.source === 'stats';
+        const giftSubList = useStats ? mergeStatsGiftSubs() : liveData.giftSubs;
+        if (giftSubList.length > 0) {
+            html += '<div class="section">';
+            html += sectionHeader(sec.gift_subs.title, sec.gift_subs.subtitle);
+            html += '<div class="people-list two-col">';
+            giftSubList.forEach(g => {
+                const gifter = g.gifter || g.chatname;
+                let label = gifter;
+                if (g.recipient) label = `${gifter} → ${g.recipient}`;
+                else if (useStats && g.count > 1) label = `${gifter} (${g.count})`;
+                html += `<div class="person">${escapeHtml(label)}</div>`;
+            });
+            html += '</div></div>';
+        }
     }
 
     // Cheerers
@@ -641,6 +647,21 @@ function mergeStatsBits() {
         .sort((a, b) => b.score - a.score);
 }
 
+// Pull gift subs from stats.json filtered by DAYS_FILTER
+function mergeStatsGiftSubs() {
+    if (!statsData || !statsData.giftSubs) return [];
+    const cutoff = new Date(Date.now() - DAYS_FILTER * 86400000).toISOString().slice(0, 10);
+    return Object.entries(statsData.giftSubs)
+        .map(([name, g]) => {
+            const total = Object.entries(g.days || {})
+                .filter(([day]) => day >= cutoff)
+                .reduce((sum, [, c]) => sum + c, 0);
+            return { chatname: name, gifter: name, count: total, chatimg: g.chatimg };
+        })
+        .filter(g => g.count > 0)
+        .sort((a, b) => b.count - a.count);
+}
+
 function getTopHashtags(limit) {
     return Array.from(liveData.hashtags.entries())
         .map(([tag, data]) => ({
@@ -715,7 +736,7 @@ async function init() {
 
     // Load stats data if any section uses 'stats' source
     const sec = serverConfig.credits?.sections || {};
-    if (sec.donations?.source === 'stats' || sec.cheerers?.source === 'stats') {
+    if (sec.donations?.source === 'stats' || sec.cheerers?.source === 'stats' || sec.gift_subs?.source === 'stats') {
         try {
             const statsRes = await fetch('/api/stats');
             if (statsRes.ok) {

@@ -229,7 +229,7 @@
                     <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
                         <input type="checkbox" id="cfg-sec-${key}-enabled" ${s.enabled !== false ? 'checked' : ''} style="accent-color: #58a6ff;">
                         <span style="font-size: 0.85rem; color: #e1e4e8; min-width: 100px; font-weight: 500;">${escapeHtml(key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))}</span>
-                        ${(key === 'donations' || key === 'cheerers') ? `
+                        ${(key === 'donations' || key === 'cheerers' || key === 'gift_subs') ? `
                             <label style="font-size: 0.7rem; color: #8b949e; margin-left: auto;">Source</label>
                             <select id="cfg-sec-${key}-source" style="padding: 0.25rem 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e1e4e8; font-size: 0.75rem; width: 90px;">
                                 <option value="session"${(s.source || 'session') === 'session' ? ' selected' : ''}>Session</option>
