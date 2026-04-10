@@ -1,7 +1,6 @@
-# Fetched API data (contains sensitive subscriber info)
-data/*.json
-data/*.png
-data/sessions/
+# Generated data (contains sensitive subscriber/token info)
+data/*
+!data/.gitkeep
 
 # Config (contains secrets)
 config.json
