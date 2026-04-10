@@ -1,6 +1,10 @@
 # StreamPulse
 
-Stream credits, live stats, chat logs, and community tracking — powered by [SocialStream Ninja](https://socialstream.ninja/) and the [Twitch API](https://dev.twitch.tv/docs/api/).
+A self-hosted stream overlay toolkit — built around a cinematic **credits roll** that recognizes the people who make your stream what it is: subscribers, followers, cheerers, raiders, gifters, and chatters.
+
+StreamPulse started as a way to give every community member their moment in the spotlight at the end of a stream. It grew into a full data toolkit with live stats, session history, searchable chat logs, hashtag tracking, highlights, and more — all powered by [SocialStream Ninja](https://socialstream.ninja/) and the [Twitch API](https://dev.twitch.tv/docs/api/).
+
+> **Hashtags** are a fun way to capture community moments in smaller streams — viewers drop `#blessed` or `#teamwipe` and they show up live on the overlay and in the credits. For larger communities, you'll want to use the built-in moderation tools (ban/purge) or disable hashtags entirely unless you have a solid moderation process.
 
 ## Prerequisites
 
@@ -53,16 +57,19 @@ On first run, a browser window opens for Twitch authorization. After that, the s
 - Credits: `http://localhost:3000/credits.html`
 - Stats: `http://localhost:3000/stats.html`
 - Hashtags: `http://localhost:3000/hashtags.html`
+- Music: `http://localhost:3000/music.html`
 
 **Management Pages:**
 - Dashboard: `http://localhost:3000/dashboard.html`
 - Sessions: `http://localhost:3000/sessions.html`
 - Highlights: `http://localhost:3000/highlights.html`
 - Config: `http://localhost:3000/config-editor.html`
+- Music Editor: `http://localhost:3000/music-editor.html`
 
 ## Features
 
-- **Credits Roll** — Cinematic scrolling credits with subscribers, followers, chatters, emotes, hashtags, raids, and more
+- **Credits Roll** — Cinematic scrolling credits with subscribers, followers, chatters, emotes, hashtags, raids, gift subs, cheerers, and more
+- **Music Overlay** — "Now Playing" overlay for Apple Music, Spotify, and VLC with album art, marquee titles, and multiple display modes
 - **Live Stats Overlay** — Persistent top chatters, emotes, and hashtags across sessions
 - **Session History** — Browse archived sessions with full chat logs, searchable with boolean operators (`AND`, `OR`, `"exact phrase"`, `user:name`)
 - **Highlights** — Pin notable chat messages and export them per session
@@ -152,6 +159,9 @@ All other settings can be edited live via the [Config Editor](http://localhost:3
 | `hashtags_enabled` | boolean | `true` | Enable hashtag tracking |
 | `chat_log_enabled` | boolean | `true` | Enable chat log recording |
 | `auto_backup_on_session_end` | boolean | `false` | Auto-backup data when ending a session |
+| `music.enabled` | boolean | `false` | Enable music "Now Playing" overlay |
+| `music.source` | string | `apple_music` | Music source: `apple_music`, `spotify`, or `vlc` |
+| `music.poll_seconds` | number | `5` | How often to check for track changes |
 
 ### Credits Configuration
 
@@ -229,6 +239,8 @@ Optional webhook notifications for stream events:
 | `GET /api/export` | Stats CSV export (`?type=chatters\|emotes\|all`) |
 | `GET /api/backup` | Download full data backup (ZIP) |
 | `GET /auth/twitch` | Start Twitch OAuth flow |
+| `GET /api/music/now-playing` | Current track info (JSON) |
+| `GET /api/music/artwork` | Current album art image |
 | `ws://localhost:3000` | WebSocket — live data push |
 
 ## Bitfocus Companion Integration
@@ -267,9 +279,13 @@ streampulse/
 ├── credits.html/css/js    # Credits overlay (OBS browser source)
 ├── stats.html             # Stats overlay (OBS browser source)
 ├── hashtags.html          # Hashtag overlay (OBS browser source)
+├── music.html             # Music "Now Playing" overlay (OBS browser source)
+├── music-editor.html      # Music overlay customization
+├── music-url-wizard.html  # Music URL builder
 ├── dashboard.html         # Dashboard UI
 ├── sessions.html          # Session history + chat logs
 ├── highlights.html        # Highlights viewer
+├── categories.html        # Stream categories viewer
 ├── config-editor.html     # Live config editor
 ├── backup.html            # Backup & restore
 ├── manage-hashtags.html   # Hashtag moderation
