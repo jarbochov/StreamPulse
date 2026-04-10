@@ -6,11 +6,84 @@ StreamPulse started as a way to give every community member their moment in the 
 
 > **Hashtags** are a fun way to capture community moments in smaller streams — viewers drop `#blessed` or `#teamwipe` and they show up live on the overlay and in the credits. For larger communities, you'll want to use the built-in moderation tools (ban/purge) or disable hashtags entirely unless you have a solid moderation process.
 
+## Installation
+
+### 1. Install Node.js
+
+StreamPulse runs on [Node.js](https://nodejs.org/). Download and install the **LTS version** (v18 or newer):
+
+- **Mac:** Download the `.pkg` installer from [nodejs.org](https://nodejs.org/) and double-click to install
+- **Windows:** Download the `.msi` installer from [nodejs.org](https://nodejs.org/) and run through the setup wizard
+
+To verify it's installed, open **Terminal** (Mac) or **Command Prompt** (Windows) and type:
+```bash
+node --version
+```
+You should see something like `v20.x.x`.
+
+### 2. Download StreamPulse
+
+Go to the [Releases page](https://github.com/jarbochov/streampulse/releases) and download the **Source code (zip)** from the latest release.
+
+1. Unzip the downloaded file
+2. Move the folder somewhere convenient (e.g. your Documents folder)
+3. Rename it to `streampulse` if you'd like
+
+### 3. Set up credentials
+
+Before starting, you'll need a **Twitch Application** and **SocialStream Ninja** configured (see [Prerequisites](#prerequisites) below).
+
+Open the `streampulse` folder and:
+
+1. Make a copy of `config.example.json` and name it `config.json`
+2. Open `config.json` in any text editor and fill in your credentials:
+   - `broadcaster_id` — Your Twitch numeric ID (look it up at [streamscharts.com/tools/convert-username](https://streamscharts.com/tools/convert-username))
+   - `broadcaster_name` — Your Twitch username
+   - `client_id` and `client_secret` — From your Twitch application (see [Prerequisites](#prerequisites))
+   - `session_id` — Your SSN Session ID
+
+### 4. Install and run
+
+Open **Terminal** (Mac) or **Command Prompt** (Windows), then navigate to your StreamPulse folder:
+
+```bash
+cd ~/Documents/streampulse
+```
+
+> **Windows tip:** You can also type `cmd` in the File Explorer address bar while inside the folder to open a Command Prompt there.
+
+Install dependencies (only needed the first time, or after updates):
+```bash
+npm install
+```
+
+Start the server:
+```bash
+npm start
+```
+
+On first run, a browser window opens for Twitch authorization. After that, the server handles everything automatically.
+
+### 5. Add to OBS
+
+Add **Browser Sources** in OBS with these URLs:
+- Credits: `http://localhost:3000/credits.html`
+- Stats: `http://localhost:3000/stats.html`
+- Hashtags: `http://localhost:3000/hashtags.html`
+- Music: `http://localhost:3000/music.html`
+
+**Management pages** (open in your browser, not OBS):
+- Dashboard: `http://localhost:3000/dashboard.html`
+- Sessions: `http://localhost:3000/sessions.html`
+- Highlights: `http://localhost:3000/highlights.html`
+- Config: `http://localhost:3000/config-editor.html`
+- Music Editor: `http://localhost:3000/music-editor.html`
+
 ## Prerequisites
 
 StreamPulse requires two external services to collect live stream data. Set both up before installing.
 
-### 1. SocialStream Ninja (SSN)
+### SocialStream Ninja (SSN)
 
 SSN captures live chat messages, subscriptions, follows, raids, bits, and donations from Twitch (and YouTube, Kick, etc.) and forwards them to StreamPulse via WebSocket.
 
@@ -24,7 +97,7 @@ SSN captures live chat messages, subscriptions, follows, raids, bits, and donati
 
 > **Tip:** You can test the connection using SSN's [API Sandbox](https://socialstream.ninja/sampleapi.html) — connect with your Session ID to see live messages.
 
-### 2. Twitch Application
+### Twitch Application
 
 A Twitch app provides subscriber, follower, and bits data via the Twitch API.
 
@@ -33,38 +106,10 @@ A Twitch app provides subscriber, follower, and bits data via the Twitch API.
 2. Set the **OAuth Redirect URL** to `http://localhost:3000/auth/callback`
 3. Note your **Client ID** and **Client Secret**
 
-### 3. Other Requirements
-
-- **Node.js** (v18+) — [nodejs.org](https://nodejs.org/)
-- **OBS Studio** — For displaying browser source overlays
-
 ### Optional
 
 - **Bitfocus Companion** — Trigger API endpoints via Stream Deck buttons
-
-## Quick Start
-
-```bash
-npm install
-cp config.example.json config.json
-# Edit config.json with your Twitch and SSN credentials
-npm start
-```
-
-On first run, a browser window opens for Twitch authorization. After that, the server handles everything automatically.
-
-**OBS Browser Sources:**
-- Credits: `http://localhost:3000/credits.html`
-- Stats: `http://localhost:3000/stats.html`
-- Hashtags: `http://localhost:3000/hashtags.html`
-- Music: `http://localhost:3000/music.html`
-
-**Management Pages:**
-- Dashboard: `http://localhost:3000/dashboard.html`
-- Sessions: `http://localhost:3000/sessions.html`
-- Highlights: `http://localhost:3000/highlights.html`
-- Config: `http://localhost:3000/config-editor.html`
-- Music Editor: `http://localhost:3000/music-editor.html`
+- **OBS Studio** — For displaying browser source overlays
 
 ## Features
 
