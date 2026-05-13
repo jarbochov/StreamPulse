@@ -57,6 +57,11 @@ Install dependencies (only needed the first time, or after updates):
 npm install
 ```
 
+Install the bundled Chrome used for PDF exports on this machine:
+```bash
+npm run install:chrome
+```
+
 Start the server:
 ```bash
 npm start
@@ -359,6 +364,12 @@ streampulse/
 - Ensure `npm start` is running
 - OBS URL: `http://localhost:3000/credits.html`
 - Right-click OBS source → "Refresh cache of current page"
+
+### PDF export says Chrome could not be found
+- Puppeteer's browser download is machine-specific
+- Run `npm run install:chrome`
+- Restart StreamPulse with `npm start`
+- If needed, reinstall dependencies first with `npm install`
 
 ## Security
 

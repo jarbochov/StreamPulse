@@ -274,7 +274,42 @@
         } catch { showToast('Failed to unpin'); }
     }
 
-    function exportHighlights(format) {
+    async function getExportErrorMessage(res) {
+        const contentType = res.headers.get('content-type') || '';
+        const text = await res.text();
+        if (contentType.includes('application/json')) {
+            try {
+                const data = JSON.parse(text);
+                if (data && data.error) return data.error;
+            } catch {}
+        }
+        return text.trim() || `Export failed (${res.status})`;
+    }
+
+    async function downloadExport(url, filename, expectedContentType = '') {
+        const res = await fetch(url);
+        const contentType = res.headers.get('content-type') || '';
+
+        if (!res.ok) {
+            throw new Error(await getExportErrorMessage(res));
+        }
+
+        if (expectedContentType && !contentType.includes(expectedContentType)) {
+            throw new Error(await getExportErrorMessage(res));
+        }
+
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    }
+
+    async function exportHighlights(format) {
         const sessionFilter = document.getElementById('session-filter')?.value || '';
         const userFilter = document.getElementById('user-filter')?.value || '';
         const query = (document.getElementById('search')?.value || '').trim();
@@ -282,10 +317,16 @@
         if (sessionFilter) params.set('session', sessionFilter);
         if (userFilter) params.set('user', userFilter);
         if (query) params.set('q', query);
-        const a = document.createElement('a');
-        a.href = `/api/highlights/export?${params}`;
-        a.download = `highlights.${format}`;
-        a.click();
+        try {
+            await downloadExport(
+                `/api/highlights/export?${params}`,
+                `highlights.${format}`,
+                format === 'pdf' ? 'application/pdf' : ''
+            );
+            showToast('Export started');
+        } catch (err) {
+            showToast(err.message || 'Export failed');
+        }
     }
 
     loadHighlights();

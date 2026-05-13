@@ -4,7 +4,8 @@
   "description": "A stream community tracking and overlay system for OBS that combines pre-fetched Twitch API data with live stream data from SocialStream Ninja (SSN).",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "install:chrome": "puppeteer browsers install chrome"
   },
   "repository": {
     "type": "git",

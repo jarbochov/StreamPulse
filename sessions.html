@@ -907,7 +907,42 @@
         renderChatLogMessages(messages);
     }
 
-    function exportChatLog(format) {
+    async function getExportErrorMessage(res) {
+        const contentType = res.headers.get('content-type') || '';
+        const text = await res.text();
+        if (contentType.includes('application/json')) {
+            try {
+                const data = JSON.parse(text);
+                if (data && data.error) return data.error;
+            } catch {}
+        }
+        return text.trim() || `Export failed (${res.status})`;
+    }
+
+    async function downloadExport(url, filename, expectedContentType = '') {
+        const res = await fetch(url);
+        const contentType = res.headers.get('content-type') || '';
+
+        if (!res.ok) {
+            throw new Error(await getExportErrorMessage(res));
+        }
+
+        if (expectedContentType && !contentType.includes(expectedContentType)) {
+            throw new Error(await getExportErrorMessage(res));
+        }
+
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    }
+
+    async function exportChatLog(format) {
         const session = activeSessionFile === '__current__' ? 'current' : activeSessionFile;
         const params = new URLSearchParams({ format, session });
         const query = (document.getElementById('chatlog-filter')?.value || '').trim();
@@ -919,13 +954,18 @@
             }
         }
         if (chatLogTypeFilter) params.set('type', chatLogTypeFilter);
-        const a = document.createElement('a');
-        a.href = `/api/chat-log/export?${params}`;
-        a.download = `chat-log.${format}`;
-        a.click();
+        try {
+            await downloadExport(
+                `/api/chat-log/export?${params}`,
+                `chat-log.${format}`,
+                format === 'pdf' ? 'application/pdf' : ''
+            );
+        } catch (err) {
+            alert(err.message || 'Export failed');
+        }
     }
 
-    function exportSearchResults(format) {
+    async function exportSearchResults(format) {
         const query = (document.getElementById('global-search-input')?.value || '').trim();
         const type = globalSearchTypeFilter;
         const params = new URLSearchParams({ format, session: 'all' });
@@ -935,10 +975,15 @@
             params.set('q', query);
         }
         if (type) params.set('type', type);
-        const a = document.createElement('a');
-        a.href = `/api/chat-log/export?${params}`;
-        a.download = `search-results.${format}`;
-        a.click();
+        try {
+            await downloadExport(
+                `/api/chat-log/export?${params}`,
+                `search-results.${format}`,
+                format === 'pdf' ? 'application/pdf' : ''
+            );
+        } catch (err) {
+            alert(err.message || 'Export failed');
+        }
     }
 
     async function globalSearch() {
@@ -1132,16 +1177,21 @@
         container.innerHTML = html;
     }
 
-    function exportHighlights(format) {
+    async function exportHighlights(format) {
         const sessionFilter = document.getElementById('highlights-session-filter')?.value || '';
         const query = (document.getElementById('highlights-search')?.value || '').trim();
         const params = new URLSearchParams({ format });
         if (sessionFilter) params.set('session', sessionFilter);
         if (query) params.set('q', query);
-        const a = document.createElement('a');
-        a.href = `/api/highlights/export?${params}`;
-        a.download = `highlights.${format}`;
-        a.click();
+        try {
+            await downloadExport(
+                `/api/highlights/export?${params}`,
+                `highlights.${format}`,
+                format === 'pdf' ? 'application/pdf' : ''
+            );
+        } catch (err) {
+            alert(err.message || 'Export failed');
+        }
     }
 
     async function unpinHighlight(btn, ts, user) {
