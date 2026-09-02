@@ -15,11 +15,23 @@
         .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
         .nav a:hover { color: #e1e4e8; background: #21262d; }
 
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; padding: 1.5rem 2rem; max-width: 960px; margin: 0 auto; }
-        .full-width { grid-column: 1 / -1; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; padding: 1.5rem 2rem; max-width: 1200px; margin: 0 auto; }
+        .card.panel-size-normal { grid-column: span 1; }
+        .card.panel-size-wide { grid-column: span 2; }
+        .card.panel-size-full { grid-column: 1 / -1; }
 
         .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; }
         .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 1rem; }
+        .card.drag-over { border-color: #58a6ff; background: #1a2332; }
+        .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; }
+        .panel-header h2 { margin-bottom: 0; }
+        .panel-tools { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+        .panel-size-select { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #8b949e; font-size: 0.75rem; padding: 0.25rem 0.45rem; }
+        .panel-drag-handle { background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #8b949e; font-size: 0.8rem; line-height: 1; padding: 0.35rem 0.5rem; cursor: grab; }
+        .panel-drag-handle:hover, .panel-size-select:hover { border-color: #58a6ff; color: #e1e4e8; }
+        .panel-drag-handle:active { cursor: grabbing; }
+        .layout-btn { border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #8b949e; padding: 0.45rem 0.8rem; font-size: 0.8rem; cursor: pointer; }
+        .layout-btn:hover { border-color: #58a6ff; color: #e1e4e8; background: #1a2332; }
 
         .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
         .stat { text-align: center; padding: 0.75rem; background: #0d1117; border-radius: 6px; }
@@ -59,6 +71,10 @@
         .bar { background: #1f6feb; border-radius: 2px 2px 0 0; width: 100%; min-height: 2px; transition: height 0.3s; }
         .bar-label { font-size: 0.55rem; color: #484f58; margin-top: 0.25rem; writing-mode: vertical-rl; max-height: 40px; overflow: hidden; }
         .bar-count { font-size: 0.6rem; color: #8b949e; margin-bottom: 0.15rem; }
+        .muted { color: #8b949e; font-size: 0.8rem; }
+        .detail-line { font-size: 0.82rem; color: #c9d1d9; padding: 0.2rem 0; }
+        .detail-line strong { color: #58a6ff; }
+        .link-grid { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
 
         .nav .dropdown { position: relative; display: flex; align-items: center; }
         .nav .dropdown-toggle { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
@@ -72,19 +88,26 @@
         @media (max-width: 768px) {
             .grid { padding: 1rem; }
             .header { flex-direction: column; gap: 0.5rem; }
+            .card.panel-size-wide,
+            .card.panel-size-full { grid-column: span 1; }
+            .panel-header { flex-direction: column; align-items: stretch; }
+            .panel-tools { justify-content: flex-end; }
         }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>StreamPulse <span>Dashboard</span></h1>
-        <div id="main-nav" class="nav"></div>
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+            <button class="layout-btn" onclick="resetDashboardLayout()">↺ Reset Layout</button>
+            <div id="main-nav" class="nav"></div>
+        </div>
         <script src="/nav.js"></script>
     </div>
 
-    <div class="grid">
+    <div class="grid" id="dashboard-grid">
         <!-- Connection Status -->
-        <div class="card">
+        <div class="card" data-panel-id="server-status" data-default-size="normal">
             <h2>Server Status</h2>
             <div id="server-status">
                 <div class="indicator">
@@ -107,7 +130,7 @@
         </div>
 
         <!-- Session Stats -->
-        <div class="card">
+        <div class="card" data-panel-id="current-session" data-default-size="normal">
             <h2>Current Session</h2>
             <div id="stream-info-dash" style="display: none; font-size: 0.82rem; color: #e1e4e8; padding: 0.4rem 0 0.6rem; border-bottom: 1px solid #30363d; margin-bottom: 0.6rem;"></div>
             <div class="status-grid">
@@ -146,8 +169,49 @@
             </div>
         </div>
 
+        <div class="card" data-panel-id="timers" data-default-size="normal">
+            <h2>Timers</h2>
+            <div class="status-grid">
+                <div class="stat">
+                    <div class="value" id="timers-total">0</div>
+                    <div class="label">Total</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="timers-running">0</div>
+                    <div class="label">Running</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="timers-countdowns">0</div>
+                    <div class="label">Countdowns</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="timers-stopwatches">0</div>
+                    <div class="label">Stopwatches</div>
+                </div>
+            </div>
+            <div class="link-grid">
+                <a class="btn" href="/timers-editor.html">⏱ Manager</a>
+                <a class="btn" href="/timer-url-wizard.html">🔗 Builder</a>
+            </div>
+        </div>
+
+        <div class="card" data-panel-id="music" data-default-size="normal">
+            <h2>Music</h2>
+            <div class="indicator">
+                <div class="dot" id="dot-music"></div>
+                <span>Music Overlay: <span id="music-status">—</span></span>
+            </div>
+            <div class="detail-line"><strong>Source:</strong> <span id="music-source">—</span></div>
+            <div class="detail-line"><strong>Now Playing:</strong> <span id="music-track">—</span></div>
+            <div class="detail-line"><strong>Artist:</strong> <span id="music-artist">—</span></div>
+            <div class="link-grid">
+                <a class="btn" href="/music-editor.html">🎵 Settings</a>
+                <a class="btn" href="/music-url-wizard.html">🔗 Builder</a>
+            </div>
+        </div>
+
         <!-- Quick Actions -->
-        <div class="card">
+        <div class="card" data-panel-id="quick-actions" data-default-size="normal">
             <h2>Quick Actions</h2>
             <div class="actions">
                 <button class="btn" onclick="fetchTwitch()">🔄 Fetch Twitch</button>
@@ -166,7 +230,7 @@
         </div>
 
         <!-- Message Volume -->
-        <div class="card full-width">
+        <div class="card" data-panel-id="message-volume" data-default-size="full">
             <h2>Message Volume (Hourly)</h2>
             <div id="volume-chart" style="display: flex; align-items: flex-end; gap: 2px; height: 120px; padding-top: 0.5rem;">
                 <div class="empty" style="width: 100%;">No message data yet</div>
@@ -174,18 +238,53 @@
         </div>
 
         <!-- Active Chatters -->
-        <div class="card full-width">
+        <div class="card" data-panel-id="active-chatters" data-default-size="full">
             <h2>Active Chatters <span id="chatter-count" style="color: #58a6ff;"></span></h2>
             <div class="chatters-list" id="chatters-list">
                 <div style="color: #484f58; padding: 1rem; text-align: center;">No chatters yet</div>
             </div>
         </div>
 
+        <div class="card" data-panel-id="library" data-default-size="normal">
+            <h2>Library</h2>
+            <div class="status-grid">
+                <div class="stat">
+                    <div class="value" id="library-highlights">0</div>
+                    <div class="label">Highlights</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="library-sessions">0</div>
+                    <div class="label">Archived Sessions</div>
+                </div>
+            </div>
+            <div class="link-grid">
+                <a class="btn" href="/highlights.html">⭐ Highlights</a>
+                <a class="btn" href="/sessions.html">📁 Sessions</a>
+                <a class="btn" href="/categories.html">📚 Categories</a>
+            </div>
+        </div>
+
+        <div class="card" data-panel-id="backups" data-default-size="normal">
+            <h2>Backups</h2>
+            <div class="detail-line"><strong>Auto-backup:</strong> <span id="backup-auto">—</span></div>
+            <div class="detail-line"><strong>Saved ZIPs:</strong> <span id="backup-count">0</span></div>
+            <div class="detail-line"><strong>Latest:</strong> <span id="backup-latest">—</span></div>
+            <div class="link-grid">
+                <a class="btn" href="/backup.html">💾 Backup & Restore</a>
+            </div>
+        </div>
+
         <!-- Quick links to management pages -->
-        <div class="card full-width" style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-            <a class="btn" href="/config-editor.html">⚙️ Config Editor</a>
-            <a class="btn" href="/manage-hashtags.html">🏷️ Hashtag Manager</a>
-            <a class="btn" href="/sessions.html">📁 Sessions</a>
+        <div class="card" data-panel-id="quick-links" data-default-size="full">
+            <h2>Quick Links</h2>
+            <div class="link-grid" style="margin-top:0;">
+                <a class="btn" href="/config-editor.html">⚙️ Config</a>
+                <a class="btn" href="/manage-hashtags.html">🏷️ Hashtags</a>
+                <a class="btn" href="/timers-editor.html">⏱ Timers</a>
+                <a class="btn" href="/music-editor.html">🎵 Music</a>
+                <a class="btn" href="/highlights.html">⭐ Highlights</a>
+                <a class="btn" href="/backup.html">💾 Backups</a>
+            </div>
         </div>
     </div>
 
@@ -193,12 +292,162 @@
 
     <script>
     let refreshInterval;
+    const DASHBOARD_LAYOUT_KEY = 'streampulse.dashboard.layout.v1';
+    const PANEL_SIZE_OPTIONS = ['normal', 'wide', 'full'];
+    let draggedPanelId = null;
 
     function showToast(msg) {
         const t = document.getElementById('toast');
         t.textContent = msg;
         t.classList.add('show');
         setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function getDashboardCards() {
+        return [...document.querySelectorAll('#dashboard-grid > .card[data-panel-id]')];
+    }
+
+    function buildDefaultDashboardLayout() {
+        const sizes = {};
+        const order = getDashboardCards().map(card => {
+            const panelId = card.dataset.panelId;
+            sizes[panelId] = card.dataset.defaultSize || 'normal';
+            return panelId;
+        });
+        return { order, sizes };
+    }
+
+    function loadDashboardLayout() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(DASHBOARD_LAYOUT_KEY) || 'null');
+            if (!parsed || typeof parsed !== 'object') return buildDefaultDashboardLayout();
+            return parsed;
+        } catch {
+            return buildDefaultDashboardLayout();
+        }
+    }
+
+    function saveDashboardLayout() {
+        const layout = {
+            order: getDashboardCards().map(card => card.dataset.panelId),
+            sizes: Object.fromEntries(getDashboardCards().map(card => [card.dataset.panelId, card.dataset.panelSize || card.dataset.defaultSize || 'normal']))
+        };
+        localStorage.setItem(DASHBOARD_LAYOUT_KEY, JSON.stringify(layout));
+    }
+
+    function applyPanelSize(card, size) {
+        const normalized = PANEL_SIZE_OPTIONS.includes(size) ? size : (card.dataset.defaultSize || 'normal');
+        card.dataset.panelSize = normalized;
+        card.classList.remove('panel-size-normal', 'panel-size-wide', 'panel-size-full');
+        card.classList.add(`panel-size-${normalized}`);
+        const select = card.querySelector('.panel-size-select');
+        if (select) select.value = normalized;
+    }
+
+    function applyDashboardLayout() {
+        const grid = document.getElementById('dashboard-grid');
+        const cards = getDashboardCards();
+        const cardMap = new Map(cards.map(card => [card.dataset.panelId, card]));
+        const defaults = buildDefaultDashboardLayout();
+        const stored = loadDashboardLayout();
+        const seen = new Set();
+
+        const orderedIds = [];
+        (Array.isArray(stored.order) ? stored.order : []).forEach(id => {
+            if (cardMap.has(id) && !seen.has(id)) {
+                orderedIds.push(id);
+                seen.add(id);
+            }
+        });
+        defaults.order.forEach(id => {
+            if (cardMap.has(id) && !seen.has(id)) {
+                orderedIds.push(id);
+                seen.add(id);
+            }
+        });
+
+        orderedIds.forEach(id => {
+            const card = cardMap.get(id);
+            if (card) {
+                grid.appendChild(card);
+                applyPanelSize(card, stored.sizes?.[id] || defaults.sizes[id] || 'normal');
+            }
+        });
+
+        saveDashboardLayout();
+    }
+
+    function enhanceDashboardCards() {
+        getDashboardCards().forEach(card => {
+            if (card.querySelector('.panel-header')) return;
+
+            const title = card.querySelector(':scope > h2');
+            if (!title) return;
+
+            const header = document.createElement('div');
+            header.className = 'panel-header';
+
+            const tools = document.createElement('div');
+            tools.className = 'panel-tools';
+            tools.innerHTML = `
+                <select class="panel-size-select" title="Panel size">
+                    <option value="normal">Normal</option>
+                    <option value="wide">Wide</option>
+                    <option value="full">Full</option>
+                </select>
+                <button type="button" class="panel-drag-handle" draggable="true" title="Drag to reorder">☰</button>
+            `;
+
+            title.parentNode.insertBefore(header, title);
+            header.appendChild(title);
+            header.appendChild(tools);
+
+            const sizeSelect = tools.querySelector('.panel-size-select');
+            sizeSelect.addEventListener('change', () => {
+                applyPanelSize(card, sizeSelect.value);
+                saveDashboardLayout();
+                showToast(`Saved ${sizeSelect.value} size`);
+            });
+
+            const dragHandle = tools.querySelector('.panel-drag-handle');
+            dragHandle.addEventListener('dragstart', event => {
+                draggedPanelId = card.dataset.panelId;
+                card.style.opacity = '0.55';
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', draggedPanelId);
+            });
+            dragHandle.addEventListener('dragend', () => {
+                card.style.opacity = '1';
+                draggedPanelId = null;
+                getDashboardCards().forEach(item => item.classList.remove('drag-over'));
+            });
+
+            card.addEventListener('dragover', event => {
+                if (!draggedPanelId || draggedPanelId === card.dataset.panelId) return;
+                event.preventDefault();
+                card.classList.add('drag-over');
+                event.dataTransfer.dropEffect = 'move';
+            });
+            card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+            card.addEventListener('drop', event => {
+                event.preventDefault();
+                card.classList.remove('drag-over');
+                const sourceId = draggedPanelId || event.dataTransfer.getData('text/plain');
+                if (!sourceId || sourceId === card.dataset.panelId) return;
+                const grid = document.getElementById('dashboard-grid');
+                const sourceCard = getDashboardCards().find(item => item.dataset.panelId === sourceId);
+                if (!sourceCard) return;
+                grid.insertBefore(sourceCard, card);
+                saveDashboardLayout();
+                showToast('Dashboard order saved');
+            });
+        });
+    }
+
+    function resetDashboardLayout() {
+        localStorage.removeItem(DASHBOARD_LAYOUT_KEY);
+        applyDashboardLayout();
+        showToast('Dashboard layout reset');
     }
 
     function formatUptime(seconds) {
@@ -208,6 +457,13 @@
         if (h > 0) return `${h}h ${m}m ${s}s`;
         if (m > 0) return `${m}m ${s}s`;
         return `${s}s`;
+    }
+
+    function formatBackupName(filename) {
+        if (!filename) return '—';
+        const match = filename.match(/backup-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})/);
+        if (!match) return filename;
+        return `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}`;
     }
 
     async function refresh() {
@@ -258,6 +514,27 @@
             document.getElementById('stat-followers').textContent = data.ssn.followers || 0;
             document.getElementById('stat-raids').textContent = data.ssn.raids || 0;
             document.getElementById('stat-donations').textContent = 0;
+
+            document.getElementById('timers-total').textContent = data.timers?.total || 0;
+            document.getElementById('timers-running').textContent = data.timers?.running || 0;
+            document.getElementById('timers-countdowns').textContent = data.timers?.countdowns || 0;
+            document.getElementById('timers-stopwatches').textContent = data.timers?.stopwatches || 0;
+
+            const musicDot = document.getElementById('dot-music');
+            const musicEnabled = !!data.music?.enabled;
+            const musicState = data.music?.state || 'stopped';
+            musicDot.className = `dot ${musicEnabled ? (musicState !== 'stopped' ? 'green' : 'yellow') : 'red'}`;
+            document.getElementById('music-status').textContent = musicEnabled ? musicState : 'Disabled';
+            document.getElementById('music-source').textContent = (data.music?.source || '—').replace(/_/g, ' ');
+            document.getElementById('music-track').textContent = data.music?.track || 'Nothing playing';
+            document.getElementById('music-artist').textContent = data.music?.artist || '—';
+
+            document.getElementById('library-highlights').textContent = data.library?.highlights || 0;
+            document.getElementById('library-sessions').textContent = data.library?.sessions || 0;
+
+            document.getElementById('backup-auto').textContent = data.backups?.autoEnabled ? 'Enabled' : 'Disabled';
+            document.getElementById('backup-count').textContent = data.backups?.count || 0;
+            document.getElementById('backup-latest').textContent = formatBackupName(data.backups?.latest);
 
             // Volume chart
             renderVolumeChart(data.hourlyMessages || {});
@@ -409,6 +686,8 @@
         } catch { showToast('Shutdown failed'); }
     }
 
+    enhanceDashboardCards();
+    applyDashboardLayout();
     refresh();
     refreshInterval = setInterval(refresh, 3000);
     </script>

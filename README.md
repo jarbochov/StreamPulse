@@ -220,7 +220,7 @@ All other settings can be edited live via the [Config Editor](http://localhost:3
 
 ### Credits Configuration
 
-Credits sections, social links, and the special thanks section are all configurable via the Config Editor or directly in `config.json` under the `credits` key. Each section supports `enabled`, `title`, and `subtitle`.
+Credits sections, social links, special thanks, and repeatable custom credit sections are all configurable via the Config Editor or directly in `config.json` under the `credits` key. Built-in sections support `enabled`, `title`, and `subtitle`; custom sections also support a freeform `body`, `columns`, and `names` list. Use `credits.section_order` to place built-in sections, custom sections, and Special Thanks anywhere in the roll.
 
 ### Overlay Theme
 

@@ -105,6 +105,133 @@
         return `https://fonts.googleapis.com/css2?family=${encoded}&display=swap`;
     }
 
+    const BUILTIN_CREDIT_SECTION_KEYS = ['subscribers', 'followers', 'donations', 'gift_subs', 'cheerers', 'raids', 'emotes', 'hashtags', 'chatters'];
+    const BUILTIN_CREDIT_SECTION_LABELS = {
+        subscribers: 'Subscribers',
+        followers: 'Followers',
+        donations: 'Donations',
+        gift_subs: 'Gift Subs',
+        cheerers: 'Cheerers',
+        raids: 'Raids',
+        emotes: 'Top Emotes',
+        hashtags: 'Trending Hashtags',
+        chatters: "Today's Chatters"
+    };
+    const SPECIAL_THANKS_ORDER_ID = 'special_thanks';
+
+    let customSectionsState = [];
+    let creditsSectionOrderState = [];
+
+    function generateCustomSectionId() {
+        return `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    function normalizeCustomSections(sections) {
+        if (!Array.isArray(sections)) return [];
+        return sections.map(section => ({
+            id: (typeof section?.id === 'string' && section.id.trim()) ? section.id.trim() : generateCustomSectionId(),
+            enabled: section?.enabled !== false,
+            title: section?.title || '',
+            subtitle: section?.subtitle || '',
+            body: section?.body || '',
+            columns: [1, 2, 3].includes(section?.columns) ? section.columns : 1,
+            names: Array.isArray(section?.names) ? section.names.filter(Boolean).map(name => String(name)) : []
+        }));
+    }
+
+    function buildCreditsOrderDefault(customSections) {
+        return [...BUILTIN_CREDIT_SECTION_KEYS, ...customSections.map(section => section.id), SPECIAL_THANKS_ORDER_ID];
+    }
+
+    function normalizeCreditsSectionOrder(order, customSections) {
+        const validIds = new Set(buildCreditsOrderDefault(customSections));
+        const normalized = [];
+        (Array.isArray(order) ? order : []).forEach(id => {
+            if (typeof id !== 'string' || !validIds.has(id) || normalized.includes(id)) return;
+            normalized.push(id);
+        });
+        buildCreditsOrderDefault(customSections).forEach(id => {
+            if (!normalized.includes(id)) normalized.push(id);
+        });
+        return normalized;
+    }
+
+    function syncCreditsOrderStateFromCustomSections() {
+        creditsSectionOrderState = normalizeCreditsSectionOrder(creditsSectionOrderState, customSectionsState);
+    }
+
+    function getCreditsOrderItemLabel(id) {
+        if (id === SPECIAL_THANKS_ORDER_ID) {
+            const title = document.getElementById('cfg-st-title')?.value.trim();
+            return title || 'Special Thanks';
+        }
+        if (BUILTIN_CREDIT_SECTION_LABELS[id]) {
+            const title = document.getElementById(`cfg-sec-${id}-title`)?.value.trim();
+            return title || BUILTIN_CREDIT_SECTION_LABELS[id];
+        }
+        const customTitle = [...document.querySelectorAll('.custom-section-card')]
+            .find(card => card.dataset.sectionId === id)
+            ?.querySelector('.custom-section-title')
+            ?.value.trim();
+        if (customTitle) return customTitle;
+        const section = customSectionsState.find(item => item.id === id);
+        if (!section) return 'Custom Section';
+        return section.title || `Custom Section ${customSectionsState.indexOf(section) + 1}`;
+    }
+
+    function getCreditsOrderItemKind(id) {
+        if (id === SPECIAL_THANKS_ORDER_ID) return 'Special';
+        if (BUILTIN_CREDIT_SECTION_LABELS[id]) return 'Built-in';
+        return 'Custom';
+    }
+
+    function creditsOrderRow(id) {
+        return `
+            <div class="credits-order-row" draggable="true" data-order-id="${escapeHtml(id)}" style="display:flex;align-items:center;gap:0.65rem;padding:0.55rem 0.75rem;border:1px solid #30363d;border-radius:6px;background:#0d1117;cursor:grab;">
+                <span style="font-size:1rem;color:#8b949e;line-height:1;">☰</span>
+                <span style="flex:1;font-size:0.84rem;color:#e1e4e8;">${escapeHtml(getCreditsOrderItemLabel(id))}</span>
+                <span style="font-size:0.68rem;color:#58a6ff;background:#1f6feb22;border:1px solid #1f6feb33;border-radius:999px;padding:0.15rem 0.45rem;">${escapeHtml(getCreditsOrderItemKind(id))}</span>
+            </div>`;
+    }
+
+    function renderCreditsOrderEditor() {
+        const editor = document.getElementById('credits-order-editor');
+        if (!editor) return;
+        syncCreditsOrderStateFromCustomSections();
+        editor.innerHTML = creditsSectionOrderState.map(id => creditsOrderRow(id)).join('');
+
+        let dragId = null;
+        editor.querySelectorAll('.credits-order-row').forEach(row => {
+            row.addEventListener('dragstart', event => {
+                dragId = row.dataset.orderId;
+                row.style.opacity = '0.55';
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', dragId);
+            });
+            row.addEventListener('dragend', () => {
+                row.style.opacity = '1';
+                dragId = null;
+            });
+            row.addEventListener('dragover', event => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+            });
+            row.addEventListener('drop', event => {
+                event.preventDefault();
+                const targetId = row.dataset.orderId;
+                const sourceId = dragId || event.dataTransfer.getData('text/plain');
+                if (!sourceId || sourceId === targetId) return;
+                const nextOrder = [...creditsSectionOrderState];
+                const from = nextOrder.indexOf(sourceId);
+                const to = nextOrder.indexOf(targetId);
+                if (from === -1 || to === -1) return;
+                nextOrder.splice(to, 0, nextOrder.splice(from, 1)[0]);
+                creditsSectionOrderState = nextOrder;
+                renderCreditsOrderEditor();
+            });
+        });
+    }
+
     async function loadConfigEditor() {
         if (configLoaded) return;
         try {
@@ -121,6 +248,8 @@
         const sec = cfg.credits?.sections || {};
         const social = cfg.credits?.social || {};
         const st = cfg.credits?.special_thanks || { enabled: false, title: 'Special Thanks', subtitle: '', names: [] };
+        customSectionsState = normalizeCustomSections(cfg.credits?.custom_sections || []);
+        creditsSectionOrderState = normalizeCreditsSectionOrder(cfg.credits?.section_order || [], customSectionsState);
         const theme = cfg.theme || {};
 
         el.innerHTML = `
@@ -224,7 +353,11 @@
             </div>
 
             <div class="cfg-section">Sections</div>
-            ${Object.entries(sec).map(([key, s]) => `
+            <div style="font-size:0.75rem;color:#484f58;margin-bottom:0.5rem;">Drag to change the credits roll order for built-in sections, custom sections, and Special Thanks.</div>
+            <div id="credits-order-editor" style="display:flex;flex-direction:column;gap:0.45rem;margin-bottom:0.85rem;"></div>
+            ${BUILTIN_CREDIT_SECTION_KEYS.map(key => {
+                const s = sec[key] || {};
+                return `
                 <div style="padding: 0.5rem 0; border-bottom: 1px solid #21262d;">
                     <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
                         <input type="checkbox" id="cfg-sec-${key}-enabled" ${s.enabled !== false ? 'checked' : ''} style="accent-color: #58a6ff;">
@@ -247,7 +380,13 @@
                         </div>
                     </div>
                 </div>
-            `).join('')}
+            `;
+            }).join('')}
+
+            <div class="cfg-section">Custom Credit Sections</div>
+            <div style="font-size:0.75rem;color:#484f58;margin-bottom:0.5rem;">Add as many extra credit blocks as you want. Each one can be a statement, a list of names, or both.</div>
+            <div id="custom-sections-editor"></div>
+            <button class="btn" onclick="addCustomSection()" style="margin-top: 0.5rem; width: auto;">＋ Add Custom Section</button>
 
             <div class="cfg-section">Special Thanks</div>
             <div class="cfg-toggle" style="margin-bottom:0.5rem;">
@@ -372,6 +511,16 @@
                 });
             }
         });
+
+        Object.keys(BUILTIN_CREDIT_SECTION_LABELS).forEach(key => {
+            const titleInput = document.getElementById(`cfg-sec-${key}-title`);
+            if (titleInput) titleInput.addEventListener('input', renderCreditsOrderEditor);
+        });
+        const specialTitleInput = document.getElementById('cfg-st-title');
+        if (specialTitleInput) specialTitleInput.addEventListener('input', renderCreditsOrderEditor);
+
+        renderCreditsOrderEditor();
+        renderCustomSectionsEditor();
     }
 
     function specialThanksRow(name, index) {
@@ -412,6 +561,139 @@
             if (input.value.trim()) names.push(input.value.trim());
         });
         return names;
+    }
+
+    function customSectionNameRow(name, index, nameIndex) {
+        return `
+            <div class="custom-section-name-row" style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0;border-bottom:1px solid #21262d;">
+                <span style="display:flex;flex-direction:column;gap:1px;">
+                    <button onclick="moveCustomSectionName(${index},${nameIndex},-1)" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:0.6rem;padding:0;line-height:1;" title="Move up">▲</button>
+                    <button onclick="moveCustomSectionName(${index},${nameIndex},1)" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:0.6rem;padding:0;line-height:1;" title="Move down">▼</button>
+                </span>
+                <input type="text" class="custom-section-name" value="${escapeHtml(name)}" placeholder="Name or credit line" style="flex:1;padding:0.3rem 0.5rem;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e1e4e8;font-size:0.8rem;">
+                <button onclick="removeCustomSectionName(${index},${nameIndex})" style="background:none;border:none;color:#f85149;cursor:pointer;font-size:1rem;padding:0.2rem 0.4rem;" title="Remove">✕</button>
+            </div>`;
+    }
+
+    function customSectionCard(section, index) {
+        return `
+            <div class="custom-section-card" data-index="${index}" data-section-id="${escapeHtml(section.id)}" style="padding:0.85rem 0 1rem;border-bottom:1px solid #21262d;">
+                <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.65rem;flex-wrap:wrap;">
+                    <label class="cfg-toggle" style="gap:0.4rem;">
+                        <input type="checkbox" class="custom-section-enabled" ${section.enabled !== false ? 'checked' : ''}>
+                        <span>Show section</span>
+                    </label>
+                    <strong style="font-size:0.85rem;color:#e1e4e8;">Custom Section ${index + 1}</strong>
+                    <button onclick="removeCustomSection(${index})" style="margin-left:auto;background:none;border:none;color:#f85149;cursor:pointer;font-size:0.95rem;padding:0.2rem 0.4rem;" title="Remove section">✕</button>
+                </div>
+                <div class="cfg-row">
+                    <label>Title</label>
+                    <input type="text" class="custom-section-title" value="${escapeHtml(section.title || '')}" placeholder="Community Awards">
+                </div>
+                <div class="cfg-row" style="margin-top:0.5rem;">
+                    <label>Subtitle</label>
+                    <input type="text" class="custom-section-subtitle" value="${escapeHtml(section.subtitle || '')}" placeholder="optional">
+                </div>
+                <div class="cfg-row" style="margin-top:0.5rem;">
+                    <label>Statement</label>
+                    <textarea class="custom-section-body" placeholder="Optional freeform text shown above the names list. Use \\n for line breaks.">${escapeHtml(section.body || '')}</textarea>
+                </div>
+                <div class="cfg-row" style="margin-top:0.5rem;">
+                    <label>Columns</label>
+                    <select class="custom-section-columns">
+                        <option value="1"${(section.columns || 1) === 1 ? ' selected' : ''}>1 — One per line</option>
+                        <option value="2"${section.columns === 2 ? ' selected' : ''}>2 — Two columns</option>
+                        <option value="3"${section.columns === 3 ? ' selected' : ''}>3 — Three columns</option>
+                    </select>
+                </div>
+                <div style="margin-top:0.65rem;font-size:0.75rem;color:#8b949e;">Names / Lines</div>
+                <div class="custom-section-names" style="margin-top:0.2rem;">
+                    ${(section.names || []).map((name, nameIndex) => customSectionNameRow(name, index, nameIndex)).join('')}
+                </div>
+                <button class="btn" onclick="addCustomSectionName(${index})" style="margin-top:0.5rem; width:auto;">＋ Add Name / Line</button>
+            </div>`;
+    }
+
+    function renderCustomSectionsEditor() {
+        const editor = document.getElementById('custom-sections-editor');
+        if (!editor) return;
+        editor.innerHTML = customSectionsState.length
+            ? customSectionsState.map((section, index) => customSectionCard(section, index)).join('')
+            : '<div style="font-size:0.8rem;color:#484f58;padding:0.6rem 0;">No custom sections yet.</div>';
+        editor.querySelectorAll('.custom-section-title').forEach(input => input.addEventListener('input', renderCreditsOrderEditor));
+        renderCreditsOrderEditor();
+    }
+
+    function readCustomSectionsFromDom() {
+        const cards = [...document.querySelectorAll('.custom-section-card')];
+        if (cards.length === 0) return [];
+        return cards.map(card => {
+            const section = {
+                id: card.dataset.sectionId || generateCustomSectionId(),
+                enabled: card.querySelector('.custom-section-enabled')?.checked !== false,
+                title: card.querySelector('.custom-section-title')?.value.trim() || '',
+                subtitle: card.querySelector('.custom-section-subtitle')?.value.trim() || '',
+                body: card.querySelector('.custom-section-body')?.value || '',
+                columns: parseInt(card.querySelector('.custom-section-columns')?.value, 10) || 1,
+                names: [...card.querySelectorAll('.custom-section-name')]
+                    .map(input => input.value.trim())
+                    .filter(Boolean)
+            };
+            return (section.title || section.subtitle || section.body.trim() || section.names.length > 0) ? section : null;
+        }).filter(Boolean);
+    }
+
+    function syncCustomSectionsState() {
+        customSectionsState = readCustomSectionsFromDom();
+    }
+
+    function addCustomSection() {
+        syncCustomSectionsState();
+        customSectionsState.push({
+            id: generateCustomSectionId(),
+            enabled: true,
+            title: '',
+            subtitle: '',
+            body: '',
+            columns: 1,
+            names: []
+        });
+        renderCustomSectionsEditor();
+    }
+
+    function removeCustomSection(index) {
+        syncCustomSectionsState();
+        customSectionsState.splice(index, 1);
+        renderCustomSectionsEditor();
+    }
+
+    function moveCustomSection(index, direction) {
+        syncCustomSectionsState();
+        const target = index + direction;
+        if (target < 0 || target >= customSectionsState.length) return;
+        [customSectionsState[index], customSectionsState[target]] = [customSectionsState[target], customSectionsState[index]];
+        renderCustomSectionsEditor();
+    }
+
+    function addCustomSectionName(index) {
+        syncCustomSectionsState();
+        customSectionsState[index].names.push('');
+        renderCustomSectionsEditor();
+    }
+
+    function removeCustomSectionName(index, nameIndex) {
+        syncCustomSectionsState();
+        customSectionsState[index].names.splice(nameIndex, 1);
+        renderCustomSectionsEditor();
+    }
+
+    function moveCustomSectionName(index, nameIndex, direction) {
+        syncCustomSectionsState();
+        const names = customSectionsState[index].names;
+        const target = nameIndex + direction;
+        if (target < 0 || target >= names.length) return;
+        [names[nameIndex], names[target]] = [names[target], names[nameIndex]];
+        renderCustomSectionsEditor();
     }
 
     function socialLinkRow(link, index) {
@@ -461,6 +743,8 @@
     }
 
     async function saveConfig() {
+        syncCustomSectionsState();
+        syncCreditsOrderStateFromCustomSections();
         const sec = {};
         document.querySelectorAll('[id^="cfg-sec-"]').forEach(el => {
             const match = el.id.match(/cfg-sec-(.+)-(enabled|title|subtitle|source)/);
@@ -517,6 +801,7 @@
                 },
                 closing: document.getElementById('cfg-closing').value,
                 sections: sec,
+                section_order: creditsSectionOrderState,
                 special_thanks: {
                     enabled: document.getElementById('cfg-st-enabled').checked,
                     title: document.getElementById('cfg-st-title').value,
@@ -524,6 +809,7 @@
                     columns: parseInt(document.getElementById('cfg-st-columns').value) || 1,
                     names: getSpecialThanksNames()
                 },
+                custom_sections: customSectionsState,
                 social: {
                     title: document.getElementById('cfg-social-title').value,
                     subtitle: document.getElementById('cfg-social-subtitle').value,

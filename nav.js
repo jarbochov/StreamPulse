@@ -21,27 +21,29 @@
 
     const nav = [
         { label: 'Dashboard', href: '/dashboard.html' },
-        { label: 'Highlights', href: '/highlights.html' },
-        { label: 'Sessions', href: '/sessions.html' },
-        { label: 'Categories', href: '/categories.html' },
         { label: 'Overlays ▾', children: [
             { label: 'Credits', href: '/credits.html' },
             { label: 'Credits Preview', href: '/credits.html?preview=true', target: '_blank' },
             { label: 'Stats', href: '/stats.html' },
-            { label: 'Hashtags', href: '/hashtags.html' }
+            { label: 'Hashtags', href: '/hashtags.html' },
+            { label: 'Music — Full', href: '/music.html?mode=full', target: '_blank' },
+            { label: 'Music — Art Only', href: '/music.html?mode=art', target: '_blank' },
+            { label: 'Music — Mini Bar', href: '/music.html?mode=mini', target: '_blank' },
+            { label: 'Countdown', href: '/countdown.html', target: '_blank' },
+            { label: 'Stopwatch', href: '/stopwatch.html', target: '_blank' }
+        ]},
+        { label: 'Library ▾', children: [
+            { label: 'Highlights', href: '/highlights.html' },
+            { label: 'Sessions', href: '/sessions.html' },
+            { label: 'Categories', href: '/categories.html' }
         ]},
         { label: 'Music (Beta) ▾', children: [
             { label: 'Settings', href: '/music-editor.html' },
-            { label: 'URL Wizard', href: '/music-url-wizard.html' },
-            { label: 'Full Player', href: '/music.html?mode=full', target: '_blank' },
-            { label: 'Art Only', href: '/music.html?mode=art', target: '_blank' },
-            { label: 'Mini Bar', href: '/music.html?mode=mini', target: '_blank' }
+            { label: 'URL Wizard', href: '/music-url-wizard.html' }
         ]},
         { label: 'Timers ▾', children: [
             { label: 'Manager', href: '/timers-editor.html' },
-            { label: 'URL Wizard', href: '/timer-url-wizard.html' },
-            { label: 'Countdown', href: '/countdown.html', target: '_blank' },
-            { label: 'Stopwatch', href: '/stopwatch.html', target: '_blank' }
+            { label: 'URL Wizard', href: '/timer-url-wizard.html' }
         ]},
         { label: 'Manage ▾', children: [
             { label: 'Config', href: '/config-editor.html' },

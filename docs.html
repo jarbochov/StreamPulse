@@ -234,9 +234,16 @@
                     name: 'Credits Sections',
                     note: 'Each section has enabled, title, and subtitle. Available sections: subscribers, followers, donations, gift_subs, cheerers, raids, emotes, hashtags, chatters.',
                     items: [
+                        { param: 'credits.section_order', type: 'array', default: 'built-in order + custom sections + special_thanks', desc: 'Render order for built-in sections, custom section IDs, and the special_thanks block.', hot: true },
                         { param: 'credits.sections.{name}.enabled', type: 'boolean', default: 'true', desc: 'Show or hide this section in the credits roll.', hot: true },
                         { param: 'credits.sections.{name}.title', type: 'string', default: '(varies)', desc: 'Display title for this credits section.', hot: true },
                         { param: 'credits.sections.{name}.subtitle', type: 'string', default: '""', desc: 'Optional subtitle shown below the section title.', hot: true }
+                    ]
+                },
+                {
+                    name: 'Custom Credit Sections',
+                    items: [
+                        { param: 'credits.custom_sections', type: 'array', default: '[]', desc: 'Repeatable manual credit blocks. Each item supports id, enabled, title, subtitle, body, columns, and names.', hot: true }
                     ]
                 },
                 {

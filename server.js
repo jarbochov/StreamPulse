@@ -2261,6 +2261,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/status') {
+        const archivedSessions = fs.existsSync(SESSIONS_DIR)
+            ? fs.readdirSync(SESSIONS_DIR).filter(file => file.startsWith('chat-') && file.endsWith('.json')).length
+            : 0;
+        const backupFiles = fs.existsSync(BACKUPS_DIR)
+            ? fs.readdirSync(BACKUPS_DIR).filter(file => file.endsWith('.zip')).sort().reverse()
+            : [];
         const status = {
             uptime: process.uptime(),
             ssn: {
@@ -2279,11 +2285,27 @@ const server = http.createServer(async (req, res) => {
                 hasToken: !!twitchAccessToken,
                 refreshMinutes: REFRESH_MINUTES
             },
+            music: {
+                enabled: !!MUSIC_CONFIG.enabled,
+                source: MUSIC_CONFIG.source || 'apple_music',
+                state: musicState.state,
+                track: musicState.track,
+                artist: musicState.artist
+            },
             timers: {
                 total: Object.keys(timerStore.timers).length,
                 countdowns: Object.values(timerStore.timers).filter(t => t.kind === 'countdown').length,
                 stopwatches: Object.values(timerStore.timers).filter(t => t.kind === 'stopwatch').length,
                 running: Object.values(timerStore.timers).filter(t => t.state === 'running').length
+            },
+            library: {
+                highlights: highlights.length,
+                sessions: archivedSessions
+            },
+            backups: {
+                autoEnabled: !!config.auto_backup_on_session_end,
+                count: backupFiles.length,
+                latest: backupFiles[0] || null
             },
             overlayClients: overlayClients.size,
             sessionActive,

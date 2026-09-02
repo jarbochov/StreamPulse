@@ -153,6 +153,14 @@ h3 {
     flex-basis: 33.333%;
 }
 
+.custom-section-body {
+    max-width: 75%;
+    margin: 0 auto 30px auto;
+    font-size: calc(2.5vw * var(--font-scale));
+    line-height: 1.45;
+    white-space: normal;
+}
+
 .emote-item {
     display: inline-block;
     margin: 20px 30px;

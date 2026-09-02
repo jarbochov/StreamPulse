@@ -19,6 +19,8 @@ let serverConfig = {
     credits: {
         header: { image: '', title: 'Thank you for your support!', subtitle: '' },
         closing: 'Thanks for watching!',
+        custom_sections: [],
+        section_order: [],
         sections: {
             subscribers: { enabled: true, title: 'Subscribers', subtitle: '' },
             followers: { enabled: true, title: 'New Followers', subtitle: '' },
@@ -33,6 +35,20 @@ let serverConfig = {
         social: { title: '', subtitle: '', links: [] }
     }
 };
+
+const BUILTIN_CREDIT_SECTION_KEYS = ['subscribers', 'followers', 'donations', 'gift_subs', 'cheerers', 'raids', 'emotes', 'hashtags', 'chatters'];
+const BUILTIN_CREDIT_SECTION_LABELS = {
+    subscribers: 'Subscribers',
+    followers: 'New Followers',
+    donations: 'Donators',
+    gift_subs: 'Gift Subs',
+    cheerers: 'Cheerers',
+    raids: 'Raiders',
+    emotes: 'Top Emotes',
+    hashtags: 'Trending Hashtags',
+    chatters: "Today's Chatters"
+};
+const SPECIAL_THANKS_ORDER_ID = 'special_thanks';
 
 function applyTheme(cfg) {
     const t = cfg.theme;
@@ -256,6 +272,231 @@ function renderCredits() {
         return h;
     }
 
+    function formatMultilineText(text) {
+        return escapeHtml(text || '').replace(/\\n|\n/g, '<br>');
+    }
+
+    function renderNamedSectionBlock(title, subtitle, items, className = '', columns = 1) {
+        if (!items || items.length === 0) return '';
+        const cols = columns === 2 ? 'two-col' : columns === 3 ? 'three-col' : '';
+        return `<div class="section ${className}">${sectionHeader(title, subtitle)}<div class="people-list ${cols}">${items.map(item => `<div class="person">${escapeHtml(item)}</div>`).join('')}</div></div>`;
+    }
+
+    function normalizeCustomSections(sections) {
+        if (!Array.isArray(sections)) return [];
+        return sections.map((section, index) => ({
+            id: (typeof section?.id === 'string' && section.id.trim()) ? section.id.trim() : `custom-${index + 1}`,
+            enabled: section?.enabled !== false,
+            title: section?.title || '',
+            subtitle: section?.subtitle || '',
+            body: section?.body || '',
+            columns: [1, 2, 3].includes(section?.columns) ? section.columns : 1,
+            names: Array.isArray(section?.names) ? section.names.filter(Boolean) : []
+        }));
+    }
+
+    function normalizeCreditsSectionOrder(order, customSections) {
+        const defaultOrder = [...BUILTIN_CREDIT_SECTION_KEYS, ...customSections.map(section => section.id), SPECIAL_THANKS_ORDER_ID];
+        const validIds = new Set(defaultOrder);
+        const normalized = [];
+        (Array.isArray(order) ? order : []).forEach(id => {
+            if (typeof id !== 'string' || !validIds.has(id) || normalized.includes(id)) return;
+            normalized.push(id);
+        });
+        defaultOrder.forEach(id => {
+            if (!normalized.includes(id)) normalized.push(id);
+        });
+        return normalized;
+    }
+
+    const customSections = normalizeCustomSections(c.custom_sections);
+    const specialThanks = c.special_thanks || {};
+
+    function renderBuiltInSection(sectionId) {
+        const section = sec[sectionId] || {};
+        const title = section.title || BUILTIN_CREDIT_SECTION_LABELS[sectionId] || 'Credits';
+        const subtitle = section.subtitle || '';
+
+        if (sectionId === 'subscribers' && section.enabled !== false) {
+            const allSubs = mergeSubscribers();
+            if (allSubs.length > 0) {
+                html += '<div class="section">';
+                html += sectionHeader(title, subtitle);
+                html += '<div class="people-list two-col">';
+                allSubs.forEach(sub => {
+                    html += `<div class="person">${escapeHtml(sub.name)}`;
+                    if (sub.tier) html += ` (${escapeHtml(sub.tier)})`;
+                    html += '</div>';
+                });
+                html += '</div></div>';
+            }
+            return;
+        }
+
+        if (sectionId === 'followers' && section.enabled !== false) {
+            const allFollowers = mergeFollowers();
+            if (allFollowers.length > 0) {
+                html += '<div class="section">';
+                html += sectionHeader(title, subtitle);
+                html += '<div class="people-list three-col">';
+                allFollowers.forEach(f => {
+                    html += `<div class="person">${escapeHtml(f.name)}</div>`;
+                });
+                html += '</div></div>';
+            }
+            return;
+        }
+
+        if (sectionId === 'donations' && section.enabled !== false) {
+            const useStats = section.source === 'stats';
+            const donationsList = useStats
+                ? mergeStatsDonations()
+                : liveData.donations.map(d => ({ chatname: d.chatname, amount: d.amount }));
+            if (donationsList.length > 0) {
+                html += '<div class="section">';
+                html += sectionHeader(title, subtitle);
+                html += '<div class="people-list two-col">';
+                donationsList.forEach(d => {
+                    const detail = useStats ? `×${d.count}` : d.amount;
+                    html += `<div class="person">${escapeHtml(d.chatname)} (${escapeHtml(detail)})</div>`;
+                });
+                html += '</div></div>';
+            }
+            return;
+        }
+
+        if (sectionId === 'gift_subs' && section.enabled !== false) {
+            const useStats = section.source === 'stats';
+            const giftSubList = useStats ? mergeStatsGiftSubs() : liveData.giftSubs;
+            if (giftSubList.length > 0) {
+                html += '<div class="section">';
+                html += sectionHeader(title, subtitle);
+                html += '<div class="people-list two-col">';
+                giftSubList.forEach(g => {
+                    const gifter = g.gifter || g.chatname;
+                    let label = gifter;
+                    if (g.recipient) label = `${gifter} → ${g.recipient}`;
+                    else if (useStats && g.count > 1) label = `${gifter} (${g.count})`;
+                    html += `<div class="person">${escapeHtml(label)}</div>`;
+                });
+                html += '</div></div>';
+            }
+            return;
+        }
+
+        if (sectionId === 'cheerers' && section.enabled !== false) {
+            const useStats = section.source === 'stats';
+            const allBits = useStats ? mergeStatsBits() : mergeBits();
+            if (allBits.length > 0) {
+                html += '<div class="section">';
+                html += sectionHeader(title, subtitle);
+                html += '<div class="people-list two-col">';
+                allBits.forEach(b => {
+                    html += `<div class="person">${escapeHtml(b.name)} (${escapeHtml(b.amount)})</div>`;
+                });
+                html += '</div></div>';
+            }
+            return;
+        }
+
+        if (sectionId === 'raids' && section.enabled !== false && liveData.raids.length > 0) {
+            html += '<div class="section">';
+            html += sectionHeader(title || 'Raiders', subtitle);
+            html += '<div class="people-list two-col">';
+            liveData.raids.forEach(r => {
+                const viewers = r.viewers ? ` (${r.viewers} viewers)` : '';
+                html += `<div class="person">${escapeHtml(r.chatname)}${viewers}</div>`;
+            });
+            html += '</div></div>';
+            return;
+        }
+
+        if (sectionId === 'emotes' && section.enabled !== false) {
+            const topEmotes = getTopEmotes(5);
+            if (topEmotes.length > 0) {
+                html += '<div class="section">';
+                html += sectionHeader(title, subtitle);
+                html += '<div>';
+                topEmotes.forEach(emote => {
+                    html += '<div class="emote-item">';
+                    html += `<img src="${emote.imageUrl}" class="emote-img" alt="${escapeHtml(emote.name)}">`;
+                    html += `<div class="emote-name">${escapeHtml(emote.name)}</div>`;
+                    html += `<div class="emote-stats">${emote.count} uses by ${emote.uniqueUsers} chatters</div>`;
+                    html += '</div>';
+                });
+                html += '</div></div>';
+            }
+            return;
+        }
+
+        if (sectionId === 'hashtags' && section.enabled !== false) {
+            const topHashtags = getTopHashtags(35);
+            if (topHashtags.length > 0) {
+                html += '<div class="section">';
+                html += sectionHeader(title, subtitle);
+                html += '<div class="hashtag-list">';
+                topHashtags.forEach(hashtag => {
+                    html += '<div class="hashtag-item">';
+                    html += `<span class="hashtag-tag">${escapeHtml(hashtag.tag)}</span>`;
+                    html += ` (${hashtag.count})`;
+                    html += '</div>';
+                });
+                html += '</div></div>';
+            }
+            return;
+        }
+
+        if (sectionId === 'chatters' && section.enabled !== false) {
+            const sortedChatters = Array.from(liveData.chatters.values())
+                .sort((a, b) => b.messageCount - a.messageCount);
+            if (sortedChatters.length > 0) {
+                html += '<div class="section">';
+                html += sectionHeader(title, subtitle);
+                html += '<div class="people-list three-col">';
+                sortedChatters.forEach(chatter => {
+                    html += `<div class="person">${escapeHtml(chatter.chatname)}</div>`;
+                });
+                html += '</div></div>';
+            }
+        }
+    }
+
+    function renderCustomSection(section) {
+        if (section?.enabled === false) return;
+        const title = section?.title || '';
+        const subtitle = section?.subtitle || '';
+        const body = String(section?.body || '').trim();
+        const names = Array.isArray(section?.names) ? section.names.filter(Boolean) : [];
+        if (!title && !subtitle && !body && names.length === 0) return;
+
+        html += '<div class="section custom-section">';
+        if (title || subtitle) html += sectionHeader(title || 'Credits', subtitle);
+        if (body) {
+            html += `<div class="custom-section-body">${formatMultilineText(body)}</div>`;
+        }
+        if (names.length > 0) {
+            const cols = section?.columns === 2 ? 'two-col' : section?.columns === 3 ? 'three-col' : '';
+            html += `<div class="people-list ${cols}">`;
+            names.forEach(name => {
+                html += `<div class="person">${escapeHtml(name)}</div>`;
+            });
+            html += '</div>';
+        }
+        html += '</div>';
+    }
+
+    function renderSpecialThanksSection() {
+        if (specialThanks.enabled !== false && specialThanks.names && specialThanks.names.length > 0) {
+            html += renderNamedSectionBlock(
+                specialThanks.title || 'Special Thanks',
+                specialThanks.subtitle,
+                specialThanks.names,
+                'special-thanks',
+                specialThanks.columns
+            );
+        }
+    }
+
     // Header image
     if (c.header.image) {
         html += '<div class="section">';
@@ -271,170 +512,22 @@ function renderCredits() {
         html += '</div>';
     }
 
-    // Subscribers
-    if (sec.subscribers.enabled !== false) {
-        const allSubs = mergeSubscribers();
-        if (allSubs.length > 0) {
-            html += '<div class="section">';
-            html += sectionHeader(sec.subscribers.title, sec.subscribers.subtitle);
-            html += '<div class="people-list two-col">';
-            allSubs.forEach(sub => {
-                html += `<div class="person">${escapeHtml(sub.name)}`;
-                if (sub.tier) html += ` (${escapeHtml(sub.tier)})`;
-                html += '</div>';
-            });
-            html += '</div></div>';
+    const customSectionsById = new Map(customSections.map(section => [section.id, section]));
+    const orderedSections = normalizeCreditsSectionOrder(c.section_order, customSections);
+    orderedSections.forEach(sectionId => {
+        if (sectionId === SPECIAL_THANKS_ORDER_ID) {
+            renderSpecialThanksSection();
+        } else if (BUILTIN_CREDIT_SECTION_KEYS.includes(sectionId)) {
+            renderBuiltInSection(sectionId);
+        } else if (customSectionsById.has(sectionId)) {
+            renderCustomSection(customSectionsById.get(sectionId));
         }
-    }
-
-    // Followers
-    if (sec.followers.enabled !== false) {
-        const allFollowers = mergeFollowers();
-        if (allFollowers.length > 0) {
-            html += '<div class="section">';
-            html += sectionHeader(sec.followers.title, sec.followers.subtitle);
-            html += '<div class="people-list three-col">';
-            allFollowers.forEach(f => {
-                html += `<div class="person">${escapeHtml(f.name)}</div>`;
-            });
-            html += '</div></div>';
-        }
-    }
-
-    // Donations
-    if (sec.donations.enabled !== false) {
-        const useStats = sec.donations.source === 'stats';
-        let donationsList;
-        if (useStats) {
-            donationsList = mergeStatsDonations();
-        } else {
-            donationsList = liveData.donations.map(d => ({ chatname: d.chatname, amount: d.amount }));
-        }
-        if (donationsList.length > 0) {
-            html += '<div class="section">';
-            html += sectionHeader(sec.donations.title, sec.donations.subtitle);
-            html += '<div class="people-list two-col">';
-            donationsList.forEach(d => {
-                const detail = useStats ? `×${d.count}` : d.amount;
-                html += `<div class="person">${escapeHtml(d.chatname)} (${escapeHtml(detail)})</div>`;
-            });
-            html += '</div></div>';
-        }
-    }
-
-    // Gift Subs
-    if (sec.gift_subs.enabled !== false) {
-        const useStats = sec.gift_subs.source === 'stats';
-        const giftSubList = useStats ? mergeStatsGiftSubs() : liveData.giftSubs;
-        if (giftSubList.length > 0) {
-            html += '<div class="section">';
-            html += sectionHeader(sec.gift_subs.title, sec.gift_subs.subtitle);
-            html += '<div class="people-list two-col">';
-            giftSubList.forEach(g => {
-                const gifter = g.gifter || g.chatname;
-                let label = gifter;
-                if (g.recipient) label = `${gifter} → ${g.recipient}`;
-                else if (useStats && g.count > 1) label = `${gifter} (${g.count})`;
-                html += `<div class="person">${escapeHtml(label)}</div>`;
-            });
-            html += '</div></div>';
-        }
-    }
-
-    // Cheerers
-    if (sec.cheerers.enabled !== false) {
-        const useStats = sec.cheerers.source === 'stats';
-        const allBits = useStats ? mergeStatsBits() : mergeBits();
-        if (allBits.length > 0) {
-            html += '<div class="section">';
-            html += sectionHeader(sec.cheerers.title, sec.cheerers.subtitle);
-            html += '<div class="people-list two-col">';
-            allBits.forEach(b => {
-                html += `<div class="person">${escapeHtml(b.name)} (${escapeHtml(b.amount)})</div>`;
-            });
-            html += '</div></div>';
-        }
-    }
-
-    // Raids
-    if (sec.raids && sec.raids.enabled !== false && liveData.raids.length > 0) {
-        html += '<div class="section">';
-        html += sectionHeader(sec.raids.title || 'Raiders', sec.raids.subtitle);
-        html += '<div class="people-list two-col">';
-        liveData.raids.forEach(r => {
-            const viewers = r.viewers ? ` (${r.viewers} viewers)` : '';
-            html += `<div class="person">${escapeHtml(r.chatname)}${viewers}</div>`;
-        });
-        html += '</div></div>';
-    }
-
-    // Top Emotes
-    if (sec.emotes.enabled !== false) {
-        const topEmotes = getTopEmotes(5);
-        if (topEmotes.length > 0) {
-            html += '<div class="section">';
-            html += sectionHeader(sec.emotes.title, sec.emotes.subtitle);
-            html += '<div>';
-            topEmotes.forEach(emote => {
-                html += '<div class="emote-item">';
-                html += `<img src="${emote.imageUrl}" class="emote-img" alt="${escapeHtml(emote.name)}">`;
-                html += `<div class="emote-name">${escapeHtml(emote.name)}</div>`;
-                html += `<div class="emote-stats">${emote.count} uses by ${emote.uniqueUsers} chatters</div>`;
-                html += '</div>';
-            });
-            html += '</div></div>';
-        }
-    }
-
-    // Trending Hashtags
-    if (sec.hashtags.enabled !== false) {
-        const topHashtags = getTopHashtags(35);
-        if (topHashtags.length > 0) {
-            html += '<div class="section">';
-            html += sectionHeader(sec.hashtags.title, sec.hashtags.subtitle);
-            html += '<div class="hashtag-list">';
-            topHashtags.forEach(hashtag => {
-                html += '<div class="hashtag-item">';
-                html += `<span class="hashtag-tag">${escapeHtml(hashtag.tag)}</span>`;
-                html += ` (${hashtag.count})`;
-                html += '</div>';
-            });
-            html += '</div></div>';
-        }
-    }
-
-    // Chatters
-    if (sec.chatters.enabled !== false) {
-        const sortedChatters = Array.from(liveData.chatters.values())
-            .sort((a, b) => b.messageCount - a.messageCount);
-        if (sortedChatters.length > 0) {
-            html += '<div class="section">';
-            html += sectionHeader(sec.chatters.title, sec.chatters.subtitle);
-            html += '<div class="people-list three-col">';
-            sortedChatters.forEach(chatter => {
-                html += `<div class="person">${escapeHtml(chatter.chatname)}</div>`;
-            });
-            html += '</div></div>';
-        }
-    }
-
-    // Special Thanks (manually curated)
-    const specialThanks = c.special_thanks || {};
-    if (specialThanks.enabled !== false && specialThanks.names && specialThanks.names.length > 0) {
-        const cols = specialThanks.columns === 2 ? 'two-col' : specialThanks.columns === 3 ? 'three-col' : '';
-        html += '<div class="section special-thanks">';
-        html += sectionHeader(specialThanks.title || 'Special Thanks', specialThanks.subtitle);
-        html += `<div class="people-list ${cols}">`;
-        specialThanks.names.forEach(name => {
-            html += `<div class="person">${escapeHtml(name)}</div>`;
-        });
-        html += '</div></div>';
-    }
+    });
 
     // Closing
     if (c.closing) {
         html += '<div class="section closing">';
-        html += escapeHtml(c.closing).replace(/\\n/g, '<br>');
+        html += formatMultilineText(c.closing);
         html += '</div>';
     }
 

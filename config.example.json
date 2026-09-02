@@ -106,6 +106,19 @@
         "subtitle": ""
       }
     },
+    "section_order": [
+      "subscribers",
+      "followers",
+      "custom-community-awards",
+      "donations",
+      "gift_subs",
+      "cheerers",
+      "raids",
+      "emotes",
+      "hashtags",
+      "chatters",
+      "special_thanks"
+    ],
     "special_thanks": {
       "enabled": false,
       "title": "Special Thanks",
@@ -113,6 +126,20 @@
       "columns": 1,
       "names": []
     },
+    "custom_sections": [
+      {
+        "id": "custom-community-awards",
+        "enabled": false,
+        "title": "Community Awards",
+        "subtitle": "",
+        "body": "Optional statement text goes here.",
+        "columns": 1,
+        "names": [
+          "Best Clip Finder",
+          "Chaos Coordinator"
+        ]
+      }
+    ],
     "social": {
       "title": "Thanks for watching!",
       "subtitle": "",
