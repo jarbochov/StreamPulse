@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Timer Manager</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 320px 1fr; gap: 1.25rem; }
+        .stack { display: flex; flex-direction: column; gap: 1rem; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.1rem 1.2rem; }
+        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.9rem; }
+        .card h3 { font-size: 0.78rem; color: #58a6ff; margin: 1rem 0 0.55rem; padding-top: 0.65rem; border-top: 1px solid #21262d; }
+        .cfg-row { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.65rem; flex-wrap: wrap; }
+        .cfg-row label { min-width: 120px; font-size: 0.82rem; color: #8b949e; }
+        .cfg-row input, .cfg-row select, .cfg-row textarea { flex: 1; padding: 0.48rem 0.65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.82rem; font-family: inherit; }
+        .cfg-row input[type="checkbox"] { flex: none; width: auto; accent-color: #58a6ff; }
+        .cfg-row input[type="range"] { accent-color: #58a6ff; }
+        .cfg-row small { color: #8b949e; font-size: 0.72rem; }
+        .actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+        .btn { border: 1px solid #30363d; background: #21262d; color: #e1e4e8; border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.82rem; cursor: pointer; }
+        .btn:hover { border-color: #58a6ff; }
+        .btn.primary { background: #238636; border-color: #238636; }
+        .btn.danger { background: #5a1e23; border-color: #5a1e23; }
+        .btn.warn { background: #4a2f05; border-color: #4a2f05; }
+        .timer-list { display: flex; flex-direction: column; gap: 0.55rem; }
+        .timer-item { border: 1px solid #30363d; border-radius: 8px; padding: 0.7rem 0.8rem; background: #0d1117; cursor: pointer; }
+        .timer-item.active { border-color: #58a6ff; background: #111827; }
+        .timer-item .meta { color: #8b949e; font-size: 0.76rem; margin-top: 0.2rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .pill { display: inline-flex; padding: 0.16rem 0.45rem; border-radius: 999px; font-size: 0.68rem; border: 1px solid #30363d; }
+        .pill.countdown { color: #58a6ff; background: #1a2332; }
+        .pill.stopwatch { color: #d29922; background: #33210f; }
+        .pill.running { color: #3fb950; }
+        .status { color: #8b949e; font-size: 0.8rem; margin-top: 0.75rem; min-height: 1.2em; }
+        .hint { color: #8b949e; font-size: 0.78rem; line-height: 1.45; }
+        .mini-note { color: #8b949e; font-size: 0.72rem; }
+        .link-list a { color: #58a6ff; text-decoration: none; }
+        .link-list a:hover { text-decoration: underline; }
+        .inline-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
+        .inline-grid input { width: 100%; }
+        .section { display: none; }
+        .section.active { display: block; }
+        .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .http-grid { display: grid; grid-template-columns: 150px 92px 1fr; gap: 0.55rem; align-items: center; margin-bottom: 0.55rem; }
+        .http-grid input, .http-grid select { padding: 0.42rem 0.55rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.78rem; }
+        .http-grid label { color: #c9d1d9; font-size: 0.78rem; }
+        @media (max-width: 980px) {
+            .container { grid-template-columns: 1fr; padding: 1rem; }
+            .split, .inline-grid { grid-template-columns: 1fr 1fr; }
+            .header { flex-direction: column; gap: 0.6rem; }
+            .http-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>StreamPulse <span>Timer Manager</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <div class="container">
+        <div class="stack">
+            <div class="card">
+                <h2>Timers</h2>
+                <div class="actions" style="margin-bottom:0.8rem;">
+                    <button class="btn primary" onclick="seedNewTimer('countdown')">New Countdown</button>
+                    <button class="btn" onclick="seedNewTimer('stopwatch')">New Stopwatch</button>
+                </div>
+                <div id="timer-list" class="timer-list"></div>
+                <div class="status" id="timer-list-status"></div>
+            </div>
+
+            <div class="card">
+                <h2>Global Settings</h2>
+                <div class="cfg-row">
+                    <label>Complete Sound</label>
+                    <input type="checkbox" id="sound-enabled">
+                    <small>Built-in overlay beep on countdown completion</small>
+                </div>
+                <div class="cfg-row">
+                    <label>Sound Volume</label>
+                    <input type="range" id="sound-volume" min="0" max="1" step="0.05" value="0.35">
+                    <span id="sound-volume-label" style="font-size:0.8rem;min-width:44px;">35%</span>
+                </div>
+                <div class="hint">This controls the built-in completion tone for countdown overlays. Custom audio files can come later; right now it uses a simple generated beep.</div>
+                <div class="actions">
+                    <button class="btn primary" onclick="saveSettings()">Save Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="stack">
+            <div class="card">
+                <h2>Timer Definition</h2>
+                <div class="cfg-row">
+                    <label>Timer ID</label>
+                    <input type="text" id="timer-id" placeholder="starting-soon">
+                    <small>Slug style for API and overlay URLs</small>
+                </div>
+                <div class="cfg-row">
+                    <label>Label</label>
+                    <input type="text" id="timer-label" placeholder="Starting Soon">
+                </div>
+                <div class="cfg-row">
+                    <label>Type</label>
+                    <select id="timer-kind" onchange="toggleKindSections()">
+                        <option value="countdown">Countdown</option>
+                        <option value="stopwatch">Stopwatch</option>
+                    </select>
+                </div>
+                <div class="cfg-row">
+                    <label>Visible</label>
+                    <input type="checkbox" id="timer-visible" checked>
+                </div>
+
+                <div id="countdown-section" class="section active">
+                    <h3>Countdown Options</h3>
+                    <div class="cfg-row">
+                        <label>Mode</label>
+                        <select id="countdown-mode" onchange="toggleCountdownMode()">
+                            <option value="duration">Duration</option>
+                            <option value="date">Target Date</option>
+                        </select>
+                    </div>
+                    <div id="duration-fields">
+                        <div class="cfg-row">
+                            <label>Duration</label>
+                            <div class="inline-grid" style="flex:1;">
+                                <input type="number" id="dur-days" min="0" placeholder="Days">
+                                <input type="number" id="dur-hours" min="0" placeholder="Hours">
+                                <input type="number" id="dur-minutes" min="0" placeholder="Minutes">
+                                <input type="number" id="dur-seconds" min="0" placeholder="Seconds">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="date-fields" style="display:none;">
+                        <div class="cfg-row">
+                            <label>Target Date</label>
+                            <input type="datetime-local" id="target-at">
+                        </div>
+                        <div class="cfg-row">
+                            <label>Timezone</label>
+                            <input type="text" id="target-timezone" placeholder="America/New_York">
+                        </div>
+                    </div>
+                    <div class="cfg-row">
+                        <label>Progress Bar</label>
+                        <input type="checkbox" id="countdown-progress" checked>
+                    </div>
+                    <div class="cfg-row">
+                        <label>On Complete</label>
+                        <select id="countdown-show-on-end">
+                            <option value="message">Show message</option>
+                            <option value="zero">Show 00:00</option>
+                            <option value="none">Show nothing</option>
+                        </select>
+                    </div>
+                    <div class="cfg-row">
+                        <label>End Message</label>
+                        <input type="text" id="countdown-end-message" value="⌛️">
+                    </div>
+                </div>
+
+                <div id="stopwatch-section" class="section">
+                    <h3>Stopwatch Options</h3>
+                    <div class="cfg-row">
+                        <label>Initial Time</label>
+                        <div class="inline-grid" style="flex:1;">
+                            <input type="number" id="sw-days" min="0" placeholder="Days">
+                            <input type="number" id="sw-hours" min="0" placeholder="Hours">
+                            <input type="number" id="sw-minutes" min="0" placeholder="Minutes">
+                            <input type="number" id="sw-seconds" min="0" placeholder="Seconds">
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Outgoing HTTP Calls</h3>
+                <div class="hint" style="margin-bottom:0.75rem;">Optional per-timer event callbacks. Use these when a timer event should call another HTTP endpoint. Companion and OBS button control should still use the incoming `/api/timers/.../control` URLs shown in the wizard.</div>
+                <div class="http-grid">
+                    <label><input type="checkbox" id="http-countdown-started-enabled"> countdown_started</label>
+                    <select id="http-countdown-started-method"><option value="POST">POST</option><option value="GET">GET</option></select>
+                    <input type="text" id="http-countdown-started-url" placeholder="http://localhost:8000/when-countdown-starts">
+                </div>
+                <div class="http-grid">
+                    <label><input type="checkbox" id="http-countdown-complete-enabled"> countdown_complete</label>
+                    <select id="http-countdown-complete-method"><option value="POST">POST</option><option value="GET">GET</option></select>
+                    <input type="text" id="http-countdown-complete-url" placeholder="http://localhost:8000/when-countdown-completes">
+                </div>
+                <div class="http-grid">
+                    <label><input type="checkbox" id="http-stopwatch-started-enabled"> stopwatch_started</label>
+                    <select id="http-stopwatch-started-method"><option value="POST">POST</option><option value="GET">GET</option></select>
+                    <input type="text" id="http-stopwatch-started-url" placeholder="http://localhost:8000/when-stopwatch-starts">
+                </div>
+                <div class="http-grid">
+                    <label><input type="checkbox" id="http-stopwatch-paused-enabled"> stopwatch_paused</label>
+                    <select id="http-stopwatch-paused-method"><option value="POST">POST</option><option value="GET">GET</option></select>
+                    <input type="text" id="http-stopwatch-paused-url" placeholder="http://localhost:8000/when-stopwatch-pauses">
+                </div>
+                <div class="mini-note">GET appends query params like event, timer_id, timer_label, timer_state. POST sends a JSON body with the timer snapshot.</div>
+
+                <div class="actions" style="margin-top:1rem;">
+                    <button class="btn primary" onclick="saveTimer()">Save Timer</button>
+                    <button class="btn danger" onclick="deleteTimer()">Delete Timer</button>
+                    <a class="btn" id="wizard-link" href="/timer-url-wizard.html">Open URL Wizard</a>
+                </div>
+                <div id="editor-status" class="status"></div>
+            </div>
+
+            <div class="card">
+                <h2>Controls</h2>
+                <div class="actions">
+                    <button class="btn primary" onclick="controlTimer('start')">Start</button>
+                    <button class="btn warn" onclick="controlTimer('pause')">Pause</button>
+                    <button class="btn" onclick="controlTimer('resume')">Resume</button>
+                    <button class="btn" onclick="controlTimer('reset')">Reset</button>
+                    <button class="btn" onclick="controlTimer('visibility','toggle')">Toggle Visibility</button>
+                </div>
+                <div class="cfg-row" id="set-stopwatch-row" style="margin-top:0.9rem;">
+                    <label>Set Stopwatch Base Time</label>
+                    <div class="inline-grid" style="flex:1;">
+                        <input type="number" id="set-days" min="0" placeholder="Days">
+                        <input type="number" id="set-hours" min="0" placeholder="Hours">
+                        <input type="number" id="set-minutes" min="0" placeholder="Minutes">
+                        <input type="number" id="set-seconds" min="0" placeholder="Seconds">
+                    </div>
+                    <button class="btn" onclick="setStopwatchTime()">Set Base</button>
+                </div>
+                <div class="cfg-row" style="margin-top:0.9rem;">
+                    <label>Adjust Time</label>
+                    <div class="inline-grid" style="flex:1;">
+                        <input type="number" id="adjust-days" min="0" placeholder="Days">
+                        <input type="number" id="adjust-hours" min="0" placeholder="Hours">
+                        <input type="number" id="adjust-minutes" min="0" placeholder="Minutes">
+                        <input type="number" id="adjust-seconds" min="0" placeholder="Seconds">
+                    </div>
+                    <button class="btn" onclick="adjustTimerTime('add_time')">Add</button>
+                    <button class="btn warn" onclick="adjustTimerTime('subtract_time')">Subtract</button>
+                </div>
+                <div class="hint"><strong>Set Stopwatch Base Time</strong> changes the stopwatch's reset value. <strong>Adjust Time</strong> adds or subtracts from the current displayed time without changing what reset returns to. Adjust Time works for both countdowns and stopwatches, and countdown subtraction to zero completes the timer.</div>
+            </div>
+
+            <div class="card">
+                <h2>Quick Links</h2>
+                <div class="link-list hint">
+                    <div>Countdown overlay: <a id="countdown-link" target="_blank" href="/countdown.html">/countdown.html</a></div>
+                    <div>Stopwatch overlay: <a id="stopwatch-link" target="_blank" href="/stopwatch.html">/stopwatch.html</a></div>
+                    <div>API endpoint: <a id="api-link" target="_blank" href="/api/timers">/api/timers</a></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    let timersData = {};
+    let timerSettings = null;
+    let selectedId = '';
+    let timerSocket = null;
+    const TIMER_EVENTS = ['countdown_started', 'countdown_complete', 'stopwatch_started', 'stopwatch_paused'];
+
+    document.getElementById('sound-volume').addEventListener('input', (e) => {
+        document.getElementById('sound-volume-label').textContent = Math.round((parseFloat(e.target.value) || 0) * 100) + '%';
+    });
+
+    function showStatus(id, message, ok = true) {
+        const el = document.getElementById(id);
+        el.textContent = message;
+        el.style.color = ok ? '#3fb950' : '#f85149';
+        if (message) setTimeout(() => { if (el.textContent === message) el.textContent = ''; }, 4000);
+    }
+
+    function parseDuration(prefix) {
+        const days = parseInt(document.getElementById(prefix + '-days')?.value || '0', 10) || 0;
+        const hours = parseInt(document.getElementById(prefix + '-hours')?.value || '0', 10) || 0;
+        const minutes = parseInt(document.getElementById(prefix + '-minutes')?.value || '0', 10) || 0;
+        const seconds = parseInt(document.getElementById(prefix + '-seconds')?.value || '0', 10) || 0;
+        return { days, hours, minutes, seconds };
+    }
+
+    function slugify(value) {
+        return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    }
+
+    function formatMs(ms) {
+        let total = Math.max(0, Math.floor((ms || 0) / 1000));
+        const days = Math.floor(total / 86400);
+        total %= 86400;
+        const hours = Math.floor(total / 3600);
+        total %= 3600;
+        const minutes = Math.floor(total / 60);
+        const seconds = total % 60;
+        const pad = n => String(n).padStart(2, '0');
+        return days > 0 ? `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}` : `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    }
+
+    function getLiveTimer(timer) {
+        if (!timer) return timer;
+        const now = Date.now();
+        if (timer.kind === 'countdown' && timer.state === 'running' && timer.startedAt) {
+            const remainingMs = Math.max(0, (timer.startingRemainingMs || timer.remainingMs || 0) - (now - timer.startedAt));
+            return { ...timer, remainingMs };
+        }
+        if (timer.kind === 'stopwatch' && timer.state === 'running' && timer.startedAt) {
+            const elapsedMs = Math.max(0, (timer.accumulatedMs || 0) + (now - timer.startedAt));
+            return { ...timer, elapsedMs };
+        }
+        return timer;
+    }
+
+    async function loadTimers() {
+        const res = await fetch('/api/timers');
+        const data = await res.json();
+        timersData = data.timers || {};
+        timerSettings = data.settings || {};
+        if (!selectedId || !timersData[selectedId]) {
+            selectedId = Object.keys(timersData)[0] || '';
+        }
+        renderTimerList();
+        loadSettingsForm();
+        if (selectedId && timersData[selectedId]) populateForm(timersData[selectedId]);
+        else seedNewTimer('countdown');
+    }
+
+    function renderTimerList() {
+        const list = document.getElementById('timer-list');
+        const entries = Object.values(timersData).map(getLiveTimer).sort((a, b) => a.id.localeCompare(b.id));
+        if (!entries.length) {
+            list.innerHTML = '<div class="hint">No timers yet. Create a countdown or stopwatch to get started.</div>';
+            document.getElementById('timer-list-status').textContent = '';
+            return;
+        }
+        list.innerHTML = entries.map(timer => `
+            <div class="timer-item${timer.id === selectedId ? ' active' : ''}" onclick="selectTimer('${timer.id}')">
+                <div><strong>${timer.label || timer.id}</strong></div>
+                <div class="meta">
+                    <span class="pill ${timer.kind}">${timer.kind}</span>
+                    <span>${timer.id}</span>
+                    <span class="pill ${timer.state === 'running' ? 'running' : ''}">${timer.state}</span>
+                    <span>${timer.kind === 'countdown' ? formatMs(timer.remainingMs || 0) : formatMs(timer.elapsedMs || 0)}</span>
+                </div>
+            </div>
+        `).join('');
+        document.getElementById('timer-list-status').textContent = `${entries.length} timer${entries.length === 1 ? '' : 's'} loaded`;
+    }
+
+    function selectTimer(id) {
+        selectedId = id;
+        renderTimerList();
+        if (timersData[id]) populateForm(timersData[id]);
+    }
+
+    function seedNewTimer(kind) {
+        selectedId = '';
+        document.getElementById('timer-id').value = '';
+        document.getElementById('timer-label').value = kind === 'stopwatch' ? 'New Stopwatch' : 'New Countdown';
+        document.getElementById('timer-kind').value = kind;
+        document.getElementById('timer-visible').checked = true;
+        document.getElementById('countdown-mode').value = 'duration';
+        document.getElementById('countdown-progress').checked = true;
+        document.getElementById('countdown-show-on-end').value = 'message';
+        document.getElementById('countdown-end-message').value = '⌛️';
+        document.getElementById('dur-days').value = '';
+        document.getElementById('dur-hours').value = '';
+        document.getElementById('dur-minutes').value = '10';
+        document.getElementById('dur-seconds').value = '';
+        document.getElementById('target-at').value = '';
+        document.getElementById('target-timezone').value = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        document.getElementById('sw-days').value = '';
+        document.getElementById('sw-hours').value = '';
+        document.getElementById('sw-minutes').value = '';
+        document.getElementById('sw-seconds').value = '';
+        populateHttpActions({});
+        toggleKindSections();
+        toggleCountdownMode();
+        updateQuickLinks();
+    }
+
+    function populateForm(timer) {
+        document.getElementById('timer-id').value = timer.id || '';
+        document.getElementById('timer-label').value = timer.label || timer.id || '';
+        document.getElementById('timer-kind').value = timer.kind || 'countdown';
+        document.getElementById('timer-visible').checked = timer.visible !== false;
+        if (timer.kind === 'countdown') {
+            document.getElementById('countdown-mode').value = timer.mode || 'duration';
+            document.getElementById('countdown-progress').checked = timer.progress !== false;
+            document.getElementById('countdown-show-on-end').value = timer.showOnEnd || 'message';
+            document.getElementById('countdown-end-message').value = timer.endMessage || '⌛️';
+            if ((timer.mode || 'duration') === 'duration') {
+                let seconds = Math.floor((timer.durationMs || 0) / 1000);
+                document.getElementById('dur-days').value = Math.floor(seconds / 86400) || '';
+                seconds %= 86400;
+                document.getElementById('dur-hours').value = Math.floor(seconds / 3600) || '';
+                seconds %= 3600;
+                document.getElementById('dur-minutes').value = Math.floor(seconds / 60) || '';
+                document.getElementById('dur-seconds').value = seconds % 60 || '';
+            } else {
+                document.getElementById('target-at').value = timer.targetAt ? timer.targetAt.slice(0, 16) : '';
+                document.getElementById('target-timezone').value = timer.timezone || '';
+            }
+        } else {
+            let seconds = Math.floor((timer.initialMs || 0) / 1000);
+            document.getElementById('sw-days').value = Math.floor(seconds / 86400) || '';
+            seconds %= 86400;
+            document.getElementById('sw-hours').value = Math.floor(seconds / 3600) || '';
+            seconds %= 3600;
+            document.getElementById('sw-minutes').value = Math.floor(seconds / 60) || '';
+            document.getElementById('sw-seconds').value = seconds % 60 || '';
+        }
+        toggleKindSections();
+        toggleCountdownMode();
+        populateHttpActions(timer.httpActions || {});
+        updateQuickLinks(timer.id);
+    }
+
+    function toggleKindSections() {
+        const kind = document.getElementById('timer-kind').value;
+        document.getElementById('countdown-section').classList.toggle('active', kind === 'countdown');
+        document.getElementById('stopwatch-section').classList.toggle('active', kind === 'stopwatch');
+        document.getElementById('set-stopwatch-row').style.display = kind === 'stopwatch' ? '' : 'none';
+    }
+
+    function toggleCountdownMode() {
+        const mode = document.getElementById('countdown-mode').value;
+        document.getElementById('duration-fields').style.display = mode === 'duration' ? '' : 'none';
+        document.getElementById('date-fields').style.display = mode === 'date' ? '' : 'none';
+    }
+
+    function loadSettingsForm() {
+        document.getElementById('sound-enabled').checked = !!timerSettings.sound_enabled;
+        document.getElementById('sound-volume').value = timerSettings.sound_volume ?? 0.35;
+        document.getElementById('sound-volume-label').textContent = Math.round((parseFloat(document.getElementById('sound-volume').value) || 0) * 100) + '%';
+    }
+
+    function populateHttpActions(actions = {}) {
+        TIMER_EVENTS.forEach(event => {
+            const action = actions[event] || {};
+            document.getElementById(`http-${event.replaceAll('_','-')}-enabled`).checked = !!action.enabled;
+            document.getElementById(`http-${event.replaceAll('_','-')}-method`).value = action.method || 'POST';
+            document.getElementById(`http-${event.replaceAll('_','-')}-url`).value = action.url || '';
+        });
+    }
+
+    function collectHttpActions() {
+        return Object.fromEntries(TIMER_EVENTS.map(event => {
+            const prefix = `http-${event.replaceAll('_','-')}`;
+            return [event, {
+                enabled: document.getElementById(`${prefix}-enabled`).checked,
+                method: document.getElementById(`${prefix}-method`).value,
+                url: document.getElementById(`${prefix}-url`).value.trim()
+            }];
+        }));
+    }
+
+    function collectTimerPayload() {
+        const id = slugify(document.getElementById('timer-id').value || document.getElementById('timer-label').value);
+        document.getElementById('timer-id').value = id;
+        const kind = document.getElementById('timer-kind').value;
+        const payload = {
+            id,
+            label: document.getElementById('timer-label').value.trim() || id,
+            kind,
+            visible: document.getElementById('timer-visible').checked,
+            httpActions: collectHttpActions()
+        };
+        if (kind === 'countdown') {
+            payload.mode = document.getElementById('countdown-mode').value;
+            payload.progress = document.getElementById('countdown-progress').checked;
+            payload.showOnEnd = document.getElementById('countdown-show-on-end').value;
+            payload.endMessage = document.getElementById('countdown-end-message').value || '⌛️';
+            if (payload.mode === 'duration') Object.assign(payload, parseDuration('dur'));
+            else {
+                payload.targetAt = document.getElementById('target-at').value;
+                payload.timezone = document.getElementById('target-timezone').value.trim();
+            }
+        } else {
+            Object.assign(payload, parseDuration('sw'));
+        }
+        return payload;
+    }
+
+    async function saveTimer() {
+        try {
+            const payload = collectTimerPayload();
+            const res = await fetch('/api/timers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Save failed');
+            selectedId = data.timer.id;
+            await loadTimers();
+            showStatus('editor-status', `Saved ${data.timer.id}`);
+        } catch (err) {
+            showStatus('editor-status', err.message, false);
+        }
+    }
+
+    async function deleteTimer() {
+        const id = document.getElementById('timer-id').value.trim();
+        if (!id) return;
+        if (!confirm(`Delete timer "${id}"?`)) return;
+        const res = await fetch(`/api/timers/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) {
+            showStatus('editor-status', data.error || 'Delete failed', false);
+            return;
+        }
+        selectedId = '';
+        await loadTimers();
+        showStatus('editor-status', `Deleted ${id}`);
+    }
+
+    async function controlTimer(action, value = '') {
+        const id = document.getElementById('timer-id').value.trim();
+        if (!id) return showStatus('editor-status', 'Save the timer first', false);
+        const payload = value ? { action, value } : { action };
+        const res = await fetch(`/api/timers/${encodeURIComponent(id)}/control`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showStatus('editor-status', data.error || 'Control failed', false);
+            return;
+        }
+        await loadTimers();
+        showStatus('editor-status', `${action} sent to ${id}`);
+    }
+
+    async function setStopwatchTime() {
+        const id = document.getElementById('timer-id').value.trim();
+        if (!id) return showStatus('editor-status', 'Save the timer first', false);
+        const res = await fetch(`/api/timers/${encodeURIComponent(id)}/control`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'set_time', ...parseDuration('set') })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showStatus('editor-status', data.error || 'Set time failed', false);
+            return;
+        }
+        await loadTimers();
+        showStatus('editor-status', `Updated time for ${id}`);
+    }
+
+    async function adjustTimerTime(action) {
+        const id = document.getElementById('timer-id').value.trim();
+        if (!id) return showStatus('editor-status', 'Save the timer first', false);
+        const duration = parseDuration('adjust');
+        if (!duration.days && !duration.hours && !duration.minutes && !duration.seconds) {
+            return showStatus('editor-status', 'Enter a time to adjust', false);
+        }
+        const res = await fetch(`/api/timers/${encodeURIComponent(id)}/control`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, ...duration })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showStatus('editor-status', data.error || 'Adjust time failed', false);
+            return;
+        }
+        await loadTimers();
+        showStatus('editor-status', `${action === 'add_time' ? 'Added time to' : 'Subtracted time from'} ${id}`);
+    }
+
+    async function saveSettings() {
+        const payload = {
+            sound_enabled: document.getElementById('sound-enabled').checked,
+            sound_volume: parseFloat(document.getElementById('sound-volume').value) || 0
+        };
+        const res = await fetch('/api/timers/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showStatus('editor-status', data.error || 'Settings save failed', false);
+            return;
+        }
+        timerSettings = data.settings;
+        showStatus('editor-status', 'Global timer settings saved');
+    }
+
+    function updateQuickLinks(id = '') {
+        const timerId = id || document.getElementById('timer-id').value.trim();
+        const kind = document.getElementById('timer-kind').value || 'countdown';
+        document.getElementById('countdown-link').href = timerId ? `/countdown.html?timer=${encodeURIComponent(timerId)}` : '/countdown.html';
+        document.getElementById('stopwatch-link').href = timerId ? `/stopwatch.html?timer=${encodeURIComponent(timerId)}` : '/stopwatch.html';
+        document.getElementById('wizard-link').href = timerId
+            ? `/timer-url-wizard.html?timer=${encodeURIComponent(timerId)}&overlay=${encodeURIComponent(kind)}`
+            : '/timer-url-wizard.html';
+    }
+
+    document.getElementById('timer-id').addEventListener('input', () => updateQuickLinks());
+    document.getElementById('timer-kind').addEventListener('change', () => updateQuickLinks());
+    document.getElementById('timer-label').addEventListener('input', () => {
+        if (!document.getElementById('timer-id').value.trim()) {
+            document.getElementById('timer-id').value = slugify(document.getElementById('timer-label').value);
+        }
+        updateQuickLinks();
+    });
+
+    function connectTimerSocket() {
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        timerSocket = new WebSocket(`${protocol}//${location.host}`);
+        timerSocket.onmessage = (event) => {
+            let msg;
+            try { msg = JSON.parse(event.data); } catch { return; }
+            if (msg.type === 'timers-snapshot') {
+                timersData = msg.data?.timers || timersData;
+                timerSettings = msg.data?.settings || timerSettings;
+                renderTimerList();
+                if (selectedId && timersData[selectedId]) populateForm(timersData[selectedId]);
+                loadSettingsForm();
+            } else if (msg.type === 'timer-update') {
+                const timer = msg.data?.timer;
+                if (!timer?.id) return;
+                timersData[timer.id] = timer;
+                renderTimerList();
+                if (selectedId === timer.id) populateForm(timer);
+            } else if (msg.type === 'timer-delete') {
+                delete timersData[msg.data?.id];
+                if (selectedId === msg.data?.id) seedNewTimer('countdown');
+                renderTimerList();
+            } else if (msg.type === 'timer-settings') {
+                timerSettings = msg.data || timerSettings;
+                loadSettingsForm();
+            }
+        };
+        timerSocket.onclose = () => setTimeout(connectTimerSocket, 5000);
+    }
+
+    loadTimers().catch(err => showStatus('editor-status', err.message, false));
+    connectTimerSocket();
+    setInterval(renderTimerList, 250);
+    </script>
+</body>
+</html>

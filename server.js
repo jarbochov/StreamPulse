@@ -41,6 +41,7 @@ const CHAT_LOG_PATH = path.join(DATA_DIR, 'chat-log.jsonl');
 const HIGHLIGHTS_PATH = path.join(DATA_DIR, 'highlights.jsonl');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const EMOTE_CACHE_DIR = path.join(DATA_DIR, 'emote-cache');
+const TIMERS_PATH = path.join(DATA_DIR, 'timers.json');
 
 // Emote image cache: emote name → { path, format }
 const emoteCache = new Map();
@@ -197,6 +198,499 @@ function flushWebhooks() {
     } catch (err) {
         console.warn(`[Webhook] Send error: ${err.message}`);
     }
+}
+
+// ============================================================================
+// TIMERS
+// ============================================================================
+
+const DEFAULT_TIMER_SETTINGS = {
+    sound_enabled: false,
+    sound_volume: 0.35
+};
+
+const TIMER_EVENT_TYPES = ['countdown_started', 'countdown_complete', 'stopwatch_started', 'stopwatch_paused'];
+
+function createDefaultTimerHttpActions() {
+    return Object.fromEntries(TIMER_EVENT_TYPES.map(event => [event, { enabled: false, url: '', method: 'POST' }]));
+}
+
+let timerStore = {
+    settings: JSON.parse(JSON.stringify(DEFAULT_TIMER_SETTINGS)),
+    timers: {}
+};
+
+function cloneJson(value) {
+    return JSON.parse(JSON.stringify(value));
+}
+
+function sanitizeTimerId(value) {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 60);
+}
+
+function clampNumber(value, min, max, fallback) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return fallback;
+    return Math.min(max, Math.max(min, num));
+}
+
+function parseDurationMs(input = {}) {
+    if (input.durationMs !== undefined && input.durationMs !== null && input.durationMs !== '') {
+        return Math.max(0, Math.round(Number(input.durationMs) || 0));
+    }
+    const days = Math.max(0, Number(input.days) || 0);
+    const hours = Math.max(0, Number(input.hours) || 0);
+    const minutes = Math.max(0, Number(input.minutes) || 0);
+    const seconds = Math.max(0, Number(input.seconds) || 0);
+    return Math.round((((days * 24 + hours) * 60 + minutes) * 60 + seconds) * 1000);
+}
+
+function formatTimerClock(ms, opts = {}) {
+    const includeDays = !!opts.includeDays;
+    const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+    const days = Math.floor(total / 86400);
+    const hours = Math.floor((total % 86400) / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    const pad = n => String(n).padStart(2, '0');
+    if (includeDays || days > 0) return `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+}
+
+function normalizeTimerSettings(raw = {}) {
+    const settings = cloneJson(DEFAULT_TIMER_SETTINGS);
+    if (raw.sound_enabled !== undefined) settings.sound_enabled = !!raw.sound_enabled;
+    settings.sound_volume = clampNumber(raw.sound_volume, 0, 1, DEFAULT_TIMER_SETTINGS.sound_volume);
+    return settings;
+}
+
+function normalizeTimerHttpActions(raw = {}) {
+    const actions = createDefaultTimerHttpActions();
+    for (const eventType of TIMER_EVENT_TYPES) {
+        const src = raw[eventType] || {};
+        actions[eventType] = {
+            enabled: !!src.enabled,
+            url: String(src.url || '').trim(),
+            method: String(src.method || 'POST').toUpperCase() === 'GET' ? 'GET' : 'POST'
+        };
+    }
+    return actions;
+}
+
+function computeCountdownRemaining(timer, now = Date.now()) {
+    if (timer.state !== 'running') {
+        if (timer.mode === 'date') {
+            const targetMs = Date.parse(timer.targetAt || '');
+            return Number.isFinite(targetMs) ? Math.max(0, targetMs - now) : 0;
+        }
+        return Math.max(0, timer.remainingMs || 0);
+    }
+    const anchor = Number(timer.startedAt) || now;
+    return Math.max(0, (timer.startingRemainingMs || 0) - Math.max(0, now - anchor));
+}
+
+function computeStopwatchElapsed(timer, now = Date.now()) {
+    const base = Math.max(0, timer.accumulatedMs || 0);
+    if (timer.state !== 'running') return base;
+    const anchor = Number(timer.startedAt) || now;
+    return Math.max(0, base + Math.max(0, now - anchor));
+}
+
+function buildTimerSnapshot(timer, now = Date.now()) {
+    const base = {
+        id: timer.id,
+        label: timer.label,
+        kind: timer.kind,
+        visible: timer.visible !== false,
+        state: timer.state || 'idle',
+        startedAt: timer.startedAt || null,
+        updatedAt: timer.updatedAt || null,
+        completedAt: timer.completedAt || null
+    };
+
+    if (timer.kind === 'countdown') {
+        const totalMs = Math.max(0, timer.kind === 'countdown' && timer.mode === 'duration'
+            ? (timer.durationMs || 0)
+            : (timer.startingRemainingMs || computeCountdownRemaining(timer, now)));
+        const remainingMs = computeCountdownRemaining(timer, now);
+        const percentComplete = totalMs > 0 ? Math.min(1, Math.max(0, (totalMs - remainingMs) / totalMs)) : 0;
+        return {
+            ...base,
+            mode: timer.mode || 'duration',
+            timezone: timer.timezone || '',
+            progress: timer.progress !== false,
+            showOnEnd: timer.showOnEnd || 'message',
+            endMessage: timer.endMessage || '⌛️',
+            durationMs: Math.max(0, timer.durationMs || 0),
+            targetAt: timer.targetAt || null,
+            startingRemainingMs: Math.max(0, timer.startingRemainingMs || 0),
+            httpActions: normalizeTimerHttpActions(timer.httpActions || {}),
+            remainingMs,
+            totalMs,
+            percentComplete,
+            percentRemaining: 1 - percentComplete,
+            formattedRemaining: formatTimerClock(remainingMs, { includeDays: remainingMs >= 86400000 }),
+            displayTitle: timer.label
+        };
+    }
+
+    const elapsedMs = computeStopwatchElapsed(timer, now);
+    return {
+        ...base,
+        initialMs: Math.max(0, timer.initialMs || 0),
+        accumulatedMs: Math.max(0, timer.accumulatedMs || 0),
+        httpActions: normalizeTimerHttpActions(timer.httpActions || {}),
+        elapsedMs,
+        formattedElapsed: formatTimerClock(elapsedMs, { includeDays: elapsedMs >= 86400000 }),
+        displayTitle: timer.label
+    };
+}
+
+function buildTimersSnapshot() {
+    const now = Date.now();
+    return {
+        settings: timerStore.settings,
+        timers: Object.fromEntries(Object.entries(timerStore.timers).map(([id, timer]) => [id, buildTimerSnapshot(timer, now)]))
+    };
+}
+
+function saveTimers() {
+    fs.writeFileSync(TIMERS_PATH, JSON.stringify(timerStore, null, 2));
+}
+
+function loadTimers() {
+    try {
+        if (!fs.existsSync(TIMERS_PATH)) return;
+        const parsed = JSON.parse(fs.readFileSync(TIMERS_PATH, 'utf8'));
+        timerStore = {
+            settings: normalizeTimerSettings(parsed.settings || {}),
+            timers: {}
+        };
+        for (const [rawId, rawTimer] of Object.entries(parsed.timers || {})) {
+            const id = sanitizeTimerId(rawId || rawTimer.id);
+            if (!id) continue;
+            const kind = rawTimer.kind === 'stopwatch' ? 'stopwatch' : 'countdown';
+            const timer = {
+                id,
+                label: String(rawTimer.label || id),
+                kind,
+                visible: rawTimer.visible !== false,
+                state: typeof rawTimer.state === 'string' ? rawTimer.state : 'idle',
+                startedAt: rawTimer.startedAt ? Number(rawTimer.startedAt) || null : null,
+                updatedAt: rawTimer.updatedAt || null,
+                completedAt: rawTimer.completedAt || null
+            };
+            if (kind === 'countdown') {
+                timer.mode = rawTimer.mode === 'date' ? 'date' : 'duration';
+                timer.durationMs = Math.max(0, Number(rawTimer.durationMs) || 0);
+                timer.targetAt = rawTimer.targetAt || null;
+                timer.timezone = String(rawTimer.timezone || '');
+                timer.progress = rawTimer.progress !== false;
+                timer.endMessage = String(rawTimer.endMessage || '⌛️');
+                timer.showOnEnd = ['message', 'zero', 'none'].includes(rawTimer.showOnEnd) ? rawTimer.showOnEnd : 'message';
+                timer.remainingMs = Math.max(0, Number(rawTimer.remainingMs) || 0);
+                timer.startingRemainingMs = Math.max(0, Number(rawTimer.startingRemainingMs) || timer.remainingMs || timer.durationMs);
+            } else {
+                timer.initialMs = Math.max(0, Number(rawTimer.initialMs) || 0);
+                timer.accumulatedMs = Math.max(0, Number(rawTimer.accumulatedMs) || timer.initialMs);
+            }
+            timer.httpActions = normalizeTimerHttpActions(rawTimer.httpActions || {});
+            timerStore.timers[id] = timer;
+        }
+        console.log(`[Timers] Loaded ${Object.keys(timerStore.timers).length} timers`);
+    } catch (err) {
+        console.warn(`[Timers] Failed to load timers: ${err.message}`);
+        timerStore = { settings: cloneJson(DEFAULT_TIMER_SETTINGS), timers: {} };
+    }
+}
+
+function buildTimerRecord(input) {
+    const id = sanitizeTimerId(input.id);
+    if (!id) throw new Error('Timer ID is required and must be slug-safe');
+
+    const kind = input.kind === 'stopwatch' ? 'stopwatch' : 'countdown';
+    const label = String(input.label || id).trim().slice(0, 80) || id;
+    const nowISO = new Date().toISOString();
+
+    if (kind === 'countdown') {
+        const mode = input.mode === 'date' ? 'date' : 'duration';
+        const durationMs = mode === 'duration'
+            ? Math.max(0, parseDurationMs(input))
+            : 0;
+        const targetAt = mode === 'date' && input.targetAt ? new Date(input.targetAt).toISOString() : null;
+        if (mode === 'duration' && durationMs <= 0) throw new Error('Countdown duration must be greater than 0');
+        if (mode === 'date' && !targetAt) throw new Error('Countdown target date is required');
+        const initialRemainingMs = mode === 'duration'
+            ? durationMs
+            : Math.max(0, Date.parse(targetAt) - Date.now());
+        return {
+            id,
+            label,
+            kind,
+            visible: input.visible !== false,
+            state: 'idle',
+            startedAt: null,
+            updatedAt: nowISO,
+            completedAt: null,
+            mode,
+            durationMs,
+            targetAt,
+            timezone: String(input.timezone || '').trim(),
+            progress: input.progress !== false,
+            endMessage: String(input.endMessage || '⌛️').slice(0, 120),
+            showOnEnd: ['message', 'zero', 'none'].includes(input.showOnEnd) ? input.showOnEnd : 'message',
+            remainingMs: initialRemainingMs,
+            startingRemainingMs: initialRemainingMs,
+            httpActions: normalizeTimerHttpActions(input.httpActions || {})
+        };
+    }
+
+    const initialMs = Math.max(0, parseDurationMs(input));
+    return {
+        id,
+        label,
+        kind,
+        visible: input.visible !== false,
+        state: 'idle',
+        startedAt: null,
+        updatedAt: nowISO,
+        completedAt: null,
+        initialMs,
+        accumulatedMs: initialMs,
+        httpActions: normalizeTimerHttpActions(input.httpActions || {})
+    };
+}
+
+function upsertTimer(input) {
+    const timer = buildTimerRecord(input);
+    timerStore.timers[timer.id] = timer;
+    saveTimers();
+    broadcastToOverlays('timer-update', { timer: buildTimerSnapshot(timer), settings: timerStore.settings });
+    return timer;
+}
+
+function getTimerOrThrow(id) {
+    const timer = timerStore.timers[sanitizeTimerId(id)];
+    if (!timer) throw new Error('Timer not found');
+    return timer;
+}
+
+function markTimerUpdated(timer) {
+    timer.updatedAt = new Date().toISOString();
+}
+
+function fireTimerHttpAction(eventType, timer) {
+    const action = normalizeTimerHttpActions(timer.httpActions || {})[eventType];
+    if (!action || !action.enabled || !action.url) return;
+    const snapshot = buildTimerSnapshot(timer);
+    const payloadObject = {
+        event: eventType,
+        timestamp: new Date().toISOString(),
+        timer: snapshot
+    };
+
+    try {
+        const urlObj = new URL(action.url);
+        if (action.method === 'GET') {
+            Object.entries({
+                event: eventType,
+                timer_id: snapshot.id,
+                timer_label: snapshot.label,
+                timer_kind: snapshot.kind,
+                timer_state: snapshot.state
+            }).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) urlObj.searchParams.set(key, String(value));
+            });
+        }
+        const requestLib = urlObj.protocol === 'https:' ? https : http;
+        const payload = JSON.stringify(payloadObject);
+        const req = requestLib.request(urlObj, {
+            method: action.method || 'POST',
+            headers: action.method === 'POST'
+                ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+                : undefined
+        }, (res) => res.resume());
+        req.on('error', (err) => console.warn(`[Timer HTTP] Error: ${err.message}`));
+        if ((action.method || 'POST') === 'POST') req.write(payload);
+        req.end();
+    } catch (err) {
+        console.warn(`[Timer HTTP] Invalid URL: ${err.message}`);
+    }
+}
+
+function completeCountdownTimer(timer, now = Date.now()) {
+    timer.state = 'completed';
+    timer.startedAt = null;
+    timer.remainingMs = 0;
+    timer.startingRemainingMs = 0;
+    if (timer.mode === 'date') {
+        timer.targetAt = new Date(now).toISOString();
+    }
+    timer.completedAt = new Date(now).toISOString();
+}
+
+function adjustCountdownTime(timer, deltaMs, now = Date.now()) {
+    const currentRemainingMs = computeCountdownRemaining(timer, now);
+    const nextRemainingMs = Math.max(0, currentRemainingMs + deltaMs);
+
+    if (timer.mode === 'date') {
+        timer.targetAt = new Date(now + nextRemainingMs).toISOString();
+    }
+
+    if (nextRemainingMs === 0) {
+        completeCountdownTimer(timer, now);
+        return { completed: currentRemainingMs > 0 };
+    }
+
+    timer.remainingMs = nextRemainingMs;
+    timer.startingRemainingMs = nextRemainingMs;
+    timer.completedAt = null;
+
+    if (timer.state === 'running') {
+        timer.startedAt = now;
+    } else {
+        timer.startedAt = null;
+        timer.state = 'idle';
+    }
+
+    return { completed: false };
+}
+
+function adjustStopwatchTime(timer, deltaMs, now = Date.now()) {
+    const currentElapsedMs = computeStopwatchElapsed(timer, now);
+    const nextElapsedMs = Math.max(0, currentElapsedMs + deltaMs);
+    timer.accumulatedMs = nextElapsedMs;
+    timer.completedAt = null;
+    if (timer.state === 'running') {
+        timer.startedAt = now;
+    } else {
+        timer.startedAt = null;
+    }
+}
+
+function applyTimerControl(timer, action, params = {}) {
+    const now = Date.now();
+    const eventType = { value: null };
+    const adjustmentMs = parseDurationMs(params);
+
+    if (timer.kind === 'countdown') {
+        if (action === 'start') {
+            const remainingMs = timer.mode === 'date'
+                ? Math.max(0, Date.parse(timer.targetAt || '') - now)
+                : Math.max(0, timer.durationMs || 0);
+            timer.state = remainingMs > 0 ? 'running' : 'completed';
+            timer.startedAt = remainingMs > 0 ? now : null;
+            timer.remainingMs = remainingMs;
+            timer.startingRemainingMs = remainingMs;
+            timer.completedAt = remainingMs > 0 ? null : new Date().toISOString();
+            eventType.value = remainingMs > 0 ? 'countdown_started' : 'countdown_complete';
+        } else if (action === 'reset') {
+            timer.state = 'idle';
+            timer.startedAt = null;
+            timer.completedAt = null;
+            timer.remainingMs = timer.mode === 'date'
+                ? Math.max(0, Date.parse(timer.targetAt || '') - now)
+                : Math.max(0, timer.durationMs || 0);
+            timer.startingRemainingMs = timer.remainingMs;
+        } else if (action === 'add_time' || action === 'subtract_time') {
+            if (adjustmentMs <= 0) throw new Error('Adjustment duration must be greater than 0');
+            const result = adjustCountdownTime(timer, action === 'subtract_time' ? -adjustmentMs : adjustmentMs, now);
+            if (result.completed) eventType.value = 'countdown_complete';
+        } else if (action === 'visibility') {
+            const mode = String(params.mode || params.actionMode || params.value || 'toggle').toLowerCase();
+            if (mode === 'on' || mode === 'show' || mode === 'true') timer.visible = true;
+            else if (mode === 'off' || mode === 'hide' || mode === 'false') timer.visible = false;
+            else timer.visible = !timer.visible;
+        } else {
+            throw new Error(`Unsupported action for countdown: ${action}`);
+        }
+    } else {
+        if (action === 'start') {
+            timer.state = 'running';
+            timer.startedAt = now;
+            timer.accumulatedMs = Math.max(0, timer.accumulatedMs ?? timer.initialMs ?? 0);
+            timer.completedAt = null;
+            eventType.value = 'stopwatch_started';
+        } else if (action === 'pause') {
+            if (timer.state !== 'running') throw new Error('Stopwatch is not running');
+            timer.accumulatedMs = computeStopwatchElapsed(timer, now);
+            timer.startedAt = null;
+            timer.state = 'paused';
+            eventType.value = 'stopwatch_paused';
+        } else if (action === 'resume') {
+            if (timer.state !== 'paused' && timer.state !== 'idle') throw new Error('Stopwatch cannot resume from current state');
+            timer.startedAt = now;
+            timer.state = 'running';
+            eventType.value = 'stopwatch_started';
+        } else if (action === 'reset') {
+            timer.accumulatedMs = Math.max(0, timer.initialMs || 0);
+            timer.startedAt = null;
+            timer.state = 'idle';
+            timer.completedAt = null;
+        } else if (action === 'set_time') {
+            const nextMs = Math.max(0, parseDurationMs(params));
+            timer.initialMs = nextMs;
+            timer.accumulatedMs = nextMs;
+            timer.startedAt = timer.state === 'running' ? now : null;
+            if (timer.state === 'running') timer.state = 'running';
+        } else if (action === 'add_time' || action === 'subtract_time') {
+            if (adjustmentMs <= 0) throw new Error('Adjustment duration must be greater than 0');
+            adjustStopwatchTime(timer, action === 'subtract_time' ? -adjustmentMs : adjustmentMs, now);
+        } else if (action === 'visibility') {
+            const mode = String(params.mode || params.actionMode || params.value || 'toggle').toLowerCase();
+            if (mode === 'on' || mode === 'show' || mode === 'true') timer.visible = true;
+            else if (mode === 'off' || mode === 'hide' || mode === 'false') timer.visible = false;
+            else timer.visible = !timer.visible;
+        } else {
+            throw new Error(`Unsupported action for stopwatch: ${action}`);
+        }
+    }
+
+    markTimerUpdated(timer);
+    saveTimers();
+    const snapshot = buildTimerSnapshot(timer);
+    broadcastToOverlays('timer-update', { timer: snapshot, settings: timerStore.settings });
+    if (eventType.value) fireTimerHttpAction(eventType.value, timer);
+    return snapshot;
+}
+
+async function readRequestBody(req) {
+    return await new Promise((resolve, reject) => {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => resolve(body));
+        req.on('error', reject);
+    });
+}
+
+let timerTickHandle = null;
+
+function startTimerTicker() {
+    if (timerTickHandle) return;
+    timerTickHandle = setInterval(() => {
+        const now = Date.now();
+        let changed = false;
+        for (const timer of Object.values(timerStore.timers)) {
+            if (timer.kind !== 'countdown' || timer.state !== 'running') continue;
+            const remainingMs = computeCountdownRemaining(timer, now);
+            if (remainingMs > 0) continue;
+            timer.state = 'completed';
+            timer.startedAt = null;
+            timer.remainingMs = 0;
+            timer.startingRemainingMs = 0;
+            timer.completedAt = new Date().toISOString();
+            markTimerUpdated(timer);
+            broadcastToOverlays('timer-update', { timer: buildTimerSnapshot(timer, now), settings: timerStore.settings });
+            fireTimerHttpAction('countdown_complete', timer);
+            changed = true;
+        }
+        if (changed) saveTimers();
+    }, 250);
 }
 
 // ============================================================================
@@ -1065,6 +1559,7 @@ function performAutoBackup() {
             { src: CONFIG_PATH, dest: 'config.json' },
             { src: STATS_PATH, dest: 'data/stats.json' },
             { src: BANNED_HASHTAGS_PATH, dest: 'data/.banned-hashtags.json' },
+            { src: TIMERS_PATH, dest: 'data/timers.json' },
             { src: path.join(DATA_DIR, 'subs.json'), dest: 'data/subs.json' },
             { src: path.join(DATA_DIR, 'bits.json'), dest: 'data/bits.json' },
             { src: path.join(DATA_DIR, 'followers.json'), dest: 'data/followers.json' },
@@ -1676,6 +2171,12 @@ const server = http.createServer(async (req, res) => {
                 hasToken: !!twitchAccessToken,
                 refreshMinutes: REFRESH_MINUTES
             },
+            timers: {
+                total: Object.keys(timerStore.timers).length,
+                countdowns: Object.values(timerStore.timers).filter(t => t.kind === 'countdown').length,
+                stopwatches: Object.values(timerStore.timers).filter(t => t.kind === 'stopwatch').length,
+                running: Object.values(timerStore.timers).filter(t => t.state === 'running').length
+            },
             overlayClients: overlayClients.size,
             sessionActive,
             startedAt: chatData.startedAt,
@@ -2051,6 +2552,143 @@ const server = http.createServer(async (req, res) => {
             if (fs.existsSync(MUSIC_FALLBACK_ART_PATH)) fs.unlinkSync(MUSIC_FALLBACK_ART_PATH);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: true }));
+            return;
+        }
+    }
+
+    if (pathname === '/api/timers' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(buildTimersSnapshot()));
+        return;
+    }
+
+    if (pathname === '/api/timers' && req.method === 'POST') {
+        try {
+            const body = await readRequestBody(req);
+            const payload = JSON.parse(body || '{}');
+            const timer = upsertTimer(payload);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, timer: buildTimerSnapshot(timer) }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if (pathname === '/api/timers/settings' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(timerStore.settings));
+        return;
+    }
+
+    if (pathname === '/api/timers/settings' && req.method === 'PUT') {
+        try {
+            const body = await readRequestBody(req);
+            const payload = JSON.parse(body || '{}');
+            timerStore.settings = normalizeTimerSettings(payload);
+            saveTimers();
+            broadcastToOverlays('timer-settings', timerStore.settings);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, settings: timerStore.settings }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if (pathname.startsWith('/api/timers/')) {
+        const timerPath = pathname.slice('/api/timers/'.length);
+        const segments = timerPath.split('/').filter(Boolean).map(decodeURIComponent);
+        const timerId = sanitizeTimerId(segments[0]);
+
+        if (!timerId) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Timer not found' }));
+            return;
+        }
+
+        try {
+            if (segments.length === 1 && req.method === 'GET') {
+                const timer = getTimerOrThrow(timerId);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(buildTimerSnapshot(timer)));
+                return;
+            }
+
+            if (segments.length === 1 && req.method === 'PUT') {
+                const body = await readRequestBody(req);
+                const payload = JSON.parse(body || '{}');
+                payload.id = timerId;
+                const timer = upsertTimer(payload);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: true, timer: buildTimerSnapshot(timer) }));
+                return;
+            }
+
+            if (segments.length === 1 && req.method === 'DELETE') {
+                getTimerOrThrow(timerId);
+                delete timerStore.timers[timerId];
+                saveTimers();
+                broadcastToOverlays('timer-delete', { id: timerId });
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: true, deleted: timerId }));
+                return;
+            }
+
+            if (segments[1] === 'control' && (req.method === 'POST' || req.method === 'GET')) {
+                const body = req.method === 'POST' ? await readRequestBody(req) : '';
+                let payload = {};
+                if (body) payload = JSON.parse(body);
+                const urlObj = new URL(req.url, `http://${req.headers.host}`);
+                const action = String(payload.action || urlObj.searchParams.get('action') || '').trim().toLowerCase();
+                const timer = getTimerOrThrow(timerId);
+                const snapshot = applyTimerControl(timer, action, {
+                    ...payload,
+                    durationMs: payload.durationMs ?? urlObj.searchParams.get('durationMs'),
+                    days: payload.days ?? urlObj.searchParams.get('days'),
+                    hours: payload.hours ?? urlObj.searchParams.get('hours'),
+                    minutes: payload.minutes ?? urlObj.searchParams.get('minutes'),
+                    seconds: payload.seconds ?? urlObj.searchParams.get('seconds'),
+                    mode: payload.mode ?? urlObj.searchParams.get('mode'),
+                    value: payload.value ?? urlObj.searchParams.get('value')
+                });
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: true, timer: snapshot }));
+                return;
+            }
+
+            if (segments[1] === 'field' && segments[2] && req.method === 'GET') {
+                const timer = getTimerOrThrow(timerId);
+                const snapshot = buildTimerSnapshot(timer);
+                const field = segments[2];
+                const valueMap = {
+                    id: snapshot.id,
+                    label: snapshot.label,
+                    kind: snapshot.kind,
+                    state: snapshot.state,
+                    visible: String(snapshot.visible),
+                    remaining_ms: snapshot.kind === 'countdown' ? String(snapshot.remainingMs) : '',
+                    remaining: snapshot.kind === 'countdown' ? snapshot.formattedRemaining : '',
+                    elapsed_ms: snapshot.kind === 'stopwatch' ? String(snapshot.elapsedMs) : '',
+                    elapsed: snapshot.kind === 'stopwatch' ? snapshot.formattedElapsed : '',
+                    progress: snapshot.kind === 'countdown' ? String(Math.round(snapshot.percentComplete * 100)) : '',
+                    title: snapshot.displayTitle || snapshot.label
+                };
+                if (!(field in valueMap)) {
+                    res.writeHead(404, { 'Content-Type': 'text/plain' });
+                    res.end(`Unknown field: ${field}`);
+                    return;
+                }
+                res.writeHead(200, { 'Content-Type': 'text/plain' });
+                res.end(valueMap[field]);
+                return;
+            }
+        } catch (err) {
+            const statusCode = err.message === 'Timer not found' ? 404 : 400;
+            res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
             return;
         }
     }
@@ -2602,6 +3240,7 @@ const server = http.createServer(async (req, res) => {
             { src: CONFIG_PATH, name: 'config.json' },
             { src: STATS_PATH, name: 'data/stats.json' },
             { src: BANNED_HASHTAGS_PATH, name: 'data/.banned-hashtags.json' },
+            { src: TIMERS_PATH, name: 'data/timers.json' },
             { src: path.join(DATA_DIR, 'subs.json'), name: 'data/subs.json' },
             { src: path.join(DATA_DIR, 'bits.json'), name: 'data/bits.json' },
             { src: path.join(DATA_DIR, 'followers.json'), name: 'data/followers.json' },
@@ -2685,6 +3324,8 @@ const server = http.createServer(async (req, res) => {
                 } catch { /* ignore */ }
 
                 loadHighlights();
+                loadTimers();
+                broadcastToOverlays('timers-snapshot', buildTimersSnapshot());
 
                 console.log(`[Restore] Restored ${restored.length} files`);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -2984,6 +3625,8 @@ overlayWss.on('connection', (ws) => {
         ws.send(JSON.stringify({ type: 'music', data: musicState }));
     }
 
+    ws.send(JSON.stringify({ type: 'timers-snapshot', data: buildTimersSnapshot() }));
+
     // Send current overlay visibility state
     if (!overlayVisible) {
         ws.send(JSON.stringify({ type: 'overlay-visibility', data: { visible: false } }));
@@ -3009,6 +3652,8 @@ server.listen(PORT, () => {
     console.log(`  Credits:   http://localhost:${PORT}/credits.html`);
     console.log(`  Stats:     http://localhost:${PORT}/stats.html`);
     console.log(`  Hashtags:  http://localhost:${PORT}/hashtags.html`);
+    console.log(`  Countdown: http://localhost:${PORT}/countdown.html`);
+    console.log(`  Stopwatch: http://localhost:${PORT}/stopwatch.html`);
     console.log(`  Dashboard: http://localhost:${PORT}/dashboard.html`);
     console.log(`  Sessions:  http://localhost:${PORT}/sessions.html`);
     console.log(`  Migrate:   http://localhost:${PORT}/migrate.html`);
@@ -3025,6 +3670,8 @@ server.listen(PORT, () => {
 
     // Load persistent stats
     loadStats();
+    loadTimers();
+    startTimerTicker();
 
     // Start SSN collector
     connectSSN();

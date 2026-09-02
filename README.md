@@ -76,6 +76,8 @@ Add **Browser Sources** in OBS with these URLs:
 - Stats: `http://localhost:3000/stats.html`
 - Hashtags: `http://localhost:3000/hashtags.html`
 - Music: `http://localhost:3000/music.html`
+- Countdown: `http://localhost:3000/countdown.html?timer=starting-soon`
+- Stopwatch: `http://localhost:3000/stopwatch.html?timer=run-clock`
 
 **Management pages** (open in your browser, not OBS):
 - Dashboard: `http://localhost:3000/dashboard.html`
@@ -83,6 +85,8 @@ Add **Browser Sources** in OBS with these URLs:
 - Highlights: `http://localhost:3000/highlights.html`
 - Config: `http://localhost:3000/config-editor.html`
 - Music Editor: `http://localhost:3000/music-editor.html`
+- Timer Manager: `http://localhost:3000/timers-editor.html`
+- Timer URL Wizard: `http://localhost:3000/timer-url-wizard.html`
 
 ## Prerequisites
 
@@ -120,6 +124,7 @@ A Twitch app provides subscriber, follower, and bits data via the Twitch API.
 
 - **Credits Roll** — Cinematic scrolling credits with subscribers, followers, chatters, emotes, hashtags, raids, gift subs, cheerers, and more
 - **Music Overlay** — "Now Playing" overlay for Apple Music, Spotify, and VLC with album art, marquee titles, and multiple display modes
+- **Named Timers** — Shared countdown and stopwatch overlays with API controls, quick add/subtract time adjustments, persistent state, and Companion-friendly field endpoints
 - **Live Stats Overlay** — Persistent top chatters, emotes, and hashtags across sessions
 - **Session History** — Browse archived sessions with full chat logs, searchable with boolean operators (`AND`, `OR`, `"exact phrase"`, `user:name`)
 - **Highlights** — Pin notable chat messages and export them per session
@@ -312,6 +317,7 @@ Use the **Generic HTTP** module:
 | `data/stats.json` | Persists across restarts | Cumulative stats with daily buckets |
 | `data/sessions/` | Persists | Archived session data + JSONL chat logs |
 | `data/highlights.json` | Persists | Pinned chat messages |
+| `data/timers.json` | Persists | Named countdowns, stopwatches, timer state, global sound settings, and per-timer HTTP action settings |
 | `data/subs.json` | Refreshed from Twitch API | Subscriber list |
 | `data/bits.json` | Refreshed from Twitch API | Bits leaderboard |
 | `data/followers.json` | Refreshed from Twitch API | Follower list |
@@ -330,8 +336,12 @@ streampulse/
 ├── stats.html             # Stats overlay (OBS browser source)
 ├── hashtags.html          # Hashtag overlay (OBS browser source)
 ├── music.html             # Music "Now Playing" overlay (OBS browser source)
+├── countdown.html         # Countdown overlay (OBS browser source)
+├── stopwatch.html         # Stopwatch overlay (OBS browser source)
 ├── music-editor.html      # Music overlay customization
 ├── music-url-wizard.html  # Music URL builder
+├── timers-editor.html     # Named timer manager
+├── timer-url-wizard.html  # Timer overlay URL builder
 ├── dashboard.html         # Dashboard UI
 ├── sessions.html          # Session history + chat logs
 ├── highlights.html        # Highlights viewer

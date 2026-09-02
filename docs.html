@@ -94,6 +94,7 @@
             <a href="#obs-setup">OBS Browser Source Setup</a>
             <a href="#websocket">WebSocket Connection</a>
             <a href="#data-files">Data Files & Persistence</a>
+            <a href="#timers">Named Timers</a>
             <a href="#music">Music Now-Playing (Beta)</a>
             <a href="#companion">Bitfocus Companion Setup</a>
         </div>
@@ -161,6 +162,27 @@
                         { param: 'title', type: 'string', default: 'All Hashtags', desc: 'Custom title text (scroll view only).', example: '?title=Tonight%27s%20Tags' },
                         { param: 'duration', type: 'number', default: '0 (auto)', desc: 'Scroll duration in seconds. 0 = auto-calculated based on content length.', example: '?duration=60' },
                         { param: 'refresh', type: 'number', default: '60', desc: 'Auto-refresh interval in seconds (grid view only).', example: '?refresh=30' }
+                    ]
+                },
+                {
+                    name: 'countdown.html / stopwatch.html — Timer Overlays',
+                    items: [
+                        { param: 'timer', type: 'string', default: '—', desc: 'Named timer slug managed by Timer Manager. Recommended for production use.', example: '?timer=starting-soon' },
+                        { param: 'display', type: 'string', default: 'standard', desc: 'Layout mode: "standard" or "compact".', example: '?display=compact' },
+                        { param: 'theme', type: 'string', default: 'dark', desc: 'Theme preset: "dark" or "light".', example: '?theme=light' },
+                        { param: 'title', type: 'string', default: 'timer label', desc: 'Override the timer label shown above the overlay.', example: '?title=Be%20Right%20Back' },
+                        { param: 'showtitle', type: 'boolean', default: 'true', desc: 'Show or hide the timer title area entirely.', example: '?showtitle=false' },
+                        { param: 'units', type: 'string', default: 'auto', desc: 'Show only necessary units ("auto") or always show days/hours/minutes/seconds ("full").', example: '?units=full' },
+                        { param: 'milliseconds', type: 'boolean', default: 'false', desc: 'Append smaller trailing hundredths to the seconds value with no label or decimal.', example: '?milliseconds=true' },
+                        { param: 'progress', type: 'boolean', default: 'timer default', desc: 'Countdown only: show or hide the progress bar.', example: '?progress=false' },
+                        { param: 'sound', type: 'boolean', default: 'true', desc: 'Named countdown only: allow completion beep if globally enabled.', example: '?sound=false' },
+                        { param: 'fontscale', type: 'number', default: '1', desc: 'Scale overlay font sizing.', example: '?fontscale=1.4' },
+                        { param: 'bgcolor', type: 'string', default: 'transparent', desc: 'Optional page background hex without #. Leave blank for transparent OBS output.', example: '?bgcolor=000000' },
+                        { param: 'timercolor', type: 'string', default: '000000B8', desc: 'Timer box background hex without #. Supports alpha with 8-digit hex.', example: '?timercolor=101820CC' },
+                        { param: 'textcolor', type: 'string', default: 'F8FAFC', desc: 'Main numbers text color.', example: '?textcolor=FFFFFF' },
+                        { param: 'labelcolor', type: 'string', default: 'CBD5E1', desc: 'Unit label/status color.', example: '?labelcolor=94A3B8' },
+                        { param: 'progresscolor', type: 'string', default: '58A6FF', desc: 'Progress bar fill color.', example: '?progresscolor=3FB950' },
+                        { param: 'titlecolor', type: 'string', default: 'F8FAFC', desc: 'Overlay title color.', example: '?titlecolor=FDE68A' }
                     ]
                 }
             ]
@@ -239,6 +261,11 @@
         {
             id: 'data-files',
             title: 'Data Files & Persistence',
+            custom: true
+        },
+        {
+            id: 'timers',
+            title: 'Named Timers',
             custom: true
         },
         {
@@ -385,13 +412,15 @@
                         <span class="chevron">▶</span>
                     </div>
                     <div class="card-body">
-                        <div class="detail-text">The overlay (credits.js) automatically connects via WebSocket to receive live chat data updates. No configuration needed.</div>
+                        <div class="detail-text">Overlays connect automatically via WebSocket to receive live chat, music, and timer updates. No configuration needed.</div>
                         <div class="detail-label">WebSocket URL</div>
                         <div class="url-box"><code>${BASE.replace('http','ws')}/</code><button class="copy-btn" onclick="copyUrl(this,'${BASE.replace('http','ws')}/')">Copy</button></div>
                         <div class="detail-label">On Connect — Snapshot</div>
                         <div class="code-block">{ "type": "snapshot", "data": { chatters, emotes, hashtags, ... } }</div>
+                        <div class="code-block">{ "type": "timers-snapshot", "data": { settings, timers } }</div>
                         <div class="detail-label">Live Updates</div>
                         <div class="code-block">{ "type": "update", "data": { chatters, emotes, hashtags, ... } }</div>
+                        <div class="code-block">{ "type": "timer-update", "data": { timer, settings } }</div>
                         <div class="detail-text" style="margin-top:0.5rem;color:#8b949e;">The credits overlay disconnects from the WebSocket when the scroll starts, locking in a snapshot of the data at that moment.</div>
                     </div>
                 </div>
@@ -424,6 +453,7 @@
                             <tr><td><code>config.json</code></td><td>Persistent</td><td>All server and credits configuration. Editable via dashboard.</td></tr>
                             <tr><td><code>data/chat.json</code></td><td>Per-session</td><td>Current session chat data. Archived and reset on session end or server restart.</td></tr>
                             <tr><td><code>data/stats.json</code></td><td>Persistent</td><td>Cumulative stats with daily buckets. Survives restarts.</td></tr>
+                            <tr><td><code>data/timers.json</code></td><td>Persistent</td><td>Named countdowns, stopwatches, visibility, timer state, global sound settings, and per-timer outgoing HTTP action settings.</td></tr>
                             <tr><td><code>data/.stats-backup-{1,2,3}.json</code></td><td>Rotating</td><td>3 most recent stats backups. Auto-restored if stats.json is corrupt.</td></tr>
                             <tr><td><code>data/subs.json</code></td><td>Refreshed</td><td>Twitch subscriber list from API.</td></tr>
                             <tr><td><code>data/bits.json</code></td><td>Refreshed</td><td>Twitch bits leaderboard from API.</td></tr>
@@ -434,6 +464,55 @@
                         </table>
                     </div>
                 </div>`;
+
+            case 'timers': return `
+    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong style="font-size:0.9rem;">Overview</strong>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">
+                StreamPulse timers are shared, named overlay objects stored in <code>data/timers.json</code>. A single timer like <code>starting-soon</code> can power multiple differently styled OBS browser sources at once.<br><br>
+                Use <a href="/timers-editor.html" style="color:#58a6ff;">Timer Manager</a> to create and control timers, then use the <a href="/timer-url-wizard.html" style="color:#58a6ff;">Timer URL Wizard</a> to generate styled overlay URLs and Companion-ready API examples.
+            </div>
+        </div>
+    </div>
+    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong style="font-size:0.9rem;">OBS Setup</strong>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <ul class="checklist">
+                <li>Create a named timer in <strong>Timer Manager</strong></li>
+                <li>Open the <strong>Timer URL Wizard</strong> and copy a generated overlay URL</li>
+                <li>Add an OBS <strong>Browser</strong> source for countdown or stopwatch</li>
+                <li>Recommended: disable "Refresh browser when scene becomes active" so the overlay stays attached to the shared state cleanly</li>
+                <li>Use multiple Browser Sources with different URL parameters if you want alternate styles for the same timer</li>
+            </ul>
+            <div class="detail-label">Examples</div>
+            <div class="url-box"><code>${BASE}/countdown.html?timer=starting-soon</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/countdown.html?timer=starting-soon')">Copy</button></div>
+            <div class="url-box"><code>${BASE}/stopwatch.html?timer=run-clock&display=compact</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/stopwatch.html?timer=run-clock&display=compact')">Copy</button></div>
+        </div>
+    </div>
+    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong style="font-size:0.9rem;">Controls and Automation</strong>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">
+                Incoming controls use HTTP endpoints, so Bitfocus Companion or OBS macros can start, pause, resume, reset, add time, subtract time, or toggle visibility. Optional per-timer outgoing HTTP calls can fire on <code>countdown_started</code>, <code>countdown_complete</code>, <code>stopwatch_started</code>, and <code>stopwatch_paused</code>.
+            </div>
+            <div class="detail-label">Sample Control URLs</div>
+            <div class="url-box"><code>${BASE}/api/timers/starting-soon/control?action=start</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/starting-soon/control?action=start')">Copy</button></div>
+            <div class="url-box"><code>${BASE}/api/timers/run-clock/control?action=pause</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/run-clock/control?action=pause')">Copy</button></div>
+            <div class="url-box"><code>${BASE}/api/timers/starting-soon/control?action=add_time&seconds=30</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/starting-soon/control?action=add_time&seconds=30')">Copy</button></div>
+            <div class="url-box"><code>${BASE}/api/timers/starting-soon/control?action=subtract_time&seconds=30</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/starting-soon/control?action=subtract_time&seconds=30')">Copy</button></div>
+            <div class="url-box"><code>${BASE}/api/timers/run-clock/field/elapsed</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/run-clock/field/elapsed')">Copy</button></div>
+        </div>
+    </div>`;
 
             case 'music': return `
     <div class="card open">

@@ -1,0 +1,208 @@
+:root {
+    --background-color: transparent;
+    --timer-background: rgba(0, 0, 0, 0.72);
+    --text-color: #f8fafc;
+    --label-color: #cbd5e1;
+    --shadow-color: rgba(0, 0, 0, 0.35);
+    --progress-color: #58a6ff;
+    --progress-background: rgba(255, 255, 255, 0.14);
+    --title-color: #f8fafc;
+    --font-scale: 1;
+    --font-family: 'Roboto Mono', 'SF Mono', ui-monospace, monospace;
+}
+
+body.theme-light {
+    --background-color: rgba(245, 245, 245, 0.96);
+    --timer-background: rgba(255, 255, 255, 0.95);
+    --text-color: #1f2937;
+    --label-color: #4b5563;
+    --shadow-color: rgba(0, 0, 0, 0.12);
+    --progress-background: rgba(0, 0, 0, 0.1);
+    --title-color: #111827;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    font-family: var(--font-family);
+}
+
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.overlay-root {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: min(3vh, 28px);
+}
+
+.overlay-root.hidden {
+    display: none;
+}
+
+.overlay-shell {
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(12px * var(--font-scale));
+}
+
+.title {
+    display: none;
+    text-align: center;
+    font-size: calc(clamp(1.3rem, 4.2vh, 2.8rem) * var(--font-scale));
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--title-color);
+    text-shadow: 0 2px 8px var(--shadow-color);
+    max-width: 92vw;
+}
+
+.title.visible {
+    display: block;
+}
+
+.timer-box {
+    background: var(--timer-background);
+    border-radius: calc(clamp(12px, 2vh, 24px) * var(--font-scale));
+    box-shadow: 0 calc(clamp(4px, 1vh, 14px) * var(--font-scale)) calc(clamp(10px, 3vh, 28px) * var(--font-scale)) var(--shadow-color);
+    padding: calc(clamp(16px, 5vh, 52px) * var(--font-scale)) calc(clamp(18px, 5vw, 54px) * var(--font-scale));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.timer-box.standard {
+    gap: calc(clamp(10px, 2.6vw, 30px) * var(--font-scale));
+}
+
+.segment {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: calc(clamp(56px, 14vw, 164px) * var(--font-scale));
+}
+
+.value {
+    display: inline-flex;
+    align-items: flex-end;
+    font-size: calc(clamp(2.3rem, 12vh, 7.4rem) * var(--font-scale));
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-color);
+    text-shadow: 0 2px 10px var(--shadow-color);
+}
+
+.value-main {
+    line-height: 1;
+}
+
+.value-fraction {
+    font-size: 0.46em;
+    line-height: 1;
+    margin-left: 0.06em;
+    padding-bottom: 0.02em;
+    opacity: 0.9;
+}
+
+.segment-label {
+    margin-top: calc(clamp(5px, 1vh, 10px) * var(--font-scale));
+    font-size: calc(clamp(0.72rem, 2.3vh, 1.4rem) * var(--font-scale));
+    color: var(--label-color);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.timer-box.compact {
+    gap: calc(clamp(2px, 0.8vw, 8px) * var(--font-scale));
+    padding: calc(clamp(12px, 4vh, 36px) * var(--font-scale)) calc(clamp(14px, 4vw, 44px) * var(--font-scale));
+}
+
+.timer-box.compact .value,
+.timer-box.compact .delimiter {
+    font-size: calc(clamp(2.5rem, 14vh, 8rem) * var(--font-scale));
+}
+
+.timer-box.compact .value-fraction {
+    font-size: 0.38em;
+    padding-bottom: 0.03em;
+}
+
+.delimiter {
+    color: var(--text-color);
+    line-height: 1;
+    text-shadow: 0 2px 10px var(--shadow-color);
+}
+
+.progress-wrap {
+    width: min(70vw, calc(760px * var(--font-scale)));
+    display: none;
+}
+
+.progress-wrap.visible {
+    display: block;
+}
+
+.progress-track {
+    width: 100%;
+    height: calc(clamp(6px, 1.5vh, 12px) * var(--font-scale));
+    background: var(--progress-background);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    width: 0%;
+    height: 100%;
+    background: var(--progress-color);
+    border-radius: 999px;
+    transition: width 0.2s linear;
+}
+
+.message {
+    display: none;
+    font-size: calc(clamp(2rem, 10vh, 6rem) * var(--font-scale));
+    font-weight: 700;
+    color: var(--text-color);
+    text-shadow: 0 2px 10px var(--shadow-color);
+    text-align: center;
+}
+
+.message.visible {
+    display: block;
+}
+
+.placeholder {
+    display: none;
+    text-align: center;
+    color: var(--label-color);
+    font-size: calc(clamp(0.95rem, 2.2vh, 1.2rem) * var(--font-scale));
+    background: var(--timer-background);
+    padding: 1rem 1.2rem;
+    border-radius: 12px;
+}
+
+.placeholder.visible {
+    display: block;
+}
+
+@media (max-width: 900px) {
+    .segment {
+        min-width: calc(clamp(44px, 18vw, 120px) * var(--font-scale));
+    }
+}

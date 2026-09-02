@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Timer URL Wizard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 430px 1fr; gap: 1.25rem; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.1rem 1.2rem; }
+        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.9rem; }
+        .cfg-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.7rem; flex-wrap: wrap; }
+        .cfg-row label { min-width: 120px; font-size: 0.82rem; color: #8b949e; }
+        .cfg-row input, .cfg-row select { flex: 1; padding: 0.48rem 0.65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.82rem; }
+        .cfg-row input[type="checkbox"] { flex: none; width: auto; accent-color: #58a6ff; }
+        .cfg-row input[type="color"] { flex: none; width: 42px; height: 34px; padding: 2px; cursor: pointer; }
+        .hint { color: #8b949e; font-size: 0.78rem; line-height: 1.45; }
+        .url-box { display: flex; align-items: center; gap: 0.6rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.55rem 0.7rem; margin-top: 0.55rem; }
+        .url-box code { flex: 1; word-break: break-all; font-family: 'SF Mono', monospace; font-size: 0.8rem; }
+        .url-box a { flex: 1; word-break: break-all; font-family: 'SF Mono', monospace; font-size: 0.8rem; color: #79c0ff; text-decoration: none; }
+        .url-box a:hover { text-decoration: underline; }
+        .btn { border: 1px solid #30363d; background: #21262d; color: #e1e4e8; border-radius: 6px; padding: 0.46rem 0.85rem; font-size: 0.8rem; cursor: pointer; }
+        .btn:hover { border-color: #58a6ff; }
+        .preview-frame { background: #000; border-radius: 8px; padding: 1rem; display: flex; justify-content: center; align-items: center; min-height: 380px; }
+        .preview-frame iframe { border: none; background: transparent; width: 100%; height: 380px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 0.5rem; }
+        th, td { text-align: left; padding: 0.5rem 0.65rem; border-bottom: 1px solid #21262d; vertical-align: top; }
+        th { color: #8b949e; background: #0d1117; }
+        .pill { display: inline-flex; padding: 0.14rem 0.45rem; border-radius: 999px; font-size: 0.68rem; border: 1px solid #30363d; background: #1a2332; color: #58a6ff; }
+        @media (max-width: 980px) {
+            .container { grid-template-columns: 1fr; padding: 1rem; }
+            .header { flex-direction: column; gap: 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>StreamPulse <span>Timer URL Wizard</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>Overlay Builder</h2>
+            <div class="cfg-row">
+                <label>Timer</label>
+                <select id="timer-id" onchange="refreshWizard()"></select>
+            </div>
+            <div class="cfg-row">
+                <label>Overlay</label>
+                <select id="overlay-kind" onchange="refreshWizard()">
+                    <option value="countdown">Countdown</option>
+                    <option value="stopwatch">Stopwatch</option>
+                </select>
+            </div>
+            <div class="cfg-row">
+                <label>Display</label>
+                <select id="display" onchange="refreshWizard()">
+                    <option value="standard">Standard</option>
+                    <option value="compact">Compact</option>
+                </select>
+            </div>
+            <div class="cfg-row">
+                <label>Theme</label>
+                <select id="theme" onchange="refreshWizard()">
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                </select>
+            </div>
+            <div class="cfg-row">
+                <label>Title Override</label>
+                <input type="text" id="title" placeholder="Leave blank to use timer label" oninput="refreshWizard()">
+            </div>
+            <div class="cfg-row">
+                <label>Show Title</label>
+                <input type="checkbox" id="show-title" checked onchange="refreshWizard()">
+            </div>
+            <div class="cfg-row">
+                <label>Units</label>
+                <select id="units" onchange="refreshWizard()">
+                    <option value="auto">Auto</option>
+                    <option value="full">Full</option>
+                </select>
+            </div>
+            <div class="cfg-row">
+                <label>Milliseconds</label>
+                <input type="checkbox" id="milliseconds" onchange="refreshWizard()">
+            </div>
+            <div class="cfg-row" id="progress-row">
+                <label>Progress</label>
+                <input type="checkbox" id="progress" checked onchange="refreshWizard()">
+            </div>
+            <div class="cfg-row">
+                <label>Complete Sound</label>
+                <input type="checkbox" id="sound" checked onchange="refreshWizard()">
+            </div>
+            <div class="cfg-row">
+                <label>Font Scale</label>
+                <input type="number" id="fontscale" min="0.5" max="3" step="0.1" value="1" oninput="refreshWizard()">
+            </div>
+            <div class="cfg-row">
+                <label>Timer Box</label>
+                <input type="color" id="timercolor-picker" value="#000000" oninput="syncColor('timercolor', true)">
+                <input type="text" id="timercolor" value="000000B8" oninput="syncColorFromText('timercolor')">
+            </div>
+            <div class="cfg-row">
+                <label>Text Color</label>
+                <input type="color" id="textcolor-picker" value="#f8fafc" oninput="syncColor('textcolor')">
+                <input type="text" id="textcolor" value="F8FAFC" oninput="syncColorFromText('textcolor')">
+            </div>
+            <div class="cfg-row">
+                <label>Label Color</label>
+                <input type="color" id="labelcolor-picker" value="#cbd5e1" oninput="syncColor('labelcolor')">
+                <input type="text" id="labelcolor" value="CBD5E1" oninput="syncColorFromText('labelcolor')">
+            </div>
+            <div class="cfg-row" id="progresscolor-row">
+                <label>Progress Color</label>
+                <input type="color" id="progresscolor-picker" value="#58a6ff" oninput="syncColor('progresscolor')">
+                <input type="text" id="progresscolor" value="58A6FF" oninput="syncColorFromText('progresscolor')">
+            </div>
+            <div class="cfg-row">
+                <label>Title Color</label>
+                <input type="color" id="titlecolor-picker" value="#f8fafc" oninput="syncColor('titlecolor')">
+                <input type="text" id="titlecolor" value="F8FAFC" oninput="syncColorFromText('titlecolor')">
+            </div>
+            <div class="cfg-row">
+                <label>Background</label>
+                <input type="color" id="bgcolor-picker" value="#000000" oninput="syncColor('bgcolor')">
+                <input type="text" id="bgcolor" value="" placeholder="Optional hex without # (blank = transparent)" oninput="syncColorFromText('bgcolor')">
+            </div>
+
+            <div class="hint">Use this wizard to generate multiple differently styled OBS URLs for the same named timer state.</div>
+
+            <div class="url-box"><a id="overlay-url" href="#" target="_blank" rel="noopener noreferrer"></a><button class="btn" onclick="copyText('overlay-url')">Copy</button></div>
+            <div class="url-box"><a id="browser-source-url" href="#" target="_blank" rel="noopener noreferrer"></a><button class="btn" onclick="copyText('browser-source-url')">Copy</button></div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:1rem;">
+            <div class="card">
+                <h2>Preview</h2>
+                <div class="preview-frame">
+                    <iframe id="preview" src="/countdown.html"></iframe>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Companion / Button Examples</h2>
+                <div class="hint">These are copy-ready incoming control URLs for Generic HTTP buttons.</div>
+                <table>
+                    <thead>
+                        <tr><th>Action</th><th>URL</th><th></th></tr>
+                    </thead>
+                    <tbody id="action-rows"></tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h2>Readable Fields <span class="pill">Companion-friendly</span></h2>
+                <table>
+                    <thead>
+                        <tr><th>Field</th><th>URL</th><th></th></tr>
+                    </thead>
+                    <tbody id="field-rows"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    let timers = {};
+    const wizardParams = new URLSearchParams(location.search);
+    const requestedTimerId = (wizardParams.get('timer') || '').trim();
+    const requestedOverlayKind = wizardParams.get('overlay') === 'stopwatch' ? 'stopwatch' : 'countdown';
+
+    async function loadTimers() {
+        const res = await fetch('/api/timers');
+        const data = await res.json();
+        timers = data.timers || {};
+        const select = document.getElementById('timer-id');
+        const ids = Object.keys(timers).sort();
+        select.innerHTML = ids.map(id => `<option value="${id}">${timers[id].label || id} (${id})</option>`).join('');
+        if (!ids.length) {
+            select.innerHTML = '<option value="">No timers yet</option>';
+            document.getElementById('overlay-url').textContent = 'Create a timer in /timers-editor.html first';
+            document.getElementById('overlay-url').removeAttribute('href');
+            document.getElementById('browser-source-url').textContent = '';
+            document.getElementById('browser-source-url').removeAttribute('href');
+            return;
+        }
+        if (requestedTimerId && timers[requestedTimerId]) {
+            select.value = requestedTimerId;
+        }
+        const selectedTimer = timers[select.value] || timers[ids[0]];
+        document.getElementById('overlay-kind').value = requestedTimerId
+            ? requestedOverlayKind
+            : (selectedTimer?.kind === 'stopwatch' ? 'stopwatch' : 'countdown');
+        refreshWizard();
+    }
+
+    function buildOverlayUrl() {
+        const id = document.getElementById('timer-id').value;
+        const kind = document.getElementById('overlay-kind').value;
+        const params = new URLSearchParams();
+        if (id) params.set('timer', id);
+        params.set('display', document.getElementById('display').value);
+        params.set('theme', document.getElementById('theme').value);
+        params.set('units', document.getElementById('units').value);
+        if (document.getElementById('milliseconds').checked) params.set('milliseconds', 'true');
+        if (!document.getElementById('show-title').checked) params.set('showtitle', 'false');
+        if (document.getElementById('title').value.trim()) params.set('title', document.getElementById('title').value.trim());
+        if (kind === 'countdown') params.set('progress', document.getElementById('progress').checked ? 'true' : 'false');
+        params.set('sound', document.getElementById('sound').checked ? 'true' : 'false');
+        params.set('fontscale', document.getElementById('fontscale').value || '1');
+        ['bgcolor','timercolor','textcolor','labelcolor','progresscolor','titlecolor'].forEach(id => {
+            const value = document.getElementById(id).value.trim();
+            if (value) params.set(id, value);
+        });
+        return `/${kind}.html?${params.toString()}`;
+    }
+
+    function refreshWizard() {
+        const id = document.getElementById('timer-id').value;
+        const kind = document.getElementById('overlay-kind').value;
+        const timer = timers[id];
+        const isCountdown = kind === 'countdown';
+        if (timer && !document.getElementById('title').dataset.touched) {
+            document.getElementById('title').value = '';
+        }
+        document.getElementById('progress-row').style.display = isCountdown ? '' : 'none';
+        document.getElementById('progresscolor-row').style.display = isCountdown ? '' : 'none';
+        document.getElementById('progress').disabled = !isCountdown;
+        const relative = buildOverlayUrl();
+        const full = `${location.origin}${relative}`;
+        document.getElementById('overlay-url').textContent = relative;
+        document.getElementById('overlay-url').href = relative;
+        document.getElementById('browser-source-url').textContent = full;
+        document.getElementById('browser-source-url').href = full;
+        document.getElementById('preview').src = relative;
+        renderActionRows(id, timer);
+        renderFieldRows(id);
+    }
+
+    function renderActionRows(id, timer) {
+        const actions = timer?.kind === 'stopwatch'
+            ? [
+                { label: 'start', suffix: '?action=start' },
+                { label: 'pause', suffix: '?action=pause' },
+                { label: 'resume', suffix: '?action=resume' },
+                { label: 'reset', suffix: '?action=reset' },
+                { label: 'add 30 seconds', suffix: '?action=add_time&seconds=30' },
+                { label: 'subtract 30 seconds', suffix: '?action=subtract_time&seconds=30' },
+                { label: 'show', suffix: '?action=visibility&value=show' },
+                { label: 'hide', suffix: '?action=visibility&value=hide' },
+                { label: 'toggle visibility', suffix: '?action=visibility&value=toggle' }
+            ]
+            : [
+                { label: 'start', suffix: '?action=start' },
+                { label: 'reset', suffix: '?action=reset' },
+                { label: 'add 30 seconds', suffix: '?action=add_time&seconds=30' },
+                { label: 'subtract 30 seconds', suffix: '?action=subtract_time&seconds=30' },
+                { label: 'show', suffix: '?action=visibility&value=show' },
+                { label: 'hide', suffix: '?action=visibility&value=hide' },
+                { label: 'toggle visibility', suffix: '?action=visibility&value=toggle' }
+            ];
+        document.getElementById('action-rows').innerHTML = actions.map(action => {
+            const url = `${location.origin}/api/timers/${encodeURIComponent(id)}/control${action.suffix}`;
+            const safeUrl = url.replace(/&/g, '&amp;');
+            return `<tr><td>${action.label}</td><td><code>${safeUrl}</code></td><td><button class="btn" onclick="copyLiteral(decodeURIComponent('${encodeURIComponent(url)}'))">Copy</button></td></tr>`;
+        }).join('');
+    }
+
+    function renderFieldRows(id) {
+        const fields = ['state', 'visible', 'remaining', 'remaining_ms', 'elapsed', 'elapsed_ms', 'title'];
+        document.getElementById('field-rows').innerHTML = fields.map(field => {
+            const url = `${location.origin}/api/timers/${encodeURIComponent(id)}/field/${field}`;
+            return `<tr><td>${field}</td><td><code>${url}</code></td><td><button class="btn" onclick="copyLiteral(decodeURIComponent('${encodeURIComponent(url)}'))">Copy</button></td></tr>`;
+        }).join('');
+    }
+
+    async function copyText(id) {
+        await navigator.clipboard.writeText(document.getElementById(id).textContent);
+    }
+
+    async function copyLiteral(value) {
+        await navigator.clipboard.writeText(value);
+    }
+
+    document.getElementById('title').addEventListener('input', () => {
+        document.getElementById('title').dataset.touched = 'true';
+        refreshWizard();
+    });
+
+    function syncColor(id, allowAlpha = false) {
+        const picker = document.getElementById(`${id}-picker`);
+        const text = document.getElementById(id);
+        const suffix = allowAlpha && text.value.trim().length === 8 ? text.value.trim().slice(6).toUpperCase() : '';
+        text.value = picker.value.replace('#', '').toUpperCase() + suffix;
+        refreshWizard();
+    }
+
+    function syncColorFromText(id) {
+        const text = document.getElementById(id).value.trim().replace(/^#/, '');
+        const picker = document.getElementById(`${id}-picker`);
+        if (/^[0-9a-fA-F]{6,8}$/.test(text)) {
+            picker.value = `#${text.slice(0, 6)}`;
+        }
+        refreshWizard();
+    }
+
+    loadTimers();
+    </script>
+</body>
+</html>

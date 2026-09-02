@@ -373,12 +373,56 @@
             ]
         },
         {
+            section: 'Timers',
+            items: [
+                {
+                    method: 'GET', path: '/api/timers',
+                    desc: 'List timer settings and all named timers',
+                    companion: true,
+                    details: 'Returns { settings, timers } for the shared timer subsystem. Timers are keyed by slug ID and include computed countdown/stopwatch state for overlays and dashboards.'
+                },
+                {
+                    method: 'POST', path: '/api/timers',
+                    desc: 'Create or replace a named timer',
+                    details: 'Creates or updates a timer definition. Countdown payloads support { id, label, kind:"countdown", mode:"duration"|"date", days, hours, minutes, seconds, targetAt, timezone, progress, showOnEnd, endMessage, httpActions }. Stopwatch payloads support { id, label, kind:"stopwatch", days, hours, minutes, seconds, httpActions }. Each httpActions entry is keyed by countdown_started, countdown_complete, stopwatch_started, or stopwatch_paused and can include { enabled, method:"GET"|"POST", url }. Saving resets the timer to its base state.'
+                },
+                {
+                    method: 'GET', path: '/api/timers/{id}',
+                    desc: 'Get one named timer snapshot',
+                    companion: true,
+                    details: 'Returns the current computed snapshot for a single timer, including remaining or elapsed time and current running state.'
+                },
+                {
+                    method: 'POST', path: '/api/timers/{id}/control',
+                    desc: 'Control a timer (start/pause/resume/reset/visibility/set_time/add_time/subtract_time)',
+                    companion: true,
+                    details: 'Accepts JSON body or query params. Examples: /api/timers/starting-soon/control?action=start, /api/timers/run-clock/control?action=pause, /api/timers/run-clock/control?action=set_time&minutes=5, /api/timers/starting-soon/control?action=add_time&seconds=30, /api/timers/starting-soon/control?action=subtract_time&seconds=10, /api/timers/starting-soon/control?action=visibility&value=toggle. Countdown subtraction clamps at zero and completes the timer when it reaches zero.'
+                },
+                {
+                    method: 'GET', path: '/api/timers/{id}/field/{field}',
+                    desc: 'Plain-text timer field endpoint',
+                    companion: true,
+                    details: 'Returns a single field as plain text for Companion or macro tools. Available fields: state, visible, remaining, remaining_ms, elapsed, elapsed_ms, title.'
+                },
+                {
+                    method: 'GET', path: '/api/timers/settings',
+                    desc: 'Get global timer settings',
+                    details: 'Returns global timer sound settings. Per-timer outgoing HTTP callbacks are stored on each timer definition, not here.'
+                },
+                {
+                    method: 'PUT', path: '/api/timers/settings',
+                    desc: 'Update global timer settings',
+                    details: 'Saves timer-wide countdown completion sound settings.'
+                }
+            ]
+        },
+        {
             section: 'WebSocket',
             items: [
                 {
                     method: 'WS', path: '/',
                     desc: 'Live chatData push to overlay clients',
-                    details: 'Connect via WebSocket to receive live chat data updates. On connect, receives a { type: "snapshot", data: chatData } message. Subsequent updates arrive as { type: "update", data: chatData }. The overlay (credits.js) uses this for real-time data.',
+                    details: 'Connect via WebSocket to receive live overlay updates. On connect, clients receive { type: "snapshot", data: chatData } for chat, { type: "timers-snapshot", data: { settings, timers } } for named timers, and music/visibility state when available. Timer changes are pushed as { type: "timer-update", data: { timer, settings } } and timer setting changes as { type: "timer-settings", data: settings }.',
                     wsUrl: true
                 }
             ]

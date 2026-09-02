@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse Countdown</title>
+    <link rel="stylesheet" href="/timer-overlay.css">
+</head>
+<body data-kind="countdown">
+    <div id="overlay-root" class="overlay-root">
+        <div class="overlay-shell">
+            <div id="timer-title" class="title"></div>
+            <div id="timer-box">
+                <div id="standard-timer" class="timer-box standard">
+                    <div id="days-segment" class="segment">
+                        <div id="days" class="value">00</div>
+                        <div class="segment-label">Days</div>
+                    </div>
+                    <div id="hours-segment" class="segment">
+                        <div id="hours" class="value">00</div>
+                        <div class="segment-label">Hours</div>
+                    </div>
+                    <div id="minutes-segment" class="segment">
+                        <div id="minutes" class="value">00</div>
+                        <div class="segment-label">Minutes</div>
+                    </div>
+                    <div id="seconds-segment" class="segment">
+                        <div id="seconds" class="value">00</div>
+                        <div class="segment-label">Seconds</div>
+                    </div>
+                </div>
+
+                <div id="compact-timer" class="timer-box compact" style="display:none;">
+                    <span id="compact-days-segment"><span id="compact-days" class="value">00</span><span class="delimiter">:</span></span>
+                    <span id="compact-hours-segment"><span id="compact-hours" class="value">00</span><span class="delimiter">:</span></span>
+                    <span id="compact-minutes-segment"><span id="compact-minutes" class="value">00</span><span class="delimiter">:</span></span>
+                    <span id="compact-seconds-segment"><span id="compact-seconds" class="value">00</span><span class="delimiter">:</span></span>
+                </div>
+            </div>
+            <div id="progress-wrap" class="progress-wrap">
+                <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+            </div>
+            <div id="complete-message" class="message"></div>
+            <div id="placeholder" class="placeholder"></div>
+        </div>
+    </div>
+    <script src="/timers-overlay.js"></script>
+</body>
+</html>
