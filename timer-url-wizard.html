@@ -91,6 +91,10 @@
                 <label>Milliseconds</label>
                 <input type="checkbox" id="milliseconds" onchange="refreshWizard()">
             </div>
+            <div class="cfg-row">
+                <label>Start on Load</label>
+                <input type="checkbox" id="autostart" onchange="refreshWizard()">
+            </div>
             <div class="cfg-row" id="progress-row">
                 <label>Progress</label>
                 <input type="checkbox" id="progress" checked onchange="refreshWizard()">
@@ -211,6 +215,7 @@
         params.set('theme', document.getElementById('theme').value);
         params.set('units', document.getElementById('units').value);
         if (document.getElementById('milliseconds').checked) params.set('milliseconds', 'true');
+        if (id && document.getElementById('autostart').checked) params.set('autostart', 'true');
         if (!document.getElementById('show-title').checked) params.set('showtitle', 'false');
         if (document.getElementById('title').value.trim()) params.set('title', document.getElementById('title').value.trim());
         if (kind === 'countdown') params.set('progress', document.getElementById('progress').checked ? 'true' : 'false');
@@ -231,6 +236,7 @@
         if (timer && !document.getElementById('title').dataset.touched) {
             document.getElementById('title').value = '';
         }
+        document.getElementById('autostart').disabled = !id;
         document.getElementById('progress-row').style.display = isCountdown ? '' : 'none';
         document.getElementById('progresscolor-row').style.display = isCountdown ? '' : 'none';
         document.getElementById('progress').disabled = !isCountdown;

@@ -71,6 +71,29 @@
         timerSettings = data.settings || timerSettings;
         timerState = data.timers?.[namedTimerId] || null;
         if (!timerState) throw new Error('Timer not found');
+        await maybeAutoStartNamedTimer();
+    }
+
+    async function maybeAutoStartNamedTimer() {
+        if (params.get('autostart') !== 'true' || !timerState) return;
+        if (timerState.state === 'running') return;
+
+        const action = timerState.kind === 'stopwatch' && timerState.state === 'paused'
+            ? 'resume'
+            : 'start';
+
+        try {
+            const res = await fetch(`/api/timers/${encodeURIComponent(namedTimerId)}/control`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `Failed to ${action} timer on load`);
+            timerState = data.timer || timerState;
+        } catch (err) {
+            console.error('[Timers] Auto-start on load failed:', err);
+        }
     }
 
     function connectWebSocket() {

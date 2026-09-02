@@ -73,7 +73,7 @@
         <div class="card">
             <h2>📦 Create Backup</h2>
             <div class="info-box">
-                Downloads a ZIP containing your <code>config.json</code>, <code>stats.json</code>, all session archives, Twitch data snapshots, banned hashtags, and highlights. Does <strong>not</strong> include your Twitch OAuth token (you'll need to re-auth after restore).
+                Downloads a ZIP containing your <code>config.json</code>, the current live session files (<code>data/chat.json</code> and <code>data/chat-log.jsonl</code>), all session archives, Twitch data snapshots, timers, banned hashtags, and highlights. Does <strong>not</strong> include your Twitch OAuth token (you'll need to re-auth after restore).
             </div>
             <a class="btn wide primary" href="/api/backup" download>📦 Download Full Backup</a>
         </div>
@@ -82,7 +82,7 @@
         <div class="card">
             <h2>📥 Restore from Backup</h2>
             <div class="info-box">
-                Upload a previously downloaded backup ZIP to restore all data. This will <strong>overwrite</strong> current stats, config, and session archives. The server will reload in-memory data automatically.
+                Upload a previously downloaded backup ZIP to restore all data. This will <strong>overwrite</strong> current stats, config, live session files, and session archives. StreamPulse reloads compatible in-memory data automatically, but restored connection and startup settings still require a restart.
             </div>
             <div style="margin-bottom: 0.75rem;">
                 <input type="file" id="restore-file" accept=".zip" style="font-size: 0.85rem; color: #8b949e; width: 100%;">
@@ -141,9 +141,12 @@
             });
             const data = await res.json();
             if (data.status === 'restored') {
+                const restartNote = data.restartRequired
+                    ? `<div style="margin-top:0.5rem;color:#e3b341;">⚠️ Restart StreamPulse to apply: <code style="color:#e3b341;">${(data.restartFields || []).join(', ')}</code></div>`
+                    : '';
                 resultEl.style.color = '#3fb950';
-                resultEl.innerHTML = `✅ Restored <strong>${data.files}</strong> files: <code style="color:#58a6ff;">${data.restored.join(', ')}</code>`;
-                showToast(`Restored ${data.files} files!`);
+                resultEl.innerHTML = `✅ ${data.message || `Restored ${data.files} files.`}<br><strong>${data.files}</strong> files: <code style="color:#58a6ff;">${data.restored.join(', ')}</code>${restartNote}`;
+                showToast(data.restartRequired ? 'Restore finished — restart required' : `Restored ${data.files} files!`);
             } else {
                 resultEl.style.color = '#f85149';
                 resultEl.textContent = `❌ ${data.error || 'Restore failed'}`;

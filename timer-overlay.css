@@ -113,7 +113,7 @@ body {
 }
 
 .value-fraction {
-    font-size: 0.46em;
+    font-size: 0.52em;
     line-height: 1;
     margin-left: 0.06em;
     padding-bottom: 0.02em;
@@ -139,7 +139,7 @@ body {
 }
 
 .timer-box.compact .value-fraction {
-    font-size: 0.38em;
+    font-size: 0.44em;
     padding-bottom: 0.03em;
 }
 

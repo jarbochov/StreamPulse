@@ -251,7 +251,7 @@
                 {
                     method: 'GET', path: '/api/chat-log/export',
                     desc: 'Export chat log as TSV, TXT, or PDF',
-                    details: 'Query params: format ("tsv", "txt", or "pdf"), session ("current" or specific filename). Returns a downloadable file. Example: /api/chat-log/export?format=pdf&session=chat-2026-03-23T19-30.json'
+                    details: 'Query params: format ("tsv", "txt", or "pdf"), q, user, session ("all", "current", or specific filename), and type ("links", "events", or "donations"). Export filtering uses the same quoted phrase, AND/OR, and user:name matching rules as /api/chat-log/search. Example: /api/chat-log/export?format=pdf&session=chat-2026-03-23T19-30.json&q="good game"+OR+hype'
                 }
             ]
         },
@@ -283,12 +283,12 @@
                 {
                     method: 'GET', path: '/api/backup',
                     desc: 'Download a full backup ZIP',
-                    details: 'Streams a ZIP file containing config.json, stats, sessions, highlights, and other data files. Excludes sensitive files (.twitch-token.json) and live session data (chat.json, chat-log.jsonl). Filename includes date: streampulse-backup-YYYY-MM-DD.zip.'
+                    details: 'Streams a ZIP file containing config.json, current live session files (data/chat.json and data/chat-log.jsonl), stats, timers, archived sessions, highlights, and other data files. Excludes sensitive files (.twitch-token.json). Supports GET downloads and HEAD checks. Filename includes date: streampulse-backup-YYYY-MM-DD.zip.'
                 },
                 {
                     method: 'POST', path: '/api/restore',
                     desc: 'Restore from a backup ZIP',
-                    details: 'Accepts a raw ZIP body (Content-Type: application/zip). Extracts and restores files to their correct locations, then reloads in-memory stats and config. The ZIP must contain at least data/stats.json to be valid.',
+                    details: 'Accepts a raw ZIP body (Content-Type: application/zip). Extracts and restores files to their correct locations, reloads live session, stats, highlights, timers, and hot-reloadable config, then reports whether a restart is still required for restored startup-bound settings like Twitch/SSN connection fields. The ZIP must contain at least data/stats.json to be valid.',
                     body: '(raw ZIP binary body)'
                 }
             ]

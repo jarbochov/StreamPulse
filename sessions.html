@@ -521,7 +521,7 @@
                 <button class="export-btn" onclick="exportChatLog('pdf')">📕 Export PDF</button>
             </div>
             <div class="chat-search">
-                <input type="text" id="chatlog-filter" placeholder="Filter messages or @user..." onkeydown="if(event.key==='Enter')filterChatLog()">
+                <input type="text" id="chatlog-filter" placeholder='Filter messages, @user, "phrase", or OR...' onkeydown="if(event.key==='Enter')filterChatLog()">
                 <button onclick="filterChatLog()">Filter</button>
                 <button class="filter-toggle" id="links-toggle" onclick="toggleChatLogFilter('links', this)">🔗 Links</button>
                 <button class="filter-toggle" id="events-toggle" onclick="toggleChatLogFilter('events', this)">📢 Events</button>
@@ -868,32 +868,79 @@
         msgContainer.innerHTML = html;
     }
 
+    function parseChatSearchTerms(queryText) {
+        if (!queryText) return null;
+        return queryText
+            .split(/\bOR\b/i)
+            .map(group => {
+                const terms = [];
+                const tokenRegex = /(?:"([^"]+)"|(\S+))/g;
+                let match;
+                while ((match = tokenRegex.exec(group)) !== null) {
+                    const term = (match[1] || match[2]).toLowerCase();
+                    if (term !== 'and') terms.push(term);
+                }
+                return terms;
+            })
+            .filter(group => group.length > 0);
+    }
+
+    function normalizeChatSearch(rawQuery) {
+        let queryText = rawQuery.trim();
+        let user = '';
+
+        const shorthandMatch = queryText.match(/^@(\S+)$/);
+        if (shorthandMatch) {
+            user = shorthandMatch[1].toLowerCase();
+            queryText = '';
+        } else {
+            const userMatches = [...queryText.matchAll(/(?:^|\s)(?:user|from):(\S+)/gi)];
+            if (userMatches.length > 0) {
+                user = (userMatches[userMatches.length - 1][1] || '').toLowerCase();
+                queryText = queryText.replace(/(?:^|\s)(?:user|from):(\S+)/gi, ' ').replace(/\s+/g, ' ').trim();
+            }
+        }
+
+        return {
+            rawQuery,
+            user,
+            searchFilter: parseChatSearchTerms(queryText)
+        };
+    }
+
+    function chatMessageHasLink(message) {
+        return !!(
+            (message.urls && message.urls.length > 0) ||
+            /https?:\/\//.test(message.message || '') ||
+            /https?:\/\//.test(message.messageHtml || '')
+        );
+    }
+
+    function matchesSearchText(text, searchFilter) {
+        if (!searchFilter || searchFilter.length === 0) return true;
+        const lower = (text || '').toLowerCase();
+        return searchFilter.some(andTerms => andTerms.every(term => lower.includes(term)));
+    }
+
     function filterChatLog() {
         const rawQuery = (document.getElementById('chatlog-filter')?.value || '').trim();
+        const filters = normalizeChatSearch(rawQuery);
         let messages = chatLogCache[activeSessionFile] || [];
 
         // Type filters
         if (chatLogTypeFilter === 'links') {
-            messages = messages.filter(m =>
-                (m.urls && m.urls.length > 0) || (m.message && m.message.match(/https?:\/\//))
-            );
+            messages = messages.filter(m => chatMessageHasLink(m));
         } else if (chatLogTypeFilter === 'events') {
             messages = messages.filter(m => m.event);
         } else if (chatLogTypeFilter === 'donations') {
             messages = messages.filter(m => m.donation);
         }
 
-        // Text/user query
-        if (rawQuery) {
-            if (rawQuery.startsWith('@')) {
-                const user = rawQuery.slice(1).toLowerCase();
-                messages = messages.filter(m => m.user.toLowerCase().includes(user));
-            } else {
-                const lower = rawQuery.toLowerCase();
-                messages = messages.filter(m =>
-                    m.message.toLowerCase().includes(lower) || m.user.toLowerCase().includes(lower)
-                );
-            }
+        if (filters.user) {
+            messages = messages.filter(m => (m.user || '').toLowerCase() === filters.user);
+        }
+        if (filters.searchFilter) {
+            messages = messages.filter(m => matchesSearchText(m.message || '', filters.searchFilter));
         }
 
         const infoEl = document.getElementById('chatlog-info');
@@ -946,12 +993,11 @@
         const session = activeSessionFile === '__current__' ? 'current' : activeSessionFile;
         const params = new URLSearchParams({ format, session });
         const query = (document.getElementById('chatlog-filter')?.value || '').trim();
-        if (query) {
-            if (query.startsWith('@')) {
-                params.set('user', query.slice(1));
-            } else {
-                params.set('q', query);
-            }
+        const shorthandMatch = query.match(/^@(\S+)$/);
+        if (shorthandMatch) {
+            params.set('user', shorthandMatch[1]);
+        } else if (query) {
+            params.set('q', query);
         }
         if (chatLogTypeFilter) params.set('type', chatLogTypeFilter);
         try {
@@ -969,8 +1015,9 @@
         const query = (document.getElementById('global-search-input')?.value || '').trim();
         const type = globalSearchTypeFilter;
         const params = new URLSearchParams({ format, session: 'all' });
-        if (query.startsWith('@')) {
-            params.set('user', query.slice(1));
+        const shorthandMatch = query.match(/^@(\S+)$/);
+        if (shorthandMatch) {
+            params.set('user', shorthandMatch[1]);
         } else if (query) {
             params.set('q', query);
         }
@@ -1008,8 +1055,9 @@
         try {
             // Determine if query looks like a username filter (no spaces, starts with @)
             let url;
-            if (query.startsWith('@')) {
-                url = `/api/chat-log/search?user=${encodeURIComponent(query.slice(1))}&limit=500`;
+            const shorthandMatch = query.match(/^@(\S+)$/);
+            if (shorthandMatch) {
+                url = `/api/chat-log/search?user=${encodeURIComponent(shorthandMatch[1])}&limit=500`;
             } else {
                 url = `/api/chat-log/search?q=${encodeURIComponent(query)}&limit=500`;
             }

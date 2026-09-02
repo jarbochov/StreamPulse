@@ -36,6 +36,7 @@ const MUSIC_CONFIG = config.music || { enabled: false, source: 'apple_music', po
 
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = path.join(__dirname, 'data');
+const LIVE_CHAT_PATH = path.join(DATA_DIR, 'chat.json');
 const BANNED_HASHTAGS_PATH = path.join(DATA_DIR, '.banned-hashtags.json');
 const CHAT_LOG_PATH = path.join(DATA_DIR, 'chat-log.jsonl');
 const HIGHLIGHTS_PATH = path.join(DATA_DIR, 'highlights.jsonl');
@@ -1467,7 +1468,7 @@ let ssnReconnectTimer = null;
 
 function saveChatData() {
     chatData.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(path.join(DATA_DIR, 'chat.json'), JSON.stringify(chatData, null, 2));
+    fs.writeFileSync(LIVE_CHAT_PATH, JSON.stringify(chatData, null, 2));
 }
 
 function saveChatLog() {
@@ -1486,6 +1487,156 @@ function readChatLogFile(filepath) {
         .filter(line => line.trim())
         .map(line => { try { return JSON.parse(line); } catch { return null; } })
         .filter(Boolean);
+}
+
+const RESTART_REQUIRED_CONFIG_PATHS = [
+    'port',
+    'broadcaster_id',
+    'broadcaster_name',
+    'twitch.client_id',
+    'twitch.client_secret',
+    'ssn.session_id',
+    'ssn.server',
+    'twitch_refresh_minutes'
+];
+
+function getConfigPathValue(obj, dottedPath) {
+    return dottedPath.split('.').reduce((value, key) => value?.[key], obj);
+}
+
+function getRestartRequiredConfigChanges(previousConfig, nextConfig) {
+    return RESTART_REQUIRED_CONFIG_PATHS.filter(key => {
+        const prev = getConfigPathValue(previousConfig, key);
+        const next = getConfigPathValue(nextConfig, key);
+        return JSON.stringify(prev) !== JSON.stringify(next);
+    });
+}
+
+function applyRuntimeConfig(nextConfig) {
+    const prevMusicEnabled = MUSIC_CONFIG.enabled;
+    const prevSource = MUSIC_CONFIG.source;
+
+    config = nextConfig;
+    EXCLUDE_USERS = (config.exclude_users || []).map(u => u.toLowerCase());
+    BANNED_USERS = (config.banned_users || []).map(u => u.toLowerCase());
+
+    const nextMusicConfig = config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 };
+    for (const key of Object.keys(MUSIC_CONFIG)) delete MUSIC_CONFIG[key];
+    Object.assign(MUSIC_CONFIG, nextMusicConfig);
+
+    if (MUSIC_CONFIG.enabled && !prevMusicEnabled) {
+        startMusicPolling();
+    } else if (!MUSIC_CONFIG.enabled && prevMusicEnabled) {
+        stopMusicPolling();
+        musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
+        broadcastToOverlays('music', musicState);
+    } else if (MUSIC_CONFIG.enabled && MUSIC_CONFIG.source !== prevSource) {
+        stopMusicPolling();
+        musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
+        broadcastToOverlays('music', musicState);
+        startMusicPolling();
+    }
+}
+
+function loadCurrentSessionStateFromDisk() {
+    try {
+        if (fs.existsSync(LIVE_CHAT_PATH)) {
+            Object.assign(chatData, JSON.parse(fs.readFileSync(LIVE_CHAT_PATH, 'utf8')));
+            console.log('[Restore] Reloaded current session data');
+        }
+    } catch (err) {
+        console.warn('[Restore] Current session reload failed:', err.message);
+    }
+
+    try {
+        chatLog = fs.existsSync(CHAT_LOG_PATH) ? readChatLogFile(CHAT_LOG_PATH) : [];
+        chatLogFlushed = chatLog.length;
+        console.log('[Restore] Reloaded current chat log');
+    } catch (err) {
+        console.warn('[Restore] Current chat log reload failed:', err.message);
+    }
+}
+
+function getBackupFileSpecs() {
+    return [
+        { src: CONFIG_PATH, dest: 'config.json' },
+        { src: LIVE_CHAT_PATH, dest: 'data/chat.json' },
+        { src: CHAT_LOG_PATH, dest: 'data/chat-log.jsonl' },
+        { src: STATS_PATH, dest: 'data/stats.json' },
+        { src: BANNED_HASHTAGS_PATH, dest: 'data/.banned-hashtags.json' },
+        { src: TIMERS_PATH, dest: 'data/timers.json' },
+        { src: path.join(DATA_DIR, 'subs.json'), dest: 'data/subs.json' },
+        { src: path.join(DATA_DIR, 'bits.json'), dest: 'data/bits.json' },
+        { src: path.join(DATA_DIR, 'followers.json'), dest: 'data/followers.json' },
+        { src: HIGHLIGHTS_PATH, dest: 'data/highlights.jsonl' }
+    ];
+}
+
+function parseChatSearchTerms(queryText) {
+    if (!queryText) return null;
+    const orGroups = queryText.split(/\bOR\b/i).map(group => group.trim()).filter(Boolean);
+    return orGroups.map(group => {
+        const terms = [];
+        const tokenRegex = /(?:"([^"]+)"|(\S+))/g;
+        let match;
+        while ((match = tokenRegex.exec(group)) !== null) {
+            const term = (match[1] || match[2]).toLowerCase();
+            if (term !== 'and') terms.push(term);
+        }
+        return terms;
+    }).filter(group => group.length > 0);
+}
+
+function normalizeChatSearchFilters(input = {}) {
+    let queryText = String(input.q || '').trim();
+    let user = String(input.user || '').trim().toLowerCase();
+    const type = String(input.type || '').trim();
+
+    if (!user) {
+        const userMatches = [...queryText.matchAll(/(?:^|\s)(?:user|from):(\S+)/gi)];
+        if (userMatches.length > 0) {
+            user = (userMatches[userMatches.length - 1][1] || '').toLowerCase();
+            queryText = queryText.replace(/(?:^|\s)(?:user|from):(\S+)/gi, ' ').replace(/\s+/g, ' ').trim();
+        }
+    }
+
+    return {
+        rawQuery: String(input.q || '').trim(),
+        queryText,
+        user,
+        type,
+        searchFilter: parseChatSearchTerms(queryText)
+    };
+}
+
+function chatMessageHasLink(message) {
+    return !!(
+        (message.urls && message.urls.length > 0) ||
+        /https?:\/\//.test(message.message || '') ||
+        /https?:\/\//.test(message.messageHtml || '')
+    );
+}
+
+function matchesChatSearchText(text, searchFilter) {
+    if (!searchFilter || searchFilter.length === 0) return true;
+    const lower = String(text || '').toLowerCase();
+    return searchFilter.some(andTerms => andTerms.every(term => lower.includes(term)));
+}
+
+function matchesChatFilters(message, filters) {
+    const user = (message.user || '').toLowerCase();
+    if (filters.user && user !== filters.user) return false;
+    if (!matchesChatSearchText(message.message || '', filters.searchFilter)) return false;
+    if (filters.type === 'links' && !chatMessageHasLink(message)) return false;
+    if (filters.type === 'events' && !message.event) return false;
+    if (filters.type === 'donations' && !message.donation) return false;
+    return true;
+}
+
+function filterChatMessages(messages, filters, sessionName) {
+    return messages
+        .filter(message => matchesChatFilters(message, filters))
+        .map(message => sessionName ? { ...message, session: sessionName } : message);
 }
 
 function localDateTimeStr(isoStr) {
@@ -1555,17 +1706,7 @@ function performAutoBackup() {
         const stamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}`;
         const backupPath = path.join(BACKUPS_DIR, `backup-${stamp}.zip`);
         const zip = new AdmZip();
-        const filesToBackup = [
-            { src: CONFIG_PATH, dest: 'config.json' },
-            { src: STATS_PATH, dest: 'data/stats.json' },
-            { src: BANNED_HASHTAGS_PATH, dest: 'data/.banned-hashtags.json' },
-            { src: TIMERS_PATH, dest: 'data/timers.json' },
-            { src: path.join(DATA_DIR, 'subs.json'), dest: 'data/subs.json' },
-            { src: path.join(DATA_DIR, 'bits.json'), dest: 'data/bits.json' },
-            { src: path.join(DATA_DIR, 'followers.json'), dest: 'data/followers.json' },
-            { src: HIGHLIGHTS_PATH, dest: 'data/highlights.jsonl' }
-        ];
-        for (const f of filesToBackup) {
+        for (const f of getBackupFileSpecs()) {
             if (fs.existsSync(f.src)) zip.addLocalFile(f.src, path.dirname(f.dest), path.basename(f.dest));
         }
         if (fs.existsSync(SESSIONS_DIR)) {
@@ -2077,40 +2218,7 @@ const server = http.createServer(async (req, res) => {
                     }
 
                     fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
-
-                    // Hot-reload config vars
-                    config.credits = current.credits;
-                    config.days_filter = current.days_filter;
-
-                    config.active_subs_only = current.active_subs_only;
-                    config.exclude_users = current.exclude_users;
-                    config.banned_users = current.banned_users;
-                    EXCLUDE_USERS = (config.exclude_users || []).map(u => u.toLowerCase());
-                    BANNED_USERS = (config.banned_users || []).map(u => u.toLowerCase());
-                    config.hashtags_enabled = current.hashtags_enabled;
-                    config.chat_log_enabled = current.chat_log_enabled;
-                    config.auto_backup_on_session_end = current.auto_backup_on_session_end;
-                    config.webhooks = current.webhooks;
-                    config.rate_limit = current.rate_limit;
-                    config.theme = current.theme;
-
-                    // Hot-reload music config
-                    const prevMusicEnabled = MUSIC_CONFIG.enabled;
-                    const prevSource = MUSIC_CONFIG.source;
-                    Object.assign(MUSIC_CONFIG, current.music || {});
-                    if (MUSIC_CONFIG.enabled && !prevMusicEnabled) {
-                        startMusicPolling();
-                    } else if (!MUSIC_CONFIG.enabled && prevMusicEnabled) {
-                        stopMusicPolling();
-                        musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
-                        broadcastToOverlays('music', musicState);
-                    } else if (MUSIC_CONFIG.enabled && MUSIC_CONFIG.source !== prevSource) {
-                        // Source changed — restart polling with new source
-                        stopMusicPolling();
-                        musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
-                        broadcastToOverlays('music', musicState);
-                        startMusicPolling();
-                    }
+                    applyRuntimeConfig(current);
 
                     console.log('[Config] Updated and hot-reloaded');
                     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -2899,71 +3007,20 @@ const server = http.createServer(async (req, res) => {
     // Cross-session chat log search
     if (pathname === '/api/chat-log/search') {
         const params = new URL(req.url, `http://localhost`).searchParams;
-        const rawQuery = (params.get('q') || '').trim();
-        let user = (params.get('user') || '').toLowerCase();
         const session = params.get('session') || 'all';
-        const type = params.get('type') || '';
+        const filters = normalizeChatSearchFilters({
+            q: params.get('q') || '',
+            user: params.get('user') || '',
+            type: params.get('type') || ''
+        });
         const limit = parseInt(params.get('limit')) || 200;
         const offset = parseInt(params.get('offset')) || 0;
-
-        // Parse query: extract user:xxx and from:xxx filters, support quoted phrases and AND/OR
-        let queryText = rawQuery;
-        const userFilterMatch = queryText.match(/(?:user|from):(\S+)/i);
-        if (userFilterMatch) {
-            user = userFilterMatch[1].toLowerCase();
-            queryText = queryText.replace(userFilterMatch[0], '').trim();
-        }
-
-        // Parse remaining text into search terms with AND/OR logic
-        // "quoted phrase" stays together, OR separates alternatives, everything else is AND
-        function parseSearchTerms(q) {
-            if (!q) return null;
-            // Split by OR (case-insensitive)
-            const orGroups = q.split(/\bOR\b/i).map(g => g.trim()).filter(Boolean);
-            return orGroups.map(group => {
-                const terms = [];
-                const quoted = /(?:"([^"]+)"|(\S+))/g;
-                let m;
-                while ((m = quoted.exec(group)) !== null) {
-                    const term = (m[1] || m[2]).toLowerCase();
-                    if (term !== 'and') terms.push(term);
-                }
-                return terms;
-            });
-        }
-
-        const searchFilter = parseSearchTerms(queryText);
-        // searchFilter: array of OR-groups, each group is array of AND-terms
-        // e.g. 'pizza AND cheese OR tacos' → [['pizza','cheese'], ['tacos']]
-
-        function matchesSearch(text) {
-            if (!searchFilter) return true;
-            const lower = text.toLowerCase();
-            // Match if ANY or-group has ALL its and-terms present
-            return searchFilter.some(andTerms =>
-                andTerms.every(term => lower.includes(term))
-            );
-        }
 
         let allResults = [];
 
         // Helper to search messages from a session
         function searchMessages(messages, sessionName) {
-            return messages.filter(m => {
-                if (user && m.user.toLowerCase() !== user) return false;
-                if (!matchesSearch(m.message)) return false;
-                if (type === 'links') {
-                    if (!((m.urls && m.urls.length > 0) || (m.message && m.message.match(/https?:\/\//))))
-                        return false;
-                }
-                if (type === 'events') {
-                    if (!m.event) return false;
-                }
-                if (type === 'donations') {
-                    if (!m.donation) return false;
-                }
-                return true;
-            }).map(m => ({ ...m, session: sessionName }));
+            return filterChatMessages(messages, filters, sessionName);
         }
 
         if (session === 'all' || session === 'current') {
@@ -3008,9 +3065,11 @@ const server = http.createServer(async (req, res) => {
         const params = new URL(req.url, `http://localhost`).searchParams;
         const format = params.get('format') || 'tsv';
         const session = params.get('session') || 'current';
-        const rawQuery = (params.get('q') || '').trim();
-        const typeFilter = params.get('type') || '';
-        const userFilter = (params.get('user') || '').toLowerCase();
+        const filters = normalizeChatSearchFilters({
+            q: params.get('q') || '',
+            user: params.get('user') || '',
+            type: params.get('type') || ''
+        });
 
         // Load messages and stream info
         let messages = [];
@@ -3049,25 +3108,7 @@ const server = http.createServer(async (req, res) => {
             }
         }
 
-        // Apply filters (matching the client-side logic)
-        if (userFilter) {
-            messages = messages.filter(m => (m.user || '').toLowerCase() === userFilter);
-        }
-        if (typeFilter === 'links') {
-            messages = messages.filter(m =>
-                (m.urls && m.urls.length > 0) || (m.message && /https?:\/\//.test(m.message))
-            );
-        } else if (typeFilter === 'events') {
-            messages = messages.filter(m => m.event);
-        } else if (typeFilter === 'donations') {
-            messages = messages.filter(m => m.donation);
-        }
-        if (rawQuery) {
-            const lower = rawQuery.toLowerCase();
-            messages = messages.filter(m =>
-                (m.message || '').toLowerCase().includes(lower) || (m.user || '').toLowerCase().includes(lower)
-            );
-        }
+        messages = filterChatMessages(messages, filters);
 
         const formatTime = (ts) => {
             if (!ts) return '';
@@ -3223,7 +3264,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (pathname === '/api/backup' && req.method === 'GET') {
+    if (pathname === '/api/backup' && (req.method === 'GET' || req.method === 'HEAD')) {
         const now = new Date();
         const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
         const filename = `streampulse-backup-${dateStr}.zip`;
@@ -3233,23 +3274,17 @@ const server = http.createServer(async (req, res) => {
             'Content-Disposition': `attachment; filename="${filename}"`
         });
 
+        if (req.method === 'HEAD') {
+            res.end();
+            return;
+        }
+
         const archive = archiver('zip', { zlib: { level: 9 } });
         archive.pipe(res);
 
-        const filesToBackup = [
-            { src: CONFIG_PATH, name: 'config.json' },
-            { src: STATS_PATH, name: 'data/stats.json' },
-            { src: BANNED_HASHTAGS_PATH, name: 'data/.banned-hashtags.json' },
-            { src: TIMERS_PATH, name: 'data/timers.json' },
-            { src: path.join(DATA_DIR, 'subs.json'), name: 'data/subs.json' },
-            { src: path.join(DATA_DIR, 'bits.json'), name: 'data/bits.json' },
-            { src: path.join(DATA_DIR, 'followers.json'), name: 'data/followers.json' },
-            { src: HIGHLIGHTS_PATH, name: 'data/highlights.jsonl' }
-        ];
-
-        for (const f of filesToBackup) {
+        for (const f of getBackupFileSpecs()) {
             if (fs.existsSync(f.src)) {
-                archive.file(f.src, { name: f.name });
+                archive.file(f.src, { name: f.dest });
             }
         }
 
@@ -3266,6 +3301,7 @@ const server = http.createServer(async (req, res) => {
         req.on('data', chunk => chunks.push(chunk));
         req.on('end', () => {
             try {
+                const previousConfig = cloneJson(config);
                 const buffer = Buffer.concat(chunks);
                 const zip = new AdmZip(buffer);
                 const entries = zip.getEntries();
@@ -3316,20 +3352,34 @@ const server = http.createServer(async (req, res) => {
                     }
                 } catch { /* ignore */ }
 
+                let restartFields = [];
                 try {
                     if (fs.existsSync(CONFIG_PATH)) {
-                        config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+                        const restoredConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+                        restartFields = getRestartRequiredConfigChanges(previousConfig, restoredConfig);
+                        applyRuntimeConfig(restoredConfig);
                         console.log('[Restore] Reloaded config');
                     }
                 } catch { /* ignore */ }
 
                 loadHighlights();
                 loadTimers();
+                loadCurrentSessionStateFromDisk();
+                broadcastToOverlays('update', chatData);
                 broadcastToOverlays('timers-snapshot', buildTimersSnapshot());
 
                 console.log(`[Restore] Restored ${restored.length} files`);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ status: 'restored', files: restored.length, restored }));
+                res.end(JSON.stringify({
+                    status: 'restored',
+                    files: restored.length,
+                    restored,
+                    restartRequired: restartFields.length > 0,
+                    restartFields,
+                    message: restartFields.length > 0
+                        ? 'Restore completed. Restart StreamPulse to apply restored connection and startup settings.'
+                        : 'Restore completed and in-memory data reloaded.'
+                }));
             } catch (err) {
                 console.error('[Restore] Error:', err.message);
                 res.writeHead(500, { 'Content-Type': 'application/json' });

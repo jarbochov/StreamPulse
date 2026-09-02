@@ -128,14 +128,14 @@ A Twitch app provides subscriber, follower, and bits data via the Twitch API.
 - **Live Stats Overlay** — Persistent top chatters, emotes, and hashtags across sessions
 - **Session History** — Browse archived sessions with full chat logs, searchable with boolean operators (`AND`, `OR`, `"exact phrase"`, `user:name`)
 - **Highlights** — Pin notable chat messages and export them per session
-- **Chat Log Exports** — Export filtered chat logs and highlights as TSV, TXT, or PDF (with per-user colored usernames and emote images)
+- **Chat Log Exports** — Export filtered chat logs and highlights as TSV, TXT, or PDF (with the same quoted phrase / AND / OR / `user:name` filtering used in search)
 - **Hashtag Tracking** — Live hashtag overlays with moderation (ban/unban/purge)
 - **Dashboard** — Server status, session stats, message volume chart, and quick actions
 - **Fully Configurable** — All sections, titles, social links, and options editable via web UI or `config.json`
 - **Twitch OAuth** — Browser-based authorization with automatic token refresh
 - **WebSocket Push** — Live data pushed to overlays in real-time
 - **Session Lifecycle** — End/start session endpoints for Companion integration
-- **Backup & Restore** — Download full data backups as ZIP, restore from backups
+- **Backup & Restore** — Download full data backups as ZIP, including the current live session, and restore them with restart guidance when connection settings changed
 - **Discord Webhooks** — Optional notifications for raids, subs, donations, bits, and follows
 - **Preview Mode** — `?preview=true` renders credits without scrolling for layout testing
 
@@ -285,7 +285,7 @@ Optional webhook notifications for stream events:
 | `GET /api/chat` | Current session data (live) |
 | `GET /api/chat-log` | Current session chat log |
 | `GET /api/chat-log/search` | Cross-session search (`?q=`, `?user=`, `?type=`, `?session=`) |
-| `GET /api/chat-log/export` | Export chat log (`?format=tsv\|txt\|pdf`, `?q=`, `?type=`) |
+| `GET /api/chat-log/export` | Export chat log (`?format=tsv\|txt\|pdf`, `?q=`, `?user=`, `?type=`, `?session=`) |
 | `GET /api/stats` | Persistent stats (daily buckets) |
 | `GET /api/sessions` | List archived sessions |
 | `GET/POST/DELETE /api/highlights` | Pin/unpin/list highlights |
