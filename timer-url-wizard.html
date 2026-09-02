@@ -138,7 +138,7 @@
                 <input type="text" id="bgcolor" value="" placeholder="Optional hex without # (blank = transparent)" oninput="syncColorFromText('bgcolor')">
             </div>
 
-            <div class="hint">Use this wizard to generate multiple differently styled OBS URLs for the same named timer state.</div>
+            <div class="hint">Use this wizard to generate multiple differently styled OBS URLs for the same named timer state. Create date/time countdowns in the Timer Manager by setting Countdown Mode to <strong>Target Date &amp; Time</strong>.</div>
 
             <div class="url-box"><a id="overlay-url" href="#" target="_blank" rel="noopener noreferrer"></a><button class="btn" onclick="copyText('overlay-url')">Copy</button></div>
             <div class="url-box"><a id="browser-source-url" href="#" target="_blank" rel="noopener noreferrer"></a><button class="btn" onclick="copyText('browser-source-url')">Copy</button></div>
@@ -266,6 +266,8 @@
             ]
             : [
                 { label: 'start', suffix: '?action=start' },
+                { label: 'pause', suffix: '?action=pause' },
+                { label: 'resume', suffix: '?action=resume' },
                 { label: 'reset', suffix: '?action=reset' },
                 { label: 'add 30 seconds', suffix: '?action=add_time&seconds=30' },
                 { label: 'subtract 30 seconds', suffix: '?action=subtract_time&seconds=30' },

@@ -511,11 +511,12 @@
         </div>
         <div class="card-body">
             <div class="detail-text">
-                Incoming controls use HTTP endpoints, so Bitfocus Companion or OBS macros can start, pause, resume, reset, add time, subtract time, or toggle visibility. Optional per-timer outgoing HTTP calls can fire on <code>countdown_started</code>, <code>countdown_complete</code>, <code>stopwatch_started</code>, and <code>stopwatch_paused</code>.
+                Incoming controls use HTTP endpoints, so Bitfocus Companion or OBS macros can start, pause, resume, reset, add time, subtract time, or toggle visibility. Countdown timers can use either a fixed duration or a fixed target date/time from Timer Manager. Optional per-timer outgoing HTTP calls can fire on <code>countdown_started</code>, <code>countdown_complete</code>, <code>stopwatch_started</code>, and <code>stopwatch_paused</code>.
             </div>
             <div class="detail-label">Sample Control URLs</div>
             <div class="url-box"><code>${BASE}/api/timers/starting-soon/control?action=start</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/starting-soon/control?action=start')">Copy</button></div>
-            <div class="url-box"><code>${BASE}/api/timers/run-clock/control?action=pause</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/run-clock/control?action=pause')">Copy</button></div>
+            <div class="url-box"><code>${BASE}/api/timers/starting-soon/control?action=pause</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/starting-soon/control?action=pause')">Copy</button></div>
+            <div class="url-box"><code>${BASE}/api/timers/starting-soon/control?action=resume</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/starting-soon/control?action=resume')">Copy</button></div>
             <div class="url-box"><code>${BASE}/api/timers/starting-soon/control?action=add_time&seconds=30</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/starting-soon/control?action=add_time&seconds=30')">Copy</button></div>
             <div class="url-box"><code>${BASE}/api/timers/starting-soon/control?action=subtract_time&seconds=30</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/starting-soon/control?action=subtract_time&seconds=30')">Copy</button></div>
             <div class="url-box"><code>${BASE}/api/timers/run-clock/field/elapsed</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/run-clock/field/elapsed')">Copy</button></div>

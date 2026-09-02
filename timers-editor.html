@@ -124,7 +124,7 @@
                         <label>Mode</label>
                         <select id="countdown-mode" onchange="toggleCountdownMode()">
                             <option value="duration">Duration</option>
-                            <option value="date">Target Date</option>
+                            <option value="date">Target Date &amp; Time</option>
                         </select>
                     </div>
                     <div id="duration-fields">
@@ -140,13 +140,14 @@
                     </div>
                     <div id="date-fields" style="display:none;">
                         <div class="cfg-row">
-                            <label>Target Date</label>
+                            <label>Target Date &amp; Time</label>
                             <input type="datetime-local" id="target-at">
                         </div>
                         <div class="cfg-row">
                             <label>Timezone</label>
                             <input type="text" id="target-timezone" placeholder="America/New_York">
                         </div>
+                        <div class="hint" style="margin-top:-0.2rem;margin-bottom:0.65rem;">Use a fixed end date/time instead of a duration. If you pause and resume one of these countdowns, its target shifts forward to preserve the remaining time.</div>
                     </div>
                     <div class="cfg-row">
                         <label>Progress Bar</label>
@@ -241,7 +242,7 @@
                     <button class="btn" onclick="adjustTimerTime('add_time')">Add</button>
                     <button class="btn warn" onclick="adjustTimerTime('subtract_time')">Subtract</button>
                 </div>
-                <div class="hint"><strong>Set Stopwatch Base Time</strong> changes the stopwatch's reset value. <strong>Adjust Time</strong> adds or subtracts from the current displayed time without changing what reset returns to. Adjust Time works for both countdowns and stopwatches, and countdown subtraction to zero completes the timer.</div>
+                <div class="hint"><strong>Pause</strong> and <strong>Resume</strong> now work for countdowns and stopwatches. <strong>Set Stopwatch Base Time</strong> changes the stopwatch's reset value. <strong>Adjust Time</strong> adds or subtracts from the current displayed time without changing what reset returns to. Adjust Time works for both countdowns and stopwatches, and countdown subtraction to zero completes the timer.</div>
             </div>
 
             <div class="card">

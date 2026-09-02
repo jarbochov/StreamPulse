@@ -78,7 +78,7 @@
         if (params.get('autostart') !== 'true' || !timerState) return;
         if (timerState.state === 'running') return;
 
-        const action = timerState.kind === 'stopwatch' && timerState.state === 'paused'
+        const action = timerState.state === 'paused'
             ? 'resume'
             : 'start';
 
@@ -241,17 +241,19 @@
         const live = getLiveState(timerState, now);
         const title = params.get('title') || live.displayTitle || live.label || '';
         titleEl.textContent = title;
-        titleEl.classList.toggle('visible', showTitle && !!title);
-        overlay.classList.toggle('hidden', live.visible === false);
+        const hasVisibleContent = !!live.showMainDisplay || !!live.showMessage;
+        const overlayVisible = live.visible !== false && hasVisibleContent;
+        titleEl.classList.toggle('visible', overlayVisible && showTitle && !!title);
+        overlay.classList.toggle('hidden', !overlayVisible);
         placeholder.classList.remove('visible');
-        timerBox.style.display = '';
+        timerBox.style.display = live.showMainDisplay ? '' : 'none';
 
         const progressEnabled = kind === 'countdown'
             && (params.get('progress') ? params.get('progress') === 'true' : !!live.progress);
         if (progressWrap) progressWrap.classList.toggle('visible', progressEnabled && live.showMainDisplay);
         if (progressEnabled && progressBar) progressBar.style.width = `${Math.max(0, Math.min(100, Math.round((live.percentComplete || 0) * 1000) / 10))}%`;
 
-        messageEl.classList.toggle('visible', !!live.showMessage);
+        messageEl.classList.toggle('visible', overlayVisible && !!live.showMessage);
         messageEl.textContent = live.completeMessage || '';
 
         if (live.showMainDisplay) {

@@ -396,7 +396,7 @@
                     method: 'POST', path: '/api/timers/{id}/control',
                     desc: 'Control a timer (start/pause/resume/reset/visibility/set_time/add_time/subtract_time)',
                     companion: true,
-                    details: 'Accepts JSON body or query params. Examples: /api/timers/starting-soon/control?action=start, /api/timers/run-clock/control?action=pause, /api/timers/run-clock/control?action=set_time&minutes=5, /api/timers/starting-soon/control?action=add_time&seconds=30, /api/timers/starting-soon/control?action=subtract_time&seconds=10, /api/timers/starting-soon/control?action=visibility&value=toggle. Countdown subtraction clamps at zero and completes the timer when it reaches zero.'
+                    details: 'Accepts JSON body or query params. Examples: /api/timers/starting-soon/control?action=start, /api/timers/starting-soon/control?action=pause, /api/timers/starting-soon/control?action=resume, /api/timers/run-clock/control?action=set_time&minutes=5, /api/timers/starting-soon/control?action=add_time&seconds=30, /api/timers/starting-soon/control?action=subtract_time&seconds=10, /api/timers/starting-soon/control?action=visibility&value=toggle. Countdown subtraction clamps at zero and completes the timer when it reaches zero. Date/time countdowns can also be paused and resumed; resuming shifts the target forward to preserve the paused remaining time.'
                 },
                 {
                     method: 'GET', path: '/api/timers/{id}/field/{field}',

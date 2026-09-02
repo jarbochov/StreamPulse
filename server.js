@@ -562,6 +562,41 @@ function adjustCountdownTime(timer, deltaMs, now = Date.now()) {
     return { completed: false };
 }
 
+function pauseCountdownTimer(timer, now = Date.now()) {
+    if (timer.state !== 'running') throw new Error('Countdown is not running');
+    const remainingMs = computeCountdownRemaining(timer, now);
+    timer.remainingMs = remainingMs;
+    timer.startingRemainingMs = remainingMs;
+    timer.startedAt = null;
+    timer.state = remainingMs > 0 ? 'paused' : 'completed';
+    if (timer.mode === 'date') {
+        timer.targetAt = new Date(now + remainingMs).toISOString();
+    }
+    if (remainingMs <= 0) completeCountdownTimer(timer, now);
+}
+
+function resumeCountdownTimer(timer, now = Date.now()) {
+    if (timer.state !== 'paused' && timer.state !== 'idle') throw new Error('Countdown cannot resume from current state');
+    const remainingMs = timer.state === 'paused'
+        ? Math.max(0, timer.remainingMs || timer.startingRemainingMs || 0)
+        : (timer.mode === 'date'
+            ? Math.max(0, Date.parse(timer.targetAt || '') - now)
+            : Math.max(0, timer.remainingMs || timer.durationMs || 0));
+    if (remainingMs <= 0) {
+        completeCountdownTimer(timer, now);
+        return false;
+    }
+    timer.remainingMs = remainingMs;
+    timer.startingRemainingMs = remainingMs;
+    timer.startedAt = now;
+    timer.state = 'running';
+    timer.completedAt = null;
+    if (timer.mode === 'date') {
+        timer.targetAt = new Date(now + remainingMs).toISOString();
+    }
+    return true;
+}
+
 function adjustStopwatchTime(timer, deltaMs, now = Date.now()) {
     const currentElapsedMs = computeStopwatchElapsed(timer, now);
     const nextElapsedMs = Math.max(0, currentElapsedMs + deltaMs);
@@ -590,6 +625,12 @@ function applyTimerControl(timer, action, params = {}) {
             timer.startingRemainingMs = remainingMs;
             timer.completedAt = remainingMs > 0 ? null : new Date().toISOString();
             eventType.value = remainingMs > 0 ? 'countdown_started' : 'countdown_complete';
+        } else if (action === 'pause') {
+            pauseCountdownTimer(timer, now);
+        } else if (action === 'resume') {
+            const resumed = resumeCountdownTimer(timer, now);
+            if (resumed) eventType.value = 'countdown_started';
+            else eventType.value = 'countdown_complete';
         } else if (action === 'reset') {
             timer.state = 'idle';
             timer.startedAt = null;
