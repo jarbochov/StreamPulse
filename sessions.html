@@ -256,6 +256,8 @@
     let chatLogCache = {};  // cache loaded chat logs by session name
     let highlightsCache = null;  // cached highlights from server
     let globalSearchTypeFilter = '';
+    let liveSessionSocket = null;
+    let liveRefreshTimer = null;
 
     function escapeHtml(str) {
         const div = document.createElement('div');
@@ -357,6 +359,55 @@
         } catch {
             document.getElementById('detail-panel').innerHTML = '<div class="empty">Failed to load session</div>';
         }
+    }
+
+    function scheduleCurrentSessionRefresh() {
+        if (activeSessionFile !== '__current__' || liveRefreshTimer) return;
+        liveRefreshTimer = setTimeout(() => {
+            liveRefreshTimer = null;
+            refreshCurrentSession();
+        }, 5000);
+    }
+
+    async function refreshCurrentSession() {
+        if (activeSessionFile !== '__current__') return;
+        const activePane = document.querySelector('#detail-panel .tab-pane.active')?.id || '';
+        const scrollTop = document.getElementById('chatlog-messages')?.scrollTop || 0;
+        try {
+            const res = await fetch('/api/chat');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            activeSession = await res.json();
+            renderDetail(activeSession, '__current__');
+            const paneId = activePane.replace(/^pane-/, '');
+            const toolControl = document.querySelector(`#detail-panel .detail-header-actions button[onclick*="'${paneId}'"]`);
+            const tabControl = document.querySelector(`#detail-panel .tab[onclick*="'${paneId}'"]`);
+            if (toolControl) {
+                switchTool(paneId, toolControl);
+                if (paneId === 'chatlog') {
+                    await loadChatLog('__current__');
+                    const chatMessages = document.getElementById('chatlog-messages');
+                    if (chatMessages) chatMessages.scrollTop = scrollTop;
+                }
+            } else if (tabControl) {
+                switchTab(paneId, tabControl);
+            }
+        } catch (err) {
+            console.warn('[Sessions] Current session refresh failed:', err.message);
+        }
+    }
+
+    function connectLiveSessionSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        liveSessionSocket = new WebSocket(`${protocol}//${window.location.host}`);
+        liveSessionSocket.onmessage = event => {
+            try {
+                const message = JSON.parse(event.data);
+                if (message.type === 'update') scheduleCurrentSessionRefresh();
+            } catch (err) {
+                console.warn('[Sessions] Live update parse failed:', err.message);
+            }
+        };
+        liveSessionSocket.onclose = () => setTimeout(connectLiveSessionSocket, 5000);
     }
 
     function renderDetail(data, filename) {
@@ -1404,6 +1455,7 @@
     }
 
     loadSessions().then(() => {
+        connectLiveSessionSocket();
         const requested = new URLSearchParams(location.search).get('session');
         if (!requested) return;
         const item = document.querySelector(`.session-item[data-file="${CSS.escape(requested)}"]`);
