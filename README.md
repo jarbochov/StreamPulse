@@ -1,3 +1,5 @@
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Z8Z11UEY5Q)
+
 # StreamPulse
 
 A self-hosted stream overlay toolkit — built around a cinematic **credits roll** that recognizes the people who make your stream what it is: subscribers, followers, cheerers, raiders, gifters, and chatters.
