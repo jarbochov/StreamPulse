@@ -2137,7 +2137,7 @@ function getJson(url) {
 }
 
 async function getUpdateStatus(mode = 'release') {
-    const [current] = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: __dirname });
+    const { stdout: current } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: __dirname });
     const currentSha = current.trim();
     if (mode === 'nightly') {
         const remote = await getJson(`https://api.github.com/repos/${UPDATE_REPOSITORY}/commits/main`);
@@ -2215,7 +2215,7 @@ function buildDateRange(params) {
     }
 
     async function getUpdateStatus(mode = 'release') {
-        const [current] = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: __dirname });
+        const { stdout: current } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: __dirname });
         const currentSha = current.trim();
         if (mode === 'nightly') {
             const remote = await getJson(`https://api.github.com/repos/${UPDATE_REPOSITORY}/commits/main`);
