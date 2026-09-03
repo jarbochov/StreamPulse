@@ -3,6 +3,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const https = require('https');
 const { exec, execFile } = require('child_process');
 const { promisify } = require('util');
@@ -2130,6 +2131,36 @@ function getJson(url) {
                     reject(new Error(`GitHub returned HTTP ${response.statusCode}`));
                     return;
                 }
+
+                function downloadFile(url, destination) {
+                    return new Promise((resolve, reject) => {
+                        https.get(url, { headers: { 'User-Agent': 'StreamPulse-Updater' } }, response => {
+                            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                                response.resume();
+                                downloadFile(response.headers.location, destination).then(resolve, reject);
+                                return;
+                            }
+
+                            function restartServer() {
+                                if (ssnSocket) ssnSocket.close();
+                                server.close(() => {
+                                    const child = require('child_process').spawn(process.execPath, process.argv.slice(1), { cwd: __dirname, detached: true, stdio: 'ignore' });
+                                    child.unref();
+                                    process.exit(0);
+                                });
+                            }
+                            if (response.statusCode !== 200) {
+                                response.resume();
+                                reject(new Error(`GitHub download returned HTTP ${response.statusCode}`));
+                                return;
+                            }
+                            const output = fs.createWriteStream(destination);
+                            response.pipe(output);
+                            output.on('finish', () => output.close(resolve));
+                            output.on('error', reject);
+                        }).on('error', reject);
+                    });
+                }
                 try { resolve(JSON.parse(body)); } catch { reject(new Error('GitHub returned invalid JSON')); }
             });
         }).on('error', reject);
@@ -2137,25 +2168,54 @@ function getJson(url) {
 }
 
 async function getUpdateStatus(mode = 'release') {
-    const { stdout: current } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: __dirname });
-    const currentSha = current.trim();
+    let currentSha = null;
+    try {
+        const { stdout: current } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: __dirname });
+        currentSha = current.trim();
+    } catch {}
     if (mode === 'nightly') {
+        if (!currentSha) throw new Error('Nightly updates require a Git checkout. Downloaded release folders support stable releases only.');
         const remote = await getJson(`https://api.github.com/repos/${UPDATE_REPOSITORY}/commits/main`);
-        return { mode, currentSha, latestSha: remote.sha, latestLabel: remote.sha.slice(0, 7), updateAvailable: remote.sha !== currentSha };
+        return { mode, installation: 'git', currentSha, latestSha: remote.sha, latestLabel: remote.sha.slice(0, 7), updateAvailable: remote.sha !== currentSha };
     }
     const release = await getJson(`https://api.github.com/repos/${UPDATE_REPOSITORY}/releases/latest`);
+    if (!currentSha) {
+        return { mode, installation: 'release-folder', currentSha: null, currentLabel: 'Downloaded release folder', latestSha: release.target_commitish, latestLabel: release.tag_name, releaseName: release.name || release.tag_name, releaseUrl: release.html_url, downloadUrl: release.zipball_url, updateAvailable: true };
+    }
     let currentLabel = '';
     try {
         const result = await execFileAsync('git', ['describe', '--tags', '--exact-match', 'HEAD'], { cwd: __dirname });
         currentLabel = result.stdout.trim();
     } catch {}
-    return { mode, currentSha, currentLabel, latestLabel: release.tag_name, updateAvailable: release.tag_name !== currentLabel, releaseName: release.name || release.tag_name };
+    return { mode, installation: 'git', currentSha, currentLabel, latestLabel: release.tag_name, updateAvailable: release.tag_name !== currentLabel, releaseName: release.name || release.tag_name, releaseUrl: release.html_url, downloadUrl: release.zipball_url };
 }
 
 async function applyUpdate(mode) {
     if (!['release', 'nightly'].includes(mode)) throw new Error('Invalid update mode');
     const status = await getUpdateStatus(mode);
     if (!status.updateAvailable) return { ...status, updated: false, message: 'Already up to date.' };
+    if (status.installation === 'release-folder') {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-update-'));
+        const archivePath = path.join(tempDir, 'release.zip');
+        const extractDir = path.join(tempDir, 'extract');
+        try {
+            performAutoBackup(true);
+            await downloadFile(status.downloadUrl, archivePath);
+            fs.mkdirSync(extractDir);
+            new AdmZip(archivePath).extractAllTo(extractDir, true);
+            const root = fs.readdirSync(extractDir, { withFileTypes: true }).find(entry => entry.isDirectory());
+            if (!root) throw new Error('Release archive did not contain an application folder.');
+            for (const entry of fs.readdirSync(path.join(extractDir, root.name))) {
+                if (['config.json', 'data', 'node_modules'].includes(entry)) continue;
+                fs.cpSync(path.join(extractDir, root.name, entry), path.join(__dirname, entry), { recursive: true, force: true });
+            }
+            await execFileAsync(NPM_COMMAND, ['install', '--omit=dev'], { cwd: __dirname, timeout: 300000 });
+        } finally {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+        }
+        setTimeout(() => restartServer(), 500);
+        return { ...status, updated: true, message: 'Release installed. StreamPulse is restarting.' };
+    }
     const { stdout: changes } = await execFileAsync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: __dirname });
     if (changes.trim()) throw new Error('Update blocked: tracked local changes must be committed or stashed first.');
     performAutoBackup(true);
@@ -2172,12 +2232,7 @@ async function applyUpdate(mode) {
         throw new Error(`Dependencies failed to install: ${err.message}`);
     }
     setTimeout(() => {
-        if (ssnSocket) ssnSocket.close();
-        server.close(() => {
-            const child = require('child_process').spawn(process.execPath, process.argv.slice(1), { cwd: __dirname, detached: true, stdio: 'ignore' });
-            child.unref();
-            process.exit(0);
-        });
+        restartServer();
     }, 500);
     return { ...status, updated: true, message: 'Update installed. StreamPulse is restarting.' };
 }

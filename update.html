@@ -15,7 +15,7 @@
 <body>
     <div class="header"><h1>StreamPulse <span>Update</span></h1><div id="main-nav" class="nav"></div><script src="/nav.js"></script></div>
     <main class="container">
-        <section class="card"><h2>Stable Release</h2><p class="muted">Check for the latest published release. Applying an update creates a backup first, installs dependencies, and restarts StreamPulse.</p><div class="row"><button onclick="check('release')">Check stable release</button><button id="apply-release" disabled onclick="apply('release')">Update to stable release</button></div></section>
+        <section class="card"><h2>Stable Release</h2><p class="muted">Check for the latest published release. Git and downloaded-release installations can update in place while preserving config.json and data/.</p><div class="row"><button onclick="check('release')">Check stable release</button><button id="apply-release" disabled onclick="apply('release')">Update to stable release</button></div></section>
         <section class="card"><h2>Nightly / Main</h2><p class="warning">Nightly builds use the latest main commit and may break features or require manual fixes. Review the changes before applying.</p><div class="row"><button onclick="check('nightly')">Check nightly</button><button id="apply-nightly" disabled onclick="confirmNightly()">Update to nightly</button></div></section>
         <section class="card"><h2>Status</h2><div id="result" class="muted">No update check run yet.</div></section>
     </main>
@@ -29,12 +29,14 @@ async function check(mode) {
         if (!res.ok) throw new Error(data.error || 'Update check failed');
         available[mode] = data.updateAvailable;
         document.getElementById(`apply-${mode}`).disabled = !data.updateAvailable;
-        document.getElementById('result').textContent = data.updateAvailable
-            ? `${mode === 'nightly' ? 'Nightly' : 'Stable release'} available: ${data.latestLabel} (current: ${data.currentLabel || data.currentSha.slice(0, 7)})`
-            : `Already up to date: ${data.latestLabel || data.currentSha.slice(0, 7)}`;
+        const current = data.currentLabel || (data.currentSha ? data.currentSha.slice(0, 7) : 'Downloaded release folder');
+        document.getElementById('result').innerHTML = data.updateAvailable
+            ? `${mode === 'nightly' ? 'Nightly' : 'Stable release'} available: <strong>${escapeHtml(data.latestLabel)}</strong> (current: ${escapeHtml(current)})${data.downloadUrl ? `<br><br><a href="${data.downloadUrl}" target="_blank" rel="noopener">Release source archive</a>` : ''}`
+            : `Already up to date: ${data.latestLabel || current}`;
     } catch (err) { document.getElementById('result').textContent = err.message; }
     finally { setBusy(false); }
 }
+function escapeHtml(value) { const div = document.createElement('div'); div.textContent = value || ''; return div.innerHTML; }
 function confirmNightly() {
     if (available.nightly && confirm('Nightly updates can break StreamPulse. Create a backup and install the latest main commit?')) apply('nightly');
 }
