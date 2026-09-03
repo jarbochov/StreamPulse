@@ -1350,7 +1350,12 @@
         globalSearch();
     }
 
-    loadSessions();
+    loadSessions().then(() => {
+        const requested = new URLSearchParams(location.search).get('session');
+        if (!requested) return;
+        const item = document.querySelector(`.session-item[data-file="${CSS.escape(requested)}"]`);
+        if (item) loadSession(requested, item);
+    });
     </script>
 </body>
 </html>
