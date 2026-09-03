@@ -307,6 +307,7 @@
 
             // Always show current live session at the top
             let html = `<div class="session-item" data-file="__current__" onclick="handleSessionClick('__current__', this)" style="border-color: #238636; background: #0d1117;">
+                <input type="checkbox" class="session-checkbox" style="display: none;" onclick="event.stopPropagation(); toggleCompareSelection('__current__')">
                 <span class="session-date">🟢 Current Session</span>
                 <span class="session-meta">Live</span>
             </div>`;
@@ -798,11 +799,20 @@
         if (compareSelections.length < 2) return;
         try {
             const [res1, res2] = await Promise.all([
-                fetch(`/api/sessions/${compareSelections[0]}`).then(r => r.json()),
-                fetch(`/api/sessions/${compareSelections[1]}`).then(r => r.json())
+                fetch(`/api/sessions/${encodeURIComponent(compareSelections[0])}`).then(r => {
+                    if (!r.ok) throw new Error(`Session 1 request failed (${r.status})`);
+                    return r.json();
+                }),
+                fetch(`/api/sessions/${encodeURIComponent(compareSelections[1])}`).then(r => {
+                    if (!r.ok) throw new Error(`Session 2 request failed (${r.status})`);
+                    return r.json();
+                })
             ]);
             renderCompare(compareSelections[0], res1, compareSelections[1], res2);
-        } catch { /* ignore */ }
+        } catch (err) {
+            document.getElementById('compare-grid').innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
+            document.getElementById('compare-grid').style.display = 'block';
+        }
     }
 
     function renderCompare(name1, data1, name2, data2) {
