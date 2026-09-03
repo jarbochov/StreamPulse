@@ -733,7 +733,12 @@
     }
 
     function handleSessionClick(filename, el) {
-        if (compareMode) return; // Use checkboxes in compare mode
+        if (compareMode) {
+            const checkbox = el.querySelector('.session-checkbox');
+            if (checkbox) checkbox.checked = !checkbox.checked;
+            toggleCompareSelection(filename);
+            return;
+        }
         loadSession(filename, el);
     }
 
