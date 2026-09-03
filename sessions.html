@@ -78,6 +78,11 @@
         .timeline-entry { display: grid; grid-template-columns: 5.5rem 7rem 1fr; gap: 0.6rem; padding: 0.45rem 0; border-bottom: 1px solid #21262d; font-size: 0.82rem; }
         .timeline-time, .timeline-type { color: #8b949e; }
         .timeline-type { color: #58a6ff; }
+        .timeline-controls { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.75rem; color: #8b949e; font-size: 0.78rem; }
+        .timeline-controls input { flex: 1; accent-color: #58a6ff; }
+        .timeline-chart { width: 100%; height: 260px; background: #0d1117; border-radius: 6px; overflow: hidden; }
+        .timeline-chart svg { width: 100%; height: 100%; display: block; }
+        .timeline-readout { margin-top: 0.6rem; color: #c9d1d9; font-size: 0.82rem; min-height: 1.2em; }
         @media (max-width: 640px) {
             .viewer-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .timeline-entry { grid-template-columns: 4.5rem 1fr; }
@@ -369,9 +374,13 @@
         const bits = (data.bits || []).length;
         const giftSubs = (data.giftSubs || []).length;
 
+        const viewerStats = data.viewerStats || {};
         const stats = [
             { v: messages, l: 'Messages' },
             { v: chatters, l: 'Chatters' },
+            { v: viewerStats.current || 0, l: 'Viewers' },
+            { v: viewerStats.peak || 0, l: 'Peak Viewers' },
+            { v: viewerStats.average || 0, l: 'Avg Viewers' },
             { v: emotes, l: 'Emotes' },
             { v: hashtags, l: 'Hashtags' },
             { v: subs, l: 'Subs' },
@@ -391,9 +400,8 @@
             { id: 'followers', label: 'Followers' },
             { id: 'donations', label: 'Donations' },
             { id: 'cheerers', label: 'Cheerers' },
-            { id: 'raids', label: 'Raids' }
-            ,{ id: 'viewers', label: 'Viewers' }
-            ,{ id: 'timeline', label: 'Timeline' }
+            { id: 'raids', label: 'Raids' },
+            { id: 'timeline', label: 'Timeline' }
         ];
 
         // Chat Log and Highlights are action buttons, not stat tabs
@@ -445,25 +453,12 @@
             </div>`).join('')
             : '<div class="empty">No chatters</div>';
 
-        const viewerStats = data.viewerStats || {};
         const samples = Array.isArray(viewerStats.samples) ? viewerStats.samples : [];
-        document.getElementById('pane-viewers').innerHTML = `
-            <div class="viewer-summary">
-                <div class="viewer-card"><div class="value">${viewerStats.current || 0}</div><div class="label">Last Sample</div></div>
-                <div class="viewer-card"><div class="value">${viewerStats.peak || 0}</div><div class="label">Peak</div></div>
-                <div class="viewer-card"><div class="value">${viewerStats.average || 0}</div><div class="label">Average</div></div>
-                <div class="viewer-card"><div class="value">${samples.length}</div><div class="label">Samples</div></div>
-            </div>
-            <div class="chat-log-info">Source: ${escapeHtml(viewerStats.source || 'Unavailable')} ${viewerStats.streamStartedAt ? `• Started ${new Date(viewerStats.streamStartedAt).toLocaleString()}` : ''}</div>
-            ${samples.length ? samples.slice().reverse().map(s => `<div class="entry"><span class="name">${new Date(s.ts).toLocaleTimeString()}</span><span class="count">${s.count} viewers · ${escapeHtml(s.source || 'unknown')}</span></div>`).join('') : '<div class="empty">No viewer samples recorded</div>'}
-        `;
-        document.getElementById('pane-timeline').innerHTML = '<div class="chat-log-loading">Loading timeline...</div>';
+        document.getElementById('pane-timeline').innerHTML = '<div class="chat-log-loading">Loading activity timeline...</div>';
         const timelineFile = isLive ? '__current__.json' : filename;
         fetch(`/api/sessions/${encodeURIComponent(timelineFile)}/timeline`).then(r => r.json()).then(timeline => {
             const events = timeline.events || [];
-            document.getElementById('pane-timeline').innerHTML = events.length
-                ? events.map(event => `<div class="timeline-entry"><span class="timeline-time">${new Date(event.ts).toLocaleTimeString()}</span><span class="timeline-type">${escapeHtml(event.type)}</span><span>${escapeHtml([event.user, event.message, event.detail].filter(Boolean).join(' — '))}</span></div>`).join('')
-                : '<div class="empty">No timeline events</div>';
+            renderActivityTimeline(samples, events);
         }).catch(() => { document.getElementById('pane-timeline').innerHTML = '<div class="empty">Timeline unavailable</div>'; });
 
         // Emotes
@@ -569,6 +564,59 @@
 
         // Highlights pane
         document.getElementById('pane-highlights').innerHTML = '<div class="chat-log-loading">Loading highlights...</div>';
+    }
+
+    function renderActivityTimeline(samples, events) {
+        const pane = document.getElementById('pane-timeline');
+        if (!samples.length) {
+            pane.innerHTML = '<div class="empty">No viewer samples recorded for this session</div>';
+            return;
+        }
+
+        const width = 1000;
+        const height = 260;
+        const max = Math.max(1, ...samples.map(sample => Number(sample.count) || 0));
+        const firstTime = new Date(samples[0].ts).getTime();
+        const lastTime = new Date(samples[samples.length - 1].ts).getTime();
+        const span = Math.max(1, lastTime - firstTime);
+        const point = (sample, index) => {
+            const x = samples.length === 1 ? width / 2 : ((new Date(sample.ts).getTime() - firstTime) / span) * width;
+            const y = height - 20 - ((Number(sample.count) || 0) / max) * (height - 40);
+            return { x, y };
+        };
+        const points = samples.map(point);
+        const line = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+        const dots = points.map((p, index) => `<circle cx="${p.x}" cy="${p.y}" r="4" fill="#58a6ff" data-sample="${index}"></circle>`).join('');
+        const markers = events.filter(event => Number.isFinite(event.ts)).map(event => {
+            const x = ((event.ts - firstTime) / span) * width;
+            return `<line x1="${x}" x2="${x}" y1="10" y2="${height - 10}" stroke="#d29922" stroke-width="2" stroke-dasharray="4 4" opacity="0.7"></line>`;
+        }).join('');
+
+        pane.innerHTML = `
+            <div class="timeline-controls">
+                <span>Scrub</span>
+                <input id="timeline-scrubber" type="range" min="0" max="${samples.length - 1}" value="${samples.length - 1}">
+                <span>${samples.length} samples</span>
+            </div>
+            <div class="timeline-chart">
+                <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Viewer activity over time">
+                    <polyline points="${line}" fill="none" stroke="#58a6ff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"></polyline>
+                    ${markers}
+                    ${dots}
+                </svg>
+            </div>
+            <div class="timeline-readout" id="timeline-readout"></div>
+            ${events.length ? `<h3 style="margin-top:1rem;">Events</h3>${events.map(event => `<div class="timeline-entry"><span class="timeline-time">${new Date(event.ts).toLocaleTimeString()}</span><span class="timeline-type">${escapeHtml(event.type)}</span><span>${escapeHtml([event.user, event.message, event.detail].filter(Boolean).join(' — '))}</span></div>`).join('')}` : ''}
+        `;
+
+        const scrubber = document.getElementById('timeline-scrubber');
+        const readout = document.getElementById('timeline-readout');
+        const updateReadout = () => {
+            const sample = samples[Number(scrubber.value)] || samples[0];
+            readout.textContent = `${new Date(sample.ts).toLocaleString()} — ${sample.count} viewers (${sample.source || 'unknown source'})`;
+        };
+        scrubber.addEventListener('input', updateReadout);
+        updateReadout();
     }
 
     let chatLogTypeFilter = null;

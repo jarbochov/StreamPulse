@@ -3749,7 +3749,7 @@ const server = http.createServer(async (req, res) => {
             const data = isCurrent ? chatData : JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
             const logName = sessionName.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
             const events = (isCurrent ? chatLog : readChatLogFile(path.join(SESSIONS_DIR, logName)))
-                .filter(entry => entry.event || entry.donation || entry.membership)
+                .filter(entry => entry.event || entry.donation)
                 .map(entry => ({
                     ts: entry.ts,
                     type: entry.event || (entry.donation ? 'donation' : 'membership'),
