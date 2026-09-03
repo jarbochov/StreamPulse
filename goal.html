@@ -27,31 +27,21 @@
         }
 
         .overlay {
-            container-type: inline-size;
             width: min(100%, 35rem);
             max-width: 100%;
             min-width: 0;
-            padding: clamp(0.55rem, 3cqw, 1.15rem) clamp(0.7rem, 3.5cqw, 1.25rem);
+            padding: clamp(0.45rem, 3vw, 1.15rem) clamp(0.6rem, 3.5vw, 1.25rem);
             background: var(--goal-background);
             border-radius: 12px;
             display: flex;
             flex-direction: column;
-            gap: clamp(0.3rem, 1.8cqw, 0.6rem);
+            gap: clamp(0.3rem, 1.8vw, 0.6rem);
             transform-origin: left center;
         }
 
         .hidden { display: none; }
-        .kicker {
-            font-size: calc(clamp(0.55rem, 2.2cqw, 0.7rem) * var(--goal-font-scale));
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--goal-accent-color);
-            opacity: 0.9;
-            text-shadow: 0 2px 5px var(--goal-outline-color);
-            overflow-wrap: anywhere;
-        }
         .title {
-            font-size: calc(clamp(1.15rem, 6cqw, 1.9rem) * var(--goal-font-scale));
+            font-size: calc(clamp(1rem, 5.5vw, 1.9rem) * var(--goal-font-scale));
             line-height: 1.05;
             font-weight: 700;
             text-shadow: 0 2px 8px var(--goal-outline-color);
@@ -61,19 +51,18 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: clamp(0.4rem, 3cqw, 1rem);
+            gap: clamp(0.4rem, 3vw, 1rem);
             flex-wrap: wrap;
             min-width: 0;
         }
-        .metric-label,
-        .tracking {
-            font-size: calc(clamp(0.65rem, 2.6cqw, 0.82rem) * var(--goal-font-scale));
+        .metric-label {
+            font-size: calc(clamp(0.65rem, 2.6vw, 0.82rem) * var(--goal-font-scale));
             color: var(--goal-muted-color);
             text-shadow: 0 1px 4px var(--goal-outline-color);
             overflow-wrap: anywhere;
         }
         .value {
-            font-size: calc(clamp(1rem, 4.6cqw, 1.4rem) * var(--goal-font-scale));
+            font-size: calc(clamp(0.95rem, 4.6vw, 1.4rem) * var(--goal-font-scale));
             font-weight: 700;
             color: var(--goal-accent-color);
             text-shadow: 0 2px 6px var(--goal-outline-color);
@@ -81,7 +70,7 @@
         }
         .bar {
             width: 100%;
-            height: clamp(0.35rem, 2cqw, 0.875rem);
+            height: clamp(0.35rem, 2vw, 0.875rem);
             background: var(--goal-bar-bg);
             border-radius: 999px;
             overflow: hidden;
@@ -95,14 +84,14 @@
         .footer {
             display: flex;
             justify-content: space-between;
-            gap: clamp(0.4rem, 2.5cqw, 0.8rem);
+            gap: clamp(0.4rem, 2.5vw, 0.8rem);
             align-items: center;
             flex-wrap: wrap;
             min-width: 0;
         }
         .remaining,
         .complete {
-            font-size: calc(clamp(0.65rem, 2.6cqw, 0.82rem) * var(--goal-font-scale));
+            font-size: calc(clamp(0.65rem, 2.6vw, 0.82rem) * var(--goal-font-scale));
             color: var(--goal-muted-color);
             text-shadow: 0 1px 4px var(--goal-outline-color);
             overflow-wrap: anywhere;
@@ -112,25 +101,23 @@
             font-weight: 700;
         }
         .placeholder {
-            font-size: calc(clamp(0.9rem, 4cqw, 1.15rem) * var(--goal-font-scale));
+            font-size: calc(clamp(0.9rem, 4vw, 1.15rem) * var(--goal-font-scale));
             text-shadow: 0 2px 6px var(--goal-outline-color);
         }
 
         @media (max-height: 220px) {
             .overlay {
-                padding-block: clamp(0.3rem, 2cqw, 0.6rem);
-                gap: clamp(0.2rem, 1cqw, 0.35rem);
+                padding-block: clamp(0.3rem, 2vw, 0.6rem);
+                gap: clamp(0.2rem, 1vw, 0.35rem);
             }
         }
     </style>
 </head>
 <body>
     <div id="overlay" class="overlay hidden">
-        <div class="kicker" id="goal-kicker">Goal</div>
-        <div class="title" id="goal-title">Goal</div>
+        <div class="title" id="goal-title"></div>
         <div class="meta">
-            <div class="metric-label" id="goal-metric-label">Metric</div>
-            <div class="tracking" id="goal-tracking">persistent</div>
+            <div class="metric-label" id="goal-metric-label"></div>
         </div>
         <div class="value" id="goal-value">0 / 100</div>
         <div class="bar"><div class="fill" id="goal-fill"></div></div>
@@ -247,9 +234,7 @@
     function renderGoal(goal) {
         const overlay = document.getElementById('overlay');
         const title = document.getElementById('goal-title');
-        const kicker = document.getElementById('goal-kicker');
         const metricLabel = document.getElementById('goal-metric-label');
-        const tracking = document.getElementById('goal-tracking');
         const value = document.getElementById('goal-value');
         const fill = document.getElementById('goal-fill');
         const remaining = document.getElementById('goal-remaining');
@@ -257,10 +242,8 @@
 
         if (!goal) {
             overlay.classList.remove('hidden');
-            kicker.textContent = 'Goals';
             title.textContent = 'No enabled goals';
             metricLabel.textContent = 'Add or enable a goal in Goals Manager';
-            tracking.textContent = '';
             value.textContent = '0 / 0';
             fill.style.width = '0%';
             remaining.textContent = 'Waiting for goal setup';
@@ -270,12 +253,8 @@
 
         currentGoalId = goal.id;
         overlay.classList.remove('hidden');
-        kicker.textContent = overlayMode === 'cycle' ? 'Goals Cycle' : 'Goal';
-        title.textContent = goal.title || 'Goal';
-        metricLabel.textContent = goal.metric_label || 'Goal';
-        tracking.textContent = goal.type === 'viewers'
-            ? (goal.viewer_mode === 'peak' ? 'peak viewers' : 'current viewers')
-            : `${goal.tracking} progress`;
+        title.textContent = goal.title || '';
+        metricLabel.textContent = goal.metric_label || '';
         value.textContent = `${formatNumber(goal.progress)} / ${formatNumber(goal.target)}`;
         fill.style.width = `${Math.max(0, Math.min(100, Number(goal.percent) || 0))}%`;
         remaining.textContent = goal.complete
@@ -341,7 +320,6 @@
         document.getElementById('overlay').classList.remove('hidden');
         document.getElementById('goal-title').textContent = 'Goal overlay unavailable';
         document.getElementById('goal-metric-label').textContent = err.message || 'Failed to load goals';
-        document.getElementById('goal-tracking').textContent = '';
     });
     </script>
 </body>
