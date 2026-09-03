@@ -169,7 +169,11 @@
                     <div id="goal-baseline-block">
                         <h3>Baseline</h3>
                         <div class="cfg-row">
-                            <label>Current Baseline</label>
+                            <label>Current Value</label>
+                            <input type="text" id="goal-current-value-display" readonly>
+                        </div>
+                        <div class="cfg-row">
+                            <label>Saved Baseline</label>
                             <input type="text" id="goal-baseline-display" readonly>
                         </div>
                         <div class="actions">
@@ -548,8 +552,14 @@
         if (!goal) return;
         if (goal.type === 'community') {
             const baseline = goal.baseline_metrics || {};
+            document.getElementById('goal-current-value-display').value = state
+                ? `${formatNumber(state.raw_value)} points`
+                : 'Unavailable';
             document.getElementById('goal-baseline-display').value = `F ${formatNumber(baseline.followers || 0)} • S ${formatNumber(baseline.subscribers || 0)} • G ${formatNumber(baseline.gift_subs || 0)} • B ${formatNumber(baseline.bits || 0)} • D ${formatNumber(baseline.donations || 0)}`;
         } else {
+            document.getElementById('goal-current-value-display').value = state
+                ? formatNumber(state.raw_value)
+                : 'Unavailable';
             document.getElementById('goal-baseline-display').value = formatNumber(goal.baseline || 0);
         }
         document.getElementById('goal-editor-status').textContent = state
