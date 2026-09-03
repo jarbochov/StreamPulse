@@ -293,7 +293,7 @@ Optional webhook notifications for stream events:
 | `pausecomplete` | config value | Override the extra hold time for completed goals in cycle mode |
 | `fontscale` | config theme | Override goal overlay font scale |
 
-The goal overlay responds to the browser-source viewport: it has no minimum width, stays within the available space, wraps long labels, and scales typography and spacing for compact or large sources.
+The goal overlay fills the browser-source viewport at 100% width and height. Typography, spacing, and the progress bar scale from the smaller viewport axis, so the same URL can be placed in any size or aspect ratio without fixed-size positioning.
 
 ### stats.html
 
