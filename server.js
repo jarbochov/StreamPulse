@@ -4,11 +4,14 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const { exec } = require('child_process');
+const { exec, execFile } = require('child_process');
+const { promisify } = require('util');
 const WebSocket = require('ws');
 const puppeteer = require('puppeteer');
 const archiver = require('archiver');
 const AdmZip = require('adm-zip');
+const execFileAsync = promisify(execFile);
+const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 
 // ============================================================================
 // CONFIG
@@ -2131,6 +2134,68 @@ function buildDateRange(params) {
             to: '9999-12-31'
         };
     }
+
+    function getJson(url) {
+        return new Promise((resolve, reject) => {
+            https.get(url, { headers: { 'User-Agent': 'StreamPulse-Updater', Accept: 'application/vnd.github+json' } }, response => {
+                let body = '';
+                response.on('data', chunk => { body += chunk; });
+                response.on('end', () => {
+                    if (response.statusCode < 200 || response.statusCode >= 300) {
+                        reject(new Error(`GitHub returned HTTP ${response.statusCode}`));
+                        return;
+                    }
+                    try { resolve(JSON.parse(body)); } catch { reject(new Error('GitHub returned invalid JSON')); }
+                });
+            }).on('error', reject);
+        });
+    }
+
+    async function getUpdateStatus(mode = 'release') {
+        const [current] = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: __dirname });
+        const currentSha = current.trim();
+        if (mode === 'nightly') {
+            const remote = await getJson(`https://api.github.com/repos/${UPDATE_REPOSITORY}/commits/main`);
+            return { mode, currentSha, latestSha: remote.sha, latestLabel: remote.sha.slice(0, 7), updateAvailable: remote.sha !== currentSha };
+        }
+        const release = await getJson(`https://api.github.com/repos/${UPDATE_REPOSITORY}/releases/latest`);
+        let currentLabel = '';
+        try {
+            const result = await execFileAsync('git', ['describe', '--tags', '--exact-match', 'HEAD'], { cwd: __dirname });
+            currentLabel = result.stdout.trim();
+        } catch {}
+        return { mode, currentSha, currentLabel, latestLabel: release.tag_name, updateAvailable: release.tag_name !== currentLabel, releaseName: release.name || release.tag_name };
+    }
+
+    async function applyUpdate(mode) {
+        if (!['release', 'nightly'].includes(mode)) throw new Error('Invalid update mode');
+        const status = await getUpdateStatus(mode);
+        if (!status.updateAvailable) return { ...status, updated: false, message: 'Already up to date.' };
+        const { stdout: changes } = await execFileAsync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: __dirname });
+        if (changes.trim()) throw new Error('Update blocked: tracked local changes must be committed or stashed first.');
+        performAutoBackup(true);
+        await execFileAsync('git', ['fetch', '--tags', 'origin'], { cwd: __dirname });
+        if (mode === 'nightly') {
+            await execFileAsync('git', ['checkout', 'main'], { cwd: __dirname });
+            await execFileAsync('git', ['reset', '--hard', 'origin/main'], { cwd: __dirname });
+        } else {
+            await execFileAsync('git', ['checkout', status.latestLabel], { cwd: __dirname });
+        }
+        try {
+            await execFileAsync('npm', ['install', '--omit=dev'], { cwd: __dirname, timeout: 300000 });
+        } catch (err) {
+            throw new Error(`Dependencies failed to install: ${err.message}`);
+        }
+        setTimeout(() => {
+            if (ssnSocket) ssnSocket.close();
+            server.close(() => {
+                const child = require('child_process').spawn(process.execPath, process.argv.slice(1), { cwd: __dirname, detached: true, stdio: 'ignore' });
+                child.unref();
+                process.exit(0);
+            });
+        }, 500);
+        return { ...status, updated: true, message: 'Update installed. StreamPulse is restarting.' };
+    }
     return null;
 }
 
@@ -2312,8 +2377,8 @@ function archiveSession() {
     return null;
 }
 
-function performAutoBackup() {
-    if (!config.auto_backup_on_session_end) return;
+function performAutoBackup(force = false) {
+    if (!force && !config.auto_backup_on_session_end) return;
     try {
         if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
         const now = new Date();
@@ -3118,6 +3183,32 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'reset', message: 'Stats data cleared' }));
         console.log('[API] Stats data reset');
+        return;
+    }
+
+    if (pathname === '/api/update/check' && req.method === 'GET') {
+        try {
+            const mode = url.searchParams.get('mode') === 'nightly' ? 'nightly' : 'release';
+            const update = await getUpdateStatus(mode);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(update));
+        } catch (err) {
+            res.writeHead(502, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if (pathname === '/api/update/apply' && req.method === 'POST') {
+        try {
+            const body = JSON.parse(await readRequestBody(req) || '{}');
+            const result = await applyUpdate(body.mode === 'nightly' ? 'nightly' : 'release');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+        } catch (err) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
         return;
     }
 

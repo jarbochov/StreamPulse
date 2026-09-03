@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Update</title>
+    <style>
+        * { box-sizing: border-box; } body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; }
+        .header { padding: 1rem 2rem; background: #161b22; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; gap: 1rem; } h1 { font-size: 1.3rem; } h1 span { color: #58a6ff; }
+        .container { max-width: 760px; margin: auto; padding: 1.5rem 2rem; display: grid; gap: 1rem; } .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.1rem; } h2 { margin: 0 0 1rem; font-size: .85rem; text-transform: uppercase; color: #8b949e; }
+        .row { display: flex; gap: .7rem; flex-wrap: wrap; align-items: center; } button { padding: .55rem .75rem; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #e1e4e8; cursor: pointer; } button:hover { border-color: #58a6ff; } button:disabled { opacity: .5; cursor: wait; } .warning { color: #d29922; } .muted { color: #8b949e; } #result { white-space: pre-wrap; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="header"><h1>StreamPulse <span>Update</span></h1><div id="main-nav" class="nav"></div><script src="/nav.js"></script></div>
+    <main class="container">
+        <section class="card"><h2>Stable Release</h2><p class="muted">Check for the latest published release. Applying an update creates a backup first, installs dependencies, and restarts StreamPulse.</p><div class="row"><button onclick="check('release')">Check stable release</button><button id="apply-release" disabled onclick="apply('release')">Update to stable release</button></div></section>
+        <section class="card"><h2>Nightly / Main</h2><p class="warning">Nightly builds use the latest main commit and may break features or require manual fixes. Review the changes before applying.</p><div class="row"><button onclick="check('nightly')">Check nightly</button><button id="apply-nightly" disabled onclick="confirmNightly()">Update to nightly</button></div></section>
+        <section class="card"><h2>Status</h2><div id="result" class="muted">No update check run yet.</div></section>
+    </main>
+<script>
+let available = {};
+async function check(mode) {
+    setBusy(true);
+    try {
+        const res = await fetch(`/api/update/check?mode=${mode}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Update check failed');
+        available[mode] = data.updateAvailable;
+        document.getElementById(`apply-${mode}`).disabled = !data.updateAvailable;
+        document.getElementById('result').textContent = data.updateAvailable
+            ? `${mode === 'nightly' ? 'Nightly' : 'Stable release'} available: ${data.latestLabel} (current: ${data.currentLabel || data.currentSha.slice(0, 7)})`
+            : `Already up to date: ${data.latestLabel || data.currentSha.slice(0, 7)}`;
+    } catch (err) { document.getElementById('result').textContent = err.message; }
+    finally { setBusy(false); }
+}
+function confirmNightly() {
+    if (available.nightly && confirm('Nightly updates can break StreamPulse. Create a backup and install the latest main commit?')) apply('nightly');
+}
+async function apply(mode) {
+    setBusy(true);
+    document.getElementById('result').textContent = 'Installing update and restarting StreamPulse…';
+    try {
+        const res = await fetch('/api/update/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Update failed');
+        document.getElementById('result').textContent = data.message;
+    } catch (err) { document.getElementById('result').textContent = err.message; setBusy(false); }
+}
+function setBusy(busy) { document.querySelectorAll('button').forEach(button => { button.disabled = busy || (button.id && button.id.startsWith('apply-') && !available[button.id.slice(6)]); }); }
+</script>
+</body>
+</html>

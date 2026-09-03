@@ -142,6 +142,7 @@ A Twitch app provides subscriber, follower, and bits data via the Twitch API.
 - **WebSocket Push** — Live data pushed to overlays in real-time
 - **Session Lifecycle** — End/start session endpoints for Companion integration
 - **Backup & Restore** — Download full data backups as ZIP, including the current live session, and restore them with restart guidance when connection settings changed
+- **Update** — Check for and manually install the latest stable release, or explicitly opt in to a warned nightly `main` build from the Manage menu
 - **Discord Webhooks** — Optional notifications for raids, subs, donations, bits, and follows
 - **Preview Mode** — `?preview=true` renders credits without scrolling for layout testing
 

@@ -53,6 +53,7 @@
             { label: 'Config', href: '/config-editor.html' },
             { label: 'Goals', href: '/goals-editor.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html' },
+            { label: 'Update', href: '/update.html' },
             { label: 'Backup & Restore', href: '/backup.html' }
         ]},
         { label: 'API', href: '/api.html' },
