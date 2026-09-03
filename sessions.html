@@ -105,6 +105,9 @@
         .chat-msg .chat-text { word-break: break-word; line-height: 1.4; }
         .chat-msg .chat-text img { height: 18px; vertical-align: middle; }
         .chat-msg .chat-time { font-size: 0.7rem; color: #484f58; flex-shrink: 0; margin-top: 3px; }
+        .chat-actions { display: flex; gap: 0.35rem; margin-top: 0.35rem; }
+        .chat-action-btn { background: none; border: 1px solid #30363d; border-radius: 4px; color: #8b949e; cursor: pointer; padding: 0.2rem 0.45rem; font-size: 0.7rem; text-decoration: none; }
+        .chat-action-btn:hover { color: #e1e4e8; border-color: #58a6ff; }
         .chat-msg .chat-badge { display: inline-block; font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 3px; margin-left: 0.35rem; }
         .chat-msg .badge-event { background: #1f6feb30; color: #58a6ff; }
         .chat-msg .badge-donation { background: #3fb95030; color: #3fb950; }
@@ -1174,10 +1177,45 @@
                 container.innerHTML = results.map(m => {
                     const sessionLabel = m.session === 'current' ? '🟢 Current Session' : m.session;
                     m.session = sessionLabel;
+                    if (type === 'links') return renderLinkResult(m);
                     return renderChatMessage(m, true, m.session);
                 }).join('');
                 if (data.total > results.length) {
                     container.innerHTML += `<div class="chat-log-info" style="text-align:center;margin-top:1rem;">Showing ${results.length} of ${data.total} results</div>`;
+                }
+            }
+
+            function messageUrls(message) {
+                const urls = message.urls && message.urls.length
+                    ? message.urls
+                    : (message.message || '').match(/https?:\/\/[^\s<>"')\]]+/gi) || [];
+                return [...new Set(urls)];
+            }
+
+            function renderLinkResult(message) {
+                const urls = messageUrls(message);
+                const session = message.session === 'current' ? 'current' : (message.session || '');
+                return `<div class="chat-msg">
+                    ${message.avatar ? `<img class="chat-avatar" src="${escapeHtml(message.avatar)}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
+                    <div class="chat-meta">
+                        <div><span class="chat-user" style="color:${userColor(message.user)}">${escapeHtml(message.user)}</span><span class="chat-session-tag">${escapeHtml(session)}</span></div>
+                        <div class="chat-text">${urls.map(url => `<div><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a><span class="chat-actions"><button class="chat-action-btn" onclick="copyLink('${escapeHtml(url)}')">Copy</button><a class="chat-action-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open</a></span></div>`).join('')}</div>
+                        <div class="chat-session-tag">${formatDateTimestamp(message.ts)}${message.message ? ` · ${escapeHtml(message.message)}` : ''}</div>
+                    </div>
+                    <span class="chat-time">${formatTimestamp(message.ts)}</span>
+                </div>`;
+            }
+
+            async function copyLink(url) {
+                try {
+                    await navigator.clipboard.writeText(url);
+                } catch {
+                    const input = document.createElement('input');
+                    input.value = url;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    input.remove();
                 }
             }
         } catch {
@@ -1227,6 +1265,11 @@
                     <option value="">All Sessions</option>
                     ${sessionOptions}
                 </select>
+                <select id="highlights-sort" class="chat-filter-select" onchange="filterHighlights()">
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="user">User A-Z</option>
+                </select>
                 <div class="chatlog-export-group">
                     <button class="btn-sm" onclick="exportHighlights('txt')">TXT</button>
                     <button class="btn-sm" onclick="exportHighlights('tsv')">TSV</button>
@@ -1255,6 +1298,7 @@
 
         const query = (document.getElementById('highlights-search')?.value || '').toLowerCase();
         const sessionFilter = document.getElementById('highlights-session-filter')?.value || '';
+        const sort = document.getElementById('highlights-sort')?.value || 'newest';
 
         let filtered = highlightsCache;
         if (sessionFilter) {
@@ -1266,6 +1310,10 @@
                 (h.message || '').toLowerCase().includes(query)
             );
         }
+        filtered = [...filtered].sort((a, b) => {
+            if (sort === 'user') return (a.user || '').localeCompare(b.user || '', undefined, { sensitivity: 'base' }) || b.ts - a.ts;
+            return sort === 'oldest' ? a.ts - b.ts : b.ts - a.ts;
+        });
 
         if (filtered.length === 0) {
             container.innerHTML = '<div class="empty">No highlights match your filters.</div>';

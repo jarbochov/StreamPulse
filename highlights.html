@@ -190,6 +190,11 @@
                         <option value="">All Users</option>
                         ${users.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('')}
                     </select>
+                    <select id="sort-filter" onchange="filterHighlights()">
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                        <option value="user">User A-Z</option>
+                    </select>
                     <div class="export-group">
                         <span>Export:</span>
                         <button class="btn" onclick="exportHighlights('txt')">TXT</button>
@@ -214,6 +219,7 @@
         const query = (document.getElementById('search')?.value || '').toLowerCase();
         const sessionFilter = document.getElementById('session-filter')?.value || '';
         const userFilter = document.getElementById('user-filter')?.value || '';
+        const sort = document.getElementById('sort-filter')?.value || 'newest';
 
         let filtered = allHighlights;
         if (sessionFilter) filtered = filtered.filter(h => (h.session || 'unknown') === sessionFilter);
@@ -224,6 +230,10 @@
                 (h.message || '').toLowerCase().includes(query)
             );
         }
+        filtered = [...filtered].sort((a, b) => {
+            if (sort === 'user') return (a.user || '').localeCompare(b.user || '', undefined, { sensitivity: 'base' }) || b.ts - a.ts;
+            return sort === 'oldest' ? a.ts - b.ts : b.ts - a.ts;
+        });
 
         if (filtered.length === 0) {
             container.innerHTML = '<div class="empty">No highlights match your filters.</div>';
