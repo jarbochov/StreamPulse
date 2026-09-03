@@ -2223,10 +2223,11 @@ function normalizeChatSearchFilters(input = {}) {
 }
 
 function chatMessageHasLink(message) {
+    const htmlLinks = String(message.messageHtml || '').match(/href=["']https?:\/\/[^"']+/i);
     return !!(
         (message.urls && message.urls.length > 0) ||
         /https?:\/\//.test(message.message || '') ||
-        /https?:\/\//.test(message.messageHtml || '')
+        htmlLinks
     );
 }
 
