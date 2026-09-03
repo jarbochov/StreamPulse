@@ -3735,6 +3735,44 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    const timelineMatch = pathname.match(/^\/api\/sessions\/(.+\.json)\/timeline$/);
+    if (timelineMatch && req.method === 'GET') {
+        const sessionName = timelineMatch[1];
+        const isCurrent = sessionName === '__current__.json';
+        const sessionFile = path.join(SESSIONS_DIR, sessionName);
+        if (!isCurrent && (!sessionFile.startsWith(SESSIONS_DIR) || !fs.existsSync(sessionFile))) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Session not found' }));
+            return;
+        }
+        try {
+            const data = isCurrent ? chatData : JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+            const logName = sessionName.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
+            const events = (isCurrent ? chatLog : readChatLogFile(path.join(SESSIONS_DIR, logName)))
+                .filter(entry => entry.event || entry.donation || entry.membership)
+                .map(entry => ({
+                    ts: entry.ts,
+                    type: entry.event || (entry.donation ? 'donation' : 'membership'),
+                    user: entry.user,
+                    message: entry.message,
+                    detail: entry.donation || entry.membership || null
+                }));
+            for (const info of data.streamInfo || []) {
+                events.push({ ts: new Date(info.changedAt).getTime(), type: 'stream-info', message: info.title, detail: info.category || null });
+            }
+            for (const sample of data.viewerStats?.samples || []) {
+                events.push({ ts: new Date(sample.ts).getTime(), type: 'viewers', message: `${sample.count} viewers`, detail: sample.source || null });
+            }
+            events.sort((a, b) => a.ts - b.ts);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ session: sessionName, events }));
+        } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
     // Serve individual session files
     const sessionMatch = pathname.match(/^\/api\/sessions\/(.+\.json)$/);
     if (sessionMatch) {

@@ -71,6 +71,18 @@
         .entry img { width: 22px; height: 22px; border-radius: 50%; }
         .entry .name { flex: 1; }
         .entry .count { color: #8b949e; }
+        .viewer-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem; margin-bottom: 1rem; }
+        .viewer-card { background: #0d1117; border-radius: 6px; padding: 0.7rem; text-align: center; }
+        .viewer-card .value { color: #58a6ff; font-size: 1.25rem; font-weight: 700; }
+        .viewer-card .label { color: #8b949e; font-size: 0.7rem; margin-top: 0.2rem; }
+        .timeline-entry { display: grid; grid-template-columns: 5.5rem 7rem 1fr; gap: 0.6rem; padding: 0.45rem 0; border-bottom: 1px solid #21262d; font-size: 0.82rem; }
+        .timeline-time, .timeline-type { color: #8b949e; }
+        .timeline-type { color: #58a6ff; }
+        @media (max-width: 640px) {
+            .viewer-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .timeline-entry { grid-template-columns: 4.5rem 1fr; }
+            .timeline-entry > :last-child { grid-column: 2; }
+        }
 
         .empty { color: #484f58; text-align: center; padding: 2rem; font-size: 0.9rem; }
 
@@ -380,6 +392,8 @@
             { id: 'donations', label: 'Donations' },
             { id: 'cheerers', label: 'Cheerers' },
             { id: 'raids', label: 'Raids' }
+            ,{ id: 'viewers', label: 'Viewers' }
+            ,{ id: 'timeline', label: 'Timeline' }
         ];
 
         // Chat Log and Highlights are action buttons, not stat tabs
@@ -430,6 +444,27 @@
                 <span class="count">${c.messageCount || 0} msgs</span>
             </div>`).join('')
             : '<div class="empty">No chatters</div>';
+
+        const viewerStats = data.viewerStats || {};
+        const samples = Array.isArray(viewerStats.samples) ? viewerStats.samples : [];
+        document.getElementById('pane-viewers').innerHTML = `
+            <div class="viewer-summary">
+                <div class="viewer-card"><div class="value">${viewerStats.current || 0}</div><div class="label">Last Sample</div></div>
+                <div class="viewer-card"><div class="value">${viewerStats.peak || 0}</div><div class="label">Peak</div></div>
+                <div class="viewer-card"><div class="value">${viewerStats.average || 0}</div><div class="label">Average</div></div>
+                <div class="viewer-card"><div class="value">${samples.length}</div><div class="label">Samples</div></div>
+            </div>
+            <div class="chat-log-info">Source: ${escapeHtml(viewerStats.source || 'Unavailable')} ${viewerStats.streamStartedAt ? `• Started ${new Date(viewerStats.streamStartedAt).toLocaleString()}` : ''}</div>
+            ${samples.length ? samples.slice().reverse().map(s => `<div class="entry"><span class="name">${new Date(s.ts).toLocaleTimeString()}</span><span class="count">${s.count} viewers · ${escapeHtml(s.source || 'unknown')}</span></div>`).join('') : '<div class="empty">No viewer samples recorded</div>'}
+        `;
+        document.getElementById('pane-timeline').innerHTML = '<div class="chat-log-loading">Loading timeline...</div>';
+        const timelineFile = isLive ? '__current__.json' : filename;
+        fetch(`/api/sessions/${encodeURIComponent(timelineFile)}/timeline`).then(r => r.json()).then(timeline => {
+            const events = timeline.events || [];
+            document.getElementById('pane-timeline').innerHTML = events.length
+                ? events.map(event => `<div class="timeline-entry"><span class="timeline-time">${new Date(event.ts).toLocaleTimeString()}</span><span class="timeline-type">${escapeHtml(event.type)}</span><span>${escapeHtml([event.user, event.message, event.detail].filter(Boolean).join(' — '))}</span></div>`).join('')
+                : '<div class="empty">No timeline events</div>';
+        }).catch(() => { document.getElementById('pane-timeline').innerHTML = '<div class="empty">Timeline unavailable</div>'; });
 
         // Emotes
         const emoteEntries = Object.entries(data.emotes || {}).sort((a, b) => (b[1].count || 0) - (a[1].count || 0));
