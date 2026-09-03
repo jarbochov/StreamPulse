@@ -210,6 +210,34 @@ h3 {
     flex-basis: 33.333%;
 }
 
+.highlight-list {
+    width: min(85%, 1100px);
+    margin: 0 auto;
+}
+
+.highlight-quote {
+    margin: 0 auto 28px;
+    padding: 22px 30px 18px;
+    border-left: 8px solid var(--accent-color);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--background-color) 55%, transparent);
+    text-align: left;
+}
+
+.highlight-message {
+    font-size: calc(4vw * var(--font-scale));
+    line-height: 125%;
+    overflow-wrap: anywhere;
+}
+
+.highlight-attribution {
+    margin-top: 14px;
+    color: var(--accent-color);
+    font-size: calc(2.5vw * var(--font-scale));
+    line-height: 120%;
+    text-align: right;
+}
+
 .custom-section-body {
     max-width: 75%;
     margin: 0 auto 30px auto;

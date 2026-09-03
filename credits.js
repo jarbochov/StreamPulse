@@ -309,6 +309,16 @@ function renderCredits() {
         return `<div class="section ${className}">${sectionHeader(title, subtitle)}<div class="people-list ${cols}">${items.map(item => `<div class="person">${escapeHtml(item)}</div>`).join('')}</div></div>`;
     }
 
+    function renderHighlightsBlock(title, subtitle, items) {
+        if (!items || items.length === 0) return '';
+        return `<div class="section highlights">${sectionHeader(title, subtitle)}<div class="highlight-list">${items.map(item => `
+            <blockquote class="highlight-quote">
+                <div class="highlight-message">${escapeHtml(item.message)}</div>
+                <div class="highlight-attribution">- ${escapeHtml(item.user)}</div>
+            </blockquote>
+        `).join('')}</div></div>`;
+    }
+
     function normalizeCustomSections(sections) {
         if (!Array.isArray(sections)) return [];
         return sections.map((section, index) => ({
@@ -503,17 +513,18 @@ function renderCredits() {
             }
         }
         if (sectionId === 'highlights' && section.enabled !== false) {
-            if (section.source === 'none') return '';
+            const source = section.source || (Array.isArray(section.selected) && section.selected.length > 0 ? 'manual' : 'none');
+            if (source === 'none') return '';
             const selected = new Set(Array.isArray(section.selected) ? section.selected.map(String) : []);
             const sessionName = liveData.sessionStartedAt
                 ? `chat-${new Date(liveData.sessionStartedAt).getFullYear()}-${String(new Date(liveData.sessionStartedAt).getMonth() + 1).padStart(2, '0')}-${String(new Date(liveData.sessionStartedAt).getDate()).padStart(2, '0')}T${String(new Date(liveData.sessionStartedAt).getHours()).padStart(2, '0')}-${String(new Date(liveData.sessionStartedAt).getMinutes()).padStart(2, '0')}.json`
                 : '';
             const items = highlightsData
-                .filter(highlight => section.source === 'current_session'
+                .filter(highlight => source === 'current_session'
                     ? highlight.session === sessionName
                     : selected.has(`${highlight.ts}:${highlight.user}`))
-                .map(highlight => `${highlight.user}: ${highlight.message || ''}`);
-            return renderNamedSectionBlock(title, subtitle, items, 'highlights', 1);
+                .map(highlight => ({ user: highlight.user || 'Unknown', message: highlight.message || '' }));
+            return renderHighlightsBlock(title, subtitle, items);
         }
         return '';
     }
