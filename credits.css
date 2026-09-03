@@ -217,10 +217,7 @@ h3 {
 
 .highlight-quote {
     margin: 0 auto 28px;
-    padding: 22px 30px 18px;
-    border-left: 8px solid var(--accent-color);
-    border-radius: 4px;
-    background: color-mix(in srgb, var(--background-color) 55%, transparent);
+    padding: 22px 0 18px;
     text-align: left;
 }
 
