@@ -77,6 +77,8 @@ Add **Browser Sources** in OBS with these URLs:
 - Credits: `http://localhost:3000/credits.html`
 - Stats: `http://localhost:3000/stats.html`
 - Hashtags: `http://localhost:3000/hashtags.html`
+- Goal: `http://localhost:3000/goal.html?goal=follower-goal`
+- Goals Cycle: `http://localhost:3000/goal.html?mode=cycle`
 - Music: `http://localhost:3000/music.html`
 - Countdown: `http://localhost:3000/countdown.html?timer=starting-soon`
 - Stopwatch: `http://localhost:3000/stopwatch.html?timer=run-clock`
@@ -85,6 +87,7 @@ Add **Browser Sources** in OBS with these URLs:
 - Dashboard: `http://localhost:3000/dashboard.html`
 - Sessions: `http://localhost:3000/sessions.html`
 - Highlights: `http://localhost:3000/highlights.html`
+- Goals: `http://localhost:3000/goals-editor.html`
 - Config: `http://localhost:3000/config-editor.html`
 - Music Editor: `http://localhost:3000/music-editor.html`
 - Timer Manager: `http://localhost:3000/timers-editor.html`
@@ -127,6 +130,7 @@ A Twitch app provides subscriber, follower, and bits data via the Twitch API.
 - **Credits Roll** — Cinematic scrolling credits with subscribers, followers, chatters, emotes, hashtags, raids, gift subs, cheerers, and optional fade-style text sections for custom sections, Special Thanks, or the closing message
 - **Music Overlay** — "Now Playing" overlay for Apple Music, Spotify, and VLC with album art, marquee titles, and multiple display modes
 - **Named Timers** — Shared countdown and stopwatch overlays with duration or target-date countdown modes, pause/resume controls, quick add/subtract time adjustments, persistent state, and Companion-friendly field endpoints
+- **Goals + Viewer Tracking** — Live viewer sampling plus configurable follower, subscriber, gift sub, bits, donation, viewer, and combined community goals with single-goal and rotating cycle overlays
 - **Live Stats Overlay** — Persistent top chatters, emotes, and hashtags across sessions
 - **Session History** — Browse archived sessions with full chat logs, searchable with boolean operators (`AND`, `OR`, `"exact phrase"`, `user:name`)
 - **Highlights** — Pin notable chat messages and export them per session
@@ -219,6 +223,21 @@ All other settings can be edited live via the [Config Editor](http://localhost:3
 | `music.enabled` | boolean | `false` | Enable music "Now Playing" overlay |
 | `music.source` | string | `apple_music` | Music source: `apple_music`, `spotify`, or `vlc` |
 | `music.poll_seconds` | number | `5` | How often to check for track changes |
+| `viewer_tracking.enabled` | boolean | `true` | Enable current viewer polling and session sampling |
+| `viewer_tracking.poll_seconds` | number | `60` | How often to sample current viewers |
+| `viewer_tracking.retain_samples` | number | `720` | Max session viewer samples to keep |
+
+### Goals Configuration
+
+Goals are managed from **Goals Manager** (`/goals-editor.html`) and stored in `config.json` under `viewer_tracking` and `goals`.
+
+- **Viewer tracking** samples current viewers into the current session and archives those samples with the session for peak/average metrics.
+- With `source: "best_available"`, recent viewer-count packets received from SocialStream Ninja are used first; Twitch polling is used when SSN has not supplied a recent count. Set `source: "twitch"` to force Twitch polling.
+- **Goal targets are manual**, but progress is computed automatically from live session data, Twitch snapshots, and viewer samples.
+- **Persistent goals** count upward from a saved baseline until you manually reset them.
+- **Session goals** use the current stream/session totals.
+- **Viewer goals** support either **current viewers** or **peak viewers**.
+- **Community goals** use weighted points across follows, subs, gift subs, bits, and donations.
 
 ### Credits Configuration
 
@@ -260,7 +279,19 @@ Optional webhook notifications for stream events:
 | `days` | config value | Override days_filter from config |
 | `preview` | `false` | Show all credits without scrolling |
 
-> **🎵 Syncing credits with music:** Set `?duration=` to match your end-of-stream track length so the full credits sequence before socials lines up with the song. For example, `?duration=75` for a 1:15 track. Fade sections count toward that total, and their per-section fade durations reduce the time left for scrolling sections. Use a Companion/StreamDeck button to trigger both the OBS credits source and music simultaneously for a clean outro.
+> **🎵 Syncing credits with music:** Set `?duration=` to match your base end-of-stream credits sequence before socials. For example, `?duration=75` for a 1:15 base roll. Fade sections stay inside that base duration by default, and any non-zero per-section fade duration adds extra time on top. Use a Companion/StreamDeck button to trigger both the OBS credits source and music simultaneously for a clean outro.
+
+### goal.html
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `goal` | first enabled | Goal ID for single-goal mode |
+| `mode` | `single` | Use `cycle` to rotate through enabled goals |
+| `ids` | all enabled | Comma-separated subset of goal IDs for cycle mode |
+| `interval` | config value | Cycle interval override in seconds |
+| `skipcompleted` | config value | Override whether completed goals are skipped in cycle mode |
+| `pausecomplete` | config value | Override the extra hold time for completed goals in cycle mode |
+| `fontscale` | config theme | Override goal overlay font scale |
 
 ### stats.html
 
@@ -279,6 +310,11 @@ Optional webhook notifications for stream events:
 | `GET /api/status` | Server health, SSN connection, data counts |
 | `GET /api/config` | Current config |
 | `PUT /api/config` | Update config (hot-reload) |
+| `GET /api/viewers` | Current/peak/average viewer summary + samples |
+| `GET /api/goals` | Computed goal snapshot with live progress |
+| `GET/PUT /api/goals/config` | Goal and viewer-tracking settings |
+| `POST /api/goals/:id/reset` | Reset a persistent goal baseline to current values |
+| `POST /api/goals/:id/toggle` | Toggle a goal enabled/disabled |
 | `GET /api/fetch` | Trigger Twitch API refresh |
 | `GET /api/reset` | Clear session chat data |
 | `GET /api/end-session` | Archive session + reset |
@@ -317,6 +353,7 @@ Use the **Generic HTTP** module:
 | File | Lifecycle | Contains |
 | --- | --- | --- |
 | `data/chat.json` | Cleared on startup (archived) | Session chatters, subs, emotes, hashtags |
+| `data/chat.json.viewerStats` | Cleared on startup (archived) | Session viewer samples plus current/peak/average viewer data |
 | `data/stats.json` | Persists across restarts | Cumulative stats with daily buckets |
 | `data/sessions/` | Persists | Archived session data + JSONL chat logs |
 | `data/highlights.json` | Persists | Pinned chat messages |
@@ -338,9 +375,11 @@ streampulse/
 ├── credits.html/css/js    # Credits overlay (OBS browser source)
 ├── stats.html             # Stats overlay (OBS browser source)
 ├── hashtags.html          # Hashtag overlay (OBS browser source)
+├── goal.html              # Goal overlay (single or rotating cycle)
 ├── music.html             # Music "Now Playing" overlay (OBS browser source)
 ├── countdown.html         # Countdown overlay (OBS browser source)
 ├── stopwatch.html         # Stopwatch overlay (OBS browser source)
+├── goals-editor.html      # Goals manager + viewer tracking settings
 ├── music-editor.html      # Music overlay customization
 ├── music-url-wizard.html  # Music URL builder
 ├── timers-editor.html     # Named timer manager

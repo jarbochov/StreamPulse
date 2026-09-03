@@ -223,7 +223,7 @@
                 {
                     method: 'GET', path: '/api/chat',
                     desc: 'Live chat data (current session)',
-                    details: 'Returns the current session chat data object with chatters, messages, events, emotes, hashtags, subscribers, followers, donations, bits, raids, giftSubs, and session metadata. Used by the live Current Session view.'
+                    details: 'Returns the current session chat data object with chatters, messages, events, emotes, hashtags, subscribers, followers, donations, bits, raids, giftSubs, viewerStats, and session metadata. Used by the live Current Session view.'
                 },
                 {
                     method: 'GET', path: '/api/chat-log',
@@ -252,6 +252,42 @@
                     method: 'GET', path: '/api/chat-log/export',
                     desc: 'Export chat log as TSV, TXT, or PDF',
                     details: 'Query params: format ("tsv", "txt", or "pdf"), q, user, session ("all", "current", or specific filename), and type ("links", "events", or "donations"). Export filtering uses the same quoted phrase, AND/OR, and user:name matching rules as /api/chat-log/search. Example: /api/chat-log/export?format=pdf&session=chat-2026-03-23T19-30.json&q="good game"+OR+hype'
+                }
+            ]
+        },
+        {
+            section: 'Viewers & Goals',
+            items: [
+                {
+                    method: 'GET', path: '/api/viewers',
+                    desc: 'Current viewer summary',
+                    details: 'Returns current viewer tracking data for the live session: enabled, live, current, peak, average, source, sampledAt, streamStartedAt, sampleCount, and samples[]. Pass ?samples=false to omit the full samples array.'
+                },
+                {
+                    method: 'GET', path: '/api/goals',
+                    desc: 'Computed goals snapshot',
+                    details: 'Returns the normalized saved goal settings, computed live progress for every goal, summary counts, and the current metrics used to calculate progress. Includes persistent/session metrics and viewer stats.'
+                },
+                {
+                    method: 'GET', path: '/api/goals/config',
+                    desc: 'Goal and viewer settings',
+                    details: 'Returns the editable viewer_tracking and goals config sections exactly as the Goals Manager uses them.'
+                },
+                {
+                    method: 'PUT', path: '/api/goals/config',
+                    desc: 'Save goal and viewer settings',
+                    details: 'Updates viewer_tracking and/or goals in config.json, hot-reloads them, and broadcasts the new computed goal state to overlays.',
+                    body: '{ "viewer_tracking": { "enabled": true, "poll_seconds": 60 }, "goals": { "enabled": true, "rotate_seconds": 8, "items": [...] } }'
+                },
+                {
+                    method: 'POST', path: '/api/goals/{id}/reset',
+                    desc: 'Reset a persistent goal baseline',
+                    details: 'Resets a persistent goal so its baseline becomes the current metric value. Supported for persistent numeric goals and persistent community goals. Viewer goals and session goals do not use baseline reset.'
+                },
+                {
+                    method: 'POST', path: '/api/goals/{id}/toggle',
+                    desc: 'Toggle a goal',
+                    details: 'Toggles a goal enabled/disabled. You can also call /api/goals/{id}/enable or /api/goals/{id}/disable.'
                 }
             ]
         },

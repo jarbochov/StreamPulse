@@ -115,11 +115,23 @@
                 {
                     name: 'credits.html — Credits Overlay',
                     items: [
-                        { param: 'duration', type: 'number', default: '82', desc: 'Total credits duration in seconds before socials appear. Overrides speed parameter.', example: '?duration=120' },
+                        { param: 'duration', type: 'number', default: '82', desc: 'Base credits duration in seconds before socials appear. Overrides speed parameter.', example: '?duration=120' },
                         { param: 'speed', type: 'number', default: '1.0', desc: 'Speed multiplier. Total pre-social credits duration = 82 / speed. Ignored if duration is set.', example: '?speed=0.8' },
                         { param: 'days', type: 'number', default: '30', desc: 'Filter credits data to the last N days.', example: '?days=7' },
                         { param: 'datapath', type: 'string', default: './data', desc: 'Path to data directory. Rarely needed — server handles this.', example: '?datapath=./data' },
                         { param: 'preview', type: 'boolean', default: 'false', desc: 'Show full credits layout without scrolling. Great for testing in OBS.', example: '?preview=true' }
+                    ]
+                },
+                {
+                    name: 'goal.html — Goal Overlay',
+                    items: [
+                        { param: 'goal', type: 'string', default: 'first enabled goal', desc: 'Goal ID for single-goal mode.', example: '?goal=follower-goal' },
+                        { param: 'mode', type: 'string', default: 'single', desc: 'Overlay mode: "single" or "cycle".', example: '?mode=cycle' },
+                        { param: 'ids', type: 'string', default: 'all enabled goals', desc: 'Optional comma-separated subset of goal IDs to show in cycle mode.', example: '?mode=cycle&ids=follower-goal,community-goal' },
+                        { param: 'interval', type: 'number', default: 'saved config', desc: 'Cycle interval override in seconds.', example: '?mode=cycle&interval=6' },
+                        { param: 'skipcompleted', type: 'boolean', default: 'saved config', desc: 'Override whether completed goals are skipped in cycle mode.', example: '?mode=cycle&skipcompleted=false' },
+                        { param: 'pausecomplete', type: 'number', default: 'saved config', desc: 'Extra hold time in seconds for completed goals during cycle mode.', example: '?mode=cycle&pausecomplete=2' },
+                        { param: 'fontscale', type: 'number', default: 'theme font scale', desc: 'Scale overlay font sizing.', example: '?fontscale=1.25' }
                     ]
                 },
                 {
@@ -213,6 +225,25 @@
                         { param: 'subs_source', type: 'string', default: 'twitch', desc: 'Where to get subscriber data: "twitch" (API), "ssn" (live chat), or "both".', hot: true },
                         { param: 'active_subs_only', type: 'boolean', default: 'false', desc: 'If true, only show subscribers who also sent a chat message this session.', hot: true },
                         { param: 'exclude_users', type: 'array', default: '[]', desc: 'Usernames to exclude from all tracking. Case-insensitive. Comma-separated in dashboard.', hot: true }
+                    ]
+                },
+                {
+                    name: 'Viewer Tracking',
+                    items: [
+                        { param: 'viewer_tracking.enabled', type: 'boolean', default: 'true', desc: 'Enable current viewer polling and session viewer samples.', hot: true },
+                        { param: 'viewer_tracking.source', type: 'string', default: '"best_available"', desc: 'Viewer count source preference. Uses recent SocialStream data first, then Twitch as a fallback.', hot: true },
+                        { param: 'viewer_tracking.poll_seconds', type: 'number', default: '60', desc: 'How often to sample current viewers.', hot: true },
+                        { param: 'viewer_tracking.retain_samples', type: 'number', default: '720', desc: 'Maximum viewer samples to keep in the current/archived session data.', hot: true }
+                    ]
+                },
+                {
+                    name: 'Goals',
+                    items: [
+                        { param: 'goals.enabled', type: 'boolean', default: 'true', desc: 'Master toggle for goal overlays and goal cycling.', hot: true },
+                        { param: 'goals.rotate_seconds', type: 'number', default: '8', desc: 'Default cycle interval for rotating goal overlays.', hot: true },
+                        { param: 'goals.skip_completed', type: 'boolean', default: 'true', desc: 'Whether rotating overlays skip goals that are already complete.', hot: true },
+                        { param: 'goals.pause_completed_seconds', type: 'number', default: '0', desc: 'Extra hold time for completed goals during cycle mode.', hot: true },
+                        { param: 'goals.items', type: 'array', default: '[]', desc: 'Goal definitions managed by Goals Manager. Supports followers, subscribers, gift_subs, bits, donations, viewers, and community goals with persistent/session tracking and viewer mode options.', hot: true }
                     ]
                 },
                 {
@@ -334,7 +365,7 @@
                                     </td>
                                     <td style="color:#8b949e;">${item.type}</td>
                                     <td><code>${item.default}</code></td>
-                                    <td>${item.desc}${item.example ? `<div class="url-box" style="margin-top:0.3rem;"><code>${BASE}${item.example.replace('?', group.name.includes('credits.html') ? '/credits.html?' : group.name.includes('stats.html') ? '/stats.html?' : group.name.includes('hashtags.html') ? '/hashtags.html?' : group.name.includes('export') ? '/api/export?' : '?')}</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}${item.example.replace('?', group.name.includes('credits.html') ? '/credits.html?' : group.name.includes('stats.html') ? '/stats.html?' : group.name.includes('hashtags.html') ? '/hashtags.html?' : group.name.includes('export') ? '/api/export?' : '?')}')">Copy</button></div>` : ''}</td>
+                                    <td>${item.desc}${item.example ? `<div class="url-box" style="margin-top:0.3rem;"><code>${BASE}${item.example.replace('?', examplePathPrefix(group.name))}</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}${item.example.replace('?', examplePathPrefix(group.name))}')">Copy</button></div>` : ''}</td>
                                 </tr>
                             `).join('')}
                         </table>
@@ -344,6 +375,15 @@
         }
 
         container.innerHTML = html;
+    }
+
+    function examplePathPrefix(groupName) {
+        if (groupName.includes('credits.html')) return '/credits.html?';
+        if (groupName.includes('goal.html')) return '/goal.html?';
+        if (groupName.includes('stats.html')) return '/stats.html?';
+        if (groupName.includes('hashtags.html')) return '/hashtags.html?';
+        if (groupName.includes('export')) return '/api/export?';
+        return '?';
     }
 
     function renderCustomSection(id) {
@@ -386,6 +426,24 @@
                         <div class="url-box"><code>${BASE}/stats.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/stats.html')">Copy</button></div>
                         <div class="detail-label">Top 10, last 7 days, refresh every 30s</div>
                         <div class="url-box"><code>${BASE}/stats.html?limit=10&days=7&refresh=30</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/stats.html?limit=10&days=7&refresh=30')">Copy</button></div>
+                    </div>
+                </div>
+                <div class="card open">
+                    <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                        <strong style="font-size:0.9rem;">Goal Overlay</strong>
+                        <span class="chevron">▶</span>
+                    </div>
+                    <div class="card-body">
+                        <ul class="checklist">
+                            <li>Add another <strong>Browser</strong> source</li>
+                            <li>Use <code>/goals-editor.html</code> to create enabled goals first</li>
+                            <li>Single-goal mode locks the overlay to one saved goal</li>
+                            <li>Cycle mode rotates through enabled goals using the saved interval and completion rules</li>
+                        </ul>
+                        <div class="detail-label">Single Goal</div>
+                        <div class="url-box"><code>${BASE}/goal.html?goal=follower-goal</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/goal.html?goal=follower-goal')">Copy</button></div>
+                        <div class="detail-label">Cycle Mode</div>
+                        <div class="url-box"><code>${BASE}/goal.html?mode=cycle</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/goal.html?mode=cycle')">Copy</button></div>
                     </div>
                 </div>
                 <div class="card open">

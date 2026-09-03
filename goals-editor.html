@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Goals</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .container { max-width: 1320px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 340px 1fr; gap: 1.25rem; }
+        .stack { display: flex; flex-direction: column; gap: 1rem; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.1rem 1.2rem; }
+        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.9rem; }
+        .card h3 { font-size: 0.78rem; color: #58a6ff; margin: 1rem 0 0.55rem; padding-top: 0.65rem; border-top: 1px solid #21262d; }
+        .cfg-row { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.65rem; flex-wrap: wrap; }
+        .cfg-row label { min-width: 130px; font-size: 0.82rem; color: #8b949e; }
+        .cfg-row input, .cfg-row select, .cfg-row textarea { flex: 1; padding: 0.48rem 0.65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.82rem; font-family: inherit; }
+        .cfg-row input[type="checkbox"] { flex: none; width: auto; accent-color: #58a6ff; }
+        .cfg-toggle { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.65rem; color: #c9d1d9; font-size: 0.82rem; }
+        .cfg-toggle input[type="checkbox"] { accent-color: #58a6ff; }
+        .actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+        .btn { border: 1px solid #30363d; background: #21262d; color: #e1e4e8; border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.82rem; cursor: pointer; text-decoration: none; text-align: center; }
+        .btn:hover { border-color: #58a6ff; }
+        .btn.primary { background: #238636; border-color: #238636; }
+        .btn.danger { background: #5a1e23; border-color: #5a1e23; }
+        .btn.warn { background: #4a2f05; border-color: #4a2f05; }
+        .status { color: #8b949e; font-size: 0.8rem; margin-top: 0.75rem; min-height: 1.2em; }
+        .hint { color: #8b949e; font-size: 0.78rem; line-height: 1.45; }
+        .goal-list { display: flex; flex-direction: column; gap: 0.55rem; }
+        .goal-item { border: 1px solid #30363d; border-radius: 8px; padding: 0.7rem 0.8rem; background: #0d1117; cursor: pointer; }
+        .goal-item.active { border-color: #58a6ff; background: #111827; }
+        .goal-item .meta { color: #8b949e; font-size: 0.76rem; margin-top: 0.25rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .pill { display: inline-flex; padding: 0.16rem 0.45rem; border-radius: 999px; font-size: 0.68rem; border: 1px solid #30363d; }
+        .pill.complete { color: #3fb950; background: #10261a; }
+        .pill.session { color: #d29922; background: #33210f; }
+        .pill.persistent { color: #58a6ff; background: #1a2332; }
+        .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; }
+        .stat { text-align: center; padding: 0.75rem; background: #0d1117; border-radius: 6px; }
+        .stat .value { font-size: 1.45rem; font-weight: 700; color: #58a6ff; }
+        .stat .label { font-size: 0.74rem; color: #8b949e; margin-top: 0.25rem; }
+        .url-box { display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0.65rem; border: 1px solid #30363d; border-radius: 6px; background: #0d1117; overflow: hidden; }
+        .url-box code { flex: 1; font-size: 0.76rem; color: #c9d1d9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .inline-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; }
+        .empty { color: #8b949e; font-size: 0.82rem; padding: 0.8rem 0; }
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
+        .toast.show { opacity: 1; }
+        @media (max-width: 980px) {
+            .container { grid-template-columns: 1fr; padding: 1rem; }
+            .split, .metric-grid, .inline-grid { grid-template-columns: 1fr; }
+            .header { flex-direction: column; gap: 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>StreamPulse <span>Goals</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <div class="container">
+        <div class="stack">
+            <div class="card">
+                <h2>Viewer Tracking</h2>
+                <div class="cfg-toggle">
+                    <input type="checkbox" id="viewer-enabled">
+                    <label for="viewer-enabled">Enable viewer tracking</label>
+                </div>
+                <div class="cfg-row">
+                    <label>Source</label>
+                    <select id="viewer-source">
+                        <option value="best_available">Best available</option>
+                        <option value="twitch">Twitch only</option>
+                    </select>
+                </div>
+                <div class="cfg-row">
+                    <label>Poll Seconds</label>
+                    <input type="number" id="viewer-poll-seconds" min="15" max="3600">
+                </div>
+                <div class="cfg-row">
+                    <label>Keep Samples</label>
+                    <input type="number" id="viewer-retain-samples" min="60" max="5000">
+                </div>
+                <div class="hint">Viewer samples are stored with the current session and archived with it, so peak and average viewer metrics can feed the dashboard and goal overlays.</div>
+            </div>
+
+            <div class="card">
+                <h2>Goals</h2>
+                <div class="cfg-toggle">
+                    <input type="checkbox" id="goals-enabled">
+                    <label for="goals-enabled">Enable goal overlays</label>
+                </div>
+                <div class="cfg-row">
+                    <label>Cycle Seconds</label>
+                    <input type="number" id="goals-rotate-seconds" min="3" max="60">
+                </div>
+                <div class="cfg-toggle">
+                    <input type="checkbox" id="goals-skip-completed">
+                    <label for="goals-skip-completed">Skip completed goals in cycle mode</label>
+                </div>
+                <div class="cfg-row">
+                    <label>Pause on Complete</label>
+                    <input type="number" id="goals-pause-completed" min="0" max="30">
+                </div>
+                <div class="actions" style="margin-bottom:0.8rem;">
+                    <button class="btn primary" onclick="addGoal()">New Goal</button>
+                    <button class="btn" onclick="refreshSnapshot()">Refresh Live Data</button>
+                </div>
+                <div id="goal-list" class="goal-list"></div>
+                <div id="goal-list-status" class="status"></div>
+            </div>
+        </div>
+
+        <div class="stack">
+            <div class="card">
+                <h2>Goal Definition</h2>
+                <div id="goal-editor-empty" class="empty">Create or select a goal to edit it.</div>
+                <div id="goal-editor-fields" style="display:none;">
+                    <div class="cfg-row">
+                        <label>Goal ID</label>
+                        <input type="text" id="goal-id" placeholder="follower-goal">
+                    </div>
+                    <div class="cfg-row">
+                        <label>Title</label>
+                        <input type="text" id="goal-title" placeholder="Follower Goal">
+                    </div>
+                    <div class="cfg-row">
+                        <label>Type</label>
+                        <select id="goal-type" onchange="handleGoalTypeChange()">
+                            <option value="followers">Followers</option>
+                            <option value="subscribers">Subscribers</option>
+                            <option value="gift_subs">Gift Subs</option>
+                            <option value="bits">Bits</option>
+                            <option value="donations">Donations</option>
+                            <option value="viewers">Viewers</option>
+                            <option value="community">Community Goal</option>
+                        </select>
+                    </div>
+                    <div class="cfg-row">
+                        <label>Enabled</label>
+                        <input type="checkbox" id="goal-enabled">
+                    </div>
+                    <div class="cfg-row">
+                        <label>Target</label>
+                        <input type="number" id="goal-target" min="1" step="0.01">
+                    </div>
+                    <div class="cfg-row" id="goal-tracking-row">
+                        <label>Tracking</label>
+                        <select id="goal-tracking" onchange="handleGoalTypeChange()">
+                            <option value="persistent">Persistent</option>
+                            <option value="session">Session</option>
+                        </select>
+                    </div>
+                    <div class="cfg-row" id="goal-viewer-mode-row" style="display:none;">
+                        <label>Viewer Metric</label>
+                        <select id="goal-viewer-mode">
+                            <option value="current">Current Viewers</option>
+                            <option value="peak">Peak Viewers</option>
+                        </select>
+                    </div>
+
+                    <div id="goal-baseline-block">
+                        <h3>Baseline</h3>
+                        <div class="cfg-row">
+                            <label>Current Baseline</label>
+                            <input type="text" id="goal-baseline-display" readonly>
+                        </div>
+                        <div class="actions">
+                            <button class="btn warn" id="goal-reset-baseline-btn" onclick="resetSelectedGoal()">Reset Baseline to Current</button>
+                        </div>
+                        <div class="hint" id="goal-baseline-hint" style="margin-top:0.6rem;">Persistent goals count progress from the current value at the moment you reset their baseline.</div>
+                    </div>
+
+                    <div id="community-weights-block" style="display:none;">
+                        <h3>Community Points</h3>
+                        <div class="inline-grid">
+                            <input type="number" id="weight-followers" min="0" step="0.01" placeholder="Followers">
+                            <input type="number" id="weight-subscribers" min="0" step="0.01" placeholder="Subscribers">
+                            <input type="number" id="weight-gift-subs" min="0" step="0.01" placeholder="Gift Subs">
+                            <input type="number" id="weight-bits" min="0" step="0.01" placeholder="Bits / 100">
+                            <input type="number" id="weight-donations" min="0" step="0.01" placeholder="Donations">
+                        </div>
+                        <div class="hint" style="margin-top:0.6rem;">Community goal points are weighted sums. Bits are scored per 100 bits. Donation values use the numeric amount parsed from donation strings.</div>
+                    </div>
+
+                    <div class="actions" style="margin-top:1rem;">
+                        <button class="btn primary" onclick="saveGoals()">Save Goals</button>
+                        <button class="btn danger" onclick="deleteSelectedGoal()">Delete Goal</button>
+                    </div>
+                    <div id="goal-editor-status" class="status"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Live Metrics</h2>
+                <div class="metric-grid">
+                    <div class="stat"><div class="value" id="metric-current-viewers">0</div><div class="label">Current Viewers</div></div>
+                    <div class="stat"><div class="value" id="metric-peak-viewers">0</div><div class="label">Peak Viewers</div></div>
+                    <div class="stat"><div class="value" id="metric-average-viewers">0</div><div class="label">Average Viewers</div></div>
+                    <div class="stat"><div class="value" id="metric-followers">0</div><div class="label">Followers</div></div>
+                    <div class="stat"><div class="value" id="metric-subscribers">0</div><div class="label">Subscribers</div></div>
+                    <div class="stat"><div class="value" id="metric-gift-subs">0</div><div class="label">Gift Subs</div></div>
+                    <div class="stat"><div class="value" id="metric-bits">0</div><div class="label">Bits</div></div>
+                    <div class="stat"><div class="value" id="metric-donations">0</div><div class="label">Donations</div></div>
+                    <div class="stat"><div class="value" id="metric-community">0</div><div class="label">Community Points</div></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Overlay URLs</h2>
+                <div class="url-box">
+                    <code id="single-goal-url">/goal.html?goal=your-goal-id</code>
+                    <button class="btn" onclick="copyText(document.getElementById('single-goal-url').textContent)">Copy</button>
+                    <a class="btn" id="single-goal-open" href="/goal.html" target="_blank">Open</a>
+                </div>
+                <div class="url-box" style="margin-top:0.6rem;">
+                    <code id="cycle-goal-url">/goal.html?mode=cycle</code>
+                    <button class="btn" onclick="copyText(document.getElementById('cycle-goal-url').textContent)">Copy</button>
+                    <a class="btn" id="cycle-goal-open" href="/goal.html?mode=cycle" target="_blank">Open</a>
+                </div>
+                <div class="hint" style="margin-top:0.75rem;">Cycle mode uses the saved editor settings by default. URL parameters can override behavior with <code>interval=</code>, <code>skipcompleted=true|false</code>, <code>pausecomplete=</code>, or <code>ids=goal-a,goal-b</code>.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    const GOAL_LABELS = {
+        followers: 'Followers',
+        subscribers: 'Subscribers',
+        gift_subs: 'Gift Subs',
+        bits: 'Bits',
+        donations: 'Donations',
+        viewers: 'Viewers',
+        community: 'Community Goal'
+    };
+
+    const DEFAULT_COMMUNITY_WEIGHTS = {
+        followers: 1,
+        subscribers: 5,
+        gift_subs: 5,
+        bits_per_100: 1,
+        donations: 1
+    };
+
+    let settingsState = null;
+    let goalsSnapshot = null;
+    let selectedGoalId = null;
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function sanitizeId(value) {
+        return String(value || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 60);
+    }
+
+    function defaultGoal(type = 'followers') {
+        const timestamp = Date.now().toString(36);
+        return {
+            id: `${type}-goal-${timestamp}`,
+            enabled: true,
+            title: `${GOAL_LABELS[type] || 'Goal'} Goal`,
+            type,
+            target: 100,
+            tracking: type === 'viewers' ? 'session' : 'persistent',
+            viewer_mode: 'current',
+            baseline: 0,
+            baseline_metrics: { followers: 0, subscribers: 0, gift_subs: 0, bits: 0, donations: 0 },
+            weights: { ...DEFAULT_COMMUNITY_WEIGHTS }
+        };
+    }
+
+    function formatNumber(value) {
+        const num = Number(value) || 0;
+        return Number.isInteger(num) ? num.toLocaleString() : num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+
+    async function loadPage() {
+        const [cfgRes, goalsRes] = await Promise.all([
+            fetch('/api/goals/config'),
+            fetch('/api/goals')
+        ]);
+        settingsState = await cfgRes.json();
+        goalsSnapshot = await goalsRes.json();
+        if (!Array.isArray(settingsState.goals?.items)) settingsState.goals.items = [];
+        if (!selectedGoalId || !settingsState.goals.items.some(item => item.id === selectedGoalId)) {
+            selectedGoalId = settingsState.goals.items[0]?.id || null;
+        }
+        renderAll();
+        connectWebSocket();
+    }
+
+    function connectWebSocket() {
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${location.host}`);
+        ws.onmessage = (event) => {
+            let msg;
+            try { msg = JSON.parse(event.data); } catch { return; }
+            if (msg.type === 'goals-update') {
+                goalsSnapshot = msg.data || goalsSnapshot;
+                renderMetrics();
+                renderGoalList();
+                renderSelectedGoalMeta();
+            } else if (msg.type === 'viewer-update') {
+                if (goalsSnapshot?.metrics?.viewers) goalsSnapshot.metrics.viewers = msg.data;
+                renderMetrics();
+            }
+        };
+        ws.onclose = () => setTimeout(connectWebSocket, 5000);
+    }
+
+    function syncSelectedGoalFromDom() {
+        if (!settingsState?.goals?.items?.length || !selectedGoalId) return;
+        const index = settingsState.goals.items.findIndex(item => item.id === selectedGoalId);
+        if (index === -1) return;
+        const goal = settingsState.goals.items[index];
+        goal.id = sanitizeId(document.getElementById('goal-id').value) || goal.id;
+        goal.title = document.getElementById('goal-title').value.trim() || goal.title;
+        goal.type = document.getElementById('goal-type').value;
+        goal.enabled = document.getElementById('goal-enabled').checked;
+        goal.target = Math.max(1, Number(document.getElementById('goal-target').value) || 1);
+        goal.tracking = goal.type === 'viewers' ? 'session' : document.getElementById('goal-tracking').value;
+        goal.viewer_mode = document.getElementById('goal-viewer-mode').value;
+        goal.weights = {
+            followers: Math.max(0, Number(document.getElementById('weight-followers').value) || DEFAULT_COMMUNITY_WEIGHTS.followers),
+            subscribers: Math.max(0, Number(document.getElementById('weight-subscribers').value) || DEFAULT_COMMUNITY_WEIGHTS.subscribers),
+            gift_subs: Math.max(0, Number(document.getElementById('weight-gift-subs').value) || DEFAULT_COMMUNITY_WEIGHTS.gift_subs),
+            bits_per_100: Math.max(0, Number(document.getElementById('weight-bits').value) || DEFAULT_COMMUNITY_WEIGHTS.bits_per_100),
+            donations: Math.max(0, Number(document.getElementById('weight-donations').value) || DEFAULT_COMMUNITY_WEIGHTS.donations)
+        };
+        settingsState.goals.items[index] = goal;
+        selectedGoalId = goal.id;
+    }
+
+    function setSelection(goalId) {
+        syncSelectedGoalFromDom();
+        selectedGoalId = goalId;
+        renderGoalList();
+        renderGoalEditor();
+        updateOverlayLinks();
+    }
+
+    function addGoal() {
+        syncSelectedGoalFromDom();
+        const goal = defaultGoal();
+        settingsState.goals.items.push(goal);
+        selectedGoalId = goal.id;
+        renderAll();
+    }
+
+    function deleteSelectedGoal() {
+        if (!selectedGoalId) return;
+        settingsState.goals.items = settingsState.goals.items.filter(item => item.id !== selectedGoalId);
+        selectedGoalId = settingsState.goals.items[0]?.id || null;
+        renderAll();
+    }
+
+    async function resetSelectedGoal() {
+        if (!selectedGoalId) return;
+        const res = await fetch(`/api/goals/${encodeURIComponent(selectedGoalId)}/reset`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) {
+            showToast(data.error || 'Reset failed');
+            return;
+        }
+        await refreshSnapshot();
+        showToast('Goal baseline reset');
+    }
+
+    async function saveGoals() {
+        syncSelectedGoalFromDom();
+        settingsState.viewer_tracking = {
+            enabled: document.getElementById('viewer-enabled').checked,
+            source: document.getElementById('viewer-source').value,
+            poll_seconds: Math.max(15, parseInt(document.getElementById('viewer-poll-seconds').value, 10) || 60),
+            retain_samples: Math.max(60, parseInt(document.getElementById('viewer-retain-samples').value, 10) || 720)
+        };
+        settingsState.goals.enabled = document.getElementById('goals-enabled').checked;
+        settingsState.goals.rotate_seconds = Math.max(3, parseInt(document.getElementById('goals-rotate-seconds').value, 10) || 8);
+        settingsState.goals.skip_completed = document.getElementById('goals-skip-completed').checked;
+        settingsState.goals.pause_completed_seconds = Math.max(0, parseInt(document.getElementById('goals-pause-completed').value, 10) || 0);
+
+        const res = await fetch('/api/goals/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                viewer_tracking: settingsState.viewer_tracking,
+                goals: settingsState.goals
+            })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showToast(data.error || 'Save failed');
+            return;
+        }
+        settingsState = data;
+        await refreshSnapshot();
+        showToast('Goals saved');
+    }
+
+    async function refreshSnapshot() {
+        const res = await fetch('/api/goals');
+        goalsSnapshot = await res.json();
+        renderMetrics();
+        renderGoalList();
+        renderSelectedGoalMeta();
+    }
+
+    function renderAll() {
+        renderSettings();
+        renderMetrics();
+        renderGoalList();
+        renderGoalEditor();
+        updateOverlayLinks();
+    }
+
+    function renderSettings() {
+        const viewer = settingsState.viewer_tracking || {};
+        const goals = settingsState.goals || {};
+        document.getElementById('viewer-enabled').checked = viewer.enabled !== false;
+        document.getElementById('viewer-source').value = viewer.source || 'best_available';
+        document.getElementById('viewer-poll-seconds').value = viewer.poll_seconds || 60;
+        document.getElementById('viewer-retain-samples').value = viewer.retain_samples || 720;
+        document.getElementById('goals-enabled').checked = goals.enabled !== false;
+        document.getElementById('goals-rotate-seconds').value = goals.rotate_seconds || 8;
+        document.getElementById('goals-skip-completed').checked = goals.skip_completed !== false;
+        document.getElementById('goals-pause-completed').value = goals.pause_completed_seconds || 0;
+    }
+
+    function renderMetrics() {
+        const metrics = goalsSnapshot?.metrics || {};
+        const viewers = metrics.viewers || {};
+        const session = metrics.session || {};
+        const firstCommunity = (goalsSnapshot?.items || []).find(item => item.type === 'community') || { weights: DEFAULT_COMMUNITY_WEIGHTS };
+        const communityValue =
+            (session.followers || 0) * (firstCommunity.weights?.followers || DEFAULT_COMMUNITY_WEIGHTS.followers) +
+            (session.subscribers || 0) * (firstCommunity.weights?.subscribers || DEFAULT_COMMUNITY_WEIGHTS.subscribers) +
+            (session.gift_subs || 0) * (firstCommunity.weights?.gift_subs || DEFAULT_COMMUNITY_WEIGHTS.gift_subs) +
+            ((session.bits || 0) / 100) * (firstCommunity.weights?.bits_per_100 || DEFAULT_COMMUNITY_WEIGHTS.bits_per_100) +
+            (session.donations || 0) * (firstCommunity.weights?.donations || DEFAULT_COMMUNITY_WEIGHTS.donations);
+
+        document.getElementById('metric-current-viewers').textContent = formatNumber(viewers.current || 0);
+        document.getElementById('metric-peak-viewers').textContent = formatNumber(viewers.peak || 0);
+        document.getElementById('metric-average-viewers').textContent = formatNumber(viewers.average || 0);
+        document.getElementById('metric-followers').textContent = formatNumber(metrics.persistent?.followers || 0);
+        document.getElementById('metric-subscribers').textContent = formatNumber(metrics.persistent?.subscribers || 0);
+        document.getElementById('metric-gift-subs').textContent = formatNumber(session.gift_subs || 0);
+        document.getElementById('metric-bits').textContent = formatNumber(session.bits || 0);
+        document.getElementById('metric-donations').textContent = formatNumber(session.donations || 0);
+        document.getElementById('metric-community').textContent = formatNumber(communityValue);
+    }
+
+    function renderGoalList() {
+        const list = document.getElementById('goal-list');
+        const items = settingsState.goals.items || [];
+        if (!items.length) {
+            list.innerHTML = '<div class="empty">No goals yet. Create one to get started.</div>';
+            document.getElementById('goal-list-status').textContent = '';
+            return;
+        }
+
+        list.innerHTML = items.map(item => {
+            const state = (goalsSnapshot?.items || []).find(goal => goal.id === item.id);
+            const active = item.id === selectedGoalId ? ' active' : '';
+            const trackingClass = (item.type === 'viewers' ? 'session' : (item.tracking || 'persistent')) === 'session' ? 'session' : 'persistent';
+            const completePill = state?.complete ? '<span class="pill complete">Complete</span>' : '';
+            return `
+                <div class="goal-item${active}" onclick="setSelection('${item.id.replace(/'/g, "\\'")}')">
+                    <div>${escapeHtml(item.title || item.id)}</div>
+                    <div class="meta">
+                        <span class="pill ${trackingClass}">${escapeHtml(item.type === 'viewers' ? 'live' : item.tracking || 'persistent')}</span>
+                        <span>${escapeHtml(GOAL_LABELS[item.type] || 'Goal')}</span>
+                        <span>${state ? `${formatNumber(state.progress)} / ${formatNumber(state.target)}` : `${formatNumber(item.target)} target`}</span>
+                        ${completePill}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const completed = goalsSnapshot?.summary?.completed || 0;
+        const enabled = goalsSnapshot?.summary?.enabled || 0;
+        document.getElementById('goal-list-status').textContent = `${enabled} enabled • ${completed} completed`;
+    }
+
+    function renderGoalEditor() {
+        const goal = settingsState.goals.items.find(item => item.id === selectedGoalId);
+        const empty = document.getElementById('goal-editor-empty');
+        const fields = document.getElementById('goal-editor-fields');
+        if (!goal) {
+            empty.style.display = 'block';
+            fields.style.display = 'none';
+            return;
+        }
+
+        empty.style.display = 'none';
+        fields.style.display = 'block';
+        document.getElementById('goal-id').value = goal.id || '';
+        document.getElementById('goal-title').value = goal.title || '';
+        document.getElementById('goal-type').value = goal.type || 'followers';
+        document.getElementById('goal-enabled').checked = goal.enabled !== false;
+        document.getElementById('goal-target').value = goal.target || 100;
+        document.getElementById('goal-tracking').value = goal.tracking || 'persistent';
+        document.getElementById('goal-viewer-mode').value = goal.viewer_mode || 'current';
+        document.getElementById('weight-followers').value = goal.weights?.followers ?? DEFAULT_COMMUNITY_WEIGHTS.followers;
+        document.getElementById('weight-subscribers').value = goal.weights?.subscribers ?? DEFAULT_COMMUNITY_WEIGHTS.subscribers;
+        document.getElementById('weight-gift-subs').value = goal.weights?.gift_subs ?? DEFAULT_COMMUNITY_WEIGHTS.gift_subs;
+        document.getElementById('weight-bits').value = goal.weights?.bits_per_100 ?? DEFAULT_COMMUNITY_WEIGHTS.bits_per_100;
+        document.getElementById('weight-donations').value = goal.weights?.donations ?? DEFAULT_COMMUNITY_WEIGHTS.donations;
+        renderSelectedGoalMeta();
+        handleGoalTypeChange();
+    }
+
+    function renderSelectedGoalMeta() {
+        const goal = settingsState.goals.items.find(item => item.id === selectedGoalId);
+        const state = (goalsSnapshot?.items || []).find(item => item.id === selectedGoalId);
+        if (!goal) return;
+        if (goal.type === 'community') {
+            const baseline = goal.baseline_metrics || {};
+            document.getElementById('goal-baseline-display').value = `F ${formatNumber(baseline.followers || 0)} • S ${formatNumber(baseline.subscribers || 0)} • G ${formatNumber(baseline.gift_subs || 0)} • B ${formatNumber(baseline.bits || 0)} • D ${formatNumber(baseline.donations || 0)}`;
+        } else {
+            document.getElementById('goal-baseline-display').value = formatNumber(goal.baseline || 0);
+        }
+        document.getElementById('goal-editor-status').textContent = state
+            ? `${state.metric_label}: ${formatNumber(state.progress)} / ${formatNumber(state.target)}${state.complete ? ' • complete' : ''}`
+            : '';
+    }
+
+    function handleGoalTypeChange() {
+        const type = document.getElementById('goal-type').value;
+        const trackingRow = document.getElementById('goal-tracking-row');
+        const viewerModeRow = document.getElementById('goal-viewer-mode-row');
+        const communityBlock = document.getElementById('community-weights-block');
+        const baselineBlock = document.getElementById('goal-baseline-block');
+        const trackingValue = document.getElementById('goal-tracking').value;
+
+        viewerModeRow.style.display = type === 'viewers' ? 'flex' : 'none';
+        communityBlock.style.display = type === 'community' ? 'block' : 'none';
+        trackingRow.style.display = type === 'viewers' ? 'none' : 'flex';
+
+        const baselineVisible = type !== 'viewers' && trackingValue === 'persistent';
+        baselineBlock.style.display = baselineVisible ? 'block' : 'none';
+        document.getElementById('goal-reset-baseline-btn').style.display = baselineVisible ? 'inline-flex' : 'none';
+    }
+
+    function updateOverlayLinks() {
+        const single = selectedGoalId ? `/goal.html?goal=${encodeURIComponent(selectedGoalId)}` : '/goal.html';
+        const cycle = '/goal.html?mode=cycle';
+        document.getElementById('single-goal-url').textContent = single;
+        document.getElementById('single-goal-open').href = single;
+        document.getElementById('cycle-goal-url').textContent = cycle;
+        document.getElementById('cycle-goal-open').href = cycle;
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str || '';
+        return div.innerHTML;
+    }
+
+    async function copyText(text) {
+        try {
+            await navigator.clipboard.writeText(new URL(text, location.origin).toString());
+            showToast('Copied URL');
+        } catch {
+            showToast('Copy failed');
+        }
+    }
+
+    loadPage().catch(err => {
+        document.getElementById('goal-list-status').textContent = err.message || 'Failed to load goals';
+    });
+    </script>
+</body>
+</html>

@@ -50,6 +50,60 @@
     "source": "apple_music",
     "poll_seconds": 5
   },
+  "viewer_tracking": {
+    "enabled": true,
+    "source": "best_available",
+    "poll_seconds": 60,
+    "retain_samples": 720
+  },
+  "goals": {
+    "enabled": true,
+    "rotate_seconds": 8,
+    "skip_completed": true,
+    "pause_completed_seconds": 0,
+    "items": [
+      {
+        "id": "follower-goal",
+        "enabled": true,
+        "title": "Follower Goal",
+        "type": "followers",
+        "target": 25,
+        "tracking": "persistent",
+        "baseline": 0
+      },
+      {
+        "id": "viewer-goal",
+        "enabled": false,
+        "title": "Peak Viewers Goal",
+        "type": "viewers",
+        "target": 50,
+        "tracking": "session",
+        "viewer_mode": "peak"
+      },
+      {
+        "id": "community-goal",
+        "enabled": false,
+        "title": "Community Goal",
+        "type": "community",
+        "target": 100,
+        "tracking": "persistent",
+        "baseline_metrics": {
+          "followers": 0,
+          "subscribers": 0,
+          "gift_subs": 0,
+          "bits": 0,
+          "donations": 0
+        },
+        "weights": {
+          "followers": 1,
+          "subscribers": 5,
+          "gift_subs": 5,
+          "bits_per_100": 1,
+          "donations": 1
+        }
+      }
+    ]
+  },
   "credits": {
     "header": {
       "image": "",

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Goal Overlay</title>
+    <style>
+        :root {
+            --goal-font-family: 'Segoe UI', system-ui, sans-serif;
+            --goal-text-color: rgb(214, 227, 225);
+            --goal-accent-color: rgb(255, 255, 255);
+            --goal-muted-color: rgba(214, 227, 225, 0.7);
+            --goal-background: rgba(0, 0, 0, 0.45);
+            --goal-outline-color: #000000aa;
+            --goal-font-scale: 1;
+            --goal-bar-bg: rgba(255, 255, 255, 0.12);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: transparent;
+            overflow: hidden;
+            font-family: var(--goal-font-family);
+            color: var(--goal-text-color);
+        }
+
+        .overlay {
+            min-width: 320px;
+            max-width: 560px;
+            padding: 1rem 1.15rem;
+            background: var(--goal-background);
+            border-radius: 12px;
+            display: inline-flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            transform-origin: left center;
+        }
+
+        .hidden { display: none; }
+        .kicker {
+            font-size: calc(11px * var(--goal-font-scale));
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--goal-accent-color);
+            opacity: 0.9;
+            text-shadow: 0 2px 5px var(--goal-outline-color);
+        }
+        .title {
+            font-size: calc(30px * var(--goal-font-scale));
+            line-height: 1.05;
+            font-weight: 700;
+            text-shadow: 0 2px 8px var(--goal-outline-color);
+        }
+        .meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .metric-label,
+        .tracking {
+            font-size: calc(13px * var(--goal-font-scale));
+            color: var(--goal-muted-color);
+            text-shadow: 0 1px 4px var(--goal-outline-color);
+        }
+        .value {
+            font-size: calc(22px * var(--goal-font-scale));
+            font-weight: 700;
+            color: var(--goal-accent-color);
+            text-shadow: 0 2px 6px var(--goal-outline-color);
+        }
+        .bar {
+            width: 100%;
+            height: 14px;
+            background: var(--goal-bar-bg);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--goal-accent-color), var(--goal-text-color));
+            transition: width 0.4s ease;
+        }
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.8rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .remaining,
+        .complete {
+            font-size: calc(13px * var(--goal-font-scale));
+            color: var(--goal-muted-color);
+            text-shadow: 0 1px 4px var(--goal-outline-color);
+        }
+        .complete {
+            color: #7ee787;
+            font-weight: 700;
+        }
+        .placeholder {
+            font-size: calc(18px * var(--goal-font-scale));
+            text-shadow: 0 2px 6px var(--goal-outline-color);
+        }
+    </style>
+</head>
+<body>
+    <div id="overlay" class="overlay hidden">
+        <div class="kicker" id="goal-kicker">Goal</div>
+        <div class="title" id="goal-title">Goal</div>
+        <div class="meta">
+            <div class="metric-label" id="goal-metric-label">Metric</div>
+            <div class="tracking" id="goal-tracking">persistent</div>
+        </div>
+        <div class="value" id="goal-value">0 / 100</div>
+        <div class="bar"><div class="fill" id="goal-fill"></div></div>
+        <div class="footer">
+            <div class="remaining" id="goal-remaining">100 remaining</div>
+            <div class="complete hidden" id="goal-complete">Complete</div>
+        </div>
+    </div>
+
+    <script>
+    const params = new URLSearchParams(location.search);
+    const singleGoalId = (params.get('goal') || '').trim().toLowerCase();
+    const overlayMode = params.get('mode') === 'cycle' ? 'cycle' : 'single';
+    const subsetIds = (params.get('ids') || '')
+        .split(',')
+        .map(item => item.trim().toLowerCase())
+        .filter(Boolean);
+
+    let configSnapshot = null;
+    let goalsSnapshot = null;
+    let cycleTimer = null;
+    let cycleIndex = 0;
+    let currentGoalId = '';
+
+    function formatNumber(value) {
+        const num = Number(value) || 0;
+        return Number.isInteger(num)
+            ? num.toLocaleString()
+            : num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+
+    function booleanParam(name, fallback) {
+        if (!params.has(name)) return fallback;
+        const value = String(params.get(name)).toLowerCase();
+        return value === '1' || value === 'true' || value === 'yes' || value === 'on';
+    }
+
+    function numberParam(name, fallback) {
+        if (!params.has(name)) return fallback;
+        const value = Number(params.get(name));
+        return Number.isFinite(value) ? value : fallback;
+    }
+
+    function withAlpha(color, alpha) {
+        if (!color) return `rgba(214, 227, 225, ${alpha})`;
+        if (color.startsWith('rgb(')) return color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
+        if (color.startsWith('#') && (color.length === 7 || color.length === 4)) return color;
+        return color;
+    }
+
+    function applyTheme() {
+        const root = document.documentElement;
+        const theme = configSnapshot?.theme || {};
+        const fontFamily = theme.font_family || 'Segoe UI';
+        const quoted = fontFamily.includes(' ') ? `"${fontFamily}"` : fontFamily;
+        root.style.setProperty('--goal-font-family', `${quoted}, system-ui, sans-serif`);
+        if (theme.text_color) root.style.setProperty('--goal-text-color', theme.text_color);
+        if (theme.accent_color) root.style.setProperty('--goal-accent-color', theme.accent_color);
+        root.style.setProperty('--goal-muted-color', withAlpha(theme.text_color, 0.72));
+        if (theme.background_color) {
+            root.style.setProperty('--goal-background', theme.background_color === 'transparent' ? 'rgba(0, 0, 0, 0.45)' : theme.background_color);
+        }
+        if (theme.text_outline_color) root.style.setProperty('--goal-outline-color', theme.text_outline_color);
+        if (theme.font_scale) root.style.setProperty('--goal-font-scale', theme.font_scale);
+
+        if (params.get('fontscale')) {
+            const scale = Math.max(0.5, Math.min(3, Number(params.get('fontscale')) || 1));
+            root.style.setProperty('--goal-font-scale', scale);
+        }
+    }
+
+    function getCycleSettings() {
+        const settings = goalsSnapshot?.settings || {};
+        return {
+            interval: Math.max(3, numberParam('interval', settings.rotate_seconds || 8)),
+            skipCompleted: booleanParam('skipcompleted', settings.skip_completed !== false),
+            pauseComplete: Math.max(0, numberParam('pausecomplete', settings.pause_completed_seconds || 0))
+        };
+    }
+
+    function getEnabledGoals() {
+        if (goalsSnapshot?.settings?.enabled === false) return [];
+        let items = (goalsSnapshot?.items || []).filter(item => item.enabled);
+        if (subsetIds.length > 0) {
+            items = items.filter(item => subsetIds.includes(item.id));
+        }
+        return items;
+    }
+
+    function chooseGoal() {
+        const enabled = getEnabledGoals();
+        if (!enabled.length) return null;
+
+        if (overlayMode === 'single') {
+            return enabled.find(item => item.id === singleGoalId) || enabled[0];
+        }
+
+        const settings = getCycleSettings();
+        let candidates = settings.skipCompleted ? enabled.filter(item => !item.complete) : enabled;
+        if (!candidates.length) candidates = enabled;
+        if (!candidates.length) return null;
+
+        if (currentGoalId) {
+            const currentIndexInCandidates = candidates.findIndex(item => item.id === currentGoalId);
+            if (currentIndexInCandidates >= 0) {
+                cycleIndex = currentIndexInCandidates;
+            }
+        }
+
+        cycleIndex = cycleIndex % candidates.length;
+        return candidates[cycleIndex];
+    }
+
+    function renderGoal(goal) {
+        const overlay = document.getElementById('overlay');
+        const title = document.getElementById('goal-title');
+        const kicker = document.getElementById('goal-kicker');
+        const metricLabel = document.getElementById('goal-metric-label');
+        const tracking = document.getElementById('goal-tracking');
+        const value = document.getElementById('goal-value');
+        const fill = document.getElementById('goal-fill');
+        const remaining = document.getElementById('goal-remaining');
+        const complete = document.getElementById('goal-complete');
+
+        if (!goal) {
+            overlay.classList.remove('hidden');
+            kicker.textContent = 'Goals';
+            title.textContent = 'No enabled goals';
+            metricLabel.textContent = 'Add or enable a goal in Goals Manager';
+            tracking.textContent = '';
+            value.textContent = '0 / 0';
+            fill.style.width = '0%';
+            remaining.textContent = 'Waiting for goal setup';
+            complete.classList.add('hidden');
+            return;
+        }
+
+        currentGoalId = goal.id;
+        overlay.classList.remove('hidden');
+        kicker.textContent = overlayMode === 'cycle' ? 'Goals Cycle' : 'Goal';
+        title.textContent = goal.title || 'Goal';
+        metricLabel.textContent = goal.metric_label || 'Goal';
+        tracking.textContent = goal.type === 'viewers'
+            ? (goal.viewer_mode === 'peak' ? 'peak viewers' : 'current viewers')
+            : `${goal.tracking} progress`;
+        value.textContent = `${formatNumber(goal.progress)} / ${formatNumber(goal.target)}`;
+        fill.style.width = `${Math.max(0, Math.min(100, Number(goal.percent) || 0))}%`;
+        remaining.textContent = goal.complete
+            ? `${formatNumber(goal.progress)} reached`
+            : `${formatNumber(goal.remaining)} remaining`;
+        complete.classList.toggle('hidden', !goal.complete);
+    }
+
+    function scheduleCycle(goal) {
+        if (cycleTimer) {
+            clearTimeout(cycleTimer);
+            cycleTimer = null;
+        }
+        if (overlayMode !== 'cycle') return;
+
+        const enabled = getEnabledGoals();
+        if (enabled.length <= 1) return;
+
+        const settings = getCycleSettings();
+        const delay = goal?.complete && settings.pauseComplete > 0
+            ? settings.pauseComplete * 1000
+            : settings.interval * 1000;
+
+        cycleTimer = setTimeout(() => {
+            cycleIndex += 1;
+            refreshRenderedGoal();
+        }, delay);
+    }
+
+    function refreshRenderedGoal() {
+        const goal = chooseGoal();
+        renderGoal(goal);
+        scheduleCycle(goal);
+    }
+
+    async function loadInitialState() {
+        const [configRes, goalsRes] = await Promise.all([
+            fetch('/api/config'),
+            fetch('/api/goals')
+        ]);
+        configSnapshot = await configRes.json();
+        goalsSnapshot = await goalsRes.json();
+        applyTheme();
+        refreshRenderedGoal();
+        connectWebSocket();
+    }
+
+    function connectWebSocket() {
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${location.host}`);
+        ws.onmessage = (event) => {
+            let msg;
+            try { msg = JSON.parse(event.data); } catch { return; }
+            if (msg.type === 'goals-update') {
+                goalsSnapshot = msg.data || goalsSnapshot;
+                refreshRenderedGoal();
+            }
+        };
+        ws.onclose = () => setTimeout(connectWebSocket, 5000);
+    }
+
+    loadInitialState().catch(err => {
+        document.getElementById('overlay').classList.remove('hidden');
+        document.getElementById('goal-title').textContent = 'Goal overlay unavailable';
+        document.getElementById('goal-metric-label').textContent = err.message || 'Failed to load goals';
+        document.getElementById('goal-tracking').textContent = '';
+    });
+    </script>
+</body>
+</html>

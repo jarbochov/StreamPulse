@@ -169,6 +169,49 @@
             </div>
         </div>
 
+        <div class="card" data-panel-id="viewer-stats" data-default-size="normal">
+            <h2>Viewer Stats</h2>
+            <div class="status-grid">
+                <div class="stat">
+                    <div class="value" id="viewer-current">0</div>
+                    <div class="label">Current</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="viewer-peak">0</div>
+                    <div class="label">Peak</div>
+                </div>
+                <div class="stat wide">
+                    <div class="value" id="viewer-average">0</div>
+                    <div class="label">Average</div>
+                </div>
+            </div>
+            <div class="detail-line"><strong>Source:</strong> <span id="viewer-source">—</span></div>
+            <div class="detail-line"><strong>Live:</strong> <span id="viewer-live">—</span></div>
+            <div class="link-grid">
+                <a class="btn" href="/goals-editor.html">🎯 Goals</a>
+            </div>
+        </div>
+
+        <div class="card" data-panel-id="goals" data-default-size="normal">
+            <h2>Goals</h2>
+            <div class="status-grid">
+                <div class="stat">
+                    <div class="value" id="goals-enabled-count">0</div>
+                    <div class="label">Enabled</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="goals-complete-count">0</div>
+                    <div class="label">Completed</div>
+                </div>
+            </div>
+            <div class="detail-line"><strong>Overlay:</strong> <span id="goals-overlay-status">—</span></div>
+            <div class="link-grid">
+                <a class="btn" href="/goals-editor.html">🎯 Manager</a>
+                <a class="btn" href="/goal.html" target="_blank">📺 Single</a>
+                <a class="btn" href="/goal.html?mode=cycle" target="_blank">🔁 Cycle</a>
+            </div>
+        </div>
+
         <div class="card" data-panel-id="timers" data-default-size="normal">
             <h2>Timers</h2>
             <div class="status-grid">
@@ -293,6 +336,7 @@
                 <a class="btn" href="/config-editor.html">⚙️ Config</a>
                 <a class="btn" href="/hashtag-stats.html"># Hashtag Stats</a>
                 <a class="btn" href="/manage-hashtags.html">🏷️ Hashtags</a>
+                <a class="btn" href="/goals-editor.html">🎯 Goals</a>
                 <a class="btn" href="/timers-editor.html">⏱ Timers</a>
                 <a class="btn" href="/music-editor.html">🎵 Music</a>
                 <a class="btn" href="/highlights.html">⭐ Highlights</a>
@@ -527,6 +571,14 @@
             document.getElementById('stat-followers').textContent = data.ssn.followers || 0;
             document.getElementById('stat-raids').textContent = data.ssn.raids || 0;
             document.getElementById('stat-donations').textContent = 0;
+            document.getElementById('viewer-current').textContent = (data.viewers?.current || 0).toLocaleString();
+            document.getElementById('viewer-peak').textContent = (data.viewers?.peak || 0).toLocaleString();
+            document.getElementById('viewer-average').textContent = Number(data.viewers?.average || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
+            document.getElementById('viewer-source').textContent = (data.viewers?.source || '—').replace(/_/g, ' ');
+            document.getElementById('viewer-live').textContent = data.viewers?.live ? 'Yes' : 'No';
+            document.getElementById('goals-enabled-count').textContent = data.goals?.enabled || 0;
+            document.getElementById('goals-complete-count').textContent = data.goals?.completed || 0;
+            document.getElementById('goals-overlay-status').textContent = (data.goals?.enabled || 0) > 0 ? 'Ready' : 'No enabled goals';
 
             document.getElementById('timers-total').textContent = data.timers?.total || 0;
             document.getElementById('timers-running').textContent = data.timers?.running || 0;

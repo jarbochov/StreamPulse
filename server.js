@@ -33,6 +33,7 @@ const SSN_SESSION_ID = config.ssn?.session_id;
 const SSN_SERVER = config.ssn?.server || 'wss://io.socialstream.ninja';
 const REFRESH_MINUTES = config.twitch_refresh_minutes || 10;
 const MUSIC_CONFIG = config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 };
+const VIEWER_TRACKING_CONFIG = config.viewer_tracking || { enabled: true, source: 'best_available', poll_seconds: 60, retain_samples: 720 };
 
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = path.join(__dirname, 'data');
@@ -43,6 +44,35 @@ const HIGHLIGHTS_PATH = path.join(DATA_DIR, 'highlights.jsonl');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const EMOTE_CACHE_DIR = path.join(DATA_DIR, 'emote-cache');
 const TIMERS_PATH = path.join(DATA_DIR, 'timers.json');
+
+const GOAL_TYPE_LABELS = {
+    followers: 'Followers',
+    subscribers: 'Subscribers',
+    gift_subs: 'Gift Subs',
+    bits: 'Bits',
+    donations: 'Donations',
+    viewers: 'Viewers',
+    community: 'Community Goal'
+};
+
+const GOAL_TYPES = Object.keys(GOAL_TYPE_LABELS);
+const GOAL_TRACKING_TYPES = ['persistent', 'session'];
+const GOAL_VIEWER_MODES = ['current', 'peak'];
+const DEFAULT_COMMUNITY_WEIGHTS = {
+    followers: 1,
+    subscribers: 5,
+    gift_subs: 5,
+    bits_per_100: 1,
+    donations: 1
+};
+
+const DEFAULT_GOALS_CONFIG = {
+    enabled: true,
+    rotate_seconds: 8,
+    skip_completed: true,
+    pause_completed_seconds: 0,
+    items: []
+};
 
 // Emote image cache: emote name → { path, format }
 const emoteCache = new Map();
@@ -735,6 +765,422 @@ function startTimerTicker() {
     }, 250);
 }
 
+function sanitizeGoalId(value) {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 60);
+}
+
+function createEmptyViewerStats() {
+    return {
+        live: false,
+        current: 0,
+        peak: 0,
+        average: 0,
+        source: null,
+        sampledAt: null,
+        streamStartedAt: null,
+        samples: []
+    };
+}
+
+function normalizeViewerTrackingConfig(input = {}) {
+    return {
+        enabled: input?.enabled !== false,
+        source: input?.source === 'twitch' ? 'twitch' : 'best_available',
+        poll_seconds: clampNumber(input?.poll_seconds, 15, 3600, 60),
+        retain_samples: clampNumber(input?.retain_samples, 60, 5000, 720)
+    };
+}
+
+function normalizeViewerStats(input = {}) {
+    const normalized = createEmptyViewerStats();
+    normalized.live = !!input?.live;
+    normalized.current = Math.max(0, Math.round(Number(input?.current) || 0));
+    normalized.source = input?.source || null;
+    normalized.sampledAt = input?.sampledAt || null;
+    normalized.streamStartedAt = input?.streamStartedAt || null;
+    normalized.samples = Array.isArray(input?.samples)
+        ? input.samples
+            .map(sample => ({
+                ts: sample?.ts || new Date().toISOString(),
+                count: Math.max(0, Math.round(Number(sample?.count) || 0)),
+                live: sample?.live !== false,
+                source: sample?.source || null
+            }))
+            .filter(sample => sample.ts)
+        : [];
+
+    const liveSamples = normalized.samples.filter(sample => sample.live !== false);
+    normalized.peak = liveSamples.length > 0
+        ? liveSamples.reduce((max, sample) => Math.max(max, sample.count), 0)
+        : Math.max(0, Math.round(Number(input?.peak) || normalized.current));
+    normalized.average = liveSamples.length > 0
+        ? Number((liveSamples.reduce((sum, sample) => sum + sample.count, 0) / liveSamples.length).toFixed(1))
+        : Math.max(0, Number(input?.average) || (normalized.live ? normalized.current : 0));
+    return normalized;
+}
+
+function readJsonFileSafe(filePath, fallback = null) {
+    try {
+        if (!fs.existsSync(filePath)) return fallback;
+        return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch {
+        return fallback;
+    }
+}
+
+function parseNumericAmount(value) {
+    const match = String(value || '').replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+    return match ? Math.max(0, Number(match[0]) || 0) : 0;
+}
+
+function normalizeGoalWeights(weights = {}) {
+    return {
+        followers: Math.max(0, Number(weights?.followers) || DEFAULT_COMMUNITY_WEIGHTS.followers),
+        subscribers: Math.max(0, Number(weights?.subscribers) || DEFAULT_COMMUNITY_WEIGHTS.subscribers),
+        gift_subs: Math.max(0, Number(weights?.gift_subs) || DEFAULT_COMMUNITY_WEIGHTS.gift_subs),
+        bits_per_100: Math.max(0, Number(weights?.bits_per_100) || DEFAULT_COMMUNITY_WEIGHTS.bits_per_100),
+        donations: Math.max(0, Number(weights?.donations) || DEFAULT_COMMUNITY_WEIGHTS.donations)
+    };
+}
+
+function normalizeCommunityBaseline(metrics = {}) {
+    return {
+        followers: Math.max(0, Number(metrics?.followers) || 0),
+        subscribers: Math.max(0, Number(metrics?.subscribers) || 0),
+        gift_subs: Math.max(0, Number(metrics?.gift_subs) || 0),
+        bits: Math.max(0, Number(metrics?.bits) || 0),
+        donations: Math.max(0, Number(metrics?.donations) || 0)
+    };
+}
+
+function goalDefaultTitle(type, viewerMode) {
+    if (type === 'viewers') {
+        return viewerMode === 'peak' ? 'Peak Viewers Goal' : 'Current Viewers Goal';
+    }
+    if (type === 'community') return 'Community Goal';
+    return `${GOAL_TYPE_LABELS[type] || 'Goal'} Goal`;
+}
+
+function normalizeGoalItem(item = {}, index = 0, seenIds = new Set()) {
+    const type = GOAL_TYPES.includes(item?.type) ? item.type : 'followers';
+    const viewerMode = GOAL_VIEWER_MODES.includes(item?.viewer_mode) ? item.viewer_mode : 'current';
+    const tracking = type === 'viewers'
+        ? 'session'
+        : (GOAL_TRACKING_TYPES.includes(item?.tracking) ? item.tracking : 'persistent');
+
+    let id = sanitizeGoalId(item?.id) || `goal-${index + 1}`;
+    while (seenIds.has(id)) {
+        id = `${id}-${index + 1}`;
+    }
+    seenIds.add(id);
+
+    return {
+        id,
+        enabled: item?.enabled !== false,
+        title: String(item?.title || goalDefaultTitle(type, viewerMode)).trim() || goalDefaultTitle(type, viewerMode),
+        type,
+        target: Math.max(1, Number(item?.target) || 1),
+        tracking,
+        viewer_mode: viewerMode,
+        baseline: Math.max(0, Number(item?.baseline) || 0),
+        baseline_metrics: normalizeCommunityBaseline(item?.baseline_metrics),
+        weights: normalizeGoalWeights(item?.weights)
+    };
+}
+
+function normalizeGoalsConfig(input = {}) {
+    const seenIds = new Set();
+    return {
+        enabled: input?.enabled !== false,
+        rotate_seconds: clampNumber(input?.rotate_seconds, 3, 60, DEFAULT_GOALS_CONFIG.rotate_seconds),
+        skip_completed: input?.skip_completed !== false,
+        pause_completed_seconds: clampNumber(input?.pause_completed_seconds, 0, 30, DEFAULT_GOALS_CONFIG.pause_completed_seconds),
+        items: Array.isArray(input?.items)
+            ? input.items.map((item, index) => normalizeGoalItem(item, index, seenIds))
+            : []
+    };
+}
+
+function buildCommunityMetricSnapshot(metrics, tracking) {
+    const source = tracking === 'session' ? metrics.session : metrics.persistent;
+    return {
+        followers: source.followers,
+        subscribers: source.subscribers,
+        gift_subs: source.gift_subs,
+        bits: source.bits,
+        donations: source.donations
+    };
+}
+
+function computeCommunityPoints(metricSnapshot, weights) {
+    const safe = normalizeCommunityBaseline(metricSnapshot);
+    const normalizedWeights = normalizeGoalWeights(weights);
+    return Number((
+        safe.followers * normalizedWeights.followers +
+        safe.subscribers * normalizedWeights.subscribers +
+        safe.gift_subs * normalizedWeights.gift_subs +
+        (safe.bits / 100) * normalizedWeights.bits_per_100 +
+        safe.donations * normalizedWeights.donations
+    ).toFixed(2));
+}
+
+function getCurrentSubscriberTotal() {
+    return readJsonFileSafe(path.join(DATA_DIR, 'subs.json'), { data: [] })?.data?.length || 0;
+}
+
+function getCurrentFollowerTotal() {
+    return readJsonFileSafe(path.join(DATA_DIR, 'followers.json'), { data: [] })?.data?.length || 0;
+}
+
+function getSessionGiftSubTotal() {
+    return (chatData.giftSubs || []).reduce((sum, item) => sum + Math.max(1, Number(item?.count) || 1), 0);
+}
+
+function getSessionBitsTotal() {
+    return (chatData.bits || []).reduce((sum, item) => sum + Math.max(0, Number(item?.bits) || parseNumericAmount(item?.amount)), 0);
+}
+
+function getSessionDonationTotal() {
+    return Number((chatData.donations || []).reduce((sum, item) => sum + parseNumericAmount(item?.amountValue ?? item?.amount), 0).toFixed(2));
+}
+
+function getLifetimeGiftSubTotal() {
+    return Object.values(statsData.giftSubs || {}).reduce((sum, item) => sum + sumDailyBuckets(item.days), 0);
+}
+
+function getLifetimeBitsTotal() {
+    return Object.values(statsData.bits || {}).reduce((sum, item) => sum + sumDailyBuckets(item.days), 0);
+}
+
+function getLifetimeDonationTotal() {
+    return Number(Object.values(statsData.donations || {}).reduce((sum, item) => sum + sumDailyBuckets(item.amounts), 0).toFixed(2));
+}
+
+function buildGoalMetrics() {
+    const viewers = getViewerSummary();
+    return {
+        viewers,
+        session: {
+            followers: chatData.followers.length,
+            subscribers: chatData.subscribers.length,
+            gift_subs: getSessionGiftSubTotal(),
+            bits: getSessionBitsTotal(),
+            donations: getSessionDonationTotal()
+        },
+        persistent: {
+            followers: getCurrentFollowerTotal(),
+            subscribers: getCurrentSubscriberTotal(),
+            gift_subs: getLifetimeGiftSubTotal(),
+            bits: getLifetimeBitsTotal(),
+            donations: getLifetimeDonationTotal()
+        }
+    };
+}
+
+function computeGoalItemState(item, metrics) {
+    const normalized = normalizeGoalItem(item, 0, new Set());
+    let progress = 0;
+    let rawValue = 0;
+    let metricLabel = GOAL_TYPE_LABELS[normalized.type] || 'Goal';
+    let tracking = normalized.tracking;
+
+    if (normalized.type === 'viewers') {
+        tracking = 'session';
+        rawValue = normalized.viewer_mode === 'peak' ? metrics.viewers.peak : metrics.viewers.current;
+        progress = rawValue;
+        metricLabel = normalized.viewer_mode === 'peak' ? 'Peak Viewers' : 'Current Viewers';
+    } else if (normalized.type === 'community') {
+        const currentMetrics = buildCommunityMetricSnapshot(metrics, tracking);
+        rawValue = computeCommunityPoints(currentMetrics, normalized.weights);
+        if (tracking === 'session') {
+            progress = rawValue;
+        } else {
+            const diffMetrics = {
+                followers: Math.max(0, currentMetrics.followers - normalized.baseline_metrics.followers),
+                subscribers: Math.max(0, currentMetrics.subscribers - normalized.baseline_metrics.subscribers),
+                gift_subs: Math.max(0, currentMetrics.gift_subs - normalized.baseline_metrics.gift_subs),
+                bits: Math.max(0, currentMetrics.bits - normalized.baseline_metrics.bits),
+                donations: Math.max(0, currentMetrics.donations - normalized.baseline_metrics.donations)
+            };
+            progress = computeCommunityPoints(diffMetrics, normalized.weights);
+        }
+        metricLabel = 'Community Points';
+    } else {
+        rawValue = tracking === 'session' ? metrics.session[normalized.type] : metrics.persistent[normalized.type];
+        progress = tracking === 'session' ? rawValue : Math.max(0, rawValue - normalized.baseline);
+    }
+
+    const complete = normalized.target > 0 && progress >= normalized.target;
+    const remaining = Math.max(0, Number((normalized.target - progress).toFixed(2)));
+    const percent = normalized.target > 0 ? Math.min(100, Number(((progress / normalized.target) * 100).toFixed(1))) : 0;
+
+    return {
+        ...normalized,
+        tracking,
+        metric_label: metricLabel,
+        raw_value: Number(rawValue.toFixed ? rawValue.toFixed(2) : rawValue),
+        progress: Number(progress.toFixed ? progress.toFixed(2) : progress),
+        remaining,
+        percent,
+        complete
+    };
+}
+
+function buildGoalsSnapshot() {
+    const settings = normalizeGoalsConfig(config.goals || DEFAULT_GOALS_CONFIG);
+    const metrics = buildGoalMetrics();
+    const items = settings.items.map(item => computeGoalItemState(item, metrics));
+    const enabledItems = items.filter(item => item.enabled);
+    return {
+        settings,
+        items,
+        summary: {
+            total: items.length,
+            enabled: enabledItems.length,
+            completed: enabledItems.filter(item => item.complete).length
+        },
+        metrics
+    };
+}
+
+function saveRuntimeConfigSection(updater) {
+    const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    updater(current);
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
+    applyRuntimeConfig(current);
+    return current;
+}
+
+function resetGoalBaseline(goalId) {
+    const snapshot = buildGoalsSnapshot();
+    const goal = snapshot.items.find(item => item.id === goalId);
+    if (!goal) throw new Error('Goal not found');
+    if (goal.type === 'viewers') throw new Error('Viewer goals use live/session values and do not support baseline reset');
+    if (goal.tracking === 'session') throw new Error('Session goals reset when you start a new session');
+
+    saveRuntimeConfigSection(current => {
+        const settings = normalizeGoalsConfig(current.goals || DEFAULT_GOALS_CONFIG);
+        current.goals = settings;
+        const target = current.goals.items.find(item => sanitizeGoalId(item.id) === goalId);
+        if (!target) throw new Error('Goal not found');
+        if (goal.type === 'community') {
+            target.baseline_metrics = buildCommunityMetricSnapshot(snapshot.metrics, 'persistent');
+        } else {
+            target.baseline = goal.raw_value;
+        }
+    });
+
+    return buildGoalsSnapshot();
+}
+
+function toggleGoalEnabled(goalId, mode = 'toggle') {
+    saveRuntimeConfigSection(current => {
+        const settings = normalizeGoalsConfig(current.goals || DEFAULT_GOALS_CONFIG);
+        current.goals = settings;
+        const target = current.goals.items.find(item => sanitizeGoalId(item.id) === goalId);
+        if (!target) throw new Error('Goal not found');
+        if (mode === 'on' || mode === 'enable' || mode === 'true') target.enabled = true;
+        else if (mode === 'off' || mode === 'disable' || mode === 'false') target.enabled = false;
+        else target.enabled = target.enabled === false;
+    });
+
+    return buildGoalsSnapshot();
+}
+
+function getViewerSummary(sourceData = chatData) {
+    const viewerStats = normalizeViewerStats(sourceData?.viewerStats);
+    return {
+        enabled: normalizeViewerTrackingConfig(config.viewer_tracking).enabled,
+        live: viewerStats.live,
+        current: viewerStats.current,
+        peak: viewerStats.peak,
+        average: viewerStats.average,
+        source: viewerStats.source,
+        sampledAt: viewerStats.sampledAt,
+        streamStartedAt: viewerStats.streamStartedAt,
+        sampleCount: viewerStats.samples.length,
+        samples: viewerStats.samples
+    };
+}
+
+function recordViewerSample({ count, live, source, streamStartedAt }) {
+    const cfg = normalizeViewerTrackingConfig(config.viewer_tracking);
+    const normalized = normalizeViewerStats(chatData.viewerStats);
+    const now = new Date().toISOString();
+    normalized.live = !!live;
+    normalized.current = Math.max(0, Math.round(Number(count) || 0));
+    normalized.source = source || normalized.source || 'twitch';
+    normalized.sampledAt = now;
+    normalized.streamStartedAt = streamStartedAt || normalized.streamStartedAt || null;
+    normalized.samples.push({
+        ts: now,
+        count: normalized.current,
+        live: normalized.live,
+        source: normalized.source
+    });
+    while (normalized.samples.length > cfg.retain_samples) normalized.samples.shift();
+    chatData.viewerStats = normalizeViewerStats(normalized);
+    broadcastToOverlays('viewer-update', getViewerSummary());
+    broadcastToOverlays('goals-update', buildGoalsSnapshot());
+}
+
+function findSSNViewerCount(value, depth = 0) {
+    if (!value || typeof value !== 'object' || depth > 3) return null;
+
+    const viewerKeys = ['viewer_count', 'viewerCount', 'viewers', 'audience_count', 'audienceCount', 'current_viewers', 'currentViewers'];
+    for (const key of viewerKeys) {
+        if (Object.prototype.hasOwnProperty.call(value, key)) {
+            const count = Number(value[key]);
+            if (Number.isFinite(count) && count >= 0) {
+                return {
+                    count,
+                    live: value.live !== false && value.online !== false,
+                    streamStartedAt: value.stream_started_at || value.streamStartedAt || null
+                };
+            }
+        }
+    }
+
+    for (const key of ['data', 'payload', 'meta', 'overlayNinja']) {
+        const nested = findSSNViewerCount(value[key], depth + 1);
+        if (nested) return nested;
+    }
+    return null;
+}
+
+function processSSNViewerUpdate(msg) {
+    const viewerUpdate = findSSNViewerCount(msg);
+    if (!viewerUpdate) return false;
+
+    lastSSNViewerUpdateAt = Date.now();
+    recordViewerSample({
+        ...viewerUpdate,
+        source: 'socialstream'
+    });
+    return true;
+}
+
+function startViewerTracking() {
+    if (viewerPollHandle) return;
+    const cfg = normalizeViewerTrackingConfig(config.viewer_tracking);
+    if (!cfg.enabled) return;
+    fetchViewerCount();
+    viewerPollHandle = setInterval(fetchViewerCount, cfg.poll_seconds * 1000);
+    console.log(`[Viewers] Polling every ${cfg.poll_seconds}s`);
+}
+
+function stopViewerTracking() {
+    if (!viewerPollHandle) return;
+    clearInterval(viewerPollHandle);
+    viewerPollHandle = null;
+    console.log('[Viewers] Polling stopped');
+}
+
 // ============================================================================
 // RATE LIMITING
 // ============================================================================
@@ -997,6 +1443,40 @@ async function fetchTwitchData() {
     }
 }
 
+async function fetchViewerCount() {
+    const viewerConfig = normalizeViewerTrackingConfig(config.viewer_tracking);
+    if (!viewerConfig.enabled) return;
+    const ssnFreshnessMs = Math.max(viewerConfig.poll_seconds * 2000, 30000);
+    if (viewerConfig.source === 'best_available' && Date.now() - lastSSNViewerUpdateAt < ssnFreshnessMs) {
+        return;
+    }
+    if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET || !BROADCASTER_ID) {
+        console.warn('[Viewers] Missing Twitch credentials or broadcaster_id — viewer tracking unavailable');
+        return;
+    }
+
+    const hasToken = await ensureToken();
+    if (!hasToken) return;
+
+    try {
+        const result = await twitchApiRequest('/streams', { user_id: BROADCASTER_ID });
+        if (result.status !== 200) {
+            console.warn(`[Viewers] Twitch /streams returned ${result.status}`);
+            return;
+        }
+
+        const stream = result.body.data?.[0] || null;
+        recordViewerSample({
+            count: stream?.viewer_count || 0,
+            live: !!stream,
+            source: 'twitch',
+            streamStartedAt: stream?.started_at || null
+        });
+    } catch (err) {
+        console.error('[Viewers] Fetch error:', err.message);
+    }
+}
+
 async function fetchStreamInfo() {
     if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) return;
     const hasToken = await ensureToken();
@@ -1031,6 +1511,8 @@ const MUSIC_FALLBACK_ART_PATH = path.join(DATA_DIR, 'music-fallback.png');
 let musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
 let musicPollTimer = null;
 let overlayVisible = true;
+let viewerPollHandle = null;
+let lastSSNViewerUpdateAt = 0;
 
 // --- Apple Music (macOS only, via osascript) ---
 
@@ -1297,6 +1779,7 @@ const chatData = {
     emotes: {},
     hourlyMessages: {},
     streamInfo: [],
+    viewerStats: createEmptyViewerStats(),
     startedAt: new Date().toISOString(),
     lastUpdated: null,
     messageCount: 0
@@ -1448,10 +1931,12 @@ function updateStats(chatname, msg) {
         } else if (msg.hasDonation) {
             if (!statsData.donations[chatname]) {
                 statsData.donations[chatname] = {
-                    chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}
+                    chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}, amounts: {}
                 };
             }
+            const amount = parseNumericAmount(msg.hasDonation);
             statsData.donations[chatname].days[today] = (statsData.donations[chatname].days[today] || 0) + 1;
+            statsData.donations[chatname].amounts[today] = Number(((statsData.donations[chatname].amounts[today] || 0) + amount).toFixed(2));
             statsData.donations[chatname].lastSeen = nowISO;
         }
     }
@@ -1509,6 +1994,7 @@ let ssnReconnectTimer = null;
 
 function saveChatData() {
     chatData.lastUpdated = new Date().toISOString();
+    chatData.viewerStats = normalizeViewerStats(chatData.viewerStats);
     fs.writeFileSync(LIVE_CHAT_PATH, JSON.stringify(chatData, null, 2));
 }
 
@@ -1556,6 +2042,7 @@ function getRestartRequiredConfigChanges(previousConfig, nextConfig) {
 function applyRuntimeConfig(nextConfig) {
     const prevMusicEnabled = MUSIC_CONFIG.enabled;
     const prevSource = MUSIC_CONFIG.source;
+    const prevViewerTracking = normalizeViewerTrackingConfig(config.viewer_tracking);
 
     config = nextConfig;
     EXCLUDE_USERS = (config.exclude_users || []).map(u => u.toLowerCase());
@@ -1564,6 +2051,10 @@ function applyRuntimeConfig(nextConfig) {
     const nextMusicConfig = config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 };
     for (const key of Object.keys(MUSIC_CONFIG)) delete MUSIC_CONFIG[key];
     Object.assign(MUSIC_CONFIG, nextMusicConfig);
+
+    const nextViewerTracking = normalizeViewerTrackingConfig(config.viewer_tracking);
+    for (const key of Object.keys(VIEWER_TRACKING_CONFIG)) delete VIEWER_TRACKING_CONFIG[key];
+    Object.assign(VIEWER_TRACKING_CONFIG, nextViewerTracking);
 
     if (MUSIC_CONFIG.enabled && !prevMusicEnabled) {
         startMusicPolling();
@@ -1577,12 +2068,24 @@ function applyRuntimeConfig(nextConfig) {
         broadcastToOverlays('music', musicState);
         startMusicPolling();
     }
+
+    const viewerChanged = prevViewerTracking.enabled !== nextViewerTracking.enabled
+        || prevViewerTracking.source !== nextViewerTracking.source
+        || prevViewerTracking.poll_seconds !== nextViewerTracking.poll_seconds
+        || prevViewerTracking.retain_samples !== nextViewerTracking.retain_samples;
+    if (viewerChanged) {
+        stopViewerTracking();
+        if (nextViewerTracking.enabled) startViewerTracking();
+    }
+
+    broadcastToOverlays('goals-update', buildGoalsSnapshot());
 }
 
 function loadCurrentSessionStateFromDisk() {
     try {
         if (fs.existsSync(LIVE_CHAT_PATH)) {
             Object.assign(chatData, JSON.parse(fs.readFileSync(LIVE_CHAT_PATH, 'utf8')));
+            chatData.viewerStats = normalizeViewerStats(chatData.viewerStats);
             console.log('[Restore] Reloaded current session data');
         }
     } catch (err) {
@@ -1851,6 +2354,7 @@ function resetChatData() {
     chatData.emotes = {};
     chatData.hourlyMessages = {};
     chatData.streamInfo = [];
+    chatData.viewerStats = createEmptyViewerStats();
     chatData.messageCount = 0;
     chatData.startedAt = new Date().toISOString();
     chatData.lastUpdated = null;
@@ -1867,6 +2371,11 @@ function processChatMessage(msg) {
 
     // Normalize SSN field names (eventType → event)
     if (msg.eventType && !msg.event) msg.event = msg.eventType;
+    const shouldUpdateGoals = msg.event === 'follow' || msg.event === 'new_follower'
+        || msg.event === 'new_subscriber' || msg.event === 'resub'
+        || msg.event === 'subscription_gift' || msg.event === 'sponsorship'
+        || msg.event === 'giftpurchase' || msg.event === 'giftredemption'
+        || msg.event === 'cheer' || !!msg.hasDonation;
 
     // Banned users are completely excluded from everything
     if (BANNED_USERS.includes(chatname.toLowerCase())) return;
@@ -1988,12 +2497,16 @@ function processChatMessage(msg) {
             const gifterAvatar = (chatname === gifter && msg.chatimg) ? msg.chatimg
                 : (chatData.chatters[gifter] ? chatData.chatters[gifter].chatimg : null);
 
-            const alreadyGifted = chatData.giftSubs.some(g => g.gifter === gifter);
-            if (!alreadyGifted) {
-                chatData.giftSubs.push({ chatname: gifter, gifter, recipient, chatimg: gifterAvatar, event: msg.event || null });
+            const existingGift = chatData.giftSubs.find(g => g.gifter === gifter);
+            if (existingGift) {
+                existingGift.count = Math.max(1, Number(existingGift.count) || 1) + 1;
+                if (recipient) existingGift.recipient = recipient;
+                if (gifterAvatar) existingGift.chatimg = gifterAvatar;
+            } else {
+                chatData.giftSubs.push({ chatname: gifter, gifter, recipient, chatimg: gifterAvatar, event: msg.event || null, count: 1 });
                 console.log(`[SSN] Gift Sub: ${gifter}${recipient ? ' → ' + recipient : ''} (event=${msg.event})`);
-                fireWebhook('subscribe', { user: gifter, recipient, type: 'gift', message: `${gifter} gifted a sub${recipient ? ' to ' + recipient : ''}!` });
             }
+            fireWebhook('subscribe', { user: gifter, recipient, type: 'gift', message: `${gifter} gifted a sub${recipient ? ' to ' + recipient : ''}!` });
         } else {
             const alreadySubbed = chatData.subscribers.some(s => s.chatname === chatname);
             if (!alreadySubbed) {
@@ -2019,7 +2532,7 @@ function processChatMessage(msg) {
             console.log(`[SSN] Bits: ${chatname} - ${label} (${amount} bits)`);
             fireWebhook('bits', { user: chatname, amount: label, message: `${chatname} cheered ${label}` });
         } else if (msg.hasDonation) {
-            const donation = { chatname, amount: msg.hasDonation, chatimg: msg.chatimg };
+            const donation = { chatname, amount: msg.hasDonation, amountValue: parseNumericAmount(msg.hasDonation), chatimg: msg.chatimg };
             chatData.donations.push(donation);
             console.log(`[SSN] Donation: ${chatname} - ${msg.hasDonation}`);
             fireWebhook('donation', { user: chatname, amount: msg.hasDonation, message: `${chatname} donated ${msg.hasDonation}` });
@@ -2087,6 +2600,9 @@ function processChatMessage(msg) {
 
     // Broadcast update to connected overlay clients
     broadcastToOverlays('update', chatData);
+    if (shouldUpdateGoals) {
+        broadcastToOverlays('goals-update', buildGoalsSnapshot());
+    }
 }
 
 function connectSSN() {
@@ -2108,6 +2624,7 @@ function connectSSN() {
         try {
             let msg = JSON.parse(raw.toString());
             if (msg.overlayNinja) msg = msg.overlayNinja;
+            processSSNViewerUpdate(msg);
             processChatMessage(msg);
         } catch { /* ignore parse errors */ }
     });
@@ -2296,6 +2813,7 @@ const server = http.createServer(async (req, res) => {
                 res.end('<h1>✅ Twitch authorized!</h1><p>You can close this tab. The server will now fetch your data.</p>');
                 fetchTwitchData();
                 fetchStreamInfo();
+                fetchViewerCount();
             } catch (err) {
                 console.error('[Twitch] Auth callback error:', err.message);
                 res.writeHead(500, { 'Content-Type': 'text/html' });
@@ -2320,7 +2838,7 @@ const server = http.createServer(async (req, res) => {
                     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
                     // Only allow safe fields to be edited
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'webhooks', 'rate_limit', 'theme', 'music'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'webhooks', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'goals'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             current[key] = updates[key];
@@ -2357,7 +2875,9 @@ const server = http.createServer(async (req, res) => {
             webhooks: config.webhooks || { enabled: false, discord_url: '', events: ['raid', 'subscribe', 'donation', 'bits', 'follow'], batch_seconds: 5 },
             rate_limit: config.rate_limit || { enabled: false, requests_per_minute: 120, mutation_per_minute: 30 },
             theme: config.theme || {},
-            music: config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 }
+            music: config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 },
+            viewer_tracking: normalizeViewerTrackingConfig(config.viewer_tracking),
+            goals: normalizeGoalsConfig(config.goals || DEFAULT_GOALS_CONFIG)
         }));
         return;
     }
@@ -2367,6 +2887,7 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ status: 'fetching' }));
         fetchTwitchData();
         fetchStreamInfo();
+        fetchViewerCount();
         return;
     }
 
@@ -2378,6 +2899,8 @@ const server = http.createServer(async (req, res) => {
             ? fs.readdirSync(BACKUPS_DIR).filter(file => file.endsWith('.zip')).sort().reverse()
             : [];
         const hashtagStats = collectHashtagStats();
+        const viewerSummary = getViewerSummary();
+        const goalsSnapshot = buildGoalsSnapshot();
         const status = {
             uptime: process.uptime(),
             ssn: {
@@ -2396,6 +2919,7 @@ const server = http.createServer(async (req, res) => {
                 hasToken: !!twitchAccessToken,
                 refreshMinutes: REFRESH_MINUTES
             },
+            viewers: viewerSummary,
             music: {
                 enabled: !!MUSIC_CONFIG.enabled,
                 source: MUSIC_CONFIG.source || 'apple_music',
@@ -2403,6 +2927,7 @@ const server = http.createServer(async (req, res) => {
                 track: musicState.track,
                 artist: musicState.artist
             },
+            goals: goalsSnapshot.summary,
             timers: {
                 total: Object.keys(timerStore.timers).length,
                 countdowns: Object.values(timerStore.timers).filter(t => t.kind === 'countdown').length,
@@ -2430,9 +2955,93 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    if (pathname === '/api/viewers' && req.method === 'GET') {
+        const summary = getViewerSummary();
+        const includeSamples = url.searchParams.get('samples') !== 'false';
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(includeSamples ? summary : { ...summary, samples: undefined }));
+        return;
+    }
+
+    if (pathname === '/api/goals' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(buildGoalsSnapshot()));
+        return;
+    }
+
+    if (pathname === '/api/goals/config') {
+        if (req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                viewer_tracking: normalizeViewerTrackingConfig(config.viewer_tracking),
+                goals: normalizeGoalsConfig(config.goals || DEFAULT_GOALS_CONFIG)
+            }));
+            return;
+        }
+
+        if (req.method === 'PUT') {
+            try {
+                const body = await readRequestBody(req);
+                const payload = JSON.parse(body || '{}');
+                const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+                if (payload.viewer_tracking !== undefined) current.viewer_tracking = normalizeViewerTrackingConfig(payload.viewer_tracking);
+                if (payload.goals !== undefined) current.goals = normalizeGoalsConfig(payload.goals);
+                fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
+                applyRuntimeConfig(current);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    status: 'saved',
+                    viewer_tracking: normalizeViewerTrackingConfig(current.viewer_tracking),
+                    goals: normalizeGoalsConfig(current.goals || DEFAULT_GOALS_CONFIG)
+                }));
+            } catch (err) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+        }
+    }
+
+    if (pathname.startsWith('/api/goals/') && req.method === 'POST') {
+        const goalPath = pathname.slice('/api/goals/'.length);
+        const [goalIdRaw, actionRaw] = goalPath.split('/').filter(Boolean).map(decodeURIComponent);
+        const goalId = sanitizeGoalId(goalIdRaw);
+        const action = String(actionRaw || '').toLowerCase();
+        if (!goalId || !action) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Goal action not found' }));
+            return;
+        }
+
+        try {
+            if (action === 'reset') {
+                const snapshot = resetGoalBaseline(goalId);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: true, goals: snapshot }));
+                return;
+            }
+
+            if (action === 'toggle' || action === 'enable' || action === 'disable') {
+                const snapshot = toggleGoalEnabled(goalId, action === 'enable' ? 'on' : action === 'disable' ? 'off' : 'toggle');
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: true, goals: snapshot }));
+                return;
+            }
+
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Unsupported goal action: ${action}` }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
     if (pathname === '/api/reset') {
         resetChatData();
         broadcastToOverlays('update', chatData);
+        broadcastToOverlays('viewer-update', getViewerSummary());
+        broadcastToOverlays('goals-update', buildGoalsSnapshot());
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'reset', message: 'Chat data cleared' }));
         console.log('[API] Chat data reset');
@@ -2448,6 +3057,8 @@ const server = http.createServer(async (req, res) => {
         resetChatData();
         sessionActive = false;
         broadcastToOverlays('update', chatData);
+        broadcastToOverlays('viewer-update', getViewerSummary());
+        broadcastToOverlays('goals-update', buildGoalsSnapshot());
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'ended', archived: archiveName, message: 'Session archived and reset. Server still running.' }));
         console.log('[API] Session ended — ready for next stream');
@@ -2458,10 +3069,13 @@ const server = http.createServer(async (req, res) => {
         resetChatData();
         sessionActive = true;
         broadcastToOverlays('update', chatData);
+        broadcastToOverlays('viewer-update', getViewerSummary());
+        broadcastToOverlays('goals-update', buildGoalsSnapshot());
         // Re-fetch Twitch data and stream info for the new session
         if (twitchAccessToken && BROADCASTER_ID) {
             fetchTwitchData();
             fetchStreamInfo();
+            fetchViewerCount();
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'started', startedAt: chatData.startedAt, message: 'New session started.' }));
@@ -3820,6 +4434,8 @@ overlayWss.on('connection', (ws) => {
         ws.send(JSON.stringify({ type: 'music', data: musicState }));
     }
 
+    ws.send(JSON.stringify({ type: 'viewer-update', data: getViewerSummary() }));
+    ws.send(JSON.stringify({ type: 'goals-update', data: buildGoalsSnapshot() }));
     ws.send(JSON.stringify({ type: 'timers-snapshot', data: buildTimersSnapshot() }));
 
     // Send current overlay visibility state
@@ -3847,10 +4463,12 @@ server.listen(PORT, () => {
     console.log(`  Credits:   http://localhost:${PORT}/credits.html`);
     console.log(`  Stats:     http://localhost:${PORT}/stats.html`);
     console.log(`  Hashtags:  http://localhost:${PORT}/hashtags.html`);
+    console.log(`  Goal:      http://localhost:${PORT}/goal.html`);
     console.log(`  Countdown: http://localhost:${PORT}/countdown.html`);
     console.log(`  Stopwatch: http://localhost:${PORT}/stopwatch.html`);
     console.log(`  Dashboard: http://localhost:${PORT}/dashboard.html`);
     console.log(`  Sessions:  http://localhost:${PORT}/sessions.html`);
+    console.log(`  Goals:     http://localhost:${PORT}/goals-editor.html`);
     console.log(`  Migrate:   http://localhost:${PORT}/migrate.html`);
     console.log(`  Export:    http://localhost:${PORT}/api/export?type=all`);
     console.log(`  WebSocket: ws://localhost:${PORT} (overlay push)`);
@@ -3876,6 +4494,7 @@ server.listen(PORT, () => {
     if (twitchAccessToken) {
         fetchTwitchData();
         fetchStreamInfo();
+        fetchViewerCount();
     } else if (TWITCH_CLIENT_ID) {
         const authUrl = `http://localhost:${PORT}/auth/twitch`;
         console.log(`[Twitch] No token found — opening browser to authorize...`);
@@ -3890,6 +4509,8 @@ server.listen(PORT, () => {
         }, REFRESH_MINUTES * 60 * 1000);
         console.log(`[Twitch] Auto-refresh every ${REFRESH_MINUTES} minutes`);
     }
+
+    startViewerTracking();
 
     // Save chat/stats/log to disk every 5 seconds
     setInterval(() => {
