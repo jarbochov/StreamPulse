@@ -4625,6 +4625,8 @@ process.on('SIGINT', () => {
     saveChatData();
     saveStats();
     saveChatLog();
+    const archiveName = archiveSession();
+    if (archiveName) console.log(`[Server] Session archived: ${archiveName}`);
     if (ssnSocket) ssnSocket.close();
     server.close();
     console.log('[Server] Data saved. Goodbye!');
