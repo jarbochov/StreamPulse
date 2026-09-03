@@ -3131,6 +3131,62 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    if (pathname === '/api/analytics' && req.method === 'GET') {
+        const range = buildDateRange(url.searchParams);
+        const sessions = [];
+        if (chatData.startedAt && (!range || chatData.startedAt.slice(0, 10) >= range.from && chatData.startedAt.slice(0, 10) <= range.to)) {
+            sessions.push({ file: '__current__', ...chatData });
+        }
+        if (fs.existsSync(SESSIONS_DIR)) {
+            for (const file of fs.readdirSync(SESSIONS_DIR).filter(f => f.startsWith('chat-') && f.endsWith('.json'))) {
+                try {
+                    const data = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
+                    const date = String(data.startedAt || file).slice(0, 10);
+                    if (!range || (date >= range.from && date <= range.to)) sessions.push({ file, ...data });
+                } catch {}
+            }
+        }
+        const rows = sessions.map(data => {
+            const viewers = data.viewerStats || {};
+            return {
+                file: data.file,
+                date: data.startedAt || null,
+                title: data.streamInfo?.[0]?.title || '',
+                messages: data.messageCount || 0,
+                chatters: Object.keys(data.chatters || {}).length,
+                subscribers: (data.subscribers || []).length,
+                followers: (data.followers || []).length,
+                giftSubs: (data.giftSubs || []).reduce((sum, item) => sum + Math.max(1, Number(item.count) || 1), 0),
+                bits: (data.bits || []).reduce((sum, item) => sum + (Number(item.bits) || parseNumericAmount(item.amount)), 0),
+                donations: (data.donations || []).reduce((sum, item) => sum + parseNumericAmount(item.amountValue ?? item.amount), 0),
+                currentViewers: viewers.current || 0,
+                peakViewers: viewers.peak || 0,
+                averageViewers: viewers.average || 0
+            };
+        }).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+        const totals = rows.reduce((sum, row) => {
+            for (const key of Object.keys(sum)) sum[key] += Number(row[key]) || 0;
+            return sum;
+        }, { messages: 0, chatters: 0, subscribers: 0, followers: 0, giftSubs: 0, bits: 0, donations: 0, peakViewers: 0 });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ range, sessions: rows, totals }));
+        return;
+    }
+
+    if (pathname === '/api/subscribers/current' && req.method === 'GET') {
+        const current = readJsonFileSafe(path.join(DATA_DIR, 'subs.json'), { data: [] })?.data || [];
+        const rows = current.map(sub => {
+            const name = sub.user_name || sub.user_login || '';
+            const history = statsData.subscribers?.[name] || statsData.subscribers?.[sub.user_login] || {};
+            const firstSeen = history.firstSeen || null;
+            const days = firstSeen ? Math.max(1, Math.floor((Date.now() - new Date(firstSeen).getTime()) / 86400000) + 1) : null;
+            return { name, tier: sub.tier || '', plan: sub.plan_name || '', firstSeen, lastSeen: history.lastSeen || null, observedDays: days };
+        }).filter(row => row.name).sort((a, b) => (b.observedDays || 0) - (a.observedDays || 0));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ updatedAt: fs.statSync(path.join(DATA_DIR, 'subs.json')).mtime.toISOString(), subscribers: rows }));
+        return;
+    }
+
     // Hashtag moderation endpoints
     if (pathname === '/api/hashtags/banned') {
         if (req.method === 'GET') {
