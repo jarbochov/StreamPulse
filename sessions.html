@@ -773,6 +773,10 @@
     }
 
     function toggleCompareSelection(filename) {
+        if (filename === '__current__') {
+            const currentCheckbox = document.querySelector('[data-file="__current__"] .session-checkbox');
+            if (currentCheckbox && !compareMode) return;
+        }
         const idx = compareSelections.indexOf(filename);
         if (idx > -1) {
             compareSelections.splice(idx, 1);
@@ -798,15 +802,17 @@
     async function runCompare() {
         if (compareSelections.length < 2) return;
         try {
+            const loadCompareSession = async filename => {
+                const endpoint = filename === '__current__'
+                    ? '/api/chat'
+                    : `/api/sessions/${encodeURIComponent(filename)}`;
+                const response = await fetch(endpoint);
+                if (!response.ok) throw new Error(`Session request failed (${response.status})`);
+                return response.json();
+            };
             const [res1, res2] = await Promise.all([
-                fetch(`/api/sessions/${encodeURIComponent(compareSelections[0])}`).then(r => {
-                    if (!r.ok) throw new Error(`Session 1 request failed (${r.status})`);
-                    return r.json();
-                }),
-                fetch(`/api/sessions/${encodeURIComponent(compareSelections[1])}`).then(r => {
-                    if (!r.ok) throw new Error(`Session 2 request failed (${r.status})`);
-                    return r.json();
-                })
+                loadCompareSession(compareSelections[0]),
+                loadCompareSession(compareSelections[1])
             ]);
             renderCompare(compareSelections[0], res1, compareSelections[1], res2);
         } catch (err) {
