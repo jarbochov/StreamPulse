@@ -260,7 +260,7 @@
                         <div><span class="chat-user" style="color:${userColor(h.user)}">${escapeHtml(h.user)}</span>
                         <button class="pin-btn pinned" onclick="unpinHighlight(this, ${h.ts}, '${escapeHtml(h.user)}')" title="Unpin">⭐</button></div>
                         <div class="chat-text">${displayHtml}</div>
-                        <div class="chat-pinned-at">Pinned ${formatDate(h.pinnedAt)}</div>
+                        <div class="chat-pinned-at">Pinned ${formatDate(h.pinnedAt)} · Key: <code>${h.ts}:${escapeHtml(h.user)}</code> <button class="chat-action-btn" onclick="copyHighlightKey(${h.ts}, '${escapeHtml(h.user)}')">Copy key</button></div>
                     </div>
                     <span class="chat-time">${formatTimestamp(h.ts)}</span>
                 </div>`;
@@ -282,6 +282,16 @@
             showToast('Highlight removed');
             filterHighlights();
         } catch { showToast('Failed to unpin'); }
+    }
+
+    async function copyHighlightKey(ts, user) {
+        const key = `${ts}:${user}`;
+        try {
+            await navigator.clipboard.writeText(key);
+            showToast('Highlight key copied');
+        } catch {
+            showToast('Could not copy highlight key');
+        }
     }
 
     async function getExportErrorMessage(res) {

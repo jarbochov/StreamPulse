@@ -1346,7 +1346,7 @@
                         <div><span class="chat-user" style="color:${userColor(h.user)}">${escapeHtml(h.user)}</span>
                         <button class="pin-btn pinned" onclick="unpinHighlight(this, ${h.ts}, '${escapeHtml(h.user)}')" title="Unpin">⭐</button></div>
                         <div class="chat-text">${displayHtml}</div>
-                        <div class="chat-session-tag">Pinned ${formatDateTimestamp(h.pinnedAt)}</div>
+                        <div class="chat-session-tag">Pinned ${formatDateTimestamp(h.pinnedAt)} · Key: <code>${h.ts}:${escapeHtml(h.user)}</code></div>
                     </div>
                     <span class="chat-time">${formatTimestamp(h.ts)}</span>
                 </div>`;
