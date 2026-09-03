@@ -319,6 +319,15 @@ function renderCredits() {
         `).join('')}</div></div>`;
     }
 
+    function buildHighlightsPanelHtml(title, subtitle, items) {
+        return `<div class="fade-panel-card highlights">${sectionHeader(title, subtitle)}<div class="highlight-list">${items.map(item => `
+            <blockquote class="highlight-quote">
+                <div class="highlight-message">${escapeHtml(item.message)}</div>
+                <div class="highlight-attribution">- ${escapeHtml(item.user)}</div>
+            </blockquote>
+        `).join('')}</div></div>`;
+    }
+
     function normalizeCustomSections(sections) {
         if (!Array.isArray(sections)) return [];
         return sections.map((section, index) => ({
@@ -524,6 +533,11 @@ function renderCredits() {
                     ? highlight.session === sessionName
                     : selected.has(`${highlight.ts}:${highlight.user}`))
                 .map(highlight => ({ user: highlight.user || 'Unknown', message: highlight.message || '' }));
+            if (items.length === 0) return '';
+            if (section.display_style === 'fade') {
+                pushFade(buildHighlightsPanelHtml(title, subtitle, items), section.display_duration);
+                return '';
+            }
             return renderHighlightsBlock(title, subtitle, items);
         }
         return '';

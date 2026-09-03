@@ -166,6 +166,8 @@
         "title": "Featured Highlights",
         "subtitle": "",
         "source": "none",
+        "display_style": "scroll",
+        "display_duration": 0,
         "selected": []
       }
     },
