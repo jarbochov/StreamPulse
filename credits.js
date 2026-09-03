@@ -94,6 +94,7 @@ console.log('[Config] Base credits duration set to:', totalSequenceDuration, 'se
 
 const liveData = {
     chatters: new Map(),
+    sessionStartedAt: null,
     followers: [],
     subscribers: [],
     giftSubs: [],
@@ -220,6 +221,7 @@ function disconnectWebSocket() {
 
 function loadChatData(chatJson) {
     // Replace data from server snapshot (not additive)
+    liveData.sessionStartedAt = chatJson.startedAt || null;
     liveData.chatters.clear();
     if (chatJson.chatters) {
         Object.values(chatJson.chatters).forEach(chatter => {
@@ -501,9 +503,15 @@ function renderCredits() {
             }
         }
         if (sectionId === 'highlights' && section.enabled !== false) {
+            if (section.source === 'none') return '';
             const selected = new Set(Array.isArray(section.selected) ? section.selected.map(String) : []);
+            const sessionName = liveData.sessionStartedAt
+                ? `chat-${new Date(liveData.sessionStartedAt).getFullYear()}-${String(new Date(liveData.sessionStartedAt).getMonth() + 1).padStart(2, '0')}-${String(new Date(liveData.sessionStartedAt).getDate()).padStart(2, '0')}T${String(new Date(liveData.sessionStartedAt).getHours()).padStart(2, '0')}-${String(new Date(liveData.sessionStartedAt).getMinutes()).padStart(2, '0')}.json`
+                : '';
             const items = highlightsData
-                .filter(highlight => selected.has(`${highlight.ts}:${highlight.user}`))
+                .filter(highlight => section.source === 'current_session'
+                    ? highlight.session === sessionName
+                    : selected.has(`${highlight.ts}:${highlight.user}`))
                 .map(highlight => `${highlight.user}: ${highlight.message || ''}`);
             return renderNamedSectionBlock(title, subtitle, items, 'highlights', 1);
         }

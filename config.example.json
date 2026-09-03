@@ -165,6 +165,7 @@
         "enabled": false,
         "title": "Featured Highlights",
         "subtitle": "",
+        "source": "none",
         "selected": []
       }
     },

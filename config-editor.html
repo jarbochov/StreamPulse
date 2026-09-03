@@ -47,6 +47,12 @@
             .cfg-row { flex-direction: column; align-items: stretch; }
             .cfg-row label { min-width: unset; }
         }
+
+        function toggleHighlightsSelection(source) {
+            const visible = source === 'manual';
+            document.getElementById('cfg-highlights-selection-help').style.display = visible ? '' : 'none';
+            document.getElementById('cfg-highlights-selected').style.display = visible ? '' : 'none';
+        }
     </style>
 </head>
 <body>
@@ -381,11 +387,17 @@
                     <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
                         <input type="checkbox" id="cfg-sec-${key}-enabled" ${s.enabled !== false ? 'checked' : ''} style="accent-color: #58a6ff;">
                         <span style="font-size: 0.85rem; color: #e1e4e8; min-width: 100px; font-weight: 500;">${escapeHtml(key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))}</span>
-                        ${(key === 'donations' || key === 'cheerers' || key === 'gift_subs') ? `
+                        ${(key === 'donations' || key === 'cheerers' || key === 'gift_subs' || key === 'highlights') ? `
                             <label style="font-size: 0.7rem; color: #8b949e; margin-left: auto;">Source</label>
-                            <select id="cfg-sec-${key}-source" style="padding: 0.25rem 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e1e4e8; font-size: 0.75rem; width: 90px;">
-                                <option value="session"${(s.source || 'session') === 'session' ? ' selected' : ''}>Session</option>
-                                <option value="stats"${s.source === 'stats' ? ' selected' : ''}>Last ${cfg.days_filter || 30}d</option>
+                            <select id="cfg-sec-${key}-source" onchange="${key === 'highlights' ? 'toggleHighlightsSelection(this.value)' : ''}" style="padding: 0.25rem 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e1e4e8; font-size: 0.75rem; width: ${key === 'highlights' ? '150px' : '90px'};">
+                                ${key === 'highlights' ? `
+                                    <option value="none"${(s.source || (s.selected?.length ? 'manual' : 'none')) === 'none' ? ' selected' : ''}>None</option>
+                                    <option value="manual"${(s.source || (s.selected?.length ? 'manual' : 'none')) === 'manual' ? ' selected' : ''}>Manual highlights</option>
+                                    <option value="current_session"${s.source === 'current_session' ? ' selected' : ''}>Current session</option>
+                                ` : `
+                                    <option value="session"${(s.source || 'session') === 'session' ? ' selected' : ''}>Session</option>
+                                    <option value="stats"${s.source === 'stats' ? ' selected' : ''}>Last ${cfg.days_filter || 30}d</option>
+                                `}
                             </select>` : ''}
                     </div>
                     <div style="display: flex; gap: 0.5rem; padding-left: 1.5rem;">
@@ -401,7 +413,7 @@
                 </div>
             `;
             }).join('')}
-            <div style="font-size:0.75rem;color:#8b949e;margin:-0.2rem 0 0.8rem;padding:0.6rem 0 0.2rem 1.5rem;">
+            <div id="cfg-highlights-selection-help" style="font-size:0.75rem;color:#8b949e;margin:-0.2rem 0 0.8rem;padding:0.6rem 0 0.2rem 1.5rem;">
                 For Featured Highlights, enter one highlight key per line in the format <code>timestamp:username</code>. Use the Highlights page to identify starred messages.
             </div>
             <textarea id="cfg-highlights-selected" placeholder="timestamp:username (one per line)" style="width:calc(100% - 1.5rem);margin:0 0 0.8rem 1.5rem;min-height:4rem;padding:0.4rem;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e1e4e8;font-size:0.8rem;">${escapeHtml((sec.highlights?.selected || []).join('\n'))}</textarea>
@@ -549,6 +561,7 @@
         document.getElementById('cfg-st-display-style').addEventListener('change', function() {
             document.getElementById('cfg-st-duration-row').style.display = this.value === 'fade' ? 'flex' : 'none';
         });
+        toggleHighlightsSelection(document.getElementById('cfg-sec-highlights-source')?.value || 'none');
         document.getElementById('cfg-theme-font-scale').addEventListener('input', function() {
             document.getElementById('cfg-theme-font-scale-label').textContent = this.value + '×';
         });
