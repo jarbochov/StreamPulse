@@ -2209,7 +2209,7 @@ async function applyUpdate(mode) {
                 if (['config.json', 'data', 'node_modules'].includes(entry)) continue;
                 fs.cpSync(path.join(extractDir, root.name, entry), path.join(__dirname, entry), { recursive: true, force: true });
             }
-            await execFileAsync(NPM_COMMAND, ['install', '--omit=dev'], { cwd: __dirname, timeout: 300000 });
+            await execFileAsync(NPM_COMMAND, ['ci', '--omit=dev'], { cwd: __dirname, timeout: 300000 });
         } finally {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
@@ -2227,7 +2227,7 @@ async function applyUpdate(mode) {
         await execFileAsync('git', ['checkout', status.latestLabel], { cwd: __dirname });
     }
     try {
-        await execFileAsync(NPM_COMMAND, ['install', '--omit=dev'], { cwd: __dirname, timeout: 300000 });
+        await execFileAsync(NPM_COMMAND, ['ci', '--omit=dev'], { cwd: __dirname, timeout: 300000 });
     } catch (err) {
         throw new Error(`Dependencies failed to install: ${err.message}`);
     }
@@ -2300,7 +2300,7 @@ function buildDateRange(params) {
             await execFileAsync('git', ['checkout', status.latestLabel], { cwd: __dirname });
         }
         try {
-            await execFileAsync(NPM_COMMAND, ['install', '--omit=dev'], { cwd: __dirname, timeout: 300000 });
+            await execFileAsync(NPM_COMMAND, ['ci', '--omit=dev'], { cwd: __dirname, timeout: 300000 });
         } catch (err) {
             throw new Error(`Dependencies failed to install: ${err.message}`);
         }
