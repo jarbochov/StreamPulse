@@ -67,3 +67,5 @@ Usage:
 ./manage.sh stop
 ./manage.sh restart
 ```
+
+The in-app updater does not require this shell script. It is cross-platform and can restart the Node server after a manual update when StreamPulse was launched with `npm start`; Git and Node.js/npm must be installed and the checkout must be writable. Windows uses `npm.cmd` automatically. For unattended process supervision, use a platform service or process manager so the server is relaunched if it exits unexpectedly.

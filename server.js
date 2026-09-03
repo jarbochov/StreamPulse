@@ -12,6 +12,7 @@ const archiver = require('archiver');
 const AdmZip = require('adm-zip');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
+const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 // ============================================================================
 // CONFIG
@@ -2182,7 +2183,7 @@ function buildDateRange(params) {
             await execFileAsync('git', ['checkout', status.latestLabel], { cwd: __dirname });
         }
         try {
-            await execFileAsync('npm', ['install', '--omit=dev'], { cwd: __dirname, timeout: 300000 });
+            await execFileAsync(NPM_COMMAND, ['install', '--omit=dev'], { cwd: __dirname, timeout: 300000 });
         } catch (err) {
             throw new Error(`Dependencies failed to install: ${err.message}`);
         }

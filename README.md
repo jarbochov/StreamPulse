@@ -143,6 +143,8 @@ A Twitch app provides subscriber, follower, and bits data via the Twitch API.
 - **Session Lifecycle** — End/start session endpoints for Companion integration
 - **Backup & Restore** — Download full data backups as ZIP, including the current live session, and restore them with restart guidance when connection settings changed
 - **Update** — Check for and manually install the latest stable release, or explicitly opt in to a warned nightly `main` build from the Manage menu
+
+The updater works on Windows, macOS, and Linux when StreamPulse is run from a Git checkout with Git and Node.js/npm available. On Windows, the server uses the native `npm.cmd` command automatically. Keep the production folder writable and avoid running with uncommitted tracked code changes; data is backed up before an update.
 - **Discord Webhooks** — Optional notifications for raids, subs, donations, bits, and follows
 - **Preview Mode** — `?preview=true` renders credits without scrolling for layout testing
 
