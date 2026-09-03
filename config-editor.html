@@ -48,11 +48,6 @@
             .cfg-row label { min-width: unset; }
         }
 
-        function toggleHighlightsSelection(source) {
-            const visible = source === 'manual';
-            document.getElementById('cfg-highlights-selection-help').style.display = visible ? '' : 'none';
-            document.getElementById('cfg-highlights-selected').style.display = visible ? '' : 'none';
-        }
     </style>
 </head>
 <body>
@@ -73,6 +68,14 @@
     <div class="toast" id="toast"></div>
 
     <script>
+    function toggleHighlightsSelection(source) {
+        const visible = source === 'manual';
+        const help = document.getElementById('cfg-highlights-selection-help');
+        const selected = document.getElementById('cfg-highlights-selected');
+        if (help) help.style.display = visible ? '' : 'none';
+        if (selected) selected.style.display = visible ? '' : 'none';
+    }
+
     function showToast(msg) {
         const t = document.getElementById('toast');
         t.textContent = msg;

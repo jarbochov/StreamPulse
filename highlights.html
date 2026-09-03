@@ -248,7 +248,10 @@
         });
 
         let html = '';
-        for (const [session, items] of Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]))) {
+        for (const [session, items] of Object.entries(groups).sort((a, b) => {
+            if (sort === 'user') return (a[1][0].user || '').localeCompare(b[1][0].user || '', undefined, { sensitivity: 'base' });
+            return b[0].localeCompare(a[0]);
+        })) {
             html += `<div class="session-group"><h3>${escapeHtml(session)} (${items.length})</h3>`;
             html += items.map(h => {
                 let displayHtml = h.messageHtml ? sanitizeHtml(h.messageHtml) : escapeHtml(h.message);

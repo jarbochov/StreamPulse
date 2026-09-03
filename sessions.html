@@ -1186,9 +1186,10 @@
             }
 
             function messageUrls(message) {
+                const htmlUrls = [...(message.messageHtml || '').matchAll(/href=["'](https?:\/\/[^"']+)/gi)].map(match => match[1]);
                 const urls = message.urls && message.urls.length
                     ? message.urls
-                    : (message.message || '').match(/https?:\/\/[^\s<>"')\]]+/gi) || [];
+                    : [...((message.message || '').match(/https?:\/\/[^\s<>"')\]]+/gi) || []), ...htmlUrls];
                 return [...new Set(urls)];
             }
 
@@ -1199,14 +1200,15 @@
                     ${message.avatar ? `<img class="chat-avatar" src="${escapeHtml(message.avatar)}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
                     <div class="chat-meta">
                         <div><span class="chat-user" style="color:${userColor(message.user)}">${escapeHtml(message.user)}</span><span class="chat-session-tag">${escapeHtml(session)}</span></div>
-                        <div class="chat-text">${urls.map(url => `<div><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a><span class="chat-actions"><button class="chat-action-btn" onclick="copyLink('${escapeHtml(url)}')">Copy</button><a class="chat-action-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open</a></span></div>`).join('')}</div>
+                        <div class="chat-text">${urls.map(url => `<div><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a><span class="chat-actions"><button class="chat-action-btn" onclick="copyLink('${encodeURIComponent(url)}')">Copy</button><a class="chat-action-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open</a></span></div>`).join('')}</div>
                         <div class="chat-session-tag">${formatDateTimestamp(message.ts)}${message.message ? ` · ${escapeHtml(message.message)}` : ''}</div>
                     </div>
                     <span class="chat-time">${formatTimestamp(message.ts)}</span>
                 </div>`;
             }
 
-            async function copyLink(url) {
+            async function copyLink(encodedUrl) {
+                const url = decodeURIComponent(encodedUrl);
                 try {
                     await navigator.clipboard.writeText(url);
                 } catch {
@@ -1328,7 +1330,10 @@
         });
 
         let html = '';
-        for (const [session, items] of Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]))) {
+        for (const [session, items] of Object.entries(groups).sort((a, b) => {
+            if (sort === 'user') return (a[1][0].user || '').localeCompare(b[1][0].user || '', undefined, { sensitivity: 'base' });
+            return b[0].localeCompare(a[0]);
+        })) {
             html += `<div class="highlight-group"><h3>${escapeHtml(session)}</h3>`;
             html += items.map(h => {
                 const hReply = formatReply(h.messageHtml, h.message);

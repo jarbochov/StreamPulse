@@ -1056,6 +1056,14 @@ async function init() {
     console.log('[Init] Active Subs Only:', serverConfig.active_subs_only);
 
     await loadPrefetchedData();
+    if (!liveData.sessionStartedAt) {
+        try {
+            const chatRes = await fetch('/api/chat');
+            if (chatRes.ok) loadChatData(await chatRes.json());
+        } catch (err) {
+            console.warn('[Data] Could not load current session:', err.message);
+        }
+    }
     try {
         const highlightsRes = await fetch('/api/highlights');
         if (highlightsRes.ok) highlightsData = await highlightsRes.json();
