@@ -1613,6 +1613,75 @@ function getBackupFileSpecs() {
     ];
 }
 
+function buildDateRange(params) {
+    const days = parseInt(params?.get('days') || '0', 10) || 0;
+    const date = params?.get('date') || '';
+    const from = params?.get('from') || '';
+    const to = params?.get('to') || '';
+
+    if (date) return { from: date, to: date };
+    if (from || to) return { from: from || '1970-01-01', to: to || '9999-12-31' };
+    if (days > 0) {
+        const fromDate = new Date(Date.now() - days * 86400000);
+        return {
+            from: `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, '0')}-${String(fromDate.getDate()).padStart(2, '0')}`,
+            to: '9999-12-31'
+        };
+    }
+    return null;
+}
+
+function sumDailyBuckets(days, range) {
+    if (!days || typeof days !== 'object') return 0;
+    let total = 0;
+    for (const [day, count] of Object.entries(days)) {
+        if (!range || (day >= range.from && day <= range.to)) total += count;
+    }
+    return total;
+}
+
+function countRangeDays(days, range) {
+    if (!days || typeof days !== 'object') return 0;
+    let total = 0;
+    for (const [day, count] of Object.entries(days)) {
+        if ((!range || (day >= range.from && day <= range.to)) && Number(count) > 0) total++;
+    }
+    return total;
+}
+
+function collectHashtagStats(range = null) {
+    const statsTags = Object.keys(statsData?.hashtags || {});
+    const sessionTags = Object.keys(chatData?.hashtags || {});
+    const allTags = new Set([...statsTags, ...sessionTags, ...bannedHashtags]);
+    const hashtags = Array.from(allTags).map(tag => {
+        const statsEntry = statsData?.hashtags?.[tag] || {};
+        const sessionEntry = chatData?.hashtags?.[tag] || {};
+        return {
+            tag,
+            count: sumDailyBuckets(statsEntry.days, range),
+            sessionCount: sessionEntry.count || 0,
+            uniqueDays: countRangeDays(statsEntry.days, range),
+            firstUsed: statsEntry.firstUsed || null,
+            lastUsed: statsEntry.lastUsed || null,
+            banned: bannedHashtags.has(tag)
+        };
+    }).filter(item => item.count > 0 || item.sessionCount > 0 || item.banned)
+        .sort((a, b) => b.count - a.count || b.sessionCount - a.sessionCount || a.tag.localeCompare(b.tag));
+
+    const top = hashtags.find(item => item.count > 0 || item.sessionCount > 0) || null;
+    return {
+        summary: {
+            tracked: hashtags.filter(item => item.count > 0 || item.sessionCount > 0).length,
+            totalMentions: hashtags.reduce((sum, item) => sum + item.count, 0),
+            activeSession: hashtags.filter(item => item.sessionCount > 0).length,
+            banned: hashtags.filter(item => item.banned).length,
+            topTag: top?.tag || null,
+            topCount: top?.count || 0
+        },
+        hashtags
+    };
+}
+
 function parseChatSearchTerms(queryText) {
     if (!queryText) return null;
     const orGroups = queryText.split(/\bOR\b/i).map(group => group.trim()).filter(Boolean);
@@ -2308,6 +2377,7 @@ const server = http.createServer(async (req, res) => {
         const backupFiles = fs.existsSync(BACKUPS_DIR)
             ? fs.readdirSync(BACKUPS_DIR).filter(file => file.endsWith('.zip')).sort().reverse()
             : [];
+        const hashtagStats = collectHashtagStats();
         const status = {
             uptime: process.uptime(),
             ssn: {
@@ -2343,6 +2413,7 @@ const server = http.createServer(async (req, res) => {
                 highlights: highlights.length,
                 sessions: archivedSessions
             },
+            hashtags: hashtagStats.summary,
             backups: {
                 autoEnabled: !!config.auto_backup_on_session_end,
                 count: backupFiles.length,
@@ -2432,6 +2503,17 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'reset', message: 'Stats data cleared' }));
         console.log('[API] Stats data reset');
+        return;
+    }
+
+    if (pathname === '/api/hashtags/stats' && req.method === 'GET') {
+        const range = buildDateRange(url.searchParams);
+        const stats = collectHashtagStats(range);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            ...stats,
+            range
+        }));
         return;
     }
 

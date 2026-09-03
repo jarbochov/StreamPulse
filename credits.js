@@ -8,6 +8,8 @@ const SPEED_MULTIPLIER = parseFloat(urlParams.get('speed')) || null;
 const DATA_PATH = urlParams.get('datapath') || './data';
 const PREVIEW = urlParams.get('preview') === 'true';
 let DAYS_FILTER = parseInt(urlParams.get('days')) || 30;
+const FADE_PANEL_DEFAULT_DURATION = 0;
+const FADE_PANEL_TRANSITION_MS = 1000;
 
 // Server-provided config (loaded at init)
 let serverConfig = {
@@ -19,6 +21,8 @@ let serverConfig = {
     credits: {
         header: { image: '', title: 'Thank you for your support!', subtitle: '' },
         closing: 'Thanks for watching!',
+        closing_display_style: 'scroll',
+        closing_display_duration: FADE_PANEL_DEFAULT_DURATION,
         custom_sections: [],
         section_order: [],
         sections: {
@@ -71,16 +75,16 @@ function applyTheme(cfg) {
     if (t.font_scale) r.setProperty('--font-scale', t.font_scale);
 }
 
-// Calculate scroll duration - duration takes priority over speed
-let scrollDuration = 82;
+// Calculate total base pre-social credits duration - duration takes priority over speed
+let totalSequenceDuration = 82;
 if (DURATION) {
-    scrollDuration = DURATION;
+    totalSequenceDuration = DURATION;
 } else if (SPEED_MULTIPLIER) {
-    scrollDuration = 82 / SPEED_MULTIPLIER;
+    totalSequenceDuration = 82 / SPEED_MULTIPLIER;
 }
 
-document.documentElement.style.setProperty('--scroll-duration', `${scrollDuration}s`);
-console.log('[Config] Scroll duration set to:', scrollDuration, 'seconds');
+document.documentElement.style.setProperty('--scroll-duration', `${totalSequenceDuration}s`);
+console.log('[Config] Base credits duration set to:', totalSequenceDuration, 'seconds');
 
 // ============================================================================
 // DATA STORAGE
@@ -260,10 +264,11 @@ function loadChatData(chatJson) {
 
 function renderCredits() {
     const container = document.getElementById('credits-container');
+    const fadePanelsContainer = document.getElementById('fade-panels-container');
     const socialLinksContainer = document.getElementById('social-links-container');
     const c = serverConfig.credits;
     const sec = c.sections;
-    let html = '';
+    const sequence = [];
 
     // Helper for section titles
     function sectionHeader(title, subtitle) {
@@ -274,6 +279,23 @@ function renderCredits() {
 
     function formatMultilineText(text) {
         return escapeHtml(text || '').replace(/\\n|\n/g, '<br>');
+    }
+
+    function normalizeDisplayStyle(value) {
+        return value === 'fade' ? 'fade' : 'scroll';
+    }
+
+    function normalizeDisplayDuration(value) {
+        const seconds = Number(value);
+        return Number.isFinite(seconds) && seconds >= 0 ? seconds : FADE_PANEL_DEFAULT_DURATION;
+    }
+
+    function pushScroll(html) {
+        if (html && html.trim()) sequence.push({ mode: 'scroll', html });
+    }
+
+    function pushFade(html, extraDuration) {
+        if (html && html.trim()) sequence.push({ mode: 'fade', html, extraDuration: normalizeDisplayDuration(extraDuration) });
     }
 
     function renderNamedSectionBlock(title, subtitle, items, className = '', columns = 1) {
@@ -291,6 +313,8 @@ function renderCredits() {
             subtitle: section?.subtitle || '',
             body: section?.body || '',
             columns: [1, 2, 3].includes(section?.columns) ? section.columns : 1,
+            display_style: normalizeDisplayStyle(section?.display_style),
+            display_duration: normalizeDisplayDuration(section?.display_duration),
             names: Array.isArray(section?.names) ? section.names.filter(Boolean) : []
         }));
     }
@@ -310,7 +334,13 @@ function renderCredits() {
     }
 
     const customSections = normalizeCustomSections(c.custom_sections);
-    const specialThanks = c.special_thanks || {};
+    const specialThanks = {
+        ...(c.special_thanks || {}),
+        display_style: normalizeDisplayStyle(c.special_thanks?.display_style),
+        display_duration: normalizeDisplayDuration(c.special_thanks?.display_duration)
+    };
+    const closingDisplayStyle = normalizeDisplayStyle(c.closing_display_style);
+    const closingDisplayDuration = normalizeDisplayDuration(c.closing_display_duration);
 
     function renderBuiltInSection(sectionId) {
         const section = sec[sectionId] || {};
@@ -320,7 +350,7 @@ function renderCredits() {
         if (sectionId === 'subscribers' && section.enabled !== false) {
             const allSubs = mergeSubscribers();
             if (allSubs.length > 0) {
-                html += '<div class="section">';
+                let html = '<div class="section">';
                 html += sectionHeader(title, subtitle);
                 html += '<div class="people-list two-col">';
                 allSubs.forEach(sub => {
@@ -329,22 +359,24 @@ function renderCredits() {
                     html += '</div>';
                 });
                 html += '</div></div>';
+                return html;
             }
-            return;
+            return '';
         }
 
         if (sectionId === 'followers' && section.enabled !== false) {
             const allFollowers = mergeFollowers();
             if (allFollowers.length > 0) {
-                html += '<div class="section">';
+                let html = '<div class="section">';
                 html += sectionHeader(title, subtitle);
                 html += '<div class="people-list three-col">';
                 allFollowers.forEach(f => {
                     html += `<div class="person">${escapeHtml(f.name)}</div>`;
                 });
                 html += '</div></div>';
+                return html;
             }
-            return;
+            return '';
         }
 
         if (sectionId === 'donations' && section.enabled !== false) {
@@ -353,7 +385,7 @@ function renderCredits() {
                 ? mergeStatsDonations()
                 : liveData.donations.map(d => ({ chatname: d.chatname, amount: d.amount }));
             if (donationsList.length > 0) {
-                html += '<div class="section">';
+                let html = '<div class="section">';
                 html += sectionHeader(title, subtitle);
                 html += '<div class="people-list two-col">';
                 donationsList.forEach(d => {
@@ -361,15 +393,16 @@ function renderCredits() {
                     html += `<div class="person">${escapeHtml(d.chatname)} (${escapeHtml(detail)})</div>`;
                 });
                 html += '</div></div>';
+                return html;
             }
-            return;
+            return '';
         }
 
         if (sectionId === 'gift_subs' && section.enabled !== false) {
             const useStats = section.source === 'stats';
             const giftSubList = useStats ? mergeStatsGiftSubs() : liveData.giftSubs;
             if (giftSubList.length > 0) {
-                html += '<div class="section">';
+                let html = '<div class="section">';
                 html += sectionHeader(title, subtitle);
                 html += '<div class="people-list two-col">';
                 giftSubList.forEach(g => {
@@ -380,27 +413,29 @@ function renderCredits() {
                     html += `<div class="person">${escapeHtml(label)}</div>`;
                 });
                 html += '</div></div>';
+                return html;
             }
-            return;
+            return '';
         }
 
         if (sectionId === 'cheerers' && section.enabled !== false) {
             const useStats = section.source === 'stats';
             const allBits = useStats ? mergeStatsBits() : mergeBits();
             if (allBits.length > 0) {
-                html += '<div class="section">';
+                let html = '<div class="section">';
                 html += sectionHeader(title, subtitle);
                 html += '<div class="people-list two-col">';
                 allBits.forEach(b => {
                     html += `<div class="person">${escapeHtml(b.name)} (${escapeHtml(b.amount)})</div>`;
                 });
                 html += '</div></div>';
+                return html;
             }
-            return;
+            return '';
         }
 
         if (sectionId === 'raids' && section.enabled !== false && liveData.raids.length > 0) {
-            html += '<div class="section">';
+            let html = '<div class="section">';
             html += sectionHeader(title || 'Raiders', subtitle);
             html += '<div class="people-list two-col">';
             liveData.raids.forEach(r => {
@@ -408,13 +443,13 @@ function renderCredits() {
                 html += `<div class="person">${escapeHtml(r.chatname)}${viewers}</div>`;
             });
             html += '</div></div>';
-            return;
+            return html;
         }
 
         if (sectionId === 'emotes' && section.enabled !== false) {
             const topEmotes = getTopEmotes(5);
             if (topEmotes.length > 0) {
-                html += '<div class="section">';
+                let html = '<div class="section">';
                 html += sectionHeader(title, subtitle);
                 html += '<div>';
                 topEmotes.forEach(emote => {
@@ -425,14 +460,15 @@ function renderCredits() {
                     html += '</div>';
                 });
                 html += '</div></div>';
+                return html;
             }
-            return;
+            return '';
         }
 
         if (sectionId === 'hashtags' && section.enabled !== false) {
             const topHashtags = getTopHashtags(35);
             if (topHashtags.length > 0) {
-                html += '<div class="section">';
+                let html = '<div class="section">';
                 html += sectionHeader(title, subtitle);
                 html += '<div class="hashtag-list">';
                 topHashtags.forEach(hashtag => {
@@ -442,23 +478,26 @@ function renderCredits() {
                     html += '</div>';
                 });
                 html += '</div></div>';
+                return html;
             }
-            return;
+            return '';
         }
 
         if (sectionId === 'chatters' && section.enabled !== false) {
             const sortedChatters = Array.from(liveData.chatters.values())
                 .sort((a, b) => b.messageCount - a.messageCount);
             if (sortedChatters.length > 0) {
-                html += '<div class="section">';
+                let html = '<div class="section">';
                 html += sectionHeader(title, subtitle);
                 html += '<div class="people-list three-col">';
                 sortedChatters.forEach(chatter => {
                     html += `<div class="person">${escapeHtml(chatter.chatname)}</div>`;
                 });
                 html += '</div></div>';
+                return html;
             }
         }
+        return '';
     }
 
     function renderCustomSection(section) {
@@ -469,7 +508,12 @@ function renderCredits() {
         const names = Array.isArray(section?.names) ? section.names.filter(Boolean) : [];
         if (!title && !subtitle && !body && names.length === 0) return;
 
-        html += '<div class="section custom-section">';
+        if (normalizeDisplayStyle(section?.display_style) === 'fade') {
+            pushFade(buildFadePanelHtml({ title, subtitle, body, names, columns: section?.columns }), section?.display_duration);
+            return;
+        }
+
+        let html = '<div class="section custom-section">';
         if (title || subtitle) html += sectionHeader(title || 'Credits', subtitle);
         if (body) {
             html += `<div class="custom-section-body">${formatMultilineText(body)}</div>`;
@@ -483,33 +527,167 @@ function renderCredits() {
             html += '</div>';
         }
         html += '</div>';
+        pushScroll(html);
+    }
+
+    function buildFadePanelHtml({ title = '', subtitle = '', body = '', names = [], columns = 1, className = '' }) {
+        const cols = columns === 2 ? 'two-col' : columns === 3 ? 'three-col' : '';
+        let panelHtml = `<div class="fade-panel-card${className ? ` ${className}` : ''}">`;
+        if (title || subtitle) panelHtml += sectionHeader(title || 'Credits', subtitle);
+        if (body) panelHtml += `<div class="custom-section-body">${formatMultilineText(body)}</div>`;
+        if (names.length > 0) {
+            panelHtml += `<div class="people-list ${cols}">`;
+            names.forEach(name => {
+                panelHtml += `<div class="person">${escapeHtml(name)}</div>`;
+            });
+            panelHtml += '</div>';
+        }
+        panelHtml += '</div>';
+        return panelHtml;
+    }
+
+    function buildTimelineBlocks() {
+        const blocks = [];
+        let pendingScrollHtml = '';
+        sequence.forEach(segment => {
+            if (segment.mode === 'scroll') {
+                pendingScrollHtml += segment.html;
+                return;
+            }
+            if (pendingScrollHtml.trim()) {
+                blocks.push({ mode: 'scroll', html: pendingScrollHtml });
+                pendingScrollHtml = '';
+            }
+            blocks.push(segment);
+        });
+        if (pendingScrollHtml.trim()) {
+            blocks.push({ mode: 'scroll', html: pendingScrollHtml });
+        }
+        return blocks;
+    }
+
+    function wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function nextFrame() {
+        return new Promise(resolve => requestAnimationFrame(() => resolve()));
+    }
+
+    async function measureScrollDistance(html) {
+        container.getAnimations().forEach(animation => animation.cancel());
+        container.classList.remove('scrollIt', 'fadeOut');
+        container.style.display = '';
+        container.style.opacity = '0';
+        container.style.top = '1080px';
+        container.innerHTML = html;
+        await nextFrame();
+        return 1080 + container.scrollHeight;
+    }
+
+    async function measureFadeWeight(html) {
+        fadePanelsContainer.classList.remove('preview', 'is-visible');
+        fadePanelsContainer.innerHTML = html;
+        await nextFrame();
+        const panel = fadePanelsContainer.firstElementChild;
+        return 1080 + (panel?.scrollHeight || panel?.offsetHeight || 0);
+    }
+
+    async function assignBlockDurations(blocks) {
+        const measured = [];
+        let totalWeight = 0;
+        for (const block of blocks) {
+            const weight = block.mode === 'scroll'
+                ? await measureScrollDistance(block.html)
+                : await measureFadeWeight(block.html);
+            measured.push(weight);
+            totalWeight += weight;
+        }
+        const totalDurationMs = totalSequenceDuration * 1000;
+        return blocks.map((block, index) => {
+            const weight = measured[index];
+            const baseDurationMs = totalWeight > 0 ? (weight / totalWeight) * totalDurationMs : 0;
+            if (block.mode === 'scroll') {
+                return { ...block, weight, durationMs: baseDurationMs };
+            }
+            const extraDurationMs = (block.extraDuration || 0) * 1000;
+            return { ...block, weight, baseDurationMs, durationMs: baseDurationMs + extraDurationMs, extraDurationMs };
+        });
+    }
+
+    async function playScrollBlock(block) {
+        container.getAnimations().forEach(animation => animation.cancel());
+        fadePanelsContainer.classList.remove('is-visible', 'preview');
+        fadePanelsContainer.innerHTML = '';
+        container.classList.remove('scrollIt', 'fadeOut');
+        container.style.display = '';
+        container.style.opacity = '1';
+        container.style.top = '1080px';
+        container.innerHTML = block.html;
+        await nextFrame();
+        const height = container.scrollHeight;
+        if (height <= 0) return;
+        await new Promise(resolve => {
+            const animation = container.animate([
+                { top: '1080px', opacity: 1 },
+                { top: `${-height}px`, opacity: 1 }
+            ], {
+                duration: Math.max(1, block.durationMs || 1),
+                easing: 'linear',
+                fill: 'forwards'
+            });
+            animation.onfinish = () => resolve();
+        });
+        container.style.display = 'none';
+    }
+
+    async function playFadeBlock(block) {
+        container.getAnimations().forEach(animation => animation.cancel());
+        container.style.display = 'none';
+        fadePanelsContainer.classList.remove('preview', 'is-visible');
+        fadePanelsContainer.innerHTML = block.html;
+        await nextFrame();
+        fadePanelsContainer.classList.add('is-visible');
+        await wait(Math.max(0, (block.durationMs || 0) - FADE_PANEL_TRANSITION_MS));
+        fadePanelsContainer.classList.remove('is-visible');
+        await wait(FADE_PANEL_TRANSITION_MS);
+        fadePanelsContainer.innerHTML = '';
     }
 
     function renderSpecialThanksSection() {
         if (specialThanks.enabled !== false && specialThanks.names && specialThanks.names.length > 0) {
-            html += renderNamedSectionBlock(
+            if (specialThanks.display_style === 'fade') {
+                pushFade(buildFadePanelHtml({
+                    title: specialThanks.title || 'Special Thanks',
+                    subtitle: specialThanks.subtitle,
+                    names: specialThanks.names,
+                    columns: specialThanks.columns,
+                    className: 'special-thanks'
+                }), specialThanks.display_duration);
+                return;
+            }
+            pushScroll(renderNamedSectionBlock(
                 specialThanks.title || 'Special Thanks',
                 specialThanks.subtitle,
                 specialThanks.names,
                 'special-thanks',
                 specialThanks.columns
-            );
+            ));
         }
     }
 
     // Header image
     if (c.header.image) {
-        html += '<div class="section">';
-        html += `<img src="${c.header.image}" class="header-img" alt="Header">`;
-        html += '</div>';
+        pushScroll(`<div class="section"><img src="${c.header.image}" class="header-img" alt="Header"></div>`);
     }
 
     // Header text
     if (c.header.title) {
-        html += '<div class="section">';
+        let html = '<div class="section">';
         html += `<h1>${escapeHtml(c.header.title)}</h1>`;
         if (c.header.subtitle) html += `<h3>${escapeHtml(c.header.subtitle)}</h3>`;
         html += '</div>';
+        pushScroll(html);
     }
 
     const customSectionsById = new Map(customSections.map(section => [section.id, section]));
@@ -518,7 +696,7 @@ function renderCredits() {
         if (sectionId === SPECIAL_THANKS_ORDER_ID) {
             renderSpecialThanksSection();
         } else if (BUILTIN_CREDIT_SECTION_KEYS.includes(sectionId)) {
-            renderBuiltInSection(sectionId);
+            pushScroll(renderBuiltInSection(sectionId));
         } else if (customSectionsById.has(sectionId)) {
             renderCustomSection(customSectionsById.get(sectionId));
         }
@@ -526,12 +704,19 @@ function renderCredits() {
 
     // Closing
     if (c.closing) {
-        html += '<div class="section closing">';
-        html += formatMultilineText(c.closing);
-        html += '</div>';
+        if (closingDisplayStyle === 'fade') {
+            pushFade(`<div class="fade-panel-card closing-panel"><div class="fade-panel-closing-text">${formatMultilineText(c.closing)}</div></div>`, closingDisplayDuration);
+        } else {
+            pushScroll(`<div class="section closing">${formatMultilineText(c.closing)}</div>`);
+        }
     }
 
-    container.innerHTML = html;
+    const timelineBlocks = buildTimelineBlocks();
+    container.getAnimations().forEach(animation => animation.cancel());
+    container.innerHTML = '';
+    fadePanelsContainer.innerHTML = '';
+    fadePanelsContainer.classList.remove('is-visible', 'preview');
+    socialLinksContainer.classList.remove('fadeIn');
 
     // Social links
     const social = c.social;
@@ -555,8 +740,15 @@ function renderCredits() {
     if (PREVIEW) {
         container.style.position = 'relative';
         container.style.top = '0';
+        container.style.display = '';
+        container.style.opacity = '1';
+        container.innerHTML = sequence.map(segment =>
+            segment.mode === 'fade' ? `<div class="section">${segment.html}</div>` : segment.html
+        ).join('');
         document.body.style.overflow = 'auto';
         document.body.style.height = 'auto';
+        fadePanelsContainer.innerHTML = '';
+        fadePanelsContainer.style.pointerEvents = 'none';
         socialLinksContainer.style.position = 'relative';
         socialLinksContainer.style.opacity = '1';
         socialLinksContainer.style.bottom = 'auto';
@@ -567,35 +759,30 @@ function renderCredits() {
         console.log('[Credits] Preview mode — no scrolling');
         return;
     }
+    fadePanelsContainer.style.pointerEvents = 'none';
+    container.style.display = 'none';
 
-    // Start scroll animation
-    const creditsHeight = container.scrollHeight;
-    document.documentElement.style.setProperty('--credits-height', `${creditsHeight}px`);
-    console.log('[Credits] Content height:', creditsHeight, 'px');
-
-    // Calculate when closing section exits viewport
-    const totalDistance = 1080 + creditsHeight;
-    const closingEl = container.querySelector('.closing');
-    const closingBottom = closingEl
-        ? closingEl.offsetTop + closingEl.offsetHeight
-        : creditsHeight;
-    const exitRatio = (1080 + closingBottom) / totalDistance;
-    const socialLinkDelay = exitRatio * scrollDuration * 1000;
-    console.log('[Credits] Social links will appear after', (socialLinkDelay / 1000).toFixed(1), 'seconds');
-
-    // Account for fadeOut-to-fadeIn gap in the delay calculation
-    const fadeGap = 1000;
-    const adjustedDelay = Math.max(0, socialLinkDelay - fadeGap);
-
-    setTimeout(() => {
-        container.classList.add('scrollIt');
-        setTimeout(() => {
-            container.classList.add('fadeOut');
-            setTimeout(() => {
-                socialLinksContainer.classList.add('fadeIn');
-            }, fadeGap);
-        }, adjustedDelay);
-    }, 100);
+    (async () => {
+        const blocksWithDurations = await assignBlockDurations(timelineBlocks);
+        const totalScrollMs = blocksWithDurations
+            .filter(block => block.mode === 'scroll')
+            .reduce((sum, block) => sum + (block.durationMs || 0), 0);
+        const totalFadeMs = blocksWithDurations
+            .filter(block => block.mode === 'fade')
+            .reduce((sum, block) => sum + (block.durationMs || 0), 0);
+        const totalExtraFadeMs = blocksWithDurations
+            .filter(block => block.mode === 'fade')
+            .reduce((sum, block) => sum + (block.extraDurationMs || 0), 0);
+        console.log('[Credits] Timeline blocks:', blocksWithDurations.map(block => block.mode).join(' → ') || '(none)');
+        console.log('[Credits] Base sequence duration:', totalSequenceDuration.toFixed(2), 'seconds');
+        console.log('[Credits] Added fade override time:', (totalExtraFadeMs / 1000).toFixed(2), 'seconds');
+        console.log('[Credits] Total pre-social duration:', ((totalScrollMs + totalFadeMs) / 1000).toFixed(2), 'seconds');
+        for (const block of blocksWithDurations) {
+            if (block.mode === 'scroll') await playScrollBlock(block);
+            else await playFadeBlock(block);
+        }
+        if (socialHtml.trim()) socialLinksContainer.classList.add('fadeIn');
+    })().catch(err => console.error('[Credits] Sequence failed:', err));
 }
 
 // ============================================================================
@@ -819,7 +1006,7 @@ async function init() {
     } catch { /* use defaults */ }
 
     console.log('[Init] Duration:', DURATION, 'seconds (URL parameter)');
-    console.log('[Init] Effective Scroll Duration:', scrollDuration, 'seconds');
+    console.log('[Init] Base pre-social duration:', totalSequenceDuration, 'seconds');
     console.log('[Init] Data Path:', DATA_PATH);
     console.log('[Init] Days Filter:', DAYS_FILTER, 'days');
     console.log('[Init] Subs Source:', serverConfig.subs_source);

@@ -63,6 +63,35 @@ body {
     transition: opacity 2s;
 }
 
+#fade-panels-container {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6vh 7vw;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1s;
+}
+
+#fade-panels-container.is-visible {
+    opacity: 1;
+}
+
+#fade-panels-container.preview {
+    position: relative;
+    inset: auto;
+    opacity: 1;
+    padding: 0;
+    margin: 70px auto 0;
+    width: min(80%, 1400px);
+}
+
+#fade-panels-container.preview .fade-panel-card + .fade-panel-card {
+    margin-top: 36px;
+}
+
 #social-links-container.fadeIn {
     opacity: 1;
 }
@@ -85,6 +114,34 @@ body {
     font-size: calc(4vw * var(--font-scale)) !important;
     font-weight: bold;
     line-height: 3rem;
+}
+
+.fade-panel-card {
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    text-align: center;
+}
+
+.fade-panel-card h2,
+.fade-panel-card h3,
+.fade-panel-card .person,
+.fade-panel-card .custom-section-body,
+.fade-panel-card .fade-panel-closing-text {
+    text-shadow: -1px -1px 0 var(--text-outline-color), 1px -1px 0 var(--text-outline-color), -1px 1px 0 var(--text-outline-color), 1px 1px 0 var(--text-outline-color);
+}
+
+.fade-panel-card .people-list {
+    max-width: 100%;
+}
+
+.fade-panel-card .person,
+.fade-panel-card .custom-section-body,
+.fade-panel-closing-text {
+    font-size: calc(4vw * var(--font-scale));
+    font-weight: bold;
+    line-height: 1.2;
+    white-space: normal;
 }
 
 h1 {

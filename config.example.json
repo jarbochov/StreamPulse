@@ -57,6 +57,8 @@
       "subtitle": ""
     },
     "closing": "Thanks for watching!",
+    "closing_display_style": "scroll",
+    "closing_display_duration": 0,
     "sections": {
       "subscribers": {
         "enabled": true,
@@ -124,6 +126,8 @@
       "title": "Special Thanks",
       "subtitle": "",
       "columns": 1,
+      "display_style": "scroll",
+      "display_duration": 0,
       "names": []
     },
     "custom_sections": [
@@ -134,6 +138,8 @@
         "subtitle": "",
         "body": "Optional statement text goes here.",
         "columns": 1,
+        "display_style": "fade",
+        "display_duration": 0,
         "names": [
           "Best Clip Finder",
           "Chaos Coordinator"

@@ -274,11 +274,24 @@
             </div>
         </div>
 
+        <div class="card" data-panel-id="hashtag-stats" data-default-size="normal">
+            <h2>Hashtag Stats</h2>
+            <div class="detail-line"><strong>Tracked:</strong> <span id="hashtags-tracked">0</span></div>
+            <div class="detail-line"><strong>Live This Session:</strong> <span id="hashtags-active-session">0</span></div>
+            <div class="detail-line"><strong>Banned:</strong> <span id="hashtags-banned">0</span></div>
+            <div class="detail-line"><strong>Top Tag:</strong> <span id="hashtags-top-tag">—</span></div>
+            <div class="link-grid">
+                <a class="btn" href="/hashtag-stats.html"># Stats</a>
+                <a class="btn" href="/manage-hashtags.html">🏷️ Tools</a>
+            </div>
+        </div>
+
         <!-- Quick links to management pages -->
         <div class="card" data-panel-id="quick-links" data-default-size="full">
             <h2>Quick Links</h2>
             <div class="link-grid" style="margin-top:0;">
                 <a class="btn" href="/config-editor.html">⚙️ Config</a>
+                <a class="btn" href="/hashtag-stats.html"># Hashtag Stats</a>
                 <a class="btn" href="/manage-hashtags.html">🏷️ Hashtags</a>
                 <a class="btn" href="/timers-editor.html">⏱ Timers</a>
                 <a class="btn" href="/music-editor.html">🎵 Music</a>
@@ -535,6 +548,10 @@
             document.getElementById('backup-auto').textContent = data.backups?.autoEnabled ? 'Enabled' : 'Disabled';
             document.getElementById('backup-count').textContent = data.backups?.count || 0;
             document.getElementById('backup-latest').textContent = formatBackupName(data.backups?.latest);
+            document.getElementById('hashtags-tracked').textContent = data.hashtags?.tracked || 0;
+            document.getElementById('hashtags-active-session').textContent = data.hashtags?.activeSession || 0;
+            document.getElementById('hashtags-banned').textContent = data.hashtags?.banned || 0;
+            document.getElementById('hashtags-top-tag').textContent = data.hashtags?.topTag || '—';
 
             // Volume chart
             renderVolumeChart(data.hourlyMessages || {});

@@ -118,6 +118,8 @@
         chatters: "Today's Chatters"
     };
     const SPECIAL_THANKS_ORDER_ID = 'special_thanks';
+    const CREDIT_DISPLAY_STYLE_OPTIONS = ['scroll', 'fade'];
+    const DEFAULT_FADE_PANEL_DURATION = 0;
 
     let customSectionsState = [];
     let creditsSectionOrderState = [];
@@ -135,6 +137,8 @@
             subtitle: section?.subtitle || '',
             body: section?.body || '',
             columns: [1, 2, 3].includes(section?.columns) ? section.columns : 1,
+            display_style: CREDIT_DISPLAY_STYLE_OPTIONS.includes(section?.display_style) ? section.display_style : 'scroll',
+            display_duration: Number.isFinite(Number(section?.display_duration)) && Number(section.display_duration) >= 0 ? Number(section.display_duration) : DEFAULT_FADE_PANEL_DURATION,
             names: Array.isArray(section?.names) ? section.names.filter(Boolean).map(name => String(name)) : []
         }));
     }
@@ -247,10 +251,24 @@
         const el = document.getElementById('config-editor');
         const sec = cfg.credits?.sections || {};
         const social = cfg.credits?.social || {};
-        const st = cfg.credits?.special_thanks || { enabled: false, title: 'Special Thanks', subtitle: '', names: [] };
+        const st = {
+            enabled: cfg.credits?.special_thanks?.enabled !== false,
+            title: cfg.credits?.special_thanks?.title || 'Special Thanks',
+            subtitle: cfg.credits?.special_thanks?.subtitle || '',
+            columns: [1, 2, 3].includes(cfg.credits?.special_thanks?.columns) ? cfg.credits.special_thanks.columns : 1,
+            display_style: CREDIT_DISPLAY_STYLE_OPTIONS.includes(cfg.credits?.special_thanks?.display_style) ? cfg.credits.special_thanks.display_style : 'scroll',
+            display_duration: Number.isFinite(Number(cfg.credits?.special_thanks?.display_duration)) && Number(cfg.credits.special_thanks.display_duration) >= 0
+                ? Number(cfg.credits.special_thanks.display_duration)
+                : DEFAULT_FADE_PANEL_DURATION,
+            names: Array.isArray(cfg.credits?.special_thanks?.names) ? cfg.credits.special_thanks.names : []
+        };
         customSectionsState = normalizeCustomSections(cfg.credits?.custom_sections || []);
         creditsSectionOrderState = normalizeCreditsSectionOrder(cfg.credits?.section_order || [], customSectionsState);
         const theme = cfg.theme || {};
+        const closingDisplayStyle = CREDIT_DISPLAY_STYLE_OPTIONS.includes(cfg.credits?.closing_display_style) ? cfg.credits.closing_display_style : 'scroll';
+        const closingDisplayDuration = Number.isFinite(Number(cfg.credits?.closing_display_duration)) && Number(cfg.credits.closing_display_duration) >= 0
+            ? Number(cfg.credits.closing_display_duration)
+            : DEFAULT_FADE_PANEL_DURATION;
 
         el.innerHTML = `
             <div class="cfg-section">General</div>
@@ -384,7 +402,7 @@
             }).join('')}
 
             <div class="cfg-section">Custom Credit Sections</div>
-            <div style="font-size:0.75rem;color:#484f58;margin-bottom:0.5rem;">Add as many extra credit blocks as you want. Each one can be a statement, a list of names, or both.</div>
+            <div style="font-size:0.75rem;color:#484f58;margin-bottom:0.5rem;">Add as many extra credit blocks as you want. Each one can be a statement, a list of names, or both. Fade sections appear as standalone text panels instead of rolling with the credits. Extra fade time adds onto the base credits duration before socials.</div>
             <div id="custom-sections-editor"></div>
             <button class="btn" onclick="addCustomSection()" style="margin-top: 0.5rem; width: auto;">＋ Add Custom Section</button>
 
@@ -409,6 +427,18 @@
                     <option value="3"${st.columns === 3 ? ' selected' : ''}>3 — Three columns</option>
                 </select>
             </div>
+            <div class="cfg-row">
+                <label>Display Style</label>
+                <select id="cfg-st-display-style">
+                    <option value="scroll"${st.display_style === 'scroll' ? ' selected' : ''}>Scroll with credits</option>
+                    <option value="fade"${st.display_style === 'fade' ? ' selected' : ''}>Fade</option>
+                </select>
+            </div>
+            <div class="cfg-row" id="cfg-st-duration-row" style="display:${st.display_style === 'fade' ? 'flex' : 'none'};">
+                <label>Extra Fade Time</label>
+                <input type="number" id="cfg-st-display-duration" min="0" value="${st.display_duration}">
+            </div>
+            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.2rem;">0 keeps Special Thanks inside the base duration. Add seconds here to extend the total sequence.</div>
             <div id="special-thanks-editor">
                 ${(st.names || []).map((name, i) => specialThanksRow(name, i)).join('')}
             </div>
@@ -419,7 +449,18 @@
                 <label>Text</label>
                 <textarea id="cfg-closing">${escapeHtml(cfg.credits?.closing || '')}</textarea>
             </div>
-            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Use \\n for line breaks</div>
+            <div class="cfg-row" style="margin-top:0.5rem;">
+                <label>Style</label>
+                <select id="cfg-closing-display-style">
+                    <option value="scroll"${closingDisplayStyle === 'scroll' ? ' selected' : ''}>Scroll with credits</option>
+                    <option value="fade"${closingDisplayStyle === 'fade' ? ' selected' : ''}>Fade</option>
+                </select>
+            </div>
+            <div class="cfg-row" id="cfg-closing-duration-row" style="margin-top:0.5rem;display:${closingDisplayStyle === 'fade' ? 'flex' : 'none'};">
+                <label>Extra Fade Time</label>
+                <input type="number" id="cfg-closing-display-duration" min="0" value="${closingDisplayDuration}">
+            </div>
+            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Use \\n for line breaks. 0 keeps the closing fade inside the base duration. Add seconds here to extend the total sequence.</div>
 
             <div class="cfg-section">Social Links</div>
             <div class="cfg-row">
@@ -496,6 +537,12 @@
         });
         document.getElementById('cfg-theme-outline').addEventListener('change', function() {
             document.getElementById('cfg-theme-outline-color-row').style.display = this.checked ? 'flex' : 'none';
+        });
+        document.getElementById('cfg-closing-display-style').addEventListener('change', function() {
+            document.getElementById('cfg-closing-duration-row').style.display = this.value === 'fade' ? 'flex' : 'none';
+        });
+        document.getElementById('cfg-st-display-style').addEventListener('change', function() {
+            document.getElementById('cfg-st-duration-row').style.display = this.value === 'fade' ? 'flex' : 'none';
         });
         document.getElementById('cfg-theme-font-scale').addEventListener('input', function() {
             document.getElementById('cfg-theme-font-scale-label').textContent = this.value + '×';
@@ -606,6 +653,18 @@
                         <option value="3"${section.columns === 3 ? ' selected' : ''}>3 — Three columns</option>
                     </select>
                 </div>
+                <div class="cfg-row" style="margin-top:0.5rem;">
+                    <label>Display Style</label>
+                    <select class="custom-section-display-style" onchange="toggleCustomSectionDuration(${index})">
+                        <option value="scroll"${(section.display_style || 'scroll') === 'scroll' ? ' selected' : ''}>Scroll with credits</option>
+                        <option value="fade"${section.display_style === 'fade' ? ' selected' : ''}>Fade</option>
+                    </select>
+                </div>
+                <div class="cfg-row custom-section-duration-row" style="margin-top:0.5rem;display:${section.display_style === 'fade' ? 'flex' : 'none'};">
+                    <label>Extra Fade Time</label>
+                    <input type="number" min="0" class="custom-section-display-duration" value="${section.display_duration ?? DEFAULT_FADE_PANEL_DURATION}">
+                </div>
+                <div style="margin-top:0.2rem;font-size:0.75rem;color:#8b949e;display:${section.display_style === 'fade' ? 'block' : 'none'};" class="custom-section-duration-help">0 keeps this panel inside the base duration. Add seconds here to extend the total sequence.</div>
                 <div style="margin-top:0.65rem;font-size:0.75rem;color:#8b949e;">Names / Lines</div>
                 <div class="custom-section-names" style="margin-top:0.2rem;">
                     ${(section.names || []).map((name, nameIndex) => customSectionNameRow(name, index, nameIndex)).join('')}
@@ -624,6 +683,16 @@
         renderCreditsOrderEditor();
     }
 
+    function toggleCustomSectionDuration(index) {
+        const card = document.querySelector(`.custom-section-card[data-index="${index}"]`);
+        if (!card) return;
+        const style = card.querySelector('.custom-section-display-style')?.value || 'scroll';
+        const row = card.querySelector('.custom-section-duration-row');
+        const help = card.querySelector('.custom-section-duration-help');
+        if (row) row.style.display = style === 'fade' ? 'flex' : 'none';
+        if (help) help.style.display = style === 'fade' ? 'block' : 'none';
+    }
+
     function readCustomSectionsFromDom() {
         const cards = [...document.querySelectorAll('.custom-section-card')];
         if (cards.length === 0) return [];
@@ -635,6 +704,8 @@
                 subtitle: card.querySelector('.custom-section-subtitle')?.value.trim() || '',
                 body: card.querySelector('.custom-section-body')?.value || '',
                 columns: parseInt(card.querySelector('.custom-section-columns')?.value, 10) || 1,
+                display_style: CREDIT_DISPLAY_STYLE_OPTIONS.includes(card.querySelector('.custom-section-display-style')?.value) ? card.querySelector('.custom-section-display-style').value : 'scroll',
+                display_duration: Math.max(0, parseInt(card.querySelector('.custom-section-display-duration')?.value, 10) || 0),
                 names: [...card.querySelectorAll('.custom-section-name')]
                     .map(input => input.value.trim())
                     .filter(Boolean)
@@ -656,6 +727,8 @@
             subtitle: '',
             body: '',
             columns: 1,
+            display_style: 'scroll',
+            display_duration: DEFAULT_FADE_PANEL_DURATION,
             names: []
         });
         renderCustomSectionsEditor();
@@ -800,6 +873,8 @@
                     image: document.getElementById('cfg-header-image').value
                 },
                 closing: document.getElementById('cfg-closing').value,
+                closing_display_style: document.getElementById('cfg-closing-display-style').value === 'fade' ? 'fade' : 'scroll',
+                closing_display_duration: Math.max(0, parseInt(document.getElementById('cfg-closing-display-duration').value, 10) || 0),
                 sections: sec,
                 section_order: creditsSectionOrderState,
                 special_thanks: {
@@ -807,6 +882,8 @@
                     title: document.getElementById('cfg-st-title').value,
                     subtitle: document.getElementById('cfg-st-subtitle').value,
                     columns: parseInt(document.getElementById('cfg-st-columns').value) || 1,
+                    display_style: document.getElementById('cfg-st-display-style').value === 'fade' ? 'fade' : 'scroll',
+                    display_duration: Math.max(0, parseInt(document.getElementById('cfg-st-display-duration').value, 10) || 0),
                     names: getSpecialThanksNames()
                 },
                 custom_sections: customSectionsState,

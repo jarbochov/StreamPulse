@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Hashtag Stats</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .nav { display: flex; gap: 0.75rem; }
+        .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; }
+        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 1rem; }
+        .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; }
+        .field label { display: block; font-size: 0.75rem; color: #8b949e; margin-bottom: 0.25rem; }
+        .field input, .field select { width: 100%; padding: 0.5rem 0.65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.85rem; }
+        .actions { display: flex; gap: 0.65rem; align-items: flex-end; flex-wrap: wrap; }
+        .btn { padding: 0.6rem 1rem; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #e1e4e8; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+        .btn:hover { border-color: #58a6ff; background: #1a2332; }
+        .btn.danger { border-color: #f8514950; }
+        .btn.danger:hover { border-color: #f85149; background: #2d1b1e; }
+        .status-line { font-size: 0.8rem; color: #8b949e; margin-top: 0.75rem; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; }
+        .stat { text-align: center; padding: 0.85rem; background: #0d1117; border-radius: 6px; }
+        .stat .value { font-size: 1.7rem; font-weight: 700; color: #58a6ff; }
+        .stat .label { margin-top: 0.3rem; font-size: 0.75rem; color: #8b949e; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 0.7rem 0.6rem; border-bottom: 1px solid #21262d; text-align: left; font-size: 0.84rem; vertical-align: middle; }
+        th { color: #8b949e; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer; user-select: none; }
+        th.sort-active { color: #58a6ff; }
+        td.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+        .muted { color: #8b949e; }
+        .tag { color: #58a6ff; font-weight: 600; }
+        .pill { display: inline-flex; align-items: center; border: 1px solid #30363d; border-radius: 999px; padding: 0.2rem 0.5rem; font-size: 0.72rem; }
+        .pill.banned { border-color: #f8514950; color: #f85149; background: #2d1b1e; }
+        .pill.live { border-color: #23863660; color: #3fb950; background: #102016; }
+        .row-actions { display: flex; gap: 0.45rem; justify-content: flex-end; }
+        .mini-btn { background: none; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; cursor: pointer; padding: 0.35rem 0.55rem; font-size: 0.76rem; }
+        .mini-btn:hover { border-color: #58a6ff; background: #1a2332; }
+        .mini-btn.danger:hover { border-color: #f85149; background: #2d1b1e; }
+        .empty { color: #8b949e; text-align: center; padding: 1rem; }
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
+        .toast.show { opacity: 1; }
+        @media (max-width: 768px) {
+            .header { flex-direction: column; align-items: stretch; }
+            .container { padding: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>StreamPulse <span>Hashtag Stats</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>Filters</h2>
+            <div class="filters">
+                <div class="field">
+                    <label for="filter-search">Search</label>
+                    <input type="text" id="filter-search" placeholder="#chaos">
+                </div>
+                <div class="field">
+                    <label for="filter-status">Status</label>
+                    <select id="filter-status">
+                        <option value="all">All hashtags</option>
+                        <option value="live">Active in current session</option>
+                        <option value="banned">Banned only</option>
+                        <option value="tracked">Tracked only</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="filter-days">Last N Days</label>
+                    <input type="number" id="filter-days" min="0" value="0" placeholder="0 = all time">
+                </div>
+                <div class="field">
+                    <label for="filter-from">From</label>
+                    <input type="date" id="filter-from">
+                </div>
+                <div class="field">
+                    <label for="filter-to">To</label>
+                    <input type="date" id="filter-to">
+                </div>
+                <div class="actions">
+                    <button class="btn" onclick="refreshStats()">Apply</button>
+                    <button class="btn" onclick="resetFilters()">Reset</button>
+                    <a class="btn" href="/manage-hashtags.html">Moderation Tools</a>
+                </div>
+            </div>
+            <div class="status-line" id="range-status">Showing all tracked hashtag stats.</div>
+        </div>
+
+        <div class="card">
+            <h2>Summary</h2>
+            <div class="summary-grid">
+                <div class="stat"><div class="value" id="summary-tracked">0</div><div class="label">Tracked</div></div>
+                <div class="stat"><div class="value" id="summary-mentions">0</div><div class="label">Mentions</div></div>
+                <div class="stat"><div class="value" id="summary-active">0</div><div class="label">Live This Session</div></div>
+                <div class="stat"><div class="value" id="summary-banned">0</div><div class="label">Banned</div></div>
+                <div class="stat"><div class="value" id="summary-top">—</div><div class="label">Top Hashtag</div></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Hashtag Table</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th data-sort="tag" onclick="setSort('tag')">Hashtag</th>
+                            <th data-sort="count" class="sort-active" onclick="setSort('count')">Count</th>
+                            <th data-sort="sessionCount" onclick="setSort('sessionCount')">Session</th>
+                            <th data-sort="uniqueDays" onclick="setSort('uniqueDays')">Days</th>
+                            <th data-sort="firstUsed" onclick="setSort('firstUsed')">First Seen</th>
+                            <th data-sort="lastUsed" onclick="setSort('lastUsed')">Last Seen</th>
+                            <th>Status</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stats-table-body">
+                        <tr><td colspan="8" class="empty">Loading hashtag stats…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    let hashtagStats = [];
+    let currentSummary = null;
+    let sortKey = 'count';
+    let sortDirection = 'desc';
+    let refreshTimer = null;
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str || '';
+        return div.innerHTML;
+    }
+
+    function formatDate(value) {
+        if (!value) return '—';
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return value;
+        return d.toLocaleString();
+    }
+
+    function buildQuery() {
+        const params = new URLSearchParams();
+        const days = parseInt(document.getElementById('filter-days').value, 10) || 0;
+        const from = document.getElementById('filter-from').value;
+        const to = document.getElementById('filter-to').value;
+        if (days > 0) params.set('days', days);
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+        return params;
+    }
+
+    function updateRangeStatus(range) {
+        const label = document.getElementById('range-status');
+        if (!range) {
+            label.textContent = 'Showing all tracked hashtag stats.';
+            return;
+        }
+        if (range.from === range.to) {
+            label.textContent = `Showing stats for ${range.from}.`;
+            return;
+        }
+        label.textContent = `Showing stats from ${range.from} to ${range.to}.`;
+    }
+
+    function updateSummary(summary) {
+        currentSummary = summary || {};
+        document.getElementById('summary-tracked').textContent = (summary?.tracked || 0).toLocaleString();
+        document.getElementById('summary-mentions').textContent = (summary?.totalMentions || 0).toLocaleString();
+        document.getElementById('summary-active').textContent = (summary?.activeSession || 0).toLocaleString();
+        document.getElementById('summary-banned').textContent = (summary?.banned || 0).toLocaleString();
+        document.getElementById('summary-top').textContent = summary?.topTag || '—';
+    }
+
+    function getFilteredRows() {
+        const search = document.getElementById('filter-search').value.trim().toLowerCase();
+        const status = document.getElementById('filter-status').value;
+        let rows = hashtagStats.filter(row => {
+            if (search && !row.tag.toLowerCase().includes(search)) return false;
+            if (status === 'live' && row.sessionCount <= 0) return false;
+            if (status === 'banned' && !row.banned) return false;
+            if (status === 'tracked' && row.banned && row.count <= 0 && row.sessionCount <= 0) return false;
+            return true;
+        });
+
+        const compare = (a, b) => {
+            if (sortKey === 'tag') return a.tag.localeCompare(b.tag);
+            if (sortKey === 'firstUsed' || sortKey === 'lastUsed') {
+                return (new Date(a[sortKey] || 0).getTime()) - (new Date(b[sortKey] || 0).getTime());
+            }
+            return (a[sortKey] || 0) - (b[sortKey] || 0);
+        };
+
+        rows.sort((a, b) => sortDirection === 'asc' ? compare(a, b) : compare(b, a));
+        return rows;
+    }
+
+    function renderTable() {
+        const body = document.getElementById('stats-table-body');
+        const rows = getFilteredRows();
+        document.querySelectorAll('th[data-sort]').forEach(th => {
+            th.classList.toggle('sort-active', th.dataset.sort === sortKey);
+        });
+
+        if (rows.length === 0) {
+            body.innerHTML = '<tr><td colspan="8" class="empty">No hashtags match the current filters.</td></tr>';
+            return;
+        }
+
+        body.innerHTML = rows.map(row => `
+            <tr>
+                <td><span class="tag">${escapeHtml(row.tag)}</span></td>
+                <td class="numeric">${(row.count || 0).toLocaleString()}</td>
+                <td class="numeric">${(row.sessionCount || 0).toLocaleString()}</td>
+                <td class="numeric">${(row.uniqueDays || 0).toLocaleString()}</td>
+                <td class="muted">${escapeHtml(formatDate(row.firstUsed))}</td>
+                <td class="muted">${escapeHtml(formatDate(row.lastUsed))}</td>
+                <td>
+                    ${row.banned ? '<span class="pill banned">Banned</span>' : ''}
+                    ${row.sessionCount > 0 ? '<span class="pill live">Live</span>' : ''}
+                    ${!row.banned && row.sessionCount <= 0 ? '<span class="pill">Tracked</span>' : ''}
+                </td>
+                <td>
+                    <div class="row-actions">
+                        ${row.banned
+                            ? `<button class="mini-btn" onclick="unbanHashtag('${encodeURIComponent(row.tag)}')">Unban</button>`
+                            : `<button class="mini-btn danger" onclick="banHashtag('${encodeURIComponent(row.tag)}')">Ban</button>`
+                        }
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function setSort(key) {
+        if (sortKey === key) sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+        else {
+            sortKey = key;
+            sortDirection = key === 'tag' ? 'asc' : 'desc';
+        }
+        renderTable();
+    }
+
+    async function refreshStats() {
+        try {
+            const params = buildQuery();
+            const res = await fetch(`/api/hashtags/stats${params.toString() ? `?${params.toString()}` : ''}`);
+            if (!res.ok) throw new Error('Stats fetch failed');
+            const data = await res.json();
+            hashtagStats = data.hashtags || [];
+            updateRangeStatus(data.range || null);
+            updateSummary(data.summary || {});
+            renderTable();
+        } catch (err) {
+            document.getElementById('stats-table-body').innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(err.message || 'Unable to load hashtag stats.')}</td></tr>`;
+        }
+    }
+
+    function resetFilters() {
+        document.getElementById('filter-search').value = '';
+        document.getElementById('filter-status').value = 'all';
+        document.getElementById('filter-days').value = '0';
+        document.getElementById('filter-from').value = '';
+        document.getElementById('filter-to').value = '';
+        refreshStats();
+    }
+
+    async function banHashtag(encodedTag) {
+        const tag = decodeURIComponent(encodedTag);
+        try {
+            const res = await fetch('/api/hashtags/banned', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Ban failed');
+            showToast(`Banned ${data.tag}`);
+            refreshStats();
+        } catch (err) {
+            showToast(err.message || 'Ban failed');
+        }
+    }
+
+    async function unbanHashtag(encodedTag) {
+        const tag = decodeURIComponent(encodedTag);
+        try {
+            const res = await fetch('/api/hashtags/banned', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Unban failed');
+            showToast(`Unbanned ${data.tag}`);
+            refreshStats();
+        } catch (err) {
+            showToast(err.message || 'Unban failed');
+        }
+    }
+
+    document.getElementById('filter-search').addEventListener('input', renderTable);
+    document.getElementById('filter-status').addEventListener('change', renderTable);
+    document.getElementById('filter-days').addEventListener('keydown', event => { if (event.key === 'Enter') refreshStats(); });
+    document.getElementById('filter-from').addEventListener('change', refreshStats);
+    document.getElementById('filter-to').addEventListener('change', refreshStats);
+
+    refreshStats();
+    refreshTimer = setInterval(refreshStats, 15000);
+    window.addEventListener('beforeunload', () => clearInterval(refreshTimer));
+    </script>
+</body>
+</html>

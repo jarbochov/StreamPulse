@@ -115,8 +115,8 @@
                 {
                     name: 'credits.html — Credits Overlay',
                     items: [
-                        { param: 'duration', type: 'number', default: '82', desc: 'Total scroll duration in seconds. Overrides speed parameter.', example: '?duration=120' },
-                        { param: 'speed', type: 'number', default: '1.0', desc: 'Speed multiplier. Scroll duration = 82 / speed. Ignored if duration is set.', example: '?speed=0.8' },
+                        { param: 'duration', type: 'number', default: '82', desc: 'Total credits duration in seconds before socials appear. Overrides speed parameter.', example: '?duration=120' },
+                        { param: 'speed', type: 'number', default: '1.0', desc: 'Speed multiplier. Total pre-social credits duration = 82 / speed. Ignored if duration is set.', example: '?speed=0.8' },
                         { param: 'days', type: 'number', default: '30', desc: 'Filter credits data to the last N days.', example: '?days=7' },
                         { param: 'datapath', type: 'string', default: './data', desc: 'Path to data directory. Rarely needed — server handles this.', example: '?datapath=./data' },
                         { param: 'preview', type: 'boolean', default: 'false', desc: 'Show full credits layout without scrolling. Great for testing in OBS.', example: '?preview=true' }
@@ -227,7 +227,9 @@
                 {
                     name: 'Credits Closing',
                     items: [
-                        { param: 'credits.closing', type: 'string', default: '"Thanks for watching!"', desc: 'Closing text shown at the bottom of credits. Use \\n for line breaks.', hot: true }
+                        { param: 'credits.closing', type: 'string', default: '"Thanks for watching!"', desc: 'Closing text shown at the bottom of credits. Use \\n for line breaks.', hot: true },
+                        { param: 'credits.closing_display_style', type: 'string', default: '"scroll"', desc: 'Choose whether the ending message scrolls with the credits or appears as a centered fade section. Values: scroll, fade.', hot: true },
+                        { param: 'credits.closing_display_duration', type: 'number', default: '0', desc: 'When the closing message uses fade style, add this many extra seconds on top of the base credits duration before socials. Set 0 to keep it within the base sequence timing.', hot: true }
                     ]
                 },
                 {
@@ -243,7 +245,14 @@
                 {
                     name: 'Custom Credit Sections',
                     items: [
-                        { param: 'credits.custom_sections', type: 'array', default: '[]', desc: 'Repeatable manual credit blocks. Each item supports id, enabled, title, subtitle, body, columns, and names.', hot: true }
+                        { param: 'credits.custom_sections', type: 'array', default: '[]', desc: 'Repeatable manual credit blocks. Each item supports id, enabled, title, subtitle, body, columns, names, display_style, and display_duration. For fade sections, display_duration is extra additive time.', hot: true }
+                    ]
+                },
+                {
+                    name: 'Special Thanks',
+                    items: [
+                        { param: 'credits.special_thanks.display_style', type: 'string', default: '"scroll"', desc: 'Choose whether Special Thanks scrolls with the credits or appears as a fade section. Values: scroll, fade.', hot: true },
+                        { param: 'credits.special_thanks.display_duration', type: 'number', default: '0', desc: 'When Special Thanks uses fade style, add this many extra seconds on top of the base credits duration before socials. Set 0 to keep it within the base sequence timing.', hot: true }
                     ]
                 },
                 {

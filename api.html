@@ -259,9 +259,14 @@
             section: 'Hashtag Moderation',
             items: [
                 {
+                    method: 'GET', path: '/api/hashtags/stats',
+                    desc: 'Detailed hashtag stats summary',
+                    details: 'Returns { summary, hashtags, range } for the hashtag admin table. Supports optional date filters with ?days=7, ?date=2026-03-14, or ?from=2026-03-01&to=2026-03-14. Each hashtag row includes tag, count, sessionCount, uniqueDays, firstUsed, lastUsed, and banned.'
+                },
+                {
                     method: 'GET', path: '/api/hashtags/banned',
                     desc: 'List banned hashtags and active session hashtags',
-                    details: 'Returns { banned: [...], session: [{ tag, count }] } with all currently banned hashtags and active session hashtags with their counts.'
+                    details: 'Returns { banned: [...], session: [{ tag, count }], stats: [{ tag, count }] } with all currently banned hashtags plus current session and persistent stats hashtag counts.'
                 },
                 {
                     method: 'POST', path: '/api/hashtags/banned',

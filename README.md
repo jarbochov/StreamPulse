@@ -124,14 +124,14 @@ A Twitch app provides subscriber, follower, and bits data via the Twitch API.
 
 ## Features
 
-- **Credits Roll** — Cinematic scrolling credits with subscribers, followers, chatters, emotes, hashtags, raids, gift subs, cheerers, and more
+- **Credits Roll** — Cinematic scrolling credits with subscribers, followers, chatters, emotes, hashtags, raids, gift subs, cheerers, and optional fade-style text sections for custom sections, Special Thanks, or the closing message
 - **Music Overlay** — "Now Playing" overlay for Apple Music, Spotify, and VLC with album art, marquee titles, and multiple display modes
 - **Named Timers** — Shared countdown and stopwatch overlays with duration or target-date countdown modes, pause/resume controls, quick add/subtract time adjustments, persistent state, and Companion-friendly field endpoints
 - **Live Stats Overlay** — Persistent top chatters, emotes, and hashtags across sessions
 - **Session History** — Browse archived sessions with full chat logs, searchable with boolean operators (`AND`, `OR`, `"exact phrase"`, `user:name`)
 - **Highlights** — Pin notable chat messages and export them per session
 - **Chat Log Exports** — Export filtered chat logs and highlights as TSV, TXT, or PDF (with the same quoted phrase / AND / OR / `user:name` filtering used in search)
-- **Hashtag Tracking** — Live hashtag overlays with moderation (ban/unban/purge)
+- **Hashtag Tracking** — Live hashtag overlays with moderation plus a dedicated sortable admin stats page
 - **Dashboard** — Server status, session stats, message volume chart, and quick actions
 - **Fully Configurable** — All sections, titles, social links, and options editable via web UI or `config.json`
 - **Twitch OAuth** — Browser-based authorization with automatic token refresh
@@ -222,7 +222,7 @@ All other settings can be edited live via the [Config Editor](http://localhost:3
 
 ### Credits Configuration
 
-Credits sections, social links, special thanks, and repeatable custom credit sections are all configurable via the Config Editor or directly in `config.json` under the `credits` key. Built-in sections support `enabled`, `title`, and `subtitle`; custom sections also support a freeform `body`, `columns`, and `names` list. Use `credits.section_order` to place built-in sections, custom sections, and Special Thanks anywhere in the roll.
+Credits sections, social links, special thanks, and repeatable custom credit sections are all configurable via the Config Editor or directly in `config.json` under the `credits` key. Built-in sections support `enabled`, `title`, and `subtitle`; custom sections also support a freeform `body`, `columns`, `names`, `display_style`, and `display_duration` list/panel configuration. Use `credits.section_order` to place built-in sections, custom sections, and Special Thanks anywhere in the roll. Fade sections still fit inside the base credits `?duration=` by default, and any `display_duration` value adds extra seconds on top of that base sequence before socials.
 
 ### Overlay Theme
 
@@ -255,12 +255,12 @@ Optional webhook notifications for stream events:
 
 | Parameter | Default | Description |
 | --- | --- | --- |
-| `duration` | `82` | Scroll duration in seconds |
+| `duration` | `82` | Total credits duration in seconds before socials appear |
 | `speed` | | Speed multiplier (only if `duration` not set) |
 | `days` | config value | Override days_filter from config |
 | `preview` | `false` | Show all credits without scrolling |
 
-> **🎵 Syncing credits with music:** Set `?duration=` to match your end-of-stream track length so the credits scroll finishes exactly when the song ends. For example, `?duration=75` for a 1:15 track. Use a Companion/StreamDeck button to trigger both the OBS credits source and music simultaneously for a clean outro.
+> **🎵 Syncing credits with music:** Set `?duration=` to match your end-of-stream track length so the full credits sequence before socials lines up with the song. For example, `?duration=75` for a 1:15 track. Fade sections count toward that total, and their per-section fade durations reduce the time left for scrolling sections. Use a Companion/StreamDeck button to trigger both the OBS credits source and music simultaneously for a clean outro.
 
 ### stats.html
 
@@ -292,6 +292,7 @@ Optional webhook notifications for stream events:
 | `GET /api/sessions` | List archived sessions |
 | `GET/POST/DELETE /api/highlights` | Pin/unpin/list highlights |
 | `GET /api/highlights/export` | Export highlights (`?format=`, `?session=`, `?q=`) |
+| `GET /api/hashtags/stats` | Hashtag stats summary + table data |
 | `GET/POST/DELETE /api/hashtags/banned` | Hashtag moderation |
 | `GET /api/export` | Stats CSV export (`?type=chatters\|emotes\|all`) |
 | `GET /api/backup` | Download full data backup (ZIP) |
@@ -350,6 +351,7 @@ streampulse/
 ├── categories.html        # Stream categories viewer
 ├── config-editor.html     # Live config editor
 ├── backup.html            # Backup & restore
+├── hashtag-stats.html     # Hashtag stats admin page
 ├── manage-hashtags.html   # Hashtag moderation
 ├── api.html               # API reference
 ├── docs.html              # Documentation

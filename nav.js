@@ -47,6 +47,7 @@
         ]},
         { label: 'Manage ▾', children: [
             { label: 'Config', href: '/config-editor.html' },
+            { label: 'Hashtag Stats', href: '/hashtag-stats.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html' },
             { label: 'Backup & Restore', href: '/backup.html' }
         ]},
