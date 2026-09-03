@@ -154,6 +154,11 @@
         return div.innerHTML;
     }
 
+    function truncateHashtag(tag) {
+        const value = String(tag || '');
+        return value.length > 60 ? `${value.slice(0, 57)}…` : value;
+    }
+
     function formatDate(value) {
         if (!value) return '—';
         const d = new Date(value);
@@ -231,7 +236,7 @@
 
         body.innerHTML = rows.map(row => `
             <tr>
-                <td><span class="tag">${escapeHtml(row.tag)}</span></td>
+                <td><span class="tag" title="${escapeHtml(row.tag)}">${escapeHtml(truncateHashtag(row.tag))}</span></td>
                 <td class="numeric">${(row.count || 0).toLocaleString()}</td>
                 <td class="numeric">${(row.sessionCount || 0).toLocaleString()}</td>
                 <td class="numeric">${(row.uniqueDays || 0).toLocaleString()}</td>
