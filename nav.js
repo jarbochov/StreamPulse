@@ -37,7 +37,9 @@
         { label: 'Library ▾', children: [
             { label: 'Highlights', href: '/highlights.html' },
             { label: 'Sessions', href: '/sessions.html' },
-            { label: 'Categories', href: '/categories.html' }
+            { label: 'Categories', href: '/categories.html' },
+            { label: 'Analytics & Subscribers', href: '/analytics.html' },
+            { label: 'Hashtag Stats', href: '/hashtag-stats.html' }
         ]},
         { label: 'Music (Beta) ▾', children: [
             { label: 'Settings', href: '/music-editor.html' },
@@ -50,8 +52,6 @@
         { label: 'Manage ▾', children: [
             { label: 'Config', href: '/config-editor.html' },
             { label: 'Goals', href: '/goals-editor.html' },
-            { label: 'Analytics & Subscribers', href: '/analytics.html' },
-            { label: 'Hashtag Stats', href: '/hashtag-stats.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html' },
             { label: 'Backup & Restore', href: '/backup.html' }
         ]},
