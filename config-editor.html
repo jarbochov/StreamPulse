@@ -105,7 +105,7 @@
         return `https://fonts.googleapis.com/css2?family=${encoded}&display=swap`;
     }
 
-    const BUILTIN_CREDIT_SECTION_KEYS = ['subscribers', 'followers', 'donations', 'gift_subs', 'cheerers', 'raids', 'emotes', 'hashtags', 'chatters'];
+    const BUILTIN_CREDIT_SECTION_KEYS = ['subscribers', 'followers', 'donations', 'gift_subs', 'cheerers', 'raids', 'emotes', 'hashtags', 'chatters', 'highlights'];
     const BUILTIN_CREDIT_SECTION_LABELS = {
         subscribers: 'Subscribers',
         followers: 'Followers',
@@ -115,7 +115,8 @@
         raids: 'Raids',
         emotes: 'Top Emotes',
         hashtags: 'Trending Hashtags',
-        chatters: "Today's Chatters"
+        chatters: "Today's Chatters",
+        highlights: 'Featured Highlights'
     };
     const SPECIAL_THANKS_ORDER_ID = 'special_thanks';
     const CREDIT_DISPLAY_STYLE_OPTIONS = ['scroll', 'fade'];
@@ -400,6 +401,10 @@
                 </div>
             `;
             }).join('')}
+            <div style="font-size:0.75rem;color:#8b949e;margin:-0.2rem 0 0.8rem;padding:0.6rem 0 0.2rem 1.5rem;">
+                For Featured Highlights, enter one highlight key per line in the format <code>timestamp:username</code>. Use the Highlights page to identify starred messages.
+            </div>
+            <textarea id="cfg-highlights-selected" placeholder="timestamp:username (one per line)" style="width:calc(100% - 1.5rem);margin:0 0 0.8rem 1.5rem;min-height:4rem;padding:0.4rem;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e1e4e8;font-size:0.8rem;">${escapeHtml((sec.highlights?.selected || []).join('\n'))}</textarea>
 
             <div class="cfg-section">Custom Credit Sections</div>
             <div style="font-size:0.75rem;color:#484f58;margin-bottom:0.5rem;">Add as many extra credit blocks as you want. Each one can be a statement, a list of names, or both. Fade sections appear as standalone text panels instead of rolling with the credits. Extra fade time adds onto the base credits duration before socials.</div>
@@ -829,6 +834,10 @@
                 else sec[key][field] = el.value;
             }
         });
+        if (sec.highlights) {
+            sec.highlights.selected = document.getElementById('cfg-highlights-selected').value
+                .split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+        }
 
         const fontSelect = document.getElementById('cfg-theme-font').value;
         const fontFamily = fontSelect === '__custom'

@@ -160,6 +160,12 @@
         "enabled": true,
         "title": "Today's Chatters",
         "subtitle": ""
+      },
+      "highlights": {
+        "enabled": false,
+        "title": "Featured Highlights",
+        "subtitle": "",
+        "selected": []
       }
     },
     "section_order": [
@@ -173,6 +179,7 @@
       "emotes",
       "hashtags",
       "chatters",
+      "highlights",
       "special_thanks"
     ],
     "special_thanks": {

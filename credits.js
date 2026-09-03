@@ -34,13 +34,14 @@ let serverConfig = {
             raids: { enabled: true, title: 'Raiders', subtitle: '' },
             emotes: { enabled: true, title: 'Top Emotes', subtitle: '' },
             hashtags: { enabled: true, title: 'Trending Hashtags', subtitle: '' },
-            chatters: { enabled: true, title: "Today's Chatters", subtitle: '' }
+            chatters: { enabled: true, title: "Today's Chatters", subtitle: '' },
+            highlights: { enabled: false, title: 'Featured Highlights', subtitle: '', selected: [] }
         },
         social: { title: '', subtitle: '', links: [] }
     }
 };
 
-const BUILTIN_CREDIT_SECTION_KEYS = ['subscribers', 'followers', 'donations', 'gift_subs', 'cheerers', 'raids', 'emotes', 'hashtags', 'chatters'];
+const BUILTIN_CREDIT_SECTION_KEYS = ['subscribers', 'followers', 'donations', 'gift_subs', 'cheerers', 'raids', 'emotes', 'hashtags', 'chatters', 'highlights'];
 const BUILTIN_CREDIT_SECTION_LABELS = {
     subscribers: 'Subscribers',
     followers: 'New Followers',
@@ -50,7 +51,8 @@ const BUILTIN_CREDIT_SECTION_LABELS = {
     raids: 'Raiders',
     emotes: 'Top Emotes',
     hashtags: 'Trending Hashtags',
-    chatters: "Today's Chatters"
+    chatters: "Today's Chatters",
+    highlights: 'Featured Highlights'
 };
 const SPECIAL_THANKS_ORDER_ID = 'special_thanks';
 
@@ -110,6 +112,7 @@ const prefetchedData = {
 
 // Stats data (loaded when sections use 'stats' source)
 let statsData = null;
+let highlightsData = [];
 
 // ============================================================================
 // PRE-FETCHED DATA LOADING
@@ -496,6 +499,13 @@ function renderCredits() {
                 html += '</div></div>';
                 return html;
             }
+        }
+        if (sectionId === 'highlights' && section.enabled !== false) {
+            const selected = new Set(Array.isArray(section.selected) ? section.selected.map(String) : []);
+            const items = highlightsData
+                .filter(highlight => selected.has(`${highlight.ts}:${highlight.user}`))
+                .map(highlight => `${highlight.user}: ${highlight.message || ''}`);
+            return renderNamedSectionBlock(title, subtitle, items, 'highlights', 1);
         }
         return '';
     }
@@ -1013,6 +1023,12 @@ async function init() {
     console.log('[Init] Active Subs Only:', serverConfig.active_subs_only);
 
     await loadPrefetchedData();
+    try {
+        const highlightsRes = await fetch('/api/highlights');
+        if (highlightsRes.ok) highlightsData = await highlightsRes.json();
+    } catch (err) {
+        console.warn('[Highlights] Failed to load highlights:', err.message);
+    }
 
     // Load stats data if any section uses 'stats' source
     const sec = serverConfig.credits?.sections || {};
