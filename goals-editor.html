@@ -174,7 +174,14 @@
                         </div>
                         <div class="cfg-row">
                             <label>Saved Baseline</label>
-                            <input type="text" id="goal-baseline-display" readonly>
+                            <input type="number" id="goal-baseline-display" min="0" step="0.01">
+                        </div>
+                        <div id="community-baseline-fields" class="inline-grid" style="display:none;">
+                            <div class="weight-field"><label for="baseline-followers">Followers baseline</label><input type="number" id="baseline-followers" min="0" step="1"></div>
+                            <div class="weight-field"><label for="baseline-subscribers">Subscribers baseline</label><input type="number" id="baseline-subscribers" min="0" step="1"></div>
+                            <div class="weight-field"><label for="baseline-gift-subs">Gift subs baseline</label><input type="number" id="baseline-gift-subs" min="0" step="1"></div>
+                            <div class="weight-field"><label for="baseline-bits">Bits baseline</label><input type="number" id="baseline-bits" min="0" step="1"></div>
+                            <div class="weight-field"><label for="baseline-donations">Donations baseline ($)</label><input type="number" id="baseline-donations" min="0" step="0.01"></div>
                         </div>
                         <div class="actions">
                             <button class="btn warn" id="goal-reset-baseline-btn" onclick="resetSelectedGoal()">Reset Baseline to Current</button>
@@ -357,6 +364,17 @@
         goal.target = Math.max(1, Number(document.getElementById('goal-target').value) || 1);
         goal.tracking = goal.type === 'viewers' ? 'session' : document.getElementById('goal-tracking').value;
         goal.viewer_mode = document.getElementById('goal-viewer-mode').value;
+        if (goal.type === 'community') {
+            goal.baseline_metrics = {
+                followers: Math.max(0, Number(document.getElementById('baseline-followers').value) || 0),
+                subscribers: Math.max(0, Number(document.getElementById('baseline-subscribers').value) || 0),
+                gift_subs: Math.max(0, Number(document.getElementById('baseline-gift-subs').value) || 0),
+                bits: Math.max(0, Number(document.getElementById('baseline-bits').value) || 0),
+                donations: Math.max(0, Number(document.getElementById('baseline-donations').value) || 0)
+            };
+        } else {
+            goal.baseline = Math.max(0, Number(document.getElementById('goal-baseline-display').value) || 0);
+        }
         goal.weights = {
             followers: Math.max(0, Number(document.getElementById('weight-followers').value) || DEFAULT_COMMUNITY_WEIGHTS.followers),
             subscribers: Math.max(0, Number(document.getElementById('weight-subscribers').value) || DEFAULT_COMMUNITY_WEIGHTS.subscribers),
@@ -555,12 +573,16 @@
             document.getElementById('goal-current-value-display').value = state
                 ? `${formatNumber(state.raw_value)} points`
                 : 'Unavailable';
-            document.getElementById('goal-baseline-display').value = `F ${formatNumber(baseline.followers || 0)} • S ${formatNumber(baseline.subscribers || 0)} • G ${formatNumber(baseline.gift_subs || 0)} • B ${formatNumber(baseline.bits || 0)} • D ${formatNumber(baseline.donations || 0)}`;
+            document.getElementById('baseline-followers').value = baseline.followers || 0;
+            document.getElementById('baseline-subscribers').value = baseline.subscribers || 0;
+            document.getElementById('baseline-gift-subs').value = baseline.gift_subs || 0;
+            document.getElementById('baseline-bits').value = baseline.bits || 0;
+            document.getElementById('baseline-donations').value = baseline.donations || 0;
         } else {
             document.getElementById('goal-current-value-display').value = state
                 ? formatNumber(state.raw_value)
                 : 'Unavailable';
-            document.getElementById('goal-baseline-display').value = formatNumber(goal.baseline || 0);
+            document.getElementById('goal-baseline-display').value = goal.baseline || 0;
         }
         document.getElementById('goal-editor-status').textContent = state
             ? `${state.metric_label}: ${formatNumber(state.progress)} / ${formatNumber(state.target)}${state.complete ? ' • complete' : ''}`
@@ -572,11 +594,14 @@
         const trackingRow = document.getElementById('goal-tracking-row');
         const viewerModeRow = document.getElementById('goal-viewer-mode-row');
         const communityBlock = document.getElementById('community-weights-block');
+        const communityBaselineFields = document.getElementById('community-baseline-fields');
         const baselineBlock = document.getElementById('goal-baseline-block');
         const trackingValue = document.getElementById('goal-tracking').value;
 
         viewerModeRow.style.display = type === 'viewers' ? 'flex' : 'none';
         communityBlock.style.display = type === 'community' ? 'block' : 'none';
+        communityBaselineFields.style.display = type === 'community' ? 'grid' : 'none';
+        document.getElementById('goal-baseline-display').style.display = type === 'community' ? 'none' : 'block';
         trackingRow.style.display = type === 'viewers' ? 'none' : 'flex';
 
         const baselineVisible = type !== 'viewers' && trackingValue === 'persistent';
