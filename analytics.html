@@ -10,7 +10,7 @@
         .container { max-width: 1280px; margin: auto; padding: 1.5rem 2rem; display: grid; gap: 1rem; } .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.1rem; } h2 { margin: 0 0 1rem; font-size: .85rem; text-transform: uppercase; color: #8b949e; }
         .filters, .cards { display: flex; gap: .7rem; flex-wrap: wrap; align-items: end; } label { display: block; color: #8b949e; font-size: .75rem; margin-bottom: .25rem; } input, button { padding: .5rem .65rem; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #e1e4e8; } button { cursor: pointer; background: #21262d; } button:hover { border-color: #58a6ff; }
         .stat { flex: 1 1 130px; text-align: center; background: #0d1117; border: 1px solid transparent; border-radius: 6px; padding: .7rem; cursor: pointer; } .stat.active { border-color: #58a6ff; background: #1a2332; } .stat strong { display: block; color: #58a6ff; font-size: 1.4rem; } .stat span { color: #8b949e; font-size: .7rem; }
-        .table-wrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; } th, td { padding: .6rem; border-bottom: 1px solid #21262d; text-align: left; font-size: .8rem; white-space: nowrap; } th { color: #8b949e; font-size: .7rem; text-transform: uppercase; } a { color: #58a6ff; }
+        .table-wrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; } th, td { padding: .6rem; border-bottom: 1px solid #21262d; text-align: left; font-size: .8rem; white-space: nowrap; } th { color: #8b949e; font-size: .7rem; text-transform: uppercase; cursor: pointer; user-select: none; } th.sort-active { color: #58a6ff; } a { color: #58a6ff; }
         .chart { width: 100%; height: 260px; background: #0d1117; border-radius: 6px; } svg { width: 100%; height: 100%; } .muted { color: #8b949e; }
     </style>
 </head>
@@ -19,23 +19,65 @@
     <main class="container">
         <section class="card"><h2>Review Range</h2><div class="filters"><div><label for="from">From</label><input id="from" type="date"></div><div><label for="to">To</label><input id="to" type="date"></div><button onclick="load()">Apply</button><button onclick="exportCsv()">Export CSV</button><span id="status" class="muted"></span></div></section>
         <section class="card"><h2>Summary</h2><div class="cards" id="summary"></div></section>
-        <section class="card"><h2 id="activity-title">Messages by Session</h2><div id="chart" class="chart"></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Session</th><th>Messages</th><th>Subs</th><th>Followers</th><th>Peak Viewers</th><th>Avg Viewers</th></tr></thead><tbody id="sessions"></tbody></table></div></section>
-        <section class="card"><h2>Current Subscribers & Observed Duration</h2><div class="table-wrap"><table><thead><tr><th>Subscriber</th><th>Tier</th><th>Plan</th><th>First Observed</th><th>Last Observed</th><th>Observed Duration</th></tr></thead><tbody id="subs"></tbody></table></div><p class="muted">Duration is based on when StreamPulse first observed the subscriber, not authoritative Twitch tenure.</p></section>
+        <section class="card"><h2 id="activity-title">Messages by Session</h2><div id="chart" class="chart"></div><div class="table-wrap"><table id="sessions-table"><thead><tr><th data-sort="date" onclick="setSessionSort('date')">Date</th><th data-sort="title" onclick="setSessionSort('title')">Session</th><th data-sort="messages" onclick="setSessionSort('messages')">Messages</th><th data-sort="subscribers" onclick="setSessionSort('subscribers')">Subs</th><th data-sort="followers" onclick="setSessionSort('followers')">Followers</th><th data-sort="peakViewers" onclick="setSessionSort('peakViewers')">Peak Viewers</th><th data-sort="averageViewers" onclick="setSessionSort('averageViewers')">Avg Viewers</th></tr></thead><tbody id="sessions"></tbody></table></div></section>
+        <section class="card"><h2>Current Subscribers & Observed Duration</h2><div class="table-wrap"><table id="subscribers-table"><thead><tr><th data-sort="name" onclick="setSubscriberSort('name')">Subscriber</th><th data-sort="tier" onclick="setSubscriberSort('tier')">Tier</th><th data-sort="plan" onclick="setSubscriberSort('plan')">Plan</th><th data-sort="firstSeen" onclick="setSubscriberSort('firstSeen')">First Observed</th><th data-sort="lastSeen" onclick="setSubscriberSort('lastSeen')">Last Observed</th><th data-sort="observedDays" onclick="setSubscriberSort('observedDays')">Observed Duration</th></tr></thead><tbody id="subs"></tbody></table></div><p class="muted">Duration is based on when StreamPulse first observed the subscriber, not authoritative Twitch tenure.</p></section>
     </main>
 <script>
 let report = null;
 let selectedMetric = 'messages';
+let sessionSortKey = 'date';
+let sessionSortDirection = 'desc';
+let subscriberRows = [];
+let subscriberSortKey = 'name';
+let subscriberSortDirection = 'asc';
 const fmt = n => Number(n || 0).toLocaleString();
 const esc = s => { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; };
+function compareRows(a, b, key, dateKey = false) {
+    if (dateKey) return new Date(a[key] || 0).getTime() - new Date(b[key] || 0).getTime();
+    const av = a[key] ?? '';
+    const bv = b[key] ?? '';
+    if (typeof av === 'number' || typeof bv === 'number') return Number(av || 0) - Number(bv || 0);
+    return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
+}
+function sortedRows(rows, key, direction, dateKey = false) {
+    return [...rows].sort((a, b) => {
+        const result = compareRows(a, b, key, dateKey);
+        return direction === 'asc' ? result : -result;
+    });
+}
+function updateSortHeaders(selector, key) {
+    document.querySelectorAll(selector).forEach(th => th.classList.toggle('sort-active', th.dataset.sort === key));
+}
 function query() { const p = new URLSearchParams(); if (from.value) p.set('from', from.value); if (to.value) p.set('to', to.value); return p; }
 async function load() {
     const p = query(); report = await (await fetch('/api/analytics?' + p)).json();
     status.textContent = `${report.sessions.length} sessions`; const t = report.totals;
     summary.innerHTML = [['messages','Messages'],['chatters','Chatters'],['subscribers','Subs'],['giftSubs','Gift Subs'],['followers','Followers'],['bits','Bits'],['donations','Donations'],['peakViewers','Peak Viewers'],['averageViewers','Avg Viewers']].map(([k,l]) => `<div class="stat${selectedMetric === k ? ' active' : ''}" onclick="selectMetric('${k}')"><strong>${fmt(t[k])}</strong><span>${l}</span></div>`).join('');
-    sessions.innerHTML = report.sessions.map(r => `<tr><td>${esc((r.date || '').slice(0,10))}</td><td><a href="/sessions.html?session=${encodeURIComponent(r.file)}">${esc(r.title || r.file)}</a></td><td>${fmt(r.messages)}</td><td>${fmt(r.subscribers)}</td><td>${fmt(r.followers)}</td><td>${fmt(r.peakViewers)}</td><td>${fmt(r.averageViewers)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No sessions in range</td></tr>';
+    renderSessions();
     draw(report.sessions);
     const subData = await (await fetch('/api/subscribers/current')).json();
-    subs.innerHTML = subData.subscribers.map(s => `<tr><td>${esc(s.name)}</td><td>${esc(s.tier)}</td><td>${esc(s.plan)}</td><td>${s.firstSeen ? new Date(s.firstSeen).toLocaleDateString() : '—'}</td><td>${s.lastSeen ? new Date(s.lastSeen).toLocaleDateString() : '—'}</td><td>${s.observedDays ? `${fmt(s.observedDays)} days` : 'Not observed in history'}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">No current subscribers found</td></tr>';
+    subscriberRows = subData.subscribers || [];
+    renderSubscribers();
+}
+function renderSessions() {
+    updateSortHeaders('#sessions-table th[data-sort]', sessionSortKey);
+    const rows = sortedRows(report?.sessions || [], sessionSortKey, sessionSortDirection, sessionSortKey === 'date');
+    sessions.innerHTML = rows.map(r => `<tr><td>${esc((r.date || '').slice(0,10))}</td><td><a href="/sessions.html?session=${encodeURIComponent(r.file)}">${esc(r.title || r.file)}</a></td><td>${fmt(r.messages)}</td><td>${fmt(r.subscribers)}</td><td>${fmt(r.followers)}</td><td>${fmt(r.peakViewers)}</td><td>${fmt(r.averageViewers)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No sessions in range</td></tr>';
+}
+function renderSubscribers() {
+    updateSortHeaders('#subscribers-table th[data-sort]', subscriberSortKey);
+    const rows = sortedRows(subscriberRows, subscriberSortKey, subscriberSortDirection, subscriberSortKey === 'firstSeen' || subscriberSortKey === 'lastSeen');
+    subs.innerHTML = rows.map(s => `<tr><td>${esc(s.name)}</td><td>${esc(s.tier)}</td><td>${esc(s.plan)}</td><td>${s.firstSeen ? new Date(s.firstSeen).toLocaleDateString() : '—'}</td><td>${s.lastSeen ? new Date(s.lastSeen).toLocaleDateString() : '—'}</td><td>${s.observedDays ? `${fmt(s.observedDays)} days` : 'Not observed in history'}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">No current subscribers found</td></tr>';
+}
+function setSessionSort(key) {
+    if (sessionSortKey === key) sessionSortDirection = sessionSortDirection === 'asc' ? 'desc' : 'asc';
+    else { sessionSortKey = key; sessionSortDirection = key === 'title' ? 'asc' : 'desc'; }
+    if (report) renderSessions();
+}
+function setSubscriberSort(key) {
+    if (subscriberSortKey === key) subscriberSortDirection = subscriberSortDirection === 'asc' ? 'desc' : 'asc';
+    else { subscriberSortKey = key; subscriberSortDirection = ['name', 'tier', 'plan'].includes(key) ? 'asc' : 'desc'; }
+    renderSubscribers();
 }
 function selectMetric(metric) { selectedMetric = metric; if (report) { load(); } }
 function draw(rows) {
@@ -47,7 +89,7 @@ function draw(rows) {
     chart.innerHTML=`<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${labels[selectedMetric]} per session">${points.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="8" fill="#58a6ff" data-session="${esc(p.file)}"></circle>`).join('')}<polyline points="${points.map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="#58a6ff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
     chart.querySelectorAll('circle').forEach(dot => dot.addEventListener('click', () => { window.location.href = `/sessions.html?session=${encodeURIComponent(dot.dataset.session)}`; }));
 }
-function exportCsv() { if (!report) return; const headers=['date','title','messages','chatters','subscribers','followers','giftSubs','bits','donations','currentViewers','peakViewers','averageViewers']; const csv=[headers.join(','),...report.sessions.map(r=>headers.map(k=>`"${String(r[k] ?? '').replaceAll('"','""')}"`).join(','))].join('\\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='streampulse-analytics.csv'; a.click(); URL.revokeObjectURL(a.href); }
+function exportCsv() { if (!report) return; const headers=['date','title','messages','chatters','subscribers','followers','giftSubs','bits','donations','currentViewers','peakViewers','averageViewers']; const csv=[headers.join(','),...report.sessions.map(r=>headers.map(k=>`"${String(r[k] ?? '').replaceAll('"','""')}"`).join(','))].join('\r\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff', csv],{type:'text/csv;charset=utf-8'})); a.download='streampulse-analytics.csv'; a.click(); URL.revokeObjectURL(a.href); }
 load();
 </script>
 </body>
