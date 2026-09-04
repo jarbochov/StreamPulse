@@ -374,13 +374,17 @@
     async function refreshCurrentSession() {
         if (activeSessionFile !== '__current__') return;
         const activePane = document.querySelector('#detail-panel .tab-pane.active')?.id || '';
-        const scrollTop = document.getElementById('chatlog-messages')?.scrollTop || 0;
         try {
             const res = await fetch('/api/chat');
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             activeSession = await res.json();
-            renderDetail(activeSession, '__current__');
             const paneId = activePane.replace(/^pane-/, '');
+            if (paneId === 'chatlog' && chatLogCache.__current__) {
+                updateDetailSummary(activeSession);
+                await loadChatLog('__current__', true);
+                return;
+            }
+            renderDetail(activeSession, '__current__');
             const toolControl = document.querySelector(`#detail-panel .detail-header-actions button[onclick*="'${paneId}'"]`);
             const tabControl = document.querySelector(`#detail-panel .tab[onclick*="'${paneId}'"]`);
             if (toolControl) {
@@ -410,6 +414,14 @@
             }
         };
         liveSessionSocket.onclose = () => setTimeout(connectLiveSessionSocket, 5000);
+    }
+
+    function updateDetailSummary(data) {
+        const viewerStats = data.viewerStats || {};
+        const values = [data.messageCount || 0, Object.keys(data.chatters || {}).length, viewerStats.current || 0, viewerStats.peak || 0, viewerStats.average || 0, Object.keys(data.emotes || {}).length, Object.keys(data.hashtags || {}).length, (data.subscribers || []).length, (data.giftSubs || []).length, (data.followers || []).length, (data.donations || []).length, (data.bits || []).length, (data.raids || []).length];
+        document.querySelectorAll('#detail-panel .detail-stat .value').forEach((element, index) => {
+            if (values[index] !== undefined) element.textContent = values[index];
+        });
     }
 
     function renderDetail(data, filename) {
@@ -612,6 +624,7 @@
                 <button class="filter-toggle" id="links-toggle" onclick="toggleChatLogFilter('links', this)">🔗 Links</button>
                 <button class="filter-toggle" id="events-toggle" onclick="toggleChatLogFilter('events', this)">📢 Events</button>
                 <button class="filter-toggle" id="donations-toggle" onclick="toggleChatLogFilter('donations', this)">💰 Donations</button>
+                <select class="chat-filter-select" onchange="setChatLogSort(this.value)"><option value="desc">Newest first</option><option value="asc">Oldest first</option></select>
             </div>
             <div class="chat-log-info" id="chatlog-info"></div>
             <div id="chatlog-messages"><div class="chat-log-loading">Click to load chat log...</div></div>
@@ -659,6 +672,7 @@
                     <polyline points="${line}" fill="none" stroke="#58a6ff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"></polyline>
                     ${markers}
                     ${dots}
+                    <circle id="timeline-scrub-marker" cx="0" cy="0" r="8" fill="#d29922" stroke="#fff" stroke-width="2"></circle>
                 </svg>
             </div>
             <div class="timeline-readout" id="timeline-readout"></div>
@@ -669,6 +683,9 @@
         const readout = document.getElementById('timeline-readout');
         const updateReadout = () => {
             const sample = samples[Number(scrubber.value)] || samples[0];
+            const point = points[Number(scrubber.value)] || points[0];
+            const marker = document.getElementById('timeline-scrub-marker');
+            if (marker && point) { marker.setAttribute('cx', point.x); marker.setAttribute('cy', point.y); }
             readout.textContent = `${new Date(sample.ts).toLocaleString()} — ${sample.count} viewers (${sample.source || 'unknown source'})`;
         };
         scrubber.addEventListener('input', updateReadout);
@@ -676,6 +693,7 @@
     }
 
     let chatLogTypeFilter = null;
+    let chatLogSortDirection = 'desc';
 
     function toggleChatLogFilter(type, btn) {
         const filterButtons = document.querySelectorAll('.chat-search .filter-toggle');
@@ -877,9 +895,10 @@
 
     function linkifyText(html) {
         // Only linkify URLs in text segments, not inside HTML tags
-        return html.replace(/(<[^>]+>)|((https?:\/\/[^\s<>"')\]]+))/gi, (match, tag, _, url) => {
-            if (tag) return tag; // preserve HTML tags untouched
-            return `<a href="${url}" target="_blank" rel="noopener">${url}</a>`;
+        return html.replace(/(<[^>]+>)|(((?:https?:\/\/|www\.)[^\s<>"')\]]+))/gi, (match, tag, _, url) => {
+            if (tag) return tag;
+            const href = /^www\./i.test(url) ? `https://${url}` : url;
+            return `<a href="${href}" target="_blank" rel="noopener">${url}</a>`;
         });
     }
 
@@ -990,10 +1009,13 @@
     // Load highlights cache on page load
     loadHighlightsCache();
 
-    async function loadChatLog(filename) {
+    async function loadChatLog(filename, preserveScroll = false) {
         const msgContainer = document.getElementById('chatlog-messages');
         const infoEl = document.getElementById('chatlog-info');
         if (!msgContainer) return;
+        const previousScrollTop = preserveScroll ? msgContainer.scrollTop : 0;
+        const previousScrollHeight = preserveScroll ? msgContainer.scrollHeight : 0;
+        const previousClientHeight = preserveScroll ? msgContainer.clientHeight : 0;
         msgContainer.innerHTML = '<div class="chat-log-loading">Loading chat log...</div>';
 
         try {
@@ -1004,17 +1026,28 @@
             const messages = chatLogCache[filename];
             infoEl.textContent = `${messages.length} message${messages.length !== 1 ? 's' : ''} recorded`;
             renderChatLogMessages(messages);
+            if (preserveScroll) {
+                const previousMax = Math.max(1, previousScrollHeight - previousClientHeight);
+                const ratio = previousScrollTop / previousMax;
+                msgContainer.scrollTop = ratio * Math.max(0, msgContainer.scrollHeight - msgContainer.clientHeight);
+            }
         } catch {
             msgContainer.innerHTML = '<div class="empty">No chat log available for this session</div>';
             infoEl.textContent = '';
         }
     }
 
+    function setChatLogSort(direction) {
+        chatLogSortDirection = direction === 'asc' ? 'asc' : 'desc';
+        if (chatLogCache[activeSessionFile]) filterChatLog();
+    }
+
     function renderChatLogMessages(messages, limit) {
         const msgContainer = document.getElementById('chatlog-messages');
         if (!msgContainer) return;
         const showLimit = limit || 200;
-        const display = messages.slice(0, showLimit);
+        const orderedMessages = [...messages].sort((a, b) => chatLogSortDirection === 'asc' ? a.ts - b.ts : b.ts - a.ts);
+        const display = orderedMessages.slice(0, showLimit);
         if (messages.length === 0) {
             msgContainer.innerHTML = '<div class="empty">No messages found</div>';
             return;
@@ -1068,10 +1101,10 @@
     }
 
     function chatMessageHasLink(message) {
-        const htmlLinks = String(message.messageHtml || '').match(/href=["']https?:\/\/[^"']+/i);
+        const htmlLinks = String(message.messageHtml || '').match(/href=["'](?:https?:\/\/|www\.)[^"']+/i);
         return !!(
             (message.urls && message.urls.length > 0) ||
-            /https?:\/\//.test(message.message || '') ||
+            /(?:https?:\/\/|www\.)/i.test(message.message || '') ||
             htmlLinks
         );
     }
@@ -1260,10 +1293,10 @@
             }
 
             function messageUrls(message) {
-                const htmlUrls = [...(message.messageHtml || '').matchAll(/href=["'](https?:\/\/[^"']+)/gi)].map(match => match[1]);
+                const htmlUrls = [...(message.messageHtml || '').matchAll(/href=["']((?:https?:\/\/|www\.)[^"']+)/gi)].map(match => match[1]);
                 const urls = message.urls && message.urls.length
                     ? message.urls
-                    : [...((message.message || '').match(/https?:\/\/[^\s<>"')\]]+/gi) || []), ...htmlUrls];
+                    : [...((message.message || '').match(/(?:https?:\/\/|www\.)[^\s<>"')\]]+/gi) || []), ...htmlUrls];
                 return [...new Set(urls)];
             }
 
@@ -1274,7 +1307,7 @@
                     ${message.avatar ? `<img class="chat-avatar" src="${escapeHtml(message.avatar)}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
                     <div class="chat-meta">
                         <div><span class="chat-user" style="color:${userColor(message.user)}">${escapeHtml(message.user)}</span><span class="chat-session-tag">${escapeHtml(session)}</span></div>
-                        <div class="chat-text">${urls.map(url => `<div><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a><span class="chat-actions"><button class="chat-action-btn" onclick="copyLink('${encodeURIComponent(url)}')">Copy</button><a class="chat-action-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open</a></span></div>`).join('')}</div>
+                        <div class="chat-text">${urls.map(url => `<div><a href="${escapeHtml(/^www\./i.test(url) ? `https://${url}` : url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a><span class="chat-actions"><button class="chat-action-btn" onclick="copyLink('${encodeURIComponent(url)}')">Copy</button><a class="chat-action-btn" href="${escapeHtml(/^www\./i.test(url) ? `https://${url}` : url)}" target="_blank" rel="noopener noreferrer">Open</a></span></div>`).join('')}</div>
                         <div class="chat-session-tag">${formatDateTimestamp(message.ts)}${message.message ? ` · ${escapeHtml(message.message)}` : ''}</div>
                     </div>
                     <span class="chat-time">${formatTimestamp(message.ts)}</span>

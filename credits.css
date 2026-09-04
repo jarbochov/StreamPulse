@@ -84,7 +84,7 @@ body {
     inset: auto;
     opacity: 1;
     padding: 0;
-    margin: 70px auto 0;
+    margin: 90px auto 0;
     width: min(80%, 1400px);
 }
 
@@ -237,7 +237,7 @@ h3 {
 
 .custom-section-body {
     max-width: 75%;
-    margin: 0 auto 30px auto;
+    margin: 0 auto 20px auto;
     font-size: calc(2.5vw * var(--font-scale));
     line-height: 1.45;
     white-space: normal;
