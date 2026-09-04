@@ -65,11 +65,13 @@ body {
 
 #fade-panels-container {
     position: fixed;
-    inset: 0;
+    top: var(--fade-card-margin-top, 6vh);
+    right: var(--fade-card-margin, 2vw);
+    bottom: var(--fade-card-margin-bottom, 6vh);
+    left: var(--fade-card-margin, 2vw);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: var(--fade-card-margin-top, 6vh) var(--fade-card-margin, 2vw) var(--fade-card-margin-bottom, 6vh);
     opacity: 0;
     pointer-events: none;
     transition: opacity 1s;
@@ -83,8 +85,9 @@ body {
     position: relative;
     inset: auto;
     opacity: 1;
-    padding: var(--fade-card-margin-top, 0) var(--fade-card-margin, 2vw) var(--fade-card-margin-bottom, 0);
-    margin: 90px auto 0;
+    box-sizing: border-box;
+    margin: var(--fade-card-margin-top, 0) auto var(--fade-card-margin-bottom, 0);
+    padding: 0 var(--fade-card-margin, 2vw);
     width: min(100%, 1400px);
 }
 
@@ -121,7 +124,6 @@ body {
     max-width: 100%;
     padding: 0;
     text-align: center;
-    transform: translateY(calc((var(--fade-card-margin-top, 6vh) - var(--fade-card-margin-bottom, 6vh)) / 2));
 }
 
 .fade-panel-card h2,
