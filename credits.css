@@ -121,6 +121,7 @@ body {
     max-width: 100%;
     padding: 0;
     text-align: center;
+    transform: translateY(calc((var(--fade-card-margin-top, 6vh) - var(--fade-card-margin-bottom, 6vh)) / 2));
 }
 
 .fade-panel-card h2,
