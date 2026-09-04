@@ -113,6 +113,7 @@
     "closing": "Thanks for watching!",
     "closing_display_style": "scroll",
     "closing_display_duration": 0,
+    "fade_card_margin": 2,
     "sections": {
       "subscribers": {
         "enabled": true,

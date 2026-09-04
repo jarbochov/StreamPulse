@@ -23,6 +23,7 @@ let serverConfig = {
         closing: 'Thanks for watching!',
         closing_display_style: 'scroll',
         closing_display_duration: FADE_PANEL_DEFAULT_DURATION,
+        fade_card_margin: 2,
         custom_sections: [],
         section_order: [],
         sections: {
@@ -67,6 +68,11 @@ function applyTheme(cfg) {
             link.rel = 'stylesheet';
             link.href = t.font_import;
             document.head.appendChild(link);
+        }
+
+        function applyFadeCardSettings(cfg) {
+            const margin = Number(cfg?.credits?.fade_card_margin);
+            document.documentElement.style.setProperty('--fade-card-margin', `${Number.isFinite(margin) ? Math.max(0, Math.min(20, margin)) : 2}vw`);
         }
     }
     if (t.text_color) r.setProperty('--text-color', t.text_color);
@@ -1043,6 +1049,7 @@ async function init() {
         if (configRes.ok) {
             serverConfig = await configRes.json();
             applyTheme(serverConfig);
+            applyFadeCardSettings(serverConfig);
             if (!urlParams.has('days')) DAYS_FILTER = serverConfig.days_filter || 30;
             console.log('[Config] Server config loaded:', JSON.stringify(serverConfig));
         }

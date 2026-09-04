@@ -261,7 +261,8 @@
                     items: [
                         { param: 'credits.closing', type: 'string', default: '"Thanks for watching!"', desc: 'Closing text shown at the bottom of credits. Use \\n for line breaks.', hot: true },
                         { param: 'credits.closing_display_style', type: 'string', default: '"scroll"', desc: 'Choose whether the ending message scrolls with the credits or appears as a centered fade section. Values: scroll, fade.', hot: true },
-                        { param: 'credits.closing_display_duration', type: 'number', default: '0', desc: 'When the closing message uses fade style, add this many extra seconds on top of the base credits duration before socials. Set 0 to keep it within the base sequence timing.', hot: true }
+                        { param: 'credits.closing_display_duration', type: 'number', default: '0', desc: 'When the closing message uses fade style, add this many extra seconds on top of the base credits duration before socials. Set 0 to keep it within the base sequence timing.', hot: true },
+                        { param: 'credits.fade_card_margin', type: 'number', default: '2', desc: 'Horizontal margin for fade-style credit cards in viewport-width units. Set 0 for full width.', hot: true }
                     ]
                 },
                 {
