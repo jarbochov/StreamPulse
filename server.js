@@ -2406,10 +2406,11 @@ function normalizeChatSearchFilters(input = {}) {
 }
 
 function chatMessageHasLink(message) {
-    const htmlLinks = String(message.messageHtml || '').match(/href=["'](?:https?:\/\/|www\.)[^"']+/i);
+    const urlPattern = '(?:(?:https?:\\/\\/|www\\.)[^\\s<>"\')\\]]+|(?<![@\\w])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,}(?:\\/[^\\s<>"\')\\]]*)?)';
+    const htmlLinks = String(message.messageHtml || '').match(new RegExp(`href=["']${urlPattern}`, 'i'));
     return !!(
         (message.urls && message.urls.length > 0) ||
-        /(?:https?:\/\/|www\.)/i.test(message.message || '') ||
+        new RegExp(`\\b${urlPattern}`, 'i').test(message.message || '') ||
         htmlLinks
     );
 }
@@ -2567,7 +2568,7 @@ function processChatMessage(msg) {
     // Append to chat log BEFORE stats exclusion (captures all non-banned users)
     if (config.chat_log_enabled !== false) {
         const plainText = msg.chatmessage ? msg.chatmessage.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '';
-        const urls = (plainText.match(/(?:https?:\/\/|www\.)[^\s<>"')\]]+/gi) || []);
+        const urls = (plainText.match(/(?:(?:https?:\/\/|www\.)[^\s<>"')\]]+|(?<![@\w])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s<>"')\]]*)?)/gi) || []);
         chatLog.push({
             ts: Date.now(),
             user: chatname,

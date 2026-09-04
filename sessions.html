@@ -895,9 +895,9 @@
 
     function linkifyText(html) {
         // Only linkify URLs in text segments, not inside HTML tags
-        return html.replace(/(<[^>]+>)|(((?:https?:\/\/|www\.)[^\s<>"')\]]+))/gi, (match, tag, _, url) => {
+        return html.replace(/(<[^>]+>)|(((?:https?:\/\/|www\.)[^\s<>"')\]]+|(?<![@\w])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s<>"')\]]*)?))/gi, (match, tag, _, url) => {
             if (tag) return tag;
-            const href = /^www\./i.test(url) ? `https://${url}` : url;
+            const href = /^(?:https?:\/\/)/i.test(url) ? url : `https://${url}`;
             return `<a href="${href}" target="_blank" rel="noopener">${url}</a>`;
         });
     }
@@ -1101,10 +1101,10 @@
     }
 
     function chatMessageHasLink(message) {
-        const htmlLinks = String(message.messageHtml || '').match(/href=["'](?:https?:\/\/|www\.)[^"']+/i);
+        const htmlLinks = String(message.messageHtml || '').match(/href=["'](?:(?:https?:\/\/|www\.)[^"']+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:\/[^"']*)?)/i);
         return !!(
             (message.urls && message.urls.length > 0) ||
-            /(?:https?:\/\/|www\.)/i.test(message.message || '') ||
+            /(?:https?:\/\/|www\.)[^\s<>"')\]]+|(?:^|[\s(])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s<>"')\]]*)?/i.test(message.message || '') ||
             htmlLinks
         );
     }
@@ -1293,10 +1293,10 @@
             }
 
             function messageUrls(message) {
-                const htmlUrls = [...(message.messageHtml || '').matchAll(/href=["']((?:https?:\/\/|www\.)[^"']+)/gi)].map(match => match[1]);
+                const htmlUrls = [...(message.messageHtml || '').matchAll(/href=["']((?:(?:https?:\/\/|www\.)[^"']+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:\/[^"']*)?))/gi)].map(match => match[1]);
                 const urls = message.urls && message.urls.length
                     ? message.urls
-                    : [...((message.message || '').match(/(?:https?:\/\/|www\.)[^\s<>"')\]]+/gi) || []), ...htmlUrls];
+                    : [...((message.message || '').match(/(?:(?:https?:\/\/|www\.)[^\s<>"')\]]+|(?<![@\w])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s<>"')\]]*)?)/gi) || []), ...htmlUrls];
                 return [...new Set(urls)];
             }
 
@@ -1307,7 +1307,7 @@
                     ${message.avatar ? `<img class="chat-avatar" src="${escapeHtml(message.avatar)}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
                     <div class="chat-meta">
                         <div><span class="chat-user" style="color:${userColor(message.user)}">${escapeHtml(message.user)}</span><span class="chat-session-tag">${escapeHtml(session)}</span></div>
-                        <div class="chat-text">${urls.map(url => `<div><a href="${escapeHtml(/^www\./i.test(url) ? `https://${url}` : url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a><span class="chat-actions"><button class="chat-action-btn" onclick="copyLink('${encodeURIComponent(url)}')">Copy</button><a class="chat-action-btn" href="${escapeHtml(/^www\./i.test(url) ? `https://${url}` : url)}" target="_blank" rel="noopener noreferrer">Open</a></span></div>`).join('')}</div>
+                        <div class="chat-text">${urls.map(url => `<div><a href="${escapeHtml(/^(?:https?:\/\/)/i.test(url) ? url : `https://${url}`)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a><span class="chat-actions"><button class="chat-action-btn" onclick="copyLink('${encodeURIComponent(url)}')">Copy</button><a class="chat-action-btn" href="${escapeHtml(/^(?:https?:\/\/)/i.test(url) ? url : `https://${url}`)}" target="_blank" rel="noopener noreferrer">Open</a></span></div>`).join('')}</div>
                         <div class="chat-session-tag">${formatDateTimestamp(message.ts)}${message.message ? ` · ${escapeHtml(message.message)}` : ''}</div>
                     </div>
                     <span class="chat-time">${formatTimestamp(message.ts)}</span>
