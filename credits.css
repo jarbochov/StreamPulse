@@ -69,7 +69,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 6vh var(--fade-card-margin, 2vw);
+    padding: var(--fade-card-margin-top, 6vh) var(--fade-card-margin, 2vw) var(--fade-card-margin-bottom, 6vh);
     opacity: 0;
     pointer-events: none;
     transition: opacity 1s;
@@ -83,7 +83,7 @@ body {
     position: relative;
     inset: auto;
     opacity: 1;
-    padding: 0 var(--fade-card-margin, 2vw);
+    padding: var(--fade-card-margin-top, 0) var(--fade-card-margin, 2vw) var(--fade-card-margin-bottom, 0);
     margin: 90px auto 0;
     width: min(100%, 1400px);
 }

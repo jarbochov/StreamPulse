@@ -24,6 +24,8 @@ let serverConfig = {
         closing_display_style: 'scroll',
         closing_display_duration: FADE_PANEL_DEFAULT_DURATION,
         fade_card_margin: 2,
+        fade_card_margin_top: 6,
+        fade_card_margin_bottom: 6,
         custom_sections: [],
         section_order: [],
         sections: {
@@ -71,8 +73,13 @@ function applyTheme(cfg) {
         }
 
         function applyFadeCardSettings(cfg) {
-            const margin = Number(cfg?.credits?.fade_card_margin);
-            document.documentElement.style.setProperty('--fade-card-margin', `${Number.isFinite(margin) ? Math.max(0, Math.min(20, margin)) : 2}vw`);
+            const credits = cfg?.credits || {};
+            const side = Number(credits.fade_card_margin);
+            const top = Number(credits.fade_card_margin_top);
+            const bottom = Number(credits.fade_card_margin_bottom);
+            document.documentElement.style.setProperty('--fade-card-margin', `${Number.isFinite(side) ? Math.max(0, Math.min(20, side)) : 2}vw`);
+            document.documentElement.style.setProperty('--fade-card-margin-top', `${Number.isFinite(top) ? Math.max(0, Math.min(50, top)) : 6}vh`);
+            document.documentElement.style.setProperty('--fade-card-margin-bottom', `${Number.isFinite(bottom) ? Math.max(0, Math.min(50, bottom)) : 6}vh`);
         }
     }
     if (t.text_color) r.setProperty('--text-color', t.text_color);

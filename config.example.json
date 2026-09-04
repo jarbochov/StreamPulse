@@ -114,6 +114,8 @@
     "closing_display_style": "scroll",
     "closing_display_duration": 0,
     "fade_card_margin": 2,
+    "fade_card_margin_top": 6,
+    "fade_card_margin_bottom": 6,
     "sections": {
       "subscribers": {
         "enabled": true,
