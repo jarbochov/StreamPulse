@@ -69,7 +69,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 6vh 7vw;
+    padding: 6vh 2vw;
     opacity: 0;
     pointer-events: none;
     transition: opacity 1s;
@@ -85,7 +85,7 @@ body {
     opacity: 1;
     padding: 0;
     margin: 90px auto 0;
-    width: min(80%, 1400px);
+    width: min(96%, 1400px);
 }
 
 #fade-panels-container.preview .fade-panel-card + .fade-panel-card {
