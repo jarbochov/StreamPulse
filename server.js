@@ -2160,8 +2160,10 @@ function downloadFile(url, destination) {
 }
 
 function restartServer() {
-    if (ssnSocket) ssnSocket.close();
-    server.close(() => {
+    let restarted = false;
+    const launchReplacement = () => {
+        if (restarted) return;
+        restarted = true;
         const child = require('child_process').spawn(process.execPath, process.argv.slice(1), {
             cwd: __dirname,
             detached: true,
@@ -2169,7 +2171,16 @@ function restartServer() {
         });
         child.unref();
         process.exit(0);
-    });
+    };
+
+    if (ssnSocket) ssnSocket.terminate();
+    if (overlayWss) {
+        for (const client of overlayWss.clients) client.terminate();
+        overlayWss.close();
+    }
+    if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+    server.close(launchReplacement);
+    setTimeout(launchReplacement, 1500);
 }
 
 async function getUpdateStatus(mode = 'release') {
