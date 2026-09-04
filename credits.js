@@ -71,16 +71,6 @@ function applyTheme(cfg) {
             link.href = t.font_import;
             document.head.appendChild(link);
         }
-
-        function applyFadeCardSettings(cfg) {
-            const credits = cfg?.credits || {};
-            const side = Number(credits.fade_card_margin);
-            const top = Number(credits.fade_card_margin_top);
-            const bottom = Number(credits.fade_card_margin_bottom);
-            document.documentElement.style.setProperty('--fade-card-margin', `${Number.isFinite(side) ? Math.max(0, Math.min(20, side)) : 2}vw`);
-            document.documentElement.style.setProperty('--fade-card-margin-top', `${Number.isFinite(top) ? Math.max(0, Math.min(50, top)) : 6}vh`);
-            document.documentElement.style.setProperty('--fade-card-margin-bottom', `${Number.isFinite(bottom) ? Math.max(0, Math.min(50, bottom)) : 6}vh`);
-        }
     }
     if (t.text_color) r.setProperty('--text-color', t.text_color);
     if (t.accent_color) r.setProperty('--accent-color', t.accent_color);
@@ -88,6 +78,16 @@ function applyTheme(cfg) {
     if (t.text_outline === false) r.setProperty('--text-outline-color', 'transparent');
     else if (t.text_outline_color) r.setProperty('--text-outline-color', t.text_outline_color);
     if (t.font_scale) r.setProperty('--font-scale', t.font_scale);
+}
+
+function applyFadeCardSettings(cfg) {
+    const credits = cfg?.credits || {};
+    const side = Number(credits.fade_card_margin);
+    const top = Number(credits.fade_card_margin_top);
+    const bottom = Number(credits.fade_card_margin_bottom);
+    document.documentElement.style.setProperty('--fade-card-margin', `${Number.isFinite(side) ? Math.max(0, Math.min(20, side)) : 2}vw`);
+    document.documentElement.style.setProperty('--fade-card-margin-top', `${Number.isFinite(top) ? Math.max(0, Math.min(50, top)) : 6}vh`);
+    document.documentElement.style.setProperty('--fade-card-margin-bottom', `${Number.isFinite(bottom) ? Math.max(0, Math.min(50, bottom)) : 6}vh`);
 }
 
 // Calculate total base pre-social credits duration - duration takes priority over speed
