@@ -369,6 +369,20 @@
 
             <div class="cfg-section">Credits Header</div>
             <div class="cfg-row">
+                <label>Image URL</label>
+                <input type="text" id="cfg-header-image" value="${escapeHtml(cfg.credits?.header?.image || '')}">
+            </div>
+            <div class="cfg-row">
+                <label>Title</label>
+                <input type="text" id="cfg-header-title" value="${escapeHtml(cfg.credits?.header?.title || '')}">
+            </div>
+            <div class="cfg-row">
+                <label>Subtitle</label>
+                <input type="text" id="cfg-header-subtitle" value="${escapeHtml(cfg.credits?.header?.subtitle || '')}">
+            </div>
+
+            <div class="cfg-section">Fade Card Layout</div>
+            <div class="cfg-row">
                 <label>Fade Card Side Margin (vw)</label>
                 <input type="number" id="cfg-fade-card-margin" min="0" max="20" step="0.5" value="${Math.max(0, Math.min(20, Number(cfg.credits?.fade_card_margin) || 2))}">
             </div>
@@ -381,18 +395,6 @@
                 <input type="number" id="cfg-fade-card-margin-bottom" min="0" max="50" step="0.5" value="${Math.max(0, Math.min(50, Number.isFinite(Number(cfg.credits?.fade_card_margin_bottom)) ? Number(cfg.credits.fade_card_margin_bottom) : 6))}">
             </div>
             <div style="font-size:0.75rem;color:#8b949e;margin-bottom:0.5rem;">Controls the margins around fade-style credit cards. Side margin uses vw; top and bottom margins use vh. Set any value to 0 for no margin.</div>
-            <div class="cfg-row">
-                <label>Image URL</label>
-                <input type="text" id="cfg-header-image" value="${escapeHtml(cfg.credits?.header?.image || '')}">
-            </div>
-            <div class="cfg-row">
-                <label>Title</label>
-                <input type="text" id="cfg-header-title" value="${escapeHtml(cfg.credits?.header?.title || '')}">
-            </div>
-            <div class="cfg-row">
-                <label>Subtitle</label>
-                <input type="text" id="cfg-header-subtitle" value="${escapeHtml(cfg.credits?.header?.subtitle || '')}">
-            </div>
 
             <div class="cfg-section">Sections</div>
             <div style="font-size:0.75rem;color:#484f58;margin-bottom:0.5rem;">Drag to change the credits roll order for built-in sections, custom sections, and Special Thanks.</div>
