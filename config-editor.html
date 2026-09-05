@@ -78,10 +78,8 @@
     <script>
     function toggleHighlightsSelection(source) {
         const visible = source === 'manual';
-        const help = document.getElementById('cfg-highlights-selection-help');
-        const selected = document.getElementById('cfg-highlights-selected');
-        if (help) help.style.display = visible ? '' : 'none';
-        if (selected) selected.style.display = visible ? '' : 'none';
+        const selection = document.getElementById('cfg-highlights-selection');
+        if (selection) selection.style.display = visible ? '' : 'none';
     }
 
     function showToast(msg) {
@@ -248,14 +246,25 @@
     }
 
     function creditsOrderRow(id) {
+        const highlightSelection = id === 'highlights'
+            ? `<div id="cfg-highlights-selection" style="display:none;margin:0.55rem 0 0 2rem;padding-top:0.55rem;border-top:1px solid #21262d;">
+                <div style="font-size:0.75rem;color:#8b949e;margin-bottom:0.4rem;">
+                    For Featured Highlights, enter one highlight key per line in the format <code>timestamp:username</code>. Use the Highlights page to identify starred messages.
+                </div>
+                <textarea id="cfg-highlights-selected" placeholder="timestamp:username (one per line)" style="width:100%;min-height:4rem;padding:0.4rem;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e1e4e8;font-size:0.8rem;">${escapeHtml((creditsSectionsState.highlights?.selected || []).join('\n'))}</textarea>
+            </div>`
+            : '';
         return `
-            <div class="credits-order-row" draggable="true" data-order-id="${escapeHtml(id)}" style="display:flex;align-items:center;gap:0.65rem;padding:0.55rem 0.75rem;border:1px solid #30363d;border-radius:6px;background:#0d1117;cursor:grab;">
-                <span style="font-size:1rem;color:#8b949e;line-height:1;">☰</span>
-                <input type="checkbox" id="cfg-order-${escapeHtml(id)}-enabled" ${getCreditsOrderItemEnabled(id) ? 'checked' : ''} aria-label="Enable ${escapeHtml(getCreditsOrderItemLabel(id))}" onchange="setCreditsOrderItemEnabled('${escapeHtml(id)}', this.checked); event.stopPropagation();" style="accent-color:#58a6ff;">
-                <span style="min-width:95px;font-size:0.84rem;color:#e1e4e8;">${escapeHtml(getCreditsOrderItemLabel(id))}</span>
-                ${getCreditsOrderItemControls(id)}
-                <span style="font-size:0.68rem;color:${getCreditsOrderItemStyle(id) === 'Fade' ? '#d29922' : '#8b949e'};background:${getCreditsOrderItemStyle(id) === 'Fade' ? '#d2992222' : '#8b949e22'};border:1px solid ${getCreditsOrderItemStyle(id) === 'Fade' ? '#d2992233' : '#8b949e33'};border-radius:999px;padding:0.15rem 0.45rem;">${getCreditsOrderItemStyle(id)}</span>
-                <span style="font-size:0.68rem;color:#58a6ff;background:#1f6feb22;border:1px solid #1f6feb33;border-radius:999px;padding:0.15rem 0.45rem;">${escapeHtml(getCreditsOrderItemKind(id))}</span>
+            <div class="credits-order-row" draggable="true" data-order-id="${escapeHtml(id)}" style="padding:0.55rem 0.75rem;border:1px solid #30363d;border-radius:6px;background:#0d1117;cursor:grab;">
+                <div style="display:flex;align-items:center;gap:0.65rem;">
+                    <span style="font-size:1rem;color:#8b949e;line-height:1;">☰</span>
+                    <input type="checkbox" id="cfg-order-${escapeHtml(id)}-enabled" ${getCreditsOrderItemEnabled(id) ? 'checked' : ''} aria-label="Enable ${escapeHtml(getCreditsOrderItemLabel(id))}" onchange="setCreditsOrderItemEnabled('${escapeHtml(id)}', this.checked); event.stopPropagation();" style="accent-color:#58a6ff;">
+                    <span style="min-width:95px;font-size:0.84rem;color:#e1e4e8;">${escapeHtml(getCreditsOrderItemLabel(id))}</span>
+                    ${getCreditsOrderItemControls(id)}
+                    <span style="font-size:0.68rem;color:${getCreditsOrderItemStyle(id) === 'Fade' ? '#d29922' : '#8b949e'};background:${getCreditsOrderItemStyle(id) === 'Fade' ? '#d2992222' : '#8b949e22'};border:1px solid ${getCreditsOrderItemStyle(id) === 'Fade' ? '#d2992233' : '#8b949e33'};border-radius:999px;padding:0.15rem 0.45rem;">${getCreditsOrderItemStyle(id)}</span>
+                    <span style="font-size:0.68rem;color:#58a6ff;background:#1f6feb22;border:1px solid #1f6feb33;border-radius:999px;padding:0.15rem 0.45rem;">${escapeHtml(getCreditsOrderItemKind(id))}</span>
+                </div>
+                ${highlightSelection}
             </div>`;
     }
 
@@ -401,10 +410,6 @@
             <div class="cfg-section">Sections</div>
             <div style="font-size:0.75rem;color:#484f58;margin-bottom:0.5rem;">Drag to change the credits roll order for built-in sections, custom sections, and Special Thanks.</div>
             <div id="credits-order-editor" style="display:flex;flex-direction:column;gap:0.45rem;margin-bottom:0.85rem;"></div>
-            <div id="cfg-highlights-selection-help" style="font-size:0.75rem;color:#8b949e;margin:-0.2rem 0 0.8rem;padding:0.6rem 0 0.2rem 1.5rem;">
-                For Featured Highlights, enter one highlight key per line in the format <code>timestamp:username</code>. Use the Highlights page to identify starred messages.
-            </div>
-            <textarea id="cfg-highlights-selected" placeholder="timestamp:username (one per line)" style="width:calc(100% - 1.5rem);margin:0 0 0.8rem 1.5rem;min-height:4rem;padding:0.4rem;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e1e4e8;font-size:0.8rem;">${escapeHtml((sec.highlights?.selected || []).join('\n'))}</textarea>
 
             <div class="cfg-section">Custom Credit Sections</div>
             <div style="font-size:0.75rem;color:#484f58;margin-bottom:0.5rem;">Add as many extra credit blocks as you want. Each one can be a statement, a list of names, or both. Fade sections appear as standalone text panels instead of rolling with the credits. Extra fade time adds onto the base credits duration before socials.</div>
