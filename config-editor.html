@@ -143,6 +143,7 @@
 
     let customSectionsState = [];
     let creditsSectionOrderState = [];
+    let creditsSectionsState = {};
 
     function generateCustomSectionId() {
         return `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -190,7 +191,7 @@
             return title || 'Special Thanks';
         }
         if (BUILTIN_CREDIT_SECTION_LABELS[id]) {
-            const title = document.getElementById(`cfg-sec-${id}-title`)?.value.trim();
+            const title = document.getElementById(`cfg-order-${id}-title`)?.value.trim() || document.getElementById(`cfg-sec-${id}-title`)?.value.trim();
             return title || BUILTIN_CREDIT_SECTION_LABELS[id];
         }
         const customTitle = [...document.querySelectorAll('.custom-section-card')]
@@ -223,9 +224,27 @@
         return 'Scroll';
     }
 
+    function getCreditsOrderItemControls(id) {
+        if (id === SPECIAL_THANKS_ORDER_ID || !BUILTIN_CREDIT_SECTION_LABELS[id]) return '';
+        const section = creditsSectionsState[id] || {};
+        const source = ['donations', 'gift_subs', 'cheerers', 'highlights'].includes(id)
+            ? `<select id="cfg-order-${id}-source" aria-label="${id} source">
+                ${id === 'highlights'
+                    ? `<option value="none"${(section.source || 'none') === 'none' ? ' selected' : ''}>None</option><option value="manual"${section.source === 'manual' ? ' selected' : ''}>Manual</option><option value="current_session"${section.source === 'current_session' ? ' selected' : ''}>Current</option>`
+                    : `<option value="session"${(section.source || 'session') === 'session' ? ' selected' : ''}>Session</option><option value="stats"${section.source === 'stats' ? ' selected' : ''}>Last ${cfg.days_filter || 30}d</option>`}
+              </select>` : '';
+        return `<div style="display:flex;gap:.35rem;flex:2;min-width:280px;flex-wrap:wrap;">
+            ${source}
+            <input id="cfg-order-${id}-title" type="text" value="${escapeHtml(section.title || '')}" placeholder="Title" aria-label="${id} title">
+            <input id="cfg-order-${id}-subtitle" type="text" value="${escapeHtml(section.subtitle || '')}" placeholder="Subtitle" aria-label="${id} subtitle">
+        </div>`;
+    }
+
     function getCreditsOrderItemEnabled(id) {
         if (id === SPECIAL_THANKS_ORDER_ID) return document.getElementById('cfg-st-enabled')?.checked !== false;
-        if (BUILTIN_CREDIT_SECTION_LABELS[id]) return document.getElementById(`cfg-sec-${id}-enabled`)?.checked !== false;
+        if (BUILTIN_CREDIT_SECTION_LABELS[id]) {
+            return document.getElementById(`cfg-order-${id}-enabled`)?.checked ?? (creditsSectionsState[id]?.enabled !== false);
+        }
         return customSectionsState.find(item => item.id === id)?.enabled !== false;
     }
 
@@ -234,7 +253,7 @@
             const input = document.getElementById('cfg-st-enabled');
             if (input) input.checked = enabled;
         } else if (BUILTIN_CREDIT_SECTION_LABELS[id]) {
-            const input = document.getElementById(`cfg-sec-${id}-enabled`);
+            const input = document.getElementById(`cfg-order-${id}-enabled`);
             if (input) input.checked = enabled;
         } else {
             const card = document.querySelector(`.custom-section-card[data-section-id="${CSS.escape(id)}"]`);
@@ -249,8 +268,9 @@
         return `
             <div class="credits-order-row" draggable="true" data-order-id="${escapeHtml(id)}" style="display:flex;align-items:center;gap:0.65rem;padding:0.55rem 0.75rem;border:1px solid #30363d;border-radius:6px;background:#0d1117;cursor:grab;">
                 <span style="font-size:1rem;color:#8b949e;line-height:1;">☰</span>
-                <input type="checkbox" ${getCreditsOrderItemEnabled(id) ? 'checked' : ''} aria-label="Enable ${escapeHtml(getCreditsOrderItemLabel(id))}" onchange="setCreditsOrderItemEnabled('${escapeHtml(id)}', this.checked); event.stopPropagation();" style="accent-color:#58a6ff;">
-                <span style="flex:1;font-size:0.84rem;color:#e1e4e8;">${escapeHtml(getCreditsOrderItemLabel(id))}</span>
+                <input type="checkbox" id="cfg-order-${escapeHtml(id)}-enabled" ${getCreditsOrderItemEnabled(id) ? 'checked' : ''} aria-label="Enable ${escapeHtml(getCreditsOrderItemLabel(id))}" onchange="setCreditsOrderItemEnabled('${escapeHtml(id)}', this.checked); event.stopPropagation();" style="accent-color:#58a6ff;">
+                <span style="min-width:95px;font-size:0.84rem;color:#e1e4e8;">${escapeHtml(getCreditsOrderItemLabel(id))}</span>
+                ${getCreditsOrderItemControls(id)}
                 <span style="font-size:0.68rem;color:${getCreditsOrderItemStyle(id) === 'Fade' ? '#d29922' : '#8b949e'};background:${getCreditsOrderItemStyle(id) === 'Fade' ? '#d2992222' : '#8b949e22'};border:1px solid ${getCreditsOrderItemStyle(id) === 'Fade' ? '#d2992233' : '#8b949e33'};border-radius:999px;padding:0.15rem 0.45rem;">${getCreditsOrderItemStyle(id)}</span>
                 <span style="font-size:0.68rem;color:#58a6ff;background:#1f6feb22;border:1px solid #1f6feb33;border-radius:999px;padding:0.15rem 0.45rem;">${escapeHtml(getCreditsOrderItemKind(id))}</span>
             </div>`;
@@ -309,6 +329,7 @@
     function renderConfigEditor(cfg) {
         const el = document.getElementById('config-editor');
         const sec = cfg.credits?.sections || {};
+        creditsSectionsState = sec;
         const social = cfg.credits?.social || {};
         const st = {
             enabled: cfg.credits?.special_thanks?.enabled !== false,
@@ -451,7 +472,7 @@
             <div class="cfg-section">Sections</div>
             <div style="font-size:0.75rem;color:#484f58;margin-bottom:0.5rem;">Drag to change the credits roll order for built-in sections, custom sections, and Special Thanks.</div>
             <div id="credits-order-editor" style="display:flex;flex-direction:column;gap:0.45rem;margin-bottom:0.85rem;"></div>
-            ${BUILTIN_CREDIT_SECTION_KEYS.map(key => {
+            ${[].map(key => {
                 const s = sec[key] || {};
                 return `
                 <div style="padding: 0.5rem 0; border-bottom: 1px solid #21262d;">
@@ -974,6 +995,19 @@
                 else if (field === 'source') sec[key][field] = el.value;
                 else sec[key][field] = el.value;
             }
+        });
+        BUILTIN_CREDIT_SECTION_KEYS.forEach(key => {
+            const enabled = document.getElementById(`cfg-order-${key}-enabled`);
+            const title = document.getElementById(`cfg-order-${key}-title`);
+            const subtitle = document.getElementById(`cfg-order-${key}-subtitle`);
+            const source = document.getElementById(`cfg-order-${key}-source`);
+            if (!enabled && !title && !subtitle && !source) return;
+            sec[key] = {
+                enabled: enabled?.checked !== false,
+                title: title?.value.trim() || '',
+                subtitle: subtitle?.value.trim() || ''
+            };
+            if (source) sec[key].source = source.value;
         });
         if (sec.highlights) {
             sec.highlights.selected = document.getElementById('cfg-highlights-selected').value
