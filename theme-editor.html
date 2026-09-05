@@ -45,6 +45,16 @@
 <script>
 let config;
 const fields = { font:'font_family', scale:'font_scale', text:'text_color', accent:'accent_color', background:'background_color', outline:'text_outline_color' };
+const detailsStorageKey = 'streampulse:theme:open-sections';
+const openDetails = JSON.parse(localStorage.getItem(detailsStorageKey) || '{}');
+document.querySelectorAll('main details').forEach(details => {
+    const section = details.querySelector('summary').textContent.trim();
+    if (Object.prototype.hasOwnProperty.call(openDetails, section)) details.open = openDetails[section];
+    details.addEventListener('toggle', () => {
+        openDetails[section] = details.open;
+        localStorage.setItem(detailsStorageKey, JSON.stringify(openDetails));
+    });
+});
 async function load() {
     const res = await fetch('/api/config'); if (!res.ok) throw new Error('Could not load configuration');
     config = await res.json(); const theme = config.theme || {};
