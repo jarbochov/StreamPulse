@@ -8,8 +8,11 @@
     <script src="/nav.js" defer></script>
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; background: #0f1117; color: #e1e4e8; font: 14px system-ui, sans-serif; }
-        main { max-width: 760px; margin: 2rem auto; padding: 0 1rem 3rem; }
+        body { margin: 0; background: #0f1117; color: #e1e4e8; font: 14px system-ui, sans-serif; min-height: 100vh; }
+        .site-header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .site-header h1 { margin: 0; font-size: 1.3rem; font-weight: 600; }
+        .site-header h1 span { color: #58a6ff; }
+        main { max-width: 760px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
         .header { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; }
         h1 { margin:0; font-size:1.4rem; } details { background:#161b22; border:1px solid #30363d; border-radius:8px; margin:.75rem 0; padding:.8rem 1rem; }
         summary { cursor:pointer; color:#58a6ff; font-weight:600; } .row { display:flex; align-items:center; gap:1rem; margin:.75rem 0; }
@@ -18,9 +21,13 @@
         .hint, #status { color:#8b949e; font-size:.82rem; line-height:1.45; } #status { min-height:1.3em; }
     </style>
 </head>
-<body><main>
-    <nav id="main-nav" class="nav" aria-label="Main navigation" style="margin-bottom:1.5rem;"></nav>
-    <div class="header"><h1>Shared Theme</h1><button id="save">Save Theme</button></div>
+<body>
+    <header class="site-header">
+        <h1>StreamPulse <span>Theme</span></h1>
+        <nav id="main-nav" class="nav" aria-label="Main navigation"></nav>
+    </header>
+    <main>
+    <div class="header"><h2>Shared Theme</h2><button id="save">Save Theme</button></div>
     <p class="hint">These values are shared by Credits, Hashtags, Stats, Goals, and the Viewer Count overlay. Music keeps its specialized Music Editor theme.</p>
     <details open><summary>Typography</summary>
         <div class="row"><label for="font">Font family</label><input id="font" type="text"></div>
