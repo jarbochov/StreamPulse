@@ -26,6 +26,9 @@
         .cfg-section { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #58a6ff; padding-top: 0.5rem; border-top: 1px solid #21262d; }
         .cfg-toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #8b949e; }
         .cfg-toggle input[type="checkbox"] { accent-color: #58a6ff; }
+        #config-editor details { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.8rem 1rem; }
+        #config-editor details + details { margin-top: 0.5rem; }
+        #config-editor details > summary { cursor: pointer; color: #58a6ff; font-weight: 600; padding: 0.2rem 0; }
 
         .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
         .toast.show { opacity: 1; }
@@ -60,7 +63,10 @@
 
     <div style="max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem;">
         <div class="card">
-            <h2>Config Editor</h2>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+                <h2>Config Editor</h2>
+                <button class="btn" id="top-save-config" type="button">💾 Save Config</button>
+            </div>
             <div id="config-editor" style="display: flex; flex-direction: column; gap: 0.75rem;">
                 <div class="empty">Loading config...</div>
             </div>
@@ -629,6 +635,8 @@
         });
         document.querySelector('.header h1 span').textContent = editorSection === 'credits' ? 'Credits' : 'Config';
         document.querySelector('.card h2').textContent = editorSection === 'credits' ? 'Credits Editor' : 'Config Editor';
+        document.getElementById('top-save-config').textContent = editorSection === 'credits' ? '💾 Save Credits' : '💾 Save Config';
+        document.getElementById('top-save-config').onclick = saveConfig;
 
         // Wire up theme interactive controls
         document.getElementById('cfg-theme-font').addEventListener('change', function() {
