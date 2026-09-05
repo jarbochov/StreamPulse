@@ -29,6 +29,7 @@
         #config-editor details { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.8rem 1rem; }
         #config-editor details + details { margin-top: 0.5rem; }
         #config-editor details > summary { cursor: pointer; color: #58a6ff; font-weight: 600; padding: 0.2rem 0; }
+        #config-editor details > summary small { display: block; color: #8b949e; font-size: 0.75rem; font-weight: 400; margin-top: 0.25rem; }
 
         .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
         .toast.show { opacity: 1; }
@@ -65,7 +66,7 @@
         <div class="card">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
                 <h2>Config Editor</h2>
-                <button class="btn" id="top-save-config" type="button">💾 Save Config</button>
+                <button class="btn primary" id="top-save-config" type="button">💾 Save Config</button>
             </div>
             <div id="config-editor" style="display: flex; flex-direction: column; gap: 0.75rem;">
                 <div class="empty">Loading config...</div>
@@ -222,10 +223,33 @@
         return 'Scroll';
     }
 
+    function getCreditsOrderItemEnabled(id) {
+        if (id === SPECIAL_THANKS_ORDER_ID) return document.getElementById('cfg-st-enabled')?.checked !== false;
+        if (BUILTIN_CREDIT_SECTION_LABELS[id]) return document.getElementById(`cfg-sec-${id}-enabled`)?.checked !== false;
+        return customSectionsState.find(item => item.id === id)?.enabled !== false;
+    }
+
+    function setCreditsOrderItemEnabled(id, enabled) {
+        if (id === SPECIAL_THANKS_ORDER_ID) {
+            const input = document.getElementById('cfg-st-enabled');
+            if (input) input.checked = enabled;
+        } else if (BUILTIN_CREDIT_SECTION_LABELS[id]) {
+            const input = document.getElementById(`cfg-sec-${id}-enabled`);
+            if (input) input.checked = enabled;
+        } else {
+            const card = document.querySelector(`.custom-section-card[data-section-id="${CSS.escape(id)}"]`);
+            const input = card?.querySelector('.custom-section-enabled');
+            if (input) input.checked = enabled;
+            const section = customSectionsState.find(item => item.id === id);
+            if (section) section.enabled = enabled;
+        }
+    }
+
     function creditsOrderRow(id) {
         return `
             <div class="credits-order-row" draggable="true" data-order-id="${escapeHtml(id)}" style="display:flex;align-items:center;gap:0.65rem;padding:0.55rem 0.75rem;border:1px solid #30363d;border-radius:6px;background:#0d1117;cursor:grab;">
                 <span style="font-size:1rem;color:#8b949e;line-height:1;">☰</span>
+                <input type="checkbox" ${getCreditsOrderItemEnabled(id) ? 'checked' : ''} aria-label="Enable ${escapeHtml(getCreditsOrderItemLabel(id))}" onchange="setCreditsOrderItemEnabled('${escapeHtml(id)}', this.checked); event.stopPropagation();" style="accent-color:#58a6ff;">
                 <span style="flex:1;font-size:0.84rem;color:#e1e4e8;">${escapeHtml(getCreditsOrderItemLabel(id))}</span>
                 <span style="font-size:0.68rem;color:${getCreditsOrderItemStyle(id) === 'Fade' ? '#d29922' : '#8b949e'};background:${getCreditsOrderItemStyle(id) === 'Fade' ? '#d2992222' : '#8b949e22'};border:1px solid ${getCreditsOrderItemStyle(id) === 'Fade' ? '#d2992233' : '#8b949e33'};border-radius:999px;padding:0.15rem 0.45rem;">${getCreditsOrderItemStyle(id)}</span>
                 <span style="font-size:0.68rem;color:#58a6ff;background:#1f6feb22;border:1px solid #1f6feb33;border-radius:999px;padding:0.15rem 0.45rem;">${escapeHtml(getCreditsOrderItemKind(id))}</span>
@@ -611,9 +635,22 @@
 
         el.querySelectorAll('.cfg-section').forEach(section => {
             const details = document.createElement('details');
-            details.open = true;
+            details.open = false;
             const summary = document.createElement('summary');
-            summary.textContent = section.textContent.trim();
+            const descriptions = {
+                General: 'Core session, filtering, and capture behavior.',
+                'Overlay Theme': 'Shared typography and colors for supported overlays.',
+                'Credits Header': 'The title, subtitle, and image shown before credits.',
+                'Fade Card Layout': 'Spacing around fade-style credit cards.',
+                Sections: 'Enable, order, and configure built-in credit sections.',
+                'Custom Credit Sections': 'Add custom statements and name lists.',
+                'Special Thanks': 'Configure the optional Special Thanks section.',
+                Closing: 'Set the final message and how it appears.',
+                'Social Links': 'Configure social handles shown at the end.',
+                'Webhooks (Discord)': 'Send selected stream events to Discord.',
+                'Rate Limiting': 'Limit API reads and mutation requests.'
+            };
+            summary.innerHTML = `${section.textContent.trim()}<small>${descriptions[section.textContent.trim()] || ''}</small>`;
             details.appendChild(summary);
             section.parentNode.insertBefore(details, section);
             details.appendChild(section);
