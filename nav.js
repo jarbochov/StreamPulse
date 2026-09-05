@@ -52,6 +52,7 @@
         ]},
         { label: 'Manage ▾', children: [
             { label: 'Config', href: '/config-editor.html' },
+            { label: 'Credits', href: '/credits-editor.html' },
             { label: 'Theme', href: '/theme-editor.html' },
             { label: 'Goals', href: '/goals-editor.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html' },
