@@ -79,6 +79,7 @@ Add **Browser Sources** in OBS with these URLs:
 - Hashtags: `http://localhost:3000/hashtags.html`
 - Goal: `http://localhost:3000/goal.html?goal=follower-goal`
 - Goals Cycle: `http://localhost:3000/goal.html?mode=cycle`
+- Viewer Count: `http://localhost:3000/viewers.html`
 - Music: `http://localhost:3000/music.html`
 - Countdown: `http://localhost:3000/countdown.html?timer=starting-soon`
 - Stopwatch: `http://localhost:3000/stopwatch.html?timer=run-clock`

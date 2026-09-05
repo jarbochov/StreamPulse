@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse Viewer Count</title>
+    <style>
+        :root {
+            --viewer-font-family: 'Segoe UI', system-ui, sans-serif;
+            --viewer-text-color: #ffffff;
+            --viewer-accent-color: #58a6ff;
+            --viewer-muted-color: rgba(255,255,255,.72);
+            --viewer-background: rgba(0,0,0,.45);
+            --viewer-outline-color: #000000aa;
+            --viewer-font-scale: 1;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+        body { display: flex; align-items: center; justify-content: center; font-family: var(--viewer-font-family); color: var(--viewer-text-color); }
+        .viewer-card { display: inline-flex; align-items: baseline; gap: .55em; padding: .45em .75em; max-width: 100%; background: var(--viewer-background); border-radius: .45em; text-shadow: 0 2px .3em var(--viewer-outline-color); }
+        .icon { color: var(--viewer-accent-color); font-size: calc(clamp(1rem, 5vmin, 3rem) * var(--viewer-font-scale)); }
+        .count { color: var(--viewer-text-color); font-size: calc(clamp(1.2rem, 8vmin, 5rem) * var(--viewer-font-scale)); font-weight: 700; line-height: 1; }
+        .label { color: var(--viewer-muted-color); font-size: calc(clamp(.7rem, 3.2vmin, 2rem) * var(--viewer-font-scale)); }
+        .offline { opacity: .65; }
+    </style>
+</head>
+<body>
+    <div class="viewer-card" id="viewer-card">
+        <span class="icon" aria-hidden="true">👁</span>
+        <span class="count" id="viewer-count">0</span>
+        <span class="label" id="viewer-label">viewers</span>
+    </div>
+    <script>
+    const params = new URLSearchParams(location.search);
+    const count = document.getElementById('viewer-count');
+    const label = document.getElementById('viewer-label');
+    const card = document.getElementById('viewer-card');
+    const root = document.documentElement;
+
+    function setTheme(config) {
+        const theme = config?.theme || {};
+        const font = theme.font_family || 'Segoe UI';
+        root.style.setProperty('--viewer-font-family', font.includes(' ') ? `"${font}", system-ui, sans-serif` : `${font}, system-ui, sans-serif`);
+        if (theme.text_color) root.style.setProperty('--viewer-text-color', theme.text_color);
+        if (theme.accent_color) root.style.setProperty('--viewer-accent-color', theme.accent_color);
+        if (theme.background_color) root.style.setProperty('--viewer-background', theme.background_color === 'transparent' ? 'rgba(0,0,0,.45)' : theme.background_color);
+        if (theme.text_outline_color) root.style.setProperty('--viewer-outline-color', theme.text_outline_color);
+        if (theme.font_scale) root.style.setProperty('--viewer-font-scale', theme.font_scale);
+        if (params.has('fontscale')) root.style.setProperty('--viewer-font-scale', Math.max(.5, Math.min(3, Number(params.get('fontscale')) || 1)));
+    }
+
+    function render(data) {
+        const viewers = data || {};
+        count.textContent = Number(viewers.current || 0).toLocaleString();
+        label.textContent = params.get('label') || 'viewers';
+        card.classList.toggle('offline', viewers.live === false);
+    }
+
+    async function init() {
+        try {
+            const [configRes, viewerRes] = await Promise.all([fetch('/api/config'), fetch('/api/viewers')]);
+            if (configRes.ok) setTheme(await configRes.json());
+            if (viewerRes.ok) render(await viewerRes.json());
+        } catch (error) { console.warn('[Viewer overlay] Initial load failed:', error.message); }
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${location.host}`);
+        ws.onmessage = event => {
+            try {
+                const message = JSON.parse(event.data);
+                if (message.type === 'viewer-update') render(message.data);
+            } catch {}
+        };
+        ws.onclose = () => setTimeout(init, 5000);
+    }
+    init();
+    </script>
+</body>
+</html>

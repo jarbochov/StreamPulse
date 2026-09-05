@@ -26,6 +26,7 @@
             { label: 'Credits Preview', href: '/credits.html?preview=true', target: '_blank' },
             { label: 'Stats', href: '/stats.html' },
             { label: 'Hashtags', href: '/hashtags.html' },
+            { label: 'Viewer Count', href: '/viewers.html', target: '_blank' },
             { label: 'Goal', href: '/goal.html', target: '_blank' },
             { label: 'Goals Cycle', href: '/goal.html?mode=cycle', target: '_blank' },
             { label: 'Music — Full', href: '/music.html?mode=full', target: '_blank' },
@@ -51,6 +52,7 @@
         ]},
         { label: 'Manage ▾', children: [
             { label: 'Config', href: '/config-editor.html' },
+            { label: 'Theme', href: '/theme-editor.html' },
             { label: 'Goals', href: '/goals-editor.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html' },
             { label: 'Update', href: '/update.html' },

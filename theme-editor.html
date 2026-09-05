@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse Theme</title>
+    <script src="/nav.js" defer></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #0f1117; color: #e1e4e8; font: 14px system-ui, sans-serif; }
+        main { max-width: 760px; margin: 2rem auto; padding: 0 1rem 3rem; }
+        .header { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; }
+        h1 { margin:0; font-size:1.4rem; } details { background:#161b22; border:1px solid #30363d; border-radius:8px; margin:.75rem 0; padding:.8rem 1rem; }
+        summary { cursor:pointer; color:#58a6ff; font-weight:600; } .row { display:flex; align-items:center; gap:1rem; margin:.75rem 0; }
+        label { color:#8b949e; min-width:180px; } input[type=text], input[type=color], input[type=number] { flex:1; min-width:0; padding:.45rem; background:#0d1117; color:#e1e4e8; border:1px solid #30363d; border-radius:5px; }
+        input[type=color] { flex:0 0 52px; height:32px; padding:2px; } button { padding:.55rem .9rem; border:1px solid #238636; border-radius:6px; color:#fff; background:#238636; cursor:pointer; }
+        .hint, #status { color:#8b949e; font-size:.82rem; line-height:1.45; } #status { min-height:1.3em; }
+    </style>
+</head>
+<body><main>
+    <nav id="main-nav" aria-label="Main navigation" style="margin-bottom:1.5rem;"></nav>
+    <div class="header"><h1>Shared Theme</h1><button id="save">Save Theme</button></div>
+    <p class="hint">These values are shared by Credits, Hashtags, Stats, Goals, and the Viewer Count overlay. Music keeps its specialized Music Editor theme.</p>
+    <details open><summary>Typography</summary>
+        <div class="row"><label for="font">Font family</label><input id="font" type="text"></div>
+        <div class="row"><label for="scale">Font scale</label><input id="scale" type="number" min=".5" max="3" step=".05"></div>
+    </details>
+    <details open><summary>Colors</summary>
+        <div class="row"><label for="text">Text color</label><input id="text" type="text"></div>
+        <div class="row"><label for="accent">Accent color</label><input id="accent" type="text"></div>
+        <div class="row"><label for="background">Background</label><input id="background" type="text" placeholder="transparent or rgba(...)"></div>
+        <div class="row"><label for="outline">Text outline color</label><input id="outline" type="text"></div>
+    </details>
+    <details><summary>Overlay scope</summary><p class="hint">Goals, timers, and the viewer overlay inherit this theme. Music remains independent because its album-art layout has separate controls.</p></details>
+    <div id="status"></div>
+</main>
+<script>
+let config;
+const fields = { font:'font_family', scale:'font_scale', text:'text_color', accent:'accent_color', background:'background_color', outline:'text_outline_color' };
+async function load() {
+    const res = await fetch('/api/config'); if (!res.ok) throw new Error('Could not load configuration');
+    config = await res.json(); const theme = config.theme || {};
+    for (const [id, key] of Object.entries(fields)) document.getElementById(id).value = theme[key] ?? (id === 'font' ? 'Segoe UI' : id === 'scale' ? 1 : '');
+}
+document.getElementById('save').onclick = async () => {
+    const theme = { ...(config.theme || {}) };
+    for (const [id, key] of Object.entries(fields)) theme[key] = id === 'scale' ? Math.max(.5, Math.min(3, Number(document.getElementById(id).value) || 1)) : document.getElementById(id).value.trim();
+    const res = await fetch('/api/config', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ theme }) });
+    document.getElementById('status').textContent = res.ok ? 'Theme saved.' : 'Could not save theme.';
+};
+load().catch(error => document.getElementById('status').textContent = error.message);
+</script></body></html>

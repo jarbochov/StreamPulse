@@ -4723,6 +4723,7 @@ server.listen(PORT, () => {
     console.log(`  Stats:     http://localhost:${PORT}/stats.html`);
     console.log(`  Hashtags:  http://localhost:${PORT}/hashtags.html`);
     console.log(`  Goal:      http://localhost:${PORT}/goal.html`);
+    console.log(`  Viewers:   http://localhost:${PORT}/viewers.html`);
     console.log(`  Countdown: http://localhost:${PORT}/countdown.html`);
     console.log(`  Stopwatch: http://localhost:${PORT}/stopwatch.html`);
     console.log(`  Dashboard: http://localhost:${PORT}/dashboard.html`);
