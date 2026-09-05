@@ -30,6 +30,15 @@
         #config-editor details + details { margin-top: 0.5rem; }
         #config-editor details > summary { cursor: pointer; color: #58a6ff; font-weight: 600; padding: 0.2rem 0; }
         #config-editor details > summary small { display: block; color: #8b949e; font-size: 0.75rem; font-weight: 400; margin-top: 0.25rem; }
+        .credits-order-row { padding: 0.65rem 0.75rem; border: 1px solid #30363d; border-radius: 6px; background: #0d1117; cursor: grab; }
+        .credits-order-main { display: flex; align-items: center; gap: 0.65rem; }
+        .credits-order-handle { color: #8b949e; font-size: 1rem; line-height: 1; }
+        .credits-order-title { min-width: 130px; color: #e1e4e8; font-size: 0.84rem; }
+        .credits-order-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.45rem; flex: 1; margin: 0.55rem 0 0 2rem; }
+        .credits-order-controls input, .credits-order-controls select { min-width: 0; padding: 0.4rem 0.5rem; background: #161b22; border: 1px solid #30363d; border-radius: 4px; color: #e1e4e8; font: inherit; font-size: 0.78rem; }
+        .credits-order-badges { display: flex; align-items: center; gap: 0.35rem; margin-left: auto; }
+        .credits-order-badge { border-radius: 999px; padding: 0.15rem 0.45rem; font-size: 0.68rem; white-space: nowrap; }
+        .fade-time-note { grid-column: 1 / -1; color: #8b949e; font-size: 0.72rem; }
 
         .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
         .toast.show { opacity: 1; }
@@ -51,6 +60,10 @@
             .header { flex-direction: column; gap: 0.5rem; }
             .cfg-row { flex-direction: column; align-items: stretch; }
             .cfg-row label { min-width: unset; }
+            .credits-order-main { flex-wrap: wrap; }
+            .credits-order-title { min-width: unset; flex: 1; }
+            .credits-order-controls { grid-template-columns: 1fr; margin-left: 0; }
+            .credits-order-badges { margin-left: 0; }
         }
 
     </style>
@@ -160,11 +173,11 @@
 
     function getCreditsOrderItemLabel(id) {
         if (id === SPECIAL_THANKS_ORDER_ID) {
-            const title = document.getElementById('cfg-st-title')?.value.trim();
+            const title = document.getElementById('cfg-st-title')?.value.trim() || loadedConfig?.credits?.special_thanks?.title;
             return title || 'Special Thanks';
         }
         if (BUILTIN_CREDIT_SECTION_LABELS[id]) {
-            const title = document.getElementById(`cfg-order-${id}-title`)?.value.trim() || document.getElementById(`cfg-sec-${id}-title`)?.value.trim();
+            const title = document.getElementById(`cfg-order-${id}-title`)?.value.trim() || creditsSectionsState[id]?.title;
             return title || BUILTIN_CREDIT_SECTION_LABELS[id];
         }
         const customTitle = [...document.querySelectorAll('.custom-section-card')]
@@ -202,7 +215,7 @@
             const specialThanks = loadedConfig?.credits?.special_thanks || {};
             const value = (field, fallback = '') => document.getElementById(`cfg-st-${field}`)?.value ?? specialThanks[field] ?? fallback;
             const displayStyle = value('display-style', specialThanks.display_style || 'scroll');
-            return `<div style="display:flex;gap:.35rem;flex:2;min-width:280px;flex-wrap:wrap;">
+            return `<div class="credits-order-controls">
                 <input id="cfg-st-title" type="text" value="${escapeHtml(value('title', 'Special Thanks'))}" placeholder="Title" aria-label="Special Thanks title">
                 <input id="cfg-st-subtitle" type="text" value="${escapeHtml(value('subtitle'))}" placeholder="Subtitle" aria-label="Special Thanks subtitle">
                 <select id="cfg-st-columns" aria-label="Special Thanks columns">
@@ -215,7 +228,7 @@
                     <option value="fade"${displayStyle === 'fade' ? ' selected' : ''}>Fade</option>
                 </select>
                 ${displayStyle === 'fade' ? `<input id="cfg-st-display-duration" type="number" min="0" value="${Math.max(0, Number(value('display-duration', specialThanks.display_duration || 0)) || 0)}" placeholder="Extra fade sec" aria-label="Special Thanks extra fade seconds">` : ''}
-                ${displayStyle === 'fade' ? '<span style="align-self:center;font-size:.72rem;color:#8b949e;">Adds time to the credits sequence.</span>' : ''}
+                ${displayStyle === 'fade' ? '<span class="fade-time-note">Extra fade time adds to the credits sequence.</span>' : ''}
             </div>`;
         }
         if (!BUILTIN_CREDIT_SECTION_LABELS[id]) return '';
@@ -231,9 +244,10 @@
                <option value="scroll"${(section.display_style || 'scroll') === 'scroll' ? ' selected' : ''}>Scroll</option>
                <option value="fade"${section.display_style === 'fade' ? ' selected' : ''}>Fade</option>
               </select>
-              <input id="cfg-order-${id}-display-duration" type="number" min="0" value="${Number.isFinite(Number(section.display_duration)) && Number(section.display_duration) >= 0 ? Number(section.display_duration) : 0}" placeholder="Extra fade sec" aria-label="${id} extra fade seconds">`
+              <input id="cfg-order-${id}-display-duration" type="number" min="0" value="${Number.isFinite(Number(section.display_duration)) && Number(section.display_duration) >= 0 ? Number(section.display_duration) : 0}" placeholder="Extra fade sec" aria-label="${id} extra fade seconds">
+              <span class="fade-time-note">Extra fade time adds to the credits sequence when Fade is selected.</span>`
             : '';
-        return `<div style="display:flex;gap:.35rem;flex:2;min-width:280px;flex-wrap:wrap;">
+        return `<div class="credits-order-controls">
             ${source}
             ${highlightDisplay}
             <input id="cfg-order-${id}-title" type="text" value="${escapeHtml(section.title || '')}" placeholder="Title" aria-label="${id} title">
@@ -275,15 +289,17 @@
             </div>`
             : '';
         return `
-            <div class="credits-order-row" draggable="true" data-order-id="${escapeHtml(id)}" style="padding:0.55rem 0.75rem;border:1px solid #30363d;border-radius:6px;background:#0d1117;cursor:grab;">
-                <div style="display:flex;align-items:center;gap:0.65rem;">
-                    <span style="font-size:1rem;color:#8b949e;line-height:1;">☰</span>
+            <div class="credits-order-row" draggable="true" data-order-id="${escapeHtml(id)}">
+                <div class="credits-order-main">
+                    <span class="credits-order-handle">☰</span>
                     <input type="checkbox" id="cfg-order-${escapeHtml(id)}-enabled" ${getCreditsOrderItemEnabled(id) ? 'checked' : ''} aria-label="Enable ${escapeHtml(getCreditsOrderItemLabel(id))}" onchange="setCreditsOrderItemEnabled('${escapeHtml(id)}', this.checked); event.stopPropagation();" style="accent-color:#58a6ff;">
-                    <span style="min-width:95px;font-size:0.84rem;color:#e1e4e8;">${escapeHtml(getCreditsOrderItemLabel(id))}</span>
-                    ${getCreditsOrderItemControls(id)}
-                    <span style="font-size:0.68rem;color:${getCreditsOrderItemStyle(id) === 'Fade' ? '#d29922' : '#8b949e'};background:${getCreditsOrderItemStyle(id) === 'Fade' ? '#d2992222' : '#8b949e22'};border:1px solid ${getCreditsOrderItemStyle(id) === 'Fade' ? '#d2992233' : '#8b949e33'};border-radius:999px;padding:0.15rem 0.45rem;">${getCreditsOrderItemStyle(id)}</span>
-                    <span style="font-size:0.68rem;color:#58a6ff;background:#1f6feb22;border:1px solid #1f6feb33;border-radius:999px;padding:0.15rem 0.45rem;">${escapeHtml(getCreditsOrderItemKind(id))}</span>
+                    <span class="credits-order-title">${escapeHtml(getCreditsOrderItemLabel(id))}</span>
+                    <span class="credits-order-badges">
+                        <span class="credits-order-badge" style="color:${getCreditsOrderItemStyle(id) === 'Fade' ? '#d29922' : '#8b949e'};background:${getCreditsOrderItemStyle(id) === 'Fade' ? '#d2992222' : '#8b949e22'};border:1px solid ${getCreditsOrderItemStyle(id) === 'Fade' ? '#d2992233' : '#8b949e33'};">${getCreditsOrderItemStyle(id)}</span>
+                        <span class="credits-order-badge" style="color:#58a6ff;background:#1f6feb22;border:1px solid #1f6feb33;">${escapeHtml(getCreditsOrderItemKind(id))}</span>
+                    </span>
                 </div>
+                ${getCreditsOrderItemControls(id)}
                 ${highlightSelection}
             </div>`;
     }
@@ -459,7 +475,7 @@
                 <label>Extra Fade Time</label>
                 <input type="number" id="cfg-closing-display-duration" min="0" value="${closingDisplayDuration}">
             </div>
-            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Use \\n for line breaks. 0 keeps the closing fade inside the base duration. Add seconds here to extend the total sequence.</div>
+            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Use \\n for line breaks. 0 keeps the closing fade inside the base duration. Extra fade time adds to the credits sequence.</div>
 
             <div class="cfg-section">Social Links</div>
             <div class="cfg-row">
@@ -680,7 +696,7 @@
                     <label>Extra Fade Time</label>
                     <input type="number" min="0" class="custom-section-display-duration" value="${section.display_duration ?? DEFAULT_FADE_PANEL_DURATION}">
                 </div>
-                <div style="margin-top:0.2rem;font-size:0.75rem;color:#8b949e;display:${section.display_style === 'fade' ? 'block' : 'none'};" class="custom-section-duration-help">0 keeps this panel inside the base duration. Add seconds here to extend the total sequence.</div>
+                <div style="margin-top:0.2rem;font-size:0.75rem;color:#8b949e;display:${section.display_style === 'fade' ? 'block' : 'none'};" class="custom-section-duration-help">0 keeps this panel inside the base duration. Extra fade time adds to the credits sequence.</div>
                 <div style="margin-top:0.65rem;font-size:0.75rem;color:#8b949e;">Names / Lines</div>
                 <div class="custom-section-names" style="margin-top:0.2rem;">
                     ${(section.names || []).map((name, nameIndex) => customSectionNameRow(name, index, nameIndex)).join('')}
