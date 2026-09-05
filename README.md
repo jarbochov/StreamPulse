@@ -249,7 +249,7 @@ Credits sections, social links, special thanks, and repeatable custom credit sec
 
 ### Overlay Theme
 
-Customize the look of all overlays (credits, stats, hashtags) from the Config Editor under **Overlay Theme**:
+Customize the shared look of supported overlays from the dedicated [Theme Editor](http://localhost:3000/theme-editor.html):
 
 - **Font** — Choose from popular Google Fonts or enter any custom Google Font name
 - **Text / Accent Colors** — Color pickers with manual hex/rgb input
