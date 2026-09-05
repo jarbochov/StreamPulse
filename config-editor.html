@@ -603,20 +603,29 @@
             <button class="btn wide" onclick="saveConfig()" style="margin-top: 0.5rem;">💾 Save Config</button>
         `;
 
+        el.querySelectorAll('.cfg-section').forEach(section => {
+            const details = document.createElement('details');
+            details.open = true;
+            const summary = document.createElement('summary');
+            summary.textContent = section.textContent.trim();
+            details.appendChild(summary);
+            section.parentNode.insertBefore(details, section);
+            details.appendChild(section);
+            let next = details.nextElementSibling;
+            while (next && !next.classList.contains('cfg-section')) {
+                const following = next.nextElementSibling;
+                details.appendChild(next);
+                next = following;
+            }
+        });
+
         const creditGroups = ['Credits Header', 'Fade Card Layout', 'Sections', 'Custom Credit Sections', 'Special Thanks', 'Closing', 'Social Links'];
         const hiddenGroups = editorSection === 'credits'
             ? ['General', 'Overlay Theme', 'Webhooks (Discord)', 'Rate Limiting']
             : creditGroups;
-        let activeGroup = null;
         el.querySelectorAll('.cfg-section').forEach(section => {
             const group = section.textContent.trim();
-            activeGroup = group;
-            section.hidden = hiddenGroups.includes(group);
-            let next = section.nextElementSibling;
-            while (next && !next.classList.contains('cfg-section')) {
-                next.hidden = hiddenGroups.includes(group);
-                next = next.nextElementSibling;
-            }
+            section.parentElement.hidden = hiddenGroups.includes(group);
         });
         document.querySelector('.header h1 span').textContent = editorSection === 'credits' ? 'Credits' : 'Config';
         document.querySelector('.card h2').textContent = editorSection === 'credits' ? 'Credits Editor' : 'Config Editor';
