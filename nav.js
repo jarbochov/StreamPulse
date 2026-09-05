@@ -29,6 +29,7 @@
             { label: 'Viewer Count', href: '/viewers.html', target: '_blank' },
             { label: 'Goal', href: '/goal.html', target: '_blank' },
             { label: 'Goals Cycle', href: '/goal.html?mode=cycle', target: '_blank' },
+            { label: 'Overlay URL Wizard', href: '/overlay-url-wizard.html' },
             { label: 'Music — Full', href: '/music.html?mode=full', target: '_blank' },
             { label: 'Music — Art Only', href: '/music.html?mode=art', target: '_blank' },
             { label: 'Music — Mini Bar', href: '/music.html?mode=mini', target: '_blank' },
@@ -55,7 +56,6 @@
             { label: 'Credits', href: '/credits-editor.html' },
             { label: 'Theme', href: '/theme-editor.html' },
             { label: 'Goals', href: '/goals-editor.html' },
-            { label: 'Overlay URL Wizard', href: '/overlay-url-wizard.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html' },
             { label: 'Update', href: '/update.html' },
             { label: 'Backup & Restore', href: '/backup.html' }

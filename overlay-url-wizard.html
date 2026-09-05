@@ -15,6 +15,10 @@
         .intro, .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
         .intro { padding: 1.15rem 1.25rem; margin-bottom: 1.25rem; color: #8b949e; font-size: .88rem; line-height: 1.55; }
         .intro a { color: #58a6ff; }
+        .overlay-picker { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.25rem; }
+        .overlay-picker button { padding:.55rem .9rem; border:1px solid #30363d; border-radius:6px; background:#21262d; color:#c9d1d9; cursor:pointer; font:inherit; font-size:.82rem; }
+        .overlay-picker button:hover, .overlay-picker button[aria-pressed="true"] { border-color:#58a6ff; background:#1a2332; color:#fff; }
+        [hidden] { display:none !important; }
         .layout { display: grid; grid-template-columns: minmax(320px, .9fr) minmax(420px, 1.1fr); gap: 1.25rem; align-items: start; }
         .controls { display: grid; gap: 1rem; }
         .card { padding: 1.15rem 1.2rem; }
@@ -68,10 +72,15 @@
             the selected URL; your saved overlay settings remain unchanged. Manage goals in the
             <a href="/goals-editor.html">Goals Manager</a>.
         </div>
+        <div class="overlay-picker" role="group" aria-label="Choose an overlay to configure">
+            <button type="button" data-overlay-choice="credits" aria-pressed="true">Credits</button>
+            <button type="button" data-overlay-choice="goals" aria-pressed="false">Goals</button>
+            <button type="button" data-overlay-choice="viewers" aria-pressed="false">Viewer Count</button>
+        </div>
 
         <div class="layout">
             <div class="controls">
-                <section class="card">
+                <section class="card overlay-config" data-overlay="credits">
                     <h2>Credits</h2>
                     <div class="form-row">
                         <label for="credits-timing">Timing override</label>
@@ -104,7 +113,7 @@
                     <p class="hint">Use a custom data path only when serving credits data from a different location.</p>
                 </section>
 
-                <section class="card">
+                <section class="card overlay-config" data-overlay="goals" hidden>
                     <h2>Goals</h2>
                     <div class="form-row">
                         <label for="goal-single">Single goal</label>
@@ -141,7 +150,7 @@
                     </div>
                 </section>
 
-                <section class="card">
+                <section class="card overlay-config" data-overlay="viewers" hidden>
                     <h2>Viewer Count</h2>
                     <div class="form-row">
                         <label for="viewer-label">Label override</label>
@@ -158,19 +167,19 @@
                 <h2>Generated Browser-Source URLs</h2>
                 <p class="hint" style="margin-left:0;">URLs use this server’s current origin: <code id="origin"></code></p>
                 <div class="url-list">
-                    <div class="url-item">
+                    <div class="url-item" data-overlay="credits">
                         <div class="url-heading"><h3>Credits</h3><button class="button" data-copy="credits-url">Copy</button></div>
                         <a id="credits-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
                     </div>
-                    <div class="url-item">
+                    <div class="url-item" data-overlay="goals" hidden>
                         <div class="url-heading"><h3>Goal — Single</h3><button class="button" data-copy="goal-single-url">Copy</button></div>
                         <a id="goal-single-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
                     </div>
-                    <div class="url-item">
+                    <div class="url-item" data-overlay="goals" hidden>
                         <div class="url-heading"><h3>Goals — Cycle</h3><button class="button" data-copy="goal-cycle-url">Copy</button></div>
                         <a id="goal-cycle-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
                     </div>
-                    <div class="url-item">
+                    <div class="url-item" data-overlay="viewers" hidden>
                         <div class="url-heading"><h3>Viewer Count</h3><button class="button" data-copy="viewer-url">Copy</button></div>
                         <a id="viewer-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
                     </div>
@@ -183,9 +192,9 @@
             <table class="parameter-table">
                 <thead><tr><th>Overlay</th><th>Parameters</th><th>Purpose</th></tr></thead>
                 <tbody>
-                    <tr><td>Credits</td><td><code>duration</code> <code>speed</code> <code>days</code> <code>preview</code> <code>datapath</code></td><td>Set roll timing, the data window, preview mode, or an advanced data location.</td></tr>
-                    <tr><td>Goal</td><td><code>goal</code> <code>mode</code> <code>ids</code> <code>interval</code> <code>skipcompleted</code> <code>pausecomplete</code> <code>fontscale</code></td><td>Select one goal or cycle a subset, and override cycle behavior or type scale.</td></tr>
-                    <tr><td>Viewer Count</td><td><code>label</code> <code>fontscale</code></td><td>Override the count label or type scale.</td></tr>
+                    <tr data-overlay="credits"><td>Credits</td><td><code>duration</code> <code>speed</code> <code>days</code> <code>preview</code> <code>datapath</code></td><td>Set roll timing, the data window, preview mode, or an advanced data location.</td></tr>
+                    <tr data-overlay="goals" hidden><td>Goal</td><td><code>goal</code> <code>mode</code> <code>ids</code> <code>interval</code> <code>skipcompleted</code> <code>pausecomplete</code> <code>fontscale</code></td><td>Select one goal or cycle a subset, and override cycle behavior or type scale.</td></tr>
+                    <tr data-overlay="viewers" hidden><td>Viewer Count</td><td><code>label</code> <code>fontscale</code></td><td>Override the count label or type scale.</td></tr>
                 </tbody>
             </table>
         </section>
@@ -322,7 +331,19 @@
         }
     }
 
+    function selectOverlay(overlay) {
+        document.querySelectorAll('[data-overlay-choice]').forEach(button => {
+            button.setAttribute('aria-pressed', String(button.dataset.overlayChoice === overlay));
+        });
+        document.querySelectorAll('.overlay-config, .url-item, .parameter-table tbody tr').forEach(element => {
+            element.hidden = element.dataset.overlay !== overlay;
+        });
+    }
+
     $('origin').textContent = location.origin;
+    document.querySelectorAll('[data-overlay-choice]').forEach(button => {
+        button.addEventListener('click', () => selectOverlay(button.dataset.overlayChoice));
+    });
     inputIds.forEach(id => {
         $(id).addEventListener('input', refreshUrls);
         $(id).addEventListener('change', refreshUrls);
@@ -333,6 +354,7 @@
 
     refreshUrls();
     loadGoals();
+    selectOverlay('credits');
     </script>
 </body>
 </html>

@@ -50,6 +50,23 @@ try {
     if (new URL(creditsUrl).searchParams.get('duration') !== '82') {
         throw new Error('Overlay URL Wizard did not apply the Credits duration override');
     }
+    const focusedCredits = await page.evaluate(() => ({
+        credits: !document.querySelector('.overlay-config[data-overlay="credits"]').hidden,
+        goals: document.querySelector('.overlay-config[data-overlay="goals"]').hidden,
+        viewers: document.querySelector('.overlay-config[data-overlay="viewers"]').hidden
+    }));
+    if (!focusedCredits.credits || !focusedCredits.goals || !focusedCredits.viewers) {
+        throw new Error('Overlay URL Wizard did not start with a focused Credits workflow');
+    }
+    await page.click('[data-overlay-choice="goals"]');
+    const focusedGoals = await page.evaluate(() => ({
+        credits: document.querySelector('.overlay-config[data-overlay="credits"]').hidden,
+        goals: !document.querySelector('.overlay-config[data-overlay="goals"]').hidden,
+        viewers: document.querySelector('.overlay-config[data-overlay="viewers"]').hidden
+    }));
+    if (!focusedGoals.credits || !focusedGoals.goals || !focusedGoals.viewers) {
+        throw new Error('Overlay URL Wizard did not switch to the Goals workflow');
+    }
 
     console.log('Editor smoke test passed.');
 } finally {
