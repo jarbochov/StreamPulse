@@ -44,7 +44,7 @@
         root.style.setProperty('--viewer-font-family', font.includes(' ') ? `"${font}", system-ui, sans-serif` : `${font}, system-ui, sans-serif`);
         if (theme.text_color) root.style.setProperty('--viewer-text-color', theme.text_color);
         if (theme.accent_color) root.style.setProperty('--viewer-accent-color', theme.accent_color);
-        if (theme.background_color) root.style.setProperty('--viewer-background', theme.background_color === 'transparent' ? 'rgba(0,0,0,.45)' : theme.background_color);
+        if (theme.viewer_background_color) root.style.setProperty('--viewer-background', theme.viewer_background_color);
         if (theme.text_outline_color) root.style.setProperty('--viewer-outline-color', theme.text_outline_color);
         if (theme.font_scale) root.style.setProperty('--viewer-font-scale', theme.font_scale);
         if (params.has('fontscale')) root.style.setProperty('--viewer-font-scale', Math.max(.5, Math.min(3, Number(params.get('fontscale')) || 1)));

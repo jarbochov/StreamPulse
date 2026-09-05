@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "install:chrome": "puppeteer browsers install chrome"
+    "install:chrome": "puppeteer browsers install chrome",
+    "smoke:editors": "node scripts/editor-smoke-test.mjs"
   },
   "repository": {
     "type": "git",

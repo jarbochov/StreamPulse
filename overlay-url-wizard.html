@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Overlay URL Wizard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { min-height: 100vh; background: #0f1117; color: #e1e4e8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+        .header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 2rem; background: #161b22; border-bottom: 1px solid #30363d; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; white-space: nowrap; }
+        .header h1 span { color: #58a6ff; }
+        .container { max-width: 1240px; margin: 0 auto; padding: 1.5rem 2rem 2.5rem; }
+        .intro, .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
+        .intro { padding: 1.15rem 1.25rem; margin-bottom: 1.25rem; color: #8b949e; font-size: .88rem; line-height: 1.55; }
+        .intro a { color: #58a6ff; }
+        .layout { display: grid; grid-template-columns: minmax(320px, .9fr) minmax(420px, 1.1fr); gap: 1.25rem; align-items: start; }
+        .controls { display: grid; gap: 1rem; }
+        .card { padding: 1.15rem 1.2rem; }
+        .card h2 { margin-bottom: .85rem; color: #8b949e; font-size: .82rem; text-transform: uppercase; letter-spacing: .5px; }
+        .card h3 { margin: .9rem 0 .55rem; color: #58a6ff; font-size: .85rem; }
+        .form-row { display: flex; align-items: center; gap: .75rem; margin: 0 0 .65rem; }
+        .form-row label { min-width: 125px; color: #8b949e; font-size: .82rem; }
+        input:not([type="checkbox"]), select { min-width: 0; flex: 1; padding: .48rem .6rem; color: #e1e4e8; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; font: inherit; font-size: .82rem; }
+        input:focus, select:focus { outline: none; border-color: #58a6ff; }
+        input[type="checkbox"] { width: auto; accent-color: #58a6ff; }
+        .hint { margin: -.2rem 0 .75rem 125px; color: #8b949e; font-size: .75rem; line-height: 1.45; }
+        .check-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: .4rem .7rem; max-height: 145px; overflow-y: auto; padding: .65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; }
+        .check-list label { display: flex; align-items: center; gap: .4rem; color: #c9d1d9; font-size: .78rem; overflow-wrap: anywhere; }
+        .check-list .empty { color: #8b949e; font-size: .78rem; }
+        .toggle { display: flex; align-items: center; gap: .5rem; margin: .1rem 0 .7rem 125px; color: #c9d1d9; font-size: .82rem; }
+        .url-list { display: grid; gap: .85rem; }
+        .url-item { padding: .85rem; background: #0d1117; border: 1px solid #30363d; border-radius: 7px; }
+        .url-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .5rem; }
+        .url-heading h3 { color: #e1e4e8; font-size: .88rem; }
+        .url-output { display: block; color: #79c0ff; font: .78rem/1.5 "SFMono-Regular", Consolas, monospace; overflow-wrap: anywhere; text-decoration: none; }
+        .url-output:hover { text-decoration: underline; }
+        .button { flex: none; padding: .38rem .7rem; color: #e1e4e8; background: #21262d; border: 1px solid #30363d; border-radius: 6px; cursor: pointer; font: inherit; font-size: .76rem; }
+        .button:hover { border-color: #58a6ff; }
+        .parameter-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+        .parameter-table th, .parameter-table td { padding: .55rem .45rem; border-bottom: 1px solid #21262d; text-align: left; vertical-align: top; }
+        .parameter-table th { color: #8b949e; font-weight: 600; }
+        code { padding: .1rem .3rem; color: #7ee787; background: #21262d; border-radius: 3px; }
+        .reference { margin-top: 1.25rem; }
+        @media (max-width: 950px) {
+            .header { flex-direction: column; }
+            .layout { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 600px) {
+            .header, .container { padding-right: 1rem; padding-left: 1rem; }
+            .form-row { align-items: flex-start; flex-direction: column; gap: .35rem; }
+            .form-row label { min-width: 0; }
+            .form-row input:not([type="checkbox"]), .form-row select { width: 100%; }
+            .hint, .toggle { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>StreamPulse <span>Overlay URL Wizard</span></h1>
+        <div id="main-nav" class="nav"></div>
+    </header>
+
+    <main class="container">
+        <div class="intro">
+            Create copy-ready browser-source URLs for Credits, Goals, and Viewer Count. These settings override only
+            the selected URL; your saved overlay settings remain unchanged. Manage goals in the
+            <a href="/goals-editor.html">Goals Manager</a>.
+        </div>
+
+        <div class="layout">
+            <div class="controls">
+                <section class="card">
+                    <h2>Credits</h2>
+                    <div class="form-row">
+                        <label for="credits-timing">Timing override</label>
+                        <select id="credits-timing">
+                            <option value="default">Saved/default timing</option>
+                            <option value="duration">Total duration</option>
+                            <option value="speed">Speed multiplier</option>
+                        </select>
+                    </div>
+                    <div class="form-row" id="credits-duration-row">
+                        <label for="credits-duration">Duration (seconds)</label>
+                        <input id="credits-duration" type="number" min="1" step="1" placeholder="82">
+                    </div>
+                    <div class="form-row" id="credits-speed-row">
+                        <label for="credits-speed">Speed multiplier</label>
+                        <input id="credits-speed" type="number" min="0.1" step="0.1" placeholder="e.g. 1.25">
+                    </div>
+                    <div class="form-row">
+                        <label for="credits-days">Days of data</label>
+                        <input id="credits-days" type="number" min="1" step="1" placeholder="Saved config value">
+                    </div>
+                    <label class="toggle" for="credits-preview">
+                        <input id="credits-preview" type="checkbox">
+                        Show all credits without scrolling
+                    </label>
+                    <div class="form-row">
+                        <label for="credits-datapath">Data path</label>
+                        <input id="credits-datapath" type="text" placeholder="./data (advanced)">
+                    </div>
+                    <p class="hint">Use a custom data path only when serving credits data from a different location.</p>
+                </section>
+
+                <section class="card">
+                    <h2>Goals</h2>
+                    <div class="form-row">
+                        <label for="goal-single">Single goal</label>
+                        <select id="goal-single" disabled>
+                            <option value="">Loading enabled goals…</option>
+                        </select>
+                    </div>
+                    <p class="hint">The single-goal URL falls back to the first enabled goal when no goal is selected.</p>
+                    <div class="form-row">
+                        <label for="goal-fontscale">Font scale</label>
+                        <input id="goal-fontscale" type="number" min="0.5" max="3" step="0.1" placeholder="Saved theme value">
+                    </div>
+                    <h3>Cycle options</h3>
+                    <div class="form-row">
+                        <label>Goals to rotate</label>
+                        <div class="check-list" id="goal-subset"><span class="empty">Loading enabled goals…</span></div>
+                    </div>
+                    <p class="hint">Leave every goal unchecked to rotate all enabled goals.</p>
+                    <div class="form-row">
+                        <label for="goal-interval">Interval (seconds)</label>
+                        <input id="goal-interval" type="number" min="3" step="1" placeholder="Saved config value">
+                    </div>
+                    <div class="form-row">
+                        <label for="goal-skipcompleted">Completed goals</label>
+                        <select id="goal-skipcompleted">
+                            <option value="">Use saved setting</option>
+                            <option value="true">Skip completed</option>
+                            <option value="false">Include completed</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="goal-pausecomplete">Completion hold (seconds)</label>
+                        <input id="goal-pausecomplete" type="number" min="0" step="1" placeholder="Saved config value">
+                    </div>
+                </section>
+
+                <section class="card">
+                    <h2>Viewer Count</h2>
+                    <div class="form-row">
+                        <label for="viewer-label">Label override</label>
+                        <input id="viewer-label" type="text" placeholder="Saved label (viewers)">
+                    </div>
+                    <div class="form-row">
+                        <label for="viewer-fontscale">Font scale</label>
+                        <input id="viewer-fontscale" type="number" min="0.5" max="3" step="0.1" placeholder="Saved theme value">
+                    </div>
+                </section>
+            </div>
+
+            <section class="card">
+                <h2>Generated Browser-Source URLs</h2>
+                <p class="hint" style="margin-left:0;">URLs use this server’s current origin: <code id="origin"></code></p>
+                <div class="url-list">
+                    <div class="url-item">
+                        <div class="url-heading"><h3>Credits</h3><button class="button" data-copy="credits-url">Copy</button></div>
+                        <a id="credits-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                    </div>
+                    <div class="url-item">
+                        <div class="url-heading"><h3>Goal — Single</h3><button class="button" data-copy="goal-single-url">Copy</button></div>
+                        <a id="goal-single-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                    </div>
+                    <div class="url-item">
+                        <div class="url-heading"><h3>Goals — Cycle</h3><button class="button" data-copy="goal-cycle-url">Copy</button></div>
+                        <a id="goal-cycle-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                    </div>
+                    <div class="url-item">
+                        <div class="url-heading"><h3>Viewer Count</h3><button class="button" data-copy="viewer-url">Copy</button></div>
+                        <a id="viewer-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <section class="card reference">
+            <h2>Supported Parameters</h2>
+            <table class="parameter-table">
+                <thead><tr><th>Overlay</th><th>Parameters</th><th>Purpose</th></tr></thead>
+                <tbody>
+                    <tr><td>Credits</td><td><code>duration</code> <code>speed</code> <code>days</code> <code>preview</code> <code>datapath</code></td><td>Set roll timing, the data window, preview mode, or an advanced data location.</td></tr>
+                    <tr><td>Goal</td><td><code>goal</code> <code>mode</code> <code>ids</code> <code>interval</code> <code>skipcompleted</code> <code>pausecomplete</code> <code>fontscale</code></td><td>Select one goal or cycle a subset, and override cycle behavior or type scale.</td></tr>
+                    <tr><td>Viewer Count</td><td><code>label</code> <code>fontscale</code></td><td>Override the count label or type scale.</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script src="/nav.js"></script>
+    <script>
+    const $ = id => document.getElementById(id);
+    const inputIds = [
+        'credits-timing', 'credits-duration', 'credits-speed', 'credits-days', 'credits-preview', 'credits-datapath',
+        'goal-single', 'goal-fontscale', 'goal-interval', 'goal-skipcompleted', 'goal-pausecomplete',
+        'viewer-label', 'viewer-fontscale'
+    ];
+
+    function numberValue(id, minimum = 0) {
+        const raw = $(id).value.trim();
+        if (!raw) return '';
+        const value = Number(raw);
+        return Number.isFinite(value) && value >= minimum ? String(value) : '';
+    }
+
+    function buildUrl(path, params) {
+        const url = new URL(path, location.origin);
+        for (const [key, value] of Object.entries(params)) {
+            if (value !== '' && value !== false && value != null) url.searchParams.set(key, value);
+        }
+        return url.toString();
+    }
+
+    function setUrl(id, value) {
+        const element = $(id);
+        element.href = value;
+        element.textContent = value;
+    }
+
+    function selectedCycleIds() {
+        return Array.from(document.querySelectorAll('#goal-subset input:checked')).map(input => input.value);
+    }
+
+    function updateCreditsTiming() {
+        const timing = $('credits-timing').value;
+        $('credits-duration-row').style.display = timing === 'duration' ? '' : 'none';
+        $('credits-speed-row').style.display = timing === 'speed' ? '' : 'none';
+    }
+
+    function refreshUrls() {
+        updateCreditsTiming();
+        const timing = $('credits-timing').value;
+        const credits = {
+            days: numberValue('credits-days', 1),
+            preview: $('credits-preview').checked ? 'true' : '',
+            datapath: $('credits-datapath').value.trim()
+        };
+        if (timing === 'duration') credits.duration = numberValue('credits-duration', 1);
+        if (timing === 'speed') credits.speed = numberValue('credits-speed', 0.1);
+        setUrl('credits-url', buildUrl('/credits.html', credits));
+
+        const goalAppearance = { fontscale: numberValue('goal-fontscale', 0.5) };
+        setUrl('goal-single-url', buildUrl('/goal.html', {
+            mode: 'single',
+            goal: $('goal-single').value,
+            ...goalAppearance
+        }));
+        setUrl('goal-cycle-url', buildUrl('/goal.html', {
+            mode: 'cycle',
+            ids: selectedCycleIds().join(','),
+            interval: numberValue('goal-interval', 3),
+            skipcompleted: $('goal-skipcompleted').value,
+            pausecomplete: numberValue('goal-pausecomplete', 0),
+            ...goalAppearance
+        }));
+        setUrl('viewer-url', buildUrl('/viewers.html', {
+            label: $('viewer-label').value.trim(),
+            fontscale: numberValue('viewer-fontscale', 0.5)
+        }));
+    }
+
+    function addGoalOption(select, goal) {
+        const option = document.createElement('option');
+        option.value = goal.id;
+        option.textContent = `${goal.title || goal.id} (${goal.id})`;
+        select.appendChild(option);
+    }
+
+    function addGoalCheckbox(container, goal) {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = goal.id;
+        input.addEventListener('change', refreshUrls);
+        label.append(input, document.createTextNode(`${goal.title || goal.id} (${goal.id})`));
+        container.appendChild(label);
+    }
+
+    async function loadGoals() {
+        try {
+            const response = await fetch('/api/goals');
+            if (!response.ok) throw new Error('Unable to load goals');
+            const snapshot = await response.json();
+            const goals = (snapshot.items || []).filter(goal => goal.enabled);
+            const select = $('goal-single');
+            const subset = $('goal-subset');
+            select.replaceChildren();
+            subset.replaceChildren();
+
+            const defaultOption = new Option('First enabled goal (default)', '');
+            select.add(defaultOption);
+            goals.forEach(goal => {
+                addGoalOption(select, goal);
+                addGoalCheckbox(subset, goal);
+            });
+            select.disabled = false;
+            if (!goals.length) {
+                select[0].textContent = 'No enabled goals — overlay will show setup message';
+                subset.append(Object.assign(document.createElement('span'), { className: 'empty', textContent: 'No enabled goals found.' }));
+            }
+        } catch (error) {
+            $('goal-single').innerHTML = '<option value="">First enabled goal (default)</option>';
+            $('goal-single').disabled = false;
+            $('goal-subset').innerHTML = '<span class="empty">Goals could not be loaded. The cycle URL will use all enabled goals.</span>';
+        }
+        refreshUrls();
+    }
+
+    async function copyUrl(id, button) {
+        const text = $(id).textContent;
+        try {
+            await navigator.clipboard.writeText(text);
+            const previous = button.textContent;
+            button.textContent = 'Copied!';
+            setTimeout(() => { button.textContent = previous; }, 1400);
+        } catch {
+            window.prompt('Copy this URL:', text);
+        }
+    }
+
+    $('origin').textContent = location.origin;
+    inputIds.forEach(id => {
+        $(id).addEventListener('input', refreshUrls);
+        $(id).addEventListener('change', refreshUrls);
+    });
+    document.querySelectorAll('[data-copy]').forEach(button => {
+        button.addEventListener('click', () => copyUrl(button.dataset.copy, button));
+    });
+
+    refreshUrls();
+    loadGoals();
+    </script>
+</body>
+</html>

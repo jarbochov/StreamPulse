@@ -90,6 +90,9 @@ Add **Browser Sources** in OBS with these URLs:
 - Highlights: `http://localhost:3000/highlights.html`
 - Goals: `http://localhost:3000/goals-editor.html`
 - Config: `http://localhost:3000/config-editor.html`
+- Credits: `http://localhost:3000/credits-editor.html`
+- Theme: `http://localhost:3000/theme-editor.html`
+- Overlay URL Wizard: `http://localhost:3000/overlay-url-wizard.html`
 - Music Editor: `http://localhost:3000/music-editor.html`
 - Timer Manager: `http://localhost:3000/timers-editor.html`
 - Timer URL Wizard: `http://localhost:3000/timer-url-wizard.html`
@@ -254,8 +257,10 @@ Customize the shared look of supported overlays from the dedicated [Theme Editor
 - **Font** — Choose from popular Google Fonts or enter any custom Google Font name
 - **Text / Accent Colors** — Color pickers with manual hex/rgb input
 - **Background** — Set to `transparent` for OBS (default), or pick a color for previewing
+- **Goal / Viewer Count Backgrounds** — Separate backgrounds for those full-canvas overlays
 - **Text Outline** — Toggle the shadow outline on/off, pick outline color
 - **Font Scale** — Scale all overlay text proportionally (0.5× – 2×)
+- **Theme presets** — Export or import only the shared theme as JSON
 
 ### Discord Webhooks
 

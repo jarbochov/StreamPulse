@@ -14,10 +14,12 @@
         .site-header h1 span { color: #58a6ff; }
         main { max-width: 760px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
         .header { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; }
+        .header-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+        .header-actions .button { min-width: 0; }
         h1 { margin:0; font-size:1.4rem; } details { background:#161b22; border:1px solid #30363d; border-radius:8px; margin:.75rem 0; padding:.8rem 1rem; } details + details { margin-top:1rem; }
         summary { cursor:pointer; color:#58a6ff; font-weight:600; } .row { display:flex; align-items:center; gap:1rem; margin:.75rem 0; }
         label { color:#8b949e; min-width:180px; } input[type=text], input[type=color], input[type=number] { flex:1; min-width:0; padding:.45rem; background:#0d1117; color:#e1e4e8; border:1px solid #30363d; border-radius:5px; }
-        input[type=color] { flex:0 0 52px; height:32px; padding:2px; } button { padding:.5rem .9rem; border:1px solid #238636; border-radius:6px; color:#fff; background:#238636; cursor:pointer; font-size:.82rem; } button:hover { background:#2ea043; }
+        input[type=color] { flex:0 0 52px; height:32px; padding:2px; } button, .button { padding:.5rem .9rem; border:1px solid #238636; border-radius:6px; color:#fff; background:#238636; cursor:pointer; font-size:.82rem; } button:hover, .button:hover { background:#2ea043; }
         .hint, #status { color:#8b949e; font-size:.82rem; line-height:1.45; } #status { min-height:1.3em; }
     </style>
 </head>
@@ -27,8 +29,16 @@
         <nav id="main-nav" class="nav" aria-label="Main navigation"></nav>
     </header>
     <main>
-    <div class="header"><h2>Shared Theme</h2><button id="save">Save Theme</button></div>
-    <p class="hint">These values are shared by Credits, Hashtags, Stats, Goals, and the Viewer Count overlay. Music keeps its specialized Music Editor theme.</p>
+    <div class="header">
+        <h2>Shared Theme</h2>
+        <div class="header-actions">
+            <button id="export" type="button">Export Theme</button>
+            <label for="import" class="button">Import Theme</label>
+            <input id="import" type="file" accept="application/json,.json" hidden>
+            <button id="save" type="button">Save Theme</button>
+        </div>
+    </div>
+    <p class="hint">Typography and colors are shared by supported overlays. Goal and Viewer Count backgrounds are configured separately. Music keeps its specialized Music Editor theme.</p>
     <details open><summary>Typography</summary>
         <div class="row"><label for="font">Font family</label><input id="font" type="text"></div>
         <div class="row"><label for="scale">Font scale</label><input id="scale" type="number" min=".5" max="3" step=".05"></div>
@@ -37,6 +47,9 @@
         <div class="row"><label for="text">Text color</label><input id="text-picker" type="color" aria-label="Text color picker"><input id="text" type="text"></div>
         <div class="row"><label for="accent">Accent color</label><input id="accent-picker" type="color" aria-label="Accent color picker"><input id="accent" type="text"></div>
         <div class="row"><label for="background">Background</label><input id="background-picker" type="color" aria-label="Background color picker"><input id="background" type="text" placeholder="transparent or rgba(...)"></div>
+        <div class="row"><label for="goal-background">Goal background</label><input id="goal-background-picker" type="color" aria-label="Goal background color picker"><input id="goal-background" type="text" placeholder="rgba(0, 0, 0, 0.45)"></div>
+        <div class="row"><label for="viewer-background">Viewer Count background</label><input id="viewer-background-picker" type="color" aria-label="Viewer Count background color picker"><input id="viewer-background" type="text" placeholder="rgba(0, 0, 0, 0.45)"></div>
+        <div class="row"><label for="outline-enabled">Text outline</label><input id="outline-enabled" type="checkbox"></div>
         <div class="row"><label for="outline">Text outline color</label><input id="outline-picker" type="color" aria-label="Text outline color picker"><input id="outline" type="text"></div>
     </details>
     <details><summary>Overlay scope</summary><p class="hint">Goals, timers, and the viewer overlay inherit this theme. Music remains independent because its album-art layout has separate controls.</p></details>
@@ -44,7 +57,26 @@
 </main>
 <script>
 let config;
-const fields = { font:'font_family', scale:'font_scale', text:'text_color', accent:'accent_color', background:'background_color', outline:'text_outline_color' };
+const fields = {
+    font: 'font_family',
+    scale: 'font_scale',
+    text: 'text_color',
+    accent: 'accent_color',
+    background: 'background_color',
+    'goal-background': 'goal_background_color',
+    'viewer-background': 'viewer_background_color',
+    outline: 'text_outline_color'
+};
+const defaultThemeValues = {
+    font: 'Jersey 20',
+    scale: 1,
+    text: 'rgb(214, 227, 225)',
+    accent: 'rgb(255, 255, 255)',
+    background: 'transparent',
+    'goal-background': 'rgba(0, 0, 0, 0.45)',
+    'viewer-background': 'rgba(0, 0, 0, 0.45)',
+    outline: '#00000066'
+};
 const detailsStorageKey = 'streampulse:theme:open-sections';
 const openDetails = JSON.parse(localStorage.getItem(detailsStorageKey) || '{}');
 document.querySelectorAll('main details').forEach(details => {
@@ -69,17 +101,62 @@ function syncColorPicker(id) {
     picker.addEventListener('input', () => { value.value = picker.value; });
     value.addEventListener('change', () => { picker.value = colorToHex(value.value); });
 }
+function updateColorPickers() {
+    ['text', 'accent', 'background', 'goal-background', 'viewer-background', 'outline'].forEach(id => {
+        document.getElementById(`${id}-picker`).value = colorToHex(document.getElementById(id).value);
+    });
+}
+function fontImportUrl(fontFamily) {
+    return `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontFamily).replace(/%20/g, '+')}&display=swap`;
+}
 async function load() {
     const res = await fetch('/api/config'); if (!res.ok) throw new Error('Could not load configuration');
     config = await res.json(); const theme = config.theme || {};
-    for (const [id, key] of Object.entries(fields)) document.getElementById(id).value = theme[key] ?? (id === 'font' ? 'Segoe UI' : id === 'scale' ? 1 : '');
-    ['text', 'accent', 'background', 'outline'].forEach(syncColorPicker);
+    for (const [id, key] of Object.entries(fields)) {
+        document.getElementById(id).value = theme[key] ?? defaultThemeValues[id];
+    }
+    document.getElementById('outline-enabled').checked = theme.text_outline !== false;
+    ['text', 'accent', 'background', 'goal-background', 'viewer-background', 'outline'].forEach(syncColorPicker);
 }
-document.getElementById('save').onclick = async () => {
+function readTheme() {
     const theme = { ...(config.theme || {}) };
     for (const [id, key] of Object.entries(fields)) theme[key] = id === 'scale' ? Math.max(.5, Math.min(3, Number(document.getElementById(id).value) || 1)) : document.getElementById(id).value.trim();
+    theme.font_import = fontImportUrl(theme.font_family);
+    theme.text_outline = document.getElementById('outline-enabled').checked;
+    return theme;
+}
+document.getElementById('save').onclick = async () => {
+    const theme = readTheme();
     const res = await fetch('/api/config', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ theme }) });
+    if (res.ok) config.theme = theme;
     document.getElementById('status').textContent = res.ok ? 'Theme saved.' : 'Could not save theme.';
 };
+document.getElementById('export').onclick = () => {
+    const content = JSON.stringify({ theme: readTheme() }, null, 2);
+    const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
+    const link = Object.assign(document.createElement('a'), { href: url, download: 'streampulse-theme.json' });
+    link.click();
+    URL.revokeObjectURL(url);
+};
+document.getElementById('import').addEventListener('change', async event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+        const imported = JSON.parse(await file.text());
+        const theme = imported?.theme || imported;
+        if (!theme || typeof theme !== 'object' || Array.isArray(theme)) throw new Error('Choose a theme JSON file.');
+        config.theme = { ...(config.theme || {}), ...theme };
+        for (const [id, key] of Object.entries(fields)) {
+            if (theme[key] !== undefined) document.getElementById(id).value = theme[key];
+        }
+        if (theme.text_outline !== undefined) document.getElementById('outline-enabled').checked = theme.text_outline !== false;
+        updateColorPickers();
+        document.getElementById('status').textContent = 'Theme imported. Save Theme to apply it.';
+    } catch (error) {
+        document.getElementById('status').textContent = error.message || 'Could not import theme.';
+    } finally {
+        event.target.value = '';
+    }
+});
 load().catch(error => document.getElementById('status').textContent = error.message);
 </script></body></html>

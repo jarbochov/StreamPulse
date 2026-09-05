@@ -55,6 +55,7 @@
             { label: 'Credits', href: '/credits-editor.html' },
             { label: 'Theme', href: '/theme-editor.html' },
             { label: 'Goals', href: '/goals-editor.html' },
+            { label: 'Overlay URL Wizard', href: '/overlay-url-wizard.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html' },
             { label: 'Update', href: '/update.html' },
             { label: 'Backup & Restore', href: '/backup.html' }

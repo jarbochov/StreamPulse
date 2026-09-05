@@ -186,9 +186,7 @@
         if (theme.text_color) root.style.setProperty('--goal-text-color', theme.text_color);
         if (theme.accent_color) root.style.setProperty('--goal-accent-color', theme.accent_color);
         root.style.setProperty('--goal-muted-color', withAlpha(theme.text_color, 0.72));
-        if (theme.background_color) {
-            root.style.setProperty('--goal-background', theme.background_color === 'transparent' ? 'rgba(0, 0, 0, 0.45)' : theme.background_color);
-        }
+        if (theme.goal_background_color) root.style.setProperty('--goal-background', theme.goal_background_color);
         if (theme.text_outline_color) root.style.setProperty('--goal-outline-color', theme.text_outline_color);
         if (theme.font_scale) root.style.setProperty('--goal-font-scale', theme.font_scale);
 
