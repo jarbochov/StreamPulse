@@ -588,11 +588,11 @@
         document.getElementById('cfg-st-display-style').addEventListener('change', function() {
             document.getElementById('cfg-st-duration-row').style.display = this.value === 'fade' ? 'flex' : 'none';
         });
-        toggleHighlightsSelection(document.getElementById('cfg-order-highlights-source')?.value || 'none');
         const specialTitleInput = document.getElementById('cfg-st-title');
         if (specialTitleInput) specialTitleInput.addEventListener('input', renderCreditsOrderEditor);
 
         renderCreditsOrderEditor();
+        toggleHighlightsSelection(document.getElementById('cfg-order-highlights-source')?.value || 'none');
         renderCustomSectionsEditor();
     }
 
