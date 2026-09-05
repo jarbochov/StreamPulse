@@ -34,10 +34,10 @@
         <div class="row"><label for="scale">Font scale</label><input id="scale" type="number" min=".5" max="3" step=".05"></div>
     </details>
     <details open><summary>Colors</summary>
-        <div class="row"><label for="text">Text color</label><input id="text" type="text"></div>
-        <div class="row"><label for="accent">Accent color</label><input id="accent" type="text"></div>
-        <div class="row"><label for="background">Background</label><input id="background" type="text" placeholder="transparent or rgba(...)"></div>
-        <div class="row"><label for="outline">Text outline color</label><input id="outline" type="text"></div>
+        <div class="row"><label for="text">Text color</label><input id="text-picker" type="color" aria-label="Text color picker"><input id="text" type="text"></div>
+        <div class="row"><label for="accent">Accent color</label><input id="accent-picker" type="color" aria-label="Accent color picker"><input id="accent" type="text"></div>
+        <div class="row"><label for="background">Background</label><input id="background-picker" type="color" aria-label="Background color picker"><input id="background" type="text" placeholder="transparent or rgba(...)"></div>
+        <div class="row"><label for="outline">Text outline color</label><input id="outline-picker" type="color" aria-label="Text outline color picker"><input id="outline" type="text"></div>
     </details>
     <details><summary>Overlay scope</summary><p class="hint">Goals, timers, and the viewer overlay inherit this theme. Music remains independent because its album-art layout has separate controls.</p></details>
     <div id="status" role="status"></div>
@@ -55,10 +55,25 @@ document.querySelectorAll('main details').forEach(details => {
         localStorage.setItem(detailsStorageKey, JSON.stringify(openDetails));
     });
 });
+function colorToHex(color) {
+    if (!color || color === 'transparent') return '#000000';
+    if (/^#[0-9a-f]{3}$/i.test(color)) return '#' + color.slice(1).split('').map(char => char + char).join('');
+    if (/^#[0-9a-f]{6}/i.test(color)) return color.slice(0, 7);
+    const match = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    return match ? '#' + match.slice(1).map(value => Number(value).toString(16).padStart(2, '0')).join('') : '#000000';
+}
+function syncColorPicker(id) {
+    const value = document.getElementById(id);
+    const picker = document.getElementById(`${id}-picker`);
+    picker.value = colorToHex(value.value);
+    picker.addEventListener('input', () => { value.value = picker.value; });
+    value.addEventListener('change', () => { picker.value = colorToHex(value.value); });
+}
 async function load() {
     const res = await fetch('/api/config'); if (!res.ok) throw new Error('Could not load configuration');
     config = await res.json(); const theme = config.theme || {};
     for (const [id, key] of Object.entries(fields)) document.getElementById(id).value = theme[key] ?? (id === 'font' ? 'Segoe UI' : id === 'scale' ? 1 : '');
+    ['text', 'accent', 'background', 'outline'].forEach(syncColorPicker);
 }
 document.getElementById('save').onclick = async () => {
     const theme = { ...(config.theme || {}) };
