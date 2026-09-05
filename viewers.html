@@ -18,7 +18,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
         body { display: flex; align-items: center; justify-content: center; font-family: var(--viewer-font-family); color: var(--viewer-text-color); }
-        .viewer-card { display: inline-flex; align-items: baseline; gap: .55em; padding: .45em .75em; max-width: 100%; background: var(--viewer-background); border-radius: .45em; text-shadow: 0 2px .3em var(--viewer-outline-color); }
+        .viewer-card { width: 100%; height: 100vh; display: inline-flex; align-items: center; justify-content: center; gap: .55em; padding: clamp(.45em, 5vmin, 3rem); background: var(--viewer-background); border-radius: .45em; text-shadow: 0 2px .3em var(--viewer-outline-color); }
         .count { color: var(--viewer-text-color); font-size: calc(clamp(1.2rem, 8vmin, 5rem) * var(--viewer-font-scale)); font-weight: 700; line-height: 1; }
         .label { color: var(--viewer-muted-color); font-size: calc(clamp(.7rem, 3.2vmin, 2rem) * var(--viewer-font-scale)); }
         .offline { opacity: .65; }
@@ -35,9 +35,11 @@
     const label = document.getElementById('viewer-label');
     const card = document.getElementById('viewer-card');
     const root = document.documentElement;
+    let configuredLabel = 'viewers';
 
     function setTheme(config) {
         const theme = config?.theme || {};
+        configuredLabel = config?.viewer_tracking?.viewer_label || 'viewers';
         const font = theme.font_family || 'Segoe UI';
         root.style.setProperty('--viewer-font-family', font.includes(' ') ? `"${font}", system-ui, sans-serif` : `${font}, system-ui, sans-serif`);
         if (theme.text_color) root.style.setProperty('--viewer-text-color', theme.text_color);
@@ -51,7 +53,7 @@
     function render(data) {
         const viewers = data || {};
         count.textContent = Number(viewers.current || 0).toLocaleString();
-        label.textContent = params.get('label') || viewers.label || 'viewers';
+        label.textContent = params.get('label') || viewers.label || configuredLabel;
         card.classList.toggle('offline', viewers.live === false);
     }
 
