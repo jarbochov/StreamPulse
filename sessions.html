@@ -35,6 +35,8 @@
         .session-item.active { border-color: #58a6ff; background: #1a2332; }
         .session-date { font-weight: 600; font-size: 0.85rem; }
         .session-meta { font-size: 0.7rem; color: #484f58; margin-left: auto; }
+        .session-delete { background: none; border: 1px solid #f8514960; color: #f85149; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.7rem; cursor: pointer; }
+        .session-delete:hover { color: #fff; border-color: #f85149; background: #f8514920; }
 
         .detail-panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow-y: auto; display: flex; flex-direction: column; }
         .detail-panel .placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: #484f58; font-size: 0.9rem; }
@@ -334,6 +336,7 @@
                             <input type="checkbox" class="session-checkbox" style="display: none;" onclick="event.stopPropagation(); toggleCompareSelection('${f}')">
                             <span class="session-date">${dateStr}</span>
                             <span class="session-meta">${timeStr}</span>
+                            <button class="session-delete" onclick="event.stopPropagation(); deleteArchivedSession('${f}')">Delete</button>
                         </div>
                         ${subtitle}
                     </div>`;
@@ -749,20 +752,22 @@
         }
     }
 
-    async function deleteArchivedSession() {
-        if (!activeSessionFile || activeSessionFile === '__current__') return;
+    async function deleteArchivedSession(filename = activeSessionFile) {
+        if (!filename || filename === '__current__') return;
         const confirmed = confirm(
-            `Permanently delete this archived session?\n\n${activeSessionFile}\n\n` +
+            `Permanently delete this archived session?\n\n${filename}\n\n` +
             'This removes the session summary and its chat log. This cannot be undone.'
         );
         if (!confirmed) return;
         try {
-            const res = await fetch(`/api/sessions?session=${encodeURIComponent(activeSessionFile)}`, { method: 'DELETE' });
+            const res = await fetch(`/api/sessions?session=${encodeURIComponent(filename)}`, { method: 'DELETE' });
             const result = await res.json();
             if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
-            activeSessionFile = null;
-            activeSession = null;
-            document.getElementById('detail-panel').innerHTML = '<div class="placeholder">Select a session to view details</div>';
+            if (activeSessionFile === filename) {
+                activeSessionFile = null;
+                activeSession = null;
+                document.getElementById('detail-panel').innerHTML = '<div class="placeholder">Select a session to view details</div>';
+            }
             await loadSessions();
         } catch (err) {
             alert(`Could not delete session: ${err.message}`);
