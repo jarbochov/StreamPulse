@@ -206,21 +206,22 @@
             document.documentElement.style.setProperty('--font-scale', scale);
         }
 
-        async function loadSharedTheme() {
-            try {
-                const res = await fetch('/api/config');
-                if (!res.ok) return;
-                const theme = (await res.json()).theme || {};
-                const root = document.documentElement.style;
-                if (theme.font_family) root.setProperty('--font-family', theme.font_family.includes(' ') ? `"${theme.font_family}", ui-monospace, monospace` : `${theme.font_family}, ui-monospace, monospace`);
-                if (theme.text_color) {
-                    root.setProperty('--text-color', theme.text_color);
-                    root.setProperty('--title-color', theme.text_color);
-                }
-                if (theme.accent_color) root.setProperty('--progress-color', theme.accent_color);
-                if (theme.font_scale) root.setProperty('--font-scale', theme.font_scale);
-            } catch (error) { console.warn('[Timers] Shared theme load failed:', error.message); }
-        }
+    }
+
+    async function loadSharedTheme() {
+        try {
+            const res = await fetch('/api/config');
+            if (!res.ok) return;
+            const theme = (await res.json()).theme || {};
+            const root = document.documentElement.style;
+            if (theme.font_family) root.setProperty('--font-family', theme.font_family.includes(' ') ? `"${theme.font_family}", ui-monospace, monospace` : `${theme.font_family}, ui-monospace, monospace`);
+            if (theme.text_color) {
+                root.setProperty('--text-color', theme.text_color);
+                root.setProperty('--title-color', theme.text_color);
+            }
+            if (theme.accent_color) root.setProperty('--progress-color', theme.accent_color);
+            if (theme.font_scale) root.setProperty('--font-scale', theme.font_scale);
+        } catch (error) { console.warn('[Timers] Shared theme load failed:', error.message); }
     }
 
     function formatParts(ms, forceAllUnits) {
