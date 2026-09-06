@@ -35,8 +35,6 @@
         .session-item.active { border-color: #58a6ff; background: #1a2332; }
         .session-date { font-weight: 600; font-size: 0.85rem; }
         .session-meta { font-size: 0.7rem; color: #484f58; margin-left: auto; }
-        .session-delete { background: none; border: 1px solid #f8514960; color: #f85149; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.7rem; cursor: pointer; }
-        .session-delete:hover { color: #fff; border-color: #f85149; background: #f8514920; }
 
         .detail-panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow-y: auto; display: flex; flex-direction: column; }
         .detail-panel .placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: #484f58; font-size: 0.9rem; }
@@ -336,7 +334,6 @@
                             <input type="checkbox" class="session-checkbox" style="display: none;" onclick="event.stopPropagation(); toggleCompareSelection('${f}')">
                             <span class="session-date">${dateStr}</span>
                             <span class="session-meta">${timeStr}</span>
-                            <button class="session-delete" onclick="event.stopPropagation(); deleteArchivedSession('${f}')">Delete</button>
                         </div>
                         ${subtitle}
                     </div>`;
