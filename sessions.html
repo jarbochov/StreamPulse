@@ -43,6 +43,8 @@
         .detail-header-actions { display: flex; gap: 0.4rem; }
         .detail-header-actions button { background: #21262d; border: 1px solid #30363d; color: #8b949e; border-radius: 6px; padding: 0.35rem 0.65rem; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
         .detail-header-actions button:hover { color: #e1e4e8; border-color: #58a6ff; }
+        .detail-header-actions button.danger { color: #f85149; border-color: #f8514960; }
+        .detail-header-actions button.danger:hover { color: #fff; border-color: #f85149; background: #f8514920; }
         .detail-header-actions button.active { border-color: #58a6ff; color: #58a6ff; background: #1a2332; }
         .detail-close { background: none; border: none; color: #8b949e; font-size: 1.2rem; cursor: pointer; }
         .detail-close:hover { color: #e1e4e8; }
@@ -497,6 +499,7 @@
                 <h2>${escapeHtml(title)}</h2>
                 <div class="detail-header-actions">
                     ${toolPanes.map(t => `<button onclick="switchTool('${t.id}', this)">${t.label}</button>`).join('')}
+                    ${!isLive ? `<button class="danger" onclick="deleteArchivedSession()">🗑 Delete</button>` : ''}
                 </div>
             </div>
             ${streamInfoHtml}
@@ -743,6 +746,26 @@
         }
         if (id === 'highlights') {
             loadHighlightsTab();
+        }
+    }
+
+    async function deleteArchivedSession() {
+        if (!activeSessionFile || activeSessionFile === '__current__') return;
+        const confirmed = confirm(
+            `Permanently delete this archived session?\n\n${activeSessionFile}\n\n` +
+            'This removes the session summary and its chat log. This cannot be undone.'
+        );
+        if (!confirmed) return;
+        try {
+            const res = await fetch(`/api/sessions?session=${encodeURIComponent(activeSessionFile)}`, { method: 'DELETE' });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
+            activeSessionFile = null;
+            activeSession = null;
+            document.getElementById('detail-panel').innerHTML = '<div class="placeholder">Select a session to view details</div>';
+            await loadSessions();
+        } catch (err) {
+            alert(`Could not delete session: ${err.message}`);
         }
     }
 

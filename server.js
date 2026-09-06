@@ -3484,6 +3484,33 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/sessions') {
+        if (req.method === 'DELETE') {
+            const sessionName = new URL(req.url, 'http://localhost').searchParams.get('session') || '';
+            if (!/^chat-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}\.json$/.test(sessionName)) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Invalid archived session name' }));
+                return;
+            }
+            const sessionFile = path.join(SESSIONS_DIR, sessionName);
+            const logName = sessionName.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
+            const logFile = path.join(SESSIONS_DIR, logName);
+            try {
+                if (!fs.existsSync(sessionFile)) {
+                    res.writeHead(404, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Session not found' }));
+                    return;
+                }
+                fs.unlinkSync(sessionFile);
+                if (fs.existsSync(logFile)) fs.unlinkSync(logFile);
+                console.log(`[Session] Deleted archived session: ${sessionName}`);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'deleted', session: sessionName }));
+            } catch (err) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: `Could not delete session: ${err.message}` }));
+            }
+            return;
+        }
         try {
             if (!fs.existsSync(SESSIONS_DIR)) {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
