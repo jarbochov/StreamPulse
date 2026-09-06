@@ -543,7 +543,7 @@ function renderCredits() {
                 : '';
             const items = highlightsData
                 .filter(highlight => source === 'current_session'
-                    ? highlight.session === sessionName
+                    ? highlight.session === 'current' || highlight.session === sessionName
                     : selected.has(`${highlight.ts}:${highlight.user}`))
                 .map(highlight => ({ user: highlight.user || 'Unknown', message: highlight.message || '' }));
             if (items.length === 0) return '';
