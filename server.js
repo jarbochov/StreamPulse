@@ -3253,6 +3253,7 @@ const server = http.createServer(async (req, res) => {
         saveStats();
         saveChatLog();
         const archiveName = archiveSession();
+        resetChatData();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'shutting_down', archived: archiveName, message: 'Server shutting down...' }));
         console.log('[API] Shutdown requested');
@@ -4833,6 +4834,7 @@ process.on('SIGINT', () => {
     saveChatLog();
     const archiveName = archiveSession();
     if (archiveName) console.log(`[Server] Session archived: ${archiveName}`);
+    resetChatData();
     if (ssnSocket) ssnSocket.close();
     server.close();
     console.log('[Server] Data saved. Goodbye!');
