@@ -269,6 +269,7 @@
                 <h2 style="margin-bottom: 0.5rem;">Session Lifecycle</h2>
                 <div class="actions">
                     <button class="btn" id="session-toggle-btn" onclick="toggleSession()" style="border-color: #d2992250;">🏁 End Session</button>
+                    <button class="btn" onclick="restartServer()">↻ Restart StreamPulse</button>
                     <button class="btn danger" onclick="shutdownServer()">⏻ Shutdown</button>
                 </div>
             </div>
@@ -755,6 +756,15 @@
             showToast('Server shutting down...');
             clearInterval(refreshInterval);
         } catch { showToast('Shutdown failed'); }
+    }
+
+    async function restartServer() {
+        if (!confirm('Restart StreamPulse and continue the current session?')) return;
+        try {
+            await fetch('/api/restart');
+            showToast('StreamPulse restarting — the current session will continue');
+            clearInterval(refreshInterval);
+        } catch { showToast('Restart failed'); }
     }
 
     enhanceDashboardCards();

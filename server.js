@@ -2503,6 +2503,29 @@ function resetChatData() {
     saveChatData();
 }
 
+function contentImageHtml(contentimg) {
+    const escapeAttribute = value => String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    if (!contentimg) return '';
+    if (typeof contentimg === 'string') {
+        const trimmed = contentimg.trim();
+        if (!trimmed) return '';
+        if (/<img\b/i.test(trimmed)) return trimmed;
+        if (/^(?:https?:)?\/\//i.test(trimmed)) {
+            return `<img src="${escapeAttribute(trimmed)}" alt="GIF">`;
+        }
+        return '';
+    }
+    if (typeof contentimg === 'object') {
+        const url = contentimg.url || contentimg.src || contentimg.imageUrl;
+        return url ? `<img src="${escapeAttribute(url)}" alt="GIF">` : '';
+    }
+    return '';
+}
+
 function processChatMessage(msg) {
     if (msg.bot === true) return;
     const chatname = msg.chatname;
@@ -2521,14 +2544,17 @@ function processChatMessage(msg) {
 
     // Append to chat log BEFORE stats exclusion (captures all non-banned users)
     if (config.chat_log_enabled !== false) {
-        const plainText = msg.chatmessage ? msg.chatmessage.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '';
+        const contentImage = contentImageHtml(msg.contentimg);
+        const messageHtml = [msg.chatmessage, contentImage].filter(Boolean).join(' ');
+        const plainText = messageHtml ? messageHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '';
         const urls = (plainText.match(/(?:(?:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s<>"')\]]+|(?<![@\w])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s<>"')\]]*)?)/gi) || []);
         chatLog.push({
             ts: Date.now(),
             user: chatname,
             avatar: msg.chatimg || null,
             message: plainText.trim(),
-            messageHtml: msg.chatmessage || '',
+            messageHtml,
+            contentImage: Boolean(contentImage),
             type: msg.type || null,
             event: msg.event || null,
             donation: msg.hasDonation || null,
@@ -2537,10 +2563,10 @@ function processChatMessage(msg) {
         });
 
         // Extract and cache emotes from messageHtml
-        if (msg.chatmessage) {
+        if (messageHtml) {
             const imgRegex = /<img[^>]+src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>|<img[^>]+alt="([^"]*)"[^>]*src="([^"]+)"[^>]*>/gi;
             let imgMatch;
-            while ((imgMatch = imgRegex.exec(msg.chatmessage)) !== null) {
+            while ((imgMatch = imgRegex.exec(messageHtml)) !== null) {
                 const src = imgMatch[1] || imgMatch[4];
                 const alt = imgMatch[2] || imgMatch[3];
                 if (src && alt && !emoteCache.has(alt)) {
@@ -3236,6 +3262,17 @@ const server = http.createServer(async (req, res) => {
             console.log('[Server] Goodbye!');
             process.exit(0);
         }, 500);
+        return;
+    }
+
+    if (pathname === '/api/restart') {
+        saveChatData();
+        saveStats();
+        saveChatLog();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'restarting', message: 'StreamPulse is restarting and will resume the active session.' }));
+        console.log('[API] Restart requested');
+        setTimeout(() => restartServer(), 100);
         return;
     }
 
@@ -4734,12 +4771,15 @@ server.listen(PORT, () => {
     console.log(`  WebSocket: ws://localhost:${PORT} (overlay push)`);
     console.log('============================================\n');
 
-    // Archive previous session's chat data before clearing
-    archiveSession();
-
-    // Auto-clear session chat data on startup
-    resetChatData();
-    console.log('[Startup] Chat data cleared for new session');
+    // Restore the active session after a process restart. A new session is
+    // created explicitly through /api/start-session or /api/end-session.
+    loadCurrentSessionStateFromDisk();
+    if (chatData.messageCount > 0 || chatLog.length > 0) {
+        sessionActive = true;
+        console.log(`[Startup] Resumed session from ${chatData.startedAt}`);
+    } else {
+        console.log('[Startup] No active session data to resume');
+    }
 
     // Load persistent stats
     loadStats();
