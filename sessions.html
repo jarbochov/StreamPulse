@@ -255,6 +255,16 @@
     let sessions = [];
     let activeSession = null;
     let activeSessionFile = null;
+
+    // Compute the archived-style session filename for the live current session,
+    // e.g. "chat-2026-09-08T11-30.json" — keeps pinned highlights tied to the
+    // actual session start time instead of a generic "current" placeholder.
+    function currentSessionName() {
+        if (!activeSession || !activeSession.startedAt) return 'current';
+        const dt = new Date(activeSession.startedAt);
+        const pad = n => String(n).padStart(2, '0');
+        return `chat-${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}-${pad(dt.getMinutes())}.json`;
+    }
     let compareMode = false;
     let compareSelections = [];
     let chatLogCache = {};  // cache loaded chat logs by session name
@@ -968,7 +978,7 @@
         const isPinned = highlightsCache && highlightsCache.some(h => h.ts === m.ts && h.user === m.user);
         const pinStar = isPinned ? '⭐' : '☆';
         const pinClass = isPinned ? 'pin-btn pinned' : 'pin-btn';
-        const sName = sessionName || m.session || (activeSessionFile === '__current__' ? 'current' : activeSessionFile) || '';
+        const sName = sessionName || m.session || (activeSessionFile === '__current__' ? currentSessionName() : activeSessionFile) || '';
         const pinData = `data-ts="${m.ts}" data-user="${escapeHtml(m.user)}" data-msg="${escapeHtml(m.message || '')}" data-html="${escapeHtml(m.messageHtml || '')}" data-avatar="${escapeHtml(m.avatar || '')}" data-session="${escapeHtml(sName)}"`;
 
         // Detect reply from raw HTML before sanitization strips <i><small>
@@ -1078,7 +1088,7 @@
             msgContainer.innerHTML = '<div class="empty">No messages found</div>';
             return;
         }
-        const sName = activeSessionFile === '__current__' ? 'current' : activeSessionFile;
+        const sName = activeSessionFile === '__current__' ? currentSessionName() : activeSessionFile;
         let html = display.map(m => renderChatMessage(m, false, sName)).join('');
         if (messages.length > showLimit) {
             html += `<div class="chat-log-more"><button onclick="renderChatLogMessages(chatLogCache[activeSessionFile] || [], ${showLimit + 200})">Load more (${messages.length - showLimit} remaining)</button></div>`;
@@ -1371,10 +1381,7 @@
         if (activeSessionFile && activeSessionFile !== '__current__') {
             activeSessionName = activeSessionFile;
         } else if (activeSessionFile === '__current__' && activeSession) {
-            // Build session filename from current session startedAt
-            const dt = new Date(activeSession.startedAt);
-            const pad = n => String(n).padStart(2, '0');
-            activeSessionName = `chat-${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}-${pad(dt.getMinutes())}.json`;
+            activeSessionName = currentSessionName();
         }
 
         try {
