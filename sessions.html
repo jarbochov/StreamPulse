@@ -456,12 +456,28 @@
     function getStreamTimes(data) {
         const samples = Array.isArray(data?.viewerStats?.samples) ? data.viewerStats.samples : [];
         const liveSamples = samples.filter(sample => sample.live && sample.ts);
-        const offlineSamples = samples.filter(sample => sample.live === false && sample.ts);
         const start = data?.viewerStats?.streamStartedAt || liveSamples[0]?.ts || null;
-        const candidateStop = data?.viewerStats?.streamEndedAt || offlineSamples.at(-1)?.ts || null;
+        const startMs = start ? Date.parse(start) : NaN;
+        let wasLive = false;
+        const offlineTransitions = [];
+        samples.forEach(sample => {
+            const sampleMs = sample.ts ? Date.parse(sample.ts) : NaN;
+            if (sample.live && sample.ts && Number.isFinite(startMs) && sampleMs >= startMs) {
+                wasLive = true;
+            } else if (sample.live === false && sample.ts && wasLive) {
+                if (Number.isFinite(startMs) && Number.isFinite(sampleMs) && sampleMs > startMs) {
+                    offlineTransitions.push(sample);
+                }
+                wasLive = false;
+            }
+        });
+        const candidateStop = data?.viewerStats?.streamEndedAt || offlineTransitions.at(-1)?.ts || null;
+        const stopMs = candidateStop ? Date.parse(candidateStop) : NaN;
         return {
             start,
-            stop: start && candidateStop && candidateStop !== start ? candidateStop : null
+            stop: start && Number.isFinite(startMs) && Number.isFinite(stopMs) && stopMs > startMs
+                ? candidateStop
+                : null
         };
     }
 

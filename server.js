@@ -2416,15 +2416,32 @@ function localDateTimeStr(isoStr) {
 function getSessionStreamTimes(data) {
     const samples = Array.isArray(data?.viewerStats?.samples) ? data.viewerStats.samples : [];
     const liveSamples = samples.filter(sample => sample.live && sample.ts);
-    const offlineSamples = samples.filter(sample => sample.live === false && sample.ts);
     const streamStartAt = data?.viewerStats?.streamStartedAt
         || liveSamples[0]?.ts
         || null;
+    const startMs = streamStartAt ? Date.parse(streamStartAt) : NaN;
+    let wasLive = false;
+    const offlineTransitions = [];
+    for (const sample of samples) {
+        const sampleMs = sample.ts ? Date.parse(sample.ts) : NaN;
+        if (sample.live && sample.ts && Number.isFinite(startMs) && sampleMs >= startMs) {
+            wasLive = true;
+        } else if (sample.live === false && sample.ts && wasLive) {
+            if (Number.isFinite(startMs) && Number.isFinite(sampleMs) && sampleMs > startMs) {
+                offlineTransitions.push(sample);
+            }
+            wasLive = false;
+        }
+    }
     const candidateStopAt = data?.viewerStats?.streamEndedAt
-        || (offlineSamples.length > 0
-            ? offlineSamples[offlineSamples.length - 1].ts
+        || (offlineTransitions.length > 0
+            ? offlineTransitions[offlineTransitions.length - 1].ts
             : null);
-    const streamStopAt = streamStartAt && candidateStopAt && candidateStopAt !== streamStartAt
+    const stopMs = candidateStopAt ? Date.parse(candidateStopAt) : NaN;
+    const streamStopAt = streamStartAt
+        && Number.isFinite(startMs)
+        && Number.isFinite(stopMs)
+        && stopMs > startMs
         ? candidateStopAt
         : null;
     return { streamStartAt, streamStopAt };
