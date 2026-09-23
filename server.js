@@ -2401,6 +2401,19 @@ function localDateTimeStr(isoStr) {
     return `${y}-${mo}-${day}T${h}-${mi}`;
 }
 
+function getSessionStreamTimes(data) {
+    const samples = Array.isArray(data?.viewerStats?.samples) ? data.viewerStats.samples : [];
+    const liveSamples = samples.filter(sample => sample.live && sample.ts);
+    const offlineSamples = samples.filter(sample => sample.live === false && sample.ts);
+    const streamStartAt = data?.viewerStats?.streamStartedAt
+        || liveSamples[0]?.ts
+        || null;
+    const streamStopAt = offlineSamples.length > 0
+        ? offlineSamples[offlineSamples.length - 1].ts
+        : null;
+    return { streamStartAt, streamStopAt };
+}
+
 function archiveSession() {
     const chatPath = path.join(DATA_DIR, 'chat.json');
     try {
@@ -3529,10 +3542,13 @@ const server = http.createServer(async (req, res) => {
                     try {
                         const raw = fs.readFileSync(path.join(SESSIONS_DIR, f), 'utf8');
                         const d = JSON.parse(raw);
+                        const streamTimes = getSessionStreamTimes(d);
                         if (d.streamInfo && d.streamInfo.length > 0) {
                             entry.title = d.streamInfo[0].title;
                             entry.category = d.streamInfo[0].category;
                         }
+                        entry.streamStartAt = streamTimes.streamStartAt;
+                        entry.streamStopAt = streamTimes.streamStopAt || d.lastUpdated || null;
                         entry.messageCount = d.messageCount || 0;
                     } catch {}
                     return entry;

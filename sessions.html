@@ -35,6 +35,7 @@
         .session-item.active { border-color: #58a6ff; background: #1a2332; }
         .session-date { font-weight: 600; font-size: 0.85rem; }
         .session-meta { font-size: 0.7rem; color: #484f58; margin-left: auto; }
+        .session-time-range { font-size: 0.68rem; color: #8b949e; margin-top: 0.15rem; }
 
         .detail-panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow-y: auto; display: flex; flex-direction: column; }
         .detail-panel .placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: #484f58; font-size: 0.9rem; }
@@ -312,17 +313,26 @@
 
     async function loadSessions() {
         try {
-            const res = await fetch('/api/sessions?detail=1');
-            const detailed = await res.json();
+            const [sessionsRes, currentRes] = await Promise.all([
+                fetch('/api/sessions?detail=1'),
+                fetch('/api/chat')
+            ]);
+            const detailed = await sessionsRes.json();
+            const current = currentRes.ok ? await currentRes.json() : null;
             sessions = detailed.map(d => typeof d === 'string' ? d : d.file);
 
             const list = document.getElementById('session-list');
 
             // Always show current live session at the top
-            let html = `<div class="session-item" data-file="__current__" onclick="handleSessionClick('__current__', this)" style="border-color: #238636; background: #0d1117;">
+            const currentTimes = current ? getStreamTimes(current) : { start: null, stop: null };
+            const currentRange = current ? formatStreamTimeRange(currentTimes.start, null) : '';
+            let html = `<div class="session-item${currentRange ? ' has-subtitle' : ''}" data-file="__current__" onclick="handleSessionClick('__current__', this)" style="border-color: #238636; background: #0d1117;">
                 <input type="checkbox" class="session-checkbox" style="display: none;" onclick="event.stopPropagation(); toggleCompareSelection('__current__')">
-                <span class="session-date">🟢 Current Session</span>
-                <span class="session-meta">Live</span>
+                <div style="display:flex;align-items:center;gap:0.5rem;width:100%;">
+                    <span class="session-date">🟢 Current Session</span>
+                    <span class="session-meta">Live</span>
+                </div>
+                ${currentRange ? `<div class="session-time-range">${currentRange}</div>` : ''}
             </div>`;
 
             if (sessions.length === 0) {
@@ -334,6 +344,7 @@
                     const dateStr = dateMatch ? dateMatch[1] : f.replace('.json', '');
                     const timeMatch = f.match(/T(\d{2})-(\d{2})/);
                     const timeStr = timeMatch ? `${timeMatch[1]}:${timeMatch[2]}` : '';
+                    const streamRange = typeof d === 'string' ? '' : formatStreamTimeRange(d.streamStartAt, d.streamStopAt);
                     let subtitle = '';
                     if (d.title) {
                         const cat = d.category ? ` · ${escapeHtml(d.category)}` : '';
@@ -346,6 +357,7 @@
                             <span class="session-meta">${timeStr}</span>
                         </div>
                         ${subtitle}
+                        ${streamRange ? `<div class="session-time-range">${streamRange}</div>` : ''}
                     </div>`;
                 }).join('');
             }
@@ -435,6 +447,29 @@
         });
     }
 
+    function formatStreamTime(value) {
+        if (!value) return '';
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function getStreamTimes(data) {
+        const samples = Array.isArray(data?.viewerStats?.samples) ? data.viewerStats.samples : [];
+        const liveSamples = samples.filter(sample => sample.live && sample.ts);
+        const offlineSamples = samples.filter(sample => sample.live === false && sample.ts);
+        return {
+            start: data?.viewerStats?.streamStartedAt || liveSamples[0]?.ts || null,
+            stop: offlineSamples.length > 0 ? offlineSamples[offlineSamples.length - 1].ts : null
+        };
+    }
+
+    function formatStreamTimeRange(start, stop) {
+        const startTime = formatStreamTime(start);
+        const stopTime = formatStreamTime(stop);
+        if (!startTime && !stopTime) return '';
+        return `Stream: ${startTime || 'Unknown'} – ${stopTime || 'In progress'}`;
+    }
+
     function renderDetail(data, filename) {
         const panel = document.getElementById('detail-panel');
 
@@ -492,6 +527,11 @@
         // Build stream info banner
         const streamInfo = data.streamInfo || [];
         let streamInfoHtml = '';
+        const streamTimes = getStreamTimes(data);
+        const streamTimeRange = formatStreamTimeRange(streamTimes.start, streamTimes.stop || (isLive ? null : data.lastUpdated));
+        if (streamTimeRange) {
+            streamInfoHtml += `<div class="stream-info-banner"><div class="stream-info-entry">${escapeHtml(streamTimeRange)}</div></div>`;
+        }
         if (streamInfo.length > 0) {
             const entries = streamInfo.map((si, i) => {
                 const time = new Date(si.changedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -499,7 +539,7 @@
                 const cat = si.category ? `<span class="stream-category">${escapeHtml(si.category)}</span>` : '';
                 return `<div class="stream-info-entry">${prefix} <span class="stream-title">${escapeHtml(si.title)}</span> ${cat}</div>`;
             });
-            streamInfoHtml = `<div class="stream-info-banner">${entries.join('')}</div>`;
+            streamInfoHtml += `<div class="stream-info-banner">${entries.join('')}</div>`;
         }
 
         panel.innerHTML = `
