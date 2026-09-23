@@ -38,7 +38,7 @@
         ]},
         { label: 'Library ▾', children: [
             { label: 'Highlights', href: '/highlights.html' },
-            { label: 'Sessions', href: '/sessions.html' },
+            { label: 'Sessions', href: '/sessions.html?session=__current__' },
             { label: 'Categories', href: '/categories.html' },
             { label: 'Analytics & Subscribers', href: '/analytics.html' },
             { label: 'Hashtag Stats', href: '/hashtag-stats.html' }
