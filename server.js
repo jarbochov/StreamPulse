@@ -810,6 +810,9 @@ function normalizeViewerStats(input = {}) {
     normalized.sampledAt = input?.sampledAt || null;
     normalized.streamStartedAt = input?.streamStartedAt || null;
     normalized.streamEndedAt = input?.streamEndedAt || null;
+    if (!normalized.streamStartedAt || normalized.streamStartedAt === normalized.streamEndedAt) {
+        normalized.streamEndedAt = null;
+    }
     normalized.samples = Array.isArray(input?.samples)
         ? input.samples
             .map(sample => ({
@@ -1128,7 +1131,7 @@ function recordViewerSample({ count, live, source, streamStartedAt }) {
     if (normalized.live && (!wasLive || !normalized.streamStartedAt)) {
         normalized.streamStartedAt = streamStartedAt || now;
         normalized.streamEndedAt = null;
-    } else if (!normalized.live && wasLive) {
+    } else if (!normalized.live && wasLive && normalized.streamStartedAt) {
         normalized.streamEndedAt = now;
     }
     normalized.samples.push({
@@ -2417,10 +2420,13 @@ function getSessionStreamTimes(data) {
     const streamStartAt = data?.viewerStats?.streamStartedAt
         || liveSamples[0]?.ts
         || null;
-    const streamStopAt = data?.viewerStats?.streamEndedAt
+    const candidateStopAt = data?.viewerStats?.streamEndedAt
         || (offlineSamples.length > 0
             ? offlineSamples[offlineSamples.length - 1].ts
             : null);
+    const streamStopAt = streamStartAt && candidateStopAt && candidateStopAt !== streamStartAt
+        ? candidateStopAt
+        : null;
     return { streamStartAt, streamStopAt };
 }
 

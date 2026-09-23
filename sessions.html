@@ -457,9 +457,11 @@
         const samples = Array.isArray(data?.viewerStats?.samples) ? data.viewerStats.samples : [];
         const liveSamples = samples.filter(sample => sample.live && sample.ts);
         const offlineSamples = samples.filter(sample => sample.live === false && sample.ts);
+        const start = data?.viewerStats?.streamStartedAt || liveSamples[0]?.ts || null;
+        const candidateStop = data?.viewerStats?.streamEndedAt || offlineSamples.at(-1)?.ts || null;
         return {
-            start: data?.viewerStats?.streamStartedAt || liveSamples[0]?.ts || null,
-            stop: offlineSamples.length > 0 ? offlineSamples[offlineSamples.length - 1].ts : null
+            start,
+            stop: start && candidateStop && candidateStop !== start ? candidateStop : null
         };
     }
 
