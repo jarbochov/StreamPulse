@@ -403,9 +403,7 @@
             if (toolControl) {
                 switchTool(paneId, toolControl);
                 if (paneId === 'chatlog') {
-                    await loadChatLog('__current__');
-                    const chatMessages = document.getElementById('chatlog-messages');
-                    if (chatMessages) chatMessages.scrollTop = scrollTop;
+                    await loadChatLog('__current__', true);
                 }
             } else if (tabControl) {
                 switchTab(paneId, tabControl);
@@ -633,8 +631,8 @@
                 <button class="export-btn" onclick="exportChatLog('pdf')">📕 Export PDF</button>
             </div>
             <div class="chat-search">
-                <input type="text" id="chatlog-filter" placeholder='Filter messages, @user, "phrase", or OR...' onkeydown="if(event.key==='Enter')filterChatLog()">
-                <button onclick="filterChatLog()">Filter</button>
+                <input type="text" id="chatlog-filter" placeholder='Filter messages, @user, "phrase", or OR...' onkeydown="if(event.key==='Enter')applyChatLogFilter()">
+                <button onclick="applyChatLogFilter()">Filter</button>
                 <button class="filter-toggle" id="links-toggle" onclick="toggleChatLogFilter('links', this)">🔗 Links</button>
                 <button class="filter-toggle" id="events-toggle" onclick="toggleChatLogFilter('events', this)">📢 Events</button>
                 <button class="filter-toggle" id="donations-toggle" onclick="toggleChatLogFilter('donations', this)">💰 Donations</button>
@@ -708,6 +706,25 @@
 
     let chatLogTypeFilter = null;
     let chatLogSortDirection = 'desc';
+    const CHAT_LOG_PAGE_SIZE = 200;
+    let chatLogRenderLimit = CHAT_LOG_PAGE_SIZE;
+
+    // The chat log renders inside the shared scrollable .tab-content container,
+    // so scroll state must be read from there — #chatlog-messages never scrolls.
+    function chatLogScroller() {
+        return document.getElementById('chatlog-messages')?.closest('.tab-content') || null;
+    }
+
+    function loadMoreChatLog() {
+        chatLogRenderLimit += CHAT_LOG_PAGE_SIZE;
+        filterChatLog();
+    }
+
+    // User-initiated search/sort/type changes restart paging from the top.
+    function applyChatLogFilter() {
+        chatLogRenderLimit = CHAT_LOG_PAGE_SIZE;
+        filterChatLog();
+    }
 
     function toggleChatLogFilter(type, btn) {
         const filterButtons = document.querySelectorAll('.chat-search .filter-toggle');
@@ -719,7 +736,7 @@
             filterButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
         }
-        filterChatLog();
+        applyChatLogFilter();
     }
 
     function switchTab(id, el) {
@@ -1049,10 +1066,19 @@
         const msgContainer = document.getElementById('chatlog-messages');
         const infoEl = document.getElementById('chatlog-info');
         if (!msgContainer) return;
-        const previousScrollTop = preserveScroll ? msgContainer.scrollTop : 0;
-        const previousScrollHeight = preserveScroll ? msgContainer.scrollHeight : 0;
-        const previousClientHeight = preserveScroll ? msgContainer.clientHeight : 0;
-        msgContainer.innerHTML = '<div class="chat-log-loading">Loading chat log...</div>';
+
+        const scroller = chatLogScroller();
+        const previousScrollTop = preserveScroll && scroller ? scroller.scrollTop : 0;
+        const wasAtBottom = preserveScroll && scroller
+            ? scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 40
+            : false;
+
+        // Only show the loading placeholder on a fresh open; replacing the list
+        // mid-refresh collapses its height and destroys the scroll offset.
+        if (!preserveScroll) {
+            chatLogRenderLimit = CHAT_LOG_PAGE_SIZE;
+            msgContainer.innerHTML = '<div class="chat-log-loading">Loading chat log...</div>';
+        }
 
         try {
             const url = filename === '__current__' ? '/api/chat-log' : `/api/sessions/${filename}/chat-log`;
@@ -1060,28 +1086,35 @@
             const data = await res.json();
             chatLogCache[filename] = data.messages || [];
             const messages = chatLogCache[filename];
-            infoEl.textContent = `${messages.length} message${messages.length !== 1 ? 's' : ''} recorded`;
-            renderChatLogMessages(messages);
+            if (infoEl) infoEl.textContent = `${messages.length} message${messages.length !== 1 ? 's' : ''} recorded`;
+
             if (preserveScroll) {
-                const previousMax = Math.max(1, previousScrollHeight - previousClientHeight);
-                const ratio = previousScrollTop / previousMax;
-                msgContainer.scrollTop = ratio * Math.max(0, msgContainer.scrollHeight - msgContainer.clientHeight);
+                // Re-apply active search/type filters so a live refresh keeps the same view
+                filterChatLog();
+                if (scroller) {
+                    scroller.scrollTop = wasAtBottom
+                        ? scroller.scrollHeight - scroller.clientHeight
+                        : previousScrollTop;
+                }
+            } else {
+                renderChatLogMessages(messages);
             }
         } catch {
             msgContainer.innerHTML = '<div class="empty">No chat log available for this session</div>';
-            infoEl.textContent = '';
+            if (infoEl) infoEl.textContent = '';
         }
     }
 
     function setChatLogSort(direction) {
         chatLogSortDirection = direction === 'asc' ? 'asc' : 'desc';
-        if (chatLogCache[activeSessionFile]) filterChatLog();
+        if (chatLogCache[activeSessionFile]) applyChatLogFilter();
     }
 
     function renderChatLogMessages(messages, limit) {
         const msgContainer = document.getElementById('chatlog-messages');
         if (!msgContainer) return;
-        const showLimit = limit || 200;
+        if (limit) chatLogRenderLimit = limit;
+        const showLimit = chatLogRenderLimit;
         const orderedMessages = [...messages].sort((a, b) => chatLogSortDirection === 'asc' ? a.ts - b.ts : b.ts - a.ts);
         const display = orderedMessages.slice(0, showLimit);
         if (messages.length === 0) {
@@ -1091,7 +1124,7 @@
         const sName = activeSessionFile === '__current__' ? currentSessionName() : activeSessionFile;
         let html = display.map(m => renderChatMessage(m, false, sName)).join('');
         if (messages.length > showLimit) {
-            html += `<div class="chat-log-more"><button onclick="renderChatLogMessages(chatLogCache[activeSessionFile] || [], ${showLimit + 200})">Load more (${messages.length - showLimit} remaining)</button></div>`;
+            html += `<div class="chat-log-more"><button onclick="loadMoreChatLog()">Load more (${messages.length - showLimit} remaining)</button></div>`;
         }
         msgContainer.innerHTML = html;
     }
