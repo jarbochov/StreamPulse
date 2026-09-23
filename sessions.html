@@ -344,7 +344,7 @@
                     const dateStr = dateMatch ? dateMatch[1] : f.replace('.json', '');
                     const timeMatch = f.match(/T(\d{2})-(\d{2})/);
                     const timeStr = timeMatch ? `${timeMatch[1]}:${timeMatch[2]}` : '';
-                    const streamRange = typeof d === 'string' ? '' : formatStreamTimeRange(d.streamStartAt, d.streamStopAt);
+                    const streamRange = typeof d === 'string' ? '' : formatStreamTimeRange(d.streamStartAt, d.streamStopAt, true);
                     let subtitle = '';
                     if (d.title) {
                         const cat = d.category ? ` · ${escapeHtml(d.category)}` : '';
@@ -463,11 +463,11 @@
         };
     }
 
-    function formatStreamTimeRange(start, stop) {
+    function formatStreamTimeRange(start, stop, archived = false) {
         const startTime = formatStreamTime(start);
         const stopTime = formatStreamTime(stop);
         if (!startTime && !stopTime) return '';
-        return `Stream: ${startTime || 'Unknown'} – ${stopTime || 'In progress'}`;
+        return `Stream: ${startTime || 'Unknown'} – ${stopTime || (archived ? 'Not recorded' : 'In progress')}`;
     }
 
     function renderDetail(data, filename) {
@@ -528,7 +528,7 @@
         const streamInfo = data.streamInfo || [];
         let streamInfoHtml = '';
         const streamTimes = getStreamTimes(data);
-        const streamTimeRange = formatStreamTimeRange(streamTimes.start, streamTimes.stop || (isLive ? null : data.lastUpdated));
+        const streamTimeRange = formatStreamTimeRange(streamTimes.start, streamTimes.stop, !isLive);
         if (streamTimeRange) {
             streamInfoHtml += `<div class="stream-info-banner"><div class="stream-info-entry">${escapeHtml(streamTimeRange)}</div></div>`;
         }

@@ -788,6 +788,7 @@ function createEmptyViewerStats() {
         source: null,
         sampledAt: null,
         streamStartedAt: null,
+        streamEndedAt: null,
         samples: []
     };
 }
@@ -808,6 +809,7 @@ function normalizeViewerStats(input = {}) {
     normalized.source = input?.source || null;
     normalized.sampledAt = input?.sampledAt || null;
     normalized.streamStartedAt = input?.streamStartedAt || null;
+    normalized.streamEndedAt = input?.streamEndedAt || null;
     normalized.samples = Array.isArray(input?.samples)
         ? input.samples
             .map(sample => ({
@@ -1108,6 +1110,7 @@ function getViewerSummary(sourceData = chatData) {
         source: viewerStats.source,
         sampledAt: viewerStats.sampledAt,
         streamStartedAt: viewerStats.streamStartedAt,
+        streamEndedAt: viewerStats.streamEndedAt,
         sampleCount: viewerStats.samples.length,
         samples: viewerStats.samples
     };
@@ -1116,12 +1119,18 @@ function getViewerSummary(sourceData = chatData) {
 function recordViewerSample({ count, live, source, streamStartedAt }) {
     const cfg = normalizeViewerTrackingConfig(config.viewer_tracking);
     const normalized = normalizeViewerStats(chatData.viewerStats);
+    const wasLive = normalized.live;
     const now = new Date().toISOString();
     normalized.live = !!live;
     normalized.current = Math.max(0, Math.round(Number(count) || 0));
     normalized.source = source || normalized.source || 'twitch';
     normalized.sampledAt = now;
-    normalized.streamStartedAt = streamStartedAt || normalized.streamStartedAt || null;
+    if (normalized.live && (!wasLive || !normalized.streamStartedAt)) {
+        normalized.streamStartedAt = streamStartedAt || now;
+        normalized.streamEndedAt = null;
+    } else if (!normalized.live && wasLive) {
+        normalized.streamEndedAt = now;
+    }
     normalized.samples.push({
         ts: now,
         count: normalized.current,
@@ -2408,9 +2417,10 @@ function getSessionStreamTimes(data) {
     const streamStartAt = data?.viewerStats?.streamStartedAt
         || liveSamples[0]?.ts
         || null;
-    const streamStopAt = offlineSamples.length > 0
-        ? offlineSamples[offlineSamples.length - 1].ts
-        : null;
+    const streamStopAt = data?.viewerStats?.streamEndedAt
+        || (offlineSamples.length > 0
+            ? offlineSamples[offlineSamples.length - 1].ts
+            : null);
     return { streamStartAt, streamStopAt };
 }
 
@@ -3548,7 +3558,7 @@ const server = http.createServer(async (req, res) => {
                             entry.category = d.streamInfo[0].category;
                         }
                         entry.streamStartAt = streamTimes.streamStartAt;
-                        entry.streamStopAt = streamTimes.streamStopAt || d.lastUpdated || null;
+                        entry.streamStopAt = streamTimes.streamStopAt;
                         entry.messageCount = d.messageCount || 0;
                     } catch {}
                     return entry;
