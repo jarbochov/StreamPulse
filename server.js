@@ -2447,7 +2447,7 @@ function localDateTimeStr(isoStr) {
     return `${y}-${mo}-${day}T${h}-${mi}`;
 }
 
-function getSessionStreamTimes(data) {
+function getSessionStreamTimes(data, chatEntries = []) {
     const samples = Array.isArray(data?.viewerStats?.samples) ? data.viewerStats.samples : [];
     const liveSamples = samples.filter(sample => sample.live && sample.ts);
     const streamStartAt = data?.viewerStats?.streamStartedAt
@@ -2471,13 +2471,26 @@ function getSessionStreamTimes(data) {
         || (offlineTransitions.length > 0
             ? offlineTransitions[offlineTransitions.length - 1].ts
             : null);
-    const stopMs = candidateStopAt ? Date.parse(candidateStopAt) : NaN;
-    const streamStopAt = streamStartAt
+    let stopMs = candidateStopAt ? Date.parse(candidateStopAt) : NaN;
+    let streamStopAt = streamStartAt
         && Number.isFinite(startMs)
         && Number.isFinite(stopMs)
         && stopMs > startMs
         ? candidateStopAt
         : null;
+    if (!streamStopAt && Number.isFinite(startMs)) {
+        const lastChatEntry = [...chatEntries].reverse().find(entry => {
+            const timestamp = Number(entry?.ts);
+            return Number.isFinite(timestamp) && timestamp > startMs;
+        });
+        if (lastChatEntry) {
+            const lastChatAt = new Date(Number(lastChatEntry.ts)).toISOString();
+            stopMs = Date.parse(lastChatAt);
+            if (Number.isFinite(stopMs) && stopMs > startMs) {
+                streamStopAt = lastChatAt;
+            }
+        }
+    }
     return { streamStartAt, streamStopAt };
 }
 
@@ -3611,7 +3624,8 @@ const server = http.createServer(async (req, res) => {
                     try {
                         const raw = fs.readFileSync(path.join(SESSIONS_DIR, f), 'utf8');
                         const d = JSON.parse(raw);
-                        const streamTimes = getSessionStreamTimes(d);
+                        const logName = f.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
+                        const streamTimes = getSessionStreamTimes(d, readChatLogFile(path.join(SESSIONS_DIR, logName)));
                         if (d.streamInfo && d.streamInfo.length > 0) {
                             entry.title = d.streamInfo[0].title;
                             entry.category = d.streamInfo[0].category;
@@ -4147,14 +4161,24 @@ const server = http.createServer(async (req, res) => {
     // Serve individual session files
     const sessionMatch = pathname.match(/^\/api\/sessions\/(.+\.json)$/);
     if (sessionMatch) {
-        const sessionFile = path.join(SESSIONS_DIR, sessionMatch[1]);
+        const sessionName = sessionMatch[1];
+        const sessionFile = path.join(SESSIONS_DIR, sessionName);
         if (!sessionFile.startsWith(SESSIONS_DIR) || !fs.existsSync(sessionFile)) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Session not found' }));
             return;
         }
+        const data = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+        const logName = sessionName.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
+        const streamTimes = getSessionStreamTimes(data, readChatLogFile(path.join(SESSIONS_DIR, logName)));
+        if (streamTimes.streamStopAt && !data.viewerStats?.streamEndedAt) {
+            data.viewerStats = {
+                ...(data.viewerStats || {}),
+                streamEndedAt: streamTimes.streamStopAt
+            };
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(fs.readFileSync(sessionFile, 'utf8'));
+        res.end(JSON.stringify(data));
         return;
     }
 
