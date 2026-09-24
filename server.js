@@ -2024,6 +2024,40 @@ function saveChatLog() {
     }
 }
 
+function finalizeSessionStreamEnd() {
+    const viewerStats = normalizeViewerStats(chatData.viewerStats);
+    if (!viewerStats.streamStartedAt) {
+        chatData.viewerStats = viewerStats;
+        return null;
+    }
+
+    const startMs = Date.parse(viewerStats.streamStartedAt);
+    if (!Number.isFinite(startMs)) {
+        chatData.viewerStats = viewerStats;
+        return null;
+    }
+    if (viewerStats.streamEndedAt) {
+        const recordedEndMs = Date.parse(viewerStats.streamEndedAt);
+        if (Number.isFinite(recordedEndMs) && recordedEndMs > startMs) {
+            return viewerStats.streamEndedAt;
+        }
+        viewerStats.streamEndedAt = null;
+    }
+
+    const lastChatEntry = [...chatLog].reverse().find(entry => {
+        const timestamp = Number(entry?.ts);
+        return Number.isFinite(timestamp) && timestamp > startMs;
+    });
+    const lastChatAt = lastChatEntry ? new Date(Number(lastChatEntry.ts)).toISOString() : null;
+    const candidateEnd = lastChatAt || new Date().toISOString();
+    const candidateMs = Date.parse(candidateEnd);
+    if (Number.isFinite(candidateMs) && candidateMs > startMs) {
+        viewerStats.streamEndedAt = candidateEnd;
+    }
+    chatData.viewerStats = viewerStats;
+    return viewerStats.streamEndedAt;
+}
+
 function readChatLogFile(filepath) {
     if (!fs.existsSync(filepath)) return [];
     return fs.readFileSync(filepath, 'utf8')
@@ -3260,6 +3294,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/end-session') {
+        const streamEndedAt = finalizeSessionStreamEnd();
         saveChatData();
         saveStats();
         saveChatLog();
@@ -3271,7 +3306,7 @@ const server = http.createServer(async (req, res) => {
         broadcastToOverlays('viewer-update', getViewerSummary());
         broadcastToOverlays('goals-update', buildGoalsSnapshot());
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ended', archived: archiveName, message: 'Session archived and reset. Server still running.' }));
+        res.end(JSON.stringify({ status: 'ended', archived: archiveName, streamEndedAt, message: 'Session archived and reset. Server still running.' }));
         console.log('[API] Session ended — ready for next stream');
         return;
     }
@@ -3295,13 +3330,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/shutdown') {
+        const streamEndedAt = finalizeSessionStreamEnd();
         saveChatData();
         saveStats();
         saveChatLog();
         const archiveName = archiveSession();
         resetChatData();
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'shutting_down', archived: archiveName, message: 'Server shutting down...' }));
+        res.end(JSON.stringify({ status: 'shutting_down', archived: archiveName, streamEndedAt, message: 'Server shutting down...' }));
         console.log('[API] Shutdown requested');
         setTimeout(() => {
             if (ssnSocket) ssnSocket.close();
@@ -4905,6 +4941,7 @@ server.listen(PORT, () => {
 // Graceful shutdown
 process.on('SIGINT', () => {
     console.log('\n[Server] Shutting down...');
+    finalizeSessionStreamEnd();
     saveChatData();
     saveStats();
     saveChatLog();
