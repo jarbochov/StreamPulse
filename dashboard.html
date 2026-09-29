@@ -752,9 +752,18 @@
     async function shutdownServer() {
         if (!confirm('Shut down the server? This will archive data and stop the process.')) return;
         try {
-            await fetch('/api/shutdown');
+            const res = await fetch('/api/shutdown');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             showToast('Server shutting down...');
             clearInterval(refreshInterval);
+            setTimeout(() => {
+                document.body.innerHTML = `
+                    <main style="max-width:640px;margin:18vh auto;padding:2rem;text-align:center;color:#e1e4e8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+                        <h1>StreamPulse is stopped</h1>
+                        <p style="color:#8b949e;margin:1rem 0;">The server shut down successfully. Start StreamPulse again to reopen the dashboard.</p>
+                    </main>
+                `;
+            }, 600);
         } catch { showToast('Shutdown failed'); }
     }
 

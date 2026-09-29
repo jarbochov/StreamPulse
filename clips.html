@@ -195,8 +195,9 @@
             <input id="reason" type="text" placeholder="Add a manual marker, e.g. funny moment">
             <button class="primary" onclick="addMarker()">Add Marker</button>
             <select id="session-filter" onchange="loadCandidates()">
-                <option value="">All sessions</option>
                 <option value="current">Current session</option>
+                <option value="past">Past sessions</option>
+                <option value="">All sessions</option>
             </select>
             <button onclick="loadCandidates()">Refresh</button>
         </div>
@@ -328,7 +329,11 @@
                 currentSessionStartedAtValue = status.startedAt || null;
             }
             if (filter === 'current') {
-                candidates = candidates.filter(candidate => candidate.sessionStartedAt === currentSessionStartedAtValue);
+                candidates = currentSessionStartedAtValue
+                    ? candidates.filter(candidate => candidate.sessionStartedAt === currentSessionStartedAtValue)
+                    : [];
+            } else if (filter === 'past') {
+                candidates = candidates.filter(candidate => candidate.sessionStartedAt !== currentSessionStartedAtValue);
             }
             renderCandidates();
         } catch (err) {

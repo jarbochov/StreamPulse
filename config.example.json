@@ -4,7 +4,8 @@
   "broadcaster_name": "YOUR_TWITCH_USERNAME",
   "twitch": {
     "client_id": "YOUR_TWITCH_CLIENT_ID",
-    "client_secret": "YOUR_TWITCH_CLIENT_SECRET"
+    "client_secret": "YOUR_TWITCH_CLIENT_SECRET",
+    "redirect_uri": "http://localhost:3000/auth/callback"
   },
   "ssn": {
     "session_id": "YOUR_SSN_SESSION_ID",

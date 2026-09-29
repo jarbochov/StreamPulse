@@ -1623,7 +1623,7 @@ if (!fs.existsSync(DATA_DIR)) {
 // ============================================================================
 
 const TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips';
-const TWITCH_REDIRECT_URI = `http://localhost:${PORT}/auth/callback`;
+const TWITCH_REDIRECT_URI = config.twitch?.redirect_uri || `http://localhost:${PORT}/auth/callback`;
 const TOKEN_PATH = path.join(DATA_DIR, '.twitch-token.json');
 
 let twitchAccessToken = null;

@@ -124,8 +124,19 @@ Clip creation in **Clips (Beta)** requires `clips:edit` for live clips. VOD clip
 
 **Create your app:**
 1. Go to [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) and create a new application
-2. Set the **OAuth Redirect URL** to `http://localhost:3000/auth/callback`
+2. Set the **OAuth Redirect URL** to the exact address StreamPulse uses:
+   - `http://localhost:3000/auth/callback`
 3. Note your **Client ID** and **Client Secret**
+
+If StreamPulse is intentionally hosted somewhere other than localhost, set `twitch.redirect_uri` in `config.json` to the exact URL registered in Twitch.
+
+```json
+"twitch": {
+  "client_id": "YOUR_TWITCH_CLIENT_ID",
+  "client_secret": "YOUR_TWITCH_CLIENT_SECRET",
+  "redirect_uri": "http://localhost:3000/auth/callback"
+}
+```
 
 ### Optional
 
@@ -433,8 +444,8 @@ streampulse/
 5. Test with the [SSN API Sandbox](https://socialstream.ninja/sampleapi.html) to verify messages are flowing
 
 ### Twitch API errors (401)
-- Visit `http://localhost:3000/auth/twitch` to re-authorize
-- Ensure `http://localhost:3000/auth/callback` is registered as an OAuth Redirect URL
+- Visit `/auth/twitch` on the same host where StreamPulse is running to re-authorize
+- Ensure the configured `twitch.redirect_uri` is registered exactly as an OAuth Redirect URL
 - Verify `client_id` and `client_secret` in `config.json`
 
 ### Credits not loading

@@ -25,6 +25,8 @@ Select **Rebuild Past Analysis** to scan the current and archived JSONL chat log
 
 Each candidate includes a **View Chat** link that opens the matching session, loads its Chat Log, and jumps to the nearest recorded message at the candidate timestamp. Past-session candidates can use **Create VOD Clip** when Twitch identifies a matching VOD.
 
+The Clips page separates candidates with the session filter: **Current session** shows only candidates whose recorded session start matches the active session, **Past sessions** shows archived candidates, and **All sessions** combines both views. If no session is active, all candidates are treated as past-session candidates.
+
 The VOD link uses Twitch's archived-video API to match the candidate timestamp against the VOD's start time and duration. If Twitch cannot find a matching recording, it falls back to the broadcaster's video archive.
 
 ## Creating a Twitch clip
