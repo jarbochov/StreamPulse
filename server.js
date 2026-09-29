@@ -1629,6 +1629,7 @@ const TOKEN_PATH = path.join(DATA_DIR, '.twitch-token.json');
 let twitchAccessToken = null;
 let twitchRefreshToken = null;
 let twitchTokenExpiry = 0;
+let twitchTokenScopes = [];
 
 function loadStoredToken() {
     try {
@@ -1637,6 +1638,7 @@ function loadStoredToken() {
             twitchAccessToken = stored.access_token;
             twitchRefreshToken = stored.refresh_token;
             twitchTokenExpiry = stored.expires_at || 0;
+            twitchTokenScopes = Array.isArray(stored.scope) ? stored.scope : [];
             console.log('[Twitch] Loaded stored token');
             return true;
         }
@@ -1648,10 +1650,12 @@ function saveToken(tokenData) {
     twitchAccessToken = tokenData.access_token;
     twitchRefreshToken = tokenData.refresh_token;
     twitchTokenExpiry = Date.now() + (tokenData.expires_in * 1000) - 60000;
+    if (Array.isArray(tokenData.scope)) twitchTokenScopes = tokenData.scope;
     fs.writeFileSync(TOKEN_PATH, JSON.stringify({
         access_token: twitchAccessToken,
         refresh_token: twitchRefreshToken,
-        expires_at: twitchTokenExpiry
+        expires_at: twitchTokenExpiry,
+        scope: twitchTokenScopes
     }));
 }
 
@@ -3493,7 +3497,8 @@ const server = http.createServer(async (req, res) => {
             `client_id=${TWITCH_CLIENT_ID}` +
             `&redirect_uri=${encodeURIComponent(TWITCH_REDIRECT_URI)}` +
             `&response_type=code` +
-            `&scope=${encodeURIComponent(TWITCH_SCOPES)}`;
+            `&scope=${encodeURIComponent(TWITCH_SCOPES)}` +
+            `&force_verify=true`;
         res.writeHead(302, { Location: authUrl });
         res.end();
         return;
@@ -3520,8 +3525,8 @@ const server = http.createServer(async (req, res) => {
                 });
                 saveToken(tokenData);
                 console.log('[Twitch] User authorized! Token saved.');
-                res.writeHead(200, { 'Content-Type': 'text/html' });
-                res.end('<h1>✅ Twitch authorized!</h1><p>You can close this tab. The server will now fetch your data.</p>');
+                res.writeHead(302, { Location: '/clips.html?reauthorized=1' });
+                res.end();
                 fetchTwitchData();
                 fetchStreamInfo();
                 fetchViewerCount();
@@ -3629,6 +3634,7 @@ const server = http.createServer(async (req, res) => {
             twitch: {
                 broadcaster_id: BROADCASTER_ID || null,
                 hasToken: !!twitchAccessToken,
+                scopes: twitchTokenScopes,
                 refreshMinutes: REFRESH_MINUTES
             },
             viewers: viewerSummary,

@@ -83,6 +83,7 @@
         <div class="notice">
             <strong>Beta:</strong> StreamPulse detects possible clip moments but does not create clips automatically. Review a candidate and create the Twitch clip manually while live.
             <small>Twitch returns a temporary editing URL after creation. The published clip URL is saved with the candidate.</small>
+            <small id="twitch-auth-status">Checking Twitch clip permissions...</small>
         </div>
         <section class="settings">
             <h2>Detection Settings</h2>
@@ -230,6 +231,21 @@
         const cooldown = Number(document.getElementById('cooldown_seconds').value) || 0;
         document.getElementById('window-summary').textContent =
             `Current rule: ${messages} chat messages within ${seconds} seconds${cooldown ? `, with a ${cooldown}-second cooldown between chat spikes` : ''}.`;
+    }
+
+    async function loadTwitchAuthStatus() {
+        const statusEl = document.getElementById('twitch-auth-status');
+        try {
+            const res = await fetch('/api/status', { cache: 'no-store' });
+            const status = await res.json();
+            const scopes = status.twitch?.scopes || [];
+            statusEl.textContent = scopes.includes('channel:manage:clips') || scopes.includes('editor:manage:clips')
+                ? 'Twitch VOD clip permission is granted.'
+                : 'VOD clips require reauthorization with channel:manage:clips (broadcaster) or editor:manage:clips (editor).';
+            statusEl.style.color = scopes.includes('channel:manage:clips') || scopes.includes('editor:manage:clips') ? '#3fb950' : '#d29922';
+        } catch {
+            statusEl.textContent = 'Twitch permission status unavailable.';
+        }
     }
 
     function currentSessionStartedAt() {
@@ -397,7 +413,11 @@
         document.getElementById(id).addEventListener('input', updateWindowSummary);
     }
 
-    Promise.all([loadSettings(), loadCandidates()]);
+    Promise.all([loadSettings(), loadCandidates(), loadTwitchAuthStatus()]).then(() => {
+        if (new URLSearchParams(location.search).get('reauthorized') === '1') {
+            showToast('Twitch authorization refreshed');
+        }
+    });
     </script>
 </body>
 </html>
