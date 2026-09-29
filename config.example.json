@@ -65,6 +65,7 @@
     "cooldown_seconds": 30,
     "include_subscriptions": true,
     "include_gift_subs": true,
+    "include_highlights": true,
     "include_bits": true,
     "minimum_bits": 1,
     "include_donations": true,

@@ -396,7 +396,7 @@
                     method: 'GET/PUT', path: '/api/clip-candidates/config',
                     desc: 'Read or update beta detection settings',
                     details: 'Controls chat-spike thresholds, cooldowns, event toggles, and minimum event amounts. Settings are persisted in config.json and hot-reloaded.',
-                    body: '{ "chat_spike_messages": 20, "chat_spike_window_seconds": 60, "cooldown_seconds": 30 }'
+                    body: '{ "chat_spike_messages": 20, "chat_spike_window_seconds": 60, "cooldown_seconds": 30, "include_highlights": true }'
                 },
                 {
                     method: 'POST', path: '/api/clip-candidates/backfill',

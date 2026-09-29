@@ -189,6 +189,7 @@ const DEFAULT_CLIP_CANDIDATE_CONFIG = {
     cooldown_seconds: 30,
     include_subscriptions: true,
     include_gift_subs: true,
+    include_highlights: true,
     include_bits: true,
     minimum_bits: 1,
     include_donations: true,
@@ -210,6 +211,7 @@ function normalizeClipCandidateConfig(value) {
         cooldown_seconds: number('cooldown_seconds', DEFAULT_CLIP_CANDIDATE_CONFIG.cooldown_seconds, 0),
         include_subscriptions: input.include_subscriptions !== false,
         include_gift_subs: input.include_gift_subs !== false,
+        include_highlights: input.include_highlights !== false,
         include_bits: input.include_bits !== false,
         minimum_bits: number('minimum_bits', DEFAULT_CLIP_CANDIDATE_CONFIG.minimum_bits, 1),
         include_donations: input.include_donations !== false,
@@ -243,6 +245,21 @@ function currentClipSession() {
         session: chatData.startedAt ? `chat-${localDateTimeStr(chatData.startedAt)}.json` : 'unknown',
         startedAt: chatData.startedAt || null
     };
+}
+
+function clipSessionOverrideForName(sessionName) {
+    const name = String(sessionName || '');
+    const current = currentClipSession();
+    if (!name || name === 'current' || name === current.session) return current;
+    if (!/^chat-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}\.json$/.test(name)) return null;
+    try {
+        const sessionPath = path.join(SESSIONS_DIR, name);
+        if (!fs.existsSync(sessionPath)) return null;
+        const data = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
+        return data.startedAt ? { session: name, startedAt: data.startedAt } : null;
+    } catch {
+        return null;
+    }
 }
 
 function parseTwitchDuration(duration) {
@@ -398,6 +415,24 @@ function backfillClipCandidatesFromEntries(entries, sessionOverride) {
     return created;
 }
 
+function backfillHighlightedClipCandidates() {
+    let created = 0;
+    for (const highlight of highlights) {
+        if (!CLIP_CANDIDATE_CONFIG.enabled || !CLIP_CANDIDATE_CONFIG.include_highlights) continue;
+        const sessionOverride = clipSessionOverrideForName(highlight.session);
+        if (!sessionOverride || !Number.isFinite(Number(highlight.ts))) continue;
+        created += Number(Boolean(addClipCandidate(
+            'highlighted-chat',
+            { user: highlight.user, message: highlight.message || '' },
+            Number(highlight.ts),
+            0.9,
+            sessionOverride,
+            `${sessionOverride.session}:highlight:${highlight.ts}:${highlight.user}`
+        )));
+    }
+    return created;
+}
+
 function backfillClipCandidates(rebuild = false) {
     let removed = 0;
     if (rebuild) {
@@ -443,6 +478,7 @@ function backfillClipCandidates(rebuild = false) {
             startedAt: session.startedAt
         });
     }
+    created += backfillHighlightedClipCandidates();
     return { sessions: sessions.length, created, removed };
 }
 
@@ -5268,9 +5304,23 @@ const server = http.createServer(async (req, res) => {
                     if (!ts || !user) throw new Error('Missing ts or user');
                     highlights.push({ ts, user, message: message || '', messageHtml: messageHtml || '', avatar: avatar || null, session: session || 'unknown', pinnedAt: Date.now() });
                     saveHighlights();
+                    let candidate = null;
+                    if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_highlights) {
+                        const sessionOverride = clipSessionOverrideForName(session);
+                        if (sessionOverride) {
+                            candidate = addClipCandidate(
+                                'highlighted-chat',
+                                { user, message: message || '' },
+                                Number(ts),
+                                0.9,
+                                sessionOverride,
+                                `${sessionOverride.session}:highlight:${ts}:${user}`
+                            );
+                        }
+                    }
                     console.log(`[Highlights] Pinned message from ${user}`);
                     res.writeHead(200, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ status: 'pinned', count: highlights.length }));
+                    res.end(JSON.stringify({ status: 'pinned', count: highlights.length, candidateId: candidate?.id || null }));
                 } catch (err) {
                     res.writeHead(400, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: err.message }));

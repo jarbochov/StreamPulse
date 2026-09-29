@@ -17,7 +17,7 @@ You can also add a manual marker from `/clips.html`. Candidate detection does no
 
 ## Tuning and historical sessions
 
-The **Detection Settings** panel groups controls into automatic detection, the chat spike window, and event triggers. A chat spike is defined by two values: the required number of messages and the number of seconds in which they must arrive. For the default installation, that rule is **20 messages within 60 seconds**, followed by a **30-second cooldown** before another chat-spike candidate can be added. The page shows this rule as a live summary while values are edited.
+The **Detection Settings** panel groups controls into automatic detection, the chat spike window, and event triggers. A manually highlighted chat message is also an available trigger: pin a message in the Sessions Chat Log and StreamPulse adds it as a high-confidence candidate when **Highlighted chats** is enabled. A chat spike is defined by two values: the required number of messages and the number of seconds in which they must arrive. For the default installation, that rule is **20 messages within 60 seconds**, followed by a **30-second cooldown** before another chat-spike candidate can be added. The page shows this rule as a live summary while values are edited.
 
 The event trigger section controls subscriptions, gift subs, Bits, donations, and raids separately. Its default examples are **1 Bit**, **$0.00 donation minimum** (include all detected donations), and **0 raid viewers** (include raids of any size). Changes are saved to `config.json` under `clip_candidates` and apply without a restart.
 

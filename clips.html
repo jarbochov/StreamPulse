@@ -132,6 +132,14 @@
                     </div>
                     <div class="rule">
                         <div class="rule-name">
+                            <strong>Highlighted chats</strong>
+                            <small>Adds a candidate when you pin a message in the Sessions Chat Log.</small>
+                        </div>
+                        <label class="rule-toggle"><span class="control-title">Enable highlighted chats</span><span class="check"><input id="include_highlights" type="checkbox"> On</span></label>
+                        <div class="rule-threshold-empty">Manual selection</div>
+                    </div>
+                    <div class="rule">
+                        <div class="rule-name">
                             <strong>Bits</strong>
                             <small>Adds a candidate when the cheer reaches the minimum.</small>
                         </div>
@@ -241,7 +249,7 @@
         for (const key of ['chat_spike_messages', 'chat_spike_window_seconds', 'cooldown_seconds', 'minimum_bits', 'minimum_donation', 'minimum_raid_viewers']) {
             document.getElementById(key).value = settings[key];
         }
-        for (const key of ['enabled', 'include_subscriptions', 'include_gift_subs', 'include_bits', 'include_donations', 'include_raids']) {
+        for (const key of ['enabled', 'include_subscriptions', 'include_gift_subs', 'include_highlights', 'include_bits', 'include_donations', 'include_raids']) {
             document.getElementById(key).checked = settings[key];
         }
         updateWindowSummary();
@@ -252,7 +260,7 @@
         for (const key of ['chat_spike_messages', 'chat_spike_window_seconds', 'cooldown_seconds', 'minimum_bits', 'minimum_donation', 'minimum_raid_viewers']) {
             payload[key] = Number(document.getElementById(key).value);
         }
-        for (const key of ['enabled', 'include_subscriptions', 'include_gift_subs', 'include_bits', 'include_donations', 'include_raids']) {
+        for (const key of ['enabled', 'include_subscriptions', 'include_gift_subs', 'include_highlights', 'include_bits', 'include_donations', 'include_raids']) {
             payload[key] = document.getElementById(key).checked;
         }
         try {
