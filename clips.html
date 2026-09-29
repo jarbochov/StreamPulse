@@ -320,12 +320,14 @@
             const details = Object.entries(candidate.details || {}).map(([key, value]) => `${escapeHtml(key)}: ${escapeHtml(value)}`).join(' · ');
             const isCurrentSession = candidate.sessionStartedAt && candidate.sessionStartedAt === currentSessionStartedAtValue;
             const sessionHref = candidate.session
-                ? `/sessions.html?session=${encodeURIComponent(isCurrentSession ? '__current__' : candidate.session)}`
+                ? `/sessions.html?session=${encodeURIComponent(isCurrentSession ? '__current__' : candidate.session)}&ts=${encodeURIComponent(candidate.timestamp)}`
                 : '';
-            const contextLinks = `${sessionHref ? `<a class="btn" href="${escapeHtml(sessionHref)}" target="_blank" rel="noopener">View Chat</a>` : ''}${candidate.vodUrl ? `<a class="btn" href="${escapeHtml(candidate.vodUrl)}" target="_blank" rel="noopener">View VODs</a>` : ''}`;
+            const contextLinks = `${sessionHref ? `<a class="btn" href="${escapeHtml(sessionHref)}" target="_blank" rel="noopener">View Chat</a>` : ''}${candidate.vodUrl ? `<a class="btn" href="${escapeHtml(candidate.vodUrl)}" target="_blank" rel="noopener">${candidate.vodMatched ? 'View VOD' : 'View VODs'}</a>` : ''}`;
             const links = candidate.status === 'created'
                 ? `${candidate.editUrl ? `<a class="btn" href="${escapeHtml(candidate.editUrl)}" target="_blank" rel="noopener">Edit Clip</a>` : ''}<a class="btn" href="${escapeHtml(candidate.viewUrl)}" target="_blank" rel="noopener">View Clip</a><button onclick="copyText('${escapeHtml(candidate.viewUrl)}')">Copy URL</button>`
-                : `<button class="primary" onclick="createClip('${escapeHtml(candidate.id)}')">Create Twitch Clip</button>`;
+                : isCurrentSession
+                    ? `<button class="primary" onclick="createClip('${escapeHtml(candidate.id)}')">Create Twitch Clip</button>`
+                    : '<span class="candidate-meta">Create Clip is available only while this stream is live</span>';
             return `
                 <article class="candidate">
                     <div class="candidate-head">

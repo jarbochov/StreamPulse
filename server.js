@@ -181,6 +181,7 @@ loadHighlights();
 
 let clipCandidates = [];
 let recentChatTimestamps = [];
+let archivedVodCache = { fetchedAt: 0, videos: [] };
 const DEFAULT_CLIP_CANDIDATE_CONFIG = {
     enabled: true,
     chat_spike_messages: 20,
@@ -242,6 +243,48 @@ function currentClipSession() {
         session: chatData.startedAt ? `chat-${localDateTimeStr(chatData.startedAt)}.json` : 'unknown',
         startedAt: chatData.startedAt || null
     };
+}
+
+function parseTwitchDuration(duration) {
+    const match = String(duration || '').match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
+    if (!match) return 0;
+    return ((Number(match[1]) || 0) * 3600 + (Number(match[2]) || 0) * 60 + (Number(match[3]) || 0)) * 1000;
+}
+
+async function getArchivedVods() {
+    if (!BROADCASTER_ID || !(await ensureToken())) return [];
+    if (Date.now() - archivedVodCache.fetchedAt < 60000) return archivedVodCache.videos;
+    try {
+        const result = await twitchApiRequest('/videos', { user_id: BROADCASTER_ID, first: '100', type: 'archive' });
+        if (result.status !== 200 || !Array.isArray(result.body.data)) return [];
+        archivedVodCache = { fetchedAt: Date.now(), videos: result.body.data };
+        return archivedVodCache.videos;
+    } catch (err) {
+        console.warn(`[Clips Beta] Could not load Twitch VODs: ${err.message}`);
+        return [];
+    }
+}
+
+async function resolveCandidateVodUrls(candidates) {
+    const fallback = BROADCASTER_NAME
+        ? `https://www.twitch.tv/${encodeURIComponent(BROADCASTER_NAME)}/videos`
+        : null;
+    const videos = await getArchivedVods();
+    return candidates.map(candidate => {
+        const timestamp = Number(candidate.timestamp);
+        const match = videos.find(video => {
+            const start = Date.parse(video.created_at);
+            const duration = parseTwitchDuration(video.duration);
+            return Number.isFinite(timestamp) && Number.isFinite(start)
+                && timestamp >= start - 15 * 60 * 1000
+                && timestamp <= start + duration + 15 * 60 * 1000;
+        });
+        return {
+            ...candidate,
+            vodUrl: match?.id ? `https://www.twitch.tv/videos/${encodeURIComponent(match.id)}` : fallback,
+            vodMatched: !!match?.id
+        };
+    });
 }
 
 function addClipCandidate(reason, details = {}, timestamp = Date.now(), score = 0.5, sessionOverride = null, sourceKey = null) {
@@ -3609,10 +3652,7 @@ const server = http.createServer(async (req, res) => {
         let result = clipCandidates;
         if (sessionFilter) result = result.filter(candidate => candidate.session === sessionFilter);
         if (statusFilter) result = result.filter(candidate => candidate.status === statusFilter);
-        result = result.map(candidate => ({
-            ...candidate,
-            vodUrl: BROADCASTER_NAME ? `https://www.twitch.tv/${encodeURIComponent(BROADCASTER_NAME)}/videos` : null
-        }));
+        result = await resolveCandidateVodUrls(result);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result.slice().reverse()));
         return;
@@ -3685,6 +3725,11 @@ const server = http.createServer(async (req, res) => {
         }
 
         if (segments[1] === 'create' && req.method === 'POST') {
+            if (!sessionActive || (candidate.sessionStartedAt && candidate.sessionStartedAt !== chatData.startedAt)) {
+                res.writeHead(409, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Twitch clips can only be created from the current live session. Use the matching VOD to create a past-session clip.' }));
+                return;
+            }
             if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET || !BROADCASTER_ID) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Twitch credentials and broadcaster_id are required.' }));

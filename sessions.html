@@ -93,6 +93,26 @@
             .timeline-entry > :last-child { grid-column: 2; }
         }
 
+        async function openChatAtTimestamp(timestamp) {
+            const button = [...document.querySelectorAll('.detail-header-actions button')].find(btn => btn.getAttribute('onclick')?.includes("'chatlog'"));
+            if (!button) return;
+            switchTool('chatlog', button);
+            await loadChatLog(activeSessionFile);
+            const messages = chatLogCache[activeSessionFile] || [];
+            if (!messages.length) return;
+            chatLogRenderLimit = messages.length;
+            renderChatLogMessages(messages);
+            const target = messages.reduce((closest, message) =>
+                Math.abs(Number(message.ts) - timestamp) < Math.abs(Number(closest.ts) - timestamp) ? message : closest
+            );
+            const element = document.querySelector(`[data-message-ts="${CSS.escape(String(target.ts))}"]`);
+            if (element) {
+                element.classList.add('chat-jump-target');
+                element.scrollIntoView({ block: 'center' });
+                setTimeout(() => element.classList.remove('chat-jump-target'), 3000);
+            }
+        }
+
         .empty { color: #484f58; text-align: center; padding: 2rem; font-size: 0.9rem; }
 
         /* Chat log styles */
@@ -118,6 +138,7 @@
         .chat-msg .badge-donation { background: #3fb95030; color: #3fb950; }
         .chat-msg .badge-sub { background: #a371f730; color: #a371f7; }
         .chat-msg .chat-session-tag { font-size: 0.7rem; color: #484f58; margin-top: 0.15rem; }
+        .chat-msg.chat-jump-target { background: #1f6feb30; outline: 1px solid #58a6ff; border-radius: 4px; padding-left: 0.35rem; padding-right: 0.35rem; }
         .chat-msg .chat-text a { color: #58a6ff; text-decoration: underline; }
         .chat-reply-quote { font-size: 0.75rem; color: #6e7681; border-left: 2px solid #30363d; padding-left: 0.5rem; margin-bottom: 0.25rem; overflow: hidden; text-overflow: ellipsis; max-width: 100%; font-style: italic; background: #161b22; padding: 0.2rem 0.5rem; border-radius: 0 4px 4px 0; }
         .chat-msg .pin-btn { background: none; border: none; cursor: pointer; font-size: 0.75rem; padding: 0.1rem 0.2rem; margin-left: 0.3rem; opacity: 0.35; transition: opacity 0.2s; color: #e1e4e8; vertical-align: middle; }
@@ -1067,7 +1088,7 @@
             displayHtml = linkifyText(displayHtml);
         }
 
-        return `<div class="chat-msg">
+        return `<div class="chat-msg" data-message-ts="${m.ts}">
             ${m.avatar ? `<img class="chat-avatar" src="${m.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
             <div class="chat-meta">
                 <div><span class="chat-user" style="color:${userColor(m.user)}">${escapeHtml(m.user)}</span>${badges}<button class="${pinClass}" onclick="togglePin(this)" ${pinData}>${pinStar}</button></div>
@@ -1636,10 +1657,16 @@
 
     loadSessions().then(() => {
         connectLiveSessionSocket();
-        const requested = new URLSearchParams(location.search).get('session');
+        const params = new URLSearchParams(location.search);
+        const requested = params.get('session');
+        const timestamp = Number(params.get('ts'));
         if (!requested) return;
         const item = document.querySelector(`.session-item[data-file="${CSS.escape(requested)}"]`);
-        if (item) loadSession(requested, item);
+        if (item) {
+            loadSession(requested, item).then(() => {
+                if (Number.isFinite(timestamp) && timestamp > 0) openChatAtTimestamp(timestamp);
+            });
+        }
     });
     </script>
 </body>
