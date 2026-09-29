@@ -36,7 +36,7 @@
         .rule-name small { color: #8b949e; font-size: 0.7rem; line-height: 1.35; }
         .rule-toggle { display: grid; gap: 0.35rem; justify-items: start; }
         .control-title { color: #8b949e; font-size: 0.7rem; }
-        .check input[type="checkbox"] { width: 1.2rem; height: 1.2rem; accent-color: #1f6feb; }
+        .check input[type="checkbox"] { flex: 0 0 auto; width: 1.2rem; min-width: 0; height: 1.2rem; accent-color: #1f6feb; }
         .rule-threshold { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(90px, 0.7fr); gap: 0.5rem; align-items: center; }
         .rule-threshold .field { min-width: 0; }
         .rule-threshold .field input { min-width: 0; }
@@ -255,15 +255,26 @@
         for (const key of ['enabled', 'include_subscriptions', 'include_gift_subs', 'include_bits', 'include_donations', 'include_raids']) {
             payload[key] = document.getElementById(key).checked;
         }
-        const res = await fetch('/api/clip-candidates/config', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (!res.ok) { showToast(data.error || 'Could not save settings'); return; }
-        settings = data;
-        showToast('Clip detection settings saved');
+        try {
+            const res = await fetch('/api/clip-candidates/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const responseText = await res.text();
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch {
+                data = { error: responseText || `HTTP ${res.status}` };
+            }
+            if (!res.ok) { showToast(data.error || 'Could not save settings'); return; }
+            settings = data;
+            updateWindowSummary();
+            showToast('Clip detection settings saved');
+        } catch (err) {
+            showToast(`Could not save settings: ${err.message}`);
+        }
     }
 
     async function backfillCandidates() {
@@ -311,7 +322,7 @@
             const sessionHref = candidate.session
                 ? `/sessions.html?session=${encodeURIComponent(isCurrentSession ? '__current__' : candidate.session)}`
                 : '';
-            const contextLinks = `${sessionHref ? `<a class="btn" href="${escapeHtml(sessionHref)}" target="_blank" rel="noopener">View Chat</a>` : ''}${broadcasterName ? `<a class="btn" href="https://www.twitch.tv/${encodeURIComponent(broadcasterName)}/videos" target="_blank" rel="noopener">View VODs</a>` : ''}`;
+            const contextLinks = `${sessionHref ? `<a class="btn" href="${escapeHtml(sessionHref)}" target="_blank" rel="noopener">View Chat</a>` : ''}${candidate.vodUrl ? `<a class="btn" href="${escapeHtml(candidate.vodUrl)}" target="_blank" rel="noopener">View VODs</a>` : ''}`;
             const links = candidate.status === 'created'
                 ? `${candidate.editUrl ? `<a class="btn" href="${escapeHtml(candidate.editUrl)}" target="_blank" rel="noopener">Edit Clip</a>` : ''}<a class="btn" href="${escapeHtml(candidate.viewUrl)}" target="_blank" rel="noopener">View Clip</a><button onclick="copyText('${escapeHtml(candidate.viewUrl)}')">Copy URL</button>`
                 : `<button class="primary" onclick="createClip('${escapeHtml(candidate.id)}')">Create Twitch Clip</button>`;

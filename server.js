@@ -3609,6 +3609,10 @@ const server = http.createServer(async (req, res) => {
         let result = clipCandidates;
         if (sessionFilter) result = result.filter(candidate => candidate.session === sessionFilter);
         if (statusFilter) result = result.filter(candidate => candidate.status === statusFilter);
+        result = result.map(candidate => ({
+            ...candidate,
+            vodUrl: BROADCASTER_NAME ? `https://www.twitch.tv/${encodeURIComponent(BROADCASTER_NAME)}/videos` : null
+        }));
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result.slice().reverse()));
         return;
