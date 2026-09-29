@@ -12,6 +12,15 @@
         .filters, .cards { display: flex; gap: .7rem; flex-wrap: wrap; align-items: end; } label { display: block; color: #8b949e; font-size: .75rem; margin-bottom: .25rem; } input, button { padding: .5rem .65rem; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #e1e4e8; } button { cursor: pointer; background: #21262d; } button:hover, button.active { border-color: #58a6ff; color: #58a6ff; }
         .stat { flex: 1 1 130px; text-align: center; background: #0d1117; border: 1px solid transparent; border-radius: 6px; padding: .7rem; cursor: pointer; } .stat.active { border-color: #58a6ff; background: #1a2332; } .stat strong { display: block; color: #58a6ff; font-size: 1.4rem; } .stat span { color: #8b949e; font-size: .7rem; }
         .table-wrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; } th, td { padding: .6rem; border-bottom: 1px solid #21262d; text-align: left; font-size: .8rem; white-space: nowrap; } th { color: #8b949e; font-size: .7rem; text-transform: uppercase; cursor: pointer; user-select: none; } th.sort-active { color: #58a6ff; } a { color: #58a6ff; }
+        #sessions-table th, #sessions-table td { white-space: normal; vertical-align: top; overflow-wrap: anywhere; }
+        #sessions-table th:nth-child(1), #sessions-table td:nth-child(1) { min-width: 8rem; }
+        #sessions-table th:nth-child(2), #sessions-table td:nth-child(2) { min-width: 12rem; max-width: 18rem; }
+        #sessions-table th:nth-child(3), #sessions-table td:nth-child(3),
+        #sessions-table th:nth-child(4), #sessions-table td:nth-child(4) { min-width: 9rem; }
+        #sessions-table th:nth-child(5), #sessions-table td:nth-child(5) { min-width: 5rem; }
+        #sessions-table th:nth-child(6), #sessions-table td:nth-child(6) { min-width: 12rem; max-width: 20rem; }
+        #sessions-table th:nth-child(7), #sessions-table td:nth-child(7) { min-width: 5rem; }
+        #sessions-table th:nth-child(8), #sessions-table td:nth-child(8) { min-width: 5rem; }
         .chart { width: 100%; height: 260px; background: #0d1117; border-radius: 6px; } svg { width: 100%; height: 100%; } .muted { color: #8b949e; }
     </style>
 </head>
