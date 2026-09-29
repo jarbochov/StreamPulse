@@ -8,7 +8,7 @@
     <style>
         * { box-sizing: border-box; } body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; }
         .header { padding: 1rem 2rem; background: #161b22; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; gap: 1rem; } h1 { font-size: 1.3rem; } h1 span { color: #58a6ff; }
-        .container { max-width: 1280px; margin: auto; padding: 1.5rem 2rem; display: grid; gap: 1rem; } .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.1rem; } h2 { margin: 0 0 1rem; font-size: .85rem; text-transform: uppercase; color: #8b949e; }
+        .container { max-width: 1600px; margin: auto; padding: 1.5rem .75rem; display: grid; gap: 1rem; } .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.1rem; } h2 { margin: 0 0 1rem; font-size: .85rem; text-transform: uppercase; color: #8b949e; }
         .filters, .cards { display: flex; gap: .7rem; flex-wrap: wrap; align-items: end; } label { display: block; color: #8b949e; font-size: .75rem; margin-bottom: .25rem; } input, button { padding: .5rem .65rem; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #e1e4e8; } button { cursor: pointer; background: #21262d; } button:hover, button.active { border-color: #58a6ff; color: #58a6ff; }
         .stat { flex: 1 1 130px; text-align: center; background: #0d1117; border: 1px solid transparent; border-radius: 6px; padding: .7rem; cursor: pointer; } .stat.active { border-color: #58a6ff; background: #1a2332; } .stat strong { display: block; color: #58a6ff; font-size: 1.4rem; } .stat span { color: #8b949e; font-size: .7rem; }
         .table-wrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; } th, td { padding: .6rem; border-bottom: 1px solid #21262d; text-align: left; font-size: .8rem; white-space: nowrap; } th { color: #8b949e; font-size: .7rem; text-transform: uppercase; cursor: pointer; user-select: none; } th.sort-active { color: #58a6ff; } a { color: #58a6ff; }
@@ -58,7 +58,7 @@
         #sessions-table th:nth-child(5), #sessions-table td:nth-child(5) { width: 7%; }
         #sessions-table th:nth-child(6), #sessions-table td:nth-child(6) { width: 15%; }
         #sessions-table th:nth-child(n+7), #sessions-table td:nth-child(n+7) { width: 4.11%; }
-        #sessions-table th:nth-child(n+7) { white-space: normal; overflow-wrap: normal; word-break: normal; }
+        #sessions-table th:nth-child(n+7) { white-space: normal; overflow-wrap: normal; word-break: normal; line-height: 1.15; }
         .chart { width: 100%; height: 260px; background: #0d1117; border-radius: 6px; } svg { width: 100%; height: 100%; } .muted { color: #8b949e; }
     </style>
 </head>
