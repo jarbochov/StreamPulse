@@ -31,9 +31,12 @@
         .check { display: flex; gap: 0.4rem; align-items: center; color: #c9d1d9; font-size: 0.78rem; }
         .window-summary { margin-top: 0.75rem; padding: 0.6rem 0.75rem; border-left: 3px solid #1f6feb; background: #0d1117; color: #c9d1d9; font-size: 0.78rem; }
         .rule-list { display: grid; gap: 0.6rem; }
-        .rule { display: grid; grid-template-columns: minmax(190px, 1fr) minmax(180px, 0.85fr); gap: 0.75rem; align-items: center; padding: 0.7rem; border: 1px solid #30363d; border-radius: 6px; background: #0d1117; }
+        .rule { display: grid; grid-template-columns: minmax(190px, 1fr) minmax(125px, 0.5fr) minmax(180px, 0.85fr); gap: 0.75rem; align-items: center; padding: 0.7rem; border: 1px solid #30363d; border-radius: 6px; background: #0d1117; }
         .rule-name { display: grid; gap: 0.25rem; }
         .rule-name small { color: #8b949e; font-size: 0.7rem; line-height: 1.35; }
+        .rule-toggle { display: grid; gap: 0.35rem; justify-items: start; }
+        .control-title { color: #8b949e; font-size: 0.7rem; }
+        .check input[type="checkbox"] { width: 1.2rem; height: 1.2rem; accent-color: #1f6feb; }
         .rule-threshold { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(90px, 0.7fr); gap: 0.5rem; align-items: center; }
         .rule-threshold .field { min-width: 0; }
         .rule-threshold .field input { min-width: 0; }
@@ -91,8 +94,8 @@
             </div>
 
             <div class="settings-group">
-                <h3>Detection rules</h3>
-                <p class="group-help">Each rule below can add a reviewable candidate. Enable the event types you want, then adjust the matching threshold beside it.</p>
+                <h3>What should create clip candidates?</h3>
+                <p class="group-help">Each row is a possible source of a reviewable candidate. Enable the triggers you want, then adjust the matching threshold beside it.</p>
                 <div class="rule-list">
                     <div class="rule">
                         <div class="rule-name">
@@ -112,23 +115,26 @@
                     </div>
                     <div class="rule">
                         <div class="rule-name">
-                            <label class="check"><input id="include_subscriptions" type="checkbox"> <strong>Subscriptions</strong></label>
+                            <strong>Subscriptions</strong>
                             <small>Adds a candidate when someone subscribes.</small>
                         </div>
+                        <label class="rule-toggle"><span class="control-title">Enable subscriptions</span><span class="check"><input id="include_subscriptions" type="checkbox"> On</span></label>
                         <div class="rule-threshold-empty">No minimum threshold</div>
                     </div>
                     <div class="rule">
                         <div class="rule-name">
-                            <label class="check"><input id="include_gift_subs" type="checkbox"> <strong>Gift subscriptions</strong></label>
+                            <strong>Gift subscriptions</strong>
                             <small>Adds a candidate when gift subscriptions are detected.</small>
                         </div>
+                        <label class="rule-toggle"><span class="control-title">Enable gift subscriptions</span><span class="check"><input id="include_gift_subs" type="checkbox"> On</span></label>
                         <div class="rule-threshold-empty">No minimum threshold</div>
                     </div>
                     <div class="rule">
                         <div class="rule-name">
-                            <label class="check"><input id="include_bits" type="checkbox"> <strong>Bits</strong></label>
+                            <strong>Bits</strong>
                             <small>Adds a candidate when the cheer reaches the minimum.</small>
                         </div>
+                        <label class="rule-toggle"><span class="control-title">Enable Bits</span><span class="check"><input id="include_bits" type="checkbox"> On</span></label>
                         <label class="field">
                             <span>Minimum Bits</span>
                             <input id="minimum_bits" type="number" min="1" placeholder="Example: 1">
@@ -136,9 +142,10 @@
                     </div>
                     <div class="rule">
                         <div class="rule-name">
-                            <label class="check"><input id="include_donations" type="checkbox"> <strong>Donations</strong></label>
+                            <strong>Donations</strong>
                             <small>Adds a candidate when the donation reaches the minimum.</small>
                         </div>
+                        <label class="rule-toggle"><span class="control-title">Enable donations</span><span class="check"><input id="include_donations" type="checkbox"> On</span></label>
                         <label class="field">
                             <span>Minimum amount</span>
                             <input id="minimum_donation" type="number" min="0" step="0.01" placeholder="Example: 0.00">
@@ -146,9 +153,10 @@
                     </div>
                     <div class="rule">
                         <div class="rule-name">
-                            <label class="check"><input id="include_raids" type="checkbox"> <strong>Raids</strong></label>
+                            <strong>Raids</strong>
                             <small>Adds a candidate when the incoming raid reaches the minimum.</small>
                         </div>
+                        <label class="rule-toggle"><span class="control-title">Enable raids</span><span class="check"><input id="include_raids" type="checkbox"> On</span></label>
                         <label class="field">
                             <span>Minimum viewers</span>
                             <input id="minimum_raid_viewers" type="number" min="0" placeholder="Example: 0">
