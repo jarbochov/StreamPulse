@@ -120,7 +120,7 @@ SSN captures live chat messages, subscriptions, follows, raids, bits, and donati
 
 A Twitch app provides subscriber, follower, and bits data via the Twitch API.
 
-Clip creation in **Clips (Beta)** also requires the `clips:edit` permission. If StreamPulse was authorized before clip support was enabled, visit `/auth/twitch` again to refresh the saved token with the new permission.
+Clip creation in **Clips (Beta)** requires `clips:edit` for live clips. VOD clip creation requires broadcaster authorization with `channel:manage:clips` (or editor authorization with `editor:manage:clips`). If StreamPulse was authorized before VOD clipping was enabled, visit `/auth/twitch` again to refresh the saved token with the new permissions.
 
 **Create your app:**
 1. Go to [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) and create a new application

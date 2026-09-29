@@ -150,6 +150,49 @@ function saveBannedHashtags() {
     fs.writeFileSync(BANNED_HASHTAGS_PATH, JSON.stringify([...bannedHashtags], null, 2));
 }
 
+let twitchAuthenticatedUserId = null;
+
+async function getTwitchAuthenticatedUserId() {
+    if (twitchAuthenticatedUserId) return twitchAuthenticatedUserId;
+    const result = await twitchApiRequest('/users');
+    twitchAuthenticatedUserId = result.status === 200 ? result.body.data?.[0]?.id || null : null;
+    return twitchAuthenticatedUserId;
+}
+
+function twitchCreateClipFromVod(editorId, vodId, vodOffset, duration = 30, title = 'StreamPulse highlight') {
+    return new Promise((resolve, reject) => {
+        const clipDuration = Math.min(60, Math.max(5, Math.round(Number(duration) || 30)));
+        const offset = Math.max(clipDuration, Math.round(Number(vodOffset) || 0));
+        const query = new URLSearchParams({
+            editor_id: editorId,
+            broadcaster_id: BROADCASTER_ID,
+            vod_id: vodId,
+            vod_offset: String(offset),
+            duration: String(clipDuration),
+            title: String(title || 'StreamPulse highlight').slice(0, 140)
+        }).toString();
+        const req = https.request(`https://api.twitch.tv/helix/videos/clips?${query}`, {
+            method: 'POST',
+            headers: {
+                'Client-ID': TWITCH_CLIENT_ID,
+                'Authorization': `Bearer ${twitchAccessToken}`,
+            }
+        }, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve({ status: res.statusCode, body: JSON.parse(data || '{}') });
+                } catch {
+                    reject(new Error(`Twitch VOD clip API parse error: ${data.substring(0, 200)}`));
+                }
+            });
+        });
+        req.on('error', reject);
+        req.end();
+    });
+}
+
 // ============================================================================
 // HIGHLIGHTS (Pin/Unpin chat messages)
 // ============================================================================
@@ -310,7 +353,9 @@ async function resolveCandidateVodUrls(candidates) {
         return {
             ...candidate,
             vodUrl,
-            vodMatched: !!match?.id
+            vodMatched: !!match?.id,
+            vodId: match?.id || null,
+            vodOffsetSeconds: match?.id ? Math.max(0, Math.round((timestamp - Date.parse(match.created_at)) / 1000)) : null
         };
     });
 }
@@ -1577,7 +1622,7 @@ if (!fs.existsSync(DATA_DIR)) {
 // TWITCH OAUTH (User Token via Authorization Code Flow)
 // ============================================================================
 
-const TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit';
+const TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips';
 const TWITCH_REDIRECT_URI = `http://localhost:${PORT}/auth/callback`;
 const TOKEN_PATH = path.join(DATA_DIR, '.twitch-token.json');
 
@@ -3785,11 +3830,6 @@ const server = http.createServer(async (req, res) => {
         }
 
         if (segments[1] === 'create' && req.method === 'POST') {
-            if (!sessionActive || (candidate.sessionStartedAt && candidate.sessionStartedAt !== chatData.startedAt)) {
-                res.writeHead(409, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'Twitch clips can only be created from the current live session. Use the matching VOD to create a past-session clip.' }));
-                return;
-            }
             if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET || !BROADCASTER_ID) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Twitch credentials and broadcaster_id are required.' }));
@@ -3802,7 +3842,36 @@ const server = http.createServer(async (req, res) => {
             }
 
             try {
-                const result = await twitchCreateClip();
+                const isLiveCandidate = sessionActive && candidate.sessionStartedAt === chatData.startedAt;
+                let vodCandidate = null;
+                if (!isLiveCandidate) {
+                    vodCandidate = (await resolveCandidateVodUrls([candidate]))[0];
+                    if (!vodCandidate?.vodId) {
+                        res.writeHead(409, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'No matching Twitch VOD was found for this candidate.' }));
+                        return;
+                    }
+                }
+
+                let result;
+                if (isLiveCandidate) {
+                    result = await twitchCreateClip();
+                } else {
+                    const editorId = await getTwitchAuthenticatedUserId();
+                    if (!editorId) {
+                        res.writeHead(401, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'Could not identify the authorized Twitch user for VOD clipping. Re-authorize StreamPulse and try again.' }));
+                        return;
+                    }
+                    const duration = Math.min(30, Math.max(5, vodCandidate.vodOffsetSeconds || 0));
+                    result = await twitchCreateClipFromVod(
+                        editorId,
+                        vodCandidate.vodId,
+                        vodCandidate.vodOffsetSeconds,
+                        duration,
+                        candidate.reason
+                    );
+                }
                 if (result.status !== 202 || !result.body.data?.[0]?.id) {
                     const message = result.body.message || `Twitch clip creation failed (${result.status})`;
                     candidate.status = 'failed';

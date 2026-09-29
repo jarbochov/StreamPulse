@@ -23,13 +23,13 @@ The event trigger section controls subscriptions, gift subs, Bits, donations, an
 
 Select **Rebuild Past Analysis** to scan the current and archived JSONL chat logs with the visible settings. The rebuild removes uncreated automatic candidates and regenerates them using the current thresholds. Manual markers and already-created Twitch clips are preserved.
 
-Each candidate includes a **View Chat** link that opens the matching session, loads its Chat Log, and jumps to the nearest recorded message at the candidate timestamp. Candidates from past sessions cannot use **Create Twitch Clip** because Twitch's Create Clip API only works with the current live broadcast; the page explains this and provides the matching VOD when Twitch can identify it.
+Each candidate includes a **View Chat** link that opens the matching session, loads its Chat Log, and jumps to the nearest recorded message at the candidate timestamp. Past-session candidates can use **Create VOD Clip** when Twitch identifies a matching VOD.
 
 The VOD link uses Twitch's archived-video API to match the candidate timestamp against the VOD's start time and duration. If Twitch cannot find a matching recording, it falls back to the broadcaster's video archive.
 
 ## Creating a Twitch clip
 
-Open **Clips (Beta)**, review a candidate, and select **Create Twitch Clip**. Twitch must be live and StreamPulse must have a user token with the `clips:edit` permission.
+Open **Clips (Beta)**, review a candidate, and select **Create Twitch Clip** for a live candidate or **Create VOD Clip** for a past-session candidate. Live clipping uses `clips:edit`. VOD clipping uses Twitch's open-beta VOD endpoint and requires broadcaster authorization with `channel:manage:clips` (or editor authorization with `editor:manage:clips`).
 
 After a successful request, StreamPulse stores:
 

@@ -406,7 +406,7 @@
                 {
                     method: 'POST', path: '/api/clip-candidates/:id/create',
                     desc: 'Request a Twitch clip',
-                    details: 'Uses the Twitch Create Clip API for the current live broadcast. A successful response stores Twitch’s temporary edit_url and the published clip URL. Requires Twitch authorization with the clips:edit scope.',
+                    details: 'Uses the live Create Clip API for current candidates or Twitch’s open-beta Create Clip From VOD API for past candidates. A successful response stores Twitch’s temporary edit_url and the published clip URL. Requires clips:edit for live clips and channel:manage:clips (or editor:manage:clips) for VOD clips.',
                     body: '(no body)'
                 },
                 {

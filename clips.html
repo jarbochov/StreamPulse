@@ -339,7 +339,9 @@
                 ? `${candidate.editUrl ? `<a class="btn" href="${escapeHtml(candidate.editUrl)}" target="_blank" rel="noopener">Edit Clip</a>` : ''}<a class="btn" href="${escapeHtml(candidate.viewUrl)}" target="_blank" rel="noopener">View Clip</a><button onclick="copyText('${escapeHtml(candidate.viewUrl)}')">Copy URL</button>`
                 : isCurrentSession
                     ? `<button class="primary" onclick="createClip('${escapeHtml(candidate.id)}')">Create Twitch Clip</button>`
-                    : '<span class="candidate-meta">Create Clip is available only while this stream is live</span>';
+                    : candidate.vodMatched
+                        ? `<button class="primary" onclick="createClip('${escapeHtml(candidate.id)}')">Create VOD Clip</button>`
+                        : '<span class="candidate-meta">No matching VOD was found for this candidate</span>';
             return `
                 <article class="candidate">
                     <div class="candidate-head">
@@ -372,7 +374,7 @@
     }
 
     async function createClip(id) {
-        if (!confirm('Ask Twitch to create a clip from the current live broadcast?')) return;
+        if (!confirm('Ask Twitch to create a clip from this candidate?')) return;
         const res = await fetch(`/api/clip-candidates/${encodeURIComponent(id)}/create`, { method: 'POST' });
         const data = await res.json();
         if (!res.ok) { showToast(data.error || 'Clip creation failed'); return; }
