@@ -49,6 +49,16 @@
             max-width: 5rem;
             text-align: center;
         }
+        #sessions-table { table-layout: fixed; min-width: 0; }
+        #sessions-table th, #sessions-table td { min-width: 0; }
+        #sessions-table th:nth-child(1), #sessions-table td:nth-child(1) { width: 10%; }
+        #sessions-table th:nth-child(2), #sessions-table td:nth-child(2) { width: 13%; }
+        #sessions-table th:nth-child(3), #sessions-table td:nth-child(3),
+        #sessions-table th:nth-child(4), #sessions-table td:nth-child(4) { width: 9%; }
+        #sessions-table th:nth-child(5), #sessions-table td:nth-child(5) { width: 7%; }
+        #sessions-table th:nth-child(6), #sessions-table td:nth-child(6) { width: 15%; }
+        #sessions-table th:nth-child(n+7), #sessions-table td:nth-child(n+7) { width: 4.11%; }
+        #sessions-table th:nth-child(n+7) { white-space: normal; overflow-wrap: normal; word-break: normal; }
         .chart { width: 100%; height: 260px; background: #0d1117; border-radius: 6px; } svg { width: 100%; height: 100%; } .muted { color: #8b949e; }
     </style>
 </head>
