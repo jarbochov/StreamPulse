@@ -23,6 +23,8 @@ The event trigger section controls subscriptions, gift subs, Bits, donations, an
 
 Select **Analyze Past Sessions** to scan the current and archived JSONL chat logs with the visible settings. Existing candidates are preserved, and repeated analysis skips candidates it has already recorded.
 
+Each candidate includes a **View Chat** link that opens the matching session in the Sessions page and a **View VODs** link to the broadcaster's Twitch video archive. StreamPulse does not currently persist a Twitch VOD ID in session archives, so the VOD link opens the channel archive rather than guessing a specific recording.
+
 ## Creating a Twitch clip
 
 Open **Clips (Beta)**, review a candidate, and select **Create Twitch Clip**. Twitch must be live and StreamPulse must have a user token with the `clips:edit` permission.

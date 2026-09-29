@@ -55,6 +55,7 @@
         .candidate-title { font-weight: 600; }
         .candidate-meta, .candidate-details { color: #8b949e; font-size: 0.8rem; margin-top: 0.35rem; }
         .candidate-details { color: #c9d1d9; }
+        .candidate-links { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.65rem; }
         .badge { display: inline-block; padding: 0.15rem 0.45rem; border-radius: 999px; font-size: 0.7rem; border: 1px solid #30363d; color: #d29922; }
         .badge.created { color: #3fb950; }
         .badge.failed { color: #f85149; }
@@ -197,6 +198,8 @@
     <script>
     let candidates = [];
     let settings = {};
+    let broadcasterName = '';
+    let currentSessionStartedAtValue = null;
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -226,8 +229,15 @@
     }
 
     async function loadSettings() {
-        const res = await fetch('/api/clip-candidates/config');
-        settings = await res.json();
+        const [settingsRes, configRes] = await Promise.all([
+            fetch('/api/clip-candidates/config'),
+            fetch('/api/config')
+        ]);
+        settings = await settingsRes.json();
+        if (configRes.ok) {
+            const appConfig = await configRes.json();
+            broadcasterName = appConfig.broadcaster_name || '';
+        }
         for (const key of ['chat_spike_messages', 'chat_spike_window_seconds', 'cooldown_seconds', 'minimum_bits', 'minimum_donation', 'minimum_raid_viewers']) {
             document.getElementById(key).value = settings[key];
         }
@@ -268,12 +278,18 @@
     async function loadCandidates() {
         const filter = document.getElementById('session-filter').value;
         try {
-            const res = await fetch('/api/clip-candidates');
+            const [res, statusRes] = await Promise.all([
+                fetch('/api/clip-candidates'),
+                fetch('/api/status', { cache: 'no-store' })
+            ]);
             if (!res.ok) throw new Error('Unable to load candidates');
             candidates = await res.json();
+            if (statusRes.ok) {
+                const status = await statusRes.json();
+                currentSessionStartedAtValue = status.startedAt || null;
+            }
             if (filter === 'current') {
-                const startedAt = await currentSessionStartedAt();
-                candidates = candidates.filter(candidate => candidate.sessionStartedAt === startedAt);
+                candidates = candidates.filter(candidate => candidate.sessionStartedAt === currentSessionStartedAtValue);
             }
             renderCandidates();
         } catch (err) {
@@ -291,6 +307,11 @@
         content.innerHTML = candidates.map(candidate => {
             const badgeClass = candidate.status === 'created' ? 'created' : candidate.status === 'failed' ? 'failed' : '';
             const details = Object.entries(candidate.details || {}).map(([key, value]) => `${escapeHtml(key)}: ${escapeHtml(value)}`).join(' · ');
+            const isCurrentSession = candidate.sessionStartedAt && candidate.sessionStartedAt === currentSessionStartedAtValue;
+            const sessionHref = candidate.session
+                ? `/sessions.html?session=${encodeURIComponent(isCurrentSession ? '__current__' : candidate.session)}`
+                : '';
+            const contextLinks = `${sessionHref ? `<a class="btn" href="${escapeHtml(sessionHref)}" target="_blank" rel="noopener">View Chat</a>` : ''}${broadcasterName ? `<a class="btn" href="https://www.twitch.tv/${encodeURIComponent(broadcasterName)}/videos" target="_blank" rel="noopener">View VODs</a>` : ''}`;
             const links = candidate.status === 'created'
                 ? `${candidate.editUrl ? `<a class="btn" href="${escapeHtml(candidate.editUrl)}" target="_blank" rel="noopener">Edit Clip</a>` : ''}<a class="btn" href="${escapeHtml(candidate.viewUrl)}" target="_blank" rel="noopener">View Clip</a><button onclick="copyText('${escapeHtml(candidate.viewUrl)}')">Copy URL</button>`
                 : `<button class="primary" onclick="createClip('${escapeHtml(candidate.id)}')">Create Twitch Clip</button>`;
@@ -303,6 +324,7 @@
                     <div class="candidate-meta">${escapeHtml(formatTime(candidate.timestamp))} · Score ${Math.round((candidate.score || 0) * 100)}% · ${escapeHtml(candidate.session || 'unknown session')}</div>
                     ${details ? `<div class="candidate-details">${details}</div>` : ''}
                     ${candidate.error ? `<div class="error">${escapeHtml(candidate.error)}</div>` : ''}
+                    <div class="candidate-links">${contextLinks}</div>
                     <div class="actions">${links}<button class="danger" onclick="deleteCandidate('${escapeHtml(candidate.id)}')">Delete</button></div>
                 </article>
             `;
@@ -322,7 +344,7 @@
         input.value = '';
         showToast('Clip marker added');
         loadSettings();
-        loadCandidates();
+        Promise.all([loadSettings(), loadCandidates()]);
     }
 
     async function createClip(id) {
