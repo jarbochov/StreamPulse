@@ -18,7 +18,11 @@
         .notice strong { color: #d29922; }
         .notice small { display: block; color: #8b949e; margin-top: 0.45rem; }
         .settings { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-        .settings h2 { font-size: 0.85rem; color: #e1e4e8; margin-bottom: 0.35rem; }
+        .settings > summary { cursor: pointer; list-style: none; font-size: 0.85rem; font-weight: 600; color: #e1e4e8; }
+        .settings > summary::-webkit-details-marker { display: none; }
+        .settings > summary::after { content: '▾'; float: right; color: #8b949e; }
+        .settings:not([open]) > summary::after { content: '▸'; }
+        .settings-body { margin-top: 0.35rem; }
         .settings-intro, .group-help { color: #8b949e; font-size: 0.78rem; line-height: 1.45; }
         .settings-intro { margin-bottom: 1rem; }
         .settings-group { border-top: 1px solid #30363d; padding-top: 0.9rem; margin-top: 0.9rem; }
@@ -85,8 +89,9 @@
             <small>Twitch returns a temporary editing URL after creation. The published clip URL is saved with the candidate.</small>
             <small id="twitch-auth-status">Checking Twitch clip permissions...</small>
         </div>
-        <section class="settings">
-            <h2>Detection Settings</h2>
+        <details class="settings" open>
+            <summary>Detection Settings</summary>
+            <div class="settings-body">
             <p class="settings-intro">These thresholds decide which live events become reviewable clip candidates. They do not create Twitch clips automatically.</p>
 
             <div class="settings-group">
@@ -190,7 +195,8 @@
                 <button class="primary" onclick="saveSettings()">Save Settings</button>
                 <button onclick="backfillCandidates()">Rebuild Past Analysis</button>
             </div>
-        </section>
+            </div>
+        </details>
         <div class="toolbar">
             <input id="reason" type="text" placeholder="Add a manual marker, e.g. funny moment">
             <button class="primary" onclick="addMarker()">Add Marker</button>
