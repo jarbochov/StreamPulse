@@ -20,7 +20,7 @@
     <main class="container">
         <section class="card"><h2>Review Range</h2><div class="filters"><div><label for="from">From</label><input id="from" type="date"></div><div><label for="to">To</label><input id="to" type="date"></div><button class="range-preset active" data-days="30" onclick="setRange(30)">Last 30 days</button><button class="range-preset" data-days="60" onclick="setRange(60)">Last 60 days</button><button class="range-preset" data-days="90" onclick="setRange(90)">Last 90 days</button><button class="range-preset" data-days="all" onclick="setRange('all')">All time</button><button onclick="load()">Apply</button><button onclick="exportCsv()">Export CSV</button><span id="status" class="muted"></span></div></section>
         <section class="card"><h2>Summary</h2><div class="cards" id="summary"></div></section>
-        <section class="card"><h2 id="activity-title">Messages by Session</h2><div id="chart" class="chart"></div><div class="table-wrap"><table id="sessions-table"><thead><tr><th data-sort="date" onclick="setSessionSort('date')">Date</th><th data-sort="title" onclick="setSessionSort('title')">Session</th><th data-sort="messages" onclick="setSessionSort('messages')">Messages</th><th data-sort="subscribers" onclick="setSessionSort('subscribers')">Subs</th><th data-sort="followers" onclick="setSessionSort('followers')">Followers</th><th data-sort="peakViewers" onclick="setSessionSort('peakViewers')">Peak Viewers</th><th data-sort="averageViewers" onclick="setSessionSort('averageViewers')">Avg Viewers</th></tr></thead><tbody id="sessions"></tbody></table></div></section>
+        <section class="card"><h2 id="activity-title">Messages by Session</h2><div id="chart" class="chart"></div><div class="table-wrap"><table id="sessions-table"><thead><tr><th data-sort="date" onclick="setSessionSort('date')">Date</th><th data-sort="title" onclick="setSessionSort('title')">Stream</th><th data-sort="streamStartAt" onclick="setSessionSort('streamStartAt')">Start</th><th data-sort="streamStopAt" onclick="setSessionSort('streamStopAt')">Stop</th><th data-sort="durationMinutes" onclick="setSessionSort('durationMinutes')">Duration</th><th data-sort="categorySummary" onclick="setSessionSort('categorySummary')">Categories</th><th data-sort="messages" onclick="setSessionSort('messages')">Messages</th><th data-sort="chatters" onclick="setSessionSort('chatters')">Chatters</th><th data-sort="subscribers" onclick="setSessionSort('subscribers')">Subs</th><th data-sort="followers" onclick="setSessionSort('followers')">Followers</th><th data-sort="peakViewers" onclick="setSessionSort('peakViewers')">Peak Viewers</th><th data-sort="averageViewers" onclick="setSessionSort('averageViewers')">Avg Viewers</th></tr></thead><tbody id="sessions"></tbody></table></div></section>
         <section class="card"><h2>Current Subscribers & Observed Duration</h2><div class="table-wrap"><table id="subscribers-table"><thead><tr><th data-sort="name" onclick="setSubscriberSort('name')">Subscriber</th><th data-sort="tier" onclick="setSubscriberSort('tier')">Tier</th><th data-sort="plan" onclick="setSubscriberSort('plan')">Plan</th><th data-sort="firstSeen" onclick="setSubscriberSort('firstSeen')">First Observed</th><th data-sort="lastSeen" onclick="setSubscriberSort('lastSeen')">Last Observed</th><th data-sort="observedDays" onclick="setSubscriberSort('observedDays')">Observed Duration</th></tr></thead><tbody id="subs"></tbody></table></div><p class="muted">Duration is based on when StreamPulse first observed the subscriber, not authoritative Twitch tenure.</p></section>
     </main>
 <script>
@@ -74,7 +74,7 @@ function setRange(days) {
 async function load() {
     const p = query(); report = await (await fetch('/api/analytics?' + p)).json();
     status.textContent = `${report.sessions.length} sessions`; const t = report.totals;
-    summary.innerHTML = [['messages','Messages'],['chatters','Chatters'],['subscribers','Subs'],['giftSubs','Gift Subs'],['followers','Followers'],['bits','Bits'],['donations','Donations'],['peakViewers','Peak Viewers'],['averageViewers','Avg Viewers']].map(([k,l]) => `<div class="stat${selectedMetric === k ? ' active' : ''}" onclick="selectMetric('${k}')"><strong>${fmt(t[k])}</strong><span>${l}</span></div>`).join('');
+    summary.innerHTML = [['durationMinutes','Stream Minutes'],['messages','Messages'],['chatters','Chatters'],['subscribers','Subs'],['giftSubs','Gift Subs'],['followers','Followers'],['bits','Bits'],['donations','Donations'],['peakViewers','Peak Viewers'],['averageViewers','Avg Viewers'],['emotes','Emotes'],['hashtags','Hashtags']].map(([k,l]) => `<div class="stat${selectedMetric === k ? ' active' : ''}" onclick="selectMetric('${k}')"><strong>${fmt(t[k])}</strong><span>${l}</span></div>`).join('');
     renderSessions();
     draw(report.sessions);
     const subData = await (await fetch('/api/subscribers/current')).json();
@@ -84,7 +84,7 @@ async function load() {
 function renderSessions() {
     updateSortHeaders('#sessions-table th[data-sort]', sessionSortKey);
     const rows = sortedRows(report?.sessions || [], sessionSortKey, sessionSortDirection, sessionSortKey === 'date');
-    sessions.innerHTML = rows.map(r => `<tr><td>${esc((r.date || '').slice(0,10))}</td><td><a href="/sessions.html?session=${encodeURIComponent(r.file)}">${esc(r.title || r.file)}</a></td><td>${fmt(r.messages)}</td><td>${fmt(r.subscribers)}</td><td>${fmt(r.followers)}</td><td>${fmt(r.peakViewers)}</td><td>${fmt(r.averageViewers)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No sessions in range</td></tr>';
+    sessions.innerHTML = rows.map(r => `<tr><td>${esc(formatDateTime(r.date))}</td><td><a href="/sessions.html?session=${encodeURIComponent(r.file)}">${esc(r.title || (r.file === '__current__' ? 'Current Session' : r.file))}</a></td><td>${esc(formatDateTime(r.streamStartAt))}</td><td>${esc(formatDateTime(r.streamStopAt) || (r.file === '__current__' && r.streamStartAt ? 'In progress' : 'Not recorded'))}</td><td>${r.durationMinutes === null ? '—' : `${fmt(r.durationMinutes)} min`}</td><td title="${esc(r.categorySummary)}">${esc(r.categorySummary || '—')}</td><td>${fmt(r.messages)}</td><td title="${esc(r.chatterNames)}">${fmt(r.chatters)}</td><td>${fmt(r.subscribers)}</td><td>${fmt(r.followers)}</td><td>${fmt(r.peakViewers)}</td><td>${fmt(r.averageViewers)}</td></tr>`).join('') || '<tr><td colspan="12" class="muted">No sessions in range</td></tr>';
 }
 function renderSubscribers() {
     updateSortHeaders('#subscribers-table th[data-sort]', subscriberSortKey);
@@ -104,14 +104,25 @@ function setSubscriberSort(key) {
 function selectMetric(metric) { selectedMetric = metric; if (report) { load(); } }
 function draw(rows) {
     if (!rows.length) { chart.innerHTML = '<p class="muted">No activity to chart</p>'; return; }
-    const labels = { messages: 'Messages', chatters: 'Chatters', subscribers: 'Subs', giftSubs: 'Gift Subs', followers: 'Followers', bits: 'Bits', donations: 'Donations', peakViewers: 'Peak Viewers', averageViewers: 'Avg Viewers' };
+    const labels = { durationMinutes: 'Stream Minutes', messages: 'Messages', chatters: 'Chatters', subscribers: 'Subs', giftSubs: 'Gift Subs', followers: 'Followers', bits: 'Bits', donations: 'Donations', peakViewers: 'Peak Viewers', averageViewers: 'Avg Viewers', emotes: 'Emotes', hashtags: 'Hashtags' };
     document.getElementById('activity-title').textContent = `${labels[selectedMetric] || 'Activity'} by Session`;
     const w=1000,h=240,max=Math.max(1,...rows.map(r=>Number(r[selectedMetric]) || 0));
     const points=rows.map((r,i)=>({ x: rows.length===1?500:i/(rows.length-1)*980+10, y:h-20-((Number(r[selectedMetric])||0)/max)*(h-40), file:r.file }));
     chart.innerHTML=`<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${labels[selectedMetric]} per session">${points.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="8" fill="#58a6ff" data-session="${esc(p.file)}"></circle>`).join('')}<polyline points="${points.map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="#58a6ff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
     chart.querySelectorAll('circle').forEach(dot => dot.addEventListener('click', () => { window.location.href = `/sessions.html?session=${encodeURIComponent(dot.dataset.session)}`; }));
 }
-function exportCsv() { if (!report) return; const headers=['date','title','messages','chatters','subscribers','followers','giftSubs','bits','donations','currentViewers','peakViewers','averageViewers']; const csv=[headers.join(','),...report.sessions.map(r=>headers.map(k=>`"${String(r[k] ?? '').replaceAll('"','""')}"`).join(','))].join('\r\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff', csv],{type:'text/csv;charset=utf-8'})); a.download='streampulse-analytics.csv'; a.click(); URL.revokeObjectURL(a.href); }
+function formatDateTime(value) { if (!value) return ''; const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); }
+function csvCell(value) { return `"${String(value ?? '').replaceAll('"', '""')}"`; }
+function exportCsv() {
+    if (!report) return;
+    const headers = ['date','streamStartAt','streamStopAt','durationMinutes','title','categorySummary','messages','chatters','chatterNames','emotes','hashtags','subscribers','giftSubs','followers','bits','donations','currentViewers','peakViewers','averageViewers'];
+    const csv = [headers.join(','), ...report.sessions.map(r => headers.map(k => csvCell(r[k])).join(','))].join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'streampulse-analytics.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
 setRange(30);
 </script>
 </body>
