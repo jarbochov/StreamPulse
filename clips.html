@@ -28,9 +28,16 @@
         .field { display: grid; gap: 0.3rem; color: #c9d1d9; font-size: 0.75rem; }
         .field small { color: #8b949e; font-size: 0.7rem; line-height: 1.35; }
         .field input[type="number"] { width: 100%; }
-        .check-grid { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
         .check { display: flex; gap: 0.4rem; align-items: center; color: #c9d1d9; font-size: 0.78rem; }
         .window-summary { margin-top: 0.75rem; padding: 0.6rem 0.75rem; border-left: 3px solid #1f6feb; background: #0d1117; color: #c9d1d9; font-size: 0.78rem; }
+        .rule-list { display: grid; gap: 0.6rem; }
+        .rule { display: grid; grid-template-columns: minmax(190px, 1fr) minmax(180px, 0.85fr); gap: 0.75rem; align-items: center; padding: 0.7rem; border: 1px solid #30363d; border-radius: 6px; background: #0d1117; }
+        .rule-name { display: grid; gap: 0.25rem; }
+        .rule-name small { color: #8b949e; font-size: 0.7rem; line-height: 1.35; }
+        .rule-threshold { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(90px, 0.7fr); gap: 0.5rem; align-items: center; }
+        .rule-threshold .field { min-width: 0; }
+        .rule-threshold .field input { min-width: 0; }
+        .rule-threshold-empty { color: #8b949e; font-size: 0.72rem; }
         .settings-actions { display: flex; gap: 0.5rem; margin-top: 0.85rem; align-items: center; flex-wrap: wrap; }
         .toolbar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; padding: 0.75rem; margin-bottom: 1rem; }
         input, select, button { font: inherit; }
@@ -53,7 +60,12 @@
         .error { color: #f85149; font-size: 0.8rem; margin-top: 0.5rem; }
         .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
         .toast.show { opacity: 1; }
-        @media (max-width: 768px) { .header { flex-direction: column; gap: 0.5rem; } .container { padding: 1rem; } }
+        @media (max-width: 768px) {
+            .header { flex-direction: column; gap: 0.5rem; }
+            .container { padding: 1rem; }
+            .rule { grid-template-columns: 1fr; }
+            .rule-threshold { grid-template-columns: 1fr 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -79,55 +91,81 @@
             </div>
 
             <div class="settings-group">
-                <h3>Chat spike window</h3>
-                <p class="group-help">A chat spike is detected when the required number of messages arrives within the time window. For example, <strong>20 messages in 60 seconds</strong>.</p>
-                <div class="settings-grid">
-                    <label class="field">
-                        <span>Messages required</span>
-                        <input id="chat_spike_messages" type="number" min="2" placeholder="Example: 20">
-                        <small>Higher values only flag busier chat bursts.</small>
-                    </label>
-                    <label class="field">
-                        <span>Time window (seconds)</span>
-                        <input id="chat_spike_window_seconds" type="number" min="10" placeholder="Example: 60">
-                        <small>Longer windows make a spike easier to reach.</small>
-                    </label>
-                    <label class="field">
-                        <span>Cooldown between chat spikes (seconds)</span>
-                        <input id="cooldown_seconds" type="number" min="0" placeholder="Example: 30">
-                        <small>Prevents repeated candidates from one sustained burst.</small>
-                    </label>
+                <h3>Detection rules</h3>
+                <p class="group-help">Each rule below can add a reviewable candidate. Enable the event types you want, then adjust the matching threshold beside it.</p>
+                <div class="rule-list">
+                    <div class="rule">
+                        <div class="rule-name">
+                            <strong>Chat activity spike</strong>
+                            <small>Flags a burst of chat messages.</small>
+                        </div>
+                        <div class="rule-threshold">
+                            <label class="field">
+                                <span>Messages</span>
+                                <input id="chat_spike_messages" type="number" min="2" placeholder="Example: 20">
+                            </label>
+                            <label class="field">
+                                <span>Within seconds</span>
+                                <input id="chat_spike_window_seconds" type="number" min="10" placeholder="Example: 60">
+                            </label>
+                        </div>
+                    </div>
+                    <div class="rule">
+                        <div class="rule-name">
+                            <label class="check"><input id="include_subscriptions" type="checkbox"> <strong>Subscriptions</strong></label>
+                            <small>Adds a candidate when someone subscribes.</small>
+                        </div>
+                        <div class="rule-threshold-empty">No minimum threshold</div>
+                    </div>
+                    <div class="rule">
+                        <div class="rule-name">
+                            <label class="check"><input id="include_gift_subs" type="checkbox"> <strong>Gift subscriptions</strong></label>
+                            <small>Adds a candidate when gift subscriptions are detected.</small>
+                        </div>
+                        <div class="rule-threshold-empty">No minimum threshold</div>
+                    </div>
+                    <div class="rule">
+                        <div class="rule-name">
+                            <label class="check"><input id="include_bits" type="checkbox"> <strong>Bits</strong></label>
+                            <small>Adds a candidate when the cheer reaches the minimum.</small>
+                        </div>
+                        <label class="field">
+                            <span>Minimum Bits</span>
+                            <input id="minimum_bits" type="number" min="1" placeholder="Example: 1">
+                        </label>
+                    </div>
+                    <div class="rule">
+                        <div class="rule-name">
+                            <label class="check"><input id="include_donations" type="checkbox"> <strong>Donations</strong></label>
+                            <small>Adds a candidate when the donation reaches the minimum.</small>
+                        </div>
+                        <label class="field">
+                            <span>Minimum amount</span>
+                            <input id="minimum_donation" type="number" min="0" step="0.01" placeholder="Example: 0.00">
+                        </label>
+                    </div>
+                    <div class="rule">
+                        <div class="rule-name">
+                            <label class="check"><input id="include_raids" type="checkbox"> <strong>Raids</strong></label>
+                            <small>Adds a candidate when the incoming raid reaches the minimum.</small>
+                        </div>
+                        <label class="field">
+                            <span>Minimum viewers</span>
+                            <input id="minimum_raid_viewers" type="number" min="0" placeholder="Example: 0">
+                        </label>
+                    </div>
                 </div>
-                <div class="window-summary" id="window-summary">Default example: 20 chat messages within 60 seconds, with a 30-second cooldown.</div>
+                <div class="window-summary" id="window-summary">Current chat rule: 20 messages within 60 seconds. Default cooldown: 30 seconds.</div>
             </div>
 
             <div class="settings-group">
-                <h3>Event triggers</h3>
-                <p class="group-help">Choose which stream events can create candidates, then set the minimum value for events that have one.</p>
-                <div class="check-grid">
-                    <label class="check"><input id="include_subscriptions" type="checkbox"> Subscriptions</label>
-                    <label class="check"><input id="include_gift_subs" type="checkbox"> Gift subs</label>
-                    <label class="check"><input id="include_bits" type="checkbox"> Bits</label>
-                    <label class="check"><input id="include_donations" type="checkbox"> Donations</label>
-                    <label class="check"><input id="include_raids" type="checkbox"> Raids</label>
-                </div>
-                <div class="settings-grid" style="margin-top: 0.75rem;">
-                    <label class="field">
-                        <span>Minimum Bits</span>
-                        <input id="minimum_bits" type="number" min="1" placeholder="Example: 1">
-                        <small>Use 100 to ignore smaller cheers.</small>
-                    </label>
-                    <label class="field">
-                        <span>Minimum donation amount</span>
-                        <input id="minimum_donation" type="number" min="0" step="0.01" placeholder="Example: 0.00">
-                        <small>Use 0 to include every detected donation.</small>
-                    </label>
-                    <label class="field">
-                        <span>Minimum raid viewers</span>
-                        <input id="minimum_raid_viewers" type="number" min="0" placeholder="Example: 0">
-                        <small>Use 10 to require a raid of at least 10 viewers.</small>
-                    </label>
-                </div>
+                <h3>Candidate spacing</h3>
+                <p class="group-help">The cooldown prevents one sustained chat burst from producing repeated candidates. It does not disable the other detection rules.</p>
+                <label class="field" style="max-width: 280px;">
+                    <span>Chat spike cooldown (seconds)</span>
+                    <input id="cooldown_seconds" type="number" min="0" placeholder="Example: 30">
+                    <small>Use 0 to allow each qualifying chat spike.</small>
+                </label>
             </div>
 
             <div class="settings-actions">
