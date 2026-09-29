@@ -93,26 +93,6 @@
             .timeline-entry > :last-child { grid-column: 2; }
         }
 
-        async function openChatAtTimestamp(timestamp) {
-            const button = [...document.querySelectorAll('.detail-header-actions button')].find(btn => btn.getAttribute('onclick')?.includes("'chatlog'"));
-            if (!button) return;
-            switchTool('chatlog', button);
-            await loadChatLog(activeSessionFile);
-            const messages = chatLogCache[activeSessionFile] || [];
-            if (!messages.length) return;
-            chatLogRenderLimit = messages.length;
-            renderChatLogMessages(messages);
-            const target = messages.reduce((closest, message) =>
-                Math.abs(Number(message.ts) - timestamp) < Math.abs(Number(closest.ts) - timestamp) ? message : closest
-            );
-            const element = document.querySelector(`[data-message-ts="${CSS.escape(String(target.ts))}"]`);
-            if (element) {
-                element.classList.add('chat-jump-target');
-                element.scrollIntoView({ block: 'center' });
-                setTimeout(() => element.classList.remove('chat-jump-target'), 3000);
-            }
-        }
-
         .empty { color: #484f58; text-align: center; padding: 2rem; font-size: 0.9rem; }
 
         /* Chat log styles */
@@ -852,6 +832,26 @@
         }
         if (id === 'highlights') {
             loadHighlightsTab();
+        }
+    }
+
+    async function openChatAtTimestamp(timestamp) {
+        const button = [...document.querySelectorAll('.detail-header-actions button')].find(btn => btn.getAttribute('onclick')?.includes("'chatlog'"));
+        if (!button) return;
+        switchTool('chatlog', button);
+        await loadChatLog(activeSessionFile);
+        const messages = chatLogCache[activeSessionFile] || [];
+        if (!messages.length) return;
+        chatLogRenderLimit = messages.length;
+        renderChatLogMessages(messages);
+        const target = messages.reduce((closest, message) =>
+            Math.abs(Number(message.ts) - timestamp) < Math.abs(Number(closest.ts) - timestamp) ? message : closest
+        );
+        const element = document.querySelector(`[data-message-ts="${CSS.escape(String(target.ts))}"]`);
+        if (element) {
+            element.classList.add('chat-jump-target');
+            element.scrollIntoView({ block: 'center' });
+            setTimeout(() => element.classList.remove('chat-jump-target'), 3000);
         }
     }
 

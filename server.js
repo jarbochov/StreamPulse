@@ -251,6 +251,14 @@ function parseTwitchDuration(duration) {
     return ((Number(match[1]) || 0) * 3600 + (Number(match[2]) || 0) * 60 + (Number(match[3]) || 0)) * 1000;
 }
 
+function formatVodOffset(seconds) {
+    const total = Math.max(0, Math.round(seconds));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const remainder = total % 60;
+    return `${hours ? `${hours}h` : ''}${minutes ? `${minutes}m` : ''}${remainder || (!hours && !minutes) ? `${remainder}s` : ''}`;
+}
+
 async function getArchivedVods() {
     if (!BROADCASTER_ID || !(await ensureToken())) return [];
     if (Date.now() - archivedVodCache.fetchedAt < 60000) return archivedVodCache.videos;
@@ -279,9 +287,12 @@ async function resolveCandidateVodUrls(candidates) {
                 && timestamp >= start - 15 * 60 * 1000
                 && timestamp <= start + duration + 15 * 60 * 1000;
         });
+        const vodUrl = match?.id
+            ? `https://www.twitch.tv/videos/${encodeURIComponent(match.id)}?t=${formatVodOffset((timestamp - Date.parse(match.created_at)) / 1000)}`
+            : fallback;
         return {
             ...candidate,
-            vodUrl: match?.id ? `https://www.twitch.tv/videos/${encodeURIComponent(match.id)}` : fallback,
+            vodUrl,
             vodMatched: !!match?.id
         };
     });
