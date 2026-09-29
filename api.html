@@ -393,6 +393,17 @@
                     body: '{ "reason": "funny moment", "score": 0.9 }'
                 },
                 {
+                    method: 'GET/PUT', path: '/api/clip-candidates/config',
+                    desc: 'Read or update beta detection settings',
+                    details: 'Controls chat-spike thresholds, cooldowns, event toggles, and minimum event amounts. Settings are persisted in config.json and hot-reloaded.',
+                    body: '{ "chat_spike_messages": 20, "chat_spike_window_seconds": 60, "cooldown_seconds": 30 }'
+                },
+                {
+                    method: 'POST', path: '/api/clip-candidates/backfill',
+                    desc: 'Analyze current and archived chat logs',
+                    details: 'Creates reviewable candidates from existing current and archived session chat logs using the current beta detection settings. Existing candidates are preserved and duplicate detections are skipped.'
+                },
+                {
                     method: 'POST', path: '/api/clip-candidates/:id/create',
                     desc: 'Request a Twitch clip',
                     details: 'Uses the Twitch Create Clip API for the current live broadcast. A successful response stores Twitch’s temporary edit_url and the published clip URL. Requires Twitch authorization with the clips:edit scope.',

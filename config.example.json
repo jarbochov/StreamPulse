@@ -58,6 +58,20 @@
     "poll_seconds": 60,
     "retain_samples": 720
   },
+  "clip_candidates": {
+    "enabled": true,
+    "chat_spike_messages": 20,
+    "chat_spike_window_seconds": 60,
+    "cooldown_seconds": 30,
+    "include_subscriptions": true,
+    "include_gift_subs": true,
+    "include_bits": true,
+    "minimum_bits": 1,
+    "include_donations": true,
+    "minimum_donation": 0,
+    "include_raids": true,
+    "minimum_raid_viewers": 0
+  },
   "goals": {
     "enabled": true,
     "rotate_seconds": 8,

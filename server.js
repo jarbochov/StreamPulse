@@ -181,6 +181,44 @@ loadHighlights();
 
 let clipCandidates = [];
 let recentChatTimestamps = [];
+const DEFAULT_CLIP_CANDIDATE_CONFIG = {
+    enabled: true,
+    chat_spike_messages: 20,
+    chat_spike_window_seconds: 60,
+    cooldown_seconds: 30,
+    include_subscriptions: true,
+    include_gift_subs: true,
+    include_bits: true,
+    minimum_bits: 1,
+    include_donations: true,
+    minimum_donation: 0,
+    include_raids: true,
+    minimum_raid_viewers: 0
+};
+
+function normalizeClipCandidateConfig(value) {
+    const input = value && typeof value === 'object' ? value : {};
+    const number = (key, fallback, minimum = 0) => {
+        const parsed = Number(input[key]);
+        return Number.isFinite(parsed) ? Math.max(minimum, Math.round(parsed)) : fallback;
+    };
+    return {
+        enabled: input.enabled !== false,
+        chat_spike_messages: number('chat_spike_messages', DEFAULT_CLIP_CANDIDATE_CONFIG.chat_spike_messages, 2),
+        chat_spike_window_seconds: number('chat_spike_window_seconds', DEFAULT_CLIP_CANDIDATE_CONFIG.chat_spike_window_seconds, 10),
+        cooldown_seconds: number('cooldown_seconds', DEFAULT_CLIP_CANDIDATE_CONFIG.cooldown_seconds, 0),
+        include_subscriptions: input.include_subscriptions !== false,
+        include_gift_subs: input.include_gift_subs !== false,
+        include_bits: input.include_bits !== false,
+        minimum_bits: number('minimum_bits', DEFAULT_CLIP_CANDIDATE_CONFIG.minimum_bits, 1),
+        include_donations: input.include_donations !== false,
+        minimum_donation: number('minimum_donation', DEFAULT_CLIP_CANDIDATE_CONFIG.minimum_donation, 0),
+        include_raids: input.include_raids !== false,
+        minimum_raid_viewers: number('minimum_raid_viewers', DEFAULT_CLIP_CANDIDATE_CONFIG.minimum_raid_viewers, 0)
+    };
+}
+
+let CLIP_CANDIDATE_CONFIG = normalizeClipCandidateConfig(config.clip_candidates);
 
 function loadClipCandidates() {
     try {
@@ -206,17 +244,18 @@ function currentClipSession() {
     };
 }
 
-function addClipCandidate(reason, details = {}, timestamp = Date.now(), score = 0.5) {
-    if (!sessionActive) return null;
-    const duplicateWindow = timestamp - 30000;
+function addClipCandidate(reason, details = {}, timestamp = Date.now(), score = 0.5, sessionOverride = null, sourceKey = null) {
+    if (!sessionActive && !sessionOverride) return null;
+    const sessionStartedAt = sessionOverride?.startedAt || chatData.startedAt;
+    const duplicateWindow = timestamp - (CLIP_CANDIDATE_CONFIG.cooldown_seconds * 1000);
     const duplicate = clipCandidates.some(candidate =>
-        candidate.sessionStartedAt === chatData.startedAt &&
-        candidate.timestamp >= duplicateWindow &&
-        candidate.reason === reason
+        candidate.sessionStartedAt === sessionStartedAt &&
+        (sourceKey && candidate.sourceKey === sourceKey ||
+            candidate.timestamp >= duplicateWindow && candidate.reason === reason)
     );
     if (duplicate) return null;
 
-    const session = currentClipSession();
+    const session = sessionOverride || currentClipSession();
     const candidate = {
         id: `clip-${timestamp}-${Math.random().toString(36).slice(2, 8)}`,
         timestamp,
@@ -225,7 +264,8 @@ function addClipCandidate(reason, details = {}, timestamp = Date.now(), score = 
         details,
         score: Math.round(Math.max(0, Math.min(1, score)) * 100) / 100,
         session: session.session,
-        sessionStartedAt: session.startedAt,
+        sessionStartedAt,
+        sourceKey,
         status: 'candidate',
         clipId: null,
         editUrl: null,
@@ -241,6 +281,104 @@ function addClipCandidate(reason, details = {}, timestamp = Date.now(), score = 
 }
 
 loadClipCandidates();
+
+function backfillClipCandidatesFromEntries(entries, sessionOverride) {
+    if (!Array.isArray(entries) || !sessionOverride?.startedAt) return 0;
+    const ordered = entries
+        .filter(entry => Number.isFinite(Number(entry.ts)))
+        .sort((a, b) => Number(a.ts) - Number(b.ts));
+    const timestamps = [];
+    let created = 0;
+
+    for (const entry of ordered) {
+        const timestamp = Number(entry.ts);
+        timestamps.push(timestamp);
+        while (timestamps.length && timestamp - timestamps[0] > CLIP_CANDIDATE_CONFIG.chat_spike_window_seconds * 1000) {
+            timestamps.shift();
+        }
+
+        if (CLIP_CANDIDATE_CONFIG.enabled && timestamps.length >= CLIP_CANDIDATE_CONFIG.chat_spike_messages) {
+            created += Number(Boolean(addClipCandidate(
+                'chat-spike',
+                { messagesInWindow: timestamps.length, windowSeconds: CLIP_CANDIDATE_CONFIG.chat_spike_window_seconds },
+                timestamp,
+                Math.min(0.95, 0.5 + timestamps.length / 100),
+                sessionOverride,
+                `${sessionOverride.session}:chat-spike:${timestamp}`
+            )));
+        }
+
+        const event = String(entry.event || '').toLowerCase();
+        const user = entry.user || 'unknown';
+        if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_gift_subs &&
+            ['subscription_gift', 'giftpurchase', 'giftredemption'].includes(event)) {
+            created += Number(Boolean(addClipCandidate('gift-sub', { user }, timestamp, 0.65, sessionOverride, `${sessionOverride.session}:gift-sub:${timestamp}`)));
+        } else if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_subscriptions &&
+            ['new_subscriber', 'resub', 'sponsorship'].includes(event)) {
+            created += Number(Boolean(addClipCandidate('subscription', { user, tier: entry.membership || event }, timestamp, 0.6, sessionOverride, `${sessionOverride.session}:subscription:${timestamp}`)));
+        }
+
+        if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_bits &&
+            (event === 'cheer' || String(entry.donation || '').toLowerCase().includes('bit'))) {
+            const amount = parseNumericAmount(entry.donation);
+            if (amount >= CLIP_CANDIDATE_CONFIG.minimum_bits) {
+                created += Number(Boolean(addClipCandidate('bits', { user, amount, label: entry.donation || `${amount} bits` }, timestamp, 0.65, sessionOverride, `${sessionOverride.session}:bits:${timestamp}`)));
+            }
+        }
+
+        if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_donations &&
+            entry.donation && !String(entry.donation).toLowerCase().includes('bit')) {
+            const amount = parseNumericAmount(entry.donation);
+            if (amount >= CLIP_CANDIDATE_CONFIG.minimum_donation) {
+                created += Number(Boolean(addClipCandidate('donation', { user, amount: entry.donation }, timestamp, 0.7, sessionOverride, `${sessionOverride.session}:donation:${timestamp}`)));
+            }
+        }
+
+        if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_raids && event === 'raid') {
+            const viewers = Number((entry.message || '').match(/(\d+)/)?.[1] || 0);
+            if (viewers >= CLIP_CANDIDATE_CONFIG.minimum_raid_viewers) {
+                created += Number(Boolean(addClipCandidate('raid', { user, viewers: viewers || null }, timestamp, 0.8, sessionOverride, `${sessionOverride.session}:raid:${timestamp}`)));
+            }
+        }
+    }
+    return created;
+}
+
+function backfillClipCandidates() {
+    const sessions = [];
+    if (chatData.startedAt && chatLog.length) {
+        sessions.push({
+            session: `chat-${localDateTimeStr(chatData.startedAt)}.json`,
+            startedAt: chatData.startedAt,
+            entries: chatLog
+        });
+    }
+
+    if (fs.existsSync(SESSIONS_DIR)) {
+        for (const file of fs.readdirSync(SESSIONS_DIR).filter(name => name.startsWith('chat-') && name.endsWith('.json'))) {
+            try {
+                const data = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
+                const logName = file.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
+                sessions.push({
+                    session: file,
+                    startedAt: data.startedAt,
+                    entries: readChatLogFile(path.join(SESSIONS_DIR, logName))
+                });
+            } catch (err) {
+                console.warn(`[Clips Beta] Could not analyze ${file}: ${err.message}`);
+            }
+        }
+    }
+
+    let created = 0;
+    for (const session of sessions) {
+        created += backfillClipCandidatesFromEntries(session.entries, {
+            session: session.session,
+            startedAt: session.startedAt
+        });
+    }
+    return { sessions: sessions.length, created };
+}
 
 // ============================================================================
 // WEBHOOKS (Discord)
@@ -2201,6 +2339,10 @@ function applyRuntimeConfig(nextConfig) {
     for (const key of Object.keys(VIEWER_TRACKING_CONFIG)) delete VIEWER_TRACKING_CONFIG[key];
     Object.assign(VIEWER_TRACKING_CONFIG, nextViewerTracking);
 
+    const nextClipCandidates = normalizeClipCandidateConfig(config.clip_candidates);
+    for (const key of Object.keys(CLIP_CANDIDATE_CONFIG)) delete CLIP_CANDIDATE_CONFIG[key];
+    Object.assign(CLIP_CANDIDATE_CONFIG, nextClipCandidates);
+
     if (MUSIC_CONFIG.enabled && !prevMusicEnabled) {
         startMusicPolling();
     } else if (!MUSIC_CONFIG.enabled && prevMusicEnabled) {
@@ -2804,12 +2946,18 @@ function processChatMessage(msg) {
     // Track hourly message volume
     const hour = new Date().toISOString().slice(0, 13); // "YYYY-MM-DDTHH"
     chatData.hourlyMessages[hour] = (chatData.hourlyMessages[hour] || 0) + 1;
-    recentChatTimestamps.push(Date.now());
-    recentChatTimestamps = recentChatTimestamps.filter(ts => Date.now() - ts <= 60000);
-    if (recentChatTimestamps.length >= 20) {
-        addClipCandidate('chat-spike', {
-            messagesLastMinute: recentChatTimestamps.length
-        }, Date.now(), Math.min(0.95, 0.5 + recentChatTimestamps.length / 100));
+    if (CLIP_CANDIDATE_CONFIG.enabled) {
+        recentChatTimestamps.push(Date.now());
+        recentChatTimestamps = recentChatTimestamps.filter(ts =>
+            Date.now() - ts <= CLIP_CANDIDATE_CONFIG.chat_spike_window_seconds * 1000
+        );
+        if (recentChatTimestamps.length >= CLIP_CANDIDATE_CONFIG.chat_spike_messages) {
+            addClipCandidate('chat-spike', {
+                messagesLastMinute: recentChatTimestamps.length
+            }, Date.now(), Math.min(0.95, 0.5 + recentChatTimestamps.length / 100));
+        }
+    } else {
+        recentChatTimestamps = [];
     }
 
     updateStats(chatname, msg);
@@ -2899,14 +3047,18 @@ function processChatMessage(msg) {
                 console.log(`[SSN] Gift Sub: ${gifter}${recipient ? ' → ' + recipient : ''} (event=${msg.event})`);
             }
             fireWebhook('subscribe', { user: gifter, recipient, type: 'gift', message: `${gifter} gifted a sub${recipient ? ' to ' + recipient : ''}!` });
-            addClipCandidate('gift-sub', { user: gifter, recipient }, Date.now(), 0.65);
+            if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_gift_subs) {
+                addClipCandidate('gift-sub', { user: gifter, recipient }, Date.now(), 0.65);
+            }
         } else {
             const alreadySubbed = chatData.subscribers.some(s => s.chatname === chatname);
             if (!alreadySubbed) {
                 chatData.subscribers.push({ chatname, membership: msg.membership || null, subtitle: msg.subtitle || null, chatimg: msg.chatimg, event: msg.event || null });
                 console.log(`[SSN] Sub: ${chatname} - ${msg.membership || msg.event}${msg.subtitle ? ' (' + msg.subtitle + ')' : ''}`);
                 fireWebhook('subscribe', { user: chatname, tier: msg.membership, detail: msg.subtitle, message: `${chatname} subscribed! (${msg.membership || msg.event})` });
-                addClipCandidate('subscription', { user: chatname, tier: msg.membership || msg.event }, Date.now(), 0.6);
+                if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_subscriptions) {
+                    addClipCandidate('subscription', { user: chatname, tier: msg.membership || msg.event }, Date.now(), 0.6);
+                }
             }
         }
     }
@@ -2925,13 +3077,18 @@ function processChatMessage(msg) {
             chatData.bits.push(donation);
             console.log(`[SSN] Bits: ${chatname} - ${label} (${amount} bits)`);
             fireWebhook('bits', { user: chatname, amount: label, message: `${chatname} cheered ${label}` });
-            addClipCandidate('bits', { user: chatname, amount, label }, Date.now(), Math.min(0.95, 0.55 + amount / 1000));
+            if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_bits && amount >= CLIP_CANDIDATE_CONFIG.minimum_bits) {
+                addClipCandidate('bits', { user: chatname, amount, label }, Date.now(), Math.min(0.95, 0.55 + amount / 1000));
+            }
         } else if (msg.hasDonation) {
             const donation = { chatname, amount: msg.hasDonation, amountValue: parseNumericAmount(msg.hasDonation), chatimg: msg.chatimg };
             chatData.donations.push(donation);
             console.log(`[SSN] Donation: ${chatname} - ${msg.hasDonation}`);
             fireWebhook('donation', { user: chatname, amount: msg.hasDonation, message: `${chatname} donated ${msg.hasDonation}` });
-            addClipCandidate('donation', { user: chatname, amount: msg.hasDonation }, Date.now(), 0.7);
+            const donationValue = parseNumericAmount(msg.hasDonation);
+            if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_donations && donationValue >= CLIP_CANDIDATE_CONFIG.minimum_donation) {
+                addClipCandidate('donation', { user: chatname, amount: msg.hasDonation }, Date.now(), 0.7);
+            }
         }
     }
 
@@ -2943,7 +3100,10 @@ function processChatMessage(msg) {
             chatData.raids.push({ chatname, chatimg: msg.chatimg, viewers: viewers ? parseInt(viewers) : null, timestamp: Date.now() });
             console.log(`[SSN] Raid: ${chatname}${viewers ? ` with ${viewers} viewers` : ''}`);
             fireWebhook('raid', { user: chatname, viewers: viewers || '?', message: `${chatname} raided${viewers ? ` with ${viewers} viewers` : ''}!` });
-            addClipCandidate('raid', { user: chatname, viewers: viewers ? parseInt(viewers) : null }, Date.now(), 0.8);
+            const raidViewers = viewers ? parseInt(viewers) : 0;
+            if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_raids && raidViewers >= CLIP_CANDIDATE_CONFIG.minimum_raid_viewers) {
+                addClipCandidate('raid', { user: chatname, viewers: raidViewers || null }, Date.now(), 0.8);
+            }
         }
     }
 
@@ -3469,6 +3629,42 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify(candidate));
         } catch (err) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if (pathname === '/api/clip-candidates/config') {
+        if (req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(normalizeClipCandidateConfig(config.clip_candidates)));
+            return;
+        }
+        if (req.method === 'PUT') {
+            try {
+                const payload = JSON.parse(await readRequestBody(req) || '{}');
+                const settings = normalizeClipCandidateConfig(payload);
+                const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+                current.clip_candidates = settings;
+                fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
+                applyRuntimeConfig(current);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(settings));
+            } catch (err) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+        }
+    }
+
+    if (pathname === '/api/clip-candidates/backfill' && req.method === 'POST') {
+        try {
+            const result = backfillClipCandidates();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'analyzed', ...result }));
+        } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: err.message }));
         }
         return;

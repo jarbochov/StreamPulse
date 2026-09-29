@@ -17,6 +17,13 @@
         .notice { padding: 1rem; color: #c9d1d9; line-height: 1.5; margin-bottom: 1rem; }
         .notice strong { color: #d29922; }
         .notice small { display: block; color: #8b949e; margin-top: 0.45rem; }
+        .settings { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+        .settings h2 { font-size: 0.85rem; color: #8b949e; margin-bottom: 0.75rem; }
+        .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; }
+        .field { display: grid; gap: 0.3rem; color: #8b949e; font-size: 0.75rem; }
+        .field input[type="number"] { width: 100%; }
+        .check { display: flex; gap: 0.4rem; align-items: center; color: #c9d1d9; }
+        .settings-actions { display: flex; gap: 0.5rem; margin-top: 0.85rem; align-items: center; flex-wrap: wrap; }
         .toolbar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; padding: 0.75rem; margin-bottom: 1rem; }
         input, select, button { font: inherit; }
         input, select { padding: 0.5rem 0.65rem; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; }
@@ -53,6 +60,27 @@
             <strong>Beta:</strong> StreamPulse detects possible clip moments but does not create clips automatically. Review a candidate and create the Twitch clip manually while live.
             <small>Twitch returns a temporary editing URL after creation. The published clip URL is saved with the candidate.</small>
         </div>
+        <section class="settings">
+            <h2>Detection Settings</h2>
+            <div class="settings-grid">
+                <label class="field"><span>Chat messages in spike window</span><input id="chat_spike_messages" type="number" min="2"></label>
+                <label class="field"><span>Spike window (seconds)</span><input id="chat_spike_window_seconds" type="number" min="10"></label>
+                <label class="field"><span>Same-type cooldown (seconds)</span><input id="cooldown_seconds" type="number" min="0"></label>
+                <label class="field"><span>Minimum Bits</span><input id="minimum_bits" type="number" min="1"></label>
+                <label class="field"><span>Minimum donation amount</span><input id="minimum_donation" type="number" min="0" step="0.01"></label>
+                <label class="field"><span>Minimum raid viewers</span><input id="minimum_raid_viewers" type="number" min="0"></label>
+            </div>
+            <div class="settings-actions">
+                <label class="check"><input id="enabled" type="checkbox"> Enable automatic candidates</label>
+                <label class="check"><input id="include_subscriptions" type="checkbox"> Subs</label>
+                <label class="check"><input id="include_gift_subs" type="checkbox"> Gift subs</label>
+                <label class="check"><input id="include_bits" type="checkbox"> Bits</label>
+                <label class="check"><input id="include_donations" type="checkbox"> Donations</label>
+                <label class="check"><input id="include_raids" type="checkbox"> Raids</label>
+                <button class="primary" onclick="saveSettings()">Save Settings</button>
+                <button onclick="backfillCandidates()">Analyze Past Sessions</button>
+            </div>
+        </section>
         <div class="toolbar">
             <input id="reason" type="text" placeholder="Add a manual marker, e.g. funny moment">
             <button class="primary" onclick="addMarker()">Add Marker</button>
@@ -68,6 +96,7 @@
 
     <script>
     let candidates = [];
+    let settings = {};
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -86,6 +115,45 @@
 
     function currentSessionStartedAt() {
         return fetch('/api/status', { cache: 'no-store' }).then(res => res.json()).then(data => data.startedAt);
+    }
+
+    async function loadSettings() {
+        const res = await fetch('/api/clip-candidates/config');
+        settings = await res.json();
+        for (const key of ['chat_spike_messages', 'chat_spike_window_seconds', 'cooldown_seconds', 'minimum_bits', 'minimum_donation', 'minimum_raid_viewers']) {
+            document.getElementById(key).value = settings[key];
+        }
+        for (const key of ['enabled', 'include_subscriptions', 'include_gift_subs', 'include_bits', 'include_donations', 'include_raids']) {
+            document.getElementById(key).checked = settings[key];
+        }
+    }
+
+    async function saveSettings() {
+        const payload = {};
+        for (const key of ['chat_spike_messages', 'chat_spike_window_seconds', 'cooldown_seconds', 'minimum_bits', 'minimum_donation', 'minimum_raid_viewers']) {
+            payload[key] = Number(document.getElementById(key).value);
+        }
+        for (const key of ['enabled', 'include_subscriptions', 'include_gift_subs', 'include_bits', 'include_donations', 'include_raids']) {
+            payload[key] = document.getElementById(key).checked;
+        }
+        const res = await fetch('/api/clip-candidates/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Could not save settings'); return; }
+        settings = data;
+        showToast('Clip detection settings saved');
+    }
+
+    async function backfillCandidates() {
+        if (!confirm('Analyze current and archived chat logs using the visible settings? Existing candidates will be kept.')) return;
+        const res = await fetch('/api/clip-candidates/backfill', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Historical analysis failed'); return; }
+        showToast(`Analyzed ${data.sessions} sessions; added ${data.created} candidates`);
+        loadCandidates();
     }
 
     async function loadCandidates() {
@@ -107,7 +175,7 @@
     function renderCandidates() {
         const content = document.getElementById('content');
         if (!candidates.length) {
-            content.innerHTML = '<div class="empty">No clip candidates yet. StreamPulse will add candidates when it sees notable events or chat spikes.</div>';
+            content.innerHTML = '<div class="empty">No clip candidates yet. Adjust the thresholds above or select Analyze Past Sessions to scan existing chat logs.</div>';
             return;
         }
 
@@ -144,6 +212,7 @@
         if (!res.ok) { showToast(data.error || 'Could not add marker'); return; }
         input.value = '';
         showToast('Clip marker added');
+        loadSettings();
         loadCandidates();
     }
 

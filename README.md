@@ -237,6 +237,7 @@ All other settings can be edited live via the [Config Editor](http://localhost:3
 | `viewer_tracking.enabled` | boolean | `true` | Enable current viewer polling and session sampling |
 | `viewer_tracking.poll_seconds` | number | `60` | How often to sample current viewers |
 | `viewer_tracking.retain_samples` | number | `720` | Max session viewer samples to keep |
+| `clip_candidates` | object | enabled | Beta candidate detection thresholds and event toggles |
 
 ### Goals Configuration
 
@@ -349,6 +350,8 @@ The goal overlay fills the browser-source viewport at 100% width and height. Typ
 | `GET /api/backup` | Download full data backup (ZIP) |
 | `GET /api/clip-candidates` | List beta clip candidates |
 | `POST /api/clip-candidates` | Add a beta clip marker |
+| `GET/PUT /api/clip-candidates/config` | Read or update beta detection thresholds |
+| `POST /api/clip-candidates/backfill` | Analyze current and archived chat logs |
 | `POST /api/clip-candidates/:id/create` | Request a Twitch clip |
 | `DELETE /api/clip-candidates/:id` | Delete a beta clip candidate |
 | `GET /auth/twitch` | Start Twitch OAuth flow |
