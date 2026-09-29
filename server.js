@@ -2968,9 +2968,10 @@ function buildChatPdfHtml(title, subtitle, messages) {
             }
         }
 
+        const session = m.session && m.session !== 'current' ? `<span class="badge">${escHtml(m.session)}</span>` : '';
         return `<div class="msg">
             <div class="content-col">
-                <div class="name-row"><span class="user" style="color:${userColor(m.user)}">${escHtml(m.user)}</span>${badges}<span class="time">${formatTime(m.ts)}</span></div>
+                <div class="name-row"><span class="user" style="color:${userColor(m.user)}">${escHtml(m.user)}</span>${badges}${session}<span class="time">${formatTime(m.ts)}</span></div>
                 ${replyHtml}
                 <div class="text">${display}</div>
             </div>
@@ -4267,9 +4268,12 @@ const server = http.createServer(async (req, res) => {
         let messages = [];
         let sessionLabel = session;
         let streamInfo = [];
+        const addSessionMessages = (entries, sourceSession) => {
+            messages.push(...entries.map(entry => ({ ...entry, session: sourceSession })));
+        };
         if (session === 'all') {
             // Global search export: current + all archived sessions
-            messages = [...chatLog];
+            addSessionMessages(chatLog, 'current');
             sessionLabel = 'all-sessions';
             streamInfo = chatData.streamInfo || [];
             if (fs.existsSync(SESSIONS_DIR)) {
@@ -4277,18 +4281,19 @@ const server = http.createServer(async (req, res) => {
                     .filter(f => f.startsWith('chatlog-') && f.endsWith('.jsonl'))
                     .sort();
                 for (const logFile of logFiles) {
-                    messages.push(...readChatLogFile(path.join(SESSIONS_DIR, logFile)));
+                    const sourceSession = logFile.replace('chatlog-', 'chat-').replace('.jsonl', '.json');
+                    addSessionMessages(readChatLogFile(path.join(SESSIONS_DIR, logFile)), sourceSession);
                 }
             }
         } else if (session === 'current') {
-            messages = chatLog;
+            addSessionMessages(chatLog, 'current');
             sessionLabel = 'current-session';
             streamInfo = chatData.streamInfo || [];
         } else {
             const logName = session.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
             const logFile = path.join(SESSIONS_DIR, logName);
             if (logFile.startsWith(SESSIONS_DIR) && fs.existsSync(logFile)) {
-                messages = readChatLogFile(logFile);
+                addSessionMessages(readChatLogFile(logFile), session);
             }
             // Load stream info from session JSON
             const sessionFile = path.join(SESSIONS_DIR, session);
@@ -4338,12 +4343,12 @@ const server = http.createServer(async (req, res) => {
                     return `# ${prefix}: ${si.title}${si.category ? ` [${si.category}]` : ''}`;
                 }).join('\n') + '\n';
             }
-            const header = 'Timestamp\tUser\tMessage\tEvent\tDonation\tMembership';
+            const header = 'Timestamp\tSession\tUser\tMessage\tEvent\tDonation\tMembership';
             const rows = messages.map(m => {
                 let msg = m.message.replace(/\t/g, ' ');
                 const replyMatch = msg.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
                 if (replyMatch) msg = `↩ ${replyMatch[1].substring(0, 80)} | ${replyMatch[3]}`;
-                return `${formatTime(m.ts)}\t${m.user}\t${msg}\t${m.event || ''}\t${m.donation || ''}\t${m.membership || ''}`;
+                return `${formatTime(m.ts)}\t${m.session || ''}\t${m.user}\t${msg}\t${m.event || ''}\t${m.donation || ''}\t${m.membership || ''}`;
             });
             const content = preamble + header + '\n' + rows.join('\n');
             res.writeHead(200, {
@@ -4362,7 +4367,7 @@ const server = http.createServer(async (req, res) => {
                 if (replyMatch) {
                     msg = `↩ ${replyMatch[1].substring(0, 80)} | ${replyMatch[3]}`;
                 }
-                let line = `[${formatTime(m.ts)}] ${m.user}: ${msg}`;
+                let line = `[${formatTime(m.ts)}] [${m.session || 'unknown'}] ${m.user}: ${msg}`;
                 if (m.event) line += ` [${m.event}]`;
                 if (m.donation) line += ` [${m.donation}]`;
                 return line;
