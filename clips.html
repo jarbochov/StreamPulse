@@ -20,7 +20,7 @@
         .settings { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
         .settings > summary { cursor: pointer; list-style: none; font-size: 0.85rem; font-weight: 600; color: #e1e4e8; }
         .settings > summary::-webkit-details-marker { display: none; }
-        .settings > summary::after { content: '▾'; float: right; color: #8b949e; }
+        .settings > summary::after { content: '▾'; float: right; color: #8b949e; font-size: 1.35rem; line-height: 0.8; }
         .settings:not([open]) > summary::after { content: '▸'; }
         .settings-body { margin-top: 0.35rem; }
         .settings-intro, .group-help { color: #8b949e; font-size: 0.78rem; line-height: 1.45; }
@@ -216,6 +216,23 @@
     let settings = {};
     let broadcasterName = '';
     let currentSessionStartedAtValue = null;
+    const detectionSettings = document.querySelector('.settings');
+    const detectionSettingsStateKey = 'streampulse.clips.detection-settings-open';
+
+    try {
+        const savedOpenState = localStorage.getItem(detectionSettingsStateKey);
+        if (savedOpenState !== null) detectionSettings.open = savedOpenState === 'true';
+    } catch {
+        // Ignore unavailable browser storage and retain the default open state.
+    }
+
+    detectionSettings.addEventListener('toggle', () => {
+        try {
+            localStorage.setItem(detectionSettingsStateKey, String(detectionSettings.open));
+        } catch {
+            // Ignore unavailable browser storage.
+        }
+    });
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
