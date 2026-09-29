@@ -2447,6 +2447,23 @@ function localDateTimeStr(isoStr) {
     return `${y}-${mo}-${day}T${h}-${mi}`;
 }
 
+function formatSessionDisplayName(sessionName) {
+    if (!sessionName || sessionName === 'current') return 'Current Session';
+    const match = String(sessionName).match(/^chat-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})\.json$/);
+    if (!match) return sessionName;
+    const [, year, month, day, hour, minute] = match;
+    const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+    return Number.isNaN(date.getTime())
+        ? sessionName
+        : date.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+}
+
 function getSessionStreamTimes(data, chatEntries = []) {
     const samples = Array.isArray(data?.viewerStats?.samples) ? data.viewerStats.samples : [];
     const liveSamples = samples.filter(sample => sample.live && sample.ts);
@@ -2968,10 +2985,9 @@ function buildChatPdfHtml(title, subtitle, messages) {
             }
         }
 
-        const session = m.session && m.session !== 'current' ? `<span class="badge">${escHtml(m.session)}</span>` : '';
         return `<div class="msg">
             <div class="content-col">
-                <div class="name-row"><span class="user" style="color:${userColor(m.user)}">${escHtml(m.user)}</span>${badges}${session}<span class="time">${formatTime(m.ts)}</span></div>
+                <div class="name-row"><span class="user" style="color:${userColor(m.user)}">${escHtml(m.user)}</span>${badges}<span class="time">${escHtml(formatSessionDisplayName(m.session))} · ${formatTime(m.ts)}</span></div>
                 ${replyHtml}
                 <div class="text">${display}</div>
             </div>
@@ -4348,7 +4364,7 @@ const server = http.createServer(async (req, res) => {
                 let msg = m.message.replace(/\t/g, ' ');
                 const replyMatch = msg.match(/^(.+?):\s\s@(\S+)\s(.+)$/s);
                 if (replyMatch) msg = `↩ ${replyMatch[1].substring(0, 80)} | ${replyMatch[3]}`;
-                return `${formatTime(m.ts)}\t${m.session || ''}\t${m.user}\t${msg}\t${m.event || ''}\t${m.donation || ''}\t${m.membership || ''}`;
+                return `${formatTime(m.ts)}\t${formatSessionDisplayName(m.session)}\t${m.user}\t${msg}\t${m.event || ''}\t${m.donation || ''}\t${m.membership || ''}`;
             });
             const content = preamble + header + '\n' + rows.join('\n');
             res.writeHead(200, {
@@ -4367,7 +4383,7 @@ const server = http.createServer(async (req, res) => {
                 if (replyMatch) {
                     msg = `↩ ${replyMatch[1].substring(0, 80)} | ${replyMatch[3]}`;
                 }
-                let line = `[${formatTime(m.ts)}] [${m.session || 'unknown'}] ${m.user}: ${msg}`;
+                let line = `[${formatTime(m.ts)}] [${formatSessionDisplayName(m.session)}] ${m.user}: ${msg}`;
                 if (m.event) line += ` [${m.event}]`;
                 if (m.donation) line += ` [${m.donation}]`;
                 return line;
