@@ -3515,6 +3515,7 @@ const server = http.createServer(async (req, res) => {
                 giftSubs: (data.giftSubs || []).reduce((sum, item) => sum + Math.max(1, Number(item.count) || 1), 0),
                 bits: (data.bits || []).reduce((sum, item) => sum + (Number(item.bits) || parseNumericAmount(item.amount)), 0),
                 donations: (data.donations || []).reduce((sum, item) => sum + parseNumericAmount(item.amountValue ?? item.amount), 0),
+                raids: (data.raids || []).length,
                 currentViewers: viewers.current || 0,
                 peakViewers: viewers.peak || 0,
                 averageViewers: viewers.average || 0
@@ -3523,7 +3524,7 @@ const server = http.createServer(async (req, res) => {
         const totals = rows.reduce((sum, row) => {
             for (const key of Object.keys(sum)) sum[key] += Number(row[key]) || 0;
             return sum;
-        }, { messages: 0, chatters: 0, emotes: 0, hashtags: 0, subscribers: 0, followers: 0, giftSubs: 0, bits: 0, donations: 0, peakViewers: 0, averageViewers: 0, durationMinutes: 0 });
+        }, { messages: 0, chatters: 0, emotes: 0, hashtags: 0, subscribers: 0, followers: 0, giftSubs: 0, bits: 0, donations: 0, raids: 0, peakViewers: 0, averageViewers: 0, durationMinutes: 0 });
         totals.peakViewers = rows.reduce((max, row) => Math.max(max, Number(row.peakViewers) || 0), 0);
         totals.averageViewers = rows.length
             ? Number((rows.reduce((sum, row) => sum + (Number(row.averageViewers) || 0), 0) / rows.length).toFixed(1))
