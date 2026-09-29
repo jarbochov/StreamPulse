@@ -375,6 +375,37 @@
             ]
         },
         {
+            section: 'Clips (Beta)',
+            items: [
+                {
+                    method: 'GET', path: '/api/clip-candidates',
+                    desc: 'List detected and manual clip candidates',
+                    details: 'Returns clip candidates in newest-first order. Supports optional session and status filters.',
+                    params: [
+                        { name: 'session', desc: 'Filter by session filename', values: 'session filename', default: '— (all)' },
+                        { name: 'status', desc: 'Filter by candidate status', values: 'candidate, created, failed', default: '— (all)' }
+                    ]
+                },
+                {
+                    method: 'POST', path: '/api/clip-candidates',
+                    desc: 'Add a manual clip marker',
+                    details: 'Adds a candidate to the active session. Body: { reason, details, timestamp, score }. This beta feature records candidates but does not create Twitch clips automatically.',
+                    body: '{ "reason": "funny moment", "score": 0.9 }'
+                },
+                {
+                    method: 'POST', path: '/api/clip-candidates/:id/create',
+                    desc: 'Request a Twitch clip',
+                    details: 'Uses the Twitch Create Clip API for the current live broadcast. A successful response stores Twitch’s temporary edit_url and the published clip URL. Requires Twitch authorization with the clips:edit scope.',
+                    body: '(no body)'
+                },
+                {
+                    method: 'DELETE', path: '/api/clip-candidates/:id',
+                    desc: 'Delete a clip candidate',
+                    details: 'Removes a detected or manual clip candidate without affecting Twitch clips that were already created.'
+                }
+            ]
+        },
+        {
             section: 'Webhooks',
             items: [
                 {

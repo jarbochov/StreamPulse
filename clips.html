@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Clips (Beta)</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #d29922; }
+        .nav { display: flex; gap: 0.75rem; align-items: center; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 1.5rem 2rem; }
+        .notice, .toolbar, .candidate { background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
+        .notice { padding: 1rem; color: #c9d1d9; line-height: 1.5; margin-bottom: 1rem; }
+        .notice strong { color: #d29922; }
+        .notice small { display: block; color: #8b949e; margin-top: 0.45rem; }
+        .toolbar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; padding: 0.75rem; margin-bottom: 1rem; }
+        input, select, button { font: inherit; }
+        input, select { padding: 0.5rem 0.65rem; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; }
+        input { flex: 1; min-width: 180px; }
+        button, .btn { padding: 0.5rem 0.75rem; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #e1e4e8; cursor: pointer; text-decoration: none; font-size: 0.8rem; }
+        button:hover, .btn:hover { border-color: #58a6ff; background: #1a2332; }
+        button.primary { border-color: #1f6feb; background: #1a2332; }
+        button.danger { color: #f85149; }
+        .candidate { padding: 1rem; margin-bottom: 0.75rem; }
+        .candidate-head { display: flex; gap: 0.75rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+        .candidate-title { font-weight: 600; }
+        .candidate-meta, .candidate-details { color: #8b949e; font-size: 0.8rem; margin-top: 0.35rem; }
+        .candidate-details { color: #c9d1d9; }
+        .badge { display: inline-block; padding: 0.15rem 0.45rem; border-radius: 999px; font-size: 0.7rem; border: 1px solid #30363d; color: #d29922; }
+        .badge.created { color: #3fb950; }
+        .badge.failed { color: #f85149; }
+        .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.75rem; }
+        .empty, .loading { color: #8b949e; text-align: center; padding: 2.5rem 1rem; }
+        .error { color: #f85149; font-size: 0.8rem; margin-top: 0.5rem; }
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+        .toast.show { opacity: 1; }
+        @media (max-width: 768px) { .header { flex-direction: column; gap: 0.5rem; } .container { padding: 1rem; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>StreamPulse <span>Clips (Beta)</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <main class="container">
+        <div class="notice">
+            <strong>Beta:</strong> StreamPulse detects possible clip moments but does not create clips automatically. Review a candidate and create the Twitch clip manually while live.
+            <small>Twitch returns a temporary editing URL after creation. The published clip URL is saved with the candidate.</small>
+        </div>
+        <div class="toolbar">
+            <input id="reason" type="text" placeholder="Add a manual marker, e.g. funny moment">
+            <button class="primary" onclick="addMarker()">Add Marker</button>
+            <select id="session-filter" onchange="loadCandidates()">
+                <option value="">All sessions</option>
+                <option value="current">Current session</option>
+            </select>
+            <button onclick="loadCandidates()">Refresh</button>
+        </div>
+        <div id="content"><div class="loading">Loading clip candidates...</div></div>
+    </main>
+    <div class="toast" id="toast"></div>
+
+    <script>
+    let candidates = [];
+
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function showToast(message) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    function formatTime(timestamp) {
+        return timestamp ? new Date(timestamp).toLocaleString() : 'Unknown time';
+    }
+
+    function currentSessionStartedAt() {
+        return fetch('/api/status', { cache: 'no-store' }).then(res => res.json()).then(data => data.startedAt);
+    }
+
+    async function loadCandidates() {
+        const filter = document.getElementById('session-filter').value;
+        try {
+            const res = await fetch('/api/clip-candidates');
+            if (!res.ok) throw new Error('Unable to load candidates');
+            candidates = await res.json();
+            if (filter === 'current') {
+                const startedAt = await currentSessionStartedAt();
+                candidates = candidates.filter(candidate => candidate.sessionStartedAt === startedAt);
+            }
+            renderCandidates();
+        } catch (err) {
+            document.getElementById('content').innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    function renderCandidates() {
+        const content = document.getElementById('content');
+        if (!candidates.length) {
+            content.innerHTML = '<div class="empty">No clip candidates yet. StreamPulse will add candidates when it sees notable events or chat spikes.</div>';
+            return;
+        }
+
+        content.innerHTML = candidates.map(candidate => {
+            const badgeClass = candidate.status === 'created' ? 'created' : candidate.status === 'failed' ? 'failed' : '';
+            const details = Object.entries(candidate.details || {}).map(([key, value]) => `${escapeHtml(key)}: ${escapeHtml(value)}`).join(' · ');
+            const links = candidate.status === 'created'
+                ? `${candidate.editUrl ? `<a class="btn" href="${escapeHtml(candidate.editUrl)}" target="_blank" rel="noopener">Edit Clip</a>` : ''}<a class="btn" href="${escapeHtml(candidate.viewUrl)}" target="_blank" rel="noopener">View Clip</a><button onclick="copyText('${escapeHtml(candidate.viewUrl)}')">Copy URL</button>`
+                : `<button class="primary" onclick="createClip('${escapeHtml(candidate.id)}')">Create Twitch Clip</button>`;
+            return `
+                <article class="candidate">
+                    <div class="candidate-head">
+                        <div class="candidate-title">${escapeHtml(candidate.reason)}</div>
+                        <span class="badge ${badgeClass}">${escapeHtml(candidate.status)}</span>
+                    </div>
+                    <div class="candidate-meta">${escapeHtml(formatTime(candidate.timestamp))} · Score ${Math.round((candidate.score || 0) * 100)}% · ${escapeHtml(candidate.session || 'unknown session')}</div>
+                    ${details ? `<div class="candidate-details">${details}</div>` : ''}
+                    ${candidate.error ? `<div class="error">${escapeHtml(candidate.error)}</div>` : ''}
+                    <div class="actions">${links}<button class="danger" onclick="deleteCandidate('${escapeHtml(candidate.id)}')">Delete</button></div>
+                </article>
+            `;
+        }).join('');
+    }
+
+    async function addMarker() {
+        const input = document.getElementById('reason');
+        const reason = input.value.trim() || 'manual-marker';
+        const res = await fetch('/api/clip-candidates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason, score: 0.9 })
+        });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Could not add marker'); return; }
+        input.value = '';
+        showToast('Clip marker added');
+        loadCandidates();
+    }
+
+    async function createClip(id) {
+        if (!confirm('Ask Twitch to create a clip from the current live broadcast?')) return;
+        const res = await fetch(`/api/clip-candidates/${encodeURIComponent(id)}/create`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Clip creation failed'); return; }
+        showToast('Twitch clip requested');
+        loadCandidates();
+    }
+
+    async function deleteCandidate(id) {
+        if (!confirm('Delete this clip candidate?')) return;
+        await fetch(`/api/clip-candidates/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        loadCandidates();
+    }
+
+    async function copyText(text) {
+        await navigator.clipboard.writeText(text);
+        showToast('Clip URL copied');
+    }
+
+    loadCandidates();
+    </script>
+</body>
+</html>

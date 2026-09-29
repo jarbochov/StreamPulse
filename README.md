@@ -88,6 +88,7 @@ Add **Browser Sources** in OBS with these URLs:
 - Dashboard: `http://localhost:3000/dashboard.html`
 - Sessions: `http://localhost:3000/sessions.html`
 - Highlights: `http://localhost:3000/highlights.html`
+- Clips (Beta): `http://localhost:3000/clips.html`
 - Goals: `http://localhost:3000/goals-editor.html`
 - Config: `http://localhost:3000/config-editor.html`
 - Credits: `http://localhost:3000/credits-editor.html`
@@ -119,6 +120,8 @@ SSN captures live chat messages, subscriptions, follows, raids, bits, and donati
 
 A Twitch app provides subscriber, follower, and bits data via the Twitch API.
 
+Clip creation in **Clips (Beta)** also requires the `clips:edit` permission. If StreamPulse was authorized before clip support was enabled, visit `/auth/twitch` again to refresh the saved token with the new permission.
+
 **Create your app:**
 1. Go to [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) and create a new application
 2. Set the **OAuth Redirect URL** to `http://localhost:3000/auth/callback`
@@ -138,6 +141,7 @@ A Twitch app provides subscriber, follower, and bits data via the Twitch API.
 - **Live Stats Overlay** — Persistent top chatters, emotes, and hashtags across sessions
 - **Session History** — Browse archived sessions with full chat logs, searchable with boolean operators (`AND`, `OR`, `"exact phrase"`, `user:name`)
 - **Highlights** — Pin notable chat messages and export them per session
+- **Clip Candidates (Beta)** — Detect notable events and chat spikes, add manual markers, and request Twitch clips with edit/view links
 - **Chat Log Exports** — Export filtered chat logs and highlights as TSV, TXT, or PDF (with the same quoted phrase / AND / OR / `user:name` filtering used in search)
 - **Hashtag Tracking** — Live hashtag overlays with moderation plus a dedicated sortable admin stats page
 - **Dashboard** — Server status, session stats, message volume chart, and quick actions
@@ -343,6 +347,10 @@ The goal overlay fills the browser-source viewport at 100% width and height. Typ
 | `GET/POST/DELETE /api/hashtags/banned` | Hashtag moderation |
 | `GET /api/export` | Stats CSV export (`?type=chatters\|emotes\|all`) |
 | `GET /api/backup` | Download full data backup (ZIP) |
+| `GET /api/clip-candidates` | List beta clip candidates |
+| `POST /api/clip-candidates` | Add a beta clip marker |
+| `POST /api/clip-candidates/:id/create` | Request a Twitch clip |
+| `DELETE /api/clip-candidates/:id` | Delete a beta clip candidate |
 | `GET /auth/twitch` | Start Twitch OAuth flow |
 | `GET /api/music/now-playing` | Current track info (JSON) |
 | `GET /api/music/artwork` | Current album art image |
@@ -369,6 +377,7 @@ Use the **Generic HTTP** module:
 | `data/sessions/` | Persists | Archived session data + JSONL chat logs |
 | `data/highlights.json` | Persists | Pinned chat messages |
 | `data/timers.json` | Persists | Named countdowns, stopwatches, timer state, global sound settings, and per-timer HTTP action settings |
+| `data/clip-candidates.json` | Persists | Beta clip candidates and Twitch clip links |
 | `data/subs.json` | Refreshed from Twitch API | Subscriber list |
 | `data/bits.json` | Refreshed from Twitch API | Bits leaderboard |
 | `data/followers.json` | Refreshed from Twitch API | Follower list |
@@ -398,6 +407,7 @@ streampulse/
 ├── dashboard.html         # Dashboard UI
 ├── sessions.html          # Session history + chat logs
 ├── highlights.html        # Highlights viewer
+├── clips.html             # Beta clip candidates and Twitch clip links
 ├── categories.html        # Stream categories viewer
 ├── config-editor.html     # Live config editor
 ├── backup.html            # Backup & restore

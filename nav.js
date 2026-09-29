@@ -38,6 +38,7 @@
         ]},
         { label: 'Library ▾', children: [
             { label: 'Highlights', href: '/highlights.html' },
+            { label: 'Clips (Beta)', href: '/clips.html' },
             { label: 'Sessions', href: '/sessions.html?session=__current__' },
             { label: 'Categories', href: '/categories.html' },
             { label: 'Analytics & Subscribers', href: '/analytics.html' },

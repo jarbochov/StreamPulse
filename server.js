@@ -47,6 +47,7 @@ const LIVE_CHAT_PATH = path.join(DATA_DIR, 'chat.json');
 const BANNED_HASHTAGS_PATH = path.join(DATA_DIR, '.banned-hashtags.json');
 const CHAT_LOG_PATH = path.join(DATA_DIR, 'chat-log.jsonl');
 const HIGHLIGHTS_PATH = path.join(DATA_DIR, 'highlights.jsonl');
+const CLIP_CANDIDATES_PATH = path.join(DATA_DIR, 'clip-candidates.json');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const EMOTE_CACHE_DIR = path.join(DATA_DIR, 'emote-cache');
 const TIMERS_PATH = path.join(DATA_DIR, 'timers.json');
@@ -173,6 +174,73 @@ function saveHighlights() {
 }
 
 loadHighlights();
+
+// ============================================================================
+// BETA CLIP CANDIDATES
+// ============================================================================
+
+let clipCandidates = [];
+let recentChatTimestamps = [];
+
+function loadClipCandidates() {
+    try {
+        if (fs.existsSync(CLIP_CANDIDATES_PATH)) {
+            const stored = JSON.parse(fs.readFileSync(CLIP_CANDIDATES_PATH, 'utf8'));
+            clipCandidates = Array.isArray(stored) ? stored : [];
+            console.log(`[Clips Beta] Loaded ${clipCandidates.length} candidates`);
+        }
+    } catch (err) {
+        console.warn(`[Clips Beta] Could not load candidates: ${err.message}`);
+        clipCandidates = [];
+    }
+}
+
+function saveClipCandidates() {
+    fs.writeFileSync(CLIP_CANDIDATES_PATH, JSON.stringify(clipCandidates, null, 2));
+}
+
+function currentClipSession() {
+    return {
+        session: chatData.startedAt ? `chat-${localDateTimeStr(chatData.startedAt)}.json` : 'unknown',
+        startedAt: chatData.startedAt || null
+    };
+}
+
+function addClipCandidate(reason, details = {}, timestamp = Date.now(), score = 0.5) {
+    if (!sessionActive) return null;
+    const duplicateWindow = timestamp - 30000;
+    const duplicate = clipCandidates.some(candidate =>
+        candidate.sessionStartedAt === chatData.startedAt &&
+        candidate.timestamp >= duplicateWindow &&
+        candidate.reason === reason
+    );
+    if (duplicate) return null;
+
+    const session = currentClipSession();
+    const candidate = {
+        id: `clip-${timestamp}-${Math.random().toString(36).slice(2, 8)}`,
+        timestamp,
+        detectedAt: new Date().toISOString(),
+        reason,
+        details,
+        score: Math.round(Math.max(0, Math.min(1, score)) * 100) / 100,
+        session: session.session,
+        sessionStartedAt: session.startedAt,
+        status: 'candidate',
+        clipId: null,
+        editUrl: null,
+        viewUrl: null,
+        createdAt: null,
+        error: null
+    };
+    clipCandidates.push(candidate);
+    clipCandidates = clipCandidates.slice(-500);
+    saveClipCandidates();
+    console.log(`[Clips Beta] Candidate: ${reason}`);
+    return candidate;
+}
+
+loadClipCandidates();
 
 // ============================================================================
 // WEBHOOKS (Discord)
@@ -1269,7 +1337,7 @@ if (!fs.existsSync(DATA_DIR)) {
 // TWITCH OAUTH (User Token via Authorization Code Flow)
 // ============================================================================
 
-const TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers';
+const TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit';
 const TWITCH_REDIRECT_URI = `http://localhost:${PORT}/auth/callback`;
 const TOKEN_PATH = path.join(DATA_DIR, '.twitch-token.json');
 
@@ -1383,6 +1451,31 @@ function twitchApiRequest(endpoint, params = {}) {
                     resolve({ status: res.statusCode, body: JSON.parse(data) });
                 } catch {
                     reject(new Error(`Twitch API parse error: ${data.substring(0, 200)}`));
+                }
+            });
+        });
+        req.on('error', reject);
+        req.end();
+    });
+}
+
+function twitchCreateClip() {
+    return new Promise((resolve, reject) => {
+        const query = new URLSearchParams({ broadcaster_id: BROADCASTER_ID }).toString();
+        const req = https.request(`https://api.twitch.tv/helix/clips?${query}`, {
+            method: 'POST',
+            headers: {
+                'Client-ID': TWITCH_CLIENT_ID,
+                'Authorization': `Bearer ${twitchAccessToken}`
+            }
+        }, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve({ status: res.statusCode, body: JSON.parse(data || '{}') });
+                } catch {
+                    reject(new Error(`Twitch clip API parse error: ${data.substring(0, 200)}`));
                 }
             });
         });
@@ -2164,7 +2257,8 @@ function getBackupFileSpecs() {
         { src: path.join(DATA_DIR, 'subs.json'), dest: 'data/subs.json' },
         { src: path.join(DATA_DIR, 'bits.json'), dest: 'data/bits.json' },
         { src: path.join(DATA_DIR, 'followers.json'), dest: 'data/followers.json' },
-        { src: HIGHLIGHTS_PATH, dest: 'data/highlights.jsonl' }
+        { src: HIGHLIGHTS_PATH, dest: 'data/highlights.jsonl' },
+        { src: CLIP_CANDIDATES_PATH, dest: 'data/clip-candidates.json' }
     ];
 }
 
@@ -2710,6 +2804,13 @@ function processChatMessage(msg) {
     // Track hourly message volume
     const hour = new Date().toISOString().slice(0, 13); // "YYYY-MM-DDTHH"
     chatData.hourlyMessages[hour] = (chatData.hourlyMessages[hour] || 0) + 1;
+    recentChatTimestamps.push(Date.now());
+    recentChatTimestamps = recentChatTimestamps.filter(ts => Date.now() - ts <= 60000);
+    if (recentChatTimestamps.length >= 20) {
+        addClipCandidate('chat-spike', {
+            messagesLastMinute: recentChatTimestamps.length
+        }, Date.now(), Math.min(0.95, 0.5 + recentChatTimestamps.length / 100));
+    }
 
     updateStats(chatname, msg);
 
@@ -2798,12 +2899,14 @@ function processChatMessage(msg) {
                 console.log(`[SSN] Gift Sub: ${gifter}${recipient ? ' → ' + recipient : ''} (event=${msg.event})`);
             }
             fireWebhook('subscribe', { user: gifter, recipient, type: 'gift', message: `${gifter} gifted a sub${recipient ? ' to ' + recipient : ''}!` });
+            addClipCandidate('gift-sub', { user: gifter, recipient }, Date.now(), 0.65);
         } else {
             const alreadySubbed = chatData.subscribers.some(s => s.chatname === chatname);
             if (!alreadySubbed) {
                 chatData.subscribers.push({ chatname, membership: msg.membership || null, subtitle: msg.subtitle || null, chatimg: msg.chatimg, event: msg.event || null });
                 console.log(`[SSN] Sub: ${chatname} - ${msg.membership || msg.event}${msg.subtitle ? ' (' + msg.subtitle + ')' : ''}`);
                 fireWebhook('subscribe', { user: chatname, tier: msg.membership, detail: msg.subtitle, message: `${chatname} subscribed! (${msg.membership || msg.event})` });
+                addClipCandidate('subscription', { user: chatname, tier: msg.membership || msg.event }, Date.now(), 0.6);
             }
         }
     }
@@ -2822,11 +2925,13 @@ function processChatMessage(msg) {
             chatData.bits.push(donation);
             console.log(`[SSN] Bits: ${chatname} - ${label} (${amount} bits)`);
             fireWebhook('bits', { user: chatname, amount: label, message: `${chatname} cheered ${label}` });
+            addClipCandidate('bits', { user: chatname, amount, label }, Date.now(), Math.min(0.95, 0.55 + amount / 1000));
         } else if (msg.hasDonation) {
             const donation = { chatname, amount: msg.hasDonation, amountValue: parseNumericAmount(msg.hasDonation), chatimg: msg.chatimg };
             chatData.donations.push(donation);
             console.log(`[SSN] Donation: ${chatname} - ${msg.hasDonation}`);
             fireWebhook('donation', { user: chatname, amount: msg.hasDonation, message: `${chatname} donated ${msg.hasDonation}` });
+            addClipCandidate('donation', { user: chatname, amount: msg.hasDonation }, Date.now(), 0.7);
         }
     }
 
@@ -2838,6 +2943,7 @@ function processChatMessage(msg) {
             chatData.raids.push({ chatname, chatimg: msg.chatimg, viewers: viewers ? parseInt(viewers) : null, timestamp: Date.now() });
             console.log(`[SSN] Raid: ${chatname}${viewers ? ` with ${viewers} viewers` : ''}`);
             fireWebhook('raid', { user: chatname, viewers: viewers || '?', message: `${chatname} raided${viewers ? ` with ${viewers} viewers` : ''}!` });
+            addClipCandidate('raid', { user: chatname, viewers: viewers ? parseInt(viewers) : null }, Date.now(), 0.8);
         }
     }
 
@@ -3235,7 +3341,8 @@ const server = http.createServer(async (req, res) => {
             },
             library: {
                 highlights: highlights.length,
-                sessions: archivedSessions
+                sessions: archivedSessions,
+                clipCandidates: clipCandidates.length
             },
             hashtags: hashtagStats.summary,
             backups: {
@@ -3334,6 +3441,101 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({ error: err.message }));
         }
         return;
+    }
+
+    if (pathname === '/api/clip-candidates' && req.method === 'GET') {
+        const sessionFilter = url.searchParams.get('session');
+        const statusFilter = url.searchParams.get('status');
+        let result = clipCandidates;
+        if (sessionFilter) result = result.filter(candidate => candidate.session === sessionFilter);
+        if (statusFilter) result = result.filter(candidate => candidate.status === statusFilter);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result.slice().reverse()));
+        return;
+    }
+
+    if (pathname === '/api/clip-candidates' && req.method === 'POST') {
+        try {
+            const payload = JSON.parse(await readRequestBody(req) || '{}');
+            const reason = String(payload.reason || 'manual-marker').trim().slice(0, 120);
+            const details = typeof payload.details === 'object' && payload.details !== null ? payload.details : {};
+            const candidate = addClipCandidate(reason || 'manual-marker', details, Number(payload.timestamp) || Date.now(), Number(payload.score) || 0.9);
+            if (!candidate) {
+                res.writeHead(409, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'A matching candidate was already recorded recently or there is no active session.' }));
+                return;
+            }
+            res.writeHead(201, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(candidate));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if (pathname.startsWith('/api/clip-candidates/')) {
+        const segments = pathname.slice('/api/clip-candidates/'.length).split('/').filter(Boolean).map(decodeURIComponent);
+        const candidateId = segments[0];
+        const candidate = clipCandidates.find(item => item.id === candidateId);
+        if (!candidate) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Clip candidate not found' }));
+            return;
+        }
+
+        if (segments[1] === 'create' && req.method === 'POST') {
+            if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET || !BROADCASTER_ID) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Twitch credentials and broadcaster_id are required.' }));
+                return;
+            }
+            if (!(await ensureToken())) {
+                res.writeHead(401, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Twitch authorization is required. Re-authorize StreamPulse for clip creation.' }));
+                return;
+            }
+
+            try {
+                const result = await twitchCreateClip();
+                if (result.status !== 202 || !result.body.data?.[0]?.id) {
+                    const message = result.body.message || `Twitch clip creation failed (${result.status})`;
+                    candidate.status = 'failed';
+                    candidate.error = message;
+                    saveClipCandidates();
+                    res.writeHead(result.status === 403 ? 403 : 502, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: message, twitchStatus: result.status }));
+                    return;
+                }
+
+                const clip = result.body.data[0];
+                candidate.status = 'created';
+                candidate.clipId = clip.id;
+                candidate.editUrl = clip.edit_url || null;
+                candidate.viewUrl = `https://clips.twitch.tv/${encodeURIComponent(clip.id)}`;
+                candidate.createdAt = new Date().toISOString();
+                candidate.error = null;
+                saveClipCandidates();
+                console.log(`[Clips Beta] Twitch clip requested: ${clip.id}`);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(candidate));
+            } catch (err) {
+                candidate.status = 'failed';
+                candidate.error = err.message;
+                saveClipCandidates();
+                res.writeHead(502, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+        }
+
+        if (!segments[1] && req.method === 'DELETE') {
+            clipCandidates = clipCandidates.filter(item => item.id !== candidateId);
+            saveClipCandidates();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'deleted' }));
+            return;
+        }
     }
 
     if (pathname === '/api/reset') {
@@ -4625,6 +4827,7 @@ const server = http.createServer(async (req, res) => {
                 } catch { /* ignore */ }
 
                 loadHighlights();
+                loadClipCandidates();
                 loadTimers();
                 loadCurrentSessionStateFromDisk();
                 broadcastToOverlays('update', chatData);
