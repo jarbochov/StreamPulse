@@ -42,13 +42,47 @@ function confirmNightly() {
 }
 async function apply(mode) {
     setBusy(true);
-    document.getElementById('result').textContent = 'Installing update and restarting StreamPulse…';
+    const result = document.getElementById('result');
+    result.textContent = 'Installing update…';
     try {
+        const statusRes = await fetch('/api/status', { cache: 'no-store' });
+        const previousStatus = statusRes.ok ? await statusRes.json() : {};
+        const previousProcessStartedAt = previousStatus.processStartedAt;
         const res = await fetch('/api/update/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Update failed');
-        document.getElementById('result').textContent = data.message;
-    } catch (err) { document.getElementById('result').textContent = err.message; setBusy(false); }
+        if (!data.updated) {
+            result.textContent = data.message;
+            setBusy(false);
+            return;
+        }
+
+        result.textContent = 'Update installed. Waiting for the replacement process…';
+        try {
+            await waitForReplacement(previousProcessStartedAt);
+            result.textContent = `${data.message} New process verified.`;
+            setBusy(false);
+        } catch (err) {
+            result.textContent = err.message;
+            setBusy(false);
+        }
+    } catch (err) {
+        result.textContent = err.message;
+        setBusy(false);
+    }
+}
+
+async function waitForReplacement(previousProcessStartedAt) {
+    for (let attempt = 0; attempt < 30; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        try {
+            const res = await fetch('/api/status', { cache: 'no-store' });
+            if (!res.ok) continue;
+            const data = await res.json();
+            if (data.processStartedAt && data.processStartedAt !== previousProcessStartedAt) return data;
+        } catch {}
+    }
+    throw new Error('Update installed, but the restart could not be verified within 15 seconds.');
 }
 function setBusy(busy) { document.querySelectorAll('button').forEach(button => { button.disabled = busy || (button.id && button.id.startsWith('apply-') && !available[button.id.slice(6)]); }); }
 </script>
