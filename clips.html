@@ -179,7 +179,7 @@
 
             <div class="settings-actions">
                 <button class="primary" onclick="saveSettings()">Save Settings</button>
-                <button onclick="backfillCandidates()">Analyze Past Sessions</button>
+                <button onclick="backfillCandidates()">Rebuild Past Analysis</button>
             </div>
         </section>
         <div class="toolbar">
@@ -278,11 +278,15 @@
     }
 
     async function backfillCandidates() {
-        if (!confirm('Analyze current and archived chat logs using the visible settings? Existing candidates will be kept.')) return;
-        const res = await fetch('/api/clip-candidates/backfill', { method: 'POST' });
+        if (!confirm('Rebuild current and archived analysis using the visible settings?\n\nUncreated automatic candidates will be removed and regenerated. Manual markers and already-created Twitch clips will be kept.')) return;
+        const res = await fetch('/api/clip-candidates/backfill', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rebuild: true })
+        });
         const data = await res.json();
         if (!res.ok) { showToast(data.error || 'Historical analysis failed'); return; }
-        showToast(`Analyzed ${data.sessions} sessions; added ${data.created} candidates`);
+        showToast(`Rebuilt ${data.sessions} sessions; removed ${data.removed || 0}, added ${data.created} candidates`);
         loadCandidates();
     }
 
@@ -311,7 +315,7 @@
     function renderCandidates() {
         const content = document.getElementById('content');
         if (!candidates.length) {
-            content.innerHTML = '<div class="empty">No clip candidates yet. Adjust the thresholds above or select Analyze Past Sessions to scan existing chat logs.</div>';
+            content.innerHTML = '<div class="empty">No clip candidates yet. Adjust the thresholds above or select Rebuild Past Analysis to scan existing chat logs.</div>';
             return;
         }
 

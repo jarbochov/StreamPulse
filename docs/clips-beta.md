@@ -21,7 +21,7 @@ The **Detection Settings** panel groups controls into automatic detection, the c
 
 The event trigger section controls subscriptions, gift subs, Bits, donations, and raids separately. Its default examples are **1 Bit**, **$0.00 donation minimum** (include all detected donations), and **0 raid viewers** (include raids of any size). Changes are saved to `config.json` under `clip_candidates` and apply without a restart.
 
-Select **Analyze Past Sessions** to scan the current and archived JSONL chat logs with the visible settings. Existing candidates are preserved, and repeated analysis skips candidates it has already recorded.
+Select **Rebuild Past Analysis** to scan the current and archived JSONL chat logs with the visible settings. The rebuild removes uncreated automatic candidates and regenerates them using the current thresholds. Manual markers and already-created Twitch clips are preserved.
 
 Each candidate includes a **View Chat** link that opens the matching session, loads its Chat Log, and jumps to the nearest recorded message at the candidate timestamp. Candidates from past sessions cannot use **Create Twitch Clip** because Twitch's Create Clip API only works with the current live broadcast; the page explains this and provides the matching VOD when Twitch can identify it.
 

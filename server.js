@@ -387,7 +387,19 @@ function backfillClipCandidatesFromEntries(entries, sessionOverride) {
     return created;
 }
 
-function backfillClipCandidates() {
+function backfillClipCandidates(rebuild = false) {
+    let removed = 0;
+    if (rebuild) {
+        const before = clipCandidates.length;
+        clipCandidates = clipCandidates.filter(candidate =>
+            candidate.status === 'created'
+            || !candidate.sourceKey
+            || candidate.sessionStartedAt === chatData.startedAt
+        );
+        removed = before - clipCandidates.length;
+        if (removed) saveClipCandidates();
+    }
+
     const sessions = [];
     if (chatData.startedAt && chatLog.length) {
         sessions.push({
@@ -420,7 +432,7 @@ function backfillClipCandidates() {
             startedAt: session.startedAt
         });
     }
-    return { sessions: sessions.length, created };
+    return { sessions: sessions.length, created, removed };
 }
 
 // ============================================================================
@@ -3704,7 +3716,8 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/clip-candidates/backfill' && req.method === 'POST') {
         try {
-            const result = backfillClipCandidates();
+            const payload = JSON.parse(await readRequestBody(req) || '{}');
+            const result = backfillClipCandidates(payload.rebuild === true);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ status: 'analyzed', ...result }));
         } catch (err) {

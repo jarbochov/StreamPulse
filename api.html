@@ -400,8 +400,8 @@
                 },
                 {
                     method: 'POST', path: '/api/clip-candidates/backfill',
-                    desc: 'Analyze current and archived chat logs',
-                    details: 'Creates reviewable candidates from existing current and archived session chat logs using the current beta detection settings. Existing candidates are preserved and duplicate detections are skipped.'
+                    desc: 'Rebuild candidates from current and archived chat logs',
+                    details: 'Body: { rebuild: true }. Removes uncreated automatic candidates, preserves manual markers and created Twitch clips, then creates reviewable candidates using the current beta detection settings.'
                 },
                 {
                     method: 'POST', path: '/api/clip-candidates/:id/create',

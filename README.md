@@ -351,7 +351,7 @@ The goal overlay fills the browser-source viewport at 100% width and height. Typ
 | `GET /api/clip-candidates` | List beta clip candidates |
 | `POST /api/clip-candidates` | Add a beta clip marker |
 | `GET/PUT /api/clip-candidates/config` | Read or update beta detection thresholds |
-| `POST /api/clip-candidates/backfill` | Analyze current and archived chat logs |
+| `POST /api/clip-candidates/backfill` | Rebuild candidates from current and archived chat logs (`{"rebuild":true}`) |
 | `POST /api/clip-candidates/:id/create` | Request a Twitch clip |
 | `DELETE /api/clip-candidates/:id` | Delete a beta clip candidate |
 | `GET /auth/twitch` | Start Twitch OAuth flow |
