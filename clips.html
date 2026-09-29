@@ -355,7 +355,6 @@
         input.value = '';
         showToast('Clip marker added');
         loadSettings();
-        Promise.all([loadSettings(), loadCandidates()]);
     }
 
     async function createClip(id) {
@@ -382,7 +381,7 @@
         document.getElementById(id).addEventListener('input', updateWindowSummary);
     }
 
-    loadCandidates();
+    Promise.all([loadSettings(), loadCandidates()]);
     </script>
 </body>
 </html>
