@@ -760,10 +760,31 @@
 
     async function restartServer() {
         if (!confirm('Restart StreamPulse and continue the current session?')) return;
+        clearInterval(refreshInterval);
+        showToast('StreamPulse restart requested — waiting for the new process...');
         try {
-            await fetch('/api/restart');
-            showToast('StreamPulse restarting — the current session will continue');
-            clearInterval(refreshInterval);
+            const statusRes = await fetch('/api/status', { cache: 'no-store' });
+            const previousStatus = statusRes.ok ? await statusRes.json() : {};
+            const previousProcessStartedAt = previousStatus.processStartedAt;
+            try {
+                await fetch('/api/restart', { cache: 'no-store' });
+            } catch {}
+
+            for (let attempt = 0; attempt < 30; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                try {
+                    const res = await fetch('/api/status', { cache: 'no-store' });
+                    if (!res.ok) continue;
+                    const data = await res.json();
+                    if (data.processStartedAt && data.processStartedAt !== previousProcessStartedAt) {
+                        showToast('StreamPulse restarted — the current session continues');
+                        refresh();
+                        refreshInterval = setInterval(refresh, 3000);
+                        return;
+                    }
+                } catch {}
+            }
+            showToast('Restart could not be verified');
         } catch { showToast('Restart failed'); }
     }
 

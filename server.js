@@ -14,6 +14,7 @@ const AdmZip = require('adm-zip');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const PROCESS_STARTED_AT = new Date().toISOString();
 
 // ============================================================================
 // CONFIG
@@ -3199,6 +3200,7 @@ const server = http.createServer(async (req, res) => {
         const viewerSummary = getViewerSummary();
         const goalsSnapshot = buildGoalsSnapshot();
         const status = {
+            processStartedAt: PROCESS_STARTED_AT,
             uptime: process.uptime(),
             ssn: {
                 connected: ssnSocket?.readyState === WebSocket.OPEN,
