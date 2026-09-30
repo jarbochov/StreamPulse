@@ -449,8 +449,16 @@ streampulse/
 - Verify `client_id` and `client_secret` in `config.json`
 
 ### Credits not loading
+
 - Ensure `npm start` is running
 - OBS URL: `http://localhost:3000/credits.html`
+
+### High memory usage
+
+The live chat log is stored in `data/chat-log.jsonl`, while StreamPulse keeps only the most recent 2,000 messages in memory for live controls such as pinning the latest message. Chat history APIs, search, exports, and historical analysis read the full JSONL log when needed. Current process memory metrics are available from `/api/status` under `memory`.
+
+### Refreshing OBS sources
+
 - Right-click OBS source → "Refresh cache of current page"
 
 ### PDF export says Chrome could not be found

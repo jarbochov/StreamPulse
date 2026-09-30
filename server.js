@@ -492,11 +492,11 @@ function backfillClipCandidates(rebuild = false) {
     }
 
     const sessions = [];
-    if (chatData.startedAt && chatLog.length) {
+    if (chatData.startedAt && fs.existsSync(CHAT_LOG_PATH)) {
         sessions.push({
             session: `chat-${localDateTimeStr(chatData.startedAt)}.json`,
             startedAt: chatData.startedAt,
-            entries: chatLog
+            entries: getCurrentChatLogEntries()
         });
     }
 
@@ -2187,7 +2187,8 @@ const chatData = {
 
 // Chat log — individual messages stored separately from aggregates
 let chatLog = [];
-let chatLogFlushed = 0;
+let pendingChatLogEntries = [];
+const MAX_IN_MEMORY_CHAT_MESSAGES = 2000;
 
 // Persistent stats — survives restarts, daily bucket tracking
 const STATS_PATH = path.join(DATA_DIR, 'stats.json');
@@ -2399,11 +2400,10 @@ function saveChatData() {
 }
 
 function saveChatLog() {
-    if (chatLog.length > chatLogFlushed) {
-        const newEntries = chatLog.slice(chatLogFlushed);
-        const lines = newEntries.map(e => JSON.stringify(e)).join('\n') + '\n';
+    if (pendingChatLogEntries.length > 0) {
+        const lines = pendingChatLogEntries.map(e => JSON.stringify(e)).join('\n') + '\n';
         fs.appendFileSync(CHAT_LOG_PATH, lines);
-        chatLogFlushed = chatLog.length;
+        pendingChatLogEntries = [];
     }
 }
 
@@ -2448,6 +2448,63 @@ function readChatLogFile(filepath) {
         .filter(line => line.trim())
         .map(line => { try { return JSON.parse(line); } catch { return null; } })
         .filter(Boolean);
+}
+
+function readChatLogTail(filepath, limit = MAX_IN_MEMORY_CHAT_MESSAGES) {
+    if (!fs.existsSync(filepath) || limit <= 0) return [];
+    const fd = fs.openSync(filepath, 'r');
+    try {
+        const { size } = fs.fstatSync(fd);
+        const chunkSize = 64 * 1024;
+        let position = size;
+        let content = '';
+        while (position > 0 && content.split('\n').length <= limit + 1) {
+            const length = Math.min(chunkSize, position);
+            position -= length;
+            const chunk = Buffer.allocUnsafe(length);
+            fs.readSync(fd, chunk, 0, length, position);
+            content = chunk.toString('utf8') + content;
+        }
+        return content
+            .split('\n')
+            .filter(line => line.trim())
+            .slice(-limit)
+            .map(line => { try { return JSON.parse(line); } catch { return null; } })
+            .filter(Boolean);
+    } finally {
+        fs.closeSync(fd);
+    }
+}
+
+function countChatLogEntries(filepath) {
+    if (!fs.existsSync(filepath)) return 0;
+    const fd = fs.openSync(filepath, 'r');
+    try {
+        const { size } = fs.fstatSync(fd);
+        if (size === 0) return 0;
+        const chunkSize = 64 * 1024;
+        const chunk = Buffer.allocUnsafe(chunkSize);
+        let position = 0;
+        let count = 0;
+        let lastByte = 0;
+        while (position < size) {
+            const length = Math.min(chunkSize, size - position);
+            fs.readSync(fd, chunk, 0, length, position);
+            for (let i = 0; i < length; i++) {
+                if (chunk[i] === 10) count++;
+            }
+            lastByte = chunk[length - 1];
+            position += length;
+        }
+        return count + (lastByte === 10 ? 0 : 1);
+    } finally {
+        fs.closeSync(fd);
+    }
+}
+
+function getCurrentChatLogEntries() {
+    saveChatLog();
+    return readChatLogFile(CHAT_LOG_PATH);
 }
 
 const RESTART_REQUIRED_CONFIG_PATHS = [
@@ -2531,9 +2588,10 @@ function loadCurrentSessionStateFromDisk() {
     }
 
     try {
-        chatLog = fs.existsSync(CHAT_LOG_PATH) ? readChatLogFile(CHAT_LOG_PATH) : [];
-        chatLogFlushed = chatLog.length;
-        console.log('[Restore] Reloaded current chat log');
+        chatLog = readChatLogTail(CHAT_LOG_PATH);
+        pendingChatLogEntries = [];
+        const count = countChatLogEntries(CHAT_LOG_PATH);
+        console.log(`[Restore] Reloaded current chat log (${count} messages; retained ${chatLog.length} in memory)`);
     } catch (err) {
         console.warn('[Restore] Current chat log reload failed:', err.message);
     }
@@ -3011,7 +3069,7 @@ function resetChatData() {
     chatData.startedAt = new Date().toISOString();
     chatData.lastUpdated = null;
     chatLog = [];
-    chatLogFlushed = 0;
+    pendingChatLogEntries = [];
     try { if (fs.existsSync(CHAT_LOG_PATH)) fs.unlinkSync(CHAT_LOG_PATH); } catch {}
     saveChatData();
 }
@@ -3061,7 +3119,7 @@ function processChatMessage(msg) {
         const messageHtml = [msg.chatmessage, contentImage].filter(Boolean).join(' ');
         const plainText = messageHtml ? messageHtml.replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '') : '';
         const urls = (plainText.match(/(?:(?:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s<>"')\]]+|(?<![@\w])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s<>"')\]]*)?)/gi) || []);
-        chatLog.push({
+        const chatEntry = {
             ts: Date.now(),
             user: chatname,
             avatar: msg.chatimg || null,
@@ -3073,7 +3131,12 @@ function processChatMessage(msg) {
             donation: msg.hasDonation || null,
             membership: msg.membership || null,
             urls: urls.length > 0 ? urls : undefined
-        });
+        };
+        chatLog.push(chatEntry);
+        if (chatLog.length > MAX_IN_MEMORY_CHAT_MESSAGES) {
+            chatLog.splice(0, chatLog.length - MAX_IN_MEMORY_CHAT_MESSAGES);
+        }
+        pendingChatLogEntries.push(chatEntry);
 
         // Extract and cache emotes from messageHtml
         if (messageHtml) {
@@ -3620,6 +3683,7 @@ const server = http.createServer(async (req, res) => {
         const status = {
             processStartedAt: PROCESS_STARTED_AT,
             uptime: process.uptime(),
+            memory: process.memoryUsage(),
             ssn: {
                 connected: ssnSocket?.readyState === WebSocket.OPEN,
                 session: SSN_SESSION_ID || null,
@@ -4839,8 +4903,9 @@ const server = http.createServer(async (req, res) => {
 
     // Current session chat log
     if (pathname === '/api/chat-log') {
+        const messages = getCurrentChatLogEntries();
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ session: 'current', count: chatLog.length, messages: chatLog }));
+        res.end(JSON.stringify({ session: 'current', count: messages.length, messages }));
         return;
     }
 
@@ -4864,7 +4929,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         if (session === 'all' || session === 'current') {
-            allResults.push(...searchMessages(chatLog, 'current'));
+            allResults.push(...searchMessages(getCurrentChatLogEntries(), 'current'));
         }
 
         if (session === 'all') {
@@ -4920,7 +4985,7 @@ const server = http.createServer(async (req, res) => {
         };
         if (session === 'all') {
             // Global search export: current + all archived sessions
-            addSessionMessages(chatLog, 'current');
+            addSessionMessages(getCurrentChatLogEntries(), 'current');
             sessionLabel = 'all-sessions';
             streamInfo = chatData.streamInfo || [];
             if (fs.existsSync(SESSIONS_DIR)) {
@@ -4933,7 +4998,7 @@ const server = http.createServer(async (req, res) => {
                 }
             }
         } else if (session === 'current') {
-            addSessionMessages(chatLog, 'current');
+            addSessionMessages(getCurrentChatLogEntries(), 'current');
             sessionLabel = 'current-session';
             streamInfo = chatData.streamInfo || [];
         } else {
