@@ -87,9 +87,19 @@
         }
     }
 
+    const tickingNodes = [];
+
+    function tickPlaceholders() {
+        for (const { node, element } of tickingNodes) {
+            if (element.type === 'markdown') node.innerHTML = renderMarkdown(element.content);
+            else node.textContent = expandVariables(element.content || '');
+        }
+    }
+
     function render(overlay) {
         currentOverlay = overlay;
         stopRandomTimers();
+        tickingNodes.length = 0;
         document.title = `StreamPulse — ${overlay.name}`;
         root.style.width = `${overlay.canvas.width}px`;
         root.style.height = `${overlay.canvas.height}px`;
@@ -129,6 +139,7 @@
             } else {
                 node.textContent = expandVariables(element.content || '');
             }
+            if ((element.type === 'text' || element.type === 'markdown') && shared.hasTicking(element.content)) tickingNodes.push({ node, element });
             root.appendChild(node);
         }
     }
@@ -143,6 +154,7 @@
             const statusResponse = await fetch('/api/status', { cache: 'no-store' });
             if (statusResponse.ok) liveStatus = { ...liveStatus, ...(await statusResponse.json()) };
         } catch {}
+        await shared.loadLiveExtras(liveStatus);
         render(overlay);
         return overlay;
     }
@@ -153,6 +165,7 @@
             if (!response.ok) return;
             const before = shared.variableSnapshot(liveStatus, variableContext());
             liveStatus = { ...liveStatus, ...(await response.json()) };
+            await shared.loadLiveExtras(liveStatus);
             // Re-rendering restarts typewriters, videos and embeds, so only do it when a placeholder value changed.
             if (currentOverlay && shared.variableSnapshot(liveStatus, variableContext()) !== before) render(currentOverlay);
         } catch {}
@@ -181,5 +194,6 @@
         root.style.color = '#f85149';
     });
     setInterval(refreshStatus, 5000);
+    setInterval(tickPlaceholders, 1000);
     connect();
 })();

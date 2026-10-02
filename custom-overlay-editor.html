@@ -81,6 +81,12 @@
         .align-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .25rem; }
         .align-grid button { padding: .35rem 0; }
         .asset-preview { max-width: 100%; max-height: 110px; border: 1px solid var(--border); border-radius: 6px; background: repeating-conic-gradient(#2a2f38 0 25%, #353b46 0 50%) 0 0 / 14px 14px; object-fit: contain; }
+        #variable-dialog { width: min(640px, 92vw); max-width: 640px; }
+        #variable-list { max-height: 55vh; overflow: auto; margin-top: .6rem; }
+        #variable-list h4 { margin: .8rem 0 .3rem; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+        #variable-list button { display: grid; grid-template-columns: 1fr auto; gap: .2rem .8rem; width: 100%; text-align: left; margin-bottom: .25rem; }
+        #variable-list code { grid-column: 1; font-size: .72rem; color: var(--muted); }
+        #variable-list .preview { grid-row: 1 / span 2; grid-column: 2; align-self: center; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); }
         #asset-dialog { width: min(760px, 92vw); max-width: 760px; }
         #asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .6rem; max-height: 55vh; overflow: auto; margin-top: .8rem; padding: 2px; }
         .asset-tile { position: relative; padding: 0; overflow: hidden; display: flex; flex-direction: column; text-align: left; border-radius: 8px; }
@@ -275,6 +281,13 @@
         <input id="asset-search" type="search" placeholder="Filter by name…">
         <div id="asset-grid"></div>
         <div class="dialog-actions"><label class="btn-like" style="margin-right:auto">Upload new…<input id="asset-upload" type="file" hidden></label><button id="asset-close">Cancel</button></div>
+    </dialog>
+    <dialog id="variable-dialog">
+        <h3>Insert placeholder</h3>
+        <p class="hint" style="margin:0 0 .5rem">Live values update on the overlay. Click one to insert it at your cursor.</p>
+        <input id="variable-search" type="search" placeholder="Search timers, clock, events, goals…">
+        <div id="variable-list"></div>
+        <div class="dialog-actions"><button id="variable-close">Close</button></div>
     </dialog>
     <dialog id="help-dialog">
         <h3>Keyboard shortcuts</h3>
@@ -566,6 +579,16 @@
         }
     }
     const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
+
+    function tickPlaceholders() {
+        if (!prefs.live) return;
+        for (const el of overlay.elements) {
+            const node = nodes.get(el.id);
+            if (!node || !shared.hasTicking(el.content) || (el.type !== 'text' && el.type !== 'markdown')) continue;
+            if (el.type === 'markdown') node.innerHTML = shared.renderMarkdown(expand(el.content));
+            else node.textContent = expand(el.content);
+        }
+    }
 
     function renderCanvas() {
         const seen = new Set();
@@ -881,7 +904,7 @@
         if (textual) {
             body += `<label class="field"><span>${el.type === 'random-text' ? 'Fallback text' : el.type === 'markdown' ? 'Markdown' : 'Text'}</span><textarea id="prop-content" data-path="content" data-kind="text" spellcheck="true">${esc(el.content)}</textarea></label>`;
             if (el.type === 'random-text') body += `<label class="field"><span>Phrase pool</span><textarea id="prop-items" data-path="items" data-kind="lines" style="min-height:120px">${esc((el.items || []).join('\n'))}</textarea><span class="hint">One phrase per line. Placeholders work here too.</span></label>`;
-            body += `<label class="field"><span>Insert placeholder</span><span class="upload-row"><select id="variable-picker"><option value="">Choose a variable…</option>${shared.VARIABLE_GROUPS.map(g => `<optgroup label="${g.label}">${g.items.map(([k, l]) => `<option value="{{${k}}}">${l}</option>`).join('')}</optgroup>`).join('')}</select><button type="button" id="insert-variable">Insert</button></span></label>`;
+            body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button></div>`;
         }
         if (media || el.type === 'embed') {
             body += F.text('src', el.type === 'embed' ? 'Webpage URL' : 'Source URL', el.src, `placeholder="${el.type === 'embed' ? 'https://example.com' : 'https://… or upload a file'}"`);
@@ -956,15 +979,7 @@
         if (dist) { distributeSelection(dist); return; }
         const alignTarget = target.closest('[data-target]');
         if (alignTarget) { prefs.alignTo = alignTarget.dataset.target; savePrefs(); alignTarget.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === alignTarget))); return; }
-        if (target.closest('#insert-variable')) {
-            const picker = $('variable-picker');
-            if (!picker.value) { toast('Choose a placeholder first.', 'warn', 1800); return; }
-            const field = lastTextField && lastTextField.isConnected ? lastTextField : $('prop-content');
-            field.focus();
-            field.setRangeText(picker.value, field.selectionStart, field.selectionEnd, 'end');
-            field.dispatchEvent(new Event('input', { bubbles: true }));
-            picker.value = '';
-        }
+        if (target.closest('#open-variables')) openVariableDialog();
     });
     $('properties').addEventListener('change', async event => {
         if (event.target.id === 'font-upload' && event.target.files[0]) {
@@ -993,6 +1008,41 @@
             renderCanvas(); renderProperties(); changed(true);
             toast('Asset uploaded', 'success', 1800);
         } catch (error) { toast(error.message, 'error', 5000); event.target.value = ''; }
+    });
+
+    // ---- placeholder picker -----------------------------------------------------------
+    const variableDialog = $('variable-dialog');
+    function renderVariableList() {
+        const query = $('variable-search').value.trim().toLowerCase();
+        const table = shared.variableTable(liveStatus, variableContext());
+        const html = shared.variableGroups(liveStatus).map(group => {
+            const items = group.items.filter(([key, label]) => !query || `${group.label} ${key} ${label}`.toLowerCase().includes(query));
+            if (!items.length) return '';
+            return `<h4>${esc(group.label)}</h4>` + items.map(([key, label]) => {
+                const value = table[key];
+                const preview = value === undefined || value === null || value === '' ? '—' : String(value);
+                return `<button type="button" data-token="${esc(key)}"><span>${esc(label)}</span><code>{{${esc(key)}}}</code><span class="preview">${esc(preview)}</span></button>`;
+            }).join('');
+        }).join('');
+        $('variable-list').innerHTML = html || '<p class="hint">No placeholders match.</p>';
+    }
+    function openVariableDialog() {
+        $('variable-search').value = '';
+        renderVariableList();
+        variableDialog.showModal();
+        $('variable-search').focus();
+    }
+    $('variable-search').addEventListener('input', renderVariableList);
+    $('variable-close').addEventListener('click', () => variableDialog.close());
+    $('variable-list').addEventListener('click', event => {
+        const token = event.target.closest('[data-token]')?.dataset.token;
+        if (!token) return;
+        const field = lastTextField && lastTextField.isConnected ? lastTextField : $('prop-content');
+        if (!field) { toast('Select a text element first.', 'warn', 1800); return; }
+        variableDialog.close();
+        field.focus();
+        field.setRangeText(`{{${token}}}`, field.selectionStart, field.selectionEnd, 'end');
+        field.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
     // ---- asset picker -----------------------------------------------------------------
@@ -1431,6 +1481,7 @@
             if (!response.ok) return;
             const before = liveSignature();
             liveStatus = await response.json();
+            await shared.loadLiveExtras(liveStatus);
             if (prefs.live && liveSignature() !== before) renderCanvas();
         } catch {}
     }
@@ -1451,6 +1502,7 @@
         fitView(true);
         refreshLiveStatus();
         setInterval(refreshLiveStatus, 10000);
+        setInterval(tickPlaceholders, 1000);
     }
     new ResizeObserver(() => { if (autoFit) fitView(true); else applyView(); }).observe(stage);
     load().catch(error => {
