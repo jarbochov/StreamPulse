@@ -189,7 +189,7 @@
     function renderRules() {
         $('rule-list').innerHTML = cfg.rules.length ? cfg.rules.map(r => `
             <div class="rule-item${r.id === sel ? ' active' : ''}${r.enabled ? '' : ' off'}" data-rule="${esc(r.id)}">
-                <div><div class="name">${esc(r.name)}</div><div class="meta">${esc(TRIGGERS[r.trigger])} · ${r.variants.length} variant${r.variants.length === 1 ? '' : 's'}${r.conditions.minAmount ? ` · ≥ ${r.conditions.minAmount}` : ''}</div></div>
+                <div><div class="name">${esc(r.name)}</div><div class="meta">${esc(TRIGGERS[r.trigger])} · ${r.variants.length} variant${r.variants.length === 1 ? '' : 's'}${r.conditions.minAmount && AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub' ? ` · ≥ ${r.conditions.minAmount}` : ''}</div></div>
                 <span class="pill ${r.enabled ? 'ok' : ''}">${r.enabled ? 'On' : 'Off'}</span>
             </div>`).join('') : '<p class="hint">No rules yet. Add one to get started.</p>';
     }
@@ -249,9 +249,10 @@
     }
     function summary(r) {
         const c = r.conditions, t = TRIGGERS[r.trigger];
+        const hasAmt = !!AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub';
         let when = `When there is a "${t}"`;
-        if (c.minAmount && c.maxAmount) when += ` between ${c.minAmount} and ${c.maxAmount}`;
-        else if (c.minAmount) when += ` of ${c.minAmount} or more`;
+        if (hasAmt && c.minAmount && c.maxAmount) when += ` between ${c.minAmount} and ${c.maxAmount}`;
+        else if (hasAmt && c.minAmount) when += ` of ${c.minAmount} or more`;
         if (r.trigger === 'redeem' && c.rewardName) when += ` for "${c.rewardName}"`;
         if (r.trigger === 'chat_word' && c.keywords.length) when += `: ${c.keywords.join(', ')}`;
         const extras = [r.actions.timer.enabled ? 'change a timer' : '', r.actions.http.enabled ? 'send an HTTP request' : ''].filter(Boolean);
@@ -351,6 +352,7 @@
         if (!r) return;
         if (el.dataset.f === 'trigger') {
             r.trigger = el.value;
+            if (!AMOUNT_LABEL[r.trigger] || r.trigger === 'sub') r.conditions.minAmount = r.conditions.maxAmount = 0;
             const prev = Object.values(DEFAULT_TITLE);
             r.variants.forEach(v => { if (!v.title || prev.includes(v.title)) v.title = DEFAULT_TITLE[r.trigger]; });
             if (r.name === 'New alert' || Object.values(TRIGGERS).includes(r.name)) r.name = TRIGGERS[r.trigger];
