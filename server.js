@@ -171,7 +171,7 @@ function loadCustomOverlays() {
     }
 }
 
-const ASSET_KIND_BY_EXT = { '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.gif': 'image', '.webp': 'image', '.svg': 'image', '.mp4': 'video', '.webm': 'video', '.ogg': 'video', '.ttf': 'font', '.otf': 'font', '.woff': 'font', '.woff2': 'font' };
+const ASSET_KIND_BY_EXT = { '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.gif': 'image', '.webp': 'image', '.svg': 'image', '.mp4': 'video', '.webm': 'video', '.ogg': 'video', '.ttf': 'font', '.otf': 'font', '.woff': 'font', '.woff2': 'font', '.mp3': 'audio', '.wav': 'audio', '.m4a': 'audio', '.aac': 'audio', '.oga': 'audio' };
 const assetKind = name => ASSET_KIND_BY_EXT[path.extname(name).toLowerCase()] || 'other';
 const assetLabel = name => name.replace(/^[a-z0-9]{6,}-/, '').replace(/\.[A-Za-z0-9]+$/, '').replace(/^[-_.]+|[-_.]+$/g, '');
 // Uploaded fonts are referenced in overlays by this family name, so renames must rewrite it too.
@@ -649,7 +649,8 @@ function backfillClipCandidates(rebuild = false) {
 
 const DEFAULT_TIMER_SETTINGS = {
     sound_enabled: false,
-    sound_volume: 0.35
+    sound_volume: 0.35,
+    sound_url: ''
 };
 
 const TIMER_EVENT_TYPES = ['countdown_started', 'countdown_complete', 'stopwatch_started', 'stopwatch_paused'];
@@ -705,10 +706,41 @@ function formatTimerClock(ms, opts = {}) {
     return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
+// Only library assets may be used as custom timer sounds.
+function normalizeSoundUrl(value) {
+    const url = String(value || '').trim();
+    return url.startsWith('/custom-overlay-assets/') && url.length <= 300 && !url.includes('..') ? url : '';
+}
+
+// Timers (and the global timer settings) can reference library sounds, so asset usage/renames must cover them.
+function timerSoundUsers(name) {
+    const users = [];
+    const matches = url => url && assetReferencedIn(url, name, null);
+    if (matches(timerStore.settings?.sound_url)) users.push({ id: 'timer-settings', name: 'Timer sound (global)' });
+    for (const timer of Object.values(timerStore.timers || {})) {
+        if (matches(timer.soundUrl)) users.push({ id: `timer:${timer.id}`, name: `Timer: ${timer.label || timer.id}` });
+    }
+    return users;
+}
+
+function rewriteTimerSoundReferences(oldName, newName) {
+    let changed = false;
+    const fix = url => { const next = rewriteAssetReferences(url || '', oldName, newName, null, null); if (next !== url) changed = true; return next; };
+    if (timerStore.settings?.sound_url) timerStore.settings.sound_url = fix(timerStore.settings.sound_url);
+    for (const timer of Object.values(timerStore.timers || {})) {
+        if (timer.soundUrl) timer.soundUrl = fix(timer.soundUrl);
+    }
+    if (!changed) return false;
+    saveTimers();
+    broadcastToOverlays('timers-snapshot', buildTimersSnapshot());
+    return true;
+}
+
 function normalizeTimerSettings(raw = {}) {
     const settings = cloneJson(DEFAULT_TIMER_SETTINGS);
     if (raw.sound_enabled !== undefined) settings.sound_enabled = !!raw.sound_enabled;
     settings.sound_volume = clampNumber(raw.sound_volume, 0, 1, DEFAULT_TIMER_SETTINGS.sound_volume);
+    settings.sound_url = normalizeSoundUrl(raw.sound_url);
     return settings;
 }
 
@@ -769,6 +801,7 @@ function buildTimerSnapshot(timer, now = Date.now()) {
             progress: timer.progress !== false,
             showOnEnd: timer.showOnEnd || 'message',
             endMessage: timer.endMessage || '⌛️',
+            soundUrl: normalizeSoundUrl(timer.soundUrl),
             durationMs: Math.max(0, timer.durationMs || 0),
             targetAt: timer.targetAt || null,
             startingRemainingMs: Math.max(0, timer.startingRemainingMs || 0),
@@ -835,6 +868,7 @@ function loadTimers() {
                 timer.timezone = String(rawTimer.timezone || '');
                 timer.progress = rawTimer.progress !== false;
                 timer.endMessage = String(rawTimer.endMessage || '⌛️');
+                timer.soundUrl = normalizeSoundUrl(rawTimer.soundUrl);
                 timer.showOnEnd = ['message', 'zero', 'none'].includes(rawTimer.showOnEnd) ? rawTimer.showOnEnd : 'message';
                 timer.remainingMs = Math.max(0, Number(rawTimer.remainingMs) || 0);
                 timer.startingRemainingMs = Math.max(0, Number(rawTimer.startingRemainingMs) || timer.remainingMs || timer.durationMs);
@@ -886,6 +920,7 @@ function buildTimerRecord(input) {
             timezone: String(input.timezone || '').trim(),
             progress: input.progress !== false,
             endMessage: String(input.endMessage || '⌛️').slice(0, 120),
+            soundUrl: normalizeSoundUrl(input.soundUrl),
             showOnEnd: ['message', 'zero', 'none'].includes(input.showOnEnd) ? input.showOnEnd : 'message',
             remainingMs: initialRemainingMs,
             startingRemainingMs: initialRemainingMs,
@@ -3522,6 +3557,11 @@ const MIME_TYPES = {
     '.mp4': 'video/mp4',
     '.webm': 'video/webm',
     '.ogg': 'video/ogg',
+    '.oga': 'audio/ogg',
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.m4a': 'audio/mp4',
+    '.aac': 'audio/aac',
     '.ttf': 'font/ttf',
     '.otf': 'font/otf',
     '.woff': 'font/woff',
@@ -3719,7 +3759,7 @@ const server = http.createServer(async (req, res) => {
             if (!stat.isFile()) return null;
             const kind = assetKind(name);
             const family = kind === 'font' ? assetFontFamily(name) : null;
-            const usedBy = serialized.filter(o => assetReferencedIn(o.text, name, family)).map(({ id, name: overlayName }) => ({ id, name: overlayName }));
+            const usedBy = [...serialized.filter(o => assetReferencedIn(o.text, name, family)).map(({ id, name: overlayName }) => ({ id, name: overlayName })), ...timerSoundUsers(name)];
             return { name, kind, family, label: assetLabel(name), url: `/custom-overlay-assets/${encodeURIComponent(name)}`, size: stat.size, modifiedAt: stat.mtime.toISOString(), usedBy };
         }).filter(Boolean).sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -3738,7 +3778,7 @@ const server = http.createServer(async (req, res) => {
         const family = assetKind(name) === 'font' ? assetFontFamily(name) : null;
 
         if (req.method === 'DELETE') {
-            const usedBy = Object.values(customOverlays).filter(o => assetReferencedIn(JSON.stringify(o), name, family)).map(o => o.id);
+            const usedBy = [...Object.values(customOverlays).filter(o => assetReferencedIn(JSON.stringify(o), name, family)).map(o => o.id), ...timerSoundUsers(name).map(u => u.id)];
             if (usedBy.length && new URL(req.url, 'http://localhost').searchParams.get('force') !== '1') return respond(409, { error: 'Asset is used by an overlay', usedBy });
             try { fs.unlinkSync(target); respond(200, { deleted: name }); } catch (err) { respond(500, { error: err.message }); }
             return;
@@ -3768,9 +3808,10 @@ const server = http.createServer(async (req, res) => {
                 updated.push(id);
             } catch { /* leave the overlay untouched if the rewritten copy is invalid */ }
         }
-        if (updated.length) {
+        if (rewriteTimerSoundReferences(name, newName)) updated.push('timers');
+        if (updated.some(id => customOverlays[id])) {
             saveCustomOverlays();
-            for (const id of updated) broadcastToOverlays('custom-overlay-update', { id, overlay: customOverlays[id] });
+            for (const id of updated.filter(id => customOverlays[id])) broadcastToOverlays('custom-overlay-update', { id, overlay: customOverlays[id] });
         }
         respond(200, { name: newName, url: `/custom-overlay-assets/${encodeURIComponent(newName)}`, renamed: true, updated });
         return;
@@ -3781,16 +3822,20 @@ const server = http.createServer(async (req, res) => {
         const allowedTypes = new Set([
             'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml',
             'video/mp4', 'video/webm', 'video/ogg',
-            'font/ttf', 'font/otf', 'font/woff', 'font/woff2'
+            'font/ttf', 'font/otf', 'font/woff', 'font/woff2',
+            'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/ogg'
         ]);
         const declaredName = String(req.headers['x-asset-name'] || 'asset').trim();
         const safeBase = path.basename(declaredName).replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 120) || 'asset';
-        const typeExt = contentType.split('/')[1] === 'jpeg' ? '.jpg' : `.${contentType.split('/')[1] || ''}`;
-        const filename = `${Date.now().toString(36)}-${safeBase.includes('.') ? safeBase : `${safeBase}${typeExt}`}`;
+        const audioExts = { 'audio/mpeg': '.mp3', 'audio/mp3': '.mp3', 'audio/wav': '.wav', 'audio/x-wav': '.wav', 'audio/wave': '.wav', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/aac': '.aac', 'audio/ogg': '.oga' };
+        const typeExt = audioExts[contentType] || (contentType.split('/')[1] === 'jpeg' ? '.jpg' : `.${contentType.split('/')[1] || ''}`);
+        // Audio-in-Ogg uses .oga so it is not mistaken for the video .ogg type.
+        const namedBase = contentType === 'audio/ogg' ? safeBase.replace(/\.ogg$/i, '') : safeBase;
+        const filename = `${Date.now().toString(36)}-${namedBase.includes('.') ? namedBase : `${namedBase}${typeExt}`}`;
         const target = path.join(CUSTOM_OVERLAY_ASSETS_DIR, filename);
         if (!allowedTypes.has(contentType)) {
             res.writeHead(415, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Only common image, video and font (TTF, OTF, WOFF, WOFF2) asset types are supported' }));
+            res.end(JSON.stringify({ error: 'Only common image, video, audio (MP3, WAV, M4A, AAC, OGG) and font (TTF, OTF, WOFF, WOFF2) asset types are supported' }));
             return;
         }
         if (Number(req.headers['content-length'] || 0) > 100 * 1024 * 1024) {

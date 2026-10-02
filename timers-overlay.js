@@ -370,7 +370,14 @@
             return;
         }
         prevCompletionState = true;
-        playTone(timerSettings.sound_volume || 0.35);
+        playCompletionSound(timerState?.soundUrl || timerSettings.sound_url, timerSettings.sound_volume || 0.35);
+    }
+
+    function playCompletionSound(url, volume) {
+        if (!url) return playTone(volume);
+        const audio = new Audio(url);
+        audio.volume = Math.max(0, Math.min(1, Number(volume) || 0.35));
+        audio.play().catch(() => playTone(volume));
     }
 
     function playTone(volume) {

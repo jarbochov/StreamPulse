@@ -378,7 +378,7 @@ Use the **Generic HTTP** module:
 | `data/stats.json` | Persists across restarts | Cumulative stats with daily buckets |
 | `data/sessions/` | Persists | Archived session data + JSONL chat logs |
 | `data/highlights.json` | Persists | Pinned chat messages |
-| `data/timers.json` | Persists | Named countdowns, stopwatches, timer state, global sound settings, and per-timer HTTP action settings |
+| `data/timers.json` | Persists | Named countdowns, stopwatches, timer state, global and per-timer completion sounds (from the asset library), and per-timer HTTP action settings |
 | `data/clip-candidates.json` | Persists | Beta clip candidates and Twitch clip links |
 | `data/subs.json` | Refreshed from Twitch API | Subscriber list |
 | `data/bits.json` | Refreshed from Twitch API | Bits leaderboard |

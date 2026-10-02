@@ -66,6 +66,20 @@
         details.advanced > summary::before { content: '▸ '; }
         details.advanced[open] > summary::before { content: '▾ '; }
         .empty-note { padding: .8rem; border: 1px dashed #30363d; border-radius: 8px; color: #8b949e; font-size: .8rem; }
+        .sound-pick { flex: 1; display: flex; align-items: center; gap: .5rem; min-width: 0; }
+        .sound-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .82rem; color: #e1e4e8; }
+        .sound-name.is-default { color: #8b949e; }
+        #sound-dialog { width: min(560px, 92vw); background: #161b22; color: #e1e4e8; border: 1px solid #30363d; border-radius: 10px; padding: 1.1rem 1.2rem; margin: auto; }
+        #sound-dialog::backdrop { background: rgba(0,0,0,.6); }
+        #sound-dialog header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .75rem; }
+        #sound-dialog h2 { font-size: .9rem; margin: 0; }
+        .sound-tools { display: flex; gap: .5rem; margin-bottom: .6rem; }
+        .sound-tools input[type=search] { flex: 1; padding: .45rem .65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: .82rem; }
+        #sound-list { max-height: 50vh; overflow: auto; display: flex; flex-direction: column; gap: .35rem; }
+        .sound-row { display: flex; align-items: center; gap: .5rem; padding: .4rem .55rem; border: 1px solid #21262d; border-radius: 6px; background: #0d1117; }
+        .sound-row[aria-current="true"] { border-color: #58a6ff; }
+        .sound-row .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .82rem; }
+        .sound-row .meta { color: #8b949e; font-size: .72rem; }
         #toast { position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%); padding: .55rem 1rem; border-radius: 6px; color: #fff; background: #238636; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 100; font-size: .85rem; }
         #toast.show { opacity: 1; }
         #toast.error { background: #b62324; }
@@ -101,12 +115,21 @@
                 <div class="cfg-row">
                     <label for="sound-enabled">Complete sound</label>
                     <input type="checkbox" id="sound-enabled">
-                    <small>Plays a short beep in countdown overlays when a countdown finishes.</small>
+                    <small>Plays a sound in countdown overlays when a countdown finishes.</small>
                 </div>
                 <div class="cfg-row">
                     <label for="sound-volume">Volume</label>
                     <input type="range" id="sound-volume" min="0" max="1" step="0.05" value="0.35">
                     <span id="sound-volume-label" style="font-size:0.8rem;min-width:40px;text-align:right;">35%</span>
+                </div>
+                <div class="cfg-row">
+                    <label>Sound file</label>
+                    <span class="sound-pick" data-sound-target="global">
+                        <span class="sound-name" id="sound-name-global">Built-in beep</span>
+                        <button class="btn sm" type="button" data-sound-choose="global">Choose…</button>
+                        <button class="btn sm" type="button" data-sound-clear="global" hidden>Clear</button>
+                    </span>
+                    <small>Pick or upload a sound from the asset library. Used for every countdown unless the timer sets its own.</small>
                 </div>
                 <div class="actions">
                     <button class="btn primary" id="save-settings">Save settings</button>
@@ -226,6 +249,14 @@
                             <option value="none">Show nothing</option>
                         </select>
                     </div>
+                    <div class="cfg-row">
+                        <label>Completion sound</label>
+                        <span class="sound-pick" data-sound-target="timer">
+                            <span class="sound-name" id="sound-name-timer">Use global setting</span>
+                            <button class="btn sm" type="button" data-sound-choose="timer">Choose…</button>
+                            <button class="btn sm" type="button" data-sound-clear="timer" hidden>Clear</button>
+                        </span>
+                    </div>
                     <div class="cfg-row" id="end-message-row">
                         <label for="countdown-end-message">End message</label>
                         <input type="text" id="countdown-end-message" value="⌛️" maxlength="80">
@@ -293,6 +324,15 @@
             </div>
         </div>
     </div>
+    <dialog id="sound-dialog">
+        <header><h2>Choose a sound</h2><button class="btn sm" type="button" id="sound-close">Close</button></header>
+        <div class="sound-tools">
+            <input type="search" id="sound-search" placeholder="Filter sounds…">
+            <label class="btn" style="cursor:pointer;">Upload<input type="file" id="sound-upload" accept=".mp3,.wav,.m4a,.aac,.ogg,audio/*" hidden></label>
+        </div>
+        <div id="sound-list"></div>
+        <p class="hint" style="margin-top:.6rem;">MP3, WAV, M4A, AAC or OGG. Uploads are shared with the custom overlay asset library.</p>
+    </dialog>
     <div id="toast" role="status"></div>
 
     <script>
@@ -478,6 +518,7 @@
         $('countdown-progress').checked = blank.progress !== false;
         $('countdown-show-on-end').value = blank.showOnEnd || 'message';
         $('countdown-end-message').value = blank.endMessage || '⌛️';
+        setSound('timer', blank.soundUrl || '');
         fillDuration('dur', blank.durationMs ?? (kind === 'countdown' ? 600000 : 0));
         $('target-at').value = blank.targetAt ? blank.targetAt.slice(0, 16) : '';
         $('target-timezone').value = blank.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || '';
@@ -501,6 +542,7 @@
         $('countdown-progress').checked = timer.progress !== false;
         $('countdown-show-on-end').value = timer.showOnEnd || 'message';
         $('countdown-end-message').value = timer.endMessage || '⌛️';
+        setSound('timer', timer.soundUrl || '');
         fillDuration('dur', timer.durationMs);
         $('target-at').value = timer.targetAt ? timer.targetAt.slice(0, 16) : '';
         $('target-timezone').value = timer.timezone || '';
@@ -529,6 +571,7 @@
             payload.progress = $('countdown-progress').checked;
             payload.showOnEnd = $('countdown-show-on-end').value;
             payload.endMessage = $('countdown-end-message').value || '⌛️';
+            payload.soundUrl = soundValues.timer;
             if (payload.mode === 'duration') {
                 const duration = parseDuration('dur');
                 if (!hasDuration(duration)) throw new Error('Enter a countdown duration');
@@ -634,15 +677,69 @@
         $('sound-enabled').checked = !!timerSettings.sound_enabled;
         $('sound-volume').value = timerSettings.sound_volume ?? 0.35;
         $('sound-volume-label').textContent = Math.round((parseFloat($('sound-volume').value) || 0) * 100) + '%';
+        setSound('global', timerSettings.sound_url || '');
     }
     async function saveSettings() {
         try {
-            const data = await api('/api/timers/settings', jsonBody('PUT', { sound_enabled: $('sound-enabled').checked, sound_volume: parseFloat($('sound-volume').value) || 0 }));
+            const data = await api('/api/timers/settings', jsonBody('PUT', { sound_enabled: $('sound-enabled').checked, sound_volume: parseFloat($('sound-volume').value) || 0, sound_url: soundValues.global }));
             timerSettings = data.settings;
             toast('Global settings saved');
         } catch (error) { toast(error.message, 'error'); }
     }
+    // ---- Sounds ---------------------------------------------------------
+    const soundValues = { global: '', timer: '' };
+    const soundLabel = url => decodeURIComponent(url.split('/').pop() || '').replace(/^[a-z0-9]{6,}-/, '');
+    let soundTarget = null, soundLibrary = [], previewAudio = null;
+
+    function setSound(target, url, markDirty = false) {
+        soundValues[target] = url || '';
+        const name = $(`sound-name-${target}`);
+        name.textContent = url ? soundLabel(url) : (target === 'global' ? 'Built-in beep' : 'Use global setting');
+        name.classList.toggle('is-default', !url);
+        document.querySelector(`[data-sound-clear="${target}"]`).hidden = !url;
+        if (markDirty && target === 'timer') setDirty(true);
+    }
+    function stopPreview() { if (previewAudio) { previewAudio.pause(); previewAudio = null; } }
+    function previewSound(url) {
+        stopPreview();
+        previewAudio = new Audio(url);
+        previewAudio.volume = Math.max(0, Math.min(1, parseFloat($('sound-volume').value) || 0.35));
+        previewAudio.play().catch(() => toast('Could not play that file', 'error'));
+    }
+    function renderSoundList() {
+        const query = $('sound-search').value.trim().toLowerCase();
+        const matches = soundLibrary.filter(asset => asset.label.toLowerCase().includes(query));
+        $('sound-list').innerHTML = matches.length ? matches.map(asset => `
+            <div class="sound-row" ${asset.url === soundValues[soundTarget] ? 'aria-current="true"' : ''}>
+                <button class="btn sm" type="button" data-play="${escapeAttr(asset.url)}" title="Preview">▶</button>
+                <span class="label" title="${escapeAttr(asset.label)}">${escapeAttr(asset.label)}</span>
+                <span class="meta">${Math.max(1, Math.round(asset.size / 1024))} KB</span>
+                <button class="btn sm primary" type="button" data-use="${escapeAttr(asset.url)}">Use</button>
+            </div>`).join('') : `<div class="empty-note">No sounds${query ? ' match your filter' : ' yet — upload an MP3, WAV, M4A, AAC or OGG file'}.</div>`;
+    }
+    function escapeAttr(value) { return String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
+    async function openSoundPicker(target) {
+        soundTarget = target;
+        $('sound-search').value = '';
+        $('sound-list').innerHTML = '<div class="empty-note">Loading…</div>';
+        $('sound-dialog').showModal();
+        try {
+            const assets = await api('/api/custom-overlays/assets', { cache: 'no-store' });
+            soundLibrary = assets.filter(asset => asset.kind === 'audio');
+            renderSoundList();
+        } catch (error) { $('sound-list').innerHTML = `<div class="empty-note">${escapeAttr(error.message)}</div>`; }
+    }
+    async function uploadSound(file) {
+        const type = file.type || ({ mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg' })[file.name.split('.').pop().toLowerCase()];
+        if (!type || !type.startsWith('audio/')) throw new Error('Choose an audio file (MP3, WAV, M4A, AAC or OGG)');
+        const response = await fetch('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': type, 'X-Asset-Name': file.name.replace(/[^\x20-\x7e]+/g, '-') }, body: file });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Upload failed');
+        return data.url;
+    }
     function testSound() {
+        const url = soundValues.timer || soundValues.global;
+        if (url) return previewSound(url);
         const Audio = window.AudioContext || window.webkitAudioContext;
         if (!Audio) return toast('Audio not supported in this browser', 'error');
         const ctx = new Audio();
@@ -655,6 +752,31 @@
         osc.stop(ctx.currentTime + 0.25);
         osc.onended = () => ctx.close();
     }
+    document.addEventListener('click', event => {
+        const choose = event.target.closest('[data-sound-choose]');
+        if (choose) return openSoundPicker(choose.dataset.soundChoose);
+        const clear = event.target.closest('[data-sound-clear]');
+        if (clear) return setSound(clear.dataset.soundClear, '', true);
+        const play = event.target.closest('[data-play]');
+        if (play) return previewSound(play.dataset.play);
+        const use = event.target.closest('[data-use]');
+        if (use) { stopPreview(); setSound(soundTarget, use.dataset.use, true); $('sound-dialog').close(); }
+    });
+    $('sound-close').addEventListener('click', () => $('sound-dialog').close());
+    $('sound-dialog').addEventListener('close', stopPreview);
+    $('sound-search').addEventListener('input', renderSoundList);
+    $('sound-upload').addEventListener('change', async event => {
+        const file = event.target.files[0];
+        event.target.value = '';
+        if (!file) return;
+        try {
+            toast('Uploading…');
+            const url = await uploadSound(file);
+            setSound(soundTarget, url, true);
+            $('sound-dialog').close();
+            toast('Sound uploaded');
+        } catch (error) { toast(error.message, 'error'); }
+    });
 
     // ---- Wiring ---------------------------------------------------------
     document.addEventListener('click', event => {
