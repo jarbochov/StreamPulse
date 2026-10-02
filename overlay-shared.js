@@ -376,6 +376,7 @@
             if (config.meta === 'note') return item.note || '';
             return '';
         };
+        const titleFlow = config.titleWrap === 'wrap' ? 'overflow-wrap:anywhere;line-height:1.2' : 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
         const badge = () => {
             const tag = document.createElement('span');
             tag.textContent = 'NOW PLAYING';
@@ -400,7 +401,7 @@
             if (section.label) {
                 const heading = document.createElement('div');
                 heading.textContent = section.label;
-                heading.style.cssText = 'font-weight:700;margin:0 0 .35em;opacity:.85;';
+                heading.style.cssText = `font-weight:700;margin:0 0 .35em;opacity:.85;${config.headingSize > 0 ? `font-size:${config.headingSize}px;` : ''}`;
                 inner.appendChild(heading);
             }
             const body = document.createElement('div');
@@ -417,7 +418,7 @@
                     title.style.cssText = 'display:flex;align-items:center;gap:.5em;';
                     const name = document.createElement('span');
                     name.textContent = item.name;
-                    name.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;';
+                    name.style.cssText = `font-weight:600;${titleFlow};${config.titleSize > 0 ? `font-size:${config.titleSize}px;` : ''}`;
                     if (config.showTitles !== false || config.showCovers === false) title.appendChild(name);
                     if (item.playingNow && config.highlightCurrent !== false) title.appendChild(badge());
                     text.appendChild(title);
@@ -439,7 +440,7 @@
                     if (config.showTitles !== false) {
                         const name = document.createElement('div');
                         name.textContent = item.name;
-                        name.style.cssText = 'margin-top:.35em;font-weight:600;font-size:.8em;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                        name.style.cssText = `margin-top:.35em;font-weight:600;text-align:center;font-size:${config.titleSize > 0 ? `${config.titleSize}px` : '.8em'};${titleFlow};`;
                         card.appendChild(name);
                     }
                     const extra = meta(item);

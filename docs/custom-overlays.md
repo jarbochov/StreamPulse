@@ -29,7 +29,7 @@ Text and Markdown content support live variables using double braces. The editor
 
 ### Game list element
 
-The **Game list** element shows games from the Game Plan (`/game-plan-editor.html`). Choose Scheduled, Backlog, Played, any custom list, or everything; optionally filter by period; and pick a cover grid, cover strip or text list. **Cover fit** can crop, letterbox or keep natural proportions, and **Shrink everything to fit** scales the list down so it is never clipped. The game matching your current Twitch category gets a *Now playing* badge.
+The **Game list** element shows games from the Game Plan (`/game-plan-editor.html`). Choose Scheduled, Backlog, Played, any custom list, or everything; optionally filter by period; and pick a cover grid, cover strip or text list. **Cover fit** can crop, letterbox or keep natural proportions, and **Shrink everything to fit** scales the list down so it is never clipped. Heading and title sizes can be set in pixels, and long titles can wrap instead of being cut off. The game matching your current Twitch category gets a *Now playing* badge.
 
 Shapes support rectangle, circle, pill, and line variants. Text supports a curated font-family picker, size, weight, color, horizontal alignment, vertical alignment, line height, letter spacing, background, border, and opacity. Multiple elements can be selected with Ctrl/Cmd or Shift and aligned or moved as a group.
 
