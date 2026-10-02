@@ -82,11 +82,21 @@
         .timeline-entry { display: grid; grid-template-columns: 5.5rem 7rem 1fr; gap: 0.6rem; padding: 0.45rem 0; border-bottom: 1px solid #21262d; font-size: 0.82rem; }
         .timeline-time, .timeline-type { color: #8b949e; }
         .timeline-type { color: #58a6ff; }
-        .timeline-controls { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.75rem; color: #8b949e; font-size: 0.78rem; }
-        .timeline-controls input { flex: 1; accent-color: #58a6ff; }
-        .timeline-chart { width: 100%; height: 260px; background: #0d1117; border-radius: 6px; overflow: hidden; }
+        .timeline-chart { width: 100%; height: 220px; background: #0d1117; border-radius: 6px; overflow: hidden; }
         .timeline-chart svg { width: 100%; height: 100%; display: block; }
-        .timeline-readout { margin-top: 0.6rem; color: #c9d1d9; font-size: 0.82rem; min-height: 1.2em; }
+        .timeline-stats { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+        .timeline-stat { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 0.4rem 0.75rem; display: flex; flex-direction: column; min-width: 90px; }
+        .timeline-stat b { color: #58a6ff; font-size: 1rem; }
+        .timeline-stat span { color: #8b949e; font-size: 0.7rem; }
+        .timeline-legend { display: flex; flex-wrap: wrap; gap: 1rem; color: #8b949e; font-size: 0.75rem; margin-bottom: 0.4rem; }
+        .timeline-legend i, .tl-dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 0.35rem; }
+        .timeline-filters .filter-toggle { padding: 0.3rem 0.6rem; }
+        .timeline-filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.75rem 0; }
+        .timeline-list-head { display: flex; justify-content: space-between; align-items: center; }
+        .timeline-list-head h3 { margin: 0; font-size: 0.9rem; }
+        .timeline-list-head span { color: #8b949e; font-weight: normal; }
+        .timeline-entry { cursor: pointer; }
+        .timeline-entry:hover, .timeline-entry.active { background: #161b22; }
         @media (max-width: 640px) {
             .viewer-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .timeline-entry { grid-template-columns: 4.5rem 1fr; }
@@ -596,8 +606,7 @@
         document.getElementById('pane-timeline').innerHTML = '<div class="chat-log-loading">Loading activity timeline...</div>';
         const timelineFile = isLive ? '__current__.json' : filename;
         fetch(`/api/sessions/${encodeURIComponent(timelineFile)}/timeline`).then(r => r.json()).then(timeline => {
-            const events = timeline.events || [];
-            renderActivityTimeline(samples, events);
+            renderActivityTimeline(samples, timeline);
         }).catch(() => { document.getElementById('pane-timeline').innerHTML = '<div class="empty">Timeline unavailable</div>'; });
 
         // Emotes
@@ -706,61 +715,134 @@
         document.getElementById('pane-highlights').innerHTML = '<div class="chat-log-loading">Loading highlights...</div>';
     }
 
-    function renderActivityTimeline(samples, events) {
+    const TIMELINE_TYPES = {
+        new_follower: { label: 'Follow', color: '#3fb950' },
+        resub: { label: 'Resub', color: '#a371f7' },
+        subscription: { label: 'Sub', color: '#a371f7' },
+        subscription_gift: { label: 'Gift sub', color: '#db61a2' },
+        cheer: { label: 'Cheer', color: '#d29922' },
+        donation: { label: 'Donation', color: '#f0883e' },
+        raid: { label: 'Raid', color: '#f85149' },
+        reward: { label: 'Reward', color: '#39c5cf' },
+        action: { label: 'Action', color: '#8b949e' },
+        'stream-info': { label: 'Stream info', color: '#58a6ff' }
+    };
+    const timelineMeta = type => TIMELINE_TYPES[type] || { label: String(type).replace(/_/g, ' '), color: '#8b949e' };
+    const timelineHidden = new Set();
+    let timelineNewestFirst = false;
+
+    function formatTimelineDuration(ms) {
+        const mins = Math.round(ms / 60000);
+        return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+    }
+
+    function renderActivityTimeline(samples, timeline) {
         const pane = document.getElementById('pane-timeline');
-        if (!samples.length) {
-            pane.innerHTML = '<div class="empty">No viewer samples recorded for this session</div>';
+        const events = (timeline.events || []).filter(e => Number.isFinite(e.ts));
+        const chat = timeline.chat || [];
+        const bucketMs = timeline.chatBucketMs || 300000;
+        const sampleTimes = samples.map(s => new Date(s.ts).getTime()).filter(Number.isFinite);
+        const times = [...sampleTimes, ...events.map(e => e.ts), ...chat.map(c => c.ts), ...(chat.length ? [chat[chat.length - 1].ts + bucketMs] : [])];
+        if (!times.length) {
+            pane.innerHTML = '<div class="empty">No activity recorded for this session</div>';
             return;
         }
+        const first = Math.min(...times);
+        const last = Math.max(...times);
+        const span = Math.max(1, last - first);
 
-        const width = 1000;
-        const height = 260;
-        const max = Math.max(1, ...samples.map(sample => Number(sample.count) || 0));
-        const firstTime = new Date(samples[0].ts).getTime();
-        const lastTime = new Date(samples[samples.length - 1].ts).getTime();
-        const span = Math.max(1, lastTime - firstTime);
-        const point = (sample, index) => {
-            const x = samples.length === 1 ? width / 2 : ((new Date(sample.ts).getTime() - firstTime) / span) * width;
-            const y = height - 20 - ((Number(sample.count) || 0) / max) * (height - 40);
-            return { x, y };
-        };
-        const points = samples.map(point);
-        const line = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-        const dots = points.map((p, index) => `<circle cx="${p.x}" cy="${p.y}" r="4" fill="#58a6ff" data-sample="${index}"></circle>`).join('');
-        const markers = events.filter(event => Number.isFinite(event.ts)).map(event => {
-            const x = ((event.ts - firstTime) / span) * width;
-            return `<line x1="${x}" x2="${x}" y1="10" y2="${height - 10}" stroke="#d29922" stroke-width="2" stroke-dasharray="4 4" opacity="0.7"></line>`;
+        const counts = {};
+        events.forEach(e => { counts[e.type] = (counts[e.type] || 0) + 1; });
+        const peakViewers = samples.reduce((m, s) => Math.max(m, Number(s.count) || 0), 0);
+        const busiest = chat.reduce((m, c) => (c.count > (m?.count || 0) ? c : m), null);
+        const stats = [
+            ['Duration', formatTimelineDuration(span)],
+            ['Messages', timeline.messageCount || 0],
+            ['Events', events.length],
+            ['Peak viewers', samples.length ? peakViewers : '—'],
+            ['Busiest 5 min', busiest ? `${busiest.count} msgs @ ${new Date(busiest.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '—']
+        ];
+
+        const width = 1000, height = 220, padT = 14, padB = 22;
+        const plotH = height - padT - padB;
+        const x = ts => ((ts - first) / span) * width;
+        const maxChat = Math.max(1, ...chat.map(c => c.count));
+        const maxView = Math.max(1, peakViewers);
+        const barW = Math.max(2, (bucketMs / span) * width - 1);
+        const bars = chat.map(c => {
+            const h = (c.count / maxChat) * plotH;
+            return `<rect x="${x(c.ts).toFixed(1)}" y="${(height - padB - h).toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="#1f6feb" opacity="0.45"><title>${c.count} messages · ${new Date(c.ts).toLocaleTimeString()}</title></rect>`;
+        }).join('');
+        const viewerPoints = samples.map(s => {
+            const t = new Date(s.ts).getTime();
+            return { t, y: height - padB - ((Number(s.count) || 0) / maxView) * plotH, count: s.count };
+        }).filter(p => Number.isFinite(p.t));
+        const viewerLine = viewerPoints.length > 1
+            ? `<polyline points="${viewerPoints.map(p => `${x(p.t).toFixed(1)},${p.y.toFixed(1)}`).join(' ')}" fill="none" stroke="#3fb950" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>`
+            : '';
+        const ticks = Array.from({ length: 5 }, (_, i) => {
+            const ts = first + (span * i) / 4;
+            const anchor = i === 0 ? 'start' : i === 4 ? 'end' : 'middle';
+            return `<text x="${(width * i) / 4}" y="${height - 6}" fill="#8b949e" font-size="12" text-anchor="${anchor}">${new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</text>`;
         }).join('');
 
         pane.innerHTML = `
-            <div class="timeline-controls">
-                <span>Scrub</span>
-                <input id="timeline-scrubber" type="range" min="0" max="${samples.length - 1}" value="${samples.length - 1}">
-                <span>${samples.length} samples</span>
-            </div>
+            <div class="timeline-stats">${stats.map(([k, v]) => `<div class="timeline-stat"><b>${escapeHtml(String(v))}</b><span>${k}</span></div>`).join('')}</div>
+            <div class="timeline-legend"><span><i style="background:#1f6feb"></i>Chat volume (5 min)</span>${samples.length ? '<span><i style="background:#3fb950"></i>Viewers</span>' : ''}<span><i style="background:#d29922"></i>Events (click a row to locate)</span></div>
             <div class="timeline-chart">
-                <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Viewer activity over time">
-                    <polyline points="${line}" fill="none" stroke="#58a6ff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"></polyline>
-                    ${markers}
-                    ${dots}
-                    <circle id="timeline-scrub-marker" cx="0" cy="0" r="8" fill="#d29922" stroke="#fff" stroke-width="2"></circle>
+                <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Session activity over time">
+                    ${bars}${viewerLine}<g id="timeline-markers"></g>${ticks}
                 </svg>
             </div>
-            <div class="timeline-readout" id="timeline-readout"></div>
-            ${events.length ? `<h3 style="margin-top:1rem;">Events</h3>${events.map(event => `<div class="timeline-entry"><span class="timeline-time">${new Date(event.ts).toLocaleTimeString()}</span><span class="timeline-type">${escapeHtml(event.type)}</span><span>${escapeHtml([event.user, event.message, event.detail].filter(Boolean).join(' — '))}</span></div>`).join('')}` : ''}
+            <div class="timeline-filters" id="timeline-filters"></div>
+            <div class="timeline-list-head"><h3>Events <span id="timeline-count"></span></h3><button class="filter-toggle" id="timeline-order"></button></div>
+            <div id="timeline-list"></div>
         `;
 
-        const scrubber = document.getElementById('timeline-scrubber');
-        const readout = document.getElementById('timeline-readout');
-        const updateReadout = () => {
-            const sample = samples[Number(scrubber.value)] || samples[0];
-            const point = points[Number(scrubber.value)] || points[0];
-            const marker = document.getElementById('timeline-scrub-marker');
-            if (marker && point) { marker.setAttribute('cx', point.x); marker.setAttribute('cy', point.y); }
-            readout.textContent = `${new Date(sample.ts).toLocaleString()} — ${sample.count} viewers (${sample.source || 'unknown source'})`;
+        const markers = document.getElementById('timeline-markers');
+        const list = document.getElementById('timeline-list');
+        const renderMarkers = () => {
+            markers.innerHTML = events.filter(e => !timelineHidden.has(e.type)).map(e =>
+                `<line x1="${x(e.ts).toFixed(1)}" x2="${x(e.ts).toFixed(1)}" y1="${padT}" y2="${height - padB}" stroke="${timelineMeta(e.type).color}" stroke-width="2" vector-effect="non-scaling-stroke" opacity="0.9"></line>`
+            ).join('');
         };
-        scrubber.addEventListener('input', updateReadout);
-        updateReadout();
+        const renderFilters = () => {
+            document.getElementById('timeline-filters').innerHTML = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map(type => {
+                const meta = timelineMeta(type);
+                return `<button class="filter-toggle${timelineHidden.has(type) ? '' : ' active'}" data-type="${escapeHtml(type)}"><i class="tl-dot" style="background:${meta.color}"></i>${escapeHtml(meta.label)} ${counts[type]}</button>`;
+            }).join('') || '<span class="empty" style="padding:0">No events</span>';
+        };
+        const renderList = () => {
+            const shown = events.filter(e => !timelineHidden.has(e.type));
+            if (!timelineNewestFirst) shown.sort((a, b) => a.ts - b.ts); else shown.sort((a, b) => b.ts - a.ts);
+            document.getElementById('timeline-count').textContent = `(${shown.length})`;
+            document.getElementById('timeline-order').textContent = timelineNewestFirst ? '↓ Newest first' : '↑ Oldest first';
+            list.innerHTML = shown.length ? shown.map(e => {
+                const meta = timelineMeta(e.type);
+                const text = [e.user, e.message, e.detail].filter(Boolean).map(String).join(' — ');
+                return `<div class="timeline-entry" data-ts="${e.ts}"><span class="timeline-time">${new Date(e.ts).toLocaleTimeString()}</span><span class="timeline-type" style="color:${meta.color}">${escapeHtml(meta.label)}</span><span>${escapeHtml(text)}</span></div>`;
+            }).join('') : '<div class="empty">No events match the current filters</div>';
+        };
+        const refresh = () => { renderMarkers(); renderFilters(); renderList(); };
+
+        pane.onclick = ev => {
+            const filter = ev.target.closest('[data-type]');
+            if (filter) {
+                const type = filter.dataset.type;
+                timelineHidden.has(type) ? timelineHidden.delete(type) : timelineHidden.add(type);
+                refresh();
+                return;
+            }
+            if (ev.target.closest('#timeline-order')) { timelineNewestFirst = !timelineNewestFirst; renderList(); return; }
+            const row = ev.target.closest('.timeline-entry');
+            if (!row) return;
+            const ts = Number(row.dataset.ts);
+            list.querySelectorAll('.timeline-entry.active').forEach(r => r.classList.remove('active'));
+            row.classList.add('active');
+            markers.querySelector('.timeline-locator')?.remove();
+            markers.insertAdjacentHTML('beforeend', `<line class="timeline-locator" x1="${x(ts).toFixed(1)}" x2="${x(ts).toFixed(1)}" y1="0" y2="${height - padB}" stroke="#fff" stroke-width="4" vector-effect="non-scaling-stroke"></line>`);
+        };
+        refresh();
     }
 
     let chatLogTypeFilter = null;

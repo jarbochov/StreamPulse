@@ -5240,24 +5240,32 @@ const server = http.createServer(async (req, res) => {
         try {
             const data = isCurrent ? chatData : JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
             const logName = sessionName.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
-            const events = (isCurrent ? chatLog : readChatLogFile(path.join(SESSIONS_DIR, logName)))
+            const logEntries = isCurrent ? chatLog : readChatLogFile(path.join(SESSIONS_DIR, logName));
+            const events = logEntries
                 .filter(entry => entry.event || entry.donation)
                 .map(entry => ({
                     ts: entry.ts,
-                    type: entry.event || (entry.donation ? 'donation' : 'membership'),
+                    type: entry.event || 'donation',
                     user: entry.user,
                     message: entry.message,
-                    detail: entry.donation || entry.membership || null
+                    detail: entry.donation || null
                 }));
             for (const info of data.streamInfo || []) {
                 events.push({ ts: new Date(info.changedAt).getTime(), type: 'stream-info', message: info.title, detail: info.category || null });
             }
-            for (const sample of data.viewerStats?.samples || []) {
-                events.push({ ts: new Date(sample.ts).getTime(), type: 'viewers', message: `${sample.count} viewers`, detail: sample.source || null });
-            }
             events.sort((a, b) => a.ts - b.ts);
+            const stamps = logEntries.map(e => e.ts).filter(Number.isFinite);
+            const bucketMs = 5 * 60 * 1000;
+            const buckets = {};
+            for (const ts of stamps) {
+                const key = Math.floor(ts / bucketMs) * bucketMs;
+                buckets[key] = (buckets[key] || 0) + 1;
+            }
+            const chat = Object.keys(buckets).map(Number).sort((a, b) => a - b).map(ts => ({ ts, count: buckets[ts] }));
+            const startTs = stamps.length ? Math.min(...stamps) : null;
+            const endTs = stamps.length ? Math.max(...stamps) : null;
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ session: sessionName, events }));
+            res.end(JSON.stringify({ session: sessionName, events, chat, chatBucketMs: bucketMs, messageCount: stamps.length, startTs, endTs }));
         } catch (err) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: err.message }));
