@@ -327,8 +327,9 @@
 <body>
     <div id="player" class="player-container"></div>
 
+<script src="/url-params.js"></script>
 <script>
-    const params = new URLSearchParams(window.location.search);
+    const params = overlayParams();
     const MODE = params.get('mode') || 'full';
     const POLL_INTERVAL = 3000;
     const ART_OVERLAY_DURATION = 5000;

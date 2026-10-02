@@ -2,7 +2,7 @@
 // CONFIGURATION
 // ============================================================================
 
-const urlParams = new URLSearchParams(window.location.search);
+const urlParams = overlayParams();
 const DURATION = parseFloat(urlParams.get('duration')) || null;
 const SPEED_MULTIPLIER = parseFloat(urlParams.get('speed')) || null;
 const DATA_PATH = urlParams.get('datapath') || './data';

@@ -29,8 +29,9 @@
         <span class="count" id="viewer-count">0</span>
         <span class="label" id="viewer-label">viewers</span>
     </div>
+    <script src="/url-params.js"></script>
     <script>
-    const params = new URLSearchParams(location.search);
+    const params = overlayParams();
     const count = document.getElementById('viewer-count');
     const label = document.getElementById('viewer-label');
     const card = document.getElementById('viewer-card');

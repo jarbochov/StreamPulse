@@ -1,7 +1,7 @@
 (function () {
     const body = document.body;
     const kind = body.dataset.kind === 'stopwatch' ? 'stopwatch' : 'countdown';
-    const params = new URLSearchParams(location.search);
+    const params = overlayParams();
     const namedTimerId = (params.get('timer') || '').trim().toLowerCase();
     const mode = params.get('display') === 'compact' ? 'compact' : 'standard';
     const overlay = document.getElementById('overlay-root');

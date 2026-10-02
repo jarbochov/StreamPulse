@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Overlays</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #0f1117; color: #e1e4e8; font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 2rem; background: #161b22; border-bottom: 1px solid #30363d; }
+        h1 { font-size: 1.25rem; margin: 0; }
+        h1 span { color: #58a6ff; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+        .intro { color: #8b949e; margin: 0 0 1rem; line-height: 1.5; }
+        .toolbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+        input[type=search] { flex: 1; min-width: 200px; background: #0d1117; color: #e1e4e8; border: 1px solid #30363d; border-radius: 6px; padding: .5rem .75rem; font: inherit; }
+        section { margin-bottom: 1.75rem; }
+        h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: #8b949e; margin: 0 0 .6rem; display: flex; align-items: center; gap: .6rem; }
+        h2 a { font-size: .75rem; text-transform: none; letter-spacing: 0; color: #58a6ff; text-decoration: none; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: .75rem; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: .9rem; display: flex; flex-direction: column; gap: .5rem; }
+        .card:hover { border-color: #3d4650; }
+        .card h3 { margin: 0; font-size: .95rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+        .desc { color: #8b949e; font-size: .8rem; line-height: 1.4; margin: 0; }
+        .url { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: #79c0ff; background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: .35rem .5rem; overflow-wrap: anywhere; user-select: all; }
+        .actions { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: auto; }
+        .badge { display: inline-block; padding: .05rem .45rem; border-radius: 999px; font-size: .7rem; border: 1px solid #30363d; color: #8b949e; white-space: nowrap; }
+        .badge.live { border-color: #238636; color: #3fb950; }
+        .badge.beta { border-color: #9e6a03; color: #d29922; }
+        button, a.btn { border: 1px solid #30363d; border-radius: 6px; padding: .35rem .65rem; background: #21262d; color: #e1e4e8; cursor: pointer; text-decoration: none; font: inherit; font-size: .8rem; }
+        button:hover, a.btn:hover { border-color: #58a6ff; background: #1a2332; }
+        button.primary, a.btn.primary { border-color: #1f6feb; background: #1a2332; }
+        .empty { color: #8b949e; padding: 1rem; border: 1px dashed #30363d; border-radius: 8px; }
+        #toast { position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%); background: #238636; color: #fff; padding: .5rem 1rem; border-radius: 6px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+        #toast.show { opacity: 1; }
+        [hidden] { display: none !important; }
+    </style>
+</head>
+<body>
+    <header class="header"><h1>StreamPulse <span>Overlays</span></h1><div id="main-nav" class="nav"></div></header>
+    <script src="/nav.js"></script>
+    <main class="container">
+        <p class="intro">Every browser source in one place. Copy the URL into OBS (Browser Source), or use <strong>Customize</strong> to build a parameterized URL. Parameter names are case-insensitive (<code>fontScale</code> = <code>fontscale</code>).</p>
+        <div class="toolbar">
+            <input type="search" id="filter" placeholder="Filter overlays…" aria-label="Filter overlays">
+            <a class="btn primary" href="/custom-overlay-editor.html?new=1" id="new-custom">+ New custom overlay</a>
+        </div>
+        <div id="groups"></div>
+    </main>
+    <div id="toast" role="status"></div>
+    <script>
+        const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const groups = [
+            { title: 'Credits & stats', manage: ['Credits editor', '/credits-editor.html'], items: [
+                { name: 'Credits', desc: 'Scrolling end-of-stream credits. Add ?preview=true to preview with sample data.', path: '/credits.html', customize: ['/overlay-url-wizard.html', 'Customize'], size: '1920×1080' },
+                { name: 'Stats', desc: 'Chat and community statistics. Supports days, date, from and to filters.', path: '/stats.html', customize: ['/overlay-url-wizard.html', 'Customize'] },
+                { name: 'Viewer count', desc: 'Live viewer count with optional label and font scale.', path: '/viewers.html', customize: ['/overlay-url-wizard.html', 'Customize'] }
+            ] },
+            { title: 'Hashtags', manage: ['Hashtag tools', '/manage-hashtags.html'], items: [
+                { name: 'Hashtags', desc: 'Hashtag leaderboard. Views: scroll or grid; sort, columns, limit, days and refresh parameters.', path: '/hashtags.html', customize: ['/hashtag-stats.html', 'Stats'] }
+            ] },
+            { title: 'Goals', manage: ['Goals manager', '/goals-editor.html'], items: [
+                { name: 'Goal — single', desc: 'One goal. Add ?goal=<id> to pick which.', path: '/goal.html', customize: ['/overlay-url-wizard.html', 'Customize'] },
+                { name: 'Goal — cycle', desc: 'Rotates through enabled goals. Supports ids, interval, skipcompleted and pausecomplete.', path: '/goal.html?mode=cycle', customize: ['/overlay-url-wizard.html', 'Customize'] }
+            ] },
+            { title: 'Music', badge: 'beta', manage: ['Music settings', '/music-editor.html'], items: [
+                { name: 'Music — full', desc: 'Album art with title, artist and album.', path: '/music.html?mode=full', customize: ['/music-url-wizard.html', 'Customize'] },
+                { name: 'Music — art only', desc: 'Album art with a brief title overlay on track change.', path: '/music.html?mode=art', customize: ['/music-url-wizard.html', 'Customize'] },
+                { name: 'Music — mini bar', desc: 'Compact text-only now-playing bar.', path: '/music.html?mode=mini', customize: ['/music-url-wizard.html', 'Customize'] }
+            ] },
+            { id: 'timers', title: 'Timers', manage: ['Timer manager', '/timers-editor.html'], items: [] },
+            { id: 'custom', title: 'Custom overlays', manage: ['All custom overlays & assets', '/custom-overlays.html'], items: [] }
+        ];
+        const timerCustomize = timer => ['/timer-url-wizard.html?timer=' + encodeURIComponent(timer.id), 'Customize'];
+
+        function render() {
+            const query = document.getElementById('filter').value.trim().toLowerCase();
+            const html = groups.map(group => {
+                const items = group.items.filter(item => !query || `${item.name} ${item.desc} ${group.title}`.toLowerCase().includes(query));
+                if (!items.length && (query || group.id === undefined)) return '';
+                const body = items.length ? items.map(item => {
+                    const url = location.origin + item.path;
+                    return `<article class="card">
+                        <h3>${esc(item.name)}${(item.badge || group.badge) ? `<span class="badge ${esc(item.badge || group.badge)}">${esc(item.badge || group.badge)}</span>` : ''}</h3>
+                        <p class="desc">${esc(item.desc)}</p>
+                        <div class="url">${esc(url)}</div>
+                        <div class="actions">
+                            <button class="primary" data-copy="${esc(url)}">Copy URL</button>
+                            <a class="btn" href="${esc(item.path)}" target="_blank" rel="noopener">Preview</a>
+                            ${item.edit ? `<a class="btn" href="${esc(item.edit)}">Edit</a>` : ''}
+                            ${item.customize ? `<a class="btn" href="${esc(item.customize[0])}">${esc(item.customize[1])}</a>` : ''}
+                        </div>
+                    </article>`;
+                }).join('') : `<div class="empty">${group.id === 'timers' ? 'No timers yet.' : 'No custom overlays yet.'} <a href="${esc(group.manage[1])}" style="color:#58a6ff">Open ${esc(group.manage[0])}</a></div>`;
+                return `<section><h2>${esc(group.title)} <a href="${esc(group.manage[1])}">${esc(group.manage[0])} →</a></h2><div class="grid">${body}</div></section>`;
+            }).join('');
+            document.getElementById('groups').innerHTML = html || '<div class="empty">No overlays match your filter.</div>';
+        }
+
+        async function loadDynamic() {
+            const [timers, customs] = await Promise.all([
+                fetch('/api/timers', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ timers: {} })),
+                fetch('/api/custom-overlays', { cache: 'no-store' }).then(r => r.json()).catch(() => [])
+            ]);
+            groups.find(g => g.id === 'timers').items = Object.values(timers.timers || {}).map(timer => {
+                const kind = timer.kind === 'stopwatch' ? 'stopwatch' : 'countdown';
+                return { name: timer.label || timer.id, desc: `${kind === 'stopwatch' ? 'Stopwatch' : 'Countdown'} · ${timer.state || 'idle'} · id ${timer.id}`, path: `/${kind}.html?timer=${encodeURIComponent(timer.id)}`, customize: timerCustomize(timer) };
+            });
+            groups.find(g => g.id === 'custom').items = customs.map(overlay => ({
+                name: overlay.name || overlay.id,
+                desc: `${overlay.canvas.width}×${overlay.canvas.height} · ${overlay.elements?.length || 0} elements`,
+                path: `/custom-overlay.html?id=${encodeURIComponent(overlay.id)}`,
+                edit: `/custom-overlay-editor.html?id=${encodeURIComponent(overlay.id)}`
+            }));
+            render();
+        }
+
+        let toastTimer;
+        document.getElementById('groups').addEventListener('click', async event => {
+            const button = event.target.closest('[data-copy]');
+            if (!button) return;
+            try { await navigator.clipboard.writeText(button.dataset.copy); } catch {
+                const range = document.createRange();
+                range.selectNodeContents(button.closest('.card').querySelector('.url'));
+                getSelection().removeAllRanges(); getSelection().addRange(range);
+                document.execCommand('copy');
+            }
+            const toast = document.getElementById('toast');
+            toast.textContent = 'URL copied';
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 1400);
+        });
+        document.getElementById('filter').addEventListener('input', render);
+        render();
+        loadDynamic();
+    </script>
+</body>
+</html>

@@ -22,11 +22,12 @@
 
     <div class="filter-info" id="filter-info"></div>
 
+    <script src="/url-params.js"></script>
     <script>
     // ================================================================
     // URL PARAMETERS
     // ================================================================
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = overlayParams();
 
     const VIEW     = urlParams.get('view') || 'scroll';
     const SORT     = urlParams.get('sort') || 'count';

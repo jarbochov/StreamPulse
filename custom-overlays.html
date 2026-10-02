@@ -40,7 +40,8 @@
     <script src="/nav.js"></script>
     <main class="container">
         <div class="toolbar">
-            <button class="primary" id="create-btn">Create Overlay</button>
+            <a class="btn primary" href="/custom-overlay-editor.html?new=1">Create Overlay</a>
+            <a class="btn" href="/overlays.html">All Overlays</a>
             <a class="btn" href="/custom-overlay.html?id=stream-start" target="_blank" rel="noopener">Runtime Example URL</a>
         </div>
         <section class="card">
@@ -152,10 +153,6 @@
         ['dragenter', 'dragover'].forEach(name => dropZone.addEventListener(name, event => { event.preventDefault(); dropZone.classList.add('over'); }));
         ['dragleave', 'drop'].forEach(name => dropZone.addEventListener(name, event => { event.preventDefault(); dropZone.classList.remove('over'); }));
         dropZone.addEventListener('drop', event => { const files = [...event.dataTransfer.files]; if (files.length) uploadFiles(files); });
-        document.getElementById('create-btn').addEventListener('click', () => {
-            const id = prompt('Overlay id, e.g. be-right-back');
-            if (id) location.href = `/custom-overlay-editor.html?id=${encodeURIComponent(id)}&new=1`;
-        });
         load().catch(error => { list.innerHTML = `<div class="empty">${esc(error.message)}</div>`; });
         loadAssets().catch(error => { assetList.innerHTML = `<div class="empty">${esc(error.message)}</div>`; });
     </script>

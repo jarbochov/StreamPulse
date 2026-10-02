@@ -114,8 +114,9 @@
         <p style="font-size: 2vw; text-align: center; width: 100%;">Loading stats...</p>
     </div>
 
+    <script src="/url-params.js"></script>
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
+        const urlParams = overlayParams();
         const DAYS = parseInt(urlParams.get('days')) || 0;
         const DATE = urlParams.get('date') || '';
         const FROM = urlParams.get('from') || '';

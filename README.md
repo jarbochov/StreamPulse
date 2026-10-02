@@ -93,7 +93,9 @@ Add **Browser Sources** in OBS with these URLs:
 - Config: `http://localhost:3000/config-editor.html`
 - Credits: `http://localhost:3000/credits-editor.html`
 - Theme: `http://localhost:3000/theme-editor.html`
+- Overlays hub (every browser source, copy URL, customize): `http://localhost:3000/overlays.html`
 - Overlay URL Wizard: `http://localhost:3000/overlay-url-wizard.html`
+- Overlay URL parameter names are case-insensitive (`fontScale` = `fontscale`); lowercase is the documented form.
 - Custom Overlays: `http://localhost:3000/custom-overlays.html`
 - Music Editor: `http://localhost:3000/music-editor.html`
 - Timer Manager: `http://localhost:3000/timers-editor.html`
