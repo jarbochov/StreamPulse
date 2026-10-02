@@ -270,6 +270,7 @@
                 <button class="btn" data-action="restart">↻ Restart StreamPulse</button>
                 <button class="btn danger" data-action="shutdown">⏻ Shutdown</button>
             </div>
+            <div id="lifecycle-hint" style="display:none;margin-top:10px;font-size:13px;color:var(--muted,#8b949e)"></div>
             <details class="danger-zone">
                 <summary>Danger zone</summary>
                 <div class="btn-grid">
@@ -623,6 +624,21 @@
         sessionActive = !!data.sessionActive;
         setText('session-toggle-btn', sessionActive ? '🏁 End Session' : '▶ Start Session');
         $('session-toggle-btn').style.borderColor = sessionActive ? '#d2992250' : '#23883050';
+        renderLifecycle(data.lifecycle);
+    }
+
+    function renderLifecycle(lc) {
+        let text = '';
+        if (lc?.auto) {
+            if (lc.state === 'ending' && lc.endsAt) {
+                const mins = Math.max(0, Math.ceil((Date.parse(lc.endsAt) - Date.now()) / 60000));
+                text = `⏳ Stream offline — session auto-ends in ~${mins} min if you don't return`;
+            } else if (lc.state === 'live') text = '🟢 Auto session: stream is live';
+            else if (lc.state === 'manual') text = '✋ Auto session paused until the stream ends (you ended it manually)';
+            else text = '⚪ Auto session: waiting for you to go live';
+        }
+        setText('lifecycle-hint', text);
+        $('lifecycle-hint').style.display = text ? 'block' : 'none';
     }
 
     function renderChatters(chatters, total) {

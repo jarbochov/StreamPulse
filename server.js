@@ -2214,6 +2214,188 @@ async function fetchStreamInfo() {
 
 
 // ============================================================================
+// SESSION LIFECYCLE (auto start/end driven by Twitch live state)
+// ============================================================================
+
+const LIFECYCLE_PATH = path.join(DATA_DIR, 'session-lifecycle.json');
+let lifecycleMemo = { lastArchive: null };
+try { lifecycleMemo = { lastArchive: null, ...JSON.parse(fs.readFileSync(LIFECYCLE_PATH, 'utf8')) }; } catch { /* first run */ }
+const lifecycle = {
+    liveStreak: 0,
+    liveId: null,        // Twitch stream id already handled
+    lastLiveAt: 0,
+    offlineSince: 0,
+    suppressed: false,   // set by a manual End Session while still live; cleared once Twitch reports offline
+    timer: null
+};
+
+function normalizeLifecycleConfig(input = {}) {
+    return {
+        auto: input?.auto !== false,
+        end_grace_minutes: clampNumber(input?.end_grace_minutes, 1, 240, 15),
+        resume_window_minutes: clampNumber(input?.resume_window_minutes, 0, 1440, 120),
+        min_session_minutes: clampNumber(input?.min_session_minutes, 0, 120, 5),
+        poll_seconds: clampNumber(input?.poll_seconds, 10, 600, 30)
+    };
+}
+
+function noteArchivedSession(name) {
+    lifecycleMemo.lastArchive = { name, endedAt: Date.now() };
+    try { fs.writeFileSync(LIFECYCLE_PATH, JSON.stringify(lifecycleMemo)); } catch { /* non-critical */ }
+}
+
+function sessionHasData() {
+    return (chatData.messageCount || 0) > 0 || chatLog.length > 0;
+}
+
+function broadcastSessionState() {
+    broadcastToOverlays('update', chatData);
+    broadcastToOverlays('viewer-update', getViewerSummary());
+    broadcastToOverlays('goals-update', buildGoalsSnapshot());
+}
+
+// Shared by the manual End Session endpoint and the automatic end
+function endSessionNow({ endedAtIso = null, discard = false } = {}) {
+    if (endedAtIso) {
+        const stats = normalizeViewerStats(chatData.viewerStats);
+        const startMs = Date.parse(stats.streamStartedAt || '');
+        if (Number.isFinite(startMs) && Date.parse(endedAtIso) > startMs) {
+            stats.streamEndedAt = endedAtIso;
+            chatData.viewerStats = stats;
+        }
+    }
+    const streamEndedAt = finalizeSessionStreamEnd();
+    saveChatData();
+    saveStats();
+    saveChatLog();
+    let archiveName = null;
+    if (!discard) {
+        archiveName = archiveSession();
+        performAutoBackup();
+    }
+    resetChatData();
+    sessionActive = false;
+    broadcastSessionState();
+    return { archiveName, streamEndedAt };
+}
+
+function startSessionNow() {
+    resetChatData();
+    sessionActive = true;
+    broadcastSessionState();
+    if (twitchAccessToken && BROADCASTER_ID) {
+        fetchTwitchData();
+        fetchStreamInfo();
+        fetchViewerCount();
+    }
+}
+
+function resumeArchivedSession(name) {
+    const src = path.join(SESSIONS_DIR, name);
+    if (!fs.existsSync(src)) return false;
+    fs.copyFileSync(src, LIVE_CHAT_PATH);
+    const logSrc = path.join(SESSIONS_DIR, name.replace('chat-', 'chatlog-').replace('.json', '.jsonl'));
+    if (fs.existsSync(logSrc)) fs.copyFileSync(logSrc, CHAT_LOG_PATH);
+    else { try { fs.unlinkSync(CHAT_LOG_PATH); } catch { /* none */ } }
+    loadCurrentSessionStateFromDisk();
+    // Keep the original stream start so reconnects don't shorten the session
+    chatData.viewerStats = normalizeViewerStats({ ...chatData.viewerStats, live: true, streamEndedAt: null });
+    sessionActive = true;
+    broadcastSessionState();
+    return true;
+}
+
+function lifecycleOnLive(stream, cfg) {
+    lifecycle.offlineSince = 0;
+    lifecycle.lastLiveAt = Date.now();
+    lifecycle.liveStreak++;
+    if (lifecycle.suppressed || lifecycle.liveStreak < 2 || lifecycle.liveId === stream.id) return;
+    lifecycle.liveId = stream.id;
+
+    const windowMs = cfg.resume_window_minutes * 60000;
+    const last = lifecycleMemo.lastArchive;
+    const recentArchive = last && Date.now() - last.endedAt <= windowMs ? last.name : null;
+
+    if (!sessionHasData()) {
+        if (recentArchive && resumeArchivedSession(recentArchive)) {
+            console.log(`[Lifecycle] Live again — resumed ${recentArchive}`);
+        } else {
+            startSessionNow();
+            console.log('[Lifecycle] Live — started a new session');
+        }
+        return;
+    }
+
+    // Leftover data from an earlier stream: close it out unless it's recent enough to be the same stream
+    const stats = normalizeViewerStats(chatData.viewerStats);
+    const lastActivity = Date.parse(chatData.lastUpdated || '') || 0;
+    const sameStream = !stats.streamStartedAt || stats.streamStartedAt === stream.started_at;
+    if (!sameStream && Date.now() - lastActivity > windowMs) {
+        const ended = endSessionNow({ endedAtIso: chatData.lastUpdated || null });
+        console.log(`[Lifecycle] Closed out stale session (${ended.archiveName || 'not archived'}) and starting a new one`);
+        startSessionNow();
+    } else if (!sessionActive) {
+        sessionActive = true;
+        broadcastSessionState();
+    }
+}
+
+function lifecycleOnOffline(cfg) {
+    lifecycle.liveStreak = 0;
+    lifecycle.suppressed = false;
+    if (!lifecycle.lastLiveAt || !sessionActive) return;
+    if (!lifecycle.offlineSince) lifecycle.offlineSince = Date.now();
+    if (Date.now() - lifecycle.offlineSince < cfg.end_grace_minutes * 60000) return;
+
+    const startMs = Date.parse(normalizeViewerStats(chatData.viewerStats).streamStartedAt || '');
+    const endedAtIso = new Date(lifecycle.lastLiveAt).toISOString();
+    const tooShort = Number.isFinite(startMs) && lifecycle.lastLiveAt - startMs < cfg.min_session_minutes * 60000;
+    const ended = endSessionNow({ endedAtIso, discard: tooShort });
+    console.log(tooShort
+        ? `[Lifecycle] Stream was under ${cfg.min_session_minutes} min — session discarded`
+        : `[Lifecycle] Offline ${cfg.end_grace_minutes} min — session ended${ended.archiveName ? ` (${ended.archiveName})` : ''}`);
+    lifecycle.offlineSince = 0;
+    lifecycle.lastLiveAt = 0;
+    lifecycle.liveId = null;
+}
+
+async function pollLifecycle() {
+    const cfg = normalizeLifecycleConfig(config.session_lifecycle);
+    if (!cfg.auto || !TWITCH_CLIENT_ID || !BROADCASTER_ID) return;
+    try {
+        if (!(await ensureToken())) return;
+        const result = await twitchApiRequest('/streams', { user_id: BROADCASTER_ID });
+        // Network or API errors are not "offline", so an internet outage never ends a session
+        if (result.status !== 200) return;
+        const stream = result.body.data?.[0] || null;
+        if (stream) lifecycleOnLive(stream, cfg);
+        else lifecycleOnOffline(cfg);
+    } catch (err) {
+        console.warn('[Lifecycle] Poll failed:', err.message);
+    }
+}
+
+function getLifecycleStatus() {
+    const cfg = normalizeLifecycleConfig(config.session_lifecycle);
+    const endsAt = lifecycle.offlineSince && sessionActive
+        ? lifecycle.offlineSince + cfg.end_grace_minutes * 60000
+        : null;
+    return {
+        auto: cfg.auto,
+        state: !cfg.auto ? 'off' : lifecycle.suppressed ? 'manual' : endsAt ? 'ending' : lifecycle.liveStreak ? 'live' : 'waiting',
+        endsAt: endsAt ? new Date(endsAt).toISOString() : null,
+        graceMinutes: cfg.end_grace_minutes
+    };
+}
+
+function startLifecycleWatcher() {
+    if (lifecycle.timer) clearInterval(lifecycle.timer);
+    const cfg = normalizeLifecycleConfig(config.session_lifecycle);
+    lifecycle.timer = setInterval(pollLifecycle, cfg.poll_seconds * 1000);
+    setTimeout(pollLifecycle, 3000);
+}
+
+// ============================================================================
 // GAME INFO (Twitch box art + IGDB details for the current category)
 // ============================================================================
 
@@ -3062,7 +3244,9 @@ function applyRuntimeConfig(nextConfig) {
     const prevSource = MUSIC_CONFIG.source;
     const prevViewerTracking = normalizeViewerTrackingConfig(config.viewer_tracking);
 
+    const prevLifecyclePoll = normalizeLifecycleConfig(config.session_lifecycle).poll_seconds;
     config = nextConfig;
+    if (normalizeLifecycleConfig(config.session_lifecycle).poll_seconds !== prevLifecyclePoll) startLifecycleWatcher();
     EXCLUDE_USERS = (config.exclude_users || []).map(u => u.toLowerCase());
     BANNED_USERS = (config.banned_users || []).map(u => u.toLowerCase());
 
@@ -3527,6 +3711,7 @@ function archiveSession() {
                                 const logArchiveName = archiveName.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
                                 fs.copyFileSync(CHAT_LOG_PATH, path.join(SESSIONS_DIR, logArchiveName));
                             }
+                            noteArchivedSession(archiveName);
                             return archiveName;
                         }
                     } catch (_) { /* corrupted file, overwrite */ }
@@ -3541,6 +3726,7 @@ function archiveSession() {
                     console.log(`[Session] Chat log archived → data/sessions/${logArchiveName}`);
                 }
 
+                noteArchivedSession(archiveName);
                 return archiveName;
             }
         }
@@ -4623,6 +4809,7 @@ const server = http.createServer(async (req, res) => {
             },
             overlayClients: overlayClients.size,
             sessionActive,
+            lifecycle: getLifecycleStatus(),
             startedAt: chatData.startedAt,
             hourlyMessages: chatData.hourlyMessages,
             streamInfo: chatData.streamInfo,
@@ -4893,17 +5080,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/end-session') {
-        const streamEndedAt = finalizeSessionStreamEnd();
-        saveChatData();
-        saveStats();
-        saveChatLog();
-        const archiveName = archiveSession();
-        performAutoBackup();
-        resetChatData();
-        sessionActive = false;
-        broadcastToOverlays('update', chatData);
-        broadcastToOverlays('viewer-update', getViewerSummary());
-        broadcastToOverlays('goals-update', buildGoalsSnapshot());
+        const { archiveName, streamEndedAt } = endSessionNow();
+        // Don't auto-restart a session the streamer just closed while Twitch still shows live
+        if (lifecycle.liveStreak > 0) lifecycle.suppressed = true;
+        lifecycle.liveId = null;
+        lifecycle.lastLiveAt = 0;
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'ended', archived: archiveName, streamEndedAt, message: 'Session archived and reset. Server still running.' }));
         console.log('[API] Session ended — ready for next stream');
@@ -4911,17 +5092,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/start-session') {
-        resetChatData();
-        sessionActive = true;
-        broadcastToOverlays('update', chatData);
-        broadcastToOverlays('viewer-update', getViewerSummary());
-        broadcastToOverlays('goals-update', buildGoalsSnapshot());
-        // Re-fetch Twitch data and stream info for the new session
-        if (twitchAccessToken && BROADCASTER_ID) {
-            fetchTwitchData();
-            fetchStreamInfo();
-            fetchViewerCount();
-        }
+        startSessionNow();
+        lifecycle.suppressed = false;
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'started', startedAt: chatData.startedAt, message: 'New session started.' }));
         console.log('[API] New session started');
@@ -6654,6 +6826,7 @@ server.listen(PORT, () => {
     }
 
     startViewerTracking();
+    startLifecycleWatcher();
 
     // Save chat/stats/log to disk every 5 seconds
     setInterval(() => {

@@ -310,7 +310,12 @@
                         { param: 'viewer_tracking.enabled', type: 'boolean', default: 'true', desc: 'Enable current viewer polling and session viewer samples.', hot: true },
                         { param: 'viewer_tracking.source', type: 'string', default: '"best_available"', desc: 'Viewer count source preference. Uses recent SocialStream data first, then Twitch as a fallback.', hot: true },
                         { param: 'viewer_tracking.poll_seconds', type: 'number', default: '60', desc: 'How often to sample current viewers.', hot: true },
-                        { param: 'viewer_tracking.retain_samples', type: 'number', default: '720', desc: 'Maximum viewer samples to keep in the current/archived session data.', hot: true }
+                        { param: 'viewer_tracking.retain_samples', type: 'number', default: '720', desc: 'Maximum viewer samples to keep in the current/archived session data.', hot: true },
+                        { param: 'session_lifecycle.auto', type: 'boolean', default: 'true', desc: 'Start a session when Twitch shows you live and end it after you have been offline for the grace period.', hot: true },
+                        { param: 'session_lifecycle.end_grace_minutes', type: 'number', default: '15', desc: 'Minutes confirmed offline before the session ends. Returning inside this window just continues the session. API errors and internet outages never count as offline.', hot: true },
+                        { param: 'session_lifecycle.resume_window_minutes', type: 'number', default: '120', desc: 'If you go live again within this many minutes of a session ending (or StreamPulse being stopped), the archived session is reopened instead of starting a new one.', hot: true },
+                        { param: 'session_lifecycle.min_session_minutes', type: 'number', default: '5', desc: 'Streams shorter than this are discarded instead of archived when auto-ended.', hot: true },
+                        { param: 'session_lifecycle.poll_seconds', type: 'number', default: '30', desc: 'How often to check Twitch live status.', hot: true }
                     ]
                 },
                 {

@@ -41,6 +41,13 @@
     "source": "apple_music",
     "poll_seconds": 5
   },
+  "session_lifecycle": {
+    "auto": true,
+    "end_grace_minutes": 15,
+    "resume_window_minutes": 120,
+    "min_session_minutes": 5,
+    "poll_seconds": 30
+  },
   "viewer_tracking": {
     "enabled": true,
     "source": "best_available",

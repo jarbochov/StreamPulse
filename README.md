@@ -250,6 +250,11 @@ All other settings can be edited live via the [Config Editor](http://localhost:3
 | `hashtags_enabled` | boolean | `true` | Enable hashtag tracking |
 | `chat_log_enabled` | boolean | `true` | Enable chat log recording |
 | `auto_backup_on_session_end` | boolean | `false` | Auto-backup data when ending a session |
+| `session_lifecycle.auto` | boolean | `true` | Auto start/end sessions from Twitch live status (needs Twitch connected) |
+| `session_lifecycle.end_grace_minutes` | number | `15` | Minutes offline before a session auto-ends; outages/API errors never count |
+| `session_lifecycle.resume_window_minutes` | number | `120` | Going live again within this window reopens the last archived session |
+| `session_lifecycle.min_session_minutes` | number | `5` | Auto-ended streams shorter than this are discarded |
+| `session_lifecycle.poll_seconds` | number | `30` | How often to check Twitch live status |
 | `music.enabled` | boolean | `false` | Enable music "Now Playing" overlay |
 | `music.source` | string | `apple_music` | Music source: `apple_music`, `spotify`, or `vlc` |
 | `music.poll_seconds` | number | `5` | How often to check for track changes |
