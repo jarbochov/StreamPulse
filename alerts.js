@@ -410,6 +410,13 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             current = null; currentTimer = null;
             return;
         }
+        if (action === 'clear-log') {
+            events.length = 0;
+            history.length = 0;
+            clearTimeout(saveEventsTimer);
+            try { fs.writeFileSync(eventsPath, '[]'); } catch { /* read-only */ }
+            return;
+        }
         if (action === 'skip') {
             if (currentTimer) clearTimeout(currentTimer);
             current = null; currentTimer = null;

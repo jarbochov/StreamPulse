@@ -55,6 +55,12 @@
         .fld input, .fld select { width: 100%; min-width: 0; padding: .3rem .5rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: .8rem; font-family: inherit; }
         .fld input:focus, .fld select:focus { outline: none; border-color: #58a6ff; }
         .fld .hintline { font-size: .66rem; }
+        .pill:empty { display: none; }
+        .tabs { display: flex; gap: .3rem; border-bottom: 1px solid #30363d; }
+        .tab { background: none; border: 0; border-bottom: 2px solid transparent; color: #8b949e; padding: .5rem .9rem; font: inherit; font-size: .88rem; cursor: pointer; text-decoration: none; margin-bottom: -1px; }
+        .tab:hover { color: #e1e4e8; }
+        .tab.active { color: #e1e4e8; border-bottom-color: #58a6ff; }
+        .history.tall { max-height: 65vh; }
         .tabs-note { font-size: .72rem; color: #8b949e; }
                 .media-row { display: flex; gap: .3rem; min-width: 0; }
         .media-row input[type="text"], .media-row select { flex: 1; min-width: 0; }
@@ -92,7 +98,12 @@
             </ol>
         </div>
     </div>
-    <div class="container">
+    <div class="container" style="padding-bottom:0;display:block"><div class="tabs">
+        <button class="tab active" data-tab="rules">Rules</button>
+        <button class="tab" data-tab="queue">Queue &amp; events <span class="pill" id="tab-count"></span></button>
+        <a class="tab" href="/alert-queue.html" target="_blank" title="Compact version for an OBS dock">OBS dock ↗</a>
+    </div></div>
+    <div class="container" id="pane-rules">
         <div class="stack">
             <div class="card">
                 <h2>Alerts <span id="save-state" class="pill ok">Saved</span></h2>
@@ -120,19 +131,28 @@
                 <button class="btn" id="sim-go">Run through saved rules</button>
                 <p class="hint" style="margin-top:.5rem">Runs a pretend event through your saved rules, so you can check which rule wins. Timer and HTTP actions do not run.</p>
             </div>
-            <div class="card">
-                <h2>Event queue</h2>
-                <p class="hint">Replay past events from a separate page, which also works as an OBS dock.</p>
-                <a class="btn sm" href="/alert-queue.html" target="_blank">Open event queue</a>
-                <p class="hint" style="margin-top:.4rem">OBS: View → Docks → Custom Browser Docks, URL <code>http://localhost:3000/alert-queue.html</code></p>
-            </div>
-            <div class="card">
-                <h2>Alerts shown <span class="hint" style="text-transform:none">🧪 = test</span></h2>
-                <div class="history" id="history"></div>
-            </div>
         </div>
 
         <div class="stack" id="editor"></div>
+    </div>
+    <div class="container" id="pane-queue" style="display:none;grid-template-columns:1fr 1fr">
+        <div class="card" style="grid-column:1/-1">
+            <h2>Queue <span class="hint" style="text-transform:none" id="queue-line2"></span></h2>
+            <div class="actions">
+                <button class="btn" data-queue="skip">Skip current</button>
+                <button class="btn" data-queue="clear" title="Drop alerts waiting to play">Clear waiting</button>
+                <button class="btn pause-btn" data-queue="pause">Pause</button>
+                <button class="btn" data-queue="clear-log" title="Empty the event and alert lists">Clear lists</button>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Events <span class="hint" style="text-transform:none">latest 100 · ↻ re-runs through current rules</span></h2>
+            <div class="history tall" id="events"></div>
+        </div>
+        <div class="card">
+            <h2>Alerts shown <span class="hint" style="text-transform:none">🧪 = test · ↻ shows it again</span></h2>
+            <div class="history tall" id="history"></div>
+        </div>
     </div>
     <div id="toast"></div>
 
@@ -298,6 +318,9 @@
         $('queue-line').textContent = `${queue.current ? 'Showing: ' + (queue.current.title || queue.current.ruleName) + '. ' : 'Idle. '}${queue.pending || 0} waiting${queue.paused ? ' (paused)' : ''}.`;
         $('pause').textContent = queue.paused ? 'Resume' : 'Pause';
         $('pause').dataset.queue = queue.paused ? 'resume' : 'pause';
+        document.querySelectorAll('.pause-btn').forEach(b => { b.textContent = queue.paused ? 'Resume' : 'Pause'; b.dataset.queue = queue.paused ? 'resume' : 'pause'; });
+        $('queue-line2').textContent = $('queue-line').textContent;
+        $('tab-count').textContent = (queue.pending || 0) ? queue.pending : '';
         $('history').innerHTML = (queue.history || []).length ? queue.history.map(h => `<div><span class="grow"><span>${h.test ? '🧪 ' : ''}${esc(h.title || h.message || h.ruleName)}</span></span><span class="t">${new Date(h.shownAt || h.at).toLocaleTimeString()}</span><button class="btn sm" data-replay-alert="${esc(h.id)}" title="Show this exact alert again">↻</button></div>`).join('') : '<p class="hint">Nothing yet this run.</p>';
     }
     function renderSummary() { const b = document.querySelector('#editor .card b'); if (b && rule()) b.textContent = summary(rule()); }
@@ -399,11 +422,17 @@
         }
     }));
 
-    document.querySelector('.card .actions').addEventListener('click', guard(async event => {
+    document.addEventListener('click', guard(async event => {
         const btn = event.target.closest('[data-queue]');
         if (!btn) return;
         const data = await api('/api/alerts/queue', { method: 'POST', body: JSON.stringify({ action: btn.dataset.queue }) });
         queue = data.queue; renderQueue();
+    }));
+    document.querySelectorAll('[data-tab]').forEach(t => t.addEventListener('click', () => {
+        document.querySelectorAll('[data-tab]').forEach(x => x.classList.toggle('active', x === t));
+        $('pane-rules').style.display = t.dataset.tab === 'rules' ? '' : 'none';
+        $('pane-queue').style.display = t.dataset.tab === 'queue' ? 'grid' : 'none';
+        if (t.dataset.tab === 'queue') refreshQueue();
     }));
     $('sim-go').addEventListener('click', guard(async () => {
         if (dirty) await save();
