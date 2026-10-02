@@ -195,8 +195,8 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
 
     function chooseRule(ev) {
         const candidates = config.rules.filter(rule => matches(rule, ev) && rule.variants.length);
-        // Highest threshold wins so tiered rules (100 bits vs 1000 bits) pick the most specific
-        candidates.sort((a, b) => (b.conditions.minAmount - a.conditions.minAmount) || (b.conditions.milestones.length - a.conditions.milestones.length));
+        // Highest threshold wins so tiered rules (100 bits vs 1000 bits) pick the most specific; a rule with a sub tier (e.g. Prime) beats an "Any tier" rule
+        candidates.sort((a, b) => (b.conditions.minAmount - a.conditions.minAmount) || (b.conditions.milestones.length - a.conditions.milestones.length) || (Number(!!b.conditions.tier) - Number(!!a.conditions.tier)));
         return candidates[0] || null;
     }
 

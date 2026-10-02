@@ -239,7 +239,7 @@
             html += field(`Minimum ${AMOUNT_LABEL[t].toLowerCase()}`, inp('conditions.minAmount', c.minAmount, 'number', 'min="0"'), 'When several rules match, the one with the highest minimum wins, so you can stack tiers (100 bits, 1000 bits…).');
             html += field(`Maximum ${AMOUNT_LABEL[t].toLowerCase()}`, inp('conditions.maxAmount', c.maxAmount, 'number', 'min="0"'), '0 means no maximum.');
         }
-        if (['sub', 'resub', 'milestone', 'gift'].includes(t)) html += field('Tier', sel_('conditions.tier', c.tier, [['', 'Any'], ['1000', 'Tier 1'], ['2000', 'Tier 2'], ['3000', 'Tier 3'], ['prime', 'Prime']]));
+        if (['sub', 'resub', 'milestone', 'gift'].includes(t)) html += field('Tier', sel_('conditions.tier', c.tier, [['', 'Any'], ['1000', 'Tier 1'], ['2000', 'Tier 2'], ['3000', 'Tier 3'], ['prime', 'Prime']]), 'Prime is separate from Tier 1. A rule with a specific tier beats an "Any" rule.');
         if (t === 'redeem') html += field('Reward name contains', inp('conditions.rewardName', c.rewardName, 'text', 'placeholder="e.g. Hydrate (blank = any reward)"'));
         if (t === 'timer') html += field('Timer', sel_('conditions.timerId', c.timerId, [['', 'Any timer'], ...timers.map(x => [x.id, x.label || x.id])]));
         if (t === 'goal') html += field('Goal', sel_('conditions.goalId', c.goalId, [['', 'Any goal'], ...goals.map(x => [x.id, x.title])]));
