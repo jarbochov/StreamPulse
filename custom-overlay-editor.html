@@ -849,7 +849,7 @@
                 onApply(path, event); changed(true);
             }
         });
-        container.addEventListener('focusin', event => { if (event.target.matches('textarea[data-path]')) lastTextField = event.target; });
+        container.addEventListener('focusin', event => { if (event.target.matches('textarea[data-path], input[data-path="src"]')) lastTextField = event.target; });
         container.addEventListener('toggle', event => { const id = event.target.dataset?.sect; if (id) { prefs.sections[id] = event.target.open; savePrefs(); } }, true);
     }
 
@@ -954,10 +954,11 @@
         }
         if (media || el.type === 'embed') {
             body += F.text('src', el.type === 'embed' ? 'Webpage URL' : 'Source URL', el.src, `placeholder="${el.type === 'embed' ? 'https://example.com' : 'https://… or upload a file'}"`);
+            body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button><span class="hint">Use e.g. {{game.cover}} to show the current game's cover art.</span></div>`;
         }
         if (media) {
             body += `<div class="field"><span>Upload ${el.type}</span><span class="upload-row"><input id="prop-upload" type="file" accept="${el.type === 'image' ? 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml' : 'video/mp4,video/webm,video/ogg'}"><button type="button" id="open-assets">Library…</button></span><span class="hint">Saved to the StreamPulse overlay asset folder (100 MB max). You can also drop files onto the canvas.</span></div>`;
-            if (el.type === 'image' && el.src) body += `<img class="asset-preview" src="${esc(el.src)}" alt="Asset preview" onerror="this.style.display='none'">`;
+            if (el.type === 'image' && el.src) body += `<img class="asset-preview" src="${esc(expand(el.src))}" alt="Asset preview" onerror="this.style.display='none'">`;
         }
         return body ? F.section('content', 'Content', body) : '';
     }
@@ -1110,7 +1111,7 @@
     $('variable-list').addEventListener('click', event => {
         const token = event.target.closest('[data-token]')?.dataset.token;
         if (!token) return;
-        const field = lastTextField && lastTextField.isConnected ? lastTextField : $('prop-content');
+        const field = lastTextField && lastTextField.isConnected ? lastTextField : ($('prop-content') || document.querySelector('#properties input[data-path="src"]'));
         if (!field) { toast('Select a text element first.', 'warn', 1800); return; }
         variableDialog.close();
         field.focus();
