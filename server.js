@@ -2017,9 +2017,109 @@ async function fetchStreamInfo() {
             chatData.streamInfo.push({ title, category, changedAt: now });
             console.log(`[Twitch] Stream info: "${title}" — ${category || '(no category)'}`);
         }
+        refreshGameInfo(category);
     } catch (err) {
         console.error('[Twitch] Stream info fetch error:', err.message);
     }
+}
+
+
+// ============================================================================
+// GAME INFO (Twitch box art + IGDB details for the current category)
+// ============================================================================
+
+const GAME_INFO_PATH = path.join(DATA_DIR, 'game-info-cache.json');
+const GAME_INFO_TTL_MS = 30 * 86400000;
+const GAME_INFO_RETRY_MS = 10 * 60000;
+let gameInfoCache = {};
+try { gameInfoCache = JSON.parse(fs.readFileSync(GAME_INFO_PATH, 'utf8')); } catch { /* first run */ }
+const gameInfoPending = new Map();
+let appTokenCache = { token: '', expiresAt: 0 };
+
+async function getAppToken() {
+    if (appTokenCache.token && Date.now() < appTokenCache.expiresAt) return appTokenCache.token;
+    const body = new URLSearchParams({ client_id: TWITCH_CLIENT_ID, client_secret: TWITCH_CLIENT_SECRET, grant_type: 'client_credentials' });
+    const response = await fetch('https://id.twitch.tv/oauth2/token', { method: 'POST', body });
+    const data = await response.json();
+    if (!response.ok || !data.access_token) throw new Error(data.message || `token request failed (${response.status})`);
+    appTokenCache = { token: data.access_token, expiresAt: Date.now() + Math.max(60, (data.expires_in || 3600) - 300) * 1000 };
+    return appTokenCache.token;
+}
+
+async function fetchGameInfo(name) {
+    const token = await getAppToken();
+    const headers = { 'Client-ID': TWITCH_CLIENT_ID, Authorization: `Bearer ${token}` };
+    const info = { name, fetchedAt: Date.now(), source: 'twitch' };
+
+    const helix = await fetch(`https://api.twitch.tv/helix/games?name=${encodeURIComponent(name)}`, { headers });
+    const game = (await helix.json()).data?.[0];
+    if (game) {
+        info.twitchId = game.id;
+        info.boxArt = String(game.box_art_url || '').replace('{width}', '285').replace('{height}', '380');
+        info.igdbId = game.igdb_id || '';
+    }
+
+    // IGDB shares the Twitch app credentials; Twitch box art remains the fallback if it is unavailable.
+    try {
+        const where = info.igdbId ? `where id = ${Number(info.igdbId)}` : `search "${name.replace(/["\\]/g, '')}"`;
+        const query = `fields name,summary,first_release_date,total_rating,cover.image_id,genres.name,platforms.abbreviation,involved_companies.developer,involved_companies.company.name; ${where}; limit 5;`;
+        const igdb = await fetch('https://api.igdb.com/v4/games', { method: 'POST', headers, body: query });
+        const results = await igdb.json();
+        if (Array.isArray(results) && results.length) {
+            const match = results.find(item => String(item.name).toLowerCase() === name.toLowerCase()) || results[0];
+            info.source = 'igdb';
+            info.igdbId = match.id;
+            info.summary = match.summary || '';
+            info.releaseTs = match.first_release_date ? match.first_release_date * 1000 : null;
+            info.rating = match.total_rating ? Math.round(match.total_rating) : null;
+            info.genres = (match.genres || []).map(g => g.name);
+            info.platforms = (match.platforms || []).map(p => p.abbreviation).filter(Boolean);
+            info.developers = (match.involved_companies || []).filter(c => c.developer).map(c => c.company?.name).filter(Boolean);
+            if (match.cover?.image_id) info.cover = `https://images.igdb.com/igdb/image/upload/t_cover_big/${match.cover.image_id}.jpg`;
+        }
+    } catch (err) {
+        console.error('[Game] IGDB lookup failed:', err.message);
+    }
+    return info;
+}
+
+function refreshGameInfo(name) {
+    if (!name || !TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET) return Promise.resolve(null);
+    const key = name.toLowerCase();
+    const cached = gameInfoCache[key];
+    const maxAge = cached?.failed ? GAME_INFO_RETRY_MS : GAME_INFO_TTL_MS;
+    if (cached && Date.now() - cached.fetchedAt < maxAge) return Promise.resolve(cached);
+    if (gameInfoPending.has(key)) return gameInfoPending.get(key);
+    const job = fetchGameInfo(name).catch(err => {
+        console.error('[Game] Lookup failed:', err.message);
+        return { name, fetchedAt: Date.now(), failed: true };
+    }).then(info => {
+        gameInfoCache[key] = info;
+        try { fs.writeFileSync(GAME_INFO_PATH, JSON.stringify(gameInfoCache)); } catch { /* cache is best-effort */ }
+        gameInfoPending.delete(key);
+        return info;
+    });
+    gameInfoPending.set(key, job);
+    return job;
+}
+
+// Public shape for overlays; `cover` prefers IGDB art and falls back to Twitch box art.
+function publicGameInfo(name) {
+    const info = name ? gameInfoCache[name.toLowerCase()] : null;
+    if (!info || info.failed) return { name: name || '' };
+    return {
+        name: info.name,
+        cover: info.cover || info.boxArt || '',
+        boxArt: info.boxArt || '',
+        summary: info.summary || '',
+        releaseDate: info.releaseTs ? new Date(info.releaseTs).toISOString().slice(0, 10) : '',
+        releaseYear: info.releaseTs ? new Date(info.releaseTs).getUTCFullYear() : '',
+        rating: info.rating ?? '',
+        genres: info.genres || [],
+        platforms: info.platforms || [],
+        developers: info.developers || [],
+        source: info.source
+    };
 }
 
 // ============================================================================
@@ -4113,7 +4213,8 @@ const server = http.createServer(async (req, res) => {
             },
             stream: {
                 title: chatData.streamInfo?.[chatData.streamInfo.length - 1]?.title || '',
-                category: currentCategoryStats(categoryTotals)
+                category: currentCategoryStats(categoryTotals),
+                game: publicGameInfo(chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category)
             },
             goals: goalsSnapshot.summary,
             goalMetrics: goalsSnapshot.metrics,
@@ -5071,6 +5172,15 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({ error: err.message }));
             return;
         }
+    }
+
+    if (pathname === '/api/game') {
+        const name = new URL(req.url, 'http://localhost').searchParams.get('name')
+            || chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category || '';
+        await refreshGameInfo(name);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(publicGameInfo(name)));
+        return;
     }
 
     if (pathname === '/api/categories') {

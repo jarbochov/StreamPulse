@@ -11,6 +11,7 @@
     ];
 
     const CLOCK_ITEMS = [['time', 'Time (e.g. 3:07 PM)'], ['time.24', 'Time, 24-hour'], ['time.seconds', 'Time with seconds'], ['date', 'Date (short)'], ['date.long', 'Date (long)'], ['weekday', 'Weekday'], ['month', 'Month'], ['year', 'Year'], ['uptime', 'Stream uptime (H:MM:SS)']];
+    const GAME_ITEMS = [['game.cover', 'Cover art URL (use as an image source)'], ['game.release_date', 'Release date'], ['game.release_year', 'Release year'], ['game.genres', 'Genres'], ['game.developer', 'Developer'], ['game.platforms', 'Platforms'], ['game.rating', 'IGDB rating (0–100)'], ['game.summary', 'Summary']];
     const EVENT_ITEMS = [['latest.follower', 'Latest follower'], ['latest.subscriber', 'Latest subscriber'], ['latest.gifter', 'Latest gift sub gifter'], ['latest.cheer', 'Latest cheerer'], ['latest.cheer.amount', 'Latest cheer amount'], ['latest.donation', 'Latest donor'], ['latest.donation.amount', 'Latest donation amount'], ['latest.raider', 'Latest raider'], ['latest.raider.viewers', 'Latest raid size'], ['chatter.top', 'Top chatter this session'], ['chatter.top.count', 'Top chatter message count']];
     // Values that change every second are refreshed in place instead of re-rendering the overlay.
     const TICKING = /^(time|date|weekday|month|year|uptime|timer\.)/;
@@ -100,6 +101,7 @@
     function variableGroups(status = {}) {
         const groups = VARIABLE_GROUPS.map(g => ({ label: g.label, items: g.items.slice() }));
         groups.push({ label: 'Clock', items: CLOCK_ITEMS });
+        groups.push({ label: 'Game (IGDB)', items: GAME_ITEMS });
         groups.push({ label: 'Latest events', items: EVENT_ITEMS });
         for (const [id, timer] of Object.entries(status.timerData?.timers || {})) {
             const items = [[`timer.${id}`, `${timer.label} — clock`], [`timer.${id}.label`, `${timer.label} — title`], [`timer.${id}.state`, `${timer.label} — state`]];
@@ -119,6 +121,14 @@
             ...goalValues(status),
             ...timerValues(status, now),
             'stream.category': status.stream?.category?.name,
+            'game.cover': status.stream?.game?.cover,
+            'game.release_date': status.stream?.game?.releaseDate,
+            'game.release_year': status.stream?.game?.releaseYear,
+            'game.rating': status.stream?.game?.rating,
+            'game.genres': (status.stream?.game?.genres || []).join(', '),
+            'game.developer': (status.stream?.game?.developers || [])[0],
+            'game.platforms': (status.stream?.game?.platforms || []).join(', '),
+            'game.summary': status.stream?.game?.summary,
             'category.session_time': status.stream?.category ? formatMinutes(status.stream.category.sessionMinutes) : undefined,
             'category.total_time': status.stream?.category ? formatMinutes(status.stream.category.totalMinutes) : undefined,
             'category.total_hours': status.stream?.category ? (status.stream.category.totalMinutes / 60).toFixed(1) : undefined,
