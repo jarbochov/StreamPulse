@@ -4175,8 +4175,8 @@ const server = http.createServer(async (req, res) => {
     const customOverlayMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)$/);
     if (pathname === '/api/custom-overlays' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(Object.values(customOverlays).map(({ id, name, revision, updatedAt, canvas }) => ({
-            id, name, revision, updatedAt, canvas
+        res.end(JSON.stringify(Object.values(customOverlays).map(({ id, name, revision, updatedAt, createdAt, canvas, elements }) => ({
+            id, name, revision, updatedAt, createdAt, canvas, elementCount: (elements || []).length
         }))));
         return;
     }

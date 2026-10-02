@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Asset Library</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; font-size: 14px; }
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.9rem 1.1rem; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+        .toolbar .grow { flex: 1; min-width: 180px; }
+        .toolbar .sep { flex: 1; }
+        input, select { padding: 0.45rem 0.65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font: inherit; min-width: 0; }
+        input:focus, select:focus { outline: none; border-color: #58a6ff; }
+        .btn { border: 1px solid #30363d; background: #21262d; color: #e1e4e8; border-radius: 6px; padding: 0.45rem 0.8rem; font: inherit; font-size: 0.82rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem; }
+        .btn:hover { border-color: #58a6ff; }
+        .btn.primary { background: #238636; border-color: #238636; }
+        .btn.danger:hover { border-color: #f85149; color: #f85149; }
+        .btn.small { padding: 0.25rem 0.55rem; font-size: 0.76rem; }
+        .btn.active { border-color: #58a6ff; background: #1a2332; }
+        .btn[hidden] { display: none; }
+        .seg { display: inline-flex; }
+        .seg .btn { border-radius: 0; margin-left: -1px; }
+        .seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+        .seg .btn:last-child { border-radius: 0 6px 6px 0; }
+        .size { display: inline-flex; align-items: center; gap: 0.4rem; color: #8b949e; font-size: 0.78rem; }
+        .size input { padding: 0; width: 120px; accent-color: #58a6ff; }
+        .summary { color: #8b949e; font-size: 0.8rem; }
+        #drop { border: 1px dashed #30363d; border-radius: 8px; padding: 0.7rem; text-align: center; color: #6e7681; font-size: 0.82rem; }
+        #drop.over { border-color: #58a6ff; color: #58a6ff; }
+        .empty { color: #8b949e; text-align: center; padding: 2.5rem 1rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--thumb, 180px), 1fr)); gap: 0.75rem; }
+        .asset { border: 1px solid #30363d; border-radius: 8px; overflow: hidden; background: #0d1117; display: flex; flex-direction: column; position: relative; }
+        .asset.selected { border-color: #58a6ff; box-shadow: 0 0 0 1px #58a6ff; }
+        .thumb { position: relative; flex: none; height: var(--thumb, 180px); overflow: hidden; background: conic-gradient(#1c2128 25%, #161b22 0 50%, #1c2128 0 75%, #161b22 0) 0 0 / 16px 16px; }
+        .thumb img, .thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+        .thumb .sample { position: absolute; inset: 0; display: grid; place-items: center; padding: 0.4rem; font-size: 1.1rem; text-align: center; overflow: hidden; }
+        .thumb .icon { position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--thumb, 180px) * 0.3); color: #58a6ff; }
+        .thumb audio { position: absolute; left: 4px; right: 4px; bottom: 4px; width: calc(100% - 8px); height: 32px; }
+        .pick { position: absolute; top: 6px; left: 6px; z-index: 2; width: 18px; height: 18px; accent-color: #58a6ff; cursor: pointer; }
+        .info { padding: 0.5rem 0.65rem; display: grid; gap: 0.25rem; font-size: 0.8rem; min-width: 0; }
+        .name { overflow-wrap: anywhere; font-weight: 600; }
+        .meta { color: #8b949e; font-size: 0.74rem; }
+        .badge { display: inline-block; padding: 0.05rem 0.4rem; border-radius: 999px; font-size: 0.68rem; border: 1px solid #30363d; color: #8b949e; margin: 0 0.2rem 0.15rem 0; }
+        .badge.used { border-color: #1f6feb; color: #58a6ff; }
+        .actions { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.2rem; }
+        .list { display: flex; flex-direction: column; gap: 0.4rem; }
+        .list .asset { flex-direction: row; align-items: center; }
+        .list .thumb { width: var(--thumb, 180px); height: var(--thumb, 180px); flex: none; }
+        .list .thumb .icon { font-size: calc(var(--thumb, 180px) * 0.4); }
+        .list .info { flex: 1; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 2fr); align-items: center; gap: 0.2rem 1rem; padding: 0.4rem 0.8rem; }
+        .list .info .actions { justify-content: flex-end; margin: 0; grid-column: 1 / -1; }
+        .list .pick { position: static; flex: none; margin: 0 0.2rem 0 0.7rem; }
+        #toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); background: #21262d; border: 1px solid #30363d; padding: 0.55rem 1rem; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 10; }
+        #toast.show { opacity: 1; }
+        @media (max-width: 800px) { .container { padding: 1rem; } .list .info { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>StreamPulse <span>Asset Library</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <div class="container">
+        <div class="card toolbar">
+            <input id="search" class="grow" type="search" placeholder="Search assets…" aria-label="Search assets">
+            <select id="kind" aria-label="Type">
+                <option value="all">All types</option><option value="image">Images</option><option value="video">Videos</option><option value="audio">Audio</option><option value="font">Fonts</option>
+            </select>
+            <select id="usage" aria-label="Usage">
+                <option value="all">Used &amp; unused</option><option value="used">Used</option><option value="unused">Unused</option>
+            </select>
+            <select id="sort" aria-label="Sort">
+                <option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A–Z</option><option value="size">Largest first</option><option value="smallest">Smallest first</option><option value="kind">Type</option><option value="used">Most used</option>
+            </select>
+            <div class="seg"><button class="btn" id="view-grid" title="Grid view">▦ Grid</button><button class="btn" id="view-list" title="List view">☰ List</button></div>
+            <label class="size">Size <input id="thumb-size" type="range" min="64" max="360" step="8" value="180"></label>
+        </div>
+
+        <div class="card toolbar">
+            <span class="summary" id="summary">Loading…</span>
+            <span class="sep"></span>
+            <button class="btn" id="select-all">Select shown</button>
+            <button class="btn danger" id="delete-selected" hidden></button>
+            <button class="btn danger" id="purge" hidden></button>
+            <label class="btn primary" for="upload">Upload…</label>
+            <input id="upload" type="file" multiple hidden accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.ogg,.mp3,.wav,.m4a,.aac,.oga,.ttf,.otf,.woff,.woff2">
+        </div>
+
+        <div id="drop">Drop images, videos, audio or fonts here to upload (100 MB max each)</div>
+        <div id="items" class="grid"><div class="empty">Loading assets…</div></div>
+    </div>
+    <div id="toast"></div>
+
+    <script>
+    const $ = id => document.getElementById(id);
+    const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', oga: 'audio/ogg', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2' };
+    const prefs = Object.assign({ view: 'grid', size: 180, sort: 'newest', kind: 'all', usage: 'all' }, JSON.parse(localStorage.getItem('assetLibraryPrefs') || '{}'));
+    let assets = [], shown = [];
+    const selected = new Set();
+
+    const savePrefs = () => localStorage.setItem('assetLibraryPrefs', JSON.stringify(prefs));
+    const formatSize = bytes => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    const formatDate = iso => new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    const ICONS = { audio: '♪', video: '▶', font: 'Aa', other: '▫' };
+
+    function toast(text) {
+        const el = $('toast');
+        el.textContent = text;
+        el.classList.add('show');
+        clearTimeout(toast.t);
+        toast.t = setTimeout(() => el.classList.remove('show'), 2200);
+    }
+
+    async function api(url, options) {
+        const response = await fetch(url, options);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) { const error = new Error(data.error || `Request failed (${response.status})`); error.data = data; throw error; }
+        return data;
+    }
+
+    async function uploadFiles(files) {
+        const failures = [];
+        for (const file of files) {
+            const type = TYPES[(file.name.split('.').pop() || '').toLowerCase()];
+            if (!type) { failures.push(`${file.name}: unsupported file type`); continue; }
+            try { await api('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': type, 'X-Asset-Name': file.name.replace(/[^\x20-\x7e]+/g, '-') }, body: file }); }
+            catch (error) { failures.push(`${file.name}: ${error.message}`); }
+        }
+        if (failures.length) alert(failures.join('\n'));
+        else toast(`Uploaded ${files.length} file${files.length === 1 ? '' : 's'}`);
+        await load();
+    }
+
+    async function load() {
+        assets = await api('/api/custom-overlays/assets', { cache: 'no-store' });
+        for (const name of [...selected]) if (!assets.some(asset => asset.name === name)) selected.delete(name);
+        const faces = assets.filter(asset => asset.kind === 'font').map(asset => `@font-face { font-family: '${asset.family}'; src: url('${asset.url}'); }`).join('\n');
+        let style = $('asset-fonts');
+        if (!style) { style = document.createElement('style'); style.id = 'asset-fonts'; document.head.appendChild(style); }
+        style.textContent = faces;
+        render();
+    }
+
+    const SORTS = {
+        newest: (a, b) => b.modifiedAt.localeCompare(a.modifiedAt),
+        oldest: (a, b) => a.modifiedAt.localeCompare(b.modifiedAt),
+        name: (a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true }),
+        size: (a, b) => b.size - a.size,
+        smallest: (a, b) => a.size - b.size,
+        kind: (a, b) => a.kind.localeCompare(b.kind) || a.label.localeCompare(b.label),
+        used: (a, b) => b.usedBy.length - a.usedBy.length || a.label.localeCompare(b.label)
+    };
+
+    function thumbHtml(asset) {
+        if (asset.kind === 'image') return `<img src="${esc(asset.url)}" alt="" loading="lazy">`;
+        if (asset.kind === 'video') return `<video src="${esc(asset.url)}" muted preload="metadata" loop onmouseenter="this.play()" onmouseleave="this.pause()"></video>`;
+        if (asset.kind === 'font') return `<div class="sample" style="font-family:'${esc(asset.family)}', sans-serif">The quick brown fox 123</div>`;
+        if (asset.kind === 'audio') return `<div class="icon">♪</div><audio controls preload="none" src="${esc(asset.url)}"></audio>`;
+        return `<div class="icon">${ICONS.other}</div>`;
+    }
+
+    function render() {
+        const query = $('search').value.trim().toLowerCase();
+        shown = assets.filter(asset =>
+            (prefs.kind === 'all' || asset.kind === prefs.kind)
+            && (prefs.usage === 'all' || (prefs.usage === 'used') === asset.usedBy.length > 0)
+            && (!query || `${asset.label} ${asset.name} ${asset.kind}`.toLowerCase().includes(query))
+        ).sort(SORTS[prefs.sort] || SORTS.newest);
+
+        const unused = assets.filter(asset => !asset.usedBy.length);
+        const total = assets.reduce((sum, asset) => sum + asset.size, 0);
+        $('summary').textContent = `${shown.length} of ${assets.length} assets · ${formatSize(total)} total · ${unused.length} unused`;
+        $('purge').hidden = !unused.length;
+        $('purge').textContent = `Delete ${unused.length} unused`;
+        $('delete-selected').hidden = !selected.size;
+        $('delete-selected').textContent = `Delete ${selected.size} selected`;
+        $('view-grid').classList.toggle('active', prefs.view === 'grid');
+        $('view-list').classList.toggle('active', prefs.view === 'list');
+
+        const items = $('items');
+        items.className = prefs.view === 'list' ? 'list' : 'grid';
+        items.style.setProperty('--thumb', `${prefs.size}px`);
+        items.innerHTML = shown.length ? shown.map((asset, index) => `
+            <article class="asset${selected.has(asset.name) ? ' selected' : ''}">
+                <input class="pick" type="checkbox" data-pick="${index}" aria-label="Select ${esc(asset.label)}" ${selected.has(asset.name) ? 'checked' : ''}>
+                <div class="thumb">${thumbHtml(asset)}</div>
+                <div class="info">
+                    <div><div class="name">${esc(asset.label)}</div><div class="meta">${esc(asset.kind)} · ${formatSize(asset.size)} · ${formatDate(asset.modifiedAt)}</div></div>
+                    <div>${asset.usedBy.length ? asset.usedBy.map(user => `<span class="badge used" title="${esc(user.id)}">${esc(user.name || user.id)}</span>`).join('') : '<span class="badge">Unused</span>'}</div>
+                    <div class="actions">
+                        <button class="btn small" data-act="copy" data-i="${index}">Copy URL</button>
+                        <a class="btn small" href="${esc(asset.url)}" target="_blank" rel="noopener">Open</a>
+                        <button class="btn small" data-act="rename" data-i="${index}">Rename</button>
+                        <button class="btn small danger" data-act="delete" data-i="${index}">Delete</button>
+                    </div>
+                </div>
+            </article>`).join('') : `<div class="empty">${assets.length ? 'No assets match these filters.' : 'No assets yet. Upload some above.'}</div>`;
+    }
+
+    async function removeAssets(list) {
+        const inUse = list.filter(asset => asset.usedBy.length);
+        const warning = inUse.length ? `\n\n${inUse.length} of these are in use (${inUse.slice(0, 4).map(a => a.label).join(', ')}${inUse.length > 4 ? '…' : ''}). Overlays or timers using them will lose the file.` : '';
+        if (!confirm(`Permanently delete ${list.length === 1 ? list[0].label : `${list.length} assets`}?${warning}`)) return;
+        for (const asset of list) {
+            try { await api(`/api/custom-overlays/assets/${encodeURIComponent(asset.name)}${asset.usedBy.length ? '?force=1' : ''}`, { method: 'DELETE' }); selected.delete(asset.name); }
+            catch (error) { alert(error.message); break; }
+        }
+        await load();
+    }
+
+    $('items').addEventListener('click', async event => {
+        const pick = event.target.closest('[data-pick]');
+        if (pick) {
+            const asset = shown[Number(pick.dataset.pick)];
+            if (pick.checked) selected.add(asset.name); else selected.delete(asset.name);
+            render();
+            return;
+        }
+        const button = event.target.closest('[data-act]');
+        if (!button) return;
+        const asset = shown[Number(button.dataset.i)];
+        if (button.dataset.act === 'copy') {
+            await navigator.clipboard.writeText(new URL(asset.url, location.origin).href);
+            toast('URL copied');
+        } else if (button.dataset.act === 'rename') {
+            const next = prompt('Rename asset', asset.label);
+            if (next === null || !next.trim() || next.trim() === asset.label) return;
+            try {
+                const result = await api(`/api/custom-overlays/assets/${encodeURIComponent(asset.name)}/rename`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: next }) });
+                if (result.updated?.length) toast(`Renamed. Updated ${result.updated.join(', ')}.`);
+            } catch (error) { alert(error.message); }
+            await load();
+        } else {
+            await removeAssets([asset]);
+        }
+    });
+
+    $('select-all').addEventListener('click', () => {
+        const allSelected = shown.length && shown.every(asset => selected.has(asset.name));
+        shown.forEach(asset => allSelected ? selected.delete(asset.name) : selected.add(asset.name));
+        render();
+    });
+    $('delete-selected').addEventListener('click', () => removeAssets(assets.filter(asset => selected.has(asset.name))));
+    $('purge').addEventListener('click', () => removeAssets(assets.filter(asset => !asset.usedBy.length)));
+
+    $('search').addEventListener('input', render);
+    for (const [id, key] of [['kind', 'kind'], ['usage', 'usage'], ['sort', 'sort']]) {
+        $(id).value = prefs[key];
+        $(id).addEventListener('change', () => { prefs[key] = $(id).value; savePrefs(); render(); });
+    }
+    $('view-grid').addEventListener('click', () => { prefs.view = 'grid'; savePrefs(); render(); });
+    $('view-list').addEventListener('click', () => { prefs.view = 'list'; savePrefs(); render(); });
+    $('thumb-size').value = prefs.size;
+    $('thumb-size').addEventListener('input', () => { prefs.size = Number($('thumb-size').value); savePrefs(); $('items').style.setProperty('--thumb', `${prefs.size}px`); });
+    $('upload').addEventListener('change', () => { const files = [...$('upload').files]; $('upload').value = ''; if (files.length) uploadFiles(files); });
+    const drop = $('drop');
+    ['dragenter', 'dragover'].forEach(name => drop.addEventListener(name, event => { event.preventDefault(); drop.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach(name => drop.addEventListener(name, event => { event.preventDefault(); drop.classList.remove('over'); }));
+    drop.addEventListener('drop', event => { const files = [...event.dataTransfer.files]; if (files.length) uploadFiles(files); });
+
+    load().catch(error => { $('items').innerHTML = `<div class="empty">${esc(error.message)}</div>`; });
+    </script>
+</body>
+</html>
