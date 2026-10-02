@@ -60,8 +60,18 @@
                 media.style.height = '100%';
                 media.style.objectFit = element.style?.objectFit || 'cover';
                 node.appendChild(media);
+            } else if (element.type === 'embed') {
+                const frame = document.createElement('iframe');
+                frame.src = element.src || 'about:blank';
+                frame.sandbox = 'allow-forms allow-popups allow-scripts';
+                frame.referrerPolicy = 'no-referrer';
+                frame.style.cssText = 'width:100%;height:100%;border:0;';
+                node.appendChild(frame);
             } else if (element.type === 'markdown') {
                 node.innerHTML = renderMarkdown(element.content);
+            } else if (element.type === 'random-text') {
+                const items = Array.isArray(element.items) ? element.items : [];
+                node.textContent = items.length ? items[Math.floor(Math.random() * items.length)] : element.content || '';
             } else if (element.type === 'shape') {
                 node.setAttribute('aria-hidden', 'true');
             } else {

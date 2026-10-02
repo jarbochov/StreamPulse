@@ -82,7 +82,7 @@ const DEFAULT_GOALS_CONFIG = {
     items: []
 };
 
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'markdown', 'image', 'video', 'shape']);
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed']);
 let customOverlays = {};
 
 function sanitizeOverlayId(value) {
@@ -95,6 +95,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
         id: sanitizeOverlayId(element.id) || `element-${index + 1}`,
         type,
         content: String(element.content || '').slice(0, 20000),
+        items: Array.isArray(element.items) ? element.items.map(item => String(item).slice(0, 2000)).filter(Boolean).slice(0, 100) : [],
         src: String(element.src || '').slice(0, 2000),
         x: Number.isFinite(Number(element.x)) ? Number(element.x) : 0,
         y: Number.isFinite(Number(element.y)) ? Number(element.y) : 0,

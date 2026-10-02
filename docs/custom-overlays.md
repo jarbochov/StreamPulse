@@ -6,11 +6,11 @@ Custom overlays are JSON-backed scenes that can be displayed in OBS or any brows
 http://localhost:3000/custom-overlay.html?id=be-right-back
 ```
 
-Open `/custom-overlays.html` to create and manage overlays. The editor currently supports text, Markdown, images, videos, and shapes. Elements can be positioned on a 1920×1080-style canvas, styled, reordered, and saved.
+Open `/custom-overlays.html` to create and manage overlays. The editor currently supports text, randomized text pools, Markdown, images, videos, webpage embeds, and shapes. Elements can be positioned on a zoomable 1920×1080-style canvas, styled, reordered, and saved.
 
 Saving an overlay increments its revision, writes the definition to `data/custom-overlays.json`, and broadcasts the updated definition over StreamPulse's WebSocket. Open overlay instances update without an OBS browser-source refresh.
 
-Markdown is sanitized before rendering. It supports common formatting such as headings, emphasis, lists, links, images, and block quotes. Overlay definitions are included in StreamPulse backups.
+Markdown is sanitized before rendering. It supports common formatting such as headings, emphasis, lists, links, images, and block quotes. Webpage embeds use a sandboxed iframe and may still be refused by sites that disallow framing. Overlay definitions are included in StreamPulse backups.
 
 ## API
 

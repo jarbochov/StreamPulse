@@ -20,7 +20,7 @@
         textarea { min-height: 110px; resize: vertical; }
         label { display: grid; gap: .25rem; color: #8b949e; font-size: .75rem; margin-bottom: .65rem; }
         .row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
-        .toolbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+        .toolbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; align-items: center; }
         #canvas-wrap { overflow: auto; background: #0d1117; border: 1px solid #30363d; padding: 1rem; min-height: 620px; }
         #canvas { position: relative; transform-origin: top left; background-image: linear-gradient(#ffffff0b 1px, transparent 1px), linear-gradient(90deg, #ffffff0b 1px, transparent 1px); background-size: 20px 20px; }
         .canvas-element { position: absolute; overflow: hidden; white-space: pre-wrap; word-break: break-word; cursor: move; }
@@ -42,8 +42,8 @@
         <section class="panel">
             <h2>Elements</h2>
             <div class="toolbar">
-                <button data-add="text">Text</button><button data-add="markdown">Markdown</button>
-                <button data-add="image">Image</button><button data-add="video">Video</button><button data-add="shape">Shape</button>
+                <button data-add="text">Text</button><button data-add="random-text">Random Text</button><button data-add="markdown">Markdown</button>
+                <button data-add="image">Image</button><button data-add="video">Video</button><button data-add="embed">Webpage</button><button data-add="shape">Shape</button>
             </div>
             <div id="layers"></div>
             <p class="hint">Drag elements on the canvas. Select a layer to edit its properties.</p>
@@ -52,6 +52,7 @@
             <div class="toolbar">
                 <button class="primary" id="save">Save and Push Live</button>
                 <button id="preview">Open Runtime</button>
+                <label style="display:flex;align-items:center;gap:.4rem;margin:0;min-width:150px;">Zoom <input id="zoom" type="range" min="25" max="150" value="50" step="5"><span id="zoom-value">50%</span></label>
                 <span id="status"></span>
             </div>
             <div id="canvas-wrap"><div id="canvas"></div></div>
@@ -80,7 +81,8 @@
         const layers = document.getElementById('layers');
         const properties = document.getElementById('properties');
         const status = document.getElementById('status');
-        const defaults = { text: 'Text element', markdown: '**Markdown** element', image: '', video: '', shape: '' };
+        const defaults = { text: 'Text element', 'random-text': 'Random phrase', markdown: '**Markdown** element', image: '', video: '', embed: '', shape: '' };
+        let zoom = 0.5;
         function esc(value) { return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
         function selected() { return overlay.elements.find(item => item.id === selectedId); }
         function renderMarkdown(value) { return DOMPurify.sanitize(marked.parse(value || '', { breaks: true })); }
@@ -92,9 +94,12 @@
             document.getElementById('canvas-background').value = overlay.canvas.background;
             canvas.style.width = `${overlay.canvas.width}px`;
             canvas.style.height = `${overlay.canvas.height}px`;
-            canvas.style.background = `${overlay.canvas.background}, #0d1117`;
+            canvas.style.background = overlay.canvas.background || '#0d1117';
+            canvas.style.transform = `scale(${zoom})`;
+            document.getElementById('zoom').value = Math.round(zoom * 100);
+            document.getElementById('zoom-value').textContent = `${Math.round(zoom * 100)}%`;
         }
-        function render() {
+        function renderCanvas() {
             syncOverlayFields();
             canvas.replaceChildren();
             for (const element of overlay.elements) {
@@ -104,14 +109,20 @@
                 Object.assign(node.style, { left: `${element.x}px`, top: `${element.y}px`, width: `${element.width}px`, height: `${element.height}px`, zIndex: element.zIndex, opacity: element.style.opacity, background: element.style.background, border: `${element.style.borderWidth}px solid ${element.style.borderColor}`, borderRadius: `${element.style.borderRadius}px`, fontFamily: element.style.fontFamily, fontSize: `${element.style.fontSize}px`, fontWeight: element.style.fontWeight, color: element.style.color, textAlign: element.style.textAlign });
                 if (element.type === 'image' || element.type === 'video') {
                     const media = document.createElement(element.type); media.src = element.src; media.controls = element.type === 'video'; media.muted = true; media.loop = true; media.style.cssText = 'width:100%;height:100%;object-fit:' + element.style.objectFit; node.appendChild(media);
+                } else if (element.type === 'embed') {
+                    const frame = document.createElement('iframe'); frame.src = element.src || 'about:blank'; frame.sandbox = 'allow-forms allow-popups allow-scripts'; frame.style.cssText = 'width:100%;height:100%;border:0;pointer-events:none;'; node.appendChild(frame);
                 } else if (element.type === 'markdown') node.innerHTML = renderMarkdown(element.content);
+                else if (element.type === 'random-text') node.textContent = (element.items || []).length ? element.items[Math.floor(Math.random() * element.items.length)] : element.content || '';
                 else node.textContent = element.content || '';
                 node.addEventListener('click', event => { event.stopPropagation(); selectedId = element.id; render(); });
                 canvas.appendChild(node);
             }
+            enableDragging();
+        }
+        function render() {
+            renderCanvas();
             renderLayers();
             renderProperties();
-            enableDragging();
         }
         function renderLayers() {
             layers.innerHTML = overlay.elements.slice().reverse().map(element => `<div class="layer${element.id === selectedId ? ' selected' : ''}" data-id="${esc(element.id)}">${esc(element.type)} · ${esc(element.id)}</div>`).join('');
@@ -121,7 +132,8 @@
             const element = selected();
             if (!element) { properties.innerHTML = '<p class="hint">Select an element.</p>'; return; }
             properties.innerHTML = `
-                <label>Content<textarea id="element-content">${esc(element.content)}</textarea></label>
+                <label>${element.type === 'random-text' ? 'Fallback text' : 'Content'}<textarea id="element-content">${esc(element.content)}</textarea></label>
+                ${element.type === 'random-text' ? `<label>Random text pool<textarea id="element-items">${esc((element.items || []).join('\n'))}</textarea><span class="hint">One phrase per line.</span></label>` : ''}
                 <label>Source URL<input id="element-src" value="${esc(element.src)}" placeholder="Image or video URL"></label>
                 <div class="row"><label>X<input id="element-x" type="number" value="${element.x}"></label><label>Y<input id="element-y" type="number" value="${element.y}"></label></div>
                 <div class="row"><label>Width<input id="element-width" type="number" value="${element.width}"></label><label>Height<input id="element-height" type="number" value="${element.height}"></label></div>
@@ -141,8 +153,12 @@
                 else if (name === 'font') element.style.fontFamily = value;
                 else if (name === 'background') element.style.background = value;
                 else if (name === 'border-color') element.style.borderColor = value;
-                render();
+                renderCanvas();
             }));
+            if (element.type === 'random-text') document.getElementById('element-items').addEventListener('input', event => {
+                element.items = event.target.value.split('\n').map(item => item.trim()).filter(Boolean);
+                renderCanvas();
+            });
             document.getElementById('delete-element').addEventListener('click', () => { overlay.elements = overlay.elements.filter(item => item.id !== element.id); selectedId = null; render(); });
         }
         function enableDragging() {
@@ -151,8 +167,8 @@
                     move(event) {
                         const element = overlay.elements.find(item => item.id === event.target.dataset.id);
                         if (!element) return;
-                        element.x += event.dx;
-                        element.y += event.dy;
+                        element.x += event.dx / zoom;
+                        element.y += event.dy / zoom;
                         event.target.style.left = `${element.x}px`;
                         event.target.style.top = `${element.y}px`;
                         renderLayers();
@@ -162,7 +178,7 @@
         }
         function addElement(type) {
             const id = `${type}-${Date.now().toString(36)}`;
-            overlay.elements.push({ id, type, content: defaults[type], src: '', x: 100, y: 100, width: type === 'shape' ? 500 : 600, height: type === 'shape' ? 180 : 120, zIndex: overlay.elements.length, visible: true, style: { fontFamily: 'sans-serif', fontSize: 32, fontWeight: '400', color: '#ffffff', textAlign: 'left', background: type === 'shape' ? '#161b22' : 'transparent', borderColor: 'transparent', borderWidth: 0, borderRadius: 0, opacity: 1, objectFit: 'cover' } });
+            overlay.elements.push({ id, type, content: defaults[type], items: type === 'random-text' ? ['Random phrase one', 'Random phrase two'] : [], src: '', x: 100, y: 100, width: type === 'shape' ? 500 : 600, height: type === 'shape' ? 180 : 120, zIndex: overlay.elements.length, visible: true, style: { fontFamily: 'sans-serif', fontSize: 32, fontWeight: '400', color: '#ffffff', textAlign: 'left', background: type === 'shape' ? '#161b22' : 'transparent', borderColor: 'transparent', borderWidth: 0, borderRadius: 0, opacity: 1, objectFit: 'cover' } });
             selectedId = id; render();
         }
         async function load() {
@@ -178,6 +194,7 @@
         document.getElementById('canvas-width').addEventListener('input', event => { overlay.canvas.width = Number(event.target.value) || 1920; syncOverlayFields(); });
         document.getElementById('canvas-height').addEventListener('input', event => { overlay.canvas.height = Number(event.target.value) || 1080; syncOverlayFields(); });
         document.getElementById('canvas-background').addEventListener('input', event => { overlay.canvas.background = event.target.value; syncOverlayFields(); });
+        document.getElementById('zoom').addEventListener('input', event => { zoom = Number(event.target.value) / 100; syncOverlayFields(); });
         document.getElementById('save').addEventListener('click', async () => {
             const method = isNew ? 'POST' : 'PUT';
             const url = isNew ? '/api/custom-overlays' : `/api/custom-overlays/${encodeURIComponent(overlay.id)}`;
