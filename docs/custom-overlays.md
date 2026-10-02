@@ -35,7 +35,7 @@ The editor is a three-pane workspace: editor settings and layers on the left, th
 - **Layers:** drag to reorder (this sets stacking order), double-click to rename, and use the lock and eye toggles. Names and locked state are saved with the overlay.
 - **Shortcuts:** Ctrl/⌘+S save, Z/Y undo/redo, C/V/D copy/paste/duplicate, A select all, `[` / `]` change stacking, Delete, arrow keys to nudge, and Esc to deselect. Press `?` in the editor for the full list.
 - **Live data:** the editor previews `{{placeholders}}` with current values; toggle **Live data** to see raw placeholders instead.
-- **Assets:** upload from the Image/Video fields or drop files onto the canvas.
+- **Assets:** upload from the Image/Video fields or drop files onto the canvas. The **Assets** section of the Custom Overlays page lists every upload with a preview and the overlays that use it, and lets you delete files (or all unused ones). Removing an element from an overlay never deletes its file. The API is `GET /api/custom-overlays/assets` and `DELETE /api/custom-overlays/assets/:name` (returns 409 for in-use assets unless `?force=1`).
 - **Fonts:** the font picker includes common system fonts plus selected Google Fonts, including Silkscreen; Google Fonts are loaded when used by the editor or runtime. Random Text typewriter mode includes a blinking cursor modeled after the existing StreamEndRandom screen.
 - **Unsaved changes** are flagged in the top bar, and the browser warns before you leave.
 

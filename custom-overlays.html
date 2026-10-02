@@ -18,6 +18,17 @@
         .overlay-list { display: grid; gap: .75rem; }
         .overlay-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
         .meta { color: #8b949e; font-size: .8rem; margin-top: .3rem; }
+        h2 { font-size: 1rem; margin: 0 0 .75rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .assets { margin-top: 1.5rem; }
+        .asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; }
+        .asset { border: 1px solid #30363d; border-radius: 8px; overflow: hidden; background: #0d1117; display: flex; flex-direction: column; }
+        .asset .thumb { position: relative; flex: none; height: 120px; overflow: hidden; background: conic-gradient(#1c2128 25%, #161b22 0 50%, #1c2128 0 75%, #161b22 0) 0 0 / 16px 16px; }
+        .asset .thumb img, .asset .thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+        .asset .info { padding: .55rem .65rem; display: grid; gap: .25rem; font-size: .8rem; }
+        .asset .name { overflow-wrap: anywhere; font-weight: 600; }
+        .badge { display: inline-block; padding: .05rem .4rem; border-radius: 999px; font-size: .7rem; border: 1px solid #30363d; color: #8b949e; }
+        .badge.used { border-color: #1f6feb; color: #58a6ff; }
+        .asset button { margin-top: .3rem; padding: .3rem .5rem; font-size: .8rem; }
         .empty { color: #8b949e; text-align: center; padding: 2rem; }
     </style>
 </head>
@@ -31,6 +42,10 @@
         </div>
         <section class="card">
             <div id="overlay-list" class="overlay-list"><div class="empty">Loading overlays...</div></div>
+        </section>
+        <section class="card assets">
+            <h2>Assets <span><button id="purge-btn" hidden>Delete all unused</button></span></h2>
+            <div id="asset-list" class="asset-grid"><div class="empty">Loading assets...</div></div>
         </section>
     </main>
     <script>
@@ -50,11 +65,52 @@
                 load();
             }));
         }
+        const assetList = document.getElementById('asset-list');
+        const purgeBtn = document.getElementById('purge-btn');
+        const formatSize = bytes => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+        const isVideo = name => /\.(mp4|webm|ogg)$/i.test(name);
+        let assets = [];
+        async function removeAsset(asset, force) {
+            const response = await fetch(`/api/custom-overlays/assets/${encodeURIComponent(asset.name)}${force ? '?force=1' : ''}`, { method: 'DELETE' });
+            if (!response.ok && response.status !== 404) throw new Error((await response.json().catch(() => ({}))).error || `Delete failed (${response.status})`);
+        }
+        async function loadAssets() {
+            assets = await (await fetch('/api/custom-overlays/assets', { cache: 'no-store' })).json();
+            const unused = assets.filter(asset => !asset.usedBy.length);
+            purgeBtn.hidden = !unused.length;
+            purgeBtn.textContent = `Delete ${unused.length} unused`;
+            assetList.innerHTML = assets.length ? assets.map((asset, index) => `
+                <article class="asset">
+                    <div class="thumb">${isVideo(asset.name) ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="" loading="lazy">`}</div>
+                    <div class="info">
+                        <div class="name">${esc(asset.name)}</div>
+                        <div class="meta" style="margin:0">${formatSize(asset.size)}</div>
+                        <div>${asset.usedBy.length ? `<span class="badge used" title="${esc(asset.usedBy.map(o => o.id).join(', '))}">Used by ${asset.usedBy.map(o => esc(o.name || o.id)).join(', ')}</span>` : '<span class="badge">Unused</span>'}</div>
+                        <button data-asset="${index}">Delete</button>
+                    </div>
+                </article>`).join('') : '<div class="empty">No uploaded assets.</div>';
+        }
+        assetList.addEventListener('click', async event => {
+            const button = event.target.closest('[data-asset]');
+            if (!button) return;
+            const asset = assets[Number(button.dataset.asset)];
+            const warning = asset.usedBy.length ? `\n\nThis asset is used by: ${asset.usedBy.map(o => o.name || o.id).join(', ')}. Those overlays will show a broken file.` : '';
+            if (!confirm(`Permanently delete ${asset.name}?${warning}`)) return;
+            try { await removeAsset(asset, asset.usedBy.length > 0); } catch (error) { alert(error.message); }
+            loadAssets();
+        });
+        purgeBtn.addEventListener('click', async () => {
+            const unused = assets.filter(asset => !asset.usedBy.length);
+            if (!unused.length || !confirm(`Permanently delete ${unused.length} unused asset(s)?`)) return;
+            for (const asset of unused) { try { await removeAsset(asset, false); } catch (error) { alert(error.message); break; } }
+            loadAssets();
+        });
         document.getElementById('create-btn').addEventListener('click', () => {
             const id = prompt('Overlay id, e.g. be-right-back');
             if (id) location.href = `/custom-overlay-editor.html?id=${encodeURIComponent(id)}&new=1`;
         });
         load().catch(error => { list.innerHTML = `<div class="empty">${esc(error.message)}</div>`; });
+        loadAssets().catch(error => { assetList.innerHTML = `<div class="empty">${esc(error.message)}</div>`; });
     </script>
 </body>
 </html>

@@ -3710,6 +3710,36 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    if (pathname === '/api/custom-overlays/assets' && req.method === 'GET') {
+        const serialized = Object.values(customOverlays).map(overlay => ({ id: overlay.id, name: overlay.name, text: JSON.stringify(overlay) }));
+        let files = [];
+        try { files = fs.readdirSync(CUSTOM_OVERLAY_ASSETS_DIR).filter(name => !name.startsWith('.')); } catch { /* folder not created yet */ }
+        const assets = files.map(name => {
+            let stat;
+            try { stat = fs.statSync(path.join(CUSTOM_OVERLAY_ASSETS_DIR, name)); } catch { return null; }
+            if (!stat.isFile()) return null;
+            const needles = [name, encodeURIComponent(name)];
+            const usedBy = serialized.filter(o => needles.some(n => o.text.includes(n))).map(({ id, name: overlayName }) => ({ id, name: overlayName }));
+            return { name, url: `/custom-overlay-assets/${encodeURIComponent(name)}`, size: stat.size, modifiedAt: stat.mtime.toISOString(), usedBy };
+        }).filter(Boolean).sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(assets));
+        return;
+    }
+
+    const assetDeleteMatch = pathname.match(/^\/api\/custom-overlays\/assets\/([^/]+)$/);
+    if (assetDeleteMatch && req.method === 'DELETE') {
+        const name = decodeURIComponent(assetDeleteMatch[1]);
+        const target = path.join(CUSTOM_OVERLAY_ASSETS_DIR, name);
+        const respond = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
+        if (!name || name.includes('/') || name.includes('\\') || name.startsWith('.') || path.dirname(target) !== CUSTOM_OVERLAY_ASSETS_DIR) return respond(400, { error: 'Invalid asset name' });
+        if (!fs.existsSync(target)) return respond(404, { error: 'Asset not found' });
+        const usedBy = Object.values(customOverlays).filter(o => { const text = JSON.stringify(o); return text.includes(name) || text.includes(encodeURIComponent(name)); }).map(o => o.id);
+        if (usedBy.length && new URL(req.url, 'http://localhost').searchParams.get('force') !== '1') return respond(409, { error: 'Asset is used by an overlay', usedBy });
+        try { fs.unlinkSync(target); respond(200, { deleted: name }); } catch (err) { respond(500, { error: err.message }); }
+        return;
+    }
+
     if (pathname === '/api/custom-overlays/assets' && req.method === 'POST') {
         const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
         const allowedTypes = new Set([
