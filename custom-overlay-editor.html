@@ -307,7 +307,7 @@
     let isNew = params.get('new') === '1';
     const initialId = params.get('id') || 'new-overlay';
 
-    const LIMITS = { canvasW: [320, 3840], canvasH: [180, 2160], elementW: [10, 3840], elementH: [10, 2160] };
+    const LIMITS = { canvasW: [1, 3840], canvasH: [1, 2160], elementW: [10, 3840], elementH: [10, 2160] };
     const MIN_SIZE = 20;
     const TYPE_META = {
         text: { label: 'Text', icon: 'T' }, 'random-text': { label: 'Random Text', icon: '↻' }, markdown: { label: 'Markdown', icon: 'M↓' },

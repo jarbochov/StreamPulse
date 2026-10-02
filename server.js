@@ -147,8 +147,8 @@ function normalizeCustomOverlay(input = {}, idOverride = '') {
         revision: Math.max(1, Math.round(Number(input.revision) || 1)),
         updatedAt: input.updatedAt || new Date().toISOString(),
         canvas: {
-            width: Math.max(320, Math.min(3840, Number(input.canvas?.width) || 1920)),
-            height: Math.max(180, Math.min(2160, Number(input.canvas?.height) || 1080)),
+            width: Math.max(1, Math.min(3840, Number(input.canvas?.width) || 1920)),
+            height: Math.max(1, Math.min(2160, Number(input.canvas?.height) || 1080)),
             background: String(input.canvas?.background || 'transparent').slice(0, 120)
         },
         elements
