@@ -3728,7 +3728,8 @@ function processChatMessage(msg) {
     }
 
     // Log any event or membership data from SSN for debugging
-    if (msg.membership || msg.event || msg.hasDonation || msg.title || msg.subtitle || msg.contentimg) {
+    // Badge-only chat (membership/subtitle on a regular message) is skipped: it is high volume and tenure is tracked in stats
+    if (msg.event || msg.hasDonation || msg.title || msg.contentimg) {
         const debugEntry = {
             ts: new Date().toISOString(),
             chatname,
@@ -3739,7 +3740,11 @@ function processChatMessage(msg) {
         };
         console.log(`[SSN] Event data from ${chatname}:`, JSON.stringify(debugEntry));
         try {
-            fs.appendFileSync(path.join(DATA_DIR, 'ssn-debug.log'), JSON.stringify(debugEntry) + '\n');
+            const debugLogPath = path.join(DATA_DIR, 'ssn-debug.log');
+            try {
+                if (fs.statSync(debugLogPath).size > 1024 * 1024) fs.renameSync(debugLogPath, `${debugLogPath}.old`);
+            } catch { /* log not created yet */ }
+            fs.appendFileSync(debugLogPath, JSON.stringify(debugEntry) + '\n');
         } catch (_) {}
     }
 
