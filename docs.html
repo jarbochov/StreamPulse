@@ -929,7 +929,7 @@
             <strong>Thresholds:</strong> when several rules match, the one with the highest minimum wins, so you can stack tiers. A milestone rule (listed months or every N months) replaces the plain resub alert. Milestones only fire from resub events, so an anniversary is never guessed.<br><br>
             <strong>Variants:</strong> add several and pick random (never the same twice in a row), weighted, or in order.<br><br>
             <strong>Placeholders</strong> in titles and messages: <code>{{alert.user}}</code> <code>{{alert.amount}}</code> <code>{{alert.count}}</code> <code>{{alert.months}}</code> <code>{{alert.streak}}</code> <code>{{alert.tier}}</code> <code>{{alert.message}}</code> <code>{{alert.reward}}</code> <code>{{alert.viewers}}</code> <code>{{alert.name}}</code> <code>{{alert.recipient}}</code> <code>{{alert.keyword}}</code>.<br><br>
-            <strong>Queue:</strong> alerts play one at a time with a configurable gap. You can skip, clear, pause and resume from the Alerts page. Simulations and Test buttons never run timer or HTTP actions.<br><br>
+            <strong>Queue:</strong> alerts play one at a time with a configurable gap. You can skip, clear, pause and resume from the Alerts page. The <a href="/alert-queue.html">Event queue</a> page lists the latest 100 real events (including ones that matched no rule) with a replay button, and fits as an OBS dock (View → Docks → Custom Browser Docks, <code>http://localhost:3000/alert-queue.html</code>). Simulations and Test buttons never run timer or HTTP actions.<br><br>
             <strong>Not included yet:</strong> watch streaks and hype trains (they need Twitch EventSub), and OBS control actions.
         </div></div>
     </div>`;

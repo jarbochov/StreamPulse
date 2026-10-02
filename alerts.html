@@ -121,8 +121,10 @@
                 <p class="hint" style="margin-top:.5rem">Runs a pretend event through your saved rules, so you can check which rule wins. Timer and HTTP actions do not run.</p>
             </div>
             <div class="card">
-                <h2>Event queue <span class="hint" style="text-transform:none">latest 100</span></h2>
-                <div class="history" id="events"></div>
+                <h2>Event queue</h2>
+                <p class="hint">Replay past events from a separate page, which also works as an OBS dock.</p>
+                <a class="btn sm" href="/alert-queue.html" target="_blank">Open event queue</a>
+                <p class="hint" style="margin-top:.4rem">OBS: View → Docks → Custom Browser Docks, URL <code>http://localhost:3000/alert-queue.html</code></p>
             </div>
             <div class="card">
                 <h2>Alerts shown <span class="hint" style="text-transform:none">🧪 = test</span></h2>
@@ -288,6 +290,7 @@
     }
     function renderEvents() {
         const list = queue.events || [];
+        if (!$('events')) return;
         $('events').innerHTML = list.length ? list.map(e => `<div><span class="grow"><span>${esc(TRIGGERS[e.event.type] || e.event.type)}: ${esc(e.event.user || e.event.name || '')}${e.event.amount ? ' · ' + esc(e.event.amount) : ''}</span><span class="st ${e.status === 'shown' ? 'shown' : ''}">${esc(e.status)} · ${new Date(e.at).toLocaleTimeString()}</span></span><button class="btn sm" data-replay-event="${esc(e.id)}" title="Run this event through your current rules again">↻ Replay</button></div>`).join('') : '<p class="hint">Real stream events show up here, including ones that matched no rule.</p>';
     }
     function renderQueue() {

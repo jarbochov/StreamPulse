@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StreamPulse Alert Queue</title>
+<style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0d1117; color: #e1e4e8; font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    header { position: sticky; top: 0; background: #161b22; border-bottom: 1px solid #30363d; padding: .5rem .6rem; z-index: 2; }
+    .status { font-size: .78rem; color: #8b949e; margin-bottom: .4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ctl { display: flex; gap: .35rem; flex-wrap: wrap; }
+    button { background: #21262d; color: #e1e4e8; border: 1px solid #30363d; border-radius: 6px; padding: .28rem .6rem; font: inherit; cursor: pointer; }
+    button:hover { border-color: #58a6ff; }
+    button.rp { padding: .15rem .45rem; flex: none; }
+    h2 { margin: 0; padding: .6rem .6rem .25rem; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: #8b949e; }
+    .list > div { display: flex; align-items: center; gap: .5rem; padding: .3rem .6rem; border-bottom: 1px solid #21262d; }
+    .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .grow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sub { font-size: .68rem; color: #8b949e; }
+    .sub.shown { color: #3fb950; }
+    .empty { padding: .4rem .6rem; color: #8b949e; font-size: .78rem; }
+    #toast { position: fixed; bottom: .5rem; left: .5rem; right: .5rem; background: #6e1b1b; padding: .4rem .6rem; border-radius: 6px; display: none; }
+</style>
+</head>
+<body>
+<header>
+    <div class="status" id="status">Loading…</div>
+    <div class="ctl">
+        <button data-queue="skip">Skip</button>
+        <button data-queue="clear">Clear</button>
+        <button id="pause" data-queue="pause">Pause</button>
+    </div>
+</header>
+<h2>Events (latest 100)</h2>
+<div class="list" id="events"></div>
+<h2>Alerts shown</h2>
+<div class="list" id="history"></div>
+<div id="toast"></div>
+<script>
+(() => {
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const TYPES = { follow: 'Follow', sub: 'Sub', resub: 'Resub', milestone: 'Milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Redeem', chat_word: 'Chat word' };
+    const $ = id => document.getElementById(id);
+    let queue = {};
+    function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; setTimeout(() => { t.style.display = 'none'; }, 3000); }
+    async function post(url, body) {
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Request failed');
+    }
+    function render() {
+        $('status').textContent = `${queue.current ? 'Showing: ' + (queue.current.title || queue.current.ruleName) : 'Idle'} · ${queue.pending || 0} waiting${queue.paused ? ' · paused' : ''}`;
+        $('pause').textContent = queue.paused ? 'Resume' : 'Pause';
+        $('pause').dataset.queue = queue.paused ? 'resume' : 'pause';
+        const ev = queue.events || [];
+        $('events').innerHTML = ev.length ? ev.map(e => `<div><span class="grow"><span>${esc(TYPES[e.event.type] || e.event.type)}: ${esc(e.event.user || e.event.name || '')}${e.event.amount ? ' · ' + esc(e.event.amount) : ''}</span><span class="sub ${e.status === 'shown' ? 'shown' : ''}">${esc(e.status)} · ${new Date(e.at).toLocaleTimeString()}</span></span><button class="rp" data-event="${esc(e.id)}" title="Run through current rules again">↻</button></div>`).join('') : '<div class="empty">No events yet. Real stream events appear here, including ones that matched no rule.</div>';
+        const h = queue.history || [];
+        $('history').innerHTML = h.length ? h.map(a => `<div><span class="grow"><span>${a.test ? '🧪 ' : ''}${esc(a.title || a.message || a.ruleName)}</span><span class="sub">${new Date(a.shownAt || a.at).toLocaleTimeString()}</span></span><button class="rp" data-alert="${esc(a.id)}" title="Show this exact alert again">↻</button></div>`).join('') : '<div class="empty">Nothing yet this run.</div>';
+    }
+    async function refresh() {
+        try { const res = await fetch('/api/alerts', { cache: 'no-store' }); queue = (await res.json()).queue || {}; render(); } catch { /* server restarting */ }
+    }
+    document.addEventListener('click', async event => {
+        const b = event.target.closest('button');
+        if (!b) return;
+        try {
+            if (b.dataset.queue) await post('/api/alerts/queue', { action: b.dataset.queue });
+            else if (b.dataset.event) await post('/api/alerts/replay', { eventId: b.dataset.event });
+            else if (b.dataset.alert) await post('/api/alerts/replay', { alertId: b.dataset.alert });
+            else return;
+            refresh();
+        } catch (err) { toast(err.message); }
+    });
+    setInterval(refresh, 2000);
+    refresh();
+})();
+</script>
+</body>
+</html>
