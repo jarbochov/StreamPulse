@@ -241,7 +241,7 @@
                         <div class="row"><label>Typewriter speed (ms)<input id="random-typewriter-speed" type="number" min="10" max="500" value="${element.random?.typewriterSpeed || 45}"></label><label><span><input id="random-marquee" type="checkbox" ${element.random?.marquee ? 'checked' : ''}> Marquee text</span></label></div>
                         <label>Marquee speed (seconds)<input id="random-marquee-speed" type="number" min="10" max="240" value="${element.random?.marqueeSpeed || 60}"></label>
                     </div>` : ''}
-                <label>Source URL<input id="element-src" value="${esc(element.src)}" placeholder="Image, video, or webpage URL"></label>
+                ${['image', 'video', 'embed'].includes(element.type) ? `<label>${element.type === 'embed' ? 'Webpage URL' : 'Source URL'}<input id="element-src" value="${esc(element.src)}" placeholder="${element.type === 'embed' ? 'https://example.com' : `${element.type} URL`}"></label>` : ''}
                 ${(element.type === 'image' || element.type === 'video') ? `<label>Upload asset<input id="element-upload" type="file" accept="${element.type === 'image' ? 'image/*' : 'video/*'}"><span class="hint">Uploads to StreamPulse's custom overlay asset folder.</span>${element.src ? `<img class="asset-preview" src="${esc(element.src)}" onerror="this.style.display='none'">` : ''}</label>` : ''}
                 <div class="row"><label>X<input id="element-x" type="number" value="${element.x}"></label><label>Y<input id="element-y" type="number" value="${element.y}"></label></div>
                 <div class="row"><label>Width<input id="element-width" type="number" value="${element.width}"></label><label>Height<input id="element-height" type="number" value="${element.height}"></label></div>
@@ -258,7 +258,7 @@
             document.getElementById('element-align').value = element.style.textAlign;
             document.getElementById('element-vertical').value = element.style.verticalAlign;
             document.getElementById('element-shape').value = element.style.shape;
-            const fields = ['content', 'src', 'x', 'y', 'width', 'height', 'font-size', 'color', 'font', 'background', 'border-width', 'border-color', 'weight', 'align', 'vertical', 'line-height', 'shape'];
+            const fields = ['content', ...(['image', 'video', 'embed'].includes(element.type) ? ['src'] : []), 'x', 'y', 'width', 'height', 'font-size', 'color', 'font', 'background', 'border-width', 'border-color', 'weight', 'align', 'vertical', 'line-height', 'shape'];
             fields.forEach(name => document.getElementById(`element-${name}`).addEventListener('input', event => {
                 const value = event.target.value;
                 if (name === 'content' || name === 'src') element[name] = value;
