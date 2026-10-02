@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse — Overlay Editor</title>
+    <link rel="stylesheet" href="/alert-box.css">
     <style>
         :root {
             --bg: #0d1117; --panel: #161b22; --panel-2: #1c2230; --field: #0d1117; --border: #30363d; --border-soft: #21262d;
@@ -57,6 +58,10 @@
         details.sect > summary::-webkit-details-marker { display: none; }
         details.sect > summary::before { content: ''; width: 6px; height: 6px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(-45deg); transition: transform .12s; margin-right: .1rem; }
         details.sect[open] > summary::before { transform: rotate(45deg); }
+        details.sub-details { grid-column: 1 / -1; border: 1px solid var(--border-soft); border-radius: 6px; padding: 0 .6rem; }
+        details.sub-details > summary { cursor: pointer; padding: .45rem 0; font-size: 12px; color: var(--muted); }
+        details.sub-details[open] { padding-bottom: .6rem; display: grid; gap: .65rem; }
+        .trigger-list { display: grid; grid-template-columns: 1fr 1fr; gap: .3rem .6rem; }
         details.sect > summary:hover { background: #ffffff08; }
         .sect-body { padding: .1rem .85rem .85rem; display: grid; gap: .65rem; }
 
@@ -251,6 +256,7 @@
                         <button role="menuitem" data-add="shape"><span class="glyph">■</span>Shape</button>
                         <button role="menuitem" data-add="progress"><span class="glyph">▰</span>Progress bar / ring</button>
                         <button role="menuitem" data-add="game-list"><span class="glyph">🎮</span>Game list (from Game Plan)</button>
+                        <button role="menuitem" data-add="alert"><span class="glyph">🔔</span>Alert box</button>
                         <hr style="border:0;border-top:1px solid var(--border);margin:.3rem 0">
                         <button role="menuitem" data-preset="counter"><span class="glyph">№</span>Counter card (preset)</button>
                     </div>
@@ -342,10 +348,10 @@
     const MIN_SIZE = 20;
     const TYPE_META = {
         text: { label: 'Text', icon: 'T' }, 'random-text': { label: 'Random Text', icon: '↻' }, markdown: { label: 'Markdown', icon: 'M↓' },
-        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, qr: { label: 'QR Code', icon: '▦' }, shape: { label: 'Shape', icon: '■' }, progress: { label: 'Progress', icon: '▰' }, 'game-list': { label: 'Game List', icon: '🎮' }
+        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, qr: { label: 'QR Code', icon: '▦' }, shape: { label: 'Shape', icon: '■' }, progress: { label: 'Progress', icon: '▰' }, 'game-list': { label: 'Game List', icon: '🎮' }, alert: { label: 'Alert Box', icon: '🔔' }
     };
     const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
-    const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress' || el.type === 'game-list';
+    const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress' || el.type === 'game-list' || el.type === 'alert';
     const CANVAS_PRESETS = [['1920x1080', 'Full HD 1920 × 1080'], ['1280x720', 'HD 1280 × 720'], ['2560x1440', 'QHD 2560 × 1440'], ['3840x2160', '4K 3840 × 2160'], ['1080x1920', 'Portrait 1080 × 1920'], ['1080x1080', 'Square 1080 × 1080']];
     const SYSTEM_FONTS = [['sans-serif', 'System sans-serif'], ['Arial, sans-serif', 'Arial'], ['Helvetica, sans-serif', 'Helvetica'], ['Georgia, serif', 'Georgia'], ['Impact, sans-serif', 'Impact'], ['monospace', 'Monospace'], ["'Courier New', monospace", 'Courier New'], ["'Trebuchet MS', sans-serif", 'Trebuchet MS']];
     const SERIF_FONTS = new Set(['Merriweather', 'Playfair Display']);
@@ -446,18 +452,19 @@
     }
 
     function createElementData(type, overrides = {}) {
-        const sizes = { text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270], video: [640, 360], embed: [640, 360], qr: [320, 320], shape: [480, 160], progress: [480, 48], 'game-list': [800, 320] };
+        const sizes = { text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270], video: [640, 360], embed: [640, 360], qr: [320, 320], shape: [480, 160], progress: [480, 48], 'game-list': [800, 320], alert: [640, 280] };
         const [width, height] = sizes[type];
         const offset = (overlay.elements.length % 6) * 24;
         const data = {
             id: uid(type), name: '', locked: false, type,
-            content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', shape: '', progress: '50', 'game-list': '' }[type],
+            content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', shape: '', progress: '50', 'game-list': '', alert: '' }[type],
             items: type === 'random-text' ? ['First random phrase', 'Second random phrase', 'Third random phrase'] : [],
             random: { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 },
             group: '', qr: { fg: '#000000', bg: '#ffffff', margin: 2, ecc: 'M' }, gameList: { filter: 'scheduled', period: '', layout: 'grid', coverFit: 'cover', fit: 'none', coverScale: 100, headingSize: 0, titleSize: 0, titleWrap: 'ellipsis', columns: 3, gap: 12, max: 0, showCovers: true, showTitles: true, meta: 'none', headings: true, highlightCurrent: true, accent: '#3fb950' },
+            alert: { layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, triggers: [] },
             progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
             src: '', x: Math.round((overlay.canvas.width - width) / 2 + offset), y: Math.round((overlay.canvas.height - height) / 2 + offset), width, height, zIndex: overlay.elements.length, visible: true,
-            style: { fontFamily: 'sans-serif', fontSize: type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48, fontWeight: '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#1f6feb' : 'transparent', borderColor: '#ffffff', borderWidth: 0, borderRadius: 0, opacity: 1, objectFit: 'cover', shape: 'rectangle', fill: '#1f6feb', gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 }, blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' } }
+            style: { fontFamily: 'sans-serif', fontSize: type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48, fontWeight: type === 'alert' ? '600' : '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#1f6feb' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent', borderColor: '#ffffff', borderWidth: 0, borderRadius: type === 'alert' ? 24 : 0, opacity: 1, objectFit: 'cover', shape: 'rectangle', fill: '#1f6feb', gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 }, blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' } }
         };
         return Object.assign(data, overrides);
     }
@@ -611,9 +618,15 @@
         } else if (el.type === 'progress') {
             node._progressKind = null;
             shared.renderProgress(node, el, expand);
+        } else if (el.type === 'alert') {
+            if (node._alertHandle) node._alertHandle.stop();
+            node._alertHandle = shared.playAlert(node, el, { ...ALERT_SAMPLE, animIn: 'none', durationMs: 3600000 }, { sound: false });
         }
     }
-    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.progress, el.gameList, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
+    const ALERT_SAMPLE_IMAGE = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#8957e5"/><path d="M50 22l8.5 18 19.5 2.4-14.5 13.4 3.9 19.3L50 65l-17.4 10 3.9-19.3L22 42.4 41.500 40z" fill="#ffd166"/></svg>')}`;
+    const ALERT_SAMPLE = { title: 'TestViewer just followed!', message: 'Thanks for the support', image: ALERT_SAMPLE_IMAGE, animOut: 'fade' };
+    const ALERT_TRIGGER_LABELS = { follow: 'Follow', sub: 'New sub', resub: 'Resub', milestone: 'Sub milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Channel point redeem', timer: 'Timer finished', goal: 'Goal reached', chat_word: 'Chat word' };
+    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
 
     function tickPlaceholders() {
         if (!prefs.live) return;
@@ -923,28 +936,52 @@
             ${items.length > 1 ? `<button type="button" class="icon" data-act="group" title="Group (Ctrl/⌘+G)" style="width:auto;padding:0 .5rem">Group</button>` : ''}${items.some(el => el.group) ? `<button type="button" class="icon" data-act="ungroup" title="Ungroup (Ctrl/⌘+Shift+G)" style="width:auto;padding:0 .5rem">Ungroup</button>` : ''}<span class="divider"></span>${btn('lock', allLocked ? ICON.lock : ICON.unlock, allLocked ? 'Unlock' : 'Lock')}${btn('hide', allHidden ? ICON.eyeOff : ICON.eye, allHidden ? 'Show' : 'Hide')}</div>`;
     }
     function alignSection(items) {
+        return F.section('arrange', 'Align', alignBody(items));
+    }
+    function alignBody(items) {
         const multi = items.length > 1;
         const buttons = [['left', ICON.alignLeft, 'Align left'], ['center', ICON.alignCenter, 'Align horizontal centers'], ['right', ICON.alignRight, 'Align right'], ['top', ICON.alignTop, 'Align top'], ['middle', ICON.alignMiddle, 'Align vertical centers'], ['bottom', ICON.alignBottom, 'Align bottom']];
         const target = multi
             ? `<div class="field"><span>Align relative to</span><span class="seg" data-align-target>${[['selection', 'Selection'], ['canvas', 'Canvas']].map(([v, l]) => `<button type="button" data-target="${v}" aria-pressed="${prefs.alignTo === v}">${l}</button>`).join('')}</span></div>`
             : '<p class="hint">Aligns to the canvas edges and centers.</p>';
         const distribute = multi && items.length > 2 ? `<div class="grid2"><button type="button" data-distribute="h">${ICON.distH} Distribute H</button><button type="button" data-distribute="v">${ICON.distV} Distribute V</button></div>` : '';
-        return F.section('arrange', 'Align', `${target}<div class="align-grid">${buttons.map(([m, i, t]) => `<button type="button" data-align="${m}" title="${t}" aria-label="${t}">${i}</button>`).join('')}</div>${distribute}`);
+        return `${target}<div class="align-grid">${buttons.map(([m, i, t]) => `<button type="button" data-align="${m}" title="${t}" aria-label="${t}">${i}</button>`).join('')}</div>${distribute}`;
     }
     function typographySection(el) {
         const s = el.style;
-        return F.section('typography', 'Typography', `
-            <label class="field"><span>Font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text">${fontOptions(s.fontFamily)}</select></label>
+        const alert = el.type === 'alert';
+        const fontExtras = `<details class="sub-details"><summary>Custom font &amp; upload</summary>
             ${F.text('style.fontFamily', 'Custom / system font', s.fontFamily, 'placeholder="e.g. Comic Sans MS, Menlo" maxlength="120" list="system-font-list"')}
-            <div class="field"><span>Upload font</span><span class="upload-row"><input id="font-upload" type="file" accept=".ttf,.otf,.woff,.woff2"><span></span></span><span class="hint">Uploaded fonts work in every browser, including Safari, and in OBS on any machine.</span></div>
-            <datalist id="system-font-list">${SYSTEM_FONTS.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist>
-            <div class="grid2">${F.number('style.fontSize', 'Size (px)', s.fontSize, { min: 8, max: 400 })}${F.select('style.fontWeight', 'Weight', s.fontWeight, [['400', 'Normal'], ['600', 'Semi-bold'], ['700', 'Bold'], ['900', 'Black']])}</div>
-            ${F.color('style.color', 'Text color', s.color)}
+            <div class="field"><span>Upload font</span><span class="upload-row"><input id="font-upload" type="file" accept=".ttf,.otf,.woff,.woff2"><span></span></span><span class="hint">Uploaded fonts work in every browser, including Safari, and in OBS on any machine.</span></div></details>
+            <datalist id="system-font-list">${SYSTEM_FONTS.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist>`;
+        const weight = F.select('style.fontWeight', 'Weight', s.fontWeight, [['400', 'Normal'], ['600', 'Semi-bold'], ['700', 'Bold'], ['900', 'Black']]);
+        return F.section('typography', alert ? 'Message text' : 'Typography', `
+            <label class="field"><span>Font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text">${fontOptions(s.fontFamily)}</select></label>
+            ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${F.number('style.fontSize', 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${F.color('style.color', 'Text color', s.color)}
             <div class="grid2">${F.seg('style.textAlign', 'Horizontal', s.textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${F.seg('style.verticalAlign', 'Vertical', s.verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>
-            <div class="grid2">${F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>`);
+            <div class="grid2">${F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>`}
+            ${fontExtras}`);
     }
     function appearanceSection(el, multi) {
         return F.section('appearance', multi ? 'Appearance (all selected)' : 'Appearance', appearanceBody(el, multi));
+    }
+    function fillSection(el) {
+        const s = el.style, shape = el.type === 'shape';
+        return F.section('fill', shape ? 'Fill & outline' : 'Background & border', `
+            ${!shape && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) : ''}
+            ${shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
+            ${F.color('style.background', shape ? 'Fill' : 'Background', s.background, { clear: true })}
+            ${F.check('style.gradient.enabled', 'Gradient fill', s.gradient?.enabled)}
+            ${s.gradient?.enabled ? `<div class="grid2">${F.color('style.gradient.from', 'From', s.gradient.from)}${F.color('style.gradient.to', 'To', s.gradient.to)}</div>${F.number('style.gradient.angle', 'Angle (°)', s.gradient.angle ?? 135, { min: 0, max: 360 })}` : ''}
+            <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
+            ${shape && s.shape === 'line' ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}`);
+    }
+    function effectsSection(el) {
+        const s = el.style;
+        return F.section('effects', 'Effects', `
+            ${F.range('style.opacity', 'Opacity', s.opacity ?? 1, { min: 0, max: 100, scale: 0.01, unit: '%' })}
+            <div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Shadow blur (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
+            ${F.color('style.shadow.color', 'Shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)')}`, false);
     }
     function appearanceBody(el, multi) {
         const s = el.style, shape = el.type === 'shape';
@@ -995,7 +1032,8 @@
         const line = isLine(el);
         return F.section('layout', 'Position & size', `
             <div class="grid2">${F.number('x', 'X', el.x, { min: -7680, max: 7680 })}${F.number('y', 'Y', el.y, { min: -4320, max: 4320 })}</div>
-            <div class="grid2">${F.number('width', 'Width', el.width, { min: LIMITS.elementW[0], max: LIMITS.elementW[1] })}${line ? '<span></span>' : F.number('height', 'Height', el.height, { min: LIMITS.elementH[0], max: LIMITS.elementH[1] })}</div>`);
+            <div class="grid2">${F.number('width', 'Width', el.width, { min: LIMITS.elementW[0], max: LIMITS.elementW[1] })}${line ? '<span></span>' : F.number('height', 'Height', el.height, { min: LIMITS.elementH[0], max: LIMITS.elementH[1] })}</div>
+            <details class="sub-details"><summary>Align to canvas</summary>${alignBody([el])}</details>`);
     }
     function gameListSection(el) {
         const g = el.gameList || {};
@@ -1017,6 +1055,22 @@
             ${F.check('gameList.highlightCurrent', 'Highlight the game you are playing now', g.highlightCurrent !== false)}
             ${F.color('gameList.accent', 'Highlight color', g.accent || '#3fb950')}
             <p class="hint">Games come from the <a href="/game-plan-editor.html" target="_blank" style="color:var(--accent)">Game Plan</a>. “Playing now” follows your Twitch category.</p>`);
+    }
+    function alertSection(el) {
+        const a = el.alert || {};
+        const only = a.triggers || [];
+        return F.section('alert', 'Alert box', `
+            <p class="hint">What this box shows (text, images, sounds, animations) is set per alert in <a href="/alerts.html" target="_blank" style="color:var(--accent)">Alerts</a>. This is only the look.</p>
+            <button type="button" id="alert-play">▶ Play sample alert</button>
+            ${F.select('alert.layout', 'Layout', a.layout || 'stack', [['stack', 'Media above text'], ['side', 'Media beside text'], ['text', 'Text only'], ['media', 'Media only (text over it)']])}
+            <div class="grid2">${F.number('alert.mediaScale', 'Media size (%)', a.mediaScale || 60, { min: 10, max: 100 })}${F.select('alert.mediaFit', 'Media fit', a.mediaFit || 'contain', [['contain', 'Contain'], ['cover', 'Fill (crop)']])}</div>
+            <div class="grid2">${F.number('alert.titleSize', 'Title size (px)', a.titleSize || 44, { min: 8, max: 300 })}${F.number('alert.messageSize', 'Message size (px)', a.messageSize || 28, { min: 8, max: 300 })}</div>
+            ${F.color('alert.titleColor', 'Title color', a.titleColor || '#ffd166')}
+            ${F.number('alert.gap', 'Gap between media and text (px)', a.gap ?? 12, { min: 0, max: 100 })}
+            ${F.check('alert.sound', 'Play alert sounds from this box', a.sound !== false)}
+            <details class="sub-details"${only.length ? ' open' : ''}><summary>Only show certain alerts (${only.length ? only.length + ' selected' : 'all'})</summary>
+            <div class="trigger-list">${Object.entries(ALERT_TRIGGER_LABELS).map(([key, label]) => `<label class="check"><input type="checkbox" data-alert-trigger="${key}" ${only.includes(key) ? 'checked' : ''}> ${label}</label>`).join('')}</div>
+            <span class="hint">Leave all unchecked to show every alert. Use this to send, say, raids to a different box.</span></details>`);
     }
     function progressSection(el) {
         const p = el.progress || {};
@@ -1053,7 +1107,8 @@
             root.innerHTML = `${actionBar(items)}${alignSection(items)}${appearanceSection(items[0], true)}${textual ? typographySection(items.find(hasText) || items[0]) : ''}`;
         } else {
             const el = items[0];
-            root.innerHTML = `${actionBar(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${contentSection(el)}${layoutSection(el)}${alignSection(items)}${hasText(el) ? typographySection(el) : ''}${el.type === 'progress' ? progressSection(el) : ''}${el.type === 'game-list' ? gameListSection(el) : ''}${appearanceSection(el, false)}${el.type === 'random-text' ? randomSection(el) : ''}`;
+            const specific = { 'random-text': randomSection, progress: progressSection, 'game-list': gameListSection, alert: alertSection }[el.type];
+            root.innerHTML = `${actionBar(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${contentSection(el)}${specific ? specific(el) : ''}${hasText(el) ? typographySection(el) : ''}${fillSection(el)}${effectsSection(el)}${layoutSection(el)}`;
         }
         root.parentElement.scrollTop = scroll;
         lastTextField = null;
@@ -1062,8 +1117,25 @@
         for (const el of selectedElements()) { el.width = clamp(el.width, 1, 3840); el.height = clamp(el.height, 1, 2160); }
         renderCanvas(); updateStatusBar();
         if (path === 'name') renderLayers();
-        if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || path === 'style.gradient.enabled') renderProperties();
+        if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || path === 'style.gradient.enabled' || path === 'alert.layout') renderProperties();
         changed(false);
+    });
+    $('properties').addEventListener('change', event => {
+        const box = event.target.closest('[data-alert-trigger]');
+        if (!box) return;
+        for (const el of selectedElements()) {
+            const set = new Set(el.alert?.triggers || []);
+            box.checked ? set.add(box.dataset.alertTrigger) : set.delete(box.dataset.alertTrigger);
+            el.alert = { ...(el.alert || {}), triggers: [...set] };
+        }
+        renderProperties(); renderCanvas(); changed(true);
+    });
+    $('properties').addEventListener('click', event => {
+        if (event.target.id !== 'alert-play') return;
+        const el = primary(), node = el && nodes.get(el.id);
+        if (!node) return;
+        if (node._alertHandle) node._alertHandle.stop();
+        node._alertHandle = shared.playAlert(node, el, { ...ALERT_SAMPLE, animIn: 'pop', durationMs: 3500 }, { sound: false, onEnd: () => { node._sig = null; renderCanvas(); } });
     });
     $('properties').addEventListener('mousedown', event => { if (event.target.id === 'font-picker') GOOGLE_FONT_OPTIONS.forEach(([v]) => shared.loadGoogleFont(v)); });
     $('properties').addEventListener('input', event => { if (event.target.dataset?.path === 'style.fontFamily') shared.loadGoogleFont(event.target.value); });
