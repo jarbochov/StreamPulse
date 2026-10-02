@@ -31,6 +31,8 @@ Text and Markdown content support live variables using double braces. The editor
 
 Add `|format` to a date-like placeholder: `{{now|dddd, MMMM Do [at] h:mm A}}` → *Friday, October 2nd at 1:34 PM*. Works on `now`, `time`, `date`, `game.release_date` and `timer.<id>.target` (date countdowns). Tokens: `YYYY` `YY` year · `MMMM` `MMM` `MM` `M` month · `dddd` `ddd` weekday · `Do` `DD` `D` day · `HH` `H` `hh` `h` hour · `mm` `m` · `ss` `s` · `A` `a` AM/PM · `[text]` literal. The placeholder picker has a format box that appends the format for you.
 
+**Timer durations** can be formatted too. Presets: `{{timer.<id>|short}}` → *4d 3h 22m 2s* (leading zero units are dropped), `|long` → *4 days, 3 hours, 22 minutes, 2 seconds*, `|clock` → *4d 3:22:02*. Or build your own: `d` `h` `m` `s` (days, hours, minutes, seconds; double the letter to zero-pad) and `th` `tm` `ts` (total hours/minutes/seconds), with literal text in brackets, e.g. `{{timer.<id>|d[d] h:mm:ss}}`. `{{timer.<id>.ms}}` is the raw milliseconds.
+
 ### QR code element
 
 The **QR code** element turns a link or text into a scannable code (rendered by the server at `GET /api/qr?text=…`, as SVG). The link accepts placeholders, and you can choose the code color, background (or transparent), quiet zone and error correction. Keep strong contrast so phones can scan it.

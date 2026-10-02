@@ -48,6 +48,7 @@
                 percent = '';
             }
             out[`timer.${id}`] = text;
+            out[`timer.${id}.ms`] = timer.kind === 'countdown' ? Math.max(0, (timer.remainingMs || 0) - (running ? drift : 0)) : (timer.elapsedMs || 0) + (running ? drift : 0);
             out[`timer.${id}.label`] = timer.label;
             out[`timer.${id}.state`] = timer.state;
             out[`timer.${id}.percent`] = percent;
@@ -134,7 +135,7 @@
         groups.push({ label: 'Game plan', items: [...PLAN_ITEMS, ...(status.gamePlan?.lists || []).map(list => [`plan.list.${list.id}`, `${list.name} list (comma list)`])] });
         groups.push({ label: 'Latest events', items: EVENT_ITEMS });
         for (const [id, timer] of Object.entries(status.timerData?.timers || {})) {
-            const items = [[`timer.${id}`, `${timer.label} — clock`], [`timer.${id}.label`, `${timer.label} — title`], [`timer.${id}.state`, `${timer.label} — state`]];
+            const items = [[`timer.${id}`, `${timer.label} — clock (format it: {{timer.${id}|short}})`], [`timer.${id}.ms`, `${timer.label} — milliseconds`], [`timer.${id}.label`, `${timer.label} — title`], [`timer.${id}.state`, `${timer.label} — state`]];
             if (timer.kind === 'countdown') items.push([`timer.${id}.percent`, `${timer.label} — percent complete`]);
             if (timer.kind === 'countdown' && timer.targetAt) items.push([`timer.${id}.target`, `${timer.label} — target date & time (formattable)`]);
             groups.push({ label: `Timer: ${timer.label}`, items });
@@ -199,8 +200,8 @@
 
 
     // Date/time formatting for {{token|format}}. Tokens follow the familiar Moment/Day.js style; wrap literal text in [brackets].
-    const FORMAT_PRESETS = [['MMMM D, YYYY', 'October 2, 2026'], ['MMM D', 'Oct 2'], ['ddd, MMM D', 'Fri, Oct 2'], ['dddd, MMMM Do', 'Friday, October 2nd'], ['YYYY-MM-DD', '2026-10-02'], ['MM/DD/YYYY', '10/02/2026'], ['h:mm A', '1:34 PM'], ['HH:mm', '13:34'], ['MMM D, h:mm A', 'Oct 2, 1:34 PM'], ['dddd [at] h A', 'Friday at 1 PM']];
-    const isDateKey = name => /^(now|time|time\.24|time\.seconds|date|date\.long|game\.release_date|timer\.[a-zA-Z0-9_-]+\.target)$/.test(name);
+    const FORMAT_PRESETS = [['short', '4d 3h 22m 2s (timers)'], ['long', '4 days, 3 hours… (timers)'], ['clock', '4d 3:22:02 (timers)'], ['d[d] h[h] m[m]', '4d 3h 22m (timers)'], ['MMMM D, YYYY', 'October 2, 2026'], ['MMM D', 'Oct 2'], ['ddd, MMM D', 'Fri, Oct 2'], ['dddd, MMMM Do', 'Friday, October 2nd'], ['YYYY-MM-DD', '2026-10-02'], ['MM/DD/YYYY', '10/02/2026'], ['h:mm A', '1:34 PM'], ['HH:mm', '13:34'], ['MMM D, h:mm A', 'Oct 2, 1:34 PM'], ['dddd [at] h A', 'Friday at 1 PM']];
+    const isDateKey = name => /^timer\.[a-zA-Z0-9_-]+$/.test(name) || /^(now|time|time\.24|time\.seconds|date|date\.long|game\.release_date|timer\.[a-zA-Z0-9_-]+\.target)$/.test(name);
     const ordinal = n => { const v = n % 100; return n + (['th', 'st', 'nd', 'rd'][(v - 20) % 10] || ['th', 'st', 'nd', 'rd'][v] || 'th'); };
 
     function formatDate(date, format) {
@@ -231,8 +232,25 @@
         return Number.isNaN(date.getTime()) ? null : date;
     }
 
-    function applyFormat(name, value, format, now) {
+    // Duration formatting for timer clocks: {{timer.id|d[d] h[h] m[m]}} or a preset (short, long, clock).
+    function formatDuration(ms, format) {
+        const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+        const v = { d: Math.floor(total / 86400), h: Math.floor(total % 86400 / 3600), m: Math.floor(total % 3600 / 60), s: total % 60 };
+        const first = v.d ? 'd' : v.h ? 'h' : v.m ? 'm' : 's';
+        const order = ['d', 'h', 'm', 's'].slice(['d', 'h', 'm', 's'].indexOf(first));
+        const presets = {
+            short: order.map(u => `${v[u]}${u}`).join(' '),
+            long: order.map(u => `${v[u]} ${{ d: 'day', h: 'hour', m: 'minute', s: 'second' }[u]}${v[u] === 1 ? '' : 's'}`).join(', '),
+            clock: v.d ? `${v.d}d ${v.h}:${pad(v.m)}:${pad(v.s)}` : v.h ? `${v.h}:${pad(v.m)}:${pad(v.s)}` : `${v.m}:${pad(v.s)}`
+        };
+        if (presets[format] !== undefined) return presets[format];
+        const map = { d: v.d, dd: pad(v.d), h: v.h, hh: pad(v.h), m: v.m, mm: pad(v.m), s: v.s, ss: pad(v.s), th: Math.floor(total / 3600), tm: Math.floor(total / 60), ts: total };
+        return format.replace(/\[([^\]]*)\]|th|tm|ts|dd|d|hh|h|mm|m|ss|s/g, (token, literal) => literal !== undefined ? literal : String(map[token]));
+    }
+
+    function applyFormat(name, value, format, now, table = {}) {
         if (!format) return value;
+        if (/^timer\.[a-zA-Z0-9_-]+$/.test(name) && table[`${name}.ms`] !== undefined) return formatDuration(table[`${name}.ms`], format);
         const clockKey = /^(now|time|time\.24|time\.seconds|date|date\.long)$/.test(name);
         const date = clockKey ? new Date(now) : parseDateValue(value);
         return date ? formatDate(date, format) : value;
@@ -243,7 +261,7 @@
         const now = Date.now();
         const table = variableTable(status, context, now);
         return String(value ?? '').replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
-            const resolved = format === undefined ? table[name] : applyFormat(name, table[name], format.trim(), now);
+            const resolved = format === undefined ? table[name] : applyFormat(name, table[name], format.trim(), now, table);
             const text = resolved === undefined || resolved === null ? '' : String(resolved);
             return text === '' && keepEmpty ? match : text;
         });
@@ -537,5 +555,5 @@
         return `/api/qr?${params}`;
     }
 
-    root.OverlayShared = { qrUrl, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    root.OverlayShared = { qrUrl, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);
