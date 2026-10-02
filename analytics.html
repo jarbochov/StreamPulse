@@ -70,7 +70,19 @@
         .badge.t2, .badge.t3 { border-color: #58a6ff; color: #58a6ff; }
         .badge.live { border-color: #3fb950; color: #3fb950; }
         .note { margin-top: 0.7rem; font-size: 0.78rem; }
-        @media (max-width: 800px) { .container { padding: 1rem; } .header { padding: 1rem; flex-wrap: wrap; } }
+        .stats.static .stat { cursor: default; }
+        .stats.static .stat:hover { border-color: #21262d; }
+        .split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1rem; margin-top: 1rem; }
+        .split h3 { margin: 0 0 0.5rem; font-size: 0.85rem; color: #e1e4e8; }
+        .gifters { list-style: none; margin: 0; padding: 0; border: 1px solid #21262d; border-radius: 8px; background: #0d1117; max-height: 280px; overflow: auto; }
+        .gifters li { display: flex; justify-content: space-between; gap: 0.6rem; padding: 0.5rem 0.8rem; border-bottom: 1px solid #21262d; font-size: 0.8rem; }
+        .gifters li:last-child { border-bottom: 0; }
+        .gifters b { color: #58a6ff; font-variant-numeric: tabular-nums; }
+        .chart.short { height: 240px; }
+        .btn { background: #21262d; border: 1px solid #30363d; color: #e1e4e8; border-radius: 6px; padding: 0.3rem 0.7rem; font-size: 0.78rem; cursor: pointer; }
+        .btn:hover { border-color: #58a6ff; }
+        .head-tools { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+        @media (max-width: 800px) { .split { grid-template-columns: minmax(0, 1fr); } .container { padding: 1rem; } .header { padding: 1rem; flex-wrap: wrap; } }
     </style>
 </head>
 <body>
@@ -106,9 +118,25 @@
         </section>
 
         <section class="card">
-            <div class="card-head"><h2>Current Subscribers &amp; Observed Duration</h2><input id="sub-search" type="search" placeholder="Filter subscribers…" aria-label="Filter subscribers"></div>
+            <div class="card-head"><h2>Subscribers</h2><span id="sub-updated" class="muted"></span></div>
+            <div class="stats static" id="sub-summary"></div>
+            <div class="split">
+                <div>
+                    <h3>Subscriber growth</h3>
+                    <div class="chart-wrap"><div id="growth" class="chart short"></div><div id="growth-tip" class="tip"></div></div>
+                    <p class="muted note" id="growth-note"></p>
+                </div>
+                <div>
+                    <h3>Top gifters <span class="muted">(active gifted subs)</span></h3>
+                    <ul class="gifters" id="gifters"></ul>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-head"><h2>Current Subscribers</h2><div class="head-tools"><input id="sub-search" type="search" placeholder="Filter subscribers…" aria-label="Filter subscribers"><button class="btn" id="sub-export">Export CSV</button></div></div>
             <div class="table-wrap"><table id="subscribers-table"><thead><tr id="sub-head"></tr></thead><tbody id="subs"></tbody></table></div>
-            <p class="muted note">Duration is based on when StreamPulse first observed the subscriber, not authoritative Twitch tenure.</p>
+            <p class="muted note">Twitch's API doesn't expose subscription length. <b>Tenure</b> is the highest month count StreamPulse has seen on a subscriber's chat badge or resub alert, so it fills in as subscribers chat. <b>Observed</b> is how long StreamPulse has tracked them. Gifted subs show who gifted them.</p>
         </section>
     </main>
 <script>
@@ -121,10 +149,10 @@ const SESSION_COLS = [
     ['date', 'Date'], ['title', 'Stream'], ['streamStartAt', 'Start'], ['streamStopAt', 'Stop'], ['durationMinutes', 'Duration', 1], ['categorySummary', 'Categories'],
     ['messages', 'Msgs', 1], ['chatters', 'Chatters', 1], ['subscribers', 'Subs', 1], ['followers', 'Follows', 1], ['bits', 'Bits', 1], ['donations', 'Donations', 1], ['raids', 'Raids', 1], ['peakViewers', 'Peak', 1], ['averageViewers', 'Avg', 1]
 ];
-const SUB_COLS = [['name', 'Subscriber'], ['tier', 'Tier'], ['plan', 'Plan'], ['firstSeen', 'First observed'], ['lastSeen', 'Last observed'], ['observedDays', 'Observed duration', 1]];
+const SUB_COLS = [['name', 'Subscriber'], ['tier', 'Tier'], ['tenureMonths', 'Tenure', 1], ['gifter', 'Gifted by'], ['plan', 'Plan'], ['firstSeen', 'First observed'], ['lastSeen', 'Last observed'], ['observedDays', 'Observed', 1]];
 const prefs = Object.assign({ metric: 'messages', chart: 'bar', days: '30' }, JSON.parse(localStorage.getItem('analyticsPrefs') || '{}'));
 const savePrefs = () => localStorage.setItem('analyticsPrefs', JSON.stringify(prefs));
-let report = null, subscriberRows = [];
+let report = null, subscriberRows = [], subInfo = { summary: {}, history: [] };
 const sort = { sessions: { key: 'date', dir: 'desc' }, subs: { key: 'name', dir: 'asc' } };
 
 function compareRows(a, b, key, isDate) {
@@ -167,13 +195,14 @@ async function load() {
     try {
         report = await (await fetch('/api/analytics?' + params)).json();
         const subData = await (await fetch('/api/subscribers/current')).json();
+        subInfo = subData;
         subscriberRows = subData.subscribers || [];
     } catch {
         $('status').textContent = 'Could not load analytics. Is the server running?';
         return;
     }
     $('status').textContent = `${report.sessions.length} session${report.sessions.length === 1 ? '' : 's'}`;
-    renderSummary(); renderSessions(); drawChart(); renderSubscribers();
+    renderSummary(); renderSessions(); drawChart(); renderSubscriberSummary(); drawGrowth(); renderSubscribers();
 }
 
 function renderSummary() {
@@ -208,14 +237,85 @@ function renderSessions() {
     }).join('') || `<tr><td colspan="${SESSION_COLS.length}" class="empty">No sessions in this range.</td></tr>`;
 }
 
-function renderSubscribers() {
-    renderHead('sub-head', SUB_COLS, sort.subs, key => { toggleSort(sort.subs, key, ['name', 'tier', 'plan']); renderSubscribers(); });
-    const q = $('sub-search').value.trim().toLowerCase();
-    const rows = sorted(subscriberRows, sort.subs).filter(s => !q || `${s.name} ${s.plan} ${s.tier}`.toLowerCase().includes(q));
-    const date = value => value ? new Date(value).toLocaleDateString() : '—';
-    $('subs').innerHTML = rows.map(s => `<tr><td>${esc(s.name)}</td><td><span class="badge t${esc(String(s.tier).charAt(0))}">${esc(tierLabel(s.tier))}</span></td><td>${esc(s.plan)}</td><td>${date(s.firstSeen)}</td><td>${date(s.lastSeen)}</td><td class="num${s.observedDays ? '' : ' zero'}">${s.observedDays ? `${fmt(s.observedDays)} days` : 'Not observed'}</td></tr>`).join('')
-        || `<tr><td colspan="6" class="empty">${subscriberRows.length ? 'No subscribers match your filter.' : 'No current subscribers found.'}</td></tr>`;
+const tenureLabel = months => !months ? '—' : months >= 12 ? `${Math.floor(months / 12)}y${months % 12 ? ` ${months % 12}m` : ''}` : `${months}m`;
+
+function renderSubscriberSummary() {
+    const m = subInfo.summary || {};
+    const t = m.tiers || {};
+    const cards = [
+        [fmt(m.total), 'Subscribers'],
+        [`${fmt(t['1000'])} / ${fmt(t['2000'])} / ${fmt(t['3000'])}`, 'Tier 1 / 2 / 3'],
+        [fmt(m.gifted), 'Gifted'],
+        [m.tenureKnown ? tenureLabel(m.longestTenureMonths) : '—', 'Longest tenure'],
+        [m.tenureKnown ? tenureLabel(Math.round(m.averageTenureMonths)) : '—', 'Average tenure'],
+        [`${fmt(m.tenureKnown)} / ${fmt(m.total)}`, 'Tenure known']
+    ];
+    $('sub-summary').innerHTML = cards.map(([value, label]) => `<div class="stat"><strong>${value}</strong><span>${label}</span></div>`).join('');
+    $('sub-updated').textContent = subInfo.updatedAt ? `Twitch list refreshed ${formatDateTime(subInfo.updatedAt)}` : '';
+    $('gifters').innerHTML = (m.topGifters || []).map(g => `<li><span>${esc(g.name)}</span><b>${fmt(g.count)}</b></li>`).join('') || '<li class="muted">No gifted subs right now.</li>';
 }
+
+function drawGrowth() {
+    const rows = subInfo.history || [];
+    const box = $('growth');
+    if (!rows.length) { box.innerHTML = '<div class="empty">No snapshots yet. One is recorded each time Twitch data refreshes.</div>'; $('growth-note').textContent = ''; return; }
+    $('growth-note').textContent = rows.length < 2 ? 'Tracking started today. The chart fills in as daily snapshots accumulate.' : `${rows.length} daily snapshots. Joined/left counts compare each refresh to the one before.`;
+    const W = Math.max(280, Math.round(box.clientWidth || 600)), H = 240, left = 40, right = 16, top = 16, bottom = 28;
+    const values = rows.map(r => r.total);
+    const lo0 = Math.min(...values), hi0 = Math.max(...values), pad = Math.max(1, Math.round((hi0 - lo0) * 0.2));
+    const lo = Math.max(0, lo0 - pad), hi = hi0 + pad;
+    const innerW = W - left - right, innerH = H - top - bottom;
+    const cx = i => rows.length === 1 ? left + innerW / 2 : left + (innerW * i) / (rows.length - 1);
+    const cy = v => top + innerH - ((v - lo) / (hi - lo || 1)) * innerH;
+    const grid = [0, 0.5, 1].map(f => { const y = top + innerH - f * innerH; return `<line class="grid" x1="${left}" x2="${W - right}" y1="${y}" y2="${y}"/><text x="${left - 6}" y="${y + 4}" text-anchor="end">${Math.round(lo + f * (hi - lo))}</text>`; }).join('');
+    const every = Math.max(1, Math.ceil(rows.length / 6));
+    const xl = rows.map((r, i) => i % every ? '' : `<text x="${cx(i)}" y="${H - 8}" text-anchor="middle">${esc(shortDate(r.date + 'T12:00:00'))}</text>`).join('');
+    const line = rows.length > 1 ? `<polyline points="${values.map((v, i) => `${cx(i)},${cy(v)}`).join(' ')}" fill="none" stroke="#58a6ff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>` : '';
+    const dots = rows.map((r, i) => `<circle class="dot" cx="${cx(i)}" cy="${cy(r.total)}" r="4"/>`).join('');
+    const step = rows.length > 1 ? innerW / (rows.length - 1) : innerW;
+    const hits = rows.map((r, i) => `<rect class="hit" data-i="${i}" x="${cx(i) - step / 2}" y="${top}" width="${step}" height="${innerH}" style="cursor:default"/>`).join('');
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Subscriber count over time">${grid}${xl}${line}${dots}${hits}</svg>`;
+    const tip = $('growth-tip'), wrap = box.parentElement;
+    box.querySelectorAll('.hit').forEach(hit => {
+        const i = Number(hit.dataset.i), r = rows[i];
+        hit.addEventListener('mouseenter', () => {
+            tip.innerHTML = `<b>${fmt(r.total)}</b> subscribers<br>${esc(shortDate(r.date + 'T12:00:00'))}<br><span class="muted">T1 ${r.t1} · T2 ${r.t2} · T3 ${r.t3} · gifted ${r.gifted}</span><br><span class="muted">+${r.joined || 0} joined · −${r.left || 0} left</span>`;
+            const b = box.getBoundingClientRect(), base = wrap.getBoundingClientRect();
+            tip.style.left = `${b.left - base.left + (cx(i) / W) * b.width}px`;
+            tip.style.top = `${b.top - base.top + (cy(r.total) / H) * b.height - 8}px`;
+            tip.classList.add('show');
+        });
+        hit.addEventListener('mouseleave', () => tip.classList.remove('show'));
+    });
+}
+
+function filteredSubscribers() {
+    const q = $('sub-search').value.trim().toLowerCase();
+    return sorted(subscriberRows, sort.subs).filter(s => !q || `${s.name} ${s.plan} ${tierLabel(s.tier)} ${s.gifter}`.toLowerCase().includes(q));
+}
+
+function renderSubscribers() {
+    renderHead('sub-head', SUB_COLS, sort.subs, key => { toggleSort(sort.subs, key, ['name', 'tier', 'plan', 'gifter']); renderSubscribers(); });
+    const rows = filteredSubscribers();
+    const date = value => value ? new Date(value).toLocaleDateString() : '—';
+    $('subs').innerHTML = rows.map(s => `<tr>
+        <td>${esc(s.name)}</td>
+        <td><span class="badge t${esc(String(s.tier).charAt(0))}">${esc(tierLabel(s.tier))}</span></td>
+        <td class="num${s.tenureMonths ? '' : ' zero'}" title="${s.tenureMonths ? `${s.tenureMonths} months (highest seen in chat)` : 'Not seen yet. Fills in when they chat or resub.'}">${tenureLabel(s.tenureMonths)}</td>
+        <td>${s.isGift ? esc(s.gifter) : '<span class="zero">—</span>'}</td>
+        <td>${esc(s.plan)}</td><td>${date(s.firstSeen)}</td><td>${date(s.lastSeen)}</td>
+        <td class="num${s.observedDays ? '' : ' zero'}">${s.observedDays ? `${fmt(s.observedDays)} days` : 'Not observed'}</td></tr>`).join('')
+        || `<tr><td colspan="${SUB_COLS.length}" class="empty">${subscriberRows.length ? 'No subscribers match your filter.' : 'No current subscribers found.'}</td></tr>`;
+}
+$('sub-export').addEventListener('click', () => {
+    const headers = ['name', 'tier', 'tenureMonths', 'isGift', 'gifter', 'plan', 'firstSeen', 'lastSeen', 'observedDays'];
+    const csv = [headers.join(','), ...filteredSubscribers().map(r => headers.map(k => csvCell(r[k])).join(','))].join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'streampulse-subscribers.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+});
 const tierLabel = tier => ({ 1000: 'Tier 1', 2000: 'Tier 2', 3000: 'Tier 3' })[tier] || (tier ? String(tier) : '—');
 $('sub-search').addEventListener('input', renderSubscribers);
 
@@ -267,7 +367,7 @@ function drawChart() {
     });
 }
 let resizeTimer;
-window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => report && drawChart(), 120); });
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (report) { drawChart(); drawGrowth(); } }, 120); });
 $('chart-type').addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button) return;

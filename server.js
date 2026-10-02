@@ -2077,6 +2077,36 @@ async function fetchAllPages(endpoint, params, dataKey = 'data') {
     return allData;
 }
 
+// One snapshot per day (last refresh wins) so the analytics page can chart subscriber growth and churn
+const SUB_HISTORY_PATH = path.join(DATA_DIR, 'sub-history.json');
+
+function recordSubSnapshot(subs) {
+    try {
+        const history = readJsonFileSafe(SUB_HISTORY_PATH, { snapshots: [], ids: [] }) || { snapshots: [], ids: [] };
+        const snapshots = Array.isArray(history.snapshots) ? history.snapshots : [];
+        const previousIds = new Set(Array.isArray(history.ids) ? history.ids : []);
+        const ids = [...new Set(subs.map(sub => String(sub.user_id || sub.user_login || '')).filter(Boolean))];
+        const now = new Date();
+        const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const tiers = tier => subs.filter(sub => String(sub.tier) === tier).length;
+        const hadHistory = previousIds.size > 0;
+        const joined = hadHistory ? ids.filter(id => !previousIds.has(id)).length : 0;
+        const left = hadHistory ? [...previousIds].filter(id => !ids.includes(id)).length : 0;
+        const entry = { date, total: subs.length, unique: ids.length, t1: tiers('1000'), t2: tiers('2000'), t3: tiers('3000'), gifted: subs.filter(sub => sub.is_gift).length, joined, left };
+        const last = snapshots[snapshots.length - 1];
+        if (last && last.date === date) {
+            entry.joined += last.joined || 0;
+            entry.left += last.left || 0;
+            snapshots[snapshots.length - 1] = entry;
+        } else {
+            snapshots.push(entry);
+        }
+        fs.writeFileSync(SUB_HISTORY_PATH, JSON.stringify({ snapshots: snapshots.slice(-730), ids }));
+    } catch (err) {
+        console.warn('[Twitch] Could not record subscriber snapshot:', err.message);
+    }
+}
+
 async function fetchTwitchData() {
     if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) {
         console.warn('[Twitch] Missing credentials or broadcaster_id in config.json — skipping Twitch fetch');
@@ -2097,6 +2127,7 @@ async function fetchTwitchData() {
         const subs = await fetchAllPages('/subscriptions', { broadcaster_id: BROADCASTER_ID });
         fs.writeFileSync(path.join(DATA_DIR, 'subs.json'), JSON.stringify({ data: subs }, null, 2));
         console.log(`[Twitch] Saved ${subs.length} subscribers`);
+        recordSubSnapshot(subs);
 
         // Fetch bits leaderboard (month)
         console.log('[Twitch] Fetching bits leaderboard...');
@@ -2662,6 +2693,7 @@ let statsData = {
     giftSubs: {},       // { name: { chatimg, firstSeen, lastSeen, days: { "YYYY-MM-DD": count } } }
     bits: {},           // { name: { chatimg, firstSeen, lastSeen, days: { "YYYY-MM-DD": amount } } }
     donations: {},      // { name: { chatimg, firstSeen, lastSeen, days: { "YYYY-MM-DD": count } } }
+    subTenure: {},      // { lowercased name: { months, seenAt } } highest subscription months observed from chat badges / resubs
     raids: {},          // { name: { firstSeen, lastSeen, days: { "YYYY-MM-DD": count } } }
     createdAt: new Date().toISOString()
 };
@@ -2705,6 +2737,31 @@ function saveStats() {
     statsBackupRotation = (statsBackupRotation % 3) + 1;
 }
 
+// Subscription months come from the chat badge subtitle (e.g. "48-Months") or resub payloads; keep the highest seen
+function parseSubMonths(msg) {
+    if (['subscription_gift', 'giftpurchase', 'sponsorship'].includes(msg.event)) return 0;
+    const meta = msg.meta && typeof msg.meta === 'object' ? msg.meta : {};
+    const metaMonths = Number(meta.cumulative_months ?? meta.cumulativeMonths ?? meta.months);
+    if (metaMonths > 0) return Math.floor(metaMonths);
+    const fromText = text => {
+        const m = String(text || '').match(/(\d+)\s*-?\s*months?/i);
+        return m ? parseInt(m[1], 10) : 0;
+    };
+    const isSubscriberBadge = /subscriber/i.test(msg.membership || '');
+    const fromBadge = isSubscriberBadge || msg.event === 'resub' ? fromText(msg.subtitle) : 0;
+    const fromResub = msg.event === 'resub' ? fromText(msg.chatmessage) : 0;
+    return Math.max(fromBadge, fromResub);
+}
+
+function recordSubTenure(chatname, msg, nowISO) {
+    const months = parseSubMonths(msg);
+    if (!months || months > 600 || !chatname) return;
+    if (!statsData.subTenure) statsData.subTenure = {};
+    const key = chatname.toLowerCase();
+    const existing = statsData.subTenure[key];
+    if (!existing || months >= existing.months) statsData.subTenure[key] = { months, seenAt: nowISO };
+}
+
 function updateStats(chatname, msg) {
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -2713,6 +2770,8 @@ function updateStats(chatname, msg) {
     // Total messages per day
     if (!statsData.totalMessages) statsData.totalMessages = {};
     statsData.totalMessages[today] = (statsData.totalMessages[today] || 0) + 1;
+
+    recordSubTenure(chatname, msg, nowISO);
 
     // Track chatter (regular messages only, not events)
     if (!msg.event && chatname) {
@@ -5019,16 +5078,40 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/subscribers/current' && req.method === 'GET') {
-        const current = readJsonFileSafe(path.join(DATA_DIR, 'subs.json'), { data: [] })?.data || [];
+        const subsPath = path.join(DATA_DIR, 'subs.json');
+        const current = readJsonFileSafe(subsPath, { data: [] })?.data || [];
+        const tenure = statsData.subTenure || {};
         const rows = current.map(sub => {
             const name = sub.user_name || sub.user_login || '';
             const history = statsData.subscribers?.[name] || statsData.subscribers?.[sub.user_login] || {};
             const firstSeen = history.firstSeen || null;
             const days = firstSeen ? Math.max(1, Math.floor((Date.now() - new Date(firstSeen).getTime()) / 86400000) + 1) : null;
-            return { name, tier: sub.tier || '', plan: sub.plan_name || '', firstSeen, lastSeen: history.lastSeen || null, observedDays: days };
-        }).filter(row => row.name).sort((a, b) => (b.observedDays || 0) - (a.observedDays || 0));
+            const months = (tenure[String(name).toLowerCase()] || tenure[String(sub.user_login || '').toLowerCase()] || {}).months || null;
+            return {
+                name, tier: sub.tier || '', plan: sub.plan_name || '', isGift: !!sub.is_gift,
+                gifter: sub.is_gift ? (sub.gifter_name || sub.gifter_login || 'Anonymous') : '',
+                tenureMonths: months, firstSeen, lastSeen: history.lastSeen || null, observedDays: days
+            };
+        }).filter(row => row.name).sort((a, b) => (b.tenureMonths || 0) - (a.tenureMonths || 0) || (b.observedDays || 0) - (a.observedDays || 0));
+
+        const gifters = {};
+        rows.filter(row => row.isGift).forEach(row => { gifters[row.gifter] = (gifters[row.gifter] || 0) + 1; });
+        const withTenure = rows.filter(row => row.tenureMonths);
+        const summary = {
+            total: rows.length,
+            unique: new Set(rows.map(row => row.name.toLowerCase())).size,
+            tiers: { '1000': rows.filter(r => String(r.tier) === '1000').length, '2000': rows.filter(r => String(r.tier) === '2000').length, '3000': rows.filter(r => String(r.tier) === '3000').length },
+            gifted: rows.filter(r => r.isGift).length,
+            tenureKnown: withTenure.length,
+            averageTenureMonths: withTenure.length ? Math.round(withTenure.reduce((sum, r) => sum + r.tenureMonths, 0) / withTenure.length * 10) / 10 : 0,
+            longestTenureMonths: withTenure.length ? Math.max(...withTenure.map(r => r.tenureMonths)) : 0,
+            topGifters: Object.entries(gifters).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10)
+        };
+        const snapshots = readJsonFileSafe(SUB_HISTORY_PATH, { snapshots: [] })?.snapshots || [];
+        let updatedAt = null;
+        try { updatedAt = fs.statSync(subsPath).mtime.toISOString(); } catch { /* no subs file yet */ }
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ updatedAt: fs.statSync(path.join(DATA_DIR, 'subs.json')).mtime.toISOString(), subscribers: rows }));
+        res.end(JSON.stringify({ updatedAt, summary, history: snapshots, subscribers: rows }));
         return;
     }
 

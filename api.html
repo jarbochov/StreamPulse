@@ -561,8 +561,8 @@
                 },
                 {
                     method: 'GET', path: '/api/subscribers/current',
-                    desc: 'Current subscribers with observed duration',
-                    details: 'Lists the subscriber entries last fetched from Twitch (data/subs.json) with the first and last time StreamPulse observed each name. A user can appear more than once if Twitch returns multiple entries for them. Duration is observed by StreamPulse, not authoritative Twitch tenure.'
+                    desc: 'Current subscribers, tenure, gifters and growth history',
+                    details: 'Returns summary (totals, tier split, gifted count, longest/average tenure, top gifters), history (one snapshot per day with total, tiers, gifted, joined and left) and subscribers (name, tier, plan, isGift, gifter, tenureMonths, firstSeen, lastSeen, observedDays). Twitch does not expose subscription length, so tenureMonths is the highest month count seen on chat badges or resub alerts. A user can appear more than once if Twitch returns multiple entries for them.'
                 },
                 {
                     method: 'GET', path: '/api/categories',
