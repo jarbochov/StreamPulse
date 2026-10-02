@@ -388,6 +388,7 @@
             if (config.meta === 'note') return item.note || '';
             return '';
         };
+        const scale = (config.coverScale || 100) / 100;
         const titleFlow = config.titleWrap === 'wrap' ? 'overflow-wrap:anywhere;line-height:1.2' : 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
         const badge = () => {
             const tag = document.createElement('span');
@@ -429,7 +430,7 @@
                 for (const item of section.items) {
                     const row = document.createElement('div');
                     row.style.cssText = 'display:flex;align-items:center;gap:.6em;';
-                    if (config.showCovers !== false) row.appendChild(cover(item, kanban ? 'width:3em;height:4em;flex:none;' : 'width:2.4em;height:3.2em;flex:none;'));
+                    if (config.showCovers !== false) row.appendChild(cover(item, `width:${((kanban ? 3 : 2.4) * scale).toFixed(2)}em;height:${((kanban ? 4 : 3.2) * scale).toFixed(2)}em;flex:none;`));
                     const text = document.createElement('div');
                     text.style.cssText = 'min-width:0;flex:1;';
                     const title = document.createElement('div');
@@ -453,7 +454,7 @@
                 for (const item of section.items) {
                     const card = document.createElement('div');
                     card.style.cssText = strip ? 'flex:1 1 0;min-width:0;' : 'min-width:0;';
-                    card.appendChild(cover(item, config.coverFit === 'natural' && item.cover ? 'width:100%;' : 'width:100%;aspect-ratio:3/4;'));
+                    card.appendChild(cover(item, `width:${Math.min(100, scale * 100)}%;margin:0 auto;${config.coverFit === 'natural' && item.cover ? '' : 'aspect-ratio:3/4;'}`));
                     if (item.playingNow && config.highlightCurrent !== false) { const holder = document.createElement('div'); holder.style.cssText = 'text-align:center;margin-top:.35em;'; holder.appendChild(badge()); card.appendChild(holder); }
                     if (config.showTitles !== false) {
                         const name = document.createElement('div');
