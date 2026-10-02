@@ -126,7 +126,7 @@
         #world > div { position: absolute; left: 0; top: 0; }
         #backdrop { box-shadow: 0 0 0 1px #58a6ff66, 0 12px 40px #000c; }
         #backdrop.bd-checker { background-color: #2a2f38; background-image: conic-gradient(#3a404b 25%, transparent 0 50%, #3a404b 0 75%, transparent 0); background-size: 24px 24px; }
-        #backdrop.bd-dark { background: #0d1117; }
+        #backdrop.bd-dark { background: #1c2128; }
         #backdrop.bd-light { background: #f0f2f5; }
         #backdrop.bd-green { background: #00b140; }
         #canvas { overflow: hidden; z-index: 0; }
@@ -783,7 +783,7 @@
             <div class="grid2">${F.number('canvas.width', 'Width', c.width, { min: LIMITS.canvasW[0], max: LIMITS.canvasW[1], lazy: true })}${F.number('canvas.height', 'Height', c.height, { min: LIMITS.canvasH[0], max: LIMITS.canvasH[1], lazy: true })}</div>
             ${F.color('canvas.background', 'Canvas background', c.background, { clear: true })}
             <label class="field"><span>Preview backdrop</span><select id="backdrop-select">${[['checker', 'Transparent checkerboard'], ['dark', 'Dark'], ['light', 'Light'], ['green', 'Green screen']].map(([v, l]) => `<option value="${v}"${v === prefs.backdrop ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-            <p class="hint">The backdrop is only for editing. The OBS browser source stays transparent unless you set a background.</p>`;
+            <p class="hint">${overlay.canvas.background && !/^(transparent|rgba\(.*,\s*0\))$/i.test(overlay.canvas.background) ? 'The canvas background is set, so it covers the backdrop. Click None to preview the backdrop.' : 'The backdrop is only for editing. The OBS browser source stays transparent unless you set a background.'}</p>`;
     }
     bindFields($('settings'), () => [overlay], path => {
         syncCanvasUI();
