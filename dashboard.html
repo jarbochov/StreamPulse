@@ -677,7 +677,7 @@
             try { const data = await call('/api/fetch'); showToast(`Twitch: ${data.subs || 0} subs, ${data.followers || 0} followers`); refresh(); }
             catch { showToast('Fetch failed'); }
         },
-        'reauth-twitch'() { window.open('/auth/twitch', '_blank'); showToast('Opening Twitch auth…'); },
+        'reauth-twitch'() { window.open('/auth/twitch?return=/dashboard.html', '_blank'); showToast('Opening Twitch auth…'); },
         async 'reset-chat'() {
             if (!confirm('Reset all chat data for this session?')) return;
             try { await call('/api/reset', 'Chat data reset'); refresh(); } catch { showToast('Reset failed'); }

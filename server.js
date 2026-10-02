@@ -1910,6 +1910,12 @@ async function refreshTwitchToken() {
     }
 }
 
+// Only allow same-site relative paths as post-auth redirect targets
+function safeReturnPath(value) {
+    const v = String(value || '');
+    return /^\/(?!\/)[\w\-./?=&%]*$/.test(v) ? v : '/';
+}
+
 // Device code grant flow (works for public Twitch apps with no client secret)
 let deviceAuth = null;
 
@@ -4120,7 +4126,8 @@ const server = http.createServer(async (req, res) => {
             `&redirect_uri=${encodeURIComponent(TWITCH_REDIRECT_URI)}` +
             `&response_type=code` +
             `&scope=${encodeURIComponent(TWITCH_SCOPES)}` +
-            `&force_verify=true`;
+            `&force_verify=true` +
+            `&state=${encodeURIComponent(safeReturnPath(url.searchParams.get('return')))}`;
         res.writeHead(302, { Location: authUrl });
         res.end();
         return;
@@ -4147,7 +4154,8 @@ const server = http.createServer(async (req, res) => {
                 });
                 saveToken(tokenData);
                 console.log('[Twitch] User authorized! Token saved.');
-                res.writeHead(302, { Location: '/clips.html?reauthorized=1' });
+                const returnTo = safeReturnPath(url.searchParams.get('state'));
+                res.writeHead(302, { Location: returnTo === '/' ? '/clips.html?reauthorized=1' : returnTo });
                 res.end();
                 fetchTwitchData();
                 fetchStreamInfo();
