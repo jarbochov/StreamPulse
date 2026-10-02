@@ -8,7 +8,6 @@ const https = require('https');
 const { exec, execFile } = require('child_process');
 const { promisify } = require('util');
 const WebSocket = require('ws');
-const puppeteer = require('puppeteer');
 const archiver = require('archiver');
 const AdmZip = require('adm-zip');
 const execFileAsync = promisify(execFile);
@@ -1305,10 +1304,16 @@ function normalizeViewerStats(input = {}) {
     return normalized;
 }
 
+// Parsed results are cached per file mtime/size because /api/status and goal broadcasts read the same files repeatedly.
+const jsonFileCache = new Map();
 function readJsonFileSafe(filePath, fallback = null) {
     try {
-        if (!fs.existsSync(filePath)) return fallback;
-        return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        const stat = fs.statSync(filePath);
+        const cached = jsonFileCache.get(filePath);
+        if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) return cached.value;
+        const value = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        jsonFileCache.set(filePath, { mtimeMs: stat.mtimeMs, size: stat.size, value });
+        return value;
     } catch {
         return fallback;
     }
@@ -2353,8 +2358,11 @@ function loadStats() {
 
 let statsBackupRotation = 1;
 
+let lastSavedStats = null;
 function saveStats() {
     const data = JSON.stringify(statsData, null, 2);
+    if (data === lastSavedStats) return;
+    lastSavedStats = data;
     fs.writeFileSync(STATS_PATH, data);
 
     // Rotating backup (cycles through 1, 2, 3)
@@ -2513,9 +2521,15 @@ function updateStats(chatname, msg) {
 let ssnSocket = null;
 let ssnReconnectTimer = null;
 
+let lastSavedChatData = null;
 function saveChatData() {
-    chatData.lastUpdated = new Date().toISOString();
     chatData.viewerStats = normalizeViewerStats(chatData.viewerStats);
+    // Compare without the timestamp so idle periods don't rewrite the file every interval.
+    const { lastUpdated, ...content } = chatData;
+    const fingerprint = JSON.stringify(content);
+    if (fingerprint === lastSavedChatData) return;
+    lastSavedChatData = fingerprint;
+    chatData.lastUpdated = new Date().toISOString();
     fs.writeFileSync(LIVE_CHAT_PATH, JSON.stringify(chatData, null, 2));
 }
 
@@ -3653,6 +3667,7 @@ function buildChatPdfHtml(title, subtitle, messages) {
 }
 
 async function generatePdf(htmlContent) {
+    const puppeteer = require('puppeteer'); // loaded lazily; only PDF export needs it
     const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
     try {
         const page = await browser.newPage();
@@ -5915,16 +5930,48 @@ const server = http.createServer(async (req, res) => {
 
     try {
         const stat = fs.statSync(filePath);
-        if (stat.isFile()) {
-            const ext = path.extname(filePath);
-            const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-            const content = fs.readFileSync(filePath);
-            res.writeHead(200, { 'Content-Type': contentType });
-            res.end(content);
-        } else {
+        if (!stat.isFile()) {
             res.writeHead(404);
             res.end('Not Found');
+            return;
         }
+        const contentType = MIME_TYPES[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
+        const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+        const headers = {
+            'Content-Type': contentType,
+            'Accept-Ranges': 'bytes',
+            'ETag': etag,
+            'Last-Modified': stat.mtime.toUTCString(),
+            // Uploaded assets get unique names; everything else revalidates cheaply with the ETag.
+            'Cache-Control': pathname.startsWith('/custom-overlay-assets/') ? 'public, max-age=86400' : 'no-cache'
+        };
+        if (req.headers['if-none-match'] === etag) {
+            res.writeHead(304, headers);
+            res.end();
+            return;
+        }
+        let start = 0;
+        let end = stat.size - 1;
+        let status = 200;
+        const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+        if (range && (range[1] || range[2])) {
+            if (range[1]) { start = Number(range[1]); if (range[2]) end = Math.min(Number(range[2]), end); }
+            else { start = Math.max(0, stat.size - Number(range[2])); }
+            if (start > end || start >= stat.size) {
+                res.writeHead(416, { 'Content-Range': `bytes */${stat.size}` });
+                res.end();
+                return;
+            }
+            status = 206;
+            headers['Content-Range'] = `bytes ${start}-${end}/${stat.size}`;
+        }
+        headers['Content-Length'] = stat.size === 0 ? 0 : end - start + 1;
+        res.writeHead(status, headers);
+        if (req.method === 'HEAD' || stat.size === 0) { res.end(); return; }
+        const stream = fs.createReadStream(filePath, { start, end });
+        stream.on('error', () => res.destroy());
+        res.on('close', () => stream.destroy());
+        stream.pipe(res);
     } catch {
         res.writeHead(404);
         res.end('Not Found');
