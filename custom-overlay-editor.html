@@ -1137,6 +1137,28 @@
         if (node._alertHandle) node._alertHandle.stop();
         node._alertHandle = shared.playAlert(node, el, { ...ALERT_SAMPLE, animIn: 'pop', durationMs: 3500 }, { sound: false, onEnd: () => { node._sig = null; renderCanvas(); } });
     });
+    // Alerts fired from the Alerts page (tests, simulations, real events) play on the canvas alert boxes too
+    function connectAlertPreview() {
+        const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
+        socket.addEventListener('message', event => {
+            let message; try { message = JSON.parse(event.data); } catch { return; }
+            if (message.type === 'alert-skip' || message.type === 'alert-clear') {
+                for (const node of nodes.values()) if (node._alertHandle) node._alertHandle.stop();
+                return;
+            }
+            if (message.type !== 'alert') return;
+            for (const el of overlay.elements) {
+                const node = nodes.get(el.id);
+                if (el.type !== 'alert' || !node || el.visible === false) continue;
+                const only = el.alert?.triggers || [];
+                if (only.length && !only.includes(message.data.trigger)) continue;
+                if (node._alertHandle) node._alertHandle.stop();
+                node._alertHandle = shared.playAlert(node, el, message.data, { sound: false, onEnd: () => { node._sig = null; renderCanvas(); } });
+            }
+        });
+        socket.addEventListener('close', () => setTimeout(connectAlertPreview, 3000));
+    }
+    connectAlertPreview();
     $('properties').addEventListener('mousedown', event => { if (event.target.id === 'font-picker') GOOGLE_FONT_OPTIONS.forEach(([v]) => shared.loadGoogleFont(v)); });
     $('properties').addEventListener('input', event => { if (event.target.dataset?.path === 'style.fontFamily') shared.loadGoogleFont(event.target.value); });
 
@@ -1668,6 +1690,14 @@
         normalizeZ();
         saving = true; $('save').disabled = true; $('save').textContent = 'Saving…';
         try {
+            if (isNew) {
+                let taken = [];
+                try { taken = (await (await fetch('/api/custom-overlays', { cache: 'no-store' })).json()).map(o => o.id); } catch { /* server will reject a clash */ }
+                const base = (overlay.name || 'overlay').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'overlay';
+                let id = base, n = 2;
+                while (taken.includes(id)) id = `${base}-${n++}`;
+                overlay.id = id;
+            }
             const url = isNew ? '/api/custom-overlays' : `/api/custom-overlays/${encodeURIComponent(overlay.id)}`;
             let response;
             try { response = await fetch(url, { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(overlay) }); }

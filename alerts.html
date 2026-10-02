@@ -65,11 +65,22 @@
         <script src="/nav.js"></script>
     </div>
 
+    <div class="container" style="padding-bottom:0;display:block">
+        <div class="card">
+            <h2>How alerts work</h2>
+            <ol class="hint" style="padding-left:1.2rem;display:grid;gap:.25rem">
+                <li><b>Make a rule</b> on the left: pick what triggers it (a follow, 500 bits, a raid…).</li>
+                <li><b>Choose what to show</b>: text, an image/GIF/video and a sound. Add several variants to mix it up.</li>
+                <li><b>Save</b>, then press <b>▶ Test</b> on a variant. Tests play on any open overlay and in the overlay editor canvas.</li>
+                <li>Add an <b>Alert box</b> to a <a href="/custom-overlays.html" style="color:#58a6ff">custom overlay</a> and use it as an OBS browser source. Alerts only appear there.</li>
+            </ol>
+        </div>
+    </div>
     <div class="container">
         <div class="stack">
             <div class="card">
-                <h2>Status <span id="save-state" class="pill ok">Saved</span></h2>
-                <div class="row"><label for="s-enabled">Alerts enabled</label><input type="checkbox" id="s-enabled"></div>
+                <h2>Alerts <span id="save-state" class="pill ok">Saved</span></h2>
+                <div class="row"><label for="s-enabled">Turn alerts on</label><input type="checkbox" id="s-enabled"></div>
                 <div class="row"><label for="s-gap">Gap between alerts (s)</label><input type="number" id="s-gap" min="0" max="60" step="0.5"></div>
                 <div class="actions">
                     <button class="btn primary" id="save">Save</button>
@@ -78,23 +89,23 @@
                     <button class="btn" id="pause" data-queue="pause">Pause</button>
                 </div>
                 <p class="hint" style="margin-top:.8rem" id="queue-line"></p>
-                <p class="hint" style="margin-top:.6rem">Alerts show in any custom overlay that has an <b>Alert box</b> element. Add one in the <a href="/custom-overlays.html" style="color:#58a6ff">overlay editor</a> (Add element → Alert box) and use that overlay as a browser source.</p>
+                
             </div>
             <div class="card">
                 <h2>Rules <button class="btn sm" id="add-rule">+ New rule</button></h2>
                 <div class="rule-list" id="rule-list"></div>
             </div>
             <div class="card">
-                <h2>Simulate an event</h2>
+                <h2>Try a real-style event</h2>
                 <div class="row"><label>Event</label><select id="sim-type"></select></div>
                 <div class="row"><label>User</label><input id="sim-user" value="TestViewer"></div>
                 <div class="row"><label>Amount / count / months</label><input id="sim-amount" type="number" min="0" value="100"></div>
                 <div class="row"><label>Message / reward / word</label><input id="sim-text" value="hello there"></div>
                 <button class="btn" id="sim-go">Run through saved rules</button>
-                <p class="hint" style="margin-top:.5rem">Goes through your real matching (thresholds, cooldowns off). Timer and HTTP actions do not run for simulations.</p>
+                <p class="hint" style="margin-top:.5rem">Runs a pretend event through your saved rules, so you can check which rule wins. Timer and HTTP actions do not run.</p>
             </div>
             <div class="card">
-                <h2>Recent alerts</h2>
+                <h2>Recent alerts <span class="hint" style="text-transform:none">🧪 = test</span></h2>
                 <div class="history" id="history"></div>
             </div>
         </div>
@@ -208,24 +219,35 @@
             ${r.pick === 'weighted' ? field('Weight', `<input type="number" data-v="${i}.weight" min="1" max="100" value="${v.weight}">`, 'Higher = picked more often.') : ''}
         </div>`;
     }
+    function summary(r) {
+        const c = r.conditions, t = TRIGGERS[r.trigger];
+        let when = `When there is a "${t}"`;
+        if (c.minAmount && c.maxAmount) when += ` between ${c.minAmount} and ${c.maxAmount}`;
+        else if (c.minAmount) when += ` of ${c.minAmount} or more`;
+        if (r.trigger === 'redeem' && c.rewardName) when += ` for "${c.rewardName}"`;
+        if (r.trigger === 'chat_word' && c.keywords.length) when += `: ${c.keywords.join(', ')}`;
+        const extras = [r.actions.timer.enabled ? 'change a timer' : '', r.actions.http.enabled ? 'send an HTTP request' : ''].filter(Boolean);
+        return `${when}, show ${r.variants.length > 1 ? `one of ${r.variants.length} variants` : 'the alert'}${extras.length ? ' and ' + extras.join(' and ') : ''}.${r.enabled ? '' : ' (This rule is off.)'}`;
+    }
     function renderEditor() {
         const r = rule();
         if (!r) { $('editor').innerHTML = '<div class="card empty">Select a rule on the left, or create a new one.</div>'; return; }
         const a = r.actions;
         const tokens = TOKENS[r.trigger].map(t => `<code>{{alert.${t}}}</code>`).join(' ');
         $('editor').innerHTML = `
-            <div class="card"><h2>Rule <span class="actions"><button class="btn sm" id="dup-rule">Duplicate</button><button class="btn sm danger" id="del-rule">Delete</button></span></h2>
+            <div class="card" style="border-color:#1f6feb"><b style="font-size:.85rem">${esc(summary(r))}</b></div>
+            <div class="card"><h2>1 · When this happens <span class="actions"><button class="btn sm" id="dup-rule">Duplicate</button><button class="btn sm danger" id="del-rule">Delete</button></span></h2>
                 ${field('Name', inp('name', r.name, 'text', 'maxlength="80"'))}
                 <div class="row"><label>Enabled</label><input type="checkbox" data-f="enabled" data-type="check" ${r.enabled ? 'checked' : ''}></div>
                 ${field('When this happens', sel_('trigger', r.trigger, Object.entries(TRIGGERS)))}
                 ${conditionsHtml(r)}
             </div>
-            <div class="card"><h2>What to show <button class="btn sm" id="add-variant">+ Add variant</button></h2>
+            <div class="card"><h2>2 · What to show <button class="btn sm" id="add-variant">+ Add variant</button></h2>
                 <p class="hint" style="margin-bottom:.8rem">Placeholders for this trigger: ${tokens}</p>
                 ${r.variants.length > 1 ? field('When several variants', sel_('pick', r.pick, [['random', 'Random (never the same twice in a row)'], ['weighted', 'Random, weighted'], ['sequential', 'In order']])) : ''}
                 ${r.variants.map((v, i) => variantHtml(v, i, r)).join('')}
             </div>
-            <div class="card"><h2>Also do</h2>
+            <div class="card"><h2>3 · Also do (optional)</h2>
                 <div class="row"><label>Timer</label><input type="checkbox" data-f="actions.timer.enabled" data-type="check" ${a.timer.enabled ? 'checked' : ''}></div>
                 ${a.timer.enabled ? `
                     ${field('Timer', sel_('actions.timer.timerId', a.timer.timerId, [['', 'Choose a timer…'], ...timers.map(x => [x.id, x.label || x.id])]))}
@@ -241,6 +263,7 @@
         $('pause').dataset.queue = queue.paused ? 'resume' : 'pause';
         $('history').innerHTML = (queue.history || []).length ? queue.history.map(h => `<div><span>${h.test ? '🧪 ' : ''}${esc(h.title || h.message || h.ruleName)}</span><span class="t">${new Date(h.shownAt || h.at).toLocaleTimeString()}</span></div>`).join('') : '<p class="hint">Nothing yet this run.</p>';
     }
+    function renderSummary() { const b = document.querySelector('#editor .card b'); if (b && rule()) b.textContent = summary(rule()); }
     function renderAll() {
         $('sim-type').innerHTML = Object.entries(TRIGGERS).map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
         renderSettings(); renderRules(); renderEditor(); renderQueue();
@@ -282,6 +305,7 @@
             setPath(r, el.dataset.f, value);
             setDirty(true);
             if (el.dataset.f === 'name') renderRules();
+            renderSummary();
         } else if (el.dataset.v) {
             const [i, key] = el.dataset.v.split('.');
             r.variants[i][key] = el.type === 'number' ? Number(el.value) || 0 : el.value;
