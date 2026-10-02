@@ -22,6 +22,7 @@
         .cfg-row { display: flex; align-items: center; gap: 0.75rem; }
         .cfg-row label { font-size: 0.85rem; color: #8b949e; min-width: 120px; }
         .cfg-row input, .cfg-row select, .cfg-row textarea { flex: 1; padding: 0.4rem 0.6rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.85rem; font-family: inherit; }
+        .cfg-row.aligned label { min-width: 275px; }
         .cfg-row textarea { min-height: 60px; resize: vertical; }
         .cfg-section { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #58a6ff; padding-top: 0.5rem; border-top: 1px solid #21262d; }
         .cfg-toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #8b949e; }
@@ -77,8 +78,8 @@
 
     <div style="max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem;">
         <div class="card">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
-                <h2>Config Editor</h2>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem;">
+                <h2 style="margin-bottom:0;">Config Editor</h2>
                 <button class="btn primary" id="top-save-config" type="button">💾 Save Config</button>
             </div>
             <div id="config-editor" style="display: flex; flex-direction: column; gap: 0.75rem;">
@@ -406,12 +407,12 @@
                 <label>Exclude from Stats</label>
                 <input type="text" id="cfg-exclude" value="${(cfg.exclude_users || []).join(', ')}" placeholder="user1, user2">
             </div>
-            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Hidden from stats &amp; overlay, but still appear in chat logs</div>
+            <div style="font-size:0.75rem;color:#484f58;margin:0.25rem 0 0.6rem;">Hidden from stats &amp; overlay, but still appear in chat logs</div>
             <div class="cfg-row">
                 <label>Banned Users</label>
                 <input type="text" id="cfg-banned" value="${(cfg.banned_users || []).join(', ')}" placeholder="user1, user2">
             </div>
-            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Completely excluded from everything — stats, overlay, and chat logs</div>
+            <div style="font-size:0.75rem;color:#484f58;margin:0.25rem 0 0.6rem;">Completely excluded from everything — stats, overlay, and chat logs</div>
 
             <div class="cfg-section">Credits Header</div>
             <div class="cfg-row">
@@ -474,7 +475,7 @@
                 <label>Extra Fade Time</label>
                 <input type="number" id="cfg-closing-display-duration" min="0" value="${closingDisplayDuration}">
             </div>
-            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Use \\n for line breaks. 0 keeps the closing fade inside the base duration. Extra fade time adds to the credits sequence.</div>
+            <div style="font-size:0.75rem;color:#484f58;margin:0.25rem 0 0.6rem;">Use \\n for line breaks. 0 keeps the closing fade inside the base duration. Extra fade time adds to the credits sequence.</div>
 
             <div class="cfg-section">Social Links</div>
             <div class="cfg-row">
@@ -510,45 +511,45 @@
                 <input type="checkbox" id="cfg-sl-auto" ${sl.auto !== false ? 'checked' : ''}>
                 <label for="cfg-sl-auto">Start and end sessions automatically from Twitch live status</label>
             </div>
-            <div class="cfg-row">
+            <div class="cfg-row aligned">
                 <label>End after offline for (minutes)</label>
                 <input type="number" id="cfg-sl-grace" min="1" max="240" value="${sl.end_grace_minutes || 15}">
             </div>
-            <div class="cfg-row">
+            <div class="cfg-row aligned">
                 <label>Resume previous session within (minutes)</label>
                 <input type="number" id="cfg-sl-resume" min="0" max="1440" value="${sl.resume_window_minutes ?? 120}">
             </div>
-            <div class="cfg-row">
+            <div class="cfg-row aligned">
                 <label>Discard streams shorter than (minutes)</label>
                 <input type="number" id="cfg-sl-min" min="0" max="120" value="${sl.min_session_minutes ?? 5}">
             </div>
-            <div class="cfg-row">
+            <div class="cfg-row aligned">
                 <label>Check Twitch every (seconds)</label>
                 <input type="number" id="cfg-sl-poll" min="10" max="600" value="${sl.poll_seconds || 30}">
             </div>
-            <div style="font-size:0.75rem;color:#484f58;margin-top:-0.4rem;">Outages and API errors never count as offline. If you return inside the grace period the session simply continues; after it, returning inside the resume window reopens the archived session. Ending a session manually pauses auto mode until the stream ends.</div>
+            <div style="font-size:0.75rem;color:#484f58;margin:0.25rem 0 0.6rem;">Outages and API errors never count as offline. If you return inside the grace period the session simply continues; after it, returning inside the resume window reopens the archived session. Ending a session manually pauses auto mode until the stream ends.</div>
 
             <div class="cfg-section">Viewer Tracking</div>
             <div class="cfg-toggle">
                 <input type="checkbox" id="cfg-vt-enabled" ${vt.enabled !== false ? 'checked' : ''}>
                 <label for="cfg-vt-enabled">Track viewer counts</label>
             </div>
-            <div class="cfg-row">
+            <div class="cfg-row aligned">
                 <label>Viewer Count Label</label>
                 <input type="text" id="cfg-viewer-label" value="${escapeHtml(vt.viewer_label || 'viewers')}" placeholder="viewers">
             </div>
-            <div class="cfg-row">
+            <div class="cfg-row aligned">
                 <label>Source</label>
                 <select id="cfg-vt-source">
                     <option value="best_available"${vt.source !== 'twitch' ? ' selected' : ''}>Best available (SocialStream, then Twitch)</option>
                     <option value="twitch"${vt.source === 'twitch' ? ' selected' : ''}>Twitch only</option>
                 </select>
             </div>
-            <div class="cfg-row">
+            <div class="cfg-row aligned">
                 <label>Poll every (seconds)</label>
                 <input type="number" id="cfg-vt-poll" min="15" max="3600" value="${vt.poll_seconds || 60}">
             </div>
-            <div class="cfg-row">
+            <div class="cfg-row aligned">
                 <label>Samples kept per session</label>
                 <input type="number" id="cfg-vt-retain" min="60" max="5000" value="${vt.retain_samples || 720}">
             </div>
@@ -604,6 +605,7 @@
                 'Special Thanks Names': 'Add, remove, and arrange the names in this section.',
                 Closing: 'Set the final message and how it appears.',
                 'Social Links': 'Configure social handles shown at the end.',
+                'Session Lifecycle': 'Auto start and end sessions from Twitch live status.',
                 'Viewer Tracking': 'How viewer counts are sampled and labelled.',
                 'Clip Detection': 'Automatic clip candidates (configured on the Clips page).',
                 Connection: 'Twitch, SocialStream and server details (read-only).',
