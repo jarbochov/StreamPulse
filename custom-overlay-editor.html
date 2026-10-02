@@ -312,7 +312,7 @@
         <div class="kbd-list">
             <span><kbd>Ctrl/⌘</kbd> <kbd>S</kbd></span><span>Save and push live</span>
             <span><kbd>Ctrl/⌘</kbd> <kbd>Z</kbd> / <kbd>⇧</kbd></span><span>Undo / redo</span>
-            <span><kbd>Ctrl/⌘</kbd> <kbd>C</kbd> <kbd>V</kbd> <kbd>D</kbd></span><span>Copy, paste, duplicate</span>
+            <span><kbd>Ctrl/⌘</kbd> <kbd>C</kbd> <kbd>V</kbd> <kbd>D</kbd></span><span>Copy, paste (also pastes images/videos), duplicate</span>
             <span><kbd>Del</kbd></span><span>Delete selection</span>
             <span><kbd>↑↓←→</kbd> <kbd>⇧</kbd></span><span>Nudge 1px (10px with Shift)</span>
             <span><kbd>Ctrl/⌘</kbd> <kbd>A</kbd></span><span>Select all</span>
@@ -1340,22 +1340,34 @@
     }
     stage.addEventListener('dragover', event => { if ([...(event.dataTransfer?.types || [])].includes('Files')) { event.preventDefault(); stage.classList.add('drop-target'); } });
     stage.addEventListener('dragleave', event => { if (!stage.contains(event.relatedTarget)) stage.classList.remove('drop-target'); });
-    stage.addEventListener('drop', async event => {
-        event.preventDefault(); stage.classList.remove('drop-target');
-        const files = [...(event.dataTransfer?.files || [])].filter(file => file.type.startsWith('image/') || file.type.startsWith('video/'));
-        if (!files.length) { toast('Drop an image or video file.', 'warn'); return; }
+    async function addMediaFiles(files, point) {
         for (const file of files) {
             try {
                 const type = file.type.startsWith('video/') ? 'video' : 'image';
                 const url = await uploadAsset(file);
                 const el = createElementData(type, { src: url });
-                const point = toLogical(event.clientX, event.clientY);
                 await fitToMedia(el, url, type);
-                el.x = Math.round(point.x - el.width / 2); el.y = Math.round(point.y - el.height / 2);
+                if (point) { el.x = Math.round(point.x - el.width / 2); el.y = Math.round(point.y - el.height / 2); }
                 overlay.elements.push(el); normalizeZ();
                 renderCanvas(); renderLayers(); setSelection([el.id]); changed(true);
             } catch (error) { toast(error.message, 'error', 5000); }
         }
+    }
+    stage.addEventListener('drop', event => {
+        event.preventDefault(); stage.classList.remove('drop-target');
+        const files = [...(event.dataTransfer?.files || [])].filter(file => file.type.startsWith('image/') || file.type.startsWith('video/'));
+        if (!files.length) { toast('Drop an image or video file.', 'warn'); return; }
+        addMediaFiles(files, toLogical(event.clientX, event.clientY));
+    });
+    document.addEventListener('paste', event => {
+        if (event.target.matches('input:not([type="range"]):not([type="checkbox"]):not([type="color"]), textarea, select')) return;
+        const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+        const files = [...(event.clipboardData?.files || [])]
+            .filter(file => file.type.startsWith('image/') || file.type.startsWith('video/'))
+            .map(file => /^(image|blob)\.\w+$/i.test(file.name) ? new File([file], `pasted-${stamp}.${file.type.split('/')[1].replace('jpeg', 'jpg').replace('svg+xml', 'svg')}`, { type: file.type }) : file);
+        event.preventDefault();
+        if (files.length) { toast(`Uploading ${files.length} pasted file${files.length > 1 ? 's' : ''}…`, 'info', 1500); addMediaFiles(files); }
+        else pasteClipboard();
     });
 
     // ---- snapping ---------------------------------------------------------------------
@@ -1515,7 +1527,7 @@
         if (mod && key === 'y') { event.preventDefault(); redo(); return; }
         if (mod && key === 'a') { event.preventDefault(); setSelection(overlay.elements.filter(el => el.visible !== false).map(el => el.id)); return; }
         if (mod && key === 'c') { copySelection(); return; }
-        if (mod && key === 'v') { event.preventDefault(); pasteClipboard(); return; }
+        if (mod && key === 'v') return;
         if (mod && key === 'g') { event.preventDefault(); event.shiftKey ? ungroupSelection() : groupSelection(); return; }
         if (mod && key === 'd') { event.preventDefault(); duplicateSelection(); return; }
         if (mod && key === '0') { event.preventDefault(); fitView(); return; }
