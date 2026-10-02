@@ -124,6 +124,12 @@
                 media.style.height = '100%';
                 media.style.objectFit = element.style?.objectFit || 'cover';
                 node.appendChild(media);
+            } else if (element.type === 'qr') {
+                const img = document.createElement('img');
+                img.src = shared.qrUrl(expandVariables(element.src || ''), element.qr);
+                img.draggable = false;
+                img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
+                node.appendChild(img);
             } else if (element.type === 'embed') {
                 const frame = document.createElement('iframe');
                 frame.src = expandVariables(element.src || '') || 'about:blank';

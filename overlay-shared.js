@@ -484,5 +484,13 @@
         }
     }
 
-    root.OverlayShared = { renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    // QR codes are rendered by the server as SVG, so the overlay only needs an image URL.
+    function qrUrl(text, qr = {}) {
+        const value = String(text ?? '').trim();
+        if (!value) return '';
+        const params = new URLSearchParams({ text: value, fg: qr.fg || '#000000', bg: qr.bg || '#ffffff', margin: String(qr.margin ?? 2), ecc: qr.ecc || 'M' });
+        return `/api/qr?${params}`;
+    }
+
+    root.OverlayShared = { qrUrl, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);

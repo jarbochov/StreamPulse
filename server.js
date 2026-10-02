@@ -84,7 +84,7 @@ const DEFAULT_GOALS_CONFIG = {
     items: []
 };
 
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list']);
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr']);
 let customOverlays = {};
 
 function sanitizeOverlayId(value) {
@@ -118,6 +118,12 @@ function normalizeOverlayElement(element = {}, index = 0) {
             headings: element.gameList?.headings !== false,
             highlightCurrent: element.gameList?.highlightCurrent !== false,
             accent: String(element.gameList?.accent || '#3fb950').slice(0, 80)
+        },
+        qr: {
+            fg: /^#[0-9a-f]{6}$/i.test(element.qr?.fg || '') ? element.qr.fg : '#000000',
+            bg: /^#[0-9a-f]{6}$/i.test(element.qr?.bg || '') || element.qr?.bg === 'transparent' ? element.qr.bg : '#ffffff',
+            margin: Math.max(0, Math.min(8, Math.round(Number(element.qr?.margin ?? 2)))),
+            ecc: ['L', 'M', 'Q', 'H'].includes(element.qr?.ecc) ? element.qr.ecc : 'M'
         },
         progress: {
             kind: element.progress?.kind === 'ring' ? 'ring' : 'bar',
@@ -5346,6 +5352,27 @@ const server = http.createServer(async (req, res) => {
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(buildGamePlanSnapshot()));
+        return;
+    }
+
+    if (pathname === '/api/qr') {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const text = (params.get('text') || '').slice(0, 1000);
+        const color = (value, fallback) => /^#[0-9a-f]{6}$/i.test(value || '') ? value : fallback;
+        if (!text) { res.writeHead(400, { 'Content-Type': 'text/plain' }); res.end('Missing text'); return; }
+        try {
+            const svg = await require('qrcode').toString(text, {
+                type: 'svg',
+                errorCorrectionLevel: ['L', 'M', 'Q', 'H'].includes(params.get('ecc')) ? params.get('ecc') : 'M',
+                margin: Math.max(0, Math.min(8, Math.round(Number(params.get('margin') ?? 2)))),
+                color: { dark: color(params.get('fg'), '#000000'), light: params.get('bg') === 'transparent' ? '#00000000' : color(params.get('bg'), '#ffffff') }
+            });
+            res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600' });
+            res.end(svg);
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            res.end(err.message);
+        }
         return;
     }
 

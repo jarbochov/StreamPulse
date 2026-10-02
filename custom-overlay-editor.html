@@ -246,6 +246,7 @@
                         <button role="menuitem" data-add="markdown"><span class="glyph">M↓</span>Markdown</button>
                         <button role="menuitem" data-add="image"><span class="glyph">▨</span>Image</button>
                         <button role="menuitem" data-add="video"><span class="glyph">▶</span>Video</button>
+                        <button role="menuitem" data-add="qr"><span class="glyph">▦</span>QR code</button>
                         <button role="menuitem" data-add="embed"><span class="glyph">⊞</span>Webpage</button>
                         <button role="menuitem" data-add="shape"><span class="glyph">■</span>Shape</button>
                         <button role="menuitem" data-add="progress"><span class="glyph">▰</span>Progress bar / ring</button>
@@ -338,7 +339,7 @@
     const MIN_SIZE = 20;
     const TYPE_META = {
         text: { label: 'Text', icon: 'T' }, 'random-text': { label: 'Random Text', icon: '↻' }, markdown: { label: 'Markdown', icon: 'M↓' },
-        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, shape: { label: 'Shape', icon: '■' }, progress: { label: 'Progress', icon: '▰' }, 'game-list': { label: 'Game List', icon: '🎮' }
+        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, qr: { label: 'QR Code', icon: '▦' }, shape: { label: 'Shape', icon: '■' }, progress: { label: 'Progress', icon: '▰' }, 'game-list': { label: 'Game List', icon: '🎮' }
     };
     const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
     const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress' || el.type === 'game-list';
@@ -442,15 +443,15 @@
     }
 
     function createElementData(type, overrides = {}) {
-        const sizes = { text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270], video: [640, 360], embed: [640, 360], shape: [480, 160], progress: [480, 48], 'game-list': [800, 320] };
+        const sizes = { text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270], video: [640, 360], embed: [640, 360], qr: [320, 320], shape: [480, 160], progress: [480, 48], 'game-list': [800, 320] };
         const [width, height] = sizes[type];
         const offset = (overlay.elements.length % 6) * 24;
         const data = {
             id: uid(type), name: '', locked: false, type,
-            content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', shape: '', progress: '50', 'game-list': '' }[type],
+            content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', shape: '', progress: '50', 'game-list': '' }[type],
             items: type === 'random-text' ? ['First random phrase', 'Second random phrase', 'Third random phrase'] : [],
             random: { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 },
-            group: '', gameList: { filter: 'scheduled', period: '', layout: 'grid', coverFit: 'cover', fit: 'none', coverScale: 100, headingSize: 0, titleSize: 0, titleWrap: 'ellipsis', columns: 3, gap: 12, max: 0, showCovers: true, showTitles: true, meta: 'none', headings: true, highlightCurrent: true, accent: '#3fb950' },
+            group: '', qr: { fg: '#000000', bg: '#ffffff', margin: 2, ecc: 'M' }, gameList: { filter: 'scheduled', period: '', layout: 'grid', coverFit: 'cover', fit: 'none', coverScale: 100, headingSize: 0, titleSize: 0, titleWrap: 'ellipsis', columns: 3, gap: 12, max: 0, showCovers: true, showTitles: true, meta: 'none', headings: true, highlightCurrent: true, accent: '#3fb950' },
             progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
             src: '', x: Math.round((overlay.canvas.width - width) / 2 + offset), y: Math.round((overlay.canvas.height - height) / 2 + offset), width, height, zIndex: overlay.elements.length, visible: true,
             style: { fontFamily: 'sans-serif', fontSize: type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48, fontWeight: '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#1f6feb' : 'transparent', borderColor: '#ffffff', borderWidth: 0, borderRadius: 0, opacity: 1, objectFit: 'cover', shape: 'rectangle', fill: '#1f6feb', gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 }, blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' } }
@@ -576,6 +577,13 @@
             if (el.type === 'video') { media.muted = true; media.loop = true; media.autoplay = true; media.playsInline = true; }
             media.addEventListener('error', () => { node.replaceChildren(placeholder(`Couldn't load this ${el.type}. Check the URL or upload it again.`)); });
             node.appendChild(media);
+        } else if (el.type === 'qr') {
+            const url = shared.qrUrl(expand(el.src), el.qr);
+            if (!url || /\{\{/.test(expand(el.src))) { node.appendChild(placeholder('Enter a link or text for the QR code')); return; }
+            const media = document.createElement('img');
+            media.src = url; media.draggable = false; media.style.objectFit = 'contain';
+            media.addEventListener('error', () => { node.replaceChildren(placeholder("Couldn't build this QR code. Try shorter text.")); });
+            node.appendChild(media);
         } else if (el.type === 'embed') {
             const url = expand(el.src);
             if (!/^https?:\/\//i.test(url)) { node.appendChild(placeholder('Enter an http(s) webpage URL')); return; }
@@ -602,7 +610,7 @@
             shared.renderProgress(node, el, expand);
         }
     }
-    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.progress, el.gameList, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
+    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.progress, el.gameList, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
 
     function tickPlaceholders() {
         if (!prefs.live) return;
@@ -961,6 +969,14 @@
         if (el.type === 'progress') {
             body += `<label class="field"><span>Value (percent, 0–100)</span><textarea id="prop-content" data-path="content" data-kind="text" rows="2" style="min-height:0">${esc(el.content)}</textarea><span class="hint">Use a number or a placeholder such as {{timer.&lt;id&gt;.percent}} or {{goal.&lt;id&gt;.percent}}.</span></label>`;
             body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button></div>`;
+        }
+        if (el.type === 'qr') {
+            const q = el.qr || {};
+            body += F.text('src', 'Link or text', el.src, 'placeholder="https://twitch.tv/yourchannel"');
+            body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button></div>`;
+            body += `<div class="grid2">${F.color('qr.fg', 'Code color', q.fg || '#000000')}${F.color('qr.bg', 'Background', q.bg || '#ffffff', { clear: true })}</div>`;
+            body += `<div class="grid2">${F.number('qr.margin', 'Quiet zone (modules)', q.margin ?? 2, { min: 0, max: 8 })}${F.select('qr.ecc', 'Error correction', q.ecc || 'M', [['L', 'Low (smaller code)'], ['M', 'Medium'], ['Q', 'Quartile'], ['H', 'High (more robust)']])}</div>`;
+            body += '<span class="hint">Keep strong contrast and a quiet zone so phones can scan it. Dark code on a light background scans best.</span>';
         }
         if (media || el.type === 'embed') {
             body += F.text('src', el.type === 'embed' ? 'Webpage URL' : 'Source URL', el.src, `placeholder="${el.type === 'embed' ? 'https://example.com' : 'https://… or upload a file'}"`);

@@ -170,7 +170,7 @@ If StreamPulse is intentionally hosted somewhere other than localhost, set `twit
 
 The updater works on Windows, macOS, and Linux when StreamPulse is run from a Git checkout with Git and Node.js/npm available. On Windows, the server uses the native `npm.cmd` command automatically. Keep the production folder writable and avoid running with uncommitted tracked code changes; data is backed up before an update.
 - **Preview Mode** — `?preview=true` renders credits without scrolling for layout testing
-- **Custom Overlays** — Create JSON-backed canvas overlays with text, Markdown, images, video, shapes, progress bars/rings, groups, gradients, and live WebSocket updates after saving. Text, image and progress elements accept live `{{placeholders}}` (stream stats, clock, timers, goals, latest events, Twitch category and IGDB game data, music title/artist/cover/progress, Game Plan lists), and the **Game list** element renders your Game Plan as a cover grid, strip or text list with cover-fit and shrink-to-fit options
+- **Custom Overlays** — Create JSON-backed canvas overlays with text, Markdown, images, video, shapes, progress bars/rings, scannable QR codes, groups, gradients, and live WebSocket updates after saving. Text, image and progress elements accept live `{{placeholders}}` (stream stats, clock, timers, goals, latest events, Twitch category and IGDB game data, music title/artist/cover/progress, Game Plan lists), and the **Game list** element renders your Game Plan as a cover grid, strip or text list with cover-fit and shrink-to-fit options
 
 ## How It Works
 
@@ -359,6 +359,7 @@ The goal overlay fills the browser-source viewport at 100% width and height. Typ
 | `GET /api/music/now-playing` | Current track info (JSON) |
 | `GET /api/music/artwork` | Current album art image |
 | `GET/PUT /api/game-plan` | Game Plan lists and games (with IGDB covers and the "playing now" match) |
+| `GET /api/qr` | QR code as SVG (`?text=`, `fg`, `bg`, `margin`, `ecc`) |
 | `GET /api/game-search` | Search IGDB for games (`?q=`) |
 | `GET /api/game` | IGDB info for a game (`?name=`, defaults to the current Twitch category) |
 | `ws://localhost:3000` | WebSocket — live data push |

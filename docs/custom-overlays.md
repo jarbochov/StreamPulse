@@ -6,7 +6,7 @@ Custom overlays are JSON-backed scenes that can be displayed in OBS or any brows
 http://localhost:3000/custom-overlay.html?id=be-right-back
 ```
 
-Open `/custom-overlays.html` to create and manage overlays. The editor currently supports text, randomized text pools, Markdown, images, videos, webpage embeds, and shapes. Elements can be positioned on a zoomable 1920×1080-style canvas, styled, reordered, aligned, snapped to canvas/element guides, and saved. The canvas can be panned with the middle mouse button, Shift-drag, or Alt-drag.
+Open `/custom-overlays.html` to create and manage overlays. The editor currently supports text, randomized text pools, Markdown, images, videos, webpage embeds, QR codes, progress bars/rings, game lists, and shapes. Elements can be positioned on a zoomable 1920×1080-style canvas, styled, reordered, aligned, snapped to canvas/element guides, and saved. The canvas can be panned with the middle mouse button, Shift-drag, or Alt-drag.
 
 Saving an overlay increments its revision, writes the definition to `data/custom-overlays.json`, and broadcasts the updated definition over StreamPulse's WebSocket. Open overlay instances update without an OBS browser-source refresh.
 
@@ -26,6 +26,10 @@ Text and Markdown content support live variables using double braces. The editor
 ```
 
 `{{music.cover}}` and `{{game.cover}}` are image URLs: put them in an Image element's source URL (use **Insert placeholder…** under the field). `{{music.percent}}` (0–100) drives a Progress element, and `music.position`, `music.remaining` and `music.percent` tick every second between player polls. Clock, timer, goal, latest-event and IGDB game placeholders are listed in the picker.
+
+### QR code element
+
+The **QR code** element turns a link or text into a scannable code (rendered by the server at `GET /api/qr?text=…`, as SVG). The link accepts placeholders, and you can choose the code color, background (or transparent), quiet zone and error correction. Keep strong contrast so phones can scan it.
 
 ### Game list element
 
