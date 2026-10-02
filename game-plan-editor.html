@@ -23,7 +23,7 @@
         .btn.primary { background: #238636; border-color: #238636; }
         .btn.icon { padding: 0.3rem 0.55rem; }
         .lists { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.1rem; align-items: start; }
-        .list-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.6rem; }
+        .list-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; }
         .list-head h2 { margin: 0; }
         .count { font-size: 0.74rem; color: #6e7681; }
         .items { display: flex; flex-direction: column; gap: 0.5rem; min-height: 64px; padding-bottom: 0.2rem; }
@@ -50,6 +50,8 @@
         .suggest img, .suggest .nocover { width: 34px; height: 45px; border-radius: 4px; object-fit: cover; background: #21262d; }
         .suggest small { display: block; color: #8b949e; font-size: 0.72rem; }
         .suggest .plain { grid-template-columns: 1fr; color: #8b949e; font-size: 0.82rem; }
+        .list-name { background: transparent; border: 1px solid transparent; color: #8b949e; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 0.1rem 0.3rem; flex: 1; min-width: 0; }
+        .list-name:hover, .list-name:focus { border-color: #30363d; background: #0d1117; }
         .status { color: #8b949e; font-size: 0.8rem; min-height: 1.2em; }
         @media (max-width: 980px) { .lists { grid-template-columns: 1fr; } .add-row { grid-template-columns: 1fr; } .container { padding: 1rem; } }
     </style>
@@ -73,13 +75,10 @@
             </form>
             <datalist id="periods"></datalist>
             <p class="status" id="status"></p>
+            <p class="hint"><button class="btn" type="button" id="new-list">+ New list</button> Create your own lists (e.g. “Co-op nights”, “Horror picks”) and pick them in the Game list element.</p>
         </div>
 
-        <div class="lists">
-            <div class="card"><div class="list-head"><h2>Scheduled</h2><span class="count" id="count-scheduled"></span></div><div class="items" id="list-scheduled" data-status="scheduled" data-empty="Games you're playing this period"></div></div>
-            <div class="card"><div class="list-head"><h2>Backlog</h2><span class="count" id="count-backlog"></span></div><div class="items" id="list-backlog" data-status="backlog" data-empty="Games on the list, not scheduled"></div></div>
-            <div class="card"><div class="list-head"><h2>Played</h2><span class="count" id="count-played"></span></div><div class="items" id="list-played" data-status="played" data-empty="Finished games"></div></div>
-        </div>
+        <div class="lists" id="lists"></div>
         <p class="hint">Use these in overlays with the <b>Game list</b> element in the <a href="/custom-overlays.html" style="color:#58a6ff">custom overlay editor</a>.</p>
     </div>
 
@@ -87,7 +86,10 @@
     <script>
     (() => {
         const $ = id => document.getElementById(id);
-        const lists = { scheduled: $('list-scheduled'), backlog: $('list-backlog'), played: $('list-played') };
+        const BUILTIN = [{ id: 'scheduled', name: 'Scheduled', empty: "Games you're playing this period" }, { id: 'backlog', name: 'Backlog', empty: 'Games on the list, not scheduled' }, { id: 'played', name: 'Played', empty: 'Finished games' }];
+        let customLists = [];
+        let lists = {};
+        const allLists = () => [...BUILTIN, ...customLists.map(list => ({ ...list, custom: true, empty: 'Drag games here' }))];
         let items = [];
         let saveTimer = null;
         let polls = 0;
@@ -97,6 +99,29 @@
 
         function coverTag(item) {
             return item.cover ? `<img class="cover" src="${esc(item.cover)}" alt="" loading="lazy">` : '<div class="cover"></div>';
+        }
+
+        function buildColumns() {
+            $('lists').innerHTML = allLists().map(list => `
+                <div class="card" data-list="${esc(list.id)}">
+                    <div class="list-head">
+                        ${list.custom ? `<input class="list-name" data-list-name value="${esc(list.name)}" maxlength="40" aria-label="List name">` : `<h2>${esc(list.name)}</h2>`}
+                        <span class="count" id="count-${esc(list.id)}"></span>
+                        ${list.custom ? '<button class="btn icon" data-delete-list title="Delete list (games move to Backlog)">✕</button>' : ''}
+                    </div>
+                    <div class="items" id="list-${esc(list.id)}" data-status="${esc(list.id)}" data-empty="${esc(list.empty)}"></div>
+                </div>`).join('');
+            lists = Object.fromEntries(allLists().map(list => [list.id, $(`list-${list.id}`)]));
+            for (const list of Object.values(lists)) {
+                new Sortable(list, {
+                    group: 'games', animation: 150, handle: '.grip', ghostClass: 'sortable-ghost',
+                    onEnd() { readOrderFromDom(); render(); scheduleSave(); }
+                });
+            }
+            const options = allLists().map(list => `<option value="${esc(list.id)}">${esc(list.name)}</option>`).join('');
+            const current = $('add-status').value;
+            $('add-status').innerHTML = options;
+            if (allLists().some(list => list.id === current)) $('add-status').value = current;
         }
 
         function render() {
@@ -115,7 +140,7 @@
                         </div>
                         <div class="item-actions">
                             <select data-field="status" aria-label="Move to">
-                                ${['scheduled', 'backlog', 'played'].map(value => `<option value="${value}"${value === status ? ' selected' : ''}>${value[0].toUpperCase() + value.slice(1)}</option>`).join('')}
+                                ${allLists().map(list => `<option value="${esc(list.id)}"${list.id === status ? ' selected' : ''}>${esc(list.name)}</option>`).join('')}
                             </select>
                             <button class="btn icon" data-remove title="Remove">✕</button>
                         </div>
@@ -149,7 +174,7 @@
                 const response = await fetch('/api/game-plan', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: items.map(({ id, name, status, period, note, twitchCategory, igdbId }) => ({ id, name, status, period, note, twitchCategory, igdbId })) })
+                    body: JSON.stringify({ lists: customLists, items: items.map(({ id, name, status, period, note, twitchCategory, igdbId }) => ({ id, name, status, period, note, twitchCategory, igdbId })) })
                 });
                 if (!response.ok) throw new Error((await response.json()).error || response.statusText);
                 setStatus('Saved. Overlays update within a few seconds.');
@@ -247,17 +272,38 @@
             scheduleSave();
         });
 
-        for (const list of Object.values(lists)) {
-            new Sortable(list, {
-                group: 'games', animation: 150, handle: '.grip', ghostClass: 'sortable-ghost',
-                onEnd() { readOrderFromDom(); render(); scheduleSave(); }
-            });
-        }
+        $('new-list').addEventListener('click', () => {
+            const name = prompt('Name for the new list:');
+            if (!name || !name.trim()) return;
+            customLists.push({ id: `list-${Date.now().toString(36)}`, name: name.trim().slice(0, 40) });
+            buildColumns(); render(); scheduleSave();
+        });
+
+        $('lists').addEventListener('click', event => {
+            if (!event.target.closest('[data-delete-list]')) return;
+            const id = event.target.closest('[data-list]').dataset.list;
+            const list = customLists.find(entry => entry.id === id);
+            if (!list || !confirm(`Delete the list “${list.name}”? Its games move to Backlog.`)) return;
+            for (const item of items) if (item.status === id) item.status = 'backlog';
+            customLists = customLists.filter(entry => entry.id !== id);
+            buildColumns(); render(); scheduleSave();
+        });
+
+        $('lists').addEventListener('change', event => {
+            if (!event.target.matches('[data-list-name]')) return;
+            const list = customLists.find(entry => entry.id === event.target.closest('[data-list]').dataset.list);
+            if (!list) return;
+            list.name = event.target.value.trim().slice(0, 40) || list.name;
+            event.target.value = list.name;
+            buildColumns(); render(); scheduleSave();
+        });
 
         (async () => {
             try {
                 const data = await (await fetch('/api/game-plan', { cache: 'no-store' })).json();
                 items = data.items;
+                customLists = data.lists || [];
+                buildColumns();
                 render();
                 refreshMeta();
             } catch { setStatus('Could not load the game plan.'); }

@@ -98,7 +98,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
         group: sanitizeOverlayId(element.group).slice(0, 40),
         type,
         gameList: {
-            filter: ['scheduled', 'backlog', 'played', 'all'].includes(element.gameList?.filter) ? element.gameList.filter : 'scheduled',
+            filter: ['scheduled', 'backlog', 'played', 'all'].includes(element.gameList?.filter) || /^list-[a-z0-9-]{1,40}$/.test(element.gameList?.filter || '') ? element.gameList.filter : 'scheduled',
             period: String(element.gameList?.period || '').slice(0, 40),
             layout: ['grid', 'strip', 'list'].includes(element.gameList?.layout) ? element.gameList.layout : 'grid',
             columns: Math.max(1, Math.min(12, Math.round(Number(element.gameList?.columns) || 3))),
@@ -2171,20 +2171,27 @@ const GAME_PLAN_PATH = path.join(DATA_DIR, 'game-plan.json');
 const GAME_PLAN_STATUSES = ['scheduled', 'backlog', 'played'];
 
 function normalizeGamePlan(input) {
+    const lists = [];
+    for (const entry of (Array.isArray(input?.lists) ? input.lists : []).slice(0, 20)) {
+        const id = /^list-[a-z0-9-]{1,40}$/.test(entry?.id || '') ? entry.id : '';
+        const name = String(entry?.name || '').trim().slice(0, 40);
+        if (id && name && !lists.some(list => list.id === id)) lists.push({ id, name });
+    }
+    const validStatus = status => GAME_PLAN_STATUSES.includes(status) || lists.some(list => list.id === status);
     const items = (Array.isArray(input?.items) ? input.items : []).slice(0, 300).map((item, index) => ({
         id: sanitizeOverlayId(item?.id) || `game-${Date.now().toString(36)}-${index}`,
         name: String(item?.name || '').trim().slice(0, 120),
-        status: GAME_PLAN_STATUSES.includes(item?.status) ? item.status : 'backlog',
+        status: validStatus(item?.status) ? item.status : 'backlog',
         period: String(item?.period || '').trim().slice(0, 40),
         note: String(item?.note || '').trim().slice(0, 200),
         twitchCategory: String(item?.twitchCategory || '').trim().slice(0, 120),
         igdbId: /^\d{1,9}$/.test(String(item?.igdbId || '')) ? String(item.igdbId) : ''
     })).filter(item => item.name);
-    return { items };
+    return { lists, items };
 }
 
 function loadGamePlan() {
-    try { return normalizeGamePlan(JSON.parse(fs.readFileSync(GAME_PLAN_PATH, 'utf8'))); } catch { return { items: [] }; }
+    try { return normalizeGamePlan(JSON.parse(fs.readFileSync(GAME_PLAN_PATH, 'utf8'))); } catch { return { lists: [], items: [] }; }
 }
 
 const gameKey = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
@@ -2206,6 +2213,7 @@ function buildGamePlanSnapshot() {
     warmGameInfo(plan.items);
     return {
         current: category,
+        lists: plan.lists,
         items: plan.items.map(item => {
             const game = publicGameInfo(item.name, item.igdbId);
             const raw = gameInfoCache[infoKey(item.name, item.igdbId)];

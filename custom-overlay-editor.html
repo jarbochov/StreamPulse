@@ -971,7 +971,7 @@
     function gameListSection(el) {
         const g = el.gameList || {};
         return F.section('gamelist', 'Game list', `
-            ${F.select('gameList.filter', 'Show', g.filter || 'scheduled', [['scheduled', 'Scheduled games'], ['backlog', 'Backlog'], ['played', 'Played'], ['all', 'Everything']])}
+            ${F.select('gameList.filter', 'Show', g.filter || 'scheduled', [['scheduled', 'Scheduled games'], ['backlog', 'Backlog'], ['played', 'Played'], ...(liveStatus.gamePlan?.lists || []).map(list => [list.id, `List: ${list.name}`]), ['all', 'Everything']])}
             ${F.text('gameList.period', 'Only this period', g.period || '', 'placeholder="e.g. October (blank = all)"')}
             ${F.select('gameList.layout', 'Layout', g.layout || 'grid', [['grid', 'Cover grid'], ['strip', 'Cover strip'], ['list', 'Text list']])}
             ${g.layout === 'grid' || !g.layout ? F.number('gameList.columns', 'Columns', g.columns || 3, { min: 1, max: 12 }) : ''}
