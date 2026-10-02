@@ -600,6 +600,35 @@
                     details: 'Removes the overlay. Its asset files are not deleted.'
                 },
                 {
+                    method: 'GET', path: '/api/alerts',
+                    desc: 'Alert rules, settings and queue state',
+                    details: 'Returns { settings, rules, queue: { pending, current, paused, history }, meta }.'
+                },
+                {
+                    method: 'PUT', path: '/api/alerts',
+                    desc: 'Replace alert rules and settings',
+                    details: 'Send the full { settings, rules } object. It is validated and normalized, then saved to data/alerts.json.',
+                    body: '{ "settings": { "enabled": true, "gapSeconds": 2 }, "rules": [ { "trigger": "bits", "conditions": { "minAmount": 100 }, "variants": [ { "title": "{{alert.user}} cheered {{alert.amount}}!" } ] } ] }'
+                },
+                {
+                    method: 'POST', path: '/api/alerts/test',
+                    desc: 'Queue a test alert for one saved rule',
+                    details: 'Skips conditions and cooldowns. Timer and HTTP actions are not run.',
+                    body: '{ "ruleId": "bits-big", "variantId": "v1" }'
+                },
+                {
+                    method: 'POST', path: '/api/alerts/test-event',
+                    desc: 'Simulate a stream event through the saved rules',
+                    details: 'Uses real matching (thresholds, tiers, milestones). Returns { alert } or { alert: null } when nothing matched.',
+                    body: '{ "type": "bits", "user": "Viewer", "amount": 500 }'
+                },
+                {
+                    method: 'POST', path: '/api/alerts/queue',
+                    desc: 'Control the alert queue',
+                    details: 'Actions: skip, clear, pause, resume.',
+                    body: '{ "action": "skip" }'
+                },
+                {
                     method: 'GET', path: '/api/custom-overlays/assets',
                     desc: 'List uploaded assets',
                     details: 'Returns every asset (images, video, audio, fonts) with name, kind, url, size, modifiedAt, and usedBy (overlays and timer sounds that reference it).'

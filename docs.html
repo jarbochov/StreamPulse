@@ -265,6 +265,12 @@
             custom: true
         },
         {
+            id: 'alerts',
+            group: 'Overlays & Features',
+            title: 'Alerts (Beta)',
+            custom: true
+        },
+        {
             id: 'game-plan',
             group: 'Overlays & Features',
             title: 'Game Plan',
@@ -807,6 +813,7 @@
                             <tr><td><code>config.json</code></td><td>Persistent</td><td>All server and credits configuration. Editable via dashboard.</td></tr>
                             <tr><td><code>data/chat.json</code></td><td>Per-session</td><td>Current session chat data. Archived and reset on session end or server restart.</td></tr>
                             <tr><td><code>data/stats.json</code></td><td>Persistent</td><td>Cumulative stats with daily buckets. Survives restarts.</td></tr>
+                            <tr><td><code>data/alerts.json</code></td><td>Persistent</td><td>Alert rules, variants, conditions and actions.</td></tr>
                             <tr><td><code>data/timers.json</code></td><td>Persistent</td><td>Named countdowns, stopwatches, visibility, timer state, global sound settings, and per-timer outgoing HTTP action settings.</td></tr>
                             <tr><td><code>data/.stats-backup-{1,2,3}.json</code></td><td>Rotating</td><td>3 most recent stats backups. Auto-restored if stats.json is corrupt.</td></tr>
                             <tr><td><code>data/highlights.json</code></td><td>Persistent</td><td>Pinned chat messages.</td></tr>
@@ -908,6 +915,23 @@
             <div class="detail-text">
                 Add a <strong>Game list</strong> element in the custom overlay editor. Choose a list or period filter, a layout (grid, strip, list or kanban with a column per group), cover fit (cover, contain, natural), cover size, heading and title sizing, and optional shrink-to-fit. Use <code>plan.*</code> placeholders for single values in text elements. Data is stored in <code>data/game-plan.json</code> and included in backups.
             </div></div>
+    </div>`;
+
+            case 'alerts': return `
+    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong style="font-size:0.9rem;">How alerts work</strong>
+        </div>
+        <div class="card-body"><div class="detail-text">
+            Alerts turn stream events into on-screen pop-ups. Each <strong>rule</strong> says <em>when</em> (a trigger and optional conditions) and <em>what</em> (one or more variants, plus optional timer or HTTP actions). Manage rules at <a href="/alerts.html">Alerts</a>.<br><br>
+            <strong>Showing them:</strong> add an <strong>Alert box</strong> element in the <a href="/custom-overlays.html">custom overlay editor</a> and use that overlay as a browser source. Style the box there; each rule controls the text, image/GIF/video, sound, volume, duration and animations. Use several boxes and the box's "Only show certain alerts" filter to route, for example, raids elsewhere.<br><br>
+            <strong>Triggers:</strong> follow, new sub, resub, sub milestone/anniversary, gifted subs (one alert per gifter batch), bits, donation, raid, channel point redeem, timer finished, goal reached, and chat words/#hashtags.<br><br>
+            <strong>Thresholds:</strong> when several rules match, the one with the highest minimum wins, so you can stack tiers. A milestone rule (listed months or every N months) replaces the plain resub alert. Milestones only fire from resub events, so an anniversary is never guessed.<br><br>
+            <strong>Variants:</strong> add several and pick random (never the same twice in a row), weighted, or in order.<br><br>
+            <strong>Placeholders</strong> in titles and messages: <code>{{alert.user}}</code> <code>{{alert.amount}}</code> <code>{{alert.count}}</code> <code>{{alert.months}}</code> <code>{{alert.streak}}</code> <code>{{alert.tier}}</code> <code>{{alert.message}}</code> <code>{{alert.reward}}</code> <code>{{alert.viewers}}</code> <code>{{alert.name}}</code> <code>{{alert.recipient}}</code> <code>{{alert.keyword}}</code>.<br><br>
+            <strong>Queue:</strong> alerts play one at a time with a configurable gap. You can skip, clear, pause and resume from the Alerts page. Simulations and Test buttons never run timer or HTTP actions.<br><br>
+            <strong>Not included yet:</strong> watch streaks and hype trains (they need Twitch EventSub), and OBS control actions.
+        </div></div>
     </div>`;
 
             case 'timers': return `

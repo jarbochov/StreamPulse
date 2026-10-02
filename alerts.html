@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Alerts</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+        .stack { display: flex; flex-direction: column; gap: 1rem; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.1rem 1.2rem; }
+        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.9rem; display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+        .card h3 { font-size: 0.78rem; color: #58a6ff; margin: 1.1rem 0 0.6rem; padding-top: 0.7rem; border-top: 1px solid #21262d; }
+        .row { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.65rem; flex-wrap: wrap; }
+        .row > label { min-width: 150px; font-size: 0.82rem; color: #8b949e; }
+        .row input, .row select, .row textarea { flex: 1; min-width: 0; padding: 0.48rem 0.65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.82rem; font-family: inherit; }
+        .row input:focus, .row select:focus { outline: none; border-color: #58a6ff; }
+        .row input[type="checkbox"] { flex: none; width: auto; accent-color: #58a6ff; }
+        .row small { color: #8b949e; font-size: 0.72rem; flex-basis: 100%; margin: -.3rem 0 .2rem 0; }
+        .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .btn { border: 1px solid #30363d; background: #21262d; color: #e1e4e8; border-radius: 6px; padding: 0.48rem 0.85rem; font-size: 0.82rem; cursor: pointer; text-decoration: none; font-family: inherit; display: inline-flex; align-items: center; gap: .35rem; }
+        .btn:hover:not(:disabled) { border-color: #58a6ff; }
+        .btn:disabled { opacity: .4; cursor: not-allowed; }
+        .btn.primary { background: #238636; border-color: #238636; }
+        .btn.danger { background: #5a1e23; border-color: #5a1e23; }
+        .btn.sm { padding: .22rem .5rem; font-size: .75rem; }
+        .rule-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .rule-item { border: 1px solid #30363d; border-radius: 8px; padding: 0.6rem 0.75rem; background: #0d1117; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: .6rem; }
+        .rule-item:hover { border-color: #3d4650; }
+        .rule-item.active { border-color: #58a6ff; background: #111827; }
+        .rule-item.off .name { opacity: .5; }
+        .rule-item .name { font-weight: 600; overflow-wrap: anywhere; font-size: .88rem; }
+        .rule-item .meta { color: #8b949e; font-size: .72rem; margin-top: .15rem; }
+        .pill { display: inline-flex; padding: 0.12rem 0.45rem; border-radius: 999px; font-size: 0.68rem; border: 1px solid #30363d; color: #8b949e; }
+        .pill.dirty { color: #d29922; border-color: #9e6a03; background: #33210f; }
+        .pill.ok { color: #3fb950; border-color: #238636; }
+        .hint { color: #8b949e; font-size: 0.78rem; line-height: 1.45; }
+        .variant { border: 1px solid #30363d; border-radius: 8px; padding: .8rem .9rem .3rem; margin-bottom: .8rem; background: #0d1117; }
+        .variant-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .7rem; gap: .5rem; }
+        .variant-head b { font-size: .82rem; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 .9rem; }
+        .media-row { display: flex; gap: .4rem; flex: 1; min-width: 0; }
+        .media-row input[type="text"], .media-row select { flex: 1; min-width: 0; }
+        .media-row input[type="file"] { display: none; }
+        .history { display: flex; flex-direction: column; gap: .35rem; max-height: 280px; overflow: auto; }
+        .history div { font-size: .78rem; padding: .35rem .5rem; background: #0d1117; border: 1px solid #21262d; border-radius: 6px; display: flex; justify-content: space-between; gap: .5rem; }
+        .history span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .history .t { color: #8b949e; flex: none; }
+        code { background: #21262d; border-radius: 4px; padding: .05rem .3rem; font-size: .78rem; }
+        #toast { position: fixed; bottom: 1.2rem; right: 1.2rem; background: #238636; color: #fff; padding: .6rem .9rem; border-radius: 6px; font-size: .85rem; display: none; z-index: 9; }
+        #toast.err { background: #8e2a2f; }
+        .empty { text-align: center; color: #8b949e; padding: 2.5rem 1rem; }
+        @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>StreamPulse <span>Alerts</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <div class="container">
+        <div class="stack">
+            <div class="card">
+                <h2>Status <span id="save-state" class="pill ok">Saved</span></h2>
+                <div class="row"><label for="s-enabled">Alerts enabled</label><input type="checkbox" id="s-enabled"></div>
+                <div class="row"><label for="s-gap">Gap between alerts (s)</label><input type="number" id="s-gap" min="0" max="60" step="0.5"></div>
+                <div class="actions">
+                    <button class="btn primary" id="save">Save</button>
+                    <button class="btn" data-queue="skip">Skip</button>
+                    <button class="btn" data-queue="clear">Clear queue</button>
+                    <button class="btn" id="pause" data-queue="pause">Pause</button>
+                </div>
+                <p class="hint" style="margin-top:.8rem" id="queue-line"></p>
+                <p class="hint" style="margin-top:.6rem">Alerts show in any custom overlay that has an <b>Alert box</b> element. Add one in the <a href="/custom-overlays.html" style="color:#58a6ff">overlay editor</a> (Add element → Alert box) and use that overlay as a browser source.</p>
+            </div>
+            <div class="card">
+                <h2>Rules <button class="btn sm" id="add-rule">+ New rule</button></h2>
+                <div class="rule-list" id="rule-list"></div>
+            </div>
+            <div class="card">
+                <h2>Simulate an event</h2>
+                <div class="row"><label>Event</label><select id="sim-type"></select></div>
+                <div class="row"><label>User</label><input id="sim-user" value="TestViewer"></div>
+                <div class="row"><label>Amount / count / months</label><input id="sim-amount" type="number" min="0" value="100"></div>
+                <div class="row"><label>Message / reward / word</label><input id="sim-text" value="hello there"></div>
+                <button class="btn" id="sim-go">Run through saved rules</button>
+                <p class="hint" style="margin-top:.5rem">Goes through your real matching (thresholds, cooldowns off). Timer and HTTP actions do not run for simulations.</p>
+            </div>
+            <div class="card">
+                <h2>Recent alerts</h2>
+                <div class="history" id="history"></div>
+            </div>
+        </div>
+
+        <div class="stack" id="editor"></div>
+    </div>
+    <div id="toast"></div>
+
+<script>
+(() => {
+    const $ = id => document.getElementById(id);
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const TRIGGERS = { follow: 'Follow', sub: 'New subscriber', resub: 'Resub', milestone: 'Sub milestone / anniversary', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Channel point redeem', timer: 'Timer finished', goal: 'Goal reached', chat_word: 'Chat word or hashtag' };
+    const ANIM_IN = ['pop', 'fade', 'zoom', 'bounce', 'flip', 'spin', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'none'];
+    const ANIM_OUT = ['fade', 'pop', 'zoom', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'none'];
+    const AMOUNT_LABEL = { bits: 'Bits', donation: 'Amount', raid: 'Viewers', redeem: 'Point cost', gift: 'Number of gifts', sub: 'Months', resub: 'Months' };
+    const TOKENS = {
+        follow: ['user'], sub: ['user', 'tier'], resub: ['user', 'months', 'streak', 'tier', 'message'], milestone: ['user', 'months', 'streak', 'tier'],
+        gift: ['user', 'count', 'recipient', 'tier'], bits: ['user', 'amount', 'message'], donation: ['user', 'amount', 'message'], raid: ['user', 'viewers'],
+        redeem: ['user', 'reward', 'amount'], timer: ['name'], goal: ['name', 'amount'], chat_word: ['user', 'keyword', 'message']
+    };
+    const DEFAULT_TITLE = {
+        follow: '{{alert.user}} just followed!', sub: '{{alert.user}} subscribed!', resub: '{{alert.user}} resubscribed for {{alert.months}} months!',
+        milestone: '{{alert.user}} — {{alert.months}} months!', gift: '{{alert.user}} gifted {{alert.count}} subs!', bits: '{{alert.user}} cheered {{alert.amount}} bits!',
+        donation: '{{alert.user}} donated {{alert.amount}}!', raid: '{{alert.user}} is raiding with {{alert.viewers}}!', redeem: '{{alert.user}} redeemed {{alert.reward}}',
+        timer: '{{alert.name}} is done!', goal: 'Goal reached: {{alert.name}}', chat_word: '{{alert.user}} said {{alert.keyword}}'
+    };
+    let cfg = { settings: { enabled: true, gapSeconds: 2 }, rules: [] };
+    let sel = null, dirty = false, assets = [], timers = [], goals = [], queue = {}, paused = false;
+
+    const toast = (message, err) => { const t = $('toast'); t.textContent = message; t.className = err ? 'err' : ''; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 2600); };
+    const setDirty = value => { dirty = value; $('save-state').textContent = dirty ? 'Unsaved changes' : 'Saved'; $('save-state').className = `pill ${dirty ? 'dirty' : 'ok'}`; };
+    const rule = () => cfg.rules.find(r => r.id === sel);
+    const newVariant = trigger => ({ id: `v${Date.now().toString(36)}`, title: DEFAULT_TITLE[trigger], message: '', image: '', video: '', sound: '', volume: 70, animIn: 'pop', animOut: 'fade', duration: 6, weight: 1 });
+    const setPath = (obj, path, value) => { const keys = path.split('.'); const last = keys.pop(); keys.reduce((o, k) => o[k], obj)[last] = value; };
+
+    async function api(url, options) {
+        const response = await fetch(url, options);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+        return data;
+    }
+
+    async function loadAll() {
+        const data = await api('/api/alerts', { cache: 'no-store' });
+        cfg = { settings: data.settings, rules: data.rules };
+        queue = data.queue;
+        if (!sel || !rule()) sel = cfg.rules[0]?.id || null;
+        try { timers = Object.values((await api('/api/timers')).timers || {}); } catch { timers = []; }
+        try { goals = (await api('/api/goals')).items || []; } catch { goals = []; }
+        await loadAssets();
+        renderAll();
+    }
+    async function loadAssets() { try { assets = await api('/api/custom-overlays/assets'); } catch { assets = []; } }
+
+    function renderSettings() {
+        $('s-enabled').checked = cfg.settings.enabled;
+        $('s-gap').value = cfg.settings.gapSeconds;
+    }
+    function renderRules() {
+        $('rule-list').innerHTML = cfg.rules.length ? cfg.rules.map(r => `
+            <div class="rule-item${r.id === sel ? ' active' : ''}${r.enabled ? '' : ' off'}" data-rule="${esc(r.id)}">
+                <div><div class="name">${esc(r.name)}</div><div class="meta">${esc(TRIGGERS[r.trigger])} · ${r.variants.length} variant${r.variants.length === 1 ? '' : 's'}${r.conditions.minAmount ? ` · ≥ ${r.conditions.minAmount}` : ''}</div></div>
+                <span class="pill ${r.enabled ? 'ok' : ''}">${r.enabled ? 'On' : 'Off'}</span>
+            </div>`).join('') : '<p class="hint">No rules yet. Add one to get started.</p>';
+    }
+    function field(label, inner, hint = '') { return `<div class="row"><label>${label}</label>${inner}${hint ? `<small>${hint}</small>` : ''}</div>`; }
+    const inp = (path, value, type = 'text', extra = '') => `<input type="${type}" data-f="${path}" data-type="${type}" value="${esc(value)}" ${extra}>`;
+    const sel_ = (path, value, options) => `<select data-f="${path}">${options.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(value) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+
+    function conditionsHtml(r) {
+        const c = r.conditions, t = r.trigger;
+        let html = '';
+        if (AMOUNT_LABEL[t] && t !== 'sub') {
+            html += field(`Minimum ${AMOUNT_LABEL[t].toLowerCase()}`, inp('conditions.minAmount', c.minAmount, 'number', 'min="0"'), 'When several rules match, the one with the highest minimum wins, so you can stack tiers (100 bits, 1000 bits…).');
+            html += field(`Maximum ${AMOUNT_LABEL[t].toLowerCase()}`, inp('conditions.maxAmount', c.maxAmount, 'number', 'min="0"'), '0 means no maximum.');
+        }
+        if (['sub', 'resub', 'milestone', 'gift'].includes(t)) html += field('Tier', sel_('conditions.tier', c.tier, [['', 'Any'], ['1000', 'Tier 1'], ['2000', 'Tier 2'], ['3000', 'Tier 3'], ['prime', 'Prime']]));
+        if (t === 'redeem') html += field('Reward name contains', inp('conditions.rewardName', c.rewardName, 'text', 'placeholder="e.g. Hydrate (blank = any reward)"'));
+        if (t === 'timer') html += field('Timer', sel_('conditions.timerId', c.timerId, [['', 'Any timer'], ...timers.map(x => [x.id, x.label || x.id])]));
+        if (t === 'goal') html += field('Goal', sel_('conditions.goalId', c.goalId, [['', 'Any goal'], ...goals.map(x => [x.id, x.title])]));
+        if (t === 'chat_word') html += field('Words or #hashtags', inp('conditions.keywords', c.keywords.join(', '), 'list', 'placeholder="hype, #clip"'), 'Comma separated. Whole words only, case-insensitive.');
+        if (t === 'milestone') {
+            html += field('Milestone months', inp('conditions.milestones', c.milestones.join(', '), 'numlist', 'placeholder="6, 12, 24, 36"'), 'Only fires for resubs, so it never claims a wrong anniversary.');
+            html += field('…or every N months', inp('conditions.everyMonths', c.everyMonths, 'number', 'min="0" max="120"'), '12 = every yearly anniversary. 0 = off.');
+        }
+        html += field('Cooldown (s)', inp('conditions.cooldownSeconds', c.cooldownSeconds, 'number', 'min="0"'), t === 'chat_word' ? 'Stops chat from spamming this alert.' : '0 = no cooldown.');
+        return html;
+    }
+    function mediaRow(i, key, kinds, accept, label) {
+        const v = rule().variants[i];
+        const list = assets.filter(a => kinds.includes(a.kind));
+        return `<div class="row"><label>${label}</label><span class="media-row">
+            <input type="text" data-v="${i}.${key}" placeholder="URL or pick / upload" value="${esc(v[key])}">
+            <select data-pick="${i}.${key}"><option value="">Library…</option>${list.map(a => `<option value="${esc(a.url)}">${esc(a.label || a.name)}</option>`).join('')}</select>
+            <button class="btn sm" data-upload="${i}.${key}" data-accept="${accept}">Upload</button></span></div>`;
+    }
+    function variantHtml(v, i, r) {
+        return `<div class="variant"><div class="variant-head"><b>Variant ${i + 1}</b><span class="actions"><button class="btn sm" data-test="${i}">▶ Test</button><button class="btn sm danger" data-del-variant="${i}" ${r.variants.length < 2 ? 'disabled' : ''}>Remove</button></span></div>
+            ${field('Title', `<input data-v="${i}.title" value="${esc(v.title)}">`)}
+            ${field('Message', `<input data-v="${i}.message" value="${esc(v.message)}">`)}
+            ${mediaRow(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Image / GIF')}
+            ${mediaRow(i, 'video', ['video'], 'video/mp4,video/webm', 'Video (replaces image)')}
+            ${mediaRow(i, 'sound', ['audio'], 'audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg', 'Sound')}
+            <div class="grid2">
+                ${field('Volume (%)', `<input type="number" data-v="${i}.volume" min="0" max="100" value="${v.volume}">`)}
+                ${field('Show for (s)', `<input type="number" data-v="${i}.duration" min="1" max="120" step="0.5" value="${v.duration}">`)}
+                ${field('Animation in', `<select data-v="${i}.animIn">${ANIM_IN.map(a => `<option${a === v.animIn ? ' selected' : ''}>${a}</option>`).join('')}</select>`)}
+                ${field('Animation out', `<select data-v="${i}.animOut">${ANIM_OUT.map(a => `<option${a === v.animOut ? ' selected' : ''}>${a}</option>`).join('')}</select>`)}
+            </div>
+            ${r.pick === 'weighted' ? field('Weight', `<input type="number" data-v="${i}.weight" min="1" max="100" value="${v.weight}">`, 'Higher = picked more often.') : ''}
+        </div>`;
+    }
+    function renderEditor() {
+        const r = rule();
+        if (!r) { $('editor').innerHTML = '<div class="card empty">Select a rule on the left, or create a new one.</div>'; return; }
+        const a = r.actions;
+        const tokens = TOKENS[r.trigger].map(t => `<code>{{alert.${t}}}</code>`).join(' ');
+        $('editor').innerHTML = `
+            <div class="card"><h2>Rule <span class="actions"><button class="btn sm" id="dup-rule">Duplicate</button><button class="btn sm danger" id="del-rule">Delete</button></span></h2>
+                ${field('Name', inp('name', r.name, 'text', 'maxlength="80"'))}
+                <div class="row"><label>Enabled</label><input type="checkbox" data-f="enabled" data-type="check" ${r.enabled ? 'checked' : ''}></div>
+                ${field('When this happens', sel_('trigger', r.trigger, Object.entries(TRIGGERS)))}
+                ${conditionsHtml(r)}
+            </div>
+            <div class="card"><h2>What to show <button class="btn sm" id="add-variant">+ Add variant</button></h2>
+                <p class="hint" style="margin-bottom:.8rem">Placeholders for this trigger: ${tokens}</p>
+                ${r.variants.length > 1 ? field('When several variants', sel_('pick', r.pick, [['random', 'Random (never the same twice in a row)'], ['weighted', 'Random, weighted'], ['sequential', 'In order']])) : ''}
+                ${r.variants.map((v, i) => variantHtml(v, i, r)).join('')}
+            </div>
+            <div class="card"><h2>Also do</h2>
+                <div class="row"><label>Timer</label><input type="checkbox" data-f="actions.timer.enabled" data-type="check" ${a.timer.enabled ? 'checked' : ''}></div>
+                ${a.timer.enabled ? `
+                    ${field('Timer', sel_('actions.timer.timerId', a.timer.timerId, [['', 'Choose a timer…'], ...timers.map(x => [x.id, x.label || x.id])]))}
+                    ${field('Action', sel_('actions.timer.action', a.timer.action, [['start', 'Start'], ['pause', 'Pause'], ['resume', 'Resume'], ['reset', 'Reset'], ['add_time', 'Add time'], ['subtract_time', 'Subtract time']]))}
+                    ${['add_time', 'subtract_time'].includes(a.timer.action) ? field('Seconds', inp('actions.timer.seconds', a.timer.seconds, 'number', 'min="0"')) + `<div class="row"><label>Per unit</label><input type="checkbox" data-f="actions.timer.perUnit" data-type="check" ${a.timer.perUnit ? 'checked' : ''}><small>Multiply by the amount (e.g. 30 s per 100 bits, per gifted sub, per viewer).</small></div>` : ''}` : ''}
+                <div class="row"><label>HTTP request</label><input type="checkbox" data-f="actions.http.enabled" data-type="check" ${a.http.enabled ? 'checked' : ''}></div>
+                ${a.http.enabled ? `${field('URL', inp('actions.http.url', a.http.url, 'text', 'placeholder="http://localhost:…"'), 'Sends rule, trigger, user, amount and message as JSON (POST) or query string (GET).')}${field('Method', sel_('actions.http.method', a.http.method, [['POST', 'POST'], ['GET', 'GET']]))}` : ''}
+            </div>`;
+    }
+    function renderQueue() {
+        $('queue-line').textContent = `${queue.current ? 'Showing: ' + (queue.current.title || queue.current.ruleName) + '. ' : 'Idle. '}${queue.pending || 0} waiting${queue.paused ? ' (paused)' : ''}.`;
+        $('pause').textContent = queue.paused ? 'Resume' : 'Pause';
+        $('pause').dataset.queue = queue.paused ? 'resume' : 'pause';
+        $('history').innerHTML = (queue.history || []).length ? queue.history.map(h => `<div><span>${h.test ? '🧪 ' : ''}${esc(h.title || h.message || h.ruleName)}</span><span class="t">${new Date(h.shownAt || h.at).toLocaleTimeString()}</span></div>`).join('') : '<p class="hint">Nothing yet this run.</p>';
+    }
+    function renderAll() {
+        $('sim-type').innerHTML = Object.entries(TRIGGERS).map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
+        renderSettings(); renderRules(); renderEditor(); renderQueue();
+    }
+
+    async function save() {
+        const saved = await api('/api/alerts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) });
+        cfg = { settings: saved.settings, rules: saved.rules };
+        if (!rule()) sel = cfg.rules[0]?.id || null;
+        setDirty(false); renderAll();
+    }
+    const guard = fn => async (...args) => { try { await fn(...args); } catch (err) { toast(err.message, true); } };
+
+    $('s-enabled').addEventListener('change', () => { cfg.settings.enabled = $('s-enabled').checked; setDirty(true); });
+    $('s-gap').addEventListener('input', () => { cfg.settings.gapSeconds = Number($('s-gap').value) || 0; setDirty(true); });
+    $('save').addEventListener('click', guard(async () => { await save(); toast('Saved'); }));
+    $('add-rule').addEventListener('click', () => {
+        const trigger = 'follow';
+        const id = `rule-${Date.now().toString(36)}`;
+        cfg.rules.push({ id, name: 'New alert', enabled: true, trigger, conditions: { minAmount: 0, maxAmount: 0, tier: '', rewardName: '', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0 }, pick: 'random', variants: [newVariant(trigger)], actions: { timer: { enabled: false, timerId: '', action: 'add_time', seconds: 30, perUnit: false }, http: { enabled: false, url: '', method: 'POST' } } });
+        sel = id; setDirty(true); renderAll();
+    });
+    $('rule-list').addEventListener('click', event => {
+        const item = event.target.closest('[data-rule]');
+        if (item) { sel = item.dataset.rule; renderRules(); renderEditor(); }
+    });
+
+    const editor = $('editor');
+    editor.addEventListener('input', event => {
+        const el = event.target, r = rule();
+        if (!r) return;
+        if (el.dataset.f) {
+            const type = el.dataset.type;
+            let value = el.value;
+            if (type === 'check') value = el.checked;
+            else if (type === 'number') value = Number(value) || 0;
+            else if (type === 'list') value = value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+            else if (type === 'numlist') value = value.split(',').map(s => Number(s.trim())).filter(n => n > 0);
+            setPath(r, el.dataset.f, value);
+            setDirty(true);
+            if (el.dataset.f === 'name') renderRules();
+        } else if (el.dataset.v) {
+            const [i, key] = el.dataset.v.split('.');
+            r.variants[i][key] = el.type === 'number' ? Number(el.value) || 0 : el.value;
+            setDirty(true);
+        }
+    });
+    editor.addEventListener('change', event => {
+        const el = event.target, r = rule();
+        if (!r) return;
+        if (el.dataset.f === 'trigger') {
+            r.trigger = el.value;
+            const prev = Object.values(DEFAULT_TITLE);
+            r.variants.forEach(v => { if (!v.title || prev.includes(v.title)) v.title = DEFAULT_TITLE[r.trigger]; });
+            if (r.name === 'New alert' || Object.values(TRIGGERS).includes(r.name)) r.name = TRIGGERS[r.trigger];
+            r.conditions.cooldownSeconds = r.trigger === 'chat_word' ? 30 : r.conditions.cooldownSeconds;
+            renderAll();
+        } else if (['actions.timer.enabled', 'actions.http.enabled', 'actions.timer.action'].includes(el.dataset.f)) renderEditor();
+        else if (el.dataset.pick) {
+            const [i, key] = el.dataset.pick.split('.');
+            if (el.value) { r.variants[i][key] = el.value; setDirty(true); renderEditor(); }
+        }
+    });
+    editor.addEventListener('click', guard(async event => {
+        const r = rule(), btn = event.target.closest('button');
+        if (!r || !btn) return;
+        if (btn.id === 'add-variant') { r.variants.push(newVariant(r.trigger)); setDirty(true); renderEditor(); }
+        else if (btn.dataset.delVariant !== undefined) { r.variants.splice(Number(btn.dataset.delVariant), 1); setDirty(true); renderEditor(); }
+        else if (btn.id === 'del-rule') { if (!confirm(`Delete "${r.name}"?`)) return; cfg.rules = cfg.rules.filter(x => x !== r); sel = cfg.rules[0]?.id || null; setDirty(true); renderAll(); }
+        else if (btn.id === 'dup-rule') { const copy = JSON.parse(JSON.stringify(r)); copy.id = `rule-${Date.now().toString(36)}`; copy.name = `${r.name} copy`; cfg.rules.push(copy); sel = copy.id; setDirty(true); renderAll(); }
+        else if (btn.dataset.test !== undefined) {
+            await save();
+            await api('/api/alerts/test', { method: 'POST', body: JSON.stringify({ ruleId: sel, variantId: rule().variants[Number(btn.dataset.test)].id }) });
+            toast('Test alert queued'); refreshQueue();
+        } else if (btn.dataset.upload) {
+            const [i, key] = btn.dataset.upload.split('.');
+            const picker = document.createElement('input');
+            picker.type = 'file'; picker.accept = btn.dataset.accept;
+            picker.onchange = guard(async () => {
+                const file = picker.files[0];
+                if (!file) return;
+                if (file.size > 100 * 1024 * 1024) throw new Error('That file is larger than the 100 MB limit.');
+                const ext = (file.name.split('.').pop() || '').toLowerCase();
+                const types = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', ogg: key === 'sound' ? 'audio/ogg' : 'video/ogg' };
+                const type = types[ext] || file.type;
+                const data = await api('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': type, 'X-Asset-Name': file.name.replace(/[^\x20-\x7e]+/g, '-') }, body: file });
+                r.variants[i][key] = data.url; setDirty(true);
+                await loadAssets(); renderEditor(); toast('Uploaded');
+            });
+            picker.click();
+        }
+    }));
+
+    document.querySelector('.card .actions').addEventListener('click', guard(async event => {
+        const btn = event.target.closest('[data-queue]');
+        if (!btn) return;
+        const data = await api('/api/alerts/queue', { method: 'POST', body: JSON.stringify({ action: btn.dataset.queue }) });
+        queue = data.queue; renderQueue();
+    }));
+    $('sim-go').addEventListener('click', guard(async () => {
+        if (dirty) await save();
+        const type = $('sim-type').value, amount = Number($('sim-amount').value) || 0, text = $('sim-text').value;
+        const body = { type, user: $('sim-user').value || 'TestViewer', amount, count: amount, months: amount, viewers: amount, tierLabel: 'Tier 1', message: text, reward: text, keyword: text, name: text };
+        if (type === 'chat_word') body.message = text;
+        const data = await api('/api/alerts/test-event', { method: 'POST', body: JSON.stringify(body) });
+        toast(data.alert ? 'Queued an alert' : 'No enabled rule matched that event', !data.alert);
+        refreshQueue();
+    }));
+
+    async function refreshQueue() {
+        try { queue = (await api('/api/alerts', { cache: 'no-store' })).queue; renderQueue(); } catch { /* server restarting */ }
+    }
+    window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
+    setInterval(() => { if (!document.hidden) refreshQueue(); }, 3000);
+    loadAll().catch(err => toast(err.message, true));
+})();
+</script>
+</body>
+</html>

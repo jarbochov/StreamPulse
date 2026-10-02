@@ -3351,7 +3351,8 @@ function getBackupFileSpecs() {
         { src: HIGHLIGHTS_PATH, dest: 'data/highlights.jsonl' },
         { src: CLIP_CANDIDATES_PATH, dest: 'data/clip-candidates.json' },
         { src: CUSTOM_OVERLAYS_PATH, dest: 'data/custom-overlays.json' },
-        { src: GAME_PLAN_PATH, dest: 'data/game-plan.json' }
+        { src: GAME_PLAN_PATH, dest: 'data/game-plan.json' },
+        { src: path.join(DATA_DIR, 'alerts.json'), dest: 'data/alerts.json' }
     ];
 }
 
