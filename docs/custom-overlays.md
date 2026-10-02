@@ -18,8 +18,7 @@ Text and Markdown content support live variables using double braces. The editor
 
 ```text
 {{viewers.current}}  {{viewers.peak}}  {{viewers.average}}
-{{chatters}}  {{messages}}  {{followers}}  {{subscribers}}  {{hashtags}}
-{{gift_subs}}  {{bits}}  {{donations}}
+{{chatters}}  {{messages}}  {{followers}}  {{followers.session}}  {{subscribers}}  {{subscribers.session}}  {{gift_subs}}  {{gift_subs.total}}  {{bits}}  {{bits.total}}  {{donations}}  {{donations.total}}  {{hashtags}}
 {{hashtags.top}}  {{hashtags.session_top}}  {{hashtags.total}}
 {{music.title}}  {{music.artist}}  {{stream.title}}  {{overlay.name}}
 ```

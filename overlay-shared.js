@@ -4,8 +4,8 @@
 
     const VARIABLE_GROUPS = [
         { label: 'Viewers', items: [['viewers.current', 'Current viewers'], ['viewers.peak', 'Peak viewers'], ['viewers.average', 'Average viewers']] },
-        { label: 'Chat', items: [['chatters', 'Chatters'], ['messages', 'Messages'], ['followers', 'Followers'], ['subscribers', 'Subscribers']] },
-        { label: 'Engagement', items: [['gift_subs', 'Gift subs'], ['bits', 'Bits'], ['donations', 'Donations']] },
+        { label: 'Chat', items: [['chatters', 'Chatters'], ['messages', 'Messages'], ['followers', 'Followers (current total)'], ['followers.session', 'New followers this session'], ['subscribers', 'Subscribers (current total)'], ['subscribers.session', 'Subscribers seen this session']] },
+        { label: 'Engagement', items: [['gift_subs', 'Gift subs this session'], ['gift_subs.total', 'Gift subs (lifetime)'], ['bits', 'Bits this session'], ['bits.total', 'Bits (lifetime)'], ['donations', 'Donations this session'], ['donations.total', 'Donations (lifetime)']] },
         { label: 'Hashtags', items: [['hashtags.top', 'Most popular hashtag overall'], ['hashtags.session_top', 'Most popular hashtag this session'], ['hashtags.total', 'Total hashtag mentions']] },
         { label: 'Stream', items: [['music.title', 'Music title'], ['music.artist', 'Music artist'], ['stream.title', 'Stream title'], ['overlay.name', 'Overlay name']] }
     ];
@@ -20,11 +20,16 @@
             'viewers.average': status.viewers?.average,
             'chatters': status.ssn?.chatters,
             'messages': status.ssn?.messages,
-            'followers': status.ssn?.followers,
-            'subscribers': status.ssn?.subscribers,
-            'gift_subs': status.goalMetrics?.gift_subs,
-            'bits': status.goalMetrics?.bits,
-            'donations': status.goalMetrics?.donations,
+            'followers': status.goalMetrics?.persistent?.followers ?? status.ssn?.followers,
+            'followers.session': status.goalMetrics?.session?.followers ?? status.ssn?.followers,
+            'subscribers': status.goalMetrics?.persistent?.subscribers ?? status.ssn?.subscribers,
+            'subscribers.session': status.goalMetrics?.session?.subscribers ?? status.ssn?.subscribers,
+            'gift_subs': status.goalMetrics?.session?.gift_subs,
+            'gift_subs.total': status.goalMetrics?.persistent?.gift_subs,
+            'bits': status.goalMetrics?.session?.bits,
+            'bits.total': status.goalMetrics?.persistent?.bits,
+            'donations': status.goalMetrics?.session?.donations,
+            'donations.total': status.goalMetrics?.persistent?.donations,
             'hashtags': status.ssn?.hashtags,
             'hashtags.top': status.popularHashtags?.overall?.[0]?.tag || status.hashtags?.topTag,
             'hashtags.session_top': status.popularHashtags?.session?.[0]?.tag,
