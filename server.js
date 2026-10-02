@@ -10,6 +10,7 @@ const { promisify } = require('util');
 const WebSocket = require('ws');
 const archiver = require('archiver');
 const AdmZip = require('adm-zip');
+const { createAlertEngine, TRIGGERS: ALERT_TRIGGERS, ANIM_IN: ALERT_ANIM_IN, ANIM_OUT: ALERT_ANIM_OUT } = require('./alerts');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -87,7 +88,7 @@ const DEFAULT_GOALS_CONFIG = {
     items: []
 };
 
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr']);
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert']);
 let customOverlays = {};
 
 function sanitizeOverlayId(value) {
@@ -138,6 +139,17 @@ function normalizeOverlayElement(element = {}, index = 0) {
         content: String(element.content || '').slice(0, 20000),
         items: Array.isArray(element.items) ? element.items.map(item => String(item).slice(0, 2000)).filter(Boolean).slice(0, 100) : [],
         src: String(element.src || '').slice(0, 2000),
+        alert: {
+            layout: ['stack', 'side', 'text', 'media'].includes(element.alert?.layout) ? element.alert.layout : 'stack',
+            mediaFit: element.alert?.mediaFit === 'cover' ? 'cover' : 'contain',
+            mediaScale: Math.max(10, Math.min(100, Number(element.alert?.mediaScale) || 60)),
+            titleSize: Math.max(8, Math.min(300, Number(element.alert?.titleSize) || 44)),
+            messageSize: Math.max(8, Math.min(300, Number(element.alert?.messageSize) || 28)),
+            titleColor: String(element.alert?.titleColor || '#ffd166').slice(0, 80),
+            gap: Math.max(0, Math.min(100, Number(element.alert?.gap) || 12)),
+            sound: element.alert?.sound !== false,
+            triggers: Array.isArray(element.alert?.triggers) ? element.alert.triggers.filter(t => ALERT_TRIGGERS[t]).slice(0, 20) : []
+        },
         random: {
             mode: ['random', 'order'].includes(element.random?.mode) ? element.random.mode : 'random',
             intervalSeconds: Math.max(1, Math.min(3600, Number(element.random?.intervalSeconds) || 5)),
@@ -1281,6 +1293,7 @@ function startTimerTicker() {
             markTimerUpdated(timer);
             broadcastToOverlays('timer-update', { timer: buildTimerSnapshot(timer, now), settings: timerStore.settings });
             fireTimerHttpAction('countdown_complete', timer);
+            alertEngine.handleEvent({ type: 'timer', timerId: timer.id, name: timer.label || timer.id, user: timer.label || timer.id, dedupeMs: 0 });
             changed = true;
         }
         if (changed) saveTimers();
@@ -1603,6 +1616,22 @@ function buildGoalsSnapshot() {
         metrics
     };
 }
+
+const alertGoalState = new Map();
+function checkGoalAlerts() {
+    try {
+        const items = buildGoalsSnapshot().items;
+        const first = alertGoalState.size === 0;
+        items.forEach(item => {
+            const was = alertGoalState.get(item.id);
+            alertGoalState.set(item.id, !!item.complete);
+            if (!first && was === false && item.complete && item.enabled) {
+                alertEngine.handleEvent({ type: 'goal', goalId: item.id, name: item.label || item.title || item.id, user: item.label || item.title || item.id, amount: item.target || 0, dedupeMs: 0 });
+            }
+        });
+    } catch { /* goals unavailable */ }
+}
+setInterval(checkGoalAlerts, 5000).unref();
 
 function saveRuntimeConfigSection(updater) {
     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
@@ -3818,6 +3847,21 @@ function contentImageHtml(contentimg) {
     return '';
 }
 
+const alertEngine = createAlertEngine({
+    dataDir: DATA_DIR,
+    broadcast: (type, payload) => broadcastToOverlays(type, payload),
+    runTimerAction: (timerId, action, params) => applyTimerControl(getTimerOrThrow(timerId), action, params),
+    log: message => console.log(message)
+});
+
+function alertTierLabel(msg) {
+    const text = `${msg.membership || ''} ${msg.subtitle || ''} ${msg.chatmessage || ''}`;
+    const metaTier = msg.meta && typeof msg.meta === 'object' ? String(msg.meta.sub_tier || msg.meta.tier || '') : '';
+    if (/prime/i.test(text) || /prime/i.test(metaTier)) return { tier: 'prime', label: 'Prime' };
+    const n = (text.match(/tier\s*(\d)/i) || [])[1] || (metaTier.match(/^(\d)000$/) || [])[1];
+    return n ? { tier: `${n}000`, label: `Tier ${n}` } : { tier: '', label: '' };
+}
+
 function processChatMessage(msg) {
     if (msg.bot === true) return;
     const chatname = msg.chatname;
@@ -3910,6 +3954,7 @@ function processChatMessage(msg) {
         if (!alreadyFollowed) {
             chatData.followers.push({ chatname, chatimg: msg.chatimg, timestamp: Date.now() });
             console.log(`[SSN] Follow: ${chatname}`);
+            alertEngine.handleEvent({ type: 'follow', user: chatname, avatar: msg.chatimg });
         }
     }
 
@@ -3976,6 +4021,9 @@ function processChatMessage(msg) {
             const gifterAvatar = (chatname === gifter && msg.chatimg) ? msg.chatimg
                 : (chatData.chatters[gifter] ? chatData.chatters[gifter].chatimg : null);
 
+            const giftTier = alertTierLabel(msg);
+            alertEngine.noteGift({ user: gifter, avatar: gifterAvatar, recipient, tier: giftTier.tier, tierLabel: giftTier.label });
+
             const existingGift = chatData.giftSubs.find(g => g.gifter === gifter);
             if (existingGift) {
                 existingGift.count = Math.max(1, Number(existingGift.count) || 1) + 1;
@@ -3989,6 +4037,16 @@ function processChatMessage(msg) {
                 addClipCandidate('gift-sub', { user: gifter, recipient }, Date.now(), 0.65);
             }
         } else {
+            const subMonths = parseSubMonths(msg);
+            const subTier = alertTierLabel(msg);
+            const streakMatch = String(msg.chatmessage || '').match(/(\d+)\s*-?\s*month\s+streak/i);
+            alertEngine.handleEvent({
+                type: msg.event === 'resub' || subMonths > 1 ? 'resub' : 'sub',
+                user: chatname, avatar: msg.chatimg, months: subMonths || '',
+                streak: streakMatch ? parseInt(streakMatch[1], 10) : '',
+                tier: subTier.tier, tierLabel: subTier.label,
+                message: String(msg.chatmessage || '').replace(/<[^>]+>/g, '').split(' - ')[0].trim()
+            });
             const alreadySubbed = chatData.subscribers.some(s => s.chatname === chatname);
             if (!alreadySubbed) {
                 chatData.subscribers.push({ chatname, membership: msg.membership || null, subtitle: msg.subtitle || null, chatimg: msg.chatimg, event: msg.event || null, timestamp: Date.now() });
@@ -4013,6 +4071,7 @@ function processChatMessage(msg) {
             const donation = { chatname, amount: label, bits: amount, chatimg: msg.chatimg, timestamp: Date.now() };
             chatData.bits.push(donation);
             console.log(`[SSN] Bits: ${chatname} - ${label} (${amount} bits)`);
+            alertEngine.handleEvent({ type: 'bits', user: chatname, avatar: msg.chatimg, amount: Number(amount) || 0, message: String(msg.chatmessage || '').replace(/<[^>]+>/g, '').trim() });
             if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_bits && amount >= CLIP_CANDIDATE_CONFIG.minimum_bits) {
                 addClipCandidate('bits', { user: chatname, amount, label }, Date.now(), Math.min(0.95, 0.55 + amount / 1000));
             }
@@ -4020,6 +4079,7 @@ function processChatMessage(msg) {
             const donation = { chatname, amount: msg.hasDonation, amountValue: parseNumericAmount(msg.hasDonation), chatimg: msg.chatimg, timestamp: Date.now() };
             chatData.donations.push(donation);
             console.log(`[SSN] Donation: ${chatname} - ${msg.hasDonation}`);
+            alertEngine.handleEvent({ type: 'donation', user: chatname, avatar: msg.chatimg, amount: parseNumericAmount(msg.hasDonation) || 0, message: String(msg.chatmessage || '').replace(/<[^>]+>/g, '').trim() });
             const donationValue = parseNumericAmount(msg.hasDonation);
             if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_donations && donationValue >= CLIP_CANDIDATE_CONFIG.minimum_donation) {
                 addClipCandidate('donation', { user: chatname, amount: msg.hasDonation }, Date.now(), 0.7);
@@ -4035,10 +4095,22 @@ function processChatMessage(msg) {
             chatData.raids.push({ chatname, chatimg: msg.chatimg, viewers: viewers ? parseInt(viewers) : null, timestamp: Date.now() });
             console.log(`[SSN] Raid: ${chatname}${viewers ? ` with ${viewers} viewers` : ''}`);
             const raidViewers = viewers ? parseInt(viewers) : 0;
+            alertEngine.handleEvent({ type: 'raid', user: chatname, avatar: msg.chatimg, amount: raidViewers, viewers: raidViewers });
             if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_raids && raidViewers >= CLIP_CANDIDATE_CONFIG.minimum_raid_viewers) {
                 addClipCandidate('raid', { user: chatname, viewers: raidViewers || null }, Date.now(), 0.8);
             }
         }
+    }
+
+    if (msg.event === 'reward') {
+        const rewardMatch = String(msg.chatmessage || '').replace(/<[^>]+>/g, '').match(/redeemed\s+(.+?)\s*(?:\((\d[\d,]*)\s*points?\))?\s*$/i);
+        alertEngine.handleEvent({
+            type: 'redeem', user: chatname, avatar: msg.chatimg,
+            reward: rewardMatch ? rewardMatch[1].trim() : '',
+            amount: rewardMatch && rewardMatch[2] ? parseInt(rewardMatch[2].replace(/,/g, ''), 10) : 0
+        });
+    } else if (!msg.event && msg.chatmessage) {
+        alertEngine.handleEvent({ type: 'chat_word', user: chatname, avatar: msg.chatimg, message: String(msg.chatmessage).replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '').trim() });
     }
 
     if (msg.chatmessage) {
@@ -4425,6 +4497,59 @@ const server = http.createServer(async (req, res) => {
 
         res.writeHead(400, { 'Content-Type': 'text/html' });
         res.end('<h1>Missing authorization code</h1><p><a href="/auth/twitch">Try again</a></p>');
+        return;
+    }
+
+    if (pathname === '/api/alerts' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ...alertEngine.getConfig(), queue: alertEngine.getQueueState(), meta: { triggers: ALERT_TRIGGERS, animIn: ALERT_ANIM_IN, animOut: ALERT_ANIM_OUT } }));
+        return;
+    }
+    if (pathname === '/api/alerts' && req.method === 'PUT') {
+        try {
+            const saved = alertEngine.setConfig(JSON.parse(await readRequestBody(req) || '{}'));
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(saved));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+    if (pathname === '/api/alerts/test' && req.method === 'POST') {
+        try {
+            const body = JSON.parse(await readRequestBody(req) || '{}');
+            const payload = alertEngine.fireRule(String(body.ruleId || ''), String(body.variantId || ''), body);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, alert: payload }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+    if (pathname === '/api/alerts/test-event' && req.method === 'POST') {
+        try {
+            const body = JSON.parse(await readRequestBody(req) || '{}');
+            const payload = alertEngine.handleEvent({ ...body, user: body.user || 'TestViewer', dedupeMs: 0 }, { test: true });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, alert: payload }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+    if (pathname === '/api/alerts/queue' && req.method === 'POST') {
+        try {
+            const body = JSON.parse(await readRequestBody(req) || '{}');
+            alertEngine.control(String(body.action || ''));
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, queue: alertEngine.getQueueState() }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
         return;
     }
 

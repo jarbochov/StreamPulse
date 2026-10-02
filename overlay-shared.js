@@ -555,5 +555,92 @@
         return `/api/qr?${params}`;
     }
 
-    root.OverlayShared = { qrUrl, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    // Alert box: the element's fill/border/shadow move onto an inner card so they only show while an alert plays.
+    const ALERT_DECORATION = ['background', 'backgroundImage', 'border', 'borderRadius', 'boxShadow', 'backdropFilter', 'webkitBackdropFilter'];
+    function prepareAlertNode(node) {
+        const deco = {};
+        for (const key of ALERT_DECORATION) {
+            if (node.style[key]) deco[key] = node.style[key];
+            node.style[key] = '';
+        }
+        node.style.border = '0';
+        node.style.display = 'block';
+        node._alertDeco = deco;
+    }
+
+    // Plays one alert inside `node`. Returns { stop } so a skip/clear can end it early.
+    function playAlert(node, element, payload, { sound = true, onEnd } = {}) {
+        const cfg = element.alert || {};
+        const style = element.style || {};
+        const layout = payload.image || payload.video ? (cfg.layout || 'stack') : 'text';
+        const card = document.createElement('div');
+        card.className = `alert-card layout-${layout}`;
+        Object.assign(card.style, node._alertDeco || {});
+        card.style.gap = `${cfg.gap ?? 12}px`;
+        card.style.padding = '8px';
+        const hasMedia = layout !== 'text' && (payload.video || payload.image);
+        if (hasMedia) {
+            const media = document.createElement(payload.video ? 'video' : 'img');
+            media.src = payload.video || payload.image;
+            if (payload.video) { media.autoplay = true; media.loop = true; media.muted = true; media.playsInline = true; }
+            media.draggable = false;
+            media.className = 'alert-media';
+            media.style.objectFit = cfg.mediaFit || 'contain';
+            const scale = Math.max(10, Math.min(100, Number(cfg.mediaScale) || 60));
+            if (layout === 'side') { media.style.width = `${scale}%`; media.style.maxWidth = '50%'; media.style.height = '100%'; }
+            else if (layout === 'media') { media.style.width = '100%'; media.style.height = '100%'; }
+            else { media.style.height = `${scale}%`; media.style.maxWidth = '100%'; }
+            card.appendChild(media);
+        }
+        if (layout !== 'media' || payload.title || payload.message) {
+            const text = document.createElement('div');
+            text.className = 'alert-text';
+            text.style.color = style.color || '#fff';
+            text.style.fontFamily = style.fontFamily || 'sans-serif';
+            if (payload.title) {
+                const title = document.createElement('div');
+                title.className = 'alert-title';
+                title.textContent = payload.title;
+                title.style.fontSize = `${cfg.titleSize || 44}px`;
+                title.style.color = cfg.titleColor || '#ffd166';
+                text.appendChild(title);
+            }
+            if (payload.message) {
+                const message = document.createElement('div');
+                message.className = 'alert-message';
+                message.textContent = payload.message;
+                message.style.fontSize = `${cfg.messageSize || 28}px`;
+                message.style.fontWeight = style.fontWeight || '400';
+                text.appendChild(message);
+            }
+            card.appendChild(text);
+        }
+        node.replaceChildren(card);
+        card.classList.add(`alert-in-${payload.animIn || 'pop'}`);
+
+        let audio = null;
+        if (sound && cfg.sound !== false && payload.sound) {
+            audio = new Audio(payload.sound);
+            audio.volume = Math.max(0, Math.min(1, (Number(payload.volume) || 70) / 100));
+            audio.play().catch(() => {});
+        }
+        const fadeMs = 500;
+        let finished = false;
+        const finish = () => {
+            if (finished) return;
+            finished = true;
+            clearTimeout(outTimer); clearTimeout(endTimer);
+            if (audio) audio.pause();
+            if (card.parentNode === node) node.replaceChildren();
+            if (onEnd) onEnd();
+        };
+        const outTimer = setTimeout(() => {
+            const out = payload.animOut || 'fade';
+            card.className = `alert-card layout-${layout}${out === 'none' ? '' : ` alert-out-${out}`}`;
+        }, Math.max(0, (payload.durationMs || 6000) - fadeMs));
+        const endTimer = setTimeout(finish, payload.durationMs || 6000);
+        return { stop: finish };
+    }
+
+    root.OverlayShared = { qrUrl, prepareAlertNode, playAlert, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);

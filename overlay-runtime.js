@@ -90,6 +90,20 @@
     }
 
     const tickingNodes = [];
+    const alertNodes = [];
+    const activeAlerts = [];
+
+    function showAlert(payload) {
+        for (const { node, element } of alertNodes) {
+            const only = element.alert?.triggers || [];
+            if (only.length && !only.includes(payload.trigger)) continue;
+            activeAlerts.push(shared.playAlert(node, element, payload));
+        }
+    }
+
+    function stopAlerts() {
+        activeAlerts.splice(0).forEach(handle => handle.stop());
+    }
 
     function tickPlaceholders() {
         for (const { node, element } of tickingNodes) {
@@ -102,7 +116,9 @@
     function render(overlay) {
         currentOverlay = overlay;
         stopRandomTimers();
+        stopAlerts();
         tickingNodes.length = 0;
+        alertNodes.length = 0;
         document.title = `StreamPulse — ${overlay.name}`;
         root.style.width = `${overlay.canvas.width}px`;
         root.style.height = `${overlay.canvas.height}px`;
@@ -147,6 +163,9 @@
                 shared.renderGameList(node, element, liveStatus.gamePlan);
             } else if (element.type === 'progress') {
                 shared.renderProgress(node, element, expandVariables);
+            } else if (element.type === 'alert') {
+                shared.prepareAlertNode(node);
+                alertNodes.push({ node, element });
             } else if (element.type === 'shape') {
                 node.setAttribute('aria-hidden', 'true');
             } else {
@@ -191,7 +210,9 @@
         socket.addEventListener('message', event => {
             try {
                 const message = JSON.parse(event.data);
-                if (message.type === 'custom-overlay-update' && message.data?.id === overlayId) {
+                if (message.type === 'alert') showAlert(message.data);
+                else if (message.type === 'alert-skip' || message.type === 'alert-clear') stopAlerts();
+                else if (message.type === 'custom-overlay-update' && message.data?.id === overlayId) {
                     if (message.data.overlay) {
                         liveStatus.overlayName = message.data.overlay.name;
                         render(message.data.overlay);
