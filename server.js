@@ -5194,25 +5194,6 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    if (pathname === '/api/stats/migrate' && req.method === 'POST') {
-        let body = '';
-        req.on('data', chunk => { body += chunk; });
-        req.on('end', () => {
-            try {
-                const migrated = JSON.parse(body);
-                statsData = migrated;
-                saveStats();
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ status: 'migrated', message: 'Stats data migrated to daily buckets' }));
-                console.log('[API] Stats data migrated to daily buckets');
-            } catch (err) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'Invalid JSON', message: err.message }));
-            }
-        });
-        return;
-    }
-
     if (pathname === '/api/sessions') {
         if (req.method === 'DELETE') {
             const sessionName = new URL(req.url, 'http://localhost').searchParams.get('session') || '';
@@ -6629,7 +6610,6 @@ server.listen(PORT, () => {
     console.log(`  Dashboard: http://localhost:${PORT}/dashboard.html`);
     console.log(`  Sessions:  http://localhost:${PORT}/sessions.html`);
     console.log(`  Goals:     http://localhost:${PORT}/goals-editor.html`);
-    console.log(`  Migrate:   http://localhost:${PORT}/migrate.html`);
     console.log(`  Export:    http://localhost:${PORT}/api/export?type=all`);
     console.log(`  WebSocket: ws://localhost:${PORT} (overlay push)`);
     console.log('============================================\n');

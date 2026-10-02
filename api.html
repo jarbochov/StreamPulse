@@ -242,11 +242,6 @@
                     details: 'Resets the entire stats.json to empty. This cannot be undone (but auto-backups exist in data/.stats-backup-*.json).'
                 },
                 {
-                    method: 'POST', path: '/api/stats/migrate',
-                    desc: 'Migrate stats from old format to daily buckets',
-                    details: 'Converts legacy flat-count stats format to the daily bucket format. Use the /migrate.html page for a guided migration experience.'
-                },
-                {
                     method: 'GET', path: '/api/export',
                     desc: 'Export stats as CSV',
                     details: 'Downloads a CSV file of stats data. Supports date filtering.',
