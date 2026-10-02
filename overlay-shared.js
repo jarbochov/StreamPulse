@@ -315,6 +315,8 @@
         const gap = config.gap ?? 12;
         const accent = config.accent || '#3fb950';
         node.replaceChildren();
+        node._fitObserver?.disconnect();
+        node._fitObserver = null;
         node.style.display = 'block';
         node.style.overflow = 'hidden';
         node.style.whiteSpace = 'normal';
@@ -326,6 +328,9 @@
             return;
         }
 
+        const inner = document.createElement('div');
+        inner.style.transformOrigin = 'top center';
+        node.appendChild(inner);
         const sections = [];
         if (config.headings !== false && config.filter !== 'backlog') {
             for (const item of items) {
@@ -354,7 +359,7 @@
             if (item.cover) {
                 const img = document.createElement('img');
                 img.src = item.cover; img.alt = '';
-                img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                img.style.cssText = config.coverFit === 'natural' ? 'width:100%;height:auto;display:block;' : `width:100%;height:100%;object-fit:${config.coverFit === 'contain' ? 'contain' : 'cover'};display:block;`;
                 wrap.style.padding = '0';
                 wrap.appendChild(img);
             } else wrap.textContent = item.name;
@@ -367,7 +372,7 @@
                 const heading = document.createElement('div');
                 heading.textContent = section.label;
                 heading.style.cssText = 'font-weight:700;margin:0 0 .35em;opacity:.85;';
-                node.appendChild(heading);
+                inner.appendChild(heading);
             }
             const body = document.createElement('div');
             body.style.marginBottom = `${gap}px`;
@@ -400,7 +405,7 @@
                 for (const item of section.items) {
                     const card = document.createElement('div');
                     card.style.cssText = strip ? 'flex:1 1 0;min-width:0;' : 'min-width:0;';
-                    card.appendChild(cover(item, 'width:100%;aspect-ratio:3/4;'));
+                    card.appendChild(cover(item, config.coverFit === 'natural' && item.cover ? 'width:100%;' : 'width:100%;aspect-ratio:3/4;'));
                     if (item.playingNow && config.highlightCurrent !== false) { const holder = document.createElement('div'); holder.style.cssText = 'text-align:center;margin-top:.35em;'; holder.appendChild(badge()); card.appendChild(holder); }
                     if (config.showTitles !== false) {
                         const name = document.createElement('div');
@@ -413,7 +418,20 @@
                     body.appendChild(card);
                 }
             }
-            node.appendChild(body);
+            inner.appendChild(body);
+        }
+
+        // "Fit everything" scales the whole list down (never up) so nothing is clipped by the element height.
+        if (config.fit === 'shrink' && typeof ResizeObserver === 'function') {
+            const fitContent = () => {
+                inner.style.transform = '';
+                const need = inner.offsetHeight, avail = node.clientHeight;
+                if (need > avail && avail > 0) inner.style.transform = `scale(${(avail / need).toFixed(4)})`;
+            };
+            node._fitObserver = new ResizeObserver(fitContent);
+            node._fitObserver.observe(node);
+            node.querySelectorAll('img').forEach(img => img.addEventListener('load', fitContent));
+            fitContent();
         }
     }
 

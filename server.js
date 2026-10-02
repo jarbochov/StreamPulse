@@ -104,6 +104,8 @@ function normalizeOverlayElement(element = {}, index = 0) {
             columns: Math.max(1, Math.min(12, Math.round(Number(element.gameList?.columns) || 3))),
             gap: Math.max(0, Math.min(80, Number(element.gameList?.gap ?? 12))),
             max: Math.max(0, Math.min(100, Math.round(Number(element.gameList?.max) || 0))),
+            coverFit: ['cover', 'contain', 'natural'].includes(element.gameList?.coverFit) ? element.gameList.coverFit : 'cover',
+            fit: element.gameList?.fit === 'shrink' ? 'shrink' : 'none',
             showCovers: element.gameList?.showCovers !== false,
             showTitles: element.gameList?.showTitles !== false,
             meta: ['none', 'year', 'genres', 'note'].includes(element.gameList?.meta) ? element.gameList.meta : 'none',
