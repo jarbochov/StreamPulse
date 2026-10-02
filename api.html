@@ -17,7 +17,30 @@
         .nav a:hover { color: #e1e4e8; background: #21262d; }
         .nav a.active { color: #58a6ff; background: #1a2332; }
 
-        .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; }
+        .container { max-width: 1240px; margin: 0 auto; padding: 1.5rem 2rem; }
+        .layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 2rem; align-items: start; }
+        .side { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; display: grid; gap: 0.7rem; }
+        .search { width: 100%; padding: 0.55rem 0.75rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font: inherit; font-size: 0.85rem; }
+        .search:focus { outline: none; border-color: #58a6ff; }
+        .toc { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.6rem; }
+        .toc h2 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin: 0.2rem 0.5rem 0.4rem; }
+        .toc a { color: #8b949e; text-decoration: none; font-size: 0.84rem; display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.38rem 0.6rem; border-radius: 6px; border-left: 2px solid transparent; }
+        .toc a span { color: #484f58; font-size: 0.72rem; }
+        .toc a:hover { color: #e1e4e8; background: #21262d; }
+        .toc a.active { color: #58a6ff; background: #1a2332; border-left-color: #58a6ff; }
+        .toc a.dim { opacity: 0.35; }
+        .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .chip { background: #21262d; border: 1px solid #30363d; color: #8b949e; border-radius: 999px; padding: 0.2rem 0.6rem; font: inherit; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
+        .chip:hover { border-color: #58a6ff; color: #e1e4e8; }
+        .chip.active { border-color: #58a6ff; background: #1a2332; color: #58a6ff; }
+        .side-actions { display: flex; gap: 0.5rem; }
+        .side-actions button { flex: 1; background: #21262d; border: 1px solid #30363d; color: #e1e4e8; border-radius: 6px; padding: 0.4rem; font: inherit; font-size: 0.78rem; cursor: pointer; }
+        .side-actions button:hover { border-color: #58a6ff; }
+        .no-results { color: #8b949e; text-align: center; padding: 3rem 1rem; display: none; }
+        .hidden { display: none !important; }
+        .section-title { scroll-margin-top: 1rem; display: flex; align-items: baseline; gap: 0.5rem; }
+        .section-title small { color: #484f58; font-size: 0.72rem; text-transform: none; letter-spacing: 0; }
+        html { scroll-behavior: smooth; }
 
         .intro { color: #8b949e; margin-bottom: 1.5rem; font-size: 0.9rem; line-height: 1.5; }
         .intro code { background: #21262d; padding: 0.15rem 0.4rem; border-radius: 4px; color: #e1e4e8; font-size: 0.85rem; }
@@ -71,6 +94,10 @@
         .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
         .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
 
+        @media (max-width: 900px) {
+            .layout { grid-template-columns: 1fr; }
+            .side { position: static; max-height: none; }
+        }
         @media (max-width: 768px) {
             .container { padding: 1rem; }
             .header { flex-direction: column; gap: 0.5rem; }
@@ -93,7 +120,18 @@
             <strong>Bitfocus Companion</strong> Generic HTTP module actions.
         </div>
 
-        <div id="endpoints"></div>
+        <div class="layout">
+            <aside class="side">
+                <input id="search" class="search" type="search" placeholder="Search endpoints…  ( / )" aria-label="Search endpoints">
+                <div class="chips" id="chips"></div>
+                <nav class="toc" id="toc"><h2>Sections</h2></nav>
+                <div class="side-actions"><button id="expand-all">Expand all</button><button id="collapse-all">Collapse all</button></div>
+            </aside>
+            <main>
+                <div id="endpoints"></div>
+                <div class="no-results" id="no-results">No endpoints match your search.</div>
+            </main>
+        </div>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -491,6 +529,173 @@
             ]
         },
         {
+            section: 'Analytics & Subscribers',
+            items: [
+                {
+                    method: 'GET', path: '/api/analytics',
+                    desc: 'Per-session analytics and totals for a date range',
+                    details: 'Returns { range, sessions, totals }. Each session row includes messages, chatters, subs, gift subs, followers, bits, donations, raids, emotes, hashtags, categories, and viewer stats. Powers the Analytics page and CSV export.',
+                    params: [
+                        { name: 'from', desc: 'Start date (inclusive)', values: 'YYYY-MM-DD', default: 'all time' },
+                        { name: 'to', desc: 'End date (inclusive)', values: 'YYYY-MM-DD', default: 'today' }
+                    ]
+                },
+                {
+                    method: 'GET', path: '/api/subscribers/current',
+                    desc: 'Current subscribers with observed duration',
+                    details: 'Lists the subscriber entries last fetched from Twitch (data/subs.json) with the first and last time StreamPulse observed each name. A user can appear more than once if Twitch returns multiple entries for them. Duration is observed by StreamPulse, not authoritative Twitch tenure.'
+                },
+                {
+                    method: 'GET', path: '/api/categories',
+                    desc: 'Time spent per Twitch category',
+                    details: 'Aggregates category time across the current and archived sessions.',
+                    params: [
+                        { name: 'from', desc: 'Start date', values: 'YYYY-MM-DD', default: 'all time' },
+                        { name: 'to', desc: 'End date', values: 'YYYY-MM-DD', default: 'today' }
+                    ]
+                }
+            ]
+        },
+        {
+            section: 'Custom Overlays & Assets',
+            items: [
+                {
+                    method: 'GET', path: '/api/custom-overlays',
+                    desc: 'List custom overlays',
+                    details: 'Returns each overlay with id, name, canvas size, revision, createdAt, updatedAt and elementCount.'
+                },
+                {
+                    method: 'POST', path: '/api/custom-overlays',
+                    desc: 'Create a custom overlay',
+                    details: 'Creates an overlay and returns it. Responds 409 if the id already exists. To duplicate an overlay, GET it and POST its canvas and elements under a new id.',
+                    body: '{ "id": "my-overlay", "name": "My Overlay", "canvas": { "width": 1920, "height": 1080 }, "elements": [] }'
+                },
+                {
+                    method: 'GET', path: '/api/custom-overlays/:id',
+                    desc: 'Read one custom overlay',
+                    details: 'Returns the full definition including every element.'
+                },
+                {
+                    method: 'PUT', path: '/api/custom-overlays/:id',
+                    desc: 'Update an overlay and push it live',
+                    details: 'Saves the definition, keeps the replaced version in revision history (last 30), and broadcasts a custom-overlay-update message to connected overlays.'
+                },
+                {
+                    method: 'DELETE', path: '/api/custom-overlays/:id',
+                    desc: 'Delete an overlay and its revision history',
+                    details: 'Removes the overlay. Its asset files are not deleted.'
+                },
+                {
+                    method: 'GET', path: '/api/custom-overlays/assets',
+                    desc: 'List uploaded assets',
+                    details: 'Returns every asset (images, video, audio, fonts) with name, kind, url, size, modifiedAt, and usedBy (overlays and timer sounds that reference it).'
+                },
+                {
+                    method: 'POST', path: '/api/custom-overlays/assets',
+                    desc: 'Upload an asset',
+                    details: 'Send the raw file bytes as the body with a Content-Type and an X-Asset-Name header. Maximum 100 MB. Images, video, audio (mp3, wav, m4a, aac, oga) and fonts (ttf, otf, woff, woff2) are accepted.',
+                    body: '(raw file bytes)  Headers: Content-Type: image/png, X-Asset-Name: logo.png'
+                },
+                {
+                    method: 'POST', path: '/api/custom-overlays/assets/:name/rename',
+                    desc: 'Rename an asset',
+                    details: 'Renames the file and rewrites every overlay and timer reference to it.',
+                    body: '{ "name": "new-name" }'
+                },
+                {
+                    method: 'DELETE', path: '/api/custom-overlays/assets/:name',
+                    desc: 'Delete an asset',
+                    details: 'Returns 409 if the asset is still in use, unless ?force=1 is supplied.',
+                    params: [
+                        { name: 'force', desc: 'Delete even when overlays or timers use it', values: '1', default: 'off' }
+                    ]
+                }
+            ]
+        },
+        {
+            section: 'Game Plan & QR',
+            items: [
+                {
+                    method: 'GET', path: '/api/game-plan',
+                    desc: 'Read the game plan',
+                    details: 'Returns scheduled, backlog, played and custom-list games plus list definitions.'
+                },
+                {
+                    method: 'PUT', path: '/api/game-plan',
+                    desc: 'Save the game plan',
+                    details: 'Replaces the stored game plan with the normalized payload and pushes the update to overlays.'
+                },
+                {
+                    method: 'GET', path: '/api/game-search',
+                    desc: 'Search IGDB for games',
+                    details: 'Returns up to 12 matches with id, name, year, platforms and cover. Requires Twitch client credentials; returns an empty list otherwise.',
+                    params: [
+                        { name: 'q', desc: 'Search text (2+ characters)', values: 'string', default: '—' }
+                    ]
+                },
+                {
+                    method: 'GET', path: '/api/game',
+                    desc: 'Game details for a category',
+                    details: 'Returns cached IGDB details for the named game, or for the current stream category when no name is given.',
+                    params: [
+                        { name: 'name', desc: 'Game or category name', values: 'string', default: 'current category' }
+                    ]
+                },
+                {
+                    method: 'GET', path: '/api/qr',
+                    desc: 'Generate a QR code (SVG)',
+                    details: 'Returns an SVG QR code for the given text. Used by the QR element in custom overlays.',
+                    params: [
+                        { name: 'text', desc: 'Text or URL to encode', values: 'string', default: '—' },
+                        { name: 'fg', desc: 'Foreground hex color', values: 'hex, no #', default: '000000' },
+                        { name: 'bg', desc: 'Background hex color, or transparent', values: 'hex | transparent', default: 'ffffff' },
+                        { name: 'margin', desc: 'Quiet-zone modules', values: 'number', default: '2' },
+                        { name: 'ecc', desc: 'Error correction level', values: 'L | M | Q | H', default: 'M' }
+                    ]
+                }
+            ]
+        },
+        {
+            section: 'System & Updates',
+            items: [
+                {
+                    method: 'GET', path: '/api/restart',
+                    desc: 'Restart StreamPulse',
+                    details: 'Saves session data, restarts the server, and resumes the active session.',
+                    companion: true
+                },
+                {
+                    method: 'GET', path: '/api/update/check',
+                    desc: 'Check for a newer version',
+                    details: 'Compares the installed version with the latest release or nightly build.',
+                    params: [
+                        { name: 'mode', desc: 'Update channel', values: 'release | nightly', default: 'release' }
+                    ]
+                },
+                {
+                    method: 'POST', path: '/api/update/apply',
+                    desc: 'Apply an available update',
+                    details: 'Downloads and applies the update. Responds 409 if the update cannot be applied.',
+                    body: '{ "mode": "release" }'
+                },
+                {
+                    method: 'GET', path: '/api/backups',
+                    desc: 'List automatic backups',
+                    details: 'Returns { backups: [{ name, size, created }] } from the backups folder.'
+                },
+                {
+                    method: 'GET', path: '/api/backups/:name',
+                    desc: 'Download an automatic backup',
+                    details: 'Streams the named backup ZIP.'
+                },
+                {
+                    method: 'GET', path: '/api/music/fallback-art',
+                    desc: 'Fallback album art image',
+                    details: 'Serves the uploaded fallback image used when a track has no artwork.'
+                }
+            ]
+        },
+        {
             section: 'WebSocket',
             items: [
                 {
@@ -503,10 +708,13 @@
         }
     ];
 
+    const sectionId = name => 'sec-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    let methodFilter = '';
+
     function render() {
         const container = document.getElementById('endpoints');
         container.innerHTML = endpoints.map(section => `
-            <div class="section-title">${section.section}</div>
+            <div class="section-title" id="${sectionId(section.section)}">${section.section} <small>${section.items.length}</small></div>
             ${section.items.map((ep, i) => {
                 const id = `ep-${section.section.replace(/\s/g, '')}-${i}`;
                 const methodClass = ep.method.toLowerCase();
@@ -562,7 +770,62 @@
                 </div>`;
             }).join('')}
         `).join('');
+        buildSidebar();
     }
+
+    function buildSidebar() {
+        document.getElementById('toc').innerHTML = '<h2>Sections</h2>' + endpoints.map(section => `<a href="#${sectionId(section.section)}" data-id="${sectionId(section.section)}">${section.section}<span>${section.items.length}</span></a>`).join('');
+        const methods = [...new Set(endpoints.flatMap(section => section.items.map(ep => ep.method)))];
+        document.getElementById('chips').innerHTML = ['All', ...methods].map(m => `<button class="chip${m === 'All' ? ' active' : ''}" data-method="${m === 'All' ? '' : m}">${m}</button>`).join('');
+    }
+
+    function applyFilters() {
+        const query = document.getElementById('search').value.trim().toLowerCase();
+        let anyVisible = false;
+        document.querySelectorAll('.section-title').forEach(title => {
+            let visible = 0;
+            for (let el = title.nextElementSibling; el && !el.classList.contains('section-title'); el = el.nextElementSibling) {
+                if (!el.classList.contains('endpoint')) continue;
+                const method = el.querySelector('.method').textContent.trim();
+                const match = (!methodFilter || method === methodFilter) && (!query || el.textContent.toLowerCase().includes(query));
+                el.classList.toggle('hidden', !match);
+                if (match) { visible++; if (query) el.classList.add('open'); }
+            }
+            title.classList.toggle('hidden', !visible);
+            document.querySelector(`#toc a[data-id="${title.id}"]`)?.classList.toggle('dim', !visible);
+            if (visible) anyVisible = true;
+        });
+        document.getElementById('no-results').style.display = anyVisible ? 'none' : 'block';
+    }
+
+    function setupScrollSpy() {
+        const links = [...document.querySelectorAll('#toc a')];
+        const update = () => {
+            let current = links[0];
+            for (const link of links) {
+                const title = document.getElementById(link.dataset.id);
+                if (title && !title.classList.contains('hidden') && title.getBoundingClientRect().top < window.innerHeight * 0.3) current = link;
+            }
+            links.forEach(link => link.classList.toggle('active', link === current));
+        };
+        window.addEventListener('scroll', update, { passive: true });
+        update();
+    }
+
+    document.getElementById('search').addEventListener('input', applyFilters);
+    document.getElementById('chips').addEventListener('click', event => {
+        const chip = event.target.closest('.chip');
+        if (!chip) return;
+        methodFilter = chip.dataset.method;
+        document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c === chip));
+        applyFilters();
+    });
+    document.getElementById('expand-all').addEventListener('click', () => document.querySelectorAll('.endpoint:not(.hidden)').forEach(el => el.classList.add('open')));
+    document.getElementById('collapse-all').addEventListener('click', () => document.querySelectorAll('.endpoint').forEach(el => el.classList.remove('open')));
+    document.addEventListener('keydown', event => {
+        if (event.key === '/' && !event.target.matches('input, textarea')) { event.preventDefault(); document.getElementById('search').focus(); }
+        if (event.key === 'Escape' && event.target.id === 'search') { event.target.value = ''; applyFilters(); event.target.blur(); }
+    });
 
     function toggleEndpoint(id) {
         document.getElementById(id).classList.toggle('open');
@@ -580,6 +843,8 @@
     }
 
     render();
+    setupScrollSpy();
+    if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
     </script>
 </body>
 </html>

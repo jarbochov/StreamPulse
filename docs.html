@@ -17,15 +17,30 @@
         .nav a:hover { color: #e1e4e8; background: #21262d; }
         .nav a.active { color: #58a6ff; background: #1a2332; }
 
-        .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; }
+        .container { max-width: 1240px; margin: 0 auto; padding: 1.5rem 2rem; }
+        .layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 2rem; align-items: start; }
+        .side { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; display: grid; gap: 0.7rem; }
+        .search { width: 100%; padding: 0.55rem 0.75rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font: inherit; font-size: 0.85rem; }
+        .search:focus { outline: none; border-color: #58a6ff; }
+        .toc { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.6rem; }
+        .toc h2 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin: 0.2rem 0.5rem 0.4rem; }
+        .toc h3 { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6e7681; margin: 0.7rem 0.5rem 0.2rem; }
+        .toc a { color: #8b949e; text-decoration: none; font-size: 0.84rem; display: block; padding: 0.38rem 0.6rem; border-radius: 6px; border-left: 2px solid transparent; }
+        .toc a:hover { color: #e1e4e8; background: #21262d; }
+        .toc a.active { color: #58a6ff; background: #1a2332; border-left-color: #58a6ff; }
+        .toc a.dim { opacity: 0.35; }
+        .side-actions { display: flex; gap: 0.5rem; }
+        .side-actions button { flex: 1; background: #21262d; border: 1px solid #30363d; color: #e1e4e8; border-radius: 6px; padding: 0.4rem; font: inherit; font-size: 0.78rem; cursor: pointer; }
+        .side-actions button:hover { border-color: #58a6ff; }
+        .no-results { color: #8b949e; text-align: center; padding: 3rem 1rem; display: none; }
+        .hidden { display: none !important; }
+        .card-header strong { font-size: 0.9rem; }
+        td .url-box { margin-top: 0.3rem; }
+        .kbd-hint { color: #8b949e; font-size: 0.72rem; }
+        html { scroll-behavior: smooth; }
 
-        .toc { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
-        .toc h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.5rem; }
-        .toc a { color: #58a6ff; text-decoration: none; font-size: 0.85rem; display: block; padding: 0.2rem 0; }
-        .toc a:hover { text-decoration: underline; }
-
-        .section-title { font-size: 1rem; font-weight: 600; color: #e1e4e8; margin: 2rem 0 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #30363d; scroll-margin-top: 1rem; }
-        .section-title:first-of-type { margin-top: 0.5rem; }
+        .section-title { font-size: 1.05rem; font-weight: 600; color: #e1e4e8; margin: 2rem 0 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #30363d; scroll-margin-top: 1rem; }
+        .section-title:first-of-type { margin-top: 0; }
 
         .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
         .card-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; cursor: pointer; user-select: none; }
@@ -74,6 +89,10 @@
         .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
         .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
 
+        @media (max-width: 900px) {
+            .layout { grid-template-columns: 1fr; }
+            .side { position: static; max-height: none; }
+        }
         @media (max-width: 768px) {
             .container { padding: 1rem; }
             .header { flex-direction: column; gap: 0.5rem; }
@@ -88,19 +107,17 @@
     </div>
 
     <div class="container">
-        <div class="toc">
-            <h2>Contents</h2>
-            <a href="#url-params">URL Parameters</a>
-            <a href="#config">config.json Reference</a>
-            <a href="#obs-setup">OBS Browser Source Setup</a>
-            <a href="#websocket">WebSocket Connection</a>
-            <a href="#data-files">Data Files & Persistence</a>
-            <a href="#timers">Named Timers</a>
-            <a href="#music">Music Now-Playing (Beta)</a>
-            <a href="#companion">Bitfocus Companion Setup</a>
-        </div>
-
+        <div class="layout">
+        <aside class="side">
+            <input id="search" class="search" type="search" placeholder="Search docs…  ( / )" aria-label="Search documentation">
+            <nav class="toc" id="toc"><h2>Contents</h2></nav>
+            <div class="side-actions"><button id="expand-all">Expand all</button><button id="collapse-all">Collapse all</button></div>
+        </aside>
+        <main>
         <div id="content"></div>
+        <div class="no-results" id="no-results">No documentation matches your search.</div>
+        </main>
+        </div>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -110,7 +127,26 @@
 
     const sections = [
         {
+            id: 'getting-started',
+            group: 'Getting Started',
+            title: 'Installation & Prerequisites',
+            custom: true
+        },
+        {
+            id: 'how-it-works',
+            group: 'Getting Started',
+            title: 'How It Works & Features',
+            custom: true
+        },
+        {
+            id: 'obs-setup',
+            group: 'Getting Started',
+            title: 'OBS Browser Source Setup',
+            custom: true
+        },
+        {
             id: 'url-params',
+            group: 'Overlays & Features',
             title: 'URL Parameters',
             groups: [
                 {
@@ -181,7 +217,10 @@
                     name: 'countdown.html / stopwatch.html — Timer Overlays',
                     items: [
                         { param: 'timer', type: 'string', default: '—', desc: 'Named timer slug managed by Timer Manager. Recommended for production use.', example: '?timer=starting-soon' },
-                        { param: 'display', type: 'string', default: 'standard', desc: 'Layout mode: "standard" or "compact".', example: '?display=compact' },
+                        { param: 'display', type: 'string', default: 'standard', desc: 'Layout: "standard", "compact", "stacked", "ring" (circular progress), "flip" (flip clock) or "banner" (full-width bar).', example: '?display=ring' },
+                        { param: 'gradient', type: 'string', default: '—', desc: 'Animated gradient for the timer box: comma-separated hex colors (no #).', example: '?gradient=ff6a00,ee0979,6a11cb' },
+                        { param: 'gradientspeed', type: 'number', default: '8', desc: 'Seconds per gradient animation cycle.', example: '?gradient=ff6a00,ee0979&gradientspeed=5' },
+                        { param: 'gradientangle', type: 'number', default: '135', desc: 'Gradient angle in degrees.', example: '?gradient=ff6a00,ee0979&gradientangle=90' },
                         { param: 'theme', type: 'string', default: 'dark', desc: 'Theme preset: "dark" or "light".', example: '?theme=light' },
                         { param: 'title', type: 'string', default: 'timer label', desc: 'Override the timer label shown above the overlay.', example: '?title=Be%20Right%20Back' },
                         { param: 'showtitle', type: 'boolean', default: 'true', desc: 'Show or hide the timer title area entirely.', example: '?showtitle=false' },
@@ -202,7 +241,44 @@
             ]
         },
         {
+            id: 'timers',
+            group: 'Overlays & Features',
+            title: 'Named Timers',
+            custom: true
+        },
+        {
+            id: 'music',
+            group: 'Overlays & Features',
+            title: 'Music Now-Playing (Beta)',
+            custom: true
+        },
+        {
+            id: 'goals-viewers',
+            group: 'Overlays & Features',
+            title: 'Goals & Viewer Tracking',
+            custom: true
+        },
+        {
+            id: 'custom-overlays',
+            group: 'Overlays & Features',
+            title: 'Custom Overlays & Assets',
+            custom: true
+        },
+        {
+            id: 'game-plan',
+            group: 'Overlays & Features',
+            title: 'Game Plan',
+            custom: true
+        },
+        {
+            id: 'theme',
+            group: 'Overlays & Features',
+            title: 'Overlay Theme',
+            custom: true
+        },
+        {
             id: 'config',
+            group: 'Configuration & Data',
             title: 'config.json Reference',
             groups: [
                 {
@@ -301,33 +377,27 @@
             ]
         },
         {
-            id: 'obs-setup',
-            title: 'OBS Browser Source Setup',
-            custom: true
-        },
-        {
-            id: 'websocket',
-            title: 'WebSocket Connection',
-            custom: true
-        },
-        {
             id: 'data-files',
+            group: 'Configuration & Data',
             title: 'Data Files & Persistence',
             custom: true
         },
         {
-            id: 'timers',
-            title: 'Named Timers',
-            custom: true
-        },
-        {
-            id: 'music',
-            title: 'Music Now-Playing (Beta)',
+            id: 'websocket',
+            group: 'Integrations',
+            title: 'WebSocket Connection',
             custom: true
         },
         {
             id: 'companion',
+            group: 'Integrations',
             title: 'Bitfocus Companion Setup',
+            custom: true
+        },
+        {
+            id: 'troubleshooting',
+            group: 'Help',
+            title: 'Troubleshooting & Security',
             custom: true
         }
     ];
@@ -379,19 +449,219 @@
         }
 
         container.innerHTML = html;
+        buildToc();
     }
+
+    function buildToc() {
+        const toc = document.getElementById('toc');
+        let last = '';
+        toc.innerHTML = '<h2>Contents</h2>' + sections.map(section => {
+            const head = section.group !== last ? `<h3>${section.group}</h3>` : '';
+            last = section.group;
+            return head + `<a href="#${section.id}" data-id="${section.id}">${section.title}</a>`;
+        }).join('');
+    }
+
+    function sectionBlocks() {
+        return [...document.querySelectorAll('.section-title')].map(title => {
+            const cards = [];
+            for (let el = title.nextElementSibling; el && !el.classList.contains('section-title'); el = el.nextElementSibling) if (el.classList.contains('card')) cards.push(el);
+            return { title, cards };
+        });
+    }
+
+    function applySearch() {
+        const query = document.getElementById('search').value.trim().toLowerCase();
+        let anyVisible = false;
+        for (const { title, cards } of sectionBlocks()) {
+            let visible = 0;
+            for (const card of cards) {
+                const rows = [...card.querySelectorAll('tr')].filter(row => row.querySelector('td'));
+                rows.forEach(row => row.classList.remove('hidden'));
+                if (!query) { card.classList.remove('hidden'); visible++; continue; }
+                const headerMatch = card.querySelector('.card-header').textContent.toLowerCase().includes(query);
+                const bodyMatch = card.textContent.toLowerCase().includes(query);
+                if (!headerMatch && !bodyMatch) { card.classList.add('hidden'); continue; }
+                card.classList.remove('hidden'); card.classList.add('open'); visible++;
+                if (!headerMatch && rows.length) rows.forEach(row => row.classList.toggle('hidden', !row.textContent.toLowerCase().includes(query)));
+            }
+            title.classList.toggle('hidden', !visible);
+            document.querySelector(`#toc a[data-id="${title.id}"]`)?.classList.toggle('dim', !visible);
+            if (visible) anyVisible = true;
+        }
+        document.getElementById('no-results').style.display = anyVisible ? 'none' : 'block';
+    }
+
+    function setupScrollSpy() {
+        const links = [...document.querySelectorAll('#toc a')];
+        const update = () => {
+            let current = links[0];
+            for (const link of links) {
+                const title = document.getElementById(link.dataset.id);
+                if (title && !title.classList.contains('hidden') && title.getBoundingClientRect().top < window.innerHeight * 0.3) current = link;
+            }
+            links.forEach(link => link.classList.toggle('active', link === current));
+        };
+        window.addEventListener('scroll', update, { passive: true });
+        update();
+    }
+
+    document.getElementById('search').addEventListener('input', applySearch);
+    document.getElementById('expand-all').addEventListener('click', () => document.querySelectorAll('.card:not(.hidden)').forEach(card => card.classList.add('open')));
+    document.getElementById('collapse-all').addEventListener('click', () => document.querySelectorAll('.card').forEach(card => card.classList.remove('open')));
+    document.addEventListener('keydown', event => {
+        if (event.key === '/' && !event.target.matches('input, textarea')) { event.preventDefault(); document.getElementById('search').focus(); }
+        if (event.key === 'Escape' && event.target.id === 'search') { event.target.value = ''; applySearch(); event.target.blur(); }
+    });
 
     function examplePathPrefix(groupName) {
         if (groupName.includes('credits.html')) return '/credits.html?';
         if (groupName.includes('goal.html')) return '/goal.html?';
         if (groupName.includes('stats.html')) return '/stats.html?';
         if (groupName.includes('hashtags.html')) return '/hashtags.html?';
+        if (groupName.includes('countdown.html')) return '/countdown.html?';
         if (groupName.includes('export')) return '/api/export?';
         return '?';
     }
 
     function renderCustomSection(id) {
         switch (id) {
+            case 'getting-started': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">1. Install Node.js</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">StreamPulse runs on <a href="https://nodejs.org/" style="color:#58a6ff;">Node.js</a> (LTS, v18 or newer). Verify with <code>node --version</code>.</div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">2. Download &amp; Configure</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">Download the <strong>Source code (zip)</strong> from the <a href="https://github.com/jarbochov/streampulse/releases" style="color:#58a6ff;">Releases page</a> and unzip it.<br><br>Copy <code>config.example.json</code> to <code>config.json</code> and fill in <code>broadcaster_id</code>, <code>broadcaster_name</code>, <code>twitch.client_id</code>, <code>twitch.client_secret</code> and <code>ssn.session_id</code>. Everything else can be edited live in the <a href="/config-editor.html" style="color:#58a6ff;">Config Editor</a>.</div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">3. Install &amp; Run</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-label">From the StreamPulse folder</div>                    <div class="code-block">npm install<br>npm run install:chrome   # bundled Chrome for PDF exports<br>npm start</div>                    <div class="detail-text">On first run a browser window opens for Twitch authorization; after that the server handles tokens automatically. Windows tip: type <code>cmd</code> in the File Explorer address bar to open a prompt in the folder.</div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">SocialStream Ninja (SSN)</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">SSN captures live chat, subs, follows, raids, bits and donations from Twitch (and YouTube, Kick, etc.) and forwards them to StreamPulse.<br><br>1. Install <a href="https://socialstream.ninja/" style="color:#58a6ff;">SocialStream Ninja</a> (browser extension or desktop app)<br>2. SSN settings → <strong>Global Settings → Mechanics</strong><br>3. Enable <strong>Toggle 1</strong> (remote API control) and <strong>Toggle 3</strong> (send chat messages to API server)<br>4. Copy your <strong>Session ID</strong> from the <code>?session=</code> value of your dock or featured URL<br>5. Keep the SSN dock page open during your stream<br><br>Test the connection with SSN's <a href="https://socialstream.ninja/sampleapi.html" style="color:#58a6ff;">API Sandbox</a>.</div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Twitch Application</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">A Twitch app provides subscriber, follower and bits data.<br><br>1. Create an app at <a href="https://dev.twitch.tv/console/apps" style="color:#58a6ff;">dev.twitch.tv/console/apps</a><br>2. Set the <strong>OAuth Redirect URL</strong> to <code>http://localhost:3000/auth/callback</code><br>3. Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> into <code>config.json</code><br><br>If StreamPulse is hosted somewhere else, set <code>twitch.redirect_uri</code> to the exact URL registered in Twitch.<br><br><strong>Clips (Beta):</strong> live clips need <code>clips:edit</code>; VOD clips need <code>channel:manage:clips</code> (or <code>editor:manage:clips</code>). If you authorized before VOD clipping existed, visit <code>/auth/twitch</code> again to refresh the token.</div>
+                </div>
+            </div>`;
+
+            case 'how-it-works': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">How It Works</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="code-block">SSN Dock ──WSS──▶ server.js ◀── Twitch API (auto-refresh)<br>                    │ writes data/*.json<br>                    ├─ HTTP server ──▶ overlays, dashboard, editors<br>                    └─ WebSocket ───▶ live push to overlays</div>                    <div class="detail-text"><strong>SSN events detected:</strong> chat messages, subscriptions (<code>new_subscriber</code>, <code>resub</code>, <code>subscription_gift</code>), follows, raids, bits (via <code>hasDonation</code> containing "bit"), donations, and emotes/hashtags parsed from chat.</div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Feature Overview</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">• <strong>Credits Roll</strong> — scrolling credits with subs, followers, chatters, emotes, hashtags, raids, gifters and cheerers, plus fade-style text sections<br>• <strong>Music Overlay</strong> — Apple Music, Spotify and VLC now-playing<br>• <strong>Named Timers</strong> — countdowns and stopwatches with pause/resume and Companion endpoints<br>• <strong>Goals + Viewer Tracking</strong> — single and rotating goal overlays<br>• <strong>Game Plan</strong> — Scheduled/Backlog/Played and custom lists with IGDB art<br>• <strong>Custom Overlays</strong> — canvas editor with live placeholders, QR codes and assets<br>• <strong>Sessions &amp; Highlights</strong> — searchable chat logs (<code>AND</code>, <code>OR</code>, <code>"exact phrase"</code>, <code>user:name</code>), pins, TSV/TXT/PDF exports<br>• <strong>Clip Candidates (Beta)</strong> — notable events and chat spikes with Twitch clip links<br>• <strong>Hashtag Tracking</strong> — live overlays plus moderation<br>• <strong>Backup &amp; Restore</strong> — ZIP backups including the live session, custom overlays and Game Plan<br>• <strong>Updater</strong> — check for and install the latest stable release from the Manage menu (Git checkout with Git and npm required; data is backed up first)<br><br><em>Hashtags tip:</em> they suit smaller streams. For larger communities use the ban/purge moderation tools or disable hashtags.</div>
+                </div>
+            </div>`;
+
+            case 'goals-viewers': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Viewer Tracking</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">Samples current viewers into the session and archives them for peak/average metrics. With <code>source: "best_available"</code> recent SSN viewer counts are used first and Twitch polling is the fallback; set <code>source: "twitch"</code> to force Twitch. Options: <code>viewer_tracking.enabled</code>, <code>poll_seconds</code> (60), <code>retain_samples</code> (720). Overlay: <code>/viewers.html</code>.</div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Goals</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">Manage goals in <a href="/goals-editor.html" style="color:#58a6ff;">Goals Manager</a>; they live in <code>config.json</code> under <code>viewer_tracking</code> and <code>goals</code>.<br><br>• <strong>Targets are manual</strong>, progress is automatic<br>• <strong>Persistent goals</strong> count up from a saved baseline until reset<br>• <strong>Session goals</strong> use the current stream totals<br>• <strong>Viewer goals</strong> use current or peak viewers<br>• <strong>Community goals</strong> use weighted points across follows, subs, gift subs, bits and donations<br><br>Overlays: <code>/goal.html?goal=follower-goal</code> or <code>/goal.html?mode=cycle</code>. See URL Parameters for options.</div>
+                </div>
+            </div>`;
+
+            case 'theme': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Theme Editor</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">Customize the shared look of supported overlays in the <a href="/theme-editor.html" style="color:#58a6ff;">Theme Editor</a>:<br>• <strong>Font</strong> — popular Google Fonts or any custom Google Font name<br>• <strong>Text / accent colors</strong> — pickers with hex/rgb input<br>• <strong>Background</strong> — <code>transparent</code> for OBS, or a color for previewing; separate backgrounds for goal and viewer overlays<br>• <strong>Text outline</strong> — toggle and color<br>• <strong>Font scale</strong> — 0.5× to 2×<br>• <strong>Presets</strong> — export/import the theme as JSON<br><br>URL parameter names are case-insensitive (<code>fontScale</code> = <code>fontscale</code>).</div>
+                </div>
+            </div>`;
+
+            case 'troubleshooting': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">No SSN / chat data</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">1. The SSN dock page must be open in a browser tab<br>2. Toggle 1 and Toggle 3 enabled in SSN Global Settings → Mechanics<br>3. <code>session_id</code> in <code>config.json</code> matches the dock URL <code>?session=</code><br>4. <code>/api/status</code> should show <code>ssn.connected: true</code><br>5. Try the SSN API Sandbox to confirm messages flow</div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Twitch API errors (401)</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">Visit <code>/auth/twitch</code> on the host running StreamPulse to re-authorize, confirm <code>twitch.redirect_uri</code> is registered exactly as an OAuth Redirect URL, and verify <code>client_id</code> / <code>client_secret</code>.</div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Other issues</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text"><strong>Credits not loading:</strong> make sure <code>npm start</code> is running and the OBS URL is <code>${BASE}/credits.html</code>.<br><br><strong>Stale OBS source:</strong> right-click → <em>Refresh cache of current page</em>.<br><br><strong>PDF export can't find Chrome:</strong> run <code>npm run install:chrome</code>, restart with <code>npm start</code> (reinstall with <code>npm install</code> if needed).<br><br><strong>High memory:</strong> only the latest 2,000 chat messages stay in memory; history, search and exports read <code>data/chat-log.jsonl</code>. Memory metrics are in <code>/api/status</code> under <code>memory</code>.</div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Security</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">• <code>config.json</code> holds credentials — git-ignored, never commit it<br>• OAuth tokens are stored in <code>data/.twitch-token.json</code> — git-ignored<br>• The server only listens on localhost</div>
+                </div>
+            </div>`;
+
             case 'obs-setup': return `
                 <div class="card open">
                     <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
@@ -534,6 +804,9 @@
                             <tr><td><code>data/stats.json</code></td><td>Persistent</td><td>Cumulative stats with daily buckets. Survives restarts.</td></tr>
                             <tr><td><code>data/timers.json</code></td><td>Persistent</td><td>Named countdowns, stopwatches, visibility, timer state, global sound settings, and per-timer outgoing HTTP action settings.</td></tr>
                             <tr><td><code>data/.stats-backup-{1,2,3}.json</code></td><td>Rotating</td><td>3 most recent stats backups. Auto-restored if stats.json is corrupt.</td></tr>
+                            <tr><td><code>data/highlights.json</code></td><td>Persistent</td><td>Pinned chat messages.</td></tr>
+                            <tr><td><code>data/clip-candidates.json</code></td><td>Persistent</td><td>Beta clip candidates and Twitch clip links.</td></tr>
+                            <tr><td><code>data/game-plan.json</code></td><td>Persistent</td><td>Game Plan lists and games.</td></tr>
                             <tr><td><code>data/subs.json</code></td><td>Refreshed</td><td>Twitch subscriber list from API.</td></tr>
                             <tr><td><code>data/bits.json</code></td><td>Refreshed</td><td>Twitch bits leaderboard from API.</td></tr>
                             <tr><td><code>data/followers.json</code></td><td>Refreshed</td><td>Twitch recent followers from API.</td></tr>
@@ -543,6 +816,93 @@
                         </table>
                     </div>
                 </div>`;
+
+            case 'custom-overlays': return `
+    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong>Overview</strong>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">
+                Build your own overlays on a free-form canvas in the <a href="/custom-overlay-editor.html" style="color:#58a6ff;">Custom Overlay Editor</a>: text, images, video, embeds, progress bars and rings, game lists, QR codes, shapes and groups. Manage them on the <a href="/custom-overlays.html" style="color:#58a6ff;">Custom Overlays</a> page (search, sort, live previews, <strong>Duplicate</strong>, copy OBS URL). Each overlay is one Browser Source at its canvas size (default 1920×1080).
+            </div>
+            <div class="detail-label">OBS URL</div>
+            <div class="url-box"><code>${BASE}/custom-overlay.html?id=my-overlay</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/custom-overlay.html?id=my-overlay')">Copy</button></div>
+            <div class="detail-label">Editing tips</div>
+            <ul class="checklist">
+                <li>Drag, drop or <strong>paste</strong> (Ctrl/⌘+V) images and videos onto the canvas to upload them automatically</li>
+                <li>Every save keeps a revision; use <strong>History</strong> to restore one into the editor</li>
+                <li>Ctrl/⌘+C / V / D copy, paste and duplicate elements; Ctrl/⌘+G groups</li>
+            </ul></div>
+    </div>    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong>Placeholders</strong>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">
+                Any text, image/video/embed source or QR value can include <code>{{token}}</code> placeholders that update live. Add a format with <code>{{token|format}}</code>. Use the <strong>Insert placeholder</strong> dialog in the editor to browse everything available.
+            </div>
+            <table>
+                <tr><th>Group</th><th>Examples</th></tr>
+                <tr><td>Clock</td><td><code>now</code> <code>time</code> <code>time.24</code> <code>date</code> <code>date.long</code></td></tr>
+                <tr><td>Timers</td><td><code>timer.&lt;id&gt;</code> <code>timer.&lt;id&gt;.label</code> <code>timer.&lt;id&gt;.state</code> <code>timer.&lt;id&gt;.target</code> <code>timer.&lt;id&gt;.ms</code></td></tr>
+                <tr><td>Goals, events, viewers</td><td>Goal progress, latest follower/sub/donation, viewer counts, current category time</td></tr>
+                <tr><td>Game</td><td><code>game.*</code> (IGDB details for the current category)</td></tr>
+                <tr><td>Game plan</td><td><code>plan.*</code> and <code>plan.list.&lt;id&gt;</code> for custom lists</td></tr>
+                <tr><td>Music</td><td><code>music.title</code> <code>music.artist</code> <code>music.album</code> <code>music.cover</code> <code>music.position</code> <code>music.duration</code> <code>music.remaining</code> <code>music.percent</code></td></tr>
+            </table>
+            <div class="detail-label">Date and time formats</div>
+            <div class="detail-text">
+                Tokens: <code>YYYY YY MMMM MMM MM M dddd ddd Do DD D HH H hh h mm m ss s A a</code>, with <code>[literal]</code> text in brackets.<br>
+                <code>{{date|dddd, MMMM Do}}</code> → Friday, October 2nd &nbsp;·&nbsp; <code>{{time|h:mm A}}</code> → 2:00 PM &nbsp;·&nbsp; <code>{{timer.final-fantasy.target|MMM D [at] h:mm A}}</code>
+            </div>
+            <div class="detail-label">Countdown (duration) formats</div>
+            <div class="detail-text">
+                Presets: <code>short</code> (4d 3h 22s), <code>long</code> (4 days, 3 hours, 22 seconds) and <code>clock</code> (4d 3:00:02). Custom tokens: <code>d dd h hh m mm s ss</code> for remainders and <code>th tm ts</code> for total hours, minutes and seconds, e.g. <code>{{timer.starting-soon|hh:mm:ss}}</code>.
+            </div></div>
+    </div>    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong>Asset Library</strong>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">
+                The <a href="/assets.html" style="color:#58a6ff;">Asset Library</a> (Manage → Assets) is one shared store for overlay images, videos, fonts and timer sounds. Browse as a grid or list with an adjustable thumbnail size, search, filter by type or used/unused, and sort. Upload by button, drag-and-drop or paste; audio and video preview in place. Renaming an asset rewrites every overlay and timer that uses it; deleting an in-use asset requires confirmation. Files are stored in <code>data/custom-overlay-assets/</code> (100&nbsp;MB max each) and included in backups.
+            </div></div>
+    </div>    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong>QR Codes</strong>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">
+                The <strong>QR code</strong> element renders any text or URL (placeholders allowed) with custom colors, margin and error correction. It is backed by <code>/api/qr?text=…&amp;fg=000000&amp;bg=ffffff&amp;margin=2&amp;ecc=M</code>, which returns an SVG (<code>bg=transparent</code> is supported).
+            </div>
+            <div class="url-box"><code>${BASE}/api/qr?text=https%3A%2F%2Ftwitch.tv%2Fjarbochov</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/qr?text=https%3A%2F%2Ftwitch.tv%2Fjarbochov')">Copy</button></div></div>
+    </div>`;
+
+            case 'game-plan': return `
+    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong>Overview</strong>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">
+                The <a href="/game-plan-editor.html" style="color:#58a6ff;">Game Plan editor</a> keeps your Scheduled, Backlog and Played games plus your own custom lists. Pick games with the IGDB search so each entry pins an exact game, with cover art and release info. <strong>Now playing</strong> follows your Twitch category (by name, a <code>twitchCategory</code> override, or the IGDB name).
+            </div></div>
+    </div>    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong>Showing it on stream</strong>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">
+                Add a <strong>Game list</strong> element in the custom overlay editor. Choose a list or period filter, a layout (grid, strip, list or kanban with a column per group), cover fit (cover, contain, natural), cover size, heading and title sizing, and optional shrink-to-fit. Use <code>plan.*</code> placeholders for single values in text elements. Data is stored in <code>data/game-plan.json</code> and included in backups.
+            </div></div>
+    </div>`;
 
             case 'timers': return `
     <div class="card open">
@@ -753,6 +1113,8 @@
     }
 
     render();
+    setupScrollSpy();
+    if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
     </script>
 </body>
 </html>
