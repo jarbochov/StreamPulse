@@ -22,6 +22,8 @@
         .row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
         .toolbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; align-items: center; }
         #canvas-wrap { overflow: auto; background: #0d1117; border: 1px solid #30363d; padding: 1rem; min-height: 620px; }
+        #canvas-frame { position: relative; border: 2px solid #58a6ff; box-shadow: 0 0 0 1px #58a6ff33, 0 8px 24px #0008; }
+        #canvas-frame::before { content: attr(data-bounds); position: absolute; left: 0; top: -1.6rem; color: #58a6ff; font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
         #canvas { position: relative; transform-origin: top left; background-image: linear-gradient(#ffffff0b 1px, transparent 1px), linear-gradient(90deg, #ffffff0b 1px, transparent 1px); background-size: 20px 20px; }
         .canvas-element { position: absolute; overflow: hidden; white-space: pre-wrap; word-break: break-word; cursor: move; }
         .canvas-element.selected { outline: 2px solid #58a6ff; outline-offset: 2px; }
@@ -55,7 +57,7 @@
                 <label style="display:flex;align-items:center;gap:.4rem;margin:0;min-width:150px;">Zoom <input id="zoom" type="range" min="25" max="150" value="50" step="5"><span id="zoom-value">50%</span></label>
                 <span id="status"></span>
             </div>
-            <div id="canvas-wrap"><div id="canvas"></div></div>
+            <div id="canvas-wrap"><div id="canvas-frame" data-bounds="1920 × 1080"><div id="canvas"></div></div></div>
         </section>
         <section class="panel properties">
             <h2>Overlay</h2>
@@ -78,6 +80,7 @@
         let overlay = { id: overlayId, name: overlayId, revision: 1, canvas: { width: 1920, height: 1080, background: 'transparent' }, elements: [] };
         let selectedId = null;
         const canvas = document.getElementById('canvas');
+        const canvasFrame = document.getElementById('canvas-frame');
         const layers = document.getElementById('layers');
         const properties = document.getElementById('properties');
         const status = document.getElementById('status');
@@ -96,6 +99,9 @@
             canvas.style.height = `${overlay.canvas.height}px`;
             canvas.style.background = overlay.canvas.background || '#0d1117';
             canvas.style.transform = `scale(${zoom})`;
+            canvasFrame.style.width = `${overlay.canvas.width * zoom}px`;
+            canvasFrame.style.height = `${overlay.canvas.height * zoom}px`;
+            canvasFrame.dataset.bounds = `${overlay.canvas.width} × ${overlay.canvas.height}`;
             document.getElementById('zoom').value = Math.round(zoom * 100);
             document.getElementById('zoom-value').textContent = `${Math.round(zoom * 100)}%`;
         }
