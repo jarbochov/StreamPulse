@@ -2238,6 +2238,7 @@ function buildGamePlanSnapshot() {
 const MUSIC_ART_PATH = path.join(DATA_DIR, 'music-artwork.png');
 const MUSIC_FALLBACK_ART_PATH = path.join(DATA_DIR, 'music-fallback.png');
 let musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
+let musicPolledAt = 0;
 let musicPollTimer = null;
 let overlayVisible = true;
 let viewerPollHandle = null;
@@ -2271,6 +2272,7 @@ function pollAppleMusic() {
         '  return "stopped|||||||||||"',
         'end if'
     ], (err, stdout) => {
+        musicPolledAt = Date.now();
         if (err) {
             if (musicState.state !== 'stopped') {
                 musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
@@ -2374,6 +2376,7 @@ function pollVLC() {
 }
 
 function processVLCStatus(data) {
+    musicPolledAt = Date.now();
     // VLC states: playing, paused, stopped
     const vlcState = data.state || 'stopped';
     const state = vlcState === 'playing' ? 'playing' : vlcState === 'paused' ? 'paused' : 'stopped';
@@ -4318,7 +4321,12 @@ const server = http.createServer(async (req, res) => {
                 source: MUSIC_CONFIG.source || 'apple_music',
                 state: musicState.state,
                 track: musicState.track,
-                artist: musicState.artist
+                artist: musicState.artist,
+                album: musicState.album,
+                artworkUrl: musicState.artworkUrl || '',
+                position: musicState.position || 0,
+                duration: musicState.duration || 0,
+                positionAgeMs: musicPolledAt ? Date.now() - musicPolledAt : 0
             },
             stream: {
                 title: chatData.streamInfo?.[chatData.streamInfo.length - 1]?.title || '',

@@ -97,6 +97,7 @@ Add **Browser Sources** in OBS with these URLs:
 - Overlay URL Wizard: `http://localhost:3000/overlay-url-wizard.html`
 - Overlay URL parameter names are case-insensitive (`fontScale` = `fontscale`); lowercase is the documented form.
 - Custom Overlays: `http://localhost:3000/custom-overlays.html`
+- Game Plan: `http://localhost:3000/game-plan-editor.html`
 - Music Editor: `http://localhost:3000/music-editor.html`
 - Timer Manager: `http://localhost:3000/timers-editor.html`
 - Timer URL Wizard: `http://localhost:3000/timer-url-wizard.html`
@@ -152,6 +153,7 @@ If StreamPulse is intentionally hosted somewhere other than localhost, set `twit
 - **Music Overlay** — "Now Playing" overlay for Apple Music, Spotify, and VLC with album art, marquee titles, and multiple display modes
 - **Named Timers** — Shared countdown and stopwatch overlays with duration or target-date countdown modes, pause/resume controls, quick add/subtract time adjustments, persistent state, and Companion-friendly field endpoints
 - **Goals + Viewer Tracking** — Live viewer sampling plus configurable follower, subscriber, gift sub, bits, donation, viewer, and combined community goals with single-goal and rotating cycle overlays
+- **Game Plan** — Manually curated Scheduled, Backlog, Played and your own custom lists with IGDB cover art, release years and genres. Pick the exact game when names collide (e.g. Doom), group by period such as "October", and mark the game matching your Twitch category as *Now playing*
 - **Live Stats Overlay** — Persistent top chatters, emotes, and hashtags across sessions
 - **Session History** — Browse archived sessions with full chat logs, searchable with boolean operators (`AND`, `OR`, `"exact phrase"`, `user:name`)
 - **Highlights** — Pin notable chat messages and export them per session
@@ -168,7 +170,7 @@ If StreamPulse is intentionally hosted somewhere other than localhost, set `twit
 
 The updater works on Windows, macOS, and Linux when StreamPulse is run from a Git checkout with Git and Node.js/npm available. On Windows, the server uses the native `npm.cmd` command automatically. Keep the production folder writable and avoid running with uncommitted tracked code changes; data is backed up before an update.
 - **Preview Mode** — `?preview=true` renders credits without scrolling for layout testing
-- **Custom Overlays** — Create JSON-backed canvas overlays with text, Markdown, images, video, shapes, drag positioning, and live WebSocket updates after saving
+- **Custom Overlays** — Create JSON-backed canvas overlays with text, Markdown, images, video, shapes, progress bars/rings, groups, gradients, and live WebSocket updates after saving. Text, image and progress elements accept live `{{placeholders}}` (stream stats, clock, timers, goals, latest events, Twitch category and IGDB game data, music title/artist/cover/progress, Game Plan lists), and the **Game list** element renders your Game Plan as a cover grid, strip or text list with cover-fit and shrink-to-fit options
 
 ## How It Works
 
@@ -356,6 +358,9 @@ The goal overlay fills the browser-source viewport at 100% width and height. Typ
 | `GET /auth/twitch` | Start Twitch OAuth flow |
 | `GET /api/music/now-playing` | Current track info (JSON) |
 | `GET /api/music/artwork` | Current album art image |
+| `GET/PUT /api/game-plan` | Game Plan lists and games (with IGDB covers and the "playing now" match) |
+| `GET /api/game-search` | Search IGDB for games (`?q=`) |
+| `GET /api/game` | IGDB info for a game (`?name=`, defaults to the current Twitch category) |
 | `ws://localhost:3000` | WebSocket — live data push |
 
 ## Bitfocus Companion Integration
@@ -402,6 +407,7 @@ streampulse/
 ├── countdown.html         # Countdown overlay (OBS browser source)
 ├── stopwatch.html         # Stopwatch overlay (OBS browser source)
 ├── goals-editor.html      # Goals manager + viewer tracking settings
+├── game-plan-editor.html  # Game Plan lists (scheduled / backlog / played / custom)
 ├── music-editor.html      # Music overlay customization
 ├── music-url-wizard.html  # Music URL builder
 ├── timers-editor.html     # Named timer manager

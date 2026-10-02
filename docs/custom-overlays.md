@@ -20,8 +20,16 @@ Text and Markdown content support live variables using double braces. The editor
 {{viewers.current}}  {{viewers.peak}}  {{viewers.average}}
 {{chatters}}  {{messages}}  {{followers}}  {{followers.session}}  {{subscribers}}  {{subscribers.session}}  {{gift_subs}}  {{gift_subs.total}}  {{bits}}  {{bits.total}}  {{donations}}  {{donations.total}}  {{hashtags}}
 {{hashtags.top}}  {{hashtags.session_top}}  {{hashtags.total}}
-{{music.title}}  {{music.artist}}  {{stream.title}}  {{overlay.name}}
+{{music.title}}  {{music.artist}}  {{music.album}}  {{music.cover}}  {{music.position}}  {{music.duration}}  {{music.remaining}}  {{music.percent}}
+{{stream.title}}  {{stream.category}}  {{overlay.name}}
+{{plan.now}}  {{plan.scheduled}}  {{plan.backlog}}  {{plan.list.<list-id>}}
 ```
+
+`{{music.cover}}` and `{{game.cover}}` are image URLs: put them in an Image element's source URL (use **Insert placeholder…** under the field). `{{music.percent}}` (0–100) drives a Progress element, and `music.position`, `music.remaining` and `music.percent` tick every second between player polls. Clock, timer, goal, latest-event and IGDB game placeholders are listed in the picker.
+
+### Game list element
+
+The **Game list** element shows games from the Game Plan (`/game-plan-editor.html`). Choose Scheduled, Backlog, Played, any custom list, or everything; optionally filter by period; and pick a cover grid, cover strip or text list. **Cover fit** can crop, letterbox or keep natural proportions, and **Shrink everything to fit** scales the list down so it is never clipped. The game matching your current Twitch category gets a *Now playing* badge.
 
 Shapes support rectangle, circle, pill, and line variants. Text supports a curated font-family picker, size, weight, color, horizontal alignment, vertical alignment, line height, letter spacing, background, border, and opacity. Multiple elements can be selected with Ctrl/Cmd or Shift and aligned or moved as a group.
 

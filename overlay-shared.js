@@ -7,7 +7,7 @@
         { label: 'Chat', items: [['chatters', 'Chatters'], ['messages', 'Messages'], ['followers', 'Followers (current total)'], ['followers.session', 'New followers this session'], ['subscribers', 'Subscribers (current total)'], ['subscribers.session', 'Subscribers seen this session']] },
         { label: 'Engagement', items: [['gift_subs', 'Gift subs this session'], ['gift_subs.total', 'Gift subs (lifetime)'], ['bits', 'Bits this session'], ['bits.total', 'Bits (lifetime)'], ['donations', 'Donations this session'], ['donations.total', 'Donations (lifetime)']] },
         { label: 'Hashtags', items: [['hashtags.top', 'Most popular hashtag overall'], ['hashtags.session_top', 'Most popular hashtag this session'], ['hashtags.total', 'Total hashtag mentions']] },
-        { label: 'Stream', items: [['music.title', 'Music title'], ['music.artist', 'Music artist'], ['stream.title', 'Stream title'], ['stream.category', 'Stream category (from Twitch)'], ['category.session_time', 'Time in this category, this session'], ['category.total_time', 'Time in this category, all sessions'], ['category.total_hours', 'Hours in this category, all sessions'], ['overlay.name', 'Overlay name']] }
+        { label: 'Stream', items: [['music.title', 'Music title'], ['music.artist', 'Music artist'], ['music.album', 'Music album'], ['music.cover', 'Album art URL (use as an image source)'], ['music.position', 'Track position (m:ss)'], ['music.duration', 'Track length (m:ss)'], ['music.remaining', 'Track time remaining (m:ss)'], ['music.percent', 'Track progress % (for a progress element)'], ['stream.title', 'Stream title'], ['stream.category', 'Stream category (from Twitch)'], ['category.session_time', 'Time in this category, this session'], ['category.total_time', 'Time in this category, all sessions'], ['category.total_hours', 'Hours in this category, all sessions'], ['overlay.name', 'Overlay name']] }
     ];
 
     const CLOCK_ITEMS = [['time', 'Time (e.g. 3:07 PM)'], ['time.24', 'Time, 24-hour'], ['time.seconds', 'Time with seconds'], ['date', 'Date (short)'], ['date.long', 'Date (long)'], ['weekday', 'Weekday'], ['month', 'Month'], ['year', 'Year'], ['uptime', 'Stream uptime (H:MM:SS)']];
@@ -15,9 +15,9 @@
     const PLAN_ITEMS = [['plan.now', 'Game from your plan you are playing now'], ['plan.scheduled', 'Scheduled games (comma list)'], ['plan.backlog', 'Backlog games (comma list)']];
     const EVENT_ITEMS = [['latest.follower', 'Latest follower'], ['latest.subscriber', 'Latest subscriber'], ['latest.gifter', 'Latest gift sub gifter'], ['latest.cheer', 'Latest cheerer'], ['latest.cheer.amount', 'Latest cheer amount'], ['latest.donation', 'Latest donor'], ['latest.donation.amount', 'Latest donation amount'], ['latest.raider', 'Latest raider'], ['latest.raider.viewers', 'Latest raid size'], ['chatter.top', 'Top chatter this session'], ['chatter.top.count', 'Top chatter message count']];
     // Values that change every second are refreshed in place instead of re-rendering the overlay.
-    const TICKING = /^(time|date|weekday|month|year|uptime|timer\.)/;
+    const TICKING = /^(time|date|weekday|month|year|uptime|timer\.|music\.(position|remaining|percent)$)/;
     const isTicking = name => TICKING.test(name);
-    const hasTicking = value => /\{\{\s*(time|date|weekday|month|year|uptime|timer\.)/.test(String(value ?? ''));
+    const hasTicking = value => /\{\{\s*(time|date|weekday|month|year|uptime|timer\.|music\.(position|remaining|percent))/.test(String(value ?? ''));
 
     function formatMinutes(minutes) {
         const m = Math.max(0, Math.round(minutes || 0));
@@ -52,6 +52,32 @@
             out[`timer.${id}.state`] = timer.state;
             out[`timer.${id}.percent`] = percent;
         }
+        return out;
+    }
+
+    // The server polls the player every few seconds, so position is advanced locally between refreshes.
+    function musicValues(status, now) {
+        const music = status.music;
+        if (!music) return {};
+        const duration = Number(music.duration) || 0;
+        let position = Number(music.position) || 0;
+        if (music.state === 'playing') position += (Number(music.positionAgeMs) || 0) / 1000 + Math.max(0, now - (status.musicFetchedAt || now)) / 1000;
+        if (duration > 0) position = Math.min(position, duration);
+        const hasTrack = !!music.track;
+        const mmss = seconds => `${Math.floor(seconds / 60)}:${pad(Math.floor(seconds % 60))}`;
+        return {
+            'music.album': music.album,
+            'music.cover': music.artworkUrl,
+            'music.position': hasTrack ? mmss(position) : '',
+            'music.duration': hasTrack && duration ? mmss(duration) : '',
+            'music.remaining': hasTrack && duration ? mmss(Math.max(0, duration - position)) : '',
+            'music.percent': hasTrack && duration ? Math.round(position / duration * 100) : ''
+        };
+    }
+
+    function planListValues(status) {
+        const out = {};
+        for (const list of status.gamePlan?.lists || []) out[`plan.list.${list.id}`] = (status.gamePlan.items || []).filter(item => item.status === list.id).map(item => item.name).join(', ');
         return out;
     }
 
@@ -103,7 +129,7 @@
         const groups = VARIABLE_GROUPS.map(g => ({ label: g.label, items: g.items.slice() }));
         groups.push({ label: 'Clock', items: CLOCK_ITEMS });
         groups.push({ label: 'Game (IGDB)', items: GAME_ITEMS });
-        groups.push({ label: 'Game plan', items: PLAN_ITEMS });
+        groups.push({ label: 'Game plan', items: [...PLAN_ITEMS, ...(status.gamePlan?.lists || []).map(list => [`plan.list.${list.id}`, `${list.name} list (comma list)`])] });
         groups.push({ label: 'Latest events', items: EVENT_ITEMS });
         for (const [id, timer] of Object.entries(status.timerData?.timers || {})) {
             const items = [[`timer.${id}`, `${timer.label} — clock`], [`timer.${id}.label`, `${timer.label} — title`], [`timer.${id}.state`, `${timer.label} — state`]];
@@ -122,6 +148,8 @@
             ...eventValues(status),
             ...goalValues(status),
             ...timerValues(status, now),
+            ...musicValues(status, now),
+            ...planListValues(status),
             'stream.category': status.stream?.category?.name,
             'game.cover': status.stream?.game?.cover,
             'game.release_date': status.stream?.game?.releaseDate,
@@ -229,6 +257,7 @@
                 fetch('/api/game-plan', { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
             ]);
             if (plan) status.gamePlan = plan;
+            status.musicFetchedAt = Date.now();
             if (timers) status.timerData = { fetchedAt: Date.now(), timers: timers.timers || {} };
             if (goals) status.goalItems = goals.items || [];
         } catch { /* extras are optional */ }
