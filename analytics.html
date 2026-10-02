@@ -6,171 +6,291 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse — Analytics</title>
     <style>
-        * { box-sizing: border-box; } body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; }
-        .header { padding: 1rem 2rem; background: #161b22; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; gap: 1rem; } h1 { font-size: 1.3rem; } h1 span { color: #58a6ff; }
-        .container { max-width: 1600px; margin: auto; padding: 1.5rem .75rem; display: grid; gap: 1rem; } .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.1rem; } h2 { margin: 0 0 1rem; font-size: .85rem; text-transform: uppercase; color: #8b949e; }
-        .filters, .cards { display: flex; gap: .7rem; flex-wrap: wrap; align-items: end; } label { display: block; color: #8b949e; font-size: .75rem; margin-bottom: .25rem; } input, button { padding: .5rem .65rem; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #e1e4e8; } button { cursor: pointer; background: #21262d; } button:hover, button.active { border-color: #58a6ff; color: #58a6ff; }
-        .stat { flex: 1 1 130px; text-align: center; background: #0d1117; border: 1px solid transparent; border-radius: 6px; padding: .7rem; cursor: pointer; } .stat.active { border-color: #58a6ff; background: #1a2332; } .stat strong { display: block; color: #58a6ff; font-size: 1.4rem; } .stat span { color: #8b949e; font-size: .7rem; }
-        .table-wrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; } th, td { padding: .6rem; border-bottom: 1px solid #21262d; text-align: left; font-size: .8rem; white-space: nowrap; } th { color: #8b949e; font-size: .7rem; text-transform: uppercase; cursor: pointer; user-select: none; } th.sort-active { color: #58a6ff; } a { color: #58a6ff; }
-        #sessions-table th, #sessions-table td { white-space: normal; vertical-align: top; overflow-wrap: anywhere; }
-        #sessions-table th:nth-child(1), #sessions-table td:nth-child(1) { min-width: 8rem; }
-        #sessions-table th:nth-child(2), #sessions-table td:nth-child(2) { min-width: 12rem; max-width: 18rem; }
-        #sessions-table th:nth-child(3), #sessions-table td:nth-child(3),
-        #sessions-table th:nth-child(4), #sessions-table td:nth-child(4) { min-width: 9rem; }
-        #sessions-table th:nth-child(5), #sessions-table td:nth-child(5) { min-width: 5rem; }
-        #sessions-table th:nth-child(6), #sessions-table td:nth-child(6) { min-width: 12rem; max-width: 20rem; }
-        #sessions-table th:nth-child(5), #sessions-table td:nth-child(5),
-        #sessions-table th:nth-child(7), #sessions-table td:nth-child(7),
-        #sessions-table th:nth-child(8), #sessions-table td:nth-child(8),
-        #sessions-table th:nth-child(9), #sessions-table td:nth-child(9),
-        #sessions-table th:nth-child(10), #sessions-table td:nth-child(10),
-        #sessions-table th:nth-child(11), #sessions-table td:nth-child(11),
-        #sessions-table th:nth-child(12), #sessions-table td:nth-child(12),
-        #sessions-table th:nth-child(13), #sessions-table td:nth-child(13),
-        #sessions-table th:nth-child(14), #sessions-table td:nth-child(14),
-        #sessions-table th:nth-child(15), #sessions-table td:nth-child(15) {
-            white-space: nowrap;
-            overflow-wrap: normal;
-        }
-        #sessions-table th:nth-child(7), #sessions-table td:nth-child(7),
-        #sessions-table th:nth-child(8), #sessions-table td:nth-child(8) { min-width: 5rem; }
-        #sessions-table th, #sessions-table td { padding: .4rem; font-size: .7rem; }
-        #sessions-table th { font-size: .62rem; }
-        #sessions-table th:nth-child(7), #sessions-table td:nth-child(7),
-        #sessions-table th:nth-child(8), #sessions-table td:nth-child(8),
-        #sessions-table th:nth-child(9), #sessions-table td:nth-child(9),
-        #sessions-table th:nth-child(10), #sessions-table td:nth-child(10),
-        #sessions-table th:nth-child(11), #sessions-table td:nth-child(11),
-        #sessions-table th:nth-child(12), #sessions-table td:nth-child(12),
-        #sessions-table th:nth-child(13), #sessions-table td:nth-child(13),
-        #sessions-table th:nth-child(14), #sessions-table td:nth-child(14),
-        #sessions-table th:nth-child(15), #sessions-table td:nth-child(15) {
-            min-width: 3.5rem;
-            max-width: 5rem;
-            text-align: center;
-        }
-        #sessions-table { table-layout: fixed; min-width: 0; }
-        #sessions-table th, #sessions-table td { min-width: 0; }
-        #sessions-table th:nth-child(1), #sessions-table td:nth-child(1) { width: 10%; }
-        #sessions-table th:nth-child(2), #sessions-table td:nth-child(2) { width: 13%; }
-        #sessions-table th:nth-child(3), #sessions-table td:nth-child(3),
-        #sessions-table th:nth-child(4), #sessions-table td:nth-child(4) { width: 9%; }
-        #sessions-table th:nth-child(5), #sessions-table td:nth-child(5) { width: 7%; }
-        #sessions-table th:nth-child(6), #sessions-table td:nth-child(6) { width: 15%; }
-        #sessions-table th:nth-child(n+7), #sessions-table td:nth-child(n+7) { width: 4.11%; }
-        #sessions-table th:nth-child(n+7) { white-space: normal; overflow-wrap: normal; word-break: normal; line-height: 1.15; }
-        .chart { width: 100%; height: 260px; background: #0d1117; border-radius: 6px; } svg { width: 100%; height: 100%; } .muted { color: #8b949e; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; font-size: 14px; }
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem 1.2rem; }
+        .card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.8rem; }
+        h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: #8b949e; font-weight: 600; }
+        .muted { color: #8b949e; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 0.7rem 1rem; align-items: end; }
+        .field label { display: block; color: #8b949e; font-size: 0.72rem; margin-bottom: 0.25rem; }
+        input, select, button { font: inherit; padding: 0.45rem 0.65rem; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #e1e4e8; }
+        input:focus, select:focus, button:focus-visible { outline: none; border-color: #58a6ff; }
+        input[type=date] { color-scheme: dark; }
+        button { cursor: pointer; background: #21262d; font-size: 0.82rem; }
+        button:hover { border-color: #58a6ff; }
+        .seg { display: inline-flex; }
+        .seg button { border-radius: 0; margin-left: -1px; }
+        .seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+        .seg button:last-child { border-radius: 0 6px 6px 0; }
+        .seg button.active { background: #1a2332; border-color: #58a6ff; color: #58a6ff; position: relative; z-index: 1; }
+        .spacer { flex: 1; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.6rem; }
+        .stat { text-align: center; background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 0.7rem 0.4rem; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+        .stat:hover { border-color: #3d4651; }
+        .stat.active { border-color: #58a6ff; background: #1a2332; }
+        .stat strong { display: block; color: #58a6ff; font-size: 1.4rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+        .stat span { color: #8b949e; font-size: 0.72rem; }
+        .chart-wrap { position: relative; }
+        .chart { width: 100%; height: 280px; background: #0d1117; border-radius: 8px; border: 1px solid #21262d; }
+        .chart svg { width: 100%; height: 100%; display: block; }
+        .chart .tick { font-size: 11px; }
+        .chart text { fill: #8b949e; font-size: 11px; }
+        .chart .grid { stroke: #21262d; stroke-width: 1; }
+        .chart .hit { cursor: pointer; fill: transparent; }
+        .chart .hit:hover + .dot, .chart .hit:hover ~ .dot { }
+        .chart .bar { fill: #1f6feb; opacity: 0.85; }
+        .chart .hot .bar { fill: #58a6ff; opacity: 1; }
+        .chart .dot { fill: #58a6ff; stroke: #0d1117; stroke-width: 2; }
+        .tip { position: absolute; pointer-events: none; background: #21262d; border: 1px solid #3d4651; border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.76rem; line-height: 1.45; white-space: nowrap; opacity: 0; transform: translate(-50%, -100%); transition: opacity 0.1s; z-index: 5; }
+        .tip.show { opacity: 1; }
+        .tip b { color: #58a6ff; }
+        .empty { color: #8b949e; text-align: center; padding: 2.5rem 1rem; }
+        .table-wrap { overflow: auto; max-height: 560px; border: 1px solid #21262d; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 0.55rem 0.7rem; border-bottom: 1px solid #21262d; text-align: left; font-size: 0.8rem; white-space: nowrap; }
+        th { position: sticky; top: 0; background: #161b22; z-index: 2; color: #8b949e; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; cursor: pointer; user-select: none; box-shadow: 0 1px 0 #30363d; }
+        th:hover { color: #e1e4e8; }
+        th.sort-active { color: #58a6ff; }
+        th.sort-active::after { content: ' ▼'; font-size: 0.6rem; }
+        th.sort-active.asc::after { content: ' ▲'; }
+        tbody tr:hover { background: #1b222c; }
+        td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+        td.wrap { white-space: normal; min-width: 9rem; max-width: 13rem; }
+        #sessions-table th, #sessions-table td { padding: 0.5rem 0.4rem; font-size: 0.74rem; }
+        td .sub { display: block; color: #8b949e; font-size: 0.72rem; margin-top: 0.1rem; white-space: normal; }
+        td.zero { color: #4b5563; }
+        a { color: #58a6ff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .badge { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 999px; border: 1px solid #30363d; font-size: 0.72rem; color: #8b949e; }
+        .badge.t2, .badge.t3 { border-color: #58a6ff; color: #58a6ff; }
+        .badge.live { border-color: #3fb950; color: #3fb950; }
+        .note { margin-top: 0.7rem; font-size: 0.78rem; }
+        @media (max-width: 800px) { .container { padding: 1rem; } .header { padding: 1rem; flex-wrap: wrap; } }
     </style>
 </head>
 <body>
     <div class="header"><h1>StreamPulse <span>Analytics</span></h1><div id="main-nav" class="nav"></div><script src="/nav.js"></script></div>
     <main class="container">
-        <section class="card"><h2>Review Range</h2><div class="filters"><div><label for="from">From</label><input id="from" type="date"></div><div><label for="to">To</label><input id="to" type="date"></div><button class="range-preset active" data-days="30" onclick="setRange(30)">Last 30 days</button><button class="range-preset" data-days="60" onclick="setRange(60)">Last 60 days</button><button class="range-preset" data-days="90" onclick="setRange(90)">Last 90 days</button><button class="range-preset" data-days="all" onclick="setRange('all')">All time</button><button onclick="load()">Apply</button><button onclick="exportCsv()">Export CSV</button><span id="status" class="muted"></span></div></section>
-        <section class="card"><h2>Summary</h2><div class="cards" id="summary"></div></section>
-        <section class="card"><h2 id="activity-title">Messages by Session</h2><div id="chart" class="chart"></div><div class="table-wrap"><table id="sessions-table"><thead><tr><th data-sort="date" onclick="setSessionSort('date')">Date</th><th data-sort="title" onclick="setSessionSort('title')">Stream</th><th data-sort="streamStartAt" onclick="setSessionSort('streamStartAt')">Start</th><th data-sort="streamStopAt" onclick="setSessionSort('streamStopAt')">Stop</th><th data-sort="durationMinutes" onclick="setSessionSort('durationMinutes')">Duration</th><th data-sort="categorySummary" onclick="setSessionSort('categorySummary')">Categories</th><th data-sort="messages" onclick="setSessionSort('messages')">Messages</th><th data-sort="chatters" onclick="setSessionSort('chatters')">Chatters</th><th data-sort="subscribers" onclick="setSessionSort('subscribers')">Subs</th><th data-sort="followers" onclick="setSessionSort('followers')">Followers</th><th data-sort="bits" onclick="setSessionSort('bits')">Bits</th><th data-sort="donations" onclick="setSessionSort('donations')">Donations</th><th data-sort="raids" onclick="setSessionSort('raids')">Raids</th><th data-sort="peakViewers" onclick="setSessionSort('peakViewers')">Peak Viewers</th><th data-sort="averageViewers" onclick="setSessionSort('averageViewers')">Avg Viewers</th></tr></thead><tbody id="sessions"></tbody></table></div></section>
-        <section class="card"><h2>Current Subscribers & Observed Duration</h2><div class="table-wrap"><table id="subscribers-table"><thead><tr><th data-sort="name" onclick="setSubscriberSort('name')">Subscriber</th><th data-sort="tier" onclick="setSubscriberSort('tier')">Tier</th><th data-sort="plan" onclick="setSubscriberSort('plan')">Plan</th><th data-sort="firstSeen" onclick="setSubscriberSort('firstSeen')">First Observed</th><th data-sort="lastSeen" onclick="setSubscriberSort('lastSeen')">Last Observed</th><th data-sort="observedDays" onclick="setSubscriberSort('observedDays')">Observed Duration</th></tr></thead><tbody id="subs"></tbody></table></div><p class="muted">Duration is based on when StreamPulse first observed the subscriber, not authoritative Twitch tenure.</p></section>
+        <section class="card">
+            <div class="toolbar">
+                <div class="seg" id="presets" role="group" aria-label="Quick ranges">
+                    <button data-days="30">30 days</button><button data-days="60">60 days</button><button data-days="90">90 days</button><button data-days="all">All time</button>
+                </div>
+                <div class="field"><label for="from">From</label><input id="from" type="date"></div>
+                <div class="field"><label for="to">To</label><input id="to" type="date"></div>
+                <button id="apply">Apply</button>
+                <span class="spacer"></span>
+                <span id="status" class="muted"></span>
+                <button id="export">Export CSV</button>
+            </div>
+        </section>
+
+        <section class="card"><div class="card-head"><h2>Summary</h2><span class="muted">Click a card to chart it</span></div><div class="stats" id="summary"></div></section>
+
+        <section class="card">
+            <div class="card-head">
+                <h2 id="activity-title">Messages by Session</h2>
+                <div class="seg" id="chart-type" role="group" aria-label="Chart type"><button data-type="bar" class="active">Bars</button><button data-type="line">Line</button></div>
+            </div>
+            <div class="chart-wrap"><div id="chart" class="chart"></div><div id="tip" class="tip"></div></div>
+        </section>
+
+        <section class="card">
+            <div class="card-head"><h2>Sessions</h2><span class="muted" id="sessions-count"></span></div>
+            <div class="table-wrap"><table id="sessions-table"><thead><tr id="session-head"></tr></thead><tbody id="sessions"></tbody></table></div>
+        </section>
+
+        <section class="card">
+            <div class="card-head"><h2>Current Subscribers &amp; Observed Duration</h2><input id="sub-search" type="search" placeholder="Filter subscribers…" aria-label="Filter subscribers"></div>
+            <div class="table-wrap"><table id="subscribers-table"><thead><tr id="sub-head"></tr></thead><tbody id="subs"></tbody></table></div>
+            <p class="muted note">Duration is based on when StreamPulse first observed the subscriber, not authoritative Twitch tenure.</p>
+        </section>
     </main>
 <script>
-let report = null;
-let selectedMetric = 'messages';
-let sessionSortKey = 'date';
-let sessionSortDirection = 'desc';
-let subscriberRows = [];
-let subscriberSortKey = 'name';
-let subscriberSortDirection = 'asc';
+const $ = id => document.getElementById(id);
 const fmt = n => Number(n || 0).toLocaleString();
-const esc = s => { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; };
-function compareRows(a, b, key, dateKey = false) {
-    if (dateKey) return new Date(a[key] || 0).getTime() - new Date(b[key] || 0).getTime();
-    const av = a[key] ?? '';
-    const bv = b[key] ?? '';
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const METRICS = [['durationMinutes', 'Stream Minutes'], ['messages', 'Messages'], ['chatters', 'Chatters'], ['subscribers', 'Subs'], ['giftSubs', 'Gift Subs'], ['followers', 'Followers'], ['bits', 'Bits'], ['donations', 'Donations'], ['raids', 'Raids'], ['peakViewers', 'Peak Viewers'], ['averageViewers', 'Avg Viewers'], ['emotes', 'Emotes'], ['hashtags', 'Hashtags']];
+const LABELS = Object.fromEntries(METRICS);
+const SESSION_COLS = [
+    ['date', 'Date'], ['title', 'Stream'], ['streamStartAt', 'Start'], ['streamStopAt', 'Stop'], ['durationMinutes', 'Duration', 1], ['categorySummary', 'Categories'],
+    ['messages', 'Msgs', 1], ['chatters', 'Chatters', 1], ['subscribers', 'Subs', 1], ['followers', 'Follows', 1], ['bits', 'Bits', 1], ['donations', 'Donations', 1], ['raids', 'Raids', 1], ['peakViewers', 'Peak', 1], ['averageViewers', 'Avg', 1]
+];
+const SUB_COLS = [['name', 'Subscriber'], ['tier', 'Tier'], ['plan', 'Plan'], ['firstSeen', 'First observed'], ['lastSeen', 'Last observed'], ['observedDays', 'Observed duration', 1]];
+const prefs = Object.assign({ metric: 'messages', chart: 'bar', days: '30' }, JSON.parse(localStorage.getItem('analyticsPrefs') || '{}'));
+const savePrefs = () => localStorage.setItem('analyticsPrefs', JSON.stringify(prefs));
+let report = null, subscriberRows = [];
+const sort = { sessions: { key: 'date', dir: 'desc' }, subs: { key: 'name', dir: 'asc' } };
+
+function compareRows(a, b, key, isDate) {
+    if (isDate) return new Date(a[key] || 0).getTime() - new Date(b[key] || 0).getTime();
+    const av = a[key] ?? '', bv = b[key] ?? '';
     if (typeof av === 'number' || typeof bv === 'number') return Number(av || 0) - Number(bv || 0);
     return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
 }
-function sortedRows(rows, key, direction, dateKey = false) {
-    return [...rows].sort((a, b) => {
-        const result = compareRows(a, b, key, dateKey);
-        return direction === 'asc' ? result : -result;
-    });
+const DATE_KEYS = new Set(['date', 'streamStartAt', 'streamStopAt', 'firstSeen', 'lastSeen']);
+function sorted(rows, { key, dir }) {
+    return [...rows].sort((a, b) => (dir === 'asc' ? 1 : -1) * compareRows(a, b, key, DATE_KEYS.has(key)));
 }
-function updateSortHeaders(selector, key) {
-    document.querySelectorAll(selector).forEach(th => th.classList.toggle('sort-active', th.dataset.sort === key));
+function renderHead(rowId, cols, state, onSort) {
+    const row = $(rowId);
+    row.innerHTML = cols.map(([key, label, num]) => `<th data-sort="${key}" class="${num ? 'num ' : ''}${state.key === key ? 'sort-active' + (state.dir === 'asc' ? ' asc' : '') : ''}">${label}</th>`).join('');
+    row.querySelectorAll('th').forEach(th => th.addEventListener('click', () => onSort(th.dataset.sort)));
 }
-function query() { const p = new URLSearchParams(); if (from.value) p.set('from', from.value); if (to.value) p.set('to', to.value); return p; }
-function localDate(date = new Date()) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+function toggleSort(state, key, textKeys) {
+    if (state.key === key) state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+    else { state.key = key; state.dir = textKeys.includes(key) ? 'asc' : 'desc'; }
 }
+
+const localDate = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 function setRange(days) {
+    prefs.days = String(days); savePrefs();
     const today = new Date();
-    to.value = localDate(today);
-    if (days === 'all') {
-        from.value = '';
-    } else {
-        const start = new Date(today);
-        start.setDate(start.getDate() - Number(days) + 1);
-        from.value = localDate(start);
-    }
-    document.querySelectorAll('.range-preset').forEach(button => {
-        button.classList.toggle('active', button.dataset.days === String(days));
-    });
+    $('to').value = localDate(today);
+    if (days === 'all') $('from').value = '';
+    else { const start = new Date(today); start.setDate(start.getDate() - Number(days) + 1); $('from').value = localDate(start); }
+    markPreset(String(days));
     load();
 }
+function markPreset(days) { document.querySelectorAll('#presets button').forEach(b => b.classList.toggle('active', b.dataset.days === days)); }
+
 async function load() {
-    const p = query(); report = await (await fetch('/api/analytics?' + p)).json();
-    status.textContent = `${report.sessions.length} sessions`; const t = report.totals;
-    summary.innerHTML = [['durationMinutes','Stream Minutes'],['messages','Messages'],['chatters','Chatters'],['subscribers','Subs'],['giftSubs','Gift Subs'],['followers','Followers'],['bits','Bits'],['donations','Donations'],['raids','Raids'],['peakViewers','Peak Viewers'],['averageViewers','Avg Viewers'],['emotes','Emotes'],['hashtags','Hashtags']].map(([k,l]) => `<div class="stat${selectedMetric === k ? ' active' : ''}" onclick="selectMetric('${k}')"><strong>${fmt(t[k])}</strong><span>${l}</span></div>`).join('');
-    renderSessions();
-    draw(report.sessions);
-    const subData = await (await fetch('/api/subscribers/current')).json();
-    subscriberRows = subData.subscribers || [];
-    renderSubscribers();
+    $('status').textContent = 'Loading…';
+    const params = new URLSearchParams();
+    if ($('from').value) params.set('from', $('from').value);
+    if ($('to').value) params.set('to', $('to').value);
+    try {
+        report = await (await fetch('/api/analytics?' + params)).json();
+        const subData = await (await fetch('/api/subscribers/current')).json();
+        subscriberRows = subData.subscribers || [];
+    } catch {
+        $('status').textContent = 'Could not load analytics. Is the server running?';
+        return;
+    }
+    $('status').textContent = `${report.sessions.length} session${report.sessions.length === 1 ? '' : 's'}`;
+    renderSummary(); renderSessions(); drawChart(); renderSubscribers();
 }
+
+function renderSummary() {
+    const totals = report.totals || {};
+    $('summary').innerHTML = METRICS.map(([key, label]) => `<div class="stat${prefs.metric === key ? ' active' : ''}" data-metric="${key}" tabindex="0" role="button"><strong>${fmt(totals[key])}</strong><span>${label}</span></div>`).join('');
+}
+$('summary').addEventListener('click', event => {
+    const card = event.target.closest('[data-metric]');
+    if (!card) return;
+    prefs.metric = card.dataset.metric; savePrefs();
+    renderSummary(); drawChart();
+});
+$('summary').addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.target.click(); } });
+
+const num = (value, suffix = '') => `<td class="num${value ? '' : ' zero'}">${fmt(value)}${value ? suffix : ''}</td>`;
 function renderSessions() {
-    updateSortHeaders('#sessions-table th[data-sort]', sessionSortKey);
-    const rows = sortedRows(report?.sessions || [], sessionSortKey, sessionSortDirection, sessionSortKey === 'date');
-    sessions.innerHTML = rows.map(r => `<tr><td>${esc(formatDateTime(r.date))}</td><td><a href="/sessions.html?session=${encodeURIComponent(r.file)}">${esc(r.title || (r.file === '__current__' ? 'Current Session' : r.file))}</a></td><td>${esc(formatDateTime(r.streamStartAt))}</td><td>${esc(formatDateTime(r.streamStopAt) || (r.file === '__current__' && r.streamStartAt ? 'In progress' : 'Not recorded'))}</td><td>${r.durationMinutes === null ? '—' : `${fmt(r.durationMinutes)} min`}</td><td title="${esc(r.categorySummary)}">${esc(r.categorySummary || '—')}</td><td>${fmt(r.messages)}</td><td title="${esc(r.chatterNames)}">${fmt(r.chatters)}</td><td>${fmt(r.subscribers)}</td><td>${fmt(r.followers)}</td><td>${fmt(r.bits)}</td><td>${fmt(r.donations)}</td><td>${fmt(r.raids)}</td><td>${fmt(r.peakViewers)}</td><td>${fmt(r.averageViewers)}</td></tr>`).join('') || '<tr><td colspan="15" class="muted">No sessions in range</td></tr>';
+    renderHead('session-head', SESSION_COLS, sort.sessions, key => { toggleSort(sort.sessions, key, ['title', 'categorySummary']); renderSessions(); });
+    const rows = sorted(report.sessions || [], sort.sessions);
+    $('sessions-count').textContent = rows.length ? `${rows.length} in range` : '';
+    $('sessions').innerHTML = rows.map(r => {
+        const live = r.file === '__current__';
+        const stop = formatDateTime(r.streamStopAt) || (live && r.streamStartAt ? 'In progress' : 'Not recorded');
+        return `<tr>
+            <td>${esc(formatDateTime(r.date))}</td>
+            <td class="wrap"><a href="/sessions.html?session=${encodeURIComponent(r.file)}">${esc(r.title || (live ? 'Current Session' : r.file))}</a>${live ? ' <span class="badge live">live</span>' : ''}</td>
+            <td>${esc(formatDateTime(r.streamStartAt) || '—')}</td>
+            <td>${live && !r.streamStopAt && r.streamStartAt ? '<span class="badge live">In progress</span>' : esc(stop)}</td>
+            <td class="num">${r.durationMinutes === null || r.durationMinutes === undefined ? '—' : `${fmt(r.durationMinutes)} min`}</td>
+            <td class="wrap" title="${esc(r.categorySummary)}">${esc(r.categorySummary || '—')}</td>
+            ${num(r.messages)}<td class="num${r.chatters ? '' : ' zero'}" title="${esc(r.chatterNames)}">${fmt(r.chatters)}</td>${num(r.subscribers)}${num(r.followers)}${num(r.bits)}${num(r.donations)}${num(r.raids)}${num(r.peakViewers)}${num(r.averageViewers)}
+        </tr>`;
+    }).join('') || `<tr><td colspan="${SESSION_COLS.length}" class="empty">No sessions in this range.</td></tr>`;
 }
+
 function renderSubscribers() {
-    updateSortHeaders('#subscribers-table th[data-sort]', subscriberSortKey);
-    const rows = sortedRows(subscriberRows, subscriberSortKey, subscriberSortDirection, subscriberSortKey === 'firstSeen' || subscriberSortKey === 'lastSeen');
-    subs.innerHTML = rows.map(s => `<tr><td>${esc(s.name)}</td><td>${esc(s.tier)}</td><td>${esc(s.plan)}</td><td>${s.firstSeen ? new Date(s.firstSeen).toLocaleDateString() : '—'}</td><td>${s.lastSeen ? new Date(s.lastSeen).toLocaleDateString() : '—'}</td><td>${s.observedDays ? `${fmt(s.observedDays)} days` : 'Not observed in history'}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">No current subscribers found</td></tr>';
+    renderHead('sub-head', SUB_COLS, sort.subs, key => { toggleSort(sort.subs, key, ['name', 'tier', 'plan']); renderSubscribers(); });
+    const q = $('sub-search').value.trim().toLowerCase();
+    const rows = sorted(subscriberRows, sort.subs).filter(s => !q || `${s.name} ${s.plan} ${s.tier}`.toLowerCase().includes(q));
+    const date = value => value ? new Date(value).toLocaleDateString() : '—';
+    $('subs').innerHTML = rows.map(s => `<tr><td>${esc(s.name)}</td><td><span class="badge t${esc(String(s.tier).charAt(0))}">${esc(tierLabel(s.tier))}</span></td><td>${esc(s.plan)}</td><td>${date(s.firstSeen)}</td><td>${date(s.lastSeen)}</td><td class="num${s.observedDays ? '' : ' zero'}">${s.observedDays ? `${fmt(s.observedDays)} days` : 'Not observed'}</td></tr>`).join('')
+        || `<tr><td colspan="6" class="empty">${subscriberRows.length ? 'No subscribers match your filter.' : 'No current subscribers found.'}</td></tr>`;
 }
-function setSessionSort(key) {
-    if (sessionSortKey === key) sessionSortDirection = sessionSortDirection === 'asc' ? 'desc' : 'asc';
-    else { sessionSortKey = key; sessionSortDirection = key === 'title' ? 'asc' : 'desc'; }
-    if (report) renderSessions();
+const tierLabel = tier => ({ 1000: 'Tier 1', 2000: 'Tier 2', 3000: 'Tier 3' })[tier] || (tier ? String(tier) : '—');
+$('sub-search').addEventListener('input', renderSubscribers);
+
+function niceMax(value) {
+    if (value <= 5) return 5;
+    const pow = 10 ** Math.floor(Math.log10(value));
+    const n = value / pow;
+    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * pow;
 }
-function setSubscriberSort(key) {
-    if (subscriberSortKey === key) subscriberSortDirection = subscriberSortDirection === 'asc' ? 'desc' : 'asc';
-    else { subscriberSortKey = key; subscriberSortDirection = ['name', 'tier', 'plan'].includes(key) ? 'asc' : 'desc'; }
-    renderSubscribers();
+function drawChart() {
+    $('activity-title').textContent = `${LABELS[prefs.metric] || 'Activity'} by Session`;
+    document.querySelectorAll('#chart-type button').forEach(b => b.classList.toggle('active', b.dataset.type === prefs.chart));
+    const rows = [...(report.sessions || [])].sort((a, b) => compareRows(a, b, 'date', true));
+    if (!rows.length) { $('chart').innerHTML = '<div class="empty">No activity to chart in this range.</div>'; return; }
+    const W = Math.max(320, Math.round($('chart').clientWidth || 1000)), H = 260, left = 46, right = 14, top = 14, bottom = 28;
+    const values = rows.map(r => Number(r[prefs.metric]) || 0);
+    const max = niceMax(Math.max(...values, 1));
+    const innerW = W - left - right, innerH = H - top - bottom;
+    const step = innerW / rows.length;
+    const cx = i => left + step * (i + 0.5);
+    const cy = v => top + innerH - (v / max) * innerH;
+    const grid = [0, 0.25, 0.5, 0.75, 1].map(f => { const y = top + innerH - f * innerH; return `<line class="grid" x1="${left}" x2="${W - right}" y1="${y}" y2="${y}"/><text x="${left - 6}" y="${y + 4}" text-anchor="end">${fmt(Math.round(max * f * 10) / 10)}</text>`; }).join('');
+    const every = Math.max(1, Math.ceil(rows.length / 10));
+    const xLabels = rows.map((r, i) => i % every ? '' : `<text x="${cx(i)}" y="${H - 8}" text-anchor="middle">${esc(shortDate(r.date))}</text>`).join('');
+    let marks;
+    if (prefs.chart === 'bar') {
+        const bw = Math.min(46, step * 0.62);
+        marks = rows.map((r, i) => `<g data-i="${i}"><rect class="bar" x="${cx(i) - bw / 2}" y="${cy(values[i])}" width="${bw}" height="${Math.max(0, top + innerH - cy(values[i]))}" rx="3"/></g>`).join('');
+    } else {
+        const line = values.map((v, i) => `${cx(i)},${cy(v)}`).join(' ');
+        marks = `<polyline points="${line}" fill="none" stroke="#58a6ff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>` + rows.map((r, i) => `<g data-i="${i}"><circle class="dot" cx="${cx(i)}" cy="${cy(values[i])}" r="5"/></g>`).join('');
+    }
+    const hits = rows.map((r, i) => `<rect class="hit" data-i="${i}" x="${left + step * i}" y="${top}" width="${step}" height="${innerH}"/>`).join('');
+    $('chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(LABELS[prefs.metric])} per session">${grid}${xLabels}${marks}${hits}</svg>`;
+    const tip = $('tip'), wrap = $('chart').parentElement;
+    $('chart').querySelectorAll('.hit').forEach(hit => {
+        const i = Number(hit.dataset.i);
+        hit.addEventListener('mouseenter', () => {
+            const r = rows[i];
+            tip.innerHTML = `<b>${fmt(values[i])}</b> ${esc(LABELS[prefs.metric])}<br>${esc(r.title || shortDate(r.date))}<br><span class="muted">${esc(formatDateTime(r.date))}</span>`;
+            const box = $('chart').getBoundingClientRect(), base = wrap.getBoundingClientRect();
+            tip.style.left = `${box.left - base.left + (cx(i) / W) * box.width}px`;
+            tip.style.top = `${box.top - base.top + (cy(values[i]) / H) * box.height - 8}px`;
+            tip.classList.add('show');
+            $('chart').querySelectorAll('g').forEach(g => g.classList.toggle('hot', Number(g.dataset.i) === i));
+        });
+        hit.addEventListener('mouseleave', () => { tip.classList.remove('show'); $('chart').querySelectorAll('g.hot').forEach(g => g.classList.remove('hot')); });
+        hit.addEventListener('click', () => { window.location.href = `/sessions.html?session=${encodeURIComponent(rows[i].file)}`; });
+    });
 }
-function selectMetric(metric) { selectedMetric = metric; if (report) { load(); } }
-function draw(rows) {
-    if (!rows.length) { chart.innerHTML = '<p class="muted">No activity to chart</p>'; return; }
-    const labels = { durationMinutes: 'Stream Minutes', messages: 'Messages', chatters: 'Chatters', subscribers: 'Subs', giftSubs: 'Gift Subs', followers: 'Followers', bits: 'Bits', donations: 'Donations', raids: 'Raids', peakViewers: 'Peak Viewers', averageViewers: 'Avg Viewers', emotes: 'Emotes', hashtags: 'Hashtags' };
-    document.getElementById('activity-title').textContent = `${labels[selectedMetric] || 'Activity'} by Session`;
-    const w=1000,h=240,max=Math.max(1,...rows.map(r=>Number(r[selectedMetric]) || 0));
-    const points=rows.map((r,i)=>({ x: rows.length===1?500:i/(rows.length-1)*980+10, y:h-20-((Number(r[selectedMetric])||0)/max)*(h-40), file:r.file }));
-    chart.innerHTML=`<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${labels[selectedMetric]} per session">${points.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="8" fill="#58a6ff" data-session="${esc(p.file)}"></circle>`).join('')}<polyline points="${points.map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="#58a6ff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
-    chart.querySelectorAll('circle').forEach(dot => dot.addEventListener('click', () => { window.location.href = `/sessions.html?session=${encodeURIComponent(dot.dataset.session)}`; }));
-}
-function formatDateTime(value) { if (!value) return ''; const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); }
-function csvCell(value) { return `"${String(value ?? '').replaceAll('"', '""')}"`; }
-function exportCsv() {
+let resizeTimer;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => report && drawChart(), 120); });
+$('chart-type').addEventListener('click', event => {
+    const button = event.target.closest('button');
+    if (!button) return;
+    prefs.chart = button.dataset.type; savePrefs();
+    if (report) drawChart();
+});
+
+function shortDate(value) { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString([], { month: 'short', day: 'numeric' }); }
+function formatDateTime(value) { if (!value) return ''; const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+const csvCell = value => `"${String(value ?? '').replaceAll('"', '""')}"`;
+$('export').addEventListener('click', () => {
     if (!report) return;
-    const headers = ['date','streamStartAt','streamStopAt','durationMinutes','title','categorySummary','messages','chatters','chatterNames','emotes','hashtags','subscribers','giftSubs','followers','bits','donations','raids','currentViewers','peakViewers','averageViewers'];
+    const headers = ['date', 'streamStartAt', 'streamStopAt', 'durationMinutes', 'title', 'categorySummary', 'messages', 'chatters', 'chatterNames', 'emotes', 'hashtags', 'subscribers', 'giftSubs', 'followers', 'bits', 'donations', 'raids', 'currentViewers', 'peakViewers', 'averageViewers'];
     const csv = [headers.join(','), ...report.sessions.map(r => headers.map(k => csvCell(r[k])).join(','))].join('\r\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
     a.download = 'streampulse-analytics.csv';
     a.click();
     URL.revokeObjectURL(a.href);
-}
-setRange(30);
+});
+$('presets').addEventListener('click', event => { const b = event.target.closest('button'); if (b) setRange(b.dataset.days); });
+$('apply').addEventListener('click', () => { markPreset(''); load(); });
+setRange(prefs.days);
 </script>
 </body>
 </html>
