@@ -133,6 +133,8 @@ Clip creation in **Clips (Beta)** requires `clips:edit` for live clips. VOD clip
    - `http://localhost:3000/auth/callback`
 3. Note your **Client ID** and **Client Secret**
 
+> **Easiest option:** skip this and leave the `twitch` fields blank. Start StreamPulse, open `http://localhost:3000/twitch-connect.html`, click **Connect with Twitch**, enter the code on twitch.tv and approve. Your Twitch ID and username are filled in automatically.
+
 If StreamPulse is intentionally hosted somewhere other than localhost, set `twitch.redirect_uri` in `config.json` to the exact URL registered in Twitch.
 
 ```json

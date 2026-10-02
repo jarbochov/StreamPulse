@@ -186,9 +186,28 @@
                     details: 'Fetches subscribers, followers, bits, and cheerers from the Twitch API using the stored OAuth token. Returns counts of each data type fetched.'
                 },
                 {
+                    method: 'GET', path: '/api/twitch/auth/status',
+                    desc: 'Twitch connection status',
+                    details: 'Returns connected, auth mode (shared_device or own_app), client ID and granted scopes.'
+                },
+                {
+                    method: 'POST', path: '/api/twitch/auth/device/start',
+                    desc: 'Start device-code sign-in',
+                    details: 'Returns userCode and verificationUri. Open the URI, enter the code, then poll /api/twitch/auth/device/poll until status is authorized.'
+                },
+                {
+                    method: 'GET', path: '/api/twitch/auth/device/poll',
+                    desc: 'Poll device-code sign-in',
+                    details: 'Returns status: idle, pending, authorized, expired or error. Saves the token and fills in broadcaster ID and name on success.'
+                },
+                {
+                    method: 'POST', path: '/api/twitch/auth/disconnect',
+                    desc: 'Remove the stored Twitch token'
+                },
+                {
                     method: 'GET', path: '/auth/twitch',
                     desc: 'Start Twitch OAuth authorization flow',
-                    details: 'Opens the Twitch authorization page. After approval, redirects to /auth/callback which stores the token. Open this in a browser — not suitable for Companion.'
+                    details: 'With no client secret configured this redirects to /twitch-connect.html (device-code sign-in; see /api/twitch/auth/status, /api/twitch/auth/device/start, /api/twitch/auth/device/poll and /api/twitch/auth/disconnect). With your own app it opens the Twitch authorization page. After approval, redirects to /auth/callback which stores the token. Open this in a browser — not suitable for Companion.'
                 }
             ]
         },

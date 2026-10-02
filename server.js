@@ -28,12 +28,15 @@ if (!fs.existsSync(CONFIG_PATH)) {
 
 let config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 const PORT = config.port || 8080;
-const BROADCASTER_ID = config.broadcaster_id;
-const BROADCASTER_NAME = config.broadcaster_name || '';
+const cleanConfigValue = v => { const t = String(v ?? '').trim(); return /^YOUR_/i.test(t) ? '' : t; };
+let BROADCASTER_ID = cleanConfigValue(config.broadcaster_id);
+let BROADCASTER_NAME = cleanConfigValue(config.broadcaster_name);
 let EXCLUDE_USERS = (config.exclude_users || []).map(u => u.toLowerCase());
 let BANNED_USERS = (config.banned_users || []).map(u => u.toLowerCase());
-const TWITCH_CLIENT_ID = config.twitch?.client_id;
-const TWITCH_CLIENT_SECRET = config.twitch?.client_secret;
+// Shared public Twitch app (device-code flow, no secret). Users can still supply their own client_id/client_secret.
+const DEFAULT_TWITCH_CLIENT_ID = 'gbe0673k90le0942bfhw7f7ko6t865';
+const TWITCH_CLIENT_ID = cleanConfigValue(config.twitch?.client_id) || DEFAULT_TWITCH_CLIENT_ID;
+const TWITCH_CLIENT_SECRET = cleanConfigValue(config.twitch?.client_secret);
 const SSN_SESSION_ID = config.ssn?.session_id;
 const SSN_SERVER = config.ssn?.server || 'wss://io.socialstream.ninja';
 const REFRESH_MINUTES = config.twitch_refresh_minutes || 10;
@@ -1831,6 +1834,11 @@ function loadStoredToken() {
             twitchRefreshToken = stored.refresh_token;
             twitchTokenExpiry = stored.expires_at || 0;
             twitchTokenScopes = Array.isArray(stored.scope) ? stored.scope : [];
+            if (stored.client_id && stored.client_id !== TWITCH_CLIENT_ID) {
+                console.warn('[Twitch] Stored token belongs to a different Twitch app — reconnect required');
+                twitchAccessToken = null; twitchRefreshToken = null; twitchTokenExpiry = 0; twitchTokenScopes = [];
+                return false;
+            }
             console.log('[Twitch] Loaded stored token');
             return true;
         }
@@ -1847,7 +1855,8 @@ function saveToken(tokenData) {
         access_token: twitchAccessToken,
         refresh_token: twitchRefreshToken,
         expires_at: twitchTokenExpiry,
-        scope: twitchTokenScopes
+        scope: twitchTokenScopes,
+        client_id: TWITCH_CLIENT_ID
     }));
 }
 
@@ -1885,12 +1894,9 @@ function twitchTokenRequest(body) {
 async function refreshTwitchToken() {
     if (!twitchRefreshToken) return false;
     try {
-        const tokenData = await twitchTokenRequest({
-            client_id: TWITCH_CLIENT_ID,
-            client_secret: TWITCH_CLIENT_SECRET,
-            grant_type: 'refresh_token',
-            refresh_token: twitchRefreshToken
-        });
+        const refreshBody = { client_id: TWITCH_CLIENT_ID, grant_type: 'refresh_token', refresh_token: twitchRefreshToken };
+        if (TWITCH_CLIENT_SECRET) refreshBody.client_secret = TWITCH_CLIENT_SECRET;
+        const tokenData = await twitchTokenRequest(refreshBody);
         saveToken(tokenData);
         console.log('[Twitch] Token refreshed, expires in', Math.round(tokenData.expires_in / 60), 'minutes');
         return true;
@@ -1902,6 +1908,75 @@ async function refreshTwitchToken() {
         try { fs.unlinkSync(TOKEN_PATH); } catch { /* ignore */ }
         return false;
     }
+}
+
+// Device code grant flow (works for public Twitch apps with no client secret)
+let deviceAuth = null;
+
+function twitchFormPost(url, body) {
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body) })
+        .then(async r => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) }));
+}
+
+async function startDeviceAuth() {
+    const r = await twitchFormPost('https://id.twitch.tv/oauth2/device', { client_id: TWITCH_CLIENT_ID, scopes: TWITCH_SCOPES });
+    if (!r.ok || !r.data.device_code) throw new Error(r.data.message || `Twitch device request failed (${r.status})`);
+    deviceAuth = {
+        deviceCode: r.data.device_code,
+        userCode: r.data.user_code,
+        verificationUri: r.data.verification_uri,
+        interval: Math.max(1, r.data.interval || 5),
+        expiresAt: Date.now() + (r.data.expires_in || 1800) * 1000,
+        status: 'pending',
+        error: ''
+    };
+    return deviceAuth;
+}
+
+async function pollDeviceAuth() {
+    if (!deviceAuth) return { status: 'idle' };
+    if (deviceAuth.status !== 'pending') return deviceAuth;
+    if (Date.now() > deviceAuth.expiresAt) { deviceAuth.status = 'expired'; return deviceAuth; }
+    const r = await twitchFormPost('https://id.twitch.tv/oauth2/token', {
+        client_id: TWITCH_CLIENT_ID,
+        scopes: TWITCH_SCOPES,
+        device_code: deviceAuth.deviceCode,
+        grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+    });
+    if (r.ok && r.data.access_token) {
+        saveToken(r.data);
+        deviceAuth.status = 'authorized';
+        await syncBroadcasterFromToken();
+        fetchTwitchData(); fetchStreamInfo(); fetchViewerCount();
+    } else if (/authorization_pending/i.test(r.data.message || '')) {
+        // still waiting for the user to approve
+    } else if (/slow_down/i.test(r.data.message || '')) {
+        deviceAuth.interval += 5;
+    } else {
+        deviceAuth.status = /expired|invalid device/i.test(r.data.message || '') ? 'expired' : 'error';
+        deviceAuth.error = r.data.message || `Twitch error (${r.status})`;
+    }
+    return deviceAuth;
+}
+
+// Fills in broadcaster_id / broadcaster_name from the authorized account when config.json has none
+let broadcasterSyncedFromToken = false;
+async function syncBroadcasterFromToken() {
+    try {
+        const r = await fetch('https://api.twitch.tv/helix/users', { headers: { 'Client-ID': TWITCH_CLIENT_ID, Authorization: `Bearer ${twitchAccessToken}` } });
+        const user = (await r.json()).data?.[0];
+        if (!user) return;
+        if (!BROADCASTER_ID) {
+            const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+            current.broadcaster_id = user.id;
+            if (!cleanConfigValue(current.broadcaster_name)) current.broadcaster_name = user.login;
+            BROADCASTER_ID = user.id;
+            if (!BROADCASTER_NAME) BROADCASTER_NAME = user.login;
+            fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
+            broadcasterSyncedFromToken = true;
+            console.log(`[Twitch] Saved broadcaster ${user.login} (${user.id}) to config.json`);
+        }
+    } catch (err) { console.warn('[Twitch] Could not look up broadcaster:', err.message); }
 }
 
 async function ensureToken() {
@@ -1992,7 +2067,7 @@ async function fetchAllPages(endpoint, params, dataKey = 'data') {
 }
 
 async function fetchTwitchData() {
-    if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET || !BROADCASTER_ID) {
+    if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) {
         console.warn('[Twitch] Missing credentials or broadcaster_id in config.json — skipping Twitch fetch');
         return;
     }
@@ -2042,7 +2117,7 @@ async function fetchViewerCount() {
     if (viewerConfig.source === 'best_available' && Date.now() - lastSSNViewerUpdateAt < ssnFreshnessMs) {
         return;
     }
-    if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET || !BROADCASTER_ID) {
+    if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) {
         console.warn('[Viewers] Missing Twitch credentials or broadcaster_id — viewer tracking unavailable');
         return;
     }
@@ -2109,6 +2184,11 @@ const gameInfoPending = new Map();
 let appTokenCache = { token: '', expiresAt: 0 };
 
 async function getAppToken() {
+    // Public apps have no secret for client-credentials, so use the authorized user token instead
+    if (!TWITCH_CLIENT_SECRET) {
+        if (!(await ensureToken())) throw new Error('Connect Twitch to look up game info');
+        return twitchAccessToken;
+    }
     if (appTokenCache.token && Date.now() < appTokenCache.expiresAt) return appTokenCache.token;
     const body = new URLSearchParams({ client_id: TWITCH_CLIENT_ID, client_secret: TWITCH_CLIENT_SECRET, grant_type: 'client_credentials' });
     const response = await fetch('https://id.twitch.tv/oauth2/token', { method: 'POST', body });
@@ -2161,7 +2241,7 @@ async function fetchGameInfo(name, pinnedIgdbId = '') {
 const infoKey = (name, igdbId) => igdbId ? `igdb:${igdbId}` : String(name || '').toLowerCase();
 
 function refreshGameInfo(name, igdbId = '') {
-    if (!name || !TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET) return Promise.resolve(null);
+    if (!name || !TWITCH_CLIENT_ID) return Promise.resolve(null);
     const key = infoKey(name, igdbId);
     const cached = gameInfoCache[key];
     const maxAge = cached?.failed ? GAME_INFO_RETRY_MS : GAME_INFO_TTL_MS;
@@ -3984,7 +4064,57 @@ const server = http.createServer(async (req, res) => {
     if (checkRateLimit(req, res)) return;
 
     // Auth endpoints
+    if (pathname === '/api/twitch/auth/status' && req.method === 'GET') {
+        await ensureToken();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            connected: !!twitchAccessToken,
+            mode: TWITCH_CLIENT_SECRET ? 'own_app' : 'shared_device',
+            clientId: TWITCH_CLIENT_ID,
+            broadcasterConfigured: !!BROADCASTER_ID,
+            broadcasterSaved: broadcasterSyncedFromToken,
+            scopes: twitchTokenScopes
+        }));
+        return;
+    }
+
+    if (pathname === '/api/twitch/auth/device/start' && req.method === 'POST') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        try {
+            const d = await startDeviceAuth();
+            res.end(JSON.stringify({ userCode: d.userCode, verificationUri: d.verificationUri, interval: d.interval, expiresAt: d.expiresAt }));
+        } catch (err) {
+            res.statusCode = 502;
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if (pathname === '/api/twitch/auth/device/poll' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        try {
+            const d = await pollDeviceAuth();
+            res.end(JSON.stringify({ status: d.status, error: d.error || '', interval: d.interval, broadcasterSaved: broadcasterSyncedFromToken }));
+        } catch (err) {
+            res.end(JSON.stringify({ status: 'pending', error: err.message }));
+        }
+        return;
+    }
+
+    if (pathname === '/api/twitch/auth/disconnect' && req.method === 'POST') {
+        twitchAccessToken = null; twitchRefreshToken = null; twitchTokenExpiry = 0; twitchTokenScopes = [];
+        try { fs.unlinkSync(TOKEN_PATH); } catch { /* none stored */ }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+        return;
+    }
+
     if (pathname === '/auth/twitch') {
+        if (!TWITCH_CLIENT_SECRET) {
+            res.writeHead(302, { Location: '/twitch-connect.html' });
+            res.end();
+            return;
+        }
         const authUrl = `https://id.twitch.tv/oauth2/authorize?` +
             `client_id=${TWITCH_CLIENT_ID}` +
             `&redirect_uri=${encodeURIComponent(TWITCH_REDIRECT_URI)}` +
@@ -4305,7 +4435,8 @@ const server = http.createServer(async (req, res) => {
                 broadcaster_id: config.broadcaster_id || null,
                 ssn_server: config.ssn?.server || null,
                 ssn_session_configured: !!config.ssn?.session_id,
-                twitch_client_configured: !!(config.twitch?.client_id && config.twitch?.client_secret),
+                twitch_client_configured: !!TWITCH_CLIENT_ID,
+                twitch_auth_mode: TWITCH_CLIENT_SECRET ? 'own_app' : 'shared_device',
                 subs_source: config.subs_source || 'twitch',
                 twitch_refresh_minutes: REFRESH_MINUTES
             },
@@ -4591,7 +4722,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         if (segments[1] === 'create' && req.method === 'POST') {
-            if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET || !BROADCASTER_ID) {
+            if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Twitch credentials and broadcaster_id are required.' }));
                 return;
@@ -5388,7 +5519,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/game-search') {
         const query = (new URL(req.url, 'http://localhost').searchParams.get('q') || '').trim().slice(0, 100);
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        if (query.length < 2 || !TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET) { res.end(JSON.stringify({ results: [] })); return; }
+        if (query.length < 2 || !TWITCH_CLIENT_ID) { res.end(JSON.stringify({ results: [] })); return; }
         try {
             const token = await getAppToken();
             const body = `search "${query.replace(/["\\]/g, '')}"; fields name,first_release_date,cover.image_id,platforms.abbreviation,category,version_parent; limit 12;`;

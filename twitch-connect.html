@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Connect Twitch — StreamPulse</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #0d1117; color: #e1e4e8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        main { max-width: 560px; margin: 2.5rem auto; padding: 0 1rem; }
+        h1 { font-size: 1.4rem; margin: 0 0 0.3rem; }
+        p.lead { color: #8b949e; margin: 0 0 1.2rem; line-height: 1.5; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 1.2rem; margin-bottom: 1rem; }
+        .status { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: #6e7681; }
+        .dot.ok { background: #3fb950; } .dot.wait { background: #d29922; } .dot.bad { background: #f85149; }
+        button { background: #9146ff; color: #fff; border: 0; border-radius: 6px; padding: 0.6rem 1.1rem; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+        button:hover { background: #772ce8; }
+        button.secondary { background: #21262d; border: 1px solid #30363d; color: #e1e4e8; }
+        button.secondary:hover { background: #30363d; }
+        .code { font-family: ui-monospace, Menlo, monospace; font-size: 2rem; letter-spacing: 0.25em; text-align: center; background: #0d1117; border: 1px dashed #58a6ff; border-radius: 8px; padding: 0.8rem; margin: 0.9rem 0; user-select: all; }
+        .muted { color: #8b949e; font-size: 0.85rem; line-height: 1.5; }
+        .row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.8rem; }
+        a { color: #58a6ff; }
+        .hidden { display: none; }
+        .note { background: #1a2332; border: 1px solid #1f6feb55; border-radius: 6px; padding: 0.6rem 0.8rem; margin-top: 0.8rem; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <script src="/nav.js"></script>
+    <main>
+        <h1>Connect Twitch</h1>
+        <p class="lead">StreamPulse needs read access to your subscribers, followers and bits, plus permission to create clips. Your login stays on this computer.</p>
+
+        <div class="card">
+            <div class="status"><span class="dot" id="dot"></span><span id="status-text">Checking…</span></div>
+            <div class="muted" id="status-detail" style="margin-top:0.4rem;"></div>
+            <div class="row">
+                <button id="connect">Connect with Twitch</button>
+                <button id="disconnect" class="secondary hidden">Disconnect</button>
+            </div>
+        </div>
+
+        <div class="card hidden" id="code-card">
+            <strong>1. Open Twitch and enter this code</strong>
+            <div class="code" id="user-code">—</div>
+            <div class="row" style="margin-top:0;">
+                <button id="open-twitch" class="secondary">Open Twitch activation page</button>
+                <button id="copy-code" class="secondary">Copy code</button>
+            </div>
+            <p class="muted" style="margin-bottom:0;">2. Log in, approve the permissions, and come back here. This page updates on its own.</p>
+            <div class="muted" id="countdown" style="margin-top:0.4rem;"></div>
+        </div>
+
+        <div class="note hidden" id="saved-note">Your Twitch ID and username were saved to <code>config.json</code> automatically.</div>
+        <div class="note hidden" id="app-note"></div>
+    </main>
+
+    <script>
+    const $ = id => document.getElementById(id);
+    let verificationUri = '', pollTimer = null, expiresAt = 0, interval = 5;
+
+    function setStatus(kind, text, detail = '') {
+        $('dot').className = 'dot ' + kind;
+        $('status-text').textContent = text;
+        $('status-detail').textContent = detail;
+    }
+
+    async function refreshStatus() {
+        const s = await (await fetch('/api/twitch/auth/status')).json();
+        $('connect').classList.toggle('hidden', s.connected);
+        $('disconnect').classList.toggle('hidden', !s.connected);
+        if (s.connected) setStatus('ok', 'Twitch connected', s.scopes.length ? `Permissions: ${s.scopes.join(', ')}` : '');
+        else setStatus('bad', 'Not connected');
+        $('saved-note').classList.toggle('hidden', !s.broadcasterSaved);
+        if (s.mode === 'own_app') {
+            $('app-note').classList.remove('hidden');
+            $('app-note').innerHTML = 'You are using your own Twitch app (a client secret is set in <code>config.json</code>). Connecting here uses the shared device-code flow only when no secret is configured; use <a href="/auth/twitch">the standard authorization flow</a> instead.';
+            $('connect').classList.add('hidden');
+        }
+        return s;
+    }
+
+    async function startConnect() {
+        $('connect').disabled = true;
+        try {
+            const r = await fetch('/api/twitch/auth/device/start', { method: 'POST' });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || 'Could not start Twitch authorization');
+            verificationUri = d.verificationUri;
+            expiresAt = d.expiresAt;
+            interval = d.interval;
+            $('user-code').textContent = d.userCode;
+            $('code-card').classList.remove('hidden');
+            setStatus('wait', 'Waiting for you to approve on Twitch…');
+            window.open(verificationUri, '_blank');
+            schedulePoll();
+        } catch (e) {
+            setStatus('bad', 'Could not start', e.message);
+        } finally { $('connect').disabled = false; }
+    }
+
+    function schedulePoll() {
+        clearTimeout(pollTimer);
+        pollTimer = setTimeout(poll, interval * 1000);
+    }
+
+    async function poll() {
+        try {
+            const d = await (await fetch('/api/twitch/auth/device/poll')).json();
+            if (d.interval) interval = d.interval;
+            if (d.status === 'authorized') {
+                $('code-card').classList.add('hidden');
+                await refreshStatus();
+                return;
+            }
+            if (d.status === 'expired' || d.status === 'error') {
+                $('code-card').classList.add('hidden');
+                setStatus('bad', d.status === 'expired' ? 'Code expired' : 'Authorization failed', d.error || 'Click Connect to try again.');
+                return;
+            }
+        } catch { /* keep trying */ }
+        schedulePoll();
+    }
+
+    setInterval(() => {
+        if ($('code-card').classList.contains('hidden')) return;
+        const left = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+        $('countdown').textContent = `Code expires in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+    }, 1000);
+
+    $('connect').onclick = startConnect;
+    $('open-twitch').onclick = () => window.open(verificationUri, '_blank');
+    $('copy-code').onclick = () => navigator.clipboard.writeText($('user-code').textContent);
+    $('disconnect').onclick = async () => {
+        if (!confirm('Disconnect Twitch? Subscriber, follower and clip features stop until you reconnect.')) return;
+        await fetch('/api/twitch/auth/disconnect', { method: 'POST' });
+        refreshStatus();
+    };
+
+    refreshStatus();
+    </script>
+</body>
+</html>
