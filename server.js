@@ -644,69 +644,6 @@ function backfillClipCandidates(rebuild = false) {
 }
 
 // ============================================================================
-// WEBHOOKS (Discord)
-// ============================================================================
-
-let webhookQueue = [];
-let webhookTimer = null;
-
-const WEBHOOK_COLORS = {
-    follow: 0x3fb950,    // green
-    subscribe: 0xa371f7, // purple
-    raid: 0xe3b341,      // orange
-    bits: 0xd29922,      // yellow
-    donation: 0x58a6ff   // blue
-};
-
-function fireWebhook(eventType, data) {
-    const wh = config.webhooks;
-    if (!wh || !wh.enabled || !wh.discord_url) return;
-    if (wh.events && !wh.events.includes(eventType)) return;
-
-    webhookQueue.push({ eventType, data, ts: Date.now() });
-
-    const batchMs = ((wh.batch_seconds || 5) * 1000);
-    if (webhookTimer) clearTimeout(webhookTimer);
-    webhookTimer = setTimeout(flushWebhooks, batchMs);
-}
-
-function flushWebhooks() {
-    webhookTimer = null;
-    if (webhookQueue.length === 0) return;
-
-    const batch = webhookQueue.splice(0);
-    const embeds = batch.map(item => ({
-        title: `${item.eventType.charAt(0).toUpperCase() + item.eventType.slice(1)}`,
-        description: item.data.message || `${item.data.user || 'Unknown'}`,
-        color: WEBHOOK_COLORS[item.eventType] || 0x58a6ff,
-        fields: Object.entries(item.data)
-            .filter(([k]) => k !== 'message')
-            .map(([k, v]) => ({ name: k, value: String(v || ''), inline: true })),
-        timestamp: new Date(item.ts).toISOString()
-    })).slice(0, 10); // Discord max 10 embeds
-
-    const payload = JSON.stringify({ embeds });
-    try {
-        const urlObj = new URL(config.webhooks.discord_url);
-        const reqLib = urlObj.protocol === 'https:' ? https : http;
-        const req = reqLib.request(urlObj, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
-        }, (res) => {
-            if (res.statusCode >= 400) {
-                console.warn(`[Webhook] Discord returned ${res.statusCode}`);
-            }
-            res.resume();
-        });
-        req.on('error', (err) => console.warn(`[Webhook] Error: ${err.message}`));
-        req.write(payload);
-        req.end();
-    } catch (err) {
-        console.warn(`[Webhook] Send error: ${err.message}`);
-    }
-}
-
-// ============================================================================
 // TIMERS
 // ============================================================================
 
@@ -3350,7 +3287,6 @@ function processChatMessage(msg) {
         if (!alreadyFollowed) {
             chatData.followers.push({ chatname, chatimg: msg.chatimg, timestamp: Date.now() });
             console.log(`[SSN] Follow: ${chatname}`);
-            fireWebhook('follow', { user: chatname, message: `${chatname} followed!` });
         }
     }
 
@@ -3421,7 +3357,6 @@ function processChatMessage(msg) {
                 chatData.giftSubs.push({ chatname: gifter, gifter, recipient, chatimg: gifterAvatar, event: msg.event || null, count: 1, timestamp: Date.now() });
                 console.log(`[SSN] Gift Sub: ${gifter}${recipient ? ' → ' + recipient : ''} (event=${msg.event})`);
             }
-            fireWebhook('subscribe', { user: gifter, recipient, type: 'gift', message: `${gifter} gifted a sub${recipient ? ' to ' + recipient : ''}!` });
             if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_gift_subs) {
                 addClipCandidate('gift-sub', { user: gifter, recipient }, Date.now(), 0.65);
             }
@@ -3430,7 +3365,6 @@ function processChatMessage(msg) {
             if (!alreadySubbed) {
                 chatData.subscribers.push({ chatname, membership: msg.membership || null, subtitle: msg.subtitle || null, chatimg: msg.chatimg, event: msg.event || null, timestamp: Date.now() });
                 console.log(`[SSN] Sub: ${chatname} - ${msg.membership || msg.event}${msg.subtitle ? ' (' + msg.subtitle + ')' : ''}`);
-                fireWebhook('subscribe', { user: chatname, tier: msg.membership, detail: msg.subtitle, message: `${chatname} subscribed! (${msg.membership || msg.event})` });
                 if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_subscriptions) {
                     addClipCandidate('subscription', { user: chatname, tier: msg.membership || msg.event }, Date.now(), 0.6);
                 }
@@ -3451,7 +3385,6 @@ function processChatMessage(msg) {
             const donation = { chatname, amount: label, bits: amount, chatimg: msg.chatimg, timestamp: Date.now() };
             chatData.bits.push(donation);
             console.log(`[SSN] Bits: ${chatname} - ${label} (${amount} bits)`);
-            fireWebhook('bits', { user: chatname, amount: label, message: `${chatname} cheered ${label}` });
             if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_bits && amount >= CLIP_CANDIDATE_CONFIG.minimum_bits) {
                 addClipCandidate('bits', { user: chatname, amount, label }, Date.now(), Math.min(0.95, 0.55 + amount / 1000));
             }
@@ -3459,7 +3392,6 @@ function processChatMessage(msg) {
             const donation = { chatname, amount: msg.hasDonation, amountValue: parseNumericAmount(msg.hasDonation), chatimg: msg.chatimg, timestamp: Date.now() };
             chatData.donations.push(donation);
             console.log(`[SSN] Donation: ${chatname} - ${msg.hasDonation}`);
-            fireWebhook('donation', { user: chatname, amount: msg.hasDonation, message: `${chatname} donated ${msg.hasDonation}` });
             const donationValue = parseNumericAmount(msg.hasDonation);
             if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_donations && donationValue >= CLIP_CANDIDATE_CONFIG.minimum_donation) {
                 addClipCandidate('donation', { user: chatname, amount: msg.hasDonation }, Date.now(), 0.7);
@@ -3474,7 +3406,6 @@ function processChatMessage(msg) {
             const viewers = msg.chatmessage ? (msg.chatmessage.match(/(\d+)/) || [])[1] : null;
             chatData.raids.push({ chatname, chatimg: msg.chatimg, viewers: viewers ? parseInt(viewers) : null, timestamp: Date.now() });
             console.log(`[SSN] Raid: ${chatname}${viewers ? ` with ${viewers} viewers` : ''}`);
-            fireWebhook('raid', { user: chatname, viewers: viewers || '?', message: `${chatname} raided${viewers ? ` with ${viewers} viewers` : ''}!` });
             const raidViewers = viewers ? parseInt(viewers) : 0;
             if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_raids && raidViewers >= CLIP_CANDIDATE_CONFIG.minimum_raid_viewers) {
                 addClipCandidate('raid', { user: chatname, viewers: raidViewers || null }, Date.now(), 0.8);
@@ -3991,7 +3922,7 @@ const server = http.createServer(async (req, res) => {
                     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
                     // Only allow safe fields to be edited
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'webhooks', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'goals'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'goals'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             current[key] = updates[key];
@@ -4025,7 +3956,6 @@ const server = http.createServer(async (req, res) => {
             days_filter: config.days_filter || 30,
             credits: config.credits || {},
             auto_backup_on_session_end: config.auto_backup_on_session_end || false,
-            webhooks: config.webhooks || { enabled: false, discord_url: '', events: ['raid', 'subscribe', 'donation', 'bits', 'follow'], batch_seconds: 5 },
             rate_limit: config.rate_limit || { enabled: false, requests_per_minute: 120, mutation_per_minute: 30 },
             theme: config.theme || {},
             music: config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 },
@@ -5895,61 +5825,6 @@ const server = http.createServer(async (req, res) => {
             });
             return;
         }
-    }
-
-    // ========================================================================
-    // WEBHOOK TEST
-    // ========================================================================
-
-    if (pathname === '/api/webhook/test' && req.method === 'POST') {
-        const wh = config.webhooks;
-        if (!wh || !wh.enabled || !wh.discord_url) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Webhooks not enabled or no Discord URL configured' }));
-            return;
-        }
-        const payload = JSON.stringify({
-            embeds: [{
-                title: '🧪 Test Webhook',
-                description: 'StreamPulse webhook is working!',
-                color: 0x58a6ff,
-                fields: [
-                    { name: 'Server', value: `http://localhost:${PORT}`, inline: true },
-                    { name: 'Events', value: (wh.events || []).join(', ') || 'all', inline: true }
-                ],
-                timestamp: new Date().toISOString()
-            }]
-        });
-        try {
-            const urlObj = new URL(wh.discord_url);
-            const reqLib = urlObj.protocol === 'https:' ? https : http;
-            const whReq = reqLib.request(urlObj, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
-            }, (whRes) => {
-                let data = '';
-                whRes.on('data', chunk => data += chunk);
-                whRes.on('end', () => {
-                    if (whRes.statusCode < 300) {
-                        res.writeHead(200, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ status: 'sent', discord_status: whRes.statusCode }));
-                    } else {
-                        res.writeHead(502, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ error: `Discord returned ${whRes.statusCode}`, body: data.substring(0, 200) }));
-                    }
-                });
-            });
-            whReq.on('error', (err) => {
-                res.writeHead(502, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: err.message }));
-            });
-            whReq.write(payload);
-            whReq.end();
-        } catch (err) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
     }
 
     // Static file serving

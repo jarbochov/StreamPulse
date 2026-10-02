@@ -359,6 +359,7 @@
         const sec = cfg.credits?.sections || {};
         creditsSectionsState = sec;
         const social = cfg.credits?.social || {};
+        const vt = cfg.viewer_tracking || {};
         const st = {
             enabled: cfg.credits?.special_thanks?.enabled !== false,
             title: cfg.credits?.special_thanks?.title || 'Special Thanks',
@@ -382,10 +383,6 @@
             <div class="cfg-row">
                 <label>Days Filter</label>
                 <input type="number" id="cfg-days-filter" value="${cfg.days_filter || 30}" min="1">
-            </div>
-            <div class="cfg-row">
-                <label>Viewer Count Label</label>
-                <input type="text" id="cfg-viewer-label" value="${escapeHtml(cfg.viewer_tracking?.viewer_label || 'viewers')}" placeholder="viewers">
             </div>
             <div class="cfg-toggle">
                 <input type="checkbox" id="cfg-active-subs" ${cfg.active_subs_only ? 'checked' : ''}>
@@ -506,28 +503,30 @@
                 <br>Click to copy · Or use any emoji · <a href="https://fontawesome.com/search?o=r&m=free" target="_blank" style="color:#58a6ff;">Browse all FA icons ↗</a>
             </div>
 
-            <div class="cfg-section">Webhooks (Discord)</div>
+            <div class="cfg-section">Viewer Tracking</div>
             <div class="cfg-toggle">
-                <input type="checkbox" id="cfg-wh-enabled" ${(cfg.webhooks || {}).enabled ? 'checked' : ''}>
-                <label for="cfg-wh-enabled">Enable Discord webhooks</label>
+                <input type="checkbox" id="cfg-vt-enabled" ${vt.enabled !== false ? 'checked' : ''}>
+                <label for="cfg-vt-enabled">Track viewer counts</label>
             </div>
             <div class="cfg-row">
-                <label>Discord URL</label>
-                <input type="text" id="cfg-wh-url" value="${escapeHtml((cfg.webhooks || {}).discord_url || '')}" placeholder="https://discord.com/api/webhooks/...">
+                <label>Viewer Count Label</label>
+                <input type="text" id="cfg-viewer-label" value="${escapeHtml(vt.viewer_label || 'viewers')}" placeholder="viewers">
             </div>
             <div class="cfg-row">
-                <label>Batch (seconds)</label>
-                <input type="number" id="cfg-wh-batch" value="${(cfg.webhooks || {}).batch_seconds || 5}" min="1" max="60">
+                <label>Source</label>
+                <select id="cfg-vt-source">
+                    <option value="best_available"${vt.source !== 'twitch' ? ' selected' : ''}>Best available (SocialStream, then Twitch)</option>
+                    <option value="twitch"${vt.source === 'twitch' ? ' selected' : ''}>Twitch only</option>
+                </select>
             </div>
-            <div style="font-size:0.8rem;color:#8b949e;margin-top:0.25rem;">Events to send:</div>
-            <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.25rem;">
-                ${['raid','subscribe','donation','bits','follow'].map(e => {
-                    const events = (cfg.webhooks || {}).events || ['raid','subscribe','donation','bits','follow'];
-                    return '<div class="cfg-toggle"><input type="checkbox" class="wh-event" value="' + e + '"' + (events.includes(e) ? ' checked' : '') + '><label>' + e + '</label></div>';
-                }).join('')}
+            <div class="cfg-row">
+                <label>Poll every (seconds)</label>
+                <input type="number" id="cfg-vt-poll" min="15" max="3600" value="${vt.poll_seconds || 60}">
             </div>
-
-            <button class="btn" style="margin-top: 0.5rem;" onclick="testWebhook()">🔔 Test Webhook</button>
+            <div class="cfg-row">
+                <label>Samples kept per session</label>
+                <input type="number" id="cfg-vt-retain" min="60" max="5000" value="${vt.retain_samples || 720}">
+            </div>
 
             <div class="cfg-section">Rate Limiting</div>
             <div class="cfg-toggle">
@@ -562,7 +561,7 @@
                 'Special Thanks Names': 'Add, remove, and arrange the names in this section.',
                 Closing: 'Set the final message and how it appears.',
                 'Social Links': 'Configure social handles shown at the end.',
-                'Webhooks (Discord)': 'Send selected stream events to Discord.',
+                'Viewer Tracking': 'How viewer counts are sampled and labelled.',
                 'Rate Limiting': 'Limit API reads and mutation requests.'
             };
             summary.innerHTML = `${section.textContent.trim()}<small>${descriptions[section.textContent.trim()] || ''}</small>`;
@@ -583,7 +582,7 @@
 
         const creditGroups = ['Credits Header', 'Fade Card Layout', 'Sections', 'Custom Credit Sections', 'Special Thanks Names', 'Closing', 'Social Links'];
         const hiddenGroups = editorSection === 'credits'
-            ? ['General', 'Webhooks (Discord)', 'Rate Limiting']
+            ? ['General', 'Viewer Tracking', 'Rate Limiting']
             : creditGroups;
         el.querySelectorAll('.cfg-section').forEach(section => {
             const group = section.textContent.trim();
@@ -892,13 +891,11 @@
             banned_users: document.getElementById('cfg-banned').value.split(',').map(s => s.trim()).filter(Boolean),
             viewer_tracking: {
                 ...(loadedConfig?.viewer_tracking || {}),
+                enabled: document.getElementById('cfg-vt-enabled').checked,
+                source: document.getElementById('cfg-vt-source').value,
+                poll_seconds: Math.max(15, Math.min(3600, parseInt(document.getElementById('cfg-vt-poll').value, 10) || 60)),
+                retain_samples: Math.max(60, Math.min(5000, parseInt(document.getElementById('cfg-vt-retain').value, 10) || 720)),
                 viewer_label: document.getElementById('cfg-viewer-label').value.trim() || 'viewers'
-            },
-            webhooks: {
-                enabled: document.getElementById('cfg-wh-enabled').checked,
-                discord_url: document.getElementById('cfg-wh-url').value,
-                events: [...document.querySelectorAll('.wh-event:checked')].map(el => el.value),
-                batch_seconds: parseInt(document.getElementById('cfg-wh-batch').value) || 5
             },
             rate_limit: {
                 enabled: document.getElementById('cfg-rl-enabled').checked,
@@ -950,14 +947,6 @@
                 showToast(data.error || 'Save failed');
             }
         } catch { showToast('Save failed'); }
-    }
-
-    async function testWebhook() {
-        try {
-            const res = await fetch('/api/webhook/test', { method: 'POST' });
-            const data = await res.json();
-            showToast(data.status === 'sent' ? 'Test webhook sent!' : (data.error || 'Webhook test failed'));
-        } catch { showToast('Webhook test failed'); }
     }
 
     let configLoaded = false;

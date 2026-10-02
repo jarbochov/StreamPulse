@@ -167,7 +167,6 @@ If StreamPulse is intentionally hosted somewhere other than localhost, set `twit
 - **Update** — Check for and manually install the latest stable release, or explicitly opt in to a warned nightly `main` build from the Manage menu
 
 The updater works on Windows, macOS, and Linux when StreamPulse is run from a Git checkout with Git and Node.js/npm available. On Windows, the server uses the native `npm.cmd` command automatically. Keep the production folder writable and avoid running with uncommitted tracked code changes; data is backed up before an update.
-- **Discord Webhooks** — Optional notifications for raids, subs, donations, bits, and follows
 - **Preview Mode** — `?preview=true` renders credits without scrolling for layout testing
 - **Custom Overlays** — Create JSON-backed canvas overlays with text, Markdown, images, video, shapes, drag positioning, and live WebSocket updates after saving
 
@@ -281,21 +280,6 @@ Customize the shared look of supported overlays from the dedicated [Theme Editor
 - **Text Outline** — Toggle the shadow outline on/off, pick outline color
 - **Font Scale** — Scale all overlay text proportionally (0.5× – 2×)
 - **Theme presets** — Export or import only the shared theme as JSON
-
-### Discord Webhooks
-
-Optional webhook notifications for stream events:
-
-```json
-{
-  "webhooks": {
-    "enabled": true,
-    "discord_url": "https://discord.com/api/webhooks/...",
-    "events": ["raid", "subscribe", "donation", "bits", "follow"],
-    "batch_seconds": 5
-  }
-}
-```
 
 ## URL Parameters
 
