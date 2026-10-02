@@ -17,11 +17,13 @@
         button:hover { border-color: #58a6ff; }
         button.primary { background: #1a2332; border-color: #1f6feb; }
         input, select, textarea { width: 100%; padding: .45rem .55rem; color: #e1e4e8; background: #0d1117; border: 1px solid #30363d; border-radius: 5px; }
+        input[type="color"] { height: 2.1rem; padding: .15rem; cursor: pointer; }
         textarea { min-height: 110px; resize: vertical; }
         label { display: grid; gap: .25rem; color: #8b949e; font-size: .75rem; margin-bottom: .65rem; }
         .row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
         .toolbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; align-items: center; }
-        #canvas-wrap { overflow: auto; background: #0d1117; border: 1px solid #30363d; padding: 1rem; min-height: 620px; }
+        #canvas-wrap { overflow: auto; position: relative; background: #0d1117; border: 1px solid #30363d; padding: 2.25rem 1rem 1rem; min-height: 620px; cursor: grab; }
+        #canvas-wrap.panning { cursor: grabbing; }
         #canvas-frame { position: relative; border: 2px solid #58a6ff; box-shadow: 0 0 0 1px #58a6ff33, 0 8px 24px #0008; }
         #canvas-frame::before { content: attr(data-bounds); position: absolute; left: 0; top: -1.6rem; color: #58a6ff; font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
         #canvas { position: relative; transform-origin: top left; background-image: linear-gradient(#ffffff0b 1px, transparent 1px), linear-gradient(90deg, #ffffff0b 1px, transparent 1px); background-size: 20px 20px; }
@@ -54,6 +56,7 @@
             <div class="toolbar">
                 <button class="primary" id="save">Save and Push Live</button>
                 <button id="preview">Open Runtime</button>
+                <button id="reset-view" title="Reset canvas pan">Reset View</button>
                 <label style="display:flex;align-items:center;gap:.4rem;margin:0;min-width:150px;">Zoom <input id="zoom" type="range" min="25" max="150" value="50" step="5"><span id="zoom-value">50%</span></label>
                 <span id="status"></span>
             </div>
@@ -63,7 +66,7 @@
             <h2>Overlay</h2>
             <label>Name<input id="overlay-name"></label>
             <div class="row"><label>Width<input id="canvas-width" type="number"></label><label>Height<input id="canvas-height" type="number"></label></div>
-            <label>Background<input id="canvas-background" placeholder="transparent or rgba(...)"></label>
+            <label>Background<div class="row"><input id="canvas-background" placeholder="transparent or rgba(...)"><input id="canvas-background-color" type="color" value="#000000" title="Pick background color"></div></label>
             <hr>
             <h2>Selected element</h2>
             <div id="properties"><p class="hint">Select an element.</p></div>
@@ -87,6 +90,7 @@
         const defaults = { text: 'Text element', 'random-text': 'Random phrase', markdown: '**Markdown** element', image: '', video: '', embed: '', shape: '' };
         let zoom = 0.5;
         function esc(value) { return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+        function safeColor(value) { return /^#[0-9a-f]{6}$/i.test(String(value || '')) ? value : '#000000'; }
         function selected() { return overlay.elements.find(item => item.id === selectedId); }
         function renderMarkdown(value) { return DOMPurify.sanitize(marked.parse(value || '', { breaks: true })); }
         function syncOverlayFields() {
@@ -95,6 +99,7 @@
             document.getElementById('canvas-width').value = overlay.canvas.width;
             document.getElementById('canvas-height').value = overlay.canvas.height;
             document.getElementById('canvas-background').value = overlay.canvas.background;
+            document.getElementById('canvas-background-color').value = safeColor(overlay.canvas.background);
             canvas.style.width = `${overlay.canvas.width}px`;
             canvas.style.height = `${overlay.canvas.height}px`;
             canvas.style.background = overlay.canvas.background || '#0d1117';
@@ -105,6 +110,22 @@
             document.getElementById('zoom').value = Math.round(zoom * 100);
             document.getElementById('zoom-value').textContent = `${Math.round(zoom * 100)}%`;
         }
+        const SNAP_DISTANCE = 10;
+        function snapValue(value, candidates) {
+            const closest = candidates.reduce((best, candidate) => Math.abs(candidate - value) < Math.abs(best - value) ? candidate : best, value);
+            return Math.abs(closest - value) <= SNAP_DISTANCE ? closest : value;
+        }
+        function snapElement(element) {
+            const others = overlay.elements.filter(item => item.id !== element.id && item.visible !== false);
+            const xCandidates = [0, overlay.canvas.width / 2 - element.width / 2, overlay.canvas.width - element.width];
+            const yCandidates = [0, overlay.canvas.height / 2 - element.height / 2, overlay.canvas.height - element.height];
+            for (const other of others) {
+                xCandidates.push(other.x, other.x + other.width - element.width, other.x + other.width / 2 - element.width / 2);
+                yCandidates.push(other.y, other.y + other.height - element.height, other.y + other.height / 2 - element.height / 2);
+            }
+            element.x = Math.max(0, Math.min(overlay.canvas.width - element.width, snapValue(element.x, xCandidates)));
+            element.y = Math.max(0, Math.min(overlay.canvas.height - element.height, snapValue(element.y, yCandidates)));
+        }
         function renderCanvas() {
             syncOverlayFields();
             canvas.replaceChildren();
@@ -112,7 +133,12 @@
                 const node = document.createElement('div');
                 node.className = `canvas-element ${element.type}${element.id === selectedId ? ' selected' : ''}`;
                 node.dataset.id = element.id;
-                Object.assign(node.style, { left: `${element.x}px`, top: `${element.y}px`, width: `${element.width}px`, height: `${element.height}px`, zIndex: element.zIndex, opacity: element.style.opacity, background: element.style.background, border: `${element.style.borderWidth}px solid ${element.style.borderColor}`, borderRadius: `${element.style.borderRadius}px`, fontFamily: element.style.fontFamily, fontSize: `${element.style.fontSize}px`, fontWeight: element.style.fontWeight, color: element.style.color, textAlign: element.style.textAlign });
+                Object.assign(node.style, { left: `${element.x}px`, top: `${element.y}px`, width: `${element.width}px`, height: `${element.height}px`, zIndex: element.zIndex, opacity: element.style.opacity, background: element.style.background, border: `${element.style.borderWidth}px solid ${element.style.borderColor}`, borderRadius: `${element.style.borderRadius}px`, fontFamily: element.style.fontFamily, fontSize: `${element.style.fontSize}px`, fontWeight: element.style.fontWeight, color: element.style.color, textAlign: element.style.textAlign, lineHeight: element.style.lineHeight, letterSpacing: `${element.style.letterSpacing}px`, display: element.style.verticalAlign === 'top' ? 'block' : 'flex', alignItems: element.style.verticalAlign === 'middle' ? 'center' : element.style.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start', justifyContent: element.style.textAlign === 'center' ? 'center' : element.style.textAlign === 'right' ? 'flex-end' : 'flex-start' });
+                if (element.type === 'shape') {
+                    if (element.style.shape === 'circle') node.style.borderRadius = '50%';
+                    if (element.style.shape === 'pill') node.style.borderRadius = '999px';
+                    if (element.style.shape === 'line') { node.style.height = `${Math.max(1, element.style.borderWidth || 4)}px`; node.style.border = '0'; }
+                }
                 if (element.type === 'image' || element.type === 'video') {
                     const media = document.createElement(element.type); media.src = element.src; media.controls = element.type === 'video'; media.muted = true; media.loop = true; media.style.cssText = 'width:100%;height:100%;object-fit:' + element.style.objectFit; node.appendChild(media);
                 } else if (element.type === 'embed') {
@@ -140,15 +166,23 @@
             properties.innerHTML = `
                 <label>${element.type === 'random-text' ? 'Fallback text' : 'Content'}<textarea id="element-content">${esc(element.content)}</textarea></label>
                 ${element.type === 'random-text' ? `<label>Random text pool<textarea id="element-items">${esc((element.items || []).join('\n'))}</textarea><span class="hint">One phrase per line.</span></label>` : ''}
-                <label>Source URL<input id="element-src" value="${esc(element.src)}" placeholder="Image or video URL"></label>
+                <label>Source URL<input id="element-src" value="${esc(element.src)}" placeholder="Image, video, or webpage URL"></label>
+                ${(element.type === 'image' || element.type === 'video') ? `<label>Upload asset<input id="element-upload" type="file" accept="${element.type === 'image' ? 'image/*' : 'video/*'}"><span class="hint">Uploads to StreamPulse's custom overlay asset folder.</span></label>` : ''}
                 <div class="row"><label>X<input id="element-x" type="number" value="${element.x}"></label><label>Y<input id="element-y" type="number" value="${element.y}"></label></div>
                 <div class="row"><label>Width<input id="element-width" type="number" value="${element.width}"></label><label>Height<input id="element-height" type="number" value="${element.height}"></label></div>
-                <div class="row"><label>Font size<input id="element-font-size" type="number" value="${element.style.fontSize}"></label><label>Color<input id="element-color" value="${esc(element.style.color)}"></label></div>
+                <div class="row"><label>Font size<input id="element-font-size" type="number" value="${element.style.fontSize}"></label><label>Font color<div class="row"><input id="element-color" value="${esc(element.style.color)}"><input id="element-color-picker" type="color" value="${safeColor(element.style.color)}"></div></label></div>
                 <label>Font family<input id="element-font" value="${esc(element.style.fontFamily)}"></label>
-                <label>Background<input id="element-background" value="${esc(element.style.background)}"></label>
-                <div class="row"><label>Border width<input id="element-border-width" type="number" value="${element.style.borderWidth}"></label><label>Border color<input id="element-border-color" value="${esc(element.style.borderColor)}"></label></div>
+                <div class="row"><label>Weight<select id="element-weight"><option value="400">Normal</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="900">Black</option></select></label><label>Text align<select id="element-align"><option>left</option><option>center</option><option>right</option></select></label></div>
+                <div class="row"><label>Vertical align<select id="element-vertical"><option value="top">Top</option><option value="middle">Middle</option><option value="bottom">Bottom</option></select></label><label>Line height<input id="element-line-height" type="number" step="0.1" value="${element.style.lineHeight}"></label></div>
+                <div class="row"><label>Background<div class="row"><input id="element-background" value="${esc(element.style.background)}"><input id="element-background-picker" type="color" value="${safeColor(element.style.background)}"></div></label><label>Shape<select id="element-shape"><option value="rectangle">Rectangle</option><option value="circle">Circle</option><option value="pill">Pill</option><option value="line">Line</option></select></label></div>
+                <div class="row"><label>Border width<input id="element-border-width" type="number" value="${element.style.borderWidth}"></label><label>Border color<div class="row"><input id="element-border-color" value="${esc(element.style.borderColor)}"><input id="element-border-color-picker" type="color" value="${safeColor(element.style.borderColor)}"></div></label></div>
+                <div class="toolbar"><button type="button" data-align="left">Align left</button><button type="button" data-align="center">Center</button><button type="button" data-align="right">Align right</button><button type="button" data-align="top">Align top</button><button type="button" data-align="middle">Center vertically</button><button type="button" data-align="bottom">Align bottom</button></div>
                 <button id="delete-element">Delete Element</button>`;
-            const fields = ['content', 'src', 'x', 'y', 'width', 'height', 'font-size', 'color', 'font', 'background', 'border-width', 'border-color'];
+            document.getElementById('element-weight').value = element.style.fontWeight;
+            document.getElementById('element-align').value = element.style.textAlign;
+            document.getElementById('element-vertical').value = element.style.verticalAlign;
+            document.getElementById('element-shape').value = element.style.shape;
+            const fields = ['content', 'src', 'x', 'y', 'width', 'height', 'font-size', 'color', 'font', 'background', 'border-width', 'border-color', 'weight', 'align', 'vertical', 'line-height', 'shape'];
             fields.forEach(name => document.getElementById(`element-${name}`).addEventListener('input', event => {
                 const value = event.target.value;
                 if (name === 'content' || name === 'src') element[name] = value;
@@ -159,7 +193,45 @@
                 else if (name === 'font') element.style.fontFamily = value;
                 else if (name === 'background') element.style.background = value;
                 else if (name === 'border-color') element.style.borderColor = value;
+                else if (name === 'weight') element.style.fontWeight = value;
+                else if (name === 'align') element.style.textAlign = value;
+                else if (name === 'vertical') element.style.verticalAlign = value;
+                else if (name === 'line-height') element.style.lineHeight = Number(value) || 1.2;
+                else if (name === 'shape') element.style.shape = value;
                 renderCanvas();
+            }));
+            for (const [textId, pickerId] of [['element-color', 'element-color-picker'], ['element-background', 'element-background-picker'], ['element-border-color', 'element-border-color-picker']]) {
+                document.getElementById(pickerId).addEventListener('input', event => {
+                    document.getElementById(textId).value = event.target.value;
+                    const field = textId.replace('element-', '');
+                    if (field === 'color') element.style.color = event.target.value;
+                    if (field === 'background') element.style.background = event.target.value;
+                    if (field === 'border-color') element.style.borderColor = event.target.value;
+                    renderCanvas();
+                });
+            }
+            document.getElementById('element-upload')?.addEventListener('change', async event => {
+                const file = event.target.files[0];
+                if (!file) return;
+                status.textContent = 'Uploading asset…';
+                const response = await fetch('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': file.type, 'X-Asset-Name': file.name }, body: file });
+                const data = await response.json();
+                if (!response.ok) { status.textContent = data.error || 'Asset upload failed'; return; }
+                element.src = data.url;
+                document.getElementById('element-src').value = data.url;
+                status.textContent = 'Asset uploaded';
+                renderCanvas();
+            });
+            document.querySelectorAll('[data-align]').forEach(button => button.addEventListener('click', () => {
+                const mode = button.dataset.align;
+                if (['left', 'center', 'right'].includes(mode)) element.style.textAlign = mode;
+                if (mode === 'left') element.x = 0;
+                if (mode === 'center') element.x = Math.round((overlay.canvas.width - element.width) / 2);
+                if (mode === 'right') element.x = Math.max(0, overlay.canvas.width - element.width);
+                if (mode === 'top') element.y = 0;
+                if (mode === 'middle') element.y = Math.round((overlay.canvas.height - element.height) / 2);
+                if (mode === 'bottom') element.y = Math.max(0, overlay.canvas.height - element.height);
+                render();
             }));
             if (element.type === 'random-text') document.getElementById('element-items').addEventListener('input', event => {
                 element.items = event.target.value.split('\n').map(item => item.trim()).filter(Boolean);
@@ -175,6 +247,7 @@
                         if (!element) return;
                         element.x += event.dx / zoom;
                         element.y += event.dy / zoom;
+                        snapElement(element);
                         event.target.style.left = `${element.x}px`;
                         event.target.style.top = `${element.y}px`;
                         renderLayers();
@@ -184,7 +257,7 @@
         }
         function addElement(type) {
             const id = `${type}-${Date.now().toString(36)}`;
-            overlay.elements.push({ id, type, content: defaults[type], items: type === 'random-text' ? ['Random phrase one', 'Random phrase two'] : [], src: '', x: 100, y: 100, width: type === 'shape' ? 500 : 600, height: type === 'shape' ? 180 : 120, zIndex: overlay.elements.length, visible: true, style: { fontFamily: 'sans-serif', fontSize: 32, fontWeight: '400', color: '#ffffff', textAlign: 'left', background: type === 'shape' ? '#161b22' : 'transparent', borderColor: 'transparent', borderWidth: 0, borderRadius: 0, opacity: 1, objectFit: 'cover' } });
+            overlay.elements.push({ id, type, content: defaults[type], items: type === 'random-text' ? ['Random phrase one', 'Random phrase two'] : [], src: '', x: 100, y: 100, width: type === 'shape' ? 500 : 600, height: type === 'shape' ? 180 : 120, zIndex: overlay.elements.length, visible: true, style: { fontFamily: 'sans-serif', fontSize: 32, fontWeight: '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#161b22' : 'transparent', borderColor: 'transparent', borderWidth: 0, borderRadius: 0, opacity: 1, objectFit: 'cover', shape: 'rectangle' } });
             selectedId = id; render();
         }
         async function load() {
@@ -200,7 +273,30 @@
         document.getElementById('canvas-width').addEventListener('input', event => { overlay.canvas.width = Number(event.target.value) || 1920; syncOverlayFields(); });
         document.getElementById('canvas-height').addEventListener('input', event => { overlay.canvas.height = Number(event.target.value) || 1080; syncOverlayFields(); });
         document.getElementById('canvas-background').addEventListener('input', event => { overlay.canvas.background = event.target.value; syncOverlayFields(); });
+        document.getElementById('canvas-background-color').addEventListener('input', event => {
+            overlay.canvas.background = event.target.value;
+            document.getElementById('canvas-background').value = event.target.value;
+            syncOverlayFields();
+        });
         document.getElementById('zoom').addEventListener('input', event => { zoom = Number(event.target.value) / 100; syncOverlayFields(); });
+        document.getElementById('reset-view').addEventListener('click', () => {
+            document.getElementById('canvas-wrap').scrollTo({ left: 0, top: 0, behavior: 'smooth' });
+        });
+        const canvasWrap = document.getElementById('canvas-wrap');
+        let panStart = null;
+        canvasWrap.addEventListener('pointerdown', event => {
+            if (event.target.closest('.canvas-element') && event.button !== 1 && !event.shiftKey && !event.altKey) return;
+            panStart = { x: event.clientX, y: event.clientY, left: canvasWrap.scrollLeft, top: canvasWrap.scrollTop };
+            canvasWrap.classList.add('panning');
+            canvasWrap.setPointerCapture(event.pointerId);
+        });
+        canvasWrap.addEventListener('pointermove', event => {
+            if (!panStart) return;
+            canvasWrap.scrollLeft = panStart.left - (event.clientX - panStart.x);
+            canvasWrap.scrollTop = panStart.top - (event.clientY - panStart.y);
+        });
+        canvasWrap.addEventListener('pointerup', () => { panStart = null; canvasWrap.classList.remove('panning'); });
+        canvasWrap.addEventListener('pointercancel', () => { panStart = null; canvasWrap.classList.remove('panning'); });
         document.getElementById('save').addEventListener('click', async () => {
             const method = isNew ? 'POST' : 'PUT';
             const url = isNew ? '/api/custom-overlays' : `/api/custom-overlays/${encodeURIComponent(overlay.id)}`;

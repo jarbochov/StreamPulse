@@ -3,6 +3,7 @@
     const overlayId = params.get('id');
     const root = document.getElementById('overlay-root');
     if (!overlayId || !root) return;
+    let liveStatus = {};
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -10,12 +11,41 @@
     }
 
     function renderMarkdown(source) {
-        const expanded = String(source || '').replace(/\{\{overlay\.name\}\}/g, document.title);
+        const expanded = expandVariables(source);
         const html = window.marked.parse(expanded, { breaks: true });
         return window.DOMPurify.sanitize(html, {
             ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'del', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'h1', 'h2', 'h3', 'img'],
             ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'src', 'alt']
         });
+    }
+
+    function getVariable(name) {
+        const aliases = {
+            'viewer.current': liveStatus.viewers?.current,
+            'viewers.current': liveStatus.viewers?.current,
+            'viewer.peak': liveStatus.viewers?.peak,
+            'viewers.peak': liveStatus.viewers?.peak,
+            'viewer.average': liveStatus.viewers?.average,
+            'viewers.average': liveStatus.viewers?.average,
+            'chatters': liveStatus.ssn?.chatters,
+            'messages': liveStatus.ssn?.messages,
+            'followers': liveStatus.ssn?.followers,
+            'subscribers': liveStatus.ssn?.subscribers,
+            'gift_subs': liveStatus.goalMetrics?.gift_subs,
+            'bits': liveStatus.goalMetrics?.bits,
+            'donations': liveStatus.goalMetrics?.donations,
+            'hashtags': liveStatus.ssn?.hashtags,
+            'music.title': liveStatus.music?.track,
+            'music.artist': liveStatus.music?.artist,
+            'stream.title': liveStatus.stream?.title,
+            'overlay.name': liveStatus.overlayName || document.title.replace(/^StreamPulse —\s*/, '')
+        };
+        const value = aliases[name];
+        return value === undefined || value === null ? '' : String(value);
+    }
+
+    function expandVariables(value) {
+        return String(value || '').replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (_, name) => getVariable(name));
     }
 
     function applyElementStyle(node, element) {
@@ -34,8 +64,18 @@
             fontSize: `${style.fontSize || 32}px`,
             fontWeight: style.fontWeight || '400',
             color: style.color || '#fff',
-            textAlign: style.textAlign || 'left'
+            textAlign: style.textAlign || 'left',
+            lineHeight: style.lineHeight || 1.2,
+            letterSpacing: `${style.letterSpacing || 0}px`,
+            display: style.verticalAlign === 'top' ? 'block' : 'flex',
+            alignItems: style.verticalAlign === 'middle' ? 'center' : style.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start',
+            justifyContent: style.textAlign === 'center' ? 'center' : style.textAlign === 'right' ? 'flex-end' : 'flex-start'
         });
+        if (element.type === 'shape') {
+            if (style.shape === 'circle') node.style.borderRadius = '50%';
+            if (style.shape === 'pill') node.style.borderRadius = '999px';
+            if (style.shape === 'line') { node.style.height = `${Math.max(1, style.borderWidth || 4)}px`; node.style.border = '0'; }
+        }
     }
 
     function render(overlay) {
@@ -50,7 +90,7 @@
             applyElementStyle(node, element);
             if (element.type === 'image' || element.type === 'video') {
                 const media = document.createElement(element.type);
-                media.src = element.src || '';
+                media.src = expandVariables(element.src || '');
                 media.autoplay = element.type === 'video';
                 media.loop = element.type === 'video';
                 media.muted = element.type === 'video';
@@ -62,7 +102,7 @@
                 node.appendChild(media);
             } else if (element.type === 'embed') {
                 const frame = document.createElement('iframe');
-                frame.src = element.src || 'about:blank';
+                frame.src = expandVariables(element.src || '') || 'about:blank';
                 frame.sandbox = 'allow-forms allow-popups allow-scripts';
                 frame.referrerPolicy = 'no-referrer';
                 frame.style.cssText = 'width:100%;height:100%;border:0;';
@@ -71,11 +111,11 @@
                 node.innerHTML = renderMarkdown(element.content);
             } else if (element.type === 'random-text') {
                 const items = Array.isArray(element.items) ? element.items : [];
-                node.textContent = items.length ? items[Math.floor(Math.random() * items.length)] : element.content || '';
+                node.textContent = expandVariables(items.length ? items[Math.floor(Math.random() * items.length)] : element.content || '');
             } else if (element.type === 'shape') {
                 node.setAttribute('aria-hidden', 'true');
             } else {
-                node.textContent = element.content || '';
+                node.textContent = expandVariables(element.content || '');
             }
             root.appendChild(node);
         }
@@ -84,7 +124,19 @@
     async function load() {
         const response = await fetch(`/api/custom-overlays/${encodeURIComponent(overlayId)}`, { cache: 'no-store' });
         if (!response.ok) throw new Error('Overlay not found');
-        render(await response.json());
+        const overlay = await response.json();
+        liveStatus.overlayName = overlay.name;
+        render(overlay);
+        return overlay;
+    }
+
+    async function refreshStatus() {
+        try {
+            const response = await fetch('/api/status', { cache: 'no-store' });
+            if (!response.ok) return;
+            liveStatus = { ...liveStatus, ...(await response.json()) };
+            await load();
+        } catch {}
     }
 
     function connect() {
@@ -94,7 +146,10 @@
             try {
                 const message = JSON.parse(event.data);
                 if (message.type === 'custom-overlay-update' && message.data?.id === overlayId) {
-                    if (message.data.overlay) render(message.data.overlay);
+                    if (message.data.overlay) {
+                        liveStatus.overlayName = message.data.overlay.name;
+                        render(message.data.overlay);
+                    }
                     else root.replaceChildren();
                 }
             } catch {}
@@ -106,5 +161,6 @@
         root.textContent = error.message;
         root.style.color = '#f85149';
     });
+    setInterval(refreshStatus, 5000);
     connect();
 })();

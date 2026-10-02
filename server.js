@@ -52,6 +52,7 @@ const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const EMOTE_CACHE_DIR = path.join(DATA_DIR, 'emote-cache');
 const TIMERS_PATH = path.join(DATA_DIR, 'timers.json');
 const CUSTOM_OVERLAYS_PATH = path.join(DATA_DIR, 'custom-overlays.json');
+const CUSTOM_OVERLAY_ASSETS_DIR = path.join(DATA_DIR, 'custom-overlay-assets');
 
 const GOAL_TYPE_LABELS = {
     followers: 'Followers',
@@ -109,6 +110,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
             fontWeight: String(element.style?.fontWeight || '400').slice(0, 20),
             color: String(element.style?.color || '#ffffff').slice(0, 80),
             textAlign: ['left', 'center', 'right'].includes(element.style?.textAlign) ? element.style.textAlign : 'left',
+            verticalAlign: ['top', 'middle', 'bottom'].includes(element.style?.verticalAlign) ? element.style.verticalAlign : 'top',
             background: String(element.style?.background || 'transparent').slice(0, 120),
             borderColor: String(element.style?.borderColor || 'transparent').slice(0, 80),
             borderWidth: Math.max(0, Math.min(40, Number(element.style?.borderWidth) || 0)),
@@ -116,7 +118,10 @@ function normalizeOverlayElement(element = {}, index = 0) {
             opacity: Number.isFinite(Number(element.style?.opacity))
                 ? Math.max(0, Math.min(1, Number(element.style.opacity)))
                 : 1,
-            objectFit: element.style?.objectFit === 'contain' ? 'contain' : 'cover'
+            objectFit: element.style?.objectFit === 'contain' ? 'contain' : 'cover',
+            shape: ['rectangle', 'circle', 'pill', 'line'].includes(element.style?.shape) ? element.style.shape : 'rectangle',
+            lineHeight: Math.max(0.5, Math.min(3, Number(element.style?.lineHeight) || 1.2)),
+            letterSpacing: Math.max(-10, Math.min(50, Number(element.style?.letterSpacing) || 0))
         }
     };
 }
@@ -1699,6 +1704,9 @@ function openBrowser(url) {
 if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
 }
+if (!fs.existsSync(CUSTOM_OVERLAY_ASSETS_DIR)) {
+    fs.mkdirSync(CUSTOM_OVERLAY_ASSETS_DIR, { recursive: true });
+}
 
 // ============================================================================
 // TWITCH OAUTH (User Token via Authorization Code Flow)
@@ -3118,6 +3126,9 @@ function performAutoBackup(force = false) {
         if (fs.existsSync(SESSIONS_DIR)) {
             zip.addLocalFolder(SESSIONS_DIR, 'data/sessions');
         }
+        if (fs.existsSync(CUSTOM_OVERLAY_ASSETS_DIR)) {
+            zip.addLocalFolder(CUSTOM_OVERLAY_ASSETS_DIR, 'data/custom-overlay-assets');
+        }
         zip.writeZip(backupPath);
         console.log(`[Backup] Auto-backup saved → ${backupPath}`);
 
@@ -3689,6 +3700,55 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    if (pathname === '/api/custom-overlays/assets' && req.method === 'POST') {
+        const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+        const allowedTypes = new Set([
+            'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml',
+            'video/mp4', 'video/webm', 'video/ogg'
+        ]);
+        const declaredName = String(req.headers['x-asset-name'] || 'asset').trim();
+        const safeBase = path.basename(declaredName).replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 120) || 'asset';
+        const typeExt = contentType.split('/')[1] === 'jpeg' ? '.jpg' : `.${contentType.split('/')[1] || ''}`;
+        const filename = `${Date.now().toString(36)}-${safeBase.includes('.') ? safeBase : `${safeBase}${typeExt}`}`;
+        const target = path.join(CUSTOM_OVERLAY_ASSETS_DIR, filename);
+        if (!allowedTypes.has(contentType)) {
+            res.writeHead(415, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Only common image and video asset types are supported' }));
+            return;
+        }
+        if (Number(req.headers['content-length'] || 0) > 100 * 1024 * 1024) {
+            res.writeHead(413, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Asset exceeds the 100 MB limit' }));
+            return;
+        }
+        const chunks = [];
+        let total = 0;
+        req.on('data', chunk => {
+            total += chunk.length;
+            if (total <= 100 * 1024 * 1024) chunks.push(chunk);
+        });
+        req.on('end', () => {
+            if (total > 100 * 1024 * 1024) {
+                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Asset exceeds the 100 MB limit' }));
+                return;
+            }
+            try {
+                fs.writeFileSync(target, Buffer.concat(chunks));
+                res.writeHead(201, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ url: `/custom-overlay-assets/${encodeURIComponent(filename)}`, name: filename, type: contentType, size: total }));
+            } catch (err) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: err.message }));
+            }
+        });
+        req.on('error', err => {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        });
+        return;
+    }
+
     const customOverlayMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)$/);
     if (pathname === '/api/custom-overlays' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -3877,7 +3937,11 @@ const server = http.createServer(async (req, res) => {
                 track: musicState.track,
                 artist: musicState.artist
             },
+            stream: {
+                title: chatData.streamInfo?.[0]?.title || ''
+            },
             goals: goalsSnapshot.summary,
+            goalMetrics: goalsSnapshot.metrics,
             timers: {
                 total: Object.keys(timerStore.timers).length,
                 countdowns: Object.values(timerStore.timers).filter(t => t.kind === 'countdown').length,
@@ -5368,6 +5432,9 @@ const server = http.createServer(async (req, res) => {
         if (fs.existsSync(SESSIONS_DIR)) {
             archive.directory(SESSIONS_DIR, 'data/sessions');
         }
+        if (fs.existsSync(CUSTOM_OVERLAY_ASSETS_DIR)) {
+            archive.directory(CUSTOM_OVERLAY_ASSETS_DIR, 'data/custom-overlay-assets');
+        }
 
         archive.finalize();
         return;
@@ -5716,7 +5783,17 @@ const server = http.createServer(async (req, res) => {
 
     // Static file serving
     let filePath = pathname === '/' ? '/credits.html' : pathname;
-    filePath = path.join(__dirname, filePath);
+    if (pathname.startsWith('/custom-overlay-assets/')) {
+        const assetName = decodeURIComponent(pathname.slice('/custom-overlay-assets/'.length));
+        if (!assetName || assetName.includes('/') || assetName.includes('\\')) {
+            res.writeHead(404);
+            res.end('Not Found');
+            return;
+        }
+        filePath = path.join(CUSTOM_OVERLAY_ASSETS_DIR, assetName);
+    } else {
+        filePath = path.join(__dirname, filePath);
+    }
 
     // Security: prevent directory traversal
     if (!filePath.startsWith(__dirname)) {
