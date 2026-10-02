@@ -23,11 +23,13 @@
         randomIndexes.set(element.id, config.mode === 'order' ? index + 1 : index);
         if (config.typewriter) {
             node.classList.add('overlay-typewriter');
-            node.textContent = '';
+            const typed = document.createElement('span');
+            typed.className = 'overlay-caret';
+            node.replaceChildren(typed);
             let position = 0;
             const speed = Math.max(10, Number(config.typewriterSpeed) || 45);
             const typeTimer = setInterval(() => {
-                node.textContent = value.slice(0, ++position);
+                typed.textContent = value.slice(0, ++position);
                 if (position >= value.length) clearInterval(typeTimer);
             }, speed);
         } else {

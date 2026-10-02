@@ -157,7 +157,7 @@
         .media-placeholder { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: .5rem; font: 500 14px -apple-system, "Segoe UI", sans-serif; letter-spacing: 0; line-height: 1.3; color: #9da7b3; background: repeating-linear-gradient(135deg, #ffffff0d 0 10px, transparent 10px 20px); border: 1px dashed #ffffff44; pointer-events: none; white-space: normal; }
         .overlay-marquee { white-space: nowrap; overflow: hidden; animation: overlay-marquee var(--marquee-duration, 60s) linear infinite; }
         @keyframes overlay-marquee { from { text-indent: 100%; } to { text-indent: -100%; } }
-        .overlay-typewriter { border-right: .15em solid currentColor; animation: overlay-blink-caret .5s step-end infinite; }
+        .overlay-caret { display: inline-block; max-width: 100%; vertical-align: top; overflow: hidden; white-space: nowrap; border-right: .15em solid currentColor; animation: overlay-blink-caret .5s step-end infinite; }
         @keyframes overlay-blink-caret { from, to { border-right-color: transparent; } 50% { border-right-color: currentColor; } }
 
         .sel-outline { position: absolute; outline: calc(var(--inv, 1) * 2px) solid var(--accent); }
@@ -539,8 +539,12 @@
             node.innerHTML = shared.renderMarkdown(expand(el.content));
         } else if (el.type === 'random-text') {
             const first = (el.items || []).find(Boolean) ?? el.content ?? '';
-            node.textContent = expand(first);
-            if (el.random?.typewriter) node._extra += ' overlay-typewriter';
+            if (el.random?.typewriter) {
+                const caret = document.createElement('span');
+                caret.className = 'overlay-caret'; caret.textContent = expand(first);
+                node.replaceChildren(caret);
+                node._extra += ' overlay-typewriter';
+            } else node.textContent = expand(first);
             if (el.random?.marquee) node._extra += ' overlay-marquee';
         } else if (el.type === 'text') {
             node.textContent = expand(el.content);
@@ -833,6 +837,8 @@
         const s = el.style;
         return F.section('typography', 'Typography', `
             <label class="field"><span>Font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text">${fontOptions(s.fontFamily)}</select></label>
+            ${F.text('style.fontFamily', 'Custom / system font', s.fontFamily, 'placeholder="e.g. Comic Sans MS, Menlo" maxlength="120" list="system-font-list"')}
+            <datalist id="system-font-list">${SYSTEM_FONTS.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist>
             <div class="grid2">${F.number('style.fontSize', 'Size (px)', s.fontSize, { min: 8, max: 400 })}${F.select('style.fontWeight', 'Weight', s.fontWeight, [['400', 'Normal'], ['600', 'Semi-bold'], ['700', 'Bold'], ['900', 'Black']])}</div>
             ${F.color('style.color', 'Text color', s.color)}
             <div class="grid2">${F.seg('style.textAlign', 'Horizontal', s.textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${F.seg('style.verticalAlign', 'Vertical', s.verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>
@@ -912,7 +918,7 @@
         changed(false);
     });
     $('properties').addEventListener('mousedown', event => { if (event.target.id === 'font-picker') GOOGLE_FONT_OPTIONS.forEach(([v]) => shared.loadGoogleFont(v)); });
-    $('properties').addEventListener('input', event => { if (event.target.id === 'font-picker') shared.loadGoogleFont(event.target.value); });
+    $('properties').addEventListener('input', event => { if (event.target.dataset?.path === 'style.fontFamily') shared.loadGoogleFont(event.target.value); });
 
     function syncGeometryInputs() {
         const el = selectedIds.size === 1 ? primary() : null;
