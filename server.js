@@ -2100,7 +2100,7 @@ async function fetchTwitchData() {
 
         // Fetch bits leaderboard (month)
         console.log('[Twitch] Fetching bits leaderboard...');
-        const bitsResult = await twitchApiRequest('/bits/leaderboard', { count: '100', period: 'month' });
+        const bitsResult = await twitchApiRequest('/bits/leaderboard', { count: '100', period: 'month', started_at: new Date().toISOString() });
         if (bitsResult.status === 200) {
             fs.writeFileSync(path.join(DATA_DIR, 'bits.json'), JSON.stringify(bitsResult.body, null, 2));
             console.log(`[Twitch] Saved ${bitsResult.body.data?.length || 0} bits leaders`);
