@@ -1933,6 +1933,7 @@ async function startDeviceAuth() {
         verificationUri: r.data.verification_uri,
         interval: Math.max(1, r.data.interval || 5),
         expiresAt: Date.now() + (r.data.expires_in || 1800) * 1000,
+        nextPollAt: Date.now() + Math.max(1, r.data.interval || 5) * 1000,
         status: 'pending',
         error: ''
     };
@@ -1943,6 +1944,9 @@ async function pollDeviceAuth() {
     if (!deviceAuth) return { status: 'idle' };
     if (deviceAuth.status !== 'pending') return deviceAuth;
     if (Date.now() > deviceAuth.expiresAt) { deviceAuth.status = 'expired'; return deviceAuth; }
+    // Never hit Twitch faster than its polling interval, however often clients ask
+    if (Date.now() < deviceAuth.nextPollAt) return deviceAuth;
+    deviceAuth.nextPollAt = Date.now() + deviceAuth.interval * 1000;
     const r = await twitchFormPost('https://id.twitch.tv/oauth2/token', {
         client_id: TWITCH_CLIENT_ID,
         scopes: TWITCH_SCOPES,
@@ -1958,6 +1962,7 @@ async function pollDeviceAuth() {
         // still waiting for the user to approve
     } else if (/slow_down/i.test(r.data.message || '')) {
         deviceAuth.interval += 5;
+        deviceAuth.nextPollAt = Date.now() + deviceAuth.interval * 1000;
     } else {
         deviceAuth.status = /expired|invalid device/i.test(r.data.message || '') ? 'expired' : 'error';
         deviceAuth.error = r.data.message || `Twitch error (${r.status})`;
