@@ -1,71 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse — Music URL Wizard</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
 
-        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
-        .header h1 span { color: #58a6ff; }
+        .header h1 span { color: var(--accent); }
         .nav { display: flex; gap: 0.75rem; align-items: center; }
-        .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
-        .nav a:hover { color: #e1e4e8; background: #21262d; }
+        .nav a { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
+        .nav a:hover { color: var(--text); background: var(--bg-raised); }
         .nav .dropdown { position: relative; display: flex; align-items: center; }
-        .nav .dropdown-toggle { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
-        .nav .dropdown-toggle:hover { color: #e1e4e8; background: #21262d; }
-        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .nav .dropdown-toggle { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
+        .nav .dropdown-toggle:hover { color: var(--text); background: var(--bg-raised); }
+        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
         .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
         .nav .dropdown:hover .dropdown-menu { display: block; }
-        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
-        .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+        .nav .dropdown-menu a:hover { color: var(--text); background: var(--bg-raised); }
 
         .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
         .full-width { grid-column: 1 / -1; }
 
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; }
-        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 1rem; }
-        .card h3 { font-size: 0.78rem; color: #58a6ff; margin: 0.75rem 0 0.5rem; padding-top: 0.5rem; border-top: 1px solid #21262d; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 1rem; }
+        .card h3 { font-size: 0.78rem; color: var(--accent); margin: 0.75rem 0 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--bg-raised); }
 
         .cfg-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.6rem; }
-        .cfg-row label { font-size: 0.82rem; color: #8b949e; min-width: 100px; }
-        .cfg-row input, .cfg-row select { flex: 1; padding: 0.4rem 0.6rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.82rem; font-family: inherit; outline: none; }
-        .cfg-row input:focus, .cfg-row select:focus { border-color: #58a6ff; }
+        .cfg-row label { font-size: 0.82rem; color: var(--text-muted); min-width: 100px; }
+        .cfg-row input, .cfg-row select { flex: 1; padding: 0.4rem 0.6rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.82rem; font-family: inherit; outline: none; }
+        .cfg-row input:focus, .cfg-row select:focus { border-color: var(--accent); }
         .cfg-row input[type="color"] { width: 36px; height: 30px; padding: 2px; cursor: pointer; flex: none; }
-        .cfg-row input[type="range"] { accent-color: #58a6ff; }
-        .cfg-row input[type="checkbox"] { flex: none; width: auto; accent-color: #58a6ff; }
+        .cfg-row input[type="range"] { accent-color: var(--accent); }
+        .cfg-row input[type="checkbox"] { flex: none; width: auto; accent-color: var(--accent); }
 
         .toggle-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
-        .toggle-row label { font-size: 0.82rem; color: #c9d1d9; cursor: pointer; }
-        .toggle-row input[type="checkbox"] { accent-color: #58a6ff; }
+        .toggle-row label { font-size: 0.82rem; color: var(--text); cursor: pointer; }
+        .toggle-row input[type="checkbox"] { accent-color: var(--accent); }
 
-        .btn { padding: 0.5rem 1.25rem; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #e1e4e8; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
-        .btn:hover { border-color: #58a6ff; }
-        .btn.primary { background: #238636; border-color: #238636; }
-        .btn.primary:hover { background: #2ea043; }
+        .btn { padding: 0.5rem 1.25rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+        .btn:hover { border-color: var(--accent); }
+        .btn.primary { background: var(--success-strong); border-color: var(--success-strong); color: #fff; }
+        .btn.primary:hover { background: var(--success-hover); }
 
-        .url-output { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 0.75rem 1rem; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; font-size: 0.78rem; color: #7ee787; word-break: break-all; line-height: 1.5; cursor: pointer; transition: border-color 0.3s; position: relative; }
-        .url-output:hover { border-color: #58a6ff; }
-        .url-output .copy-toast { position: absolute; top: -1.5rem; right: 0.5rem; font-size: 0.7rem; color: #3fb950; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        .url-output { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; font-size: 0.78rem; color: var(--success-soft); word-break: break-all; line-height: 1.5; cursor: pointer; transition: border-color 0.3s; position: relative; }
+        .url-output:hover { border-color: var(--accent); }
+        .url-output .copy-toast { position: absolute; top: -1.5rem; right: 0.5rem; font-size: 0.7rem; color: var(--success); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
         .url-output .copy-toast.show { opacity: 1; }
 
         .preview-frame { background: #000; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 1rem; }
         .preview-frame iframe { border: none; background: transparent; }
 
-        .obs-hint { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: #58a6ff; background: #1a2332; border: 1px solid #30363d; border-radius: 4px; padding: 0.2rem 0.5rem; margin-top: 0.5rem; }
+        .obs-hint { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: var(--accent); background: var(--accent-bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.2rem 0.5rem; margin-top: 0.5rem; }
 
-        .param-badge { display: inline-block; font-size: 0.68rem; background: #21262d; border: 1px solid #30363d; border-radius: 3px; padding: 0.1rem 0.35rem; color: #8b949e; font-family: monospace; margin-left: 0.3rem; }
+        .param-badge { display: inline-block; font-size: 0.68rem; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 3px; padding: 0.1rem 0.35rem; color: var(--text-muted); font-family: monospace; margin-left: 0.3rem; }
 
-        .info-text { font-size: 0.78rem; color: #8b949e; line-height: 1.5; }
+        .info-text { font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>StreamPulse <span>Music URL Wizard</span> <span style="font-size:0.6rem;background:#4a2f05;color:#d29922;border:1px solid #d2992230;padding:0.15rem 0.4rem;border-radius:4px;vertical-align:middle;">Beta</span></h1>
+        <h1>StreamPulse <span>Music URL Wizard</span> <span style="font-size:0.6rem;background:var(--warn-bg);color:var(--warn);border:1px solid color-mix(in srgb, var(--warn) 19%, transparent);padding:0.15rem 0.4rem;border-radius:4px;vertical-align:middle;">Beta</span></h1>
         <div id="main-nav" class="nav"></div>
         <script src="/nav.js"></script>
     </div>
@@ -76,7 +78,7 @@
             <h2>Build Custom Overlay URLs</h2>
             <p class="info-text">
                 Customize each OBS overlay source independently using URL parameters. The base overlay reads from your
-                <a href="/music-editor.html" style="color:#58a6ff;">saved settings</a> — parameters here <strong>override</strong>
+                <a href="/music-editor.html" style="color:var(--accent);">saved settings</a> — parameters here <strong>override</strong>
                 individual values per-source. Only changed parameters are added to the URL.
             </p>
         </div>
@@ -95,17 +97,17 @@
             <div class="cfg-row">
                 <label>Width <span class="param-badge">w</span></label>
                 <input type="number" id="wiz-w" placeholder="default" min="40" max="1200" style="max-width:90px;">
-                <span style="font-size:0.75rem;color:#484f58;">px</span>
+                <span style="font-size:0.75rem;color:var(--border-strong);">px</span>
             </div>
             <div class="cfg-row">
                 <label>Height <span class="param-badge">h</span></label>
                 <input type="number" id="wiz-h" placeholder="default" min="24" max="1200" style="max-width:90px;">
-                <span style="font-size:0.75rem;color:#484f58;">px</span>
+                <span style="font-size:0.75rem;color:var(--border-strong);">px</span>
             </div>
             <div class="cfg-row" id="row-art-size">
                 <label>Art Thumb <span class="param-badge">artSize</span></label>
                 <input type="number" id="wiz-artSize" placeholder="auto" min="0" max="400" style="max-width:90px;">
-                <span style="font-size:0.75rem;color:#484f58;">px (0 = auto)</span>
+                <span style="font-size:0.75rem;color:var(--border-strong);">px (0 = auto)</span>
             </div>
 
             <h3>Mini Layout <span class="param-badge">layout</span></h3>
@@ -189,7 +191,7 @@
             <div class="toggle-row"><input type="checkbox" id="wiz-field-progress"><label for="wiz-field-progress">Progress Bar</label></div>
             <div class="toggle-row" style="margin-top:0.3rem;">
                 <input type="checkbox" id="wiz-fields-override">
-                <label for="wiz-fields-override" style="color:#d29922;">Override fields (use checked above)</label>
+                <label for="wiz-fields-override" style="color:var(--warn);">Override fields (use checked above)</label>
             </div>
 
             <h3>"Now Playing" Label <span class="param-badge">label</span></h3>
@@ -233,10 +235,10 @@
             <h2>URL Parameter Reference</h2>
             <table style="width:100%; font-size:0.78rem; border-collapse:collapse;">
                 <thead>
-                    <tr style="border-bottom:1px solid #30363d;">
-                        <th style="text-align:left; padding:0.4rem 0.5rem; color:#8b949e;">Parameter</th>
-                        <th style="text-align:left; padding:0.4rem 0.5rem; color:#8b949e;">Type</th>
-                        <th style="text-align:left; padding:0.4rem 0.5rem; color:#8b949e;">Description</th>
+                    <tr style="border-bottom:1px solid var(--border);">
+                        <th style="text-align:left; padding:0.4rem 0.5rem; color:var(--text-muted);">Parameter</th>
+                        <th style="text-align:left; padding:0.4rem 0.5rem; color:var(--text-muted);">Type</th>
+                        <th style="text-align:left; padding:0.4rem 0.5rem; color:var(--text-muted);">Description</th>
                     </tr>
                 </thead>
                 <tbody id="param-ref">
@@ -269,11 +271,11 @@
     const tbody = document.getElementById('param-ref');
     for (const p of PARAMS) {
         const tr = document.createElement('tr');
-        tr.style.borderBottom = '1px solid #21262d';
+        tr.style.borderBottom = '1px solid var(--bg-raised)';
         tr.innerHTML = `
-            <td style="padding:0.4rem 0.5rem;"><code style="background:#21262d;padding:0.15rem 0.4rem;border-radius:3px;color:#7ee787;">${p.key}</code></td>
-            <td style="padding:0.4rem 0.5rem;color:#8b949e;">${p.type}</td>
-            <td style="padding:0.4rem 0.5rem;">${p.desc} <span style="color:#484f58;font-size:0.72rem;">e.g. ${p.example}</span></td>
+            <td style="padding:0.4rem 0.5rem;"><code style="background:var(--bg-raised);padding:0.15rem 0.4rem;border-radius:3px;color:var(--success-soft);">${p.key}</code></td>
+            <td style="padding:0.4rem 0.5rem;color:var(--text-muted);">${p.type}</td>
+            <td style="padding:0.4rem 0.5rem;">${p.desc} <span style="color:var(--border-strong);font-size:0.72rem;">e.g. ${p.example}</span></td>
         `;
         tbody.appendChild(tr);
     }

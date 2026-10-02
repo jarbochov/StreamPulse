@@ -1,42 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse — Game Plan</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
-        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
+        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
-        .header h1 span { color: #58a6ff; }
+        .header h1 span { color: var(--accent); }
         .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1.1rem; }
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.1rem 1.2rem; }
-        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.25rem; }
-        .hint { color: #8b949e; font-size: 0.78rem; line-height: 1.45; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem 1.2rem; }
+        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.25rem; }
+        .hint { color: var(--text-muted); font-size: 0.78rem; line-height: 1.45; }
         .add-row { display: grid; grid-template-columns: 1fr 160px 1fr auto; gap: 0.6rem; margin-top: 0.8rem; }
-        input, select { padding: 0.5rem 0.65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.85rem; font-family: inherit; min-width: 0; }
-        input:focus, select:focus { outline: none; border-color: #58a6ff; }
-        .btn { border: 1px solid #30363d; background: #21262d; color: #e1e4e8; border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.82rem; cursor: pointer; }
-        .btn:hover { border-color: #58a6ff; }
-        .btn.primary { background: #238636; border-color: #238636; }
+        input, select { padding: 0.5rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; font-family: inherit; min-width: 0; }
+        input:focus, select:focus { outline: none; border-color: var(--accent); }
+        .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.82rem; cursor: pointer; }
+        .btn:hover { border-color: var(--accent); }
+        .btn.primary { background: var(--success-strong); border-color: var(--success-strong); color: #fff; }
         .btn.icon { padding: 0.3rem 0.55rem; }
         .lists { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.1rem; align-items: start; }
         .list-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; }
         .list-head h2 { margin: 0; }
-        .count { font-size: 0.74rem; color: #6e7681; }
+        .count { font-size: 0.74rem; color: var(--text-faint); }
         .items { display: flex; flex-direction: column; gap: 0.5rem; min-height: 64px; padding-bottom: 0.2rem; }
-        .items:empty::before { content: attr(data-empty); color: #6e7681; font-size: 0.8rem; border: 1px dashed #30363d; border-radius: 8px; padding: 1rem; text-align: center; }
-        .item { display: grid; grid-template-columns: auto 48px minmax(0, 1fr); gap: 0.6rem; align-items: start; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 0.5rem 0.6rem; }
-        .item.now { border-color: #3fb950; box-shadow: 0 0 0 1px #3fb95066; }
-        .grip { cursor: grab; color: #6e7681; user-select: none; padding: 0 0.15rem; }
-        .cover { width: 48px; height: 64px; border-radius: 5px; background: #21262d; object-fit: cover; display: block; }
+        .items:empty::before { content: attr(data-empty); color: var(--text-faint); font-size: 0.8rem; border: 1px dashed var(--border); border-radius: 8px; padding: 1rem; text-align: center; }
+        .item { display: grid; grid-template-columns: auto 48px minmax(0, 1fr); gap: 0.6rem; align-items: start; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem; }
+        .item.now { border-color: var(--success); box-shadow: 0 0 0 1px color-mix(in srgb, var(--success) 40%, transparent); }
+        .grip { cursor: grab; color: var(--text-faint); user-select: none; padding: 0 0.15rem; }
+        .cover { width: 48px; height: 64px; border-radius: 5px; background: var(--bg-raised); object-fit: cover; display: block; }
         .main { min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; }
         .main .name { font-weight: 600; font-size: 0.88rem; line-height: 1.25; }
-        .main .sub { font-size: 0.72rem; color: #8b949e; }
+        .main .sub { font-size: 0.72rem; color: var(--text-muted); }
         .main input { padding: 0.3rem 0.5rem; font-size: 0.78rem; }
-        .badge { display: inline-block; background: #3fb950; color: #000; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; border-radius: 999px; padding: 0.1rem 0.5rem; margin-left: 0.4rem; vertical-align: middle; }
+        .badge { display: inline-block; background: var(--success); color: #000; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; border-radius: 999px; padding: 0.1rem 0.5rem; margin-left: 0.4rem; vertical-align: middle; }
         .item-actions { grid-column: 3; display: flex; flex-direction: row; gap: 0.3rem; }
         .item-actions select { flex: 1; }
         .item-actions button { flex: 0 0 auto; padding: 0.2rem 0.6rem; }
@@ -44,15 +46,15 @@
         .sortable-ghost { opacity: 0.4; }
         .name-wrap { position: relative; }
         .name-wrap input { width: 100%; }
-        .suggest { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; max-height: 340px; overflow-y: auto; background: #161b22; border: 1px solid #30363d; border-radius: 8px; box-shadow: 0 8px 24px #000a; }
-        .suggest button { display: grid; grid-template-columns: 34px 1fr; gap: 0.6rem; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid #21262d; color: #e6edf3; padding: 0.4rem 0.6rem; cursor: pointer; font: inherit; }
-        .suggest button:hover, .suggest button.active { background: #1f6feb33; }
-        .suggest img, .suggest .nocover { width: 34px; height: 45px; border-radius: 4px; object-fit: cover; background: #21262d; }
-        .suggest small { display: block; color: #8b949e; font-size: 0.72rem; }
-        .suggest .plain { grid-template-columns: 1fr; color: #8b949e; font-size: 0.82rem; }
-        .list-name { background: transparent; border: 1px solid transparent; color: #8b949e; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 0.1rem 0.3rem; flex: 1; min-width: 0; }
-        .list-name:hover, .list-name:focus { border-color: #30363d; background: #0d1117; }
-        .status { color: #8b949e; font-size: 0.8rem; min-height: 1.2em; }
+        .suggest { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; max-height: 340px; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px #000a; }
+        .suggest button { display: grid; grid-template-columns: 34px 1fr; gap: 0.6rem; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--bg-raised); color: #e6edf3; padding: 0.4rem 0.6rem; cursor: pointer; font: inherit; }
+        .suggest button:hover, .suggest button.active { background: color-mix(in srgb, var(--accent-strong) 20%, transparent); }
+        .suggest img, .suggest .nocover { width: 34px; height: 45px; border-radius: 4px; object-fit: cover; background: var(--bg-raised); }
+        .suggest small { display: block; color: var(--text-muted); font-size: 0.72rem; }
+        .suggest .plain { grid-template-columns: 1fr; color: var(--text-muted); font-size: 0.82rem; }
+        .list-name { background: transparent; border: 1px solid transparent; color: var(--text-muted); font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 0.1rem 0.3rem; flex: 1; min-width: 0; }
+        .list-name:hover, .list-name:focus { border-color: var(--border); background: var(--bg-inset); }
+        .status { color: var(--text-muted); font-size: 0.8rem; min-height: 1.2em; }
         @media (max-width: 980px) { .lists { grid-template-columns: 1fr; } .add-row { grid-template-columns: 1fr; } .container { padding: 1rem; } }
     </style>
 </head>
@@ -79,7 +81,7 @@
         </div>
 
         <div class="lists" id="lists"></div>
-        <p class="hint">Use these in overlays with the <b>Game list</b> element in the <a href="/custom-overlays.html" style="color:#58a6ff">custom overlay editor</a>.</p>
+        <p class="hint">Use these in overlays with the <b>Game list</b> element in the <a href="/custom-overlays.html" style="color:var(--accent)">custom overlay editor</a>.</p>
     </div>
 
     <script src="/vendor/Sortable.min.js"></script>

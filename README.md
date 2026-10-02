@@ -155,6 +155,7 @@ If StreamPulse is intentionally hosted somewhere other than localhost, set `twit
 - **Credits Roll** — Cinematic scrolling credits with subscribers, followers, chatters, emotes, hashtags, raids, gift subs, cheerers, and optional fade-style text sections for custom sections, Special Thanks, or the closing message
 - **Music Overlay** — "Now Playing" overlay for Apple Music, Spotify, and VLC with album art, marquee titles, and multiple display modes
 - **Named Timers** — Shared countdown and stopwatch overlays with duration or target-date countdown modes, pause/resume controls, quick add/subtract time adjustments, persistent state, and Companion-friendly field endpoints
+- **Appearance** — Dark, light or match-system mode and a custom accent color for all admin pages, set in the Config Editor (or the ☀️/🌙 nav toggle). Stored per browser; shared styles live in `admin.css` and `appearance.js`. Overlays are unaffected.
 - **Alerts (Beta)** — Rule-based on-screen alerts for follows, subs, resubs, milestones, gifted subs, bits, donations, raids, channel point redeems, finished timers, reached goals and chat words. Random/weighted variants, tiered thresholds, image/GIF/video/sound uploads, animations, a queue with skip/pause, an event queue page with replay (usable as an OBS dock), and optional timer or HTTP actions. Shown through an **Alert box** element in the custom overlay editor
 - **Goals + Viewer Tracking** — Live viewer sampling plus configurable follower, subscriber, gift sub, bits, donation, viewer, and combined community goals with single-goal and rotating cycle overlays
 - **Game Plan** — Manually curated Scheduled, Backlog, Played and your own custom lists with IGDB cover art, release years and genres. Pick the exact game when names collide (e.g. Doom), group by period such as "October", and mark the game matching your Twitch category as *Now playing*
@@ -417,6 +418,8 @@ streampulse/
 ├── countdown.html         # Countdown overlay (OBS browser source)
 ├── stopwatch.html         # Stopwatch overlay (OBS browser source)
 ├── alerts.js              # Alert engine (rules, queue, gift batching)
+├── admin.css              # Shared admin palette (dark/light)
+├── appearance.js          # Light/dark mode and accent color
 ├── alerts.html            # Alerts manager
 ├── alert-queue.html       # Event queue / replay (OBS dock)
 ├── goals-editor.html      # Goals manager + viewer tracking settings

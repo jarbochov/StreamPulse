@@ -1,51 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse — Overlay URL Wizard</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { min-height: 100vh; background: #0f1117; color: #e1e4e8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
-        .header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 2rem; background: #161b22; border-bottom: 1px solid #30363d; }
+        body { min-height: 100vh; background: var(--bg-page); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+        .header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 2rem; background: var(--bg-card); border-bottom: 1px solid var(--border); }
         .header h1 { font-size: 1.3rem; font-weight: 600; white-space: nowrap; }
-        .header h1 span { color: #58a6ff; }
+        .header h1 span { color: var(--accent); }
         .container { max-width: 1240px; margin: 0 auto; padding: 1.5rem 2rem 2.5rem; }
-        .intro, .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
-        .intro { padding: 1.15rem 1.25rem; margin-bottom: 1.25rem; color: #8b949e; font-size: .88rem; line-height: 1.55; }
-        .intro a { color: #58a6ff; }
+        .intro, .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; }
+        .intro { padding: 1.15rem 1.25rem; margin-bottom: 1.25rem; color: var(--text-muted); font-size: .88rem; line-height: 1.55; }
+        .intro a { color: var(--accent); }
         .overlay-picker { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.25rem; }
-        .overlay-picker button { padding:.55rem .9rem; border:1px solid #30363d; border-radius:6px; background:#21262d; color:#c9d1d9; cursor:pointer; font:inherit; font-size:.82rem; }
-        .overlay-picker button:hover, .overlay-picker button[aria-pressed="true"] { border-color:#58a6ff; background:#1a2332; color:#fff; }
+        .overlay-picker button { padding:.55rem .9rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-raised); color:var(--text); cursor:pointer; font:inherit; font-size:.82rem; }
+        .overlay-picker button:hover, .overlay-picker button[aria-pressed="true"] { border-color:var(--accent); background:var(--accent-bg); color:#fff; }
         [hidden] { display:none !important; }
         .layout { display: grid; grid-template-columns: minmax(320px, .9fr) minmax(420px, 1.1fr); gap: 1.25rem; align-items: start; }
         .controls { display: grid; gap: 1rem; }
         .card { padding: 1.15rem 1.2rem; }
-        .card h2 { margin-bottom: .85rem; color: #8b949e; font-size: .82rem; text-transform: uppercase; letter-spacing: .5px; }
-        .card h3 { margin: .9rem 0 .55rem; color: #58a6ff; font-size: .85rem; }
+        .card h2 { margin-bottom: .85rem; color: var(--text-muted); font-size: .82rem; text-transform: uppercase; letter-spacing: .5px; }
+        .card h3 { margin: .9rem 0 .55rem; color: var(--accent); font-size: .85rem; }
         .form-row { display: flex; align-items: center; gap: .75rem; margin: 0 0 .65rem; }
-        .form-row label { min-width: 125px; color: #8b949e; font-size: .82rem; }
-        input:not([type="checkbox"]), select { min-width: 0; flex: 1; padding: .48rem .6rem; color: #e1e4e8; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; font: inherit; font-size: .82rem; }
-        input:focus, select:focus { outline: none; border-color: #58a6ff; }
-        input[type="checkbox"] { width: auto; accent-color: #58a6ff; }
-        .hint { margin: -.2rem 0 .75rem 125px; color: #8b949e; font-size: .75rem; line-height: 1.45; }
-        .check-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: .4rem .7rem; max-height: 145px; overflow-y: auto; padding: .65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; }
-        .check-list label { display: flex; align-items: center; gap: .4rem; color: #c9d1d9; font-size: .78rem; overflow-wrap: anywhere; }
-        .check-list .empty { color: #8b949e; font-size: .78rem; }
-        .toggle { display: flex; align-items: center; gap: .5rem; margin: .1rem 0 .7rem 125px; color: #c9d1d9; font-size: .82rem; }
+        .form-row label { min-width: 125px; color: var(--text-muted); font-size: .82rem; }
+        input:not([type="checkbox"]), select { min-width: 0; flex: 1; padding: .48rem .6rem; color: var(--text); background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: .82rem; }
+        input:focus, select:focus { outline: none; border-color: var(--accent); }
+        input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+        .hint { margin: -.2rem 0 .75rem 125px; color: var(--text-muted); font-size: .75rem; line-height: 1.45; }
+        .check-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: .4rem .7rem; max-height: 145px; overflow-y: auto; padding: .65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; }
+        .check-list label { display: flex; align-items: center; gap: .4rem; color: var(--text); font-size: .78rem; overflow-wrap: anywhere; }
+        .check-list .empty { color: var(--text-muted); font-size: .78rem; }
+        .toggle { display: flex; align-items: center; gap: .5rem; margin: .1rem 0 .7rem 125px; color: var(--text); font-size: .82rem; }
         .url-list { display: grid; gap: .85rem; }
-        .url-item { padding: .85rem; background: #0d1117; border: 1px solid #30363d; border-radius: 7px; }
+        .url-item { padding: .85rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 7px; }
         .url-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .5rem; }
-        .url-heading h3 { color: #e1e4e8; font-size: .88rem; }
-        .url-output { display: block; color: #79c0ff; font: .78rem/1.5 "SFMono-Regular", Consolas, monospace; overflow-wrap: anywhere; text-decoration: none; }
+        .url-heading h3 { color: var(--text); font-size: .88rem; }
+        .url-output { display: block; color: var(--accent-soft); font: .78rem/1.5 "SFMono-Regular", Consolas, monospace; overflow-wrap: anywhere; text-decoration: none; }
         .url-output:hover { text-decoration: underline; }
-        .button { flex: none; padding: .38rem .7rem; color: #e1e4e8; background: #21262d; border: 1px solid #30363d; border-radius: 6px; cursor: pointer; font: inherit; font-size: .76rem; }
-        .button:hover { border-color: #58a6ff; }
+        .button { flex: none; padding: .38rem .7rem; color: var(--text); background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font: inherit; font-size: .76rem; }
+        .button:hover { border-color: var(--accent); }
         .parameter-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
-        .parameter-table th, .parameter-table td { padding: .55rem .45rem; border-bottom: 1px solid #21262d; text-align: left; vertical-align: top; }
-        .parameter-table th { color: #8b949e; font-weight: 600; }
-        code { padding: .1rem .3rem; color: #7ee787; background: #21262d; border-radius: 3px; }
+        .parameter-table th, .parameter-table td { padding: .55rem .45rem; border-bottom: 1px solid var(--bg-raised); text-align: left; vertical-align: top; }
+        .parameter-table th { color: var(--text-muted); font-weight: 600; }
+        code { padding: .1rem .3rem; color: var(--success-soft); background: var(--bg-raised); border-radius: 3px; }
         .reference { margin-top: 1.25rem; }
         @media (max-width: 950px) {
             .header { flex-direction: column; }

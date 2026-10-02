@@ -1,60 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse — Backup & Restore</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
 
-        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
-        .header h1 span { color: #58a6ff; }
+        .header h1 span { color: var(--accent); }
         .nav { display: flex; gap: 0.75rem; }
-        .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
-        .nav a:hover { color: #e1e4e8; background: #21262d; }
+        .nav a { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
+        .nav a:hover { color: var(--text); background: var(--bg-raised); }
 
         .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; }
-        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 1rem; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 1rem; }
 
-        .btn { padding: 0.6rem 1rem; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #e1e4e8; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-align: center; text-decoration: none; display: inline-block; }
-        .btn:hover { border-color: #58a6ff; background: #1a2332; }
-        .btn.danger { border-color: #f8514950; }
-        .btn.danger:hover { border-color: #f85149; background: #2d1b1e; }
+        .btn { padding: 0.6rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-align: center; text-decoration: none; display: inline-block; }
+        .btn:hover { border-color: var(--accent); background: var(--accent-bg); }
+        .btn.danger { border-color: color-mix(in srgb, var(--danger) 31%, transparent); }
+        .btn.danger:hover { border-color: var(--danger); background: var(--danger-soft-bg); }
         .btn.wide { width: 100%; }
-        .btn.primary { border-color: #1f6feb; background: #1a2332; }
-        .btn.primary:hover { background: #1f3a5f; }
+        .btn.primary { border-color: var(--accent-strong); background: var(--accent-bg); }
+        .btn.primary:hover { background: var(--accent-border); }
 
         .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 
         .backup-list { max-height: 400px; overflow-y: auto; }
-        .backup-item { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid #21262d; font-size: 0.85rem; }
+        .backup-item { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid var(--bg-raised); font-size: 0.85rem; }
         .backup-item:last-child { border-bottom: none; }
-        .backup-item .name { flex: 1; color: #e1e4e8; }
-        .backup-item .size { color: #8b949e; margin-right: 1rem; font-size: 0.8rem; }
-        .backup-item .date { color: #8b949e; margin-right: 1rem; font-size: 0.8rem; }
+        .backup-item .name { flex: 1; color: var(--text); }
+        .backup-item .size { color: var(--text-muted); margin-right: 1rem; font-size: 0.8rem; }
+        .backup-item .date { color: var(--text-muted); margin-right: 1rem; font-size: 0.8rem; }
 
-        .info-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.75rem 1rem; font-size: 0.8rem; color: #8b949e; margin-bottom: 1rem; }
-        .info-box code { color: #58a6ff; }
+        .info-box { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; }
+        .info-box code { color: var(--accent); }
 
-        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--accent-strong); color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
         .toast.show { opacity: 1; }
 
         .nav .dropdown { position: relative; display: flex; align-items: center; }
-        .nav .dropdown-toggle { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
-        .nav .dropdown-toggle:hover { color: #e1e4e8; background: #21262d; }
-        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .nav .dropdown-toggle { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
+        .nav .dropdown-toggle:hover { color: var(--text); background: var(--bg-raised); }
+        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
         .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
         .nav .dropdown:hover .dropdown-menu { display: block; }
-        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
-        .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+        .nav .dropdown-menu a:hover { color: var(--text); background: var(--bg-raised); }
 
         .status-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 10px; font-size: 0.7rem; font-weight: 600; }
-        .status-badge.on { background: #23883030; color: #3fb950; }
-        .status-badge.off { background: #f8514920; color: #f85149; }
+        .status-badge.on { background: color-mix(in srgb, var(--success) 19%, transparent); color: var(--success); }
+        .status-badge.off { background: color-mix(in srgb, var(--danger) 13%, transparent); color: var(--danger); }
 
         @media (max-width: 768px) {
             .container { padding: 1rem; }
@@ -86,7 +88,7 @@
                 Upload a previously downloaded backup ZIP to restore all data. This will <strong>overwrite</strong> current stats, config, live session files, and session archives. StreamPulse reloads compatible in-memory data automatically, but restored connection and startup settings still require a restart.
             </div>
             <div style="margin-bottom: 0.75rem;">
-                <input type="file" id="restore-file" accept=".zip" style="font-size: 0.85rem; color: #8b949e; width: 100%;">
+                <input type="file" id="restore-file" accept=".zip" style="font-size: 0.85rem; color: var(--text-muted); width: 100%;">
             </div>
             <button class="btn wide danger" onclick="restoreBackup()">⚠️ Restore from ZIP</button>
             <div id="restore-result" style="margin-top: 0.75rem; font-size: 0.8rem; display: none;"></div>
@@ -111,7 +113,7 @@
         <div class="card">
             <h2>📁 Auto-Backup History</h2>
             <div class="backup-list" id="backup-list">
-                <div style="color: #484f58; text-align: center; padding: 1rem; font-size: 0.85rem;">Loading...</div>
+                <div style="color: var(--border-strong); text-align: center; padding: 1rem; font-size: 0.85rem;">Loading...</div>
             </div>
         </div>
     </div>
@@ -143,10 +145,10 @@
             const data = await res.json();
             if (data.status === 'restored') {
                 const restartNote = data.restartRequired
-                    ? `<div style="margin-top:0.5rem;color:#e3b341;">⚠️ Restart StreamPulse to apply: <code style="color:#e3b341;">${(data.restartFields || []).join(', ')}</code></div>`
+                    ? `<div style="margin-top:0.5rem;color:var(--warn);">⚠️ Restart StreamPulse to apply: <code style="color:var(--warn);">${(data.restartFields || []).join(', ')}</code></div>`
                     : '';
                 resultEl.style.color = '#3fb950';
-                resultEl.innerHTML = `✅ ${data.message || `Restored ${data.files} files.`}<br><strong>${data.files}</strong> files: <code style="color:#58a6ff;">${data.restored.join(', ')}</code>${restartNote}`;
+                resultEl.innerHTML = `✅ ${data.message || `Restored ${data.files} files.`}<br><strong>${data.files}</strong> files: <code style="color:var(--accent);">${data.restored.join(', ')}</code>${restartNote}`;
                 showToast(data.restartRequired ? 'Restore finished — restart required' : `Restored ${data.files} files!`);
             } else {
                 resultEl.style.color = '#f85149';
@@ -201,7 +203,7 @@
             const data = await res.json();
 
             if (!data.backups || data.backups.length === 0) {
-                list.innerHTML = '<div style="color: #484f58; text-align: center; padding: 1rem; font-size: 0.85rem;">No auto-backups yet. Enable auto-backup above and end a session to create one.</div>';
+                list.innerHTML = '<div style="color: var(--border-strong); text-align: center; padding: 1rem; font-size: 0.85rem;">No auto-backups yet. Enable auto-backup above and end a session to create one.</div>';
                 return;
             }
 
@@ -214,7 +216,7 @@
                 </div>
             `).join('');
         } catch {
-            list.innerHTML = '<div style="color: #484f58; text-align: center; padding: 1rem; font-size: 0.85rem;">Could not load backup list</div>';
+            list.innerHTML = '<div style="color: var(--border-strong); text-align: center; padding: 1rem; font-size: 0.85rem;">Could not load backup list</div>';
         }
     }
 

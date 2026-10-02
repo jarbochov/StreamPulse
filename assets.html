@@ -1,54 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse — Asset Library</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; font-size: 14px; }
-        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; font-size: 14px; }
+        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
-        .header h1 span { color: #58a6ff; }
+        .header h1 span { color: var(--accent); }
         .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.9rem 1.1rem; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem 1.1rem; }
         .toolbar { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
         .toolbar .grow { flex: 1; min-width: 180px; }
         .toolbar .sep { flex: 1; }
-        input, select { padding: 0.45rem 0.65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font: inherit; min-width: 0; }
-        input:focus, select:focus { outline: none; border-color: #58a6ff; }
-        .btn { border: 1px solid #30363d; background: #21262d; color: #e1e4e8; border-radius: 6px; padding: 0.45rem 0.8rem; font: inherit; font-size: 0.82rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem; }
-        .btn:hover { border-color: #58a6ff; }
-        .btn.primary { background: #238636; border-color: #238636; }
-        .btn.danger:hover { border-color: #f85149; color: #f85149; }
+        input, select { padding: 0.45rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; min-width: 0; }
+        input:focus, select:focus { outline: none; border-color: var(--accent); }
+        .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 6px; padding: 0.45rem 0.8rem; font: inherit; font-size: 0.82rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem; }
+        .btn:hover { border-color: var(--accent); }
+        .btn.primary { background: var(--success-strong); border-color: var(--success-strong); color: #fff; }
+        .btn.danger:hover { border-color: var(--danger); color: var(--danger); }
         .btn.small { padding: 0.25rem 0.55rem; font-size: 0.76rem; }
-        .btn.active { border-color: #58a6ff; background: #1a2332; }
+        .btn.active { border-color: var(--accent); background: var(--accent-bg); }
         .btn[hidden] { display: none; }
         .seg { display: inline-flex; }
         .seg .btn { border-radius: 0; margin-left: -1px; }
         .seg .btn:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
         .seg .btn:last-child { border-radius: 0 6px 6px 0; }
-        .size { display: inline-flex; align-items: center; gap: 0.4rem; color: #8b949e; font-size: 0.78rem; }
-        .size input { padding: 0; width: 120px; accent-color: #58a6ff; }
-        .summary { color: #8b949e; font-size: 0.8rem; }
-        #drop { border: 1px dashed #30363d; border-radius: 8px; padding: 0.7rem; text-align: center; color: #6e7681; font-size: 0.82rem; }
-        #drop.over { border-color: #58a6ff; color: #58a6ff; }
-        .empty { color: #8b949e; text-align: center; padding: 2.5rem 1rem; }
+        .size { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text-muted); font-size: 0.78rem; }
+        .size input { padding: 0; width: 120px; accent-color: var(--accent); }
+        .summary { color: var(--text-muted); font-size: 0.8rem; }
+        #drop { border: 1px dashed var(--border); border-radius: 8px; padding: 0.7rem; text-align: center; color: var(--text-faint); font-size: 0.82rem; }
+        #drop.over { border-color: var(--accent); color: var(--accent); }
+        .empty { color: var(--text-muted); text-align: center; padding: 2.5rem 1rem; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--thumb, 180px), 1fr)); gap: 0.75rem; }
-        .asset { border: 1px solid #30363d; border-radius: 8px; overflow: hidden; background: #0d1117; display: flex; flex-direction: column; position: relative; }
-        .asset.selected { border-color: #58a6ff; box-shadow: 0 0 0 1px #58a6ff; }
-        .thumb { position: relative; flex: none; height: var(--thumb, 180px); overflow: hidden; background: conic-gradient(#1c2128 25%, #161b22 0 50%, #1c2128 0 75%, #161b22 0) 0 0 / 16px 16px; }
+        .asset { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg-inset); display: flex; flex-direction: column; position: relative; }
+        .asset.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+        .thumb { position: relative; flex: none; height: var(--thumb, 180px); overflow: hidden; background: conic-gradient(var(--bg-raised) 25%, var(--bg-card) 0 50%, var(--bg-raised) 0 75%, var(--bg-card) 0) 0 0 / 16px 16px; }
         .thumb img, .thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
         .thumb .sample { position: absolute; inset: 0; display: grid; place-items: center; padding: 0.4rem; font-size: 1.1rem; text-align: center; overflow: hidden; }
-        .thumb .icon { position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--thumb, 180px) * 0.3); color: #58a6ff; }
+        .thumb .icon { position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--thumb, 180px) * 0.3); color: var(--accent); }
         .thumb audio { position: absolute; left: 4px; right: 4px; bottom: 4px; width: calc(100% - 8px); height: 32px; }
-        .pick { position: absolute; top: 6px; left: 6px; z-index: 2; width: 18px; height: 18px; accent-color: #58a6ff; cursor: pointer; }
+        .pick { position: absolute; top: 6px; left: 6px; z-index: 2; width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
         .info { padding: 0.5rem 0.65rem; display: grid; gap: 0.25rem; font-size: 0.8rem; min-width: 0; }
         .name { overflow-wrap: anywhere; font-weight: 600; }
-        .meta { color: #8b949e; font-size: 0.74rem; }
-        .badge { display: inline-block; padding: 0.05rem 0.4rem; border-radius: 999px; font-size: 0.68rem; border: 1px solid #30363d; color: #8b949e; margin: 0 0.2rem 0.15rem 0; }
-        .badge.used { border-color: #1f6feb; color: #58a6ff; }
+        .meta { color: var(--text-muted); font-size: 0.74rem; }
+        .badge { display: inline-block; padding: 0.05rem 0.4rem; border-radius: 999px; font-size: 0.68rem; border: 1px solid var(--border); color: var(--text-muted); margin: 0 0.2rem 0.15rem 0; }
+        .badge.used { border-color: var(--accent-strong); color: var(--accent); }
         .actions { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.2rem; }
         .list { display: flex; flex-direction: column; gap: 0.4rem; }
         .list .asset { flex-direction: row; align-items: center; }
@@ -57,7 +59,7 @@
         .list .info { flex: 1; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 2fr); align-items: center; gap: 0.2rem 1rem; padding: 0.4rem 0.8rem; }
         .list .info .actions { justify-content: flex-end; margin: 0; grid-column: 1 / -1; }
         .list .pick { position: static; flex: none; margin: 0 0.2rem 0 0.7rem; }
-        #toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); background: #21262d; border: 1px solid #30363d; padding: 0.55rem 1rem; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 10; }
+        #toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); background: var(--bg-raised); border: 1px solid var(--border); padding: 0.55rem 1rem; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 10; }
         #toast.show { opacity: 1; }
         @media (max-width: 800px) { .container { padding: 1rem; } .list .info { grid-template-columns: 1fr; } }
     </style>

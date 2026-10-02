@@ -1,86 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse — Analytics</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; font-size: 14px; }
-        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; font-size: 14px; }
+        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
-        .header h1 span { color: #58a6ff; }
+        .header h1 span { color: var(--accent); }
         .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem 1.2rem; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.2rem; }
         .card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.8rem; }
-        h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: #8b949e; font-weight: 600; }
-        .muted { color: #8b949e; }
+        h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); font-weight: 600; }
+        .muted { color: var(--text-muted); }
         .toolbar { display: flex; flex-wrap: wrap; gap: 0.7rem 1rem; align-items: end; }
-        .field label { display: block; color: #8b949e; font-size: 0.72rem; margin-bottom: 0.25rem; }
-        input, select, button { font: inherit; padding: 0.45rem 0.65rem; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #e1e4e8; }
-        input:focus, select:focus, button:focus-visible { outline: none; border-color: #58a6ff; }
+        .field label { display: block; color: var(--text-muted); font-size: 0.72rem; margin-bottom: 0.25rem; }
+        input, select, button { font: inherit; padding: 0.45rem 0.65rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-inset); color: var(--text); }
+        input:focus, select:focus, button:focus-visible { outline: none; border-color: var(--accent); }
         input[type=date] { color-scheme: dark; }
-        button { cursor: pointer; background: #21262d; font-size: 0.82rem; }
-        button:hover { border-color: #58a6ff; }
+        button { cursor: pointer; background: var(--bg-raised); font-size: 0.82rem; }
+        button:hover { border-color: var(--accent); }
         .seg { display: inline-flex; }
         .seg button { border-radius: 0; margin-left: -1px; }
         .seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
         .seg button:last-child { border-radius: 0 6px 6px 0; }
-        .seg button.active { background: #1a2332; border-color: #58a6ff; color: #58a6ff; position: relative; z-index: 1; }
+        .seg button.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); position: relative; z-index: 1; }
         .spacer { flex: 1; }
         .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.6rem; }
-        .stat { text-align: center; background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 0.7rem 0.4rem; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
-        .stat:hover { border-color: #3d4651; }
-        .stat.active { border-color: #58a6ff; background: #1a2332; }
-        .stat strong { display: block; color: #58a6ff; font-size: 1.4rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
-        .stat span { color: #8b949e; font-size: 0.72rem; }
+        .stat { text-align: center; background: var(--bg-inset); border: 1px solid var(--bg-raised); border-radius: 8px; padding: 0.7rem 0.4rem; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+        .stat:hover { border-color: var(--border-strong); }
+        .stat.active { border-color: var(--accent); background: var(--accent-bg); }
+        .stat strong { display: block; color: var(--accent); font-size: 1.4rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+        .stat span { color: var(--text-muted); font-size: 0.72rem; }
         .chart-wrap { position: relative; }
-        .chart { width: 100%; height: 280px; background: #0d1117; border-radius: 8px; border: 1px solid #21262d; }
+        .chart { width: 100%; height: 280px; background: var(--bg-inset); border-radius: 8px; border: 1px solid var(--bg-raised); }
         .chart svg { width: 100%; height: 100%; display: block; }
         .chart .tick { font-size: 11px; }
-        .chart text { fill: #8b949e; font-size: 11px; }
-        .chart .grid { stroke: #21262d; stroke-width: 1; }
+        .chart text { fill: var(--text-muted); font-size: 11px; }
+        .chart .grid { stroke: var(--bg-raised); stroke-width: 1; }
         .chart .hit { cursor: pointer; fill: transparent; }
         .chart .hit:hover + .dot, .chart .hit:hover ~ .dot { }
-        .chart .bar { fill: #1f6feb; opacity: 0.85; }
-        .chart .hot .bar { fill: #58a6ff; opacity: 1; }
-        .chart .dot { fill: #58a6ff; stroke: #0d1117; stroke-width: 2; }
-        .tip { position: absolute; pointer-events: none; background: #21262d; border: 1px solid #3d4651; border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.76rem; line-height: 1.45; white-space: nowrap; opacity: 0; transform: translate(-50%, -100%); transition: opacity 0.1s; z-index: 5; }
+        .chart .bar { fill: var(--accent-strong); opacity: 0.85; }
+        .chart .hot .bar { fill: var(--accent); opacity: 1; }
+        .chart .dot { fill: var(--accent); stroke: var(--bg-inset); stroke-width: 2; }
+        .tip { position: absolute; pointer-events: none; background: var(--bg-raised); border: 1px solid var(--border-strong); border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.76rem; line-height: 1.45; white-space: nowrap; opacity: 0; transform: translate(-50%, -100%); transition: opacity 0.1s; z-index: 5; }
         .tip.show { opacity: 1; }
-        .tip b { color: #58a6ff; }
-        .empty { color: #8b949e; text-align: center; padding: 2.5rem 1rem; }
-        .table-wrap { overflow: auto; max-height: 560px; border: 1px solid #21262d; border-radius: 8px; }
+        .tip b { color: var(--accent); }
+        .empty { color: var(--text-muted); text-align: center; padding: 2.5rem 1rem; }
+        .table-wrap { overflow: auto; max-height: 560px; border: 1px solid var(--bg-raised); border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 0.55rem 0.7rem; border-bottom: 1px solid #21262d; text-align: left; font-size: 0.8rem; white-space: nowrap; }
-        th { position: sticky; top: 0; background: #161b22; z-index: 2; color: #8b949e; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; cursor: pointer; user-select: none; box-shadow: 0 1px 0 #30363d; }
-        th:hover { color: #e1e4e8; }
-        th.sort-active { color: #58a6ff; }
+        th, td { padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--bg-raised); text-align: left; font-size: 0.8rem; white-space: nowrap; }
+        th { position: sticky; top: 0; background: var(--bg-card); z-index: 2; color: var(--text-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; cursor: pointer; user-select: none; box-shadow: 0 1px 0 var(--border); }
+        th:hover { color: var(--text); }
+        th.sort-active { color: var(--accent); }
         th.sort-active::after { content: ' ▼'; font-size: 0.6rem; }
         th.sort-active.asc::after { content: ' ▲'; }
-        tbody tr:hover { background: #1b222c; }
+        tbody tr:hover { background: var(--bg-raised); }
         td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
         td.wrap { white-space: normal; min-width: 9rem; max-width: 13rem; }
         #sessions-table th, #sessions-table td { padding: 0.5rem 0.4rem; font-size: 0.74rem; }
-        td .sub { display: block; color: #8b949e; font-size: 0.72rem; margin-top: 0.1rem; white-space: normal; }
-        td.zero { color: #4b5563; }
-        a { color: #58a6ff; text-decoration: none; }
+        td .sub { display: block; color: var(--text-muted); font-size: 0.72rem; margin-top: 0.1rem; white-space: normal; }
+        td.zero { color: var(--border-strong); }
+        a { color: var(--accent); text-decoration: none; }
         a:hover { text-decoration: underline; }
-        .badge { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 999px; border: 1px solid #30363d; font-size: 0.72rem; color: #8b949e; }
-        .badge.t2, .badge.t3 { border-color: #58a6ff; color: #58a6ff; }
-        .badge.live { border-color: #3fb950; color: #3fb950; }
+        .badge { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 999px; border: 1px solid var(--border); font-size: 0.72rem; color: var(--text-muted); }
+        .badge.t2, .badge.t3 { border-color: var(--accent); color: var(--accent); }
+        .badge.live { border-color: var(--success); color: var(--success); }
         .note { margin-top: 0.7rem; font-size: 0.78rem; }
         .stats.static .stat { cursor: default; }
-        .stats.static .stat:hover { border-color: #21262d; }
+        .stats.static .stat:hover { border-color: var(--bg-raised); }
         .split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1rem; margin-top: 1rem; }
-        .split h3 { margin: 0 0 0.5rem; font-size: 0.85rem; color: #e1e4e8; }
-        .gifters { list-style: none; margin: 0; padding: 0; border: 1px solid #21262d; border-radius: 8px; background: #0d1117; max-height: 280px; overflow: auto; }
-        .gifters li { display: flex; justify-content: space-between; gap: 0.6rem; padding: 0.5rem 0.8rem; border-bottom: 1px solid #21262d; font-size: 0.8rem; }
+        .split h3 { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--text); }
+        .gifters { list-style: none; margin: 0; padding: 0; border: 1px solid var(--bg-raised); border-radius: 8px; background: var(--bg-inset); max-height: 280px; overflow: auto; }
+        .gifters li { display: flex; justify-content: space-between; gap: 0.6rem; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--bg-raised); font-size: 0.8rem; }
         .gifters li:last-child { border-bottom: 0; }
-        .gifters b { color: #58a6ff; font-variant-numeric: tabular-nums; }
+        .gifters b { color: var(--accent); font-variant-numeric: tabular-nums; }
         .chart.short { height: 240px; }
-        .btn { background: #21262d; border: 1px solid #30363d; color: #e1e4e8; border-radius: 6px; padding: 0.3rem 0.7rem; font-size: 0.78rem; cursor: pointer; }
-        .btn:hover { border-color: #58a6ff; }
+        .btn { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 0.3rem 0.7rem; font-size: 0.78rem; cursor: pointer; }
+        .btn:hover { border-color: var(--accent); }
         .head-tools { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
         @media (max-width: 800px) { .split { grid-template-columns: minmax(0, 1fr); } .container { padding: 1rem; } .header { padding: 1rem; flex-wrap: wrap; } }
     </style>
@@ -270,7 +272,7 @@ function drawGrowth() {
     const grid = [0, 0.5, 1].map(f => { const y = top + innerH - f * innerH; return `<line class="grid" x1="${left}" x2="${W - right}" y1="${y}" y2="${y}"/><text x="${left - 6}" y="${y + 4}" text-anchor="end">${Math.round(lo + f * (hi - lo))}</text>`; }).join('');
     const every = Math.max(1, Math.ceil(rows.length / 6));
     const xl = rows.map((r, i) => i % every ? '' : `<text x="${cx(i)}" y="${H - 8}" text-anchor="middle">${esc(shortDate(r.date + 'T12:00:00'))}</text>`).join('');
-    const line = rows.length > 1 ? `<polyline points="${values.map((v, i) => `${cx(i)},${cy(v)}`).join(' ')}" fill="none" stroke="#58a6ff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>` : '';
+    const line = rows.length > 1 ? `<polyline points="${values.map((v, i) => `${cx(i)},${cy(v)}`).join(' ')}" fill="none" stroke="var(--accent)" style="stroke:var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>` : '';
     const dots = rows.map((r, i) => `<circle class="dot" cx="${cx(i)}" cy="${cy(r.total)}" r="4"/>`).join('');
     const step = rows.length > 1 ? innerW / (rows.length - 1) : innerW;
     const hits = rows.map((r, i) => `<rect class="hit" data-i="${i}" x="${cx(i) - step / 2}" y="${top}" width="${step}" height="${innerH}" style="cursor:default"/>`).join('');
@@ -346,7 +348,7 @@ function drawChart() {
         marks = rows.map((r, i) => `<g data-i="${i}"><rect class="bar" x="${cx(i) - bw / 2}" y="${cy(values[i])}" width="${bw}" height="${Math.max(0, top + innerH - cy(values[i]))}" rx="3"/></g>`).join('');
     } else {
         const line = values.map((v, i) => `${cx(i)},${cy(v)}`).join(' ');
-        marks = `<polyline points="${line}" fill="none" stroke="#58a6ff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>` + rows.map((r, i) => `<g data-i="${i}"><circle class="dot" cx="${cx(i)}" cy="${cy(values[i])}" r="5"/></g>`).join('');
+        marks = `<polyline points="${line}" fill="none" stroke="var(--accent)" style="stroke:var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>` + rows.map((r, i) => `<g data-i="${i}"><circle class="dot" cx="${cx(i)}" cy="${cy(values[i])}" r="5"/></g>`).join('');
     }
     const hits = rows.map((r, i) => `<rect class="hit" data-i="${i}" x="${left + step * i}" y="${top}" width="${step}" height="${innerH}"/>`).join('');
     $('chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(LABELS[prefs.metric])} per session">${grid}${xLabels}${marks}${hits}</svg>`;

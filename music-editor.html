@@ -1,52 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse — Music Settings</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
 
-        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
-        .header h1 span { color: #58a6ff; }
+        .header h1 span { color: var(--accent); }
         .nav { display: flex; gap: 0.75rem; align-items: center; }
-        .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
-        .nav a:hover { color: #e1e4e8; background: #21262d; }
+        .nav a { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
+        .nav a:hover { color: var(--text); background: var(--bg-raised); }
         .nav .dropdown { position: relative; display: flex; align-items: center; }
-        .nav .dropdown-toggle { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
-        .nav .dropdown-toggle:hover { color: #e1e4e8; background: #21262d; }
-        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .nav .dropdown-toggle { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
+        .nav .dropdown-toggle:hover { color: var(--text); background: var(--bg-raised); }
+        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
         .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
         .nav .dropdown:hover .dropdown-menu { display: block; }
-        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
-        .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+        .nav .dropdown-menu a:hover { color: var(--text); background: var(--bg-raised); }
 
         .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
         .full-width { grid-column: 1 / -1; }
 
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; }
-        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 1rem; }
-        .card h3 { font-size: 0.78rem; color: #58a6ff; margin: 0.75rem 0 0.5rem; padding-top: 0.5rem; border-top: 1px solid #21262d; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 1rem; }
+        .card h3 { font-size: 0.78rem; color: var(--accent); margin: 0.75rem 0 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--bg-raised); }
 
         .cfg-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.6rem; }
-        .cfg-row label { font-size: 0.82rem; color: #8b949e; min-width: 100px; }
-        .cfg-row input, .cfg-row select { flex: 1; padding: 0.4rem 0.6rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.82rem; font-family: inherit; outline: none; }
-        .cfg-row input:focus, .cfg-row select:focus { border-color: #58a6ff; }
+        .cfg-row label { font-size: 0.82rem; color: var(--text-muted); min-width: 100px; }
+        .cfg-row input, .cfg-row select { flex: 1; padding: 0.4rem 0.6rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.82rem; font-family: inherit; outline: none; }
+        .cfg-row input:focus, .cfg-row select:focus { border-color: var(--accent); }
         .cfg-row input[type="color"] { width: 36px; height: 30px; padding: 2px; cursor: pointer; flex: none; }
-        .cfg-row input[type="range"] { accent-color: #58a6ff; }
-        .cfg-row input[type="checkbox"] { flex: none; width: auto; accent-color: #58a6ff; }
+        .cfg-row input[type="range"] { accent-color: var(--accent); }
+        .cfg-row input[type="checkbox"] { flex: none; width: auto; accent-color: var(--accent); }
 
         .toggle-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
-        .toggle-row label { font-size: 0.82rem; color: #c9d1d9; cursor: pointer; }
-        .toggle-row input[type="checkbox"] { accent-color: #58a6ff; }
+        .toggle-row label { font-size: 0.82rem; color: var(--text); cursor: pointer; }
+        .toggle-row input[type="checkbox"] { accent-color: var(--accent); }
 
-        .btn { padding: 0.5rem 1.25rem; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #e1e4e8; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
-        .btn:hover { border-color: #58a6ff; }
-        .btn.primary { background: #238636; border-color: #238636; }
-        .btn.primary:hover { background: #2ea043; }
+        .btn { padding: 0.5rem 1.25rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+        .btn:hover { border-color: var(--accent); }
+        .btn.primary { background: var(--success-strong); border-color: var(--success-strong); color: #fff; }
+        .btn.primary:hover { background: var(--success-hover); }
 
         .actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
 
@@ -54,27 +56,27 @@
         .preview-frame iframe { border: none; background: transparent; }
 
         .status-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.6rem; border-radius: 10px; font-size: 0.72rem; }
-        .status-badge.on { background: #23883020; color: #3fb950; }
-        .status-badge.off { background: #da363420; color: #f85149; }
+        .status-badge.on { background: color-mix(in srgb, var(--success) 13%, transparent); color: var(--success); }
+        .status-badge.off { background: color-mix(in srgb, var(--danger) 13%, transparent); color: var(--danger); }
         .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; }
-        .status-badge.on .dot { background: #3fb950; }
-        .status-badge.off .dot { background: #f85149; }
+        .status-badge.on .dot { background: var(--success); }
+        .status-badge.off .dot { background: var(--danger); }
 
-        .url-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.5rem 0.75rem; font-family: monospace; font-size: 0.78rem; color: #8b949e; word-break: break-all; margin-top: 0.5rem; cursor: pointer; transition: border-color 0.2s; }
-        .url-box:hover { border-color: #58a6ff; }
+        .url-box { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; font-family: monospace; font-size: 0.78rem; color: var(--text-muted); word-break: break-all; margin-top: 0.5rem; cursor: pointer; transition: border-color 0.2s; }
+        .url-box:hover { border-color: var(--accent); }
         .url-box::after { content: ' 📋'; font-size: 0.7rem; }
 
         .mode-tabs { display: flex; gap: 0.25rem; margin-bottom: 0.75rem; }
-        .mode-tab { padding: 0.35rem 0.75rem; font-size: 0.78rem; color: #8b949e; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-        .mode-tab:hover { color: #e1e4e8; border-color: #58a6ff; }
-        .mode-tab.active { color: #58a6ff; border-color: #58a6ff; background: #1a2332; }
+        .mode-tab { padding: 0.35rem 0.75rem; font-size: 0.78rem; color: var(--text-muted); background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+        .mode-tab:hover { color: var(--text); border-color: var(--accent); }
+        .mode-tab.active { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
 
-        .obs-hint { font-size: 0.68rem; color: #58a6ff; background: #1a2332; border: 1px solid #30363d; border-radius: 4px; padding: 0.15rem 0.4rem; white-space: nowrap; flex-shrink: 0; }
+        .obs-hint { font-size: 0.68rem; color: var(--accent); background: var(--accent-bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.15rem 0.4rem; white-space: nowrap; flex-shrink: 0; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>StreamPulse <span>Music Settings</span> <span style="font-size:0.6rem;background:#4a2f05;color:#d29922;border:1px solid #d2992230;padding:0.15rem 0.4rem;border-radius:4px;vertical-align:middle;">Beta</span></h1>
+        <h1>StreamPulse <span>Music Settings</span> <span style="font-size:0.6rem;background:var(--warn-bg);color:var(--warn);border:1px solid color-mix(in srgb, var(--warn) 19%, transparent);padding:0.15rem 0.4rem;border-radius:4px;vertical-align:middle;">Beta</span></h1>
         <div id="main-nav" class="nav"></div>
         <script src="/nav.js"></script>
     </div>
@@ -86,7 +88,7 @@
             <div class="cfg-row">
                 <label>Enabled</label>
                 <input type="checkbox" id="music-enabled">
-                <span style="font-size:0.78rem;color:#8b949e;">Polls the selected music source for current track info</span>
+                <span style="font-size:0.78rem;color:var(--text-muted);">Polls the selected music source for current track info</span>
             </div>
             <div class="cfg-row">
                 <label>Source</label>
@@ -107,14 +109,14 @@
                 <div class="cfg-row">
                     <label>VLC Password</label>
                     <input type="password" id="vlc-password" placeholder="HTTP interface password" style="width:160px;">
-                    <button onclick="testVlcConnection()" style="margin-left:0.5rem;padding:0.3rem 0.7rem;border-radius:6px;background:#238636;color:#fff;border:none;cursor:pointer;font-size:0.78rem;">Test</button>
+                    <button onclick="testVlcConnection()" style="margin-left:0.5rem;padding:0.3rem 0.7rem;border-radius:6px;background:var(--success-strong);color:#fff;border:none;cursor:pointer;font-size:0.78rem;">Test</button>
                     <span id="vlc-test-result" style="font-size:0.78rem;margin-left:0.5rem;"></span>
                 </div>
-                <p style="font-size:0.72rem;color:#8b949e;padding:0 0.5rem;">Enable VLC's HTTP interface: Tools → Preferences → Show All → Interface → Main interfaces → check <b>Web</b>, then set a password under Lua. Restart VLC.</p>
+                <p style="font-size:0.72rem;color:var(--text-muted);padding:0 0.5rem;">Enable VLC's HTTP interface: Tools → Preferences → Show All → Interface → Main interfaces → check <b>Web</b>, then set a password under Lua. Restart VLC.</p>
             </div>
-            <div id="now-playing-status" style="margin:0.75rem 0;padding:0.6rem 0.8rem;background:#0d1117;border:1px solid #30363d;border-radius:6px;display:flex;align-items:center;gap:0.75rem;">
-                <span id="np-indicator" style="width:8px;height:8px;border-radius:50%;background:#484f58;flex-shrink:0;"></span>
-                <span id="np-text" style="font-size:0.82rem;color:#8b949e;">Checking…</span>
+            <div id="now-playing-status" style="margin:0.75rem 0;padding:0.6rem 0.8rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;gap:0.75rem;">
+                <span id="np-indicator" style="width:8px;height:8px;border-radius:50%;background:var(--border-strong);flex-shrink:0;"></span>
+                <span id="np-text" style="font-size:0.82rem;color:var(--text-muted);">Checking…</span>
             </div>
             <div class="cfg-row">
                 <label>Poll Interval</label>
@@ -168,48 +170,48 @@
                 <label>Brightness</label>
                 <input type="range" id="theme-art-brightness" min="0.2" max="1" step="0.05" value="1">
                 <span id="theme-art-brightness-val" style="font-size:0.82rem;min-width:40px;">100%</span>
-                <span style="font-size:0.72rem;color:#8b949e;">Dim album art</span>
+                <span style="font-size:0.72rem;color:var(--text-muted);">Dim album art</span>
             </div>
             <div class="cfg-row">
                 <label>Scrim Color</label>
                 <input type="color" id="theme-scrim-color" value="#000000">
                 <input type="text" id="theme-scrim-color-text" value="rgba(0, 0, 0, 0.85)" style="max-width:140px;">
-                <span style="font-size:0.72rem;color:#8b949e;">Gradient over text</span>
+                <span style="font-size:0.72rem;color:var(--text-muted);">Gradient over text</span>
             </div>
             <div class="cfg-row">
                 <label>Overlay Blur</label>
                 <input type="range" id="theme-art-blur" min="0" max="20" step="1" value="0">
                 <span id="theme-art-blur-val" style="font-size:0.82rem;min-width:30px;">0px</span>
-                <span style="font-size:0.72rem;color:#8b949e;">Frosted glass effect</span>
+                <span style="font-size:0.72rem;color:var(--text-muted);">Frosted glass effect</span>
             </div>
 
             <h3>Overlay Sizes</h3>
-            <p style="font-size:0.72rem;color:#8b949e;margin-bottom:0.5rem;">Set the dimensions here, then match them in OBS → Browser Source → Width / Height.</p>
+            <p style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.5rem;">Set the dimensions here, then match them in OBS → Browser Source → Width / Height.</p>
             <div class="cfg-row">
                 <label>Art Only</label>
                 <input type="number" id="size-art-w" value="200" min="80" max="800" style="max-width:70px;">
-                <span style="color:#484f58;font-size:0.82rem;">×</span>
+                <span style="color:var(--border-strong);font-size:0.82rem;">×</span>
                 <input type="number" id="size-art-h" value="200" min="80" max="800" style="max-width:70px;">
-                <span style="font-size:0.72rem;color:#8b949e;">px</span>
+                <span style="font-size:0.72rem;color:var(--text-muted);">px</span>
             </div>
             <div class="cfg-row">
                 <label>Full Player</label>
                 <input type="number" id="size-full-w" value="420" min="200" max="800" style="max-width:70px;">
-                <span style="color:#484f58;font-size:0.82rem;">×</span>
+                <span style="color:var(--border-strong);font-size:0.82rem;">×</span>
                 <input type="number" id="size-full-h" value="120" min="60" max="400" style="max-width:70px;">
-                <span style="font-size:0.72rem;color:#8b949e;">px</span>
+                <span style="font-size:0.72rem;color:var(--text-muted);">px</span>
             </div>
             <div class="cfg-row">
                 <label>Art Thumb</label>
                 <input type="number" id="size-full-art" value="0" min="0" max="400" style="max-width:70px;">
-                <span style="font-size:0.72rem;color:#8b949e;">px (0 = auto)</span>
+                <span style="font-size:0.72rem;color:var(--text-muted);">px (0 = auto)</span>
             </div>
             <div class="cfg-row">
                 <label>Mini Bar</label>
                 <input type="number" id="size-mini-w" value="400" min="150" max="800" style="max-width:70px;">
-                <span style="color:#484f58;font-size:0.82rem;">×</span>
+                <span style="color:var(--border-strong);font-size:0.82rem;">×</span>
                 <input type="number" id="size-mini-h" value="40" min="24" max="200" style="max-width:70px;">
-                <span style="font-size:0.72rem;color:#8b949e;">px</span>
+                <span style="font-size:0.72rem;color:var(--text-muted);">px</span>
             </div>
 
             <h3>Show/Hide Fields</h3>
@@ -231,8 +233,8 @@
             <div class="cfg-row" style="margin-top:0.5rem;">
                 <label>Fallback Art</label>
                 <div style="flex:1;display:flex;align-items:center;gap:0.5rem;">
-                    <img id="fallback-preview" src="" style="width:36px;height:36px;border-radius:4px;object-fit:cover;background:#21262d;display:none;">
-                    <span id="fallback-default" style="font-size:0.78rem;color:#8b949e;">Default (music note)</span>
+                    <img id="fallback-preview" src="" style="width:36px;height:36px;border-radius:4px;object-fit:cover;background:var(--bg-raised);display:none;">
+                    <span id="fallback-default" style="font-size:0.78rem;color:var(--text-muted);">Default (music note)</span>
                     <input type="file" id="fallback-upload" accept="image/*" style="display:none;">
                     <button class="btn" onclick="document.getElementById('fallback-upload').click()" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Upload</button>
                     <button class="btn" id="fallback-remove-btn" onclick="removeFallbackArt()" style="padding:0.3rem 0.6rem;font-size:0.75rem;display:none;">✕</button>
@@ -267,7 +269,7 @@
         <!-- OBS URLs -->
         <div class="card full-width">
             <h2>OBS Browser Source URLs</h2>
-            <p style="font-size:0.78rem;color:#8b949e;margin-bottom:0.75rem;">Click to copy. Add as Browser Sources in OBS and set Width/Height to match the overlay sizes above.</p>
+            <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.75rem;">Click to copy. Add as Browser Sources in OBS and set Width/Height to match the overlay sizes above.</p>
             <div style="display:flex;gap:0.5rem;align-items:center;">
                 <div class="url-box" onclick="copyUrl(this)" id="url-full" style="flex:1;"></div>
                 <span id="obs-size-full" class="obs-hint"></span>
@@ -438,7 +440,7 @@
         const password = document.getElementById('vlc-password').value || '';
         const result = document.getElementById('vlc-test-result');
         result.textContent = 'Testing…';
-        result.style.color = '#8b949e';
+        result.style.color = 'var(--text-muted)';
         try {
             const res = await fetch(`/api/music/vlc-test?host=${encodeURIComponent(host)}&port=${port}&password=${encodeURIComponent(password)}`);
             const data = await res.json();
@@ -782,7 +784,7 @@
             const data = await res.json();
             if (data.state === 'playing') {
                 ind.style.background = '#3fb950';
-                txt.style.color = '#e1e4e8';
+                txt.style.color = 'var(--text)';
                 txt.textContent = `♫ ${data.track || 'Unknown'}${data.artist ? ' — ' + data.artist : ''}`;
             } else if (data.state === 'paused') {
                 ind.style.background = '#d29922';
@@ -790,7 +792,7 @@
                 txt.textContent = `⏸ Paused — ${data.track || 'Unknown'}`;
             } else {
                 ind.style.background = '#484f58';
-                txt.style.color = '#8b949e';
+                txt.style.color = 'var(--text-muted)';
                 txt.textContent = 'No music playing';
             }
         } catch {

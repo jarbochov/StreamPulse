@@ -1,26 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>StreamPulse Alert Queue</title>
 <style>
     * { box-sizing: border-box; }
-    body { margin: 0; background: #0d1117; color: #e1e4e8; font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    header { position: sticky; top: 0; background: #161b22; border-bottom: 1px solid #30363d; padding: .5rem .6rem; z-index: 2; }
-    .status { font-size: .78rem; color: #8b949e; margin-bottom: .4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    body { margin: 0; background: var(--bg-inset); color: var(--text); font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1px solid var(--border); padding: .5rem .6rem; z-index: 2; }
+    .status { font-size: .78rem; color: var(--text-muted); margin-bottom: .4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ctl { display: flex; gap: .35rem; flex-wrap: wrap; }
-    button { background: #21262d; color: #e1e4e8; border: 1px solid #30363d; border-radius: 6px; padding: .28rem .6rem; font: inherit; cursor: pointer; }
-    button:hover { border-color: #58a6ff; }
+    button { background: var(--bg-raised); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: .28rem .6rem; font: inherit; cursor: pointer; }
+    button:hover { border-color: var(--accent); }
     button.rp { padding: .15rem .45rem; flex: none; }
-    h2 { margin: 0; padding: .6rem .6rem .25rem; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: #8b949e; }
-    .list > div { display: flex; align-items: center; gap: .5rem; padding: .3rem .6rem; border-bottom: 1px solid #21262d; }
+    h2 { margin: 0; padding: .6rem .6rem .25rem; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+    .list > div { display: flex; align-items: center; gap: .5rem; padding: .3rem .6rem; border-bottom: 1px solid var(--bg-raised); }
     .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
     .grow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sub { font-size: .68rem; color: #8b949e; }
-    .sub.shown { color: #3fb950; }
-    .empty { padding: .4rem .6rem; color: #8b949e; font-size: .78rem; }
-    #toast { position: fixed; bottom: .5rem; left: .5rem; right: .5rem; background: #6e1b1b; padding: .4rem .6rem; border-radius: 6px; display: none; }
+    .sub { font-size: .68rem; color: var(--text-muted); }
+    .sub.shown { color: var(--success); }
+    .empty { padding: .4rem .6rem; color: var(--text-muted); font-size: .78rem; }
+    #toast { position: fixed; bottom: .5rem; left: .5rem; right: .5rem; background: var(--danger-bg); padding: .4rem .6rem; border-radius: 6px; display: none; }
 </style>
 </head>
 <body>

@@ -1,27 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse — Hashtag Manager</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
 
-        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
-        .header h1 span { color: #58a6ff; }
+        .header h1 span { color: var(--accent); }
         .nav { display: flex; gap: 0.75rem; }
-        .nav a { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
-        .nav a:hover { color: #e1e4e8; background: #21262d; }
+        .nav a { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
+        .nav a:hover { color: var(--text); background: var(--bg-raised); }
 
         .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem; }
-        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 1rem; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 1rem; }
 
-        .btn { padding: 0.6rem 1rem; border: 1px solid #30363d; border-radius: 6px; background: #21262d; color: #e1e4e8; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-align: center; }
-        .btn:hover { border-color: #58a6ff; background: #1a2332; }
+        .btn { padding: 0.6rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-align: center; }
+        .btn:hover { border-color: var(--accent); background: var(--accent-bg); }
 
         .hashtag-list { display: flex; flex-wrap: wrap; gap: 0.4rem; max-height: 300px; overflow-y: auto; }
         .hashtag-pill { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-size: 0.8rem; cursor: default; }
@@ -29,22 +31,22 @@
         .hashtag-pill .count { opacity: 0.7; font-size: 0.75rem; }
         .hashtag-pill .ban-btn { background: none; border: none; color: inherit; opacity: 0.5; cursor: pointer; font-size: 0.75rem; padding: 0 0.15rem; }
         .hashtag-pill .ban-btn:hover { opacity: 1; }
-        .hashtag-pill.active { background: #1a2332; border: 1px solid #30363d; color: #58a6ff; }
-        .hashtag-pill.banned { background: #2d1b1e; border: 1px solid #f8514950; color: #f85149; }
-        .hashtag-pill.banned .unban-btn { background: none; border: none; color: #f85149; opacity: 0.6; cursor: pointer; font-size: 0.75rem; padding: 0 0.15rem; }
+        .hashtag-pill.active { background: var(--accent-bg); border: 1px solid var(--border); color: var(--accent); }
+        .hashtag-pill.banned { background: var(--danger-soft-bg); border: 1px solid color-mix(in srgb, var(--danger) 31%, transparent); color: var(--danger); }
+        .hashtag-pill.banned .unban-btn { background: none; border: none; color: var(--danger); opacity: 0.6; cursor: pointer; font-size: 0.75rem; padding: 0 0.15rem; }
         .hashtag-pill.banned .unban-btn:hover { opacity: 1; }
 
-        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1f6feb; color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--accent-strong); color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
         .toast.show { opacity: 1; }
 
         .nav .dropdown { position: relative; display: flex; align-items: center; }
-        .nav .dropdown-toggle { color: #8b949e; text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
-        .nav .dropdown-toggle:hover { color: #e1e4e8; background: #21262d; }
-        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .nav .dropdown-toggle { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
+        .nav .dropdown-toggle:hover { color: var(--text); background: var(--bg-raised); }
+        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
         .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
         .nav .dropdown:hover .dropdown-menu { display: block; }
-        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: #8b949e; text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
-        .nav .dropdown-menu a:hover { color: #e1e4e8; background: #21262d; }
+        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+        .nav .dropdown-menu a:hover { color: var(--text); background: var(--bg-raised); }
 
         @media (max-width: 768px) {
             .container { padding: 1rem; }
@@ -67,15 +69,15 @@
                 <a class="btn" href="/hashtag-stats.html"># View Hashtag Stats</a>
             </div>
             <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-                <input type="text" id="ban-input" placeholder="#hashtag" style="flex: 1; padding: 0.5rem 0.75rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.9rem;">
+                <input type="text" id="ban-input" placeholder="#hashtag" style="flex: 1; padding: 0.5rem 0.75rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.9rem;">
                 <button class="btn" onclick="banHashtag()" style="white-space: nowrap;">🚫 Ban</button>
             </div>
 
             <div id="banned-list" style="margin-bottom: 1.25rem;"></div>
 
-            <h3 style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.75rem;">Active Hashtags (Session)</h3>
+            <h3 style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.75rem;">Active Hashtags (Session)</h3>
             <div id="session-hashtags" class="hashtag-list">
-                <div style="color: #484f58; text-align: center; padding: 0.5rem; font-size: 0.85rem;">No hashtags yet</div>
+                <div style="color: var(--border-strong); text-align: center; padding: 0.5rem; font-size: 0.85rem;">No hashtags yet</div>
             </div>
         </div>
 
@@ -84,23 +86,23 @@
             <h2>Hashtag Overlay Builder</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
                 <div>
-                    <label style="font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 0.25rem;">View Mode</label>
-                    <select id="ht-view" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">View Mode</label>
+                    <select id="ht-view" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                         <option value="scroll">Scroll (credits-style)</option>
                         <option value="grid">Grid / Cloud</option>
                     </select>
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 0.25rem;">Sort By</label>
-                    <select id="ht-sort" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Sort By</label>
+                    <select id="ht-sort" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                         <option value="count">Most Used</option>
                         <option value="alpha">Alphabetical</option>
                         <option value="recent">Most Recent</option>
                     </select>
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 0.25rem;">Columns (scroll)</label>
-                    <select id="ht-columns" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Columns (scroll)</label>
+                    <select id="ht-columns" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                         <option value="1">1</option>
                         <option value="2">2</option>
                         <option value="3" selected>3</option>
@@ -110,55 +112,55 @@
                     </select>
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 0.25rem;">Size</label>
-                    <select id="ht-size" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Size</label>
+                    <select id="ht-size" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                         <option value="sm">Small</option>
                         <option value="md" selected>Medium</option>
                         <option value="lg">Large</option>
                     </select>
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 0.25rem;">Limit (0 = all)</label>
-                    <input type="number" id="ht-limit" value="0" min="0" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Limit (0 = all)</label>
+                    <input type="number" id="ht-limit" value="0" min="0" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 0.25rem;">Min Count (0 = all)</label>
-                    <input type="number" id="ht-min" value="0" min="0" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Min Count (0 = all)</label>
+                    <input type="number" id="ht-min" value="0" min="0" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 0.25rem;">Last N Days (0 = all)</label>
-                    <input type="number" id="ht-days" value="0" min="0" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Last N Days (0 = all)</label>
+                    <input type="number" id="ht-days" value="0" min="0" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 0.25rem;">From Date</label>
-                    <input type="date" id="ht-from" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">From Date</label>
+                    <input type="date" id="ht-from" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 0.25rem;">To Date</label>
-                    <input type="date" id="ht-to" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">To Date</label>
+                    <input type="date" id="ht-to" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 0.25rem;">Title</label>
-                    <input type="text" id="ht-title" value="All Hashtags" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Title</label>
+                    <input type="text" id="ht-title" value="All Hashtags" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                 </div>
                 <div id="ht-duration-wrap">
-                    <label style="font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 0.25rem;">Duration (0 = auto)</label>
-                    <input type="number" id="ht-duration" value="0" min="0" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Duration (0 = auto)</label>
+                    <input type="number" id="ht-duration" value="0" min="0" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                 </div>
             </div>
             <div style="display: flex; gap: 0.75rem; margin-top: 0.75rem; align-items: center; flex-wrap: wrap;">
-                <label style="font-size: 0.8rem; color: #8b949e; display: flex; align-items: center; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.3rem;">
                     <input type="checkbox" id="ht-counts" checked onchange="updateHashtagUrl()"> Show counts
                 </label>
-                <label id="ht-weight-wrap" style="font-size: 0.8rem; color: #8b949e; display: none; align-items: center; gap: 0.3rem;">
+                <label id="ht-weight-wrap" style="font-size: 0.8rem; color: var(--text-muted); display: none; align-items: center; gap: 0.3rem;">
                     <input type="checkbox" id="ht-weight" onchange="updateHashtagUrl()"> Weighted sizing (cloud)
                 </label>
-                <label id="ht-scroll-wrap" style="font-size: 0.8rem; color: #8b949e; display: none; align-items: center; gap: 0.3rem;">
+                <label id="ht-scroll-wrap" style="font-size: 0.8rem; color: var(--text-muted); display: none; align-items: center; gap: 0.3rem;">
                     <input type="checkbox" id="ht-autoscroll" onchange="updateHashtagUrl()"> Auto-scroll overflow
                 </label>
             </div>
-            <div style="margin-top: 0.75rem; padding: 0.6rem 0.75rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; display: flex; align-items: center; gap: 0.5rem;">
-                <code id="ht-url" style="flex: 1; font-size: 0.8rem; color: #58a6ff; word-break: break-all; font-family: monospace; text-shadow: none;"></code>
+            <div style="margin-top: 0.75rem; padding: 0.6rem 0.75rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; display: flex; align-items: center; gap: 0.5rem;">
+                <code id="ht-url" style="flex: 1; font-size: 0.8rem; color: var(--accent); word-break: break-all; font-family: monospace; text-shadow: none;"></code>
                 <button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('ht-url').textContent); showToast('URL copied!')" style="white-space: nowrap; font-size: 0.75rem;">📋 Copy</button>
                 <button class="btn" onclick="window.open(document.getElementById('ht-url').textContent, '_blank')" style="white-space: nowrap; font-size: 0.75rem;">🔗 Preview</button>
             </div>
@@ -228,10 +230,10 @@
     function renderBannedHashtags(banned) {
         const el = document.getElementById('banned-list');
         if (banned.length === 0) {
-            el.innerHTML = '<div style="color: #484f58; font-size: 0.8rem;">No banned hashtags</div>';
+            el.innerHTML = '<div style="color: var(--border-strong); font-size: 0.8rem;">No banned hashtags</div>';
             return;
         }
-        el.innerHTML = '<div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.5rem;">Banned</div>' +
+        el.innerHTML = '<div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.5rem;">Banned</div>' +
             '<div class="hashtag-list">' + banned.map(tag =>
                 `<span class="hashtag-pill banned">
                     <span class="tag">${escapeHtml(tag)}</span>
@@ -244,7 +246,7 @@
         const el = document.getElementById('session-hashtags');
         const filtered = hashtags.filter(h => !banned.includes(h.tag));
         if (filtered.length === 0) {
-            el.innerHTML = '<div style="color: #484f58; text-align: center; padding: 0.5rem; font-size: 0.85rem;">No hashtags yet</div>';
+            el.innerHTML = '<div style="color: var(--border-strong); text-align: center; padding: 0.5rem; font-size: 0.85rem;">No hashtags yet</div>';
             return;
         }
         el.innerHTML = filtered.map(h =>

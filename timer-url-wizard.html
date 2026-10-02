@@ -1,55 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse — Timer URL Wizard</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
-        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
+        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
-        .header h1 span { color: #58a6ff; }
+        .header h1 span { color: var(--accent); }
         .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 430px minmax(0, 1fr); gap: 1.25rem; }
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.1rem 1.2rem; }
-        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.9rem; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem 1.2rem; }
+        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.9rem; }
         .cfg-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.7rem; flex-wrap: wrap; }
-        .cfg-row label { min-width: 110px; font-size: 0.82rem; color: #8b949e; }
-        .cfg-row input, .cfg-row select { flex: 1; min-width: 0; font-family: inherit; padding: 0.48rem 0.65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.82rem; }
-        .cfg-row input[type="checkbox"] { flex: none; width: auto; accent-color: #58a6ff; }
+        .cfg-row label { min-width: 110px; font-size: 0.82rem; color: var(--text-muted); }
+        .cfg-row input, .cfg-row select { flex: 1; min-width: 0; font-family: inherit; padding: 0.48rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.82rem; }
+        .cfg-row input[type="checkbox"] { flex: none; width: auto; accent-color: var(--accent); }
         .cfg-row input[type="color"] { flex: none; width: 42px; height: 34px; padding: 2px; cursor: pointer; }
-        .hint { color: #8b949e; font-size: 0.78rem; line-height: 1.45; }
-        .url-box { display: flex; align-items: center; gap: 0.6rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0.55rem 0.7rem; margin-top: 0.55rem; }
+        .hint { color: var(--text-muted); font-size: 0.78rem; line-height: 1.45; }
+        .url-box { display: flex; align-items: center; gap: 0.6rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.55rem 0.7rem; margin-top: 0.55rem; }
         .url-box code { flex: 1; word-break: break-all; font-family: 'SF Mono', monospace; font-size: 0.8rem; }
-        .url-box a { flex: 1; word-break: break-all; font-family: 'SF Mono', monospace; font-size: 0.8rem; color: #79c0ff; text-decoration: none; }
+        .url-box a { flex: 1; word-break: break-all; font-family: 'SF Mono', monospace; font-size: 0.8rem; color: var(--accent-soft); text-decoration: none; }
         .url-box a:hover { text-decoration: underline; }
-        .btn { border: 1px solid #30363d; background: #21262d; color: #e1e4e8; border-radius: 6px; padding: 0.46rem 0.85rem; font-size: 0.8rem; cursor: pointer; }
-        .btn:hover { border-color: #58a6ff; }
+        .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 6px; padding: 0.46rem 0.85rem; font-size: 0.8rem; cursor: pointer; }
+        .btn:hover { border-color: var(--accent); }
         .preview-frame { background: #000; border-radius: 8px; padding: 1rem; display: flex; justify-content: center; align-items: center; min-height: 380px; }
         .preview-frame iframe { border: none; background: transparent; width: 100%; height: 380px; }
         table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 0.5rem; }
-        th, td { text-align: left; padding: 0.5rem 0.65rem; border-bottom: 1px solid #21262d; vertical-align: top; }
-        th { color: #8b949e; background: #0d1117; }
-        .pill { display: inline-flex; padding: 0.14rem 0.45rem; border-radius: 999px; font-size: 0.68rem; border: 1px solid #30363d; background: #1a2332; color: #58a6ff; }
-        .group-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6e7681; margin: 1rem 0 0.6rem; padding-top: 0.8rem; border-top: 1px solid #21262d; }
+        th, td { text-align: left; padding: 0.5rem 0.65rem; border-bottom: 1px solid var(--bg-raised); vertical-align: top; }
+        th { color: var(--text-muted); background: var(--bg-inset); }
+        .pill { display: inline-flex; padding: 0.14rem 0.45rem; border-radius: 999px; font-size: 0.68rem; border: 1px solid var(--border); background: var(--accent-bg); color: var(--accent); }
+        .group-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); margin: 1rem 0 0.6rem; padding-top: 0.8rem; border-top: 1px solid var(--bg-raised); }
         .group-title:first-of-type { margin-top: 0.2rem; padding-top: 0; border-top: 0; }
         .toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 0.9rem; margin-bottom: 0.4rem; }
-        .toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: #c9d1d9; cursor: pointer; }
-        .toggle input { accent-color: #58a6ff; }
+        .toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text); cursor: pointer; }
+        .toggle input { accent-color: var(--accent); }
         .toggle input:disabled + span { opacity: 0.45; }
-        .cfg-row input:focus, .cfg-row select:focus { outline: none; border-color: #58a6ff; }
+        .cfg-row input:focus, .cfg-row select:focus { outline: none; border-color: var(--accent); }
         .color-row input[type="text"] { font-family: 'SF Mono', monospace; text-transform: uppercase; }
         .color-row input[type="text"]::placeholder { text-transform: none; font-family: inherit; }
         .left-col { align-self: start; }
         .sticky { position: sticky; top: 1rem; }
-        .preview-frame { background: #000 repeating-conic-gradient(#1b1f27 0% 25%, #11141a 0% 50%) 50% / 20px 20px; }
-        details.card > summary { cursor: pointer; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; font-weight: 600; list-style: none; }
+        .preview-frame { background: #000 repeating-conic-gradient(var(--bg-raised) 0% 25%, var(--bg-inset) 0% 50%) 50% / 20px 20px; }
+        details.card > summary { cursor: pointer; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; list-style: none; }
         details.card > summary::before { content: '▸ '; }
         details.card[open] > summary::before { content: '▾ '; }
         details.card[open] > summary { margin-bottom: 0.6rem; }
         td code { font-family: 'SF Mono', monospace; font-size: 0.74rem; word-break: break-all; }
-        .btn.copied { border-color: #3fb950; color: #3fb950; }
+        .btn.copied { border-color: var(--success); color: var(--success); }
         @media (max-width: 980px) {
             .container { grid-template-columns: 1fr; padding: 1rem; }
             .header { flex-direction: column; gap: 0.6rem; }
