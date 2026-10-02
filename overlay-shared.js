@@ -10,14 +10,14 @@
         { label: 'Stream', items: [['music.title', 'Music title'], ['music.artist', 'Music artist'], ['music.album', 'Music album'], ['music.cover', 'Album art URL (use as an image source)'], ['music.position', 'Track position (m:ss)'], ['music.duration', 'Track length (m:ss)'], ['music.remaining', 'Track time remaining (m:ss)'], ['music.percent', 'Track progress % (for a progress element)'], ['stream.title', 'Stream title'], ['stream.category', 'Stream category (from Twitch)'], ['category.session_time', 'Time in this category, this session'], ['category.total_time', 'Time in this category, all sessions'], ['category.total_hours', 'Hours in this category, all sessions'], ['overlay.name', 'Overlay name']] }
     ];
 
-    const CLOCK_ITEMS = [['time', 'Time (e.g. 3:07 PM)'], ['time.24', 'Time, 24-hour'], ['time.seconds', 'Time with seconds'], ['date', 'Date (short)'], ['date.long', 'Date (long)'], ['weekday', 'Weekday'], ['month', 'Month'], ['year', 'Year'], ['uptime', 'Stream uptime (H:MM:SS)']];
+    const CLOCK_ITEMS = [['now', 'Current date & time (format it with {{now|MMMM D, h:mm A}})'], ['time', 'Time (e.g. 3:07 PM)'], ['time.24', 'Time, 24-hour'], ['time.seconds', 'Time with seconds'], ['date', 'Date (short)'], ['date.long', 'Date (long)'], ['weekday', 'Weekday'], ['month', 'Month'], ['year', 'Year'], ['uptime', 'Stream uptime (H:MM:SS)']];
     const GAME_ITEMS = [['game.cover', 'Cover art URL (use as an image source)'], ['game.release_date', 'Release date'], ['game.release_year', 'Release year'], ['game.genres', 'Genres'], ['game.developer', 'Developer'], ['game.platforms', 'Platforms'], ['game.rating', 'IGDB rating (0–100)'], ['game.summary', 'Summary']];
     const PLAN_ITEMS = [['plan.now', 'Game from your plan you are playing now'], ['plan.scheduled', 'Scheduled games (comma list)'], ['plan.backlog', 'Backlog games (comma list)']];
     const EVENT_ITEMS = [['latest.follower', 'Latest follower'], ['latest.subscriber', 'Latest subscriber'], ['latest.gifter', 'Latest gift sub gifter'], ['latest.cheer', 'Latest cheerer'], ['latest.cheer.amount', 'Latest cheer amount'], ['latest.donation', 'Latest donor'], ['latest.donation.amount', 'Latest donation amount'], ['latest.raider', 'Latest raider'], ['latest.raider.viewers', 'Latest raid size'], ['chatter.top', 'Top chatter this session'], ['chatter.top.count', 'Top chatter message count']];
     // Values that change every second are refreshed in place instead of re-rendering the overlay.
-    const TICKING = /^(time|date|weekday|month|year|uptime|timer\.|music\.(position|remaining|percent)$)/;
+    const TICKING = /^(now$|time|date|weekday|month|year|uptime|timer\.|music\.(position|remaining|percent)$)/;
     const isTicking = name => TICKING.test(name);
-    const hasTicking = value => /\{\{\s*(time|date|weekday|month|year|uptime|timer\.|music\.(position|remaining|percent))/.test(String(value ?? ''));
+    const hasTicking = value => /\{\{\s*(now|time|date|weekday|month|year|uptime|timer\.|music\.(position|remaining|percent))/.test(String(value ?? ''));
 
     function formatMinutes(minutes) {
         const m = Math.max(0, Math.round(minutes || 0));
@@ -51,6 +51,7 @@
             out[`timer.${id}.label`] = timer.label;
             out[`timer.${id}.state`] = timer.state;
             out[`timer.${id}.percent`] = percent;
+            if (timer.kind === 'countdown' && timer.targetAt) out[`timer.${id}.target`] = timer.targetAt;
         }
         return out;
     }
@@ -120,6 +121,7 @@
             'weekday': d.toLocaleDateString([], { weekday: 'long' }),
             'month': d.toLocaleDateString([], { month: 'long' }),
             'year': String(d.getFullYear()),
+            'now': d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
             'uptime': started ? clock(now - started) : ''
         };
     }
@@ -134,6 +136,7 @@
         for (const [id, timer] of Object.entries(status.timerData?.timers || {})) {
             const items = [[`timer.${id}`, `${timer.label} — clock`], [`timer.${id}.label`, `${timer.label} — title`], [`timer.${id}.state`, `${timer.label} — state`]];
             if (timer.kind === 'countdown') items.push([`timer.${id}.percent`, `${timer.label} — percent complete`]);
+            if (timer.kind === 'countdown' && timer.targetAt) items.push([`timer.${id}.target`, `${timer.label} — target date & time (formattable)`]);
             groups.push({ label: `Timer: ${timer.label}`, items });
         }
         for (const goal of status.goalItems || []) {
@@ -194,11 +197,53 @@
         };
     }
 
+
+    // Date/time formatting for {{token|format}}. Tokens follow the familiar Moment/Day.js style; wrap literal text in [brackets].
+    const FORMAT_PRESETS = [['MMMM D, YYYY', 'October 2, 2026'], ['MMM D', 'Oct 2'], ['ddd, MMM D', 'Fri, Oct 2'], ['dddd, MMMM Do', 'Friday, October 2nd'], ['YYYY-MM-DD', '2026-10-02'], ['MM/DD/YYYY', '10/02/2026'], ['h:mm A', '1:34 PM'], ['HH:mm', '13:34'], ['MMM D, h:mm A', 'Oct 2, 1:34 PM'], ['dddd [at] h A', 'Friday at 1 PM']];
+    const isDateKey = name => /^(now|time|time\.24|time\.seconds|date|date\.long|game\.release_date|timer\.[a-zA-Z0-9_-]+\.target)$/.test(name);
+    const ordinal = n => { const v = n % 100; return n + (['th', 'st', 'nd', 'rd'][(v - 20) % 10] || ['th', 'st', 'nd', 'rd'][v] || 'th'); };
+
+    function formatDate(date, format) {
+        const h12 = date.getHours() % 12 || 12;
+        const names = { MMMM: { month: 'long' }, MMM: { month: 'short' }, dddd: { weekday: 'long' }, ddd: { weekday: 'short' } };
+        const map = {
+            YYYY: () => date.getFullYear(), YY: () => String(date.getFullYear()).slice(-2),
+            MM: () => pad(date.getMonth() + 1), M: () => date.getMonth() + 1,
+            DD: () => pad(date.getDate()), Do: () => ordinal(date.getDate()), D: () => date.getDate(),
+            HH: () => pad(date.getHours()), H: () => date.getHours(),
+            hh: () => pad(h12), h: () => h12,
+            mm: () => pad(date.getMinutes()), m: () => date.getMinutes(),
+            ss: () => pad(date.getSeconds()), s: () => date.getSeconds(),
+            A: () => (date.getHours() < 12 ? 'AM' : 'PM'), a: () => (date.getHours() < 12 ? 'am' : 'pm')
+        };
+        return format.replace(/\[([^\]]*)\]|MMMM|MMM|dddd|ddd|YYYY|YY|MM|M|DD|Do|D|HH|H|hh|h|mm|m|ss|s|A|a/g, (token, literal) => {
+            if (literal !== undefined) return literal;
+            if (names[token]) return date.toLocaleDateString([], names[token]);
+            return String(map[token]());
+        });
+    }
+
+    function parseDateValue(value) {
+        const text = String(value ?? '').trim();
+        if (!text) return null;
+        const dateOnly = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const date = dateOnly ? new Date(+dateOnly[1], +dateOnly[2] - 1, +dateOnly[3]) : new Date(text);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function applyFormat(name, value, format, now) {
+        if (!format) return value;
+        const clockKey = /^(now|time|time\.24|time\.seconds|date|date\.long)$/.test(name);
+        const date = clockKey ? new Date(now) : parseDateValue(value);
+        return date ? formatDate(date, format) : value;
+    }
+
     // keepEmpty leaves {{token}} in place when no live value exists, which keeps editor previews selectable.
     function expandVariables(value, status, context = {}, keepEmpty = false) {
-        const table = variableTable(status, context);
-        return String(value ?? '').replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (match, name) => {
-            const resolved = table[name];
+        const now = Date.now();
+        const table = variableTable(status, context, now);
+        return String(value ?? '').replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
+            const resolved = format === undefined ? table[name] : applyFormat(name, table[name], format.trim(), now);
             const text = resolved === undefined || resolved === null ? '' : String(resolved);
             return text === '' && keepEmpty ? match : text;
         });
@@ -492,5 +537,5 @@
         return `/api/qr?${params}`;
     }
 
-    root.OverlayShared = { qrUrl, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    root.OverlayShared = { qrUrl, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);

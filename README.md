@@ -83,6 +83,7 @@ Add **Browser Sources** in OBS with these URLs:
 - Music: `http://localhost:3000/music.html`
 - Countdown: `http://localhost:3000/countdown.html?timer=starting-soon`
 - Stopwatch: `http://localhost:3000/stopwatch.html?timer=run-clock`
+- Layouts: add `&display=standard|compact|stacked|ring|flip|banner`; animate the box with `&gradient=ff0080,7928ca,2afadf&gradientspeed=8&gradientangle=135` (the URL Wizard builds these)
 
 **Management pages** (open in your browser, not OBS):
 - Dashboard: `http://localhost:3000/dashboard.html`
@@ -170,7 +171,7 @@ If StreamPulse is intentionally hosted somewhere other than localhost, set `twit
 
 The updater works on Windows, macOS, and Linux when StreamPulse is run from a Git checkout with Git and Node.js/npm available. On Windows, the server uses the native `npm.cmd` command automatically. Keep the production folder writable and avoid running with uncommitted tracked code changes; data is backed up before an update.
 - **Preview Mode** — `?preview=true` renders credits without scrolling for layout testing
-- **Custom Overlays** — Create JSON-backed canvas overlays with text, Markdown, images, video, shapes, progress bars/rings, scannable QR codes, groups, gradients, and live WebSocket updates after saving. Text, image and progress elements accept live `{{placeholders}}` (stream stats, clock, timers, goals, latest events, Twitch category and IGDB game data, music title/artist/cover/progress, Game Plan lists), and the **Game list** element renders your Game Plan as a cover grid, strip or text list with cover-fit and shrink-to-fit options
+- **Custom Overlays** — Create JSON-backed canvas overlays with text, Markdown, images, video, shapes, progress bars/rings, scannable QR codes, groups, gradients, and live WebSocket updates after saving. Text, image and progress elements accept live `{{placeholders}}` (dates can be formatted, e.g. `{{now|MMM D, h:mm A}}`) (stream stats, clock, timers, goals, latest events, Twitch category and IGDB game data, music title/artist/cover/progress, Game Plan lists), and the **Game list** element renders your Game Plan as a cover grid, strip or text list with cover-fit and shrink-to-fit options
 
 ## How It Works
 

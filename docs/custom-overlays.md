@@ -27,6 +27,10 @@ Text and Markdown content support live variables using double braces. The editor
 
 `{{music.cover}}` and `{{game.cover}}` are image URLs: put them in an Image element's source URL (use **Insert placeholder…** under the field). `{{music.percent}}` (0–100) drives a Progress element, and `music.position`, `music.remaining` and `music.percent` tick every second between player polls. Clock, timer, goal, latest-event and IGDB game placeholders are listed in the picker.
 
+### Date and time formatting
+
+Add `|format` to a date-like placeholder: `{{now|dddd, MMMM Do [at] h:mm A}}` → *Friday, October 2nd at 1:34 PM*. Works on `now`, `time`, `date`, `game.release_date` and `timer.<id>.target` (date countdowns). Tokens: `YYYY` `YY` year · `MMMM` `MMM` `MM` `M` month · `dddd` `ddd` weekday · `Do` `DD` `D` day · `HH` `H` `hh` `h` hour · `mm` `m` · `ss` `s` · `A` `a` AM/PM · `[text]` literal. The placeholder picker has a format box that appends the format for you.
+
 ### QR code element
 
 The **QR code** element turns a link or text into a scannable code (rendered by the server at `GET /api/qr?text=…`, as SVG). The link accepts placeholders, and you can choose the code color, background (or transparent), quiet zone and error correction. Keep strong contrast so phones can scan it.

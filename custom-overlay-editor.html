@@ -301,6 +301,9 @@
         <h3>Insert placeholder</h3>
         <p class="hint" style="margin:0 0 .5rem">Live values update on the overlay. Click one to insert it at your cursor.</p>
         <input id="variable-search" type="search" placeholder="Search timers, clock, events, goals…">
+        <div class="field" style="margin-top:.6rem"><span>Date/time format <span class="hint">(optional; applies to clock, release date and timer target placeholders)</span></span>
+            <div style="display:flex;gap:.4rem"><input id="variable-format" list="variable-format-presets" placeholder="e.g. dddd, MMM D · h:mm A" spellcheck="false"><datalist id="variable-format-presets"></datalist></div>
+            <span class="hint">YYYY year · MMMM/MMM/MM month · dddd/ddd weekday · D/Do/DD day · h/hh/H/HH hour · mm minutes · ss seconds · A am/pm · [text] literal</span></div>
         <div id="variable-list"></div>
         <div class="dialog-actions"><button id="variable-close">Close</button></div>
     </dialog>
@@ -1120,13 +1123,17 @@
     function renderVariableList() {
         const query = $('variable-search').value.trim().toLowerCase();
         const table = shared.variableTable(liveStatus, variableContext());
+        const format = $('variable-format').value.trim();
+        $('variable-format-presets').innerHTML = shared.FORMAT_PRESETS.map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('');
         const html = shared.variableGroups(liveStatus).map(group => {
             const items = group.items.filter(([key, label]) => !query || `${group.label} ${key} ${label}`.toLowerCase().includes(query));
             if (!items.length) return '';
             return `<h4>${esc(group.label)}</h4>` + items.map(([key, label]) => {
-                const value = table[key];
+                const dated = format && shared.isDateKey(key);
+                const value = dated ? shared.applyFormat(key, table[key], format, Date.now()) : table[key];
                 const preview = value === undefined || value === null || value === '' ? '—' : String(value);
-                return `<button type="button" data-token="${esc(key)}"><span>${esc(label)}</span><code>{{${esc(key)}}}</code><span class="preview">${esc(preview)}</span></button>`;
+                const token = dated ? `${key}|${format}` : key;
+                return `<button type="button" data-token="${esc(token)}"><span>${esc(label)}</span><code>{{${esc(token)}}}</code><span class="preview">${esc(preview)}</span></button>`;
             }).join('');
         }).join('');
         $('variable-list').innerHTML = html || '<p class="hint">No placeholders match.</p>';
@@ -1138,6 +1145,7 @@
         $('variable-search').focus();
     }
     $('variable-search').addEventListener('input', renderVariableList);
+    $('variable-format').addEventListener('input', renderVariableList);
     $('variable-close').addEventListener('click', () => variableDialog.close());
     $('variable-list').addEventListener('click', event => {
         const token = event.target.closest('[data-token]')?.dataset.token;

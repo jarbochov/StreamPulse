@@ -3,7 +3,9 @@
     const kind = body.dataset.kind === 'stopwatch' ? 'stopwatch' : 'countdown';
     const params = overlayParams();
     const namedTimerId = (params.get('timer') || '').trim().toLowerCase();
-    const mode = params.get('display') === 'compact' ? 'compact' : 'standard';
+    const LAYOUTS = ['standard', 'compact', 'stacked', 'ring', 'flip', 'banner'];
+    const mode = LAYOUTS.includes(params.get('display')) ? params.get('display') : 'standard';
+    const altMode = !['standard', 'compact'].includes(mode);
     const overlay = document.getElementById('overlay-root');
     const timerBox = document.getElementById('timer-box');
     const progressWrap = document.getElementById('progress-wrap');
@@ -31,6 +33,13 @@
     loadSharedTheme();
     standardNode.style.display = mode === 'standard' ? 'flex' : 'none';
     compactNode.style.display = mode === 'compact' ? 'flex' : 'none';
+    const altNode = document.createElement('div');
+    altNode.id = 'alt-timer';
+    altNode.className = `timer-box alt alt-${mode}`;
+    altNode.style.display = altMode ? 'flex' : 'none';
+    timerBox.appendChild(altNode);
+    body.classList.add(`layout-${mode}`);
+    applyGradient();
     placeholder.classList.toggle('visible', !namedTimerId && kind === 'stopwatch');
 
     if (namedTimerId) {
@@ -280,8 +289,8 @@
 
         if (live.showMainDisplay) {
             const parts = formatParts(live.displayMs, fullUnits);
-            renderStandard(parts);
-            renderCompact(parts);
+            if (altMode) renderAlt(parts, live);
+            else { renderStandard(parts); renderCompact(parts); }
         }
 
         maybePlayCompletionTone(live);
@@ -334,6 +343,81 @@
             showMainDisplay: true,
             visible: state.visible !== false
         };
+    }
+
+    // Animated gradient: ?gradient=ff0080,7928ca,2afadf&gradientspeed=8&gradientangle=135
+    function applyGradient() {
+        const colors = (params.get('gradient') || '').split(',').map(c => c.trim().replace(/^#/, '')).filter(c => /^[0-9a-f]{3,8}$/i.test(c));
+        if (colors.length < 2) return;
+        const speed = Math.min(120, Math.max(1, Number(params.get('gradientspeed')) || 8));
+        const angle = Number(params.get('gradientangle'));
+        const root = document.documentElement.style;
+        root.setProperty('--timer-gradient', `linear-gradient(${Number.isFinite(angle) ? angle : 135}deg, ${colors.map(c => `#${c}`).join(', ')})`);
+        root.setProperty('--gradient-speed', `${speed}s`);
+        body.classList.add('animated-gradient');
+    }
+
+    const UNIT_LABELS = { days: 'day', hours: 'hour', minutes: 'minute', seconds: 'second' };
+    let altSignature = '';
+    let flipPrev = {};
+
+    function altFraction(live) {
+        if (kind === 'countdown') return Math.max(0, Math.min(1, 1 - (live.percentComplete || 0)));
+        return ((live.elapsedMs || 0) % 60000) / 60000;
+    }
+
+    function renderAlt(parts, live) {
+        const visible = parts.visible;
+        const pad2 = n => String(n).padStart(2, '0');
+        const signature = `${mode}:${visible.join(',')}`;
+        const rebuild = signature !== altSignature;
+        altSignature = signature;
+        const frac = showMilliseconds ? parts.hundredths : '';
+
+        if (mode === 'stacked') {
+            if (rebuild) altNode.innerHTML = visible.map(u => `<div class="stack-row" data-unit="${u}"><span class="stack-num"></span><span class="stack-label"></span></div>`).join('');
+            for (const unit of visible) {
+                const row = altNode.querySelector(`[data-unit="${unit}"]`);
+                const n = parts.values[unit];
+                row.querySelector('.stack-num').textContent = unit === 'seconds' && frac ? `${pad2(n)}.${frac}` : (unit === 'days' ? n : pad2(n));
+                row.querySelector('.stack-label').textContent = UNIT_LABELS[unit] + (n === 1 && !(unit === 'seconds' && frac) ? '' : 's');
+            }
+        } else if (mode === 'ring') {
+            if (rebuild) {
+                altNode.innerHTML = `<svg class="ring-svg" viewBox="0 0 100 100"><circle class="ring-track" cx="50" cy="50" r="44"/><circle class="ring-fill" cx="50" cy="50" r="44" pathLength="100"/></svg><div class="ring-center"><div class="ring-time"></div><div class="ring-caption"></div></div>`;
+            }
+            const text = visible.map((u, i) => (i === 0 && u === 'days' ? parts.values[u] : pad2(parts.values[u]))).join(':');
+            altNode.querySelector('.ring-time').textContent = frac ? `${text}.${frac}` : text;
+            altNode.style.setProperty('--ring-chars', String((frac ? text.length + 3 : text.length)));
+            altNode.querySelector('.ring-caption').textContent = visible.map(u => u[0]).join(' : ').toUpperCase();
+            const fill = altNode.querySelector('.ring-fill');
+            fill.style.strokeDasharray = '100 100';
+            fill.style.strokeDashoffset = String(100 - altFraction(live) * 100);
+        } else if (mode === 'flip') {
+            if (rebuild) {
+                flipPrev = {};
+                altNode.innerHTML = visible.map(u => `<div class="flip-unit" data-unit="${u}"><div class="flip-digits"></div><div class="flip-label">${u}</div></div>`).join('');
+            }
+            for (const unit of visible) {
+                const wrap = altNode.querySelector(`[data-unit="${unit}"] .flip-digits`);
+                const text = unit === 'days' ? String(parts.values[unit]).padStart(2, '0') : pad2(parts.values[unit]);
+                const digits = unit === 'seconds' && frac ? text + frac : text;
+                if (wrap.children.length !== digits.length) wrap.innerHTML = [...digits].map(() => '<span class="flip-card"><span class="flip-face"></span></span>').join('');
+                [...digits].forEach((ch, i) => {
+                    const card = wrap.children[i];
+                    const face = card.firstChild;
+                    if (face.textContent !== ch) {
+                        const had = face.textContent !== '';
+                        face.textContent = ch;
+                        if (had) { card.classList.remove('flipping'); void card.offsetWidth; card.classList.add('flipping'); }
+                    }
+                });
+            }
+        } else if (mode === 'banner') {
+            const text = visible.map((u, i) => `${i === 0 && u === 'days' ? parts.values[u] : pad2(parts.values[u])}${u[0]}`).join(' ');
+            if (rebuild) altNode.innerHTML = '<span class="banner-time"></span>';
+            altNode.firstChild.textContent = frac ? `${text}.${frac}` : text;
+        }
     }
 
     function renderStandard(parts) {

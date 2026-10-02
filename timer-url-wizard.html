@@ -72,7 +72,7 @@
             <div class="cfg-row"><label>Title override</label><input type="text" id="title" placeholder="Blank = timer label" oninput="refreshWizard()"></div>
 
             <div class="group-title">Display</div>
-            <div class="cfg-row"><label>Layout</label><select id="display" onchange="refreshWizard()"><option value="standard">Standard</option><option value="compact">Compact</option></select></div>
+            <div class="cfg-row"><label>Layout</label><select id="display" onchange="refreshWizard()"><option value="standard">Standard</option><option value="compact">Compact</option><option value="stacked">Stacked (3 days / 4 hours…)</option><option value="ring">Ring</option><option value="flip">Flip clock</option><option value="banner">Banner (full width)</option></select></div>
             <div class="cfg-row"><label>Theme</label><select id="theme" onchange="refreshWizard()"><option value="dark">Dark</option><option value="light">Light</option></select></div>
             <div class="cfg-row"><label>Units</label><select id="units" onchange="refreshWizard()"><option value="auto">Auto</option><option value="full">Full</option></select></div>
             <div class="cfg-row"><label>Font scale</label><input type="number" id="fontscale" min="0.5" max="3" step="0.1" value="1" oninput="refreshWizard()"></div>
@@ -116,6 +116,16 @@
                 <input type="text" id="bgcolor" value="" placeholder="Transparent" oninput="syncColorFromText('bgcolor')">
                 <button type="button" class="btn" onclick="clearBg()" title="Transparent">None</button>
             </div>
+
+            <div class="group-title">Animated gradient</div>
+            <div class="toggles"><label class="toggle"><input type="checkbox" id="gradient-on" onchange="refreshWizard()"><span>Animate timer background</span></label></div>
+            <div class="cfg-row color-row"><label>Colors</label>
+                <input type="color" id="grad1" value="#ff0080" oninput="refreshWizard()">
+                <input type="color" id="grad2" value="#7928ca" oninput="refreshWizard()">
+                <input type="color" id="grad3" value="#2afadf" oninput="refreshWizard()">
+            </div>
+            <div class="cfg-row"><label>Speed (sec)</label><input type="number" id="gradspeed" min="1" max="120" step="1" value="8" oninput="refreshWizard()"></div>
+            <div class="cfg-row"><label>Angle (deg)</label><input type="number" id="gradangle" min="0" max="360" step="15" value="135" oninput="refreshWizard()"></div>
 
             <div class="hint" style="margin-top:0.8rem">Make several differently styled URLs for the same timer. Date/time countdowns are created in the Timer Manager (Countdown Mode: <strong>Target Date &amp; Time</strong>).</div>
         </div>
@@ -204,6 +214,11 @@
             const value = document.getElementById(id).value.trim();
             if (value) params.set(id, value);
         });
+        if (document.getElementById('gradient-on').checked) {
+            params.set('gradient', ['grad1', 'grad2', 'grad3'].map(id => document.getElementById(id).value.replace('#', '')).join(','));
+            params.set('gradientspeed', document.getElementById('gradspeed').value || '8');
+            params.set('gradientangle', document.getElementById('gradangle').value || '135');
+        }
         return `/${kind}.html?${params.toString()}`;
     }
 

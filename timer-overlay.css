@@ -206,3 +206,55 @@ body {
         min-width: calc(clamp(44px, 18vw, 120px) * var(--font-scale));
     }
 }
+
+/* Animated gradient (?gradient=hex,hex,...) */
+body.animated-gradient .timer-box:not(.compact):not(.standard),
+body.animated-gradient .timer-box.standard,
+body.animated-gradient .timer-box.compact {
+    background: var(--timer-gradient);
+    background-size: 300% 300%;
+    animation: gradient-shift var(--gradient-speed, 8s) ease-in-out infinite alternate;
+}
+
+@keyframes gradient-shift {
+    from { background-position: 0% 50%; }
+    to { background-position: 100% 50%; }
+}
+
+/* Extra layouts (?display=stacked|ring|flip|banner) */
+.timer-box.alt { flex-direction: column; }
+
+.alt-stacked { align-items: flex-start; gap: calc(clamp(2px, 0.8vh, 8px) * var(--font-scale)); }
+.stack-row { display: flex; align-items: baseline; gap: 0.5em; font-size: calc(clamp(1.6rem, 8vh, 5rem) * var(--font-scale)); line-height: 1.1; }
+.stack-num { font-weight: 700; color: var(--text-color); min-width: 1.6em; text-align: right; text-shadow: 0 2px 10px var(--shadow-color); }
+.stack-label { font-size: 0.55em; color: var(--label-color); text-transform: uppercase; letter-spacing: 0.06em; }
+
+.alt-ring { --ring: calc(clamp(180px, 48vh, 420px) * var(--font-scale)); --ring-chars: 8; position: relative; width: var(--ring); height: var(--ring); padding: 0; border-radius: 50%; }
+.ring-svg { position: absolute; inset: 6%; width: 88%; height: 88%; transform: rotate(-90deg); }
+.ring-track, .ring-fill { fill: none; stroke-width: 6; }
+.ring-track { stroke: var(--progress-background); }
+.ring-fill { stroke: var(--progress-color); stroke-linecap: round; transition: stroke-dashoffset 0.25s linear; }
+.ring-center { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.2em; }
+.ring-time { font-size: calc(var(--ring) * min(0.17, 1.05 / var(--ring-chars))); font-weight: 700; color: var(--text-color); text-shadow: 0 2px 10px var(--shadow-color); font-variant-numeric: tabular-nums; }
+.ring-caption { font-size: calc(clamp(0.6rem, 1.9vh, 1.1rem) * var(--font-scale)); color: var(--label-color); letter-spacing: 0.2em; }
+
+.timer-box.alt-flip { flex-direction: row; gap: calc(clamp(10px, 2.4vw, 28px) * var(--font-scale)); }
+.flip-unit { display: flex; flex-direction: column; align-items: center; gap: calc(8px * var(--font-scale)); }
+.flip-digits { display: flex; gap: calc(4px * var(--font-scale)); }
+.flip-card { position: relative; display: block; perspective: 400px; width: calc(clamp(34px, 8vh, 78px) * var(--font-scale)); height: calc(clamp(48px, 12vh, 112px) * var(--font-scale)); border-radius: 8px; background: linear-gradient(#2b3038 50%, #20242b 50%); box-shadow: inset 0 -2px 0 rgba(0,0,0,0.35), 0 4px 10px var(--shadow-color); overflow: hidden; }
+.flip-card::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: rgba(0,0,0,0.55); transform: translateY(-1px); }
+.flip-face { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: calc(clamp(2rem, 9.5vh, 5.5rem) * var(--font-scale)); font-weight: 700; color: #f8fafc; }
+.flip-card.flipping .flip-face { animation: flip-in 0.35s ease-out; transform-origin: 50% 50%; }
+@keyframes flip-in { from { transform: rotateX(-90deg); opacity: 0.2; } to { transform: rotateX(0); opacity: 1; } }
+.flip-label { font-size: calc(clamp(0.65rem, 2vh, 1.2rem) * var(--font-scale)); color: var(--label-color); text-transform: uppercase; letter-spacing: 0.1em; }
+
+/* Banner: title and time share one full-width bar with the progress along the bottom edge */
+body.layout-banner .overlay-root { align-items: flex-end; padding: 0; }
+body.layout-banner .overlay-shell { position: relative; width: 100%; flex-direction: row; align-items: center; justify-content: space-between; gap: 2rem; padding: calc(clamp(12px, 3vh, 28px) * var(--font-scale)) calc(clamp(18px, 4vw, 48px) * var(--font-scale)); background: var(--timer-background); box-shadow: 0 -4px 18px var(--shadow-color); overflow: hidden; }
+body.layout-banner.animated-gradient .overlay-shell { background: var(--timer-gradient); background-size: 300% 300%; animation: gradient-shift var(--gradient-speed, 8s) ease-in-out infinite alternate; }
+body.layout-banner .title { text-align: left; font-size: calc(clamp(1.2rem, 4.5vh, 2.6rem) * var(--font-scale)); }
+body.layout-banner .timer-box.alt { background: none !important; animation: none !important; box-shadow: none; padding: 0; }
+.banner-time { font-size: calc(clamp(1.6rem, 6vh, 3.6rem) * var(--font-scale)); font-weight: 700; color: var(--text-color); text-shadow: 0 2px 10px var(--shadow-color); font-variant-numeric: tabular-nums; white-space: nowrap; }
+body.layout-banner .progress-wrap { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; }
+body.layout-banner .progress-track, body.layout-banner .progress-bar { border-radius: 0; height: calc(6px * var(--font-scale)); }
+body.layout-banner .message { margin: 0 auto; }
