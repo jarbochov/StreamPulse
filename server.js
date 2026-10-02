@@ -104,7 +104,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
             mode: ['random', 'order'].includes(element.random?.mode) ? element.random.mode : 'random',
             intervalSeconds: Math.max(1, Math.min(3600, Number(element.random?.intervalSeconds) || 5)),
             typewriter: element.random?.typewriter === true,
-            typewriterSpeed: Math.max(10, Math.min(500, Number(element.random?.typewriterSpeed) || 45)),
+            typewriterSpeed: Math.max(10, Math.min(1000, Number(element.random?.typewriterSpeed) || 110)),
             marquee: element.random?.marquee === true,
             marqueeSpeed: Math.max(10, Math.min(240, Number(element.random?.marqueeSpeed) || 60))
         },

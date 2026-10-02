@@ -27,7 +27,7 @@
             typed.className = 'overlay-caret';
             node.replaceChildren(typed);
             let position = 0;
-            const speed = Math.max(10, Number(config.typewriterSpeed) || 45);
+            const speed = Math.max(10, Number(config.typewriterSpeed) || 110);
             const typeTimer = setInterval(() => {
                 typed.textContent = value.slice(0, ++position);
                 if (position >= value.length) clearInterval(typeTimer);

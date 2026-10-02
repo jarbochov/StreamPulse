@@ -394,7 +394,7 @@
         next.canvas = Object.assign({ width: 1920, height: 1080, background: 'transparent' }, next.canvas);
         next.elements = (next.elements || []).map((item, index) => ({ index, item }))
             .sort((a, b) => (a.item.zIndex - b.item.zIndex) || (a.index - b.index)).map(entry => entry.item);
-        next.elements.forEach(item => { item.name = item.name || ''; item.locked = item.locked === true; item.items ||= []; item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 45, marquee: false, marqueeSpeed: 60 }; item.style ||= {}; });
+        next.elements.forEach(item => { item.name = item.name || ''; item.locked = item.locked === true; item.items ||= []; item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 }; item.style ||= {}; });
         return next;
     }
 
@@ -406,7 +406,7 @@
             id: uid(type), name: '', locked: false, type,
             content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', shape: '' }[type],
             items: type === 'random-text' ? ['First random phrase', 'Second random phrase', 'Third random phrase'] : [],
-            random: { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 45, marquee: false, marqueeSpeed: 60 },
+            random: { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 },
             src: '', x: Math.round((overlay.canvas.width - width) / 2 + offset), y: Math.round((overlay.canvas.height - height) / 2 + offset), width, height, zIndex: overlay.elements.length, visible: true,
             style: { fontFamily: 'sans-serif', fontSize: type === 'markdown' ? 32 : 48, fontWeight: '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#1f6feb' : 'transparent', borderColor: '#ffffff', borderWidth: 0, borderRadius: 0, opacity: 1, objectFit: 'cover', shape: 'rectangle' }
         };
@@ -886,7 +886,7 @@
         return F.section('behavior', 'Random text behavior', `
             <div class="grid2">${F.select('random.mode', 'Display', r.mode || 'random', [['random', 'Random order'], ['order', 'Entered order']])}${F.number('random.intervalSeconds', 'Refresh (sec)', r.intervalSeconds || 5, { min: 1, max: 3600 })}</div>
             ${F.check('random.typewriter', 'Typewriter effect', r.typewriter)}
-            ${F.number('random.typewriterSpeed', 'Typewriter speed (ms per character)', r.typewriterSpeed || 45, { min: 10, max: 500 })}
+            ${F.number('random.typewriterSpeed', 'Typewriter speed (ms per character)', r.typewriterSpeed || 110, { min: 10, max: 1000 })}
             ${F.check('random.marquee', 'Marquee scroll', r.marquee)}
             ${F.number('random.marqueeSpeed', 'Marquee duration (sec per pass)', r.marqueeSpeed || 60, { min: 10, max: 240 })}
             <p class="hint">The canvas shows the first phrase; the runtime cycles through the pool.</p>`);
