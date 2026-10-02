@@ -21,6 +21,8 @@
         .overlay-marquee::after { content: ''; }
         .overlay-marquee { animation: overlay-marquee var(--marquee-duration, 60s) linear infinite; }
         @keyframes overlay-marquee { from { text-indent: 100%; } to { text-indent: -100%; } }
+        .overlay-typewriter { border-right: .15em solid currentColor; animation: overlay-blink-caret .5s step-end infinite; }
+        @keyframes overlay-blink-caret { from, to { border-color: transparent; } 50% { border-color: currentColor; } }
     </style>
 </head>
 <body>

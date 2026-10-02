@@ -28,7 +28,7 @@ Shapes support rectangle, circle, pill, and line variants. Text supports a curat
 
 Random Text elements support random or entered-order display, configurable refresh intervals, typewriter animation, and marquee animation.
 
-The editor provides visible corner handles for resizing selected elements and supports panning the canvas. Reset View restores the default 50% zoom and viewport position. The font picker includes common system fonts plus selected Google Fonts; Google Fonts are loaded when used by the editor or runtime.
+The editor provides visible corner handles for resizing selected elements and supports panning the canvas. Fit calculates a zoom and viewport position that show the full canvas. The font picker includes common system fonts plus selected Google Fonts, including Silkscreen; Google Fonts are loaded when used by the editor or runtime. Random Text typewriter mode includes a blinking cursor modeled after the existing StreamEndRandom screen.
 
 ## API
 

@@ -7,7 +7,7 @@
     const randomTimers = new Map();
     const randomIndexes = new Map();
     let currentOverlay = null;
-    const googleFonts = new Set(['Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Oswald', 'Poppins', 'Raleway', 'Merriweather', 'Playfair Display', 'Bebas Neue', 'Fira Code']);
+    const googleFonts = new Set(['Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Oswald', 'Poppins', 'Raleway', 'Merriweather', 'Playfair Display', 'Bebas Neue', 'Fira Code', 'Silkscreen']);
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -26,6 +26,7 @@
         const value = expandVariables(config.mode === 'order' ? items[index % items.length] : items[Math.floor(Math.random() * items.length)]);
         randomIndexes.set(element.id, config.mode === 'order' ? index + 1 : index);
         if (config.typewriter) {
+            node.classList.add('overlay-typewriter');
             node.textContent = '';
             let position = 0;
             const speed = Math.max(10, Number(config.typewriterSpeed) || 45);
@@ -34,6 +35,7 @@
                 if (position >= value.length) clearInterval(typeTimer);
             }, speed);
         } else {
+            node.classList.remove('overlay-typewriter');
             node.textContent = value;
         }
         if (config.marquee) {
@@ -86,7 +88,7 @@
     }
 
     function loadGoogleFont(fontFamily) {
-        const name = String(fontFamily || '').replace(/^['"]|['"]$/g, '').split(',')[0].trim();
+        const name = String(fontFamily || '').split(',')[0].replace(/^['"]|['"]$/g, '').trim();
         if (!googleFonts.has(name)) return;
         const id = `google-font-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
         if (document.getElementById(id)) return;
