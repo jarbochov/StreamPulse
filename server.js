@@ -82,7 +82,7 @@ const DEFAULT_GOALS_CONFIG = {
     items: []
 };
 
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed']);
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress']);
 let customOverlays = {};
 
 function sanitizeOverlayId(value) {
@@ -95,7 +95,15 @@ function normalizeOverlayElement(element = {}, index = 0) {
         id: sanitizeOverlayId(element.id) || `element-${index + 1}`,
         name: String(element.name || '').trim().slice(0, 80),
         locked: element.locked === true,
+        group: sanitizeOverlayId(element.group).slice(0, 40),
         type,
+        progress: {
+            kind: element.progress?.kind === 'ring' ? 'ring' : 'bar',
+            label: String(element.progress?.label ?? '{{progress}}%').slice(0, 200),
+            showLabel: element.progress?.showLabel !== false,
+            trackColor: String(element.progress?.trackColor || 'rgba(255,255,255,0.18)').slice(0, 80),
+            thickness: Math.max(2, Math.min(40, Number(element.progress?.thickness) || 10))
+        },
         content: String(element.content || '').slice(0, 20000),
         items: Array.isArray(element.items) ? element.items.map(item => String(item).slice(0, 2000)).filter(Boolean).slice(0, 100) : [],
         src: String(element.src || '').slice(0, 2000),
@@ -129,6 +137,18 @@ function normalizeOverlayElement(element = {}, index = 0) {
                 : 1,
             objectFit: element.style?.objectFit === 'contain' ? 'contain' : 'cover',
             shape: ['rectangle', 'circle', 'pill', 'line'].includes(element.style?.shape) ? element.style.shape : 'rectangle',
+            fill: String(element.style?.fill || '#1f6feb').slice(0, 80),
+            gradient: {
+                enabled: element.style?.gradient?.enabled === true,
+                from: String(element.style?.gradient?.from || '#1f6feb').slice(0, 80),
+                to: String(element.style?.gradient?.to || '#8957e5').slice(0, 80),
+                angle: Math.max(0, Math.min(360, Number(element.style?.gradient?.angle) || 135))
+            },
+            blur: Math.max(0, Math.min(60, Number(element.style?.blur) || 0)),
+            shadow: {
+                blur: Math.max(0, Math.min(100, Number(element.style?.shadow?.blur) || 0)),
+                color: String(element.style?.shadow?.color || 'rgba(0,0,0,0.5)').slice(0, 80)
+            },
             lineHeight: Math.max(0.5, Math.min(3, Number(element.style?.lineHeight) || 1.2)),
             letterSpacing: Math.max(-10, Math.min(50, Number(element.style?.letterSpacing) || 0))
         }

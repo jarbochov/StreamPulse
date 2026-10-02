@@ -244,6 +244,9 @@
                         <button role="menuitem" data-add="video"><span class="glyph">▶</span>Video</button>
                         <button role="menuitem" data-add="embed"><span class="glyph">⊞</span>Webpage</button>
                         <button role="menuitem" data-add="shape"><span class="glyph">■</span>Shape</button>
+                        <button role="menuitem" data-add="progress"><span class="glyph">▰</span>Progress bar / ring</button>
+                        <hr style="border:0;border-top:1px solid var(--border);margin:.3rem 0">
+                        <button role="menuitem" data-preset="counter"><span class="glyph">№</span>Counter card (preset)</button>
                     </div>
                 </div>
                 <span class="divider"></span>
@@ -324,9 +327,10 @@
     const MIN_SIZE = 20;
     const TYPE_META = {
         text: { label: 'Text', icon: 'T' }, 'random-text': { label: 'Random Text', icon: '↻' }, markdown: { label: 'Markdown', icon: 'M↓' },
-        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, shape: { label: 'Shape', icon: '■' }
+        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, shape: { label: 'Shape', icon: '■' }, progress: { label: 'Progress', icon: '▰' }
     };
     const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
+    const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress';
     const CANVAS_PRESETS = [['1920x1080', 'Full HD 1920 × 1080'], ['1280x720', 'HD 1280 × 720'], ['2560x1440', 'QHD 2560 × 1440'], ['3840x2160', '4K 3840 × 2160'], ['1080x1920', 'Portrait 1080 × 1920'], ['1080x1080', 'Square 1080 × 1080']];
     const SYSTEM_FONTS = [['sans-serif', 'System sans-serif'], ['Arial, sans-serif', 'Arial'], ['Helvetica, sans-serif', 'Helvetica'], ['Georgia, serif', 'Georgia'], ['Impact, sans-serif', 'Impact'], ['monospace', 'Monospace'], ["'Courier New', monospace", 'Courier New'], ["'Trebuchet MS', sans-serif", 'Trebuchet MS']];
     const SERIF_FONTS = new Set(['Merriweather', 'Playfair Display']);
@@ -427,16 +431,17 @@
     }
 
     function createElementData(type, overrides = {}) {
-        const sizes = { text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270], video: [640, 360], embed: [640, 360], shape: [480, 160] };
+        const sizes = { text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270], video: [640, 360], embed: [640, 360], shape: [480, 160], progress: [480, 48] };
         const [width, height] = sizes[type];
         const offset = (overlay.elements.length % 6) * 24;
         const data = {
             id: uid(type), name: '', locked: false, type,
-            content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', shape: '' }[type],
+            content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', shape: '', progress: '50' }[type],
             items: type === 'random-text' ? ['First random phrase', 'Second random phrase', 'Third random phrase'] : [],
             random: { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 },
+            group: '', progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
             src: '', x: Math.round((overlay.canvas.width - width) / 2 + offset), y: Math.round((overlay.canvas.height - height) / 2 + offset), width, height, zIndex: overlay.elements.length, visible: true,
-            style: { fontFamily: 'sans-serif', fontSize: type === 'markdown' ? 32 : 48, fontWeight: '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#1f6feb' : 'transparent', borderColor: '#ffffff', borderWidth: 0, borderRadius: 0, opacity: 1, objectFit: 'cover', shape: 'rectangle' }
+            style: { fontFamily: 'sans-serif', fontSize: type === 'markdown' ? 32 : type === 'progress' ? 24 : 48, fontWeight: '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#1f6feb' : 'transparent', borderColor: '#ffffff', borderWidth: 0, borderRadius: 0, opacity: 1, objectFit: 'cover', shape: 'rectangle', fill: '#1f6feb', gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 }, blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' } }
         };
         return Object.assign(data, overrides);
     }
@@ -537,6 +542,7 @@
             alignItems: s.verticalAlign === 'middle' ? 'center' : s.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start',
             justifyContent: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'flex-end' : 'flex-start'
         });
+        Object.assign(node.style, shared.decorationStyle(s, el.type));
         if (el.type === 'shape') {
             if (s.shape === 'circle') node.style.borderRadius = '50%';
             if (s.shape === 'pill') node.style.borderRadius = '999px';
@@ -576,16 +582,20 @@
             if (el.random?.marquee) node._extra += ' overlay-marquee';
         } else if (el.type === 'text') {
             node.textContent = expand(el.content);
+        } else if (el.type === 'progress') {
+            node._progressKind = null;
+            shared.renderProgress(node, el, expand);
         }
     }
-    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
+    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.progress, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
 
     function tickPlaceholders() {
         if (!prefs.live) return;
         for (const el of overlay.elements) {
             const node = nodes.get(el.id);
-            if (!node || !shared.hasTicking(el.content) || (el.type !== 'text' && el.type !== 'markdown')) continue;
-            if (el.type === 'markdown') node.innerHTML = shared.renderMarkdown(expand(el.content));
+            if (!node || !['text', 'markdown', 'progress'].includes(el.type) || !shared.hasTicking(el.type === 'progress' ? `${el.content} ${el.progress?.label}` : el.content)) continue;
+            if (el.type === 'progress') shared.renderProgress(node, el, expand);
+            else if (el.type === 'markdown') node.innerHTML = shared.renderMarkdown(expand(el.content));
             else node.textContent = expand(el.content);
         }
     }
@@ -647,6 +657,29 @@
         for (const y of ys) { const line = document.createElement('div'); line.className = 'guide h'; line.style.top = `${y}px`; guidesEl.appendChild(line); }
     }
 
+    // Clicking a grouped element on the canvas selects its whole group; Layers still selects one at a time.
+    function withGroups(ids) {
+        const set = new Set(ids);
+        const groups = new Set([...set].map(id => byId(id)?.group).filter(Boolean));
+        if (groups.size) overlay.elements.forEach(el => { if (groups.has(el.group)) set.add(el.id); });
+        return set;
+    }
+    function groupSelection() {
+        const items = selectedElements();
+        if (items.length < 2) { toast('Select two or more elements to group.', 'warn', 2000); return; }
+        const id = uid('group');
+        items.forEach(el => { el.group = id; });
+        renderLayers(); renderProperties(); changed(true);
+        toast(`Grouped ${items.length} elements`, 'success', 1500);
+    }
+    function ungroupSelection() {
+        const items = selectedElements().filter(el => el.group);
+        if (!items.length) return;
+        const groups = new Set(items.map(el => el.group));
+        overlay.elements.forEach(el => { if (groups.has(el.group)) el.group = ''; });
+        renderLayers(); renderProperties(); changed(true);
+    }
+
     function setSelection(ids, { light = false } = {}) {
         const next = new Set(ids);
         if (next.size === selectedIds.size && [...next].every(id => selectedIds.has(id))) return false;
@@ -675,7 +708,7 @@
             <div class="layer${selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}" data-id="${esc(el.id)}">
                 <span class="layer-grip" title="Drag to reorder">${ICON.grip}</span>
                 <span class="layer-icon">${esc(TYPE_META[el.type].icon)}</span>
-                <span class="layer-name" title="Double-click to rename">${esc(displayName(el))}</span>
+                <span class="layer-name" title="Double-click to rename">${el.group ? '⛓ ' : ''}${esc(displayName(el))}</span>
                 <span class="layer-actions">
                     <button data-layer-action="lock" class="${el.locked ? 'on' : ''}" title="${el.locked ? 'Unlock' : 'Lock'}" aria-label="${el.locked ? 'Unlock' : 'Lock'} layer">${el.locked ? ICON.lock : ICON.unlock}</button>
                     <button data-layer-action="visible" title="${el.visible === false ? 'Show' : 'Hide'}" aria-label="${el.visible === false ? 'Show' : 'Hide'} layer">${el.visible === false ? ICON.eyeOff : ICON.eye}</button>
@@ -861,7 +894,7 @@
         return `<div class="action-bar">${title}
             ${btn('duplicate', ICON.copy, 'Duplicate (Ctrl/⌘+D)')}${btn('delete', ICON.trash, 'Delete (Del)', 'danger')}<span class="divider"></span>
             ${btn('front', ICON.toFront, 'Bring to front')}${btn('forward', ICON.forward, 'Bring forward')}${btn('backward', ICON.backward, 'Send backward')}${btn('back', ICON.toBack, 'Send to back')}<span class="divider"></span>
-            ${btn('lock', allLocked ? ICON.lock : ICON.unlock, allLocked ? 'Unlock' : 'Lock')}${btn('hide', allHidden ? ICON.eyeOff : ICON.eye, allHidden ? 'Show' : 'Hide')}</div>`;
+            ${items.length > 1 ? `<button type="button" class="icon" data-act="group" title="Group (Ctrl/⌘+G)" style="width:auto;padding:0 .5rem">Group</button>` : ''}${items.some(el => el.group) ? `<button type="button" class="icon" data-act="ungroup" title="Ungroup (Ctrl/⌘+Shift+G)" style="width:auto;padding:0 .5rem">Ungroup</button>` : ''}<span class="divider"></span>${btn('lock', allLocked ? ICON.lock : ICON.unlock, allLocked ? 'Unlock' : 'Lock')}${btn('hide', allHidden ? ICON.eyeOff : ICON.eye, allHidden ? 'Show' : 'Hide')}</div>`;
     }
     function alignSection(items) {
         const multi = items.length > 1;
@@ -893,6 +926,10 @@
             ${F.color('style.background', shape ? 'Fill' : 'Background', s.background, { clear: true })}
             <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
             ${shape && s.shape === 'line' ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}
+            ${F.check('style.gradient.enabled', 'Gradient fill', s.gradient?.enabled)}
+            ${s.gradient?.enabled ? `${F.color('style.gradient.from', 'Gradient from', s.gradient.from)}${F.color('style.gradient.to', 'Gradient to', s.gradient.to)}${F.number('style.gradient.angle', 'Gradient angle (°)', s.gradient.angle ?? 135, { min: 0, max: 360 })}` : ''}
+            <div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Shadow blur (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
+            ${F.color('style.shadow.color', 'Shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)')}
             ${F.range('style.opacity', 'Opacity', s.opacity ?? 1, { min: 0, max: 100, scale: 0.01, unit: '%' })}
             ${!multi && shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
             ${!multi && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) : ''}`;
@@ -904,6 +941,10 @@
         if (textual) {
             body += `<label class="field"><span>${el.type === 'random-text' ? 'Fallback text' : el.type === 'markdown' ? 'Markdown' : 'Text'}</span><textarea id="prop-content" data-path="content" data-kind="text" spellcheck="true">${esc(el.content)}</textarea></label>`;
             if (el.type === 'random-text') body += `<label class="field"><span>Phrase pool</span><textarea id="prop-items" data-path="items" data-kind="lines" style="min-height:120px">${esc((el.items || []).join('\n'))}</textarea><span class="hint">One phrase per line. Placeholders work here too.</span></label>`;
+            body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button></div>`;
+        }
+        if (el.type === 'progress') {
+            body += `<label class="field"><span>Value (percent, 0–100)</span><textarea id="prop-content" data-path="content" data-kind="text" rows="2" style="min-height:0">${esc(el.content)}</textarea><span class="hint">Use a number or a placeholder such as {{timer.&lt;id&gt;.percent}} or {{goal.&lt;id&gt;.percent}}.</span></label>`;
             body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button></div>`;
         }
         if (media || el.type === 'embed') {
@@ -920,6 +961,17 @@
         return F.section('layout', 'Position & size', `
             <div class="grid2">${F.number('x', 'X', el.x, { min: -7680, max: 7680 })}${F.number('y', 'Y', el.y, { min: -4320, max: 4320 })}</div>
             <div class="grid2">${F.number('width', 'Width', el.width, { min: LIMITS.elementW[0], max: LIMITS.elementW[1] })}${line ? '<span></span>' : F.number('height', 'Height', el.height, { min: LIMITS.elementH[0], max: LIMITS.elementH[1] })}</div>`);
+    }
+    function progressSection(el) {
+        const p = el.progress || {};
+        return F.section('progress', 'Progress', `
+            ${F.select('progress.kind', 'Style', p.kind || 'bar', [['bar', 'Bar'], ['ring', 'Ring']])}
+            ${F.color('style.fill', 'Fill color', el.style.fill || '#1f6feb')}
+            ${F.color('progress.trackColor', 'Track color', p.trackColor || 'rgba(255,255,255,0.18)')}
+            ${p.kind === 'ring' ? F.number('progress.thickness', 'Ring thickness', p.thickness || 10, { min: 2, max: 40 }) : ''}
+            ${F.check('progress.showLabel', 'Show label', p.showLabel !== false)}
+            ${F.text('progress.label', 'Label', p.label ?? '{{progress}}%')}
+            <p class="hint">{{progress}} in the label is the current percent. The label uses the Typography settings.</p>`);
     }
     function randomSection(el) {
         const r = el.random || {};
@@ -941,11 +993,11 @@
             return;
         }
         if (items.length > 1) {
-            const textual = items.some(el => TEXT_TYPES.has(el.type) || el.type === 'shape');
-            root.innerHTML = `${actionBar(items)}${alignSection(items)}${appearanceSection(items[0], true)}${textual ? typographySection(items.find(el => TEXT_TYPES.has(el.type)) || items[0]) : ''}`;
+            const textual = items.some(el => hasText(el) || el.type === 'shape');
+            root.innerHTML = `${actionBar(items)}${alignSection(items)}${appearanceSection(items[0], true)}${textual ? typographySection(items.find(hasText) || items[0]) : ''}`;
         } else {
             const el = items[0];
-            root.innerHTML = `${actionBar(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${contentSection(el)}${layoutSection(el)}${alignSection(items)}${TEXT_TYPES.has(el.type) ? typographySection(el) : ''}${appearanceSection(el, false)}${el.type === 'random-text' ? randomSection(el) : ''}`;
+            root.innerHTML = `${actionBar(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${contentSection(el)}${layoutSection(el)}${alignSection(items)}${hasText(el) ? typographySection(el) : ''}${el.type === 'progress' ? progressSection(el) : ''}${appearanceSection(el, false)}${el.type === 'random-text' ? randomSection(el) : ''}`;
         }
         root.parentElement.scrollTop = scroll;
         lastTextField = null;
@@ -954,7 +1006,7 @@
         for (const el of selectedElements()) { el.width = clamp(el.width, 1, 3840); el.height = clamp(el.height, 1, 2160); }
         renderCanvas(); updateStatusBar();
         if (path === 'name') renderLayers();
-        if (path === 'style.shape') renderProperties();
+        if (path === 'style.shape' || path === 'progress.kind' || path === 'style.gradient.enabled') renderProperties();
         changed(false);
     });
     $('properties').addEventListener('mousedown', event => { if (event.target.id === 'font-picker') GOOGLE_FONT_OPTIONS.forEach(([v]) => shared.loadGoogleFont(v)); });
@@ -1107,6 +1159,17 @@
         normalizeZ(); renderCanvas(); renderLayers(); setSelection([el.id]); changed(true);
         return el;
     }
+    function addPreset(name) {
+        if (name !== 'counter') return;
+        const group = uid('group');
+        const cx = Math.round(overlay.canvas.width / 2 - 160), cy = Math.round(overlay.canvas.height / 2 - 90);
+        const panel = createElementData('shape', { name: 'Counter panel', group, x: cx, y: cy, width: 320, height: 180, style: { ...createElementData('shape').style, background: 'rgba(13,17,23,0.82)', borderRadius: 18, borderColor: '#30363d', borderWidth: 2, shadow: { blur: 24, color: 'rgba(0,0,0,0.5)' } } });
+        const number = createElementData('text', { name: 'Counter value', group, content: '{{followers.session}}', x: cx, y: cy + 18, width: 320, height: 100, style: { ...createElementData('text').style, fontSize: 84, fontWeight: '700', textAlign: 'center', verticalAlign: 'middle' } });
+        const caption = createElementData('text', { name: 'Counter caption', group, content: 'New followers', x: cx, y: cy + 120, width: 320, height: 44, style: { ...createElementData('text').style, fontSize: 26, color: '#8b949e', textAlign: 'center', verticalAlign: 'middle' } });
+        overlay.elements.push(panel, number, caption);
+        normalizeZ(); renderCanvas(); renderLayers(); setSelection([panel.id, number.id, caption.id]); changed(true);
+        toast('Counter card added. Edit the placeholder and caption, or ungroup to tweak pieces.', 'info', 3500);
+    }
     function deleteSelection() {
         const targets = selectedElements().filter(el => !el.locked);
         if (!targets.length) { if (selectedIds.size) toast('Locked layers can’t be deleted. Unlock them first.', 'warn'); return; }
@@ -1117,7 +1180,9 @@
     }
     function duplicateSelection(source = selectedElements()) {
         if (!source.length) return;
-        const clones = source.map(el => { const copy = JSON.parse(JSON.stringify(el)); copy.id = uid(el.type); copy.x += 24; copy.y += 24; copy.name = el.name ? `${el.name} copy` : ''; copy.locked = false; return copy; });
+        const groupMap = new Map();
+        const clones = source.map(el => { const copy = JSON.parse(JSON.stringify(el)); copy.id = uid(el.type);
+            if (el.group) { if (!groupMap.has(el.group)) groupMap.set(el.group, uid('group')); copy.group = groupMap.get(el.group); } copy.x += 24; copy.y += 24; copy.name = el.name ? `${el.name} copy` : ''; copy.locked = false; return copy; });
         overlay.elements.push(...clones);
         normalizeZ(); renderCanvas(); renderLayers(); setSelection(clones.map(c => c.id)); changed(true);
     }
@@ -1143,6 +1208,8 @@
         if (!items.length) return;
         if (act === 'delete') deleteSelection();
         else if (act === 'duplicate') duplicateSelection();
+        else if (act === 'group') groupSelection();
+        else if (act === 'ungroup') ungroupSelection();
         else if (['front', 'forward', 'backward', 'back'].includes(act)) reorder(act);
         else if (act === 'lock') { const next = !items.every(el => el.locked); items.forEach(el => { el.locked = next; }); renderLayers(); renderCanvas(); renderProperties(); updateStatusBar(); changed(true); }
         else if (act === 'hide') { const next = items.every(el => el.visible === false); items.forEach(el => { el.visible = next; }); renderLayers(); renderCanvas(); renderProperties(); changed(true); }
@@ -1270,10 +1337,10 @@
             const id = node.dataset.id, el = byId(id);
             let deferCollapse = false;
             if (isAdditive(event)) {
-                const next = new Set(selectedIds);
-                if (next.has(id)) { next.delete(id); setSelection(next); return; }
-                next.add(id); setSelection(next);
-            } else if (!selectedIds.has(id)) setSelection([id]);
+                const next = new Set(selectedIds), members = [...withGroups([id])];
+                if (next.has(id)) { members.forEach(m => next.delete(m)); setSelection(next); return; }
+                members.forEach(m => next.add(m)); setSelection(next);
+            } else if (!selectedIds.has(id)) setSelection(withGroups([id]));
             else if (selectedIds.size > 1) deferCollapse = true;
             const movable = selectedElements().filter(item => !item.locked && item.visible !== false);
             gesture = { type: 'move', startX: event.clientX, startY: event.clientY, id, deferCollapse, moved: false, items: movable.map(item => ({ el: item, x: item.x, y: item.y })), bounds: movable.length ? boundsOf(movable) : null, locked: !movable.length };
@@ -1347,7 +1414,7 @@
             const b = boxOf(el);
             return b.x < rect.x + rect.w && b.x + b.w > rect.x && b.y < rect.y + rect.h && b.y + b.h > rect.y;
         }).map(el => el.id);
-        setSelection([...gesture.base, ...hit], { light: true });
+        setSelection([...withGroups([...gesture.base, ...hit])], { light: true });
     }
     function endGesture(event) {
         if (!gesture) return;
@@ -1388,6 +1455,7 @@
         if (mod && key === 'a') { event.preventDefault(); setSelection(overlay.elements.filter(el => el.visible !== false).map(el => el.id)); return; }
         if (mod && key === 'c') { copySelection(); return; }
         if (mod && key === 'v') { event.preventDefault(); pasteClipboard(); return; }
+        if (mod && key === 'g') { event.preventDefault(); event.shiftKey ? ungroupSelection() : groupSelection(); return; }
         if (mod && key === 'd') { event.preventDefault(); duplicateSelection(); return; }
         if (mod && key === '0') { event.preventDefault(); fitView(); return; }
         if (mod && key === '1') { event.preventDefault(); zoomAt(1); return; }
@@ -1413,6 +1481,7 @@
     const addMenu = $('add-menu');
     $('add-element').addEventListener('click', event => { event.stopPropagation(); const open = addMenu.classList.toggle('open'); $('add-element').setAttribute('aria-expanded', String(open)); });
     document.addEventListener('click', event => { if (!addMenu.contains(event.target)) { addMenu.classList.remove('open'); $('add-element').setAttribute('aria-expanded', 'false'); } });
+    addMenu.querySelectorAll('[data-preset]').forEach(button => button.addEventListener('click', () => { addPreset(button.dataset.preset); addMenu.classList.remove('open'); $('add-element').setAttribute('aria-expanded', 'false'); }));
     addMenu.querySelectorAll('[data-add]').forEach(button => button.addEventListener('click', () => { addElement(button.dataset.add); addMenu.classList.remove('open'); $('add-element').setAttribute('aria-expanded', 'false'); }));
     function syncToggles() {
         $('toggle-snap').setAttribute('aria-pressed', String(prefs.snap));

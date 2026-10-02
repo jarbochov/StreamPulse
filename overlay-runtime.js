@@ -80,6 +80,7 @@
             alignItems: style.verticalAlign === 'middle' ? 'center' : style.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start',
             justifyContent: style.textAlign === 'center' ? 'center' : style.textAlign === 'right' ? 'flex-end' : 'flex-start'
         });
+        Object.assign(node.style, shared.decorationStyle(style, element.type));
         if (element.type === 'shape') {
             if (style.shape === 'circle') node.style.borderRadius = '50%';
             if (style.shape === 'pill') node.style.borderRadius = '999px';
@@ -91,7 +92,8 @@
 
     function tickPlaceholders() {
         for (const { node, element } of tickingNodes) {
-            if (element.type === 'markdown') node.innerHTML = renderMarkdown(element.content);
+            if (element.type === 'progress') shared.renderProgress(node, element, expandVariables);
+            else if (element.type === 'markdown') node.innerHTML = renderMarkdown(element.content);
             else node.textContent = expandVariables(element.content || '');
         }
     }
@@ -134,12 +136,15 @@
                 setRandomText(node, element);
                 const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;
                 randomTimers.set(element.id, setInterval(() => setRandomText(node, element), interval));
+            } else if (element.type === 'progress') {
+                shared.renderProgress(node, element, expandVariables);
             } else if (element.type === 'shape') {
                 node.setAttribute('aria-hidden', 'true');
             } else {
                 node.textContent = expandVariables(element.content || '');
             }
-            if ((element.type === 'text' || element.type === 'markdown') && shared.hasTicking(element.content)) tickingNodes.push({ node, element });
+            const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : element.content;
+            if (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource)) tickingNodes.push({ node, element });
             root.appendChild(node);
         }
     }

@@ -227,5 +227,74 @@
         return status;
     }
 
-    root.OverlayShared = { GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    // Extra look-and-feel that every element type shares: gradient fill, frosted blur and drop shadow.
+    // Progress elements put the gradient on their fill, so the track stays a plain color.
+    function decorationStyle(style = {}, type = '') {
+        const out = {
+            backdropFilter: style.blur > 0 ? `blur(${style.blur}px)` : '',
+            boxShadow: style.shadow?.blur > 0 ? `0 4px ${style.shadow.blur}px ${style.shadow.color || 'rgba(0,0,0,.5)'}` : ''
+        };
+        if (style.gradient?.enabled && type !== 'progress') out.background = `linear-gradient(${style.gradient.angle ?? 135}deg, ${style.gradient.from}, ${style.gradient.to})`;
+        return out;
+    }
+
+    // Draws or updates a progress bar/ring in place so CSS transitions keep animating between ticks.
+    function renderProgress(node, element, expand) {
+        const config = element.progress || {};
+        const style = element.style || {};
+        const ring = config.kind === 'ring';
+        const raw = parseFloat(expand(element.content || '0'));
+        const percent = Math.max(0, Math.min(100, Number.isFinite(raw) ? raw : 0));
+        const label = expand(String(config.label ?? '{{progress}}%').replace(/\{\{\s*progress\s*\}\}/g, String(Math.round(percent))));
+        const key = ring ? 'ring' : 'bar';
+        if (node._progressKind !== key) {
+            node._progressKind = key;
+            const ns = 'http://www.w3.org/2000/svg';
+            const holder = document.createElement('div');
+            holder.style.cssText = 'position:absolute;inset:0;border-radius:inherit;overflow:hidden;';
+            if (ring) {
+                const svg = document.createElementNS(ns, 'svg');
+                svg.setAttribute('viewBox', '0 0 100 100');
+                svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;';
+                const track = document.createElementNS(ns, 'circle'), arc = document.createElementNS(ns, 'circle');
+                for (const circle of [track, arc]) { circle.setAttribute('cx', '50'); circle.setAttribute('cy', '50'); circle.setAttribute('fill', 'none'); }
+                arc.setAttribute('stroke-linecap', 'round');
+                arc.setAttribute('transform', 'rotate(-90 50 50)');
+                arc.style.transition = 'stroke-dashoffset .5s linear';
+                svg.append(track, arc);
+                holder.appendChild(svg);
+                holder._track = track; holder._fill = arc;
+            } else {
+                const track = document.createElement('div'), fill = document.createElement('div');
+                track.style.cssText = 'position:absolute;inset:0;';
+                fill.style.cssText = 'position:absolute;left:0;top:0;bottom:0;transition:width .5s linear;';
+                track.appendChild(fill);
+                holder.appendChild(track);
+                holder._track = track; holder._fill = fill;
+            }
+            const text = document.createElement('div');
+            text.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;white-space:nowrap;';
+            holder._text = text;
+            holder.appendChild(text);
+            node.replaceChildren(holder);
+            node._progress = holder;
+        }
+        const holder = node._progress;
+        if (ring) {
+            const thickness = Math.max(2, Math.min(40, config.thickness || 10));
+            const radius = 50 - thickness / 2, circumference = 2 * Math.PI * radius;
+            holder._track.setAttribute('r', radius); holder._track.setAttribute('stroke', config.trackColor || 'rgba(255,255,255,.18)'); holder._track.setAttribute('stroke-width', thickness);
+            holder._fill.setAttribute('r', radius); holder._fill.setAttribute('stroke', style.fill || '#1f6feb'); holder._fill.setAttribute('stroke-width', thickness);
+            holder._fill.style.strokeDasharray = circumference;
+            holder._fill.style.strokeDashoffset = circumference * (1 - percent / 100);
+        } else {
+            holder._track.style.background = config.trackColor || 'rgba(255,255,255,.18)';
+            holder._fill.style.background = style.fill || '#1f6feb';
+            holder._fill.style.width = `${percent}%`;
+            if (style.gradient?.enabled) holder._fill.style.background = `linear-gradient(${style.gradient.angle ?? 135}deg, ${style.gradient.from}, ${style.gradient.to})`;
+        }
+        holder._text.textContent = config.showLabel === false ? '' : label;
+    }
+
+    root.OverlayShared = { decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);
