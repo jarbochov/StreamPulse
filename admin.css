@@ -57,3 +57,6 @@
     --warn-soft-bg: #fff8c5;
     --purple: #8250df;
 }
+
+/* Keep embedded overlay previews transparent regardless of admin color scheme */
+iframe { color-scheme: normal; }
