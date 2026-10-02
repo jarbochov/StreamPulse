@@ -3951,6 +3951,16 @@ const server = http.createServer(async (req, res) => {
             hashtags_enabled: config.hashtags_enabled !== false,
             chat_log_enabled: config.chat_log_enabled !== false,
             broadcaster_name: BROADCASTER_NAME,
+            connection: {
+                port: PORT,
+                broadcaster_name: BROADCASTER_NAME,
+                broadcaster_id: config.broadcaster_id || null,
+                ssn_server: config.ssn?.server || null,
+                ssn_session_configured: !!config.ssn?.session_id,
+                twitch_client_configured: !!(config.twitch?.client_id && config.twitch?.client_secret),
+                subs_source: config.subs_source || 'twitch',
+                twitch_refresh_minutes: REFRESH_MINUTES
+            },
             exclude_users: config.exclude_users || [],
             banned_users: config.banned_users || [],
             days_filter: config.days_filter || 30,

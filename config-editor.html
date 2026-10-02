@@ -360,6 +360,7 @@
         creditsSectionsState = sec;
         const social = cfg.credits?.social || {};
         const vt = cfg.viewer_tracking || {};
+        const conn = cfg.connection || {};
         const st = {
             enabled: cfg.credits?.special_thanks?.enabled !== false,
             title: cfg.credits?.special_thanks?.title || 'Special Thanks',
@@ -528,6 +529,24 @@
                 <input type="number" id="cfg-vt-retain" min="60" max="5000" value="${vt.retain_samples || 720}">
             </div>
 
+            <div class="cfg-section">Clip Detection</div>
+            <div class="cfg-row" style="align-items:center;">
+                <span style="color:#8b949e;font-size:0.85rem;flex:1;">Chat spikes, subs, bits, donations and raids can create clip candidates automatically.</span>
+                <a class="btn" href="/clips.html" style="width:auto;text-decoration:none;">Open Clip Settings →</a>
+            </div>
+
+            <div class="cfg-section">Connection</div>
+            <div style="font-size:0.75rem;color:#484f58;margin-bottom:0.5rem;">Read-only. These contain credentials or need a restart, so edit them in <code>config.json</code> and restart StreamPulse.</div>
+            ${[
+                ['Broadcaster', conn.broadcaster_name ? `${conn.broadcaster_name}${conn.broadcaster_id ? ' (' + conn.broadcaster_id + ')' : ''}` : '—'],
+                ['Port', conn.port],
+                ['SocialStream server', conn.ssn_server || '—'],
+                ['SocialStream session', conn.ssn_session_configured ? 'Configured' : 'Not set'],
+                ['Twitch app credentials', conn.twitch_client_configured ? 'Configured' : 'Not set'],
+                ['Subscriber source', conn.subs_source],
+                ['Twitch refresh', `every ${conn.twitch_refresh_minutes} min`]
+            ].map(([k, v]) => `<div class="cfg-row"><label style="min-width:11rem;">${k}</label><span style="color:#e1e4e8;font-size:0.85rem;">${escapeHtml(String(v ?? '—'))}</span></div>`).join('')}
+
             <div class="cfg-section">Rate Limiting</div>
             <div class="cfg-toggle">
                 <input type="checkbox" id="cfg-rl-enabled" ${(cfg.rate_limit || {}).enabled ? 'checked' : ''}>
@@ -562,6 +581,8 @@
                 Closing: 'Set the final message and how it appears.',
                 'Social Links': 'Configure social handles shown at the end.',
                 'Viewer Tracking': 'How viewer counts are sampled and labelled.',
+                'Clip Detection': 'Automatic clip candidates (configured on the Clips page).',
+                Connection: 'Twitch, SocialStream and server details (read-only).',
                 'Rate Limiting': 'Limit API reads and mutation requests.'
             };
             summary.innerHTML = `${section.textContent.trim()}<small>${descriptions[section.textContent.trim()] || ''}</small>`;
@@ -582,7 +603,7 @@
 
         const creditGroups = ['Credits Header', 'Fade Card Layout', 'Sections', 'Custom Credit Sections', 'Special Thanks Names', 'Closing', 'Social Links'];
         const hiddenGroups = editorSection === 'credits'
-            ? ['General', 'Viewer Tracking', 'Rate Limiting']
+            ? ['General', 'Viewer Tracking', 'Clip Detection', 'Connection', 'Rate Limiting']
             : creditGroups;
         el.querySelectorAll('.cfg-section').forEach(section => {
             const group = section.textContent.trim();
