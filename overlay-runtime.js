@@ -7,12 +7,8 @@
     const randomTimers = new Map();
     const randomIndexes = new Map();
     let currentOverlay = null;
-    const googleFonts = new Set(['Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Oswald', 'Poppins', 'Raleway', 'Merriweather', 'Playfair Display', 'Bebas Neue', 'Fira Code', 'Silkscreen']);
-
-    function escapeHtml(value) {
-        return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
+    const shared = window.OverlayShared;
+    const loadGoogleFont = shared.loadGoogleFont;
 
     function stopRandomTimers() {
         for (const timer of randomTimers.values()) clearInterval(timer);
@@ -46,57 +42,16 @@
         }
     }
 
-    function renderMarkdown(source) {
-        const expanded = expandVariables(source);
-        const html = window.marked.parse(expanded, { breaks: true });
-        return window.DOMPurify.sanitize(html, {
-            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'del', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'h1', 'h2', 'h3', 'img'],
-            ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'src', 'alt']
-        });
-    }
-
-    function getVariable(name) {
-        const aliases = {
-            'viewer.current': liveStatus.viewers?.current,
-            'viewers.current': liveStatus.viewers?.current,
-            'viewer.peak': liveStatus.viewers?.peak,
-            'viewers.peak': liveStatus.viewers?.peak,
-            'viewer.average': liveStatus.viewers?.average,
-            'viewers.average': liveStatus.viewers?.average,
-            'chatters': liveStatus.ssn?.chatters,
-            'messages': liveStatus.ssn?.messages,
-            'followers': liveStatus.ssn?.followers,
-            'subscribers': liveStatus.ssn?.subscribers,
-            'gift_subs': liveStatus.goalMetrics?.gift_subs,
-            'bits': liveStatus.goalMetrics?.bits,
-            'donations': liveStatus.goalMetrics?.donations,
-            'hashtags': liveStatus.ssn?.hashtags,
-            'hashtags.top': liveStatus.popularHashtags?.overall?.[0]?.tag || liveStatus.hashtags?.topTag,
-            'hashtags.session_top': liveStatus.popularHashtags?.session?.[0]?.tag,
-            'hashtags.total': liveStatus.hashtags?.totalMentions,
-            'music.title': liveStatus.music?.track,
-            'music.artist': liveStatus.music?.artist,
-            'stream.title': liveStatus.stream?.title,
-            'overlay.name': liveStatus.overlayName || document.title.replace(/^StreamPulse —\s*/, '')
-        };
-        const value = aliases[name];
-        return value === undefined || value === null ? '' : String(value);
+    function variableContext() {
+        return { overlayName: liveStatus.overlayName };
     }
 
     function expandVariables(value) {
-        return String(value || '').replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (_, name) => getVariable(name));
+        return shared.expandVariables(value, liveStatus, variableContext());
     }
 
-    function loadGoogleFont(fontFamily) {
-        const name = String(fontFamily || '').split(',')[0].replace(/^['"]|['"]$/g, '').trim();
-        if (!googleFonts.has(name)) return;
-        const id = `google-font-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-        if (document.getElementById(id)) return;
-        const link = document.createElement('link');
-        link.id = id;
-        link.rel = 'stylesheet';
-        link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(name).replace(/%20/g, '+')}:wght@400;600;700;900&display=swap`;
-        document.head.appendChild(link);
+    function renderMarkdown(source) {
+        return shared.renderMarkdown(expandVariables(source));
     }
 
     function applyElementStyle(node, element) {
@@ -181,6 +136,10 @@
         if (!response.ok) throw new Error('Overlay not found');
         const overlay = await response.json();
         liveStatus.overlayName = overlay.name;
+        try {
+            const statusResponse = await fetch('/api/status', { cache: 'no-store' });
+            if (statusResponse.ok) liveStatus = { ...liveStatus, ...(await statusResponse.json()) };
+        } catch {}
         render(overlay);
         return overlay;
     }
@@ -189,8 +148,10 @@
         try {
             const response = await fetch('/api/status', { cache: 'no-store' });
             if (!response.ok) return;
+            const before = shared.variableSnapshot(liveStatus, variableContext());
             liveStatus = { ...liveStatus, ...(await response.json()) };
-            if (currentOverlay) render(currentOverlay);
+            // Re-rendering restarts typewriters, videos and embeds, so only do it when a placeholder value changed.
+            if (currentOverlay && shared.variableSnapshot(liveStatus, variableContext()) !== before) render(currentOverlay);
         } catch {}
     }
 

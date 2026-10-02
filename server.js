@@ -94,6 +94,8 @@ function normalizeOverlayElement(element = {}, index = 0) {
     const type = CUSTOM_OVERLAY_ELEMENT_TYPES.has(element.type) ? element.type : 'text';
     return {
         id: sanitizeOverlayId(element.id) || `element-${index + 1}`,
+        name: String(element.name || '').trim().slice(0, 80),
+        locked: element.locked === true,
         type,
         content: String(element.content || '').slice(0, 20000),
         items: Array.isArray(element.items) ? element.items.map(item => String(item).slice(0, 2000)).filter(Boolean).slice(0, 100) : [],
