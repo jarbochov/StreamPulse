@@ -231,6 +231,10 @@
                             <input type="datetime-local" id="target-at">
                         </div>
                         <div class="cfg-row">
+                            <label for="start-at">Start <span style="opacity:.6">(optional, for progress %)</span></label>
+                            <input type="datetime-local" id="start-at">
+                        </div>
+                        <div class="cfg-row">
                             <label for="target-timezone">Timezone</label>
                             <input type="text" id="target-timezone" placeholder="America/New_York" list="timezone-list">
                             <datalist id="timezone-list"></datalist>
@@ -336,6 +340,13 @@
     <div id="toast" role="status"></div>
 
     <script>
+    function toLocalInput(iso) {
+        const d = iso ? new Date(iso) : null;
+        if (!d || Number.isNaN(d.getTime())) return '';
+        const p = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+
     const $ = id => document.getElementById(id);
     const TIMER_EVENTS = ['countdown_started', 'countdown_complete', 'stopwatch_started', 'stopwatch_paused'];
     let timersData = {};
@@ -520,7 +531,8 @@
         $('countdown-end-message').value = blank.endMessage || '⌛️';
         setSound('timer', blank.soundUrl || '');
         fillDuration('dur', blank.durationMs ?? (kind === 'countdown' ? 600000 : 0));
-        $('target-at').value = blank.targetAt ? blank.targetAt.slice(0, 16) : '';
+        $('target-at').value = toLocalInput(blank.targetAt);
+        $('start-at').value = toLocalInput(blank.startAt);
         $('target-timezone').value = blank.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || '';
         fillDuration('sw', blank.initialMs || 0);
         populateHttpActions(blank.httpActions || {});
@@ -544,7 +556,8 @@
         $('countdown-end-message').value = timer.endMessage || '⌛️';
         setSound('timer', timer.soundUrl || '');
         fillDuration('dur', timer.durationMs);
-        $('target-at').value = timer.targetAt ? timer.targetAt.slice(0, 16) : '';
+        $('target-at').value = toLocalInput(timer.targetAt);
+        $('start-at').value = toLocalInput(timer.startAt);
         $('target-timezone').value = timer.timezone || '';
         fillDuration('sw', timer.initialMs);
         populateHttpActions(timer.httpActions || {});
@@ -578,6 +591,7 @@
                 Object.assign(payload, duration);
             } else {
                 payload.targetAt = $('target-at').value;
+                payload.startAt = $('start-at').value;
                 payload.timezone = $('target-timezone').value.trim();
                 if (!payload.targetAt) throw new Error('Choose a target date and time');
             }

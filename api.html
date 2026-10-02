@@ -458,7 +458,7 @@
                 {
                     method: 'POST', path: '/api/timers',
                     desc: 'Create or replace a named timer',
-                    details: 'Creates or updates a timer definition. Countdown payloads support { id, label, kind:"countdown", mode:"duration"|"date", days, hours, minutes, seconds, targetAt, timezone, progress, showOnEnd, endMessage, httpActions }. Stopwatch payloads support { id, label, kind:"stopwatch", days, hours, minutes, seconds, httpActions }. Each httpActions entry is keyed by countdown_started, countdown_complete, stopwatch_started, or stopwatch_paused and can include { enabled, method:"GET"|"POST", url }. Saving resets the timer to its base state.'
+                    details: 'Creates or updates a timer definition. Countdown payloads support { id, label, kind:"countdown", mode:"duration"|"date", days, hours, minutes, seconds, targetAt, startAt (optional, enables progress % for date countdowns), timezone, progress, showOnEnd, endMessage, httpActions }. Stopwatch payloads support { id, label, kind:"stopwatch", days, hours, minutes, seconds, httpActions }. Each httpActions entry is keyed by countdown_started, countdown_complete, stopwatch_started, or stopwatch_paused and can include { enabled, method:"GET"|"POST", url }. Saving resets the timer to its base state.'
                 },
                 {
                     method: 'GET', path: '/api/timers/{id}',

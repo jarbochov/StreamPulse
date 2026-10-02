@@ -852,9 +852,12 @@ function buildTimerSnapshot(timer, now = Date.now()) {
     };
 
     if (timer.kind === 'countdown') {
-        const totalMs = Math.max(0, timer.kind === 'countdown' && timer.mode === 'duration'
+        const startMs = timer.mode === 'date' ? Date.parse(timer.startAt || '') : NaN;
+        const totalMs = Math.max(0, timer.mode === 'duration'
             ? (timer.durationMs || 0)
-            : (timer.startingRemainingMs || computeCountdownRemaining(timer, now)));
+            : Number.isFinite(startMs) && Date.parse(timer.targetAt || '') > startMs
+                ? Date.parse(timer.targetAt) - startMs
+                : (timer.startingRemainingMs || computeCountdownRemaining(timer, now)));
         const remainingMs = computeCountdownRemaining(timer, now);
         const percentComplete = totalMs > 0 ? Math.min(1, Math.max(0, (totalMs - remainingMs) / totalMs)) : 0;
         return {
@@ -867,6 +870,7 @@ function buildTimerSnapshot(timer, now = Date.now()) {
             soundUrl: normalizeSoundUrl(timer.soundUrl),
             durationMs: Math.max(0, timer.durationMs || 0),
             targetAt: timer.targetAt || null,
+            startAt: timer.startAt || null,
             startingRemainingMs: Math.max(0, timer.startingRemainingMs || 0),
             httpActions: normalizeTimerHttpActions(timer.httpActions || {}),
             remainingMs,
@@ -928,6 +932,7 @@ function loadTimers() {
                 timer.mode = rawTimer.mode === 'date' ? 'date' : 'duration';
                 timer.durationMs = Math.max(0, Number(rawTimer.durationMs) || 0);
                 timer.targetAt = rawTimer.targetAt || null;
+                timer.startAt = rawTimer.startAt || null;
                 timer.timezone = String(rawTimer.timezone || '');
                 timer.progress = rawTimer.progress !== false;
                 timer.endMessage = String(rawTimer.endMessage || '⌛️');
@@ -963,6 +968,9 @@ function buildTimerRecord(input) {
             ? Math.max(0, parseDurationMs(input))
             : 0;
         const targetAt = mode === 'date' && input.targetAt ? new Date(input.targetAt).toISOString() : null;
+        const startAtDate = mode === 'date' && input.startAt ? new Date(input.startAt) : null;
+        const startAt = startAtDate && !Number.isNaN(startAtDate.getTime()) ? startAtDate.toISOString() : null;
+        if (startAt && targetAt && Date.parse(startAt) >= Date.parse(targetAt)) throw new Error('Start must be before the target date');
         if (mode === 'duration' && durationMs <= 0) throw new Error('Countdown duration must be greater than 0');
         if (mode === 'date' && !targetAt) throw new Error('Countdown target date is required');
         const initialRemainingMs = mode === 'duration'
@@ -980,6 +988,7 @@ function buildTimerRecord(input) {
             mode,
             durationMs,
             targetAt,
+            startAt,
             timezone: String(input.timezone || '').trim(),
             progress: input.progress !== false,
             endMessage: String(input.endMessage || '⌛️').slice(0, 120),
