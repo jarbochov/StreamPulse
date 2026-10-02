@@ -11,12 +11,12 @@
         .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: #58a6ff; }
-        .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 430px 1fr; gap: 1.25rem; }
+        .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 430px minmax(0, 1fr); gap: 1.25rem; }
         .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.1rem 1.2rem; }
         .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.9rem; }
         .cfg-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.7rem; flex-wrap: wrap; }
-        .cfg-row label { min-width: 120px; font-size: 0.82rem; color: #8b949e; }
-        .cfg-row input, .cfg-row select { flex: 1; padding: 0.48rem 0.65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.82rem; }
+        .cfg-row label { min-width: 110px; font-size: 0.82rem; color: #8b949e; }
+        .cfg-row input, .cfg-row select { flex: 1; min-width: 0; font-family: inherit; padding: 0.48rem 0.65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.82rem; }
         .cfg-row input[type="checkbox"] { flex: none; width: auto; accent-color: #58a6ff; }
         .cfg-row input[type="color"] { flex: none; width: 42px; height: 34px; padding: 2px; cursor: pointer; }
         .hint { color: #8b949e; font-size: 0.78rem; line-height: 1.45; }
@@ -32,6 +32,24 @@
         th, td { text-align: left; padding: 0.5rem 0.65rem; border-bottom: 1px solid #21262d; vertical-align: top; }
         th { color: #8b949e; background: #0d1117; }
         .pill { display: inline-flex; padding: 0.14rem 0.45rem; border-radius: 999px; font-size: 0.68rem; border: 1px solid #30363d; background: #1a2332; color: #58a6ff; }
+        .group-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6e7681; margin: 1rem 0 0.6rem; padding-top: 0.8rem; border-top: 1px solid #21262d; }
+        .group-title:first-of-type { margin-top: 0.2rem; padding-top: 0; border-top: 0; }
+        .toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 0.9rem; margin-bottom: 0.4rem; }
+        .toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: #c9d1d9; cursor: pointer; }
+        .toggle input { accent-color: #58a6ff; }
+        .toggle input:disabled + span { opacity: 0.45; }
+        .cfg-row input:focus, .cfg-row select:focus { outline: none; border-color: #58a6ff; }
+        .color-row input[type="text"] { font-family: 'SF Mono', monospace; text-transform: uppercase; }
+        .color-row input[type="text"]::placeholder { text-transform: none; font-family: inherit; }
+        .left-col { align-self: start; }
+        .sticky { position: sticky; top: 1rem; }
+        .preview-frame { background: #000 repeating-conic-gradient(#1b1f27 0% 25%, #11141a 0% 50%) 50% / 20px 20px; }
+        details.card > summary { cursor: pointer; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; font-weight: 600; list-style: none; }
+        details.card > summary::before { content: '▸ '; }
+        details.card[open] > summary::before { content: '▾ '; }
+        details.card[open] > summary { margin-bottom: 0.6rem; }
+        td code { font-family: 'SF Mono', monospace; font-size: 0.74rem; word-break: break-all; }
+        .btn.copied { border-color: #3fb950; color: #3fb950; }
         @media (max-width: 980px) {
             .container { grid-template-columns: 1fr; padding: 1rem; }
             .header { flex-direction: column; gap: 0.6rem; }
@@ -46,115 +64,75 @@
     </div>
 
     <div class="container">
-        <div class="card">
+        <div class="card left-col">
             <h2>Overlay Builder</h2>
-            <div class="cfg-row">
-                <label>Timer</label>
-                <select id="timer-id" onchange="refreshWizard()"></select>
+            <div class="group-title">Source</div>
+            <div class="cfg-row"><label>Timer</label><select id="timer-id" onchange="refreshWizard()"></select></div>
+            <div class="cfg-row"><label>Overlay</label><select id="overlay-kind" onchange="refreshWizard()"><option value="countdown">Countdown</option><option value="stopwatch">Stopwatch</option></select></div>
+            <div class="cfg-row"><label>Title override</label><input type="text" id="title" placeholder="Blank = timer label" oninput="refreshWizard()"></div>
+
+            <div class="group-title">Display</div>
+            <div class="cfg-row"><label>Layout</label><select id="display" onchange="refreshWizard()"><option value="standard">Standard</option><option value="compact">Compact</option></select></div>
+            <div class="cfg-row"><label>Theme</label><select id="theme" onchange="refreshWizard()"><option value="dark">Dark</option><option value="light">Light</option></select></div>
+            <div class="cfg-row"><label>Units</label><select id="units" onchange="refreshWizard()"><option value="auto">Auto</option><option value="full">Full</option></select></div>
+            <div class="cfg-row"><label>Font scale</label><input type="number" id="fontscale" min="0.5" max="3" step="0.1" value="1" oninput="refreshWizard()"></div>
+            <div class="toggles">
+                <label class="toggle"><input type="checkbox" id="show-title" checked onchange="refreshWizard()"><span>Show title</span></label>
+                <label class="toggle"><input type="checkbox" id="milliseconds" onchange="refreshWizard()"><span>Milliseconds</span></label>
+                <label class="toggle" id="progress-row"><input type="checkbox" id="progress" checked onchange="refreshWizard()"><span>Progress bar</span></label>
+                <label class="toggle"><input type="checkbox" id="sound" checked onchange="refreshWizard()"><span>Complete sound</span></label>
+                <label class="toggle"><input type="checkbox" id="autostart" onchange="refreshWizard()"><span>Start on load</span></label>
             </div>
-            <div class="cfg-row">
-                <label>Overlay</label>
-                <select id="overlay-kind" onchange="refreshWizard()">
-                    <option value="countdown">Countdown</option>
-                    <option value="stopwatch">Stopwatch</option>
-                </select>
-            </div>
-            <div class="cfg-row">
-                <label>Display</label>
-                <select id="display" onchange="refreshWizard()">
-                    <option value="standard">Standard</option>
-                    <option value="compact">Compact</option>
-                </select>
-            </div>
-            <div class="cfg-row">
-                <label>Theme</label>
-                <select id="theme" onchange="refreshWizard()">
-                    <option value="dark">Dark</option>
-                    <option value="light">Light</option>
-                </select>
-            </div>
-            <div class="cfg-row">
-                <label>Title Override</label>
-                <input type="text" id="title" placeholder="Leave blank to use timer label" oninput="refreshWizard()">
-            </div>
-            <div class="cfg-row">
-                <label>Show Title</label>
-                <input type="checkbox" id="show-title" checked onchange="refreshWizard()">
-            </div>
-            <div class="cfg-row">
-                <label>Units</label>
-                <select id="units" onchange="refreshWizard()">
-                    <option value="auto">Auto</option>
-                    <option value="full">Full</option>
-                </select>
-            </div>
-            <div class="cfg-row">
-                <label>Milliseconds</label>
-                <input type="checkbox" id="milliseconds" onchange="refreshWizard()">
-            </div>
-            <div class="cfg-row">
-                <label>Start on Load</label>
-                <input type="checkbox" id="autostart" onchange="refreshWizard()">
-            </div>
-            <div class="cfg-row" id="progress-row">
-                <label>Progress</label>
-                <input type="checkbox" id="progress" checked onchange="refreshWizard()">
-            </div>
-            <div class="cfg-row">
-                <label>Complete Sound</label>
-                <input type="checkbox" id="sound" checked onchange="refreshWizard()">
-            </div>
-            <div class="cfg-row">
-                <label>Font Scale</label>
-                <input type="number" id="fontscale" min="0.5" max="3" step="0.1" value="1" oninput="refreshWizard()">
-            </div>
-            <div class="cfg-row">
-                <label>Timer Box</label>
+
+            <div class="group-title">Colors</div>
+            <div class="cfg-row color-row">
+                <label>Timer box</label>
                 <input type="color" id="timercolor-picker" value="#000000" oninput="syncColor('timercolor', true)">
-                <input type="text" id="timercolor" value="000000B8" oninput="syncColorFromText('timercolor')">
+                <input type="text" id="timercolor" value="000000B8" placeholder="RRGGBB or RRGGBBAA" oninput="syncColorFromText('timercolor')">
             </div>
-            <div class="cfg-row">
-                <label>Text Color</label>
-                <input type="color" id="textcolor-picker" value="#f8fafc" oninput="syncColor('textcolor')">
-                <input type="text" id="textcolor" value="F8FAFC" oninput="syncColorFromText('textcolor')">
+            <div class="cfg-row color-row">
+                <label>Text</label>
+                <input type="color" id="textcolor-picker" value="#F8FAFC" oninput="syncColor('textcolor')">
+                <input type="text" id="textcolor" value="F8FAFC" placeholder="RRGGBB" oninput="syncColorFromText('textcolor')">
             </div>
-            <div class="cfg-row">
-                <label>Label Color</label>
-                <input type="color" id="labelcolor-picker" value="#cbd5e1" oninput="syncColor('labelcolor')">
-                <input type="text" id="labelcolor" value="CBD5E1" oninput="syncColorFromText('labelcolor')">
+            <div class="cfg-row color-row">
+                <label>Labels</label>
+                <input type="color" id="labelcolor-picker" value="#CBD5E1" oninput="syncColor('labelcolor')">
+                <input type="text" id="labelcolor" value="CBD5E1" placeholder="RRGGBB" oninput="syncColorFromText('labelcolor')">
             </div>
-            <div class="cfg-row" id="progresscolor-row">
-                <label>Progress Color</label>
-                <input type="color" id="progresscolor-picker" value="#58a6ff" oninput="syncColor('progresscolor')">
-                <input type="text" id="progresscolor" value="58A6FF" oninput="syncColorFromText('progresscolor')">
+            <div class="cfg-row color-row" id="progresscolor-row">
+                <label>Progress</label>
+                <input type="color" id="progresscolor-picker" value="#58A6FF" oninput="syncColor('progresscolor')">
+                <input type="text" id="progresscolor" value="58A6FF" placeholder="RRGGBB" oninput="syncColorFromText('progresscolor')">
             </div>
-            <div class="cfg-row">
-                <label>Title Color</label>
-                <input type="color" id="titlecolor-picker" value="#f8fafc" oninput="syncColor('titlecolor')">
-                <input type="text" id="titlecolor" value="F8FAFC" oninput="syncColorFromText('titlecolor')">
+            <div class="cfg-row color-row">
+                <label>Title</label>
+                <input type="color" id="titlecolor-picker" value="#F8FAFC" oninput="syncColor('titlecolor')">
+                <input type="text" id="titlecolor" value="F8FAFC" placeholder="RRGGBB" oninput="syncColorFromText('titlecolor')">
             </div>
-            <div class="cfg-row">
-                <label>Background</label>
+            <div class="cfg-row color-row">
+                <label>Page background</label>
                 <input type="color" id="bgcolor-picker" value="#000000" oninput="syncColor('bgcolor')">
-                <input type="text" id="bgcolor" value="" placeholder="Optional hex without # (blank = transparent)" oninput="syncColorFromText('bgcolor')">
+                <input type="text" id="bgcolor" value="" placeholder="Transparent" oninput="syncColorFromText('bgcolor')">
+                <button type="button" class="btn" onclick="clearBg()" title="Transparent">None</button>
             </div>
 
-            <div class="hint">Use this wizard to generate multiple differently styled OBS URLs for the same named timer state. Create date/time countdowns in the Timer Manager by setting Countdown Mode to <strong>Target Date &amp; Time</strong>.</div>
-
-            <div class="url-box"><a id="overlay-url" href="#" target="_blank" rel="noopener noreferrer"></a><button class="btn" onclick="copyText('overlay-url')">Copy</button></div>
-            <div class="url-box"><a id="browser-source-url" href="#" target="_blank" rel="noopener noreferrer"></a><button class="btn" onclick="copyText('browser-source-url')">Copy</button></div>
+            <div class="hint" style="margin-top:0.8rem">Make several differently styled URLs for the same timer. Date/time countdowns are created in the Timer Manager (Countdown Mode: <strong>Target Date &amp; Time</strong>).</div>
         </div>
 
         <div style="display:flex;flex-direction:column;gap:1rem;">
-            <div class="card">
+            <div class="card sticky">
                 <h2>Preview</h2>
                 <div class="preview-frame">
                     <iframe id="preview" src="/countdown.html"></iframe>
                 </div>
+                <div class="group-title">OBS browser source URL</div>
+                <div class="url-box"><a id="browser-source-url" href="#" target="_blank" rel="noopener noreferrer"></a><button class="btn" onclick="copyText('browser-source-url', this)">Copy</button></div>
+                <a id="overlay-url" hidden></a>
             </div>
 
-            <div class="card">
-                <h2>Companion / Button Examples</h2>
+            <details class="card">
+                <summary>Companion / button examples</summary>
                 <div class="hint">These are copy-ready incoming control URLs for Generic HTTP buttons.</div>
                 <table>
                     <thead>
@@ -162,17 +140,17 @@
                     </thead>
                     <tbody id="action-rows"></tbody>
                 </table>
-            </div>
+            </details>
 
-            <div class="card">
-                <h2>Readable Fields <span class="pill">Companion-friendly</span></h2>
+            <details class="card">
+                <summary>Readable fields <span class="pill">Companion-friendly</span></summary>
                 <table>
                     <thead>
                         <tr><th>Field</th><th>URL</th><th></th></tr>
                     </thead>
                     <tbody id="field-rows"></tbody>
                 </table>
-            </div>
+            </details>
         </div>
     </div>
 
@@ -253,33 +231,15 @@
     }
 
     function renderActionRows(id, timer) {
-        const actions = timer?.kind === 'stopwatch'
-            ? [
-                { label: 'start', suffix: '?action=start' },
-                { label: 'pause', suffix: '?action=pause' },
-                { label: 'resume', suffix: '?action=resume' },
-                { label: 'reset', suffix: '?action=reset' },
-                { label: 'add 30 seconds', suffix: '?action=add_time&seconds=30' },
-                { label: 'subtract 30 seconds', suffix: '?action=subtract_time&seconds=30' },
-                { label: 'show', suffix: '?action=visibility&value=show' },
-                { label: 'hide', suffix: '?action=visibility&value=hide' },
-                { label: 'toggle visibility', suffix: '?action=visibility&value=toggle' }
-            ]
-            : [
-                { label: 'start', suffix: '?action=start' },
-                { label: 'pause', suffix: '?action=pause' },
-                { label: 'resume', suffix: '?action=resume' },
-                { label: 'reset', suffix: '?action=reset' },
-                { label: 'add 30 seconds', suffix: '?action=add_time&seconds=30' },
-                { label: 'subtract 30 seconds', suffix: '?action=subtract_time&seconds=30' },
-                { label: 'show', suffix: '?action=visibility&value=show' },
-                { label: 'hide', suffix: '?action=visibility&value=hide' },
-                { label: 'toggle visibility', suffix: '?action=visibility&value=toggle' }
-            ];
+        const actions = [
+            ['start', '?action=start'], ['pause', '?action=pause'], ['resume', '?action=resume'], ['reset', '?action=reset'],
+            ['add 30 seconds', '?action=add_time&seconds=30'], ['subtract 30 seconds', '?action=subtract_time&seconds=30'],
+            ['show', '?action=visibility&value=show'], ['hide', '?action=visibility&value=hide'], ['toggle visibility', '?action=visibility&value=toggle']
+        ].map(([label, suffix]) => ({ label, suffix }));
         document.getElementById('action-rows').innerHTML = actions.map(action => {
             const url = `${location.origin}/api/timers/${encodeURIComponent(id)}/control${action.suffix}`;
             const safeUrl = url.replace(/&/g, '&amp;');
-            return `<tr><td>${action.label}</td><td><code>${safeUrl}</code></td><td><button class="btn" onclick="copyLiteral(decodeURIComponent('${encodeURIComponent(url)}'))">Copy</button></td></tr>`;
+            return `<tr><td>${action.label}</td><td><code>${safeUrl}</code></td><td><button class="btn" onclick="copyLiteral(decodeURIComponent('${encodeURIComponent(url)}'), this)">Copy</button></td></tr>`;
         }).join('');
     }
 
@@ -287,16 +247,31 @@
         const fields = ['state', 'visible', 'remaining', 'remaining_ms', 'elapsed', 'elapsed_ms', 'title'];
         document.getElementById('field-rows').innerHTML = fields.map(field => {
             const url = `${location.origin}/api/timers/${encodeURIComponent(id)}/field/${field}`;
-            return `<tr><td>${field}</td><td><code>${url}</code></td><td><button class="btn" onclick="copyLiteral(decodeURIComponent('${encodeURIComponent(url)}'))">Copy</button></td></tr>`;
+            return `<tr><td>${field}</td><td><code>${url}</code></td><td><button class="btn" onclick="copyLiteral(decodeURIComponent('${encodeURIComponent(url)}'), this)">Copy</button></td></tr>`;
         }).join('');
     }
 
-    async function copyText(id) {
-        await navigator.clipboard.writeText(document.getElementById(id).textContent);
+    function flashCopied(button) {
+        if (!button) return;
+        const label = button.textContent;
+        button.textContent = 'Copied';
+        button.classList.add('copied');
+        setTimeout(() => { button.textContent = label; button.classList.remove('copied'); }, 1200);
     }
 
-    async function copyLiteral(value) {
+    async function copyText(id, button) {
+        await navigator.clipboard.writeText(document.getElementById(id).textContent);
+        flashCopied(button);
+    }
+
+    async function copyLiteral(value, button) {
         await navigator.clipboard.writeText(value);
+        flashCopied(button);
+    }
+
+    function clearBg() {
+        document.getElementById('bgcolor').value = '';
+        refreshWizard();
     }
 
     document.getElementById('title').addEventListener('input', () => {
