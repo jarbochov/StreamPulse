@@ -7,7 +7,7 @@
         { label: 'Chat', items: [['chatters', 'Chatters'], ['messages', 'Messages'], ['followers', 'Followers (current total)'], ['followers.session', 'New followers this session'], ['subscribers', 'Subscribers (current total)'], ['subscribers.session', 'Subscribers seen this session']] },
         { label: 'Engagement', items: [['gift_subs', 'Gift subs this session'], ['gift_subs.total', 'Gift subs (lifetime)'], ['bits', 'Bits this session'], ['bits.total', 'Bits (lifetime)'], ['donations', 'Donations this session'], ['donations.total', 'Donations (lifetime)']] },
         { label: 'Hashtags', items: [['hashtags.top', 'Most popular hashtag overall'], ['hashtags.session_top', 'Most popular hashtag this session'], ['hashtags.total', 'Total hashtag mentions']] },
-        { label: 'Stream', items: [['music.title', 'Music title'], ['music.artist', 'Music artist'], ['stream.title', 'Stream title'], ['overlay.name', 'Overlay name']] }
+        { label: 'Stream', items: [['music.title', 'Music title'], ['music.artist', 'Music artist'], ['stream.title', 'Stream title'], ['stream.category', 'Stream category (from Twitch)'], ['category.session_time', 'Time in this category, this session'], ['category.total_time', 'Time in this category, all sessions'], ['category.total_hours', 'Hours in this category, all sessions'], ['overlay.name', 'Overlay name']] }
     ];
 
     const CLOCK_ITEMS = [['time', 'Time (e.g. 3:07 PM)'], ['time.24', 'Time, 24-hour'], ['time.seconds', 'Time with seconds'], ['date', 'Date (short)'], ['date.long', 'Date (long)'], ['weekday', 'Weekday'], ['month', 'Month'], ['year', 'Year'], ['uptime', 'Stream uptime (H:MM:SS)']];
@@ -16,6 +16,11 @@
     const TICKING = /^(time|date|weekday|month|year|uptime|timer\.)/;
     const isTicking = name => TICKING.test(name);
     const hasTicking = value => /\{\{\s*(time|date|weekday|month|year|uptime|timer\.)/.test(String(value ?? ''));
+
+    function formatMinutes(minutes) {
+        const m = Math.max(0, Math.round(minutes || 0));
+        return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+    }
 
     function pad(n) { return String(n).padStart(2, '0'); }
     function clock(ms) {
@@ -113,7 +118,10 @@
             ...eventValues(status),
             ...goalValues(status),
             ...timerValues(status, now),
-            'stream.category': status.streamInfo?.[status.streamInfo.length - 1]?.category,
+            'stream.category': status.stream?.category?.name,
+            'category.session_time': status.stream?.category ? formatMinutes(status.stream.category.sessionMinutes) : undefined,
+            'category.total_time': status.stream?.category ? formatMinutes(status.stream.category.totalMinutes) : undefined,
+            'category.total_hours': status.stream?.category ? (status.stream.category.totalMinutes / 60).toFixed(1) : undefined,
             'viewer.current': status.viewers?.current,
             'viewers.current': status.viewers?.current,
             'viewer.peak': status.viewers?.peak,

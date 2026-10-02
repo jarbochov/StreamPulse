@@ -3690,6 +3690,40 @@ async function generatePdf(htmlContent) {
 }
 
 let statusHeavyCache = null;
+
+// Minutes spent in each category by one session's stream-info history.
+function categoryMinutesFor(streamInfo, endMs) {
+    const minutes = {};
+    (streamInfo || []).forEach((entry, i) => {
+        const start = Date.parse(entry.changedAt);
+        const end = i + 1 < streamInfo.length ? Date.parse(streamInfo[i + 1].changedAt) : endMs;
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+        const name = entry.category || '(No Category)';
+        minutes[name] = (minutes[name] || 0) + Math.max(0, end - start) / 60000;
+    });
+    return minutes;
+}
+
+function archivedCategoryMinutes() {
+    const totals = {};
+    if (!fs.existsSync(SESSIONS_DIR)) return totals;
+    for (const file of fs.readdirSync(SESSIONS_DIR).filter(f => f.startsWith('chat-') && f.endsWith('.json'))) {
+        try {
+            const data = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
+            const endMs = Date.parse(data.lastUpdated || data.startedAt);
+            for (const [name, minutes] of Object.entries(categoryMinutesFor(data.streamInfo, endMs))) totals[name] = (totals[name] || 0) + minutes;
+        } catch {}
+    }
+    return totals;
+}
+
+function currentCategoryStats(archivedTotals) {
+    const info = chatData.streamInfo || [];
+    const name = info.length ? (info[info.length - 1].category || '(No Category)') : '';
+    if (!name) return { name: '', sessionMinutes: 0, totalMinutes: 0 };
+    const sessionMinutes = categoryMinutesFor(info, Date.now())[name] || 0;
+    return { name, sessionMinutes: Math.round(sessionMinutes), totalMinutes: Math.round((archivedTotals[name] || 0) + sessionMinutes) };
+}
 const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     const pathname = url.pathname;
@@ -4041,10 +4075,11 @@ const server = http.createServer(async (req, res) => {
                 backupFiles: fs.existsSync(BACKUPS_DIR)
                     ? fs.readdirSync(BACKUPS_DIR).filter(file => file.endsWith('.zip')).sort().reverse()
                     : [],
-                hashtagStats: collectHashtagStats()
+                hashtagStats: collectHashtagStats(),
+                categoryTotals: archivedCategoryMinutes()
             };
         }
-        const { archivedSessions, backupFiles, hashtagStats } = statusHeavyCache;
+        const { archivedSessions, backupFiles, hashtagStats, categoryTotals } = statusHeavyCache;
         const viewerSummary = getViewerSummary();
         const goalsSnapshot = buildGoalsSnapshot();
         const status = {
@@ -4077,7 +4112,8 @@ const server = http.createServer(async (req, res) => {
                 artist: musicState.artist
             },
             stream: {
-                title: chatData.streamInfo?.[0]?.title || ''
+                title: chatData.streamInfo?.[chatData.streamInfo.length - 1]?.title || '',
+                category: currentCategoryStats(categoryTotals)
             },
             goals: goalsSnapshot.summary,
             goalMetrics: goalsSnapshot.metrics,
