@@ -11,17 +11,17 @@
         .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: #58a6ff; }
-        .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 1.25rem; align-items: start; }
-        .stack { display: flex; flex-direction: column; gap: 1rem; }
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.1rem 1.2rem; }
-        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.9rem; display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+        .container { max-width: 1280px; margin: 0 auto; padding: 1rem 2rem; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+        .stack { display: flex; flex-direction: column; gap: .7rem; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: .8rem 1rem; }
+        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 0.6rem; display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
         .card h3 { font-size: 0.78rem; color: #58a6ff; margin: 1.1rem 0 0.6rem; padding-top: 0.7rem; border-top: 1px solid #21262d; }
-        .row { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.65rem; flex-wrap: wrap; }
-        .row > label { min-width: 150px; font-size: 0.82rem; color: #8b949e; }
-        .row input, .row select, .row textarea { flex: 1; min-width: 0; padding: 0.48rem 0.65rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.82rem; font-family: inherit; }
+        .row { display: flex; align-items: center; gap: 0.5rem 0.7rem; margin-bottom: 0.4rem; flex-wrap: wrap; }
+        .row > label { min-width: 130px; font-size: 0.82rem; color: #8b949e; }
+        .row input, .row select, .row textarea { flex: 1; min-width: 0; padding: 0.32rem 0.55rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.82rem; font-family: inherit; }
         .row input:focus, .row select:focus { outline: none; border-color: #58a6ff; }
         .row input[type="checkbox"] { flex: none; width: auto; accent-color: #58a6ff; }
-        .row small { color: #8b949e; font-size: 0.72rem; flex-basis: 100%; margin: -.3rem 0 .2rem 0; }
+        .row small { color: #8b949e; font-size: 0.72rem; flex-basis: 100%; margin: -.2rem 0 .1rem 0; }
         .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
         .btn { border: 1px solid #30363d; background: #21262d; color: #e1e4e8; border-radius: 6px; padding: 0.48rem 0.85rem; font-size: 0.82rem; cursor: pointer; text-decoration: none; font-family: inherit; display: inline-flex; align-items: center; gap: .35rem; }
         .btn:hover:not(:disabled) { border-color: #58a6ff; }
@@ -40,17 +40,33 @@
         .pill.dirty { color: #d29922; border-color: #9e6a03; background: #33210f; }
         .pill.ok { color: #3fb950; border-color: #238636; }
         .hint { color: #8b949e; font-size: 0.78rem; line-height: 1.45; }
-        .variant { border: 1px solid #30363d; border-radius: 8px; padding: .8rem .9rem .3rem; margin-bottom: .8rem; background: #0d1117; }
-        .variant-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .7rem; gap: .5rem; }
-        .variant-head b { font-size: .82rem; }
-        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 .9rem; }
-        .media-row { display: flex; gap: .4rem; flex: 1; min-width: 0; }
+        .variant { border: 1px solid #30363d; border-radius: 8px; padding: 0; margin-bottom: .5rem; background: #0d1117; }
+        .variant > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: .6rem; padding: .45rem .7rem; font-size: .82rem; }
+        .variant > summary::-webkit-details-marker { display: none; }
+        .variant > summary::before { content: '▸'; color: #8b949e; }
+        .variant[open] > summary::before { content: '▾'; }
+        .variant > summary .vt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .variant > summary .vm { color: #8b949e; font-size: .72rem; flex: none; }
+        .variant-body { padding: .2rem .7rem .6rem; border-top: 1px solid #21262d; display: grid; gap: .45rem; }
+        .vgrid { display: grid; gap: .45rem .6rem; }
+        .vgrid.c2 { grid-template-columns: 1fr 1fr; }
+        .vgrid.c5 { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+        .fld { display: flex; flex-direction: column; gap: .15rem; min-width: 0; font-size: .7rem; color: #8b949e; }
+        .fld input, .fld select { width: 100%; min-width: 0; padding: .3rem .5rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: .8rem; font-family: inherit; }
+        .fld input:focus, .fld select:focus { outline: none; border-color: #58a6ff; }
+        .fld .hintline { font-size: .66rem; }
+        .tabs-note { font-size: .72rem; color: #8b949e; }
+                .media-row { display: flex; gap: .3rem; min-width: 0; }
         .media-row input[type="text"], .media-row select { flex: 1; min-width: 0; }
         .media-row input[type="file"] { display: none; }
-        .history { display: flex; flex-direction: column; gap: .35rem; max-height: 280px; overflow: auto; }
-        .history div { font-size: .78rem; padding: .35rem .5rem; background: #0d1117; border: 1px solid #21262d; border-radius: 6px; display: flex; justify-content: space-between; gap: .5rem; }
+        .history { display: flex; flex-direction: column; gap: .3rem; max-height: 300px; overflow: auto; }
+        .history > div { font-size: .76rem; padding: .25rem .5rem; align-items: center; background: #0d1117; border: 1px solid #21262d; border-radius: 6px; display: flex; justify-content: space-between; gap: .5rem; }
         .history span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .history .t { color: #8b949e; flex: none; }
+        .history .st { font-size: .66rem; color: #8b949e; }
+        .history .st.shown { color: #3fb950; }
+        .history .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .history .grow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         code { background: #21262d; border-radius: 4px; padding: .05rem .3rem; font-size: .78rem; }
         #toast { position: fixed; bottom: 1.2rem; right: 1.2rem; background: #238636; color: #fff; padding: .6rem .9rem; border-radius: 6px; font-size: .85rem; display: none; z-index: 9; }
         #toast.err { background: #8e2a2f; }
@@ -105,7 +121,11 @@
                 <p class="hint" style="margin-top:.5rem">Runs a pretend event through your saved rules, so you can check which rule wins. Timer and HTTP actions do not run.</p>
             </div>
             <div class="card">
-                <h2>Recent alerts <span class="hint" style="text-transform:none">🧪 = test</span></h2>
+                <h2>Event queue <span class="hint" style="text-transform:none">latest 100</span></h2>
+                <div class="history" id="events"></div>
+            </div>
+            <div class="card">
+                <h2>Alerts shown <span class="hint" style="text-transform:none">🧪 = test</span></h2>
                 <div class="history" id="history"></div>
             </div>
         </div>
@@ -134,6 +154,7 @@
         timer: '{{alert.name}} is done!', goal: 'Goal reached: {{alert.name}}', chat_word: '{{alert.user}} said {{alert.keyword}}'
     };
     let cfg = { settings: { enabled: true, gapSeconds: 2 }, rules: [] };
+    const openVariants = new Set();
     let sel = null, dirty = false, assets = [], timers = [], goals = [], queue = {}, paused = false;
 
     const toast = (message, err) => { const t = $('toast'); t.textContent = message; t.className = err ? 'err' : ''; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 2600); };
@@ -195,29 +216,36 @@
         html += field('Cooldown (s)', inp('conditions.cooldownSeconds', c.cooldownSeconds, 'number', 'min="0"'), t === 'chat_word' ? 'Stops chat from spamming this alert.' : '0 = no cooldown.');
         return html;
     }
-    function mediaRow(i, key, kinds, accept, label) {
+    function mediaField(i, key, kinds, accept, label) {
         const v = rule().variants[i];
         const list = assets.filter(a => kinds.includes(a.kind));
-        return `<div class="row"><label>${label}</label><span class="media-row">
-            <input type="text" data-v="${i}.${key}" placeholder="URL or pick / upload" value="${esc(v[key])}">
-            <select data-pick="${i}.${key}"><option value="">Library…</option>${list.map(a => `<option value="${esc(a.url)}">${esc(a.label || a.name)}</option>`).join('')}</select>
+        return `<div class="fld">${label}<span class="media-row">
+            <input type="text" data-v="${i}.${key}" placeholder="URL, or pick / upload" value="${esc(v[key])}">
+            <select data-pick="${i}.${key}" style="width:92px;flex:none"><option value="">Library</option>${list.map(a => `<option value="${esc(a.url)}">${esc(a.label || a.name)}</option>`).join('')}</select>
             <button class="btn sm" data-upload="${i}.${key}" data-accept="${accept}">Upload</button></span></div>`;
     }
+    const vin = (i, key, label, value, attrs = '', type = 'number') => `<label class="fld">${label}<input type="${type}" data-v="${i}.${key}" value="${esc(value)}" ${attrs}></label>`;
+    const vsel = (i, key, label, value, options) => `<label class="fld">${label}<select data-v="${i}.${key}">${options.map(a => `<option${a === value ? ' selected' : ''}>${a}</option>`).join('')}</select></label>`;
     function variantHtml(v, i, r) {
-        return `<div class="variant"><div class="variant-head"><b>Variant ${i + 1}</b><span class="actions"><button class="btn sm" data-test="${i}">▶ Test</button><button class="btn sm danger" data-del-variant="${i}" ${r.variants.length < 2 ? 'disabled' : ''}>Remove</button></span></div>
-            ${field('Title', `<input data-v="${i}.title" value="${esc(v.title)}">`)}
-            ${field('Message', `<input data-v="${i}.message" value="${esc(v.message)}">`)}
-            ${mediaRow(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Image / GIF')}
-            ${mediaRow(i, 'video', ['video'], 'video/mp4,video/webm', 'Video (replaces image)')}
-            ${mediaRow(i, 'sound', ['audio'], 'audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg', 'Sound')}
-            <div class="grid2">
-                ${field('Volume (%)', `<input type="number" data-v="${i}.volume" min="0" max="100" value="${v.volume}">`)}
-                ${field('Show for (s)', `<input type="number" data-v="${i}.duration" min="1" max="120" step="0.5" value="${v.duration}">`)}
-                ${field('Animation in', `<select data-v="${i}.animIn">${ANIM_IN.map(a => `<option${a === v.animIn ? ' selected' : ''}>${a}</option>`).join('')}</select>`)}
-                ${field('Animation out', `<select data-v="${i}.animOut">${ANIM_OUT.map(a => `<option${a === v.animOut ? ' selected' : ''}>${a}</option>`).join('')}</select>`)}
-            </div>
-            ${r.pick === 'weighted' ? field('Weight', `<input type="number" data-v="${i}.weight" min="1" max="100" value="${v.weight}">`, 'Higher = picked more often.') : ''}
-        </div>`;
+        const open = r.variants.length === 1 || openVariants.has(v.id);
+        const weighted = r.pick === 'weighted';
+        return `<details class="variant" data-vid="${esc(v.id)}"${open ? ' open' : ''}>
+            <summary><span class="vt">${esc(v.title || v.message || '(empty)')}</span><span class="vm">${v.duration}s${weighted ? ` · weight ${v.weight}` : ''}${v.sound ? ' · 🔊' : ''}${v.video ? ' · 🎞' : v.image ? ' · 🖼' : ''}</span>
+                <button class="btn sm" data-test="${i}">▶ Test</button></summary>
+            <div class="variant-body">
+                <div class="vgrid c2">${vin(i, 'title', 'Title', v.title, '', 'text')}${vin(i, 'message', 'Message (optional)', v.message, '', 'text')}</div>
+                <div class="vgrid c2">${mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Image / GIF')}${mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Video (used instead of image)')}</div>
+                ${mediaField(i, 'sound', ['audio'], 'audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg', 'Sound')}
+                <div class="vgrid c5">
+                    ${vin(i, 'duration', 'Show for (s)', v.duration, 'min="1" max="120" step="0.5"')}
+                    ${vin(i, 'volume', 'Volume %', v.volume, 'min="0" max="100"')}
+                    ${vsel(i, 'animIn', 'Animation in', v.animIn, ANIM_IN)}
+                    ${vsel(i, 'animOut', 'Animation out', v.animOut, ANIM_OUT)}
+                    ${weighted ? vin(i, 'weight', 'Weight (odds)', v.weight, 'min="1" max="100"') : ''}
+                </div>
+                ${weighted ? '<span class="tabs-note">Weight: a variant with weight 3 shows three times as often as one with weight 1.</span>' : ''}
+                <div><button class="btn sm danger" data-del-variant="${i}" ${r.variants.length < 2 ? 'disabled' : ''}>Remove variant</button></div>
+            </div></details>`;
     }
     function summary(r) {
         const c = r.conditions, t = TRIGGERS[r.trigger];
@@ -243,8 +271,8 @@
                 ${conditionsHtml(r)}
             </div>
             <div class="card"><h2>2 · What to show <button class="btn sm" id="add-variant">+ Add variant</button></h2>
-                <p class="hint" style="margin-bottom:.8rem">Placeholders for this trigger: ${tokens}</p>
-                ${r.variants.length > 1 ? field('When several variants', sel_('pick', r.pick, [['random', 'Random (never the same twice in a row)'], ['weighted', 'Random, weighted'], ['sequential', 'In order']])) : ''}
+                <p class="hint" style="margin-bottom:.5rem">Placeholders for this trigger: ${tokens}</p>
+                ${r.variants.length > 1 ? field('When several variants', sel_('pick', r.pick, [['random', 'Random (never the same twice in a row)'], ['weighted', 'Random, weighted by each variant\'s weight'], ['sequential', 'In order, one after another']])) : ''}
                 ${r.variants.map((v, i) => variantHtml(v, i, r)).join('')}
             </div>
             <div class="card"><h2>3 · Also do (optional)</h2>
@@ -257,11 +285,16 @@
                 ${a.http.enabled ? `${field('URL', inp('actions.http.url', a.http.url, 'text', 'placeholder="http://localhost:…"'), 'Sends rule, trigger, user, amount and message as JSON (POST) or query string (GET).')}${field('Method', sel_('actions.http.method', a.http.method, [['POST', 'POST'], ['GET', 'GET']]))}` : ''}
             </div>`;
     }
+    function renderEvents() {
+        const list = queue.events || [];
+        $('events').innerHTML = list.length ? list.map(e => `<div><span class="grow"><span>${esc(TRIGGERS[e.event.type] || e.event.type)}: ${esc(e.event.user || e.event.name || '')}${e.event.amount ? ' · ' + esc(e.event.amount) : ''}</span><span class="st ${e.status === 'shown' ? 'shown' : ''}">${esc(e.status)} · ${new Date(e.at).toLocaleTimeString()}</span></span><button class="btn sm" data-replay-event="${esc(e.id)}" title="Run this event through your current rules again">↻ Replay</button></div>`).join('') : '<p class="hint">Real stream events show up here, including ones that matched no rule.</p>';
+    }
     function renderQueue() {
+        renderEvents();
         $('queue-line').textContent = `${queue.current ? 'Showing: ' + (queue.current.title || queue.current.ruleName) + '. ' : 'Idle. '}${queue.pending || 0} waiting${queue.paused ? ' (paused)' : ''}.`;
         $('pause').textContent = queue.paused ? 'Resume' : 'Pause';
         $('pause').dataset.queue = queue.paused ? 'resume' : 'pause';
-        $('history').innerHTML = (queue.history || []).length ? queue.history.map(h => `<div><span>${h.test ? '🧪 ' : ''}${esc(h.title || h.message || h.ruleName)}</span><span class="t">${new Date(h.shownAt || h.at).toLocaleTimeString()}</span></div>`).join('') : '<p class="hint">Nothing yet this run.</p>';
+        $('history').innerHTML = (queue.history || []).length ? queue.history.map(h => `<div><span class="grow"><span>${h.test ? '🧪 ' : ''}${esc(h.title || h.message || h.ruleName)}</span></span><span class="t">${new Date(h.shownAt || h.at).toLocaleTimeString()}</span><button class="btn sm" data-replay-alert="${esc(h.id)}" title="Show this exact alert again">↻</button></div>`).join('') : '<p class="hint">Nothing yet this run.</p>';
     }
     function renderSummary() { const b = document.querySelector('#editor .card b'); if (b && rule()) b.textContent = summary(rule()); }
     function renderAll() {
@@ -292,6 +325,7 @@
     });
 
     const editor = $('editor');
+    editor.addEventListener('toggle', event => { const d = event.target; if (d.dataset?.vid) d.open ? openVariants.add(d.dataset.vid) : openVariants.delete(d.dataset.vid); }, true);
     editor.addEventListener('input', event => {
         const el = event.target, r = rule();
         if (!r) return;
@@ -322,7 +356,8 @@
             if (r.name === 'New alert' || Object.values(TRIGGERS).includes(r.name)) r.name = TRIGGERS[r.trigger];
             r.conditions.cooldownSeconds = r.trigger === 'chat_word' ? 30 : r.conditions.cooldownSeconds;
             renderAll();
-        } else if (['actions.timer.enabled', 'actions.http.enabled', 'actions.timer.action'].includes(el.dataset.f)) renderEditor();
+        } else if (el.dataset.f === 'pick') renderEditor();
+        else if (['actions.timer.enabled', 'actions.http.enabled', 'actions.timer.action'].includes(el.dataset.f)) renderEditor();
         else if (el.dataset.pick) {
             const [i, key] = el.dataset.pick.split('.');
             if (el.value) { r.variants[i][key] = el.value; setDirty(true); renderEditor(); }
@@ -331,7 +366,8 @@
     editor.addEventListener('click', guard(async event => {
         const r = rule(), btn = event.target.closest('button');
         if (!r || !btn) return;
-        if (btn.id === 'add-variant') { r.variants.push(newVariant(r.trigger)); setDirty(true); renderEditor(); }
+        if (btn.dataset.test !== undefined) event.preventDefault();
+        if (btn.id === 'add-variant') { const nv = newVariant(r.trigger); r.variants.push(nv); openVariants.add(nv.id); setDirty(true); renderEditor(); }
         else if (btn.dataset.delVariant !== undefined) { r.variants.splice(Number(btn.dataset.delVariant), 1); setDirty(true); renderEditor(); }
         else if (btn.id === 'del-rule') { if (!confirm(`Delete "${r.name}"?`)) return; cfg.rules = cfg.rules.filter(x => x !== r); sel = cfg.rules[0]?.id || null; setDirty(true); renderAll(); }
         else if (btn.id === 'dup-rule') { const copy = JSON.parse(JSON.stringify(r)); copy.id = `rule-${Date.now().toString(36)}`; copy.name = `${r.name} copy`; cfg.rules.push(copy); sel = copy.id; setDirty(true); renderAll(); }
@@ -374,6 +410,12 @@
         refreshQueue();
     }));
 
+    document.addEventListener('click', guard(async event => {
+        const btn = event.target.closest('[data-replay-event],[data-replay-alert]');
+        if (!btn) return;
+        await api('/api/alerts/replay', { method: 'POST', body: JSON.stringify(btn.dataset.replayEvent ? { eventId: btn.dataset.replayEvent } : { alertId: btn.dataset.replayAlert }) });
+        toast('Replaying'); refreshQueue();
+    }));
     async function refreshQueue() {
         try { queue = (await api('/api/alerts', { cache: 'no-store' })).queue; renderQueue(); } catch { /* server restarting */ }
     }

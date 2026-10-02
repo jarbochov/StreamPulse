@@ -623,6 +623,12 @@
                     body: '{ "type": "bits", "user": "Viewer", "amount": 500 }'
                 },
                 {
+                    method: 'POST', path: '/api/alerts/replay',
+                    desc: 'Replay a past event or alert',
+                    details: 'eventId re-runs a stored event (GET /api/alerts returns the latest 100 under queue.events) through your current rules. alertId re-shows the exact alert from history.',
+                    body: '{ "eventId": "..." }'
+                },
+                {
                     method: 'POST', path: '/api/alerts/queue',
                     desc: 'Control the alert queue',
                     details: 'Actions: skip, clear, pause, resume.',

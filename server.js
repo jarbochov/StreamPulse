@@ -4541,6 +4541,18 @@ const server = http.createServer(async (req, res) => {
         }
         return;
     }
+    if (pathname === '/api/alerts/replay' && req.method === 'POST') {
+        try {
+            const body = JSON.parse(await readRequestBody(req) || '{}');
+            const payload = body.alertId ? alertEngine.replayAlert(String(body.alertId)) : alertEngine.replayEvent(String(body.eventId || ''));
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, alert: payload }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
     if (pathname === '/api/alerts/queue' && req.method === 'POST') {
         try {
             const body = JSON.parse(await readRequestBody(req) || '{}');

@@ -23,6 +23,7 @@ const ANIM_IN = ['none', 'fade', 'pop', 'zoom', 'bounce', 'flip', 'spin', 'slide
 const ANIM_OUT = ['none', 'fade', 'pop', 'zoom', 'slide-left', 'slide-right', 'slide-up', 'slide-down'];
 const TIMER_ACTIONS = ['start', 'pause', 'resume', 'reset', 'add_time', 'subtract_time'];
 const HISTORY_LIMIT = 50;
+const EVENT_LIMIT = 100;
 const GIFT_QUIET_MS = 4000;
 const GIFT_MAX_MS = 15000;
 
@@ -132,6 +133,18 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
     let currentTimer = null;
     let paused = false;
     const history = [];
+    const eventsPath = path.join(dataDir, 'alert-events.json');
+    let events = [];
+    try { events = JSON.parse(fs.readFileSync(eventsPath, 'utf8')).slice(0, EVENT_LIMIT); } catch { /* none yet */ }
+    let saveEventsTimer = null;
+    function recordEvent(ev, payload, status) {
+        const entry = { id: `e${Date.now().toString(36)}${(counter++).toString(36)}`, at: new Date().toISOString(), event: ev, status, title: payload ? payload.title || payload.message : '' };
+        events.unshift(entry);
+        events.length = Math.min(events.length, EVENT_LIMIT);
+        clearTimeout(saveEventsTimer);
+        saveEventsTimer = setTimeout(() => { try { fs.writeFileSync(eventsPath, JSON.stringify(events)); } catch { /* disk full or read-only */ } }, 1000);
+        return entry;
+    }
     const cooldowns = new Map();
     const sequence = new Map();
     const lastVariant = new Map();
@@ -289,9 +302,9 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
     }
 
     // Returns the payload that was queued, or null when nothing matched / was blocked
-    function handleEvent(ev, { test = false, runActionsForTest = false } = {}) {
+    function handleEvent(ev, { test = false, runActionsForTest = false, replay = false } = {}) {
         if (!ev || !ev.type) return null;
-        if (!test && !config.settings.enabled) return null;
+        if (!test && !config.settings.enabled) { recordEvent(ev, null, 'alerts off'); return null; }
 
         if (!test) {
             const key = `${ev.type}|${ev.user}|${ev.amount ?? ''}|${ev.months ?? ''}|${ev.reward ?? ''}|${ev.name ?? ''}`;
@@ -310,16 +323,17 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             if (milestoneRule) { rule = milestoneRule; effective = milestoneEvent; }
         }
         if (!rule) rule = chooseRule(ev);
-        if (!rule) return null;
+        if (!rule) { if (!test) recordEvent(ev, null, 'no matching rule'); return null; }
 
         const cooldown = rule.conditions.cooldownSeconds * 1000;
         const now = Date.now();
-        if (!test && cooldown && now - (cooldowns.get(rule.id) || 0) < cooldown) return null;
+        if (!test && cooldown && now - (cooldowns.get(rule.id) || 0) < cooldown) { recordEvent(ev, null, 'cooldown'); return null; }
         cooldowns.set(rule.id, now);
 
         const variant = chooseVariant(rule);
         const payload = buildPayload(rule, variant, effective, test);
         if (!test || runActionsForTest) runActions(rule, effective);
+        if (!test) recordEvent(effective, payload, 'shown');
         enqueue(payload);
         log(`[Alerts] ${test ? 'Test ' : ''}${rule.name}: ${payload.title || payload.message || effective.type}`);
         return payload;
@@ -369,6 +383,23 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         }, wait);
     }
 
+    // Re-run a past event through the current rules (no timer/HTTP actions, no cooldown)
+    function replayEvent(eventId) {
+        const entry = events.find(item => item.id === eventId);
+        if (!entry) throw new Error('Event not found');
+        const payload = handleEvent({ ...entry.event }, { test: true });
+        if (!payload) throw new Error('No enabled rule matches that event right now');
+        return payload;
+    }
+    function replayAlert(alertId) {
+        const old = history.find(item => item.id === alertId);
+        if (!old) throw new Error('Alert not found');
+        const { shownAt, ...rest } = old;
+        const payload = { ...rest, id: `a${Date.now().toString(36)}${(counter++).toString(36)}`, test: true, at: new Date().toISOString() };
+        enqueue(payload);
+        return payload;
+    }
+
     function control(action) {
         if (action === 'pause') { paused = true; return; }
         if (action === 'resume') { paused = false; pump(); return; }
@@ -393,7 +424,8 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         TRIGGERS, ANIM_IN, ANIM_OUT, TIMER_ACTIONS,
         getConfig: () => config,
         setConfig(next) { config = normalizeConfig(next); save(); return config; },
-        getQueueState: () => ({ pending: queue.length, current, paused, history }),
+        getQueueState: () => ({ pending: queue.length, current, paused, history, events }),
+        replayEvent, replayAlert,
         handleEvent, fireRule, noteGift, control
     };
 }
