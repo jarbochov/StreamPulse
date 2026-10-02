@@ -55,6 +55,22 @@
         .fld input, .fld select { width: 100%; min-width: 0; padding: .3rem .5rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: .8rem; font-family: inherit; }
         .fld input:focus, .fld select:focus { outline: none; border-color: #58a6ff; }
         .fld .hintline { font-size: .66rem; }
+        .summary-line { font-size: .85rem; color: #8b949e; padding: 0 .2rem; }
+        .summary-line b { color: #e1e4e8; font-weight: 600; }
+        .cgrid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem .9rem; }
+        .cgrid .row { flex-direction: column; align-items: stretch; gap: .15rem; margin: 0; }
+        .cgrid .row > label { min-width: 0; font-size: .72rem; }
+        .cgrid .row small { margin: 0; flex-basis: auto; }
+        .cgrid .row input, .cgrid .row select { flex: none; }
+        .onoff { display: inline-flex; align-items: center; gap: .3rem; font-size: .78rem; color: #8b949e; text-transform: none; letter-spacing: 0; font-weight: 400; margin-right: .4rem; }
+        .onoff input { accent-color: #58a6ff; }
+        details.sim > summary { cursor: pointer; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: #8b949e; font-weight: 600; }
+        details.sim[open] > summary { margin-bottom: .6rem; }
+        .help { padding: .5rem 1rem; }
+        .help > summary { cursor: pointer; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: #8b949e; font-weight: 600; list-style: none; }
+        .help > summary::before { content: '▸ '; }
+        .help[open] > summary::before { content: '▾ '; }
+        .help[open] > summary { margin-bottom: .5rem; }
         .pill:empty { display: none; }
         .tabs { display: flex; gap: .3rem; border-bottom: 1px solid #30363d; }
         .tab { background: none; border: 0; border-bottom: 2px solid transparent; color: #8b949e; padding: .5rem .9rem; font: inherit; font-size: .88rem; cursor: pointer; text-decoration: none; margin-bottom: -1px; }
@@ -88,15 +104,15 @@
     </div>
 
     <div class="container" style="padding-bottom:0;display:block">
-        <div class="card">
-            <h2>How alerts work</h2>
+        <details class="card help" id="help">
+            <summary>How alerts work</summary>
             <ol class="hint" style="padding-left:1.2rem;display:grid;gap:.25rem">
                 <li><b>Make a rule</b> on the left: pick what triggers it (a follow, 500 bits, a raid…).</li>
                 <li><b>Choose what to show</b>: text, an image/GIF/video and a sound. Add several variants to mix it up.</li>
                 <li><b>Save</b>, then press <b>▶ Test</b> on a variant. Tests play on any open overlay and in the overlay editor canvas.</li>
                 <li>Add an <b>Alert box</b> to a <a href="/custom-overlays.html" style="color:#58a6ff">custom overlay</a> and use it as an OBS browser source. Alerts only appear there.</li>
             </ol>
-        </div>
+        </details>
     </div>
     <div class="container" style="padding-bottom:0;display:block"><div class="tabs">
         <button class="tab active" data-tab="rules">Rules</button>
@@ -111,26 +127,23 @@
                 <div class="row"><label for="s-gap">Gap between alerts (s)</label><input type="number" id="s-gap" min="0" max="60" step="0.5"></div>
                 <div class="actions">
                     <button class="btn primary" id="save">Save</button>
-                    <button class="btn" data-queue="skip">Skip</button>
-                    <button class="btn" data-queue="clear">Clear queue</button>
-                    <button class="btn" id="pause" data-queue="pause">Pause</button>
+                    <span class="hint" id="queue-line" style="margin:0 0 0 .3rem"></span>
                 </div>
-                <p class="hint" style="margin-top:.8rem" id="queue-line"></p>
                 
             </div>
             <div class="card">
                 <h2>Rules <button class="btn sm" id="add-rule">+ New rule</button></h2>
                 <div class="rule-list" id="rule-list"></div>
             </div>
-            <div class="card">
-                <h2>Try a real-style event</h2>
+            <details class="card sim">
+                <summary>Try a real-style event</summary>
                 <div class="row"><label>Event</label><select id="sim-type"></select></div>
                 <div class="row"><label>User</label><input id="sim-user" value="TestViewer"></div>
                 <div class="row"><label>Amount / count / months</label><input id="sim-amount" type="number" min="0" value="100"></div>
                 <div class="row"><label>Message / reward / word</label><input id="sim-text" value="hello there"></div>
                 <button class="btn" id="sim-go">Run through saved rules</button>
                 <p class="hint" style="margin-top:.5rem">Runs a pretend event through your saved rules, so you can check which rule wins. Timer and HTTP actions do not run.</p>
-            </div>
+            </details>
         </div>
 
         <div class="stack" id="editor"></div>
@@ -286,12 +299,13 @@
         const a = r.actions;
         const tokens = TOKENS[r.trigger].map(t => `<code>{{alert.${t}}}</code>`).join(' ');
         $('editor').innerHTML = `
-            <div class="card" style="border-color:#1f6feb"><b style="font-size:.85rem">${esc(summary(r))}</b></div>
-            <div class="card"><h2>1 · When this happens <span class="actions"><button class="btn sm" id="dup-rule">Duplicate</button><button class="btn sm danger" id="del-rule">Delete</button></span></h2>
+            <div class="summary-line"><b>${esc(summary(r))}</b></div>
+            <div class="card"><h2>1 · When this happens <span class="actions"><label class="onoff"><input type="checkbox" data-f="enabled" data-type="check" ${r.enabled ? 'checked' : ''}> Enabled</label><button class="btn sm" id="dup-rule">Duplicate</button><button class="btn sm danger" id="del-rule">Delete</button></span></h2>
+                <div class="cgrid">
                 ${field('Name', inp('name', r.name, 'text', 'maxlength="80"'))}
-                <div class="row"><label>Enabled</label><input type="checkbox" data-f="enabled" data-type="check" ${r.enabled ? 'checked' : ''}></div>
                 ${field('When this happens', sel_('trigger', r.trigger, Object.entries(TRIGGERS)))}
                 ${conditionsHtml(r)}
+                </div>
             </div>
             <div class="card"><h2>2 · What to show <button class="btn sm" id="add-variant">+ Add variant</button></h2>
                 <p class="hint" style="margin-bottom:.5rem">Placeholders for this trigger: ${tokens}</p>
@@ -316,14 +330,12 @@
     function renderQueue() {
         renderEvents();
         $('queue-line').textContent = `${queue.current ? 'Showing: ' + (queue.current.title || queue.current.ruleName) + '. ' : 'Idle. '}${queue.pending || 0} waiting${queue.paused ? ' (paused)' : ''}.`;
-        $('pause').textContent = queue.paused ? 'Resume' : 'Pause';
-        $('pause').dataset.queue = queue.paused ? 'resume' : 'pause';
         document.querySelectorAll('.pause-btn').forEach(b => { b.textContent = queue.paused ? 'Resume' : 'Pause'; b.dataset.queue = queue.paused ? 'resume' : 'pause'; });
         $('queue-line2').textContent = $('queue-line').textContent;
         $('tab-count').textContent = (queue.pending || 0) ? queue.pending : '';
         $('history').innerHTML = (queue.history || []).length ? queue.history.map(h => `<div><span class="grow"><span>${h.test ? '🧪 ' : ''}${esc(h.title || h.message || h.ruleName)}</span></span><span class="t">${new Date(h.shownAt || h.at).toLocaleTimeString()}</span><button class="btn sm" data-replay-alert="${esc(h.id)}" title="Show this exact alert again">↻</button></div>`).join('') : '<p class="hint">Nothing yet this run.</p>';
     }
-    function renderSummary() { const b = document.querySelector('#editor .card b'); if (b && rule()) b.textContent = summary(rule()); }
+    function renderSummary() { const b = document.querySelector('#editor .summary-line b'); if (b && rule()) b.textContent = summary(rule()); }
     function renderAll() {
         $('sim-type').innerHTML = Object.entries(TRIGGERS).map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
         renderSettings(); renderRules(); renderEditor(); renderQueue();
@@ -428,6 +440,8 @@
         const data = await api('/api/alerts/queue', { method: 'POST', body: JSON.stringify({ action: btn.dataset.queue }) });
         queue = data.queue; renderQueue();
     }));
+    const help = $('help'); help.open = localStorage.getItem('alerts-help') === 'open';
+    help.addEventListener('toggle', () => localStorage.setItem('alerts-help', help.open ? 'open' : 'closed'));
     document.querySelectorAll('[data-tab]').forEach(t => t.addEventListener('click', () => {
         document.querySelectorAll('[data-tab]').forEach(x => x.classList.toggle('active', x === t));
         $('pane-rules').style.display = t.dataset.tab === 'rules' ? '' : 'none';
