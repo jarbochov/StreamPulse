@@ -81,6 +81,13 @@
         .align-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .25rem; }
         .align-grid button { padding: .35rem 0; }
         .asset-preview { max-width: 100%; max-height: 110px; border: 1px solid var(--border); border-radius: 6px; background: repeating-conic-gradient(#2a2f38 0 25%, #353b46 0 50%) 0 0 / 14px 14px; object-fit: contain; }
+        #asset-dialog { width: min(760px, 92vw); max-width: 760px; }
+        #asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .6rem; max-height: 55vh; overflow: auto; margin-top: .8rem; padding: 2px; }
+        .asset-tile { position: relative; padding: 0; overflow: hidden; display: flex; flex-direction: column; text-align: left; border-radius: 8px; }
+        .asset-tile[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+        .asset-tile .thumb { position: relative; flex: none; height: 90px; background: repeating-conic-gradient(#2a2f38 0 25%, #353b46 0 50%) 0 0 / 14px 14px; }
+        .asset-tile .thumb img, .asset-tile .thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+        .asset-tile .cap { padding: .3rem .45rem; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .upload-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem; }
         .empty-props { padding: 1.1rem .95rem; color: var(--muted); }
         .empty-props h3 { color: var(--text); font-size: 13px; margin: 0 0 .4rem; }
@@ -261,6 +268,12 @@
     </div>
 
     <div id="toasts" aria-live="polite"></div>
+    <dialog id="asset-dialog">
+        <h3 id="asset-title">Choose an asset</h3>
+        <input id="asset-search" type="search" placeholder="Filter by name…">
+        <div id="asset-grid"></div>
+        <div class="dialog-actions"><button id="asset-close">Cancel</button></div>
+    </dialog>
     <dialog id="help-dialog">
         <h3>Keyboard shortcuts</h3>
         <div class="kbd-list">
@@ -870,7 +883,7 @@
             body += F.text('src', el.type === 'embed' ? 'Webpage URL' : 'Source URL', el.src, `placeholder="${el.type === 'embed' ? 'https://example.com' : 'https://… or upload a file'}"`);
         }
         if (media) {
-            body += `<div class="field"><span>Upload ${el.type}</span><span class="upload-row"><input id="prop-upload" type="file" accept="${el.type === 'image' ? 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml' : 'video/mp4,video/webm,video/ogg'}"><span></span></span><span class="hint">Saved to the StreamPulse overlay asset folder (100 MB max). You can also drop files onto the canvas.</span></div>`;
+            body += `<div class="field"><span>Upload ${el.type}</span><span class="upload-row"><input id="prop-upload" type="file" accept="${el.type === 'image' ? 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml' : 'video/mp4,video/webm,video/ogg'}"><button type="button" id="open-assets">Library…</button></span><span class="hint">Saved to the StreamPulse overlay asset folder (100 MB max). You can also drop files onto the canvas.</span></div>`;
             if (el.type === 'image' && el.src) body += `<img class="asset-preview" src="${esc(el.src)}" alt="Asset preview" onerror="this.style.display='none'">`;
         }
         return body ? F.section('content', 'Content', body) : '';
@@ -963,6 +976,46 @@
             renderCanvas(); renderProperties(); changed(true);
             toast('Asset uploaded', 'success', 1800);
         } catch (error) { toast(error.message, 'error', 5000); event.target.value = ''; }
+    });
+
+    // ---- asset picker -----------------------------------------------------------------
+    const assetDialog = $('asset-dialog'), assetGrid = $('asset-grid'), assetSearch = $('asset-search');
+    let libraryAssets = [], pickerTarget = null;
+    const isVideoName = name => /\.(mp4|webm|ogg)$/i.test(name);
+    function renderAssetGrid() {
+        const el = overlay.elements.find(item => item.id === pickerTarget);
+        if (!el) return;
+        const query = assetSearch.value.trim().toLowerCase();
+        const matches = libraryAssets.filter(asset => (el.type === 'video') === isVideoName(asset.name) && asset.name.toLowerCase().includes(query));
+        assetGrid.innerHTML = matches.length ? matches.map(asset => `<button type="button" class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === el.src ? 'aria-current="true"' : ''} title="${esc(asset.name)}"><span class="thumb">${isVideoName(asset.name) ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="" loading="lazy">`}</span><span class="cap">${esc(asset.name)}</span></button>`).join('') : `<p class="hint">No ${el.type} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
+    }
+    async function openAssetPicker() {
+        const el = primary();
+        if (!el || !['image', 'video'].includes(el.type)) return;
+        pickerTarget = el.id;
+        $('asset-title').textContent = `Choose ${el.type === 'video' ? 'a video' : 'an image'}`;
+        assetSearch.value = '';
+        assetGrid.innerHTML = '<p class="hint">Loading…</p>';
+        assetDialog.showModal();
+        try {
+            const response = await fetch('/api/custom-overlays/assets', { cache: 'no-store' });
+            if (!response.ok) throw new Error();
+            libraryAssets = await response.json();
+            renderAssetGrid();
+        } catch { assetGrid.innerHTML = '<p class="hint">Could not load assets. Is the StreamPulse server running?</p>'; }
+    }
+    $('properties').addEventListener('click', event => { if (event.target.closest('#open-assets')) openAssetPicker(); });
+    assetSearch.addEventListener('input', renderAssetGrid);
+    $('asset-close').addEventListener('click', () => assetDialog.close());
+    assetGrid.addEventListener('click', async event => {
+        const tile = event.target.closest('.asset-tile');
+        const el = overlay.elements.find(item => item.id === pickerTarget);
+        if (!tile || !el) return;
+        const hadSource = !!el.src;
+        el.src = tile.dataset.url;
+        assetDialog.close();
+        if (!hadSource) await fitToMedia(el, el.src, el.type);
+        renderCanvas(); renderProperties(); changed(true);
     });
 
     // ---- actions ----------------------------------------------------------------------
