@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Overlay Editor</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #0f1117; color: #e1e4e8; font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .header { display: flex; align-items: center; gap: 1rem; padding: 1rem 2rem; background: #161b22; border-bottom: 1px solid #30363d; }
+        .header a { color: #8b949e; text-decoration: none; }
+        .layout { display: grid; grid-template-columns: 240px minmax(500px, 1fr) 300px; gap: 1rem; padding: 1rem; max-width: 1500px; margin: 0 auto; }
+        .panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: .75rem; min-width: 0; }
+        .panel h2 { font-size: .85rem; margin: 0 0 .75rem; color: #c9d1d9; }
+        button, input, select, textarea { font: inherit; }
+        button { border: 1px solid #30363d; border-radius: 6px; padding: .45rem .65rem; background: #21262d; color: #e1e4e8; cursor: pointer; }
+        button:hover { border-color: #58a6ff; }
+        button.primary { background: #1a2332; border-color: #1f6feb; }
+        input, select, textarea { width: 100%; padding: .45rem .55rem; color: #e1e4e8; background: #0d1117; border: 1px solid #30363d; border-radius: 5px; }
+        textarea { min-height: 110px; resize: vertical; }
+        label { display: grid; gap: .25rem; color: #8b949e; font-size: .75rem; margin-bottom: .65rem; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+        .toolbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+        #canvas-wrap { overflow: auto; background: #0d1117; border: 1px solid #30363d; padding: 1rem; min-height: 620px; }
+        #canvas { position: relative; transform-origin: top left; background-image: linear-gradient(#ffffff0b 1px, transparent 1px), linear-gradient(90deg, #ffffff0b 1px, transparent 1px); background-size: 20px 20px; }
+        .canvas-element { position: absolute; overflow: hidden; white-space: pre-wrap; word-break: break-word; cursor: move; }
+        .canvas-element.selected { outline: 2px solid #58a6ff; outline-offset: 2px; }
+        .canvas-element img, .canvas-element video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+        .canvas-element.markdown { white-space: normal; }
+        .canvas-element.markdown p { margin: 0 0 .5em; }
+        .canvas-element.markdown p:last-child { margin-bottom: 0; }
+        .layer { padding: .5rem; border: 1px solid #30363d; border-radius: 5px; margin-bottom: .4rem; cursor: grab; background: #0d1117; }
+        .layer.selected { border-color: #58a6ff; color: #58a6ff; }
+        .hint, #status { color: #8b949e; font-size: .75rem; line-height: 1.4; }
+        @media (max-width: 1100px) { .layout { grid-template-columns: 210px 1fr; } .properties { grid-column: 1 / -1; } }
+        @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } .properties { grid-column: auto; } }
+    </style>
+</head>
+<body>
+    <header class="header"><a href="/custom-overlays.html">← Custom Overlays</a><strong id="title">Overlay Editor</strong></header>
+    <main class="layout">
+        <section class="panel">
+            <h2>Elements</h2>
+            <div class="toolbar">
+                <button data-add="text">Text</button><button data-add="markdown">Markdown</button>
+                <button data-add="image">Image</button><button data-add="video">Video</button><button data-add="shape">Shape</button>
+            </div>
+            <div id="layers"></div>
+            <p class="hint">Drag elements on the canvas. Select a layer to edit its properties.</p>
+        </section>
+        <section>
+            <div class="toolbar">
+                <button class="primary" id="save">Save and Push Live</button>
+                <button id="preview">Open Runtime</button>
+                <span id="status"></span>
+            </div>
+            <div id="canvas-wrap"><div id="canvas"></div></div>
+        </section>
+        <section class="panel properties">
+            <h2>Overlay</h2>
+            <label>Name<input id="overlay-name"></label>
+            <div class="row"><label>Width<input id="canvas-width" type="number"></label><label>Height<input id="canvas-height" type="number"></label></div>
+            <label>Background<input id="canvas-background" placeholder="transparent or rgba(...)"></label>
+            <hr>
+            <h2>Selected element</h2>
+            <div id="properties"><p class="hint">Select an element.</p></div>
+        </section>
+    </main>
+    <script src="/vendor/interact.min.js"></script>
+    <script src="/vendor/Sortable.min.js"></script>
+    <script src="/vendor/marked.umd.js"></script>
+    <script src="/vendor/purify.min.js"></script>
+    <script>
+        const params = new URLSearchParams(location.search);
+        const overlayId = params.get('id') || 'new-overlay';
+        let isNew = params.get('new') === '1';
+        let overlay = { id: overlayId, name: overlayId, revision: 1, canvas: { width: 1920, height: 1080, background: 'transparent' }, elements: [] };
+        let selectedId = null;
+        const canvas = document.getElementById('canvas');
+        const layers = document.getElementById('layers');
+        const properties = document.getElementById('properties');
+        const status = document.getElementById('status');
+        const defaults = { text: 'Text element', markdown: '**Markdown** element', image: '', video: '', shape: '' };
+        function esc(value) { return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+        function selected() { return overlay.elements.find(item => item.id === selectedId); }
+        function renderMarkdown(value) { return DOMPurify.sanitize(marked.parse(value || '', { breaks: true })); }
+        function syncOverlayFields() {
+            document.getElementById('title').textContent = `${overlay.name} — Overlay Editor`;
+            document.getElementById('overlay-name').value = overlay.name;
+            document.getElementById('canvas-width').value = overlay.canvas.width;
+            document.getElementById('canvas-height').value = overlay.canvas.height;
+            document.getElementById('canvas-background').value = overlay.canvas.background;
+            canvas.style.width = `${overlay.canvas.width}px`;
+            canvas.style.height = `${overlay.canvas.height}px`;
+            canvas.style.background = `${overlay.canvas.background}, #0d1117`;
+        }
+        function render() {
+            syncOverlayFields();
+            canvas.replaceChildren();
+            for (const element of overlay.elements) {
+                const node = document.createElement('div');
+                node.className = `canvas-element ${element.type}${element.id === selectedId ? ' selected' : ''}`;
+                node.dataset.id = element.id;
+                Object.assign(node.style, { left: `${element.x}px`, top: `${element.y}px`, width: `${element.width}px`, height: `${element.height}px`, zIndex: element.zIndex, opacity: element.style.opacity, background: element.style.background, border: `${element.style.borderWidth}px solid ${element.style.borderColor}`, borderRadius: `${element.style.borderRadius}px`, fontFamily: element.style.fontFamily, fontSize: `${element.style.fontSize}px`, fontWeight: element.style.fontWeight, color: element.style.color, textAlign: element.style.textAlign });
+                if (element.type === 'image' || element.type === 'video') {
+                    const media = document.createElement(element.type); media.src = element.src; media.controls = element.type === 'video'; media.muted = true; media.loop = true; media.style.cssText = 'width:100%;height:100%;object-fit:' + element.style.objectFit; node.appendChild(media);
+                } else if (element.type === 'markdown') node.innerHTML = renderMarkdown(element.content);
+                else node.textContent = element.content || '';
+                node.addEventListener('click', event => { event.stopPropagation(); selectedId = element.id; render(); });
+                canvas.appendChild(node);
+            }
+            renderLayers();
+            renderProperties();
+            enableDragging();
+        }
+        function renderLayers() {
+            layers.innerHTML = overlay.elements.slice().reverse().map(element => `<div class="layer${element.id === selectedId ? ' selected' : ''}" data-id="${esc(element.id)}">${esc(element.type)} · ${esc(element.id)}</div>`).join('');
+            layers.querySelectorAll('.layer').forEach(node => node.addEventListener('click', () => { selectedId = node.dataset.id; render(); }));
+        }
+        function renderProperties() {
+            const element = selected();
+            if (!element) { properties.innerHTML = '<p class="hint">Select an element.</p>'; return; }
+            properties.innerHTML = `
+                <label>Content<textarea id="element-content">${esc(element.content)}</textarea></label>
+                <label>Source URL<input id="element-src" value="${esc(element.src)}" placeholder="Image or video URL"></label>
+                <div class="row"><label>X<input id="element-x" type="number" value="${element.x}"></label><label>Y<input id="element-y" type="number" value="${element.y}"></label></div>
+                <div class="row"><label>Width<input id="element-width" type="number" value="${element.width}"></label><label>Height<input id="element-height" type="number" value="${element.height}"></label></div>
+                <div class="row"><label>Font size<input id="element-font-size" type="number" value="${element.style.fontSize}"></label><label>Color<input id="element-color" value="${esc(element.style.color)}"></label></div>
+                <label>Font family<input id="element-font" value="${esc(element.style.fontFamily)}"></label>
+                <label>Background<input id="element-background" value="${esc(element.style.background)}"></label>
+                <div class="row"><label>Border width<input id="element-border-width" type="number" value="${element.style.borderWidth}"></label><label>Border color<input id="element-border-color" value="${esc(element.style.borderColor)}"></label></div>
+                <button id="delete-element">Delete Element</button>`;
+            const fields = ['content', 'src', 'x', 'y', 'width', 'height', 'font-size', 'color', 'font', 'background', 'border-width', 'border-color'];
+            fields.forEach(name => document.getElementById(`element-${name}`).addEventListener('input', event => {
+                const value = event.target.value;
+                if (name === 'content' || name === 'src') element[name] = value;
+                else if (name === 'x' || name === 'y' || name === 'width' || name === 'height') element[name] = Number(value) || 0;
+                else if (name === 'font-size') element.style.fontSize = Number(value) || 32;
+                else if (name === 'border-width') element.style.borderWidth = Number(value) || 0;
+                else if (name === 'color') element.style.color = value;
+                else if (name === 'font') element.style.fontFamily = value;
+                else if (name === 'background') element.style.background = value;
+                else if (name === 'border-color') element.style.borderColor = value;
+                render();
+            }));
+            document.getElementById('delete-element').addEventListener('click', () => { overlay.elements = overlay.elements.filter(item => item.id !== element.id); selectedId = null; render(); });
+        }
+        function enableDragging() {
+            interact('.canvas-element').draggable({
+                listeners: {
+                    move(event) {
+                        const element = overlay.elements.find(item => item.id === event.target.dataset.id);
+                        if (!element) return;
+                        element.x += event.dx;
+                        element.y += event.dy;
+                        event.target.style.left = `${element.x}px`;
+                        event.target.style.top = `${element.y}px`;
+                        renderLayers();
+                    }
+                }
+            });
+        }
+        function addElement(type) {
+            const id = `${type}-${Date.now().toString(36)}`;
+            overlay.elements.push({ id, type, content: defaults[type], src: '', x: 100, y: 100, width: type === 'shape' ? 500 : 600, height: type === 'shape' ? 180 : 120, zIndex: overlay.elements.length, visible: true, style: { fontFamily: 'sans-serif', fontSize: 32, fontWeight: '400', color: '#ffffff', textAlign: 'left', background: type === 'shape' ? '#161b22' : 'transparent', borderColor: 'transparent', borderWidth: 0, borderRadius: 0, opacity: 1, objectFit: 'cover' } });
+            selectedId = id; render();
+        }
+        async function load() {
+            if (!isNew) {
+                const response = await fetch(`/api/custom-overlays/${encodeURIComponent(overlayId)}`);
+                if (!response.ok) throw new Error('Overlay not found');
+                overlay = await response.json();
+            }
+            render();
+        }
+        document.querySelectorAll('[data-add]').forEach(button => button.addEventListener('click', () => addElement(button.dataset.add)));
+        document.getElementById('overlay-name').addEventListener('input', event => { overlay.name = event.target.value; });
+        document.getElementById('canvas-width').addEventListener('input', event => { overlay.canvas.width = Number(event.target.value) || 1920; syncOverlayFields(); });
+        document.getElementById('canvas-height').addEventListener('input', event => { overlay.canvas.height = Number(event.target.value) || 1080; syncOverlayFields(); });
+        document.getElementById('canvas-background').addEventListener('input', event => { overlay.canvas.background = event.target.value; syncOverlayFields(); });
+        document.getElementById('save').addEventListener('click', async () => {
+            const method = isNew ? 'POST' : 'PUT';
+            const url = isNew ? '/api/custom-overlays' : `/api/custom-overlays/${encodeURIComponent(overlay.id)}`;
+            const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(overlay) });
+            const data = await response.json();
+            if (!response.ok) { status.textContent = data.error || 'Save failed'; return; }
+            overlay = data; isNew = false; status.textContent = `Saved revision ${overlay.revision}; live overlays updated`; setTimeout(() => status.textContent = '', 4000); render();
+        });
+        document.getElementById('preview').addEventListener('click', () => window.open(`/custom-overlay.html?id=${encodeURIComponent(overlay.id)}`, '_blank', 'noopener'));
+        new Sortable(layers, { animation: 150, onEnd(event) { const [moved] = overlay.elements.splice(overlay.elements.length - 1 - event.oldIndex, 1); overlay.elements.splice(overlay.elements.length - 1 - event.newIndex, 0, moved); render(); } });
+        load().catch(error => { status.textContent = error.message; });
+    </script>
+</body>
+</html>

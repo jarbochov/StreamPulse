@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Custom Overlays</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #0f1117; color: #e1e4e8; font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 2rem; background: #161b22; border-bottom: 1px solid #30363d; }
+        h1 { font-size: 1.25rem; margin: 0; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem; }
+        .toolbar, .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; }
+        .toolbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        button, a.btn { border: 1px solid #30363d; border-radius: 6px; padding: .5rem .75rem; background: #21262d; color: #e1e4e8; cursor: pointer; text-decoration: none; font: inherit; }
+        button:hover, a.btn:hover { border-color: #58a6ff; background: #1a2332; }
+        button.primary { border-color: #1f6feb; background: #1a2332; }
+        .overlay-list { display: grid; gap: .75rem; }
+        .overlay-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .meta { color: #8b949e; font-size: .8rem; margin-top: .3rem; }
+        .empty { color: #8b949e; text-align: center; padding: 2rem; }
+    </style>
+</head>
+<body>
+    <header class="header"><h1>StreamPulse <span style="color:#58a6ff">Custom Overlays</span></h1><div id="main-nav" class="nav"></div></header>
+    <script src="/nav.js"></script>
+    <main class="container">
+        <div class="toolbar">
+            <button class="primary" id="create-btn">Create Overlay</button>
+            <a class="btn" href="/custom-overlay.html?id=stream-start" target="_blank" rel="noopener">Runtime Example URL</a>
+        </div>
+        <section class="card">
+            <div id="overlay-list" class="overlay-list"><div class="empty">Loading overlays...</div></div>
+        </section>
+    </main>
+    <script>
+        const list = document.getElementById('overlay-list');
+        function esc(value) { return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+        async function load() {
+            const response = await fetch('/api/custom-overlays', { cache: 'no-store' });
+            const overlays = await response.json();
+            list.innerHTML = overlays.length ? overlays.map(overlay => `
+                <article class="overlay-row">
+                    <div><strong>${esc(overlay.name)}</strong><div class="meta">${esc(overlay.id)} · ${overlay.canvas.width}×${overlay.canvas.height} · revision ${overlay.revision}</div></div>
+                    <div><a class="btn" href="/custom-overlay-editor.html?id=${encodeURIComponent(overlay.id)}">Edit</a> <a class="btn" href="/custom-overlay.html?id=${encodeURIComponent(overlay.id)}" target="_blank" rel="noopener">Open</a> <button data-delete="${esc(overlay.id)}">Delete</button></div>
+                </article>`).join('') : '<div class="empty">No custom overlays yet.</div>';
+            list.querySelectorAll('[data-delete]').forEach(button => button.addEventListener('click', async () => {
+                if (!confirm(`Delete ${button.dataset.delete}?`)) return;
+                await fetch(`/api/custom-overlays/${encodeURIComponent(button.dataset.delete)}`, { method: 'DELETE' });
+                load();
+            }));
+        }
+        document.getElementById('create-btn').addEventListener('click', () => {
+            const id = prompt('Overlay id, e.g. be-right-back');
+            if (id) location.href = `/custom-overlay-editor.html?id=${encodeURIComponent(id)}&new=1`;
+        });
+        load().catch(error => { list.innerHTML = `<div class="empty">${esc(error.message)}</div>`; });
+    </script>
+</body>
+</html>

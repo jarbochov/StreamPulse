@@ -94,6 +94,7 @@ Add **Browser Sources** in OBS with these URLs:
 - Credits: `http://localhost:3000/credits-editor.html`
 - Theme: `http://localhost:3000/theme-editor.html`
 - Overlay URL Wizard: `http://localhost:3000/overlay-url-wizard.html`
+- Custom Overlays: `http://localhost:3000/custom-overlays.html`
 - Music Editor: `http://localhost:3000/music-editor.html`
 - Timer Manager: `http://localhost:3000/timers-editor.html`
 - Timer URL Wizard: `http://localhost:3000/timer-url-wizard.html`
@@ -166,6 +167,7 @@ If StreamPulse is intentionally hosted somewhere other than localhost, set `twit
 The updater works on Windows, macOS, and Linux when StreamPulse is run from a Git checkout with Git and Node.js/npm available. On Windows, the server uses the native `npm.cmd` command automatically. Keep the production folder writable and avoid running with uncommitted tracked code changes; data is backed up before an update.
 - **Discord Webhooks** — Optional notifications for raids, subs, donations, bits, and follows
 - **Preview Mode** — `?preview=true` renders credits without scrolling for layout testing
+- **Custom Overlays** — Create JSON-backed canvas overlays with text, Markdown, images, video, shapes, drag positioning, and live WebSocket updates after saving
 
 ## How It Works
 

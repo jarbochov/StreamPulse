@@ -51,6 +51,7 @@ const CLIP_CANDIDATES_PATH = path.join(DATA_DIR, 'clip-candidates.json');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const EMOTE_CACHE_DIR = path.join(DATA_DIR, 'emote-cache');
 const TIMERS_PATH = path.join(DATA_DIR, 'timers.json');
+const CUSTOM_OVERLAYS_PATH = path.join(DATA_DIR, 'custom-overlays.json');
 
 const GOAL_TYPE_LABELS = {
     followers: 'Followers',
@@ -80,6 +81,86 @@ const DEFAULT_GOALS_CONFIG = {
     pause_completed_seconds: 0,
     items: []
 };
+
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'markdown', 'image', 'video', 'shape']);
+let customOverlays = {};
+
+function sanitizeOverlayId(value) {
+    return String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+}
+
+function normalizeOverlayElement(element = {}, index = 0) {
+    const type = CUSTOM_OVERLAY_ELEMENT_TYPES.has(element.type) ? element.type : 'text';
+    return {
+        id: sanitizeOverlayId(element.id) || `element-${index + 1}`,
+        type,
+        content: String(element.content || '').slice(0, 20000),
+        src: String(element.src || '').slice(0, 2000),
+        x: Number.isFinite(Number(element.x)) ? Number(element.x) : 0,
+        y: Number.isFinite(Number(element.y)) ? Number(element.y) : 0,
+        width: Math.max(1, Math.min(3840, Number(element.width) || 400)),
+        height: Math.max(1, Math.min(2160, Number(element.height) || 100)),
+        zIndex: Math.round(Number(element.zIndex) || 0),
+        visible: element.visible !== false,
+        style: {
+            fontFamily: String(element.style?.fontFamily || 'sans-serif').slice(0, 120),
+            fontSize: Math.max(8, Math.min(400, Number(element.style?.fontSize) || 32)),
+            fontWeight: String(element.style?.fontWeight || '400').slice(0, 20),
+            color: String(element.style?.color || '#ffffff').slice(0, 80),
+            textAlign: ['left', 'center', 'right'].includes(element.style?.textAlign) ? element.style.textAlign : 'left',
+            background: String(element.style?.background || 'transparent').slice(0, 120),
+            borderColor: String(element.style?.borderColor || 'transparent').slice(0, 80),
+            borderWidth: Math.max(0, Math.min(40, Number(element.style?.borderWidth) || 0)),
+            borderRadius: Math.max(0, Math.min(200, Number(element.style?.borderRadius) || 0)),
+            opacity: Number.isFinite(Number(element.style?.opacity))
+                ? Math.max(0, Math.min(1, Number(element.style.opacity)))
+                : 1,
+            objectFit: element.style?.objectFit === 'contain' ? 'contain' : 'cover'
+        }
+    };
+}
+
+function normalizeCustomOverlay(input = {}, idOverride = '') {
+    const id = sanitizeOverlayId(idOverride || input.id);
+    if (!id) throw new Error('Overlay id is required');
+    const elements = Array.isArray(input.elements)
+        ? input.elements.slice(0, 100).map(normalizeOverlayElement)
+        : [];
+    return {
+        id,
+        name: String(input.name || id).trim().slice(0, 120) || id,
+        revision: Math.max(1, Math.round(Number(input.revision) || 1)),
+        updatedAt: input.updatedAt || new Date().toISOString(),
+        canvas: {
+            width: Math.max(320, Math.min(3840, Number(input.canvas?.width) || 1920)),
+            height: Math.max(180, Math.min(2160, Number(input.canvas?.height) || 1080)),
+            background: String(input.canvas?.background || 'transparent').slice(0, 120)
+        },
+        elements
+    };
+}
+
+function loadCustomOverlays() {
+    try {
+        if (fs.existsSync(CUSTOM_OVERLAYS_PATH)) {
+            const stored = JSON.parse(fs.readFileSync(CUSTOM_OVERLAYS_PATH, 'utf8'));
+            customOverlays = Object.fromEntries(Object.entries(stored || {}).map(([id, overlay]) => {
+                const normalized = normalizeCustomOverlay(overlay, id);
+                return [normalized.id, normalized];
+            }));
+        }
+        console.log(`[Overlays] Loaded ${Object.keys(customOverlays).length} custom overlays`);
+    } catch (err) {
+        console.warn(`[Overlays] Could not load custom overlays: ${err.message}`);
+        customOverlays = {};
+    }
+}
+
+function saveCustomOverlays() {
+    fs.writeFileSync(CUSTOM_OVERLAYS_PATH, JSON.stringify(customOverlays, null, 2));
+}
+
+loadCustomOverlays();
 
 // Emote image cache: emote name → { path, format }
 const emoteCache = new Map();
@@ -2609,7 +2690,8 @@ function getBackupFileSpecs() {
         { src: path.join(DATA_DIR, 'bits.json'), dest: 'data/bits.json' },
         { src: path.join(DATA_DIR, 'followers.json'), dest: 'data/followers.json' },
         { src: HIGHLIGHTS_PATH, dest: 'data/highlights.jsonl' },
-        { src: CLIP_CANDIDATES_PATH, dest: 'data/clip-candidates.json' }
+        { src: CLIP_CANDIDATES_PATH, dest: 'data/clip-candidates.json' },
+        { src: CUSTOM_OVERLAYS_PATH, dest: 'data/custom-overlays.json' }
     ];
 }
 
@@ -3603,6 +3685,91 @@ const server = http.createServer(async (req, res) => {
 
         res.writeHead(400, { 'Content-Type': 'text/html' });
         res.end('<h1>Missing authorization code</h1><p><a href="/auth/twitch">Try again</a></p>');
+        return;
+    }
+
+    const customOverlayMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)$/);
+    if (pathname === '/api/custom-overlays' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(Object.values(customOverlays).map(({ id, name, revision, updatedAt, canvas }) => ({
+            id, name, revision, updatedAt, canvas
+        }))));
+        return;
+    }
+
+    if (pathname === '/api/custom-overlays' && req.method === 'POST') {
+        try {
+            const payload = JSON.parse(await readRequestBody(req) || '{}');
+            const overlay = normalizeCustomOverlay(payload);
+            if (customOverlays[overlay.id]) {
+                res.writeHead(409, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'An overlay with that id already exists' }));
+                return;
+            }
+            customOverlays[overlay.id] = overlay;
+            saveCustomOverlays();
+            broadcastToOverlays('custom-overlay-update', { id: overlay.id, overlay });
+            res.writeHead(201, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(overlay));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if (customOverlayMatch && req.method === 'GET') {
+        const id = sanitizeOverlayId(decodeURIComponent(customOverlayMatch[1]));
+        const overlay = customOverlays[id];
+        if (!overlay) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Overlay not found' }));
+            return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(overlay));
+        return;
+    }
+
+    if (customOverlayMatch && req.method === 'PUT') {
+        try {
+            const id = sanitizeOverlayId(decodeURIComponent(customOverlayMatch[1]));
+            if (!customOverlays[id]) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Overlay not found' }));
+                return;
+            }
+            const payload = JSON.parse(await readRequestBody(req) || '{}');
+            const overlay = normalizeCustomOverlay({
+                ...payload,
+                id,
+                revision: customOverlays[id].revision + 1,
+                updatedAt: new Date().toISOString()
+            }, id);
+            customOverlays[id] = overlay;
+            saveCustomOverlays();
+            broadcastToOverlays('custom-overlay-update', { id, overlay });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(overlay));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if (customOverlayMatch && req.method === 'DELETE') {
+        const id = sanitizeOverlayId(decodeURIComponent(customOverlayMatch[1]));
+        if (!customOverlays[id]) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Overlay not found' }));
+            return;
+        }
+        delete customOverlays[id];
+        saveCustomOverlays();
+        broadcastToOverlays('custom-overlay-update', { id, overlay: null });
+        res.writeHead(204);
+        res.end();
         return;
     }
 

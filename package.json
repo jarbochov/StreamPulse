@@ -23,7 +23,11 @@
   "dependencies": {
     "adm-zip": "^0.5.16",
     "archiver": "^7.0.1",
+    "dompurify": "^3.4.16",
+    "interactjs": "^1.10.28",
+    "marked": "^18.0.14",
     "puppeteer": "^24.40.0",
+    "sortablejs": "^1.15.7",
     "ws": "^8.19.0"
   }
 }

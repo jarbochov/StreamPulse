@@ -30,6 +30,7 @@
             { label: 'Goal', href: '/goal.html', target: '_blank' },
             { label: 'Goals Cycle', href: '/goal.html?mode=cycle', target: '_blank' },
             { label: 'Overlay URL Wizard', href: '/overlay-url-wizard.html' },
+            { label: 'Custom Overlays', href: '/custom-overlays.html' },
             { label: 'Music — Full', href: '/music.html?mode=full', target: '_blank' },
             { label: 'Music — Art Only', href: '/music.html?mode=art', target: '_blank' },
             { label: 'Music — Mini Bar', href: '/music.html?mode=mini', target: '_blank' },
