@@ -52,6 +52,8 @@ const EMOTE_CACHE_DIR = path.join(DATA_DIR, 'emote-cache');
 const TIMERS_PATH = path.join(DATA_DIR, 'timers.json');
 const CUSTOM_OVERLAYS_PATH = path.join(DATA_DIR, 'custom-overlays.json');
 const CUSTOM_OVERLAY_ASSETS_DIR = path.join(DATA_DIR, 'custom-overlay-assets');
+const CUSTOM_OVERLAY_HISTORY_DIR = path.join(DATA_DIR, 'custom-overlay-history');
+const CUSTOM_OVERLAY_HISTORY_LIMIT = 30;
 
 const GOAL_TYPE_LABELS = {
     followers: 'Followers',
@@ -100,7 +102,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
         gameList: {
             filter: ['scheduled', 'backlog', 'played', 'all'].includes(element.gameList?.filter) || /^list-[a-z0-9-]{1,40}$/.test(element.gameList?.filter || '') ? element.gameList.filter : 'scheduled',
             period: String(element.gameList?.period || '').slice(0, 40),
-            layout: ['grid', 'strip', 'list'].includes(element.gameList?.layout) ? element.gameList.layout : 'grid',
+            layout: ['grid', 'strip', 'list', 'kanban'].includes(element.gameList?.layout) ? element.gameList.layout : 'grid',
             columns: Math.max(1, Math.min(12, Math.round(Number(element.gameList?.columns) || 3))),
             gap: Math.max(0, Math.min(80, Number(element.gameList?.gap ?? 12))),
             max: Math.max(0, Math.min(100, Math.round(Number(element.gameList?.max) || 0))),
@@ -228,6 +230,21 @@ function rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily) {
     }
     if (oldFamily && newFamily && oldFamily !== newFamily) result = result.split(`'${oldFamily}'`).join(`'${newFamily}'`);
     return result;
+}
+
+// Every save keeps the version it replaced, so older revisions can be restored from the editor.
+const historyFile = id => path.join(CUSTOM_OVERLAY_HISTORY_DIR, `${sanitizeOverlayId(id)}.json`);
+function readOverlayHistory(id) {
+    try { const list = JSON.parse(fs.readFileSync(historyFile(id), 'utf8')); return Array.isArray(list) ? list : []; } catch { return []; }
+}
+function recordOverlayRevision(previous) {
+    if (!previous) return;
+    try {
+        fs.mkdirSync(CUSTOM_OVERLAY_HISTORY_DIR, { recursive: true });
+        const list = readOverlayHistory(previous.id).filter(entry => entry.revision !== previous.revision);
+        list.push({ revision: previous.revision, updatedAt: previous.updatedAt || '', name: previous.name, canvas: previous.canvas, elements: previous.elements });
+        fs.writeFileSync(historyFile(previous.id), JSON.stringify(list.slice(-CUSTOM_OVERLAY_HISTORY_LIMIT)));
+    } catch (err) { console.warn('[Overlays] Could not record revision history:', err.message); }
 }
 
 function saveCustomOverlays() {
@@ -2954,7 +2971,8 @@ function getBackupFileSpecs() {
         { src: path.join(DATA_DIR, 'followers.json'), dest: 'data/followers.json' },
         { src: HIGHLIGHTS_PATH, dest: 'data/highlights.jsonl' },
         { src: CLIP_CANDIDATES_PATH, dest: 'data/clip-candidates.json' },
-        { src: CUSTOM_OVERLAYS_PATH, dest: 'data/custom-overlays.json' }
+        { src: CUSTOM_OVERLAYS_PATH, dest: 'data/custom-overlays.json' },
+        { src: GAME_PLAN_PATH, dest: 'data/game-plan.json' }
     ];
 }
 
@@ -3382,6 +3400,9 @@ function performAutoBackup(force = false) {
         }
         if (fs.existsSync(CUSTOM_OVERLAY_ASSETS_DIR)) {
             zip.addLocalFolder(CUSTOM_OVERLAY_ASSETS_DIR, 'data/custom-overlay-assets');
+        }
+        if (fs.existsSync(CUSTOM_OVERLAY_HISTORY_DIR)) {
+            zip.addLocalFolder(CUSTOM_OVERLAY_HISTORY_DIR, 'data/custom-overlay-history');
         }
         zip.writeZip(backupPath);
         console.log(`[Backup] Auto-backup saved → ${backupPath}`);
@@ -4120,6 +4141,21 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    const historyMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/history(?:\/(\d+))?$/);
+    if (historyMatch && req.method === 'GET') {
+        const id = sanitizeOverlayId(decodeURIComponent(historyMatch[1]));
+        const list = readOverlayHistory(id);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        if (historyMatch[2]) {
+            const entry = list.find(item => item.revision === Number(historyMatch[2]));
+            if (!entry) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Revision not found' })); return; }
+            res.end(JSON.stringify(entry));
+        } else {
+            res.end(JSON.stringify({ current: customOverlays[id]?.revision || 0, revisions: list.map(({ revision, updatedAt, name, elements }) => ({ revision, updatedAt, name, elementCount: (elements || []).length })).reverse() }));
+        }
+        return;
+    }
+
     const customOverlayMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)$/);
     if (pathname === '/api/custom-overlays' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -4178,6 +4214,7 @@ const server = http.createServer(async (req, res) => {
                 revision: customOverlays[id].revision + 1,
                 updatedAt: new Date().toISOString()
             }, id);
+            recordOverlayRevision(customOverlays[id]);
             customOverlays[id] = overlay;
             saveCustomOverlays();
             broadcastToOverlays('custom-overlay-update', { id, overlay });
@@ -4199,6 +4236,7 @@ const server = http.createServer(async (req, res) => {
         }
         delete customOverlays[id];
         saveCustomOverlays();
+        try { fs.unlinkSync(historyFile(id)); } catch { /* no history */ }
         broadcastToOverlays('custom-overlay-update', { id, overlay: null });
         res.writeHead(204);
         res.end();
@@ -5896,6 +5934,9 @@ const server = http.createServer(async (req, res) => {
         if (fs.existsSync(CUSTOM_OVERLAY_ASSETS_DIR)) {
             archive.directory(CUSTOM_OVERLAY_ASSETS_DIR, 'data/custom-overlay-assets');
         }
+        if (fs.existsSync(CUSTOM_OVERLAY_HISTORY_DIR)) {
+            archive.directory(CUSTOM_OVERLAY_HISTORY_DIR, 'data/custom-overlay-history');
+        }
 
         archive.finalize();
         return;
@@ -5970,6 +6011,7 @@ const server = http.createServer(async (req, res) => {
                 loadHighlights();
                 loadClipCandidates();
                 loadTimers();
+                loadCustomOverlays();
                 loadCurrentSessionStateFromDisk();
                 broadcastToOverlays('update', chatData);
                 broadcastToOverlays('timers-snapshot', buildTimersSnapshot());

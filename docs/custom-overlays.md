@@ -29,7 +29,7 @@ Text and Markdown content support live variables using double braces. The editor
 
 ### Game list element
 
-The **Game list** element shows games from the Game Plan (`/game-plan-editor.html`). Choose Scheduled, Backlog, Played, any custom list, or everything; optionally filter by period; and pick a cover grid, cover strip or text list. **Cover fit** can crop, letterbox or keep natural proportions, and **Shrink everything to fit** scales the list down so it is never clipped. Heading and title sizes can be set in pixels, and long titles can wrap instead of being cut off. The game matching your current Twitch category gets a *Now playing* badge.
+The **Game list** element shows games from the Game Plan (`/game-plan-editor.html`). Choose Scheduled, Backlog, Played, any custom list, or everything; optionally filter by period; and pick a cover grid, cover strip, text list or **Columns** (a kanban-style layout with one column per period, or per list when showing everything). **Cover fit** can crop, letterbox or keep natural proportions, and **Shrink everything to fit** scales the list down so it is never clipped. Heading and title sizes can be set in pixels, and long titles can wrap instead of being cut off. The game matching your current Twitch category gets a *Now playing* badge.
 
 Shapes support rectangle, circle, pill, and line variants. Text supports a curated font-family picker, size, weight, color, horizontal alignment, vertical alignment, line height, letter spacing, background, border, and opacity. Multiple elements can be selected with Ctrl/Cmd or Shift and aligned or moved as a group.
 
@@ -46,6 +46,7 @@ The editor is a three-pane workspace: editor settings and layers on the left, th
 - **Uploaded fonts:** upload a `.ttf`, `.otf`, `.woff` or `.woff2` file (from Typography > Upload font, or the Assets section). Fonts are loaded with `@font-face` in both the editor and the runtime, so they work in Safari (which hides user-installed fonts from web pages) and in OBS on any machine. They appear under **Uploaded fonts** in the font picker, and the font name comes from the file name.
 - **Asset API:** `GET /api/custom-overlays/assets`, `POST /api/custom-overlays/assets/:name/rename` with `{ "name": "New name" }`, and `DELETE /api/custom-overlays/assets/:name` (returns 409 for in-use assets unless `?force=1`).
 - **Fonts:** the font picker includes common system fonts plus selected Google Fonts, including Silkscreen; Google Fonts are loaded when used by the editor or runtime. Random Text typewriter mode includes a blinking cursor modeled after the existing StreamEndRandom screen.
+- **Revision history:** every save keeps the version it replaced (the last 30 per overlay, in `data/custom-overlay-history/`, included in backups). **History** in the top bar lists them; **Restore** loads one into the editor as an unsaved change, so you can review or undo it before saving it as a new revision. `GET /api/custom-overlays/:id/history` and `/history/:revision` expose them.
 - **Unsaved changes** are flagged in the top bar, and the browser warns before you leave.
 
 The editor and runtime share `overlay-shared.js` (variables, Markdown rendering, and font loading) so previews match what OBS renders.

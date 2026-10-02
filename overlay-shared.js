@@ -361,7 +361,19 @@
         inner.style.transformOrigin = 'top center';
         node.appendChild(inner);
         const sections = [];
-        if (config.headings !== false && config.filter !== 'backlog') {
+        const kanban = layout === 'kanban';
+        const statusNames = { scheduled: 'Scheduled', backlog: 'Backlog', played: 'Played' };
+        for (const entry of plan?.lists || []) statusNames[entry.id] = entry.name;
+        if (kanban) {
+            // One column per period, or per list when showing everything.
+            for (const item of items) {
+                const label = config.filter === 'all' ? (statusNames[item.status] || item.status) : (item.period || 'No period');
+                let section = sections.find(entry => entry.label === label);
+                if (!section) { section = { label, items: [] }; sections.push(section); }
+                section.items.push(item);
+            }
+            inner.style.cssText += `display:flex;align-items:flex-start;gap:${gap}px;transform-origin:top left;`;
+        } else if (config.headings !== false && config.filter !== 'backlog') {
             for (const item of items) {
                 const label = item.period || '';
                 let section = sections.find(entry => entry.label === label);
@@ -398,20 +410,26 @@
         };
 
         for (const section of sections) {
+            let holder = inner;
+            if (kanban) {
+                holder = document.createElement('div');
+                holder.style.cssText = `flex:1 1 0;min-width:0;background:rgba(255,255,255,.06);border-radius:${Math.min(16, style.borderRadius || 10)}px;padding:.6em;box-sizing:border-box;`;
+                inner.appendChild(holder);
+            }
             if (section.label) {
                 const heading = document.createElement('div');
                 heading.textContent = section.label;
-                heading.style.cssText = `font-weight:700;margin:0 0 .35em;opacity:.85;${config.headingSize > 0 ? `font-size:${config.headingSize}px;` : ''}`;
-                inner.appendChild(heading);
+                heading.style.cssText = `font-weight:700;margin:0 0 .5em;opacity:.85;${config.headingSize > 0 ? `font-size:${config.headingSize}px;` : ''}`;
+                holder.appendChild(heading);
             }
             const body = document.createElement('div');
-            body.style.marginBottom = `${gap}px`;
-            if (layout === 'list') {
+            body.style.marginBottom = kanban ? '0' : `${gap}px`;
+            if (layout === 'list' || kanban) {
                 body.style.cssText += `display:flex;flex-direction:column;gap:${gap / 2}px;`;
                 for (const item of section.items) {
                     const row = document.createElement('div');
                     row.style.cssText = 'display:flex;align-items:center;gap:.6em;';
-                    if (config.showCovers !== false) row.appendChild(cover(item, 'width:2.4em;height:3.2em;flex:none;'));
+                    if (config.showCovers !== false) row.appendChild(cover(item, kanban ? 'width:3em;height:4em;flex:none;' : 'width:2.4em;height:3.2em;flex:none;'));
                     const text = document.createElement('div');
                     text.style.cssText = 'min-width:0;flex:1;';
                     const title = document.createElement('div');
@@ -448,7 +466,7 @@
                     body.appendChild(card);
                 }
             }
-            inner.appendChild(body);
+            holder.appendChild(body);
         }
 
         // "Fit everything" scales the whole list down (never up) so nothing is clipped by the element height.

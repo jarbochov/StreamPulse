@@ -81,7 +81,10 @@
         .align-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .25rem; }
         .align-grid button { padding: .35rem 0; }
         .asset-preview { max-width: 100%; max-height: 110px; border: 1px solid var(--border); border-radius: 6px; background: repeating-conic-gradient(#2a2f38 0 25%, #353b46 0 50%) 0 0 / 14px 14px; object-fit: contain; }
-        #variable-dialog { width: min(640px, 92vw); max-width: 640px; }
+        #variable-dialog, #revision-dialog { width: min(640px, 92vw); max-width: 640px; }
+        #revision-list { max-height: 55vh; overflow: auto; margin-top: .6rem; display: grid; gap: .35rem; }
+        #revision-list .rev { display: flex; align-items: center; gap: .6rem; padding: .45rem .6rem; border: 1px solid var(--border); border-radius: 8px; }
+        #revision-list .rev span { flex: 1; min-width: 0; } #revision-list .rev small { display: block; color: var(--muted); }
         #variable-list { max-height: 55vh; overflow: auto; margin-top: .6rem; }
         #variable-list h4 { margin: .8rem 0 .3rem; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
         #variable-list button { display: grid; grid-template-columns: 1fr auto; gap: .2rem .8rem; width: 100%; text-align: left; margin-bottom: .25rem; }
@@ -216,6 +219,7 @@
             <button id="redo" class="icon" title="Redo (Ctrl/⌘+Shift+Z)" aria-label="Redo" disabled></button>
             <button id="help" class="icon ghost" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">?</button>
             <span class="divider"></span>
+            <button id="revisions" class="hide-narrow" title="Browse and restore earlier saved revisions">History</button>
             <button id="copy-url" class="hide-narrow" title="Copy the browser-source URL for OBS">Copy OBS URL</button>
             <button id="preview" class="hide-narrow" title="Open the runtime page in a new tab">Open Runtime</button>
             <button id="save" class="primary" title="Save and push live (Ctrl/⌘+S)">Save &amp; Push Live</button>
@@ -285,6 +289,12 @@
         <input id="asset-search" type="search" placeholder="Filter by name…">
         <div id="asset-grid"></div>
         <div class="dialog-actions"><label class="btn-like" style="margin-right:auto">Upload new…<input id="asset-upload" type="file" hidden></label><button id="asset-close">Cancel</button></div>
+    </dialog>
+    <dialog id="revision-dialog">
+        <h3>Revision history</h3>
+        <p class="hint" style="margin:0">Each save keeps the version it replaced (last 30). Restoring loads that version into the editor as an unsaved change, so you can review it, undo it, or save it as a new revision.</p>
+        <div id="revision-list"></div>
+        <div class="dialog-actions"><button id="revision-close">Close</button></div>
     </dialog>
     <dialog id="variable-dialog">
         <h3>Insert placeholder</h3>
@@ -973,7 +983,7 @@
         return F.section('gamelist', 'Game list', `
             ${F.select('gameList.filter', 'Show', g.filter || 'scheduled', [['scheduled', 'Scheduled games'], ['backlog', 'Backlog'], ['played', 'Played'], ...(liveStatus.gamePlan?.lists || []).map(list => [list.id, `List: ${list.name}`]), ['all', 'Everything']])}
             ${F.text('gameList.period', 'Only this period', g.period || '', 'placeholder="e.g. October (blank = all)"')}
-            ${F.select('gameList.layout', 'Layout', g.layout || 'grid', [['grid', 'Cover grid'], ['strip', 'Cover strip'], ['list', 'Text list']])}
+            ${F.select('gameList.layout', 'Layout', g.layout || 'grid', [['grid', 'Cover grid'], ['strip', 'Cover strip'], ['list', 'Text list'], ['kanban', 'Columns (one per group)']])}
             ${g.layout === 'grid' || !g.layout ? F.number('gameList.columns', 'Columns', g.columns || 3, { min: 1, max: 12 }) : ''}
             <div class="grid2">${F.number('gameList.gap', 'Gap (px)', g.gap ?? 12, { min: 0, max: 80 })}${F.number('gameList.max', 'Max games (0 = all)', g.max || 0, { min: 0, max: 100 })}</div>
             ${F.select('gameList.meta', 'Extra line', g.meta || 'none', [['none', 'None'], ['year', 'Release year'], ['genres', 'Genres'], ['note', 'Your note']])}
@@ -1564,6 +1574,36 @@
         finally { saving = false; $('save').disabled = false; $('save').textContent = 'Save & Push Live'; updateHistoryUI(); }
     }
     $('save').addEventListener('click', save);
+
+    const revisionDialog = $('revision-dialog');
+    $('revisions').addEventListener('click', async () => {
+        if (isNew) { toast('Save the overlay first. History starts with the second save.', 'warn'); return; }
+        const list = $('revision-list');
+        list.innerHTML = '<p class="hint">Loading…</p>';
+        revisionDialog.showModal();
+        try {
+            const data = await (await fetch(`/api/custom-overlays/${encodeURIComponent(overlay.id)}/history`, { cache: 'no-store' })).json();
+            list.innerHTML = data.revisions.length ? data.revisions.map(rev => `<div class="rev"><span><b>Revision ${rev.revision}</b>${rev.name ? ` · ${esc(rev.name)}` : ''}<small>${rev.updatedAt ? esc(new Date(rev.updatedAt).toLocaleString()) : 'Earlier save'} · ${rev.elementCount} element${rev.elementCount === 1 ? '' : 's'}</small></span><button type="button" data-rev="${rev.revision}">Restore</button></div>`).join('') : '<p class="hint">No earlier revisions yet. They appear after you save again.</p>';
+        } catch { list.innerHTML = '<p class="hint">Could not load history.</p>'; }
+    });
+    $('revision-close').addEventListener('click', () => revisionDialog.close());
+    $('revision-list').addEventListener('click', async event => {
+        const revision = event.target.closest('[data-rev]')?.dataset.rev;
+        if (!revision) return;
+        try {
+            const response = await fetch(`/api/custom-overlays/${encodeURIComponent(overlay.id)}/history/${revision}`, { cache: 'no-store' });
+            if (!response.ok) throw new Error('That revision is no longer available.');
+            const old = normalizeLoaded(await response.json());
+            flushHistory();
+            overlay.name = old.name || overlay.name; overlay.canvas = old.canvas; overlay.elements = old.elements;
+            selectedIds = new Set();
+            changed(true);
+            renderAll();
+            if (autoFit) fitView(true);
+            revisionDialog.close();
+            toast(`Loaded revision ${revision}. Review it, then Save & Push Live to apply (Undo to go back).`, 'success', 5000);
+        } catch (error) { toast(error.message, 'error', 4000); }
+    });
     window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
 
     function renderAll() {
