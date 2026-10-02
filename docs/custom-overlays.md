@@ -28,6 +28,8 @@ Shapes support rectangle, circle, pill, and line variants. Text supports a curat
 
 Random Text elements support random or entered-order display, configurable refresh intervals, typewriter animation, and marquee animation.
 
+The editor provides visible corner handles for resizing selected elements and supports panning the canvas. Reset View restores the default 50% zoom and viewport position. The font picker includes common system fonts plus selected Google Fonts; Google Fonts are loaded when used by the editor or runtime.
+
 ## API
 
 - `GET /api/custom-overlays` — list definitions

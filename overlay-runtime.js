@@ -7,6 +7,7 @@
     const randomTimers = new Map();
     const randomIndexes = new Map();
     let currentOverlay = null;
+    const googleFonts = new Set(['Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Oswald', 'Poppins', 'Raleway', 'Merriweather', 'Playfair Display', 'Bebas Neue', 'Fira Code']);
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -84,8 +85,21 @@
         return String(value || '').replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (_, name) => getVariable(name));
     }
 
+    function loadGoogleFont(fontFamily) {
+        const name = String(fontFamily || '').replace(/^['"]|['"]$/g, '').split(',')[0].trim();
+        if (!googleFonts.has(name)) return;
+        const id = `google-font-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+        if (document.getElementById(id)) return;
+        const link = document.createElement('link');
+        link.id = id;
+        link.rel = 'stylesheet';
+        link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(name).replace(/%20/g, '+')}:wght@400;600;700;900&display=swap`;
+        document.head.appendChild(link);
+    }
+
     function applyElementStyle(node, element) {
         const style = element.style || {};
+        loadGoogleFont(style.fontFamily);
         Object.assign(node.style, {
             left: `${element.x || 0}px`,
             top: `${element.y || 0}px`,

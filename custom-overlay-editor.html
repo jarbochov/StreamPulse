@@ -33,11 +33,14 @@
         .toolbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; align-items: center; }
         #canvas-wrap { overflow: auto; position: relative; background: #0d1117; border: 1px solid #30363d; padding: 2.25rem 1rem 1rem; min-height: 620px; cursor: grab; }
         #canvas-wrap.panning { cursor: grabbing; }
-        #canvas-frame { position: relative; border: 2px solid #58a6ff; box-shadow: 0 0 0 1px #58a6ff33, 0 8px 24px #0008; }
+        #canvas-frame { position: relative; border: 2px solid #58a6ff; box-shadow: 0 0 0 1px #58a6ff33, 0 8px 24px #0008; transform-origin: top left; }
         #canvas-frame::before { content: attr(data-bounds); position: absolute; left: 0; top: -1.6rem; color: #58a6ff; font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
         #canvas { position: relative; transform-origin: top left; background-image: linear-gradient(#ffffff0b 1px, transparent 1px), linear-gradient(90deg, #ffffff0b 1px, transparent 1px); background-size: 20px 20px; }
         .canvas-element { position: absolute; overflow: hidden; white-space: pre-wrap; word-break: break-word; cursor: move; }
         .canvas-element.selected { outline: 2px solid #58a6ff; outline-offset: 2px; }
+        .resize-handle { position: absolute; width: 9px; height: 9px; background: #58a6ff; border: 1px solid #dbeafe; border-radius: 2px; z-index: 20; pointer-events: none; }
+        .resize-handle.nw { left: 0; top: 0; cursor: nwse-resize; }.resize-handle.ne { right: 0; top: 0; cursor: nesw-resize; }
+        .resize-handle.sw { left: 0; bottom: 0; cursor: nesw-resize; }.resize-handle.se { right: 0; bottom: 0; cursor: nwse-resize; }
         .canvas-element img, .canvas-element video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
         .canvas-element.markdown { white-space: normal; }
         .canvas-element.markdown p { margin: 0 0 .5em; }
@@ -98,8 +101,21 @@
         const status = document.getElementById('status');
         const defaults = { text: 'Text element', 'random-text': 'Random phrase', markdown: '**Markdown** element', image: '', video: '', embed: '', shape: '' };
         let zoom = 0.5;
+        let viewPan = { x: 0, y: 0 };
+        const GOOGLE_FONTS = new Set(['Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Oswald', 'Poppins', 'Raleway', 'Merriweather', 'Playfair Display', 'Bebas Neue', 'Fira Code']);
         function esc(value) { return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
         function safeColor(value) { return /^#[0-9a-f]{6}$/i.test(String(value || '')) ? value : '#000000'; }
+        function loadGoogleFont(fontFamily) {
+            const name = String(fontFamily || '').replace(/^['"]|['"]$/g, '').split(',')[0].trim();
+            if (!GOOGLE_FONTS.has(name)) return;
+            const id = `google-font-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+            if (document.getElementById(id)) return;
+            const link = document.createElement('link');
+            link.id = id;
+            link.rel = 'stylesheet';
+            link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(name).replace(/%20/g, '+')}:wght@400;600;700;900&display=swap`;
+            document.head.appendChild(link);
+        }
         function selected() { return selectedIds.size === 1 ? overlay.elements.find(item => selectedIds.has(item.id)) : null; }
         function selectedElements() { return overlay.elements.filter(item => selectedIds.has(item.id)); }
         function selectElement(id, additive = false) {
@@ -122,6 +138,7 @@
             canvas.style.transform = `scale(${zoom})`;
             canvasFrame.style.width = `${overlay.canvas.width * zoom}px`;
             canvasFrame.style.height = `${overlay.canvas.height * zoom}px`;
+            canvasFrame.style.transform = `translate(${viewPan.x}px, ${viewPan.y}px)`;
             canvasFrame.dataset.bounds = `${overlay.canvas.width} × ${overlay.canvas.height}`;
             document.getElementById('zoom').value = Math.round(zoom * 100);
             document.getElementById('zoom-value').textContent = `${Math.round(zoom * 100)}%`;
@@ -170,6 +187,15 @@
                     }
                 }
                 else node.textContent = element.content || '';
+                loadGoogleFont(element.style.fontFamily);
+                if (selectedIds.has(element.id)) {
+                    for (const corner of ['nw', 'ne', 'sw', 'se']) {
+                        const handle = document.createElement('span');
+                        handle.className = `resize-handle ${corner}`;
+                        handle.setAttribute('aria-hidden', 'true');
+                        node.appendChild(handle);
+                    }
+                }
                 node.addEventListener('click', event => { event.stopPropagation(); selectElement(element.id, event.shiftKey || event.ctrlKey || event.metaKey); });
                 canvas.appendChild(node);
             }
@@ -220,7 +246,7 @@
                 <div class="row"><label>X<input id="element-x" type="number" value="${element.x}"></label><label>Y<input id="element-y" type="number" value="${element.y}"></label></div>
                 <div class="row"><label>Width<input id="element-width" type="number" value="${element.width}"></label><label>Height<input id="element-height" type="number" value="${element.height}"></label></div>
                 <div class="row"><label>Font size<input id="element-font-size" type="number" value="${element.style.fontSize}"></label><label>Font color<div class="color-control"><input id="element-color" value="${esc(element.style.color)}"><input id="element-color-picker" type="color" value="${safeColor(element.style.color)}"></div></label></div>
-                <label>Font family<select id="element-font"><option value="sans-serif">System sans-serif</option><option value="Arial, sans-serif">Arial</option><option value="Helvetica, sans-serif">Helvetica</option><option value="Georgia, serif">Georgia</option><option value="Impact, sans-serif">Impact</option><option value="monospace">Monospace</option><option value="'Courier New', monospace">Courier New</option><option value="'Trebuchet MS', sans-serif">Trebuchet MS</option></select></label>
+                <label>Font family<select id="element-font"><option value="sans-serif">System sans-serif</option><option value="Arial, sans-serif">Arial</option><option value="Helvetica, sans-serif">Helvetica</option><option value="Georgia, serif">Georgia</option><option value="Impact, sans-serif">Impact</option><option value="monospace">Monospace</option><option value="'Courier New', monospace">Courier New</option><option value="'Trebuchet MS', sans-serif">Trebuchet MS</option><optgroup label="Google Fonts"><option value="'Roboto', sans-serif">Roboto</option><option value="'Open Sans', sans-serif">Open Sans</option><option value="'Lato', sans-serif">Lato</option><option value="'Montserrat', sans-serif">Montserrat</option><option value="'Oswald', sans-serif">Oswald</option><option value="'Poppins', sans-serif">Poppins</option><option value="'Raleway', sans-serif">Raleway</option><option value="'Merriweather', serif">Merriweather</option><option value="'Playfair Display', serif">Playfair Display</option><option value="'Bebas Neue', sans-serif">Bebas Neue</option><option value="'Fira Code', monospace">Fira Code</option></optgroup></select></label>
                 <div class="row"><label>Weight<select id="element-weight"><option value="400">Normal</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="900">Black</option></select></label><label>Text align<select id="element-align"><option>left</option><option>center</option><option>right</option></select></label></div>
                 <div class="row"><label>Vertical align<select id="element-vertical"><option value="top">Top</option><option value="middle">Middle</option><option value="bottom">Bottom</option></select></label><label>Line height<input id="element-line-height" type="number" step="0.1" value="${element.style.lineHeight}"></label></div>
                 <div class="row"><label>Background<div class="color-control"><input id="element-background" value="${esc(element.style.background)}"><input id="element-background-picker" type="color" value="${safeColor(element.style.background)}"></div></label><label>Shape<select id="element-shape"><option value="rectangle">Rectangle</option><option value="circle">Circle</option><option value="pill">Pill</option><option value="line">Line</option></select></label></div>
@@ -240,7 +266,7 @@
                 else if (name === 'font-size') element.style.fontSize = Number(value) || 32;
                 else if (name === 'border-width') element.style.borderWidth = Number(value) || 0;
                 else if (name === 'color') element.style.color = value;
-                else if (name === 'font') element.style.fontFamily = value;
+                else if (name === 'font') { element.style.fontFamily = value; loadGoogleFont(value); }
                 else if (name === 'background') element.style.background = value;
                 else if (name === 'border-color') element.style.borderColor = value;
                 else if (name === 'weight') element.style.fontWeight = value;
@@ -317,6 +343,30 @@
                     }
                 }
             });
+            interact('.canvas-element').resizable({
+                edges: { top: true, right: true, bottom: true, left: true },
+                listeners: {
+                    move(event) {
+                        const element = overlay.elements.find(item => item.id === event.target.dataset.id);
+                        if (!element || !selectedIds.has(element.id)) return;
+                        element.width = Math.max(20, Math.min(overlay.canvas.width, event.rect.width / zoom));
+                        element.height = Math.max(20, Math.min(overlay.canvas.height, event.rect.height / zoom));
+                        element.x += event.deltaRect.left / zoom;
+                        element.y += event.deltaRect.top / zoom;
+                        element.x = Math.max(0, Math.min(overlay.canvas.width - element.width, element.x));
+                        element.y = Math.max(0, Math.min(overlay.canvas.height - element.height, element.y));
+                        event.target.style.left = `${element.x}px`;
+                        event.target.style.top = `${element.y}px`;
+                        event.target.style.width = `${element.width}px`;
+                        event.target.style.height = `${element.height}px`;
+                        for (const [id, value] of [['element-x', element.x], ['element-y', element.y], ['element-width', element.width], ['element-height', element.height]]) {
+                            const field = document.getElementById(id);
+                            if (field) field.value = Math.round(value);
+                        }
+                    }
+                },
+                modifiers: [interact.modifiers.restrictSize({ min: { width: 20, height: 20 } })]
+            });
         }
         function addElement(type) {
             const id = `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -343,20 +393,26 @@
         });
         document.getElementById('zoom').addEventListener('input', event => { zoom = Number(event.target.value) / 100; syncOverlayFields(); });
         document.getElementById('reset-view').addEventListener('click', () => {
+            zoom = 0.5;
+            viewPan = { x: 0, y: 0 };
             document.getElementById('canvas-wrap').scrollTo({ left: 0, top: 0, behavior: 'smooth' });
+            syncOverlayFields();
+            status.textContent = 'View reset';
+            setTimeout(() => { if (status.textContent === 'View reset') status.textContent = ''; }, 1200);
         });
         const canvasWrap = document.getElementById('canvas-wrap');
         let panStart = null;
         canvasWrap.addEventListener('pointerdown', event => {
             if (event.target.closest('.canvas-element') && event.button !== 1 && !event.shiftKey && !event.altKey) return;
-            panStart = { x: event.clientX, y: event.clientY, left: canvasWrap.scrollLeft, top: canvasWrap.scrollTop };
+            panStart = { x: event.clientX, y: event.clientY, panX: viewPan.x, panY: viewPan.y };
             canvasWrap.classList.add('panning');
             canvasWrap.setPointerCapture(event.pointerId);
         });
         canvasWrap.addEventListener('pointermove', event => {
             if (!panStart) return;
-            canvasWrap.scrollLeft = panStart.left - (event.clientX - panStart.x);
-            canvasWrap.scrollTop = panStart.top - (event.clientY - panStart.y);
+            viewPan.x = panStart.panX + event.clientX - panStart.x;
+            viewPan.y = panStart.panY + event.clientY - panStart.y;
+            canvasFrame.style.transform = `translate(${viewPan.x}px, ${viewPan.y}px)`;
         });
         canvasWrap.addEventListener('pointerup', () => { panStart = null; canvasWrap.classList.remove('panning'); });
         canvasWrap.addEventListener('pointercancel', () => { panStart = null; canvasWrap.classList.remove('panning'); });
