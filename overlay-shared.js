@@ -75,5 +75,21 @@
         document.head.appendChild(link);
     }
 
-    root.OverlayShared = { GOOGLE_FONTS, VARIABLE_GROUPS, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    // Uploaded font files are registered with @font-face so they work in browsers that hide installed fonts (Safari).
+    const assetFonts = [];
+    async function loadAssetFonts() {
+        try {
+            const response = await fetch('/api/custom-overlays/assets', { cache: 'no-store' });
+            if (!response.ok) return assetFonts;
+            const fonts = (await response.json()).filter(asset => asset.kind === 'font');
+            assetFonts.splice(0, assetFonts.length, ...fonts);
+            let style = document.getElementById('asset-font-faces');
+            if (!style) { style = document.createElement('style'); style.id = 'asset-font-faces'; document.head.appendChild(style); }
+            style.textContent = fonts.map(font => `@font-face { font-family: '${font.family.replace(/'/g, '')}'; src: url('${font.url}'); font-display: swap; }`).join('\n');
+            await Promise.all(fonts.map(font => document.fonts.load(`16px '${font.family}'`).catch(() => null)));
+        } catch { /* fonts are optional */ }
+        return assetFonts;
+    }
+
+    root.OverlayShared = { GOOGLE_FONTS, VARIABLE_GROUPS, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);

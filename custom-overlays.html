@@ -12,8 +12,8 @@
         .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem; }
         .toolbar, .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; }
         .toolbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-        button, a.btn { border: 1px solid #30363d; border-radius: 6px; padding: .5rem .75rem; background: #21262d; color: #e1e4e8; cursor: pointer; text-decoration: none; font: inherit; }
-        button:hover, a.btn:hover { border-color: #58a6ff; background: #1a2332; }
+        button, a.btn, label.btn { border: 1px solid #30363d; border-radius: 6px; padding: .5rem .75rem; background: #21262d; color: #e1e4e8; cursor: pointer; text-decoration: none; font: inherit; }
+        button:hover, a.btn:hover, label.btn:hover { border-color: #58a6ff; background: #1a2332; }
         button.primary { border-color: #1f6feb; background: #1a2332; }
         .overlay-list { display: grid; gap: .75rem; }
         .overlay-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -26,6 +26,9 @@
         .asset .thumb img, .asset .thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
         .asset .info { padding: .55rem .65rem; display: grid; gap: .25rem; font-size: .8rem; }
         .asset .name { overflow-wrap: anywhere; font-weight: 600; }
+        select { background: #21262d; color: #e1e4e8; border: 1px solid #30363d; border-radius: 6px; padding: .45rem .5rem; font: inherit; }
+        #asset-drop.over { border-color: #58a6ff !important; color: #58a6ff; }
+        .asset .sample { position: absolute; inset: 0; display: grid; place-items: center; padding: .4rem; font-size: 1.15rem; text-align: center; color: #e1e4e8; }
         .badge { display: inline-block; padding: .05rem .4rem; border-radius: 999px; font-size: .7rem; border: 1px solid #30363d; color: #8b949e; }
         .badge.used { border-color: #1f6feb; color: #58a6ff; }
         .asset button { margin-top: .3rem; padding: .3rem .5rem; font-size: .8rem; }
@@ -44,7 +47,8 @@
             <div id="overlay-list" class="overlay-list"><div class="empty">Loading overlays...</div></div>
         </section>
         <section class="card assets">
-            <h2>Assets <span><button id="purge-btn" hidden>Delete all unused</button></span></h2>
+            <h2>Assets <span style="display:flex;gap:.5rem;flex-wrap:wrap"><select id="asset-filter" aria-label="Filter assets"><option value="all">All</option><option value="image">Images</option><option value="video">Videos</option><option value="font">Fonts</option></select><label class="btn" for="asset-upload">Upload…</label><input id="asset-upload" type="file" multiple hidden accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.ogg,.ttf,.otf,.woff,.woff2"><button id="purge-btn" hidden>Delete all unused</button></span></h2>
+            <div id="asset-drop" class="empty" style="padding:.6rem;margin-bottom:.75rem;border:1px dashed #30363d;border-radius:8px">Drop images, videos or fonts here to upload (100 MB max each)</div>
             <div id="asset-list" class="asset-grid"><div class="empty">Loading assets...</div></div>
         </section>
     </main>
@@ -68,43 +72,86 @@
         const assetList = document.getElementById('asset-list');
         const purgeBtn = document.getElementById('purge-btn');
         const formatSize = bytes => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
-        const isVideo = name => /\.(mp4|webm|ogg)$/i.test(name);
+        const filterSelect = document.getElementById('asset-filter');
+        const dropZone = document.getElementById('asset-drop');
+        const fileInput = document.getElementById('asset-upload');
+        const TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2' };
         let assets = [];
-        async function removeAsset(asset, force) {
-            const response = await fetch(`/api/custom-overlays/assets/${encodeURIComponent(asset.name)}${force ? '?force=1' : ''}`, { method: 'DELETE' });
-            if (!response.ok && response.status !== 404) throw new Error((await response.json().catch(() => ({}))).error || `Delete failed (${response.status})`);
+        let visible = [];
+        async function api(url, options) {
+            const response = await fetch(url, options);
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) { const error = new Error(data.error || `Request failed (${response.status})`); error.data = data; throw error; }
+            return data;
+        }
+        async function uploadFiles(files) {
+            const failures = [];
+            for (const file of files) {
+                const type = TYPES[(file.name.split('.').pop() || '').toLowerCase()];
+                if (!type) { failures.push(`${file.name}: unsupported file type`); continue; }
+                try { await api('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': type, 'X-Asset-Name': file.name.replace(/[^\x20-\x7e]+/g, '-') }, body: file }); }
+                catch (error) { failures.push(`${file.name}: ${error.message}`); }
+            }
+            if (failures.length) alert(failures.join('\n'));
+            await loadAssets();
         }
         async function loadAssets() {
-            assets = await (await fetch('/api/custom-overlays/assets', { cache: 'no-store' })).json();
+            assets = await api('/api/custom-overlays/assets', { cache: 'no-store' });
+            const faces = assets.filter(asset => asset.kind === 'font').map(asset => `@font-face { font-family: '${asset.family}'; src: url('${asset.url}'); }`).join('\n');
+            let style = document.getElementById('asset-fonts');
+            if (!style) { style = document.createElement('style'); style.id = 'asset-fonts'; document.head.appendChild(style); }
+            style.textContent = faces;
             const unused = assets.filter(asset => !asset.usedBy.length);
             purgeBtn.hidden = !unused.length;
             purgeBtn.textContent = `Delete ${unused.length} unused`;
-            assetList.innerHTML = assets.length ? assets.map((asset, index) => `
+            renderAssets();
+        }
+        function renderAssets() {
+            const filter = filterSelect.value;
+            visible = assets.filter(asset => filter === 'all' || asset.kind === filter);
+            assetList.innerHTML = visible.length ? visible.map((asset, index) => `
                 <article class="asset">
-                    <div class="thumb">${isVideo(asset.name) ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="" loading="lazy">`}</div>
+                    <div class="thumb">${asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : asset.kind === 'font' ? `<div class="sample" style="font-family:'${esc(asset.family)}', sans-serif">The quick brown fox 123</div>` : `<img src="${esc(asset.url)}" alt="">`}</div>
                     <div class="info">
-                        <div class="name">${esc(asset.name)}</div>
-                        <div class="meta" style="margin:0">${formatSize(asset.size)}</div>
+                        <div class="name">${esc(asset.label)}</div>
+                        <div class="meta" style="margin:0">${esc(asset.kind)} · ${formatSize(asset.size)}</div>
                         <div>${asset.usedBy.length ? `<span class="badge used" title="${esc(asset.usedBy.map(o => o.id).join(', '))}">Used by ${asset.usedBy.map(o => esc(o.name || o.id)).join(', ')}</span>` : '<span class="badge">Unused</span>'}</div>
-                        <button data-asset="${index}">Delete</button>
+                        <div style="display:flex;gap:.4rem"><button data-rename="${index}" style="flex:1">Rename</button><button data-asset="${index}" style="flex:1">Delete</button></div>
                     </div>
-                </article>`).join('') : '<div class="empty">No uploaded assets.</div>';
+                </article>`).join('') : `<div class="empty">No ${filter === 'all' ? '' : filter + ' '}assets.</div>`;
         }
         assetList.addEventListener('click', async event => {
-            const button = event.target.closest('[data-asset]');
-            if (!button) return;
-            const asset = assets[Number(button.dataset.asset)];
+            const rename = event.target.closest('[data-rename]');
+            const remove = event.target.closest('[data-asset]');
+            if (rename) {
+                const asset = visible[Number(rename.dataset.rename)];
+                const next = prompt('Rename asset', asset.label);
+                if (next === null || !next.trim() || next.trim() === asset.label) return;
+                try {
+                    const result = await api(`/api/custom-overlays/assets/${encodeURIComponent(asset.name)}/rename`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: next }) });
+                    if (result.updated?.length) alert(`Renamed. Updated ${result.updated.length} overlay(s): ${result.updated.join(', ')}.`);
+                } catch (error) { alert(error.message); }
+                loadAssets();
+                return;
+            }
+            if (!remove) return;
+            const asset = visible[Number(remove.dataset.asset)];
             const warning = asset.usedBy.length ? `\n\nThis asset is used by: ${asset.usedBy.map(o => o.name || o.id).join(', ')}. Those overlays will show a broken file.` : '';
-            if (!confirm(`Permanently delete ${asset.name}?${warning}`)) return;
-            try { await removeAsset(asset, asset.usedBy.length > 0); } catch (error) { alert(error.message); }
+            if (!confirm(`Permanently delete ${asset.label}?${warning}`)) return;
+            try { await api(`/api/custom-overlays/assets/${encodeURIComponent(asset.name)}${asset.usedBy.length ? '?force=1' : ''}`, { method: 'DELETE' }); } catch (error) { alert(error.message); }
             loadAssets();
         });
         purgeBtn.addEventListener('click', async () => {
             const unused = assets.filter(asset => !asset.usedBy.length);
             if (!unused.length || !confirm(`Permanently delete ${unused.length} unused asset(s)?`)) return;
-            for (const asset of unused) { try { await removeAsset(asset, false); } catch (error) { alert(error.message); break; } }
+            for (const asset of unused) { try { await api(`/api/custom-overlays/assets/${encodeURIComponent(asset.name)}`, { method: 'DELETE' }); } catch (error) { alert(error.message); break; } }
             loadAssets();
         });
+        filterSelect.addEventListener('change', renderAssets);
+        fileInput.addEventListener('change', () => { const files = [...fileInput.files]; fileInput.value = ''; if (files.length) uploadFiles(files); });
+        ['dragenter', 'dragover'].forEach(name => dropZone.addEventListener(name, event => { event.preventDefault(); dropZone.classList.add('over'); }));
+        ['dragleave', 'drop'].forEach(name => dropZone.addEventListener(name, event => { event.preventDefault(); dropZone.classList.remove('over'); }));
+        dropZone.addEventListener('drop', event => { const files = [...event.dataTransfer.files]; if (files.length) uploadFiles(files); });
         document.getElementById('create-btn').addEventListener('click', () => {
             const id = prompt('Overlay id, e.g. be-right-back');
             if (id) location.href = `/custom-overlay-editor.html?id=${encodeURIComponent(id)}&new=1`;

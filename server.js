@@ -172,6 +172,26 @@ function loadCustomOverlays() {
     }
 }
 
+const ASSET_KIND_BY_EXT = { '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.gif': 'image', '.webp': 'image', '.svg': 'image', '.mp4': 'video', '.webm': 'video', '.ogg': 'video', '.ttf': 'font', '.otf': 'font', '.woff': 'font', '.woff2': 'font' };
+const assetKind = name => ASSET_KIND_BY_EXT[path.extname(name).toLowerCase()] || 'other';
+const assetLabel = name => name.replace(/^[a-z0-9]{6,}-/, '').replace(/\.[A-Za-z0-9]+$/, '').replace(/^[-_.]+|[-_.]+$/g, '');
+// Uploaded fonts are referenced in overlays by this family name, so renames must rewrite it too.
+const assetFontFamily = name => assetLabel(name).replace(/[^a-zA-Z0-9 _-]+/g, '').replace(/[-_]+/g, ' ').trim() || 'Uploaded Font';
+const assetNameBoundary = '(?![A-Za-z0-9._%-])';
+const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function assetReferencedIn(text, name, family) {
+    if (new RegExp(`/custom-overlay-assets/${escapeRegExp(encodeURIComponent(name))}${assetNameBoundary}`).test(text) || new RegExp(`/custom-overlay-assets/${escapeRegExp(name)}${assetNameBoundary}`).test(text)) return true;
+    return !!family && text.includes(`'${family}'`);
+}
+function rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily) {
+    let result = text;
+    for (const [from, to] of [[encodeURIComponent(oldName), encodeURIComponent(newName)], [oldName, newName]]) {
+        result = result.replace(new RegExp(`/custom-overlay-assets/${escapeRegExp(from)}${assetNameBoundary}`, 'g'), `/custom-overlay-assets/${to}`);
+    }
+    if (oldFamily && newFamily && oldFamily !== newFamily) result = result.split(`'${oldFamily}'`).join(`'${newFamily}'`);
+    return result;
+}
+
 function saveCustomOverlays() {
     fs.writeFileSync(CUSTOM_OVERLAYS_PATH, JSON.stringify(customOverlays, null, 2));
 }
@@ -3529,6 +3549,15 @@ const MIME_TYPES = {
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.gif': 'image/gif',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.ogg': 'video/ogg',
+    '.ttf': 'font/ttf',
+    '.otf': 'font/otf',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
     '.svg': 'image/svg+xml',
     '.ico': 'image/x-icon'
 };
@@ -3711,32 +3740,69 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/custom-overlays/assets' && req.method === 'GET') {
-        const serialized = Object.values(customOverlays).map(overlay => ({ id: overlay.id, name: overlay.name, text: JSON.stringify(overlay) }));
         let files = [];
         try { files = fs.readdirSync(CUSTOM_OVERLAY_ASSETS_DIR).filter(name => !name.startsWith('.')); } catch { /* folder not created yet */ }
+        const serialized = Object.values(customOverlays).map(overlay => ({ id: overlay.id, name: overlay.name, text: JSON.stringify(overlay) }));
         const assets = files.map(name => {
             let stat;
             try { stat = fs.statSync(path.join(CUSTOM_OVERLAY_ASSETS_DIR, name)); } catch { return null; }
             if (!stat.isFile()) return null;
-            const needles = [name, encodeURIComponent(name)];
-            const usedBy = serialized.filter(o => needles.some(n => o.text.includes(n))).map(({ id, name: overlayName }) => ({ id, name: overlayName }));
-            return { name, url: `/custom-overlay-assets/${encodeURIComponent(name)}`, size: stat.size, modifiedAt: stat.mtime.toISOString(), usedBy };
+            const kind = assetKind(name);
+            const family = kind === 'font' ? assetFontFamily(name) : null;
+            const usedBy = serialized.filter(o => assetReferencedIn(o.text, name, family)).map(({ id, name: overlayName }) => ({ id, name: overlayName }));
+            return { name, kind, family, label: assetLabel(name), url: `/custom-overlay-assets/${encodeURIComponent(name)}`, size: stat.size, modifiedAt: stat.mtime.toISOString(), usedBy };
         }).filter(Boolean).sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(assets));
         return;
     }
 
-    const assetDeleteMatch = pathname.match(/^\/api\/custom-overlays\/assets\/([^/]+)$/);
-    if (assetDeleteMatch && req.method === 'DELETE') {
-        const name = decodeURIComponent(assetDeleteMatch[1]);
-        const target = path.join(CUSTOM_OVERLAY_ASSETS_DIR, name);
+    const assetItemMatch = pathname.match(/^\/api\/custom-overlays\/assets\/([^/]+?)(\/rename)?$/);
+    if (assetItemMatch && (req.method === 'DELETE' || (req.method === 'POST' && assetItemMatch[2]))) {
         const respond = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
+        let name;
+        try { name = decodeURIComponent(assetItemMatch[1]); } catch { return respond(400, { error: 'Invalid asset name' }); }
+        const target = path.join(CUSTOM_OVERLAY_ASSETS_DIR, name);
         if (!name || name.includes('/') || name.includes('\\') || name.startsWith('.') || path.dirname(target) !== CUSTOM_OVERLAY_ASSETS_DIR) return respond(400, { error: 'Invalid asset name' });
         if (!fs.existsSync(target)) return respond(404, { error: 'Asset not found' });
-        const usedBy = Object.values(customOverlays).filter(o => { const text = JSON.stringify(o); return text.includes(name) || text.includes(encodeURIComponent(name)); }).map(o => o.id);
-        if (usedBy.length && new URL(req.url, 'http://localhost').searchParams.get('force') !== '1') return respond(409, { error: 'Asset is used by an overlay', usedBy });
-        try { fs.unlinkSync(target); respond(200, { deleted: name }); } catch (err) { respond(500, { error: err.message }); }
+        const family = assetKind(name) === 'font' ? assetFontFamily(name) : null;
+
+        if (req.method === 'DELETE') {
+            const usedBy = Object.values(customOverlays).filter(o => assetReferencedIn(JSON.stringify(o), name, family)).map(o => o.id);
+            if (usedBy.length && new URL(req.url, 'http://localhost').searchParams.get('force') !== '1') return respond(409, { error: 'Asset is used by an overlay', usedBy });
+            try { fs.unlinkSync(target); respond(200, { deleted: name }); } catch (err) { respond(500, { error: err.message }); }
+            return;
+        }
+
+        let payload;
+        try { payload = JSON.parse(await readRequestBody(req) || '{}'); } catch { return respond(400, { error: 'Invalid JSON' }); }
+        const ext = path.extname(name);
+        const prefix = (name.match(/^([a-z0-9]{6,})-/) || [])[1];
+        const label = String(payload.name || '').trim().replace(/\.[A-Za-z0-9]{2,5}$/, '').replace(/[^a-zA-Z0-9._ ()-]+/g, '').replace(/\s+/g, '-').replace(/^[.-]+/, '').slice(0, 100);
+        if (!label) return respond(400, { error: 'Enter a name using letters, numbers, dashes or underscores' });
+        const newName = `${prefix ? `${prefix}-` : ''}${label}${ext}`;
+        if (newName === name) return respond(200, { name, renamed: false, updated: [] });
+        const newTarget = path.join(CUSTOM_OVERLAY_ASSETS_DIR, newName);
+        if (fs.existsSync(newTarget)) return respond(409, { error: 'An asset with that name already exists' });
+        try { fs.renameSync(target, newTarget); } catch (err) { return respond(500, { error: err.message }); }
+
+        const newFamily = family ? assetFontFamily(newName) : null;
+        const updated = [];
+        for (const [id, overlay] of Object.entries(customOverlays)) {
+            let text = JSON.stringify(overlay);
+            const rewritten = rewriteAssetReferences(text, name, newName, family, newFamily);
+            if (rewritten === text) continue;
+            try {
+                const next = normalizeCustomOverlay({ ...JSON.parse(rewritten), id, revision: overlay.revision, createdAt: overlay.createdAt });
+                customOverlays[id] = next;
+                updated.push(id);
+            } catch { /* leave the overlay untouched if the rewritten copy is invalid */ }
+        }
+        if (updated.length) {
+            saveCustomOverlays();
+            for (const id of updated) broadcastToOverlays('custom-overlay-update', { id, overlay: customOverlays[id] });
+        }
+        respond(200, { name: newName, url: `/custom-overlay-assets/${encodeURIComponent(newName)}`, renamed: true, updated });
         return;
     }
 
@@ -3744,7 +3810,8 @@ const server = http.createServer(async (req, res) => {
         const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
         const allowedTypes = new Set([
             'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml',
-            'video/mp4', 'video/webm', 'video/ogg'
+            'video/mp4', 'video/webm', 'video/ogg',
+            'font/ttf', 'font/otf', 'font/woff', 'font/woff2'
         ]);
         const declaredName = String(req.headers['x-asset-name'] || 'asset').trim();
         const safeBase = path.basename(declaredName).replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 120) || 'asset';
@@ -3753,7 +3820,7 @@ const server = http.createServer(async (req, res) => {
         const target = path.join(CUSTOM_OVERLAY_ASSETS_DIR, filename);
         if (!allowedTypes.has(contentType)) {
             res.writeHead(415, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Only common image and video asset types are supported' }));
+            res.end(JSON.stringify({ error: 'Only common image, video and font (TTF, OTF, WOFF, WOFF2) asset types are supported' }));
             return;
         }
         if (Number(req.headers['content-length'] || 0) > 100 * 1024 * 1024) {

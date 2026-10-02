@@ -138,6 +138,7 @@
         if (!response.ok) throw new Error('Overlay not found');
         const overlay = await response.json();
         liveStatus.overlayName = overlay.name;
+        await shared.loadAssetFonts();
         try {
             const statusResponse = await fetch('/api/status', { cache: 'no-store' });
             if (statusResponse.ok) liveStatus = { ...liveStatus, ...(await statusResponse.json()) };

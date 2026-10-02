@@ -88,6 +88,8 @@
         .asset-tile .thumb { position: relative; flex: none; height: 90px; background: repeating-conic-gradient(#2a2f38 0 25%, #353b46 0 50%) 0 0 / 14px 14px; }
         .asset-tile .thumb img, .asset-tile .thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
         .asset-tile .cap { padding: .3rem .45rem; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .btn-like { border: 1px solid var(--border); border-radius: 6px; padding: .45rem .75rem; background: var(--panel-2, #21262d); cursor: pointer; font-size: 13px; }
+        .btn-like:hover { border-color: var(--accent); }
         .upload-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem; }
         .empty-props { padding: 1.1rem .95rem; color: var(--muted); }
         .empty-props h3 { color: var(--text); font-size: 13px; margin: 0 0 .4rem; }
@@ -272,7 +274,7 @@
         <h3 id="asset-title">Choose an asset</h3>
         <input id="asset-search" type="search" placeholder="Filter by name…">
         <div id="asset-grid"></div>
-        <div class="dialog-actions"><button id="asset-close">Cancel</button></div>
+        <div class="dialog-actions"><label class="btn-like" style="margin-right:auto">Upload new…<input id="asset-upload" type="file" hidden></label><button id="asset-close">Cancel</button></div>
     </dialog>
     <dialog id="help-dialog">
         <h3>Keyboard shortcuts</h3>
@@ -822,10 +824,11 @@
 
     // ---- properties (right rail) ------------------------------------------------------
     function fontOptions(current) {
-        const known = [...SYSTEM_FONTS, ...GOOGLE_FONT_OPTIONS];
+        const uploaded = shared.assetFonts.map(font => [`'${font.family}', sans-serif`, font.family]);
+        const known = [...SYSTEM_FONTS, ...GOOGLE_FONT_OPTIONS, ...uploaded];
         const custom = known.some(([v]) => v === current) ? '' : `<option value="${esc(current)}" selected>${esc(String(current).split(',')[0].replace(/['"]/g, ''))} (custom)</option>`;
         const opt = ([v, l]) => `<option value="${esc(v)}" style="font-family:${esc(v)}"${v === current ? ' selected' : ''}>${esc(l)}</option>`;
-        return `${custom}${SYSTEM_FONTS.map(opt).join('')}<optgroup label="Google Fonts">${GOOGLE_FONT_OPTIONS.map(opt).join('')}</optgroup>`;
+        return `${custom}${SYSTEM_FONTS.map(opt).join('')}${uploaded.length ? `<optgroup label="Uploaded fonts">${uploaded.map(opt).join('')}</optgroup>` : ''}<optgroup label="Google Fonts">${GOOGLE_FONT_OPTIONS.map(opt).join('')}</optgroup>`;
     }
     function actionBar(items) {
         const single = items.length === 1 ? items[0] : null;
@@ -851,6 +854,7 @@
         return F.section('typography', 'Typography', `
             <label class="field"><span>Font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text">${fontOptions(s.fontFamily)}</select></label>
             ${F.text('style.fontFamily', 'Custom / system font', s.fontFamily, 'placeholder="e.g. Comic Sans MS, Menlo" maxlength="120" list="system-font-list"')}
+            <div class="field"><span>Upload font</span><span class="upload-row"><input id="font-upload" type="file" accept=".ttf,.otf,.woff,.woff2"><span></span></span><span class="hint">Uploaded fonts work in every browser, including Safari, and in OBS on any machine.</span></div>
             <datalist id="system-font-list">${SYSTEM_FONTS.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</datalist>
             <div class="grid2">${F.number('style.fontSize', 'Size (px)', s.fontSize, { min: 8, max: 400 })}${F.select('style.fontWeight', 'Weight', s.fontWeight, [['400', 'Normal'], ['600', 'Semi-bold'], ['700', 'Bold'], ['900', 'Black']])}</div>
             ${F.color('style.color', 'Text color', s.color)}
@@ -963,6 +967,19 @@
         }
     });
     $('properties').addEventListener('change', async event => {
+        if (event.target.id === 'font-upload' && event.target.files[0]) {
+            try {
+                toast('Uploading font…', 'info', 1500);
+                const url = await uploadAsset(event.target.files[0]);
+                const fonts = await shared.loadAssetFonts();
+                const font = fonts.find(f => f.url === url);
+                const targets = selectedElements();
+                if (font) targets.forEach(item => { item.style.fontFamily = `'${font.family}', sans-serif`; });
+                renderCanvas(); renderProperties(); changed(true);
+                toast(font ? `Font “${font.family}” applied` : 'Font uploaded', 'success', 2200);
+            } catch (error) { toast(error.message, 'error', 5000); event.target.value = ''; }
+            return;
+        }
         if (event.target.id !== 'prop-upload' || !event.target.files[0]) return;
         const el = primary();
         if (!el) return;
@@ -986,8 +1003,8 @@
         const el = overlay.elements.find(item => item.id === pickerTarget);
         if (!el) return;
         const query = assetSearch.value.trim().toLowerCase();
-        const matches = libraryAssets.filter(asset => (el.type === 'video') === isVideoName(asset.name) && asset.name.toLowerCase().includes(query));
-        assetGrid.innerHTML = matches.length ? matches.map(asset => `<button type="button" class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === el.src ? 'aria-current="true"' : ''} title="${esc(asset.name)}"><span class="thumb">${isVideoName(asset.name) ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="">`}</span><span class="cap">${esc(asset.name)}</span></button>`).join('') : `<p class="hint">No ${el.type} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
+        const matches = libraryAssets.filter(asset => asset.kind === (el.type === 'video' ? 'video' : 'image') && asset.label.toLowerCase().includes(query));
+        assetGrid.innerHTML = matches.length ? matches.map(asset => `<button type="button" class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === el.src ? 'aria-current="true"' : ''} title="${esc(asset.label)}"><span class="thumb">${asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="">`}</span><span class="cap">${esc(asset.label)}</span></button>`).join('') : `<p class="hint">No ${el.type} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
     }
     async function openAssetPicker() {
         const el = primary();
@@ -1007,6 +1024,21 @@
     $('properties').addEventListener('click', event => { if (event.target.closest('#open-assets')) openAssetPicker(); });
     assetSearch.addEventListener('input', renderAssetGrid);
     $('asset-close').addEventListener('click', () => assetDialog.close());
+    $('asset-upload').addEventListener('change', async event => {
+        const file = event.target.files[0];
+        const el = overlay.elements.find(item => item.id === pickerTarget);
+        event.target.value = '';
+        if (!file || !el) return;
+        try {
+            toast('Uploading…', 'info', 1500);
+            const url = await uploadAsset(file);
+            const hadSource = !!el.src;
+            el.src = url;
+            assetDialog.close();
+            if (!hadSource) await fitToMedia(el, url, el.type);
+            renderCanvas(); renderProperties(); changed(true);
+        } catch (error) { toast(error.message, 'error', 5000); }
+    });
     assetGrid.addEventListener('click', async event => {
         const tile = event.target.closest('.asset-tile');
         const el = overlay.elements.find(item => item.id === pickerTarget);
@@ -1097,10 +1129,11 @@
     }
 
     // ---- assets -----------------------------------------------------------------------
+    const UPLOAD_TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2' };
     async function uploadAsset(file) {
         if (file.size > 100 * 1024 * 1024) throw new Error('That file is larger than the 100 MB limit.');
-        const type = file.type || 'application/octet-stream';
-        if (!/^(image\/(png|jpeg|gif|webp|svg\+xml)|video\/(mp4|webm|ogg))$/.test(type)) throw new Error(`${file.name}: only PNG, JPEG, GIF, WebP, SVG, MP4, WebM and OGG files are supported.`);
+        const type = UPLOAD_TYPES[(file.name.split('.').pop() || '').toLowerCase()] || file.type;
+        if (!Object.values(UPLOAD_TYPES).includes(type)) throw new Error(`${file.name}: only PNG, JPEG, GIF, WebP, SVG, MP4, WebM, OGG, TTF, OTF, WOFF and WOFF2 files are supported.`);
         let response;
         try {
             response = await fetch('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': type, 'X-Asset-Name': file.name.replace(/[^\x20-\x7e]+/g, '-') }, body: file });
@@ -1403,6 +1436,7 @@
     }
     async function load() {
         syncToggles();
+        await shared.loadAssetFonts();
         if (!isNew) {
             const response = await fetch(`/api/custom-overlays/${encodeURIComponent(initialId)}`).catch(() => null);
             if (!response) throw new Error('Could not reach the StreamPulse server.');
