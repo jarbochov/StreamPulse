@@ -987,7 +987,7 @@
         if (!el) return;
         const query = assetSearch.value.trim().toLowerCase();
         const matches = libraryAssets.filter(asset => (el.type === 'video') === isVideoName(asset.name) && asset.name.toLowerCase().includes(query));
-        assetGrid.innerHTML = matches.length ? matches.map(asset => `<button type="button" class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === el.src ? 'aria-current="true"' : ''} title="${esc(asset.name)}"><span class="thumb">${isVideoName(asset.name) ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="" loading="lazy">`}</span><span class="cap">${esc(asset.name)}</span></button>`).join('') : `<p class="hint">No ${el.type} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
+        assetGrid.innerHTML = matches.length ? matches.map(asset => `<button type="button" class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === el.src ? 'aria-current="true"' : ''} title="${esc(asset.name)}"><span class="thumb">${isVideoName(asset.name) ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="">`}</span><span class="cap">${esc(asset.name)}</span></button>`).join('') : `<p class="hint">No ${el.type} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
     }
     async function openAssetPicker() {
         const el = primary();
