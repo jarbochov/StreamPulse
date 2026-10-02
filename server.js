@@ -1447,6 +1447,29 @@ function getLifetimeDonationTotal() {
     return Number(Object.values(statsData.donations || {}).reduce((sum, item) => sum + sumDailyBuckets(item.amounts), 0).toFixed(2));
 }
 
+function buildRecentEvents(limit) {
+    const sources = [
+        ['follow', chatData.followers, () => ''],
+        ['sub', chatData.subscribers, item => item.membership || item.event || ''],
+        ['gift', chatData.giftSubs, item => (item.recipient ? `→ ${item.recipient}` : '')],
+        ['bits', chatData.bits, item => item.amount || ''],
+        ['donation', chatData.donations, item => item.amount || ''],
+        ['raid', chatData.raids, item => (item.viewers ? `${item.viewers} viewers` : '')]
+    ];
+    const events = [];
+    for (const [type, items, detail] of sources) {
+        (items || []).slice(-limit).forEach((item, index) => events.push({
+            type,
+            user: item.chatname || item.gifter || '',
+            detail: String(detail(item) || ''),
+            timestamp: Number(item.timestamp) || 0,
+            order: index
+        }));
+    }
+    // Entries from before timestamps were recorded sort last, newest-first within their own type.
+    return events.sort((a, b) => b.timestamp - a.timestamp || b.order - a.order).slice(0, limit);
+}
+
 function buildGoalMetrics() {
     const viewers = getViewerSummary();
     return {
@@ -3395,7 +3418,7 @@ function processChatMessage(msg) {
                 if (recipient) existingGift.recipient = recipient;
                 if (gifterAvatar) existingGift.chatimg = gifterAvatar;
             } else {
-                chatData.giftSubs.push({ chatname: gifter, gifter, recipient, chatimg: gifterAvatar, event: msg.event || null, count: 1 });
+                chatData.giftSubs.push({ chatname: gifter, gifter, recipient, chatimg: gifterAvatar, event: msg.event || null, count: 1, timestamp: Date.now() });
                 console.log(`[SSN] Gift Sub: ${gifter}${recipient ? ' → ' + recipient : ''} (event=${msg.event})`);
             }
             fireWebhook('subscribe', { user: gifter, recipient, type: 'gift', message: `${gifter} gifted a sub${recipient ? ' to ' + recipient : ''}!` });
@@ -3405,7 +3428,7 @@ function processChatMessage(msg) {
         } else {
             const alreadySubbed = chatData.subscribers.some(s => s.chatname === chatname);
             if (!alreadySubbed) {
-                chatData.subscribers.push({ chatname, membership: msg.membership || null, subtitle: msg.subtitle || null, chatimg: msg.chatimg, event: msg.event || null });
+                chatData.subscribers.push({ chatname, membership: msg.membership || null, subtitle: msg.subtitle || null, chatimg: msg.chatimg, event: msg.event || null, timestamp: Date.now() });
                 console.log(`[SSN] Sub: ${chatname} - ${msg.membership || msg.event}${msg.subtitle ? ' (' + msg.subtitle + ')' : ''}`);
                 fireWebhook('subscribe', { user: chatname, tier: msg.membership, detail: msg.subtitle, message: `${chatname} subscribed! (${msg.membership || msg.event})` });
                 if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_subscriptions) {
@@ -3425,7 +3448,7 @@ function processChatMessage(msg) {
         if (isBits) {
             const amount = bitsFromMeta || (bitsFromDonation ? parseInt(bitsFromDonation) : 0);
             const label = msg.hasDonation || `${amount} bits`;
-            const donation = { chatname, amount: label, bits: amount, chatimg: msg.chatimg };
+            const donation = { chatname, amount: label, bits: amount, chatimg: msg.chatimg, timestamp: Date.now() };
             chatData.bits.push(donation);
             console.log(`[SSN] Bits: ${chatname} - ${label} (${amount} bits)`);
             fireWebhook('bits', { user: chatname, amount: label, message: `${chatname} cheered ${label}` });
@@ -3433,7 +3456,7 @@ function processChatMessage(msg) {
                 addClipCandidate('bits', { user: chatname, amount, label }, Date.now(), Math.min(0.95, 0.55 + amount / 1000));
             }
         } else if (msg.hasDonation) {
-            const donation = { chatname, amount: msg.hasDonation, amountValue: parseNumericAmount(msg.hasDonation), chatimg: msg.chatimg };
+            const donation = { chatname, amount: msg.hasDonation, amountValue: parseNumericAmount(msg.hasDonation), chatimg: msg.chatimg, timestamp: Date.now() };
             chatData.donations.push(donation);
             console.log(`[SSN] Donation: ${chatname} - ${msg.hasDonation}`);
             fireWebhook('donation', { user: chatname, amount: msg.hasDonation, message: `${chatname} donated ${msg.hasDonation}` });
@@ -3695,6 +3718,7 @@ async function generatePdf(htmlContent) {
     }
 }
 
+let statusHeavyCache = null;
 const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     const pathname = url.pathname;
@@ -4021,13 +4045,21 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/status') {
-        const archivedSessions = fs.existsSync(SESSIONS_DIR)
-            ? fs.readdirSync(SESSIONS_DIR).filter(file => file.startsWith('chat-') && file.endsWith('.json')).length
-            : 0;
-        const backupFiles = fs.existsSync(BACKUPS_DIR)
-            ? fs.readdirSync(BACKUPS_DIR).filter(file => file.endsWith('.zip')).sort().reverse()
-            : [];
-        const hashtagStats = collectHashtagStats();
+        // Directory listings and hashtag aggregation are comparatively expensive and the dashboard polls every few seconds.
+        const nowMs = Date.now();
+        if (!statusHeavyCache || nowMs - statusHeavyCache.at > 10000) {
+            statusHeavyCache = {
+                at: nowMs,
+                archivedSessions: fs.existsSync(SESSIONS_DIR)
+                    ? fs.readdirSync(SESSIONS_DIR).filter(file => file.startsWith('chat-') && file.endsWith('.json')).length
+                    : 0,
+                backupFiles: fs.existsSync(BACKUPS_DIR)
+                    ? fs.readdirSync(BACKUPS_DIR).filter(file => file.endsWith('.zip')).sort().reverse()
+                    : [],
+                hashtagStats: collectHashtagStats()
+            };
+        }
+        const { archivedSessions, backupFiles, hashtagStats } = statusHeavyCache;
         const viewerSummary = getViewerSummary();
         const goalsSnapshot = buildGoalsSnapshot();
         const status = {
@@ -4089,10 +4121,15 @@ const server = http.createServer(async (req, res) => {
             sessionActive,
             startedAt: chatData.startedAt,
             hourlyMessages: chatData.hourlyMessages,
-            streamInfo: chatData.streamInfo
+            streamInfo: chatData.streamInfo,
+            topChatters: Object.values(chatData.chatters)
+                .sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0))
+                .slice(0, 100)
+                .map(c => ({ chatname: c.chatname, chatimg: c.chatimg || '', messageCount: c.messageCount || 0 })),
+            recentEvents: buildRecentEvents(12)
         };
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(status, null, 2));
+        res.end(JSON.stringify(status));
         return;
     }
 
