@@ -14,16 +14,19 @@ Markdown is sanitized before rendering. It supports common formatting such as he
 
 Images and videos can be uploaded from the selected element's properties. Uploads are stored in `data/custom-overlay-assets/`, served from `/custom-overlay-assets/<filename>`, and included in backups. Individual assets are limited to 100 MB.
 
-Text and Markdown content support live variables using double braces. Values refresh every five seconds in the runtime:
+Text and Markdown content support live variables using double braces. The editor's placeholder picker inserts these values without requiring memorization. Values refresh every five seconds in the runtime:
 
 ```text
 {{viewers.current}}  {{viewers.peak}}  {{viewers.average}}
 {{chatters}}  {{messages}}  {{followers}}  {{subscribers}}  {{hashtags}}
 {{gift_subs}}  {{bits}}  {{donations}}
+{{hashtags.top}}  {{hashtags.session_top}}  {{hashtags.total}}
 {{music.title}}  {{music.artist}}  {{stream.title}}  {{overlay.name}}
 ```
 
-Shapes support rectangle, circle, pill, and line variants. Text supports font family, size, weight, color, horizontal alignment, vertical alignment, line height, letter spacing, background, border, and opacity.
+Shapes support rectangle, circle, pill, and line variants. Text supports a curated font-family picker, size, weight, color, horizontal alignment, vertical alignment, line height, letter spacing, background, border, and opacity. Multiple elements can be selected with Ctrl/Cmd or Shift and aligned or moved as a group.
+
+Random Text elements support random or entered-order display, configurable refresh intervals, typewriter animation, and marquee animation.
 
 ## API
 

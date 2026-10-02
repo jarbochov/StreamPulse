@@ -4,10 +4,43 @@
     const root = document.getElementById('overlay-root');
     if (!overlayId || !root) return;
     let liveStatus = {};
+    const randomTimers = new Map();
+    const randomIndexes = new Map();
+    let currentOverlay = null;
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function stopRandomTimers() {
+        for (const timer of randomTimers.values()) clearInterval(timer);
+        randomTimers.clear();
+    }
+
+    function setRandomText(node, element) {
+        const items = Array.isArray(element.items) && element.items.length ? element.items : [element.content || ''];
+        const config = element.random || {};
+        let index = randomIndexes.get(element.id) || 0;
+        const value = expandVariables(config.mode === 'order' ? items[index % items.length] : items[Math.floor(Math.random() * items.length)]);
+        randomIndexes.set(element.id, config.mode === 'order' ? index + 1 : index);
+        if (config.typewriter) {
+            node.textContent = '';
+            let position = 0;
+            const speed = Math.max(10, Number(config.typewriterSpeed) || 45);
+            const typeTimer = setInterval(() => {
+                node.textContent = value.slice(0, ++position);
+                if (position >= value.length) clearInterval(typeTimer);
+            }, speed);
+        } else {
+            node.textContent = value;
+        }
+        if (config.marquee) {
+            node.classList.add('overlay-marquee');
+            node.style.setProperty('--marquee-duration', `${Math.max(10, Number(config.marqueeSpeed) || 60)}s`);
+        } else {
+            node.classList.remove('overlay-marquee');
+        }
     }
 
     function renderMarkdown(source) {
@@ -35,6 +68,9 @@
             'bits': liveStatus.goalMetrics?.bits,
             'donations': liveStatus.goalMetrics?.donations,
             'hashtags': liveStatus.ssn?.hashtags,
+            'hashtags.top': liveStatus.popularHashtags?.overall?.[0]?.tag || liveStatus.hashtags?.topTag,
+            'hashtags.session_top': liveStatus.popularHashtags?.session?.[0]?.tag,
+            'hashtags.total': liveStatus.hashtags?.totalMentions,
             'music.title': liveStatus.music?.track,
             'music.artist': liveStatus.music?.artist,
             'stream.title': liveStatus.stream?.title,
@@ -79,6 +115,8 @@
     }
 
     function render(overlay) {
+        currentOverlay = overlay;
+        stopRandomTimers();
         document.title = `StreamPulse — ${overlay.name}`;
         root.style.width = `${overlay.canvas.width}px`;
         root.style.height = `${overlay.canvas.height}px`;
@@ -89,7 +127,7 @@
             node.className = `overlay-element overlay-${element.type}`;
             applyElementStyle(node, element);
             if (element.type === 'image' || element.type === 'video') {
-                const media = document.createElement(element.type);
+                const media = document.createElement(element.type === 'image' ? 'img' : 'video');
                 media.src = expandVariables(element.src || '');
                 media.autoplay = element.type === 'video';
                 media.loop = element.type === 'video';
@@ -110,8 +148,9 @@
             } else if (element.type === 'markdown') {
                 node.innerHTML = renderMarkdown(element.content);
             } else if (element.type === 'random-text') {
-                const items = Array.isArray(element.items) ? element.items : [];
-                node.textContent = expandVariables(items.length ? items[Math.floor(Math.random() * items.length)] : element.content || '');
+                setRandomText(node, element);
+                const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;
+                randomTimers.set(element.id, setInterval(() => setRandomText(node, element), interval));
             } else if (element.type === 'shape') {
                 node.setAttribute('aria-hidden', 'true');
             } else {
@@ -135,7 +174,7 @@
             const response = await fetch('/api/status', { cache: 'no-store' });
             if (!response.ok) return;
             liveStatus = { ...liveStatus, ...(await response.json()) };
-            await load();
+            if (currentOverlay) render(currentOverlay);
         } catch {}
     }
 

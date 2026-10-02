@@ -98,6 +98,14 @@ function normalizeOverlayElement(element = {}, index = 0) {
         content: String(element.content || '').slice(0, 20000),
         items: Array.isArray(element.items) ? element.items.map(item => String(item).slice(0, 2000)).filter(Boolean).slice(0, 100) : [],
         src: String(element.src || '').slice(0, 2000),
+        random: {
+            mode: ['random', 'order'].includes(element.random?.mode) ? element.random.mode : 'random',
+            intervalSeconds: Math.max(1, Math.min(3600, Number(element.random?.intervalSeconds) || 5)),
+            typewriter: element.random?.typewriter === true,
+            typewriterSpeed: Math.max(10, Math.min(500, Number(element.random?.typewriterSpeed) || 45)),
+            marquee: element.random?.marquee === true,
+            marqueeSpeed: Math.max(10, Math.min(240, Number(element.random?.marqueeSpeed) || 60))
+        },
         x: Number.isFinite(Number(element.x)) ? Number(element.x) : 0,
         y: Number.isFinite(Number(element.y)) ? Number(element.y) : 0,
         width: Math.max(1, Math.min(3840, Number(element.width) || 400)),
@@ -3954,6 +3962,10 @@ const server = http.createServer(async (req, res) => {
                 clipCandidates: clipCandidates.length
             },
             hashtags: hashtagStats.summary,
+            popularHashtags: {
+                overall: hashtagStats.hashtags.slice(0, 10).map(item => ({ tag: item.tag, count: item.count })),
+                session: hashtagStats.hashtags.slice().sort((a, b) => b.sessionCount - a.sessionCount || a.tag.localeCompare(b.tag)).slice(0, 10).map(item => ({ tag: item.tag, count: item.sessionCount }))
+            },
             backups: {
                 autoEnabled: !!config.auto_backup_on_session_end,
                 count: backupFiles.length,
