@@ -57,6 +57,16 @@
         .fld .hintline { font-size: .66rem; }
         .summary-line { font-size: .85rem; color: #8b949e; padding: 0 .2rem; }
         .summary-line b { color: #e1e4e8; font-weight: 600; }
+        dialog.lib { margin: auto; background: #161b22; color: #e1e4e8; border: 1px solid #30363d; border-radius: 10px; padding: 0; width: min(760px, 92vw); max-height: 80vh; }
+        dialog.lib::backdrop { background: rgba(0,0,0,.6); }
+        .lib-head { display: flex; gap: .6rem; align-items: center; padding: .7rem .9rem; border-bottom: 1px solid #30363d; position: sticky; top: 0; background: #161b22; }
+        .lib-head input { flex: 1; padding: .4rem .6rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font: inherit; }
+        .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: .6rem; padding: .9rem; overflow: auto; max-height: calc(80vh - 3.5rem); }
+        .lib-item { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: .4rem; cursor: pointer; display: flex; flex-direction: column; gap: .3rem; text-align: left; color: inherit; font: inherit; }
+        .lib-item:hover { border-color: #58a6ff; }
+        .lib-item .th { height: 80px; display: flex; align-items: center; justify-content: center; background: #161b22; border-radius: 5px; overflow: hidden; font-size: 1.8rem; }
+        .lib-item .th img, .lib-item .th video { max-width: 100%; max-height: 100%; }
+        .lib-item .nm { font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .cgrid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem .9rem; }
         .cgrid .row { flex-direction: column; align-items: stretch; gap: .15rem; margin: 0; }
         .cgrid .row > label { min-width: 0; font-size: .72rem; }
@@ -169,6 +179,7 @@
     </div>
     <div id="toast"></div>
 
+<dialog class="lib" id="lib"><div class="lib-head"><input id="lib-q" placeholder="Search your library…"><button class="btn sm" id="lib-close">Close</button></div><div class="lib-grid" id="lib-grid"></div></dialog>
 <script>
 (() => {
     const $ = id => document.getElementById(id);
@@ -256,7 +267,7 @@
         const list = assets.filter(a => kinds.includes(a.kind));
         return `<div class="fld">${label}<span class="media-row">
             <input type="text" data-v="${i}.${key}" placeholder="URL, or pick / upload" value="${esc(v[key])}">
-            <select data-pick="${i}.${key}" style="width:92px;flex:none"><option value="">Library</option>${list.map(a => `<option value="${esc(a.url)}">${esc(a.label || a.name)}</option>`).join('')}</select>
+            <button class="btn sm" data-library="${i}.${key}" data-kinds="${kinds.join(',')}" ${list.length ? '' : 'disabled'}>Library (${list.length})</button>
             <button class="btn sm" data-upload="${i}.${key}" data-accept="${accept}">Upload</button></span></div>`;
     }
     const vin = (i, key, label, value, attrs = '', type = 'number') => `<label class="fld">${label}<input type="${type}" data-v="${i}.${key}" value="${esc(value)}" ${attrs}></label>`;
@@ -403,9 +414,28 @@
             if (el.value) { r.variants[i][key] = el.value; setDirty(true); renderEditor(); }
         }
     });
+    let libTarget = null, libKinds = [];
+    function renderLib() {
+        const q = $('lib-q').value.toLowerCase();
+        const list = assets.filter(a => libKinds.includes(a.kind) && (a.label || a.name).toLowerCase().includes(q));
+        $('lib-grid').innerHTML = list.length ? list.map(a => `<button class="lib-item" data-url="${esc(a.url)}" title="${esc(a.label || a.name)}"><div class="th">${a.kind === 'image' ? `<img loading="lazy" src="${esc(a.url)}">` : a.kind === 'video' ? `<video preload="metadata" muted src="${esc(a.url)}#t=0.1"></video>` : '🔊'}</div><span class="nm">${esc(a.label || a.name)}</span></button>`).join('') : '<p class="hint">No matches.</p>';
+    }
+    $('lib-q').addEventListener('input', renderLib);
+    $('lib-close').addEventListener('click', () => $('lib').close());
+    $('lib-grid').addEventListener('click', event => {
+        const item = event.target.closest('.lib-item'), r = rule();
+        if (!item || !r || !libTarget) return;
+        const [i, key] = libTarget.split('.');
+        r.variants[i][key] = item.dataset.url; setDirty(true); $('lib').close(); renderEditor();
+    });
     editor.addEventListener('click', guard(async event => {
         const r = rule(), btn = event.target.closest('button');
         if (!r || !btn) return;
+        if (btn.dataset.library) {
+            libTarget = btn.dataset.library; libKinds = btn.dataset.kinds.split(',');
+            $('lib-q').value = ''; renderLib(); $('lib').showModal(); $('lib-q').focus();
+            return;
+        }
         if (btn.dataset.test !== undefined) event.preventDefault();
         if (btn.id === 'add-variant') { const nv = newVariant(r.trigger); r.variants.push(nv); openVariants.add(nv.id); setDirty(true); renderEditor(); }
         else if (btn.dataset.delVariant !== undefined) { r.variants.splice(Number(btn.dataset.delVariant), 1); setDirty(true); renderEditor(); }
