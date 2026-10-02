@@ -42,6 +42,14 @@
         .item-actions button { flex: 0 0 auto; padding: 0.2rem 0.6rem; }
         .item-actions select { padding: 0.25rem 0.4rem; font-size: 0.74rem; }
         .sortable-ghost { opacity: 0.4; }
+        .name-wrap { position: relative; }
+        .name-wrap input { width: 100%; }
+        .suggest { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; max-height: 340px; overflow-y: auto; background: #161b22; border: 1px solid #30363d; border-radius: 8px; box-shadow: 0 8px 24px #000a; }
+        .suggest button { display: grid; grid-template-columns: 34px 1fr; gap: 0.6rem; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid #21262d; color: #e6edf3; padding: 0.4rem 0.6rem; cursor: pointer; font: inherit; }
+        .suggest button:hover, .suggest button.active { background: #1f6feb33; }
+        .suggest img, .suggest .nocover { width: 34px; height: 45px; border-radius: 4px; object-fit: cover; background: #21262d; }
+        .suggest small { display: block; color: #8b949e; font-size: 0.72rem; }
+        .suggest .plain { grid-template-columns: 1fr; color: #8b949e; font-size: 0.82rem; }
         .status { color: #8b949e; font-size: 0.8rem; min-height: 1.2em; }
         @media (max-width: 980px) { .lists { grid-template-columns: 1fr; } .add-row { grid-template-columns: 1fr; } .container { padding: 1rem; } }
     </style>
@@ -58,7 +66,7 @@
             <h2>Add a game</h2>
             <p class="hint">Type the game's name and StreamPulse looks up the cover, release year and genres from IGDB. Drag cards to reorder or move them between lists. Changes save automatically. The game you're currently streaming (from your Twitch category) is marked <b>Now playing</b>.</p>
             <form class="add-row" id="add-form">
-                <input id="add-name" placeholder="Game name" maxlength="120" autocomplete="off" required>
+                <div class="name-wrap"><input id="add-name" placeholder="Game name" maxlength="120" autocomplete="off" required><div id="suggest" class="suggest" hidden></div></div>
                 <select id="add-status"><option value="scheduled">Scheduled</option><option value="backlog">Backlog</option><option value="played">Played</option></select>
                 <input id="add-period" list="periods" placeholder="Period (e.g. October) — scheduled only" maxlength="40" autocomplete="off">
                 <button class="btn primary" type="submit">Add</button>
@@ -141,7 +149,7 @@
                 const response = await fetch('/api/game-plan', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: items.map(({ id, name, status, period, note, twitchCategory }) => ({ id, name, status, period, note, twitchCategory })) })
+                    body: JSON.stringify({ items: items.map(({ id, name, status, period, note, twitchCategory, igdbId }) => ({ id, name, status, period, note, twitchCategory, igdbId })) })
                 });
                 if (!response.ok) throw new Error((await response.json()).error || response.statusText);
                 setStatus('Saved. Overlays update within a few seconds.');
@@ -178,13 +186,44 @@
             if (item.playingNow) name.insertAdjacentHTML('beforeend', '<span class="badge">NOW PLAYING</span>');
         }
 
+        // Searching IGDB lets the user choose between same-named games (e.g. Doom 1993 vs 2016).
+        let pickedId = '', searchTimer = null, searchSeq = 0;
+        const suggest = $('suggest');
+        const hideSuggest = () => { suggest.hidden = true; suggest.innerHTML = ''; };
+        $('add-name').addEventListener('input', () => {
+            pickedId = '';
+            clearTimeout(searchTimer);
+            const query = $('add-name').value.trim();
+            if (query.length < 2) { hideSuggest(); return; }
+            searchTimer = setTimeout(async () => {
+                const seq = ++searchSeq;
+                try {
+                    const { results } = await (await fetch(`/api/game-search?q=${encodeURIComponent(query)}`)).json();
+                    if (seq !== searchSeq) return;
+                    if (!results.length) { hideSuggest(); return; }
+                    suggest.innerHTML = results.map(game => `<button type="button" data-id="${esc(game.id)}" data-name="${esc(game.name)}">${game.cover ? `<img src="${esc(game.cover)}" alt="">` : '<span class="nocover"></span>'}<span>${esc(game.name)}<small>${esc([game.year, game.platforms.join(', ')].filter(Boolean).join(' · '))}</small></span></button>`).join('')
+                        + '<button type="button" class="plain" data-id="" data-name="">Use “' + esc(query) + '” as typed (automatic match)</button>';
+                    suggest.hidden = false;
+                } catch { hideSuggest(); }
+            }, 300);
+        });
+        suggest.addEventListener('mousedown', event => {
+            const option = event.target.closest('button');
+            if (!option) return;
+            event.preventDefault();
+            if (option.dataset.name) { $('add-name').value = option.dataset.name; pickedId = option.dataset.id; }
+            hideSuggest();
+        });
+        $('add-name').addEventListener('blur', () => setTimeout(hideSuggest, 150));
+        $('add-name').addEventListener('keydown', event => { if (event.key === 'Escape') hideSuggest(); });
+
         $('add-form').addEventListener('submit', event => {
             event.preventDefault();
             const name = $('add-name').value.trim();
             if (!name) return;
             const status = $('add-status').value;
-            items.push({ id: uid(), name, status, period: status === 'scheduled' ? $('add-period').value.trim() : '', note: '', cover: '', genres: [], playingNow: false });
-            $('add-name').value = '';
+            items.push({ id: uid(), name, igdbId: pickedId, status, period: status === 'scheduled' ? $('add-period').value.trim() : '', note: '', cover: '', genres: [], playingNow: false });
+            $('add-name').value = ''; pickedId = ''; hideSuggest();
             render(); scheduleSave();
             $('add-name').focus();
         });

@@ -2080,13 +2080,15 @@ async function getAppToken() {
     return appTokenCache.token;
 }
 
-async function fetchGameInfo(name) {
+async function fetchGameInfo(name, pinnedIgdbId = '') {
     const token = await getAppToken();
     const headers = { 'Client-ID': TWITCH_CLIENT_ID, Authorization: `Bearer ${token}` };
     const info = { name, fetchedAt: Date.now(), source: 'twitch' };
 
-    const helix = await fetch(`https://api.twitch.tv/helix/games?name=${encodeURIComponent(name)}`, { headers });
-    const game = (await helix.json()).data?.[0];
+    // A pinned IGDB id (chosen in the Game Plan editor) skips the by-name guess entirely.
+    const helix = pinnedIgdbId ? null : await fetch(`https://api.twitch.tv/helix/games?name=${encodeURIComponent(name)}`, { headers });
+    const game = helix ? (await helix.json()).data?.[0] : null;
+    if (pinnedIgdbId) info.igdbId = pinnedIgdbId;
     if (game) {
         info.twitchId = game.id;
         info.boxArt = String(game.box_art_url || '').replace('{width}', '285').replace('{height}', '380');
@@ -2118,14 +2120,16 @@ async function fetchGameInfo(name) {
     return info;
 }
 
-function refreshGameInfo(name) {
+const infoKey = (name, igdbId) => igdbId ? `igdb:${igdbId}` : String(name || '').toLowerCase();
+
+function refreshGameInfo(name, igdbId = '') {
     if (!name || !TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET) return Promise.resolve(null);
-    const key = name.toLowerCase();
+    const key = infoKey(name, igdbId);
     const cached = gameInfoCache[key];
     const maxAge = cached?.failed ? GAME_INFO_RETRY_MS : GAME_INFO_TTL_MS;
     if (cached && Date.now() - cached.fetchedAt < maxAge) return Promise.resolve(cached);
     if (gameInfoPending.has(key)) return gameInfoPending.get(key);
-    const job = fetchGameInfo(name).catch(err => {
+    const job = fetchGameInfo(name, igdbId).catch(err => {
         console.error('[Game] Lookup failed:', err.message);
         return { name, fetchedAt: Date.now(), failed: true };
     }).then(info => {
@@ -2139,8 +2143,8 @@ function refreshGameInfo(name) {
 }
 
 // Public shape for overlays; `cover` prefers IGDB art and falls back to Twitch box art.
-function publicGameInfo(name) {
-    const info = name ? gameInfoCache[name.toLowerCase()] : null;
+function publicGameInfo(name, igdbId = '') {
+    const info = name ? gameInfoCache[infoKey(name, igdbId)] : null;
     if (!info || info.failed) return { name: name || '' };
     return {
         name: info.name,
@@ -2173,7 +2177,8 @@ function normalizeGamePlan(input) {
         status: GAME_PLAN_STATUSES.includes(item?.status) ? item.status : 'backlog',
         period: String(item?.period || '').trim().slice(0, 40),
         note: String(item?.note || '').trim().slice(0, 200),
-        twitchCategory: String(item?.twitchCategory || '').trim().slice(0, 120)
+        twitchCategory: String(item?.twitchCategory || '').trim().slice(0, 120),
+        igdbId: /^\d{1,9}$/.test(String(item?.igdbId || '')) ? String(item.igdbId) : ''
     })).filter(item => item.name);
     return { items };
 }
@@ -2186,10 +2191,11 @@ const gameKey = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g
 
 // Looks up IGDB data for new names one at a time so a long list does not hit the rate limit.
 let gameWarmQueue = Promise.resolve();
-function warmGameInfo(names) {
-    for (const name of names) {
-        if (gameInfoCache[name.toLowerCase()] && !gameInfoCache[name.toLowerCase()].failed) continue;
-        gameWarmQueue = gameWarmQueue.then(() => refreshGameInfo(name)).then(() => new Promise(resolve => setTimeout(resolve, 300)));
+function warmGameInfo(games) {
+    for (const { name, igdbId } of games) {
+        const cached = gameInfoCache[infoKey(name, igdbId)];
+        if (cached && !cached.failed) continue;
+        gameWarmQueue = gameWarmQueue.then(() => refreshGameInfo(name, igdbId)).then(() => new Promise(resolve => setTimeout(resolve, 300)));
     }
 }
 
@@ -2197,12 +2203,12 @@ function buildGamePlanSnapshot() {
     const plan = loadGamePlan();
     const category = chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category || '';
     const current = gameKey(category);
-    warmGameInfo(plan.items.map(item => item.name));
+    warmGameInfo(plan.items);
     return {
         current: category,
         items: plan.items.map(item => {
-            const game = publicGameInfo(item.name);
-            const raw = gameInfoCache[item.name.toLowerCase()];
+            const game = publicGameInfo(item.name, item.igdbId);
+            const raw = gameInfoCache[infoKey(item.name, item.igdbId)];
             const keys = [item.name, item.twitchCategory, raw?.igdbName].map(gameKey).filter(Boolean);
             return {
                 ...item,
@@ -5280,6 +5286,29 @@ const server = http.createServer(async (req, res) => {
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(buildGamePlanSnapshot()));
+        return;
+    }
+
+    if (pathname === '/api/game-search') {
+        const query = (new URL(req.url, 'http://localhost').searchParams.get('q') || '').trim().slice(0, 100);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        if (query.length < 2 || !TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET) { res.end(JSON.stringify({ results: [] })); return; }
+        try {
+            const token = await getAppToken();
+            const body = `search "${query.replace(/["\\]/g, '')}"; fields name,first_release_date,cover.image_id,platforms.abbreviation,category,version_parent; limit 12;`;
+            const igdb = await fetch('https://api.igdb.com/v4/games', { method: 'POST', headers: { 'Client-ID': TWITCH_CLIENT_ID, Authorization: `Bearer ${token}` }, body });
+            const data = await igdb.json();
+            const results = (Array.isArray(data) ? data : []).filter(game => !game.version_parent).map(game => ({
+                id: String(game.id),
+                name: game.name || '',
+                year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : '',
+                platforms: (game.platforms || []).map(platform => platform.abbreviation).filter(Boolean).slice(0, 4),
+                cover: game.cover?.image_id ? `https://images.igdb.com/igdb/image/upload/t_cover_small/${game.cover.image_id}.jpg` : ''
+            }));
+            res.end(JSON.stringify({ results }));
+        } catch (err) {
+            res.end(JSON.stringify({ results: [], error: err.message }));
+        }
         return;
     }
 
