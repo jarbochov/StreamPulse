@@ -81,6 +81,7 @@
             justifyContent: style.textAlign === 'center' ? 'center' : style.textAlign === 'right' ? 'flex-end' : 'flex-start'
         });
         Object.assign(node.style, shared.decorationStyle(style, element.type));
+        if (element.type === 'game-list') node.style.display = 'block';
         if (element.type === 'shape') {
             if (style.shape === 'circle') node.style.borderRadius = '50%';
             if (style.shape === 'pill') node.style.borderRadius = '999px';
@@ -136,6 +137,8 @@
                 setRandomText(node, element);
                 const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;
                 randomTimers.set(element.id, setInterval(() => setRandomText(node, element), interval));
+            } else if (element.type === 'game-list') {
+                shared.renderGameList(node, element, liveStatus.gamePlan);
             } else if (element.type === 'progress') {
                 shared.renderProgress(node, element, expandVariables);
             } else if (element.type === 'shape') {

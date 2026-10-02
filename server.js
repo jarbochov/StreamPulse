@@ -82,7 +82,7 @@ const DEFAULT_GOALS_CONFIG = {
     items: []
 };
 
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress']);
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list']);
 let customOverlays = {};
 
 function sanitizeOverlayId(value) {
@@ -97,6 +97,20 @@ function normalizeOverlayElement(element = {}, index = 0) {
         locked: element.locked === true,
         group: sanitizeOverlayId(element.group).slice(0, 40),
         type,
+        gameList: {
+            filter: ['scheduled', 'backlog', 'played', 'all'].includes(element.gameList?.filter) ? element.gameList.filter : 'scheduled',
+            period: String(element.gameList?.period || '').slice(0, 40),
+            layout: ['grid', 'strip', 'list'].includes(element.gameList?.layout) ? element.gameList.layout : 'grid',
+            columns: Math.max(1, Math.min(12, Math.round(Number(element.gameList?.columns) || 3))),
+            gap: Math.max(0, Math.min(80, Number(element.gameList?.gap ?? 12))),
+            max: Math.max(0, Math.min(100, Math.round(Number(element.gameList?.max) || 0))),
+            showCovers: element.gameList?.showCovers !== false,
+            showTitles: element.gameList?.showTitles !== false,
+            meta: ['none', 'year', 'genres', 'note'].includes(element.gameList?.meta) ? element.gameList.meta : 'none',
+            headings: element.gameList?.headings !== false,
+            highlightCurrent: element.gameList?.highlightCurrent !== false,
+            accent: String(element.gameList?.accent || '#3fb950').slice(0, 80)
+        },
         progress: {
             kind: element.progress?.kind === 'ring' ? 'ring' : 'bar',
             label: String(element.progress?.label ?? '{{progress}}%').slice(0, 200),
@@ -2089,6 +2103,7 @@ async function fetchGameInfo(name) {
             const match = results.find(item => String(item.name).toLowerCase() === name.toLowerCase()) || results[0];
             info.source = 'igdb';
             info.igdbId = match.id;
+            info.igdbName = match.name || '';
             info.summary = match.summary || '';
             info.releaseTs = match.first_release_date ? match.first_release_date * 1000 : null;
             info.rating = match.total_rating ? Math.round(match.total_rating) : null;
@@ -2129,6 +2144,7 @@ function publicGameInfo(name) {
     if (!info || info.failed) return { name: name || '' };
     return {
         name: info.name,
+        igdbName: info.igdbName || '',
         cover: info.cover || info.boxArt || '',
         boxArt: info.boxArt || '',
         summary: info.summary || '',
@@ -2139,6 +2155,63 @@ function publicGameInfo(name) {
         platforms: info.platforms || [],
         developers: info.developers || [],
         source: info.source
+    };
+}
+
+
+// ============================================================================
+// GAME PLAN (manual list of scheduled / backlog / played games)
+// ============================================================================
+
+const GAME_PLAN_PATH = path.join(DATA_DIR, 'game-plan.json');
+const GAME_PLAN_STATUSES = ['scheduled', 'backlog', 'played'];
+
+function normalizeGamePlan(input) {
+    const items = (Array.isArray(input?.items) ? input.items : []).slice(0, 300).map((item, index) => ({
+        id: sanitizeOverlayId(item?.id) || `game-${Date.now().toString(36)}-${index}`,
+        name: String(item?.name || '').trim().slice(0, 120),
+        status: GAME_PLAN_STATUSES.includes(item?.status) ? item.status : 'backlog',
+        period: String(item?.period || '').trim().slice(0, 40),
+        note: String(item?.note || '').trim().slice(0, 200),
+        twitchCategory: String(item?.twitchCategory || '').trim().slice(0, 120)
+    })).filter(item => item.name);
+    return { items };
+}
+
+function loadGamePlan() {
+    try { return normalizeGamePlan(JSON.parse(fs.readFileSync(GAME_PLAN_PATH, 'utf8'))); } catch { return { items: [] }; }
+}
+
+const gameKey = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+// Looks up IGDB data for new names one at a time so a long list does not hit the rate limit.
+let gameWarmQueue = Promise.resolve();
+function warmGameInfo(names) {
+    for (const name of names) {
+        if (gameInfoCache[name.toLowerCase()] && !gameInfoCache[name.toLowerCase()].failed) continue;
+        gameWarmQueue = gameWarmQueue.then(() => refreshGameInfo(name)).then(() => new Promise(resolve => setTimeout(resolve, 300)));
+    }
+}
+
+function buildGamePlanSnapshot() {
+    const plan = loadGamePlan();
+    const category = chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category || '';
+    const current = gameKey(category);
+    warmGameInfo(plan.items.map(item => item.name));
+    return {
+        current: category,
+        items: plan.items.map(item => {
+            const game = publicGameInfo(item.name);
+            const raw = gameInfoCache[item.name.toLowerCase()];
+            const keys = [item.name, item.twitchCategory, raw?.igdbName].map(gameKey).filter(Boolean);
+            return {
+                ...item,
+                cover: game.cover || '',
+                releaseYear: game.releaseYear || '',
+                genres: game.genres || [],
+                playingNow: !!current && keys.includes(current)
+            };
+        })
     };
 }
 
@@ -5192,6 +5265,22 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({ error: err.message }));
             return;
         }
+    }
+
+    if (pathname === '/api/game-plan') {
+        if (req.method === 'PUT') {
+            try {
+                const payload = JSON.parse(await readRequestBody(req) || '{}');
+                fs.writeFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(payload), null, 2));
+            } catch (err) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: err.message }));
+                return;
+            }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(buildGamePlanSnapshot()));
+        return;
     }
 
     if (pathname === '/api/game') {

@@ -245,6 +245,7 @@
                         <button role="menuitem" data-add="embed"><span class="glyph">⊞</span>Webpage</button>
                         <button role="menuitem" data-add="shape"><span class="glyph">■</span>Shape</button>
                         <button role="menuitem" data-add="progress"><span class="glyph">▰</span>Progress bar / ring</button>
+                        <button role="menuitem" data-add="game-list"><span class="glyph">🎮</span>Game list (from Game Plan)</button>
                         <hr style="border:0;border-top:1px solid var(--border);margin:.3rem 0">
                         <button role="menuitem" data-preset="counter"><span class="glyph">№</span>Counter card (preset)</button>
                     </div>
@@ -327,10 +328,10 @@
     const MIN_SIZE = 20;
     const TYPE_META = {
         text: { label: 'Text', icon: 'T' }, 'random-text': { label: 'Random Text', icon: '↻' }, markdown: { label: 'Markdown', icon: 'M↓' },
-        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, shape: { label: 'Shape', icon: '■' }, progress: { label: 'Progress', icon: '▰' }
+        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, shape: { label: 'Shape', icon: '■' }, progress: { label: 'Progress', icon: '▰' }, 'game-list': { label: 'Game List', icon: '🎮' }
     };
     const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
-    const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress';
+    const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress' || el.type === 'game-list';
     const CANVAS_PRESETS = [['1920x1080', 'Full HD 1920 × 1080'], ['1280x720', 'HD 1280 × 720'], ['2560x1440', 'QHD 2560 × 1440'], ['3840x2160', '4K 3840 × 2160'], ['1080x1920', 'Portrait 1080 × 1920'], ['1080x1080', 'Square 1080 × 1080']];
     const SYSTEM_FONTS = [['sans-serif', 'System sans-serif'], ['Arial, sans-serif', 'Arial'], ['Helvetica, sans-serif', 'Helvetica'], ['Georgia, serif', 'Georgia'], ['Impact, sans-serif', 'Impact'], ['monospace', 'Monospace'], ["'Courier New', monospace", 'Courier New'], ["'Trebuchet MS', sans-serif", 'Trebuchet MS']];
     const SERIF_FONTS = new Set(['Merriweather', 'Playfair Display']);
@@ -431,17 +432,18 @@
     }
 
     function createElementData(type, overrides = {}) {
-        const sizes = { text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270], video: [640, 360], embed: [640, 360], shape: [480, 160], progress: [480, 48] };
+        const sizes = { text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270], video: [640, 360], embed: [640, 360], shape: [480, 160], progress: [480, 48], 'game-list': [800, 320] };
         const [width, height] = sizes[type];
         const offset = (overlay.elements.length % 6) * 24;
         const data = {
             id: uid(type), name: '', locked: false, type,
-            content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', shape: '', progress: '50' }[type],
+            content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', shape: '', progress: '50', 'game-list': '' }[type],
             items: type === 'random-text' ? ['First random phrase', 'Second random phrase', 'Third random phrase'] : [],
             random: { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 },
-            group: '', progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
+            group: '', gameList: { filter: 'scheduled', period: '', layout: 'grid', columns: 3, gap: 12, max: 0, showCovers: true, showTitles: true, meta: 'none', headings: true, highlightCurrent: true, accent: '#3fb950' },
+            progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
             src: '', x: Math.round((overlay.canvas.width - width) / 2 + offset), y: Math.round((overlay.canvas.height - height) / 2 + offset), width, height, zIndex: overlay.elements.length, visible: true,
-            style: { fontFamily: 'sans-serif', fontSize: type === 'markdown' ? 32 : type === 'progress' ? 24 : 48, fontWeight: '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#1f6feb' : 'transparent', borderColor: '#ffffff', borderWidth: 0, borderRadius: 0, opacity: 1, objectFit: 'cover', shape: 'rectangle', fill: '#1f6feb', gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 }, blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' } }
+            style: { fontFamily: 'sans-serif', fontSize: type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48, fontWeight: '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#1f6feb' : 'transparent', borderColor: '#ffffff', borderWidth: 0, borderRadius: 0, opacity: 1, objectFit: 'cover', shape: 'rectangle', fill: '#1f6feb', gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 }, blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' } }
         };
         return Object.assign(data, overrides);
     }
@@ -543,6 +545,7 @@
             justifyContent: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'flex-end' : 'flex-start'
         });
         Object.assign(node.style, shared.decorationStyle(s, el.type));
+        if (el.type === 'game-list') node.style.display = 'block';
         if (el.type === 'shape') {
             if (s.shape === 'circle') node.style.borderRadius = '50%';
             if (s.shape === 'pill') node.style.borderRadius = '999px';
@@ -582,12 +585,14 @@
             if (el.random?.marquee) node._extra += ' overlay-marquee';
         } else if (el.type === 'text') {
             node.textContent = expand(el.content);
+        } else if (el.type === 'game-list') {
+            shared.renderGameList(node, el, liveStatus.gamePlan);
         } else if (el.type === 'progress') {
             node._progressKind = null;
             shared.renderProgress(node, el, expand);
         }
     }
-    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.progress, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
+    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.progress, el.gameList, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
 
     function tickPlaceholders() {
         if (!prefs.live) return;
@@ -962,6 +967,22 @@
             <div class="grid2">${F.number('x', 'X', el.x, { min: -7680, max: 7680 })}${F.number('y', 'Y', el.y, { min: -4320, max: 4320 })}</div>
             <div class="grid2">${F.number('width', 'Width', el.width, { min: LIMITS.elementW[0], max: LIMITS.elementW[1] })}${line ? '<span></span>' : F.number('height', 'Height', el.height, { min: LIMITS.elementH[0], max: LIMITS.elementH[1] })}</div>`);
     }
+    function gameListSection(el) {
+        const g = el.gameList || {};
+        return F.section('gamelist', 'Game list', `
+            ${F.select('gameList.filter', 'Show', g.filter || 'scheduled', [['scheduled', 'Scheduled games'], ['backlog', 'Backlog'], ['played', 'Played'], ['all', 'Everything']])}
+            ${F.text('gameList.period', 'Only this period', g.period || '', 'placeholder="e.g. October (blank = all)"')}
+            ${F.select('gameList.layout', 'Layout', g.layout || 'grid', [['grid', 'Cover grid'], ['strip', 'Cover strip'], ['list', 'Text list']])}
+            ${g.layout === 'grid' || !g.layout ? F.number('gameList.columns', 'Columns', g.columns || 3, { min: 1, max: 12 }) : ''}
+            <div class="grid2">${F.number('gameList.gap', 'Gap (px)', g.gap ?? 12, { min: 0, max: 80 })}${F.number('gameList.max', 'Max games (0 = all)', g.max || 0, { min: 0, max: 100 })}</div>
+            ${F.select('gameList.meta', 'Extra line', g.meta || 'none', [['none', 'None'], ['year', 'Release year'], ['genres', 'Genres'], ['note', 'Your note']])}
+            ${F.check('gameList.showCovers', 'Show covers', g.showCovers !== false)}
+            ${F.check('gameList.showTitles', 'Show titles', g.showTitles !== false)}
+            ${F.check('gameList.headings', 'Group by period with headings', g.headings !== false)}
+            ${F.check('gameList.highlightCurrent', 'Highlight the game you are playing now', g.highlightCurrent !== false)}
+            ${F.color('gameList.accent', 'Highlight color', g.accent || '#3fb950')}
+            <p class="hint">Games come from the <a href="/game-plan-editor.html" target="_blank" style="color:var(--accent)">Game Plan</a>. “Playing now” follows your Twitch category.</p>`);
+    }
     function progressSection(el) {
         const p = el.progress || {};
         return F.section('progress', 'Progress', `
@@ -997,7 +1018,7 @@
             root.innerHTML = `${actionBar(items)}${alignSection(items)}${appearanceSection(items[0], true)}${textual ? typographySection(items.find(hasText) || items[0]) : ''}`;
         } else {
             const el = items[0];
-            root.innerHTML = `${actionBar(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${contentSection(el)}${layoutSection(el)}${alignSection(items)}${hasText(el) ? typographySection(el) : ''}${el.type === 'progress' ? progressSection(el) : ''}${appearanceSection(el, false)}${el.type === 'random-text' ? randomSection(el) : ''}`;
+            root.innerHTML = `${actionBar(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${contentSection(el)}${layoutSection(el)}${alignSection(items)}${hasText(el) ? typographySection(el) : ''}${el.type === 'progress' ? progressSection(el) : ''}${el.type === 'game-list' ? gameListSection(el) : ''}${appearanceSection(el, false)}${el.type === 'random-text' ? randomSection(el) : ''}`;
         }
         root.parentElement.scrollTop = scroll;
         lastTextField = null;
@@ -1006,7 +1027,7 @@
         for (const el of selectedElements()) { el.width = clamp(el.width, 1, 3840); el.height = clamp(el.height, 1, 2160); }
         renderCanvas(); updateStatusBar();
         if (path === 'name') renderLayers();
-        if (path === 'style.shape' || path === 'progress.kind' || path === 'style.gradient.enabled') renderProperties();
+        if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || path === 'style.gradient.enabled') renderProperties();
         changed(false);
     });
     $('properties').addEventListener('mousedown', event => { if (event.target.id === 'font-picker') GOOGLE_FONT_OPTIONS.forEach(([v]) => shared.loadGoogleFont(v)); });

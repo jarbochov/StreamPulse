@@ -57,6 +57,7 @@
             { label: 'Credits', href: '/credits-editor.html' },
             { label: 'Theme', href: '/theme-editor.html' },
             { label: 'Goals', href: '/goals-editor.html' },
+            { label: 'Game Plan', href: '/game-plan-editor.html' },
             { label: 'Timers', href: '/timers-editor.html' },
             { label: 'Music (Beta)', href: '/music-editor.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html' },

@@ -12,6 +12,7 @@
 
     const CLOCK_ITEMS = [['time', 'Time (e.g. 3:07 PM)'], ['time.24', 'Time, 24-hour'], ['time.seconds', 'Time with seconds'], ['date', 'Date (short)'], ['date.long', 'Date (long)'], ['weekday', 'Weekday'], ['month', 'Month'], ['year', 'Year'], ['uptime', 'Stream uptime (H:MM:SS)']];
     const GAME_ITEMS = [['game.cover', 'Cover art URL (use as an image source)'], ['game.release_date', 'Release date'], ['game.release_year', 'Release year'], ['game.genres', 'Genres'], ['game.developer', 'Developer'], ['game.platforms', 'Platforms'], ['game.rating', 'IGDB rating (0–100)'], ['game.summary', 'Summary']];
+    const PLAN_ITEMS = [['plan.now', 'Game from your plan you are playing now'], ['plan.scheduled', 'Scheduled games (comma list)'], ['plan.backlog', 'Backlog games (comma list)']];
     const EVENT_ITEMS = [['latest.follower', 'Latest follower'], ['latest.subscriber', 'Latest subscriber'], ['latest.gifter', 'Latest gift sub gifter'], ['latest.cheer', 'Latest cheerer'], ['latest.cheer.amount', 'Latest cheer amount'], ['latest.donation', 'Latest donor'], ['latest.donation.amount', 'Latest donation amount'], ['latest.raider', 'Latest raider'], ['latest.raider.viewers', 'Latest raid size'], ['chatter.top', 'Top chatter this session'], ['chatter.top.count', 'Top chatter message count']];
     // Values that change every second are refreshed in place instead of re-rendering the overlay.
     const TICKING = /^(time|date|weekday|month|year|uptime|timer\.)/;
@@ -102,6 +103,7 @@
         const groups = VARIABLE_GROUPS.map(g => ({ label: g.label, items: g.items.slice() }));
         groups.push({ label: 'Clock', items: CLOCK_ITEMS });
         groups.push({ label: 'Game (IGDB)', items: GAME_ITEMS });
+        groups.push({ label: 'Game plan', items: PLAN_ITEMS });
         groups.push({ label: 'Latest events', items: EVENT_ITEMS });
         for (const [id, timer] of Object.entries(status.timerData?.timers || {})) {
             const items = [[`timer.${id}`, `${timer.label} — clock`], [`timer.${id}.label`, `${timer.label} — title`], [`timer.${id}.state`, `${timer.label} — state`]];
@@ -129,6 +131,9 @@
             'game.developer': (status.stream?.game?.developers || [])[0],
             'game.platforms': (status.stream?.game?.platforms || []).join(', '),
             'game.summary': status.stream?.game?.summary,
+            'plan.now': (status.gamePlan?.items || []).find(item => item.playingNow)?.name,
+            'plan.scheduled': (status.gamePlan?.items || []).filter(item => item.status === 'scheduled').map(item => item.name).join(', '),
+            'plan.backlog': (status.gamePlan?.items || []).filter(item => item.status === 'backlog').map(item => item.name).join(', '),
             'category.session_time': status.stream?.category ? formatMinutes(status.stream.category.sessionMinutes) : undefined,
             'category.total_time': status.stream?.category ? formatMinutes(status.stream.category.totalMinutes) : undefined,
             'category.total_hours': status.stream?.category ? (status.stream.category.totalMinutes / 60).toFixed(1) : undefined,
@@ -176,6 +181,7 @@
         for (const key of Object.keys(table)) if (isTicking(key) && !key.startsWith('timer.')) delete table[key];
         // Timer clocks tick on their own, so only structural timer values count as changes.
         for (const key of Object.keys(table)) if (key.startsWith('timer.') && !/\.(label|state)$/.test(key)) delete table[key];
+        table.__plan = (status.gamePlan?.items || []).map(item => [item.name, item.status, item.period, item.cover, item.playingNow, item.note]);
         return JSON.stringify(table);
     }
 
@@ -217,10 +223,12 @@
 
     async function loadLiveExtras(status) {
         try {
-            const [timers, goals] = await Promise.all([
+            const [timers, goals, plan] = await Promise.all([
                 fetch('/api/timers', { cache: 'no-store' }).then(r => r.ok ? r.json() : null),
-                fetch('/api/goals', { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
+                fetch('/api/goals', { cache: 'no-store' }).then(r => r.ok ? r.json() : null),
+                fetch('/api/game-plan', { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
             ]);
+            if (plan) status.gamePlan = plan;
             if (timers) status.timerData = { fetchedAt: Date.now(), timers: timers.timers || {} };
             if (goals) status.goalItems = goals.items || [];
         } catch { /* extras are optional */ }
@@ -296,5 +304,118 @@
         holder._text.textContent = config.showLabel === false ? '' : label;
     }
 
-    root.OverlayShared = { decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    // Renders the manual game plan as a cover grid, a cover strip or a text list.
+    function renderGameList(node, element, plan) {
+        const config = element.gameList || {};
+        const style = element.style || {};
+        let items = (plan?.items || []).filter(item => config.filter === 'all' || item.status === (config.filter || 'scheduled'));
+        if (config.period) items = items.filter(item => String(item.period).toLowerCase() === String(config.period).toLowerCase());
+        if (config.max > 0) items = items.slice(0, config.max);
+        const layout = config.layout || 'grid';
+        const gap = config.gap ?? 12;
+        const accent = config.accent || '#3fb950';
+        node.replaceChildren();
+        node.style.display = 'block';
+        node.style.overflow = 'hidden';
+        node.style.whiteSpace = 'normal';
+        if (!items.length) {
+            const empty = document.createElement('div');
+            empty.style.opacity = '.6';
+            empty.textContent = 'No games to show. Add some in the Game Plan editor.';
+            node.appendChild(empty);
+            return;
+        }
+
+        const sections = [];
+        if (config.headings !== false && config.filter !== 'backlog') {
+            for (const item of items) {
+                const label = item.period || '';
+                let section = sections.find(entry => entry.label === label);
+                if (!section) { section = { label, items: [] }; sections.push(section); }
+                section.items.push(item);
+            }
+        } else sections.push({ label: '', items });
+
+        const meta = item => {
+            if (config.meta === 'year') return item.releaseYear ? String(item.releaseYear) : '';
+            if (config.meta === 'genres') return (item.genres || []).slice(0, 2).join(' · ');
+            if (config.meta === 'note') return item.note || '';
+            return '';
+        };
+        const badge = () => {
+            const tag = document.createElement('span');
+            tag.textContent = 'NOW PLAYING';
+            tag.style.cssText = `background:${accent};color:#000;font-size:.55em;font-weight:800;letter-spacing:.06em;padding:.15em .5em;border-radius:999px;white-space:nowrap;`;
+            return tag;
+        };
+        const cover = (item, extra) => {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = `background:rgba(255,255,255,.08);border-radius:${Math.min(12, style.borderRadius || 8)}px;overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;font-size:.6em;padding:.3em;box-sizing:border-box;${extra}`;
+            if (item.cover) {
+                const img = document.createElement('img');
+                img.src = item.cover; img.alt = '';
+                img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                wrap.style.padding = '0';
+                wrap.appendChild(img);
+            } else wrap.textContent = item.name;
+            if (item.playingNow && config.highlightCurrent !== false) wrap.style.boxShadow = `0 0 0 3px ${accent}`;
+            return wrap;
+        };
+
+        for (const section of sections) {
+            if (section.label) {
+                const heading = document.createElement('div');
+                heading.textContent = section.label;
+                heading.style.cssText = 'font-weight:700;margin:0 0 .35em;opacity:.85;';
+                node.appendChild(heading);
+            }
+            const body = document.createElement('div');
+            body.style.marginBottom = `${gap}px`;
+            if (layout === 'list') {
+                body.style.cssText += `display:flex;flex-direction:column;gap:${gap / 2}px;`;
+                for (const item of section.items) {
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex;align-items:center;gap:.6em;';
+                    if (config.showCovers !== false) row.appendChild(cover(item, 'width:2.4em;height:3.2em;flex:none;'));
+                    const text = document.createElement('div');
+                    text.style.cssText = 'min-width:0;flex:1;';
+                    const title = document.createElement('div');
+                    title.style.cssText = 'display:flex;align-items:center;gap:.5em;';
+                    const name = document.createElement('span');
+                    name.textContent = item.name;
+                    name.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;';
+                    if (config.showTitles !== false || config.showCovers === false) title.appendChild(name);
+                    if (item.playingNow && config.highlightCurrent !== false) title.appendChild(badge());
+                    text.appendChild(title);
+                    const extra = meta(item);
+                    if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = 'font-size:.7em;opacity:.65;'; text.appendChild(line); }
+                    row.appendChild(text);
+                    body.appendChild(row);
+                }
+            } else {
+                const strip = layout === 'strip';
+                body.style.cssText += strip
+                    ? `display:flex;gap:${gap}px;`
+                    : `display:grid;grid-template-columns:repeat(${config.columns || 3},minmax(0,1fr));gap:${gap}px;`;
+                for (const item of section.items) {
+                    const card = document.createElement('div');
+                    card.style.cssText = strip ? 'flex:1 1 0;min-width:0;' : 'min-width:0;';
+                    card.appendChild(cover(item, 'width:100%;aspect-ratio:3/4;'));
+                    if (item.playingNow && config.highlightCurrent !== false) { const holder = document.createElement('div'); holder.style.cssText = 'text-align:center;margin-top:.35em;'; holder.appendChild(badge()); card.appendChild(holder); }
+                    if (config.showTitles !== false) {
+                        const name = document.createElement('div');
+                        name.textContent = item.name;
+                        name.style.cssText = 'margin-top:.35em;font-weight:600;font-size:.8em;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                        card.appendChild(name);
+                    }
+                    const extra = meta(item);
+                    if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = 'font-size:.65em;opacity:.65;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'; card.appendChild(line); }
+                    body.appendChild(card);
+                }
+            }
+            node.appendChild(body);
+        }
+    }
+
+    root.OverlayShared = { renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);
