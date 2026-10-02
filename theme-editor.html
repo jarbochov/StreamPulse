@@ -4,159 +4,270 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StreamPulse Theme</title>
+    <title>StreamPulse Overlay Theme</title>
     <script src="/nav.js" defer></script>
     <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; background: #0f1117; color: #e1e4e8; font: 14px system-ui, sans-serif; min-height: 100vh; }
-        .site-header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-        .site-header h1 { margin: 0; font-size: 1.3rem; font-weight: 600; }
-        .site-header h1 span { color: #58a6ff; }
-        main { max-width: 760px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
-        .header { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; }
-        .header-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
-        .header-actions .button { min-width: 0; }
-        h1 { margin:0; font-size:1.4rem; } details { background:#161b22; border:1px solid #30363d; border-radius:8px; margin:.75rem 0; padding:.8rem 1rem; } details + details { margin-top:1rem; }
-        summary { cursor:pointer; color:#58a6ff; font-weight:600; } .row { display:flex; align-items:center; gap:1rem; margin:.75rem 0; }
-        label { color:#8b949e; min-width:180px; } input[type=text], input[type=color], input[type=number] { flex:1; min-width:0; padding:.45rem; background:#0d1117; color:#e1e4e8; border:1px solid #30363d; border-radius:5px; }
-        input[type=color] { flex:0 0 52px; height:32px; padding:2px; } button, .button { padding:.5rem .9rem; border:1px solid #238636; border-radius:6px; color:#fff; background:#238636; cursor:pointer; font-size:.82rem; } button:hover, .button:hover { background:#2ea043; }
-        .hint, #status { color:#8b949e; font-size:.82rem; line-height:1.45; } #status { min-height:1.3em; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; }
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: #58a6ff; }
+        .container { max-width: 1180px; margin: 0 auto; padding: 1rem 2rem 3rem; }
+        .bar { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .8rem; }
+        .bar .grow { flex: 1; min-width: 200px; }
+        .bar h2 { font-size: 1.05rem; font-weight: 600; }
+        .hint { color: #8b949e; font-size: .78rem; line-height: 1.45; }
+        .layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 1rem; align-items: start; }
+        .stack { display: flex; flex-direction: column; gap: .7rem; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: .8rem 1rem; }
+        .card h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .5px; color: #8b949e; margin-bottom: .6rem; }
+        .row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: .3rem .7rem; align-items: center; margin-bottom: .5rem; }
+        .row > label { font-size: .82rem; color: #8b949e; }
+        .row .hint { grid-column: 2; margin-top: -.2rem; }
+        .ctl { display: flex; gap: .4rem; align-items: center; min-width: 0; }
+        .ctl input[type=text], .ctl input[type=number] { flex: 1; min-width: 0; padding: .34rem .55rem; background: #0d1117; color: #e1e4e8; border: 1px solid #30363d; border-radius: 6px; font: inherit; font-size: .82rem; }
+        .ctl input:focus { outline: none; border-color: #58a6ff; }
+        .ctl input[type=color] { flex: none; width: 38px; height: 30px; padding: 2px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; cursor: pointer; }
+        .ctl input[type=range] { width: 90px; flex: none; accent-color: #58a6ff; }
+        .ctl .pct { font-size: .72rem; color: #8b949e; width: 2.4rem; flex: none; }
+        input[type=checkbox] { accent-color: #58a6ff; }
+        .btn { border: 1px solid #30363d; background: #21262d; color: #e1e4e8; border-radius: 6px; padding: .42rem .8rem; font: inherit; font-size: .82rem; cursor: pointer; }
+        .btn:hover { border-color: #58a6ff; }
+        .btn.primary { background: #238636; border-color: #238636; color: #fff; }
+        .btn.primary:hover { background: #2ea043; }
+        .pill { font-size: .68rem; padding: .12rem .5rem; border-radius: 999px; border: 1px solid #30363d; color: #8b949e; }
+        .pill.dirty { color: #d29922; border-color: #d29922; }
+        .pill.ok { color: #3fb950; border-color: #3fb950; }
+        .presets { display: flex; gap: .5rem; flex-wrap: wrap; }
+        .preset { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: .45rem .7rem; color: inherit; font: inherit; font-size: .78rem; cursor: pointer; display: flex; align-items: center; gap: .5rem; }
+        .preset:hover { border-color: #58a6ff; }
+        .preset i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; border: 1px solid #ffffff33; }
+        .preview { position: sticky; top: 1rem; }
+        .stage { border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: .8rem; border: 1px solid #30363d;
+            background-color: #3a3f4a; background-image: linear-gradient(45deg, #2f343e 25%, transparent 25%, transparent 75%, #2f343e 75%), linear-gradient(45deg, #2f343e 25%, transparent 25%, transparent 75%, #2f343e 75%); background-size: 16px 16px; background-position: 0 0, 8px 8px; }
+        .stage .pv { padding: .6rem .8rem; border-radius: 8px; }
+        .pv .t { font-size: calc(1.5rem * var(--scale, 1)); line-height: 1.15; }
+        .pv .s { font-size: calc(1rem * var(--scale, 1)); margin-top: .25rem; opacity: .9; }
+        .pv .bar2 { height: 12px; border-radius: 6px; background: #ffffff22; margin-top: .5rem; overflow: hidden; }
+        .pv .bar2 i { display: block; height: 100%; width: 62%; }
+        .pv .lab { font-size: .6rem; color: #ffffff99; margin-bottom: .3rem; font-family: system-ui; text-transform: uppercase; letter-spacing: .08em; }
+        #status { min-height: 1.3em; margin-top: .5rem; }
+        @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .preview { position: static; } }
     </style>
 </head>
 <body>
-    <header class="site-header">
-        <h1>StreamPulse <span>Theme</span></h1>
+    <header class="header">
+        <h1>StreamPulse <span>Overlay Theme</span></h1>
         <nav id="main-nav" class="nav" aria-label="Main navigation"></nav>
     </header>
-    <main>
-    <div class="header">
-        <h2>Shared Theme</h2>
-        <div class="header-actions">
-            <button id="export" type="button">Export Theme</button>
-            <label for="import" class="button">Import Theme</label>
+    <main class="container">
+        <div class="bar">
+            <div class="grow">
+                <h2>Shared overlay theme <span id="state" class="pill ok">Saved</span></h2>
+                <p class="hint">Font and colors used by the Credits, Hashtags, Goal, Viewer Count and Timer overlays. Music has its own theme in the Music editor, and Custom Overlays are styled per element in their editor.</p>
+            </div>
+            <button class="btn" id="reset" type="button">Reset to defaults</button>
+            <button class="btn" id="export" type="button">Export</button>
+            <label class="btn" for="import">Import</label>
             <input id="import" type="file" accept="application/json,.json" hidden>
-            <button id="save" type="button">Save Theme</button>
+            <button class="btn primary" id="save" type="button">Save theme</button>
         </div>
-    </div>
-    <p class="hint">Typography and colors are shared by supported overlays. Goal and Viewer Count backgrounds are configured separately. Music keeps its specialized Music Editor theme.</p>
-    <details open><summary>Typography</summary>
-        <div class="row"><label for="font">Font family</label><input id="font" type="text"></div>
-        <div class="row"><label for="scale">Font scale</label><input id="scale" type="number" min=".5" max="3" step=".05"></div>
-    </details>
-    <details open><summary>Colors</summary>
-        <div class="row"><label for="text">Text color</label><input id="text-picker" type="color" aria-label="Text color picker"><input id="text" type="text"></div>
-        <div class="row"><label for="accent">Accent color</label><input id="accent-picker" type="color" aria-label="Accent color picker"><input id="accent" type="text"></div>
-        <div class="row"><label for="background">Background</label><input id="background-picker" type="color" aria-label="Background color picker"><input id="background" type="text" placeholder="transparent or rgba(...)"></div>
-        <div class="row"><label for="goal-background">Goal background</label><input id="goal-background-picker" type="color" aria-label="Goal background color picker"><input id="goal-background" type="text" placeholder="rgba(0, 0, 0, 0.45)"></div>
-        <div class="row"><label for="viewer-background">Viewer Count background</label><input id="viewer-background-picker" type="color" aria-label="Viewer Count background color picker"><input id="viewer-background" type="text" placeholder="rgba(0, 0, 0, 0.45)"></div>
-        <div class="row"><label for="outline-enabled">Text outline</label><input id="outline-enabled" type="checkbox"></div>
-        <div class="row"><label for="outline">Text outline color</label><input id="outline-picker" type="color" aria-label="Text outline color picker"><input id="outline" type="text"></div>
-    </details>
-    <details><summary>Overlay scope</summary><p class="hint">Goals, timers, and the viewer overlay inherit this theme. Music remains independent because its album-art layout has separate controls.</p></details>
-    <div id="status" role="status"></div>
-</main>
+        <div class="layout">
+            <div class="stack">
+                <div class="card">
+                    <h3>Quick start</h3>
+                    <div class="presets" id="presets"></div>
+                </div>
+                <div class="card">
+                    <h3>Typography</h3>
+                    <div class="row"><label for="font">Font family</label><div class="ctl"><input id="font" type="text" placeholder="Any Google Font, e.g. Jersey 20"></div>
+                        <span class="hint">Loaded from Google Fonts by name. Spelling must match exactly. The preview shows what OBS will render.</span></div>
+                    <div class="row"><label for="scale">Font scale</label><div class="ctl"><input id="scale-range" type="range" min=".5" max="2" step=".05" style="flex:1;width:auto"><input id="scale" type="number" min=".5" max="3" step=".05" style="flex:none;width:72px"></div></div>
+                </div>
+                <div class="card">
+                    <h3>Colors</h3>
+                    <div class="row"><label for="text">Text</label><div class="ctl"><input id="text-picker" type="color" aria-label="Text color"><input id="text" type="text"></div></div>
+                    <div class="row"><label for="accent">Accent</label><div class="ctl"><input id="accent-picker" type="color" aria-label="Accent color"><input id="accent" type="text"></div>
+                        <span class="hint">Used for headings, hashtags and highlights.</span></div>
+                    <div class="row"><label for="outline-enabled">Text outline</label><div class="ctl"><input id="outline-enabled" type="checkbox"><input id="outline-picker" type="color" aria-label="Outline color"><input id="outline" type="text"></div></div>
+                </div>
+                <div class="card">
+                    <h3>Backgrounds</h3>
+                    <div class="row"><label for="background">Overlay</label><div class="ctl"><input id="background-picker" type="color" aria-label="Background color"><input id="background" type="text" placeholder="transparent"><input id="background-alpha" type="range" min="0" max="100"><span class="pct" id="background-pct"></span></div></div>
+                    <div class="row"><label for="goal-background">Goal panel</label><div class="ctl"><input id="goal-background-picker" type="color" aria-label="Goal background"><input id="goal-background" type="text"><input id="goal-background-alpha" type="range" min="0" max="100"><span class="pct" id="goal-background-pct"></span></div></div>
+                    <div class="row"><label for="viewer-background">Viewer Count panel</label><div class="ctl"><input id="viewer-background-picker" type="color" aria-label="Viewer background"><input id="viewer-background" type="text"><input id="viewer-background-alpha" type="range" min="0" max="100"><span class="pct" id="viewer-background-pct"></span></div></div>
+                    <p class="hint">Transparent is usually best for OBS. The sliders set opacity.</p>
+                </div>
+                <div id="status" class="hint" role="status"></div>
+            </div>
+            <aside class="preview">
+                <div class="card">
+                    <h3>Live preview</h3>
+                    <div class="stage" id="stage">
+                        <div class="pv" id="pv-main"><div class="lab">Credits</div><div class="t" id="pv-head">Thanks for watching</div><div class="s">Followers: <b id="pv-acc">Jarbo, Pixel, Nova</b></div></div>
+                        <div class="pv" id="pv-goal"><div class="lab">Goal</div><div class="t" style="font-size:calc(1.15rem * var(--scale,1))">Followers 62 / 100</div><div class="bar2"><i id="pv-fill"></i></div></div>
+                        <div class="pv" id="pv-viewer"><div class="lab">Viewer Count</div><div class="t" style="font-size:calc(1.15rem * var(--scale,1))">👁 128 watching</div></div>
+                    </div>
+                    <p class="hint" style="margin-top:.5rem">The checkerboard shows transparency.</p>
+                </div>
+            </aside>
+        </div>
+    </main>
 <script>
-let config;
-const fields = {
-    font: 'font_family',
-    scale: 'font_scale',
-    text: 'text_color',
-    accent: 'accent_color',
-    background: 'background_color',
-    'goal-background': 'goal_background_color',
-    'viewer-background': 'viewer_background_color',
-    outline: 'text_outline_color'
-};
-const defaultThemeValues = {
-    font: 'Jersey 20',
-    scale: 1,
-    text: 'rgb(214, 227, 225)',
-    accent: 'rgb(255, 255, 255)',
-    background: 'transparent',
-    'goal-background': 'rgba(0, 0, 0, 0.45)',
-    'viewer-background': 'rgba(0, 0, 0, 0.45)',
-    outline: '#00000066'
-};
-const detailsStorageKey = 'streampulse:theme:open-sections';
-const openDetails = JSON.parse(localStorage.getItem(detailsStorageKey) || '{}');
-document.querySelectorAll('main details').forEach(details => {
-    const section = details.querySelector('summary').textContent.trim();
-    if (Object.prototype.hasOwnProperty.call(openDetails, section)) details.open = openDetails[section];
-    details.addEventListener('toggle', () => {
-        openDetails[section] = details.open;
-        localStorage.setItem(detailsStorageKey, JSON.stringify(openDetails));
-    });
-});
-function colorToHex(color) {
-    if (!color || color === 'transparent') return '#000000';
-    if (/^#[0-9a-f]{3}$/i.test(color)) return '#' + color.slice(1).split('').map(char => char + char).join('');
-    if (/^#[0-9a-f]{6}/i.test(color)) return color.slice(0, 7);
-    const match = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
-    return match ? '#' + match.slice(1).map(value => Number(value).toString(16).padStart(2, '0')).join('') : '#000000';
-}
-function syncColorPicker(id) {
-    const value = document.getElementById(id);
-    const picker = document.getElementById(`${id}-picker`);
-    picker.value = colorToHex(value.value);
-    picker.addEventListener('input', () => { value.value = picker.value; });
-    value.addEventListener('change', () => { picker.value = colorToHex(value.value); });
-}
-function updateColorPickers() {
-    ['text', 'accent', 'background', 'goal-background', 'viewer-background', 'outline'].forEach(id => {
-        document.getElementById(`${id}-picker`).value = colorToHex(document.getElementById(id).value);
-    });
-}
-function fontImportUrl(fontFamily) {
-    return `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontFamily).replace(/%20/g, '+')}&display=swap`;
-}
-async function load() {
-    const res = await fetch('/api/config'); if (!res.ok) throw new Error('Could not load configuration');
-    config = await res.json(); const theme = config.theme || {};
-    for (const [id, key] of Object.entries(fields)) {
-        document.getElementById(id).value = theme[key] ?? defaultThemeValues[id];
+let config, saved = '';
+const $ = id => document.getElementById(id);
+const fields = { font: 'font_family', scale: 'font_scale', text: 'text_color', accent: 'accent_color', background: 'background_color', 'goal-background': 'goal_background_color', 'viewer-background': 'viewer_background_color', outline: 'text_outline_color' };
+const COLOR_IDS = ['text', 'accent', 'background', 'goal-background', 'viewer-background', 'outline'];
+const ALPHA_IDS = ['background', 'goal-background', 'viewer-background'];
+const defaults = { font: 'Jersey 20', scale: 1, text: 'rgb(214, 227, 225)', accent: 'rgb(255, 255, 255)', background: 'transparent', 'goal-background': 'rgba(0, 0, 0, 0.45)', 'viewer-background': 'rgba(0, 0, 0, 0.45)', outline: '#00000066' };
+const PRESETS = [
+    { name: 'Default', swatch: '#d6e3e1', v: { ...defaults, outlineOn: true } },
+    { name: 'White on dark', swatch: '#ffffff', v: { text: '#ffffff', accent: '#58a6ff', background: 'transparent', 'goal-background': 'rgba(0, 0, 0, 0.55)', 'viewer-background': 'rgba(0, 0, 0, 0.55)', outline: '#000000aa', outlineOn: true } },
+    { name: 'Neon', swatch: '#00e1aa', v: { text: '#ffffff', accent: '#00e1aa', background: 'transparent', 'goal-background': 'rgba(10, 10, 30, 0.6)', 'viewer-background': 'rgba(10, 10, 30, 0.6)', outline: '#000000aa', outlineOn: true } },
+    { name: 'Warm', swatch: '#ffb347', v: { text: '#fff3e0', accent: '#ffb347', background: 'transparent', 'goal-background': 'rgba(40, 20, 0, 0.55)', 'viewer-background': 'rgba(40, 20, 0, 0.55)', outline: '#00000088', outlineOn: true } },
+    { name: 'Clean (no outline)', swatch: '#e6edf3', v: { text: '#e6edf3', accent: '#79c0ff', background: 'transparent', 'goal-background': 'rgba(13, 17, 23, 0.8)', 'viewer-background': 'rgba(13, 17, 23, 0.8)', outline: '#00000000', outlineOn: false } }
+];
+
+function parseColor(c) {
+    c = String(c || '').trim();
+    if (!c || c === 'transparent') return { hex: '#000000', a: 0 };
+    let m = c.match(/^#([0-9a-f]{3,8})$/i);
+    if (m) {
+        let h = m[1];
+        if (h.length === 3 || h.length === 4) h = h.split('').map(x => x + x).join('');
+        return { hex: '#' + h.slice(0, 6), a: h.length >= 8 ? parseInt(h.slice(6, 8), 16) / 255 : 1 };
     }
-    document.getElementById('outline-enabled').checked = theme.text_outline !== false;
-    ['text', 'accent', 'background', 'goal-background', 'viewer-background', 'outline'].forEach(syncColorPicker);
+    m = c.match(/rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)(?:[\s,/]+([\d.]+%?))?/i);
+    if (m) {
+        const a = m[4] === undefined ? 1 : m[4].endsWith('%') ? parseFloat(m[4]) / 100 : parseFloat(m[4]);
+        return { hex: '#' + [m[1], m[2], m[3]].map(v => Number(v).toString(16).padStart(2, '0')).join(''), a };
+    }
+    return { hex: '#000000', a: 1 };
+}
+function toRgba(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return a >= 1 ? hex : `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${Math.round(a * 100) / 100})`;
+}
+function fontUrl(f) { return `https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, '+')}&display=swap`; }
+let fontLink;
+function loadFont() {
+    const f = $('font').value.trim();
+    if (!f) return;
+    if (!fontLink) { fontLink = document.createElement('link'); fontLink.rel = 'stylesheet'; document.head.appendChild(fontLink); }
+    const url = fontUrl(f);
+    if (fontLink.href !== url) fontLink.href = url;
+}
+function syncControls() {
+    COLOR_IDS.forEach(id => {
+        const { hex, a } = parseColor($(id).value);
+        $(`${id}-picker`).value = hex;
+        if (ALPHA_IDS.includes(id)) { $(`${id}-alpha`).value = Math.round(a * 100); $(`${id}-pct`).textContent = Math.round(a * 100) + '%'; }
+    });
+    $('scale-range').value = $('scale').value || 1;
 }
 function readTheme() {
     const theme = { ...(config.theme || {}) };
-    for (const [id, key] of Object.entries(fields)) theme[key] = id === 'scale' ? Math.max(.5, Math.min(3, Number(document.getElementById(id).value) || 1)) : document.getElementById(id).value.trim();
-    theme.font_import = fontImportUrl(theme.font_family);
-    theme.text_outline = document.getElementById('outline-enabled').checked;
+    for (const [id, key] of Object.entries(fields)) {
+        theme[key] = id === 'scale' ? Math.max(.5, Math.min(3, Number($(id).value) || 1)) : $(id).value.trim();
+    }
+    if (!theme.font_family) theme.font_family = defaults.font;
+    theme.font_import = fontUrl(theme.font_family);
+    theme.text_outline = $('outline-enabled').checked;
     return theme;
 }
-document.getElementById('save').onclick = async () => {
+function renderPreview() {
+    const scale = Math.max(.5, Math.min(3, Number($('scale').value) || 1));
+    const outline = $('outline-enabled').checked ? $('outline').value || '#000000' : 'transparent';
+    const stage = $('stage');
+    stage.style.setProperty('--scale', scale);
+    stage.style.fontFamily = `'${$('font').value.trim() || defaults.font}', system-ui, sans-serif`;
+    stage.style.color = $('text').value;
+    stage.style.textShadow = `-1px -1px 0 ${outline}, 1px -1px 0 ${outline}, -1px 1px 0 ${outline}, 1px 1px 0 ${outline}`;
+    $('pv-acc').style.color = $('accent').value;
+    $('pv-head').style.color = $('accent').value;
+    $('pv-fill').style.background = $('accent').value;
+    $('pv-main').style.background = $('background').value || 'transparent';
+    $('pv-goal').style.background = $('goal-background').value || 'transparent';
+    $('pv-viewer').style.background = $('viewer-background').value || 'transparent';
+    $('outline-picker').disabled = $('outline').disabled = !$('outline-enabled').checked;
+}
+function markDirty() {
+    const dirty = JSON.stringify(readTheme()) !== saved;
+    $('state').textContent = dirty ? 'Unsaved changes' : 'Saved';
+    $('state').className = 'pill ' + (dirty ? 'dirty' : 'ok');
+}
+function refresh() { renderPreview(); markDirty(); }
+function applyValues(v) {
+    Object.keys(fields).forEach(id => { if (v[id] !== undefined) $(id).value = v[id]; });
+    if (v.outlineOn !== undefined) $('outline-enabled').checked = v.outlineOn;
+    syncControls(); loadFont(); refresh();
+}
+
+COLOR_IDS.forEach(id => {
+    $(`${id}-picker`).addEventListener('input', () => {
+        const a = parseColor($(id).value).a;
+        $(id).value = ALPHA_IDS.includes(id) || a < 1 ? toRgba($(`${id}-picker`).value, id === 'background' && a === 0 ? 1 : a) : $(`${id}-picker`).value;
+        syncControls(); refresh();
+    });
+    $(id).addEventListener('input', () => { syncControls(); refresh(); });
+});
+ALPHA_IDS.forEach(id => $(`${id}-alpha`).addEventListener('input', () => {
+    const a = Number($(`${id}-alpha`).value) / 100;
+    $(id).value = a === 0 && id === 'background' ? 'transparent' : toRgba(parseColor($(id).value).hex, a);
+    $(`${id}-pct`).textContent = Math.round(a * 100) + '%';
+    refresh();
+}));
+$('scale-range').addEventListener('input', () => { $('scale').value = $('scale-range').value; refresh(); });
+$('scale').addEventListener('input', () => { $('scale-range').value = $('scale').value; refresh(); });
+$('font').addEventListener('change', () => { loadFont(); refresh(); });
+$('font').addEventListener('input', refresh);
+$('outline-enabled').addEventListener('change', refresh);
+
+$('presets').innerHTML = PRESETS.map((p, i) => `<button class="preset" type="button" data-i="${i}"><i style="background:${p.swatch}"></i>${p.name}</button>`).join('');
+$('presets').addEventListener('click', event => {
+    const b = event.target.closest('.preset');
+    if (b) applyValues(PRESETS[b.dataset.i].v);
+});
+$('reset').onclick = () => applyValues({ ...defaults, outlineOn: true });
+
+$('save').onclick = async () => {
     const theme = readTheme();
-    const res = await fetch('/api/config', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ theme }) });
-    if (res.ok) config.theme = theme;
-    document.getElementById('status').textContent = res.ok ? 'Theme saved.' : 'Could not save theme.';
+    const res = await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) });
+    if (res.ok) { config.theme = theme; saved = JSON.stringify(readTheme()); markDirty(); }
+    $('status').textContent = res.ok ? 'Theme saved. Overlays pick it up on their next load.' : 'Could not save theme.';
 };
-document.getElementById('export').onclick = () => {
-    const content = JSON.stringify({ theme: readTheme() }, null, 2);
-    const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
-    const link = Object.assign(document.createElement('a'), { href: url, download: 'streampulse-theme.json' });
-    link.click();
+$('export').onclick = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ theme: readTheme() }, null, 2)], { type: 'application/json' }));
+    Object.assign(document.createElement('a'), { href: url, download: 'streampulse-theme.json' }).click();
     URL.revokeObjectURL(url);
 };
-document.getElementById('import').addEventListener('change', async event => {
+$('import').addEventListener('change', async event => {
     const file = event.target.files[0];
     if (!file) return;
     try {
         const imported = JSON.parse(await file.text());
         const theme = imported?.theme || imported;
         if (!theme || typeof theme !== 'object' || Array.isArray(theme)) throw new Error('Choose a theme JSON file.');
-        config.theme = { ...(config.theme || {}), ...theme };
-        for (const [id, key] of Object.entries(fields)) {
-            if (theme[key] !== undefined) document.getElementById(id).value = theme[key];
-        }
-        if (theme.text_outline !== undefined) document.getElementById('outline-enabled').checked = theme.text_outline !== false;
-        updateColorPickers();
-        document.getElementById('status').textContent = 'Theme imported. Save Theme to apply it.';
+        for (const [id, key] of Object.entries(fields)) if (theme[key] !== undefined) $(id).value = theme[key];
+        if (theme.text_outline !== undefined) $('outline-enabled').checked = theme.text_outline !== false;
+        syncControls(); loadFont(); refresh();
+        $('status').textContent = 'Theme imported. Save to apply it.';
     } catch (error) {
-        document.getElementById('status').textContent = error.message || 'Could not import theme.';
+        $('status').textContent = error.message || 'Could not import theme.';
     } finally {
         event.target.value = '';
     }
 });
-load().catch(error => document.getElementById('status').textContent = error.message);
+window.addEventListener('beforeunload', event => { if ($('state').classList.contains('dirty')) { event.preventDefault(); event.returnValue = ''; } });
+
+(async () => {
+    const res = await fetch('/api/config');
+    if (!res.ok) throw new Error('Could not load configuration');
+    config = await res.json();
+    const theme = config.theme || {};
+    for (const [id, key] of Object.entries(fields)) $(id).value = theme[key] ?? defaults[id];
+    $('outline-enabled').checked = theme.text_outline !== false;
+    syncControls(); loadFont(); renderPreview();
+    saved = JSON.stringify(readTheme()); markDirty();
+})().catch(error => { $('status').textContent = error.message; });
 </script></body></html>
