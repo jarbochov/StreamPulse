@@ -45,6 +45,12 @@ function normalizeVariant(input = {}, index = 0) {
         message: str(input.message, 500),
         image: str(input.image, 2000),
         video: str(input.video, 2000),
+        emoji: str(input.emoji, 40),
+        emojiLadder: Array.isArray(input.emojiLadder)
+            ? input.emojiLadder.slice(0, 12).map(step => ({ min: clamp(step?.min, 0, 1e9, 0), emoji: str(step?.emoji, 40) })).filter(step => step.emoji).sort((a, b) => a.min - b.min)
+            : [],
+        emojiEvery: clamp(input.emojiEvery, 0, 1e6, 0),
+        emojiMax: Math.round(clamp(input.emojiMax, 1, 20, 8)),
         sound: str(input.sound, 2000),
         volume: clamp(input.volume, 0, 100, 70),
         animIn: ANIM_IN.includes(input.animIn) ? input.animIn : 'pop',
@@ -238,6 +244,16 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         };
     }
 
+    // Highest ladder step at or below the amount wins; "one per N" repeats it, capped by emojiMax.
+    function pickEmoji(variant, amount) {
+        let emoji = variant.emoji;
+        for (const step of variant.emojiLadder) if (amount >= step.min) emoji = step.emoji;
+        if (emoji && variant.emojiEvery > 0 && amount > 0) {
+            emoji = emoji.repeat(Math.max(1, Math.min(variant.emojiMax, Math.floor(amount / variant.emojiEvery))));
+        }
+        return emoji;
+    }
+
     function buildPayload(rule, variant, ev, test) {
         const tokens = tokensFor(ev);
         return {
@@ -250,6 +266,7 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             message: fill(variant.message, tokens),
             image: variant.image,
             video: variant.video,
+            emoji: pickEmoji(variant, eventAmount(ev)),
             sound: variant.sound,
             volume: variant.volume,
             animIn: variant.animIn,

@@ -161,6 +161,8 @@ function normalizeOverlayElement(element = {}, index = 0) {
             titleColor: String(element.alert?.titleColor || '#ffd166').slice(0, 80),
             gap: Math.max(0, Math.min(100, Number(element.alert?.gap) || 12)),
             sound: element.alert?.sound !== false,
+            sampleImage: String(element.alert?.sampleImage || '').slice(0, 2000),
+            sampleEmoji: String(element.alert?.sampleEmoji || '').trim().slice(0, 40),
             triggers: Array.isArray(element.alert?.triggers) ? element.alert.triggers.filter(t => ALERT_TRIGGERS[t]).slice(0, 20) : []
         },
         random: {

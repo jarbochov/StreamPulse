@@ -672,11 +672,18 @@
             shared.renderProgress(node, el, expand);
         } else if (el.type === 'alert') {
             if (node._alertHandle) node._alertHandle.stop();
-            node._alertHandle = shared.playAlert(node, el, { ...ALERT_SAMPLE, animIn: 'none', durationMs: 3600000 }, { sound: false });
+            node._alertHandle = shared.playAlert(node, el, { ...alertSample(el), animIn: 'none', durationMs: 3600000 }, { sound: false });
         }
     }
     const ALERT_SAMPLE_IMAGE = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#8957e5"/><path d="M50 22l8.5 18 19.5 2.4-14.5 13.4 3.9 19.3L50 65l-17.4 10 3.9-19.3L22 42.4 41.500 40z" fill="#ffd166"/></svg>')}`;
     const ALERT_SAMPLE = { title: 'TestViewer just followed!', message: 'Thanks for the support', image: ALERT_SAMPLE_IMAGE, animOut: 'fade' };
+    // The preview can show your own image or emoji instead of the built-in star, so the box can be tuned against real media.
+    function alertSample(el) {
+        const a = el.alert || {};
+        if (a.sampleImage) return { ...ALERT_SAMPLE, image: a.sampleImage };
+        if (a.sampleEmoji) return { ...ALERT_SAMPLE, image: '', emoji: a.sampleEmoji };
+        return ALERT_SAMPLE;
+    }
     const ALERT_TRIGGER_LABELS = { follow: 'Follow', sub: 'New sub', resub: 'Resub', milestone: 'Sub milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Channel point redeem', timer: 'Timer finished', goal: 'Goal reached', chat_word: 'Chat word' };
     const sourceSignature = el => { const state = shared.textSourceState(el); return state ? [state.text, state.error] : null; };
     const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
@@ -1174,6 +1181,11 @@
         return F.section('alert', 'Alert box', `
             <p class="hint">What this box shows (text, images, sounds, animations) is set per alert in <a href="/alerts.html" target="_blank" style="color:var(--accent)">Alerts</a>. This is only the look.</p>
             <button type="button" id="alert-play">▶ Play sample alert</button>
+            <details class="sub-details"${a.sampleImage || a.sampleEmoji ? ' open' : ''}><summary>Preview media (editor only)</summary>
+            <span class="hint">Only for this editor preview. Real alerts use the media set per alert.</span>
+            ${F.text('alert.sampleEmoji', 'Sample emoji', a.sampleEmoji || '', 'maxlength="40" placeholder="e.g. 🎉 (used when no image is chosen)"')}
+            <div class="field"><span>Sample image</span><span class="upload-row"><input data-path="alert.sampleImage" data-kind="text" value="${esc(a.sampleImage || '')}" placeholder="Pick from library, or paste a URL" spellcheck="false"><button type="button" id="open-assets">Library…</button></span></div>
+            </details>
             ${F.select('alert.layout', 'Layout', a.layout || 'stack', [['stack', 'Media above text'], ['side', 'Media beside text'], ['text', 'Text only'], ['media', 'Media only (text over it)']])}
             ${a.layout === 'text' ? '' : `<div class="grid2">${F.number('alert.mediaScale', 'Media size (%)', a.mediaScale || 60, { min: 10, max: 100 })}${F.select('alert.mediaFit', 'Media fit', a.mediaFit || 'contain', [['contain', 'Contain'], ['cover', 'Fill (crop)']])}</div>`}
             <div class="grid2">${F.number('alert.titleSize', 'Title size (px)', a.titleSize || 44, { min: 8, max: 300 })}${F.number('alert.messageSize', 'Message size (px)', a.messageSize || 28, { min: 8, max: 300 })}</div>
@@ -1253,7 +1265,7 @@
         const el = primary(), node = el && nodes.get(el.id);
         if (!node) return;
         if (node._alertHandle) node._alertHandle.stop();
-        node._alertHandle = shared.playAlert(node, el, { ...ALERT_SAMPLE, animIn: 'pop', durationMs: 3500 }, { sound: false, onEnd: () => { node._sig = null; renderCanvas(); } });
+        node._alertHandle = shared.playAlert(node, el, { ...alertSample(el), animIn: 'pop', durationMs: 3500 }, { sound: false, onEnd: () => { node._sig = null; renderCanvas(); } });
     });
     // Alerts fired from the Alerts page (tests, simulations, real events) play on the canvas alert boxes too
     function connectAlertPreview() {
@@ -1451,13 +1463,13 @@
         if (!el) return;
         const query = assetSearch.value.trim().toLowerCase();
         const wanted = TEXT_TYPES.has(el.type) ? 'text' : el.type === 'video' ? 'video' : 'image';
-        const current = TEXT_TYPES.has(el.type) ? el.source?.path : el.src;
+        const current = TEXT_TYPES.has(el.type) ? el.source?.path : el.type === 'alert' ? el.alert?.sampleImage : el.src;
         const matches = libraryAssets.filter(asset => asset.kind === wanted && asset.label.toLowerCase().includes(query));
         assetGrid.innerHTML = matches.length ? matches.map(asset => `<button type="button" class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === current ? 'aria-current="true"' : ''} title="${esc(asset.label)}"><span class="thumb">${asset.kind === 'text' ? '<span style="font-size:2rem">📄</span>' : asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="">`}</span><span class="cap">${esc(asset.label)}</span></button>`).join('') : `<p class="hint">No ${wanted} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
     }
     async function openAssetPicker() {
         const el = primary();
-        if (!el || !['image', 'video', ...TEXT_TYPES].includes(el.type)) return;
+        if (!el || !['image', 'video', 'alert', ...TEXT_TYPES].includes(el.type)) return;
         pickerTarget = el.id;
         $('asset-title').textContent = TEXT_TYPES.has(el.type) ? 'Choose a text or Markdown file' : `Choose ${el.type === 'video' ? 'a video' : 'an image'}`;
         assetSearch.value = '';
@@ -1482,6 +1494,7 @@
             toast('Uploading…', 'info', 1500);
             const url = await uploadAsset(file);
             if (TEXT_TYPES.has(el.type)) { assetDialog.close(); await useTextSource(el, 'library', url); return; }
+            if (el.type === 'alert') { el.alert.sampleImage = url; assetDialog.close(); renderCanvas(); renderProperties(); changed(true); return; }
             const hadSource = !!el.src;
             el.src = url;
             assetDialog.close();
@@ -1494,6 +1507,7 @@
         const el = overlay.elements.find(item => item.id === pickerTarget);
         if (!tile || !el) return;
         if (TEXT_TYPES.has(el.type)) { assetDialog.close(); await useTextSource(el, 'library', tile.dataset.url); return; }
+        if (el.type === 'alert') { el.alert.sampleImage = tile.dataset.url; assetDialog.close(); renderCanvas(); renderProperties(); changed(true); return; }
         const hadSource = !!el.src;
         el.src = tile.dataset.url;
         assetDialog.close();

@@ -584,28 +584,99 @@
         node._alertDeco = deco;
     }
 
+    // Built-in alert sounds are synthesized with Web Audio, so no audio files are needed. Stored as "builtin:<name>".
+    const BUILTIN_SOUNDS = {
+        ding: { label: 'Ding', notes: [[880, 0, 1.1, 'sine', 0.9]] },
+        chime: { label: 'Chime', notes: [[659, 0, 0.9, 'sine', 0.7], [880, 0.14, 0.9, 'sine', 0.7], [1319, 0.28, 1.3, 'sine', 0.7]] },
+        coin: { label: 'Coin', notes: [[988, 0, 0.09, 'square', 0.25], [1319, 0.09, 0.55, 'square', 0.25]] },
+        fanfare: { label: 'Fanfare', notes: [[523, 0, 0.18, 'triangle', 0.9], [659, 0.16, 0.18, 'triangle', 0.9], [784, 0.32, 0.18, 'triangle', 0.9], [1047, 0.48, 0.9, 'triangle', 0.9], [784, 0.48, 0.9, 'triangle', 0.5]] },
+        levelup: { label: 'Level up', notes: [[392, 0, 0.1, 'square', 0.22], [494, 0.09, 0.1, 'square', 0.22], [587, 0.18, 0.1, 'square', 0.22], [784, 0.27, 0.1, 'square', 0.22], [988, 0.36, 0.1, 'square', 0.22], [1175, 0.45, 0.45, 'square', 0.22]] },
+        pop: { label: 'Pop', notes: [[700, 0, 0.14, 'sine', 1, 180]] },
+        whoosh: { label: 'Whoosh', noise: true }
+    };
+    let audioCtx = null;
+    function playBuiltinSound(name, volume = 0.7) {
+        const def = BUILTIN_SOUNDS[name];
+        const Ctx = root.AudioContext || root.webkitAudioContext;
+        if (!def || !Ctx) return { pause() {} };
+        audioCtx = audioCtx || new Ctx();
+        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+        const ctx = audioCtx, now = ctx.currentTime + 0.02, sources = [];
+        const master = ctx.createGain();
+        master.gain.value = Math.max(0, Math.min(1, volume)) * 0.5;
+        master.connect(ctx.destination);
+        const envelope = (start, dur, peak) => {
+            const gain = ctx.createGain();
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), start + 0.012);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+            gain.connect(master);
+            return gain;
+        };
+        for (const [freq, at, dur, type, peak, slideTo] of def.notes || []) {
+            const osc = ctx.createOscillator();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, now + at);
+            if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, now + at + dur);
+            osc.connect(envelope(now + at, dur, peak));
+            osc.start(now + at); osc.stop(now + at + dur + 0.05);
+            sources.push(osc);
+        }
+        if (def.noise) {
+            const length = Math.floor(ctx.sampleRate * 0.9);
+            const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+            const src = ctx.createBufferSource(), filter = ctx.createBiquadFilter();
+            src.buffer = buffer;
+            filter.type = 'bandpass'; filter.Q.value = 1.2;
+            filter.frequency.setValueAtTime(300, now);
+            filter.frequency.exponentialRampToValueAtTime(4000, now + 0.8);
+            src.connect(filter); filter.connect(envelope(now, 0.9, 0.9));
+            src.start(now); src.stop(now + 0.95);
+            sources.push(src);
+        }
+        return { pause() { sources.forEach(source => { try { source.stop(); } catch { /* already ended */ } }); } };
+    }
+    const alertSoundName = value => (String(value || '').startsWith('builtin:') ? String(value).slice(8) : '');
+
     // Plays one alert inside `node`. Returns { stop } so a skip/clear can end it early.
     function playAlert(node, element, payload, { sound = true, onEnd } = {}) {
         const cfg = element.alert || {};
         const style = element.style || {};
-        const layout = payload.image || payload.video ? (cfg.layout || 'stack') : 'text';
+        const layout = payload.image || payload.video || payload.emoji ? (cfg.layout || 'stack') : 'text';
         const card = document.createElement('div');
         card.className = `alert-card layout-${layout}`;
         Object.assign(card.style, node._alertDeco || {});
         card.style.gap = `${cfg.gap ?? 12}px`;
         card.style.padding = '8px';
-        const hasMedia = layout !== 'text' && (payload.video || payload.image);
+        const hasMedia = layout !== 'text' && (payload.video || payload.image || payload.emoji);
         if (hasMedia) {
-            const media = document.createElement(payload.video ? 'video' : 'img');
-            media.src = payload.video || payload.image;
-            if (payload.video) { media.autoplay = true; media.loop = true; media.muted = true; media.playsInline = true; }
-            media.draggable = false;
-            media.className = 'alert-media';
-            media.style.objectFit = cfg.mediaFit || 'contain';
+            const isEmoji = !payload.video && !payload.image;
+            const media = document.createElement(isEmoji ? 'div' : payload.video ? 'video' : 'img');
             const scale = Math.max(10, Math.min(100, Number(cfg.mediaScale) || 60));
-            if (layout === 'side') { media.style.width = `${scale}%`; media.style.maxWidth = '50%'; media.style.height = '100%'; }
-            else if (layout === 'media') { media.style.width = '100%'; media.style.height = '100%'; }
-            else { media.style.height = `${scale}%`; media.style.maxWidth = '100%'; }
+            if (isEmoji) {
+                media.textContent = payload.emoji;
+                const count = Array.from(payload.emoji).length || 1;
+                const boxH = node.clientHeight * (layout === 'media' ? 0.7 : scale / 100);
+                const boxW = node.clientWidth * (layout === 'side' ? 0.5 : 1) * 0.9;
+                media.style.fontSize = `${Math.max(12, Math.min(boxH * 0.8, boxW / (count * 1.15)))}px`;
+                media.style.lineHeight = '1.1';
+                media.style.whiteSpace = 'nowrap';
+            } else {
+                media.src = payload.video || payload.image;
+                if (payload.video) { media.autoplay = true; media.loop = true; media.muted = true; media.playsInline = true; }
+                media.draggable = false;
+                media.style.objectFit = cfg.mediaFit || 'contain';
+            }
+            media.className = 'alert-media';
+            if (!isEmoji) {
+                if (layout === 'side') { media.style.width = `${scale}%`; media.style.maxWidth = '50%'; media.style.height = '100%'; }
+                else if (layout === 'media') { media.style.width = '100%'; media.style.height = '100%'; }
+                else { media.style.height = `${scale}%`; media.style.maxWidth = '100%'; }
+            } else if (layout === 'media') {
+                media.style.position = 'absolute'; media.style.inset = '0'; media.style.display = 'flex'; media.style.alignItems = 'center'; media.style.justifyContent = 'center';
+            }
             card.appendChild(media);
         }
         if (layout !== 'media' || payload.title || payload.message) {
@@ -636,9 +707,13 @@
 
         let audio = null;
         if (sound && cfg.sound !== false && payload.sound) {
-            audio = new Audio(payload.sound);
-            audio.volume = Math.max(0, Math.min(1, (Number(payload.volume) || 70) / 100));
-            audio.play().catch(() => {});
+            const volume = Math.max(0, Math.min(1, (Number(payload.volume) || 70) / 100));
+            if (alertSoundName(payload.sound)) audio = playBuiltinSound(alertSoundName(payload.sound), volume);
+            else {
+                audio = new Audio(payload.sound);
+                audio.volume = volume;
+                audio.play().catch(() => {});
+            }
         }
         const fadeMs = 500;
         let finished = false;
@@ -712,5 +787,5 @@
         if (saved.children) node.replaceChildren(...saved.children);
     }
 
-    root.OverlayShared = { fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    root.OverlayShared = { fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);

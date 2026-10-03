@@ -52,6 +52,7 @@
         .variant-body { padding: .2rem .7rem .6rem; border-top: 1px solid var(--bg-raised); display: grid; gap: .45rem; }
         .vgrid { display: grid; gap: .45rem .6rem; }
         .vgrid.c2 { grid-template-columns: 1fr 1fr; }
+        .vgrid.c3 { grid-template-columns: repeat(3, 1fr); }
         .vgrid.c5 { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
         .fld { display: flex; flex-direction: column; gap: .15rem; min-width: 0; font-size: .7rem; color: var(--text-muted); }
         .fld input, .fld select { width: 100%; min-width: 0; padding: .3rem .5rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: .8rem; font-family: inherit; }
@@ -182,6 +183,7 @@
     <div id="toast"></div>
 
 <dialog class="lib" id="lib"><div class="lib-head"><input id="lib-q" placeholder="Search your library…"><button class="btn sm" id="lib-close">Close</button></div><div class="lib-grid" id="lib-grid"></div></dialog>
+<script src="/overlay-shared.js"></script>
 <script>
 (() => {
     const $ = id => document.getElementById(id);
@@ -208,7 +210,7 @@
     const toast = (message, err) => { const t = $('toast'); t.textContent = message; t.className = err ? 'err' : ''; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 2600); };
     const setDirty = value => { dirty = value; $('save-state').textContent = dirty ? 'Unsaved changes' : 'Saved'; $('save-state').className = `pill ${dirty ? 'dirty' : 'ok'}`; };
     const rule = () => cfg.rules.find(r => r.id === sel);
-    const newVariant = trigger => ({ id: `v${Date.now().toString(36)}`, title: DEFAULT_TITLE[trigger], message: '', image: '', video: '', sound: '', volume: 70, animIn: 'pop', animOut: 'fade', duration: 6, weight: 1 });
+    const newVariant = trigger => ({ id: `v${Date.now().toString(36)}`, title: DEFAULT_TITLE[trigger], message: '', image: '', video: '', emoji: '', emojiLadder: [], emojiEvery: 0, emojiMax: 8, sound: '', volume: 70, animIn: 'pop', animOut: 'fade', duration: 6, weight: 1 });
     const setPath = (obj, path, value) => { const keys = path.split('.'); const last = keys.pop(); keys.reduce((o, k) => o[k], obj)[last] = value; };
 
     async function api(url, options) {
@@ -274,16 +276,37 @@
     }
     const vin = (i, key, label, value, attrs = '', type = 'number') => `<label class="fld">${label}<input type="${type}" data-v="${i}.${key}" value="${esc(value)}" ${attrs}></label>`;
     const vsel = (i, key, label, value, options) => `<label class="fld">${label}<select data-v="${i}.${key}">${options.map(a => `<option${a === value ? ' selected' : ''}>${a}</option>`).join('')}</select></label>`;
+    const BUILTIN = OverlayShared.BUILTIN_SOUNDS;
+    const builtinName = v => (String(v.sound || '').startsWith('builtin:') ? v.sound.slice(8) : '');
+    let testAmount = 0;
+    function soundHtml(v, i) {
+        const name = builtinName(v);
+        const file = name ? '' : mediaField(i, 'sound', ['audio'], 'audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg', 'Sound file');
+        return `<div class="vgrid c2"><label class="fld">Sound<span class="media-row"><select data-sound-preset="${i}"><option value="">Custom file / none</option>${Object.entries(BUILTIN).map(([key, def]) => `<option value="${key}"${key === name ? ' selected' : ''}>Built-in: ${def.label}</option>`).join('')}</select>
+            <button class="btn sm" data-sound-preview="${i}" ${v.sound ? '' : 'disabled'}>▶ Preview</button></span></label>${file}</div>`;
+    }
+    function emojiHtml(v, i, r) {
+        const amountLabel = AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub' ? AMOUNT_LABEL[r.trigger].toLowerCase() : '';
+        const ladder = amountLabel ? `
+            <div class="fld">Emoji ladder (by ${amountLabel})<div style="display:grid;gap:.35rem">
+                ${v.emojiLadder.map((step, j) => `<span class="media-row"><span style="align-self:center;white-space:nowrap">from</span><input type="number" min="0" style="max-width:110px" data-lad="${i}.${j}.min" value="${esc(step.min)}"><input type="text" maxlength="40" placeholder="e.g. 💎 or 🔥🔥🔥" data-lad="${i}.${j}.emoji" value="${esc(step.emoji)}"><button class="btn sm danger" data-del-step="${i}.${j}" title="Remove step">✕</button></span>`).join('')}
+                <div><button class="btn sm" data-add-step="${i}" ${v.emojiLadder.length >= 12 ? 'disabled' : ''}>+ Add step</button></div>
+            </div><span class="tabs-note">The highest step at or below the ${amountLabel} wins; below the first step it falls back to the emoji above. A step can hold several emojis.</span></div>
+            <div class="vgrid c3">${vin(i, 'emojiEvery', `One emoji per N ${amountLabel} (0 = off)`, v.emojiEvery, 'min="0"')}${vin(i, 'emojiMax', 'Max emojis', v.emojiMax, 'min="1" max="20"')}
+                <label class="fld">Test ${amountLabel}<input type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}"></label></div>` : '';
+        return `<div class="vgrid c2">${vin(i, 'emoji', 'Emoji (shown when there is no image or video)', v.emoji, 'maxlength="40" placeholder="e.g. 🎉"', 'text')}</div>${ladder}`;
+    }
     function variantHtml(v, i, r) {
         const open = r.variants.length === 1 || openVariants.has(v.id);
         const weighted = r.pick === 'weighted';
         return `<details class="variant" data-vid="${esc(v.id)}"${open ? ' open' : ''}>
-            <summary><span class="vt">${esc(v.title || v.message || '(empty)')}</span><span class="vm">${v.duration}s${weighted ? ` · weight ${v.weight}` : ''}${v.sound ? ' · 🔊' : ''}${v.video ? ' · 🎞' : v.image ? ' · 🖼' : ''}</span>
+            <summary><span class="vt">${esc(v.title || v.message || '(empty)')}</span><span class="vm">${v.duration}s${weighted ? ` · weight ${v.weight}` : ''}${v.sound ? ' · 🔊' : ''}${v.emoji || v.emojiLadder.length ? ' · ' + esc(v.emoji || v.emojiLadder[0].emoji) : ''}${v.video ? ' · 🎞' : v.image ? ' · 🖼' : ''}</span>
                 <button class="btn sm" data-test="${i}">▶ Test</button></summary>
             <div class="variant-body">
                 <div class="vgrid c2">${vin(i, 'title', 'Title', v.title, '', 'text')}${vin(i, 'message', 'Message (optional)', v.message, '', 'text')}</div>
                 <div class="vgrid c2">${mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Image / GIF')}${mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Video (used instead of image)')}</div>
-                ${mediaField(i, 'sound', ['audio'], 'audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg', 'Sound')}
+                ${emojiHtml(v, i, r)}
+                ${soundHtml(v, i)}
                 <div class="vgrid c5">
                     ${vin(i, 'duration', 'Show for (s)', v.duration, 'min="1" max="120" step="0.5"')}
                     ${vin(i, 'volume', 'Volume %', v.volume, 'min="0" max="100"')}
@@ -392,6 +415,12 @@
             setDirty(true);
             if (el.dataset.f === 'name') renderRules();
             renderSummary();
+        } else if (el.dataset.lad) {
+            const [i, j, key] = el.dataset.lad.split('.');
+            r.variants[i].emojiLadder[j][key] = key === 'min' ? Number(el.value) || 0 : el.value;
+            setDirty(true);
+        } else if (el.dataset.testAmount !== undefined) {
+            testAmount = Number(el.value) || 0;
         } else if (el.dataset.v) {
             const [i, key] = el.dataset.v.split('.');
             r.variants[i][key] = el.type === 'number' ? Number(el.value) || 0 : el.value;
@@ -411,7 +440,13 @@
             renderAll();
         } else if (el.dataset.f === 'pick') renderEditor();
         else if (['actions.timer.enabled', 'actions.http.enabled', 'actions.timer.action'].includes(el.dataset.f)) renderEditor();
-        else if (el.dataset.pick) {
+        else if (el.dataset.soundPreset !== undefined) {
+            r.variants[el.dataset.soundPreset].sound = el.value ? `builtin:${el.value}` : '';
+            setDirty(true); renderEditor();
+        } else if (el.dataset.lad && el.dataset.lad.endsWith('.min')) {
+            const [i] = el.dataset.lad.split('.');
+            r.variants[i].emojiLadder.sort((a, b) => a.min - b.min); renderEditor();
+        } else if (el.dataset.pick) {
             const [i, key] = el.dataset.pick.split('.');
             if (el.value) { r.variants[i][key] = el.value; setDirty(true); renderEditor(); }
         }
@@ -440,12 +475,22 @@
         }
         if (btn.dataset.test !== undefined) event.preventDefault();
         if (btn.id === 'add-variant') { const nv = newVariant(r.trigger); r.variants.push(nv); openVariants.add(nv.id); setDirty(true); renderEditor(); }
+        else if (btn.dataset.addStep !== undefined) {
+            const v = r.variants[btn.dataset.addStep], last = v.emojiLadder[v.emojiLadder.length - 1];
+            v.emojiLadder.push({ min: last ? last.min * 10 || 100 : 100, emoji: '' }); setDirty(true); renderEditor();
+        } else if (btn.dataset.delStep !== undefined) {
+            const [i, j] = btn.dataset.delStep.split('.'); r.variants[i].emojiLadder.splice(Number(j), 1); setDirty(true); renderEditor();
+        } else if (btn.dataset.soundPreview !== undefined) {
+            const v = r.variants[btn.dataset.soundPreview], name = builtinName(v);
+            if (name) OverlayShared.playBuiltinSound(name, (v.volume || 70) / 100);
+            else if (v.sound) { const audio = new Audio(v.sound); audio.volume = (v.volume || 70) / 100; audio.play().catch(() => toast('Could not play that file')); }
+        }
         else if (btn.dataset.delVariant !== undefined) { r.variants.splice(Number(btn.dataset.delVariant), 1); setDirty(true); renderEditor(); }
         else if (btn.id === 'del-rule') { if (!confirm(`Delete "${r.name}"?`)) return; cfg.rules = cfg.rules.filter(x => x !== r); sel = cfg.rules[0]?.id || null; setDirty(true); renderAll(); }
         else if (btn.id === 'dup-rule') { const copy = JSON.parse(JSON.stringify(r)); copy.id = `rule-${Date.now().toString(36)}`; copy.name = `${r.name} copy`; cfg.rules.push(copy); sel = copy.id; setDirty(true); renderAll(); }
         else if (btn.dataset.test !== undefined) {
             await save();
-            await api('/api/alerts/test', { method: 'POST', body: JSON.stringify({ ruleId: sel, variantId: rule().variants[Number(btn.dataset.test)].id }) });
+            await api('/api/alerts/test', { method: 'POST', body: JSON.stringify({ ruleId: sel, variantId: rule().variants[Number(btn.dataset.test)].id, ...(testAmount ? { amount: testAmount } : {}) }) });
             toast('Test alert queued'); refreshQueue();
         } else if (btn.dataset.upload) {
             const [i, key] = btn.dataset.upload.split('.');
