@@ -4784,6 +4784,28 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    const overlayIdRenameMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/rename-id$/);
+    if (overlayIdRenameMatch && req.method === 'POST') {
+        const respond = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
+        try {
+            const oldId = sanitizeOverlayId(decodeURIComponent(overlayIdRenameMatch[1]));
+            const { newId: requested } = JSON.parse(await readRequestBody(req) || '{}');
+            const newId = sanitizeOverlayId(requested);
+            if (!customOverlays[oldId]) return respond(404, { error: 'Overlay not found' });
+            if (!newId) return respond(400, { error: 'Enter an id using letters, numbers, - or _' });
+            if (newId === oldId) return respond(200, customOverlays[oldId]);
+            if (customOverlays[newId]) return respond(409, { error: 'An overlay with that id already exists' });
+            const overlay = { ...customOverlays[oldId], id: newId, updatedAt: new Date().toISOString() };
+            delete customOverlays[oldId];
+            customOverlays[newId] = overlay;
+            saveCustomOverlays();
+            try { if (fs.existsSync(historyFile(oldId))) fs.renameSync(historyFile(oldId), historyFile(newId)); } catch { /* history is optional */ }
+            broadcastToOverlays('custom-overlay-update', { id: oldId, overlay: null });
+            broadcastToOverlays('custom-overlay-update', { id: newId, overlay });
+            return respond(200, overlay);
+        } catch (err) { return respond(400, { error: err.message }); }
+    }
+
     if (customOverlayMatch && req.method === 'GET') {
         const id = sanitizeOverlayId(decodeURIComponent(customOverlayMatch[1]));
         const overlay = customOverlays[id];

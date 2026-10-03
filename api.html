@@ -648,6 +648,12 @@
                     body: '(raw file bytes)  Headers: Content-Type: image/png, X-Asset-Name: logo.png'
                 },
                 {
+                    method: 'POST', path: '/api/custom-overlays/:id/rename-id',
+                    desc: 'Change an overlay id',
+                    details: 'Moves the overlay and its revision history to a new id. The OBS URL changes, so browser sources using the old id go blank until updated.',
+                    body: '{ "newId": "game-schedule" }'
+                },
+                {
                     method: 'GET', path: '/api/custom-overlays/text-source?mode=file&path=/full/path.md',
                     desc: 'Read a text or Markdown source',
                     details: 'Used by Text, Random Text and Markdown elements. mode is "file" (an absolute path on this computer) or "library" (an uploaded asset URL). Only .txt and .md files up to 512 KB are served. Other computers can only read files that a saved overlay already references. Returns text, mtimeMs and name.'

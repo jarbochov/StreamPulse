@@ -134,6 +134,7 @@
                         <a class="btn small primary" href="/custom-overlay-editor.html?id=${encodeURIComponent(o.id)}">Edit</a>
                         <a class="btn small" href="/custom-overlay.html?id=${encodeURIComponent(o.id)}" target="_blank" rel="noopener">Open</a>
                         <button class="btn small" data-act="copy" data-id="${esc(o.id)}">Copy OBS URL</button>
+                        <button class="btn small" data-act="rename-id" data-id="${esc(o.id)}" title="Change the id used in the OBS URL">Rename ID</button>
                         <button class="btn small" data-act="duplicate" data-id="${esc(o.id)}">Duplicate</button>
                         <button class="btn small danger" data-act="delete" data-id="${esc(o.id)}">Delete</button>
                     </div>
@@ -175,6 +176,13 @@
             if (button.dataset.act === 'copy') {
                 await navigator.clipboard.writeText(`${location.origin}/custom-overlay.html?id=${encodeURIComponent(id)}`);
                 toast('OBS URL copied');
+            } else if (button.dataset.act === 'rename-id') {
+                const suggestion = String(overlay?.name || id).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+                const next = prompt(`New id for "${overlay?.name || id}".\n\nThe OBS URL changes to ...?id=<new id>, so update any browser source that uses the old one.`, suggestion);
+                if (next === null || !next.trim() || next.trim() === id) return;
+                await api(`/api/custom-overlays/${encodeURIComponent(id)}/rename-id`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newId: next.trim() }) });
+                toast('ID changed');
+                await load();
             } else if (button.dataset.act === 'duplicate') {
                 button.disabled = true;
                 await duplicate(id);
