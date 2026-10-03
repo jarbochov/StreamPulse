@@ -66,8 +66,11 @@
         a.category-session { text-decoration: none; color: inherit; }
         a.category-session:hover { background: var(--bg-raised); }
         .dev { display: inline-flex; flex-direction: column; gap: 1px; margin-right: 0.6rem; line-height: 1.25; }
+        a.igdb-link { color: var(--accent); text-decoration: none; }
+        a.igdb-link:hover { text-decoration: underline; }
         .dev b { display: block; color: var(--text-muted); font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
         .dev span, .dev { color: var(--text); }
+        a.igdb-link { color: var(--accent); }
         .category-session .date { color: var(--text-muted); min-width: 85px; }
         .category-session .title { flex: 1; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .category-session .duration { color: var(--accent); font-weight: 500; }
@@ -244,6 +247,7 @@
             const released = c.releaseDate ? new Date(c.releaseDate + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
             const meta = (c.developers?.length ? `<span class="dev"><b>Developer</b>${escapeHtml(c.developers.join(', '))}</span>` : '')
                 + (released ? `<span class="dev"><b>Released</b>${released}</span>` : '')
+                + (c.igdbUrl ? `<a class="dev igdb-link" href="${escapeHtml(c.igdbUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><b>Details</b>View on IGDB ↗</a>` : '')
                 + (c.genres || []).map(x => `<span class="chip">${escapeHtml(String(x))}</span>`).join('');
             return `<div class="category-card">
                 <div class="category-header" onclick="toggleSessions(this)">

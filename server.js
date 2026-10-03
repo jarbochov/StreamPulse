@@ -2602,7 +2602,7 @@ async function fetchGameInfo(name, pinnedIgdbId = '') {
     // IGDB shares the Twitch app credentials; Twitch box art remains the fallback if it is unavailable.
     try {
         const where = info.igdbId ? `where id = ${Number(info.igdbId)}` : `search "${name.replace(/["\\]/g, '')}"`;
-        const query = `fields name,summary,first_release_date,total_rating,cover.image_id,genres.name,platforms.abbreviation,involved_companies.developer,involved_companies.company.name; ${where}; limit 5;`;
+        const query = `fields name,url,summary,first_release_date,total_rating,cover.image_id,genres.name,platforms.abbreviation,involved_companies.developer,involved_companies.company.name; ${where}; limit 5;`;
         const igdb = await fetch('https://api.igdb.com/v4/games', { method: 'POST', headers, body: query });
         const results = await igdb.json();
         if (Array.isArray(results) && results.length) {
@@ -2610,6 +2610,7 @@ async function fetchGameInfo(name, pinnedIgdbId = '') {
             info.source = 'igdb';
             info.igdbId = match.id;
             info.igdbName = match.name || '';
+            info.igdbUrl = match.url || '';
             info.summary = match.summary || '';
             info.releaseTs = match.first_release_date ? match.first_release_date * 1000 : null;
             info.rating = match.total_rating ? Math.round(match.total_rating) : null;
@@ -2631,7 +2632,9 @@ function refreshGameInfo(name, igdbId = '') {
     const key = infoKey(name, igdbId);
     const cached = gameInfoCache[key];
     const maxAge = cached?.failed ? GAME_INFO_RETRY_MS : GAME_INFO_TTL_MS;
-    if (cached && Date.now() - cached.fetchedAt < maxAge) return Promise.resolve(cached);
+    const needsUrl = cached?.source === 'igdb' && !cached.igdbUrl && !cached.urlTried;
+    if (needsUrl) cached.urlTried = true;
+    if (cached && !needsUrl && Date.now() - cached.fetchedAt < maxAge) return Promise.resolve(cached);
     if (gameInfoPending.has(key)) return gameInfoPending.get(key);
     const job = fetchGameInfo(name, igdbId).catch(err => {
         console.error('[Game] Lookup failed:', err.message);
@@ -2653,6 +2656,7 @@ function publicGameInfo(name, igdbId = '') {
     return {
         name: info.name,
         igdbName: info.igdbName || '',
+        igdbUrl: info.igdbUrl || '',
         cover: info.cover || info.boxArt || '',
         boxArt: info.boxArt || '',
         summary: info.summary || '',
@@ -2705,7 +2709,7 @@ let gameWarmQueue = Promise.resolve();
 function warmGameInfo(games) {
     for (const { name, igdbId } of games) {
         const cached = gameInfoCache[infoKey(name, igdbId)];
-        if (cached && !cached.failed) continue;
+        if (cached && !cached.failed && !(cached.source === 'igdb' && !cached.igdbUrl && !cached.urlTried)) continue;
         gameWarmQueue = gameWarmQueue.then(() => refreshGameInfo(name, igdbId)).then(() => new Promise(resolve => setTimeout(resolve, 300)));
     }
 }
@@ -6250,6 +6254,7 @@ const server = http.createServer(async (req, res) => {
                 c.genres = (g.genres || []).slice(0, 3);
                 c.releaseYear = g.releaseYear || '';
                 c.releaseDate = g.releaseDate || '';
+                c.igdbUrl = g.igdbUrl || '';
                 c.developers = (g.developers || []).slice(0, 2);
                 if (!g.cover && !gameInfoCache[infoKey(c.name)]) pending++;
             }
