@@ -139,24 +139,38 @@
         .sortable-ghost { opacity: .35; }
         .layers-empty { padding: 1rem .85rem; color: var(--muted); font-size: 12px; }
 
-        .stage-col { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+        .stage-col { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
         .stage-toolbar { display: flex; align-items: center; gap: .4rem; padding: .5rem .75rem; background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-        #page-bar { display: flex; align-items: center; gap: .35rem; padding: .35rem .75rem; background: color-mix(in srgb, var(--panel) 80%, #000); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-        #page-bar[hidden] { display: none; }
-        .stage-col > .stage-toolbar { grid-row: 1; } .stage-col > #page-bar { grid-row: 2; } .stage-col > #stage { grid-row: 3; } .stage-col > .statusbar { grid-row: 4; }
-        .page-menu { position: relative; }
-        .page-menu > summary { list-style: none; cursor: pointer; padding: .3rem .6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
-        .page-menu > summary::-webkit-details-marker { display: none; }
-        .page-menu .menu-panel { display: grid; gap: .5rem; padding: .7rem; min-width: 260px; }
-        .page-menu .row { display: flex; gap: .4rem; } .page-menu .row button { flex: 1; }
+        .rail-tabs { display: flex; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--panel) 85%, #000); position: sticky; top: 0; z-index: 2; }
+        .rail-tabs button { flex: 1; border: 0; border-radius: 0; background: transparent; color: var(--muted); padding: .55rem .5rem; font-weight: 600; font-size: 12px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+        .rail-tabs button small { font-weight: 400; color: var(--muted); }
+        .rail-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); background: var(--panel); }
+        .pages-section { padding: .7rem .75rem 1.2rem; display: grid; gap: .7rem; align-content: start; }
+        .pages-section[hidden], .layers-section[hidden], #page-switch[hidden] { display: none; }
+        .pg-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 12px; }
+        .pg-list { display: grid; gap: .3rem; }
+        .pg-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: .4rem; padding: .4rem .45rem; border-radius: 8px; border: 1px solid var(--border); background: var(--field); cursor: pointer; }
+        .pg-row:hover { border-color: var(--border-strong, var(--border)); }
+        .pg-row.current { border-color: color-mix(in srgb, var(--accent-strong) 60%, transparent); background: color-mix(in srgb, var(--accent-strong) 14%, var(--field)); }
+        .pg-grip { color: var(--text-faint); cursor: grab; }
+        .pg-main { min-width: 0; display: grid; gap: 1px; }
+        .pg-name { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pg-meta { font-size: 11px; color: var(--muted); }
+        .pg-live { display: inline-flex; align-items: center; gap: .25rem; color: #3fb950; font-weight: 600; }
+        .pg-live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+        .pg-actions { display: flex; gap: 1px; }
+        .pg-actions button { padding: .2rem .35rem; border: 0; background: transparent; color: var(--muted); border-radius: 4px; min-width: 0; font-size: 12px; }
+        .pg-actions button:hover { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); }
+        .pg-actions button.go { color: #3fb950; }
+        .pg-actions button.danger:hover { color: var(--danger, #f85149); }
+        .pg-card { border: 1px solid var(--border); border-radius: 10px; padding: .7rem; display: grid; gap: .6rem; background: color-mix(in srgb, var(--field) 55%, transparent); }
+        .pg-card h4 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+        .pg-empty { text-align: center; padding: 1.2rem .8rem; border: 1px dashed var(--border); border-radius: 10px; display: grid; gap: .6rem; justify-items: center; }
+        .pg-empty p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+        .pg-name-input { width: 100%; padding: .1rem .3rem; }
+        #page-switch { display: inline-flex; align-items: center; gap: .35rem; }
+        #page-switch select { max-width: 11rem; }
         #live-toggle[aria-pressed="true"] { color: #3fb950; border-color: #3fb950; }
-        #page-bar .live { display: inline-flex; align-items: center; gap: .3rem; padding-left: .6rem; border-left: 1px solid var(--border); }
-        #page-bar .live-name { color: var(--muted); font-size: 12px; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        #page-bar .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #3fb950; box-shadow: 0 0 6px #3fb950; flex: none; }
-        #page-bar .live-dot.off { background: var(--muted); box-shadow: none; }
-        #page-bar select { max-width: 11rem; }
-        #page-bar input[type=number] { width: 4.2rem; }
-        #page-bar .sep { flex: 1; }
         .shared-box { padding: .6rem .85rem 0; }
         .add-menu { position: relative; }
         .menu-panel { display: none; position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; min-width: 210px; padding: .35rem; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 16px 32px #000a; }
@@ -297,14 +311,19 @@
                 <summary>Editor Settings</summary>
                 <div class="sect-body" id="settings"></div>
             </details>
-            <section class="layers-section" aria-label="Layers">
-                <div class="layers-head"><span>Layers <small id="layer-count"></small></span></div>
+            <div class="rail-tabs" role="tablist">
+                <button role="tab" id="tab-layers" data-rail-tab="layers" aria-selected="true">Layers <small id="layer-count"></small></button>
+                <button role="tab" id="tab-pages" data-rail-tab="pages" aria-selected="false">Pages <small id="page-count"></small></button>
+            </div>
+            <section class="layers-section" id="layers-panel" aria-label="Layers">
                 <div id="layers"></div>
             </section>
+            <section class="pages-section" id="pages-panel" aria-label="Pages" hidden></section>
         </aside>
 
         <main class="stage-col">
             <div class="stage-toolbar">
+                <div id="page-switch" hidden></div>
                 <div class="add-menu" id="add-menu">
                     <button id="add-element" class="primary" aria-haspopup="true" aria-expanded="false">+ Add element</button>
                     <div class="menu-panel" role="menu">
@@ -326,7 +345,6 @@
                 <span class="divider"></span>
                 <button id="toggle-snap" aria-pressed="true" title="Snap to canvas and other elements. Hold Alt while dragging to bypass.">Snap</button>
                 <button id="toggle-grid" aria-pressed="false" title="Show grid">Grid</button>
-                <button id="toggle-pages" aria-pressed="false" title="Turn this overlay into a multi-page slide deck">Pages</button>
                 <button id="toggle-live" aria-pressed="true" title="Preview {{placeholders}} with live data">Live data</button>
                 <div class="zoom-controls">
                     <button id="zoom-out" class="icon" title="Zoom out (-)" aria-label="Zoom out"></button>
@@ -335,7 +353,6 @@
                     <button id="fit-view" title="Fit the full canvas in view (Ctrl/⌘+0)">Fit</button>
                 </div>
             </div>
-            <div id="page-bar" hidden></div>
             <div id="stage" tabindex="-1" aria-label="Overlay canvas">
                 <div id="world">
                     <div id="backdrop" class="bd-checker"></div>
@@ -851,6 +868,7 @@
         const list = $('layers');
         const shown = visibleElements();
         $('layer-count').textContent = shown.length ? `(${shown.length})` : '';
+        if (pagesOn() && !$('pages-panel').hidden && !pagesPanelBusy()) renderPagesPanel();
         if (!shown.length) { list.innerHTML = '<div class="layers-empty">No elements yet. Use <b>+ Add element</b> to start.</div>'; return; }
         list.innerHTML = shown.slice().reverse().map(el => `
             <div class="layer${selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}" data-id="${esc(el.id)}">
@@ -1009,11 +1027,6 @@
             <div class="grid2">${F.number('canvas.width', 'Width', c.width, { min: LIMITS.canvasW[0], max: LIMITS.canvasW[1], lazy: true })}${F.number('canvas.height', 'Height', c.height, { min: LIMITS.canvasH[0], max: LIMITS.canvasH[1], lazy: true })}</div>
             ${F.color('canvas.background', 'Canvas background', c.background, { clear: true })}
             <label class="field"><span>Preview backdrop</span><select id="backdrop-select">${[['checker', 'Transparent checkerboard'], ['dark', 'Dark'], ['light', 'Light'], ['green', 'Green screen']].map(([v, l]) => `<option value="${v}"${v === prefs.backdrop ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-            ${pagesOn() ? `<div class="hint" style="margin:.6rem 0 .2rem"><b>Pages</b></div>
-            ${F.select('pages.mode', 'Advance', overlay.pages.mode, [['manual', 'Manual (API / control panel)'], ['auto', 'Automatic']])}
-            ${overlay.pages.mode === 'auto' ? `${F.number('pages.cycleSeconds', 'Default seconds per page', overlay.pages.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', 'Loop back to the first page', overlay.pages.loop)}` : ''}
-            ${F.select('pages.transition', 'Transition', overlay.pages.transition, [['none', 'None'], ['fade', 'Fade'], ['slide', 'Slide']])}
-            ${overlay.pages.transition !== 'none' ? F.number('pages.transitionMs', 'Transition (ms)', overlay.pages.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}` : ''}
             <p class="hint">${overlay.canvas.background && !/^(transparent|rgba\(.*,\s*0\))$/i.test(overlay.canvas.background) ? 'The canvas background is set, so it covers the backdrop. Click None to preview the backdrop.' : 'The backdrop is only for editing. The OBS browser source stays transparent unless you set a background.'}</p>`;
     }
     bindFields($('settings'), () => [overlay], path => {
@@ -1030,8 +1043,6 @@
         } else if (input.id === 'backdrop-select') {
             prefs.backdrop = input.value; savePrefs(); syncCanvasUI();
         } else if (input.dataset.path?.startsWith('canvas.') && input.dataset.kind === 'number') {
-            renderSettings();
-        } else if (input.dataset.path === 'pages.mode' || input.dataset.path === 'pages.transition') {
             renderSettings();
         }
     });
@@ -2015,28 +2026,64 @@
     // ---- pages ------------------------------------------------------------------------
     const pageSeq = () => { let n = overlay.pages.items.length + 1; while (overlay.pages.items.some(p => p.id === `page-${n}`)) n++; return `page-${n}`; };
     let liveState = null;
-    function renderPageBar() {
-        const bar = $('page-bar'), on = pagesOn();
-        bar.hidden = !on;
-        $('toggle-pages').setAttribute('aria-pressed', String(on));
+    const liveId = () => (liveState?.enabled ? liveState.page : null);
+    function renderPageBar() { renderPageSwitch(); renderPagesPanel(); }
+    function renderPageSwitch() {
+        const box = $('page-switch'), on = pagesOn();
+        box.hidden = !on;
+        $('page-count').textContent = on ? `(${overlay.pages.items.length})` : '';
         if (!on) return;
-        const items = overlay.pages.items, page = items.find(p => p.id === curPage), idx = items.indexOf(page);
-        const liveId = liveState?.enabled ? liveState.page : null;
-        const liveItem = items.find(p => p.id === liveId);
-        const isLive = curPage === liveId;
-        bar.innerHTML = `<select id="page-select" aria-label="Page being edited">${items.map((p, i) => `<option value="${esc(p.id)}"${p.id === curPage ? ' selected' : ''}>${i + 1}. ${esc(p.name)}${p.id === liveId ? '  ● live' : ''}</option>`).join('')}</select>
-            <button id="page-add" title="Add a blank page">+ Page</button>
-            <details class="page-menu"><summary class="btn-like" title="Rename, reorder, duplicate or delete this page">Page options</summary>
-                <div class="menu-panel open">
-                    <label class="field"><span>Name</span><input id="page-name" value="${esc(page.name)}" maxlength="60"></label>
-                    <label class="field"><span>Seconds on screen in auto mode (0 = default)</span><input type="number" id="page-duration" min="0" max="3600" value="${page.duration || 0}"></label>
-                    <div class="row"><button id="page-left" ${idx === 0 ? 'disabled' : ''}>◀ Move earlier</button><button id="page-right" ${idx === items.length - 1 ? 'disabled' : ''}>Move later ▶</button></div>
-                    <div class="row"><button id="page-dup">Duplicate</button><button id="page-del" class="danger" ${items.length === 1 ? 'disabled' : ''}>Delete</button></div>
-                </div></details>
-            <span class="sep"></span>
-            <button id="live-toggle" aria-pressed="${isLive}" ${isNew ? 'disabled' : ''} title="${isLive ? 'This page is showing on stream' : 'Show this page on stream'}">${isLive ? '● Live now' : 'Make live'}</button>
-            <a href="/overlay-control.html?id=${encodeURIComponent(overlay.id)}" target="_blank" title="Open the page control panel (next / previous / auto)" style="color:var(--accent);font-size:12px">Control panel ↗</a>`;
+        const live = liveId(), isLive = curPage === live;
+        box.innerHTML = `<select id="page-select" aria-label="Page being edited">${overlay.pages.items.map((p, i) => `<option value="${esc(p.id)}"${p.id === curPage ? ' selected' : ''}>${i + 1}. ${esc(p.name)}${p.id === live ? '  ● live' : ''}</option>`).join('')}</select>
+            <button id="live-toggle" aria-pressed="${isLive}" ${isNew ? 'disabled' : ''} title="${isLive ? 'This page is showing on stream' : 'Show this page on stream'}">${isLive ? '● Live' : 'Make live'}</button>`;
     }
+    function pagesPanelBusy() { const a = document.activeElement; return a && $('pages-panel').contains(a) && a.matches('input, select'); }
+    function renderPagesPanel() {
+        const panel = $('pages-panel');
+        if (!pagesOn()) {
+            panel.innerHTML = `<div class="pg-empty"><strong>Make this a slide deck</strong><p>Split the overlay into pages you can switch between from the editor, the control panel or the API. Existing elements go on Page 1, and anything marked shared shows on every page.</p><button id="pages-enable" class="primary">Turn on pages</button></div>`;
+            return;
+        }
+        const items = overlay.pages.items, live = liveId(), idx = items.findIndex(p => p.id === curPage), cur = items[idx];
+        const count = id => overlay.elements.filter(el => el.page === id).length;
+        const shared = overlay.elements.filter(el => el.page === '*').length;
+        const P = overlay.pages;
+        panel.innerHTML = `
+            <div class="pg-head"><span>Pages</span><button id="page-add" title="Add a blank page">+ Add page</button></div>
+            <div class="pg-list" id="pg-list">${items.map((p, i) => `
+                <div class="pg-row${p.id === curPage ? ' current' : ''}" data-pid="${esc(p.id)}">
+                    <span class="pg-grip" title="Drag to reorder">${ICON.grip}</span>
+                    <span class="pg-main"><span class="pg-name" title="Double-click to rename">${esc(p.name)}</span>
+                        <span class="pg-meta">${p.id === live ? '<span class="pg-live">Live</span> · ' : ''}${count(p.id)} element${count(p.id) === 1 ? '' : 's'}${p.duration ? ` · ${p.duration}s` : ''}</span></span>
+                    <span class="pg-actions">
+                        ${p.id === live ? '' : `<button data-pg="live" class="go" title="${isNew ? 'Save first to go live' : 'Make this page live'}" ${isNew ? 'disabled' : ''}>▶</button>`}
+                        <button data-pg="dup" title="Duplicate page">⧉</button>
+                        <button data-pg="del" class="danger" title="Delete page" ${items.length === 1 ? 'disabled' : ''}>✕</button>
+                    </span>
+                </div>`).join('')}</div>
+            <div class="hint">${shared ? `${shared} shared element${shared === 1 ? '' : 's'} show on every page.` : 'Mark an element “Show on all pages” to share it across pages.'}</div>
+            <div class="pg-card"><h4>${esc(cur.name)}</h4>
+                ${F.number(`pages.items.${idx}.duration`, 'Seconds on screen (auto mode, 0 = default)', cur.duration || 0, { min: 0, max: 3600 })}</div>
+            <div class="pg-card"><h4>Playback</h4>
+                ${F.select('pages.mode', 'Advance', P.mode, [['manual', 'Manual (editor, control panel, API)'], ['auto', 'Automatic']])}
+                ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', 'Default seconds per page', P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', 'Loop back to the first page', P.loop)}` : ''}
+                ${F.select('pages.transition', 'Transition', P.transition, [['none', 'None'], ['fade', 'Fade'], ['slide', 'Slide']])}
+                ${P.transition !== 'none' ? F.number('pages.transitionMs', 'Transition length (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem">
+                <a href="/overlay-control.html?id=${encodeURIComponent(overlay.id)}" target="_blank" style="color:var(--accent);font-size:12px">Control panel ↗</a>
+                <button id="pages-disable" class="ghost" title="Back to a single page. Elements are kept.">Turn off pages</button></div>`;
+        if (pgSortable) pgSortable.destroy();
+        pgSortable = new Sortable($('pg-list'), {
+            animation: 150, handle: '.pg-grip', ghostClass: 'sortable-ghost',
+            onEnd(event) {
+                if (event.oldIndex === event.newIndex) return;
+                const [moved] = overlay.pages.items.splice(event.oldIndex, 1);
+                overlay.pages.items.splice(event.newIndex, 0, moved);
+                changed(true); renderPageBar();
+            }
+        });
+    }
+    let pgSortable = null;
     async function livePage(body) {
         if (isNew) return;
         try {
@@ -2048,7 +2095,7 @@
     }
     async function refreshLivePage() {
         if (isNew || !pagesOn()) return;
-        try { const response = await fetch(`/api/custom-overlays/${encodeURIComponent(overlay.id)}/page`, { cache: 'no-store' }); if (response.ok) { liveState = await response.json(); if (!$('page-bar').querySelector('.page-menu[open]')) renderPageBar(); } } catch {}
+        try { const response = await fetch(`/api/custom-overlays/${encodeURIComponent(overlay.id)}/page`, { cache: 'no-store' }); if (response.ok) { liveState = await response.json(); if (!pagesPanelBusy()) renderPageBar(); } } catch {}
     }
     setInterval(refreshLivePage, 5000);
     function switchEditPage(id) {
@@ -2060,39 +2107,70 @@
         if (on) { ensureCurPage(); overlay.elements.forEach(el => { if (el.page !== '*' && !overlay.pages.items.some(p => p.id === el.page)) el.page = overlay.pages.items[0].id; }); }
         selectedIds = new Set();
         renderAll(); changed(true);
+        if (on) setRailTab('pages'); else setRailTab('layers');
     }
-    $('toggle-pages').addEventListener('click', () => setPagesEnabled(!pagesOn()));
-    $('page-bar').addEventListener('click', event => {
-        const t = event.target.closest('button'); if (!t) return;
-        const items = overlay.pages.items, idx = items.findIndex(p => p.id === curPage);
-        if (t.id === 'live-toggle') return livePage({ action: 'goto', page: curPage });
-        if (t.id === 'page-add') { const id = pageSeq(); items.push({ id, name: `Page ${items.length + 1}`, duration: 0 }); changed(true); return switchEditPage(id); }
-        if (t.id === 'page-left' && idx > 0) { [items[idx - 1], items[idx]] = [items[idx], items[idx - 1]]; renderPageBar(); changed(true); }
-        if (t.id === 'page-right' && idx < items.length - 1) { [items[idx + 1], items[idx]] = [items[idx], items[idx + 1]]; renderPageBar(); changed(true); }
-        if (t.id === 'page-dup') {
-            const id = pageSeq(), src = items[idx];
-            items.splice(idx + 1, 0, { id, name: `${src.name} copy`, duration: src.duration || 0 });
-            const groupMap = new Map();
-            const clones = overlay.elements.filter(el => el.page === src.id).map(el => {
-                const copy = JSON.parse(JSON.stringify(el)); copy.id = uid(el.type); copy.page = id;
-                if (el.group) { if (!groupMap.has(el.group)) groupMap.set(el.group, uid('group')); copy.group = groupMap.get(el.group); }
-                return copy;
-            });
-            overlay.elements.push(...clones); normalizeZ(); changed(true); return switchEditPage(id);
-        }
-        if (t.id === 'page-del' && items.length > 1) {
-            const doomed = overlay.elements.filter(el => el.page === curPage).length;
-            if (doomed && !confirm(`Delete “${pageName(curPage)}” and its ${doomed} element${doomed > 1 ? 's' : ''}? (Undo can restore it.)`)) return;
-            overlay.elements = overlay.elements.filter(el => el.page !== curPage);
-            items.splice(idx, 1); normalizeZ(); changed(true); return switchEditPage(items[Math.max(0, idx - 1)].id);
-        }
+    function duplicatePage(src) {
+        const items = overlay.pages.items, id = pageSeq();
+        items.splice(items.indexOf(src) + 1, 0, { id, name: `${src.name} copy`, duration: src.duration || 0 });
+        const groupMap = new Map();
+        const clones = overlay.elements.filter(el => el.page === src.id).map(el => {
+            const copy = JSON.parse(JSON.stringify(el)); copy.id = uid(el.type); copy.page = id;
+            if (el.group) { if (!groupMap.has(el.group)) groupMap.set(el.group, uid('group')); copy.group = groupMap.get(el.group); }
+            return copy;
+        });
+        overlay.elements.push(...clones); normalizeZ(); changed(true); switchEditPage(id);
+    }
+    function deletePage(page) {
+        const items = overlay.pages.items;
+        if (items.length < 2) return;
+        const doomed = overlay.elements.filter(el => el.page === page.id).length;
+        if (doomed && !confirm(`Delete “${page.name}” and its ${doomed} element${doomed > 1 ? 's' : ''}? (Undo can restore it.)`)) return;
+        const idx = items.indexOf(page);
+        overlay.elements = overlay.elements.filter(el => el.page !== page.id);
+        items.splice(idx, 1); normalizeZ(); changed(true);
+        if (curPage === page.id) switchEditPage(items[Math.max(0, idx - 1)].id); else { renderPageBar(); renderCanvas(); renderLayers(); }
+    }
+    function startPageRename(row) {
+        const page = overlay.pages.items.find(p => p.id === row.dataset.pid), label = row.querySelector('.pg-name');
+        const input = document.createElement('input');
+        input.className = 'pg-name-input'; input.value = page.name; input.maxLength = 60;
+        label.replaceWith(input); input.focus(); input.select();
+        let done = false;
+        const finish = commit => {
+            if (done) return; done = true;
+            if (commit && input.value.trim() && input.value.trim() !== page.name) { page.name = input.value.trim().slice(0, 60); changed(true); }
+            renderPageBar();
+        };
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') finish(true); else if (e.key === 'Escape') finish(false); e.stopPropagation(); });
+        input.addEventListener('blur', () => finish(true));
+    }
+    function setRailTab(tab) {
+        prefs.railTab = tab; savePrefs();
+        for (const b of document.querySelectorAll('[data-rail-tab]')) b.setAttribute('aria-selected', String(b.dataset.railTab === tab));
+        $('layers-panel').hidden = tab !== 'layers'; $('pages-panel').hidden = tab !== 'pages';
+    }
+    document.querySelector('.rail-tabs').addEventListener('click', event => { const b = event.target.closest('[data-rail-tab]'); if (b) setRailTab(b.dataset.railTab); });
+    $('page-switch').addEventListener('click', event => { if (event.target.closest('#live-toggle')) livePage({ action: 'goto', page: curPage }); });
+    $('page-switch').addEventListener('change', event => { if (event.target.id === 'page-select') switchEditPage(event.target.value); });
+    $('pages-panel').addEventListener('click', event => {
+        const t = event.target.closest('button'), row = event.target.closest('.pg-row');
+        const items = overlay.pages.items;
+        if (t?.id === 'pages-enable') return setPagesEnabled(true);
+        if (t?.id === 'pages-disable') { if (confirm('Turn off pages? Every page’s elements stay, and they all show together in one view.')) setPagesEnabled(false); return; }
+        if (t?.id === 'page-add') { const id = pageSeq(); items.push({ id, name: `Page ${items.length + 1}`, duration: 0 }); changed(true); return switchEditPage(id); }
+        if (!row) return;
+        const page = items.find(p => p.id === row.dataset.pid);
+        if (t?.dataset.pg === 'live') return livePage({ action: 'goto', page: page.id });
+        if (t?.dataset.pg === 'dup') return duplicatePage(page);
+        if (t?.dataset.pg === 'del') return deletePage(page);
+        if (!t && page.id !== curPage) switchEditPage(page.id);
     });
-    $('page-bar').addEventListener('change', event => { if (event.target.id === 'page-select') switchEditPage(event.target.value); });
-    $('page-bar').addEventListener('input', event => {
-        const page = overlay.pages.items.find(p => p.id === curPage);
-        if (event.target.id === 'page-name') { page.name = event.target.value.slice(0, 60) || page.id; const opt = $('page-select')?.selectedOptions[0]; if (opt) opt.textContent = `${overlay.pages.items.indexOf(page) + 1}. ${page.name}${liveState?.page === page.id ? '  ● live' : ''}`; changed(false); }
-        else if (event.target.id === 'page-duration') { page.duration = clamp(Number(event.target.value) || 0, 0, 3600); changed(false); }
+    $('pages-panel').addEventListener('dblclick', event => { const row = event.target.closest('.pg-row'); if (row && event.target.closest('.pg-name')) startPageRename(row); });
+    bindFields($('pages-panel'), () => [overlay], path => {
+        if (path.startsWith('pages.items.')) { const page = overlay.pages.items[Number(path.split('.')[2])]; const meta = document.querySelector(`.pg-row[data-pid="${CSS.escape(page.id)}"] .pg-meta`); if (meta) meta.textContent = `${meta.textContent.replace(/ · \d+s$/, '')}${page.duration ? ` · ${page.duration}s` : ''}`; }
+        changed(false);
     });
+    $('pages-panel').addEventListener('change', event => { const path = event.target.dataset?.path; if (path === 'pages.mode' || path === 'pages.transition') { renderPagesPanel(); } });
     $('properties').addEventListener('change', event => {
         if (event.target.id !== 'el-shared') return;
         for (const el of selectedElements()) el.page = event.target.checked ? '*' : curPage;
@@ -2127,7 +2205,7 @@
         await shared.refreshTextSources(overlay.elements);
         savedSnapshot = isNew ? '' : snapshot();
         hist.stack = []; hist.index = -1;
-        renderAll(); pushHistory();
+        renderAll(); pushHistory(); setRailTab(prefs.railTab === 'pages' ? 'pages' : 'layers');
         if (isNew) { dirty = true; updateHistoryUI(); }
         fitView(true);
         refreshLiveStatus(); refreshLivePage();
