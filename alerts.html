@@ -90,6 +90,12 @@
         .tab:hover { color: var(--text); }
         .tab.active { color: var(--text); border-bottom-color: var(--accent); }
         .history.tall { max-height: 65vh; }
+        .vtabs { display: flex; gap: .2rem; border-bottom: 1px solid var(--border); align-items: flex-end; }
+        .vtab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--text-muted); padding: .35rem .75rem; font: inherit; font-size: .82rem; cursor: pointer; margin-bottom: -1px; }
+        .vtab:hover { color: var(--text); }
+        .vtab.active { color: var(--text); border-bottom-color: var(--accent); }
+        .vtabs .grow { flex: 1; }
+        .vsect { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-top: .3rem; }
         .tabs-note { font-size: .72rem; color: var(--text-muted); }
                 .media-row { display: flex; gap: .3rem; min-width: 0; }
         .media-row input[type="text"], .media-row select { flex: 1; min-width: 0; }
@@ -296,26 +302,28 @@
                 <label class="fld">Test ${amountLabel}<input type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}"></label></div>` : '';
         return `<div class="vgrid c2">${vin(i, 'emoji', 'Emoji (shown when there is no image or video)', v.emoji, 'maxlength="40" placeholder="e.g. 🎉"', 'text')}</div>${ladder}`;
     }
+    const variantTab = new Map();
+    const VTABS = [['text', 'Text'], ['visual', 'Visual'], ['sound', 'Sound'], ['timing', 'Timing']];
     function variantHtml(v, i, r) {
         const open = r.variants.length === 1 || openVariants.has(v.id);
         const weighted = r.pick === 'weighted';
+        const tab = variantTab.get(v.id) || 'text';
+        const panels = {
+            text: `<div class="vgrid c2">${vin(i, 'title', 'Title', v.title, '', 'text')}${vin(i, 'message', 'Message (optional)', v.message, '', 'text')}</div>`,
+            visual: `<div class="vsect">Image or video</div>
+                <div class="vgrid c2">${mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Image / GIF')}${mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Video (used instead of image)')}</div>
+                <div class="vsect">Emoji</div>${emojiHtml(v, i, r)}`,
+            sound: soundHtml(v, i) + `<div class="vgrid c3">${vin(i, 'volume', 'Volume %', v.volume, 'min="0" max="100"')}</div>`,
+            timing: `<div class="vgrid c3">${vin(i, 'duration', 'Show for (s)', v.duration, 'min="1" max="120" step="0.5"')}${vsel(i, 'animIn', 'Animation in', v.animIn, ANIM_IN)}${vsel(i, 'animOut', 'Animation out', v.animOut, ANIM_OUT)}</div>
+                ${weighted ? `<div class="vgrid c3">${vin(i, 'weight', 'Weight (odds)', v.weight, 'min="1" max="100"')}</div><span class="tabs-note">Weight: a variant with weight 3 shows three times as often as one with weight 1.</span>` : ''}`
+        };
         return `<details class="variant" data-vid="${esc(v.id)}"${open ? ' open' : ''}>
             <summary><span class="vt">${esc(v.title || v.message || '(empty)')}</span><span class="vm">${v.duration}s${weighted ? ` · weight ${v.weight}` : ''}${v.sound ? ' · 🔊' : ''}${v.emoji || v.emojiLadder.length ? ' · ' + esc(v.emoji || v.emojiLadder[0].emoji) : ''}${v.video ? ' · 🎞' : v.image ? ' · 🖼' : ''}</span>
                 <button class="btn sm" data-test="${i}">▶ Test</button></summary>
             <div class="variant-body">
-                <div class="vgrid c2">${vin(i, 'title', 'Title', v.title, '', 'text')}${vin(i, 'message', 'Message (optional)', v.message, '', 'text')}</div>
-                <div class="vgrid c2">${mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Image / GIF')}${mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Video (used instead of image)')}</div>
-                ${emojiHtml(v, i, r)}
-                ${soundHtml(v, i)}
-                <div class="vgrid c5">
-                    ${vin(i, 'duration', 'Show for (s)', v.duration, 'min="1" max="120" step="0.5"')}
-                    ${vin(i, 'volume', 'Volume %', v.volume, 'min="0" max="100"')}
-                    ${vsel(i, 'animIn', 'Animation in', v.animIn, ANIM_IN)}
-                    ${vsel(i, 'animOut', 'Animation out', v.animOut, ANIM_OUT)}
-                    ${weighted ? vin(i, 'weight', 'Weight (odds)', v.weight, 'min="1" max="100"') : ''}
-                </div>
-                ${weighted ? '<span class="tabs-note">Weight: a variant with weight 3 shows three times as often as one with weight 1.</span>' : ''}
-                <div><button class="btn sm danger" data-del-variant="${i}" ${r.variants.length < 2 ? 'disabled' : ''}>Remove variant</button></div>
+                <div class="vtabs">${VTABS.map(([key, label]) => `<button type="button" class="vtab${key === tab ? ' active' : ''}" data-vtab="${key}" data-vid-tab="${esc(v.id)}">${label}</button>`).join('')}<span class="grow"></span>
+                    <button class="btn sm danger" data-del-variant="${i}" ${r.variants.length < 2 ? 'disabled' : ''} style="margin-bottom:.25rem">Remove variant</button></div>
+                ${panels[tab]}
             </div></details>`;
     }
     function summary(r) {
@@ -474,6 +482,7 @@
             return;
         }
         if (btn.dataset.test !== undefined) event.preventDefault();
+        if (btn.dataset.vtab) { variantTab.set(btn.dataset.vidTab, btn.dataset.vtab); openVariants.add(btn.dataset.vidTab); renderEditor(); return; }
         if (btn.id === 'add-variant') { const nv = newVariant(r.trigger); r.variants.push(nv); openVariants.add(nv.id); setDirty(true); renderEditor(); }
         else if (btn.dataset.addStep !== undefined) {
             const v = r.variants[btn.dataset.addStep], last = v.emojiLadder[v.emojiLadder.length - 1];
