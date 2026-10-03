@@ -83,6 +83,13 @@
         });
         Object.assign(node.style, shared.decorationStyle(style, element.type));
         if (element.type === 'game-list') node.style.display = 'block';
+        if (element.type === 'markdown') {
+            const cols = element.columns > 1 ? Number(element.columns) : 0;
+            node.classList.toggle('md-cols', !!cols);
+            node.style.columnCount = cols || '';
+            node.style.columnGap = cols ? '1.5em' : '';
+            if (cols) node.style.display = 'block';
+        }
         if (element.type === 'shape') {
             if (style.shape === 'circle') node.style.borderRadius = '50%';
             if (style.shape === 'pill') node.style.borderRadius = '999px';
@@ -167,7 +174,6 @@
                 node.appendChild(frame);
             } else if (element.type === 'markdown') {
                 node.innerHTML = renderMarkdown(shared.elementContent(element));
-                if (element.columns > 1) { node.style.columnCount = element.columns; node.style.columnGap = '1.5em'; }
             } else if (element.type === 'random-text') {
                 setRandomText(node, element);
                 const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;
