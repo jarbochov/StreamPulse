@@ -7,6 +7,20 @@
     const randomTimers = new Map();
     const randomIndexes = new Map();
     let currentOverlay = null;
+    // Multipage overlays: one shared live page, unless the URL pins a page with ?page= (id, name or 1-based number).
+    const pageParam = (params.get('page') || '').trim().toLowerCase();
+    let currentPage = '';
+    function pagesOn(overlay) { return !!overlay?.pages?.enabled; }
+    function resolvePage(overlay, key) {
+        const items = overlay?.pages?.items || [];
+        const k = String(key || '').trim().toLowerCase();
+        const hit = items.find(item => item.id === k || item.name.toLowerCase() === k) || (/^\d+$/.test(k) ? items[Number(k) - 1] : null);
+        return hit ? hit.id : '';
+    }
+    function pageElements(overlay) {
+        return (overlay.elements || []).filter(item => item.visible !== false
+            && (!pagesOn(overlay) || item.page === '*' || item.page === currentPage));
+    }
     const shared = window.OverlayShared;
     const loadGoogleFont = shared.loadGoogleFont;
 
@@ -147,8 +161,15 @@
         root.style.height = `${overlay.canvas.height}px`;
         root.style.background = overlay.canvas.background || 'transparent';
         root.replaceChildren();
-        for (const element of (overlay.elements || []).filter(item => item.visible !== false)) {
+        if (pagesOn(overlay) && !(overlay.pages.items || []).some(item => item.id === currentPage)) currentPage = overlay.pages.items[0].id;
+        for (const element of pageElements(overlay)) root.appendChild(buildNode(element));
+        refit();
+    }
+
+    function buildNode(element) {
+        {
             const node = document.createElement('div');
+            node.dataset.pg = element.page || '';
             node.className = `overlay-element overlay-${element.type}`;
             applyElementStyle(node, element);
             if (element.type === 'image' || element.type === 'video') {
@@ -196,9 +217,40 @@
             }
             const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : shared.elementContent(element);
             if (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource)) tickingNodes.push({ node, element });
-            root.appendChild(node);
             if (element.textFit && element.textFit !== 'none') fitNodes.push({ node, element });
+            return node;
         }
+    }
+
+    // Swaps only the page's own elements, so shared elements keep running through the transition.
+    let pageSwitchTimer = null;
+    function switchPage(nextId) {
+        if (!currentOverlay || !pagesOn(currentOverlay) || nextId === currentPage || !nextId) return;
+        const pages = currentOverlay.pages;
+        const previous = currentPage;
+        currentPage = nextId;
+        const outgoing = [...root.children].filter(node => node.dataset.pg && node.dataset.pg !== '*' && node.dataset.pg === previous);
+        const gone = new Set(outgoing);
+        const prune = list => { for (let i = list.length - 1; i >= 0; i--) if (gone.has(list[i].node)) list.splice(i, 1); };
+        [fitNodes, tickingNodes, alertNodes].forEach(prune);
+        for (const element of currentOverlay.elements || []) {
+            if (element.page !== previous || element.page === '*') continue;
+            clearInterval(randomTimers.get(element.id));
+            randomTimers.delete(element.id);
+        }
+        const ms = pages.transition === 'none' ? 0 : pages.transitionMs;
+        const kind = pages.transition;
+        clearTimeout(pageSwitchTimer);
+        outgoing.forEach(node => {
+            if (ms) { node.style.animation = `pg-${kind}-out ${ms}ms ease both`; node.style.pointerEvents = 'none'; }
+        });
+        const incoming = pageElements(currentOverlay).filter(element => element.page === currentPage).map(buildNode);
+        incoming.forEach(node => {
+            if (ms) node.style.animation = `pg-${kind}-in ${ms}ms ease both`;
+            root.appendChild(node);
+        });
+        const finish = () => { outgoing.forEach(node => node.remove()); incoming.forEach(node => { node.style.animation = ''; }); };
+        if (ms) pageSwitchTimer = setTimeout(finish, ms + 30); else finish();
         refit();
     }
 
@@ -214,6 +266,17 @@
         } catch {}
         await shared.loadLiveExtras(liveStatus);
         await shared.refreshTextSources(overlay.elements);
+        currentOverlay = overlay;
+        if (pagesOn(overlay)) {
+            currentPage = resolvePage(overlay, pageParam);
+            if (!currentPage) {
+                try {
+                    const state = await (await fetch(`/api/custom-overlays/${encodeURIComponent(overlayId)}/page`, { cache: 'no-store' })).json();
+                    currentPage = resolvePage(overlay, state.page);
+                } catch {}
+            }
+            if (!currentPage) currentPage = overlay.pages.items[0].id;
+        }
         render(overlay);
         return overlay;
     }
@@ -238,8 +301,12 @@
                 const message = JSON.parse(event.data);
                 if (message.type === 'alert') showAlert(message.data);
                 else if (message.type === 'alert-skip' || message.type === 'alert-clear') stopAlerts();
+                else if (message.type === 'custom-overlay-page' && message.data?.id === overlayId) {
+                    if (!resolvePage(currentOverlay, pageParam)) switchPage(resolvePage(currentOverlay, message.data.page));
+                }
                 else if (message.type === 'custom-overlay-update' && message.data?.id === overlayId) {
                     if (message.data.overlay) {
+                        if (pagesOn(message.data.overlay) && pageParam) currentPage = resolvePage(message.data.overlay, pageParam) || currentPage;
                         liveStatus.overlayName = message.data.overlay.name;
                         shared.refreshTextSources(message.data.overlay.elements).finally(() => render(message.data.overlay));
                     }

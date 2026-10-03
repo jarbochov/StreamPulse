@@ -106,6 +106,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
         name: String(element.name || '').trim().slice(0, 80),
         locked: element.locked === true,
         group: sanitizeOverlayId(element.group).slice(0, 40),
+        page: element.page === '*' ? '*' : sanitizeOverlayId(element.page).slice(0, 40),
         type,
         gameList: {
             filter: ['scheduled', 'backlog', 'played', 'all'].includes(element.gameList?.filter) || /^list-[a-z0-9-]{1,40}$/.test(element.gameList?.filter || '') ? element.gameList.filter : 'scheduled',
@@ -214,12 +215,40 @@ function normalizeOverlayElement(element = {}, index = 0) {
     };
 }
 
+// Multipage overlays: every element belongs to one page, or to '*' (shared across all pages).
+const PAGE_TRANSITIONS = ['none', 'fade', 'slide'];
+function normalizePages(input = {}) {
+    const seen = new Set();
+    const items = (Array.isArray(input.items) ? input.items : []).slice(0, 50).map((item, index) => {
+        let id = sanitizeOverlayId(item?.id).slice(0, 40) || `page-${index + 1}`;
+        while (seen.has(id) || id === '*') id = `${id}-${index + 1}`;
+        seen.add(id);
+        return {
+            id,
+            name: String(item?.name || '').trim().slice(0, 60) || `Page ${index + 1}`,
+            duration: Math.max(0, Math.min(86400, Number(item?.duration) || 0))
+        };
+    });
+    if (!items.length) items.push({ id: 'page-1', name: 'Page 1', duration: 0 });
+    return {
+        enabled: input.enabled === true,
+        mode: input.mode === 'auto' ? 'auto' : 'manual',
+        cycleSeconds: Math.max(1, Math.min(86400, Number(input.cycleSeconds) || 10)),
+        loop: input.loop !== false,
+        transition: PAGE_TRANSITIONS.includes(input.transition) ? input.transition : 'fade',
+        transitionMs: Math.max(0, Math.min(5000, Number(input.transitionMs ?? 500))),
+        items
+    };
+}
+
 function normalizeCustomOverlay(input = {}, idOverride = '') {
     const id = sanitizeOverlayId(idOverride || input.id);
     if (!id) throw new Error('Overlay id is required');
-    const elements = Array.isArray(input.elements)
+    const pages = normalizePages(input.pages);
+    const pageIds = new Set(pages.items.map(item => item.id));
+    const elements = (Array.isArray(input.elements)
         ? input.elements.slice(0, 100).map(normalizeOverlayElement)
-        : [];
+        : []).map(element => ({ ...element, page: element.page === '*' || pageIds.has(element.page) ? element.page : pages.items[0].id }));
     return {
         id,
         name: String(input.name || id).trim().slice(0, 120) || id,
@@ -230,6 +259,7 @@ function normalizeCustomOverlay(input = {}, idOverride = '') {
             height: Math.max(1, Math.min(2160, Number(input.canvas?.height) || 1080)),
             background: String(input.canvas?.background || 'transparent').slice(0, 120)
         },
+        pages,
         elements
     };
 }
@@ -280,9 +310,95 @@ function recordOverlayRevision(previous) {
     try {
         fs.mkdirSync(CUSTOM_OVERLAY_HISTORY_DIR, { recursive: true });
         const list = readOverlayHistory(previous.id).filter(entry => entry.revision !== previous.revision);
-        list.push({ revision: previous.revision, updatedAt: previous.updatedAt || '', name: previous.name, canvas: previous.canvas, elements: previous.elements });
+        list.push({ revision: previous.revision, updatedAt: previous.updatedAt || '', name: previous.name, canvas: previous.canvas, pages: previous.pages, elements: previous.elements });
         fs.writeFileSync(historyFile(previous.id), JSON.stringify(list.slice(-CUSTOM_OVERLAY_HISTORY_LIMIT)));
     } catch (err) { console.warn('[Overlays] Could not record revision history:', err.message); }
+}
+
+// Live page state per multipage overlay. It is shared by every browser source and kept in memory only.
+const overlayPageState = new Map();
+const pageOf = (overlay, state) => overlay.pages.items.find(item => item.id === state.page) || overlay.pages.items[0];
+function pageSnapshot(overlay) {
+    const state = overlayPageState.get(overlay.id);
+    const items = overlay.pages.items;
+    const index = Math.max(0, items.findIndex(item => item.id === state?.page));
+    return {
+        id: overlay.id,
+        enabled: overlay.pages.enabled,
+        page: items[index].id,
+        name: items[index].name,
+        index,
+        count: items.length,
+        auto: !!state?.auto,
+        pages: items.map(({ id, name, duration }) => ({ id, name, duration }))
+    };
+}
+function broadcastPage(overlay) {
+    if (typeof broadcastToOverlays === 'function') broadcastToOverlays('custom-overlay-page', pageSnapshot(overlay));
+}
+function scheduleAutoAdvance(overlay) {
+    const state = overlayPageState.get(overlay.id);
+    if (!state) return;
+    clearTimeout(state.timer);
+    state.timer = null;
+    if (!state.auto || !overlay.pages.enabled || overlay.pages.items.length < 2) return;
+    const seconds = pageOf(overlay, state).duration || overlay.pages.cycleSeconds;
+    state.timer = setTimeout(() => {
+        const live = customOverlays[overlay.id];
+        if (!live) return;
+        movePage(live, 'next', { auto: true });
+    }, seconds * 1000);
+    state.timer.unref?.();
+}
+// Returns false when the move did nothing (already at the end without looping, or an unknown page).
+function movePage(overlay, action, { target, auto } = {}) {
+    let state = overlayPageState.get(overlay.id);
+    if (!state) { state = { page: overlay.pages.items[0].id, auto: false, timer: null }; overlayPageState.set(overlay.id, state); }
+    const items = overlay.pages.items;
+    const current = Math.max(0, items.findIndex(item => item.id === state.page));
+    let next = current;
+    if (action === 'next') next = current + 1 >= items.length ? (overlay.pages.loop ? 0 : -1) : current + 1;
+    else if (action === 'prev') next = current - 1 < 0 ? (overlay.pages.loop ? items.length - 1 : -1) : current - 1;
+    else if (action === 'first') next = 0;
+    else if (action === 'last') next = items.length - 1;
+    else if (action === 'goto') {
+        const key = String(target ?? '').trim().toLowerCase();
+        next = items.findIndex(item => item.id === key || item.name.toLowerCase() === key);
+        if (next < 0 && /^\d+$/.test(key)) next = Number(key) - 1;
+        if (next < 0 || next >= items.length) return false;
+    }
+    if (next < 0) {
+        // Auto mode that reached the last page without looping simply stops.
+        if (auto) { state.auto = false; clearTimeout(state.timer); broadcastPage(overlay); }
+        return false;
+    }
+    state.page = items[next].id;
+    scheduleAutoAdvance(overlay);
+    broadcastPage(overlay);
+    return true;
+}
+function setPageAuto(overlay, on) {
+    let state = overlayPageState.get(overlay.id);
+    if (!state) { state = { page: overlay.pages.items[0].id, auto: false, timer: null }; overlayPageState.set(overlay.id, state); }
+    state.auto = on === undefined ? !state.auto : !!on;
+    scheduleAutoAdvance(overlay);
+    broadcastPage(overlay);
+}
+// Called after a load or save so the live state follows the saved config (mode, page list, timings).
+function syncOverlayPages(overlay, previous) {
+    const state = overlayPageState.get(overlay.id) || { page: overlay.pages.items[0].id, auto: false, timer: null };
+    overlayPageState.set(overlay.id, state);
+    if (!overlay.pages.items.some(item => item.id === state.page)) state.page = overlay.pages.items[0].id;
+    if (!previous || previous.pages?.mode !== overlay.pages.mode || previous.pages?.enabled !== overlay.pages.enabled) {
+        state.auto = overlay.pages.enabled && overlay.pages.mode === 'auto';
+    }
+    if (!overlay.pages.enabled) state.auto = false;
+    scheduleAutoAdvance(overlay);
+}
+function dropOverlayPages(id) {
+    const state = overlayPageState.get(id);
+    if (state) clearTimeout(state.timer);
+    overlayPageState.delete(id);
 }
 
 function saveCustomOverlays() {
@@ -290,6 +406,7 @@ function saveCustomOverlays() {
 }
 
 loadCustomOverlays();
+Object.values(customOverlays).forEach(overlay => syncOverlayPages(overlay));
 
 // Emote image cache: emote name → { path, format }
 const emoteCache = new Map();
@@ -4769,8 +4886,8 @@ const server = http.createServer(async (req, res) => {
     const customOverlayMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)$/);
     if (pathname === '/api/custom-overlays' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(Object.values(customOverlays).map(({ id, name, revision, updatedAt, createdAt, canvas, elements }) => ({
-            id, name, revision, updatedAt, createdAt, canvas, elementCount: (elements || []).length
+        res.end(JSON.stringify(Object.values(customOverlays).map(({ id, name, revision, updatedAt, createdAt, canvas, elements, pages }) => ({
+            id, name, revision, updatedAt, createdAt, canvas, elementCount: (elements || []).length, pageCount: pages?.enabled ? pages.items.length : 0
         }))));
         return;
     }
@@ -4786,6 +4903,7 @@ const server = http.createServer(async (req, res) => {
             }
             customOverlays[overlay.id] = overlay;
             saveCustomOverlays();
+            syncOverlayPages(overlay);
             broadcastToOverlays('custom-overlay-update', { id: overlay.id, overlay });
             res.writeHead(201, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(overlay));
@@ -4794,6 +4912,25 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({ error: err.message }));
         }
         return;
+    }
+
+    const overlayPageMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/page$/);
+    if (overlayPageMatch && (req.method === 'GET' || req.method === 'POST')) {
+        const respond = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+        const overlay = customOverlays[sanitizeOverlayId(decodeURIComponent(overlayPageMatch[1]))];
+        if (!overlay) return respond(404, { error: 'Overlay not found' });
+        if (req.method === 'POST') {
+            try {
+                const body = JSON.parse(await readRequestBody(req) || '{}');
+                const action = String(body.action || '');
+                if (!overlay.pages.enabled) return respond(400, { error: 'Pages are not enabled for this overlay' });
+                if (action === 'auto') setPageAuto(overlay, typeof body.auto === 'boolean' ? body.auto : undefined);
+                else if (['next', 'prev', 'first', 'last', 'goto'].includes(action)) {
+                    if (!movePage(overlay, action, { target: body.page }) && action === 'goto') return respond(404, { error: 'Page not found' });
+                } else return respond(400, { error: 'action must be next, prev, first, last, goto or auto' });
+            } catch (err) { return respond(400, { error: err.message }); }
+        }
+        return respond(200, pageSnapshot(overlay));
     }
 
     const overlayIdRenameMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/rename-id$/);
@@ -4847,9 +4984,12 @@ const server = http.createServer(async (req, res) => {
                 updatedAt: new Date().toISOString()
             }, id);
             recordOverlayRevision(customOverlays[id]);
+            const previous = customOverlays[id];
             customOverlays[id] = overlay;
             saveCustomOverlays();
+            syncOverlayPages(overlay, previous);
             broadcastToOverlays('custom-overlay-update', { id, overlay });
+            broadcastPage(overlay);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(overlay));
         } catch (err) {
@@ -4867,6 +5007,7 @@ const server = http.createServer(async (req, res) => {
             return;
         }
         delete customOverlays[id];
+        dropOverlayPages(id);
         saveCustomOverlays();
         try { fs.unlinkSync(historyFile(id)); } catch { /* no history */ }
         broadcastToOverlays('custom-overlay-update', { id, overlay: null });

@@ -9,6 +9,10 @@
         html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
         body { display: flex; align-items: flex-start; justify-content: flex-start; }
         #overlay-root { position: relative; flex: 0 0 auto; overflow: hidden; }
+        @keyframes pg-fade-in { from { opacity: 0; } }
+        @keyframes pg-fade-out { to { opacity: 0; } }
+        @keyframes pg-slide-in { from { opacity: 0; transform: translateX(120px); } }
+        @keyframes pg-slide-out { to { opacity: 0; transform: translateX(-120px); } }
         .overlay-element { position: absolute; overflow: hidden; box-sizing: border-box; white-space: pre-wrap; word-break: break-word; }
         .overlay-markdown { white-space: normal; }
 .overlay-markdown li, .overlay-markdown h1, .overlay-markdown h2, .overlay-markdown h3 { break-inside: avoid; } .overlay-markdown h1, .overlay-markdown h2, .overlay-markdown h3, .overlay-markdown h4 { break-after: avoid; }
