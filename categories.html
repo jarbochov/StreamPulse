@@ -50,7 +50,7 @@
         .cover.ph { display: grid; place-items: center; font-weight: 700; font-size: 1.1rem; color: #fff; border: 0; }
         .cat-main { min-width: 0; display: grid; gap: 0.3rem; }
         .category-name { font-weight: 600; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .cat-meta { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; color: var(--text-muted); font-size: 0.74rem; }
+        .cat-meta { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: flex-end; color: var(--text-muted); font-size: 0.74rem; }
         .dev { color: var(--text-muted); font-size: 0.74rem; }
         .chip { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.7rem; color: var(--text-muted); }
         .cat-side { text-align: right; display: grid; gap: 0.15rem; }
@@ -65,7 +65,9 @@
         .category-session { display: flex; align-items: center; gap: 0.75rem; padding: 0.45rem 1rem 0.45rem 1.4rem; border-top: 1px solid var(--bg-raised); font-size: 0.8rem; }
         a.category-session { text-decoration: none; color: inherit; }
         a.category-session:hover { background: var(--bg-raised); }
-        .dev b { color: var(--text); font-weight: 600; }
+        .dev { display: inline-flex; flex-direction: column; gap: 1px; margin-right: 0.6rem; line-height: 1.25; }
+        .dev b { display: block; color: var(--text-muted); font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+        .dev span, .dev { color: var(--text); }
         .category-session .date { color: var(--text-muted); min-width: 85px; }
         .category-session .title { flex: 1; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .category-session .duration { color: var(--accent); font-weight: 500; }
@@ -240,15 +242,15 @@
                 </a>`).join('');
 
             const released = c.releaseDate ? new Date(c.releaseDate + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
-            const meta = (c.developers?.length ? `<span class="dev"><b>Developer</b> ${escapeHtml(c.developers.join(', '))}</span>` : '')
-                + (released ? `<span class="dev"><b>Released</b> ${released}</span>` : '')
+            const meta = (c.developers?.length ? `<span class="dev"><b>Developer</b>${escapeHtml(c.developers.join(', '))}</span>` : '')
+                + (released ? `<span class="dev"><b>Released</b>${released}</span>` : '')
                 + (c.genres || []).map(x => `<span class="chip">${escapeHtml(String(x))}</span>`).join('');
             return `<div class="category-card">
                 <div class="category-header" onclick="toggleSessions(this)">
                     ${coverHtml(c)}
                     <div class="cat-main">
                         <span class="category-name" style="color:${color}" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
-                        <div class="cat-meta"><span><span class="chev">▸</span>${c.sessions.length} session${c.sessions.length !== 1 ? 's' : ''}</span>${meta}</div>
+                        <div class="cat-meta"><span class="dev"><b>Sessions</b><span><span class="chev">▸</span>${c.sessions.length}</span></span>${meta}</div>
                     </div>
                     <div class="cat-side"><span class="category-time">${formatDuration(c.totalMinutes)}</span><span class="category-pct">${pct}% of total</span></div>
                 </div>
