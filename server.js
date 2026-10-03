@@ -6237,7 +6237,21 @@ const server = http.createServer(async (req, res) => {
                 .map(([name, data]) => ({ name, totalMinutes: Math.round(data.totalMinutes), sessions: data.sessions }))
                 .sort((a, b) => b.totalMinutes - a.totalMinutes);
 
-            res.writeHead(200, { 'Content-Type': 'application/json' });
+            // Cover art and details come from the cached IGDB lookup; unseen names are queued in the background.
+            const real = sorted.filter(c => c.name !== '(No Category)');
+            warmGameInfo(real.map(c => ({ name: c.name, igdbId: '' })));
+            let pending = 0;
+            for (const c of real) {
+                const g = publicGameInfo(c.name);
+                c.cover = g.cover || '';
+                c.genres = (g.genres || []).slice(0, 3);
+                c.releaseYear = g.releaseYear || '';
+                c.releaseDate = g.releaseDate || '';
+                c.developers = (g.developers || []).slice(0, 2);
+                if (!g.cover && !gameInfoCache[infoKey(c.name)]) pending++;
+            }
+
+            res.writeHead(200, { 'Content-Type': 'application/json', 'X-Covers-Pending': String(pending) });
             res.end(JSON.stringify(sorted));
         } catch (err) {
             res.writeHead(500, { 'Content-Type': 'application/json' });

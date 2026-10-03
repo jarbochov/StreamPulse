@@ -42,28 +42,46 @@
         .summary-stat .value { font-size: 1.3rem; font-weight: 700; color: var(--accent); }
         .summary-stat .label { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem; }
 
-        .category-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden; }
-        .category-header { display: flex; align-items: center; padding: 0.75rem 1rem; cursor: pointer; transition: background 0.2s; gap: 0.75rem; }
+        .category-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 0.75rem; overflow: hidden; transition: border-color 0.2s; }
+        .category-card:hover, .category-card.open { border-color: var(--accent-border, var(--border)); }
+        .category-header { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; padding: 0.7rem 1rem 0.55rem; cursor: pointer; transition: background 0.2s; gap: 0.9rem; }
         .category-header:hover { background: var(--accent-bg); }
-        .category-name { font-weight: 600; font-size: 0.95rem; flex: 1; }
-        .category-time { color: var(--accent); font-weight: 600; font-size: 0.9rem; }
-        .category-bar { height: 4px; background: var(--bg-raised); margin: 0 1rem; border-radius: 2px; }
-        .category-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+        .cover { width: 54px; height: 72px; border-radius: 6px; object-fit: cover; background: var(--bg-raised); border: 1px solid var(--border); display: block; }
+        .cover.ph { display: grid; place-items: center; font-weight: 700; font-size: 1.1rem; color: #fff; border: 0; }
+        .cat-main { min-width: 0; display: grid; gap: 0.3rem; }
+        .category-name { font-weight: 600; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cat-meta { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; color: var(--text-muted); font-size: 0.74rem; }
+        .dev { color: var(--text-muted); font-size: 0.74rem; }
+        .chip { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.7rem; color: var(--text-muted); }
+        .cat-side { text-align: right; display: grid; gap: 0.15rem; }
+        .category-time { color: var(--accent); font-weight: 700; font-size: 1.05rem; }
+        .category-pct { font-size: 0.72rem; color: var(--text-muted); }
+        .category-bar { height: 4px; background: var(--bg-raised); margin: 0 1rem 0.8rem; border-radius: 2px; }
+        .category-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+        .chev { display: inline-block; transition: transform 0.2s; color: var(--text-muted); margin-right: 0.25rem; }
+        .category-card.open .chev { transform: rotate(90deg); }
         .category-sessions { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
         .category-sessions.open { max-height: 500px; overflow-y: auto; }
-        .category-session { display: flex; align-items: center; gap: 0.75rem; padding: 0.45rem 1rem; border-top: 1px solid var(--bg-raised); font-size: 0.8rem; }
+        .category-session { display: flex; align-items: center; gap: 0.75rem; padding: 0.45rem 1rem 0.45rem 1.4rem; border-top: 1px solid var(--bg-raised); font-size: 0.8rem; }
         .category-session .date { color: var(--text-muted); min-width: 85px; }
-        .category-session .title { flex: 1; color: var(--text); }
+        .category-session .title { flex: 1; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .category-session .duration { color: var(--accent); font-weight: 500; }
-        .session-count { font-size: 0.72rem; color: var(--text-muted); background: var(--bg-raised); padding: 0.15rem 0.5rem; border-radius: 10px; }
-        .category-pct { font-size: 0.72rem; color: var(--text-muted); min-width: 40px; text-align: right; }
+        .session-count { font-size: 0.72rem; }
 
         .empty { color: var(--border-strong); text-align: center; padding: 3rem; font-size: 0.9rem; }
 
         .chart-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem; }
         .chart-container h3 { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem; }
         .chart-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; }
-        .chart-label { font-size: 0.78rem; min-width: 140px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .chart-label { font-size: 0.78rem; min-width: 170px; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 0.45rem; }
+        .chart-label img, .chart-label .mini { width: 18px; height: 24px; border-radius: 3px; object-fit: cover; flex: none; background: var(--bg-raised); }
+        .summary-stat .value.sm { font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .summary-stat.top { display: flex; align-items: center; gap: 0.7rem; text-align: left; flex: 1.6; }
+        .summary-stat.top img { width: 36px; height: 48px; border-radius: 4px; object-fit: cover; }
+        .summary-stat.top > div { min-width: 0; }
+        .mini-cover { width: 36px; height: 48px; border-radius: 4px; object-fit: cover; flex: none; }
+        .mini.ph, .mini-cover.ph { display: grid; place-items: center; font-size: 0.65rem; font-weight: 700; color: #fff; }
+        .toolbar-hint { color: var(--text-muted); font-size: 0.72rem; margin-bottom: 0.9rem; }
         .chart-bar-bg { flex: 1; height: 20px; background: var(--bg-raised); border-radius: 3px; overflow: hidden; }
         .chart-bar-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; padding-left: 6px; font-size: 0.68rem; font-weight: 600; color: #fff; min-width: fit-content; }
         .chart-value { font-size: 0.72rem; color: var(--text-muted); min-width: 55px; text-align: right; }
@@ -126,6 +144,11 @@
     const COLORS = ['#58a6ff', '#3fb950', '#d29922', '#f0883e', '#f778ba', '#bc8cff', '#39d353', '#db6d28', '#79c0ff', '#a5d6ff'];
 
     let lastData = [];
+    let coverRetries = 0;
+    const colorFor = name => COLORS[[...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % COLORS.length];
+    const coverHtml = (c, cls = 'cover') => c.cover
+        ? `<img class="${cls}" src="${escapeHtml(c.cover)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'${cls} ph',textContent:'${escapeHtml(c.name.charAt(0).toUpperCase()).replace(/'/g, '')}'}))">`
+        : `<div class="${cls} ph" style="background:${colorFor(c.name)}">${escapeHtml(c.name.charAt(0).toUpperCase() || '?')}</div>`;
 
     async function loadCategories() {
         const from = document.getElementById('filter-from').value;
@@ -138,6 +161,8 @@
             const res = await fetch('/api/categories' + (params.toString() ? '?' + params : ''));
             lastData = await res.json();
             renderFromCache();
+            // Cover art is fetched in the background on first view; check back a few times.
+            if (res.headers.get('X-Covers-Pending') > 0 && coverRetries < 5) { coverRetries++; setTimeout(loadCategories, 4000); }
         } catch {
             document.getElementById('category-list').innerHTML = '<div class="empty">Failed to load category data</div>';
         }
@@ -162,6 +187,8 @@
         render(sorted);
     }
 
+    const topPlayed = data => data.reduce((best, c) => (!best || c.totalMinutes > best.totalMinutes ? c : best), null);
+
     function render(data) {
         // Summary
         const totalMinutes = data.reduce((s, c) => s + c.totalMinutes, 0);
@@ -172,7 +199,7 @@
             <div class="summary-stat"><div class="value">${totalCategories}</div><div class="label">Categories</div></div>
             <div class="summary-stat"><div class="value">${formatDuration(totalMinutes)}</div><div class="label">Total Time</div></div>
             <div class="summary-stat"><div class="value">${totalSessions}</div><div class="label">Sessions</div></div>
-            <div class="summary-stat"><div class="value">${data.length > 0 ? escapeHtml(data[0].name) : '—'}</div><div class="label">Most Played</div></div>
+            <div class="summary-stat top">${data.length ? coverHtml(topPlayed(data), 'mini-cover') : ''}<div><div class="value sm" title="${escapeHtml(topPlayed(data)?.name || '')}">${escapeHtml(topPlayed(data)?.name || '—')}</div><div class="label">Most Played</div></div></div>
         `;
 
         // Chart
@@ -184,12 +211,13 @@
         }
 
         chartEl.style.display = 'block';
-        const maxMin = data[0].totalMinutes || 1;
-        document.getElementById('chart').innerHTML = data.slice(0, 10).map((c, i) => {
+        const byTime = [...data].sort((x, y) => y.totalMinutes - x.totalMinutes);
+        const maxMin = byTime[0].totalMinutes || 1;
+        document.getElementById('chart').innerHTML = byTime.slice(0, 10).map((c, i) => {
             const pct = (c.totalMinutes / maxMin * 100).toFixed(1);
             const color = COLORS[i % COLORS.length];
             return `<div class="chart-row">
-                <span class="chart-label" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+                <span class="chart-label" title="${escapeHtml(c.name)}">${coverHtml(c, 'mini')}<span style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.name)}</span></span>
                 <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${pct}%;background:${color}">${pct > 15 ? formatDuration(c.totalMinutes) : ''}</div></div>
                 <span class="chart-value">${formatDuration(c.totalMinutes)}</span>
             </div>`;
@@ -208,12 +236,18 @@
                     <span class="duration">${formatDuration(s.minutes)}</span>
                 </div>`).join('');
 
+            const released = c.releaseDate ? new Date(c.releaseDate + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+            const meta = (c.developers?.length ? `<span class="dev" title="Developer">🛠 ${escapeHtml(c.developers.join(', '))}</span>` : '')
+                + (released ? `<span class="dev" title="Release date">📅 ${released}</span>` : '')
+                + (c.genres || []).map(x => `<span class="chip">${escapeHtml(String(x))}</span>`).join('');
             return `<div class="category-card">
                 <div class="category-header" onclick="toggleSessions(this)">
-                    <span class="category-name" style="color:${color}">${escapeHtml(c.name)}</span>
-                    <span class="session-count">${c.sessions.length} session${c.sessions.length !== 1 ? 's' : ''}</span>
-                    <span class="category-pct">${pct}%</span>
-                    <span class="category-time">${formatDuration(c.totalMinutes)}</span>
+                    ${coverHtml(c)}
+                    <div class="cat-main">
+                        <span class="category-name" style="color:${color}" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+                        <div class="cat-meta"><span><span class="chev">▸</span>${c.sessions.length} session${c.sessions.length !== 1 ? 's' : ''}</span>${meta}</div>
+                    </div>
+                    <div class="cat-side"><span class="category-time">${formatDuration(c.totalMinutes)}</span><span class="category-pct">${pct}% of total</span></div>
                 </div>
                 <div class="category-bar"><div class="category-bar-fill" style="width:${barPct}%;background:${color}"></div></div>
                 <div class="category-sessions">${sessionRows}</div>
@@ -224,6 +258,7 @@
     function toggleSessions(header) {
         const panel = header.nextElementSibling.nextElementSibling;
         panel.classList.toggle('open');
+        header.parentElement.classList.toggle('open');
     }
 
     function applyFilters() {
