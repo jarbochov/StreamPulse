@@ -642,5 +642,40 @@
         return { stop: finish };
     }
 
-    root.OverlayShared = { qrUrl, prepareAlertNode, playAlert, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+
+    // ---- text sources: text / markdown / random-text elements can read a library or on-disk file ----
+    const textSources = new Map();
+    const textSourceKey = el => (el?.source && el.source.mode !== 'inline' && el.source.path ? `${el.source.mode}|${el.source.path}` : '');
+    async function loadTextSource(key) {
+        const [mode, ...rest] = key.split('|');
+        try {
+            const response = await fetch(`/api/custom-overlays/text-source?mode=${mode}&path=${encodeURIComponent(rest.join('|'))}`, { cache: 'no-store' });
+            const data = await response.json().catch(() => ({}));
+            return response.ok ? { text: data.text, mtimeMs: data.mtimeMs, name: data.name } : { error: data.error || 'Could not read file' };
+        } catch { return { error: 'Could not reach StreamPulse' }; }
+    }
+    // Returns true when any source changed (text, modification time or error).
+    async function refreshTextSources(elements) {
+        const keys = [...new Set((elements || []).map(textSourceKey).filter(Boolean))];
+        let changed = false;
+        await Promise.all(keys.map(async key => {
+            const next = await loadTextSource(key);
+            const prev = textSources.get(key);
+            if (!prev || prev.text !== next.text || prev.error !== next.error) changed = true;
+            textSources.set(key, next);
+        }));
+        return changed;
+    }
+    const textSourceState = el => textSources.get(textSourceKey(el)) || null;
+    const sourceText = el => { const state = textSourceState(el); return state && typeof state.text === 'string' ? state.text : null; };
+    const elementContent = el => { const text = sourceText(el); return text !== null && el.type !== 'random-text' ? text : el.content; };
+    function elementItems(el) {
+        const text = sourceText(el);
+        if (text === null) return el.items || [];
+        const parts = el.source.split === 'blocks' ? text.split(/\r?\n\s*\r?\n/) : text.split(/\r?\n/);
+        const items = parts.map(part => part.trim()).filter(Boolean);
+        return items.length ? items : el.items || [];
+    }
+
+    root.OverlayShared = { refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);

@@ -648,6 +648,16 @@
                     body: '(raw file bytes)  Headers: Content-Type: image/png, X-Asset-Name: logo.png'
                 },
                 {
+                    method: 'GET', path: '/api/custom-overlays/text-source?mode=file&path=/full/path.md',
+                    desc: 'Read a text or Markdown source',
+                    details: 'Used by Text, Random Text and Markdown elements. mode is "file" (an absolute path on this computer) or "library" (an uploaded asset URL). Only .txt and .md files up to 512 KB are served. Other computers can only read files that a saved overlay already references. Returns text, mtimeMs and name.'
+                },
+                {
+                    method: 'POST', path: '/api/system/choose-file',
+                    desc: 'Open the macOS file chooser',
+                    details: 'Opens a native file dialog on the StreamPulse computer and returns { path } or { cancelled: true }. Loopback requests only; macOS only.'
+                },
+                {
                     method: 'POST', path: '/api/custom-overlays/assets/:name/rename',
                     desc: 'Rename an asset',
                     details: 'Renames the file and rewrites every overlay and timer reference to it.',

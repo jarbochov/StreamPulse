@@ -16,7 +16,8 @@
     }
 
     function setRandomText(node, element) {
-        const items = Array.isArray(element.items) && element.items.length ? element.items : [element.content || ''];
+        const pool = shared.elementItems(element);
+        const items = pool.length ? pool : [element.content || ''];
         const config = element.random || {};
         let index = randomIndexes.get(element.id) || 0;
         const value = expandVariables(config.mode === 'order' ? items[index % items.length] : items[Math.floor(Math.random() * items.length)]);
@@ -108,8 +109,8 @@
     function tickPlaceholders() {
         for (const { node, element } of tickingNodes) {
             if (element.type === 'progress') shared.renderProgress(node, element, expandVariables);
-            else if (element.type === 'markdown') node.innerHTML = renderMarkdown(element.content);
-            else node.textContent = expandVariables(element.content || '');
+            else if (element.type === 'markdown') node.innerHTML = renderMarkdown(shared.elementContent(element));
+            else node.textContent = expandVariables(shared.elementContent(element) || '');
         }
     }
 
@@ -154,7 +155,7 @@
                 frame.style.cssText = 'width:100%;height:100%;border:0;';
                 node.appendChild(frame);
             } else if (element.type === 'markdown') {
-                node.innerHTML = renderMarkdown(element.content);
+                node.innerHTML = renderMarkdown(shared.elementContent(element));
             } else if (element.type === 'random-text') {
                 setRandomText(node, element);
                 const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;
@@ -169,9 +170,9 @@
             } else if (element.type === 'shape') {
                 node.setAttribute('aria-hidden', 'true');
             } else {
-                node.textContent = expandVariables(element.content || '');
+                node.textContent = expandVariables(shared.elementContent(element) || '');
             }
-            const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : element.content;
+            const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : shared.elementContent(element);
             if (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource)) tickingNodes.push({ node, element });
             root.appendChild(node);
         }
@@ -188,6 +189,7 @@
             if (statusResponse.ok) liveStatus = { ...liveStatus, ...(await statusResponse.json()) };
         } catch {}
         await shared.loadLiveExtras(liveStatus);
+        await shared.refreshTextSources(overlay.elements);
         render(overlay);
         return overlay;
     }
@@ -215,7 +217,7 @@
                 else if (message.type === 'custom-overlay-update' && message.data?.id === overlayId) {
                     if (message.data.overlay) {
                         liveStatus.overlayName = message.data.overlay.name;
-                        render(message.data.overlay);
+                        shared.refreshTextSources(message.data.overlay.elements).finally(() => render(message.data.overlay));
                     }
                     else root.replaceChildren();
                 }
@@ -228,6 +230,9 @@
         root.textContent = error.message;
         root.style.color = '#f85149';
     });
+    setInterval(async () => {
+        if (currentOverlay && await shared.refreshTextSources(currentOverlay.elements)) render(currentOverlay);
+    }, 3000);
     setInterval(refreshStatus, 5000);
     setInterval(tickPlaceholders, 1000);
     connect();

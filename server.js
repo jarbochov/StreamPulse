@@ -88,6 +88,10 @@ const DEFAULT_GOALS_CONFIG = {
     items: []
 };
 
+const isLoopbackRequest = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+const TEXT_SOURCE_TYPES = new Set(['text', 'random-text', 'markdown']);
+const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
+const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
 const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert']);
 let customOverlays = {};
 
@@ -137,6 +141,11 @@ function normalizeOverlayElement(element = {}, index = 0) {
             thickness: Math.max(2, Math.min(40, Number(element.progress?.thickness) || 10))
         },
         content: String(element.content || '').slice(0, 20000),
+        source: {
+            mode: ['library', 'file'].includes(element.source?.mode) && TEXT_SOURCE_TYPES.has(type) ? element.source.mode : 'inline',
+            path: String(element.source?.path || '').trim().slice(0, 1000),
+            split: element.source?.split === 'blocks' ? 'blocks' : 'lines'
+        },
         items: Array.isArray(element.items) ? element.items.map(item => String(item).slice(0, 2000)).filter(Boolean).slice(0, 100) : [],
         src: String(element.src || '').slice(0, 2000),
         alert: {
@@ -234,7 +243,7 @@ function loadCustomOverlays() {
     }
 }
 
-const ASSET_KIND_BY_EXT = { '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.gif': 'image', '.webp': 'image', '.svg': 'image', '.mp4': 'video', '.webm': 'video', '.ogg': 'video', '.ttf': 'font', '.otf': 'font', '.woff': 'font', '.woff2': 'font', '.mp3': 'audio', '.wav': 'audio', '.m4a': 'audio', '.aac': 'audio', '.oga': 'audio' };
+const ASSET_KIND_BY_EXT = { '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.gif': 'image', '.webp': 'image', '.svg': 'image', '.mp4': 'video', '.webm': 'video', '.ogg': 'video', '.ttf': 'font', '.otf': 'font', '.woff': 'font', '.woff2': 'font', '.mp3': 'audio', '.wav': 'audio', '.m4a': 'audio', '.aac': 'audio', '.oga': 'audio', '.txt': 'text', '.md': 'text', '.markdown': 'text', '.text': 'text' };
 const assetKind = name => ASSET_KIND_BY_EXT[path.extname(name).toLowerCase()] || 'other';
 const assetLabel = name => name.replace(/^[a-z0-9]{6,}-/, '').replace(/\.[A-Za-z0-9]+$/, '').replace(/^[-_.]+|[-_.]+$/g, '');
 // Uploaded fonts are referenced in overlays by this family name, so renames must rewrite it too.
@@ -4566,6 +4575,47 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    if (pathname === '/api/custom-overlays/text-source' && req.method === 'GET') {
+        const respond = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const mode = params.get('mode');
+        const requested = String(params.get('path') || '').trim();
+        let target;
+        if (mode === 'library') {
+            let name;
+            try { name = decodeURIComponent(requested.replace(/^\/custom-overlay-assets\//, '')); } catch { return respond(400, { error: 'Invalid library file' }); }
+            target = path.join(CUSTOM_OVERLAY_ASSETS_DIR, name);
+            if (!name || name.includes('/') || name.includes('\\') || path.dirname(target) !== CUSTOM_OVERLAY_ASSETS_DIR) return respond(400, { error: 'Invalid library file' });
+        } else if (mode === 'file') {
+            target = requested.startsWith('~/') ? path.join(os.homedir(), requested.slice(2)) : requested;
+            if (!path.isAbsolute(target)) return respond(400, { error: 'Use a full path starting with /' });
+            // Remote viewers may only read files that a saved overlay already points at.
+            const remote = !isLoopbackRequest(req);
+            if (remote && !Object.values(customOverlays).some(o => o.elements.some(el => el.source?.mode === 'file' && el.source.path === requested))) return respond(403, { error: 'File is not used by any overlay' });
+        } else return respond(400, { error: 'Unknown source mode' });
+        if (!TEXT_SOURCE_EXTS.has(path.extname(target).toLowerCase())) return respond(400, { error: 'Only .txt and .md files can be used' });
+        try {
+            const stat = fs.statSync(target);
+            if (!stat.isFile()) return respond(404, { error: 'That is not a file' });
+            if (stat.size > TEXT_SOURCE_MAX_BYTES) return respond(413, { error: 'File is larger than 512 KB' });
+            return respond(200, { text: fs.readFileSync(target, 'utf8').replace(/^\uFEFF/, ''), mtimeMs: Math.floor(stat.mtimeMs), name: path.basename(target) });
+        } catch (err) {
+            return respond(404, { error: err.code === 'ENOENT' ? 'File not found' : `Could not read file: ${err.message}` });
+        }
+    }
+
+    if (pathname === '/api/system/choose-file' && req.method === 'POST') {
+        const respond = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
+        if (!isLoopbackRequest(req)) return respond(403, { error: 'The file chooser only opens on the StreamPulse computer' });
+        if (process.platform !== 'darwin') return respond(501, { error: 'The file chooser is only available on macOS. Paste the full path instead.' });
+        const script = 'tell application "System Events"\n activate\n set chosen to choose file with prompt "Choose a text or Markdown file" of type {"public.plain-text", "net.daringfireball.markdown", "txt", "md", "markdown"}\n return POSIX path of chosen\nend tell';
+        execFile('osascript', ['-e', script], { timeout: 5 * 60 * 1000 }, (error, stdout, stderr) => {
+            if (error) return /-128|User canceled/i.test(`${stderr} ${error.message}`) ? respond(200, { cancelled: true }) : respond(500, { error: 'Could not open the file chooser' });
+            respond(200, { path: stdout.trim() });
+        });
+        return;
+    }
+
     if (pathname === '/api/custom-overlays/assets' && req.method === 'GET') {
         let files = [];
         try { files = fs.readdirSync(CUSTOM_OVERLAY_ASSETS_DIR).filter(name => !name.startsWith('.')); } catch { /* folder not created yet */ }
@@ -4640,19 +4690,20 @@ const server = http.createServer(async (req, res) => {
             'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml',
             'video/mp4', 'video/webm', 'video/ogg',
             'font/ttf', 'font/otf', 'font/woff', 'font/woff2',
-            'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/ogg'
+            'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/ogg',
+            'text/plain', 'text/markdown'
         ]);
         const declaredName = String(req.headers['x-asset-name'] || 'asset').trim();
         const safeBase = path.basename(declaredName).replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 120) || 'asset';
         const audioExts = { 'audio/mpeg': '.mp3', 'audio/mp3': '.mp3', 'audio/wav': '.wav', 'audio/x-wav': '.wav', 'audio/wave': '.wav', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/aac': '.aac', 'audio/ogg': '.oga' };
-        const typeExt = audioExts[contentType] || (contentType.split('/')[1] === 'jpeg' ? '.jpg' : `.${contentType.split('/')[1] || ''}`);
+        const typeExt = { 'text/plain': '.txt', 'text/markdown': '.md' }[contentType] || audioExts[contentType] || (contentType.split('/')[1] === 'jpeg' ? '.jpg' : `.${contentType.split('/')[1] || ''}`);
         // Audio-in-Ogg uses .oga so it is not mistaken for the video .ogg type.
         const namedBase = contentType === 'audio/ogg' ? safeBase.replace(/\.ogg$/i, '') : safeBase;
         const filename = `${Date.now().toString(36)}-${namedBase.includes('.') ? namedBase : `${namedBase}${typeExt}`}`;
         const target = path.join(CUSTOM_OVERLAY_ASSETS_DIR, filename);
         if (!allowedTypes.has(contentType)) {
             res.writeHead(415, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Only common image, video, audio (MP3, WAV, M4A, AAC, OGG) and font (TTF, OTF, WOFF, WOFF2) asset types are supported' }));
+            res.end(JSON.stringify({ error: 'Only common image, video, audio (MP3, WAV, M4A, AAC, OGG) and font (TTF, OTF, WOFF, WOFF2) and text (TXT, MD) asset types are supported' }));
             return;
         }
         if (Number(req.headers['content-length'] || 0) > 100 * 1024 * 1024) {

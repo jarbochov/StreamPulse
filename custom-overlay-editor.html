@@ -297,7 +297,7 @@
         <h3 id="asset-title">Choose an asset</h3>
         <input id="asset-search" type="search" placeholder="Filter by name…">
         <div id="asset-grid"></div>
-        <div class="dialog-actions"><label class="btn-like" style="margin-right:auto">Upload new…<input id="asset-upload" type="file" hidden></label><button id="asset-close">Cancel</button></div>
+        <div class="dialog-actions"><label class="btn-like" style="margin-right:auto">Upload new…<input id="asset-upload" type="file" accept="image/*,video/*,.txt,.md,.markdown" hidden></label><button id="asset-close">Cancel</button></div>
     </dialog>
     <dialog id="revision-dialog">
         <h3>Revision history</h3>
@@ -449,7 +449,7 @@
         next.canvas = Object.assign({ width: 1920, height: 1080, background: 'transparent' }, next.canvas);
         next.elements = (next.elements || []).map((item, index) => ({ index, item }))
             .sort((a, b) => (a.item.zIndex - b.item.zIndex) || (a.index - b.index)).map(entry => entry.item);
-        next.elements.forEach(item => { item.name = item.name || ''; item.locked = item.locked === true; item.items ||= []; item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 }; item.style ||= {}; });
+        next.elements.forEach(item => { item.name = item.name || ''; item.locked = item.locked === true; item.items ||= []; item.source ||= { mode: 'inline', path: '', split: 'lines' }; item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 }; item.style ||= {}; });
         return next;
     }
 
@@ -460,6 +460,7 @@
         const data = {
             id: uid(type), name: '', locked: false, type,
             content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', shape: '', progress: '50', 'game-list': '', alert: '' }[type],
+            source: { mode: 'inline', path: '', split: 'lines' },
             items: type === 'random-text' ? ['First random phrase', 'Second random phrase', 'Third random phrase'] : [],
             random: { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 },
             group: '', qr: { fg: '#000000', bg: '#ffffff', margin: 2, ecc: 'M' }, gameList: { filter: 'scheduled', period: '', layout: 'grid', coverFit: 'cover', fit: 'none', coverScale: 100, headingSize: 0, titleSize: 0, titleWrap: 'ellipsis', columns: 3, gap: 12, max: 0, showCovers: true, showTitles: true, meta: 'none', headings: true, highlightCurrent: true, accent: '#3fb950' },
@@ -603,9 +604,9 @@
             frame.src = url; frame.sandbox = 'allow-forms allow-popups allow-scripts'; frame.referrerPolicy = 'no-referrer';
             node.appendChild(frame);
         } else if (el.type === 'markdown') {
-            node.innerHTML = shared.renderMarkdown(expand(el.content));
+            node.innerHTML = shared.renderMarkdown(expand(shared.elementContent(el)));
         } else if (el.type === 'random-text') {
-            const first = (el.items || []).find(Boolean) ?? el.content ?? '';
+            const first = shared.elementItems(el).find(Boolean) ?? el.content ?? '';
             if (el.random?.typewriter) {
                 const caret = document.createElement('span');
                 caret.className = 'overlay-caret'; caret.textContent = expand(first);
@@ -614,7 +615,7 @@
             } else node.textContent = expand(first);
             if (el.random?.marquee) node._extra += ' overlay-marquee';
         } else if (el.type === 'text') {
-            node.textContent = expand(el.content);
+            node.textContent = expand(shared.elementContent(el));
         } else if (el.type === 'game-list') {
             shared.renderGameList(node, el, liveStatus.gamePlan);
         } else if (el.type === 'progress') {
@@ -628,16 +629,17 @@
     const ALERT_SAMPLE_IMAGE = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#8957e5"/><path d="M50 22l8.5 18 19.5 2.4-14.5 13.4 3.9 19.3L50 65l-17.4 10 3.9-19.3L22 42.4 41.500 40z" fill="#ffd166"/></svg>')}`;
     const ALERT_SAMPLE = { title: 'TestViewer just followed!', message: 'Thanks for the support', image: ALERT_SAMPLE_IMAGE, animOut: 'fade' };
     const ALERT_TRIGGER_LABELS = { follow: 'Follow', sub: 'New sub', resub: 'Resub', milestone: 'Sub milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Channel point redeem', timer: 'Timer finished', goal: 'Goal reached', chat_word: 'Chat word' };
-    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
+    const sourceSignature = el => { const state = shared.textSourceState(el); return state ? [state.text, state.error] : null; };
+    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.source, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
 
     function tickPlaceholders() {
         if (!prefs.live) return;
         for (const el of overlay.elements) {
             const node = nodes.get(el.id);
-            if (!node || !['text', 'markdown', 'progress'].includes(el.type) || !shared.hasTicking(el.type === 'progress' ? `${el.content} ${el.progress?.label}` : el.content)) continue;
+            if (!node || !['text', 'markdown', 'progress'].includes(el.type) || !shared.hasTicking(el.type === 'progress' ? `${el.content} ${el.progress?.label}` : shared.elementContent(el))) continue;
             if (el.type === 'progress') shared.renderProgress(node, el, expand);
-            else if (el.type === 'markdown') node.innerHTML = shared.renderMarkdown(expand(el.content));
-            else node.textContent = expand(el.content);
+            else if (el.type === 'markdown') node.innerHTML = shared.renderMarkdown(expand(shared.elementContent(el)));
+            else node.textContent = expand(shared.elementContent(el));
         }
     }
 
@@ -999,15 +1001,60 @@
             ${!multi && shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
             ${!multi && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) : ''}`;
     }
+    const mediaTab = new Map();
+    const currentMediaTab = el => mediaTab.get(el.id) || (!el.src || el.src.startsWith('/custom-overlay-assets/') ? 'library' : 'url');
+    const tabBar = (label, attr, current, options) => `<div class="field"><span>${label}</span><span class="seg">${options.map(([v, l]) => `<button type="button" ${attr}="${v}" aria-pressed="${v === current}">${l}</button>`).join('')}</span></div>`;
+    const friendlyAssetName = url => url ? decodeURIComponent(url.split('/').pop()).replace(/^[a-z0-9]{6,}-/, '') : '';
+    function mediaSourceBlock(el) {
+        const tab = currentMediaTab(el);
+        let body = tabBar('Source', 'data-media-tab', tab, [['library', 'Library & upload'], ['url', 'Web URL']]);
+        if (tab === 'url') {
+            body += F.text('src', 'Image or video URL', el.src, 'placeholder="https://… or {{game.cover}}"');
+            body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button><span class="hint">Use e.g. {{game.cover}} to show the current game's cover art.</span></div>`;
+        } else {
+            const accept = el.type === 'image' ? 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml' : 'video/mp4,video/webm,video/ogg';
+            body += `<div class="field"><span>${el.type === 'video' ? 'Video' : 'Image'} file</span><span class="upload-row"><input readonly value="${esc(friendlyAssetName(el.src))}" placeholder="Nothing chosen"><button type="button" id="open-assets">Library…</button></span></div>`;
+            body += `<div class="field"><span>Upload new</span><input id="prop-upload" type="file" accept="${accept}"><span class="hint">Saved to the StreamPulse overlay asset folder (100 MB max). You can also drop files onto the canvas.</span></div>`;
+            if (el.type === 'image' && el.src) body += `<img class="asset-preview" src="${esc(expand(el.src))}" alt="Asset preview" onerror="this.style.display='none'">`;
+        }
+        return body;
+    }
+    function sourceStatusText(el) {
+        const src = el.source || {};
+        if (src.mode === 'inline' || !src.path) return '';
+        const state = shared.textSourceState(el);
+        if (!state) return 'Reading file…';
+        if (state.error) return `⚠ ${state.error}. The fallback text is shown instead.`;
+        const count = el.type === 'random-text' ? `${shared.elementItems(el).length} entries` : `${state.text.length.toLocaleString()} characters`;
+        return `✓ ${state.name || 'File'} loaded (${count}). Changes you save in the file appear automatically.`;
+    }
+    function updateSourceStatus() { const node = $('source-status'), el = primary(); if (node && el) node.textContent = sourceStatusText(el); }
+    function textSourceBlock(el) {
+        const src = el.source || { mode: 'inline', path: '', split: 'lines' };
+        const typed = `<label class="field"><span>${el.type === 'random-text' ? 'Fallback text' : el.type === 'markdown' ? 'Markdown' : 'Text'}</span><textarea id="prop-content" data-path="content" data-kind="text" spellcheck="true">${esc(el.content)}</textarea></label>`;
+        let body = tabBar('Source', 'data-source-mode', src.mode, [['inline', 'Typed'], ['library', 'Library'], ['file', 'File on computer']]);
+        if (src.mode === 'inline') {
+            body += typed;
+            if (el.type === 'random-text') body += `<label class="field"><span>Phrase pool</span><textarea id="prop-items" data-path="items" data-kind="lines" style="min-height:120px">${esc((el.items || []).join('\n'))}</textarea><span class="hint">One phrase per line. Placeholders work here too.</span></label>`;
+            body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button></div>`;
+        } else {
+            if (src.mode === 'library') {
+                body += `<div class="field"><span>Library file</span><span class="upload-row"><input readonly value="${esc(friendlyAssetName(src.path))}" placeholder="No file chosen"><button type="button" id="source-library">Choose…</button></span></div>`;
+                body += `<div class="field"><span>Upload new</span><input id="source-upload" type="file" accept=".txt,.md,.markdown,text/plain,text/markdown"><span class="hint">Copies the file into StreamPulse. Re-upload it after you edit it.</span></div>`;
+            } else {
+                body += `<div class="field"><span>File path</span><span class="upload-row"><input data-path="source.path" data-kind="text" value="${esc(src.path)}" placeholder="/Users/you/Notes/intro.md" spellcheck="false"><button type="button" id="source-browse">Browse…</button></span><span class="hint">Reads the file in place (.txt or .md). Nothing is uploaded and edits show up automatically.</span></div>`;
+            }
+            if (el.type === 'random-text') body += F.select('source.split', 'Each entry is', src.split || 'lines', [['lines', 'One line'], ['blocks', 'A paragraph (separated by blank lines)']]);
+            body += `<div class="hint" id="source-status">${esc(sourceStatusText(el))}</div>`;
+            body += `<details class="sub-details"><summary>Fallback text</summary>${typed}</details>`;
+        }
+        return body;
+    }
     function contentSection(el) {
         const textual = TEXT_TYPES.has(el.type);
         const media = el.type === 'image' || el.type === 'video';
         let body = '';
-        if (textual) {
-            body += `<label class="field"><span>${el.type === 'random-text' ? 'Fallback text' : el.type === 'markdown' ? 'Markdown' : 'Text'}</span><textarea id="prop-content" data-path="content" data-kind="text" spellcheck="true">${esc(el.content)}</textarea></label>`;
-            if (el.type === 'random-text') body += `<label class="field"><span>Phrase pool</span><textarea id="prop-items" data-path="items" data-kind="lines" style="min-height:120px">${esc((el.items || []).join('\n'))}</textarea><span class="hint">One phrase per line. Placeholders work here too.</span></label>`;
-            body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button></div>`;
-        }
+        if (textual) body += textSourceBlock(el);
         if (el.type === 'progress') {
             body += `<label class="field"><span>Value (percent, 0–100)</span><textarea id="prop-content" data-path="content" data-kind="text" rows="2" style="min-height:0">${esc(el.content)}</textarea><span class="hint">Use a number or a placeholder such as {{timer.&lt;id&gt;.percent}} or {{goal.&lt;id&gt;.percent}}.</span></label>`;
             body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button></div>`;
@@ -1020,14 +1067,11 @@
             body += `<div class="grid2">${F.number('qr.margin', 'Quiet zone (modules)', q.margin ?? 2, { min: 0, max: 8 })}${F.select('qr.ecc', 'Error correction', q.ecc || 'M', [['L', 'Low (smaller code)'], ['M', 'Medium'], ['Q', 'Quartile'], ['H', 'High (more robust)']])}</div>`;
             body += '<span class="hint">Keep strong contrast and a quiet zone so phones can scan it. Dark code on a light background scans best.</span>';
         }
-        if (media || el.type === 'embed') {
-            body += F.text('src', el.type === 'embed' ? 'Webpage URL' : 'Source URL', el.src, `placeholder="${el.type === 'embed' ? 'https://example.com' : 'https://… or upload a file'}"`);
-            body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button><span class="hint">Use e.g. {{game.cover}} to show the current game's cover art.</span></div>`;
+        if (el.type === 'embed') {
+            body += F.text('src', 'Webpage URL', el.src, 'placeholder="https://example.com"');
+            body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button></div>`;
         }
-        if (media) {
-            body += `<div class="field"><span>Upload ${el.type}</span><span class="upload-row"><input id="prop-upload" type="file" accept="${el.type === 'image' ? 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml' : 'video/mp4,video/webm,video/ogg'}"><button type="button" id="open-assets">Library…</button></span><span class="hint">Saved to the StreamPulse overlay asset folder (100 MB max). You can also drop files onto the canvas.</span></div>`;
-            if (el.type === 'image' && el.src) body += `<img class="asset-preview" src="${esc(expand(el.src))}" alt="Asset preview" onerror="this.style.display='none'">`;
-        }
+        if (media) body += mediaSourceBlock(el);
         return body ? F.section('content', 'Content', body) : '';
     }
     function layoutSection(el) {
@@ -1214,6 +1258,55 @@
         } catch (error) { toast(error.message, 'error', 5000); event.target.value = ''; }
     });
 
+    // ---- text sources (typed / library file / file on this computer) -------------------
+    async function useTextSource(el, mode, path) {
+        el.source = { ...(el.source || { split: 'lines' }), mode, path };
+        await shared.refreshTextSources([el]);
+        renderCanvas(); renderProperties(); changed(true);
+    }
+    $('properties').addEventListener('click', async event => {
+        const el = primary();
+        if (!el) return;
+        const modeButton = event.target.closest('[data-source-mode]');
+        if (modeButton) {
+            el.source = { ...(el.source || { path: '', split: 'lines' }), mode: modeButton.dataset.sourceMode };
+            await shared.refreshTextSources([el]);
+            renderCanvas(); renderProperties(); changed(true);
+            return;
+        }
+        const tab = event.target.closest('[data-media-tab]');
+        if (tab) { mediaTab.set(el.id, tab.dataset.mediaTab); renderProperties(); return; }
+        if (event.target.closest('#source-browse')) {
+            const button = event.target.closest('#source-browse');
+            button.disabled = true; button.textContent = 'Choosing…';
+            try {
+                const response = await fetch('/api/system/choose-file', { method: 'POST' });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) toast(data.error || 'Could not open the file chooser', 'error', 5000);
+                else if (data.path) { await useTextSource(el, 'file', data.path); return; }
+            } catch { toast('Could not reach StreamPulse', 'error', 3000); }
+            button.disabled = false; button.textContent = 'Browse…';
+        }
+    });
+    $('properties').addEventListener('change', async event => {
+        const el = primary();
+        if (!el) return;
+        if (event.target.id === 'source-upload' && event.target.files[0]) {
+            try {
+                toast('Uploading…', 'info', 1500);
+                const url = await uploadAsset(event.target.files[0]);
+                await useTextSource(el, 'library', url);
+            } catch (error) { toast(error.message, 'error', 5000); event.target.value = ''; }
+        } else if (event.target.dataset?.path === 'source.path' || event.target.dataset?.path === 'source.split') {
+            await shared.refreshTextSources([el]);
+            renderCanvas(); updateSourceStatus();
+        }
+    });
+    setInterval(async () => {
+        if (!(await shared.refreshTextSources(overlay.elements))) return;
+        renderCanvas(); updateSourceStatus();
+    }, 3000);
+
     // ---- placeholder picker -----------------------------------------------------------
     const variableDialog = $('variable-dialog');
     function renderVariableList() {
@@ -1262,14 +1355,16 @@
         const el = overlay.elements.find(item => item.id === pickerTarget);
         if (!el) return;
         const query = assetSearch.value.trim().toLowerCase();
-        const matches = libraryAssets.filter(asset => asset.kind === (el.type === 'video' ? 'video' : 'image') && asset.label.toLowerCase().includes(query));
-        assetGrid.innerHTML = matches.length ? matches.map(asset => `<button type="button" class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === el.src ? 'aria-current="true"' : ''} title="${esc(asset.label)}"><span class="thumb">${asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="">`}</span><span class="cap">${esc(asset.label)}</span></button>`).join('') : `<p class="hint">No ${el.type} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
+        const wanted = TEXT_TYPES.has(el.type) ? 'text' : el.type === 'video' ? 'video' : 'image';
+        const current = TEXT_TYPES.has(el.type) ? el.source?.path : el.src;
+        const matches = libraryAssets.filter(asset => asset.kind === wanted && asset.label.toLowerCase().includes(query));
+        assetGrid.innerHTML = matches.length ? matches.map(asset => `<button type="button" class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === current ? 'aria-current="true"' : ''} title="${esc(asset.label)}"><span class="thumb">${asset.kind === 'text' ? '<span style="font-size:2rem">📄</span>' : asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="">`}</span><span class="cap">${esc(asset.label)}</span></button>`).join('') : `<p class="hint">No ${wanted} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
     }
     async function openAssetPicker() {
         const el = primary();
-        if (!el || !['image', 'video'].includes(el.type)) return;
+        if (!el || !['image', 'video', ...TEXT_TYPES].includes(el.type)) return;
         pickerTarget = el.id;
-        $('asset-title').textContent = `Choose ${el.type === 'video' ? 'a video' : 'an image'}`;
+        $('asset-title').textContent = TEXT_TYPES.has(el.type) ? 'Choose a text or Markdown file' : `Choose ${el.type === 'video' ? 'a video' : 'an image'}`;
         assetSearch.value = '';
         assetGrid.innerHTML = '<p class="hint">Loading…</p>';
         assetDialog.showModal();
@@ -1280,7 +1375,7 @@
             renderAssetGrid();
         } catch { assetGrid.innerHTML = '<p class="hint">Could not load assets. Is the StreamPulse server running?</p>'; }
     }
-    $('properties').addEventListener('click', event => { if (event.target.closest('#open-assets')) openAssetPicker(); });
+    $('properties').addEventListener('click', event => { if (event.target.closest('#open-assets, #source-library')) openAssetPicker(); });
     assetSearch.addEventListener('input', renderAssetGrid);
     $('asset-close').addEventListener('click', () => assetDialog.close());
     $('asset-upload').addEventListener('change', async event => {
@@ -1291,6 +1386,7 @@
         try {
             toast('Uploading…', 'info', 1500);
             const url = await uploadAsset(file);
+            if (TEXT_TYPES.has(el.type)) { assetDialog.close(); await useTextSource(el, 'library', url); return; }
             const hadSource = !!el.src;
             el.src = url;
             assetDialog.close();
@@ -1302,6 +1398,7 @@
         const tile = event.target.closest('.asset-tile');
         const el = overlay.elements.find(item => item.id === pickerTarget);
         if (!tile || !el) return;
+        if (TEXT_TYPES.has(el.type)) { assetDialog.close(); await useTextSource(el, 'library', tile.dataset.url); return; }
         const hadSource = !!el.src;
         el.src = tile.dataset.url;
         assetDialog.close();
@@ -1403,11 +1500,11 @@
     }
 
     // ---- assets -----------------------------------------------------------------------
-    const UPLOAD_TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2' };
+    const UPLOAD_TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2', txt: 'text/plain', md: 'text/markdown', markdown: 'text/markdown' };
     async function uploadAsset(file) {
         if (file.size > 100 * 1024 * 1024) throw new Error('That file is larger than the 100 MB limit.');
         const type = UPLOAD_TYPES[(file.name.split('.').pop() || '').toLowerCase()] || file.type;
-        if (!Object.values(UPLOAD_TYPES).includes(type)) throw new Error(`${file.name}: only PNG, JPEG, GIF, WebP, SVG, MP4, WebM, OGG, TTF, OTF, WOFF and WOFF2 files are supported.`);
+        if (!Object.values(UPLOAD_TYPES).includes(type)) throw new Error(`${file.name}: only PNG, JPEG, GIF, WebP, SVG, MP4, WebM, OGG, TTF, OTF, WOFF, WOFF2, TXT and MD files are supported.`);
         let response;
         try {
             response = await fetch('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': type, 'X-Asset-Name': file.name.replace(/[^\x20-\x7e]+/g, '-') }, body: file });
@@ -1771,6 +1868,7 @@
             if (!response.ok) throw new Error(`Could not load the overlay (${response.status}).`);
             overlay = normalizeLoaded(await response.json());
         } else overlay = normalizeLoaded(overlay);
+        await shared.refreshTextSources(overlay.elements);
         savedSnapshot = isNew ? '' : snapshot();
         hist.stack = []; hist.index = -1;
         renderAll(); pushHistory();
