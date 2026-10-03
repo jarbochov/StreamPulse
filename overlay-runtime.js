@@ -167,6 +167,7 @@
                 node.appendChild(frame);
             } else if (element.type === 'markdown') {
                 node.innerHTML = renderMarkdown(shared.elementContent(element));
+                if (element.columns > 1) { node.style.columnCount = element.columns; node.style.columnGap = '1.5em'; }
             } else if (element.type === 'random-text') {
                 setRandomText(node, element);
                 const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;

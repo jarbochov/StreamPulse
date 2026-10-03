@@ -141,6 +141,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
             thickness: Math.max(2, Math.min(40, Number(element.progress?.thickness) || 10))
         },
         content: String(element.content || '').slice(0, 20000),
+        columns: type === 'markdown' ? Math.max(1, Math.min(6, Math.round(Number(element.columns)) || 1)) : 1,
         textFit: ['shrink', 'fit'].includes(element.textFit) && TEXT_SOURCE_TYPES.has(type) ? element.textFit : 'none',
         source: {
             mode: ['library', 'file'].includes(element.source?.mode) && TEXT_SOURCE_TYPES.has(type) ? element.source.mode : 'inline',
