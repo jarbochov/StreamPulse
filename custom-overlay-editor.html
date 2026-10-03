@@ -768,8 +768,7 @@
             const signature = contentSignature(el, live);
             if (node._sig !== signature) { node._sig = signature; buildContent(node, el); }
             applyNodeStyle(node, el, index);
-            node.style.display = inView(el) ? '' : 'none';
-            if (!inView(el)) return;
+            if (!inView(el)) { node.style.display = 'none'; return; }
             if (TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none') {
                 const probe = el.type === 'random-text' ? shared.elementItems(el).map(expand).reduce((a, b) => (b.length > a.length ? b : a), '') : null;
                 shared.fitText(node, el, probe);
