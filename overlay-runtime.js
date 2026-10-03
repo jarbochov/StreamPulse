@@ -88,6 +88,7 @@
             node.classList.toggle('md-cols', !!cols);
             node.style.columnCount = cols || '';
             node.style.columnGap = cols ? '1.5em' : '';
+            node.dataset.span = element.headingSpan ?? 6;
             if (cols) node.style.display = 'block';
         }
         if (element.type === 'shape') {
