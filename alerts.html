@@ -95,6 +95,9 @@
         .vtab:hover { color: var(--text); }
         .vtab.active { color: var(--text); border-bottom-color: var(--accent); }
         .vtabs .grow { flex: 1; }
+        .seg-row { display: inline-flex; gap: .3rem; }
+        .vtab.pill { border: 1px solid var(--border); border-radius: 999px; padding: .2rem .8rem; margin: 0; }
+        .vtab.pill.active { border-color: var(--accent); background: var(--accent-bg); }
         .vsect { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-top: .3rem; }
         .tabs-note { font-size: .72rem; color: var(--text-muted); }
                 .media-row { display: flex; gap: .3rem; min-width: 0; }
@@ -300,19 +303,21 @@
             </div><span class="tabs-note">The highest step at or below the ${amountLabel} wins; below the first step it falls back to the emoji above. A step can hold several emojis.</span></div>
             <div class="vgrid c3">${vin(i, 'emojiEvery', `One emoji per N ${amountLabel} (0 = off)`, v.emojiEvery, 'min="0"')}${vin(i, 'emojiMax', 'Max emojis', v.emojiMax, 'min="1" max="20"')}
                 <label class="fld">Test ${amountLabel}<input type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}"></label></div>` : '';
-        return `<div class="vgrid c2">${vin(i, 'emoji', 'Emoji (shown when there is no image or video)', v.emoji, 'maxlength="40" placeholder="e.g. 🎉"', 'text')}</div>${ladder}`;
+        return `<div class="vgrid c2">${vin(i, 'emoji', 'Emoji', v.emoji, 'maxlength="40" placeholder="e.g. 🎉"', 'text')}</div>${ladder}`;
     }
-    const variantTab = new Map();
+    const variantTab = new Map(), variantMedia = new Map();
     const VTABS = [['text', 'Text'], ['visual', 'Visual'], ['sound', 'Sound'], ['timing', 'Timing']];
     function variantHtml(v, i, r) {
         const open = r.variants.length === 1 || openVariants.has(v.id);
         const weighted = r.pick === 'weighted';
         const tab = variantTab.get(v.id) || 'text';
+        const media = variantMedia.get(v.id) || (v.video ? 'video' : v.image ? 'image' : (v.emoji || v.emojiLadder.length) ? 'emoji' : 'image');
         const panels = {
             text: `<div class="vgrid c2">${vin(i, 'title', 'Title', v.title, '', 'text')}${vin(i, 'message', 'Message (optional)', v.message, '', 'text')}</div>`,
-            visual: `<div class="vsect">Image or video</div>
-                <div class="vgrid c2">${mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Image / GIF')}${mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Video (used instead of image)')}</div>
-                <div class="vsect">Emoji</div>${emojiHtml(v, i, r)}`,
+            visual: `<div class="seg-row">${[['image', 'Image / GIF'], ['video', 'Video'], ['emoji', 'Emoji']].map(([key, label]) => `<button type="button" class="vtab pill${key === media ? ' active' : ''}" data-vmedia="${key}" data-vid-tab="${esc(v.id)}">${label}</button>`).join('')}</div>
+                ${media === 'image' ? mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Image / GIF') + (v.video ? '<span class="tabs-note">A video is also set and takes priority over the image.</span>' : '')
+                : media === 'video' ? mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Video (used instead of image)')
+                : emojiHtml(v, i, r) + (v.video || v.image ? '<span class="tabs-note">Emoji only show when there is no image or video. Clear those first.</span>' : '')}`,
             sound: soundHtml(v, i) + `<div class="vgrid c3">${vin(i, 'volume', 'Volume %', v.volume, 'min="0" max="100"')}</div>`,
             timing: `<div class="vgrid c3">${vin(i, 'duration', 'Show for (s)', v.duration, 'min="1" max="120" step="0.5"')}${vsel(i, 'animIn', 'Animation in', v.animIn, ANIM_IN)}${vsel(i, 'animOut', 'Animation out', v.animOut, ANIM_OUT)}</div>
                 ${weighted ? `<div class="vgrid c3">${vin(i, 'weight', 'Weight (odds)', v.weight, 'min="1" max="100"')}</div><span class="tabs-note">Weight: a variant with weight 3 shows three times as often as one with weight 1.</span>` : ''}`
@@ -482,6 +487,7 @@
             return;
         }
         if (btn.dataset.test !== undefined) event.preventDefault();
+        if (btn.dataset.vmedia) { variantMedia.set(btn.dataset.vidTab, btn.dataset.vmedia); openVariants.add(btn.dataset.vidTab); renderEditor(); return; }
         if (btn.dataset.vtab) { variantTab.set(btn.dataset.vidTab, btn.dataset.vtab); openVariants.add(btn.dataset.vidTab); renderEditor(); return; }
         if (btn.id === 'add-variant') { const nv = newVariant(r.trigger); r.variants.push(nv); openVariants.add(nv.id); setDirty(true); renderEditor(); }
         else if (btn.dataset.addStep !== undefined) {
