@@ -35,12 +35,20 @@
         .body { padding: 0.7rem 0.85rem 0.8rem; display: grid; gap: 0.35rem; }
         .title { font-weight: 600; font-size: 0.98rem; overflow-wrap: anywhere; }
         .meta { color: var(--text-muted); font-size: 0.76rem; line-height: 1.5; }
-        .actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
+        .actions { display: grid; gap: 0.4rem; margin-top: 0.35rem; }
+        .act-main { display: flex; gap: 0.35rem; }
+        .act-main .btn { text-align: center; white-space: nowrap; }
+        .act-main .primary { flex: 1; }
+        .act-more { display: flex; gap: 0.15rem; padding-top: 0.4rem; border-top: 1px solid var(--border); }
+        .act-more .btn { border-color: transparent; background: transparent; color: var(--text-muted); }
+        .act-more .btn:hover { color: var(--text); background: var(--bg-raised); border-color: var(--border); }
+        .act-more .danger { margin-left: auto; }
+        .act-more .danger:hover { background: transparent; }
         .empty { color: var(--text-muted); text-align: center; padding: 2.5rem 1rem; grid-column: 1 / -1; }
         .list .overlay { flex-direction: row; align-items: center; }
         .list .preview { width: 220px; height: 124px; flex: none; border-bottom: 0; border-right: 1px solid var(--border); }
         .list .body { flex: 1; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.2rem 1rem; }
-        .list .actions { margin: 0; justify-content: flex-end; grid-row: 1 / span 2; grid-column: 2; }
+        .list .actions { margin: 0; min-width: 270px; grid-row: 1 / span 2; grid-column: 2; }
         .list.grid { grid-template-columns: 1fr; }
         #toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); background: var(--bg-raised); border: 1px solid var(--border); padding: 0.55rem 1rem; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 10; }
         #toast.show { opacity: 1; }
@@ -131,12 +139,16 @@
                     <div class="title">${esc(o.name)}</div>
                     <div class="meta">${esc(o.id)} · ${o.canvas.width}×${o.canvas.height} · ${o.elementCount} element${o.elementCount === 1 ? '' : 's'}<br>Edited ${ago(o.updatedAt)} · revision ${o.revision}</div>
                     <div class="actions">
-                        <a class="btn small primary" href="/custom-overlay-editor.html?id=${encodeURIComponent(o.id)}">Edit</a>
-                        <a class="btn small" href="/custom-overlay.html?id=${encodeURIComponent(o.id)}" target="_blank" rel="noopener">Open</a>
-                        <button class="btn small" data-act="copy" data-id="${esc(o.id)}">Copy OBS URL</button>
-                        <button class="btn small" data-act="rename-id" data-id="${esc(o.id)}" title="Change the id used in the OBS URL">Rename ID</button>
-                        <button class="btn small" data-act="duplicate" data-id="${esc(o.id)}">Duplicate</button>
-                        <button class="btn small danger" data-act="delete" data-id="${esc(o.id)}">Delete</button>
+                        <div class="act-main">
+                            <a class="btn small primary" href="/custom-overlay-editor.html?id=${encodeURIComponent(o.id)}">Edit</a>
+                            <a class="btn small" href="/custom-overlay.html?id=${encodeURIComponent(o.id)}" target="_blank" rel="noopener">Open</a>
+                            <button class="btn small" data-act="copy" data-id="${esc(o.id)}">Copy OBS URL</button>
+                        </div>
+                        <div class="act-more">
+                            <button class="btn small" data-act="rename-id" data-id="${esc(o.id)}" title="Change the id used in the OBS URL">Rename ID</button>
+                            <button class="btn small" data-act="duplicate" data-id="${esc(o.id)}">Duplicate</button>
+                            <button class="btn small danger" data-act="delete" data-id="${esc(o.id)}">Delete</button>
+                        </div>
                     </div>
                 </div>
             </article>`).join('') : `<div class="empty">${overlays.length ? 'No overlays match your search.' : 'No custom overlays yet. Create your first one.'}</div>`;
