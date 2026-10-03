@@ -277,10 +277,12 @@
     }
 
     function renderMarkdown(source) {
-        const html = root.marked.parse(String(source ?? ''), { breaks: true });
+        // Obsidian-style YAML frontmatter at the very top is metadata, not content.
+        const body = String(source ?? '').replace(/^\uFEFF?\s*---[ \t]*\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/, '');
+        const html = root.marked.parse(body, { breaks: true, gfm: true });
         return root.DOMPurify.sanitize(html, {
-            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'del', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'h1', 'h2', 'h3', 'img'],
-            ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'src', 'alt']
+            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'del', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'img', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+            ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'src', 'alt', 'align']
         });
     }
 
