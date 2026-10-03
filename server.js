@@ -6841,7 +6841,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Static file serving
-    let filePath = pathname === '/' ? '/credits.html' : pathname;
+    // A bare / opens the dashboard; / with overlay parameters still serves credits so older OBS sources keep working.
+    let filePath = pathname === '/' ? (new URL(req.url, 'http://localhost').search ? '/credits.html' : '/dashboard.html') : pathname;
     if (pathname.startsWith('/custom-overlay-assets/')) {
         const assetName = decodeURIComponent(pathname.slice('/custom-overlay-assets/'.length));
         if (!assetName || assetName.includes('/') || assetName.includes('\\')) {
