@@ -81,8 +81,16 @@
         .seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent-strong) 20%, transparent); color: var(--accent); }
         .hint { color: var(--muted); font-size: 11px; line-height: 1.45; margin: 0; }
         .action-bar { display: flex; flex-wrap: wrap; gap: .25rem; padding: .6rem .85rem; border-bottom: 1px solid var(--border-soft); align-items: center; }
-        .action-bar .title { flex-basis: 100%; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: .5rem; margin-bottom: .2rem; min-width: 0; }
-        .action-bar .title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .action-bar { gap: .4rem; }
+        .action-bar .title { flex-basis: 100%; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: .5rem; margin-bottom: .1rem; min-width: 0; }
+        .action-bar .title .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+        .action-bar .title .spacer { flex: 1; }
+        .btn-cluster { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+        .btn-cluster button { border: 0; border-radius: 0; background: transparent; }
+        .btn-cluster button + button { border-left: 1px solid var(--border); }
+        .btn-cluster button:hover { background: color-mix(in srgb, var(--accent-strong) 16%, transparent); }
+        .link-btn { border: 0; background: transparent; color: var(--accent); font-size: 12px; padding: .1rem .35rem; flex: none; }
+        .link-btn:hover { text-decoration: underline; background: transparent; }
         .badge { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); background: color-mix(in srgb, var(--accent-strong) 13%, transparent); border-radius: 4px; padding: .05rem .35rem; flex: none; }
         .divider { width: 1px; height: 18px; background: var(--border); margin: 0 .2rem; }
         .align-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .25rem; }
@@ -136,8 +144,11 @@
         #page-bar { display: flex; align-items: center; gap: .35rem; padding: .35rem .75rem; background: color-mix(in srgb, var(--panel) 80%, #000); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
         #page-bar[hidden] { display: none; }
         .stage-col > .stage-toolbar { grid-row: 1; } .stage-col > #page-bar { grid-row: 2; } .stage-col > #stage { grid-row: 3; } .stage-col > .statusbar { grid-row: 4; }
-        .page-tab { padding: .3rem .7rem; border-radius: 6px 6px 0 0; }
-        .page-tab[aria-pressed="true"] { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
+        #page-bar .live { display: inline-flex; align-items: center; gap: .3rem; padding-left: .6rem; border-left: 1px solid var(--border); }
+        #page-bar .live-name { color: var(--muted); font-size: 12px; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #page-bar .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #3fb950; box-shadow: 0 0 6px #3fb950; flex: none; }
+        #page-bar .live-dot.off { background: var(--muted); box-shadow: none; }
+        #page-bar select { max-width: 11rem; }
         #page-bar input[type=number] { width: 4.2rem; }
         #page-bar .sep { flex: 1; }
         .shared-box { padding: .6rem .85rem 0; }
@@ -1029,13 +1040,15 @@
     }
     function actionBar(items) {
         const single = items.length === 1 ? items[0] : null;
-        const title = single ? `<div class="title"><span class="badge">${esc(TYPE_META[single.type].label)}</span><span>${esc(displayName(single))}</span></div>` : `<div class="title"><span class="badge">${items.length} selected</span></div>`;
+        const grouped = items.some(el => el.group);
+        const label = single ? `<span class="badge">${esc(TYPE_META[single.type].label)}</span><span class="nm">${esc(displayName(single))}</span>` : `<span class="badge">${items.length} selected</span>`;
+        const link = (items.length > 1 ? `<button type="button" class="link-btn" data-act="group" title="Group (Ctrl/⌘+G)">⛓ Group</button>` : '') + (grouped ? `<button type="button" class="link-btn" data-act="ungroup" title="Ungroup (Ctrl/⌘+Shift+G)">Ungroup</button>` : '');
         const allLocked = items.every(el => el.locked), allHidden = items.every(el => el.visible === false);
-        const btn = (act, icon, label, cls = '') => `<button type="button" class="icon ${cls}" data-act="${act}" title="${label}" aria-label="${label}">${icon}</button>`;
-        return `<div class="action-bar">${title}
-            ${btn('duplicate', ICON.copy, 'Duplicate (Ctrl/⌘+D)')}${btn('delete', ICON.trash, 'Delete (Del)', 'danger')}<span class="divider"></span>
-            ${btn('front', ICON.toFront, 'Bring to front')}${btn('forward', ICON.forward, 'Bring forward')}${btn('backward', ICON.backward, 'Send backward')}${btn('back', ICON.toBack, 'Send to back')}<span class="divider"></span>
-            ${items.length > 1 ? `<button type="button" class="icon" data-act="group" title="Group (Ctrl/⌘+G)" style="width:auto;padding:0 .5rem">Group</button>` : ''}${items.some(el => el.group) ? `<button type="button" class="icon" data-act="ungroup" title="Ungroup (Ctrl/⌘+Shift+G)" style="width:auto;padding:0 .5rem">Ungroup</button>` : ''}<span class="divider"></span>${btn('lock', allLocked ? ICON.lock : ICON.unlock, allLocked ? 'Unlock' : 'Lock')}${btn('hide', allHidden ? ICON.eyeOff : ICON.eye, allHidden ? 'Show' : 'Hide')}</div>`;
+        const btn = (act, icon, text, cls = '') => `<button type="button" class="icon ${cls}" data-act="${act}" title="${text}" aria-label="${text}">${icon}</button>`;
+        return `<div class="action-bar"><div class="title">${label}<span class="spacer"></span>${link}</div>
+            <div class="btn-cluster">${btn('duplicate', ICON.copy, 'Duplicate (Ctrl/⌘+D)')}${btn('delete', ICON.trash, 'Delete (Del)', 'danger')}</div>
+            <div class="btn-cluster">${btn('front', ICON.toFront, 'Bring to front')}${btn('forward', ICON.forward, 'Bring forward')}${btn('backward', ICON.backward, 'Send backward')}${btn('back', ICON.toBack, 'Send to back')}</div>
+            <div class="btn-cluster">${btn('lock', allLocked ? ICON.lock : ICON.unlock, allLocked ? 'Unlock' : 'Lock')}${btn('hide', allHidden ? ICON.eyeOff : ICON.eye, allHidden ? 'Show' : 'Hide')}</div></div>`;
     }
     function alignSection(items) {
         return F.section('arrange', 'Align', alignBody(items));
@@ -1927,7 +1940,7 @@
     // ---- save / load ------------------------------------------------------------------
     function applyServerOverlay(data) {
         const next = normalizeLoaded(data);
-        overlay = next;
+        overlay = next; ensureCurPage();
         savedSnapshot = snapshot();
         selectedIds = new Set([...selectedIds].filter(id => byId(id)));
     }
@@ -1995,22 +2008,47 @@
 
     // ---- pages ------------------------------------------------------------------------
     const pageSeq = () => { let n = overlay.pages.items.length + 1; while (overlay.pages.items.some(p => p.id === `page-${n}`)) n++; return `page-${n}`; };
+    let liveState = null;
     function renderPageBar() {
         const bar = $('page-bar'), on = pagesOn();
         bar.hidden = !on;
         $('toggle-pages').setAttribute('aria-pressed', String(on));
         if (!on) return;
         const items = overlay.pages.items, page = items.find(p => p.id === curPage), idx = items.indexOf(page);
-        bar.innerHTML = `${items.map(p => `<button class="page-tab" data-page="${esc(p.id)}" aria-pressed="${p.id === curPage}" title="${esc(p.name)}">${esc(p.name)}</button>`).join('')}
-            <button id="page-add" title="Add a blank page">+ Page</button><span class="sep"></span>
-            <input id="page-name" value="${esc(page.name)}" maxlength="60" aria-label="Page name" style="width:9rem">
-            <label class="check" title="Seconds this page stays up in auto mode. 0 uses the cycle time."><span>Duration (s)</span> <input type="number" id="page-duration" min="0" max="3600" value="${page.duration || 0}"></label>
+        const liveId = liveState?.enabled ? liveState.page : null;
+        const liveItem = items.find(p => p.id === liveId);
+        bar.innerHTML = `<span class="hint">Editing</span>
+            <select id="page-select" aria-label="Page being edited">${items.map((p, i) => `<option value="${esc(p.id)}"${p.id === curPage ? ' selected' : ''}>${i + 1}. ${esc(p.name)}${p.id === liveId ? '  ● live' : ''}</option>`).join('')}</select>
+            <button id="page-add" title="Add a blank page">+ Page</button>
+            <input id="page-name" value="${esc(page.name)}" maxlength="60" aria-label="Page name" style="width:8rem">
+            <label class="check" title="Seconds this page stays up in auto mode. 0 uses the cycle time."><span>Secs</span> <input type="number" id="page-duration" min="0" max="3600" value="${page.duration || 0}"></label>
             <button id="page-left" class="icon" title="Move page earlier" ${idx === 0 ? 'disabled' : ''}>◀</button>
             <button id="page-right" class="icon" title="Move page later" ${idx === items.length - 1 ? 'disabled' : ''}>▶</button>
             <button id="page-dup" title="Duplicate this page and its elements">Duplicate</button>
             <button id="page-del" title="Delete this page and its elements" ${items.length === 1 ? 'disabled' : ''}>Delete</button>
-            <a id="page-control" href="/overlay-control.html?id=${encodeURIComponent(overlay.id)}" target="_blank" title="Open the page control panel" style="color:var(--accent)">Control panel ↗</a>`;
+            <span class="sep"></span>
+            <span class="live"><span class="live-dot${liveItem ? '' : ' off'}"></span>
+                <button id="live-prev" class="icon" title="Live: previous page" ${isNew ? 'disabled' : ''}>◀</button>
+                <span class="live-name" title="Page currently showing on stream">${liveItem ? esc(liveItem.name) : (liveState && !liveState.enabled ? 'save to enable' : '—')}</span>
+                <button id="live-next" class="icon" title="Live: next page" ${isNew ? 'disabled' : ''}>▶</button>
+                <button id="live-go" title="Show the page you are editing on stream" ${isNew || curPage === liveId ? 'disabled' : ''}>Go live</button>
+                <button id="live-auto" aria-pressed="${!!liveState?.auto}" title="Toggle automatic page advance on stream" ${isNew ? 'disabled' : ''}>Auto</button>
+                <a href="/overlay-control.html?id=${encodeURIComponent(overlay.id)}" target="_blank" title="Open the page control panel" style="color:var(--accent)">↗</a></span>`;
     }
+    async function livePage(body) {
+        if (isNew) return;
+        try {
+            const response = await fetch(`/api/custom-overlays/${encodeURIComponent(overlay.id)}/page`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(response.status === 400 || response.status === 404 ? 'Save & Push Live first so the stream knows about these pages.' : (data.error || 'Could not change the live page.'));
+            liveState = data; renderPageBar();
+        } catch (error) { toast(error.message, 'warn', 3500); }
+    }
+    async function refreshLivePage() {
+        if (isNew || !pagesOn()) return;
+        try { const response = await fetch(`/api/custom-overlays/${encodeURIComponent(overlay.id)}/page`, { cache: 'no-store' }); if (response.ok) { liveState = await response.json(); renderPageBar(); } } catch {}
+    }
+    setInterval(refreshLivePage, 5000);
     function switchEditPage(id) {
         flushHistory(); curPage = id; selectedIds = new Set();
         renderPageBar(); renderCanvas(); renderLayers(); renderProperties(); updateStatusBar();
@@ -2025,7 +2063,10 @@
     $('page-bar').addEventListener('click', event => {
         const t = event.target.closest('button'); if (!t) return;
         const items = overlay.pages.items, idx = items.findIndex(p => p.id === curPage);
-        if (t.dataset.page) return switchEditPage(t.dataset.page);
+        if (t.id === 'live-prev') return livePage({ action: 'prev' });
+        if (t.id === 'live-next') return livePage({ action: 'next' });
+        if (t.id === 'live-go') return livePage({ action: 'goto', page: curPage });
+        if (t.id === 'live-auto') return livePage({ action: 'auto', auto: !liveState?.auto });
         if (t.id === 'page-add') { const id = pageSeq(); items.push({ id, name: `Page ${items.length + 1}`, duration: 0 }); changed(true); return switchEditPage(id); }
         if (t.id === 'page-left' && idx > 0) { [items[idx - 1], items[idx]] = [items[idx], items[idx - 1]]; renderPageBar(); changed(true); }
         if (t.id === 'page-right' && idx < items.length - 1) { [items[idx + 1], items[idx]] = [items[idx], items[idx + 1]]; renderPageBar(); changed(true); }
@@ -2047,9 +2088,10 @@
             items.splice(idx, 1); normalizeZ(); changed(true); return switchEditPage(items[Math.max(0, idx - 1)].id);
         }
     });
+    $('page-bar').addEventListener('change', event => { if (event.target.id === 'page-select') switchEditPage(event.target.value); });
     $('page-bar').addEventListener('input', event => {
         const page = overlay.pages.items.find(p => p.id === curPage);
-        if (event.target.id === 'page-name') { page.name = event.target.value.slice(0, 60) || page.id; const tab = $('page-bar').querySelector(`[data-page="${CSS.escape(curPage)}"]`); if (tab) tab.textContent = page.name; changed(false); }
+        if (event.target.id === 'page-name') { page.name = event.target.value.slice(0, 60) || page.id; const opt = $('page-select')?.selectedOptions[0]; if (opt) opt.textContent = `${overlay.pages.items.indexOf(page) + 1}. ${page.name}${liveState?.page === page.id ? '  ● live' : ''}`; changed(false); }
         else if (event.target.id === 'page-duration') { page.duration = clamp(Number(event.target.value) || 0, 0, 3600); changed(false); }
     });
     $('properties').addEventListener('change', event => {
@@ -2082,13 +2124,14 @@
             if (!response.ok) throw new Error(`Could not load the overlay (${response.status}).`);
             overlay = normalizeLoaded(await response.json());
         } else overlay = normalizeLoaded(overlay);
+        ensureCurPage();
         await shared.refreshTextSources(overlay.elements);
         savedSnapshot = isNew ? '' : snapshot();
         hist.stack = []; hist.index = -1;
         renderAll(); pushHistory();
         if (isNew) { dirty = true; updateHistoryUI(); }
         fitView(true);
-        refreshLiveStatus();
+        refreshLiveStatus(); refreshLivePage();
         setInterval(refreshLiveStatus, 10000);
         setInterval(tickPlaceholders, 1000);
     }
