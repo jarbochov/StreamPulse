@@ -70,6 +70,7 @@
             background: style.background || 'transparent',
             border: `${style.borderWidth || 0}px solid ${style.borderColor || 'transparent'}`,
             borderRadius: `${style.borderRadius || 0}px`,
+            padding: `${style.padding || 0}px`,
             fontFamily: style.fontFamily || 'sans-serif',
             fontSize: `${style.fontSize || 32}px`,
             fontWeight: style.fontWeight || '400',

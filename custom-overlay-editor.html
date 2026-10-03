@@ -600,7 +600,7 @@
         Object.assign(node.style, {
             left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px`, zIndex: index,
             opacity: s.opacity ?? 1, background: s.background || 'transparent',
-            border: `${s.borderWidth || 0}px solid ${s.borderColor || 'transparent'}`, borderRadius: `${s.borderRadius || 0}px`,
+            border: `${s.borderWidth || 0}px solid ${s.borderColor || 'transparent'}`, borderRadius: `${s.borderRadius || 0}px`, padding: `${TEXT_TYPES.has(el.type) ? s.padding || 0 : 0}px`,
             fontFamily: s.fontFamily, fontSize: `${s.fontSize}px`, fontWeight: s.fontWeight, color: s.color, textAlign: s.textAlign,
             lineHeight: s.lineHeight, letterSpacing: `${s.letterSpacing || 0}px`,
             display: s.verticalAlign === 'top' ? 'block' : 'flex',
@@ -1022,6 +1022,8 @@
             <div class="grid2">${F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>`}
             ${fontExtras}`);
     }
+    const hasBox = s => s.borderWidth > 0 || (s.background && s.background !== 'transparent') || s.gradient?.enabled;
+    const paddingField = el => TEXT_TYPES.has(el.type) && hasBox(el.style) ? F.number('style.padding', 'Padding (px)', el.style.padding || 0, { min: 0, max: 200 }) : '';
     const noRadius = (s, shape) => shape && ['circle', 'pill', 'line'].includes(s.shape);
     function appearanceSection(el, multi) {
         return F.section('appearance', multi ? 'Appearance (all selected)' : 'Appearance', appearanceBody(el, multi));
@@ -1035,7 +1037,8 @@
             ${F.check('style.gradient.enabled', 'Gradient fill', s.gradient?.enabled)}
             ${s.gradient?.enabled ? `<div class="grid2">${F.color('style.gradient.from', 'From', s.gradient.from)}${F.color('style.gradient.to', 'To', s.gradient.to)}</div>${F.number('style.gradient.angle', 'Angle (°)', s.gradient.angle ?? 135, { min: 0, max: 360 })}` : ''}
             <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${noRadius(s, shape) ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
-            ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}`);
+            ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}
+            ${paddingField(el)}`);
     }
     function effectsSection(el) {
         const s = el.style;
@@ -1050,6 +1053,7 @@
             ${F.color('style.background', shape ? 'Fill' : 'Background', s.background, { clear: true })}
             <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${noRadius(s, shape) ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
             ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}
+            ${paddingField(el)}
             ${F.check('style.gradient.enabled', 'Gradient fill', s.gradient?.enabled)}
             ${s.gradient?.enabled ? `${F.color('style.gradient.from', 'Gradient from', s.gradient.from)}${F.color('style.gradient.to', 'Gradient to', s.gradient.to)}${F.number('style.gradient.angle', 'Gradient angle (°)', s.gradient.angle ?? 135, { min: 0, max: 360 })}` : ''}
             <div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Shadow blur (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
@@ -1222,7 +1226,7 @@
         lastTextField = null;
     }
     // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
-    const RERENDER_PATHS = new Set(['style.gradient.enabled', 'alert.layout', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent']);
+    const RERENDER_PATHS = new Set(['style.gradient.enabled', 'style.background', 'alert.layout', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent']);
     bindFields($('properties'), selectedElements, path => {
         for (const el of selectedElements()) { el.width = clamp(el.width, 1, 3840); el.height = clamp(el.height, 1, 2160); }
         renderCanvas(); updateStatusBar();

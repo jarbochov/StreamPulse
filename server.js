@@ -188,6 +188,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
             borderColor: String(element.style?.borderColor || 'transparent').slice(0, 80),
             borderWidth: Math.max(0, Math.min(40, Number(element.style?.borderWidth) || 0)),
             borderRadius: Math.max(0, Math.min(200, Number(element.style?.borderRadius) || 0)),
+            padding: TEXT_SOURCE_TYPES.has(type) ? Math.max(0, Math.min(200, Number(element.style?.padding) || 0)) : 0,
             opacity: Number.isFinite(Number(element.style?.opacity))
                 ? Math.max(0, Math.min(1, Number(element.style.opacity)))
                 : 1,
