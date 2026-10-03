@@ -186,6 +186,12 @@
         .canvas-element.type-markdown.md-cols[data-span="5"] > h1:not(:first-child), .canvas-element.type-markdown.md-cols[data-span="5"] > h2:not(:first-child), .canvas-element.type-markdown.md-cols[data-span="5"] > h3:not(:first-child), .canvas-element.type-markdown.md-cols[data-span="5"] > h4:not(:first-child), .canvas-element.type-markdown.md-cols[data-span="5"] > h5:not(:first-child) { margin-top: .5em; }
         .canvas-element.type-markdown.md-cols[data-span="6"] > h1, .canvas-element.type-markdown.md-cols[data-span="6"] > h2, .canvas-element.type-markdown.md-cols[data-span="6"] > h3, .canvas-element.type-markdown.md-cols[data-span="6"] > h4, .canvas-element.type-markdown.md-cols[data-span="6"] > h5, .canvas-element.type-markdown.md-cols[data-span="6"] > h6 { column-span: all; margin-bottom: .4em; }
         .canvas-element.type-markdown.md-cols[data-span="6"] > h1:not(:first-child), .canvas-element.type-markdown.md-cols[data-span="6"] > h2:not(:first-child), .canvas-element.type-markdown.md-cols[data-span="6"] > h3:not(:first-child), .canvas-element.type-markdown.md-cols[data-span="6"] > h4:not(:first-child), .canvas-element.type-markdown.md-cols[data-span="6"] > h5:not(:first-child), .canvas-element.type-markdown.md-cols[data-span="6"] > h6:not(:first-child) { margin-top: .5em; }
+        .canvas-element.type-markdown h1 { font-size: calc(2em * var(--hs, 1)); }
+        .canvas-element.type-markdown h2 { font-size: calc(1.5em * var(--hs, 1)); }
+        .canvas-element.type-markdown h3 { font-size: calc(1.17em * var(--hs, 1)); }
+        .canvas-element.type-markdown h4 { font-size: calc(1em * var(--hs, 1)); }
+        .canvas-element.type-markdown h5 { font-size: calc(.83em * var(--hs, 1)); }
+        .canvas-element.type-markdown h6 { font-size: calc(.67em * var(--hs, 1)); }
         .canvas-element.type-markdown p { margin: 0 0 .5em; } .canvas-element.type-markdown p:last-child { margin-bottom: 0; }
         .canvas-element.type-markdown img { max-width: 100%; max-height: 100%; }
         .canvas-element.type-markdown a { color: inherit; }
@@ -467,7 +473,7 @@
         next.canvas = Object.assign({ width: 1920, height: 1080, background: 'transparent' }, next.canvas);
         next.elements = (next.elements || []).map((item, index) => ({ index, item }))
             .sort((a, b) => (a.item.zIndex - b.item.zIndex) || (a.index - b.index)).map(entry => entry.item);
-        next.elements.forEach(item => { item.name = item.name || ''; item.locked = item.locked === true; item.items ||= []; item.textFit ||= 'none'; item.columns ||= 1; item.headingSpan ??= 6; item.source ||= { mode: 'inline', path: '', split: 'lines' }; item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 }; item.style ||= {}; });
+        next.elements.forEach(item => { item.name = item.name || ''; item.locked = item.locked === true; item.items ||= []; item.textFit ||= 'none'; item.columns ||= 1; item.headingSpan ??= 6; item.headingScale ??= 100; item.source ||= { mode: 'inline', path: '', split: 'lines' }; item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 }; item.style ||= {}; });
         return next;
     }
 
@@ -481,6 +487,7 @@
             textFit: 'none',
             columns: 1,
             headingSpan: 6,
+            headingScale: 100,
             source: { mode: 'inline', path: '', split: 'lines' },
             items: type === 'random-text' ? ['First random phrase', 'Second random phrase', 'Third random phrase'] : [],
             random: { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 },
@@ -592,6 +599,7 @@
         Object.assign(node.style, shared.decorationStyle(s, el.type));
         if (el.type === 'game-list') node.style.display = 'block';
         if (el.type === 'markdown') {
+            node.style.setProperty('--hs', (el.headingScale ?? 100) / 100);
             const cols = el.columns > 1 ? Number(el.columns) : 0;
             node.classList.toggle('md-cols', !!cols);
             node.style.columnCount = cols || '';
@@ -659,7 +667,7 @@
     const ALERT_SAMPLE = { title: 'TestViewer just followed!', message: 'Thanks for the support', image: ALERT_SAMPLE_IMAGE, animOut: 'fade' };
     const ALERT_TRIGGER_LABELS = { follow: 'Follow', sub: 'New sub', resub: 'Resub', milestone: 'Sub milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Channel point redeem', timer: 'Timer finished', goal: 'Goal reached', chat_word: 'Chat word' };
     const sourceSignature = el => { const state = shared.textSourceState(el); return state ? [state.text, state.error] : null; };
-    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.headingSpan, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
+    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
 
     function tickPlaceholders() {
         if (!prefs.live) return;
@@ -997,7 +1005,7 @@
         const weight = F.select('style.fontWeight', 'Weight', s.fontWeight, [['400', 'Normal'], ['600', 'Semi-bold'], ['700', 'Bold'], ['900', 'Black']]);
         return F.section('typography', alert ? 'Message text' : 'Typography', `
             <label class="field"><span>Font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text">${fontOptions(s.fontFamily)}</select></label>
-            ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${F.number('style.fontSize', 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size above'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${el.type === 'markdown' ? F.select('columns', 'Columns', String(el.columns || 1), [['1', '1 column'], ['2', '2 columns'], ['3', '3 columns'], ['4', '4 columns']]) + ((el.columns || 1) > 1 ? F.select('headingSpan', 'Headings spanning all columns', String(el.headingSpan ?? 6), [['6', 'All headings (H1–H6)'], ['1', 'H1 only'], ['2', 'H1–H2'], ['3', 'H1–H3'], ['4', 'H1–H4'], ['0', 'None — headings stay in a column']]) : '') : ''}${F.color('style.color', 'Text color', s.color)}
+            ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${F.number('style.fontSize', 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size above'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${el.type === 'markdown' ? F.number('headingScale', 'Heading size (% of normal)', el.headingScale ?? 100, { min: 40, max: 200, step: 5 }) + F.select('columns', 'Columns', String(el.columns || 1), [['1', '1 column'], ['2', '2 columns'], ['3', '3 columns'], ['4', '4 columns']]) + ((el.columns || 1) > 1 ? F.select('headingSpan', 'Headings spanning all columns', String(el.headingSpan ?? 6), [['6', 'All headings (H1–H6)'], ['1', 'H1 only'], ['2', 'H1–H2'], ['3', 'H1–H3'], ['4', 'H1–H4'], ['0', 'None — headings stay in a column']]) : '') : ''}${F.color('style.color', 'Text color', s.color)}
             <div class="grid2">${F.seg('style.textAlign', 'Horizontal', s.textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${F.seg('style.verticalAlign', 'Vertical', s.verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>
             <div class="grid2">${F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>`}
             ${fontExtras}`);

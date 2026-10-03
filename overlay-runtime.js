@@ -84,6 +84,7 @@
         Object.assign(node.style, shared.decorationStyle(style, element.type));
         if (element.type === 'game-list') node.style.display = 'block';
         if (element.type === 'markdown') {
+            node.style.setProperty('--hs', (element.headingScale ?? 100) / 100);
             const cols = element.columns > 1 ? Number(element.columns) : 0;
             node.classList.toggle('md-cols', !!cols);
             node.style.columnCount = cols || '';
