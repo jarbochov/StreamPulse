@@ -602,6 +602,17 @@
                     details: 'Removes the overlay. Its asset files are not deleted.'
                 },
                 {
+                    method: 'GET', path: '/api/custom-overlays/:id/page',
+                    desc: 'Current page of a multipage overlay',
+                    details: 'Returns {enabled, page, name, index, count, auto, pages}. Add ?page=<id|name|number> to the overlay URL to pin a browser source to one page.'
+                },
+                {
+                    method: 'POST', path: '/api/custom-overlays/:id/page',
+                    desc: 'Switch pages on a multipage overlay',
+                    body: '{ "action": "next" | "prev" | "first" | "last" | "goto" | "auto", "page": "id, name or 1-based number (goto)", "auto": true|false }',
+                    details: 'Pushes the change live to every browser source. Returns 400 if pages are not enabled. A control panel is available at /overlay-control.html?id=<id>.'
+                },
+                {
                     method: 'GET', path: '/api/alerts',
                     desc: 'Alert rules, settings and queue state',
                     details: 'Returns { settings, rules, queue: { pending, current, paused, history }, meta }.'

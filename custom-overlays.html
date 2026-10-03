@@ -137,11 +137,11 @@
                 <div class="preview${prefs.previews ? '' : ' off'}">${prefs.previews ? `<iframe loading="lazy" tabindex="-1" data-w="${o.canvas.width}" data-h="${o.canvas.height}" src="/custom-overlay.html?id=${encodeURIComponent(o.id)}" title="Preview of ${esc(o.name)}"></iframe>` : ''}</div>
                 <div class="body">
                     <div class="title">${esc(o.name)}</div>
-                    <div class="meta">${esc(o.id)} · ${o.canvas.width}×${o.canvas.height} · ${o.elementCount} element${o.elementCount === 1 ? '' : 's'}<br>Edited ${ago(o.updatedAt)} · revision ${o.revision}</div>
+                    <div class="meta">${esc(o.id)} · ${o.canvas.width}×${o.canvas.height} · ${o.elementCount} element${o.elementCount === 1 ? '' : 's'}${o.pageCount ? ` · ${o.pageCount} pages` : ''}<br>Edited ${ago(o.updatedAt)} · revision ${o.revision}</div>
                     <div class="actions">
                         <div class="act-main">
                             <a class="btn small primary" href="/custom-overlay-editor.html?id=${encodeURIComponent(o.id)}">Edit</a>
-                            <a class="btn small" href="/custom-overlay.html?id=${encodeURIComponent(o.id)}" target="_blank" rel="noopener">Open</a>
+                            <a class="btn small" href="/custom-overlay.html?id=${encodeURIComponent(o.id)}" target="_blank" rel="noopener">Open</a>${o.pageCount > 0 ? `<a class="btn small" href="/overlay-control.html?id=${encodeURIComponent(o.id)}" target="_blank" rel="noopener" title="Switch pages live">Control</a>` : ''}
                             <button class="btn small" data-act="copy" data-id="${esc(o.id)}">Copy OBS URL</button>
                         </div>
                         <div class="act-more">

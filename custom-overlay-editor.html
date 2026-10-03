@@ -131,8 +131,15 @@
         .sortable-ghost { opacity: .35; }
         .layers-empty { padding: 1rem .85rem; color: var(--muted); font-size: 12px; }
 
-        .stage-col { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+        .stage-col { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
         .stage-toolbar { display: flex; align-items: center; gap: .4rem; padding: .5rem .75rem; background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+        #page-bar { display: flex; align-items: center; gap: .35rem; padding: .35rem .75rem; background: color-mix(in srgb, var(--panel) 80%, #000); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+        #page-bar[hidden] { display: none; }
+        .page-tab { padding: .3rem .7rem; border-radius: 6px 6px 0 0; }
+        .page-tab[aria-pressed="true"] { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
+        #page-bar input[type=number] { width: 4.2rem; }
+        #page-bar .sep { flex: 1; }
+        .shared-box { padding: .6rem .85rem 0; }
         .add-menu { position: relative; }
         .menu-panel { display: none; position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; min-width: 210px; padding: .35rem; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 16px 32px #000a; }
         .add-menu.open .menu-panel { display: grid; gap: 1px; }
@@ -301,6 +308,7 @@
                 <span class="divider"></span>
                 <button id="toggle-snap" aria-pressed="true" title="Snap to canvas and other elements. Hold Alt while dragging to bypass.">Snap</button>
                 <button id="toggle-grid" aria-pressed="false" title="Show grid">Grid</button>
+                <button id="toggle-pages" aria-pressed="false" title="Turn this overlay into a multi-page slide deck">Pages</button>
                 <button id="toggle-live" aria-pressed="true" title="Preview {{placeholders}} with live data">Live data</button>
                 <div class="zoom-controls">
                     <button id="zoom-out" class="icon" title="Zoom out (-)" aria-label="Zoom out"></button>
@@ -309,6 +317,7 @@
                     <button id="fit-view" title="Fit the full canvas in view (Ctrl/⌘+0)">Fit</button>
                 </div>
             </div>
+            <div id="page-bar" hidden></div>
             <div id="stage" tabindex="-1" aria-label="Overlay canvas">
                 <div id="world">
                     <div id="backdrop" class="bd-checker"></div>
@@ -440,7 +449,7 @@
     const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch {} };
 
     // ---- state ------------------------------------------------------------------------
-    let overlay = { id: initialId, name: initialId, revision: 1, canvas: { width: 1920, height: 1080, background: 'transparent' }, elements: [] };
+    let overlay = { id: initialId, name: initialId, revision: 1, canvas: { width: 1920, height: 1080, background: 'transparent' }, pages: null, elements: [] };
     let selectedIds = new Set();
     let zoom = 0.5;
     let pan = { x: 0, y: 0 };
@@ -479,8 +488,19 @@
         return `${TYPE_META[el.type].label} ${overlay.elements.filter(item => item.type === el.type).indexOf(el) + 1}`;
     }
     function normalizeZ() { overlay.elements.forEach((item, index) => { item.zIndex = index; }); }
+    const defaultPages = () => ({ enabled: false, mode: 'manual', cycleSeconds: 10, loop: true, transition: 'fade', transitionMs: 500, items: [{ id: 'page-1', name: 'Page 1', duration: 0 }] });
+    let curPage = 'page-1';
+    const pagesOn = () => overlay.pages?.enabled === true;
+    const inView = el => !pagesOn() || el.page === '*' || el.page === curPage;
+    const visibleElements = () => overlay.elements.filter(inView);
+    const pageName = id => overlay.pages.items.find(p => p.id === id)?.name || id;
+    function ensureCurPage() { if (!overlay.pages.items.some(p => p.id === curPage)) curPage = overlay.pages.items[0].id; }
     function normalizeLoaded(data) {
         const next = JSON.parse(JSON.stringify(data));
+        next.pages = Object.assign(defaultPages(), next.pages);
+        if (!Array.isArray(next.pages.items) || !next.pages.items.length) next.pages.items = defaultPages().items;
+        const pageIds = new Set(next.pages.items.map(p => p.id));
+        (next.elements || []).forEach(item => { if (item.page !== '*' && !pageIds.has(item.page)) item.page = next.pages.items[0].id; });
         next.canvas = Object.assign({ width: 1920, height: 1080, background: 'transparent' }, next.canvas);
         next.elements = (next.elements || []).map((item, index) => ({ index, item }))
             .sort((a, b) => (a.item.zIndex - b.item.zIndex) || (a.index - b.index)).map(entry => entry.item);
@@ -505,7 +525,7 @@
             group: '', qr: { fg: '#000000', bg: '#ffffff', margin: 2, ecc: 'M' }, gameList: { filter: 'scheduled', period: '', layout: 'grid', coverFit: 'cover', fit: 'none', coverScale: 100, headingSize: 0, titleSize: 0, titleWrap: 'ellipsis', columns: 3, gap: 12, max: 0, showCovers: true, showTitles: true, meta: 'none', headings: true, highlightCurrent: true, accent: '#3fb950' },
             alert: { layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, triggers: [] },
             progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
-            src: '', x: Math.round((overlay.canvas.width - width) / 2 + offset), y: Math.round((overlay.canvas.height - height) / 2 + offset), width, height, zIndex: overlay.elements.length, visible: true,
+            page: pagesOn() ? curPage : overlay.pages.items[0].id, src: '', x: Math.round((overlay.canvas.width - width) / 2 + offset), y: Math.round((overlay.canvas.height - height) / 2 + offset), width, height, zIndex: overlay.elements.length, visible: true,
             style: { fontFamily: 'sans-serif', fontSize: type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48, fontWeight: type === 'alert' ? '600' : '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#1f6feb' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent', borderColor: '#ffffff', borderWidth: 0, borderRadius: type === 'alert' ? 24 : 0, opacity: 1, objectFit: 'cover', shape: 'rectangle', fill: '#1f6feb', gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 }, blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' } }
         };
         return Object.assign(data, overrides);
@@ -514,7 +534,7 @@
     // ---- history / dirty tracking -----------------------------------------------------
     const hist = { stack: [], index: -1, timer: null };
     let savedSnapshot = '';
-    const snapshot = () => JSON.stringify({ name: overlay.name, canvas: overlay.canvas, elements: overlay.elements });
+    const snapshot = () => JSON.stringify({ name: overlay.name, canvas: overlay.canvas, pages: overlay.pages, elements: overlay.elements });
     function updateHistoryUI() {
         $('undo').disabled = hist.index <= 0 && !hist.timer;
         $('redo').disabled = hist.index >= hist.stack.length - 1 || !!hist.timer;
@@ -543,6 +563,7 @@
     function restore(json) {
         const state = JSON.parse(json);
         overlay.name = state.name; overlay.canvas = state.canvas; overlay.elements = state.elements;
+        overlay.pages = state.pages || defaultPages(); ensureCurPage();
         selectedIds = new Set([...selectedIds].filter(id => byId(id)));
         renderAll();
         if (autoFit) fitView(true);
@@ -712,13 +733,15 @@
             const signature = contentSignature(el, live);
             if (node._sig !== signature) { node._sig = signature; buildContent(node, el); }
             applyNodeStyle(node, el, index);
+            node.style.display = inView(el) ? '' : 'none';
+            if (!inView(el)) return;
             if (TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none') {
                 const probe = el.type === 'random-text' ? shared.elementItems(el).map(expand).reduce((a, b) => (b.length > a.length ? b : a), '') : null;
                 shared.fitText(node, el, probe);
             }
         });
         for (const [id, node] of nodes) if (!seen.has(id)) { node.remove(); nodes.delete(id); }
-        $('empty-hint').classList.toggle('on', !overlay.elements.length);
+        $('empty-hint').classList.toggle('on', !visibleElements().length);
         renderSelectionUI();
     }
 
@@ -808,13 +831,14 @@
     // ---- layers -----------------------------------------------------------------------
     function renderLayers() {
         const list = $('layers');
-        $('layer-count').textContent = overlay.elements.length ? `(${overlay.elements.length})` : '';
-        if (!overlay.elements.length) { list.innerHTML = '<div class="layers-empty">No elements yet. Use <b>+ Add element</b> to start.</div>'; return; }
-        list.innerHTML = overlay.elements.slice().reverse().map(el => `
+        const shown = visibleElements();
+        $('layer-count').textContent = shown.length ? `(${shown.length})` : '';
+        if (!shown.length) { list.innerHTML = '<div class="layers-empty">No elements yet. Use <b>+ Add element</b> to start.</div>'; return; }
+        list.innerHTML = shown.slice().reverse().map(el => `
             <div class="layer${selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}" data-id="${esc(el.id)}">
                 <span class="layer-grip" title="Drag to reorder">${ICON.grip}</span>
                 <span class="layer-icon">${esc(TYPE_META[el.type].icon)}</span>
-                <span class="layer-name" title="Double-click to rename">${el.group ? '⛓ ' : ''}${esc(displayName(el))}</span>
+                <span class="layer-name" title="Double-click to rename">${el.group ? '⛓ ' : ''}${pagesOn() && el.page === '*' ? '🌐 ' : ''}${esc(displayName(el))}</span>
                 <span class="layer-actions">
                     <button data-layer-action="lock" class="${el.locked ? 'on' : ''}" title="${el.locked ? 'Unlock' : 'Lock'}" aria-label="${el.locked ? 'Unlock' : 'Lock'} layer">${el.locked ? ICON.lock : ICON.unlock}</button>
                     <button data-layer-action="visible" title="${el.visible === false ? 'Show' : 'Hide'}" aria-label="${el.visible === false ? 'Show' : 'Hide'} layer">${el.visible === false ? ICON.eyeOff : ICON.eye}</button>
@@ -861,9 +885,12 @@
         animation: 150, handle: '.layer-grip', ghostClass: 'sortable-ghost',
         onEnd(event) {
             if (event.oldIndex === event.newIndex) return;
-            const last = overlay.elements.length - 1;
-            const [moved] = overlay.elements.splice(last - event.oldIndex, 1);
-            overlay.elements.splice(last - event.newIndex, 0, moved);
+            const order = visibleElements().reverse();
+            const [moved] = order.splice(event.oldIndex, 1);
+            order.splice(event.newIndex, 0, moved);
+            const next = order.reverse(), slots = [];
+            overlay.elements.forEach((el, i) => { if (inView(el)) slots.push(i); });
+            slots.forEach((slot, i) => { overlay.elements[slot] = next[i]; });
             normalizeZ(); renderCanvas(); renderLayers(); changed(true);
         }
     });
@@ -964,6 +991,11 @@
             <div class="grid2">${F.number('canvas.width', 'Width', c.width, { min: LIMITS.canvasW[0], max: LIMITS.canvasW[1], lazy: true })}${F.number('canvas.height', 'Height', c.height, { min: LIMITS.canvasH[0], max: LIMITS.canvasH[1], lazy: true })}</div>
             ${F.color('canvas.background', 'Canvas background', c.background, { clear: true })}
             <label class="field"><span>Preview backdrop</span><select id="backdrop-select">${[['checker', 'Transparent checkerboard'], ['dark', 'Dark'], ['light', 'Light'], ['green', 'Green screen']].map(([v, l]) => `<option value="${v}"${v === prefs.backdrop ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+            ${pagesOn() ? `<div class="hint" style="margin:.6rem 0 .2rem"><b>Pages</b></div>
+            ${F.select('pages.mode', 'Advance', overlay.pages.mode, [['manual', 'Manual (API / control panel)'], ['auto', 'Automatic']])}
+            ${overlay.pages.mode === 'auto' ? `${F.number('pages.cycleSeconds', 'Default seconds per page', overlay.pages.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', 'Loop back to the first page', overlay.pages.loop)}` : ''}
+            ${F.select('pages.transition', 'Transition', overlay.pages.transition, [['none', 'None'], ['fade', 'Fade'], ['slide', 'Slide']])}
+            ${overlay.pages.transition !== 'none' ? F.number('pages.transitionMs', 'Transition (ms)', overlay.pages.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}` : ''}
             <p class="hint">${overlay.canvas.background && !/^(transparent|rgba\(.*,\s*0\))$/i.test(overlay.canvas.background) ? 'The canvas background is set, so it covers the backdrop. Click None to preview the backdrop.' : 'The backdrop is only for editing. The OBS browser source stays transparent unless you set a background.'}</p>`;
     }
     bindFields($('settings'), () => [overlay], path => {
@@ -980,6 +1012,8 @@
         } else if (input.id === 'backdrop-select') {
             prefs.backdrop = input.value; savePrefs(); syncCanvasUI();
         } else if (input.dataset.path?.startsWith('canvas.') && input.dataset.kind === 'number') {
+            renderSettings();
+        } else if (input.dataset.path === 'pages.mode' || input.dataset.path === 'pages.transition') {
             renderSettings();
         }
     });
@@ -1217,6 +1251,11 @@
             ${r.marquee ? F.number('random.marqueeSpeed', 'Marquee duration (sec per pass)', r.marqueeSpeed || 60, { min: 10, max: 240 }) : ''}
             <p class="hint">The canvas shows the first phrase; the runtime cycles through the pool.</p>`);
     }
+    function sharedBlock(items) {
+        if (!pagesOn()) return '';
+        const all = items.every(el => el.page === '*');
+        return `<div class="shared-box"><label class="check"><input type="checkbox" id="el-shared" ${all ? 'checked' : ''}> Show on all pages (shared)</label></div>`;
+    }
     function renderProperties() {
         const items = selectedElements();
         const root = $('properties');
@@ -1228,11 +1267,11 @@
         }
         if (items.length > 1) {
             const textual = items.some(el => hasText(el) || el.type === 'shape');
-            root.innerHTML = `${actionBar(items)}${alignSection(items)}${appearanceSection(items[0], true)}${textual ? typographySection(items.find(hasText) || items[0]) : ''}`;
+            root.innerHTML = `${actionBar(items)}${sharedBlock(items)}${alignSection(items)}${appearanceSection(items[0], true)}${textual ? typographySection(items.find(hasText) || items[0]) : ''}`;
         } else {
             const el = items[0];
             const specific = { 'random-text': randomSection, progress: progressSection, 'game-list': gameListSection, alert: alertSection }[el.type];
-            root.innerHTML = `${actionBar(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${contentSection(el)}${specific ? specific(el) : ''}${hasText(el) ? typographySection(el) : ''}${fillSection(el)}${effectsSection(el)}${layoutSection(el)}`;
+            root.innerHTML = `${actionBar(items)}${sharedBlock(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${contentSection(el)}${specific ? specific(el) : ''}${hasText(el) ? typographySection(el) : ''}${fillSection(el)}${effectsSection(el)}${layoutSection(el)}`;
         }
         root.parentElement.scrollTop = scroll;
         lastTextField = null;
@@ -1555,7 +1594,7 @@
         try { localStorage.setItem('streampulse.overlayEditor.clipboard', JSON.stringify(items)); toast(`Copied ${items.length} element${items.length > 1 ? 's' : ''}`, 'info', 1200); } catch {}
     }
     function pasteClipboard() {
-        try { const items = JSON.parse(localStorage.getItem('streampulse.overlayEditor.clipboard') || '[]'); if (items.length) duplicateSelection(items); } catch {}
+        try { const items = JSON.parse(localStorage.getItem('streampulse.overlayEditor.clipboard') || '[]'); if (items.length) duplicateSelection(items.map(item => (pagesOn() && item.page !== '*' ? { ...item, page: curPage } : item))); } catch {}
     }
     function reorder(direction) {
         const sel = new Set(selectedIds), arr = overlay.elements;
@@ -1675,7 +1714,7 @@
     // ---- snapping ---------------------------------------------------------------------
     function snapTargets(excludeIds) {
         const xs = [0, overlay.canvas.width / 2, overlay.canvas.width], ys = [0, overlay.canvas.height / 2, overlay.canvas.height];
-        for (const el of overlay.elements) {
+        for (const el of visibleElements()) {
             if (excludeIds.has(el.id) || el.visible === false) continue;
             const b = boxOf(el);
             xs.push(b.x, b.x + b.w / 2, b.x + b.w); ys.push(b.y, b.y + b.h / 2, b.y + b.h);
@@ -1784,7 +1823,7 @@
         const rect = { x: Math.min(o.x, current.x), y: Math.min(o.y, current.y), w: Math.abs(current.x - o.x), h: Math.abs(current.y - o.y) };
         const box = $('marquee'), stageRect = stage.getBoundingClientRect();
         Object.assign(box.style, { display: 'block', left: `${Math.min(gesture.startX, event.clientX) - stageRect.left}px`, top: `${Math.min(gesture.startY, event.clientY) - stageRect.top}px`, width: `${Math.abs(event.clientX - gesture.startX)}px`, height: `${Math.abs(event.clientY - gesture.startY)}px` });
-        const hit = overlay.elements.filter(el => {
+        const hit = visibleElements().filter(el => {
             if (el.visible === false) return false;
             const b = boxOf(el);
             return b.x < rect.x + rect.w && b.x + b.w > rect.x && b.y < rect.y + rect.h && b.y + b.h > rect.y;
@@ -1827,7 +1866,7 @@
         if (typing) return;
         if (mod && key === 'z') { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
         if (mod && key === 'y') { event.preventDefault(); redo(); return; }
-        if (mod && key === 'a') { event.preventDefault(); setSelection(overlay.elements.filter(el => el.visible !== false).map(el => el.id)); return; }
+        if (mod && key === 'a') { event.preventDefault(); setSelection(visibleElements().filter(el => el.visible !== false).map(el => el.id)); return; }
         if (mod && key === 'c') { copySelection(); return; }
         if (mod && key === 'v') return;
         if (mod && key === 'g') { event.preventDefault(); event.shiftKey ? ungroupSelection() : groupSelection(); return; }
@@ -1942,7 +1981,7 @@
             if (!response.ok) throw new Error('That revision is no longer available.');
             const old = normalizeLoaded(await response.json());
             flushHistory();
-            overlay.name = old.name || overlay.name; overlay.canvas = old.canvas; overlay.elements = old.elements;
+            overlay.name = old.name || overlay.name; overlay.canvas = old.canvas; overlay.elements = old.elements; overlay.pages = old.pages; ensureCurPage();
             selectedIds = new Set();
             changed(true);
             renderAll();
@@ -1953,9 +1992,74 @@
     });
     window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
 
+    // ---- pages ------------------------------------------------------------------------
+    const pageSeq = () => { let n = overlay.pages.items.length + 1; while (overlay.pages.items.some(p => p.id === `page-${n}`)) n++; return `page-${n}`; };
+    function renderPageBar() {
+        const bar = $('page-bar'), on = pagesOn();
+        bar.hidden = !on;
+        $('toggle-pages').setAttribute('aria-pressed', String(on));
+        if (!on) return;
+        const items = overlay.pages.items, page = items.find(p => p.id === curPage), idx = items.indexOf(page);
+        bar.innerHTML = `${items.map(p => `<button class="page-tab" data-page="${esc(p.id)}" aria-pressed="${p.id === curPage}" title="${esc(p.name)}">${esc(p.name)}</button>`).join('')}
+            <button id="page-add" title="Add a blank page">+ Page</button><span class="sep"></span>
+            <input id="page-name" value="${esc(page.name)}" maxlength="60" aria-label="Page name" style="width:9rem">
+            <label class="check" title="Seconds this page stays up in auto mode. 0 uses the cycle time."><span>Duration (s)</span> <input type="number" id="page-duration" min="0" max="3600" value="${page.duration || 0}"></label>
+            <button id="page-left" class="icon" title="Move page earlier" ${idx === 0 ? 'disabled' : ''}>◀</button>
+            <button id="page-right" class="icon" title="Move page later" ${idx === items.length - 1 ? 'disabled' : ''}>▶</button>
+            <button id="page-dup" title="Duplicate this page and its elements">Duplicate</button>
+            <button id="page-del" title="Delete this page and its elements" ${items.length === 1 ? 'disabled' : ''}>Delete</button>
+            <a id="page-control" href="/overlay-control.html?id=${encodeURIComponent(overlay.id)}" target="_blank" title="Open the page control panel" style="color:var(--accent)">Control panel ↗</a>`;
+    }
+    function switchEditPage(id) {
+        flushHistory(); curPage = id; selectedIds = new Set();
+        renderPageBar(); renderCanvas(); renderLayers(); renderProperties(); updateStatusBar();
+    }
+    function setPagesEnabled(on) {
+        overlay.pages.enabled = on;
+        if (on) { ensureCurPage(); overlay.elements.forEach(el => { if (el.page !== '*' && !overlay.pages.items.some(p => p.id === el.page)) el.page = overlay.pages.items[0].id; }); }
+        selectedIds = new Set();
+        renderAll(); changed(true);
+    }
+    $('toggle-pages').addEventListener('click', () => setPagesEnabled(!pagesOn()));
+    $('page-bar').addEventListener('click', event => {
+        const t = event.target.closest('button'); if (!t) return;
+        const items = overlay.pages.items, idx = items.findIndex(p => p.id === curPage);
+        if (t.dataset.page) return switchEditPage(t.dataset.page);
+        if (t.id === 'page-add') { const id = pageSeq(); items.push({ id, name: `Page ${items.length + 1}`, duration: 0 }); changed(true); return switchEditPage(id); }
+        if (t.id === 'page-left' && idx > 0) { [items[idx - 1], items[idx]] = [items[idx], items[idx - 1]]; renderPageBar(); changed(true); }
+        if (t.id === 'page-right' && idx < items.length - 1) { [items[idx + 1], items[idx]] = [items[idx], items[idx + 1]]; renderPageBar(); changed(true); }
+        if (t.id === 'page-dup') {
+            const id = pageSeq(), src = items[idx];
+            items.splice(idx + 1, 0, { id, name: `${src.name} copy`, duration: src.duration || 0 });
+            const groupMap = new Map();
+            const clones = overlay.elements.filter(el => el.page === src.id).map(el => {
+                const copy = JSON.parse(JSON.stringify(el)); copy.id = uid(el.type); copy.page = id;
+                if (el.group) { if (!groupMap.has(el.group)) groupMap.set(el.group, uid('group')); copy.group = groupMap.get(el.group); }
+                return copy;
+            });
+            overlay.elements.push(...clones); normalizeZ(); changed(true); return switchEditPage(id);
+        }
+        if (t.id === 'page-del' && items.length > 1) {
+            const doomed = overlay.elements.filter(el => el.page === curPage).length;
+            if (doomed && !confirm(`Delete “${pageName(curPage)}” and its ${doomed} element${doomed > 1 ? 's' : ''}? (Undo can restore it.)`)) return;
+            overlay.elements = overlay.elements.filter(el => el.page !== curPage);
+            items.splice(idx, 1); normalizeZ(); changed(true); return switchEditPage(items[Math.max(0, idx - 1)].id);
+        }
+    });
+    $('page-bar').addEventListener('input', event => {
+        const page = overlay.pages.items.find(p => p.id === curPage);
+        if (event.target.id === 'page-name') { page.name = event.target.value.slice(0, 60) || page.id; const tab = $('page-bar').querySelector(`[data-page="${CSS.escape(curPage)}"]`); if (tab) tab.textContent = page.name; changed(false); }
+        else if (event.target.id === 'page-duration') { page.duration = clamp(Number(event.target.value) || 0, 0, 3600); changed(false); }
+    });
+    $('properties').addEventListener('change', event => {
+        if (event.target.id !== 'el-shared') return;
+        for (const el of selectedElements()) el.page = event.target.checked ? '*' : curPage;
+        renderLayers(); renderCanvas(); changed(true);
+    });
+
     function renderAll() {
         $('overlay-name').value = overlay.name;
-        renderSettings(); syncCanvasUI(); renderCanvas(); renderLayers(); renderProperties(); updateStatusBar(); updateHistoryUI();
+        renderSettings(); renderPageBar(); syncCanvasUI(); renderCanvas(); renderLayers(); renderProperties(); updateStatusBar(); updateHistoryUI();
     }
     async function refreshLiveStatus() {
         try {

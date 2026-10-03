@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Page Control</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); padding: 1rem; max-width: 640px; margin: 0 auto; }
+        h1 { font-size: 1.1rem; margin-bottom: .2rem; }
+        .sub { color: var(--text-muted); font-size: .8rem; margin-bottom: .9rem; }
+        .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 8px; padding: .7rem 1rem; font: inherit; font-weight: 600; cursor: pointer; }
+        .btn:hover { border-color: var(--accent); }
+        .btn.primary { background: var(--success-strong); border-color: var(--success-strong); color: #fff; }
+        .btn.active { border-color: var(--accent); background: var(--accent-bg); }
+        .nav { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-bottom: .6rem; }
+        .row { display: flex; gap: .5rem; margin-bottom: .9rem; }
+        .row .btn { flex: 1; }
+        .pages { display: grid; gap: .45rem; }
+        .page { text-align: left; display: flex; justify-content: space-between; align-items: center; }
+        .page.current { border-color: var(--accent); background: var(--accent-bg); }
+        .page small { color: var(--text-muted); font-weight: 400; }
+        .msg { padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); }
+        .status { font-size: .8rem; color: var(--text-muted); margin-top: .8rem; }
+    </style>
+</head>
+<body>
+    <h1 id="title">Page control</h1>
+    <p class="sub" id="sub"></p>
+    <div id="body"><div class="msg">Loading…</div></div>
+    <p class="status" id="status"></p>
+    <script>
+    const id = new URLSearchParams(location.search).get('id') || '';
+    const api = `/api/custom-overlays/${encodeURIComponent(id)}/page`;
+    const $ = key => document.getElementById(key);
+    const esc = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    let state = null;
+
+    async function send(body) {
+        try {
+            const response = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Request failed');
+            state = data; draw();
+        } catch (error) { $('status').textContent = error.message; }
+    }
+    function draw() {
+        if (!state) return;
+        $('title').textContent = `Pages · ${id}`;
+        if (!state.enabled) { $('body').innerHTML = '<div class="msg">This overlay does not have pages enabled. Turn on <b>Pages</b> in the editor.</div>'; $('sub').textContent = ''; return; }
+        $('sub').textContent = `Showing “${state.name}” (${state.index + 1} of ${state.count})`;
+        $('body').innerHTML = `
+            <div class="nav"><button class="btn" data-act="prev">◀ Previous</button><button class="btn primary" data-act="next">Next ▶</button></div>
+            <div class="row"><button class="btn" data-act="first">⏮ First</button><button class="btn" data-act="last">Last ⏭</button>
+                <button class="btn${state.auto ? ' active' : ''}" data-act="auto">${state.auto ? '⏸ Auto: on' : '▶ Auto: off'}</button></div>
+            <div class="pages">${state.pages.map((p, i) => `<button class="btn page${i === state.index ? ' current' : ''}" data-page="${esc(p.id)}"><span>${i + 1}. ${esc(p.name)}</span><small>${p.duration ? `${p.duration}s` : ''}</small></button>`).join('')}</div>`;
+    }
+    document.addEventListener('click', event => {
+        const t = event.target.closest('button'); if (!t) return;
+        if (t.dataset.page) send({ action: 'goto', page: t.dataset.page });
+        else if (t.dataset.act === 'auto') send({ action: 'auto', auto: !state.auto });
+        else if (t.dataset.act) send({ action: t.dataset.act });
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'ArrowRight') send({ action: 'next' });
+        else if (event.key === 'ArrowLeft') send({ action: 'prev' });
+    });
+    async function load() {
+        const response = await fetch(api, { cache: 'no-store' });
+        if (!response.ok) { $('body').innerHTML = `<div class="msg">Overlay “${esc(id)}” not found.</div>`; return; }
+        state = await response.json(); draw();
+    }
+    function connect() {
+        const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
+        socket.addEventListener('message', event => {
+            try { const m = JSON.parse(event.data); if (m.type === 'custom-overlay-page' && m.data?.id === id) { state = m.data; draw(); } else if (m.type === 'custom-overlay-update' && m.data?.id === id) load(); } catch {}
+        });
+        socket.addEventListener('close', () => setTimeout(connect, 2000));
+    }
+    load(); connect();
+    </script>
+</body>
+</html>
