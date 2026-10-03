@@ -280,10 +280,24 @@
         // Obsidian-style YAML frontmatter at the very top is metadata, not content.
         const body = String(source ?? '').replace(/^\uFEFF?\s*---[ \t]*\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/, '');
         const html = root.marked.parse(body, { breaks: true, gfm: true });
-        return root.DOMPurify.sanitize(html, {
+        const fragment = root.DOMPurify.sanitize(html, {
+            RETURN_DOM_FRAGMENT: true,
             ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'del', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'img', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
             ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'src', 'alt', 'align']
         });
+        // Wrap each list item's inline text so right-aligned lists can flip their bullets without reordering the text.
+        const BLOCKS = new Set(['UL', 'OL', 'P', 'PRE', 'BLOCKQUOTE', 'TABLE', 'HR', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
+        fragment.querySelectorAll('li').forEach(li => {
+            let run = null;
+            [...li.childNodes].forEach(child => {
+                if (child.nodeType === 1 && BLOCKS.has(child.tagName)) { run = null; return; }
+                if (!run) { run = document.createElement('span'); run.className = 'li-t'; li.insertBefore(run, child); }
+                run.appendChild(child);
+            });
+        });
+        const holder = document.createElement('div');
+        holder.appendChild(fragment);
+        return holder.innerHTML;
     }
 
     function loadGoogleFont(fontFamily) {

@@ -192,6 +192,12 @@
         .canvas-element.type-markdown h4 { font-size: calc(1em * var(--hs, 1)); }
         .canvas-element.type-markdown h5 { font-size: calc(.83em * var(--hs, 1)); }
         .canvas-element.type-markdown h6 { font-size: calc(.67em * var(--hs, 1)); }
+        .canvas-element.type-markdown.md-right ul, .canvas-element.type-markdown.md-right ol { direction: rtl; }
+        .canvas-element.type-markdown .li-t { display: block; }
+        .canvas-element.type-markdown.md-right li::marker { direction: ltr; unicode-bidi: isolate; }
+        .canvas-element.type-markdown.md-right ol > li::marker { content: "\00a0\00a0" counter(list-item) "."; }
+        .canvas-element.type-markdown.md-right ol { margin-right: .35em; }
+        .canvas-element.type-markdown.md-right .li-t, .canvas-element.type-markdown.md-right li > p { direction: ltr; unicode-bidi: isolate; text-align: right; }
         .canvas-element.type-markdown p { margin: 0 0 .5em; } .canvas-element.type-markdown p:last-child { margin-bottom: 0; }
         .canvas-element.type-markdown img { max-width: 100%; max-height: 100%; }
         .canvas-element.type-markdown a { color: inherit; }
@@ -600,6 +606,7 @@
         if (el.type === 'game-list') node.style.display = 'block';
         if (el.type === 'markdown') {
             node.style.setProperty('--hs', (el.headingScale ?? 100) / 100);
+            node.classList.toggle('md-right', s.textAlign === 'right');
             const cols = el.columns > 1 ? Number(el.columns) : 0;
             node.classList.toggle('md-cols', !!cols);
             node.style.columnCount = cols || '';
