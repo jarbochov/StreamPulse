@@ -1005,11 +1005,12 @@
         const weight = F.select('style.fontWeight', 'Weight', s.fontWeight, [['400', 'Normal'], ['600', 'Semi-bold'], ['700', 'Bold'], ['900', 'Black']]);
         return F.section('typography', alert ? 'Message text' : 'Typography', `
             <label class="field"><span>Font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text">${fontOptions(s.fontFamily)}</select></label>
-            ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${F.number('style.fontSize', 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size above'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${el.type === 'markdown' ? F.number('headingScale', 'Heading size (% of normal)', el.headingScale ?? 100, { min: 40, max: 200, step: 5 }) + F.select('columns', 'Columns', String(el.columns || 1), [['1', '1 column'], ['2', '2 columns'], ['3', '3 columns'], ['4', '4 columns']]) + ((el.columns || 1) > 1 ? F.select('headingSpan', 'Headings spanning all columns', String(el.headingSpan ?? 6), [['6', 'All headings (H1–H6)'], ['1', 'H1 only'], ['2', 'H1–H2'], ['3', 'H1–H3'], ['4', 'H1–H4'], ['0', 'None — headings stay in a column']]) : '') : ''}${F.color('style.color', 'Text color', s.color)}
-            <div class="grid2">${F.seg('style.textAlign', 'Horizontal', s.textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${F.seg('style.verticalAlign', 'Vertical', s.verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>
+            ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${el.textFit === 'fit' && TEXT_TYPES.has(el.type) ? '' : F.number('style.fontSize', el.textFit === 'shrink' && TEXT_TYPES.has(el.type) ? 'Max size (px)' : 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) && !(el.type === 'random-text' && el.random?.marquee) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size set here'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${el.type === 'markdown' ? F.number('headingScale', 'Heading size (% of normal)', el.headingScale ?? 100, { min: 40, max: 200, step: 5 }) + F.select('columns', 'Columns', String(el.columns || 1), [['1', '1 column'], ['2', '2 columns'], ['3', '3 columns'], ['4', '4 columns']]) + ((el.columns || 1) > 1 ? F.select('headingSpan', 'Headings spanning all columns', String(el.headingSpan ?? 6), [['6', 'All headings (H1–H6)'], ['1', 'H1 only'], ['2', 'H1–H2'], ['3', 'H1–H3'], ['4', 'H1–H4'], ['0', 'None — headings stay in a column']]) : '') : ''}${F.color('style.color', 'Text color', s.color)}
+            <div class="grid2">${F.seg('style.textAlign', 'Horizontal', s.textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${el.type === 'markdown' && el.columns > 1 ? '' : F.seg('style.verticalAlign', 'Vertical', s.verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>
             <div class="grid2">${F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>`}
             ${fontExtras}`);
     }
+    const noRadius = (s, shape) => shape && ['circle', 'pill', 'line'].includes(s.shape);
     function appearanceSection(el, multi) {
         return F.section('appearance', multi ? 'Appearance (all selected)' : 'Appearance', appearanceBody(el, multi));
     }
@@ -1021,26 +1022,26 @@
             ${F.color('style.background', shape ? 'Fill' : 'Background', s.background, { clear: true })}
             ${F.check('style.gradient.enabled', 'Gradient fill', s.gradient?.enabled)}
             ${s.gradient?.enabled ? `<div class="grid2">${F.color('style.gradient.from', 'From', s.gradient.from)}${F.color('style.gradient.to', 'To', s.gradient.to)}</div>${F.number('style.gradient.angle', 'Angle (°)', s.gradient.angle ?? 135, { min: 0, max: 360 })}` : ''}
-            <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
-            ${shape && s.shape === 'line' ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}`);
+            <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${noRadius(s, shape) ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
+            ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}`);
     }
     function effectsSection(el) {
         const s = el.style;
         return F.section('effects', 'Effects', `
             ${F.range('style.opacity', 'Opacity', s.opacity ?? 1, { min: 0, max: 100, scale: 0.01, unit: '%' })}
             <div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Shadow blur (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
-            ${F.color('style.shadow.color', 'Shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)')}`, false);
+            ${s.shadow?.blur > 0 ? F.color('style.shadow.color', 'Shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)') : ''}`, false);
     }
     function appearanceBody(el, multi) {
         const s = el.style, shape = el.type === 'shape';
         return `
             ${F.color('style.background', shape ? 'Fill' : 'Background', s.background, { clear: true })}
-            <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
-            ${shape && s.shape === 'line' ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}
+            <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${noRadius(s, shape) ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
+            ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}
             ${F.check('style.gradient.enabled', 'Gradient fill', s.gradient?.enabled)}
             ${s.gradient?.enabled ? `${F.color('style.gradient.from', 'Gradient from', s.gradient.from)}${F.color('style.gradient.to', 'Gradient to', s.gradient.to)}${F.number('style.gradient.angle', 'Gradient angle (°)', s.gradient.angle ?? 135, { min: 0, max: 360 })}` : ''}
             <div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Shadow blur (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
-            ${F.color('style.shadow.color', 'Shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)')}
+            ${s.shadow?.blur > 0 ? F.color('style.shadow.color', 'Shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)') : ''}
             ${F.range('style.opacity', 'Opacity', s.opacity ?? 1, { min: 0, max: 100, scale: 0.01, unit: '%' })}
             ${!multi && shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
             ${!multi && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) : ''}`;
@@ -1139,16 +1140,16 @@
             ${g.layout === 'grid' || !g.layout ? F.number('gameList.columns', 'Columns', g.columns || 3, { min: 1, max: 12 }) : ''}
             <div class="grid2">${F.number('gameList.gap', 'Gap (px)', g.gap ?? 12, { min: 0, max: 80 })}${F.number('gameList.max', 'Max games (0 = all)', g.max || 0, { min: 0, max: 100 })}</div>
             ${F.select('gameList.meta', 'Extra line', g.meta || 'none', [['none', 'None'], ['year', 'Release year'], ['genres', 'Genres'], ['note', 'Your note']])}
-            ${F.number('gameList.coverScale', 'Cover size (%) — grid/strip can only shrink', g.coverScale || 100, { min: 25, max: 400 })}
-            ${F.select('gameList.coverFit', 'Cover fit', g.coverFit || 'cover', [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (whole cover, letterboxed)'], ['natural', 'Natural proportions (no crop)']])}
-            <div class="grid2">${F.number('gameList.headingSize', 'Heading size (px, 0 = auto)', g.headingSize || 0, { min: 0, max: 300 })}${F.number('gameList.titleSize', 'Title size (px, 0 = auto)', g.titleSize || 0, { min: 0, max: 300 })}</div>
-            ${F.select('gameList.titleWrap', 'Long titles', g.titleWrap || 'ellipsis', [['ellipsis', 'Cut off with …'], ['wrap', 'Wrap onto more lines']])}
+            ${g.showCovers === false ? '' : `${F.number('gameList.coverScale', 'Cover size (%) — grid/strip can only shrink', g.coverScale || 100, { min: 25, max: 400 })}
+            ${F.select('gameList.coverFit', 'Cover fit', g.coverFit || 'cover', [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (whole cover, letterboxed)'], ['natural', 'Natural proportions (no crop)']])}`}
+            <div class="grid2">${g.headings === false ? '<span></span>' : F.number('gameList.headingSize', 'Heading size (px, 0 = auto)', g.headingSize || 0, { min: 0, max: 300 })}${g.showTitles === false ? '<span></span>' : F.number('gameList.titleSize', 'Title size (px, 0 = auto)', g.titleSize || 0, { min: 0, max: 300 })}</div>
+            ${g.showTitles === false ? '' : F.select('gameList.titleWrap', 'Long titles', g.titleWrap || 'ellipsis', [['ellipsis', 'Cut off with …'], ['wrap', 'Wrap onto more lines']])}
             ${F.select('gameList.fit', 'If the list is too tall', g.fit || 'none', [['none', 'Clip it'], ['shrink', 'Shrink everything to fit']])}
             ${F.check('gameList.showCovers', 'Show covers', g.showCovers !== false)}
             ${F.check('gameList.showTitles', 'Show titles', g.showTitles !== false)}
             ${F.check('gameList.headings', 'Group by period with headings', g.headings !== false)}
             ${F.check('gameList.highlightCurrent', 'Highlight the game you are playing now', g.highlightCurrent !== false)}
-            ${F.color('gameList.accent', 'Highlight color', g.accent || '#3fb950')}
+            ${g.highlightCurrent === false ? '' : F.color('gameList.accent', 'Highlight color', g.accent || '#3fb950')}
             <p class="hint">Games come from the <a href="/game-plan-editor.html" target="_blank" style="color:var(--accent)">Game Plan</a>. “Playing now” follows your Twitch category.</p>`);
     }
     function alertSection(el) {
@@ -1158,10 +1159,10 @@
             <p class="hint">What this box shows (text, images, sounds, animations) is set per alert in <a href="/alerts.html" target="_blank" style="color:var(--accent)">Alerts</a>. This is only the look.</p>
             <button type="button" id="alert-play">▶ Play sample alert</button>
             ${F.select('alert.layout', 'Layout', a.layout || 'stack', [['stack', 'Media above text'], ['side', 'Media beside text'], ['text', 'Text only'], ['media', 'Media only (text over it)']])}
-            <div class="grid2">${F.number('alert.mediaScale', 'Media size (%)', a.mediaScale || 60, { min: 10, max: 100 })}${F.select('alert.mediaFit', 'Media fit', a.mediaFit || 'contain', [['contain', 'Contain'], ['cover', 'Fill (crop)']])}</div>
+            ${a.layout === 'text' ? '' : `<div class="grid2">${F.number('alert.mediaScale', 'Media size (%)', a.mediaScale || 60, { min: 10, max: 100 })}${F.select('alert.mediaFit', 'Media fit', a.mediaFit || 'contain', [['contain', 'Contain'], ['cover', 'Fill (crop)']])}</div>`}
             <div class="grid2">${F.number('alert.titleSize', 'Title size (px)', a.titleSize || 44, { min: 8, max: 300 })}${F.number('alert.messageSize', 'Message size (px)', a.messageSize || 28, { min: 8, max: 300 })}</div>
             ${F.color('alert.titleColor', 'Title color', a.titleColor || '#ffd166')}
-            ${F.number('alert.gap', 'Gap between media and text (px)', a.gap ?? 12, { min: 0, max: 100 })}
+            ${['stack', 'side', undefined].includes(a.layout) ? F.number('alert.gap', 'Gap between media and text (px)', a.gap ?? 12, { min: 0, max: 100 }) : ''}
             ${F.check('alert.sound', 'Play alert sounds from this box', a.sound !== false)}
             <details class="sub-details"${only.length ? ' open' : ''}><summary>Only show certain alerts (${only.length ? only.length + ' selected' : 'all'})</summary>
             <div class="trigger-list">${Object.entries(ALERT_TRIGGER_LABELS).map(([key, label]) => `<label class="check"><input type="checkbox" data-alert-trigger="${key}" ${only.includes(key) ? 'checked' : ''}> ${label}</label>`).join('')}</div>
@@ -1175,17 +1176,17 @@
             ${F.color('progress.trackColor', 'Track color', p.trackColor || 'rgba(255,255,255,0.18)')}
             ${p.kind === 'ring' ? F.number('progress.thickness', 'Ring thickness', p.thickness || 10, { min: 2, max: 40 }) : ''}
             ${F.check('progress.showLabel', 'Show label', p.showLabel !== false)}
-            ${F.text('progress.label', 'Label', p.label ?? '{{progress}}%')}
-            <p class="hint">{{progress}} in the label is the current percent. The label uses the Typography settings.</p>`);
+            ${p.showLabel === false ? '' : `${F.text('progress.label', 'Label', p.label ?? '{{progress}}%')}
+            <p class="hint">{{progress}} in the label is the current percent. The label uses the Typography settings.</p>`}`);
     }
     function randomSection(el) {
         const r = el.random || {};
         return F.section('behavior', 'Random text behavior', `
             <div class="grid2">${F.select('random.mode', 'Display', r.mode || 'random', [['random', 'Random order'], ['order', 'Entered order']])}${F.number('random.intervalSeconds', 'Refresh (sec)', r.intervalSeconds || 5, { min: 1, max: 3600 })}</div>
             ${F.check('random.typewriter', 'Typewriter effect', r.typewriter)}
-            ${F.number('random.typewriterSpeed', 'Typewriter speed (ms per character)', r.typewriterSpeed || 110, { min: 10, max: 1000 })}
+            ${r.typewriter ? F.number('random.typewriterSpeed', 'Typewriter speed (ms per character)', r.typewriterSpeed || 110, { min: 10, max: 1000 }) : ''}
             ${F.check('random.marquee', 'Marquee scroll', r.marquee)}
-            ${F.number('random.marqueeSpeed', 'Marquee duration (sec per pass)', r.marqueeSpeed || 60, { min: 10, max: 240 })}
+            ${r.marquee ? F.number('random.marqueeSpeed', 'Marquee duration (sec per pass)', r.marqueeSpeed || 60, { min: 10, max: 240 }) : ''}
             <p class="hint">The canvas shows the first phrase; the runtime cycles through the pool.</p>`);
     }
     function renderProperties() {
@@ -1208,12 +1209,18 @@
         root.parentElement.scrollTop = scroll;
         lastTextField = null;
     }
+    // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
+    const RERENDER_PATHS = new Set(['style.gradient.enabled', 'alert.layout', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent']);
     bindFields($('properties'), selectedElements, path => {
         for (const el of selectedElements()) { el.width = clamp(el.width, 1, 3840); el.height = clamp(el.height, 1, 2160); }
         renderCanvas(); updateStatusBar();
         if (path === 'name') renderLayers();
-        if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || path === 'style.gradient.enabled' || path === 'alert.layout') renderProperties();
+        if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || RERENDER_PATHS.has(path)) renderProperties();
         changed(false);
+    });
+    $('properties').addEventListener('change', event => {
+        const path = event.target.closest('[data-path]')?.dataset.path;
+        if (path === 'style.borderWidth' || path === 'style.shadow.blur') renderProperties();
     });
     $('properties').addEventListener('change', event => {
         const box = event.target.closest('[data-alert-trigger]');
