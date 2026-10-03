@@ -63,6 +63,9 @@
         .category-sessions { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
         .category-sessions.open { max-height: 500px; overflow-y: auto; }
         .category-session { display: flex; align-items: center; gap: 0.75rem; padding: 0.45rem 1rem 0.45rem 1.4rem; border-top: 1px solid var(--bg-raised); font-size: 0.8rem; }
+        a.category-session { text-decoration: none; color: inherit; }
+        a.category-session:hover { background: var(--bg-raised); }
+        .dev b { color: var(--text); font-weight: 600; }
         .category-session .date { color: var(--text-muted); min-width: 85px; }
         .category-session .title { flex: 1; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .category-session .duration { color: var(--accent); font-weight: 500; }
@@ -230,15 +233,15 @@
             const color = COLORS[i % COLORS.length];
             const sessionRows = c.sessions
                 .sort((a, b) => b.date.localeCompare(a.date))
-                .map(s => `<div class="category-session">
+                .map(s => `<a class="category-session" href="/sessions.html?session=${encodeURIComponent(s.file || '')}">
                     <span class="date">${s.date}</span>
                     <span class="title">${escapeHtml(s.title)}</span>
                     <span class="duration">${formatDuration(s.minutes)}</span>
-                </div>`).join('');
+                </a>`).join('');
 
             const released = c.releaseDate ? new Date(c.releaseDate + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
-            const meta = (c.developers?.length ? `<span class="dev" title="Developer">🛠 ${escapeHtml(c.developers.join(', '))}</span>` : '')
-                + (released ? `<span class="dev" title="Release date">📅 ${released}</span>` : '')
+            const meta = (c.developers?.length ? `<span class="dev"><b>Developer</b> ${escapeHtml(c.developers.join(', '))}</span>` : '')
+                + (released ? `<span class="dev"><b>Released</b> ${released}</span>` : '')
                 + (c.genres || []).map(x => `<span class="chip">${escapeHtml(String(x))}</span>`).join('');
             return `<div class="category-card">
                 <div class="category-header" onclick="toggleSessions(this)">

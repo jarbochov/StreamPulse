@@ -6177,6 +6177,7 @@ const server = http.createServer(async (req, res) => {
             // Current session
             if (chatData.streamInfo && chatData.streamInfo.length > 0) {
                 allSessions.push({
+                    file: '__current__',
                     startedAt: chatData.startedAt,
                     endedAt: null,
                     streamInfo: chatData.streamInfo,
@@ -6194,6 +6195,7 @@ const server = http.createServer(async (req, res) => {
                         const d = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
                         if (d.streamInfo && d.streamInfo.length > 0) {
                             allSessions.push({
+                                file,
                                 startedAt: d.startedAt,
                                 endedAt: d.lastUpdated || d.startedAt,
                                 streamInfo: d.streamInfo,
@@ -6225,6 +6227,7 @@ const server = http.createServer(async (req, res) => {
                     categories[cat].totalMinutes += minutes;
                     categories[cat].sessions.push({
                         date: sessDate,
+                        file: sess.file,
                         changedAt: entry.changedAt,
                         title: entry.title,
                         minutes: Math.round(minutes)
