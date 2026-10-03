@@ -453,7 +453,7 @@
         next.canvas = Object.assign({ width: 1920, height: 1080, background: 'transparent' }, next.canvas);
         next.elements = (next.elements || []).map((item, index) => ({ index, item }))
             .sort((a, b) => (a.item.zIndex - b.item.zIndex) || (a.index - b.index)).map(entry => entry.item);
-        next.elements.forEach(item => { item.name = item.name || ''; item.locked = item.locked === true; item.items ||= []; item.source ||= { mode: 'inline', path: '', split: 'lines' }; item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 }; item.style ||= {}; });
+        next.elements.forEach(item => { item.name = item.name || ''; item.locked = item.locked === true; item.items ||= []; item.textFit ||= 'none'; item.source ||= { mode: 'inline', path: '', split: 'lines' }; item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 }; item.style ||= {}; });
         return next;
     }
 
@@ -464,6 +464,7 @@
         const data = {
             id: uid(type), name: '', locked: false, type,
             content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', shape: '', progress: '50', 'game-list': '', alert: '' }[type],
+            textFit: 'none',
             source: { mode: 'inline', path: '', split: 'lines' },
             items: type === 'random-text' ? ['First random phrase', 'Second random phrase', 'Third random phrase'] : [],
             random: { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 },
@@ -634,7 +635,7 @@
     const ALERT_SAMPLE = { title: 'TestViewer just followed!', message: 'Thanks for the support', image: ALERT_SAMPLE_IMAGE, animOut: 'fade' };
     const ALERT_TRIGGER_LABELS = { follow: 'Follow', sub: 'New sub', resub: 'Resub', milestone: 'Sub milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Channel point redeem', timer: 'Timer finished', goal: 'Goal reached', chat_word: 'Chat word' };
     const sourceSignature = el => { const state = shared.textSourceState(el); return state ? [state.text, state.error] : null; };
-    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.source, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
+    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
 
     function tickPlaceholders() {
         if (!prefs.live) return;
@@ -644,8 +645,11 @@
             if (el.type === 'progress') shared.renderProgress(node, el, expand);
             else if (el.type === 'markdown') node.innerHTML = shared.renderMarkdown(expand(shared.elementContent(el)));
             else node.textContent = expand(shared.elementContent(el));
+            if (el.textFit && el.textFit !== 'none') shared.fitText(node, el);
         }
     }
+
+    if (document.fonts) document.fonts.addEventListener('loadingdone', () => { if (overlay.elements.some(el => el.textFit && el.textFit !== 'none')) renderCanvas(); });
 
     function renderCanvas() {
         const seen = new Set();
@@ -657,6 +661,10 @@
             const signature = contentSignature(el, live);
             if (node._sig !== signature) { node._sig = signature; buildContent(node, el); }
             applyNodeStyle(node, el, index);
+            if (TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none') {
+                const probe = el.type === 'random-text' ? shared.elementItems(el).map(expand).reduce((a, b) => (b.length > a.length ? b : a), '') : null;
+                shared.fitText(node, el, probe);
+            }
         });
         for (const [id, node] of nodes) if (!seen.has(id)) { node.remove(); nodes.delete(id); }
         $('empty-hint').classList.toggle('on', !overlay.elements.length);
@@ -965,7 +973,7 @@
         const weight = F.select('style.fontWeight', 'Weight', s.fontWeight, [['400', 'Normal'], ['600', 'Semi-bold'], ['700', 'Bold'], ['900', 'Black']]);
         return F.section('typography', alert ? 'Message text' : 'Typography', `
             <label class="field"><span>Font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text">${fontOptions(s.fontFamily)}</select></label>
-            ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${F.number('style.fontSize', 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${F.color('style.color', 'Text color', s.color)}
+            ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${F.number('style.fontSize', 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size above'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${F.color('style.color', 'Text color', s.color)}
             <div class="grid2">${F.seg('style.textAlign', 'Horizontal', s.textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${F.seg('style.verticalAlign', 'Vertical', s.verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>
             <div class="grid2">${F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>`}
             ${fontExtras}`);
@@ -1006,13 +1014,18 @@
             ${!multi && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) : ''}`;
     }
     const mediaTab = new Map();
-    const currentMediaTab = el => mediaTab.get(el.id) || (!el.src || el.src.startsWith('/custom-overlay-assets/') ? 'library' : 'url');
+    const LOCAL_MEDIA = '/local-file?path=';
+    const localMediaPath = src => src && src.startsWith(LOCAL_MEDIA) ? decodeURIComponent(src.slice(LOCAL_MEDIA.length)) : '';
+    const currentMediaTab = el => mediaTab.get(el.id) || (el.src?.startsWith(LOCAL_MEDIA) ? 'file' : !el.src || el.src.startsWith('/custom-overlay-assets/') ? 'library' : 'url');
     const tabBar = (label, attr, current, options) => `<div class="field"><span>${label}</span><span class="seg">${options.map(([v, l]) => `<button type="button" ${attr}="${v}" aria-pressed="${v === current}">${l}</button>`).join('')}</span></div>`;
     const friendlyAssetName = url => url ? decodeURIComponent(url.split('/').pop()).replace(/^[a-z0-9]{6,}-/, '') : '';
     function mediaSourceBlock(el) {
         const tab = currentMediaTab(el);
-        let body = tabBar('Source', 'data-media-tab', tab, [['library', 'Library & upload'], ['url', 'Web URL']]);
-        if (tab === 'url') {
+        let body = tabBar('Source', 'data-media-tab', tab, [['library', 'Library & upload'], ['file', 'File on computer'], ['url', 'Web URL']]);
+        if (tab === 'file') {
+            body += `<div class="field"><span>File path</span><span class="upload-row"><input id="media-path" value="${esc(localMediaPath(el.src))}" placeholder="/Users/you/Pictures/logo.png" spellcheck="false"><button type="button" id="media-browse">Browse…</button></span><span class="hint">Uses the ${el.type} in place, with nothing uploaded. If you move or delete it, the overlay shows nothing.</span></div>`;
+            if (el.type === 'image' && el.src) body += `<img class="asset-preview" src="${esc(el.src)}" alt="Preview" onerror="this.style.display='none'">`;
+        } else if (tab === 'url') {
             body += F.text('src', 'Image or video URL', el.src, 'placeholder="https://… or {{game.cover}}"');
             body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button><span class="hint">Use e.g. {{game.cover}} to show the current game's cover art.</span></div>`;
         } else {
@@ -1305,6 +1318,29 @@
             await shared.refreshTextSources([el]);
             renderCanvas(); updateSourceStatus();
         }
+    });
+    async function useLocalMedia(el, filePath) {
+        const hadSource = !!el.src;
+        el.src = `${LOCAL_MEDIA}${encodeURIComponent(filePath.trim())}`;
+        if (!hadSource) await fitToMedia(el, el.src, el.type);
+        renderCanvas(); renderProperties(); changed(true);
+    }
+    $('properties').addEventListener('click', async event => {
+        const button = event.target.closest('#media-browse');
+        const el = primary();
+        if (!button || !el) return;
+        button.disabled = true; button.textContent = 'Choosing…';
+        try {
+            const response = await fetch('/api/system/choose-file', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'media' }) });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) toast(data.error || 'Could not open the file chooser', 'error', 5000);
+            else if (data.path) { await useLocalMedia(el, data.path); return; }
+        } catch { toast('Could not reach StreamPulse', 'error', 3000); }
+        button.disabled = false; button.textContent = 'Browse…';
+    });
+    $('properties').addEventListener('change', event => {
+        const el = primary();
+        if (event.target.id === 'media-path' && el && event.target.value.trim()) useLocalMedia(el, event.target.value);
     });
     setInterval(async () => {
         if (!(await shared.refreshTextSources(overlay.elements))) return;

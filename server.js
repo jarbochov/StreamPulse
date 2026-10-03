@@ -141,6 +141,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
             thickness: Math.max(2, Math.min(40, Number(element.progress?.thickness) || 10))
         },
         content: String(element.content || '').slice(0, 20000),
+        textFit: ['shrink', 'fit'].includes(element.textFit) && TEXT_SOURCE_TYPES.has(type) ? element.textFit : 'none',
         source: {
             mode: ['library', 'file'].includes(element.source?.mode) && TEXT_SOURCE_TYPES.has(type) ? element.source.mode : 'inline',
             path: String(element.source?.path || '').trim().slice(0, 1000),
@@ -4608,7 +4609,12 @@ const server = http.createServer(async (req, res) => {
         const respond = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
         if (!isLoopbackRequest(req)) return respond(403, { error: 'The file chooser only opens on the StreamPulse computer' });
         if (process.platform !== 'darwin') return respond(501, { error: 'The file chooser is only available on macOS. Paste the full path instead.' });
-        const script = 'tell application "System Events"\n activate\n set chosen to choose file with prompt "Choose a text or Markdown file" of type {"public.plain-text", "net.daringfireball.markdown", "txt", "md", "markdown"}\n return POSIX path of chosen\nend tell';
+        let wanted = 'text';
+        try { wanted = JSON.parse(await readRequestBody(req) || '{}').kind === 'media' ? 'media' : 'text'; } catch { /* default to text */ }
+        const chooser = wanted === 'media'
+            ? { prompt: 'Choose an image or video', types: '"public.image", "public.movie", "png", "jpg", "jpeg", "gif", "webp", "svg", "mp4", "webm", "ogg"' }
+            : { prompt: 'Choose a text or Markdown file', types: '"public.plain-text", "net.daringfireball.markdown", "txt", "md", "markdown"' };
+        const script = `tell application "System Events"\n activate\n set chosen to choose file with prompt "${chooser.prompt}" of type {${chooser.types}}\n return POSIX path of chosen\nend tell`;
         execFile('osascript', ['-e', script], { timeout: 5 * 60 * 1000 }, (error, stdout, stderr) => {
             if (error) return /-128|User canceled/i.test(`${stderr} ${error.message}`) ? respond(200, { cancelled: true }) : respond(500, { error: 'Could not open the file chooser' });
             respond(200, { path: stdout.trim() });
@@ -6865,7 +6871,18 @@ const server = http.createServer(async (req, res) => {
     // Static file serving
     // A bare / opens the dashboard; / with overlay parameters still serves credits so older OBS sources keep working.
     let filePath = pathname === '/' ? (new URL(req.url, 'http://localhost').search ? '/credits.html' : '/dashboard.html') : pathname;
-    if (pathname.startsWith('/custom-overlay-assets/')) {
+    let localMedia = false;
+    if (pathname === '/local-file') {
+        const requested = String(new URL(req.url, 'http://localhost').searchParams.get('path') || '');
+        const ext = path.extname(requested).toLowerCase();
+        const kind = ASSET_KIND_BY_EXT[ext];
+        const referenced = () => JSON.stringify(Object.values(customOverlays)).includes(`/local-file?path=${encodeURIComponent(requested)}`);
+        if (!path.isAbsolute(requested) || !['image', 'video'].includes(kind) || ext === '.oga') { res.writeHead(400); res.end('Only local image and video files can be used'); return; }
+        // Remote viewers may only load files that a saved overlay already points at.
+        if (!isLoopbackRequest(req) && !referenced()) { res.writeHead(403); res.end('Forbidden'); return; }
+        filePath = requested;
+        localMedia = true;
+    } else if (pathname.startsWith('/custom-overlay-assets/')) {
         const assetName = decodeURIComponent(pathname.slice('/custom-overlay-assets/'.length));
         if (!assetName || assetName.includes('/') || assetName.includes('\\')) {
             res.writeHead(404);
@@ -6878,7 +6895,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Security: prevent directory traversal
-    if (!filePath.startsWith(__dirname)) {
+    if (!localMedia && !filePath.startsWith(__dirname)) {
         res.writeHead(403);
         res.end('Forbidden');
         return;

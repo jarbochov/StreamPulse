@@ -679,5 +679,24 @@
         return items.length ? items : el.items || [];
     }
 
-    root.OverlayShared = { refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    // Auto-fit: 'shrink' only reduces the font size, 'fit' may also enlarge it, until the text fits the element box.
+    function fitText(node, el, probeText) {
+        const mode = el.textFit;
+        if ((mode !== 'shrink' && mode !== 'fit') || !node.isConnected || el.random?.marquee) return;
+        const base = Number(el.style?.fontSize) || 32;
+        const saved = { display: node.style.display, children: probeText != null ? [...node.childNodes] : null };
+        // Centered flex boxes hide overflow at the top, so measure as a normal block.
+        node.style.display = 'block';
+        if (probeText != null) node.replaceChildren(document.createTextNode(probeText));
+        const fits = size => { node.style.fontSize = `${size}px`; return node.scrollHeight <= node.clientHeight + 1 && node.scrollWidth <= node.clientWidth + 1; };
+        let lo = 8, hi = mode === 'fit' ? 400 : base;
+        if (!fits(hi)) {
+            while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (fits(mid)) lo = mid; else hi = mid; }
+            node.style.fontSize = `${lo}px`;
+        }
+        node.style.display = saved.display;
+        if (saved.children) node.replaceChildren(...saved.children);
+    }
+
+    root.OverlayShared = { fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);

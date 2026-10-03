@@ -111,10 +111,21 @@
             if (element.type === 'progress') shared.renderProgress(node, element, expandVariables);
             else if (element.type === 'markdown') node.innerHTML = renderMarkdown(shared.elementContent(element));
             else node.textContent = expandVariables(shared.elementContent(element) || '');
+            if (element.textFit && element.textFit !== 'none') shared.fitText(node, element);
         }
     }
 
+    const fitNodes = [];
+    function refit() {
+        for (const { node, element } of fitNodes) {
+            const probe = element.type === 'random-text' ? shared.elementItems(element).map(expandVariables).reduce((a, b) => (b.length > a.length ? b : a), '') : null;
+            shared.fitText(node, element, probe);
+        }
+    }
+    if (document.fonts) document.fonts.addEventListener('loadingdone', () => refit());
+
     function render(overlay) {
+        fitNodes.length = 0;
         currentOverlay = overlay;
         stopRandomTimers();
         stopAlerts();
@@ -175,7 +186,9 @@
             const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : shared.elementContent(element);
             if (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource)) tickingNodes.push({ node, element });
             root.appendChild(node);
+            if (element.textFit && element.textFit !== 'none') fitNodes.push({ node, element });
         }
+        refit();
     }
 
     async function load() {
