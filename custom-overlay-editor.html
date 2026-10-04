@@ -150,6 +150,14 @@
         .layer.is-hidden .layer-name { opacity: .45; text-decoration: line-through; }
         .layer-grip { color: var(--text-faint); cursor: grab; }
         .layer-icon { font: 700 15px ui-monospace, Menlo, monospace; color: var(--muted); text-align: center; background: var(--field); border-radius: 6px; padding: .25rem 0; line-height: 1.2; }
+        .layer-group { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: .4rem; padding: .3rem; border-radius: 6px; border: 1px solid transparent; cursor: pointer; font-weight: 600; font-size: .85em; color: var(--text-muted); }
+        .layer-group:hover { background: var(--bg-raised); }
+        .layer-group.selected { border-color: var(--accent); background: var(--accent-bg); color: var(--text); }
+        .layer-group .chev { display: inline-block; transition: transform .12s; text-align: center; }
+        .layer-group.collapsed .chev { transform: rotate(-90deg); }
+        .layer-group .layer-actions button { opacity: .8; }
+        .layer.in-group { margin-left: .9rem; border-left: 2px solid var(--border); border-radius: 0 6px 6px 0; }
+        .layer.in-group.group-hidden { display: none; }
         .layer-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .layer-name-input { padding: .1rem .3rem; }
         .layer-actions { display: flex; gap: 1px; }
@@ -926,24 +934,51 @@
     }
 
     // ---- layers -----------------------------------------------------------------------
+    let layerOrder = [];
+    const collapsedGroups = new Set(JSON.parse(localStorage.getItem('layerCollapsedGroups') || '[]'));
     function renderLayers() {
         const list = $('layers');
         const shown = visibleElements();
         $('layer-count').textContent = shown.length ? `(${shown.length})` : '';
         if (pagesOn() && !$('pages-panel').hidden && !pagesPanelBusy()) renderPagesPanel();
         if (!shown.length) { list.innerHTML = '<div class="layers-empty">No elements yet. Use <b>+ Add element</b> to start.</div>'; return; }
-        list.innerHTML = shown.slice().reverse().map(el => `
-            <div class="layer${selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}" data-id="${esc(el.id)}">
+        const top = shown.slice().reverse(), rows = [], seenGroups = new Set();
+        for (const el of top) {
+            if (!el.group) { rows.push({ el }); continue; }
+            if (seenGroups.has(el.group)) continue;
+            seenGroups.add(el.group);
+            const members = top.filter(m => m.group === el.group);
+            rows.push({ header: el.group, members });
+            members.forEach(m => rows.push({ el: m, group: el.group }));
+        }
+        layerOrder = rows.filter(r => r.el).map(r => r.el);
+        list.innerHTML = rows.map(row => {
+            if (row.header) {
+                const ids = row.members.map(m => m.id), closed = collapsedGroups.has(row.header), allHidden = row.members.every(m => m.visible === false);
+                return `<div class="layer-group${closed ? ' collapsed' : ''}${ids.every(id => selectedIds.has(id)) ? ' selected' : ''}" data-group="${esc(row.header)}">
+                    <span class="chev" title="${closed ? 'Expand' : 'Collapse'} group">▾</span>
+                    <span class="layer-name">Group · ${ids.length} elements</span>
+                    <span class="layer-actions"><button data-layer-action="group-visible" title="${allHidden ? 'Show' : 'Hide'} group" aria-label="${allHidden ? 'Show' : 'Hide'} group">${allHidden ? ICON.eyeOff : ICON.eye}</button></span>
+                </div>`;
+            }
+            const el = row.el, inGroup = row.group ? ` in-group${collapsedGroups.has(row.group) ? ' group-hidden' : ''}` : '';
+            return `
+            <div class="layer${selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}${inGroup}" data-id="${esc(el.id)}">
                 <span class="layer-grip" title="Drag to reorder">${ICON.grip}</span>
                 <span class="layer-icon">${esc(TYPE_META[el.type].icon)}</span>
-                <span class="layer-name" title="Double-click to rename">${el.group ? '⛓ ' : ''}${pagesOn() && el.page === '*' ? '◈ ' : ''}${esc(displayName(el))}</span>
+                <span class="layer-name" title="Double-click to rename">${pagesOn() && el.page === '*' ? '◈ ' : ''}${esc(displayName(el))}</span>
                 <span class="layer-actions">
                     <button data-layer-action="lock" class="${el.locked ? 'on' : ''}" title="${el.locked ? 'Unlock' : 'Lock'}" aria-label="${el.locked ? 'Unlock' : 'Lock'} layer">${el.locked ? ICON.lock : ICON.unlock}</button>
                     <button data-layer-action="visible" title="${el.visible === false ? 'Show' : 'Hide'}" aria-label="${el.visible === false ? 'Show' : 'Hide'} layer">${el.visible === false ? ICON.eyeOff : ICON.eye}</button>
                 </span>
-            </div>`).join('');
+            </div>`;
+        }).join('');
     }
     function updateLayerSelection() {
+        for (const head of $('layers').querySelectorAll('.layer-group')) {
+            const members = overlay.elements.filter(el => el.group === head.dataset.group);
+            head.classList.toggle('selected', members.length > 0 && members.every(el => selectedIds.has(el.id)));
+        }
         for (const row of $('layers').querySelectorAll('.layer')) {
             const on = selectedIds.has(row.dataset.id);
             row.classList.toggle('selected', on);
@@ -968,6 +1003,20 @@
         input.addEventListener('blur', () => finish(true));
     }
     $('layers').addEventListener('click', e => {
+        const head = e.target.closest('.layer-group');
+        if (head) {
+            const group = head.dataset.group, members = overlay.elements.filter(el => el.group === group && inView(el));
+            if (e.target.closest('[data-layer-action="group-visible"]')) {
+                const show = members.every(el => el.visible === false);
+                members.forEach(el => { el.visible = show ? true : false; });
+                renderLayers(); renderCanvas(); renderProperties(); changed(true);
+            } else if (e.target.closest('.chev')) {
+                collapsedGroups.has(group) ? collapsedGroups.delete(group) : collapsedGroups.add(group);
+                localStorage.setItem('layerCollapsedGroups', JSON.stringify([...collapsedGroups]));
+                renderLayers();
+            } else setSelection(members.map(el => el.id));
+            return;
+        }
         const row = e.target.closest('.layer');
         if (!row || e.target.closest('.layer-name-input')) return;
         const el = byId(row.dataset.id);
@@ -980,12 +1029,12 @@
     });
     $('layers').addEventListener('dblclick', e => { const row = e.target.closest('.layer'); if (row && e.target.closest('.layer-name')) startRename(row); });
     new Sortable($('layers'), {
-        animation: 150, handle: '.layer-grip', ghostClass: 'sortable-ghost',
+        animation: 150, handle: '.layer-grip', draggable: '.layer', ghostClass: 'sortable-ghost',
         onEnd(event) {
-            if (event.oldIndex === event.newIndex) return;
-            const order = visibleElements().reverse();
-            const [moved] = order.splice(event.oldIndex, 1);
-            order.splice(event.newIndex, 0, moved);
+            if (event.oldDraggableIndex === event.newDraggableIndex) return;
+            const order = layerOrder.slice();
+            const [moved] = order.splice(event.oldDraggableIndex, 1);
+            order.splice(event.newDraggableIndex, 0, moved);
             const next = order.reverse(), slots = [];
             overlay.elements.forEach((el, i) => { if (inView(el)) slots.push(i); });
             slots.forEach((slot, i) => { overlay.elements[slot] = next[i]; });
