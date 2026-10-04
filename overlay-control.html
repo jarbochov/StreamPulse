@@ -71,7 +71,7 @@
             <div class="nav"><button class="btn" data-act="prev">◀ Previous</button><button class="btn primary" data-act="next">Next ▶</button></div>
             <div class="row"><button class="btn" data-act="first">⏮ First</button><button class="btn" data-act="last">Last ⏭</button>
                 <button class="btn${state.auto ? ' active' : ''}" data-act="auto">${state.auto ? '⏸ Auto: on' : '▶ Auto: off'}</button></div>
-            <div class="pages">${state.pages.map((p, i) => `<button class="btn page${i === state.index ? ' current' : ''}" data-page="${esc(p.id)}"><span>${i + 1}. ${esc(p.name)}</span><small>${p.duration ? `${p.duration}s` : ''}</small></button>`).join('')}</div>` + slideHtml();
+            <div class="pages">${state.pages.map((p, i) => `<button class="btn page${i === state.index ? ' current' : ''}" data-page="${esc(p.id)}"${p.enabled === false ? ' disabled style="opacity:.45"' : ''}><span>${i + 1}. ${esc(p.name)}</span><small>${p.enabled === false ? 'off' : p.duration ? `${p.duration}s` : ''}</small></button>`).join('')}</div>` + slideHtml();
     }
     document.addEventListener('click', event => {
         const t = event.target.closest('button'); if (!t) return;

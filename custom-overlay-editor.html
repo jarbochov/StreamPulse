@@ -178,6 +178,7 @@
         .pg-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 12px; }
         .pg-list { display: grid; gap: .3rem; }
         .pg-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: .4rem; padding: .4rem .45rem; border-radius: 8px; border: 1px solid var(--border); background: var(--field); cursor: pointer; }
+        .pg-row.off { opacity: .55; }
         .pg-row:hover { border-color: var(--border-strong, var(--border)); }
         .pg-row.current { border-color: color-mix(in srgb, var(--accent-strong) 60%, transparent); background: color-mix(in srgb, var(--accent-strong) 14%, var(--field)); }
         .pg-grip { color: var(--text-faint); cursor: grab; }
@@ -582,7 +583,7 @@
         return `${TYPE_META[el.type].label} ${overlay.elements.filter(item => item.type === el.type).indexOf(el) + 1}`;
     }
     function normalizeZ() { overlay.elements.forEach((item, index) => { item.zIndex = index; }); }
-    const defaultPages = () => ({ enabled: false, mode: 'manual', cycleSeconds: 10, loop: true, transition: 'fade', transitionMs: 500, transitionDirection: 'left', transitionDistance: 120, items: [{ id: 'page-1', name: 'Page 1', duration: 0 }] });
+    const defaultPages = () => ({ enabled: false, mode: 'manual', cycleSeconds: 10, loop: true, transition: 'fade', transitionMs: 500, transitionDirection: 'left', transitionDistance: 120, items: [{ id: 'page-1', name: 'Page 1', duration: 0, enabled: true }] });
     let curPage = 'page-1';
     const pagesOn = () => overlay.pages?.enabled === true;
     const inView = el => !pagesOn() || el.page === '*' || el.page === curPage;
@@ -902,7 +903,7 @@
         const items = selectedElements();
         if (items.length < 2) { toast('Select two or more elements to group.', 'warn', 2000); return; }
         const id = uid('group');
-        items.forEach(el => { el.group = id; });
+        items.forEach(el => { el.group = id; el.groupName = ''; });
         renderLayers(); renderProperties(); changed(true);
         toast(`Grouped ${items.length} elements`, 'success', 1500);
     }
@@ -910,7 +911,7 @@
         const items = selectedElements().filter(el => el.group);
         if (!items.length) return;
         const groups = new Set(items.map(el => el.group));
-        overlay.elements.forEach(el => { if (groups.has(el.group)) el.group = ''; });
+        overlay.elements.forEach(el => { if (groups.has(el.group)) { el.group = ''; el.groupName = ''; } });
         renderLayers(); renderProperties(); changed(true);
     }
 
@@ -957,7 +958,7 @@
                 const ids = row.members.map(m => m.id), closed = collapsedGroups.has(row.header), allHidden = row.members.every(m => m.visible === false);
                 return `<div class="layer-group${closed ? ' collapsed' : ''}${ids.every(id => selectedIds.has(id)) ? ' selected' : ''}" data-group="${esc(row.header)}">
                     <span class="chev" title="${closed ? 'Expand' : 'Collapse'} group">▾</span>
-                    <span class="layer-name">Group · ${ids.length} elements</span>
+                    <span class="layer-name" title="Double-click to rename">${esc(row.members.find(m => m.groupName)?.groupName || 'Group')} <small style="font-weight:400;opacity:.7">· ${ids.length}</small></span>
                     <span class="layer-actions"><button data-layer-action="group-visible" title="${allHidden ? 'Show' : 'Hide'} group" aria-label="${allHidden ? 'Show' : 'Hide'} group">${allHidden ? ICON.eyeOff : ICON.eye}</button></span>
                 </div>`;
             }
@@ -1027,7 +1028,24 @@
         if (additive) { const next = new Set(selectedIds); next.has(el.id) ? next.delete(el.id) : next.add(el.id); setSelection(next); }
         else setSelection([el.id]);
     });
-    $('layers').addEventListener('dblclick', e => { const row = e.target.closest('.layer'); if (row && e.target.closest('.layer-name')) startRename(row); });
+    function renameGroup(head) {
+        const group = head.dataset.group, members = overlay.elements.filter(el => el.group === group);
+        const label = head.querySelector('.layer-name');
+        const input = document.createElement('input');
+        input.className = 'layer-name-input'; input.value = members.find(m => m.groupName)?.groupName || ''; input.placeholder = 'Group name'; input.maxLength = 60;
+        label.replaceWith(input); input.focus(); input.select();
+        let done = false;
+        const finish = commit => {
+            if (done) return; done = true;
+            if (commit) { const value = input.value.trim(); members.forEach(m => { m.groupName = value; }); changed(true); }
+            renderLayers();
+        };
+        input.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') finish(true); else if (e.key === 'Escape') finish(false); });
+        input.addEventListener('blur', () => finish(true));
+    }
+    $('layers').addEventListener('dblclick', e => {
+        const head = e.target.closest('.layer-group');
+        if (head && e.target.closest('.layer-name')) return renameGroup(head); const row = e.target.closest('.layer'); if (row && e.target.closest('.layer-name')) startRename(row); });
     new Sortable($('layers'), {
         animation: 150, handle: '.layer-grip', draggable: '.layer', ghostClass: 'sortable-ghost',
         onEnd(event) {
@@ -2506,7 +2524,7 @@
         $('page-count').textContent = on ? `(${overlay.pages.items.length})` : '';
         if (!on) return;
         const live = liveId(), isLive = curPage === live;
-        box.innerHTML = `<select id="page-select" aria-label="Page being edited">${overlay.pages.items.map((p, i) => `<option value="${esc(p.id)}"${p.id === curPage ? ' selected' : ''}>${i + 1}. ${esc(p.name)}${p.id === live ? '  ● live' : ''}</option>`).join('')}</select>
+        box.innerHTML = `<select id="page-select" aria-label="Page being edited">${overlay.pages.items.map((p, i) => `<option value="${esc(p.id)}"${p.id === curPage ? ' selected' : ''}>${i + 1}. ${esc(p.name)}${p.enabled === false ? ' (off)' : ''}${p.id === live ? '  ● live' : ''}</option>`).join('')}</select>
             <button id="live-toggle" aria-pressed="${isLive}" ${isNew ? 'disabled' : ''} title="${isLive ? 'This page is showing on stream' : 'Show this page on stream'}">${isLive ? '● Live' : 'Make live'}</button>`;
     }
     function pagesPanelBusy() { const a = document.activeElement; return a && $('pages-panel').contains(a) && a.matches('input, select'); }
@@ -2523,12 +2541,13 @@
         panel.innerHTML = `
             <div class="pg-head"><span>Pages</span><button id="page-add" title="Add a blank page">+ Add page</button></div>
             <div class="pg-list" id="pg-list">${items.map((p, i) => `
-                <div class="pg-row${p.id === curPage ? ' current' : ''}" data-pid="${esc(p.id)}">
+                <div class="pg-row${p.id === curPage ? ' current' : ''}${p.enabled === false ? ' off' : ''}" data-pid="${esc(p.id)}">
                     <span class="pg-grip" title="Drag to reorder">${ICON.grip}</span>
                     <span class="pg-main"><span class="pg-name" title="Double-click to rename">${esc(p.name)}</span>
-                        <span class="pg-meta">${p.id === live ? '<span class="pg-live">Live</span> · ' : ''}${count(p.id)} element${count(p.id) === 1 ? '' : 's'}${p.duration ? ` · ${p.duration}s` : ''}</span></span>
+                        <span class="pg-meta">${p.id === live ? '<span class="pg-live">Live</span> · ' : ''}${p.enabled === false ? 'Off · ' : ''}${count(p.id)} element${count(p.id) === 1 ? '' : 's'}${p.duration ? ` · ${p.duration}s` : ''}</span></span>
                     <span class="pg-actions">
-                        ${p.id === live ? '' : `<button data-pg="live" class="go" title="${isNew ? 'Save first to go live' : 'Make this page live'}" ${isNew ? 'disabled' : ''}>▶</button>`}
+                        <button data-pg="toggle" class="${p.enabled === false ? '' : 'on'}" title="${p.enabled === false ? 'Turn this page on' : 'Turn this page off (skipped on stream)'}" aria-pressed="${p.enabled !== false}" ${p.enabled !== false && items.filter(x => x.enabled !== false).length === 1 ? 'disabled' : ''}>${p.enabled === false ? ICON.eyeOff : ICON.eye}</button>
+                        ${p.id === live || p.enabled === false ? '' : `<button data-pg="live" class="go" title="${isNew ? 'Save first to go live' : 'Make this page live'}" ${isNew ? 'disabled' : ''}>▶</button>`}
                         <button data-pg="dup" title="Duplicate page">⧉</button>
                         <button data-pg="del" class="danger" title="Delete page" ${items.length === 1 ? 'disabled' : ''}>✕</button>
                     </span>
@@ -2630,9 +2649,10 @@
         const items = overlay.pages.items;
         if (t?.id === 'pages-enable') return setPagesEnabled(true);
         if (t?.id === 'pages-disable') { if (confirm('Turn off pages? Every page’s elements stay, and they all show together in one view.')) setPagesEnabled(false); return; }
-        if (t?.id === 'page-add') { const id = pageSeq(); items.push({ id, name: `Page ${items.length + 1}`, duration: 0 }); changed(true); return switchEditPage(id); }
+        if (t?.id === 'page-add') { const id = pageSeq(); items.push({ id, name: `Page ${items.length + 1}`, duration: 0, enabled: true }); changed(true); return switchEditPage(id); }
         if (!row) return;
         const page = items.find(p => p.id === row.dataset.pid);
+        if (t?.dataset.pg === 'toggle') { page.enabled = page.enabled === false; changed(true); return renderPageBar(); }
         if (t?.dataset.pg === 'live') return livePage({ action: 'goto', page: page.id });
         if (t?.dataset.pg === 'dup') return duplicatePage(page);
         if (t?.dataset.pg === 'del') return deletePage(page);

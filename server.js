@@ -125,6 +125,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
         name: String(element.name || '').trim().slice(0, 80),
         locked: element.locked === true,
         group: sanitizeOverlayId(element.group).slice(0, 40),
+        groupName: element.group ? String(element.groupName || '').trim().slice(0, 60) : '',
         page: element.page === '*' ? '*' : sanitizeOverlayId(element.page).slice(0, 40),
         type,
         slideshow: {
@@ -286,10 +287,12 @@ function normalizePages(input = {}) {
         return {
             id,
             name: String(item?.name || '').trim().slice(0, 60) || `Page ${index + 1}`,
-            duration: Math.max(0, Math.min(86400, Number(item?.duration) || 0))
+            duration: Math.max(0, Math.min(86400, Number(item?.duration) || 0)),
+            enabled: item?.enabled !== false
         };
     });
-    if (!items.length) items.push({ id: 'page-1', name: 'Page 1', duration: 0 });
+    if (!items.length) items.push({ id: 'page-1', name: 'Page 1', duration: 0, enabled: true });
+    if (!items.some(item => item.enabled)) items[0].enabled = true;
     return {
         enabled: input.enabled === true,
         mode: input.mode === 'auto' ? 'auto' : 'manual',
@@ -392,7 +395,7 @@ function pageSnapshot(overlay) {
         index,
         count: items.length,
         auto: !!state?.auto,
-        pages: items.map(({ id, name, duration }) => ({ id, name, duration }))
+        pages: items.map(({ id, name, duration, enabled }) => ({ id, name, duration, enabled }))
     };
 }
 function broadcastPage(overlay) {
@@ -403,7 +406,7 @@ function scheduleAutoAdvance(overlay) {
     if (!state) return;
     clearTimeout(state.timer);
     state.timer = null;
-    if (!state.auto || !overlay.pages.enabled || overlay.pages.items.length < 2) return;
+    if (!state.auto || !overlay.pages.enabled || overlay.pages.items.filter(item => item.enabled).length < 2) return;
     const seconds = pageOf(overlay, state).duration || overlay.pages.cycleSeconds;
     state.timer = setTimeout(() => {
         const live = customOverlays[overlay.id];
@@ -418,16 +421,25 @@ function movePage(overlay, action, { target, auto } = {}) {
     if (!state) { state = { page: overlay.pages.items[0].id, auto: false, timer: null }; overlayPageState.set(overlay.id, state); }
     const items = overlay.pages.items;
     const current = Math.max(0, items.findIndex(item => item.id === state.page));
+    // Pages switched off in the editor are skipped by every move.
+    const step = dir => {
+        for (let i = 1; i <= items.length; i++) {
+            let at = current + dir * i;
+            if (at < 0 || at >= items.length) { if (!overlay.pages.loop) return -1; at = (at + items.length) % items.length; }
+            if (items[at].enabled) return at === current ? -1 : at;
+        }
+        return -1;
+    };
     let next = current;
-    if (action === 'next') next = current + 1 >= items.length ? (overlay.pages.loop ? 0 : -1) : current + 1;
-    else if (action === 'prev') next = current - 1 < 0 ? (overlay.pages.loop ? items.length - 1 : -1) : current - 1;
-    else if (action === 'first') next = 0;
-    else if (action === 'last') next = items.length - 1;
+    if (action === 'next') next = step(1);
+    else if (action === 'prev') next = step(-1);
+    else if (action === 'first') next = items.findIndex(item => item.enabled);
+    else if (action === 'last') next = items.map(item => item.enabled).lastIndexOf(true);
     else if (action === 'goto') {
         const key = String(target ?? '').trim().toLowerCase();
         next = items.findIndex(item => item.id === key || item.name.toLowerCase() === key);
         if (next < 0 && /^\d+$/.test(key)) next = Number(key) - 1;
-        if (next < 0 || next >= items.length) return false;
+        if (next < 0 || next >= items.length || !items[next].enabled) return false;
     }
     if (next < 0) {
         // Auto mode that reached the last page without looping simply stops.
@@ -450,7 +462,7 @@ function setPageAuto(overlay, on) {
 function syncOverlayPages(overlay, previous) {
     const state = overlayPageState.get(overlay.id) || { page: overlay.pages.items[0].id, auto: false, timer: null };
     overlayPageState.set(overlay.id, state);
-    if (!overlay.pages.items.some(item => item.id === state.page)) state.page = overlay.pages.items[0].id;
+    if (!overlay.pages.items.some(item => item.id === state.page && item.enabled)) state.page = (overlay.pages.items.find(item => item.enabled) || overlay.pages.items[0]).id;
     if (!previous || previous.pages?.mode !== overlay.pages.mode || previous.pages?.enabled !== overlay.pages.enabled) {
         state.auto = overlay.pages.enabled && overlay.pages.mode === 'auto';
     }

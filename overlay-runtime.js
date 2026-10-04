@@ -175,7 +175,7 @@
         root.style.height = `${overlay.canvas.height}px`;
         root.style.background = overlay.canvas.background || 'transparent';
         root.replaceChildren();
-        if (pagesOn(overlay) && !(overlay.pages.items || []).some(item => item.id === currentPage)) currentPage = overlay.pages.items[0].id;
+        if (pagesOn(overlay) && !(overlay.pages.items || []).some(item => item.id === currentPage && item.enabled !== false)) currentPage = (overlay.pages.items.find(item => item.enabled !== false) || overlay.pages.items[0]).id;
         for (const element of pageElements(overlay)) root.appendChild(buildNode(element));
         stopSlideshows(new Set([...slideshows.keys()].filter(id => !slideshowsKept.has(id))));
         refit();
@@ -318,7 +318,7 @@
                     currentPage = resolvePage(overlay, state.page);
                 } catch {}
             }
-            if (!currentPage) currentPage = overlay.pages.items[0].id;
+            if (!currentPage) currentPage = (overlay.pages.items.find(item => item.enabled !== false) || overlay.pages.items[0]).id;
         }
         render(overlay);
         return overlay;
