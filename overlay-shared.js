@@ -374,8 +374,8 @@
         if (box) track(box, 'b');
         else if (layers.length > (text ? 1 : 0)) track(null, 'b');
         Object.assign(out, {
-            backgroundPosition: positions.join(', '),
             background: layers.join(', '),
+            backgroundPosition: positions.join(', '),
             backgroundSize: sizes.join(', '),
             backgroundClip: clips.join(', '),
             webkitBackgroundClip: clips.join(', '),
