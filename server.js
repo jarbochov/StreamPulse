@@ -2743,15 +2743,25 @@ function normalizeGamePlan(input) {
         const name = String(entry?.name || '').trim().slice(0, 40);
         if (id && name && !lists.some(list => list.id === id)) lists.push({ id, name });
     }
-    const tiers = [];
-    for (const entry of (Array.isArray(input?.tiers) ? input.tiers : []).slice(0, 12)) {
-        const id = /^[A-Za-z0-9-]{1,24}$/.test(entry?.id || '') ? entry.id : '';
-        const label = String(entry?.label || '').trim().slice(0, 24);
-        const color = /^#[0-9a-f]{6}$/i.test(entry?.color || '') ? entry.color : '#b0b0b0';
-        if (id && label && !tiers.some(tier => tier.id === id)) tiers.push({ id, label, color });
-    }
-    if (!tiers.length && !Array.isArray(input?.tiers)) tiers.push(...DEFAULT_TIERS);
+    const cleanTiers = value => {
+        const out = [];
+        for (const entry of (Array.isArray(value) ? value : []).slice(0, 12)) {
+            const id = /^[A-Za-z0-9-]{1,24}$/.test(entry?.id || '') ? entry.id : '';
+            const label = String(entry?.label || '').trim().slice(0, 24);
+            const color = /^#[0-9a-f]{6}$/i.test(entry?.color || '') ? entry.color : '#b0b0b0';
+            if (id && label && !out.some(tier => tier.id === id)) out.push({ id, label, color });
+        }
+        return out;
+    };
+    // `tiers` is the default tier set; each list can have its own in `tierSets`.
+    let tiers = cleanTiers(input?.tiers);
+    if (!tiers.length && !Array.isArray(input?.tiers)) tiers = DEFAULT_TIERS.map(tier => ({ ...tier }));
     const validStatus = status => GAME_PLAN_STATUSES.includes(status) || lists.some(list => list.id === status);
+    const tierSets = {};
+    for (const [key, value] of Object.entries(input?.tierSets && typeof input.tierSets === 'object' ? input.tierSets : {})) {
+        if (validStatus(key) && Array.isArray(value)) tierSets[key] = cleanTiers(value);
+    }
+    const tiersFor = status => tierSets[status] || tiers;
     const items = (Array.isArray(input?.items) ? input.items : []).slice(0, 300).map((item, index) => ({
         id: sanitizeOverlayId(item?.id) || `game-${Date.now().toString(36)}-${index}`,
         name: String(item?.name || '').trim().slice(0, 120),
@@ -2763,18 +2773,18 @@ function normalizeGamePlan(input) {
         custom: item?.custom === true,
         customCover: /^(https?:\/\/|\/custom-overlay-assets\/)[^\s"'<>]{1,500}$/i.test(String(item?.customCover || '').trim()) ? String(item.customCover).trim() : '',
         rating: Math.max(0, Math.min(5, Math.round((Number(item?.rating) || 0) * 2) / 2)),
-        tier: tiers.some(tier => tier.id === item?.tier) ? item.tier : '',
+        tier: tiersFor(validStatus(item?.status) ? item.status : 'backlog').some(tier => tier.id === item?.tier) ? item.tier : '',
         tags: [...new Set((Array.isArray(item?.tags) ? item.tags : []).map(tag => String(tag || '').trim().slice(0, 24)).filter(Boolean))].slice(0, 8),
         finished: /^\d{4}-\d{2}-\d{2}$/.test(String(item?.finished || '')) ? item.finished : ''
     })).filter(item => item.name);
     const used = [...new Set(items.map(item => item.period).filter(Boolean))];
     const saved = (Array.isArray(input?.periods) ? input.periods : []).map(value => String(value || '').trim().slice(0, 40)).filter(value => used.includes(value));
     const periods = [...new Set([...saved, ...used])].slice(0, 40);
-    return { lists, tiers, items, periods };
+    return { lists, tiers, tierSets, items, periods };
 }
 
 function loadGamePlan() {
-    try { return normalizeGamePlan(JSON.parse(fs.readFileSync(GAME_PLAN_PATH, 'utf8'))); } catch { return { lists: [], tiers: DEFAULT_TIERS, items: [], periods: [] }; }
+    try { return normalizeGamePlan(JSON.parse(fs.readFileSync(GAME_PLAN_PATH, 'utf8'))); } catch { return { lists: [], tiers: DEFAULT_TIERS, tierSets: {}, items: [], periods: [] }; }
 }
 
 const gameKey = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
@@ -2800,6 +2810,7 @@ function buildGamePlanSnapshot() {
         lists: plan.lists,
         periods: plan.periods,
         tiers: plan.tiers,
+        tierSets: plan.tierSets,
         items: plan.items.map(item => {
             const game = item.custom ? { name: item.name } : publicGameInfo(item.name, item.igdbId);
             const raw = item.custom ? null : gameInfoCache[infoKey(item.name, item.igdbId)];

@@ -589,7 +589,7 @@
         for (const entry of plan?.lists || []) statusNames[entry.id] = entry.name;
         if (tiers) {
             if (config.tierSource === 'tier') {
-                const defs = (plan?.tiers?.length ? plan.tiers : TIER_LETTERS.slice(0, 6).map(([id, color]) => ({ id, label: id, color })));
+                const defs = (plan?.tierSets?.[config.filter] || (plan?.tiers?.length ? plan.tiers : TIER_LETTERS.slice(0, 6).map(([id, color]) => ({ id, label: id, color }))));
                 for (const def of defs) {
                     const tierItems = items.filter(item => item.tier === def.id);
                     if (tierItems.length) sections.push({ label: def.label, color: def.color, items: tierItems });
