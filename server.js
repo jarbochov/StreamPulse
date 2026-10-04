@@ -55,6 +55,7 @@ const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const EMOTE_CACHE_DIR = path.join(DATA_DIR, 'emote-cache');
 const TIMERS_PATH = path.join(DATA_DIR, 'timers.json');
 const CUSTOM_OVERLAYS_PATH = path.join(DATA_DIR, 'custom-overlays.json');
+const OVERLAY_PRESETS_PATH = path.join(DATA_DIR, 'overlay-presets.json');
 const CUSTOM_OVERLAY_ASSETS_DIR = path.join(DATA_DIR, 'custom-overlay-assets');
 const CUSTOM_OVERLAY_HISTORY_DIR = path.join(DATA_DIR, 'custom-overlay-history');
 const CUSTOM_OVERLAY_HISTORY_LIMIT = 30;
@@ -447,6 +448,28 @@ function saveCustomOverlays() {
 
 loadCustomOverlays();
 Object.values(customOverlays).forEach(overlay => syncOverlayPages(overlay));
+
+// User-saved element presets for the overlay editor. Element positions are relative to the preset's top-left corner.
+let overlayPresets = [];
+try { if (fs.existsSync(OVERLAY_PRESETS_PATH)) overlayPresets = normalizeOverlayPresets(JSON.parse(fs.readFileSync(OVERLAY_PRESETS_PATH, 'utf8'))); } catch (error) { console.warn('[Presets] Could not load overlay presets:', error.message); }
+
+function normalizeOverlayPresets(list) {
+    return (Array.isArray(list) ? list : []).slice(0, 100).map(preset => {
+        const elements = (Array.isArray(preset?.elements) ? preset.elements : []).slice(0, 40).map(normalizeOverlayElement);
+        const id = sanitizeOverlayId(preset?.id);
+        if (!id || !elements.length) return null;
+        return {
+            id, name: String(preset.name || 'Preset').trim().slice(0, 60) || 'Preset',
+            category: String(preset.category || 'My presets').trim().slice(0, 30) || 'My presets',
+            width: Math.max(1, Math.round(Number(preset.width) || 1)), height: Math.max(1, Math.round(Number(preset.height) || 1)),
+            elements
+        };
+    }).filter(Boolean);
+}
+
+function saveOverlayPresets() {
+    fs.writeFileSync(OVERLAY_PRESETS_PATH, JSON.stringify(overlayPresets, null, 2));
+}
 
 // Emote image cache: emote name → { path, format }
 const emoteCache = new Map();
@@ -2882,28 +2905,60 @@ async function geocodeWeather(location) {
 
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
+// Open-Meteo local times look like "2026-10-04T14:00" and are already in the city's own timezone.
+function weatherClock(iso) {
+    const match = /T(\d{2}):(\d{2})/.exec(String(iso || ''));
+    if (!match) return '';
+    const hour = Number(match[1]);
+    return `${hour % 12 || 12}:${match[2]} ${hour < 12 ? 'AM' : 'PM'}`;
+}
+function weatherHourLabel(iso) { return weatherClock(iso).replace(':00', ''); }
+function weatherDayLabel(iso) {
+    const date = new Date(`${String(iso).slice(0, 10)}T12:00:00Z`);
+    return Number.isNaN(date.getTime()) ? '' : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getUTCDay()];
+}
+
 async function readWeather(location, units) {
     const place = await geocodeWeather(location);
     const imperial = units === 'imperial';
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}`
-        + '&current=temperature_2m,apparent_temperature,relative_humidity_2m,is_day,weather_code,wind_speed_10m,wind_direction_10m'
-        + '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&timezone=auto'
+        + '&current=temperature_2m,apparent_temperature,relative_humidity_2m,is_day,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover,pressure_msl'
+        + '&hourly=temperature_2m,weather_code,precipitation_probability,is_day'
+        + '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset,uv_index_max&forecast_days=6&timezone=auto'
         + `&temperature_unit=${imperial ? 'fahrenheit' : 'celsius'}&wind_speed_unit=${imperial ? 'mph' : 'kmh'}`;
     const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!response.ok) throw new Error(`Forecast failed (${response.status})`);
     const data = await response.json();
     const now = data.current || {};
-    const [condition, dayIcon, nightIcon] = WEATHER_CODES[now.weather_code] || ['Unknown', '🌡️', '🌡️'];
+    const lookup = (code, night) => { const [label, dayIcon, nightIcon] = WEATHER_CODES[code] || ['Unknown', '🌡️', '🌡️']; return { condition: label, icon: night ? nightIcon : dayIcon }; };
     const round = value => (Number.isFinite(value) ? Math.round(value) : '');
+    const current = lookup(now.weather_code, now.is_day === 0);
+
+    // Hours after the current one, so "+1h" is always in the future.
+    const hourly = [];
+    const times = data.hourly?.time || [];
+    const start = times.findIndex(time => time > String(now.time || '').slice(0, 13) + ':59');
+    for (let i = Math.max(0, start), n = 0; i < times.length && n < 6; i++, n++) {
+        hourly.push({ time: weatherHourLabel(times[i]), temp: round(data.hourly.temperature_2m?.[i]), precip: round(data.hourly.precipitation_probability?.[i]), ...lookup(data.hourly.weather_code?.[i], data.hourly.is_day?.[i] === 0) });
+    }
+    // d1 is tomorrow; today's values stay in the high/low fields.
+    const daily = [];
+    for (let i = 1; i < (data.daily?.time || []).length && i <= 5; i++) {
+        daily.push({ day: weatherDayLabel(data.daily.time[i]), high: round(data.daily.temperature_2m_max?.[i]), low: round(data.daily.temperature_2m_min?.[i]), precip: round(data.daily.precipitation_probability_max?.[i]), ...lookup(data.daily.weather_code?.[i], false) });
+    }
     return {
         ok: true, error: '', updatedAt: Date.now(),
-        city: place.city, region: place.region, unit: imperial ? '°F' : '°C', wind_unit: imperial ? 'mph' : 'km/h',
+        city: place.city, region: place.region, unit: imperial ? '°F' : '°C', wind_unit: imperial ? 'mph' : 'km/h', pressure_unit: imperial ? 'inHg' : 'hPa',
         temp: round(now.temperature_2m), feels_like: round(now.apparent_temperature),
         humidity: round(now.relative_humidity_2m),
         wind: round(now.wind_speed_10m), wind_dir: Number.isFinite(now.wind_direction_10m) ? COMPASS[Math.round(now.wind_direction_10m / 45) % 8] : '',
-        condition, icon: now.is_day === 0 ? nightIcon : dayIcon, is_day: now.is_day !== 0,
+        gusts: round(now.wind_gusts_10m), cloud_cover: round(now.cloud_cover),
+        pressure: Number.isFinite(now.pressure_msl) ? (imperial ? (now.pressure_msl * 0.02953).toFixed(2) : String(Math.round(now.pressure_msl))) : '',
+        uv: round(data.daily?.uv_index_max?.[0]), sunrise: weatherClock(data.daily?.sunrise?.[0]), sunset: weatherClock(data.daily?.sunset?.[0]),
+        condition: current.condition, icon: current.icon, is_day: now.is_day !== 0,
         high: round(data.daily?.temperature_2m_max?.[0]), low: round(data.daily?.temperature_2m_min?.[0]),
-        precip_chance: round(data.daily?.precipitation_probability_max?.[0])
+        precip_chance: round(data.daily?.precipitation_probability_max?.[0]),
+        hourly, daily
     };
 }
 
@@ -3690,6 +3745,7 @@ function getBackupFileSpecs() {
         { src: HIGHLIGHTS_PATH, dest: 'data/highlights.jsonl' },
         { src: CLIP_CANDIDATES_PATH, dest: 'data/clip-candidates.json' },
         { src: CUSTOM_OVERLAYS_PATH, dest: 'data/custom-overlays.json' },
+        { src: OVERLAY_PRESETS_PATH, dest: 'data/overlay-presets.json' },
         { src: GAME_PLAN_PATH, dest: 'data/game-plan.json' },
         { src: path.join(DATA_DIR, 'alerts.json'), dest: 'data/alerts.json' }
     ];
@@ -5096,6 +5152,39 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify(Object.values(customOverlays).map(({ id, name, revision, updatedAt, createdAt, canvas, elements, pages }) => ({
             id, name, revision, updatedAt, createdAt, canvas, elementCount: (elements || []).length, pageCount: pages?.enabled ? pages.items.length : 0
         }))));
+        return;
+    }
+
+    if (pathname === '/api/overlay-presets' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify(overlayPresets));
+        return;
+    }
+    if (pathname === '/api/overlay-presets' && req.method === 'POST') {
+        try {
+            const [preset] = normalizeOverlayPresets([JSON.parse(await readRequestBody(req) || '{}')]);
+            if (!preset) throw new Error('A preset needs an id and at least one element');
+            const index = overlayPresets.findIndex(item => item.id === preset.id);
+            if (index >= 0) overlayPresets[index] = preset;
+            else if (overlayPresets.length >= 100) throw new Error('Preset limit reached (100). Delete some first.');
+            else overlayPresets.push(preset);
+            saveOverlayPresets();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(preset));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+    const presetMatch = pathname.match(/^\/api\/overlay-presets\/([^/]+)$/);
+    if (presetMatch && req.method === 'DELETE') {
+        const id = sanitizeOverlayId(decodeURIComponent(presetMatch[1]));
+        const before = overlayPresets.length;
+        overlayPresets = overlayPresets.filter(item => item.id !== id);
+        if (overlayPresets.length !== before) saveOverlayPresets();
+        res.writeHead(overlayPresets.length !== before ? 200 : 404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: overlayPresets.length !== before }));
         return;
     }
 

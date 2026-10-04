@@ -269,6 +269,10 @@ All other settings can be edited live via the [Config Editor](http://localhost:3
 | `weather.extra_locations` | array | `[]` | Extra cities (max 8), used as `{{weather.<city>.temp}}` |
 | `weather.units` | string | `imperial` | `imperial` (°F, mph) or `metric` (°C, km/h) |
 | `weather.poll_minutes` | number | `15` | How often to refresh the weather |
+
+Weather placeholders beyond the current temperature: `{{weather.gusts}}`, `cloud_cover`, `pressure`, `uv`, `sunrise`, `sunset`; the next six hours as `{{weather.h1.temp}}` … `h6` (`time`, `temp`, `icon`, `icon.url`, `condition`, `precip`); and the next five days as `{{weather.d1.high}}` … `d5` (`day`, `high`, `low`, `icon`, `icon.url`, `condition`, `precip`; `d1` is tomorrow). Extra cities get the same names, e.g. `{{weather.tokyo.d1.high}}`.
+
+**Overlay editor presets:** *Add element → Presets…* opens a searchable picker (counter, clock, latest activity, now playing, game banner, and weather cards/forecasts; weather presets only show while weather is enabled). Select elements and use the ☆ **Save as preset** button in the properties panel to build your own; they are stored in `data/overlay-presets.json` and included in backups.
 | `clip_candidates` | object | enabled | Beta candidate detection thresholds and event toggles |
 
 ### Goals Configuration
