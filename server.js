@@ -139,6 +139,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
             transition: ['none', 'fade', 'slide'].includes(element.slideshow?.transition) ? element.slideshow.transition : 'fade',
             direction: PAGE_DIRECTIONS.includes(element.slideshow?.direction) ? element.slideshow.direction : 'left',
             transitionMs: Math.max(0, Math.min(5000, Math.round(Number(element.slideshow?.transitionMs ?? 800)))),
+            advance: element.slideshow?.advance === 'manual' ? 'manual' : 'auto',
             caption: ['off', 'caption', 'name'].includes(element.slideshow?.caption) ? element.slideshow.caption : element.slideshow?.caption === true ? 'name' : 'off',
             kenBurns: element.slideshow?.kenBurns === true
         },
@@ -5383,6 +5384,21 @@ const server = http.createServer(async (req, res) => {
             } catch (err) { return respond(400, { error: err.message }); }
         }
         return respond(200, pageSnapshot(overlay));
+    }
+
+    const slideshowControlMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/slideshow$/);
+    if (slideshowControlMatch && req.method === 'POST') {
+        const respond = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+        const overlay = customOverlays[sanitizeOverlayId(decodeURIComponent(slideshowControlMatch[1]))];
+        if (!overlay) return respond(404, { error: 'Overlay not found' });
+        try {
+            const body = JSON.parse(await readRequestBody(req) || '{}');
+            const action = String(body.action || '');
+            if (!['next', 'prev', 'pause', 'play', 'toggle'].includes(action)) return respond(400, { error: 'action must be next, prev, pause, play or toggle' });
+            const element = body.element ? String(body.element) : '';
+            broadcastToOverlays('custom-overlay-slideshow', { id: overlay.id, action, element });
+            return respond(200, { ok: true, action, element: element || 'all' });
+        } catch (err) { return respond(400, { error: err.message }); }
     }
 
     const overlayIdRenameMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/rename-id$/);

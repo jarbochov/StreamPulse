@@ -1136,6 +1136,7 @@
     function mountSlideshow(node, element, options = {}) {
         const config = element.slideshow || {};
         const frozen = options.preview && !options.animate;
+        let paused = config.advance === 'manual';
         let items = [], order = [], position = -1, timer = null, refreshTimer = null, stopped = false, current = null, token = 0;
         node.replaceChildren();
         node.style.position = node.style.position || 'absolute';
@@ -1192,9 +1193,10 @@
             return { left: [w, 0], right: [-w, 0], up: [0, h], down: [0, -h] }[config.direction] || [w, 0];
         }
 
-        async function show() {
+        async function show(dir = 1) {
             timer = null;
             if (stopped || !items.length) return;
+            if (dir < 0) { position -= 2; if (position < -1) position += order.length; }
             const mine = ++token;
             let attempts = 0, slide = null, item = null;
             // Skip files that fail to load (deleted or corrupt) rather than getting stuck on them.
@@ -1232,7 +1234,7 @@
 
         function schedule(ms) {
             clearTimeout(timer);
-            if (stopped || frozen || items.length < 2) return;
+            if (stopped || frozen || paused || items.length < 2) return;
             timer = setTimeout(show, ms);
         }
 
@@ -1257,7 +1259,14 @@
 
         refresh(true);
         if (!frozen && config.source !== 'manual') refreshTimer = setInterval(() => refresh(false), 20000);
-        return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length };
+        const control = action => {
+            if (stopped || !items.length) return;
+            if (action === 'toggle') action = paused ? 'play' : 'pause';
+            if (action === 'next' || action === 'prev') { clearTimeout(timer); show(action === 'prev' ? -1 : 1); }
+            else if (action === 'pause') { paused = true; clearTimeout(timer); timer = null; }
+            else if (action === 'play') { paused = false; if (!timer) schedule(config.seconds * 1000); }
+        };
+        return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length, control };
     }
 
     root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };

@@ -109,6 +109,7 @@
         <div class="card toolbar">
             <span class="summary" id="summary">Loading…</span>
             <span class="sep"></span>
+            <label class="size" title="Show the + Tag and + Caption buttons on each asset"><input type="checkbox" id="show-edit"> Edit buttons</label>
             <button class="btn" id="select-all">Select shown</button>
             <button class="btn" id="tag-selected" hidden></button>
             <button class="btn" id="untag-selected" hidden></button>
@@ -135,7 +136,7 @@
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', oga: 'audio/ogg', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2', txt: 'text/plain', md: 'text/markdown', markdown: 'text/markdown' };
-    const prefs = Object.assign({ view: 'grid', size: 180, sort: 'newest', kind: 'all', usage: 'all', tag: '' }, JSON.parse(localStorage.getItem('assetLibraryPrefs') || '{}'));
+    const prefs = Object.assign({ view: 'grid', size: 180, sort: 'newest', kind: 'all', usage: 'all', tag: '', edit: true }, JSON.parse(localStorage.getItem('assetLibraryPrefs') || '{}'));
     let assets = [], shown = [];
     const selected = new Set();
 
@@ -281,8 +282,8 @@
                 <div class="thumb">${thumbHtml(asset)}</div>
                 <div class="info">
                     <div><div class="name">${esc(asset.label)}</div><div class="meta">${esc(asset.kind)} · ${formatSize(asset.size)} · ${formatDate(asset.modifiedAt)}</div></div>
-                    <div>${(asset.tags || []).map(tag => `<span class="badge tag">${esc(tag)}<button type="button" data-untag="${index}" data-tag="${esc(tag)}" title="Remove tag" aria-label="Remove tag ${esc(tag)}">×</button></span>`).join('')}<button class="btn small" data-act="tag" data-i="${index}" title="Add tags">+ Tag</button></div>
-                    ${asset.kind === 'image' || asset.kind === 'video' ? `<div class="meta">${asset.caption ? `Caption: ${esc(asset.caption)}` : ''} <button class="btn small" data-act="caption" data-i="${index}">${asset.caption ? 'Edit caption' : '+ Caption'}</button></div>` : ''}
+                    <div>${(asset.tags || []).map(tag => `<span class="badge tag">${esc(tag)}<button type="button" data-untag="${index}" data-tag="${esc(tag)}" title="Remove tag" aria-label="Remove tag ${esc(tag)}">×</button></span>`).join('')}${prefs.edit ? `<button class="btn small" data-act="tag" data-i="${index}" title="Add tags">+ Tag</button>` : ''}</div>
+                    ${(asset.kind === 'image' || asset.kind === 'video') && (asset.caption || prefs.edit) ? `<div class="meta">${asset.caption ? `Caption: ${esc(asset.caption)}` : ''} ${prefs.edit ? `<button class="btn small" data-act="caption" data-i="${index}">${asset.caption ? 'Edit caption' : '+ Caption'}</button>` : ''}</div>` : ''}
                     <div>${asset.usedBy.length ? asset.usedBy.map(user => `<span class="badge used" title="${esc(user.id)}">${esc(user.name || user.id)}</span>`).join('') : '<span class="badge">Unused</span>'}</div>
                     <div class="actions">
                         <button class="btn small" data-act="copy" data-i="${index}">Copy URL</button>
@@ -371,6 +372,8 @@
     }
     $('view-grid').addEventListener('click', () => { prefs.view = 'grid'; savePrefs(); render(); });
     $('view-list').addEventListener('click', () => { prefs.view = 'list'; savePrefs(); render(); });
+    $('show-edit').checked = prefs.edit !== false;
+    $('show-edit').addEventListener('change', () => { prefs.edit = $('show-edit').checked; savePrefs(); render(); });
     $('thumb-size').value = prefs.size;
     $('thumb-size').addEventListener('input', () => { prefs.size = Number($('thumb-size').value); savePrefs(); $('items').style.setProperty('--thumb', `${prefs.size}px`); });
     $('upload').addEventListener('change', () => { const files = [...$('upload').files]; $('upload').value = ''; if (files.length) uploadFiles(files); });

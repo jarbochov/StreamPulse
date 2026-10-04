@@ -129,7 +129,7 @@
         #asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .6rem; max-height: 55vh; overflow: auto; margin-top: .8rem; padding: 2px; }
         .asset-tile { position: relative; padding: 0; overflow: hidden; display: flex; flex-direction: column; text-align: left; border-radius: 8px; }
         .asset-tile[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-        .asset-tile .thumb { position: relative; flex: none; height: 90px; background: repeating-conic-gradient(var(--border) 0 25%, var(--border-strong) 0 50%) 0 0 / 14px 14px; }
+        .asset-tile .thumb { position: relative; flex: none; align-self: stretch; height: 90px; background: repeating-conic-gradient(var(--border) 0 25%, var(--border-strong) 0 50%) 0 0 / 14px 14px; }
         .asset-tile .thumb img, .asset-tile .thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
         .asset-tile .cap { padding: .3rem .45rem; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .btn-like { border: 1px solid var(--border); border-radius: 6px; padding: .45rem .75rem; background: var(--panel-2, var(--bg-raised)); cursor: pointer; font-size: 13px; }
@@ -144,12 +144,12 @@
         .layers-head { display: flex; align-items: center; justify-content: space-between; padding: .6rem .85rem .4rem; font-weight: 600; font-size: 12px; color: var(--text); }
         .layers-head small { color: var(--muted); font-weight: 400; }
         #layers { padding: 0 .5rem .6rem; display: grid; gap: 2px; align-content: start; flex: 1; }
-        .layer { display: grid; grid-template-columns: 16px 22px minmax(0, 1fr) auto; align-items: center; gap: .3rem; padding: .28rem .3rem; border-radius: 6px; border: 1px solid transparent; cursor: pointer; background: transparent; }
+        .layer { display: grid; grid-template-columns: 16px 30px minmax(0, 1fr) auto; align-items: center; gap: .4rem; padding: .3rem .3rem; border-radius: 6px; border: 1px solid transparent; cursor: pointer; background: transparent; }
         .layer:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
         .layer.selected { background: color-mix(in srgb, var(--accent-strong) 15%, transparent); border-color: color-mix(in srgb, var(--accent-strong) 47%, transparent); }
         .layer.is-hidden .layer-name { opacity: .45; text-decoration: line-through; }
         .layer-grip { color: var(--text-faint); cursor: grab; }
-        .layer-icon { font: 700 10px ui-monospace, Menlo, monospace; color: var(--muted); text-align: center; background: var(--field); border-radius: 4px; padding: .15rem 0; }
+        .layer-icon { font: 700 15px ui-monospace, Menlo, monospace; color: var(--muted); text-align: center; background: var(--field); border-radius: 6px; padding: .25rem 0; line-height: 1.2; }
         .layer-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .layer-name-input { padding: .1rem .3rem; }
         .layer-actions { display: flex; gap: 1px; }
@@ -197,7 +197,7 @@
         .add-menu.open .menu-panel { display: grid; gap: 1px; }
         .menu-panel button { justify-content: flex-start; border: 0; background: transparent; padding: .45rem .55rem; border-radius: 6px; }
         .menu-panel button:hover { background: color-mix(in srgb, var(--accent-strong) 18%, transparent); }
-        .menu-panel .glyph { font: 700 11px ui-monospace, Menlo, monospace; color: var(--accent); width: 26px; text-align: center; }
+        .menu-panel .glyph { font: 700 16px ui-monospace, Menlo, monospace; color: var(--accent); width: 30px; text-align: center; }
         .menu-panel small { color: var(--muted); margin-left: auto; padding-left: .8rem; }
         .zoom-controls { display: flex; align-items: center; gap: .2rem; margin-left: auto; }
         .zoom-controls .zoom-value { min-width: 54px; }
@@ -1336,7 +1336,9 @@
             ${F.select('slideshow.kinds', 'Include', c.kinds || 'image', [['image', 'Images'], ['video', 'Videos'], ['both', 'Images and videos']])}
             ${c.kinds === 'image' || !c.kinds ? '' : '<p class="hint">Videos play to the end before the next slide.</p>'}`);
         const play = F.section('slide-play', 'Slideshow: playback', `
-            ${c.kinds === 'video' ? '' : F.number('slideshow.seconds', 'Seconds per image', c.seconds ?? 5, { min: 1, max: 3600, step: 0.5 })}
+            ${F.select('slideshow.advance', 'Advance', c.advance || 'auto', [['auto', 'Automatically'], ['manual', 'Manually (next / previous controls)']])}
+            ${c.advance === 'manual' ? '<p class="hint">Starts on the first slide and only changes when you use the controls below, or the API.</p>' : ''}
+            ${c.advance === 'manual' || c.kinds === 'video' ? '' : F.number('slideshow.seconds', 'Seconds per image', c.seconds ?? 5, { min: 1, max: 3600, step: 0.5 })}
             ${F.select('slideshow.order', 'Order', c.order || 'sequential', [['sequential', 'Newest first, in order'], ['shuffle', 'Shuffle (no repeats until all shown)'], ['random', 'Random each time']])}
             ${F.select('slideshow.fit', 'Fit', c.fit || 'cover', [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (whole image)']])}
             ${F.select('slideshow.transition', 'Transition', c.transition || 'fade', [['fade', 'Fade'], ['slide', 'Slide'], ['none', 'None']])}
@@ -1344,7 +1346,14 @@
             ${c.transition === 'slide' ? F.select('slideshow.direction', 'Slide direction', c.direction || 'left', [['left', 'From the right (moves left)'], ['right', 'From the left (moves right)'], ['up', 'From the bottom (moves up)'], ['down', 'From the top (moves down)']]) : ''}
             ${F.check('slideshow.kenBurns', 'Slow zoom (Ken Burns)', c.kenBurns === true)}
             ${F.select('slideshow.caption', 'Caption', c.caption === true ? 'name' : (c.caption || 'off'), [['off', 'None'], ['caption', 'Asset caption (set in Asset Library)'], ['name', 'File name']])}`);
-        return what + play;
+        const remote = F.section('slide-remote', 'Slideshow: live controls', `
+            <div class="seg-row" style="display:flex;gap:.4rem">
+                <button type="button" data-slide-ctl="prev">Previous</button>
+                <button type="button" data-slide-ctl="toggle">Pause / play</button>
+                <button type="button" data-slide-ctl="next">Next</button>
+            </div>
+            <p class="hint">Controls the saved overlay while it is running (OBS or the Open Runtime page). Also available as <code>POST /api/custom-overlays/${esc(overlay.id)}/slideshow</code> with <code>{"action":"next"}</code> (next, prev, pause, play, toggle), so a Stream Deck or hotkey tool can drive it.</p>`, false);
+        return what + play + remote;
     }
     async function refreshSlideCount() {
         const out = document.getElementById('slide-count'), el = primary();
@@ -1372,6 +1381,11 @@
     }
     $('properties').addEventListener('input', event => { if (event.target.id === 'slide-tag-q') renderTagSuggestions(); });
     $('properties').addEventListener('click', event => {
+        const ctl = event.target.closest('[data-slide-ctl]');
+        if (ctl) {
+            const el = primary();
+            fetch(`/api/custom-overlays/${encodeURIComponent(overlay.id)}/slideshow`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: ctl.dataset.slideCtl, element: el?.id }) }).catch(() => {});
+        }
         const add = event.target.closest('[data-slide-addtag]'), remove = event.target.closest('[data-slide-untag]');
         if (add) changeSlideTags(tags => [...tags, add.dataset.slideAddtag]);
         if (remove) changeSlideTags(tags => tags.filter(tag => tag !== remove.dataset.slideUntag));
@@ -1510,7 +1524,7 @@
         }
     }
     // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
-    const RERENDER_PATHS = new Set(['style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'slideshow.source', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
+    const RERENDER_PATHS = new Set(['style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'slideshow.source', 'slideshow.advance', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
     $('properties').addEventListener('change', event => {
         if (!event.target.matches('[data-period-pick]')) return;
         const field = event.target.closest('.field');

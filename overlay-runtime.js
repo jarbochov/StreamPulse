@@ -346,6 +346,9 @@
                 else if (message.type === 'custom-overlay-page' && message.data?.id === overlayId) {
                     if (!resolvePage(currentOverlay, pageParam)) switchPage(resolvePage(currentOverlay, message.data.page));
                 }
+                else if (message.type === 'custom-overlay-slideshow' && message.data?.id === overlayId) {
+                    for (const [id, entry] of slideshows) if (!message.data.element || message.data.element === id) entry.handle.control(message.data.action);
+                }
                 else if (message.type === 'custom-overlay-update' && message.data?.id === overlayId) {
                     if (message.data.overlay) {
                         if (pagesOn(message.data.overlay) && pageParam) currentPage = resolvePage(message.data.overlay, pageParam) || currentPage;
