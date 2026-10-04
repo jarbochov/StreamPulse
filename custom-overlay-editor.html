@@ -664,7 +664,8 @@
             justifyContent: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'flex-end' : 'flex-start'
         });
         Object.assign(node.style, shared.decorationStyle(s, el.type));
-        Object.assign(node.style, shared.textEffectStyle(s));
+        Object.assign(node.style, shared.textEffectStyle(s, el.type));
+        shared.applyBorderGradient(node, s);
         if (el.type === 'game-list') node.style.display = 'block';
         if (el.type === 'markdown') {
             node.style.setProperty('--hs', (el.headingScale ?? 100) / 100);
@@ -1003,7 +1004,8 @@
             const seg = event.target.closest('[data-seg-value]');
             if (seg) {
                 const path = seg.parentElement.dataset.segPath;
-                getTargets().forEach(target => setPath(target, path, seg.dataset.segValue));
+                const segValue = path.endsWith('.enabled') ? seg.dataset.segValue === 'true' : seg.dataset.segValue;
+                getTargets().forEach(target => setPath(target, path, segValue));
                 seg.parentElement.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button === seg)));
                 onApply(path, event); changed(true); return;
             }
@@ -1092,7 +1094,7 @@
         const weight = F.select('style.fontWeight', 'Weight', s.fontWeight, [['400', 'Normal'], ['600', 'Semi-bold'], ['700', 'Bold'], ['900', 'Black']]);
         return F.section('typography', alert ? 'Message text' : 'Typography', `
             <label class="field"><span>Font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text">${fontOptions(s.fontFamily)}</select></label>
-            ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${el.textFit === 'fit' && TEXT_TYPES.has(el.type) ? '' : F.number('style.fontSize', el.textFit === 'shrink' && TEXT_TYPES.has(el.type) ? 'Max size (px)' : 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) && !(el.type === 'random-text' && el.random?.marquee) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size set here'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${el.type === 'markdown' ? F.number('headingScale', 'Heading size (% of normal)', el.headingScale ?? 100, { min: 40, max: 200, step: 5 }) + F.select('columns', 'Columns', String(el.columns || 1), [['1', '1 column'], ['2', '2 columns'], ['3', '3 columns'], ['4', '4 columns']]) + ((el.columns || 1) > 1 ? F.select('headingSpan', 'Headings spanning all columns', String(el.headingSpan ?? 6), [['6', 'All headings (H1–H6)'], ['1', 'H1 only'], ['2', 'H1–H2'], ['3', 'H1–H3'], ['4', 'H1–H4'], ['0', 'None — headings stay in a column']]) : '') : ''}${F.color('style.color', 'Text color', s.color)}
+            ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${el.textFit === 'fit' && TEXT_TYPES.has(el.type) ? '' : F.number('style.fontSize', el.textFit === 'shrink' && TEXT_TYPES.has(el.type) ? 'Max size (px)' : 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) && !(el.type === 'random-text' && el.random?.marquee) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size set here'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${el.type === 'markdown' ? F.number('headingScale', 'Heading size (% of normal)', el.headingScale ?? 100, { min: 40, max: 200, step: 5 }) + F.select('columns', 'Columns', String(el.columns || 1), [['1', '1 column'], ['2', '2 columns'], ['3', '3 columns'], ['4', '4 columns']]) + ((el.columns || 1) > 1 ? F.select('headingSpan', 'Headings spanning all columns', String(el.headingSpan ?? 6), [['6', 'All headings (H1–H6)'], ['1', 'H1 only'], ['2', 'H1–H2'], ['3', 'H1–H3'], ['4', 'H1–H4'], ['0', 'None — headings stay in a column']]) : '') : ''}${TEXT_TYPES.has(el.type) ? fillControl(s, 'textGradient', 'Text color', F.color('style.color', 'Color', s.color)) : F.color('style.color', 'Text color', s.color)}
             <div class="grid2">${F.seg('style.textAlign', 'Horizontal', s.textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${el.type === 'markdown' && el.columns > 1 ? '' : F.seg('style.verticalAlign', 'Vertical', s.verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>
             <div class="grid2">${F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>`}
             ${fontExtras}`)
@@ -1103,17 +1105,20 @@
         return F.section('textEffects', 'Text effects', `
             <div class="grid2">${F.select('style.textTransform', 'Case', s.textTransform || 'none', [['none', 'As typed'], ['uppercase', 'UPPERCASE'], ['lowercase', 'lowercase'], ['capitalize', 'Capitalize Words']])}${F.select('style.textDecoration', 'Decoration', s.textDecoration || 'none', [['none', 'None'], ['underline', 'Underline'], ['line-through', 'Strikethrough']])}</div>
             <div class="grid2">${F.number('style.textStroke.width', 'Outline (px)', s.textStroke?.width || 0, { min: 0, max: 20, step: 0.5 })}${s.textStroke?.width > 0 ? F.color('style.textStroke.color', 'Outline color', s.textStroke?.color || '#000000') : '<span></span>'}</div>
-            <div class="grid2">${F.number('style.textShadow.blur', 'Text shadow (px)', s.textShadow?.blur || 0, { min: 0, max: 60 })}${s.textShadow?.blur > 0 ? F.color('style.textShadow.color', 'Shadow color', s.textShadow?.color || 'rgba(0,0,0,0.7)') : '<span></span>'}</div>`, false);
+            ${s.textGradient?.enabled ? '<p class="hint">Text shadow is off while the text color is a gradient.</p>' : `<div class="grid2">${F.number('style.textShadow.blur', 'Text shadow (px)', s.textShadow?.blur || 0, { min: 0, max: 60 })}${s.textShadow?.blur > 0 ? F.color('style.textShadow.color', 'Shadow color', s.textShadow?.color || 'rgba(0,0,0,0.7)') : '<span></span>'}</div>`}`, false);
     }
-    const gradientFields = (s, label = 'Gradient') => {
-        const g = s.gradient || {};
-        if (!g.enabled) return '';
-        return `<div class="grid2">${F.select('style.gradient.type', 'Type', g.type || 'linear', [['linear', 'Linear'], ['radial', 'Radial']])}${g.type === 'radial' ? F.select('style.gradient.position', 'Center', g.position || 'center', [['center', 'Center'], ['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']]) : F.number('style.gradient.angle', 'Angle (°)', g.angle ?? 135, { min: 0, max: 360 })}</div>
-            <div class="grid2">${F.color('style.gradient.from', 'From', g.from)}${F.color('style.gradient.to', 'To', g.to)}</div>
-            ${F.color('style.gradient.mid', 'Middle (optional)', g.mid || '', { clear: true })}
-            ${F.check('style.gradient.animate', 'Animate', g.animate)}
-            ${g.animate ? F.number('style.gradient.speed', 'Speed (sec per sweep)', g.speed ?? 8, { min: 1, max: 120 }) : ''}`;
-    };
+    const gradOf = (s, key) => ({ from: '#1f6feb', to: '#8957e5', angle: 135, type: 'linear', position: 'center', speed: 8, ...(s[key] || {}) });
+    const fillSeg = (s, key, label) => F.seg(`style.${key}.enabled`, label, s[key]?.enabled ? 'true' : 'false', [['false', 'Solid color', 'Solid'], ['true', 'Gradient', 'Gradient']]);
+    function gradientFields(s, key = 'gradient') {
+        const g = gradOf(s, key), at = name => `style.${key}.${name}`;
+        return `<div class="grid2">${F.select(at('type'), 'Type', g.type, [['linear', 'Linear'], ['radial', 'Radial']])}${g.type === 'radial' ? F.select(at('position'), 'Center', g.position, [['center', 'Center'], ['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']]) : F.number(at('angle'), 'Angle (°)', g.angle, { min: 0, max: 360 })}</div>
+            <div class="grid2">${F.color(at('from'), 'From', g.from)}${F.color(at('to'), 'To', g.to)}</div>
+            ${F.color(at('mid'), 'Middle (optional)', g.mid || '', { clear: true })}
+            ${F.check(at('animate'), 'Animate', g.animate)}
+            ${g.animate ? F.number(at('speed'), 'Speed (sec per sweep)', g.speed, { min: 1, max: 120 }) : ''}`;
+    }
+    // Solid | Gradient switch for one color: background, text color or border color.
+    const fillControl = (s, key, label, solidField) => fillSeg(s, key, label) + (s[key]?.enabled ? gradientFields(s, key) : solidField);
     const hasBox = s => s.borderWidth > 0 || (s.background && s.background !== 'transparent') || s.gradient?.enabled;
     const paddingField = el => TEXT_TYPES.has(el.type) && hasBox(el.style) ? F.number('style.padding', 'Padding (px)', el.style.padding || 0, { min: 0, max: 200 }) : '';
     const noRadius = (s, shape) => shape && ['circle', 'pill', 'line'].includes(s.shape);
@@ -1125,11 +1130,9 @@
         return F.section('fill', shape ? 'Fill & outline' : 'Background & border', `
             ${!shape && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) : ''}
             ${shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
-            ${F.color('style.background', shape ? 'Fill' : 'Background', s.background, { clear: true })}
-            ${F.check('style.gradient.enabled', 'Gradient fill', s.gradient?.enabled)}
-            ${gradientFields(s)}
+            ${fillControl(s, 'gradient', shape ? 'Fill' : 'Background', F.color('style.background', 'Color', s.background, { clear: true }))}
             <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${noRadius(s, shape) ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
-            ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}
+            ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : fillControl(s, 'borderGradient', 'Border color', F.color('style.borderColor', 'Color', s.borderColor, { clear: true }))}
             ${paddingField(el)}`);
     }
     // Text without a visible box has nothing for blur or box shadow to act on, so those controls stay hidden until it does.
@@ -1150,12 +1153,10 @@
     function appearanceBody(el, multi) {
         const s = el.style, shape = el.type === 'shape';
         return `
-            ${F.color('style.background', shape ? 'Fill' : 'Background', s.background, { clear: true })}
+            ${fillControl(s, 'gradient', shape ? 'Fill' : 'Background', F.color('style.background', 'Color', s.background, { clear: true }))}
             <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${noRadius(s, shape) ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
-            ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}
+            ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : fillControl(s, 'borderGradient', 'Border color', F.color('style.borderColor', 'Color', s.borderColor, { clear: true }))}
             ${paddingField(el)}
-            ${F.check('style.gradient.enabled', 'Gradient fill', s.gradient?.enabled)}
-            ${gradientFields(s)}
             ${boxEffectFields(el, multi)}
             ${F.range('style.opacity', 'Opacity', s.opacity ?? 1, { min: 0, max: 100, scale: 0.01, unit: '%' })}
             ${!multi && shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
@@ -1350,7 +1351,7 @@
         for (const el of selectedElements()) { el.width = clamp(el.width, 1, 3840); el.height = clamp(el.height, 1, 2160); }
         renderCanvas(); updateStatusBar();
         if (path === 'name') renderLayers();
-        if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || RERENDER_PATHS.has(path)) renderProperties();
+        if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || RERENDER_PATHS.has(path) || /^style\.(gradient|textGradient|borderGradient)\.(enabled|type|animate)$/.test(path)) renderProperties();
         changed(false);
     });
     $('properties').addEventListener('change', event => {

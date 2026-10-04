@@ -97,7 +97,8 @@
             justifyContent: style.textAlign === 'center' ? 'center' : style.textAlign === 'right' ? 'flex-end' : 'flex-start'
         });
         Object.assign(node.style, shared.decorationStyle(style, element.type));
-        Object.assign(node.style, shared.textEffectStyle(style));
+        Object.assign(node.style, shared.textEffectStyle(style, element.type));
+        shared.applyBorderGradient(node, style);
         if (element.type === 'game-list') node.style.display = 'block';
         if (element.type === 'markdown') {
             node.style.setProperty('--hs', (element.headingScale ?? 100) / 100);

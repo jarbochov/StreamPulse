@@ -99,6 +99,22 @@ function sanitizeOverlayId(value) {
     return String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 }
 
+// Shared by background, text and border gradients: linear or radial, 2-3 stops, optional animation.
+function normalizeGradient(g) {
+    g = g || {};
+    return {
+        enabled: g.enabled === true,
+        from: String(g.from || '#1f6feb').slice(0, 80),
+        to: String(g.to || '#8957e5').slice(0, 80),
+        angle: Math.max(0, Math.min(360, Number(g.angle) || 135)),
+        type: g.type === 'radial' ? 'radial' : 'linear',
+        mid: String(g.mid || '').slice(0, 80),
+        position: ['center', 'top', 'bottom', 'left', 'right'].includes(g.position) ? g.position : 'center',
+        animate: g.animate === true,
+        speed: Math.max(1, Math.min(120, Number(g.speed) || 8))
+    };
+}
+
 function normalizeOverlayElement(element = {}, index = 0) {
     const type = CUSTOM_OVERLAY_ELEMENT_TYPES.has(element.type) ? element.type : 'text';
     return {
@@ -198,16 +214,13 @@ function normalizeOverlayElement(element = {}, index = 0) {
             objectFit: element.style?.objectFit === 'contain' ? 'contain' : 'cover',
             shape: ['rectangle', 'circle', 'pill', 'line'].includes(element.style?.shape) ? element.style.shape : 'rectangle',
             fill: String(element.style?.fill || '#1f6feb').slice(0, 80),
-            gradient: {
-                enabled: element.style?.gradient?.enabled === true,
-                from: String(element.style?.gradient?.from || '#1f6feb').slice(0, 80),
-                to: String(element.style?.gradient?.to || '#8957e5').slice(0, 80),
-                angle: Math.max(0, Math.min(360, Number(element.style?.gradient?.angle) || 135)),
-                type: element.style?.gradient?.type === 'radial' ? 'radial' : 'linear',
-                mid: String(element.style?.gradient?.mid || '').slice(0, 80),
-                position: ['center', 'top', 'bottom', 'left', 'right'].includes(element.style?.gradient?.position) ? element.style.gradient.position : 'center',
-                animate: element.style?.gradient?.animate === true,
-                speed: Math.max(1, Math.min(120, Number(element.style?.gradient?.speed) || 8))
+            gradient: normalizeGradient(element.style?.gradient),
+            textGradient: normalizeGradient(element.style?.textGradient),
+            borderGradient: normalizeGradient(element.style?.borderGradient),
+            blur: Math.max(0, Math.min(60, Number(element.style?.blur) || 0)),
+            shadow: {
+                blur: Math.max(0, Math.min(100, Number(element.style?.shadow?.blur) || 0)),
+                color: String(element.style?.shadow?.color || 'rgba(0,0,0,0.5)').slice(0, 80)
             },
             textStroke: {
                 width: Math.max(0, Math.min(20, Number(element.style?.textStroke?.width) || 0)),
@@ -219,11 +232,6 @@ function normalizeOverlayElement(element = {}, index = 0) {
             },
             textTransform: ['none', 'uppercase', 'lowercase', 'capitalize'].includes(element.style?.textTransform) ? element.style.textTransform : 'none',
             textDecoration: ['none', 'underline', 'line-through'].includes(element.style?.textDecoration) ? element.style.textDecoration : 'none',
-            blur: Math.max(0, Math.min(60, Number(element.style?.blur) || 0)),
-            shadow: {
-                blur: Math.max(0, Math.min(100, Number(element.style?.shadow?.blur) || 0)),
-                color: String(element.style?.shadow?.color || 'rgba(0,0,0,0.5)').slice(0, 80)
-            },
             lineHeight: Math.max(0.5, Math.min(3, Number(element.style?.lineHeight) || 1.2)),
             letterSpacing: Math.max(-10, Math.min(50, Number(element.style?.letterSpacing) || 0))
         }
