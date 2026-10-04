@@ -193,7 +193,10 @@
             } else if (element.type === 'embed') {
                 const frame = document.createElement('iframe');
                 frame.src = expandVariables(element.src || '') || 'about:blank';
-                frame.sandbox = 'allow-forms allow-popups allow-scripts';
+                // Own widgets (timers, goals, music) need their origin to call the local API; external pages stay sandboxed.
+                let sameOrigin = false;
+                try { sameOrigin = new URL(frame.src, location.href).origin === location.origin; } catch { /* invalid URL stays sandboxed */ }
+                frame.sandbox = 'allow-forms allow-popups allow-scripts' + (sameOrigin ? ' allow-same-origin' : '');
                 frame.referrerPolicy = 'no-referrer';
                 frame.style.cssText = 'width:100%;height:100%;border:0;';
                 node.appendChild(frame);

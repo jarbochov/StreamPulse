@@ -706,7 +706,10 @@
             const url = expand(el.src);
             if (!/^https?:\/\//i.test(url)) { node.appendChild(placeholder('Enter an http(s) webpage URL')); return; }
             const frame = document.createElement('iframe');
-            frame.src = url; frame.sandbox = 'allow-forms allow-popups allow-scripts'; frame.referrerPolicy = 'no-referrer';
+            frame.src = url;
+            let sameOrigin = false;
+            try { sameOrigin = new URL(url, location.href).origin === location.origin; } catch { /* invalid URL stays sandboxed */ }
+            frame.sandbox = 'allow-forms allow-popups allow-scripts' + (sameOrigin ? ' allow-same-origin' : ''); frame.referrerPolicy = 'no-referrer';
             node.appendChild(frame);
         } else if (el.type === 'markdown') {
             node.innerHTML = shared.renderMarkdown(expand(shared.elementContent(el)));
