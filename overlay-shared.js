@@ -415,7 +415,7 @@
         else if (text && style.background && style.background !== 'transparent') add(`linear-gradient(${style.background}, ${style.background})`, null, 'border-box');
         const positions = [], anims = [];
         const track = (g, name) => {
-            positions.push(g?.animate ? `var(--sp-${name}) 50%` : '0% 50%');
+            positions.push(g?.animate ? (slidesVertically(g) ? `50% var(--sp-${name})` : `var(--sp-${name}) 50%`) : '0% 50%');
             if (g?.animate) anims.push(`sp-shift-${name} ${Math.max(1, g.speed || 8)}s ease-in-out infinite alternate`);
         };
         if (text) track(text, 't');
@@ -439,10 +439,17 @@
         return g.type === 'radial' ? `radial-gradient(circle at ${g.position || 'center'}, ${stops})` : `linear-gradient(${g.angle ?? 135}deg, ${stops})`;
     }
 
+    // Slide along the axis the gradient actually changes on; a 0/180deg linear gradient doesn't vary horizontally.
+    function slidesVertically(g) {
+        if (g?.type === 'radial') return false;
+        const rad = (Number(g?.angle ?? 135) * Math.PI) / 180;
+        return Math.abs(Math.cos(rad)) > Math.abs(Math.sin(rad));
+    }
+
     function gradientStyle(g) {
         ensureGradientKeyframes();
         return g.animate
-            ? { background: gradientCss(g), backgroundSize: '300% 300%', animation: `sp-gradient-shift ${Math.max(1, g.speed || 8)}s ease-in-out infinite alternate` }
+            ? { background: gradientCss(g), backgroundSize: '300% 300%', animation: `${slidesVertically(g) ? 'sp-gradient-shift-y' : 'sp-gradient-shift'} ${Math.max(1, g.speed || 8)}s ease-in-out infinite alternate` }
             : { background: gradientCss(g), backgroundSize: '', animation: '' };
     }
 
@@ -452,7 +459,7 @@
         tag.id = 'sp-gradient-keyframes';
         // Registered properties let text and box gradients animate on separate timers.
         tag.textContent = '@property --sp-t { syntax: "<percentage>"; inherits: false; initial-value: 0%; } @property --sp-b { syntax: "<percentage>"; inherits: false; initial-value: 0%; } '
-            + '@keyframes sp-gradient-shift { from { background-position: 0% 50%; } to { background-position: 100% 50%; } } '
+            + '@keyframes sp-gradient-shift { from { background-position: 0% 50%; } to { background-position: 100% 50%; } } @keyframes sp-gradient-shift-y { from { background-position: 50% 0%; } to { background-position: 50% 100%; } } '
             + '@keyframes sp-shift-t { from { --sp-t: 0%; } to { --sp-t: 100%; } } @keyframes sp-shift-b { from { --sp-b: 0%; } to { --sp-b: 100%; } }';
         document.head.appendChild(tag);
     }
