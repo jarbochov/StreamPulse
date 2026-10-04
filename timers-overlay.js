@@ -210,6 +210,11 @@
             document.documentElement.style.background = `#${params.get('bgcolor')}`;
             body.style.background = 'transparent';
         }
+        if (params.has('font')) {
+            const font = params.get('font');
+            document.documentElement.style.setProperty('--font-family', font);
+            if (window.OverlayShared) { OverlayShared.loadGoogleFont(font); OverlayShared.loadAssetFonts(); }
+        }
         if (params.has('timercolor')) document.documentElement.style.setProperty('--timer-background', `#${params.get('timercolor')}`);
         if (params.has('textcolor')) document.documentElement.style.setProperty('--text-color', `#${params.get('textcolor')}`);
         if (params.has('labelcolor')) document.documentElement.style.setProperty('--label-color', `#${params.get('labelcolor')}`);
@@ -367,7 +372,10 @@
     let flipPrev = {};
 
     function altFraction(live) {
-        if (kind === 'countdown') return Math.max(0, Math.min(1, 1 - (live.percentComplete || 0)));
+        if (kind === 'countdown') {
+            const left = Math.max(0, Math.min(1, 1 - (live.percentComplete || 0)));
+            return params.get('ringfill') === 'fill' ? 1 - left : left;
+        }
         return ((live.elapsedMs || 0) % 60000) / 60000;
     }
 
