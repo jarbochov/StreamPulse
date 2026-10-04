@@ -153,9 +153,9 @@
     }
 
     // ================================================================
-    // GRID / CLOUD VIEW — center-weighted spiral layout
+    // CLOUD VIEW — center-weighted spiral layout (view=cloud)
     // ================================================================
-    function renderGridView(hashtags) {
+    function renderCloudView(hashtags) {
         const container = document.getElementById('grid-container');
         container.style.display = 'block';
         container.style.position = 'relative';
@@ -163,6 +163,8 @@
 
         const W = 1920, H = 1080;
         const PAD = 40;
+        // A cloud of thousands of tags is unreadable, so it shows the top 60 unless a limit is set.
+        if (!LIMIT) hashtags = hashtags.slice(0, 60);
         const n = hashtags.length;
         if (n === 0) { container.innerHTML = ''; return; }
 
@@ -280,6 +282,31 @@
     }
 
     // ================================================================
+    // GRID VIEW — even tiles in columns (view=grid)
+    // ================================================================
+    function renderGridView(hashtags) {
+        const container = document.getElementById('grid-container');
+        container.style.display = 'block';
+        container.style.position = 'relative';
+        container.style.overflow = 'hidden';
+        container.classList.remove('auto-scroll');
+        const cols = Math.min(8, Math.max(1, parseInt(urlParams.get('columns')) || 4));
+        const fontPx = Math.round({ sm: 30, md: 42, lg: 58 }[SIZE === 'sm' || SIZE === 'lg' ? SIZE : 'md'] * (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--font-scale')) || 1));
+        const gap = 14, pad = 40, rowH = Math.round(fontPx * 1.9);
+        const rowsFit = Math.max(1, Math.floor((1080 - pad * 2 + gap) / (rowH + gap)));
+        // Without auto-scroll, show only the tiles that fit on screen.
+        const shown = SCROLL ? hashtags : hashtags.slice(0, rowsFit * cols);
+        const html = shown.map(h => `<div class="grid-tile" style="font-size:${fontPx}px;height:${rowH}px"><span class="tag">${escapeHtml(h.tag)}</span>${COUNTS ? `<span class="count">${h.count}</span>` : ''}</div>`).join('');
+        container.innerHTML = `<div class="grid-tiles" style="grid-template-columns:repeat(${cols},minmax(0,1fr));gap:${gap}px;padding:${pad}px">${html}</div>`;
+        const tiles = container.firstElementChild, overflow = tiles.scrollHeight - 1080;
+        if (SCROLL && overflow > 0) {
+            tiles.style.setProperty('--grid-scroll', `-${overflow}px`);
+            tiles.style.animationDuration = `${Math.max(10, Math.round(shown.length / cols * 2))}s`;
+            tiles.classList.add('grid-scroll');
+        }
+    }
+
+    // ================================================================
     // MAIN
     // ================================================================
     function applyTheme(cfg) {
@@ -331,7 +358,9 @@
                 document.getElementById('filter-info').textContent = label;
             }
 
-            if (VIEW === 'grid') {
+            if (VIEW === 'cloud') {
+                renderCloudView(hashtags);
+            } else if (VIEW === 'grid') {
                 renderGridView(hashtags);
             } else {
                 renderScrollView(hashtags);
@@ -344,9 +373,8 @@
     loadHashtags();
 
     // Auto-refresh only reloads data (for grid view staying on screen)
-    if (VIEW === 'grid' && REFRESH > 0) {
+    if (VIEW !== 'scroll' && REFRESH > 0) {
         setInterval(() => {
-            document.getElementById('grid-container').classList.remove('auto-scroll');
             loadHashtags();
         }, REFRESH * 1000);
     }

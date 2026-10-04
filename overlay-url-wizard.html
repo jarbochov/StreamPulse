@@ -70,12 +70,13 @@
 
     <main class="container">
         <div class="intro">
-            Create copy-ready browser-source URLs for Credits, Goals, and Viewer Count. These settings override only
+            Create copy-ready browser-source URLs for Credits, Stats, Goals, and Viewer Count. These settings override only
             the selected URL; your saved overlay settings remain unchanged. Manage goals in the
             <a href="/goals-editor.html">Goals Manager</a>.
         </div>
         <div class="overlay-picker" role="group" aria-label="Choose an overlay to configure">
             <button type="button" data-overlay-choice="credits" aria-pressed="true">Credits</button>
+            <button type="button" data-overlay-choice="stats" aria-pressed="false">Stats</button>
             <button type="button" data-overlay-choice="goals" aria-pressed="false">Goals</button>
             <button type="button" data-overlay-choice="viewers" aria-pressed="false">Viewer Count</button>
         </div>
@@ -152,6 +153,43 @@
                     </div>
                 </section>
 
+                <section class="card overlay-config" data-overlay="stats" hidden>
+                    <h2>Stats</h2>
+                    <div class="form-row">
+                        <label for="stats-range">Date range</label>
+                        <select id="stats-range">
+                            <option value="all">All time</option>
+                            <option value="days">Last N days</option>
+                            <option value="date">Single date</option>
+                            <option value="between">From / to dates</option>
+                        </select>
+                    </div>
+                    <div class="form-row" id="stats-days-row">
+                        <label for="stats-days">Days</label>
+                        <input id="stats-days" type="number" min="1" step="1" placeholder="7">
+                    </div>
+                    <div class="form-row" id="stats-date-row">
+                        <label for="stats-date">Date</label>
+                        <input id="stats-date" type="date">
+                    </div>
+                    <div class="form-row" id="stats-from-row">
+                        <label for="stats-from">From</label>
+                        <input id="stats-from" type="date">
+                    </div>
+                    <div class="form-row" id="stats-to-row">
+                        <label for="stats-to">To</label>
+                        <input id="stats-to" type="date">
+                    </div>
+                    <div class="form-row">
+                        <label for="stats-limit">Rows per list</label>
+                        <input id="stats-limit" type="number" min="1" step="1" placeholder="20">
+                    </div>
+                    <div class="form-row">
+                        <label for="stats-refresh">Refresh (seconds)</label>
+                        <input id="stats-refresh" type="number" min="5" step="1" placeholder="60">
+                    </div>
+                </section>
+
                 <section class="card overlay-config" data-overlay="viewers" hidden>
                     <h2>Viewer Count</h2>
                     <div class="form-row">
@@ -172,6 +210,10 @@
                     <div class="url-item" data-overlay="credits">
                         <div class="url-heading"><h3>Credits</h3><button class="button" data-copy="credits-url">Copy</button></div>
                         <a id="credits-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                    </div>
+                    <div class="url-item" data-overlay="stats" hidden>
+                        <div class="url-heading"><h3>Stats</h3><button class="button" data-copy="stats-url">Copy</button></div>
+                        <a id="stats-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
                     </div>
                     <div class="url-item" data-overlay="goals" hidden>
                         <div class="url-heading"><h3>Goal — Single</h3><button class="button" data-copy="goal-single-url">Copy</button></div>
@@ -195,6 +237,7 @@
                 <thead><tr><th>Overlay</th><th>Parameters</th><th>Purpose</th></tr></thead>
                 <tbody>
                     <tr data-overlay="credits"><td>Credits</td><td><code>duration</code> <code>speed</code> <code>days</code> <code>preview</code> <code>datapath</code></td><td>Set roll timing, the data window, preview mode, or an advanced data location.</td></tr>
+                    <tr data-overlay="stats" hidden><td>Stats</td><td><code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>limit</code> <code>refresh</code></td><td>Choose the date window, how many rows each list shows, and how often it reloads.</td></tr>
                     <tr data-overlay="goals" hidden><td>Goal</td><td><code>goal</code> <code>mode</code> <code>ids</code> <code>interval</code> <code>skipcompleted</code> <code>pausecomplete</code> <code>fontscale</code></td><td>Select one goal or cycle a subset, and override cycle behavior or type scale.</td></tr>
                     <tr data-overlay="viewers" hidden><td>Viewer Count</td><td><code>label</code> <code>fontscale</code></td><td>Override the count label or type scale.</td></tr>
                 </tbody>
@@ -207,6 +250,7 @@
     const $ = id => document.getElementById(id);
     const inputIds = [
         'credits-timing', 'credits-duration', 'credits-speed', 'credits-days', 'credits-preview', 'credits-datapath',
+        'stats-range', 'stats-days', 'stats-date', 'stats-from', 'stats-to', 'stats-limit', 'stats-refresh',
         'goal-single', 'goal-fontscale', 'goal-interval', 'goal-skipcompleted', 'goal-pausecomplete',
         'viewer-label', 'viewer-fontscale'
     ];
@@ -244,6 +288,18 @@
 
     function refreshUrls() {
         updateCreditsTiming();
+        const range = $('stats-range').value;
+        $('stats-days-row').style.display = range === 'days' ? '' : 'none';
+        $('stats-date-row').style.display = range === 'date' ? '' : 'none';
+        $('stats-from-row').style.display = $('stats-to-row').style.display = range === 'between' ? '' : 'none';
+        setUrl('stats-url', buildUrl('/stats.html', {
+            days: range === 'days' ? numberValue('stats-days', 1) : '',
+            date: range === 'date' ? $('stats-date').value : '',
+            from: range === 'between' ? $('stats-from').value : '',
+            to: range === 'between' ? $('stats-to').value : '',
+            limit: numberValue('stats-limit', 1),
+            refresh: numberValue('stats-refresh', 5)
+        }));
         const timing = $('credits-timing').value;
         const credits = {
             days: numberValue('credits-days', 1),
@@ -356,7 +412,8 @@
 
     refreshUrls();
     loadGoals();
-    selectOverlay('credits');
+    const requested = new URLSearchParams(location.search).get('overlay');
+    selectOverlay(['credits', 'stats', 'goals', 'viewers'].includes(requested) ? requested : 'credits');
     </script>
 </body>
 </html>

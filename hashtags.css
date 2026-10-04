@@ -105,6 +105,14 @@ body {
     transition: transform 0.2s;
 }
 
+/* Grid view */
+.grid-tiles { display: grid; align-content: start; width: 1920px; }
+.grid-tiles.grid-scroll { animation: grid-scroll 30s ease-in-out infinite alternate; }
+@keyframes grid-scroll { from { transform: translateY(0); } to { transform: translateY(var(--grid-scroll, 0)); } }
+.grid-tile { display: flex; align-items: baseline; justify-content: center; gap: .4em; padding: 0 .6em; border-radius: 10px; background: rgba(255, 255, 255, 0.06); overflow: hidden; white-space: nowrap; line-height: 1.9; }
+.grid-tile .tag { color: var(--accent-color); overflow: hidden; text-overflow: ellipsis; }
+.grid-tile .count { opacity: 0.55; font-size: 0.65em; }
+
 .grid-tag .tag { color: var(--accent-color); }
 .grid-tag .count { opacity: 0.5; font-size: 0.65em; }
 

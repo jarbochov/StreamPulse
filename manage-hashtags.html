@@ -89,7 +89,8 @@
                     <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">View Mode</label>
                     <select id="ht-view" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                         <option value="scroll">Scroll (credits-style)</option>
-                        <option value="grid">Grid / Cloud</option>
+                        <option value="grid">Grid (even tiles)</option>
+                        <option value="cloud">Cloud (sized by count)</option>
                     </select>
                 </div>
                 <div>
@@ -101,7 +102,7 @@
                     </select>
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Columns (scroll)</label>
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Columns (scroll / grid)</label>
                     <select id="ht-columns" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                         <option value="1">1</option>
                         <option value="2">2</option>
@@ -120,7 +121,7 @@
                     </select>
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Limit (0 = all)</label>
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Limit (0 = all; cloud default 60)</label>
                     <input type="number" id="ht-limit" value="0" min="0" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                 </div>
                 <div>
@@ -156,7 +157,7 @@
                     <input type="checkbox" id="ht-weight" onchange="updateHashtagUrl()"> Weighted sizing (cloud)
                 </label>
                 <label id="ht-scroll-wrap" style="font-size: 0.8rem; color: var(--text-muted); display: none; align-items: center; gap: 0.3rem;">
-                    <input type="checkbox" id="ht-autoscroll" onchange="updateHashtagUrl()"> Auto-scroll overflow
+                    <input type="checkbox" id="ht-autoscroll" onchange="updateHashtagUrl()"> Auto-scroll all tags (otherwise only what fits)
                 </label>
             </div>
             <div style="margin-top: 0.75rem; padding: 0.6rem 0.75rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; display: flex; align-items: center; gap: 0.5rem;">
@@ -186,16 +187,17 @@
     // Overlay URL builder
     function updateHashtagUrl() {
         const view = document.getElementById('ht-view').value;
-        const isGrid = view === 'grid';
+        const isGrid = view === 'grid' || view === 'cloud';
+        const isCloud = view === 'cloud';
 
-        document.getElementById('ht-weight-wrap').style.display = isGrid ? 'flex' : 'none';
-        document.getElementById('ht-scroll-wrap').style.display = isGrid ? 'flex' : 'none';
+        document.getElementById('ht-weight-wrap').style.display = isCloud ? 'flex' : 'none';
+        document.getElementById('ht-scroll-wrap').style.display = view === 'grid' ? 'flex' : 'none';
         document.getElementById('ht-duration-wrap').style.display = isGrid ? 'none' : '';
 
         const params = new URLSearchParams();
         params.set('view', view);
         params.set('sort', document.getElementById('ht-sort').value);
-        if (!isGrid) params.set('columns', document.getElementById('ht-columns').value);
+        if (!isCloud) params.set('columns', document.getElementById('ht-columns').value);
         params.set('size', document.getElementById('ht-size').value);
 
         const limit = parseInt(document.getElementById('ht-limit').value) || 0;
@@ -219,8 +221,8 @@
         if (!isGrid && duration > 0) params.set('duration', duration);
 
         if (!document.getElementById('ht-counts').checked) params.set('counts', 'false');
-        if (isGrid && document.getElementById('ht-weight').checked) params.set('weight', 'true');
-        if (isGrid && document.getElementById('ht-autoscroll').checked) params.set('scroll', 'true');
+        if (isCloud && document.getElementById('ht-weight').checked) params.set('weight', 'true');
+        if (view === 'grid' && document.getElementById('ht-autoscroll').checked) params.set('scroll', 'true');
 
         const base = `${location.protocol}//${location.host}/hashtags.html`;
         document.getElementById('ht-url').textContent = `${base}?${params.toString()}`;

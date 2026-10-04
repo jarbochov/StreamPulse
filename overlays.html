@@ -56,15 +56,15 @@
         const groups = [
             { title: 'Credits & stats', manage: ['Credits editor', '/credits-editor.html'], items: [
                 { name: 'Credits', desc: 'Scrolling end-of-stream credits. Add ?preview=true to preview with sample data.', path: '/credits.html', customize: ['/overlay-url-wizard.html', 'Customize'], size: '1920×1080' },
-                { name: 'Stats', desc: 'Chat and community statistics. Supports days, date, from and to filters.', path: '/stats.html', customize: ['/overlay-url-wizard.html', 'Customize'] },
-                { name: 'Viewer count', desc: 'Live viewer count with optional label and font scale.', path: '/viewers.html', customize: ['/overlay-url-wizard.html', 'Customize'] }
+                { name: 'Stats', desc: 'Chat and community statistics. Supports days, date, from and to filters.', path: '/stats.html', customize: ['/overlay-url-wizard.html?overlay=stats', 'Customize'] },
+                { name: 'Viewer count', desc: 'Live viewer count with optional label and font scale.', path: '/viewers.html', customize: ['/overlay-url-wizard.html?overlay=viewers', 'Customize'] }
             ] },
             { title: 'Hashtags', manage: ['Hashtag tools', '/manage-hashtags.html'], items: [
-                { name: 'Hashtags', desc: 'Hashtag leaderboard. Views: scroll or grid; sort, columns, limit, days and refresh parameters.', path: '/hashtags.html', customize: ['/hashtag-stats.html', 'Stats'] }
+                { name: 'Hashtags', desc: 'Hashtag leaderboard. Views: scroll, grid (tiles) or cloud; sort, columns, limit, days and refresh parameters.', path: '/hashtags.html', customize: ['/manage-hashtags.html', 'Customize'] }
             ] },
             { title: 'Goals', manage: ['Goals manager', '/goals-editor.html'], items: [
-                { name: 'Goal — single', desc: 'One goal. Add ?goal=<id> to pick which.', path: '/goal.html', customize: ['/overlay-url-wizard.html', 'Customize'] },
-                { name: 'Goal — cycle', desc: 'Rotates through enabled goals. Supports ids, interval, skipcompleted and pausecomplete.', path: '/goal.html?mode=cycle', customize: ['/overlay-url-wizard.html', 'Customize'] }
+                { name: 'Goal — single', desc: 'One goal. Add ?goal=<id> to pick which.', path: '/goal.html', customize: ['/overlay-url-wizard.html?overlay=goals', 'Customize'] },
+                { name: 'Goal — cycle', desc: 'Rotates through enabled goals. Supports ids, interval, skipcompleted and pausecomplete.', path: '/goal.html?mode=cycle', customize: ['/overlay-url-wizard.html?overlay=goals', 'Customize'] }
             ] },
             { title: 'Music', badge: 'beta', manage: ['Music settings', '/music-editor.html'], items: [
                 { name: 'Music — full', desc: 'Album art with title, artist and album.', path: '/music.html?mode=full', customize: ['/music-url-wizard.html', 'Customize'] },
