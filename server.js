@@ -5390,9 +5390,23 @@ const server = http.createServer(async (req, res) => {
                 const action = String(body.action || '');
                 if (!overlay.pages.enabled) return respond(400, { error: 'Pages are not enabled for this overlay' });
                 if (action === 'auto') setPageAuto(overlay, typeof body.auto === 'boolean' ? body.auto : undefined);
+                else if (['enable', 'disable', 'toggle'].includes(action)) {
+                    const targets = (Array.isArray(body.page) ? body.page : [body.page]).map(value => String(value ?? '').trim().toLowerCase());
+                    const items = overlay.pages.items;
+                    const found = targets.map(key => items.find((item, i) => item.id === key || item.name.toLowerCase() === key || (/^\d+$/.test(key) && i === Number(key) - 1)));
+                    if (!targets.length || found.some(item => !item)) return respond(404, { error: 'Page not found' });
+                    const wanted = found.map(item => action === 'toggle' ? !item.enabled : action === 'enable');
+                    const after = items.map(item => { const at = found.indexOf(item); return at >= 0 ? wanted[at] : item.enabled; });
+                    if (!after.some(Boolean)) return respond(400, { error: 'At least one page must stay enabled' });
+                    found.forEach((item, at) => { item.enabled = wanted[at]; });
+                    saveCustomOverlays();
+                    syncOverlayPages(overlay, overlay);
+                    broadcastToOverlays('custom-overlay-update', { id: overlay.id, overlay });
+                    broadcastPage(overlay);
+                }
                 else if (['next', 'prev', 'first', 'last', 'goto'].includes(action)) {
                     if (!movePage(overlay, action, { target: body.page }) && action === 'goto') return respond(404, { error: 'Page not found' });
-                } else return respond(400, { error: 'action must be next, prev, first, last, goto or auto' });
+                } else return respond(400, { error: 'action must be next, prev, first, last, goto, auto, enable, disable or toggle' });
             } catch (err) { return respond(400, { error: err.message }); }
         }
         return respond(200, pageSnapshot(overlay));

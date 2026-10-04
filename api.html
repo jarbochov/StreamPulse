@@ -609,8 +609,8 @@
                 {
                     method: 'POST', path: '/api/custom-overlays/:id/page',
                     desc: 'Switch pages on a multipage overlay',
-                    body: '{ "action": "next" | "prev" | "first" | "last" | "goto" | "auto", "page": "id, name or 1-based number (goto)", "auto": true|false }',
-                    details: 'Pushes the change live to every browser source. Returns 400 if pages are not enabled. A control panel is available at /overlay-control.html?id=<id>.'
+                    body: '{ "action": "next" | "prev" | "first" | "last" | "goto" | "auto" | "enable" | "disable" | "toggle", "page": "id, name or 1-based number (or an array for enable/disable/toggle)", "auto": true|false }',
+                    details: 'Pushes the change live to every browser source. enable/disable/toggle turn pages on or off and save the change; disabled pages are skipped by next/prev/auto-advance, and at least one page must stay enabled. Pages belong to one overlay, so to change several screens send one request per overlay id. Example: curl -X POST localhost:3000/api/custom-overlays/main-scene/page -H "Content-Type: application/json" -d \'{"action":"disable","page":"Sponsors"}\'. Returns 400 if pages are not enabled. A control panel is available at /overlay-control.html?id=<id>.'
                 },
                 {
                     method: 'POST', path: '/api/custom-overlays/:id/slideshow',
