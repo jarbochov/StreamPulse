@@ -348,6 +348,8 @@
     const TEXT_FILL_TYPES = new Set(['text', 'random-text', 'markdown']);
     const isTextGradient = (style, type) => TEXT_FILL_TYPES.has(type) && style?.textGradient?.enabled === true;
 
+    const hasBoxFill = style => style?.gradient?.enabled === true || (!!style?.background && !/^(transparent|rgba\(0,\s*0,\s*0,\s*0\))$/i.test(style.background));
+
     function decorationStyle(style = {}, type = '') {
         const out = {
             backdropFilter: style.blur > 0 ? `blur(${style.blur}px)` : '',
@@ -355,7 +357,7 @@
         };
         const text = isTextGradient(style, type) ? style.textGradient : null;
         const box = style.gradient?.enabled && type !== 'progress' ? style.gradient : null;
-        if (!text && !box) return Object.assign(out, { backgroundSize: '', backgroundClip: '', webkitBackgroundClip: '', animation: '' });
+        if (!text && !box) return Object.assign(out, { backgroundSize: '', backgroundClip: '', webkitBackgroundClip: '', backgroundPosition: '', animation: '' });
         ensureGradientKeyframes();
         // One background list: the text gradient is clipped to the letters, the box gradient or color fills the box behind it.
         const layers = [], sizes = [], clips = [];
@@ -363,13 +365,21 @@
         if (text) add(gradientCss(text), text, 'text');
         if (box) add(gradientCss(box), box, 'border-box');
         else if (text && style.background && style.background !== 'transparent') add(`linear-gradient(${style.background}, ${style.background})`, null, 'border-box');
-        const animated = [text, box].find(g => g?.animate);
+        const positions = [], anims = [];
+        const track = (g, name) => {
+            positions.push(g?.animate ? `var(--sp-${name}) 50%` : '0% 50%');
+            if (g?.animate) anims.push(`sp-shift-${name} ${Math.max(1, g.speed || 8)}s ease-in-out infinite alternate`);
+        };
+        if (text) track(text, 't');
+        if (box) track(box, 'b');
+        else if (layers.length > (text ? 1 : 0)) track(null, 'b');
         Object.assign(out, {
+            backgroundPosition: positions.join(', '),
             background: layers.join(', '),
             backgroundSize: sizes.join(', '),
             backgroundClip: clips.join(', '),
             webkitBackgroundClip: clips.join(', '),
-            animation: animated ? `sp-gradient-shift ${Math.max(1, animated.speed || 8)}s ease-in-out infinite alternate` : ''
+            animation: anims.join(', ')
         });
         if (text) out.color = 'transparent';
         return out;
@@ -392,7 +402,10 @@
         if (document.getElementById('sp-gradient-keyframes')) return;
         const tag = document.createElement('style');
         tag.id = 'sp-gradient-keyframes';
-        tag.textContent = '@keyframes sp-gradient-shift { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }';
+        // Registered properties let text and box gradients animate on separate timers.
+        tag.textContent = '@property --sp-t { syntax: "<percentage>"; inherits: false; initial-value: 0%; } @property --sp-b { syntax: "<percentage>"; inherits: false; initial-value: 0%; } '
+            + '@keyframes sp-gradient-shift { from { background-position: 0% 50%; } to { background-position: 100% 50%; } } '
+            + '@keyframes sp-shift-t { from { --sp-t: 0%; } to { --sp-t: 100%; } } @keyframes sp-shift-b { from { --sp-b: 0%; } to { --sp-b: 100%; } }';
         document.head.appendChild(tag);
     }
 
@@ -431,6 +444,8 @@
             webkitTextStroke: stroke ? `${style.textStroke.width}px ${style.textStroke.color || '#000'}` : '',
             paintOrder: stroke ? 'stroke fill' : '',
             textShadow: style.textShadow?.blur > 0 && !isTextGradient(style, type) ? `0 2px ${style.textShadow.blur}px ${style.textShadow.color || 'rgba(0,0,0,.7)'}` : '',
+            // Clipped gradient text ignores text-shadow, so a drop-shadow filter follows the letters instead (only when no box fill would be shadowed too).
+            filter: style.textShadow?.blur > 0 && isTextGradient(style, type) && !hasBoxFill(style) ? `drop-shadow(0 2px ${style.textShadow.blur}px ${style.textShadow.color || 'rgba(0,0,0,.7)'})` : '',
             textTransform: style.textTransform && style.textTransform !== 'none' ? style.textTransform : '',
             textDecoration: style.textDecoration && style.textDecoration !== 'none' ? style.textDecoration : ''
         };
@@ -870,5 +885,5 @@
         if (saved.children) node.replaceChildren(...saved.children);
     }
 
-    root.OverlayShared = { applyBorderGradient, textEffectStyle, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);
