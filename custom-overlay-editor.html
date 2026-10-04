@@ -1258,28 +1258,41 @@
     }
     function gameListSection(el) {
         const g = el.gameList || {};
-        return F.section('gamelist', 'Game list', `
+        const layout = g.layout || 'grid';
+        const compact = layout === 'grid' || layout === 'strip';
+        const covers = g.showCovers !== false;
+        const titles = g.showTitles !== false;
+        const what = F.section('gamelist', 'Game list: what to show', `
             ${F.select('gameList.filter', 'Show', g.filter || 'scheduled', [['scheduled', 'Scheduled games'], ['backlog', 'Backlog'], ['played', 'Played'], ...(liveStatus.gamePlan?.lists || []).map(list => [list.id, `List: ${list.name}`]), ['all', 'Everything']])}
             ${periodPicker(g)}
-            <div class="grid2">${F.number('gameList.maxPeriods', 'Max periods (0 = all)', g.maxPeriods || 0, { min: 0, max: 20 })}${F.number('gameList.periodsAcross', 'Periods across (0 = auto)', g.periodsAcross || 0, { min: 0, max: 8 })}</div>
-            ${F.select('gameList.layout', 'Layout', g.layout || 'grid', [['grid', 'Cover grid'], ['strip', 'Cover strip'], ['list', 'Text list'], ['kanban', 'Columns (one per group)']])}
-            ${g.layout === 'grid' || !g.layout ? F.number('gameList.columns', 'Columns (0 = auto-fit the box)', g.columns ?? 3, { min: 0, max: 12 }) : ''}
-            <div class="grid2">${F.number('gameList.gap', 'Gap (px)', g.gap ?? 12, { min: 0, max: 80 })}${F.number('gameList.max', 'Max games (0 = all)', g.max || 0, { min: 0, max: 100 })}</div>
-            ${F.select('gameList.meta', 'Extra line', g.meta || 'none', [['none', 'None'], ['year', 'Release year'], ['genres', 'Genres'], ['note', 'Your note'], ['rating', 'Star rating'], ['tags', 'Tags']])}
+            <div class="grid2">${F.number('gameList.maxPeriods', 'Max periods (0 = all)', g.maxPeriods || 0, { min: 0, max: 20 })}${F.number('gameList.max', 'Max games (0 = all)', g.max || 0, { min: 0, max: 100 })}</div>
             ${F.select('gameList.sort', 'Order', g.sort || 'plan', [['plan', 'Plan order'], ['rating', 'Highest rating first'], ['name', 'Name A–Z']])}
-            ${g.showCovers === false ? '' : `${F.number('gameList.coverScale', 'Cover size (%) — grid/strip can only shrink', g.coverScale || 100, { min: 25, max: 400 })}
-            ${F.select('gameList.coverFit', 'Cover fit', g.coverFit || 'cover', [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (whole cover, letterboxed)'], ['natural', 'Natural proportions (no crop)']])}
-            <p class="hint">IGDB covers all share one shape, so Cover fit only shows on custom artwork with a different shape.</p>`}
-            <div class="grid2">${g.headings === false ? '<span></span>' : F.number('gameList.headingSize', 'Heading size (px, 0 = auto)', g.headingSize || 0, { min: 0, max: 300 })}${g.showTitles === false ? '<span></span>' : F.number('gameList.titleSize', 'Title size (px, 0 = auto)', g.titleSize || 0, { min: 0, max: 300 })}</div>
-            ${g.showTitles === false ? '' : F.select('gameList.titleWrap', 'Long titles', g.titleWrap || 'ellipsis', [['ellipsis', 'Cut off with …'], ['wrap', 'Wrap onto more lines']])}
-            ${F.select('gameList.fit', 'If the list is too tall', g.fit || 'none', [['none', 'Clip it'], ['shrink', 'Shrink everything to fit']])}
-            <div class="grid2">${F.select('gameList.alignH', 'Horizontal position', g.alignH || 'left', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']])}${F.select('gameList.alignV', 'Vertical position', g.alignV || 'top', [['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']])}</div>
-            ${F.check('gameList.showCovers', 'Show covers', g.showCovers !== false)}
-            ${F.check('gameList.showTitles', 'Show titles', g.showTitles !== false)}
             ${F.check('gameList.headings', 'Group by period with headings', g.headings !== false)}
             ${F.check('gameList.highlightCurrent', 'Highlight the game you are playing now', g.highlightCurrent !== false)}
             ${g.highlightCurrent === false ? '' : F.color('gameList.accent', 'Highlight color', g.accent || '#3fb950')}
             <p class="hint">Games come from the <a href="/game-plan-editor.html" target="_blank" style="color:var(--accent)">Game Plan</a>. “Playing now” follows your Twitch category.</p>`);
+        const lay = F.section('gamelayout', 'Game list: layout', `
+            ${F.select('gameList.layout', 'Layout', layout, [['grid', 'Cover grid'], ['strip', 'Cover strip (one row)'], ['list', 'Text list'], ['kanban', 'Columns (one per group)']])}
+            ${layout === 'kanban' ? '<p class="hint">Each group (period, or list when showing everything) gets its own column.</p>' : `${F.number('gameList.periodsAcross', 'Groups across (0 = auto)', g.periodsAcross || 0, { min: 0, max: 8 })}<p class="hint">How many groups (periods) sit side by side.</p>`}
+            ${layout === 'grid' ? `${F.number('gameList.columns', 'Games per row in a group (0 = auto)', g.columns ?? 3, { min: 0, max: 12 })}<p class="hint">Auto picks the biggest covers that fit the box.</p>` : ''}
+            ${F.number('gameList.gap', 'Gap (px)', g.gap ?? 12, { min: 0, max: 80 })}
+            ${F.select('gameList.fit', 'If it is too tall', g.fit || 'none', [['none', 'Clip it'], ['shrink', 'Shrink everything to fit (text too)']])}
+            <div class="grid2">${F.select('gameList.alignH', 'Horizontal position', g.alignH || 'left', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']])}${F.select('gameList.alignV', 'Vertical position', g.alignV || 'top', [['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']])}</div>`);
+        const look = F.section('gamecovers', 'Game list: covers & titles', `
+            ${F.check('gameList.showCovers', 'Show covers', covers)}
+            ${F.check('gameList.showTitles', 'Show titles', titles)}
+            ${covers ? `${F.number('gameList.coverScale', 'Cover size (%)', g.coverScale || 100, { min: 25, max: 400 })}
+            ${F.select('gameList.coverFit', 'Cover fit', g.coverFit || 'cover', [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (whole cover, letterboxed)'], ['natural', 'Natural proportions (no crop)']])}
+            <p class="hint">IGDB covers all share one shape, so Cover fit only shows on custom artwork. Grid and strip covers can only shrink below the cell width.</p>` : ''}
+            ${titles && covers && compact ? F.select('gameList.titlePlacement', 'Title position', g.titlePlacement || 'below', [['below', 'Below the cover'], ['overlay', 'On the cover (bottom)']]) : ''}
+            ${titles ? F.select('gameList.titleWrap', 'Long titles', g.titleWrap || 'ellipsis', [['ellipsis', 'Cut off with …'], ['wrap', 'Wrap onto more lines']]) : ''}
+            ${F.select('gameList.meta', 'Extra line', g.meta || 'none', [['none', 'None'], ['year', 'Release year'], ['genres', 'Genres'], ['note', 'Your note'], ['rating', 'Star rating'], ['tags', 'Tags']])}`);
+        const text = F.section('gametext', 'Game list: text sizes', `
+            <p class="hint">Percentages of this element's font size (Typography). Change that one to scale all the text; use these to tune the parts.</p>
+            ${g.headings === false ? '' : F.number('gameList.headingScale', 'Group heading (%)', g.headingScale || 100, { min: 10, max: 400 })}
+            ${titles || !covers ? F.number('gameList.titleScale', 'Game title (%)', g.titleScale || (compact ? 80 : 100), { min: 10, max: 400 }) : ''}
+            ${g.meta && g.meta !== 'none' ? F.number('gameList.metaScale', 'Extra line (%)', g.metaScale || (compact ? 65 : 70), { min: 10, max: 400 }) : ''}`);
+        return what + lay + look + text;
     }
     function alertSection(el) {
         const a = el.alert || {};
@@ -1359,7 +1372,7 @@
         }
     }
     // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
-    const RERENDER_PATHS = new Set(['style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent']);
+    const RERENDER_PATHS = new Set(['style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
     $('properties').addEventListener('change', event => {
         if (!event.target.matches('[data-period-pick]')) return;
         const field = event.target.closest('.field');

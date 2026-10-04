@@ -579,14 +579,21 @@
             return '';
         };
         const scale = (config.coverScale || 100) / 100;
-        const titleFlow = config.titleWrap === 'wrap' ? 'overflow-wrap:anywhere;line-height:1.2' : 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+        const compact = layout === 'grid' || layout === 'strip';
+        // Text sizes are percentages of the element's own font size; the old px settings still apply when no percentage is set.
+        const rel = (percent, legacyPx, fallback) => (!(percent > 0) && legacyPx > 0 ? `${legacyPx}px` : `${(percent > 0 ? percent : fallback) / 100}em`);
+        const titleSize = rel(config.titleScale, config.titleSize, compact ? 80 : 100);
+        const headingSize = rel(config.headingScale, config.headingSize, 100);
+        const metaSize = rel(config.metaScale, 0, compact ? 65 : 70);
+        const onCover = compact && config.titlePlacement === 'overlay' && config.showCovers !== false && config.showTitles !== false;
+        const titleFlow = config.titleWrap === 'wrap' ? 'overflow-wrap:break-word;line-height:1.2' : 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
         const badge = () => {
             const tag = document.createElement('span');
             tag.textContent = 'NOW PLAYING';
             tag.style.cssText = `background:${accent};color:#000;font-size:.55em;font-weight:800;letter-spacing:.06em;padding:.15em .5em;border-radius:999px;white-space:nowrap;`;
             return tag;
         };
-        const cover = (item, extra) => {
+        const cover = (item, extra, hideName) => {
             const wrap = document.createElement('div');
             wrap.style.cssText = `background:rgba(255,255,255,.08);border-radius:${Math.min(12, style.borderRadius || 8)}px;overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;font-size:.6em;padding:.3em;box-sizing:border-box;${extra}`;
             if (item.cover) {
@@ -595,7 +602,7 @@
                 img.style.cssText = config.coverFit === 'natural' ? 'width:100%;height:auto;display:block;' : `width:100%;height:100%;object-fit:${config.coverFit === 'contain' ? 'contain' : 'cover'};display:block;`;
                 wrap.style.padding = '0';
                 wrap.appendChild(img);
-            } else wrap.textContent = item.name;
+            } else if (!hideName) wrap.textContent = item.name;
             if (item.playingNow && config.highlightCurrent !== false) wrap.style.boxShadow = `0 0 0 3px ${accent}`;
             return wrap;
         };
@@ -615,7 +622,7 @@
             if (section.label) {
                 const heading = document.createElement('div');
                 heading.textContent = section.label;
-                heading.style.cssText = `font-weight:700;margin:0 0 .5em;opacity:.85;${config.headingSize > 0 ? `font-size:${config.headingSize}px;` : ''}`;
+                heading.style.cssText = `font-weight:700;margin:0 0 .5em;opacity:.85;font-size:${headingSize};`;
                 holder.appendChild(heading);
             }
             const body = document.createElement('div');
@@ -632,12 +639,12 @@
                     title.style.cssText = 'display:flex;align-items:center;gap:.5em;';
                     const name = document.createElement('span');
                     name.textContent = item.name;
-                    name.style.cssText = `font-weight:600;${titleFlow};${config.titleSize > 0 ? `font-size:${config.titleSize}px;` : ''}`;
+                    name.style.cssText = `font-weight:600;${titleFlow};font-size:${titleSize};`;
                     if (config.showTitles !== false || config.showCovers === false) title.appendChild(name);
                     if (item.playingNow && config.highlightCurrent !== false) title.appendChild(badge());
                     text.appendChild(title);
                     const extra = meta(item);
-                    if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = 'font-size:.7em;opacity:.65;'; text.appendChild(line); }
+                    if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = `font-size:${metaSize};opacity:.65;`; text.appendChild(line); }
                     row.appendChild(text);
                     body.appendChild(row);
                 }
@@ -650,16 +657,31 @@
                 for (const item of section.items) {
                     const card = document.createElement('div');
                     card.style.cssText = strip ? 'flex:1 1 0;min-width:0;' : 'min-width:0;';
-                    card.appendChild(cover(item, `width:${Math.min(100, scale * 100)}%;margin:0 auto;${config.coverFit === 'natural' && item.cover ? '' : 'aspect-ratio:3/4;'}`));
-                    if (item.playingNow && config.highlightCurrent !== false) { const holder = document.createElement('div'); holder.style.cssText = 'text-align:center;margin-top:.35em;'; holder.appendChild(badge()); card.appendChild(holder); }
-                    if (config.showTitles !== false) {
+                    const face = cover(item, `width:${Math.min(100, scale * 100)}%;margin:0 auto;${config.coverFit === 'natural' && item.cover ? '' : 'aspect-ratio:3/4;'}`, onCover);
+                    const extra = meta(item);
+                    if (onCover) {
+                        face.style.position = 'relative';
+                        const bar = document.createElement('div');
+                        bar.style.cssText = 'position:absolute;left:0;right:0;bottom:0;padding:1.6em .45em .4em;background:linear-gradient(transparent,rgba(0,0,0,.85));color:#fff;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,.7);';
                         const name = document.createElement('div');
                         name.textContent = item.name;
-                        name.style.cssText = `margin-top:.35em;font-weight:600;text-align:center;font-size:${config.titleSize > 0 ? `${config.titleSize}px` : '.8em'};${titleFlow};`;
-                        card.appendChild(name);
+                        name.style.cssText = `font-weight:600;font-size:${titleSize};${titleFlow};`;
+                        bar.appendChild(name);
+                        if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = `font-size:${metaSize};opacity:.8;${titleFlow};`; bar.appendChild(line); }
+                        face.appendChild(bar);
+                        if (item.playingNow && config.highlightCurrent !== false) { const flag = badge(); flag.style.cssText += 'position:absolute;top:.4em;left:.4em;'; face.appendChild(flag); }
+                        card.appendChild(face);
+                    } else {
+                        card.appendChild(face);
+                        if (item.playingNow && config.highlightCurrent !== false) { const holder = document.createElement('div'); holder.style.cssText = 'text-align:center;margin-top:.35em;'; holder.appendChild(badge()); card.appendChild(holder); }
+                        if (config.showTitles !== false) {
+                            const name = document.createElement('div');
+                            name.textContent = item.name;
+                            name.style.cssText = `margin-top:.35em;font-weight:600;text-align:center;font-size:${titleSize};${titleFlow};`;
+                            card.appendChild(name);
+                        }
+                        if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = `font-size:${metaSize};opacity:.65;text-align:center;${titleFlow};`; card.appendChild(line); }
                     }
-                    const extra = meta(item);
-                    if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = 'font-size:.65em;opacity:.65;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'; card.appendChild(line); }
                     body.appendChild(card);
                 }
             }
