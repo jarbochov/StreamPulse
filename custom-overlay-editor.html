@@ -1311,6 +1311,8 @@
         const items = selectedElements();
         const root = $('properties');
         const scroll = root.parentElement.scrollTop;
+        const active = document.activeElement;
+        const focused = active && root.contains(active) && active.dataset?.path ? { path: active.dataset.path, start: active.selectionStart, end: active.selectionEnd } : null;
         if (!items.length) {
             root.innerHTML = `<div class="empty-props"><h3>No element selected</h3><p class="hint">Click an element on the canvas or in Layers to edit it. Drag on empty canvas to box-select.</p>
                 <div class="kbd-list"><span><kbd>Ctrl/⌘</kbd> <kbd>D</kbd></span><span>Duplicate</span><span><kbd>Del</kbd></span><span>Delete</span><span><kbd>↑↓←→</kbd></span><span>Nudge</span><span><kbd>Ctrl/⌘</kbd> <kbd>S</kbd></span><span>Save &amp; push live</span></div></div>`;
@@ -1326,6 +1328,14 @@
         }
         root.parentElement.scrollTop = scroll;
         lastTextField = null;
+        // Rebuilding the panel drops focus; put it back so arrow keys and typing keep working.
+        if (focused) {
+            const next = [...root.querySelectorAll('[data-path]')].find(node => node.dataset.path === focused.path && !node.matches('[type=color]'));
+            if (next) {
+                next.focus({ preventScroll: true });
+                try { if (focused.start != null) next.setSelectionRange(focused.start, focused.end); } catch { /* number inputs have no selection */ }
+            }
+        }
     }
     // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
     const RERENDER_PATHS = new Set(['style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent']);
