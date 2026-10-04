@@ -56,6 +56,7 @@ const EMOTE_CACHE_DIR = path.join(DATA_DIR, 'emote-cache');
 const TIMERS_PATH = path.join(DATA_DIR, 'timers.json');
 const CUSTOM_OVERLAYS_PATH = path.join(DATA_DIR, 'custom-overlays.json');
 const OVERLAY_PRESETS_PATH = path.join(DATA_DIR, 'overlay-presets.json');
+const ASSET_TAGS_PATH = path.join(DATA_DIR, 'asset-tags.json');
 const CUSTOM_OVERLAY_ASSETS_DIR = path.join(DATA_DIR, 'custom-overlay-assets');
 const CUSTOM_OVERLAY_HISTORY_DIR = path.join(DATA_DIR, 'custom-overlay-history');
 const CUSTOM_OVERLAY_HISTORY_LIMIT = 30;
@@ -93,7 +94,7 @@ const isLoopbackRequest = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includ
 const TEXT_SOURCE_TYPES = new Set(['text', 'random-text', 'markdown']);
 const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
 const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert']);
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert', 'slideshow']);
 let customOverlays = {};
 
 function sanitizeOverlayId(value) {
@@ -125,6 +126,21 @@ function normalizeOverlayElement(element = {}, index = 0) {
         group: sanitizeOverlayId(element.group).slice(0, 40),
         page: element.page === '*' ? '*' : sanitizeOverlayId(element.page).slice(0, 40),
         type,
+        slideshow: {
+            source: element.slideshow?.source === 'manual' ? 'manual' : 'tags',
+            tags: normalizeAssetTagList(element.slideshow?.tags).slice(0, 20),
+            tagMode: element.slideshow?.tagMode === 'all' ? 'all' : 'any',
+            files: [...new Set((Array.isArray(element.slideshow?.files) ? element.slideshow.files : []).map(value => String(value || '').slice(0, 200)).filter(name => name && !/[\\/]/.test(name)))].slice(0, 500),
+            kinds: element.slideshow?.kinds === 'both' ? 'both' : element.slideshow?.kinds === 'video' ? 'video' : 'image',
+            seconds: Math.max(1, Math.min(3600, Math.round((Number(element.slideshow?.seconds) || 5) * 10) / 10)),
+            order: ['sequential', 'shuffle', 'random'].includes(element.slideshow?.order) ? element.slideshow.order : 'sequential',
+            fit: ['cover', 'contain'].includes(element.slideshow?.fit) ? element.slideshow.fit : 'cover',
+            transition: ['none', 'fade', 'slide'].includes(element.slideshow?.transition) ? element.slideshow.transition : 'fade',
+            direction: PAGE_DIRECTIONS.includes(element.slideshow?.direction) ? element.slideshow.direction : 'left',
+            transitionMs: Math.max(0, Math.min(5000, Math.round(Number(element.slideshow?.transitionMs ?? 800)))),
+            caption: element.slideshow?.caption === true,
+            kenBurns: element.slideshow?.kenBurns === true
+        },
         gameList: {
             filter: ['scheduled', 'backlog', 'played', 'all'].includes(element.gameList?.filter) || /^list-[a-z0-9-]{1,40}$/.test(element.gameList?.filter || '') ? element.gameList.filter : 'scheduled',
             period: String(element.gameList?.period || '').slice(0, 40),
@@ -451,6 +467,36 @@ function saveCustomOverlays() {
 
 loadCustomOverlays();
 Object.values(customOverlays).forEach(overlay => syncOverlayPages(overlay));
+
+// Asset tags: { "<asset file name>": ["Tag", ...] }. Tags are matched case-insensitively.
+let assetTags = {};
+try { if (fs.existsSync(ASSET_TAGS_PATH)) assetTags = JSON.parse(fs.readFileSync(ASSET_TAGS_PATH, 'utf8')) || {}; } catch (error) { console.warn('[Assets] Could not load asset tags:', error.message); }
+
+function normalizeAssetTagList(input) {
+    const seen = new Set();
+    const out = [];
+    for (const raw of Array.isArray(input) ? input : String(input || '').split(',')) {
+        const tag = String(raw || '').trim().replace(/\s+/g, ' ').slice(0, 30);
+        if (tag && !seen.has(tag.toLowerCase())) { seen.add(tag.toLowerCase()); out.push(tag); }
+    }
+    return out;
+}
+
+function saveAssetTags() {
+    fs.writeFileSync(ASSET_TAGS_PATH, JSON.stringify(assetTags, null, 2));
+}
+
+function setAssetTags(name, tags) {
+    const list = normalizeAssetTagList(tags);
+    if (list.length) assetTags[name] = list; else delete assetTags[name];
+}
+
+function assetMatchesTags(name, wanted, mode) {
+    const have = new Set((assetTags[name] || []).map(tag => tag.toLowerCase()));
+    const need = wanted.map(tag => tag.toLowerCase());
+    if (!need.length) return false;
+    return mode === 'all' ? need.every(tag => have.has(tag)) : need.some(tag => have.has(tag));
+}
 
 // User-saved element presets for the overlay editor. Element positions are relative to the preset's top-left corner.
 let overlayPresets = [];
@@ -3749,6 +3795,7 @@ function getBackupFileSpecs() {
         { src: CLIP_CANDIDATES_PATH, dest: 'data/clip-candidates.json' },
         { src: CUSTOM_OVERLAYS_PATH, dest: 'data/custom-overlays.json' },
         { src: OVERLAY_PRESETS_PATH, dest: 'data/overlay-presets.json' },
+        { src: ASSET_TAGS_PATH, dest: 'data/asset-tags.json' },
         { src: GAME_PLAN_PATH, dest: 'data/game-plan.json' },
         { src: path.join(DATA_DIR, 'alerts.json'), dest: 'data/alerts.json' }
     ];
@@ -5021,7 +5068,7 @@ const server = http.createServer(async (req, res) => {
             const kind = assetKind(name);
             const family = kind === 'font' ? assetFontFamily(name) : null;
             const usedBy = [...serialized.filter(o => assetReferencedIn(o.text, name, family)).map(({ id, name: overlayName }) => ({ id, name: overlayName })), ...timerSoundUsers(name), ...gamePlanAssetUsers(name)];
-            return { name, kind, family, label: assetLabel(name), url: `/custom-overlay-assets/${encodeURIComponent(name)}`, size: stat.size, modifiedAt: stat.mtime.toISOString(), usedBy };
+            return { name, kind, family, label: assetLabel(name), url: `/custom-overlay-assets/${encodeURIComponent(name)}`, size: stat.size, modifiedAt: stat.mtime.toISOString(), usedBy, tags: assetTags[name] || [] };
         }).filter(Boolean).sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(assets));
@@ -5041,7 +5088,7 @@ const server = http.createServer(async (req, res) => {
         if (req.method === 'DELETE') {
             const usedBy = [...Object.values(customOverlays).filter(o => assetReferencedIn(JSON.stringify(o), name, family)).map(o => o.id), ...timerSoundUsers(name).map(u => u.id), ...gamePlanAssetUsers(name).map(u => u.id)];
             if (usedBy.length && new URL(req.url, 'http://localhost').searchParams.get('force') !== '1') return respond(409, { error: 'Asset is used by an overlay', usedBy });
-            try { fs.unlinkSync(target); respond(200, { deleted: name }); } catch (err) { respond(500, { error: err.message }); }
+            try { fs.unlinkSync(target); if (assetTags[name]) { delete assetTags[name]; saveAssetTags(); } respond(200, { deleted: name }); } catch (err) { respond(500, { error: err.message }); }
             return;
         }
 
@@ -5056,6 +5103,7 @@ const server = http.createServer(async (req, res) => {
         const newTarget = path.join(CUSTOM_OVERLAY_ASSETS_DIR, newName);
         if (fs.existsSync(newTarget)) return respond(409, { error: 'An asset with that name already exists' });
         try { fs.renameSync(target, newTarget); } catch (err) { return respond(500, { error: err.message }); }
+        if (assetTags[name]) { assetTags[newName] = assetTags[name]; delete assetTags[name]; saveAssetTags(); }
 
         const newFamily = family ? assetFontFamily(newName) : null;
         const updated = [];
@@ -5120,6 +5168,8 @@ const server = http.createServer(async (req, res) => {
             }
             try {
                 fs.writeFileSync(target, Buffer.concat(chunks));
+                const uploadTags = normalizeAssetTagList(decodeURIComponent(String(req.headers['x-asset-tags'] || '')));
+                if (uploadTags.length) { setAssetTags(filename, uploadTags); saveAssetTags(); }
                 res.writeHead(201, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ url: `/custom-overlay-assets/${encodeURIComponent(filename)}`, name: filename, type: contentType, size: total }));
             } catch (err) {
@@ -5155,6 +5205,41 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify(Object.values(customOverlays).map(({ id, name, revision, updatedAt, createdAt, canvas, elements, pages }) => ({
             id, name, revision, updatedAt, createdAt, canvas, elementCount: (elements || []).length, pageCount: pages?.enabled ? pages.items.length : 0
         }))));
+        return;
+    }
+
+    // Bulk tag edit: { names: [...], add: [...], remove: [...] }
+    if (pathname === '/api/asset-tags' && req.method === 'POST') {
+        try {
+            const body = JSON.parse(await readRequestBody(req) || '{}');
+            const names = (Array.isArray(body.names) ? body.names : []).map(String).filter(name => name && !/[\\/]/.test(name) && fs.existsSync(path.join(CUSTOM_OVERLAY_ASSETS_DIR, name)));
+            if (!names.length) throw new Error('No matching assets');
+            const add = normalizeAssetTagList(body.add);
+            const remove = new Set(normalizeAssetTagList(body.remove).map(tag => tag.toLowerCase()));
+            for (const name of names) {
+                const current = (assetTags[name] || []).filter(tag => !remove.has(tag.toLowerCase()));
+                setAssetTags(name, body.set ? body.set : [...current, ...add]);
+            }
+            saveAssetTags();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, updated: names.length }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+    // Lightweight list for slideshows: assets matching tags (any/all) and media kinds, newest first.
+    if (pathname === '/api/asset-library' && req.method === 'GET') {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const tags = normalizeAssetTagList(params.get('tags'));
+        const mode = params.get('mode') === 'all' ? 'all' : 'any';
+        const kinds = params.get('kinds') === 'both' ? ['image', 'video'] : [params.get('kinds') === 'video' ? 'video' : 'image'];
+        let files = [];
+        try { files = fs.readdirSync(CUSTOM_OVERLAY_ASSETS_DIR).filter(name => !name.startsWith('.')); } catch { /* folder not created yet */ }
+        const out = files.filter(name => kinds.includes(assetKind(name)) && assetMatchesTags(name, tags, mode)).sort().reverse().map(name => ({ name, kind: assetKind(name), label: assetLabel(name), url: `/custom-overlay-assets/${encodeURIComponent(name)}` }));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify(out));
         return;
     }
 

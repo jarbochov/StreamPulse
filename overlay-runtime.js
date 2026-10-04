@@ -24,6 +24,13 @@
     const shared = window.OverlayShared;
     const loadGoogleFont = shared.loadGoogleFont;
 
+    // Slideshows survive live-data re-renders (a new song would otherwise restart them): the node is reused while its settings are unchanged.
+    const slideshows = new Map();
+    let slideshowsKept = new Set();
+    function stopSlideshows(ids) {
+        for (const [id, entry] of [...slideshows]) if (!ids || ids.has(id)) { entry.handle.stop(); slideshows.delete(id); }
+    }
+
     function stopRandomTimers() {
         for (const timer of randomTimers.values()) clearInterval(timer);
         randomTimers.clear();
@@ -99,7 +106,7 @@
         Object.assign(node.style, shared.decorationStyle(style, element.type));
         Object.assign(node.style, shared.textEffectStyle(style, element.type));
         shared.applyBorderGradient(node, style);
-        if (element.type === 'game-list') node.style.display = 'block';
+        if (element.type === 'game-list' || element.type === 'slideshow') node.style.display = 'block';
         if (element.type === 'markdown') {
             node.style.setProperty('--hs', (element.headingScale ?? 100) / 100);
             node.classList.toggle('md-right', style.textAlign === 'right');
@@ -158,6 +165,7 @@
         fitNodes.length = 0;
         currentOverlay = overlay;
         stopRandomTimers();
+        slideshowsKept = new Set();
         stopAlerts();
         tickingNodes.length = 0;
         alertNodes.length = 0;
@@ -168,10 +176,15 @@
         root.replaceChildren();
         if (pagesOn(overlay) && !(overlay.pages.items || []).some(item => item.id === currentPage)) currentPage = overlay.pages.items[0].id;
         for (const element of pageElements(overlay)) root.appendChild(buildNode(element));
+        stopSlideshows(new Set([...slideshows.keys()].filter(id => !slideshowsKept.has(id))));
         refit();
     }
 
     function buildNode(element) {
+        if (element.type === 'slideshow') {
+            const existing = slideshows.get(element.id);
+            if (existing && existing.sig === JSON.stringify(element)) { slideshowsKept.add(element.id); existing.node.dataset.pg = element.page || ''; return existing.node; }
+        }
         {
             const node = document.createElement('div');
             node.dataset.pg = element.page || '';
@@ -211,6 +224,10 @@
                 setRandomText(node, element);
                 const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;
                 randomTimers.set(element.id, setInterval(() => setRandomText(node, element), interval));
+            } else if (element.type === 'slideshow') {
+                slideshows.get(element.id)?.handle.stop();
+                slideshows.set(element.id, { sig: JSON.stringify(element), node, handle: shared.mountSlideshow(node, element) });
+                slideshowsKept.add(element.id);
             } else if (element.type === 'game-list') {
                 shared.renderGameList(node, element, liveStatus.gamePlan);
             } else if (element.type === 'progress') {
@@ -241,6 +258,7 @@
         const gone = new Set(outgoing);
         const prune = list => { for (let i = list.length - 1; i >= 0; i--) if (gone.has(list[i].node)) list.splice(i, 1); };
         [fitNodes, tickingNodes, alertNodes].forEach(prune);
+        stopSlideshows(new Set((currentOverlay.elements || []).filter(element => element.page === previous && element.page !== '*').map(element => element.id)));
         for (const element of currentOverlay.elements || []) {
             if (element.page !== previous || element.page === '*') continue;
             clearInterval(randomTimers.get(element.id));

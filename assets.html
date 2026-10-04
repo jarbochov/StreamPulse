@@ -50,6 +50,12 @@
         .name { overflow-wrap: anywhere; font-weight: 600; }
         .meta { color: var(--text-muted); font-size: 0.74rem; }
         .badge { display: inline-block; padding: 0.05rem 0.4rem; border-radius: 999px; font-size: 0.68rem; border: 1px solid var(--border); color: var(--text-muted); margin: 0 0.2rem 0.15rem 0; }
+        .badge.tag { border-color: var(--border-strong, var(--border)); color: var(--text); cursor: default; }
+        .badge.tag button { all: unset; cursor: pointer; margin-left: .25rem; color: var(--text-muted); }
+        .badge.tag button:hover { color: #f85149; }
+        .tagbar { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+        .tagbar button { padding: .15rem .65rem; border-radius: 999px; font-size: .8rem; }
+        .tagbar button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
         .badge.used { border-color: var(--accent-strong); color: var(--accent); }
         .actions { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.2rem; }
         .list { display: flex; flex-direction: column; gap: 0.4rem; }
@@ -87,12 +93,17 @@
             <label class="size">Size <input id="thumb-size" type="range" min="64" max="360" step="8" value="180"></label>
         </div>
 
+        <div class="card toolbar tagbar" id="tagbar" hidden></div>
+
         <div class="card toolbar">
             <span class="summary" id="summary">Loading…</span>
             <span class="sep"></span>
             <button class="btn" id="select-all">Select shown</button>
+            <button class="btn" id="tag-selected" hidden></button>
+            <button class="btn" id="untag-selected" hidden></button>
             <button class="btn danger" id="delete-selected" hidden></button>
             <button class="btn danger" id="purge" hidden></button>
+            <input id="upload-tags" type="text" placeholder="Tags for new uploads (a, b)" aria-label="Tags for new uploads" style="width:14rem">
             <label class="btn primary" for="upload">Upload…</label>
             <input id="upload" type="file" multiple hidden accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.ogg,.mp3,.wav,.m4a,.aac,.oga,.ttf,.otf,.woff,.woff2,.txt,.md,.markdown">
         </div>
@@ -106,7 +117,7 @@
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', oga: 'audio/ogg', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2', txt: 'text/plain', md: 'text/markdown', markdown: 'text/markdown' };
-    const prefs = Object.assign({ view: 'grid', size: 180, sort: 'newest', kind: 'all', usage: 'all' }, JSON.parse(localStorage.getItem('assetLibraryPrefs') || '{}'));
+    const prefs = Object.assign({ view: 'grid', size: 180, sort: 'newest', kind: 'all', usage: 'all', tag: '' }, JSON.parse(localStorage.getItem('assetLibraryPrefs') || '{}'));
     let assets = [], shown = [];
     const selected = new Set();
 
@@ -135,7 +146,7 @@
         for (const file of files) {
             const type = TYPES[(file.name.split('.').pop() || '').toLowerCase()];
             if (!type) { failures.push(`${file.name}: unsupported file type`); continue; }
-            try { await api('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': type, 'X-Asset-Name': file.name.replace(/[^\x20-\x7e]+/g, '-') }, body: file }); }
+            try { await api('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': type, 'X-Asset-Name': file.name.replace(/[^\x20-\x7e]+/g, '-'), ...($('upload-tags').value.trim() ? { 'X-Asset-Tags': encodeURIComponent($('upload-tags').value.trim()) } : {}) }, body: file }); }
             catch (error) { failures.push(`${file.name}: ${error.message}`); }
         }
         if (failures.length) alert(failures.join('\n'));
@@ -172,11 +183,36 @@
         return `<div class="icon">${ICONS.other}</div>`;
     }
 
+    const UNTAGGED = '\u0000untagged';
+    const tagMatch = (asset, filter) => !filter || (filter === UNTAGGED ? !(asset.tags || []).length : (asset.tags || []).some(tag => tag.toLowerCase() === filter.toLowerCase()));
+    const parseTags = text => String(text || '').split(',').map(tag => tag.trim()).filter(Boolean);
+    async function editTags(names, body) {
+        try { await api('/api/asset-tags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ names, ...body }) }); }
+        catch (error) { alert(error.message); }
+        await load();
+    }
+    function renderTagBar() {
+        const counts = new Map();
+        for (const asset of assets) for (const tag of asset.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
+        const untagged = assets.filter(asset => !(asset.tags || []).length).length;
+        const bar = $('tagbar');
+        if (prefs.tag && prefs.tag !== UNTAGGED && !counts.has(prefs.tag)) prefs.tag = '';
+        bar.hidden = !assets.length;
+        const chip = (value, label) => `<button class="btn" type="button" data-tagf="${esc(value)}" aria-pressed="${prefs.tag === value}">${esc(label)}</button>`;
+        bar.innerHTML = `<span class="summary">Tags</span>${chip('', 'All')}${[...counts].sort((a, b) => a[0].localeCompare(b[0])).map(([tag, n]) => chip(tag, `${tag} (${n})`)).join('')}${chip(UNTAGGED, `Untagged (${untagged})`)}`;
+    }
+    $('tagbar').addEventListener('click', event => {
+        const button = event.target.closest('[data-tagf]');
+        if (!button) return;
+        prefs.tag = button.dataset.tagf; savePrefs(); render();
+    });
     function render() {
+        renderTagBar();
         const query = $('search').value.trim().toLowerCase();
         shown = assets.filter(asset =>
             (prefs.kind === 'all' || asset.kind === prefs.kind)
             && (prefs.usage === 'all' || (prefs.usage === 'used') === asset.usedBy.length > 0)
+            && tagMatch(asset, prefs.tag)
             && (!query || `${asset.label} ${asset.name} ${asset.kind}`.toLowerCase().includes(query))
         ).sort(SORTS[prefs.sort] || SORTS.newest);
 
@@ -185,6 +221,9 @@
         $('summary').textContent = `${shown.length} of ${assets.length} assets · ${formatSize(total)} total · ${unused.length} unused`;
         $('purge').hidden = !unused.length;
         $('purge').textContent = `Delete ${unused.length} unused`;
+        $('tag-selected').hidden = $('untag-selected').hidden = !selected.size;
+        $('tag-selected').textContent = `Tag ${selected.size} selected…`;
+        $('untag-selected').textContent = 'Untag…';
         $('delete-selected').hidden = !selected.size;
         $('delete-selected').textContent = `Delete ${selected.size} selected`;
         $('view-grid').classList.toggle('active', prefs.view === 'grid');
@@ -199,6 +238,7 @@
                 <div class="thumb">${thumbHtml(asset)}</div>
                 <div class="info">
                     <div><div class="name">${esc(asset.label)}</div><div class="meta">${esc(asset.kind)} · ${formatSize(asset.size)} · ${formatDate(asset.modifiedAt)}</div></div>
+                    <div>${(asset.tags || []).map(tag => `<span class="badge tag">${esc(tag)}<button type="button" data-untag="${index}" data-tag="${esc(tag)}" title="Remove tag" aria-label="Remove tag ${esc(tag)}">×</button></span>`).join('')}<button class="btn small" data-act="tag" data-i="${index}" title="Add tags">+ Tag</button></div>
                     <div>${asset.usedBy.length ? asset.usedBy.map(user => `<span class="badge used" title="${esc(user.id)}">${esc(user.name || user.id)}</span>`).join('') : '<span class="badge">Unused</span>'}</div>
                     <div class="actions">
                         <button class="btn small" data-act="copy" data-i="${index}">Copy URL</button>
@@ -229,8 +269,15 @@
             render();
             return;
         }
+        const untag = event.target.closest('[data-untag]');
+        if (untag) { await editTags([shown[Number(untag.dataset.untag)].name], { remove: [untag.dataset.tag] }); return; }
         const button = event.target.closest('[data-act]');
         if (!button) return;
+        if (button.dataset.act === 'tag') {
+            const tags = parseTags(prompt('Add tags (comma separated)', ''));
+            if (tags.length) await editTags([shown[Number(button.dataset.i)].name], { add: tags });
+            return;
+        }
         const asset = shown[Number(button.dataset.i)];
         if (button.dataset.act === 'copy') {
             await navigator.clipboard.writeText(new URL(asset.url, location.origin).href);
@@ -252,6 +299,14 @@
         const allSelected = shown.length && shown.every(asset => selected.has(asset.name));
         shown.forEach(asset => allSelected ? selected.delete(asset.name) : selected.add(asset.name));
         render();
+    });
+    $('tag-selected').addEventListener('click', async () => {
+        const tags = parseTags(prompt(`Add tags to ${selected.size} selected (comma separated)`, ''));
+        if (tags.length) await editTags([...selected], { add: tags });
+    });
+    $('untag-selected').addEventListener('click', async () => {
+        const tags = parseTags(prompt(`Remove tags from ${selected.size} selected (comma separated)`, prefs.tag && prefs.tag !== UNTAGGED ? prefs.tag : ''));
+        if (tags.length) await editTags([...selected], { remove: tags });
     });
     $('delete-selected').addEventListener('click', () => removeAssets(assets.filter(asset => selected.has(asset.name))));
     $('purge').addEventListener('click', () => removeAssets(assets.filter(asset => !asset.usedBy.length)));

@@ -1104,5 +1104,151 @@
         if (saved.children) node.replaceChildren(...saved.children);
     }
 
-    root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    // ---- slideshow ----------------------------------------------------------------------------
+    const slideshowCache = new Map();
+    const mediaKind = name => (/\.(mp4|webm|ogg)$/i.test(name) ? 'video' : /\.(png|jpe?g|gif|webp|svg)$/i.test(name) ? 'image' : 'other');
+    async function slideshowItems(config) {
+        if (config.source === 'manual') {
+            return (config.files || []).map(name => ({ name, kind: mediaKind(name), label: name.replace(/^[a-z0-9]{6,}-/, '').replace(/\.[A-Za-z0-9]{2,5}$/, ''), url: `/custom-overlay-assets/${encodeURIComponent(name)}` }))
+                .filter(item => config.kinds === 'both' ? item.kind !== 'other' : item.kind === (config.kinds === 'video' ? 'video' : 'image'));
+        }
+        if (!(config.tags || []).length) return [];
+        const url = `/api/asset-library?tags=${encodeURIComponent(config.tags.join(','))}&mode=${config.tagMode || 'any'}&kinds=${config.kinds || 'image'}`;
+        const cached = slideshowCache.get(url);
+        if (cached && Date.now() - cached.at < 8000) return cached.items;
+        try {
+            const response = await fetch(url, { cache: 'no-store' });
+            const items = response.ok ? await response.json() : [];
+            slideshowCache.set(url, { at: Date.now(), items });
+            return items;
+        } catch { return cached?.items || []; }
+    }
+
+    // Plays a slideshow inside `node`. With { preview: true } it only shows the first slide. Returns { stop() }.
+    function mountSlideshow(node, element, options = {}) {
+        const config = element.slideshow || {};
+        let items = [], order = [], position = -1, timer = null, refreshTimer = null, stopped = false, current = null, token = 0;
+        node.replaceChildren();
+        node.style.position = node.style.position || 'absolute';
+        node.style.overflow = 'hidden';
+        const stage = document.createElement('div');
+        stage.style.cssText = 'position:absolute;inset:0;overflow:hidden;';
+        node.appendChild(stage);
+        const note = document.createElement('div');
+        note.style.cssText = 'position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:1rem;color:#8b949e;font:14px sans-serif;pointer-events:none;';
+        node.appendChild(note);
+
+        const signature = list => list.map(item => item.name).join('|');
+        const buildOrder = () => {
+            order = items.map((_, index) => index);
+            if (config.order === 'shuffle') for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+        };
+        const nextIndex = () => {
+            if (config.order === 'random' && items.length > 1) { let pick; do { pick = Math.floor(Math.random() * items.length); } while (pick === order[position]); order[position + 1] = pick; position++; return pick; }
+            position++;
+            if (position >= order.length) { buildOrder(); position = 0; }
+            return order[position];
+        };
+
+        function makeSlide(item) {
+            const layer = document.createElement('div');
+            layer.style.cssText = 'position:absolute;inset:0;overflow:hidden;will-change:transform,opacity;';
+            const media = document.createElement(item.kind === 'video' ? 'video' : 'img');
+            media.style.cssText = `position:absolute;inset:0;width:100%;height:100%;object-fit:${config.fit === 'contain' ? 'contain' : 'cover'};`;
+            if (item.kind === 'video') { media.muted = true; media.playsInline = true; media.autoplay = true; }
+            media.src = item.url;
+            media.alt = '';
+            layer.appendChild(media);
+            if (config.caption && item.label) {
+                const bar = document.createElement('div');
+                bar.textContent = item.label;
+                bar.style.cssText = `position:absolute;left:0;right:0;bottom:0;padding:${Math.max(8, node.clientHeight * 0.03)}px ${Math.max(12, node.clientWidth * 0.02)}px;font:600 ${Math.max(14, node.clientHeight * 0.045)}px sans-serif;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,0.7));text-shadow:0 1px 3px rgba(0,0,0,0.8);`;
+                layer.appendChild(bar);
+            }
+            return { layer, media };
+        }
+
+        function ready(media) {
+            return new Promise(resolve => {
+                if (media.tagName === 'VIDEO') { media.addEventListener('loadeddata', () => resolve(true), { once: true }); media.addEventListener('error', () => resolve(false), { once: true }); return; }
+                if (media.complete && media.naturalWidth) return resolve(true);
+                media.addEventListener('load', () => resolve(true), { once: true });
+                media.addEventListener('error', () => resolve(false), { once: true });
+            });
+        }
+
+        function transitionVectors() {
+            const w = node.clientWidth || 1, h = node.clientHeight || 1;
+            return { left: [w, 0], right: [-w, 0], up: [0, h], down: [0, -h] }[config.direction] || [w, 0];
+        }
+
+        async function show() {
+            timer = null;
+            if (stopped || !items.length) return;
+            const mine = ++token;
+            let attempts = 0, slide = null, item = null;
+            // Skip files that fail to load (deleted or corrupt) rather than getting stuck on them.
+            while (attempts++ < Math.min(items.length, 8)) {
+                item = items[nextIndex()];
+                const candidate = makeSlide(item);
+                if (await ready(candidate.media)) { slide = candidate; break; }
+            }
+            if (!slide || stopped || mine !== token) return schedule(config.seconds * 1000);
+            const old = current;
+            current = slide;
+            stage.appendChild(slide.layer);
+            const ms = options.preview || !old ? 0 : config.transitionMs;
+            if (ms && config.transition === 'fade') {
+                slide.layer.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing: 'ease', fill: 'both' });
+                old.layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing: 'ease', fill: 'both' });
+            } else if (ms && config.transition === 'slide') {
+                const [x, y] = transitionVectors();
+                slide.layer.animate([{ transform: `translate(${x}px,${y}px)` }, { transform: 'translate(0,0)' }], { duration: ms, easing: 'ease', fill: 'both' });
+                old.layer.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${-x}px,${-y}px)` }], { duration: ms, easing: 'ease', fill: 'both' });
+            }
+            if (config.kenBurns && item.kind === 'image' && !options.preview) {
+                const grow = Math.random() < 0.5;
+                slide.media.animate([{ transform: `scale(${grow ? 1 : 1.08})` }, { transform: `scale(${grow ? 1.08 : 1})` }], { duration: config.seconds * 1000 + ms, easing: 'linear', fill: 'both' });
+            }
+            if (old) setTimeout(() => old.layer.remove(), ms + 60);
+            note.textContent = '';
+            if (options.preview) return;
+            if (item.kind === 'video' && items.length < 2) slide.media.loop = true;
+            else if (item.kind === 'video') {
+                slide.media.addEventListener('ended', () => schedule(0), { once: true });
+                schedule(Math.max(config.seconds, 600) * 1000);
+            } else schedule(config.seconds * 1000);
+        }
+
+        function schedule(ms) {
+            clearTimeout(timer);
+            if (stopped || options.preview || items.length < 2) return;
+            timer = setTimeout(show, ms);
+        }
+
+        async function refresh(first) {
+            const next = await slideshowItems(config);
+            if (stopped) return;
+            if (!first && signature(next) === signature(items)) return;
+            const hadItems = items.length > 0;
+            items = next;
+            buildOrder();
+            position = -1;
+            if (!items.length) {
+                clearTimeout(timer);
+                stage.replaceChildren(); current = null;
+                note.textContent = options.preview ? (config.source === 'manual' ? 'Slideshow: choose images in the properties panel' : (config.tags || []).length ? `Slideshow: no images tagged ${config.tags.join(', ')}` : 'Slideshow: choose tags or pick images') : '';
+                return;
+            }
+            if (options.preview) note.textContent = '';
+            if (first || !hadItems || !current) show();
+            else if (!timer) schedule(config.seconds * 1000);
+        }
+
+        refresh(true);
+        if (!options.preview && config.source !== 'manual') refreshTimer = setInterval(() => refresh(false), 20000);
+        return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length };
+    }
+
+    root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);
