@@ -75,7 +75,7 @@
         <div class="card toolbar">
             <input id="search" class="grow" type="search" placeholder="Search assets…" aria-label="Search assets">
             <select id="kind" aria-label="Type">
-                <option value="all">All types</option><option value="image">Images</option><option value="video">Videos</option><option value="audio">Audio</option><option value="font">Fonts</option>
+                <option value="all">All types</option><option value="image">Images</option><option value="video">Videos</option><option value="audio">Audio</option><option value="font">Fonts</option><option value="text">Text</option>
             </select>
             <select id="usage" aria-label="Usage">
                 <option value="all">Used &amp; unused</option><option value="used">Used</option><option value="unused">Unused</option>
@@ -94,10 +94,10 @@
             <button class="btn danger" id="delete-selected" hidden></button>
             <button class="btn danger" id="purge" hidden></button>
             <label class="btn primary" for="upload">Upload…</label>
-            <input id="upload" type="file" multiple hidden accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.ogg,.mp3,.wav,.m4a,.aac,.oga,.ttf,.otf,.woff,.woff2">
+            <input id="upload" type="file" multiple hidden accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.ogg,.mp3,.wav,.m4a,.aac,.oga,.ttf,.otf,.woff,.woff2,.txt,.md,.markdown">
         </div>
 
-        <div id="drop">Drop images, videos, audio or fonts here to upload (100 MB max each)</div>
+        <div id="drop">Drop images, videos, audio, fonts or text files here to upload (100 MB max each)</div>
         <div id="items" class="grid"><div class="empty">Loading assets…</div></div>
     </div>
     <div id="toast"></div>
@@ -105,7 +105,7 @@
     <script>
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', oga: 'audio/ogg', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2' };
+    const TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', oga: 'audio/ogg', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2', txt: 'text/plain', md: 'text/markdown', markdown: 'text/markdown' };
     const prefs = Object.assign({ view: 'grid', size: 180, sort: 'newest', kind: 'all', usage: 'all' }, JSON.parse(localStorage.getItem('assetLibraryPrefs') || '{}'));
     let assets = [], shown = [];
     const selected = new Set();
@@ -113,7 +113,7 @@
     const savePrefs = () => localStorage.setItem('assetLibraryPrefs', JSON.stringify(prefs));
     const formatSize = bytes => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
     const formatDate = iso => new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-    const ICONS = { audio: '♪', video: '▶', font: 'Aa', other: '▫' };
+    const ICONS = { audio: '♪', video: '▶', font: 'Aa', text: '¶', other: '▫' };
 
     function toast(text) {
         const el = $('toast');
@@ -168,6 +168,7 @@
         if (asset.kind === 'video') return `<video src="${esc(asset.url)}" muted preload="metadata" loop onmouseenter="this.play()" onmouseleave="this.pause()"></video>`;
         if (asset.kind === 'font') return `<div class="sample" style="font-family:'${esc(asset.family)}', sans-serif">The quick brown fox 123</div>`;
         if (asset.kind === 'audio') return `<div class="icon">♪</div><audio controls preload="none" src="${esc(asset.url)}"></audio>`;
+        if (asset.kind === 'text') return `<div class="icon">${ICONS.text}</div>`;
         return `<div class="icon">${ICONS.other}</div>`;
     }
 
