@@ -151,7 +151,10 @@
     }
     if (document.fonts) document.fonts.addEventListener('loadingdone', () => refit());
 
+    // A re-render mid-transition replaces every node and makes the animation jump, so it waits until the switch finishes.
+    let transitioning = false, pendingRender = null;
     function render(overlay) {
+        if (transitioning) { pendingRender = overlay; return; }
         fitNodes.length = 0;
         currentOverlay = overlay;
         stopRandomTimers();
@@ -250,17 +253,29 @@
         const distance = pages.transitionDistance || 120;
         const slideVars = node => { if (kind === 'slide') { node.style.setProperty('--pg-x', `${sign[0] * distance}px`); node.style.setProperty('--pg-y', `${sign[1] * distance}px`); } };
         clearTimeout(pageSwitchTimer);
-        outgoing.forEach(node => {
-            if (ms) { slideVars(node); node.style.animation = `pg-${kind}-out ${ms}ms ease both`; node.style.pointerEvents = 'none'; }
-        });
+        transitioning = ms > 0;
+        outgoing.forEach(node => { if (ms) node.style.pointerEvents = 'none'; });
+        // Build and lay the new page out first, then start the animation on the next frame, so fitting text
+        // and decoding images do not stutter the first frames.
         const incoming = pageElements(currentOverlay).filter(element => element.page === currentPage).map(buildNode);
         incoming.forEach(node => {
-            if (ms) { slideVars(node); node.style.animation = `pg-${kind}-in ${ms}ms ease both`; }
+            if (ms) { node.style.visibility = 'hidden'; node.style.willChange = 'transform, opacity'; }
             root.appendChild(node);
         });
-        const finish = () => { outgoing.forEach(node => node.remove()); incoming.forEach(node => { node.style.animation = ''; }); };
-        if (ms) pageSwitchTimer = setTimeout(finish, ms + 30); else finish();
+        outgoing.forEach(node => { if (ms) node.style.willChange = 'transform, opacity'; });
         refit();
+        const finish = () => {
+            outgoing.forEach(node => node.remove());
+            incoming.forEach(node => { node.style.animation = ''; node.style.willChange = ''; });
+            transitioning = false;
+            if (pendingRender) { const next = pendingRender; pendingRender = null; render(next); }
+        };
+        if (!ms) { finish(); return; }
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            incoming.forEach(node => { slideVars(node); node.style.visibility = ''; node.style.animation = `pg-${kind}-in ${ms}ms ease both`; });
+            outgoing.forEach(node => { slideVars(node); node.style.animation = `pg-${kind}-out ${ms}ms ease both`; });
+            pageSwitchTimer = setTimeout(finish, ms + 30);
+        }));
     }
 
     async function load() {

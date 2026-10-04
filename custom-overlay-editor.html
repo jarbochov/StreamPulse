@@ -1412,7 +1412,10 @@
             const next = [...root.querySelectorAll('[data-path]')].find(node => node.dataset.path === focused.path && !node.matches('[type=color]'));
             if (next) {
                 next.focus({ preventScroll: true });
-                try { if (focused.start != null) next.setSelectionRange(focused.start, focused.end); } catch { /* number inputs have no selection */ }
+                if (next.type === 'number') {
+                    // Number inputs have no selection API; flipping to text lets the caret go to the end so typing continues.
+                    next.type = 'text'; next.setSelectionRange(next.value.length, next.value.length); next.type = 'number';
+                } else try { if (focused.start != null) next.setSelectionRange(focused.start, focused.end); } catch {}
             }
         }
     }
@@ -1426,11 +1429,26 @@
         selectedElements().forEach(target => { if (target.gameList) target.gameList.period = ''; });
         hidden.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    bindFields($('properties'), selectedElements, path => {
+    // Number fields only rebuild the panel when they cross zero (which shows or hides their dependent controls),
+    // not on every keystroke.
+    const numberWasOn = new Map();
+    $('properties').addEventListener('focusin', event => {
+        const input = event.target.closest?.('[data-path][data-kind="number"]');
+        const target = selectedElements()[0];
+        if (input && target) numberWasOn.set(input.dataset.path, Number(getPath(target, input.dataset.path)) > 0);
+    });
+    function numberCrossedZero(path, event) {
+        if (!/^style\.(textStroke\.width|textShadow\.blur)$/.test(path) || event?.target?.dataset?.kind !== 'number' || event.type !== 'input') return true;
+        const now = Number(getPath(selectedElements()[0], path)) > 0;
+        const crossed = numberWasOn.get(path) !== now;
+        numberWasOn.set(path, now);
+        return crossed;
+    }
+    bindFields($('properties'), selectedElements, (path, event) => {
         for (const el of selectedElements()) { el.width = clamp(el.width, 1, 3840); el.height = clamp(el.height, 1, 2160); }
         renderCanvas(); updateStatusBar();
         if (path === 'name') renderLayers();
-        if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || RERENDER_PATHS.has(path) || /^style\.(gradient|textGradient|borderGradient)\.(enabled|type|animate)$/.test(path)) renderProperties();
+        if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || RERENDER_PATHS.has(path) || /^style\.(gradient|textGradient|borderGradient)\.(enabled|type|animate)$/.test(path)) { if (numberCrossedZero(path, event)) renderProperties(); }
         changed(false);
     });
     $('properties').addEventListener('change', event => {
