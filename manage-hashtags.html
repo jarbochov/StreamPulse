@@ -81,90 +81,10 @@
             </div>
         </div>
 
-        <!-- Hashtag Overlay Builder -->
         <div class="card">
-            <h2>Hashtag Overlay Builder</h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
-                <div>
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">View Mode</label>
-                    <select id="ht-view" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
-                        <option value="scroll">Scroll (credits-style)</option>
-                        <option value="grid">Grid (even tiles)</option>
-                        <option value="cloud">Cloud (sized by count)</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Sort By</label>
-                    <select id="ht-sort" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
-                        <option value="count">Most Used</option>
-                        <option value="alpha">Alphabetical</option>
-                        <option value="recent">Most Recent</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Columns (scroll / grid)</label>
-                    <select id="ht-columns" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3" selected>3</option>
-                        <option value="4">4</option>
-                        <option value="5">5</option>
-                        <option value="6">6</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Size</label>
-                    <select id="ht-size" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
-                        <option value="sm">Small</option>
-                        <option value="md" selected>Medium</option>
-                        <option value="lg">Large</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Limit (0 = all; cloud default 60)</label>
-                    <input type="number" id="ht-limit" value="0" min="0" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Min Count (0 = all)</label>
-                    <input type="number" id="ht-min" value="0" min="0" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Last N Days (0 = all)</label>
-                    <input type="number" id="ht-days" value="0" min="0" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">From Date</label>
-                    <input type="date" id="ht-from" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">To Date</label>
-                    <input type="date" id="ht-to" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
-                </div>
-                <div id="ht-title-wrap">
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Title</label>
-                    <input type="text" id="ht-title" value="All Hashtags" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
-                </div>
-                <div id="ht-duration-wrap">
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Duration (0 = auto)</label>
-                    <input type="number" id="ht-duration" value="0" min="0" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
-                </div>
-            </div>
-            <div style="display: flex; gap: 0.75rem; margin-top: 0.75rem; align-items: center; flex-wrap: wrap;">
-                <label style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.3rem;">
-                    <input type="checkbox" id="ht-counts" checked onchange="updateHashtagUrl()"> Show counts
-                </label>
-                <label id="ht-weight-wrap" style="font-size: 0.8rem; color: var(--text-muted); display: none; align-items: center; gap: 0.3rem;">
-                    <input type="checkbox" id="ht-weight" onchange="updateHashtagUrl()"> Weighted sizing (cloud)
-                </label>
-                <label id="ht-scroll-wrap" style="font-size: 0.8rem; color: var(--text-muted); display: none; align-items: center; gap: 0.3rem;">
-                    <input type="checkbox" id="ht-autoscroll" onchange="updateHashtagUrl()"> Auto-scroll all tags (otherwise only what fits)
-                </label>
-            </div>
-            <div style="margin-top: 0.75rem; padding: 0.6rem 0.75rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; display: flex; align-items: center; gap: 0.5rem;">
-                <code id="ht-url" style="flex: 1; font-size: 0.8rem; color: var(--accent); word-break: break-all; font-family: monospace; text-shadow: none;"></code>
-                <button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('ht-url').textContent); showToast('URL copied!')" style="white-space: nowrap; font-size: 0.75rem;">📋 Copy</button>
-                <button class="btn" onclick="window.open(document.getElementById('ht-url').textContent, '_blank')" style="white-space: nowrap; font-size: 0.75rem;">🔗 Preview</button>
-            </div>
+            <h2>Overlay</h2>
+            <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:.6rem;">Build hashtag overlay URLs (scroll, grid or cloud) in the Overlay URL Wizard.</p>
+            <a class="btn" href="/overlay-url-wizard.html?overlay=hashtags">Open Hashtag overlay wizard</a>
         </div>
     </div>
 
@@ -182,51 +102,6 @@
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
-    }
-
-    // Overlay URL builder
-    function updateHashtagUrl() {
-        const view = document.getElementById('ht-view').value;
-        const isGrid = view === 'grid' || view === 'cloud';
-        const isCloud = view === 'cloud';
-
-        document.getElementById('ht-weight-wrap').style.display = isCloud ? 'flex' : 'none';
-        document.getElementById('ht-scroll-wrap').style.display = view === 'grid' ? 'flex' : 'none';
-        document.getElementById('ht-duration-wrap').style.display = isGrid ? 'none' : '';
-        document.getElementById('ht-title-wrap').style.display = isGrid ? 'none' : '';
-
-        const params = new URLSearchParams();
-        params.set('view', view);
-        params.set('sort', document.getElementById('ht-sort').value);
-        if (!isCloud) params.set('columns', document.getElementById('ht-columns').value);
-        params.set('size', document.getElementById('ht-size').value);
-
-        const limit = parseInt(document.getElementById('ht-limit').value) || 0;
-        if (limit > 0) params.set('limit', limit);
-
-        const min = parseInt(document.getElementById('ht-min').value) || 0;
-        if (min > 0) params.set('min', min);
-
-        const days = parseInt(document.getElementById('ht-days').value) || 0;
-        if (days > 0) params.set('days', days);
-
-        const from = document.getElementById('ht-from').value;
-        const to = document.getElementById('ht-to').value;
-        if (from) params.set('from', from);
-        if (to) params.set('to', to);
-
-        const title = document.getElementById('ht-title').value;
-        if (!isGrid && title && title !== 'All Hashtags') params.set('title', title);
-
-        const duration = parseInt(document.getElementById('ht-duration').value) || 0;
-        if (!isGrid && duration > 0) params.set('duration', duration);
-
-        if (!document.getElementById('ht-counts').checked) params.set('counts', 'false');
-        if (isCloud && document.getElementById('ht-weight').checked) params.set('weight', 'true');
-        if (view === 'grid' && document.getElementById('ht-autoscroll').checked) params.set('scroll', 'true');
-
-        const base = `${location.protocol}//${location.host}/hashtags.html`;
-        document.getElementById('ht-url').textContent = `${base}?${params.toString()}`;
     }
 
     // Hashtag moderation
@@ -328,7 +203,6 @@
     });
 
     refresh();
-    updateHashtagUrl();
     setInterval(refresh, 5000);
     </script>
 </body>
