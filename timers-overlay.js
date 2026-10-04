@@ -30,7 +30,8 @@
     let animationStarted = false;
 
     applyTheme();
-    loadSharedTheme();
+    // URL parameters win over the saved theme, so reapply them once the theme has loaded.
+    loadSharedTheme().then(applyTheme);
     standardNode.style.display = mode === 'standard' ? 'flex' : 'none';
     compactNode.style.display = mode === 'compact' ? 'flex' : 'none';
     const altNode = document.createElement('div');
@@ -217,6 +218,10 @@
         if (params.has('fontscale')) {
             const scale = Math.min(3, Math.max(0.5, Number(params.get('fontscale')) || 1));
             document.documentElement.style.setProperty('--font-scale', scale);
+        }
+        if (params.has('titlescale')) {
+            const scale = Math.min(3, Math.max(0.3, Number(params.get('titlescale')) || 1));
+            document.documentElement.style.setProperty('--title-scale', scale);
         }
 
     }

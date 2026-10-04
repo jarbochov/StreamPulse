@@ -77,7 +77,8 @@
             <div class="cfg-row"><label>Layout</label><select id="display" onchange="refreshWizard()"><option value="standard">Standard</option><option value="compact">Compact</option><option value="stacked">Stacked (3 days / 4 hours…)</option><option value="ring">Ring</option><option value="flip">Flip clock</option><option value="banner">Banner (full width)</option></select></div>
             <div class="cfg-row"><label>Theme</label><select id="theme" onchange="refreshWizard()"><option value="dark">Dark</option><option value="light">Light</option></select></div>
             <div class="cfg-row"><label>Units</label><select id="units" onchange="refreshWizard()"><option value="auto">Auto</option><option value="full">Full</option></select></div>
-            <div class="cfg-row"><label>Font scale</label><input type="number" id="fontscale" min="0.5" max="3" step="0.1" value="1" oninput="refreshWizard()"></div>
+            <div class="cfg-row"><label>Overall scale</label><input type="number" id="fontscale" min="0.5" max="3" step="0.1" value="1" title="Scales the whole timer: text, padding and progress bar" oninput="refreshWizard()"></div>
+            <div class="cfg-row"><label>Title scale</label><input type="number" id="titlescale" min="0.3" max="3" step="0.1" value="1" title="Multiplies the title size on top of Overall scale" oninput="refreshWizard()"></div>
             <div class="toggles">
                 <label class="toggle"><input type="checkbox" id="show-title" checked onchange="refreshWizard()"><span>Show title</span></label>
                 <label class="toggle"><input type="checkbox" id="milliseconds" onchange="refreshWizard()"><span>Milliseconds</span></label>
@@ -212,6 +213,7 @@
         if (kind === 'countdown') params.set('progress', document.getElementById('progress').checked ? 'true' : 'false');
         params.set('sound', document.getElementById('sound').checked ? 'true' : 'false');
         params.set('fontscale', document.getElementById('fontscale').value || '1');
+        if ((document.getElementById('titlescale').value || '1') !== '1') params.set('titlescale', document.getElementById('titlescale').value);
         ['bgcolor','timercolor','textcolor','labelcolor','progresscolor','titlecolor'].forEach(id => {
             const value = document.getElementById(id).value.trim();
             if (value) params.set(id, value);

@@ -65,7 +65,7 @@ body {
 .title {
     display: none;
     text-align: center;
-    font-size: calc(clamp(1.3rem, 4.2vh, 2.8rem) * var(--font-scale));
+    font-size: calc(clamp(1.3rem, 4.2vh, 2.8rem) * var(--font-scale) * var(--title-scale, 1));
     font-weight: 700;
     line-height: 1.15;
     color: var(--title-color);
@@ -252,7 +252,7 @@ body.animated-gradient .timer-box.compact {
 body.layout-banner .overlay-root { align-items: flex-end; padding: 0; }
 body.layout-banner .overlay-shell { position: relative; width: 100%; flex-direction: row; align-items: center; justify-content: space-between; gap: 2rem; padding: calc(clamp(12px, 3vh, 28px) * var(--font-scale)) calc(clamp(18px, 4vw, 48px) * var(--font-scale)); background: var(--timer-background); box-shadow: 0 -4px 18px var(--shadow-color); overflow: hidden; }
 body.layout-banner.animated-gradient .overlay-shell { background: var(--timer-gradient); background-size: 300% 300%; animation: gradient-shift var(--gradient-speed, 8s) ease-in-out infinite alternate; }
-body.layout-banner .title { text-align: left; font-size: calc(clamp(1.2rem, 4.5vh, 2.6rem) * var(--font-scale)); }
+body.layout-banner .title { text-align: left; font-size: calc(clamp(1.2rem, 4.5vh, 2.6rem) * var(--font-scale) * var(--title-scale, 1)); }
 body.layout-banner .timer-box.alt { background: none !important; animation: none !important; box-shadow: none; padding: 0; }
 .banner-time { font-size: calc(clamp(1.6rem, 6vh, 3.6rem) * var(--font-scale)); font-weight: 700; color: var(--text-color); text-shadow: 0 2px 10px var(--shadow-color); font-variant-numeric: tabular-nums; white-space: nowrap; }
 body.layout-banner .progress-wrap { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; }
