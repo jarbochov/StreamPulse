@@ -554,7 +554,7 @@
         return `${TYPE_META[el.type].label} ${overlay.elements.filter(item => item.type === el.type).indexOf(el) + 1}`;
     }
     function normalizeZ() { overlay.elements.forEach((item, index) => { item.zIndex = index; }); }
-    const defaultPages = () => ({ enabled: false, mode: 'manual', cycleSeconds: 10, loop: true, transition: 'fade', transitionMs: 500, items: [{ id: 'page-1', name: 'Page 1', duration: 0 }] });
+    const defaultPages = () => ({ enabled: false, mode: 'manual', cycleSeconds: 10, loop: true, transition: 'fade', transitionMs: 500, transitionDirection: 'left', transitionDistance: 120, items: [{ id: 'page-1', name: 'Page 1', duration: 0 }] });
     let curPage = 'page-1';
     const pagesOn = () => overlay.pages?.enabled === true;
     const inView = el => !pagesOn() || el.page === '*' || el.page === curPage;
@@ -2292,6 +2292,7 @@
                 ${F.select('pages.mode', 'Advance', P.mode, [['manual', 'Manual (editor, control panel, API)'], ['auto', 'Automatic']])}
                 ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', 'Default seconds per page', P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', 'Loop back to the first page', P.loop)}` : ''}
                 ${F.select('pages.transition', 'Transition', P.transition, [['none', 'None'], ['fade', 'Fade'], ['slide', 'Slide']])}
+                ${P.transition === 'slide' ? F.select('pages.transitionDirection', 'Slide direction', P.transitionDirection || 'left', [['left', 'Left (new page enters from the right)'], ['right', 'Right (enters from the left)'], ['up', 'Up (enters from the bottom)'], ['down', 'Down (enters from the top)']]) + F.number('pages.transitionDistance', 'Slide distance (px)', P.transitionDistance || 120, { min: 10, max: 2000, step: 10 }) : ''}
                 ${P.transition !== 'none' ? F.number('pages.transitionMs', 'Transition length (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 }) : ''}</div>
             <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem">
                 <a href="/overlay-control.html?id=${encodeURIComponent(overlay.id)}" target="_blank" style="color:var(--accent);font-size:12px">Control panel ↗</a>

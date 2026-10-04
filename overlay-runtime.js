@@ -245,13 +245,17 @@
         }
         const ms = pages.transition === 'none' ? 0 : pages.transitionMs;
         const kind = pages.transition;
+        // "left" means the content moves left: the new page enters from the right.
+        const sign = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[pages.transitionDirection] || [1, 0];
+        const distance = pages.transitionDistance || 120;
+        const slideVars = node => { if (kind === 'slide') { node.style.setProperty('--pg-x', `${sign[0] * distance}px`); node.style.setProperty('--pg-y', `${sign[1] * distance}px`); } };
         clearTimeout(pageSwitchTimer);
         outgoing.forEach(node => {
-            if (ms) { node.style.animation = `pg-${kind}-out ${ms}ms ease both`; node.style.pointerEvents = 'none'; }
+            if (ms) { slideVars(node); node.style.animation = `pg-${kind}-out ${ms}ms ease both`; node.style.pointerEvents = 'none'; }
         });
         const incoming = pageElements(currentOverlay).filter(element => element.page === currentPage).map(buildNode);
         incoming.forEach(node => {
-            if (ms) node.style.animation = `pg-${kind}-in ${ms}ms ease both`;
+            if (ms) { slideVars(node); node.style.animation = `pg-${kind}-in ${ms}ms ease both`; }
             root.appendChild(node);
         });
         const finish = () => { outgoing.forEach(node => node.remove()); incoming.forEach(node => { node.style.animation = ''; }); };

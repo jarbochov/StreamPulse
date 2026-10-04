@@ -258,6 +258,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
 
 // Multipage overlays: every element belongs to one page, or to '*' (shared across all pages).
 const PAGE_TRANSITIONS = ['none', 'fade', 'slide'];
+const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
 function normalizePages(input = {}) {
     const seen = new Set();
     const items = (Array.isArray(input.items) ? input.items : []).slice(0, 50).map((item, index) => {
@@ -278,6 +279,8 @@ function normalizePages(input = {}) {
         loop: input.loop !== false,
         transition: PAGE_TRANSITIONS.includes(input.transition) ? input.transition : 'fade',
         transitionMs: Math.max(0, Math.min(5000, Number(input.transitionMs ?? 500))),
+        transitionDirection: PAGE_DIRECTIONS.includes(input.transitionDirection) ? input.transitionDirection : 'left',
+        transitionDistance: Math.max(10, Math.min(2000, Math.round(Number(input.transitionDistance) || 120))),
         items
     };
 }
