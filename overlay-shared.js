@@ -345,7 +345,7 @@
 
     // Extra look-and-feel that every element type shares: gradient fills (box and text), frosted blur and drop shadow.
     // Progress elements put the gradient on their fill, so the track stays a plain color.
-    const TEXT_FILL_TYPES = new Set(['text', 'random-text', 'markdown']);
+    const TEXT_FILL_TYPES = new Set(['text', 'random-text', 'markdown', 'game-list']);
     const isTextGradient = (style, type) => TEXT_FILL_TYPES.has(type) && style?.textGradient?.enabled === true;
 
     const hasBoxFill = style => style?.gradient?.enabled === true || (!!style?.background && !/^(transparent|rgba\(0,\s*0,\s*0,\s*0\))$/i.test(style.background));
@@ -580,6 +580,8 @@
         };
         const scale = (config.coverScale || 100) / 100;
         const compact = layout === 'grid' || layout === 'strip';
+        // Opacity would cut text out of a parent's clipped gradient fill, so dimmed text stays solid when the text color is a gradient.
+        const dim = value => (style.textGradient?.enabled ? '' : `opacity:${value};`);
         // Text sizes are percentages of the element's own font size; the old px settings still apply when no percentage is set.
         const rel = (percent, legacyPx, fallback) => (!(percent > 0) && legacyPx > 0 ? `${legacyPx}px` : `${(percent > 0 ? percent : fallback) / 100}em`);
         const titleSize = rel(config.titleScale, config.titleSize, compact ? 80 : 100);
@@ -624,7 +626,7 @@
             if (section.label) {
                 const heading = document.createElement('div');
                 heading.textContent = section.label;
-                heading.style.cssText = `font-weight:700;margin:0 0 .5em;opacity:.85;font-size:${headingSize};`;
+                heading.style.cssText = `font-weight:700;margin:0 0 .5em;${dim(.85)}font-size:${headingSize};`;
                 holder.appendChild(heading);
             }
             const body = document.createElement('div');
@@ -646,7 +648,7 @@
                     if (item.playingNow && config.highlightCurrent !== false) title.appendChild(badge());
                     text.appendChild(title);
                     const extra = meta(item);
-                    if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = `font-size:${metaSize};opacity:.65;`; text.appendChild(line); }
+                    if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = `font-size:${metaSize};${dim(.65)}`; text.appendChild(line); }
                     row.appendChild(text);
                     body.appendChild(row);
                 }
@@ -682,7 +684,7 @@
                             name.style.cssText = `margin-top:.35em;font-weight:600;text-align:center;font-size:${titleSize};${titleFlow};`;
                             card.appendChild(name);
                         }
-                        if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = `font-size:${metaSize};opacity:.65;text-align:center;${titleFlow};`; card.appendChild(line); }
+                        if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = `font-size:${metaSize};${dim(.65)}text-align:center;${titleFlow};`; card.appendChild(line); }
                     }
                     body.appendChild(card);
                 }
