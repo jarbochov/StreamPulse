@@ -529,6 +529,7 @@
         if (config.filter === 'scheduled' || config.filter === 'all' || config.sort === 'plan' || !config.sort) items = items.map((item, at) => ({ item, at })).sort((a, b) => rank(a.item) - rank(b.item) || a.at - b.at).map(entry => entry.item);
         const layout = config.layout || 'grid';
         const gap = config.gap ?? 12;
+        const groupGap = config.groupGap ?? gap;
         const accent = config.accent || '#3fb950';
         node.replaceChildren();
         node._fitObserver?.disconnect();
@@ -560,7 +561,7 @@
                 if (!section) { section = { label, items: [] }; sections.push(section); }
                 section.items.push(item);
             }
-            inner.style.cssText += `display:flex;align-items:flex-start;gap:${gap}px;transform-origin:top left;`;
+            inner.style.cssText += `display:flex;align-items:flex-start;gap:${groupGap}px;transform-origin:top left;`;
         } else if (config.headings !== false && config.filter !== 'backlog') {
             for (const item of items) {
                 const label = item.period || '';
@@ -630,7 +631,7 @@
                 holder.appendChild(heading);
             }
             const body = document.createElement('div');
-            body.style.marginBottom = kanban ? '0' : `${gap}px`;
+            body.style.marginBottom = kanban ? '0' : `${groupGap}px`;
             if (layout === 'list' || kanban) {
                 body.style.cssText += `display:flex;flex-direction:column;gap:${gap / 2}px;`;
                 for (const item of section.items) {
@@ -696,12 +697,12 @@
         // and the position options decide where leftover space goes.
         const shrink = config.fit === 'shrink';
         const alignH = config.alignH || 'left', alignV = config.alignV || 'top';
-        if (typeof ResizeObserver !== 'function' || !(autoColumns || shrink || alignV !== 'top' || alignH !== 'left')) return;
+        if (typeof ResizeObserver !== 'function' || !(autoColumns || shrink || config.periodsAcross > 0 || alignV !== 'top' || alignH !== 'left')) return;
         const grids = [...inner.querySelectorAll('[data-gl-grid]')];
         if (config.periodsAcross > 0 && !kanban) {
             inner.style.display = 'grid';
             inner.style.gridTemplateColumns = `repeat(${config.periodsAcross},minmax(0,1fr))`;
-            inner.style.columnGap = `${gap}px`;
+            inner.style.columnGap = `${groupGap}px`;
             inner.style.alignItems = 'start';
         }
         const place = () => {
@@ -715,7 +716,7 @@
                 const width = node.clientWidth;
                 const most = Math.min(12, Math.max(...grids.map(grid => grid.children.length)));
                 inner.style.display = 'grid';
-                inner.style.columnGap = `${gap}px`;
+                inner.style.columnGap = `${groupGap}px`;
                 inner.style.alignItems = 'start';
                 let best = null;
                 for (let across = config.periodsAcross > 0 ? Math.min(config.periodsAcross, sectionEls.length) : 1; across <= (config.periodsAcross > 0 ? Math.min(config.periodsAcross, sectionEls.length) : sectionEls.length); across++) {
@@ -724,7 +725,7 @@
                         grids.forEach(grid => { grid.style.gridTemplateColumns = `repeat(${columns},minmax(0,1fr))`; });
                         const need = inner.offsetHeight;
                         const fit = need > avail ? avail / need : 1;
-                        const cell = (width - (across - 1) * gap) / across;
+                        const cell = (width - (across - 1) * groupGap) / across;
                         const score = shrink || need <= avail ? ((cell - (columns - 1) * gap) / columns) * fit : fit * 0.0001;
                         if (!best || score > best.score * 1.02) best = { across, columns, score };
                     }

@@ -79,6 +79,7 @@
         .seg button { border: 0; border-radius: 0; background: var(--field); padding: .35rem .3rem; }
         .seg button + button { border-left: 1px solid var(--border); }
         .seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent-strong) 20%, transparent); color: var(--accent); }
+        .sub-head { grid-column: 1 / -1; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-top: .35rem; border-top: 1px solid var(--border-soft); padding-top: .55rem; }
         .hint { color: var(--muted); font-size: 11px; line-height: 1.45; margin: 0; }
         .action-bar { display: flex; flex-wrap: wrap; gap: .25rem; padding: .6rem .85rem; border-bottom: 1px solid var(--border-soft); align-items: center; }
         .action-bar { gap: .4rem; }
@@ -1272,13 +1273,20 @@
             ${F.check('gameList.highlightCurrent', 'Highlight the game you are playing now', g.highlightCurrent !== false)}
             ${g.highlightCurrent === false ? '' : F.color('gameList.accent', 'Highlight color', g.accent || '#3fb950')}
             <p class="hint">Games come from the <a href="/game-plan-editor.html" target="_blank" style="color:var(--accent)">Game Plan</a>. “Playing now” follows your Twitch category.</p>`);
+        const grouped = layout === 'kanban' || g.headings !== false;
         const lay = F.section('gamelayout', 'Game list: layout', `
             ${F.select('gameList.layout', 'Layout', layout, [['grid', 'Cover grid'], ['strip', 'Cover strip (one row)'], ['list', 'Text list'], ['kanban', 'Columns (one per group)']])}
-            ${layout === 'kanban' ? '<p class="hint">Each group (period, or list when showing everything) gets its own column.</p>' : `${F.number('gameList.periodsAcross', 'Groups across (0 = auto)', g.periodsAcross || 0, { min: 0, max: 8 })}<p class="hint">How many groups (periods) sit side by side.</p>`}
-            ${layout === 'grid' ? `${F.number('gameList.columns', 'Games per row in a group (0 = auto)', g.columns ?? 3, { min: 0, max: 12 })}<p class="hint">Auto picks the biggest covers that fit the box.</p>` : ''}
-            ${F.number('gameList.gap', 'Gap (px)', g.gap ?? 12, { min: 0, max: 80 })}
-            ${F.select('gameList.fit', 'If it is too tall', g.fit || 'none', [['none', 'Clip it'], ['shrink', 'Shrink everything to fit (text too)']])}
-            <div class="grid2">${F.select('gameList.alignH', 'Horizontal position', g.alignH || 'left', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']])}${F.select('gameList.alignV', 'Vertical position', g.alignV || 'top', [['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']])}</div>`);
+            ${grouped ? '<div class="sub-head">Groups (periods)</div>' : ''}
+            ${grouped && layout !== 'kanban' ? `${F.number('gameList.periodsAcross', 'Groups side by side (0 = auto)', g.periodsAcross || 0, { min: 0, max: 8 })}` : ''}
+            ${grouped ? F.number('gameList.groupGap', 'Gap between groups (px)', g.groupGap ?? g.gap ?? 12, { min: 0, max: 200 }) : ''}
+            ${layout === 'kanban' ? '<p class="hint">Each group gets its own column, so they are always side by side.</p>' : ''}
+            <div class="sub-head">Games</div>
+            ${layout === 'grid' ? `${F.number('gameList.columns', 'Games per row (0 = auto)', g.columns ?? 3, { min: 0, max: 12 })}<p class="hint">0 picks the biggest covers that fit the box.</p>` : ''}
+            ${F.number('gameList.gap', 'Gap between games (px)', g.gap ?? 12, { min: 0, max: 80 })}
+            <div class="sub-head">Inside the box</div>
+            ${F.select('gameList.fit', 'If the list is too tall', g.fit || 'none', [['none', 'Clip it'], ['shrink', 'Shrink everything to fit (text too)']])}
+            <div class="grid2">${F.select('gameList.alignH', 'Horizontal position', g.alignH || 'left', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']])}${F.select('gameList.alignV', 'Vertical position', g.alignV || 'top', [['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']])}</div>
+            <p class="hint">Position places the list when it doesn't fill the box.</p>`);
         const look = F.section('gamecovers', 'Game list: covers & titles', `
             ${F.check('gameList.showCovers', 'Show covers', covers)}
             ${F.check('gameList.showTitles', 'Show titles', titles)}

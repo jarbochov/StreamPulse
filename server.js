@@ -135,6 +135,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
             alignH: ['left', 'center', 'right'].includes(element.gameList?.alignH) ? element.gameList.alignH : 'left',
             alignV: ['top', 'middle', 'bottom'].includes(element.gameList?.alignV) ? element.gameList.alignV : 'top',
             gap: Math.max(0, Math.min(80, Number(element.gameList?.gap ?? 12))),
+            groupGap: element.gameList?.groupGap === undefined || element.gameList?.groupGap === null || element.gameList?.groupGap === '' || !Number.isFinite(Number(element.gameList.groupGap)) ? null : Math.max(0, Math.min(200, Number(element.gameList.groupGap))),
             max: Math.max(0, Math.min(100, Math.round(Number(element.gameList?.max) || 0))),
             coverFit: ['cover', 'contain', 'natural'].includes(element.gameList?.coverFit) ? element.gameList.coverFit : 'cover',
             fit: element.gameList?.fit === 'shrink' ? 'shrink' : 'none',
