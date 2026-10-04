@@ -514,7 +514,7 @@
         if (document.getElementById('sp-gl-ticker')) return;
         const tag = document.createElement('style');
         tag.id = 'sp-gl-ticker';
-        tag.textContent = '@keyframes spGlTicker{to{transform:translateX(-50%)}}';
+        tag.textContent = '@keyframes spGlTicker{from{transform:translateX(0)}to{transform:translateX(-50%)}}@keyframes spGlTickerR{from{transform:translateX(-50%)}to{transform:translateX(0)}}';
         document.head.appendChild(tag);
     }
 
@@ -624,7 +624,8 @@
             if (item.cover) {
                 const img = document.createElement('img');
                 img.src = item.cover; img.alt = '';
-                img.style.cssText = config.coverFit === 'natural' ? 'width:100%;height:auto;display:block;' : `width:100%;height:100%;object-fit:${config.coverFit === 'contain' ? 'contain' : 'cover'};display:block;`;
+                img.style.cssText = config.coverFit === 'natural' ? 'width:100%;height:auto;display:block;' : `position:absolute;inset:0;width:100%;height:100%;object-fit:${config.coverFit === 'contain' ? 'contain' : 'cover'};display:block;`;
+                if (config.coverFit !== 'natural') wrap.style.position = 'relative';
                 wrap.style.padding = '0';
                 wrap.appendChild(img);
             } else if (!hideName) wrap.textContent = item.name;
@@ -697,7 +698,7 @@
                     card.style.cssText = strip ? 'flex:1 1 0;min-width:0;'
                         : ticker ? `flex:0 0 calc((100cqw - ${(cols - 1) * gap}px) / ${cols});min-width:0;`
                         : `flex:0 0 calc((100% - (var(--cols) - 1) * ${gap}px) / var(--cols) - .5px);min-width:0;`;
-                    const face = cover(item, `width:${Math.min(100, scale * 100)}%;margin:${coverMargin};${config.coverFit === 'natural' && item.cover ? '' : 'aspect-ratio:3/4;'}`, onCover);
+                    const face = cover(item, `width:${Math.min(100, scale * 100)}%;margin:${coverMargin};${config.coverFit === 'natural' && item.cover ? '' : `aspect-ratio:${config.coverRatio || '3/4'};`}`, onCover);
                     const extra = meta(item);
                     if (onCover) {
                         face.style.position = 'relative';
@@ -740,8 +741,10 @@
         // Placement: auto columns pick the fewest columns (biggest covers) that fit the box, "shrink" scales down when still too tall,
         // and the position options decide where leftover space goes.
         const shrink = config.fit === 'shrink';
-        if (ticker) node.style.containerType = 'inline-size';
-        else node.style.containerType = '';
+        node.style.containerType = ticker ? 'inline-size' : '';
+        const fadeMask = ticker && config.tickerFade !== false ? 'linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)' : '';
+        node.style.webkitMaskImage = fadeMask;
+        node.style.maskImage = fadeMask;
         if (typeof ResizeObserver !== 'function' || !(ticker || autoColumns || shrink || config.periodsAcross > 0 || alignV !== 'top' || alignH !== 'left')) return;
         const grids = [...inner.querySelectorAll('[data-gl-grid]')];
         if (config.periodsAcross > 0 && !kanban) {
@@ -758,7 +761,7 @@
                 const scrolls = width > node.clientWidth + 1;
                 copies[1].style.display = scrolls ? 'flex' : 'none';
                 const body = copies[0].parentElement;
-                body.style.animation = scrolls ? `spGlTicker ${(width / (config.tickerSpeed || 60)).toFixed(2)}s linear infinite` : 'none';
+                body.style.animation = scrolls ? `${config.tickerDirection === 'right' ? 'spGlTickerR' : 'spGlTicker'} ${(width / (config.tickerSpeed || 60)).toFixed(2)}s linear infinite` : 'none';
                 return;
             }
             inner.style.transform = '';
