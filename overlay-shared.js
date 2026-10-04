@@ -350,8 +350,39 @@
             backdropFilter: style.blur > 0 ? `blur(${style.blur}px)` : '',
             boxShadow: style.shadow?.blur > 0 ? `0 4px ${style.shadow.blur}px ${style.shadow.color || 'rgba(0,0,0,.5)'}` : ''
         };
-        if (style.gradient?.enabled && type !== 'progress') out.background = `linear-gradient(${style.gradient.angle ?? 135}deg, ${style.gradient.from}, ${style.gradient.to})`;
+        if (style.gradient?.enabled && type !== 'progress') Object.assign(out, gradientStyle(style.gradient));
+        else Object.assign(out, { backgroundSize: '', animation: '' });
         return out;
+    }
+
+    // Linear or radial fill with 2-3 stops; animated gradients slide an oversized fill back and forth like the timer wizard.
+    function gradientStyle(g) {
+        const stops = [g.from, g.mid, g.to].filter(Boolean).join(', ');
+        const shape = g.type === 'radial' ? `radial-gradient(circle at ${g.position || 'center'}, ${stops})` : `linear-gradient(${g.angle ?? 135}deg, ${stops})`;
+        ensureGradientKeyframes();
+        return g.animate
+            ? { background: shape, backgroundSize: '300% 300%', animation: `sp-gradient-shift ${Math.max(1, g.speed || 8)}s ease-in-out infinite alternate` }
+            : { background: shape, backgroundSize: '', animation: '' };
+    }
+
+    function ensureGradientKeyframes() {
+        if (document.getElementById('sp-gradient-keyframes')) return;
+        const tag = document.createElement('style');
+        tag.id = 'sp-gradient-keyframes';
+        tag.textContent = '@keyframes sp-gradient-shift { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }';
+        document.head.appendChild(tag);
+    }
+
+    // Outline, text shadow and case/decoration apply to the text itself (and inherit into markdown and alert text).
+    function textEffectStyle(style = {}) {
+        const stroke = style.textStroke?.width > 0;
+        return {
+            webkitTextStroke: stroke ? `${style.textStroke.width}px ${style.textStroke.color || '#000'}` : '',
+            paintOrder: stroke ? 'stroke fill' : '',
+            textShadow: style.textShadow?.blur > 0 ? `0 2px ${style.textShadow.blur}px ${style.textShadow.color || 'rgba(0,0,0,.7)'}` : '',
+            textTransform: style.textTransform && style.textTransform !== 'none' ? style.textTransform : '',
+            textDecoration: style.textDecoration && style.textDecoration !== 'none' ? style.textDecoration : ''
+        };
     }
 
     // Draws or updates a progress bar/ring in place so CSS transitions keep animating between ticks.
@@ -407,7 +438,8 @@
             holder._track.style.background = config.trackColor || 'rgba(255,255,255,.18)';
             holder._fill.style.background = style.fill || '#1f6feb';
             holder._fill.style.width = `${percent}%`;
-            if (style.gradient?.enabled) holder._fill.style.background = `linear-gradient(${style.gradient.angle ?? 135}deg, ${style.gradient.from}, ${style.gradient.to})`;
+            const fillStyle = style.gradient?.enabled ? gradientStyle(style.gradient) : { backgroundSize: '', animation: '' };
+            Object.assign(holder._fill.style, fillStyle);
         }
         holder._text.textContent = config.showLabel === false ? '' : label;
     }
@@ -572,7 +604,7 @@
     }
 
     // Alert box: the element's fill/border/shadow move onto an inner card so they only show while an alert plays.
-    const ALERT_DECORATION = ['background', 'backgroundImage', 'border', 'borderRadius', 'boxShadow', 'backdropFilter', 'webkitBackdropFilter'];
+    const ALERT_DECORATION = ['background', 'backgroundImage', 'backgroundSize', 'animation', 'border', 'borderRadius', 'boxShadow', 'backdropFilter', 'webkitBackdropFilter'];
     function prepareAlertNode(node) {
         const deco = {};
         for (const key of ALERT_DECORATION) {
@@ -787,5 +819,5 @@
         if (saved.children) node.replaceChildren(...saved.children);
     }
 
-    root.OverlayShared = { fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    root.OverlayShared = { textEffectStyle, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);

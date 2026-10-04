@@ -664,6 +664,7 @@
             justifyContent: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'flex-end' : 'flex-start'
         });
         Object.assign(node.style, shared.decorationStyle(s, el.type));
+        Object.assign(node.style, shared.textEffectStyle(s));
         if (el.type === 'game-list') node.style.display = 'block';
         if (el.type === 'markdown') {
             node.style.setProperty('--hs', (el.headingScale ?? 100) / 100);
@@ -1094,8 +1095,25 @@
             ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${el.textFit === 'fit' && TEXT_TYPES.has(el.type) ? '' : F.number('style.fontSize', el.textFit === 'shrink' && TEXT_TYPES.has(el.type) ? 'Max size (px)' : 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) && !(el.type === 'random-text' && el.random?.marquee) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size set here'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${el.type === 'markdown' ? F.number('headingScale', 'Heading size (% of normal)', el.headingScale ?? 100, { min: 40, max: 200, step: 5 }) + F.select('columns', 'Columns', String(el.columns || 1), [['1', '1 column'], ['2', '2 columns'], ['3', '3 columns'], ['4', '4 columns']]) + ((el.columns || 1) > 1 ? F.select('headingSpan', 'Headings spanning all columns', String(el.headingSpan ?? 6), [['6', 'All headings (H1–H6)'], ['1', 'H1 only'], ['2', 'H1–H2'], ['3', 'H1–H3'], ['4', 'H1–H4'], ['0', 'None — headings stay in a column']]) : '') : ''}${F.color('style.color', 'Text color', s.color)}
             <div class="grid2">${F.seg('style.textAlign', 'Horizontal', s.textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${el.type === 'markdown' && el.columns > 1 ? '' : F.seg('style.verticalAlign', 'Vertical', s.verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>
             <div class="grid2">${F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>`}
-            ${fontExtras}`);
+            ${fontExtras}`)
+            + (TEXT_TYPES.has(el.type) || alert ? textEffectsSection(el) : '');
     }
+    function textEffectsSection(el) {
+        const s = el.style;
+        return F.section('textEffects', 'Text effects', `
+            <div class="grid2">${F.select('style.textTransform', 'Case', s.textTransform || 'none', [['none', 'As typed'], ['uppercase', 'UPPERCASE'], ['lowercase', 'lowercase'], ['capitalize', 'Capitalize Words']])}${F.select('style.textDecoration', 'Decoration', s.textDecoration || 'none', [['none', 'None'], ['underline', 'Underline'], ['line-through', 'Strikethrough']])}</div>
+            <div class="grid2">${F.number('style.textStroke.width', 'Outline (px)', s.textStroke?.width || 0, { min: 0, max: 20, step: 0.5 })}${s.textStroke?.width > 0 ? F.color('style.textStroke.color', 'Outline color', s.textStroke?.color || '#000000') : '<span></span>'}</div>
+            <div class="grid2">${F.number('style.textShadow.blur', 'Text shadow (px)', s.textShadow?.blur || 0, { min: 0, max: 60 })}${s.textShadow?.blur > 0 ? F.color('style.textShadow.color', 'Shadow color', s.textShadow?.color || 'rgba(0,0,0,0.7)') : '<span></span>'}</div>`, false);
+    }
+    const gradientFields = (s, label = 'Gradient') => {
+        const g = s.gradient || {};
+        if (!g.enabled) return '';
+        return `<div class="grid2">${F.select('style.gradient.type', 'Type', g.type || 'linear', [['linear', 'Linear'], ['radial', 'Radial']])}${g.type === 'radial' ? F.select('style.gradient.position', 'Center', g.position || 'center', [['center', 'Center'], ['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']]) : F.number('style.gradient.angle', 'Angle (°)', g.angle ?? 135, { min: 0, max: 360 })}</div>
+            <div class="grid2">${F.color('style.gradient.from', 'From', g.from)}${F.color('style.gradient.to', 'To', g.to)}</div>
+            ${F.color('style.gradient.mid', 'Middle (optional)', g.mid || '', { clear: true })}
+            ${F.check('style.gradient.animate', 'Animate', g.animate)}
+            ${g.animate ? F.number('style.gradient.speed', 'Speed (sec per sweep)', g.speed ?? 8, { min: 1, max: 120 }) : ''}`;
+    };
     const hasBox = s => s.borderWidth > 0 || (s.background && s.background !== 'transparent') || s.gradient?.enabled;
     const paddingField = el => TEXT_TYPES.has(el.type) && hasBox(el.style) ? F.number('style.padding', 'Padding (px)', el.style.padding || 0, { min: 0, max: 200 }) : '';
     const noRadius = (s, shape) => shape && ['circle', 'pill', 'line'].includes(s.shape);
@@ -1109,7 +1127,7 @@
             ${shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
             ${F.color('style.background', shape ? 'Fill' : 'Background', s.background, { clear: true })}
             ${F.check('style.gradient.enabled', 'Gradient fill', s.gradient?.enabled)}
-            ${s.gradient?.enabled ? `<div class="grid2">${F.color('style.gradient.from', 'From', s.gradient.from)}${F.color('style.gradient.to', 'To', s.gradient.to)}</div>${F.number('style.gradient.angle', 'Angle (°)', s.gradient.angle ?? 135, { min: 0, max: 360 })}` : ''}
+            ${gradientFields(s)}
             <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${noRadius(s, shape) ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
             ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}
             ${paddingField(el)}`);
@@ -1118,8 +1136,8 @@
         const s = el.style;
         return F.section('effects', 'Effects', `
             ${F.range('style.opacity', 'Opacity', s.opacity ?? 1, { min: 0, max: 100, scale: 0.01, unit: '%' })}
-            <div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Shadow blur (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
-            ${s.shadow?.blur > 0 ? F.color('style.shadow.color', 'Shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)') : ''}`, false);
+            <div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Box shadow (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
+            ${s.shadow?.blur > 0 ? F.color('style.shadow.color', 'Box shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)') : ''}`, false);
     }
     function appearanceBody(el, multi) {
         const s = el.style, shape = el.type === 'shape';
@@ -1129,9 +1147,9 @@
             ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}
             ${paddingField(el)}
             ${F.check('style.gradient.enabled', 'Gradient fill', s.gradient?.enabled)}
-            ${s.gradient?.enabled ? `${F.color('style.gradient.from', 'Gradient from', s.gradient.from)}${F.color('style.gradient.to', 'Gradient to', s.gradient.to)}${F.number('style.gradient.angle', 'Gradient angle (°)', s.gradient.angle ?? 135, { min: 0, max: 360 })}` : ''}
-            <div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Shadow blur (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
-            ${s.shadow?.blur > 0 ? F.color('style.shadow.color', 'Shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)') : ''}
+            ${gradientFields(s)}
+            <div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Box shadow (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
+            ${s.shadow?.blur > 0 ? F.color('style.shadow.color', 'Box shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)') : ''}
             ${F.range('style.opacity', 'Opacity', s.opacity ?? 1, { min: 0, max: 100, scale: 0.01, unit: '%' })}
             ${!multi && shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
             ${!multi && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) : ''}`;
@@ -1310,7 +1328,7 @@
         lastTextField = null;
     }
     // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
-    const RERENDER_PATHS = new Set(['style.gradient.enabled', 'style.background', 'alert.layout', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent']);
+    const RERENDER_PATHS = new Set(['style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent']);
     bindFields($('properties'), selectedElements, path => {
         for (const el of selectedElements()) { el.width = clamp(el.width, 1, 3840); el.height = clamp(el.height, 1, 2160); }
         renderCanvas(); updateStatusBar();

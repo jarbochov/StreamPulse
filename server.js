@@ -202,8 +202,23 @@ function normalizeOverlayElement(element = {}, index = 0) {
                 enabled: element.style?.gradient?.enabled === true,
                 from: String(element.style?.gradient?.from || '#1f6feb').slice(0, 80),
                 to: String(element.style?.gradient?.to || '#8957e5').slice(0, 80),
-                angle: Math.max(0, Math.min(360, Number(element.style?.gradient?.angle) || 135))
+                angle: Math.max(0, Math.min(360, Number(element.style?.gradient?.angle) || 135)),
+                type: element.style?.gradient?.type === 'radial' ? 'radial' : 'linear',
+                mid: String(element.style?.gradient?.mid || '').slice(0, 80),
+                position: ['center', 'top', 'bottom', 'left', 'right'].includes(element.style?.gradient?.position) ? element.style.gradient.position : 'center',
+                animate: element.style?.gradient?.animate === true,
+                speed: Math.max(1, Math.min(120, Number(element.style?.gradient?.speed) || 8))
             },
+            textStroke: {
+                width: Math.max(0, Math.min(20, Number(element.style?.textStroke?.width) || 0)),
+                color: String(element.style?.textStroke?.color || '#000000').slice(0, 80)
+            },
+            textShadow: {
+                blur: Math.max(0, Math.min(60, Number(element.style?.textShadow?.blur) || 0)),
+                color: String(element.style?.textShadow?.color || 'rgba(0,0,0,0.7)').slice(0, 80)
+            },
+            textTransform: ['none', 'uppercase', 'lowercase', 'capitalize'].includes(element.style?.textTransform) ? element.style.textTransform : 'none',
+            textDecoration: ['none', 'underline', 'line-through'].includes(element.style?.textDecoration) ? element.style.textDecoration : 'none',
             blur: Math.max(0, Math.min(60, Number(element.style?.blur) || 0)),
             shadow: {
                 blur: Math.max(0, Math.min(100, Number(element.style?.shadow?.blur) || 0)),
