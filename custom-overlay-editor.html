@@ -1136,7 +1136,7 @@
             ${paddingField(el)}`);
     }
     // Text without a visible box has nothing for blur or box shadow to act on, so those controls stay hidden until it does.
-    const boxEffectsRelevant = (el, multi) => multi || !TEXT_TYPES.has(el.type) || hasBox(el.style);
+    const boxEffectsRelevant = (el, multi) => multi || !TEXT_TYPES.has(el.type) || hasBox(el.style) || el.style?.blur > 0 || el.style?.shadow?.blur > 0;
     function boxEffectFields(el, multi) {
         const s = el.style;
         if (!boxEffectsRelevant(el, multi)) return '<p class="hint">Backdrop blur and box shadow appear once this text has a background, gradient or border. For a shadow on the letters, use Text effects.</p>';
