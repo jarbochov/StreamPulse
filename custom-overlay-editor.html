@@ -1132,12 +1132,20 @@
             ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : F.color('style.borderColor', 'Border color', s.borderColor, { clear: true })}
             ${paddingField(el)}`);
     }
+    // Text without a visible box has nothing for blur or box shadow to act on, so those controls stay hidden until it does.
+    const boxEffectsRelevant = (el, multi) => multi || !TEXT_TYPES.has(el.type) || hasBox(el.style);
+    function boxEffectFields(el, multi) {
+        const s = el.style;
+        if (!boxEffectsRelevant(el, multi)) return '<p class="hint">Backdrop blur and box shadow appear once this text has a background, gradient or border. For a shadow on the letters, use Text effects.</p>';
+        return `<div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Box shadow (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
+            ${s.shadow?.blur > 0 ? F.color('style.shadow.color', 'Box shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)') : ''}
+            <p class="hint">Backdrop blur frosts whatever is behind this box inside the overlay. Box shadow is drawn around the box edge, not the letters.</p>`;
+    }
     function effectsSection(el) {
         const s = el.style;
         return F.section('effects', 'Effects', `
             ${F.range('style.opacity', 'Opacity', s.opacity ?? 1, { min: 0, max: 100, scale: 0.01, unit: '%' })}
-            <div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Box shadow (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
-            ${s.shadow?.blur > 0 ? F.color('style.shadow.color', 'Box shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)') : ''}`, false);
+            ${boxEffectFields(el, false)}`, false);
     }
     function appearanceBody(el, multi) {
         const s = el.style, shape = el.type === 'shape';
@@ -1148,8 +1156,7 @@
             ${paddingField(el)}
             ${F.check('style.gradient.enabled', 'Gradient fill', s.gradient?.enabled)}
             ${gradientFields(s)}
-            <div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Box shadow (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
-            ${s.shadow?.blur > 0 ? F.color('style.shadow.color', 'Box shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)') : ''}
+            ${boxEffectFields(el, multi)}
             ${F.range('style.opacity', 'Opacity', s.opacity ?? 1, { min: 0, max: 100, scale: 0.01, unit: '%' })}
             ${!multi && shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
             ${!multi && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) : ''}`;
