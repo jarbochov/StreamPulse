@@ -401,7 +401,8 @@
         try {
             const w = await (await fetch('/api/weather', { cache: 'no-store' })).json();
             if (!w.enabled) return;
-            line.textContent = w.ok ? `Working: ${w.city}${w.region ? `, ${w.region}` : ''} — ${w.temp}${w.unit}, ${w.condition}.` : (w.error || 'Loading the first reading…');
+            const extras = Object.entries(w.extras || {}).map(([slug, x]) => (x.ok ? `${x.city} (${slug}): ${x.temp}${x.unit}` : `${x.name || slug}: ${x.error}`));
+            line.textContent = (w.ok ? `Working: ${w.city}${w.region ? `, ${w.region}` : ''} — ${w.temp}${w.unit}, ${w.condition}.` : (w.error || 'Loading the first reading…')) + (extras.length ? ` Extra: ${extras.join('; ')}.` : '');
         } catch { /* ignore */ }
     }
 
@@ -625,6 +626,11 @@
                 <label>Refresh every (minutes)</label>
                 <input type="number" id="cfg-wx-poll" min="5" max="180" value="${wx.poll_minutes || 15}">
             </div>
+            <div class="cfg-row aligned">
+                <label>Extra cities (one per line)</label>
+                <textarea id="cfg-wx-extra" rows="3" placeholder="Tokyo&#10;London, UK" style="width:100%;">${escapeHtml((wx.extra_locations || []).join('\n'))}</textarea>
+            </div>
+            <p class="hint" style="margin:0 0 0.4rem;">Extra cities use their name in placeholders, e.g. <code>{{weather.tokyo.temp}}</code>. The placeholder picker lists them once weather is on.</p>
             <p class="hint" id="cfg-wx-status" style="margin:0 0 0.5rem;">Use the <code>{{weather.*}}</code> placeholders in the Custom Overlay Editor, or add the Weather card preset.</p>
 
             <div class="cfg-section">Clip Detection</div>
@@ -1028,6 +1034,7 @@
             weather: {
                 enabled: document.getElementById('cfg-wx-enabled').checked,
                 location: document.getElementById('cfg-wx-location').value.trim(),
+                extra_locations: document.getElementById('cfg-wx-extra').value.split('\n').map(line => line.trim()).filter(Boolean).slice(0, 8),
                 units: document.getElementById('cfg-wx-units').value,
                 poll_minutes: Math.max(5, Math.min(180, parseInt(document.getElementById('cfg-wx-poll').value, 10) || 15))
             },

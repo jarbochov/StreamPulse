@@ -8,6 +8,7 @@
     <title>StreamPulse — Overlay Editor</title>
     <link rel="stylesheet" href="/alert-box.css">
     <style>
+        [data-preset][hidden] { display: none; }
         :root {
             --bg: var(--bg-inset); --panel: var(--bg-card); --panel-2: var(--bg-raised); --field: var(--bg-inset); --border-soft: var(--bg-raised);
             --muted: var(--text-muted); --ok: var(--success); 
@@ -2283,6 +2284,11 @@
         $('overlay-name').value = overlay.name;
         renderSettings(); renderPageBar(); syncCanvasUI(); renderCanvas(); renderLayers(); renderProperties(); updateStatusBar(); updateHistoryUI();
     }
+    // Weather stays out of the menus until it is switched on in the Config Editor.
+    function syncWeatherMenu() {
+        const item = document.querySelector('[data-preset="weather"]');
+        if (item) item.hidden = !liveStatus.weather?.enabled;
+    }
     async function refreshLiveStatus() {
         try {
             const response = await fetch('/api/status', { cache: 'no-store' });
@@ -2290,6 +2296,7 @@
             const before = liveSignature();
             liveStatus = await response.json();
             await shared.loadLiveExtras(liveStatus);
+            syncWeatherMenu();
             if (prefs.live && liveSignature() !== before) renderCanvas();
         } catch {}
     }

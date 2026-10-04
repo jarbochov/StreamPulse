@@ -78,16 +78,27 @@
         };
     }
 
+    function weatherFields(w) {
+        return {
+            temp: w.temp, temp_full: `${w.temp}${w.unit}`, unit: w.unit, feels_like: w.feels_like,
+            condition: w.condition, icon: w.icon, 'icon.url': `/api/weather/icon.svg?e=${encodeURIComponent(w.icon)}`,
+            humidity: w.humidity, wind: `${w.wind} ${w.wind_unit}${w.wind_dir ? ` ${w.wind_dir}` : ''}`, 'wind.speed': w.wind, 'wind.dir': w.wind_dir,
+            high: w.high, low: w.low, precip_chance: w.precip_chance,
+            city: w.city, location: [w.city, w.region].filter(Boolean).join(', ')
+        };
+    }
+
+    // The main city is {{weather.temp}}; extra cities use their name: {{weather.tokyo.temp}}
     function weatherValues(status) {
         const w = status.weather;
-        if (!w?.enabled || !w.ok) return {};
-        return {
-            'weather.temp': w.temp, 'weather.temp_full': `${w.temp}${w.unit}`, 'weather.unit': w.unit, 'weather.feels_like': w.feels_like,
-            'weather.condition': w.condition, 'weather.icon': w.icon, 'weather.icon.url': `/api/weather/icon.svg?v=${encodeURIComponent(w.icon)}`,
-            'weather.humidity': w.humidity, 'weather.wind': `${w.wind} ${w.wind_unit}${w.wind_dir ? ` ${w.wind_dir}` : ''}`, 'weather.wind.speed': w.wind, 'weather.wind.dir': w.wind_dir,
-            'weather.high': w.high, 'weather.low': w.low, 'weather.precip_chance': w.precip_chance,
-            'weather.city': w.city, 'weather.location': [w.city, w.region].filter(Boolean).join(', ')
-        };
+        const out = {};
+        if (!w?.enabled) return out;
+        if (w.ok) for (const [key, value] of Object.entries(weatherFields(w))) out[`weather.${key}`] = value;
+        for (const [slug, extra] of Object.entries(w.extras || {})) {
+            if (!extra.ok) continue;
+            for (const [key, value] of Object.entries(weatherFields(extra))) out[`weather.${slug}.${key}`] = value;
+        }
+        return out;
     }
 
     function planListValues(status) {
@@ -144,7 +155,12 @@
     function variableGroups(status = {}) {
         const groups = VARIABLE_GROUPS.map(g => ({ label: g.label, items: g.items.slice() }));
         groups.push({ label: 'Clock', items: CLOCK_ITEMS });
-        groups.push({ label: 'Weather', items: WEATHER_ITEMS });
+        if (status.weather?.enabled) {
+            groups.push({ label: 'Weather', items: WEATHER_ITEMS });
+            for (const [slug, extra] of Object.entries(status.weather.extras || {})) {
+                if (extra.ok) groups.push({ label: `Weather: ${extra.city}`, items: WEATHER_ITEMS.map(([name, label]) => [name.replace('weather.', `weather.${slug}.`), label]) });
+            }
+        }
         groups.push({ label: 'Game (IGDB)', items: GAME_ITEMS });
         groups.push({ label: 'Game plan', items: [...PLAN_ITEMS, ...(status.gamePlan?.lists || []).map(list => [`plan.list.${list.id}`, `${list.name} list (comma list)`])] });
         groups.push({ label: 'Latest events', items: EVENT_ITEMS });

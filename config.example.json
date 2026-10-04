@@ -51,6 +51,7 @@
   "weather": {
     "enabled": false,
     "location": "",
+    "extra_locations": [],
     "units": "imperial",
     "poll_minutes": 15
   },

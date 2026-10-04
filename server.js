@@ -2841,20 +2841,33 @@ const WEATHER_CODES = {
 };
 
 function normalizeWeatherConfig(input = {}) {
+    const slugs = new Set();
+    const extra = [];
+    for (const entry of (Array.isArray(input?.extra_locations) ? input.extra_locations : String(input?.extra_locations || '').split('\n')).slice(0, 8)) {
+        const name = String(entry || '').trim().slice(0, 80);
+        const slug = weatherSlug(name);
+        if (name && slug && !slugs.has(slug)) { slugs.add(slug); extra.push(name); }
+    }
     return {
         enabled: input?.enabled === true,
         location: String(input?.location || '').trim().slice(0, 80),
+        extra_locations: extra,
         units: input?.units === 'metric' ? 'metric' : 'imperial',
         poll_minutes: Math.max(5, Math.min(180, Math.round(Number(input?.poll_minutes) || 15)))
     };
 }
 
-let weatherState = { ok: false, error: '' };
+// "Tokyo, Japan" -> "tokyo": the key used in {{weather.tokyo.temp}}
+function weatherSlug(location) {
+    return String(location || '').split(',')[0].toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+let weatherState = { ok: false, error: '', extras: {} };
 let weatherTimer = null;
-let weatherGeo = { query: '', place: null };
+const weatherGeoCache = new Map();
 
 async function geocodeWeather(location) {
-    if (weatherGeo.query === location && weatherGeo.place) return weatherGeo.place;
+    if (weatherGeoCache.has(location)) return weatherGeoCache.get(location);
     const [name, ...rest] = location.split(',').map(part => part.trim()).filter(Boolean);
     const hint = rest.join(' ').toLowerCase();
     const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=10&language=en&format=json`, { signal: AbortSignal.timeout(10000) });
@@ -2863,46 +2876,51 @@ async function geocodeWeather(location) {
     const match = (hint && results.find(place => [place.admin1, place.country, place.country_code].some(value => value && hint.includes(String(value).toLowerCase())))) || results[0];
     if (!match) throw new Error(`Could not find "${location}"`);
     const place = { city: match.name, region: match.admin1 || match.country || '', latitude: match.latitude, longitude: match.longitude };
-    weatherGeo = { query: location, place };
+    weatherGeoCache.set(location, place);
     return place;
 }
 
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
+async function readWeather(location, units) {
+    const place = await geocodeWeather(location);
+    const imperial = units === 'imperial';
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}`
+        + '&current=temperature_2m,apparent_temperature,relative_humidity_2m,is_day,weather_code,wind_speed_10m,wind_direction_10m'
+        + '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&timezone=auto'
+        + `&temperature_unit=${imperial ? 'fahrenheit' : 'celsius'}&wind_speed_unit=${imperial ? 'mph' : 'kmh'}`;
+    const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) throw new Error(`Forecast failed (${response.status})`);
+    const data = await response.json();
+    const now = data.current || {};
+    const [condition, dayIcon, nightIcon] = WEATHER_CODES[now.weather_code] || ['Unknown', '🌡️', '🌡️'];
+    const round = value => (Number.isFinite(value) ? Math.round(value) : '');
+    return {
+        ok: true, error: '', updatedAt: Date.now(),
+        city: place.city, region: place.region, unit: imperial ? '°F' : '°C', wind_unit: imperial ? 'mph' : 'km/h',
+        temp: round(now.temperature_2m), feels_like: round(now.apparent_temperature),
+        humidity: round(now.relative_humidity_2m),
+        wind: round(now.wind_speed_10m), wind_dir: Number.isFinite(now.wind_direction_10m) ? COMPASS[Math.round(now.wind_direction_10m / 45) % 8] : '',
+        condition, icon: now.is_day === 0 ? nightIcon : dayIcon, is_day: now.is_day !== 0,
+        high: round(data.daily?.temperature_2m_max?.[0]), low: round(data.daily?.temperature_2m_min?.[0]),
+        precip_chance: round(data.daily?.precipitation_probability_max?.[0])
+    };
+}
+
 async function fetchWeather() {
     const cfg = normalizeWeatherConfig(config.weather);
-    if (!cfg.enabled) { weatherState = { ok: false, error: '' }; return; }
-    if (!cfg.location) { weatherState = { ok: false, error: 'Enter a location in the config editor.' }; return; }
-    try {
-        const place = await geocodeWeather(cfg.location);
-        const imperial = cfg.units === 'imperial';
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}`
-            + '&current=temperature_2m,apparent_temperature,relative_humidity_2m,is_day,weather_code,wind_speed_10m,wind_direction_10m'
-            + '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&timezone=auto'
-            + `&temperature_unit=${imperial ? 'fahrenheit' : 'celsius'}&wind_speed_unit=${imperial ? 'mph' : 'kmh'}`;
-        const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        if (!response.ok) throw new Error(`Forecast failed (${response.status})`);
-        const data = await response.json();
-        const now = data.current || {};
-        const [condition, dayIcon, nightIcon] = WEATHER_CODES[now.weather_code] || ['Unknown', '🌡️', '🌡️'];
-        const round = value => (Number.isFinite(value) ? Math.round(value) : '');
-        const unit = imperial ? '°F' : '°C';
-        const windUnit = imperial ? 'mph' : 'km/h';
-        weatherState = {
-            ok: true, error: '', updatedAt: Date.now(),
-            city: place.city, region: place.region, unit, wind_unit: windUnit,
-            temp: round(now.temperature_2m), feels_like: round(now.apparent_temperature),
-            humidity: round(now.relative_humidity_2m),
-            wind: round(now.wind_speed_10m), wind_dir: Number.isFinite(now.wind_direction_10m) ? COMPASS[Math.round(now.wind_direction_10m / 45) % 8] : '',
-            condition, icon: now.is_day === 0 ? nightIcon : dayIcon, is_day: now.is_day !== 0,
-            high: round(data.daily?.temperature_2m_max?.[0]), low: round(data.daily?.temperature_2m_min?.[0]),
-            precip_chance: round(data.daily?.precipitation_probability_max?.[0])
-        };
-        broadcastToOverlays('weather', publicWeather());
-    } catch (error) {
-        weatherState = { ...weatherState, ok: false, error: error.message };
-        console.warn('[Weather]', error.message);
+    if (!cfg.enabled) { weatherState = { ok: false, error: '', extras: {} }; return; }
+    const next = { ...weatherState, extras: {} };
+    if (!cfg.location) next.error = 'Enter a location in the config editor.';
+    else {
+        try { Object.assign(next, await readWeather(cfg.location, cfg.units)); } catch (error) { next.ok = false; next.error = error.message; console.warn('[Weather]', error.message); }
     }
+    for (const name of cfg.extra_locations) {
+        try { next.extras[weatherSlug(name)] = await readWeather(name, cfg.units); }
+        catch (error) { next.extras[weatherSlug(name)] = { ok: false, error: error.message, name }; console.warn('[Weather]', name, error.message); }
+    }
+    weatherState = next;
+    broadcastToOverlays('weather', publicWeather());
 }
 
 function publicWeather() {
@@ -2914,7 +2932,7 @@ function scheduleWeather() {
     clearInterval(weatherTimer);
     weatherTimer = null;
     const cfg = normalizeWeatherConfig(config.weather);
-    if (!cfg.enabled) { weatherState = { ok: false, error: '' }; return; }
+    if (!cfg.enabled) { weatherState = { ok: false, error: '', extras: {} }; return; }
     fetchWeather();
     weatherTimer = setInterval(fetchWeather, cfg.poll_minutes * 60000);
 }
@@ -6295,7 +6313,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/weather/icon.svg') {
-        const icon = String(weatherState.icon || '🌡️').replace(/[<>&]/g, '');
+        const icon = String(url.searchParams.get('e') || '🌡️').replace(/[<>&"']/g, '').slice(0, 8);
         res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-store' });
         res.end(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="50" font-size="80" text-anchor="middle" dominant-baseline="central">${icon}</text></svg>`);
         return;
