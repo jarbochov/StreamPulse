@@ -48,6 +48,12 @@
     "min_session_minutes": 5,
     "poll_seconds": 30
   },
+  "weather": {
+    "enabled": false,
+    "location": "",
+    "units": "imperial",
+    "poll_minutes": 15
+  },
   "viewer_tracking": {
     "enabled": true,
     "source": "best_available",

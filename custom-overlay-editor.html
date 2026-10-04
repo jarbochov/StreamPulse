@@ -341,6 +341,7 @@
                         <button role="menuitem" data-add="alert"><span class="glyph">🔔</span>Alert box</button>
                         <hr style="border:0;border-top:1px solid var(--border);margin:.3rem 0">
                         <button role="menuitem" data-preset="counter"><span class="glyph">№</span>Counter card (preset)</button>
+                        <button role="menuitem" data-preset="weather"><span class="glyph">☀</span>Weather card (preset)</button>
                     </div>
                 </div>
                 <span class="divider"></span>
@@ -1681,6 +1682,7 @@
         return el;
     }
     function addPreset(name) {
+        if (name === 'weather') return addWeatherPreset();
         if (name !== 'counter') return;
         const group = uid('group');
         const cx = Math.round(overlay.canvas.width / 2 - 160), cy = Math.round(overlay.canvas.height / 2 - 90);
@@ -1690,6 +1692,18 @@
         overlay.elements.push(panel, number, caption);
         normalizeZ(); renderCanvas(); renderLayers(); setSelection([panel.id, number.id, caption.id]); changed(true);
         toast('Counter card added. Edit the placeholder and caption, or ungroup to tweak pieces.', 'info', 3500);
+    }
+    function addWeatherPreset() {
+        const group = uid('group');
+        const cx = Math.round(overlay.canvas.width / 2 - 170), cy = Math.round(overlay.canvas.height / 2 - 70);
+        const base = createElementData('text').style;
+        const panel = createElementData('shape', { name: 'Weather panel', group, x: cx, y: cy, width: 340, height: 140, style: { ...createElementData('shape').style, background: 'rgba(13,17,23,0.82)', borderRadius: 18, borderColor: '#30363d', borderWidth: 2, shadow: { blur: 24, color: 'rgba(0,0,0,0.5)' } } });
+        const icon = createElementData('text', { name: 'Weather icon', group, content: '{{weather.icon}}', x: cx + 10, y: cy + 15, width: 110, height: 110, style: { ...base, fontSize: 72, textAlign: 'center', verticalAlign: 'middle' } });
+        const temp = createElementData('text', { name: 'Weather temp', group, content: '{{weather.temp_full}}', x: cx + 125, y: cy + 12, width: 205, height: 70, style: { ...base, fontSize: 52, fontWeight: '700', textAlign: 'left', verticalAlign: 'middle' } });
+        const detail = createElementData('text', { name: 'Weather detail', group, content: '{{weather.condition}} · {{weather.city}}', x: cx + 125, y: cy + 84, width: 205, height: 44, style: { ...base, fontSize: 20, color: '#8b949e', textAlign: 'left', verticalAlign: 'top' } });
+        overlay.elements.push(panel, icon, temp, detail);
+        normalizeZ(); renderCanvas(); renderLayers(); setSelection([panel.id, icon.id, temp.id, detail.id]); changed(true);
+        toast('Weather card added. Turn weather on and set your city in the Config Editor.', 'info', 4500);
     }
     function deleteSelection() {
         const targets = selectedElements().filter(el => !el.locked);

@@ -391,6 +391,17 @@
             loadedConfig = cfg;
             configLoaded = true;
             renderConfigEditor(cfg);
+            showWeatherStatus();
+        } catch { /* ignore */ }
+    }
+
+    async function showWeatherStatus() {
+        const line = document.getElementById('cfg-wx-status');
+        if (!line) return;
+        try {
+            const w = await (await fetch('/api/weather', { cache: 'no-store' })).json();
+            if (!w.enabled) return;
+            line.textContent = w.ok ? `Working: ${w.city}${w.region ? `, ${w.region}` : ''} — ${w.temp}${w.unit}, ${w.condition}.` : (w.error || 'Loading the first reading…');
         } catch { /* ignore */ }
     }
 
@@ -400,6 +411,7 @@
         creditsSectionsState = sec;
         const social = cfg.credits?.social || {};
         const vt = cfg.viewer_tracking || {};
+        const wx = cfg.weather || {};
         const sl = cfg.session_lifecycle || {};
         const conn = cfg.connection || {};
         const st = {
@@ -592,6 +604,28 @@
                 <label>Samples kept per session</label>
                 <input type="number" id="cfg-vt-retain" min="60" max="5000" value="${vt.retain_samples || 720}">
             </div>
+
+            <div class="cfg-section">Weather</div>
+            <div class="cfg-row" style="align-items:center;">
+                <input type="checkbox" id="cfg-wx-enabled" ${wx.enabled === true ? 'checked' : ''}>
+                <label for="cfg-wx-enabled">Enable weather (free Open-Meteo data, no account needed)</label>
+            </div>
+            <div class="cfg-row aligned">
+                <label>Location</label>
+                <input type="text" id="cfg-wx-location" value="${escapeHtml(wx.location || '')}" placeholder="City, e.g. Pittsburgh, PA" maxlength="80">
+            </div>
+            <div class="cfg-row aligned">
+                <label>Units</label>
+                <select id="cfg-wx-units">
+                    <option value="imperial"${wx.units !== 'metric' ? ' selected' : ''}>°F, mph</option>
+                    <option value="metric"${wx.units === 'metric' ? ' selected' : ''}>°C, km/h</option>
+                </select>
+            </div>
+            <div class="cfg-row aligned">
+                <label>Refresh every (minutes)</label>
+                <input type="number" id="cfg-wx-poll" min="5" max="180" value="${wx.poll_minutes || 15}">
+            </div>
+            <p class="hint" id="cfg-wx-status" style="margin:0 0 0.5rem;">Use the <code>{{weather.*}}</code> placeholders in the Custom Overlay Editor, or add the Weather card preset.</p>
 
             <div class="cfg-section">Clip Detection</div>
             <div class="cfg-row" style="align-items:center;">
@@ -991,6 +1025,12 @@
                 retain_samples: Math.max(60, Math.min(5000, parseInt(document.getElementById('cfg-vt-retain').value, 10) || 720)),
                 viewer_label: document.getElementById('cfg-viewer-label').value.trim() || 'viewers'
             },
+            weather: {
+                enabled: document.getElementById('cfg-wx-enabled').checked,
+                location: document.getElementById('cfg-wx-location').value.trim(),
+                units: document.getElementById('cfg-wx-units').value,
+                poll_minutes: Math.max(5, Math.min(180, parseInt(document.getElementById('cfg-wx-poll').value, 10) || 15))
+            },
             rate_limit: {
                 enabled: document.getElementById('cfg-rl-enabled').checked,
                 requests_per_minute: parseInt(document.getElementById('cfg-rl-reads').value) || 120,
@@ -1037,6 +1077,7 @@
             const data = await res.json();
             if (data.status === 'saved') {
                 showToast('Config saved and applied!');
+                setTimeout(showWeatherStatus, 3000);
             } else {
                 showToast(data.error || 'Save failed');
             }

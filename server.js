@@ -2816,6 +2816,99 @@ function buildGamePlanSnapshot() {
 }
 
 // ============================================================================
+// WEATHER (Open-Meteo: free, no API key)
+// ============================================================================
+
+const WEATHER_CODES = {
+    0: ['Clear', '☀️', '🌙'], 1: ['Mostly clear', '🌤️', '🌙'], 2: ['Partly cloudy', '⛅', '☁️'], 3: ['Overcast', '☁️', '☁️'],
+    45: ['Fog', '🌫️', '🌫️'], 48: ['Freezing fog', '🌫️', '🌫️'],
+    51: ['Light drizzle', '🌦️', '🌧️'], 53: ['Drizzle', '🌦️', '🌧️'], 55: ['Heavy drizzle', '🌧️', '🌧️'], 56: ['Freezing drizzle', '🌧️', '🌧️'], 57: ['Freezing drizzle', '🌧️', '🌧️'],
+    61: ['Light rain', '🌦️', '🌧️'], 63: ['Rain', '🌧️', '🌧️'], 65: ['Heavy rain', '🌧️', '🌧️'], 66: ['Freezing rain', '🌧️', '🌧️'], 67: ['Freezing rain', '🌧️', '🌧️'],
+    71: ['Light snow', '🌨️', '🌨️'], 73: ['Snow', '❄️', '❄️'], 75: ['Heavy snow', '❄️', '❄️'], 77: ['Snow grains', '🌨️', '🌨️'],
+    80: ['Light showers', '🌦️', '🌧️'], 81: ['Showers', '🌧️', '🌧️'], 82: ['Heavy showers', '🌧️', '🌧️'], 85: ['Snow showers', '🌨️', '🌨️'], 86: ['Heavy snow showers', '❄️', '❄️'],
+    95: ['Thunderstorm', '⛈️', '⛈️'], 96: ['Thunderstorm, hail', '⛈️', '⛈️'], 99: ['Thunderstorm, hail', '⛈️', '⛈️']
+};
+
+function normalizeWeatherConfig(input = {}) {
+    return {
+        enabled: input?.enabled === true,
+        location: String(input?.location || '').trim().slice(0, 80),
+        units: input?.units === 'metric' ? 'metric' : 'imperial',
+        poll_minutes: Math.max(5, Math.min(180, Math.round(Number(input?.poll_minutes) || 15)))
+    };
+}
+
+let weatherState = { ok: false, error: '' };
+let weatherTimer = null;
+let weatherGeo = { query: '', place: null };
+
+async function geocodeWeather(location) {
+    if (weatherGeo.query === location && weatherGeo.place) return weatherGeo.place;
+    const [name, ...rest] = location.split(',').map(part => part.trim()).filter(Boolean);
+    const hint = rest.join(' ').toLowerCase();
+    const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=10&language=en&format=json`, { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) throw new Error(`Geocoding failed (${response.status})`);
+    const results = (await response.json()).results || [];
+    const match = (hint && results.find(place => [place.admin1, place.country, place.country_code].some(value => value && hint.includes(String(value).toLowerCase())))) || results[0];
+    if (!match) throw new Error(`Could not find "${location}"`);
+    const place = { city: match.name, region: match.admin1 || match.country || '', latitude: match.latitude, longitude: match.longitude };
+    weatherGeo = { query: location, place };
+    return place;
+}
+
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+
+async function fetchWeather() {
+    const cfg = normalizeWeatherConfig(config.weather);
+    if (!cfg.enabled) { weatherState = { ok: false, error: '' }; return; }
+    if (!cfg.location) { weatherState = { ok: false, error: 'Enter a location in the config editor.' }; return; }
+    try {
+        const place = await geocodeWeather(cfg.location);
+        const imperial = cfg.units === 'imperial';
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}`
+            + '&current=temperature_2m,apparent_temperature,relative_humidity_2m,is_day,weather_code,wind_speed_10m,wind_direction_10m'
+            + '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&timezone=auto'
+            + `&temperature_unit=${imperial ? 'fahrenheit' : 'celsius'}&wind_speed_unit=${imperial ? 'mph' : 'kmh'}`;
+        const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        if (!response.ok) throw new Error(`Forecast failed (${response.status})`);
+        const data = await response.json();
+        const now = data.current || {};
+        const [condition, dayIcon, nightIcon] = WEATHER_CODES[now.weather_code] || ['Unknown', '🌡️', '🌡️'];
+        const round = value => (Number.isFinite(value) ? Math.round(value) : '');
+        const unit = imperial ? '°F' : '°C';
+        const windUnit = imperial ? 'mph' : 'km/h';
+        weatherState = {
+            ok: true, error: '', updatedAt: Date.now(),
+            city: place.city, region: place.region, unit, wind_unit: windUnit,
+            temp: round(now.temperature_2m), feels_like: round(now.apparent_temperature),
+            humidity: round(now.relative_humidity_2m),
+            wind: round(now.wind_speed_10m), wind_dir: Number.isFinite(now.wind_direction_10m) ? COMPASS[Math.round(now.wind_direction_10m / 45) % 8] : '',
+            condition, icon: now.is_day === 0 ? nightIcon : dayIcon, is_day: now.is_day !== 0,
+            high: round(data.daily?.temperature_2m_max?.[0]), low: round(data.daily?.temperature_2m_min?.[0]),
+            precip_chance: round(data.daily?.precipitation_probability_max?.[0])
+        };
+        broadcastToOverlays('weather', publicWeather());
+    } catch (error) {
+        weatherState = { ...weatherState, ok: false, error: error.message };
+        console.warn('[Weather]', error.message);
+    }
+}
+
+function publicWeather() {
+    const cfg = normalizeWeatherConfig(config.weather);
+    return { enabled: cfg.enabled, units: cfg.units, location: cfg.location, ...weatherState };
+}
+
+function scheduleWeather() {
+    clearInterval(weatherTimer);
+    weatherTimer = null;
+    const cfg = normalizeWeatherConfig(config.weather);
+    if (!cfg.enabled) { weatherState = { ok: false, error: '' }; return; }
+    fetchWeather();
+    weatherTimer = setInterval(fetchWeather, cfg.poll_minutes * 60000);
+}
+
+// ============================================================================
 // MUSIC NOW-PLAYING
 // ============================================================================
 
@@ -3497,6 +3590,8 @@ function applyRuntimeConfig(nextConfig) {
     const nextMusicConfig = config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 };
     for (const key of Object.keys(MUSIC_CONFIG)) delete MUSIC_CONFIG[key];
     Object.assign(MUSIC_CONFIG, nextMusicConfig);
+
+    scheduleWeather();
 
     const nextViewerTracking = normalizeViewerTrackingConfig(config.viewer_tracking);
     for (const key of Object.keys(VIEWER_TRACKING_CONFIG)) delete VIEWER_TRACKING_CONFIG[key];
@@ -5110,7 +5205,7 @@ const server = http.createServer(async (req, res) => {
                     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
                     // Only allow safe fields to be edited
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'goals'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             current[key] = updates[key];
@@ -5159,6 +5254,7 @@ const server = http.createServer(async (req, res) => {
             theme: config.theme || {},
             music: config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 },
             viewer_tracking: normalizeViewerTrackingConfig(config.viewer_tracking),
+            weather: normalizeWeatherConfig(config.weather),
             goals: normalizeGoalsConfig(config.goals || DEFAULT_GOALS_CONFIG)
         }));
         return;
@@ -6178,6 +6274,20 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({ error: err.message }));
             return;
         }
+    }
+
+    if (pathname === '/api/weather') {
+        if (url.searchParams.get('refresh') === '1' && normalizeWeatherConfig(config.weather).enabled) await fetchWeather();
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify(publicWeather()));
+        return;
+    }
+
+    if (pathname === '/api/weather/icon.svg') {
+        const icon = String(weatherState.icon || '🌡️').replace(/[<>&]/g, '');
+        res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-store' });
+        res.end(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="50" font-size="80" text-anchor="middle" dominant-baseline="central">${icon}</text></svg>`);
+        return;
     }
 
     if (pathname === '/api/game-plan') {
@@ -7311,6 +7421,8 @@ server.listen(PORT, () => {
         saveStats();
         saveChatLog();
     }, 5000);
+
+    scheduleWeather();
 
     // Start music polling if enabled
     if (MUSIC_CONFIG.enabled) {

@@ -12,6 +12,7 @@
 
     const CLOCK_ITEMS = [['now', 'Current date & time (format it with {{now|MMMM D, h:mm A}})'], ['time', 'Time (e.g. 3:07 PM)'], ['time.24', 'Time, 24-hour'], ['time.seconds', 'Time with seconds'], ['date', 'Date (short)'], ['date.long', 'Date (long)'], ['weekday', 'Weekday'], ['month', 'Month'], ['year', 'Year'], ['uptime', 'Stream uptime (H:MM:SS)']];
     const GAME_ITEMS = [['game.cover', 'Cover art URL (use as an image source)'], ['game.release_date', 'Release date'], ['game.release_year', 'Release year'], ['game.genres', 'Genres'], ['game.developer', 'Developer'], ['game.platforms', 'Platforms'], ['game.rating', 'IGDB rating (0–100)'], ['game.summary', 'Summary']];
+    const WEATHER_ITEMS = [['weather.temp', 'Temperature (number)'], ['weather.temp_full', 'Temperature with unit (72°F)'], ['weather.unit', 'Temperature unit (°F / °C)'], ['weather.feels_like', 'Feels like (number)'], ['weather.condition', 'Conditions (Partly cloudy)'], ['weather.icon', 'Weather icon (emoji)'], ['weather.icon.url', 'Weather icon image URL (use as an image source)'], ['weather.humidity', 'Humidity %'], ['weather.wind', 'Wind with unit (8 mph NW)'], ['weather.wind.speed', 'Wind speed (number)'], ['weather.wind.dir', 'Wind direction (NW)'], ['weather.high', 'Today\'s high'], ['weather.low', 'Today\'s low'], ['weather.precip_chance', 'Chance of precipitation %'], ['weather.city', 'City'], ['weather.location', 'City, region']];
     const PLAN_ITEMS = [['plan.now', 'Game from your plan you are playing now'], ['plan.scheduled', 'Scheduled games (comma list)'], ['plan.backlog', 'Backlog games (comma list)']];
     const EVENT_ITEMS = [['latest.follower', 'Latest follower'], ['latest.subscriber', 'Latest subscriber'], ['latest.gifter', 'Latest gift sub gifter'], ['latest.cheer', 'Latest cheerer'], ['latest.cheer.amount', 'Latest cheer amount'], ['latest.donation', 'Latest donor'], ['latest.donation.amount', 'Latest donation amount'], ['latest.raider', 'Latest raider'], ['latest.raider.viewers', 'Latest raid size'], ['chatter.top', 'Top chatter this session'], ['chatter.top.count', 'Top chatter message count']];
     // Values that change every second are refreshed in place instead of re-rendering the overlay.
@@ -77,6 +78,18 @@
         };
     }
 
+    function weatherValues(status) {
+        const w = status.weather;
+        if (!w?.enabled || !w.ok) return {};
+        return {
+            'weather.temp': w.temp, 'weather.temp_full': `${w.temp}${w.unit}`, 'weather.unit': w.unit, 'weather.feels_like': w.feels_like,
+            'weather.condition': w.condition, 'weather.icon': w.icon, 'weather.icon.url': `/api/weather/icon.svg?v=${encodeURIComponent(w.icon)}`,
+            'weather.humidity': w.humidity, 'weather.wind': `${w.wind} ${w.wind_unit}${w.wind_dir ? ` ${w.wind_dir}` : ''}`, 'weather.wind.speed': w.wind, 'weather.wind.dir': w.wind_dir,
+            'weather.high': w.high, 'weather.low': w.low, 'weather.precip_chance': w.precip_chance,
+            'weather.city': w.city, 'weather.location': [w.city, w.region].filter(Boolean).join(', ')
+        };
+    }
+
     function planListValues(status) {
         const out = {};
         for (const list of status.gamePlan?.lists || []) out[`plan.list.${list.id}`] = (status.gamePlan.items || []).filter(item => item.status === list.id).map(item => item.name).join(', ');
@@ -131,6 +144,7 @@
     function variableGroups(status = {}) {
         const groups = VARIABLE_GROUPS.map(g => ({ label: g.label, items: g.items.slice() }));
         groups.push({ label: 'Clock', items: CLOCK_ITEMS });
+        groups.push({ label: 'Weather', items: WEATHER_ITEMS });
         groups.push({ label: 'Game (IGDB)', items: GAME_ITEMS });
         groups.push({ label: 'Game plan', items: [...PLAN_ITEMS, ...(status.gamePlan?.lists || []).map(list => [`plan.list.${list.id}`, `${list.name} list (comma list)`])] });
         groups.push({ label: 'Latest events', items: EVENT_ITEMS });
@@ -154,6 +168,7 @@
             ...timerValues(status, now),
             ...musicValues(status, now),
             ...planListValues(status),
+            ...weatherValues(status),
             'stream.category': status.stream?.category?.name,
             'game.cover': status.stream?.game?.cover,
             'game.release_date': status.stream?.game?.releaseDate,
@@ -330,11 +345,13 @@
 
     async function loadLiveExtras(status) {
         try {
-            const [timers, goals, plan] = await Promise.all([
+            const [timers, goals, plan, weather] = await Promise.all([
                 fetch('/api/timers', { cache: 'no-store' }).then(r => r.ok ? r.json() : null),
                 fetch('/api/goals', { cache: 'no-store' }).then(r => r.ok ? r.json() : null),
-                fetch('/api/game-plan', { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
+                fetch('/api/game-plan', { cache: 'no-store' }).then(r => r.ok ? r.json() : null),
+                fetch('/api/weather', { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
             ]);
+            if (weather) status.weather = weather;
             if (plan) status.gamePlan = plan;
             status.musicFetchedAt = Date.now();
             if (timers) status.timerData = { fetchedAt: Date.now(), timers: timers.timers || {} };

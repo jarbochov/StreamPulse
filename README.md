@@ -264,6 +264,10 @@ All other settings can be edited live via the [Config Editor](http://localhost:3
 | `viewer_tracking.enabled` | boolean | `true` | Enable current viewer polling and session sampling |
 | `viewer_tracking.poll_seconds` | number | `60` | How often to sample current viewers |
 | `viewer_tracking.retain_samples` | number | `720` | Max session viewer samples to keep |
+| `weather.enabled` | boolean | `false` | Enable weather placeholders (`{{weather.temp}}`, `{{weather.icon}}`, …) from Open-Meteo |
+| `weather.location` | string | `""` | City to look up, e.g. `Pittsburgh, PA` |
+| `weather.units` | string | `imperial` | `imperial` (°F, mph) or `metric` (°C, km/h) |
+| `weather.poll_minutes` | number | `15` | How often to refresh the weather |
 | `clip_candidates` | object | enabled | Beta candidate detection thresholds and event toggles |
 
 ### Goals Configuration
