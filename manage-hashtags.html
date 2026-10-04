@@ -140,7 +140,7 @@
                     <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">To Date</label>
                     <input type="date" id="ht-to" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                 </div>
-                <div>
+                <div id="ht-title-wrap">
                     <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Title</label>
                     <input type="text" id="ht-title" value="All Hashtags" onchange="updateHashtagUrl()" style="width: 100%; padding: 0.4rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
                 </div>
@@ -193,6 +193,7 @@
         document.getElementById('ht-weight-wrap').style.display = isCloud ? 'flex' : 'none';
         document.getElementById('ht-scroll-wrap').style.display = view === 'grid' ? 'flex' : 'none';
         document.getElementById('ht-duration-wrap').style.display = isGrid ? 'none' : '';
+        document.getElementById('ht-title-wrap').style.display = isGrid ? 'none' : '';
 
         const params = new URLSearchParams();
         params.set('view', view);
@@ -215,7 +216,7 @@
         if (to) params.set('to', to);
 
         const title = document.getElementById('ht-title').value;
-        if (title && title !== 'All Hashtags') params.set('title', title);
+        if (!isGrid && title && title !== 'All Hashtags') params.set('title', title);
 
         const duration = parseInt(document.getElementById('ht-duration').value) || 0;
         if (!isGrid && duration > 0) params.set('duration', duration);
