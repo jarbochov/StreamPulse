@@ -57,10 +57,9 @@
         .overlay-markdown hr { border: 0; border-top: 1px solid currentColor; opacity: .5; margin: .6em 0; }
         .overlay-image, .overlay-video { overflow: hidden; }
         .overlay-embed iframe { width: 100%; height: 100%; border: 0; }
-        .overlay-marquee { white-space: nowrap; overflow: hidden; }
-        .overlay-marquee::after { content: ''; }
-        .overlay-marquee { animation: overlay-marquee var(--marquee-duration, 60s) linear infinite; }
-        @keyframes overlay-marquee { from { text-indent: 100%; } to { text-indent: -100%; } }
+        .overlay-marquee { white-space: nowrap; overflow: hidden; text-align: left !important; }
+        .overlay-marquee-track { display: block; flex: none; width: 100%; animation: overlay-marquee var(--marquee-duration, 60s) linear infinite; }
+        @keyframes overlay-marquee { from { text-indent: 100%; } to { text-indent: var(--mq-end, -100%); } }
         .overlay-caret { display: inline-block; max-width: 100%; vertical-align: top; overflow: hidden; white-space: nowrap; border-right: .15em solid currentColor; animation: overlay-blink-caret .5s step-end infinite; }
         @keyframes overlay-blink-caret { from, to { border-right-color: transparent; } 50% { border-right-color: currentColor; } }
     </style>

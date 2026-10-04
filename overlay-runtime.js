@@ -61,6 +61,7 @@
         if (config.marquee) {
             node.classList.add('overlay-marquee');
             node.style.setProperty('--marquee-duration', `${Math.max(10, Number(config.marqueeSpeed) || 60)}s`);
+            shared.wrapMarquee(node);
         } else {
             node.classList.remove('overlay-marquee');
         }

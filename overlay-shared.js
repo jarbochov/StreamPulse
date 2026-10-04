@@ -1076,6 +1076,16 @@
     }
     const textSourceState = el => textSources.get(textSourceKey(el)) || null;
     const sourceText = el => { const state = textSourceState(el); return state && typeof state.text === 'string' ? state.text : null; };
+    // Scrolls the node's current contents across it. The track animates text-indent (layout, not a transform) so a clipped text gradient still follows the letters.
+    function wrapMarquee(node) {
+        const track = document.createElement('span');
+        track.className = 'overlay-marquee-track';
+        track.append(...node.childNodes);
+        node.appendChild(track);
+        const measure = () => track.style.setProperty('--mq-end', `-${Math.ceil(track.scrollWidth) + 8}px`);
+        requestAnimationFrame(measure);
+        if (document.fonts?.ready) document.fonts.ready.then(measure);
+    }
     const elementContent = el => { const text = sourceText(el); return text !== null && el.type !== 'random-text' ? text : el.content; };
     function elementItems(el) {
         const text = sourceText(el);
@@ -1269,5 +1279,5 @@
         return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length, control };
     }
 
-    root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);
