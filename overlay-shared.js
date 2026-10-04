@@ -771,7 +771,7 @@
                 const scrolls = width > node.clientWidth + 1;
                 copies[1].style.display = scrolls ? 'flex' : 'none';
                 const body = copies[0].parentElement;
-                body.style.animation = scrolls ? `${config.tickerDirection === 'right' ? 'spGlTickerR' : 'spGlTicker'} ${(width / (config.tickerSpeed || 60)).toFixed(2)}s linear infinite` : 'none';
+                body.style.animation = scrolls ? `${config.tickerDirection === 'right' ? 'spGlTickerR' : 'spGlTicker'} ${(copies[0].children.length * (config.tickerPace || 3)).toFixed(2)}s linear infinite` : 'none';
                 return;
             }
             inner.style.transform = '';
