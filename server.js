@@ -154,6 +154,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
             showCovers: element.gameList?.showCovers !== false,
             showTitles: element.gameList?.showTitles !== false,
             meta: ['none', 'year', 'genres', 'note', 'rating', 'tags'].includes(element.gameList?.meta) ? element.gameList.meta : 'none',
+            tierSource: element.gameList?.tierSource === 'tier' ? 'tier' : 'stars',
             sort: ['plan', 'rating', 'name'].includes(element.gameList?.sort) ? element.gameList.sort : 'plan',
             headings: element.gameList?.headings !== false,
             highlightCurrent: element.gameList?.highlightCurrent !== false,
@@ -2751,7 +2752,8 @@ function normalizeGamePlan(input) {
         igdbId: /^\d{1,9}$/.test(String(item?.igdbId || '')) ? String(item.igdbId) : '',
         custom: item?.custom === true,
         customCover: /^(https?:\/\/|\/custom-overlay-assets\/)[^\s"'<>]{1,500}$/i.test(String(item?.customCover || '').trim()) ? String(item.customCover).trim() : '',
-        rating: Math.max(0, Math.min(5, Math.round(Number(item?.rating) || 0))),
+        rating: Math.max(0, Math.min(5, Math.round((Number(item?.rating) || 0) * 2) / 2)),
+        tier: ['S', 'A', 'B', 'C', 'D', 'F'].includes(String(item?.tier || '').toUpperCase()) ? String(item.tier).toUpperCase() : '',
         tags: [...new Set((Array.isArray(item?.tags) ? item.tags : []).map(tag => String(tag || '').trim().slice(0, 24)).filter(Boolean))].slice(0, 8),
         finished: /^\d{4}-\d{2}-\d{2}$/.test(String(item?.finished || '')) ? item.finished : ''
     })).filter(item => item.name);

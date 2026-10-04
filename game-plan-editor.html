@@ -55,6 +55,7 @@
         .stars { display: inline-flex; gap: 1px; }
         .stars button { background: none; border: 0; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 1px; color: var(--text-faint); }
         .stars button.on { color: #f5b301; }
+        .stars button.half { background: linear-gradient(90deg, #f5b301 50%, var(--text-faint) 50%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
         .stars button:hover { transform: scale(1.15); }
         .item-actions { display: flex; gap: 0.3rem; }
         .badge { display: inline-block; background: var(--success); color: #000; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; border-radius: 999px; padding: 0.1rem 0.5rem; margin-left: 0.4rem; vertical-align: middle; }
@@ -123,6 +124,7 @@
             <div class="dlg-fields">
                 <label class="field">Name<input id="f-name" maxlength="120"></label>
                 <div class="field dlg-stars">Rating<span class="stars" id="f-rating"></span></div>
+                <label class="field">Tier (for the tier list, separate from stars)<select id="f-tier"><option value="">Unranked</option><option>S</option><option>A</option><option>B</option><option>C</option><option>D</option><option>F</option></select></label>
                 <label class="field">Artwork URL (paste a link, or paste an image with ⌘V)<input id="f-cover" placeholder="https://… or leave blank for the IGDB cover"></label>
                 <div class="field two">
                     <div><span>List</span><select id="f-status"></select></div>
@@ -161,7 +163,9 @@
         const uid = () => `game-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
         const setStatus = text => { $('status').textContent = text; };
         const listName = id => allLists().find(list => list.id === id)?.name || id;
-        const starsHtml = (value, attr) => [1, 2, 3, 4, 5].map(n => `<button type="button" ${attr}="${n}" class="${n <= value ? 'on' : ''}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('');
+        const starsHtml = (value, attr) => [1, 2, 3, 4, 5].map(n => `<button type="button" ${attr}="${n}" class="${n <= value ? 'on' : value === n - 0.5 ? 'half' : ''}" aria-label="${n} stars (click the left half for ${n - 0.5})">★</button>`).join('');
+        // Clicking the left half of a star gives a half rating (3.5 stars = 7/10).
+        const starValue = (event, star, attr) => { const n = Number(star.dataset[attr]); const box = star.getBoundingClientRect(); return event.clientX - box.left < box.width / 2 ? n - 0.5 : n; };
 
         function buildTabs(adding) {
             const tabs = allLists().map(list => `<button type="button" class="tab${list.id === active ? ' active' : ''}" data-tab="${esc(list.id)}">${esc(list.name)}<span class="n">${items.filter(item => item.status === list.id).length || ''}</span></button>`).join('');
@@ -265,7 +269,7 @@
                 const response = await fetch('/api/game-plan', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lists: customLists, periods: orderedPeriods(), items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tags, finished }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tags, finished })) })
+                    body: JSON.stringify({ lists: customLists, periods: orderedPeriods(), items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished })) })
                 });
                 if (!response.ok) throw new Error((await response.json()).error || response.statusText);
                 setStatus('Saved. Overlays update within a few seconds.');
@@ -376,7 +380,7 @@
             if (!item) return;
             const star = event.target.closest('[data-star]');
             if (star) {
-                const value = Number(star.dataset.star);
+                const value = starValue(event, star, 'star');
                 item.rating = item.rating === value ? 0 : value;
                 row.querySelector('[data-stars]').innerHTML = starsHtml(item.rating, 'data-star');
                 scheduleSave();
@@ -403,6 +407,7 @@
         function openDialog(item) {
             editing = item;
             $('f-name').value = item.name;
+            $('f-tier').value = item.tier || '';
             $('f-name').disabled = !item.custom;
             $('f-status').innerHTML = allLists().map(list => `<option value="${esc(list.id)}"${list.id === item.status ? ' selected' : ''}>${esc(list.name)}</option>`).join('');
             $('f-period').value = item.period || '';
@@ -416,10 +421,11 @@
         $('f-rating').addEventListener('click', event => {
             const star = event.target.closest('[data-dstar]');
             if (!star || !editing) return;
-            const value = Number(star.dataset.dstar);
+            const value = starValue(event, star, 'dstar');
             editing.rating = editing.rating === value ? 0 : value;
             paintDialog(); commit(true);
         });
+        $('f-tier').addEventListener('change', () => { if (editing) { editing.tier = $('f-tier').value; commit(false); } });
         $('f-name').addEventListener('change', () => { const name = $('f-name').value.trim(); if (editing && name) { editing.name = name; paintDialog(); commit(true); } });
         $('f-note').addEventListener('change', () => { editing.note = $('f-note').value.trim(); commit(true); });
         $('f-period').addEventListener('change', () => { editing.period = $('f-period').value.trim(); commit(true); });

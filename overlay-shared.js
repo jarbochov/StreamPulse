@@ -566,12 +566,18 @@
         const just = { left: 'flex-start', center: 'center', right: 'flex-end' }[hAlign];
         const coverMargin = { left: '0 auto 0 0', center: '0 auto', right: '0 0 0 auto' }[hAlign];
         const TIERS = [[5, 'S', '#ff7f7f'], [4, 'A', '#ffbf7f'], [3, 'B', '#ffdf7f'], [2, 'C', '#bfff7f'], [1, 'D', '#7fbfff'], [0, '?', '#b0b0b0']];
+        const TIER_LETTERS = [['S', '#ff7f7f'], ['A', '#ffbf7f'], ['B', '#ffdf7f'], ['C', '#bfff7f'], ['D', '#7fbfff'], ['F', '#bf9fff'], ['?', '#b0b0b0']];
         const autoColumns = layout === 'grid' && config.columns === 0;
         const statusNames = { scheduled: 'Scheduled', backlog: 'Backlog', played: 'Played' };
         for (const entry of plan?.lists || []) statusNames[entry.id] = entry.name;
         if (tiers) {
-            for (const [stars, label, color] of TIERS) {
-                const tierItems = items.filter(item => Math.max(0, Math.min(5, item.rating || 0)) === stars);
+            if (config.tierSource === 'tier') {
+                for (const [label, color] of TIER_LETTERS) {
+                    const tierItems = items.filter(item => (item.tier || '?') === label);
+                    if (tierItems.length) sections.push({ label, color, items: tierItems });
+                }
+            } else for (const [stars, label, color] of TIERS) {
+                const tierItems = items.filter(item => Math.round(Math.max(0, Math.min(5, item.rating || 0))) === stars);
                 if (tierItems.length) sections.push({ label, color, items: tierItems });
             }
         } else if (kanban) {
@@ -596,7 +602,11 @@
             if (config.meta === 'year') return item.releaseYear ? String(item.releaseYear) : '';
             if (config.meta === 'genres') return (item.genres || []).slice(0, 2).join(' · ');
             if (config.meta === 'note') return item.note || '';
-            if (config.meta === 'rating') return item.rating > 0 ? '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating) : '';
+            if (config.meta === 'rating') {
+                if (!(item.rating > 0)) return '';
+                const full = Math.floor(item.rating), half = item.rating - full >= 0.5 ? 1 : 0;
+                return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(5 - full - half);
+            }
             if (config.meta === 'tags') return (item.tags || []).slice(0, 3).join(' · ');
             return '';
         };
