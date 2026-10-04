@@ -34,6 +34,9 @@
         .seg .btn:last-child { border-radius: 0 6px 6px 0; }
         .size { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text-muted); font-size: 0.78rem; }
         .size input { padding: 0; width: 120px; accent-color: var(--accent); }
+        .check { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--text-muted); font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+        .check input { width: auto; padding: 0; margin: 0; accent-color: var(--accent); }
+        .check.off { opacity: .5; }
         .summary { color: var(--text-muted); font-size: 0.8rem; }
         #drop { border: 1px dashed var(--border); border-radius: 8px; padding: 0.7rem; text-align: center; color: var(--text-faint); font-size: 0.82rem; }
         #drop.over { border-color: var(--accent); color: var(--accent); }
@@ -68,12 +71,14 @@
         .list .asset { flex-direction: row; align-items: center; }
         .list .thumb { width: var(--thumb, 180px); height: var(--thumb, 180px); flex: none; }
         .list .thumb .icon { font-size: calc(var(--thumb, 180px) * 0.4); }
-        .list .info { flex: 1; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 2fr); align-items: center; gap: 0.2rem 1rem; padding: 0.4rem 0.8rem; }
-        .list .info .actions { justify-content: flex-end; margin: 0; grid-column: 1 / -1; }
+        .list .info { flex: 1; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: center; gap: 0.2rem 1rem; padding: 0.4rem 0.8rem; }
+        .list .info > :first-child { grid-column: auto; min-width: 12rem; }
+        .list .info .actions { justify-content: flex-end; margin: 0; flex-wrap: nowrap; flex: none; }
+        .list .info .actions .btn { white-space: nowrap; }
         .list .pick { position: static; flex: none; margin: 0 0.2rem 0 0.7rem; }
         #toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); background: var(--bg-raised); border: 1px solid var(--border); padding: 0.55rem 1rem; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 10; }
         #toast.show { opacity: 1; }
-        @media (max-width: 800px) { .container { padding: 1rem; } .list .info { grid-template-columns: 1fr; } }
+        @media (max-width: 800px) { .container { padding: 1rem; } .list .info { grid-auto-flow: row; } .list .info .actions { flex-wrap: wrap; } }
     </style>
 </head>
 <body>
@@ -109,7 +114,8 @@
         <div class="card toolbar">
             <span class="summary" id="summary">Loading…</span>
             <span class="sep"></span>
-            <label class="size" title="Show the + Tag and + Caption buttons on each asset"><input type="checkbox" id="show-edit"> Edit buttons</label>
+            <label class="check" title="Show tags and captions on each asset"><input type="checkbox" id="show-tags"> Show tags</label>
+            <label class="check" title="Show the + Tag, + Caption and remove-tag buttons"><input type="checkbox" id="show-edit"> Edit buttons</label>
             <button class="btn" id="select-all">Select shown</button>
             <button class="btn" id="tag-selected" hidden></button>
             <button class="btn" id="untag-selected" hidden></button>
@@ -136,7 +142,7 @@
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', oga: 'audio/ogg', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2', txt: 'text/plain', md: 'text/markdown', markdown: 'text/markdown' };
-    const prefs = Object.assign({ view: 'grid', size: 180, sort: 'newest', kind: 'all', usage: 'all', tag: '', edit: true }, JSON.parse(localStorage.getItem('assetLibraryPrefs') || '{}'));
+    const prefs = Object.assign({ view: 'grid', size: 180, sort: 'newest', kind: 'all', usage: 'all', tag: '', edit: true, tags: true }, JSON.parse(localStorage.getItem('assetLibraryPrefs') || '{}'));
     let assets = [], shown = [];
     const selected = new Set();
 
@@ -265,6 +271,7 @@
         $('summary').textContent = `${shown.length} of ${assets.length} assets · ${formatSize(total)} total · ${unused.length} unused`;
         $('purge').hidden = !unused.length;
         $('purge').textContent = `Delete ${unused.length} unused`;
+        $('show-edit').closest('label').classList.toggle('off', prefs.tags === false);
         $('tag-selected').hidden = $('untag-selected').hidden = !selected.size;
         $('tag-selected').textContent = `Tag ${selected.size} selected…`;
         $('untag-selected').textContent = 'Untag…';
@@ -282,8 +289,10 @@
                 <div class="thumb">${thumbHtml(asset)}</div>
                 <div class="info">
                     <div><div class="name">${esc(asset.label)}</div><div class="meta">${esc(asset.kind)} · ${formatSize(asset.size)} · ${formatDate(asset.modifiedAt)}</div></div>
-                    <div>${(asset.tags || []).map(tag => `<span class="badge tag">${esc(tag)}<button type="button" data-untag="${index}" data-tag="${esc(tag)}" title="Remove tag" aria-label="Remove tag ${esc(tag)}">×</button></span>`).join('')}${prefs.edit ? `<button class="btn small" data-act="tag" data-i="${index}" title="Add tags">+ Tag</button>` : ''}</div>
-                    ${(asset.kind === 'image' || asset.kind === 'video') && (asset.caption || prefs.edit) ? `<div class="meta">${asset.caption ? `Caption: ${esc(asset.caption)}` : ''} ${prefs.edit ? `<button class="btn small" data-act="caption" data-i="${index}">${asset.caption ? 'Edit caption' : '+ Caption'}</button>` : ''}</div>` : ''}
+                    ${prefs.tags !== false ? `<div class="i-tags">
+                        ${(asset.tags || []).length || prefs.edit ? `<div>${(asset.tags || []).map(tag => `<span class="badge tag">${esc(tag)}${prefs.edit ? `<button type="button" data-untag="${index}" data-tag="${esc(tag)}" title="Remove tag" aria-label="Remove tag ${esc(tag)}">×</button>` : ''}</span>`).join('')}${prefs.edit ? `<button class="btn small" data-act="tag" data-i="${index}" title="Add tags">+ Tag</button>` : ''}</div>` : ''}
+                        ${(asset.kind === 'image' || asset.kind === 'video') && (asset.caption || prefs.edit) ? `<div class="meta">${asset.caption ? `Caption: ${esc(asset.caption)} ` : ''}${prefs.edit ? `<button class="btn small" data-act="caption" data-i="${index}">${asset.caption ? 'Edit caption' : '+ Caption'}</button>` : ''}</div>` : ''}
+                    </div>` : ''}
                     <div>${asset.usedBy.length ? asset.usedBy.map(user => `<span class="badge used" title="${esc(user.id)}">${esc(user.name || user.id)}</span>`).join('') : '<span class="badge">Unused</span>'}</div>
                     <div class="actions">
                         <button class="btn small" data-act="copy" data-i="${index}">Copy URL</button>
@@ -372,6 +381,8 @@
     }
     $('view-grid').addEventListener('click', () => { prefs.view = 'grid'; savePrefs(); render(); });
     $('view-list').addEventListener('click', () => { prefs.view = 'list'; savePrefs(); render(); });
+    $('show-tags').checked = prefs.tags !== false;
+    $('show-tags').addEventListener('change', () => { prefs.tags = $('show-tags').checked; savePrefs(); render(); });
     $('show-edit').checked = prefs.edit !== false;
     $('show-edit').addEventListener('change', () => { prefs.edit = $('show-edit').checked; savePrefs(); render(); });
     $('thumb-size').value = prefs.size;
