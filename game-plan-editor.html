@@ -13,49 +13,74 @@
         .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
-        .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1.1rem; }
-        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem 1.2rem; }
-        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.25rem; }
+        .container { max-width: 900px; margin: 0 auto; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.2rem; }
         .hint { color: var(--text-muted); font-size: 0.78rem; line-height: 1.45; }
-        .add-row { display: grid; grid-template-columns: 1fr 160px 1fr auto; gap: 0.6rem; margin-top: 0.8rem; }
-        input, select { padding: 0.5rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; font-family: inherit; min-width: 0; }
+        .add-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.6rem; }
+        input, select, textarea { padding: 0.5rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; font-family: inherit; min-width: 0; }
         input:focus, select:focus { outline: none; border-color: var(--accent); }
         .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.82rem; cursor: pointer; }
         .btn:hover { border-color: var(--accent); }
         .btn.primary { background: var(--success-strong); border-color: var(--success-strong); color: #fff; }
-        .btn.icon { padding: 0.3rem 0.55rem; }
-        .lists { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.1rem; align-items: start; }
-        .list-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; }
-        .list-head h2 { margin: 0; }
-        .count { font-size: 0.74rem; color: var(--text-faint); }
-        .items { display: flex; flex-direction: column; gap: 0.5rem; min-height: 64px; padding-bottom: 0.2rem; }
-        .items:empty::before { content: attr(data-empty); color: var(--text-faint); font-size: 0.8rem; border: 1px dashed var(--border); border-radius: 8px; padding: 1rem; text-align: center; }
-        .item { display: grid; grid-template-columns: auto 48px minmax(0, 1fr); gap: 0.6rem; align-items: start; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem; }
+        .btn.danger:hover { border-color: #f85149; color: #f85149; }
+        .btn.icon { padding: 0.25rem 0.55rem; }
+        .status { color: var(--text-muted); font-size: 0.78rem; min-height: 1.2em; margin-top: 0.4rem; }
+
+        .tabs { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+        .tab { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); border-radius: 999px; padding: 0.35rem 0.85rem; font-size: 0.82rem; cursor: pointer; display: inline-flex; gap: 0.4rem; align-items: center; }
+        .tab:hover { border-color: var(--accent); color: var(--text); }
+        .tab.active { background: color-mix(in srgb, var(--accent-strong) 22%, transparent); border-color: var(--accent); color: var(--text); font-weight: 600; }
+        .tab.drop { border-color: var(--success); background: color-mix(in srgb, var(--success) 25%, transparent); }
+        .tab .n { font-size: 0.72rem; color: var(--text-faint); }
+        .tab-new { border-style: dashed; }
+        .tab-input { border-radius: 999px; padding: 0.3rem 0.8rem; width: 170px; }
+        .tab-tools { margin-left: auto; display: flex; gap: 0.3rem; }
+
+        .items { display: flex; flex-direction: column; gap: 0.5rem; min-height: 64px; }
+        .items:empty::before { content: attr(data-empty); color: var(--text-faint); font-size: 0.82rem; border: 1px dashed var(--border); border-radius: 8px; padding: 1.4rem; text-align: center; }
+        .item { display: grid; grid-template-columns: auto 52px minmax(0, 1fr) auto; gap: 0.7rem; align-items: center; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.7rem; }
         .item.now { border-color: var(--success); box-shadow: 0 0 0 1px color-mix(in srgb, var(--success) 40%, transparent); }
         .grip { cursor: grab; color: var(--text-faint); user-select: none; padding: 0 0.15rem; }
-        .cover { width: 48px; height: 64px; border-radius: 5px; background: var(--bg-raised); object-fit: cover; display: block; }
-        .main { min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; }
-        .main .name { font-weight: 600; font-size: 0.88rem; line-height: 1.25; }
-        .main .sub { font-size: 0.72rem; color: var(--text-muted); }
-        .main input { padding: 0.3rem 0.5rem; font-size: 0.78rem; }
+        .cover { width: 52px; height: 70px; border-radius: 5px; background: var(--bg-raised); object-fit: cover; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: var(--text-faint); cursor: pointer; }
+        .main { min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+        .main .name { font-weight: 600; font-size: 0.92rem; line-height: 1.25; cursor: pointer; }
+        .main .sub { font-size: 0.74rem; color: var(--text-muted); }
+        .main .note { font-size: 0.76rem; color: var(--text-muted); font-style: italic; }
+        .row-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .chip { font-size: 0.68rem; border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; color: var(--text-muted); }
+        .period { padding: 0.2rem 0.5rem; font-size: 0.74rem; width: 160px; }
+        .stars { display: inline-flex; gap: 1px; }
+        .stars button { background: none; border: 0; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 1px; color: var(--text-faint); }
+        .stars button.on { color: #f5b301; }
+        .stars button:hover { transform: scale(1.15); }
+        .item-actions { display: flex; gap: 0.3rem; }
         .badge { display: inline-block; background: var(--success); color: #000; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; border-radius: 999px; padding: 0.1rem 0.5rem; margin-left: 0.4rem; vertical-align: middle; }
-        .item-actions { grid-column: 3; display: flex; flex-direction: row; gap: 0.3rem; }
-        .item-actions select { flex: 1; }
-        .item-actions button { flex: 0 0 auto; padding: 0.2rem 0.6rem; }
-        .item-actions select { padding: 0.25rem 0.4rem; font-size: 0.74rem; }
+        .custom-badge { background: var(--bg-raised); color: var(--text-muted); }
         .sortable-ghost { opacity: 0.4; }
         .name-wrap { position: relative; }
         .name-wrap input { width: 100%; }
         .suggest { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; max-height: 340px; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px #000a; }
-        .suggest button { display: grid; grid-template-columns: 34px 1fr; gap: 0.6rem; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--bg-raised); color: #e6edf3; padding: 0.4rem 0.6rem; cursor: pointer; font: inherit; }
+        .suggest button { display: grid; grid-template-columns: 34px 1fr; gap: 0.6rem; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--bg-raised); color: var(--text); padding: 0.4rem 0.6rem; cursor: pointer; font: inherit; }
         .suggest button:hover, .suggest button.active { background: color-mix(in srgb, var(--accent-strong) 20%, transparent); }
         .suggest img, .suggest .nocover { width: 34px; height: 45px; border-radius: 4px; object-fit: cover; background: var(--bg-raised); }
         .suggest small { display: block; color: var(--text-muted); font-size: 0.72rem; }
         .suggest .plain { grid-template-columns: 1fr; color: var(--text-muted); font-size: 0.82rem; }
-        .list-name { background: transparent; border: 1px solid transparent; color: var(--text-muted); font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 0.1rem 0.3rem; flex: 1; min-width: 0; }
-        .list-name:hover, .list-name:focus { border-color: var(--border); background: var(--bg-inset); }
-        .status { color: var(--text-muted); font-size: 0.8rem; min-height: 1.2em; }
-        @media (max-width: 980px) { .lists { grid-template-columns: 1fr; } .add-row { grid-template-columns: 1fr; } .container { padding: 1rem; } }
+
+        dialog { margin: auto; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem; width: min(560px, 94vw); }
+        dialog::backdrop { background: #000a; }
+        dialog h3 { font-size: 1rem; margin-bottom: 0.8rem; }
+        .dlg-grid { display: grid; grid-template-columns: 120px 1fr; gap: 1rem; }
+        .dlg-cover { width: 120px; height: 160px; border-radius: 8px; background: var(--bg-raised); object-fit: cover; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: 2rem; }
+        .dlg-fields { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
+        .field { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.74rem; color: var(--text-muted); }
+        .field input, .field select { width: 100%; }
+        .field.two { flex-direction: row; gap: 0.5rem; }
+        .field.two > div { flex: 1; display: flex; flex-direction: column; gap: 0.2rem; }
+        .cover-actions { display: flex; gap: 0.4rem; margin-top: 0.5rem; flex-wrap: wrap; }
+        .cover-actions .btn { padding: 0.3rem 0.6rem; font-size: 0.74rem; }
+        .dlg-foot { display: flex; justify-content: space-between; margin-top: 1rem; gap: 0.5rem; }
+        .dlg-stars .stars button { font-size: 1.5rem; }
+        @media (max-width: 700px) { .add-row { grid-template-columns: 1fr; } .container { padding: 1rem; } .dlg-grid { grid-template-columns: 1fr; } .item { grid-template-columns: 52px minmax(0, 1fr) auto; } .grip { display: none; } }
     </style>
 </head>
 <body>
@@ -67,22 +92,51 @@
 
     <div class="container">
         <div class="card">
-            <h2>Add a game</h2>
-            <p class="hint">Type the game's name and StreamPulse looks up the cover, release year and genres from IGDB. Drag cards to reorder or move them between lists. Changes save automatically. The game you're currently streaming (from your Twitch category) is marked <b>Now playing</b>.</p>
             <form class="add-row" id="add-form">
-                <div class="name-wrap"><input id="add-name" placeholder="Game name" maxlength="120" autocomplete="off" required><div id="suggest" class="suggest" hidden></div></div>
-                <select id="add-status"><option value="scheduled">Scheduled</option><option value="backlog">Backlog</option><option value="played">Played</option></select>
-                <input id="add-period" list="periods" placeholder="Period (e.g. October) — scheduled only" maxlength="40" autocomplete="off">
+                <div class="name-wrap"><input id="add-name" placeholder="Add to this list — type a game name (IGDB lookup)" maxlength="120" autocomplete="off" required><div id="suggest" class="suggest" hidden></div></div>
                 <button class="btn primary" type="submit">Add</button>
+                <button class="btn" type="button" id="add-custom" title="Add something that isn't an IGDB game (tier list entries, challenges, anything) — you can give it your own artwork">Add as custom</button>
             </form>
-            <datalist id="periods"></datalist>
             <p class="status" id="status"></p>
-            <p class="hint"><button class="btn" type="button" id="new-list">+ New list</button> Create your own lists (e.g. “Co-op nights”, “Horror picks”) and pick them in the Game list element.</p>
         </div>
 
-        <div class="lists" id="lists"></div>
-        <p class="hint">Use these in overlays with the <b>Game list</b> element in the <a href="/custom-overlays.html" style="color:var(--accent)">custom overlay editor</a>.</p>
+        <div class="tabs" id="tabs"></div>
+        <div class="items" id="items"></div>
+        <p class="hint">Click a game's cover or name for rating, tags, artwork and more. Drag the handle to reorder, or drop a card onto another tab to move it. Show lists in overlays with the <b>Game list</b> element in the <a href="/custom-overlays.html" style="color:var(--accent)">custom overlay editor</a>. The game you're streaming (from your Twitch category) is marked <b>Now playing</b>.</p>
     </div>
+
+    <dialog id="dlg">
+        <h3 id="dlg-title">Details</h3>
+        <div class="dlg-grid">
+            <div>
+                <div class="dlg-cover" id="dlg-cover"></div>
+                <div class="cover-actions">
+                    <button class="btn" type="button" id="cover-upload">Upload</button>
+                    <button class="btn" type="button" id="cover-clear">Reset</button>
+                    <input type="file" id="cover-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" hidden>
+                </div>
+            </div>
+            <div class="dlg-fields">
+                <label class="field">Name<input id="f-name" maxlength="120"></label>
+                <div class="field dlg-stars">Rating<span class="stars" id="f-rating"></span></div>
+                <label class="field">Artwork URL (paste a link, or paste an image with ⌘V)<input id="f-cover" placeholder="https://… or leave blank for the IGDB cover"></label>
+                <div class="field two">
+                    <div><span>List</span><select id="f-status"></select></div>
+                    <div><span>Period</span><input id="f-period" list="periods" maxlength="40" placeholder="e.g. October"></div>
+                </div>
+                <div class="field two">
+                    <div><span>Finished</span><input id="f-finished" type="date"></div>
+                    <div><span>Tags (comma separated)</span><input id="f-tags" maxlength="200" placeholder="co-op, horror"></div>
+                </div>
+                <label class="field">Note<input id="f-note" maxlength="200"></label>
+            </div>
+        </div>
+        <datalist id="periods"></datalist>
+        <div class="dlg-foot">
+            <button class="btn danger" type="button" id="f-remove">Remove</button>
+            <button class="btn primary" type="button" id="f-done">Done</button>
+        </div>
+    </dialog>
 
     <script src="/vendor/Sortable.min.js"></script>
     <script>
@@ -90,79 +144,84 @@
         const $ = id => document.getElementById(id);
         const BUILTIN = [{ id: 'scheduled', name: 'Scheduled', empty: "Games you're playing this period" }, { id: 'backlog', name: 'Backlog', empty: 'Games on the list, not scheduled' }, { id: 'played', name: 'Played', empty: 'Finished games' }];
         let customLists = [];
-        let lists = {};
-        const allLists = () => [...BUILTIN, ...customLists.map(list => ({ ...list, custom: true, empty: 'Drag games here' }))];
         let items = [];
+        let active = 'scheduled';
+        let editing = null;
         let saveTimer = null;
         let polls = 0;
+        let sortable = null;
+        const allLists = () => [...BUILTIN, ...customLists.map(list => ({ ...list, custom: true, empty: 'Drag games here, or add one above' }))];
         const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
         const uid = () => `game-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
         const setStatus = text => { $('status').textContent = text; };
+        const listName = id => allLists().find(list => list.id === id)?.name || id;
+        const starsHtml = (value, attr) => [1, 2, 3, 4, 5].map(n => `<button type="button" ${attr}="${n}" class="${n <= value ? 'on' : ''}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('');
 
-        function coverTag(item) {
-            return item.cover ? `<img class="cover" src="${esc(item.cover)}" alt="" loading="lazy">` : '<div class="cover"></div>';
+        function buildTabs(adding) {
+            const tabs = allLists().map(list => `<button type="button" class="tab${list.id === active ? ' active' : ''}" data-tab="${esc(list.id)}">${esc(list.name)}<span class="n">${items.filter(item => item.status === list.id).length || ''}</span></button>`).join('');
+            const isCustom = customLists.some(list => list.id === active);
+            $('tabs').innerHTML = tabs + (adding ? '<input class="tab-input" id="new-list-name" placeholder="List name, then Enter" maxlength="40">' : '<button type="button" class="tab tab-new" id="new-list" title="Create your own list, e.g. “Scariest horror games”">+ List</button>')
+                + (isCustom ? '<span class="tab-tools"><button class="btn icon" type="button" id="rename-list" title="Rename list">Rename</button><button class="btn icon danger" type="button" id="delete-list" title="Delete list (games move to Backlog)">Delete</button></span>' : '');
+            if (adding) $('new-list-name').focus();
         }
 
-        function buildColumns() {
-            $('lists').innerHTML = allLists().map(list => `
-                <div class="card" data-list="${esc(list.id)}">
-                    <div class="list-head">
-                        ${list.custom ? `<input class="list-name" data-list-name value="${esc(list.name)}" maxlength="40" aria-label="List name">` : `<h2>${esc(list.name)}</h2>`}
-                        <span class="count" id="count-${esc(list.id)}"></span>
-                        ${list.custom ? '<button class="btn icon" data-delete-list title="Delete list (games move to Backlog)">✕</button>' : ''}
-                    </div>
-                    <div class="items" id="list-${esc(list.id)}" data-status="${esc(list.id)}" data-empty="${esc(list.empty)}"></div>
-                </div>`).join('');
-            lists = Object.fromEntries(allLists().map(list => [list.id, $(`list-${list.id}`)]));
-            for (const list of Object.values(lists)) {
-                new Sortable(list, {
-                    group: 'games', animation: 150, handle: '.grip', ghostClass: 'sortable-ghost',
-                    onEnd() { readOrderFromDom(); render(); scheduleSave(); }
-                });
-            }
-            const options = allLists().map(list => `<option value="${esc(list.id)}">${esc(list.name)}</option>`).join('');
-            const current = $('add-status').value;
-            $('add-status').innerHTML = options;
-            if (allLists().some(list => list.id === current)) $('add-status').value = current;
+        function coverTag(item) {
+            return item.cover ? `<img class="cover" src="${esc(item.cover)}" alt="" loading="lazy" data-edit>` : `<div class="cover" data-edit>${item.custom ? '🖼' : ''}</div>`;
+        }
+
+        function subLine(item) {
+            if (item.custom) return 'Custom item';
+            return [item.releaseYear, (item.genres || []).slice(0, 2).join(' · ')].filter(Boolean).join(' · ') || 'Looking up…';
         }
 
         function render() {
-            for (const [status, list] of Object.entries(lists)) {
-                const mine = items.filter(item => item.status === status);
-                $(`count-${status}`).textContent = mine.length ? `${mine.length}` : '';
-                list.innerHTML = mine.map(item => `
-                    <div class="item${item.playingNow ? ' now' : ''}" data-id="${esc(item.id)}">
-                        <span class="grip" title="Drag to reorder">⋮⋮</span>
-                        ${coverTag(item)}
-                        <div class="main">
-                            <div class="name" title="${esc(item.name)}">${esc(item.name)}${item.playingNow ? '<span class="badge">NOW PLAYING</span>' : ''}</div>
-                            <div class="sub">${esc([item.releaseYear, (item.genres || []).slice(0, 2).join(' · ')].filter(Boolean).join(' · ') || 'Looking up…')}</div>
-                            ${status === 'scheduled' ? `<input data-field="period" list="periods" value="${esc(item.period)}" placeholder="Period (e.g. October)" maxlength="40">` : ''}
-                            <input data-field="note" value="${esc(item.note)}" placeholder="Note (optional)" maxlength="200">
+            buildTabs();
+            const list = allLists().find(entry => entry.id === active) || BUILTIN[0];
+            const holder = $('items');
+            holder.dataset.empty = list.empty;
+            holder.innerHTML = items.filter(item => item.status === active).map(item => `
+                <div class="item${item.playingNow ? ' now' : ''}" data-id="${esc(item.id)}">
+                    <span class="grip" title="Drag to reorder, or drop on a tab to move">⋮⋮</span>
+                    ${coverTag(item)}
+                    <div class="main">
+                        <div class="name" data-edit title="${esc(item.name)}">${esc(item.name)}${item.playingNow ? '<span class="badge">NOW PLAYING</span>' : ''}${item.custom ? '<span class="badge custom-badge">CUSTOM</span>' : ''}</div>
+                        <div class="sub">${esc(subLine(item))}</div>
+                        <div class="row-meta">
+                            <span class="stars" data-stars>${starsHtml(item.rating || 0, 'data-star')}</span>
+                            ${(item.tags || []).map(tag => `<span class="chip">${esc(tag)}</span>`).join('')}
+                            ${active === 'scheduled' ? `<input class="period" data-field="period" list="periods" value="${esc(item.period)}" placeholder="Period (e.g. October)" maxlength="40">` : ''}
                         </div>
-                        <div class="item-actions">
-                            <select data-field="status" aria-label="Move to">
-                                ${allLists().map(list => `<option value="${esc(list.id)}"${list.id === status ? ' selected' : ''}>${esc(list.name)}</option>`).join('')}
-                            </select>
-                            <button class="btn icon" data-remove title="Remove">✕</button>
-                        </div>
-                    </div>`).join('');
-            }
+                        ${item.note ? `<div class="note">${esc(item.note)}</div>` : ''}
+                    </div>
+                    <div class="item-actions"><button class="btn icon" data-edit title="Details">✎</button></div>
+                </div>`).join('');
             $('periods').innerHTML = [...new Set(items.map(item => item.period).filter(Boolean))].map(value => `<option value="${esc(value)}">`).join('');
+            sortable?.destroy();
+            sortable = new Sortable(holder, {
+                group: 'games', animation: 150, handle: '.grip', ghostClass: 'sortable-ghost',
+                onEnd(event) {
+                    const point = event.originalEvent;
+                    const tab = point && document.elementFromPoint(point.clientX, point.clientY)?.closest('[data-tab]');
+                    const id = event.item.dataset.id;
+                    if (tab && tab.dataset.tab !== active) {
+                        const item = items.find(entry => entry.id === id);
+                        if (item) moveTo(item, tab.dataset.tab);
+                        render(); scheduleSave();
+                        return;
+                    }
+                    const order = [...holder.querySelectorAll('.item')].map(row => items.find(entry => entry.id === row.dataset.id)).filter(Boolean);
+                    const slots = items.map((item, index) => (item.status === active ? index : -1)).filter(index => index >= 0);
+                    slots.forEach((slot, index) => { items[slot] = order[index]; });
+                    scheduleSave();
+                }
+            });
         }
 
-        function readOrderFromDom() {
-            const byId = new Map(items.map(item => [item.id, item]));
-            const next = [];
-            for (const [status, list] of Object.entries(lists)) {
-                for (const row of list.querySelectorAll('.item')) {
-                    const item = byId.get(row.dataset.id);
-                    if (!item) continue;
-                    item.status = status;
-                    next.push(item);
-                }
-            }
-            items = next;
+        function moveTo(item, status) {
+            item.status = status;
+            if (status !== 'scheduled') item.period = item.period || '';
+            if (status === 'played' && !item.finished) item.finished = new Date().toISOString().slice(0, 10);
+            items = [...items.filter(entry => entry !== item), item];
         }
 
         function scheduleSave() {
@@ -176,7 +235,7 @@
                 const response = await fetch('/api/game-plan', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lists: customLists, items: items.map(({ id, name, status, period, note, twitchCategory, igdbId }) => ({ id, name, status, period, note, twitchCategory, igdbId })) })
+                    body: JSON.stringify({ lists: customLists, items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tags, finished }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tags, finished })) })
                 });
                 if (!response.ok) throw new Error((await response.json()).error || response.statusText);
                 setStatus('Saved. Overlays update within a few seconds.');
@@ -189,28 +248,17 @@
         async function refreshMeta() {
             try {
                 const data = await (await fetch('/api/game-plan', { cache: 'no-store' })).json();
-                let missing = false;
+                let missing = false, changed = false;
                 for (const fresh of data.items) {
                     const item = items.find(entry => entry.id === fresh.id);
                     if (!item) continue;
-                    const changed = item.cover !== fresh.cover || item.playingNow !== fresh.playingNow || item.releaseYear !== fresh.releaseYear;
+                    if (item.cover !== fresh.cover || item.playingNow !== fresh.playingNow || item.releaseYear !== fresh.releaseYear) changed = true;
                     Object.assign(item, { cover: fresh.cover, releaseYear: fresh.releaseYear, genres: fresh.genres, playingNow: fresh.playingNow });
-                    if (!fresh.cover) missing = true;
-                    if (changed) patchRow(item);
+                    if (!fresh.cover && !item.custom) missing = true;
                 }
+                if (changed && !$('items').contains(document.activeElement) && !$('dlg').open) render();
                 if (missing && polls++ < 8) setTimeout(refreshMeta, 3000);
             } catch { /* try again on the next change */ }
-        }
-
-        function patchRow(item) {
-            const row = document.querySelector(`.item[data-id="${CSS.escape(item.id)}"]`);
-            if (!row) return;
-            row.classList.toggle('now', !!item.playingNow);
-            row.querySelector('.cover').outerHTML = coverTag(item);
-            row.querySelector('.sub').textContent = [item.releaseYear, (item.genres || []).slice(0, 2).join(' · ')].filter(Boolean).join(' · ') || 'Looking up…';
-            const name = row.querySelector('.name');
-            name.querySelector('.badge')?.remove();
-            if (item.playingNow) name.insertAdjacentHTML('beforeend', '<span class="badge">NOW PLAYING</span>');
         }
 
         // Searching IGDB lets the user choose between same-named games (e.g. Doom 1993 vs 2016).
@@ -244,68 +292,149 @@
         $('add-name').addEventListener('blur', () => setTimeout(hideSuggest, 150));
         $('add-name').addEventListener('keydown', event => { if (event.key === 'Escape') hideSuggest(); });
 
-        $('add-form').addEventListener('submit', event => {
-            event.preventDefault();
+        function addItem(custom) {
             const name = $('add-name').value.trim();
-            if (!name) return;
-            const status = $('add-status').value;
-            items.push({ id: uid(), name, igdbId: pickedId, status, period: status === 'scheduled' ? $('add-period').value.trim() : '', note: '', cover: '', genres: [], playingNow: false });
+            if (!name) { $('add-name').focus(); return; }
+            const item = { id: uid(), name, igdbId: custom ? '' : pickedId, custom, status: active, period: '', note: '', cover: '', customCover: '', rating: 0, tags: [], finished: '', genres: [], playingNow: false };
+            if (active === 'played') item.finished = new Date().toISOString().slice(0, 10);
+            items.push(item);
             $('add-name').value = ''; pickedId = ''; hideSuggest();
             render(); scheduleSave();
-            $('add-name').focus();
-        });
+            if (custom) openDialog(item);
+            else $('add-name').focus();
+        }
+        $('add-form').addEventListener('submit', event => { event.preventDefault(); addItem(false); });
+        $('add-custom').addEventListener('click', () => addItem(true));
 
-        document.querySelector('.lists').addEventListener('click', event => {
-            if (!event.target.closest('[data-remove]')) return;
-            const id = event.target.closest('.item').dataset.id;
-            const item = items.find(entry => entry.id === id);
-            if (!confirm(`Remove “${item?.name}” from the plan?`)) return;
-            items = items.filter(entry => entry.id !== id);
+        $('tabs').addEventListener('click', event => {
+            const tab = event.target.closest('[data-tab]');
+            if (tab) { active = tab.dataset.tab; render(); return; }
+            if (event.target.closest('#new-list')) { buildTabs(true); return; }
+            if (event.target.closest('#rename-list')) {
+                const list = customLists.find(entry => entry.id === active);
+                const name = list && prompt('Rename list:', list.name);
+                if (name && name.trim()) { list.name = name.trim().slice(0, 40); render(); scheduleSave(); }
+                return;
+            }
+            if (event.target.closest('#delete-list')) {
+                const list = customLists.find(entry => entry.id === active);
+                if (!list || !confirm(`Delete the list “${list.name}”? Its games move to Backlog.`)) return;
+                for (const item of items) if (item.status === active) item.status = 'backlog';
+                customLists = customLists.filter(entry => entry.id !== active);
+                active = 'backlog';
+                render(); scheduleSave();
+            }
+        });
+        $('tabs').addEventListener('keydown', event => {
+            if (!event.target.matches('#new-list-name')) return;
+            if (event.key === 'Escape') { buildTabs(); return; }
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            const name = event.target.value.trim().slice(0, 40);
+            if (!name) { buildTabs(); return; }
+            const id = `list-${Date.now().toString(36)}`;
+            customLists.push({ id, name });
+            active = id;
             render(); scheduleSave();
         });
+        $('tabs').addEventListener('focusout', event => { if (event.target.matches('#new-list-name') && !event.target.value.trim()) setTimeout(() => { if (document.getElementById('new-list-name')) buildTabs(); }, 100); });
 
-        document.querySelector('.lists').addEventListener('change', event => {
-            const field = event.target.dataset.field;
-            if (!field) return;
+        $('items').addEventListener('click', event => {
+            const row = event.target.closest('.item');
+            if (!row) return;
+            const item = items.find(entry => entry.id === row.dataset.id);
+            if (!item) return;
+            const star = event.target.closest('[data-star]');
+            if (star) {
+                const value = Number(star.dataset.star);
+                item.rating = item.rating === value ? 0 : value;
+                row.querySelector('[data-stars]').innerHTML = starsHtml(item.rating, 'data-star');
+                scheduleSave();
+                return;
+            }
+            if (event.target.closest('[data-edit]')) openDialog(item);
+        });
+        $('items').addEventListener('change', event => {
+            if (event.target.dataset.field !== 'period') return;
             const item = items.find(entry => entry.id === event.target.closest('.item').dataset.id);
             if (!item) return;
-            item[field] = event.target.value.trim();
-            if (field === 'status') { readOrderFromDom(); item.status = event.target.value; items = [...items.filter(entry => entry !== item), item]; render(); }
+            item.period = event.target.value.trim();
             scheduleSave();
         });
 
-        $('new-list').addEventListener('click', () => {
-            const name = prompt('Name for the new list:');
-            if (!name || !name.trim()) return;
-            customLists.push({ id: `list-${Date.now().toString(36)}`, name: name.trim().slice(0, 40) });
-            buildColumns(); render(); scheduleSave();
+        // Details dialog: edits apply immediately and save on every change.
+        function paintDialog() {
+            const item = editing;
+            $('dlg-title').textContent = item.name;
+            $('dlg-cover').innerHTML = item.cover ? `<img src="${esc(item.cover)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:8px">` : (item.custom ? '🖼' : '');
+            $('f-rating').innerHTML = starsHtml(item.rating || 0, 'data-dstar');
+            $('f-cover').value = item.customCover || '';
+        }
+        function openDialog(item) {
+            editing = item;
+            $('f-name').value = item.name;
+            $('f-name').disabled = !item.custom;
+            $('f-status').innerHTML = allLists().map(list => `<option value="${esc(list.id)}"${list.id === item.status ? ' selected' : ''}>${esc(list.name)}</option>`).join('');
+            $('f-period').value = item.period || '';
+            $('f-finished').value = item.finished || '';
+            $('f-tags').value = (item.tags || []).join(', ');
+            $('f-note').value = item.note || '';
+            paintDialog();
+            if (!$('dlg').open) $('dlg').showModal();
+        }
+        function commit(redraw) { scheduleSave(); if (redraw) render(); }
+        $('f-rating').addEventListener('click', event => {
+            const star = event.target.closest('[data-dstar]');
+            if (!star || !editing) return;
+            const value = Number(star.dataset.dstar);
+            editing.rating = editing.rating === value ? 0 : value;
+            paintDialog(); commit(true);
         });
-
-        $('lists').addEventListener('click', event => {
-            if (!event.target.closest('[data-delete-list]')) return;
-            const id = event.target.closest('[data-list]').dataset.list;
-            const list = customLists.find(entry => entry.id === id);
-            if (!list || !confirm(`Delete the list “${list.name}”? Its games move to Backlog.`)) return;
-            for (const item of items) if (item.status === id) item.status = 'backlog';
-            customLists = customLists.filter(entry => entry.id !== id);
-            buildColumns(); render(); scheduleSave();
+        $('f-name').addEventListener('change', () => { const name = $('f-name').value.trim(); if (editing && name) { editing.name = name; paintDialog(); commit(true); } });
+        $('f-note').addEventListener('change', () => { editing.note = $('f-note').value.trim(); commit(true); });
+        $('f-period').addEventListener('change', () => { editing.period = $('f-period').value.trim(); commit(true); });
+        $('f-finished').addEventListener('change', () => { editing.finished = $('f-finished').value; commit(false); });
+        $('f-tags').addEventListener('change', () => { editing.tags = [...new Set($('f-tags').value.split(',').map(tag => tag.trim().slice(0, 24)).filter(Boolean))].slice(0, 8); $('f-tags').value = editing.tags.join(', '); commit(true); });
+        $('f-status').addEventListener('change', () => { moveTo(editing, $('f-status').value); active = editing.status; $('f-finished').value = editing.finished || ''; commit(true); });
+        $('f-cover').addEventListener('change', () => {
+            const value = $('f-cover').value.trim();
+            editing.customCover = value;
+            editing.cover = value;
+            paintDialog(); commit(true);
+            setTimeout(refreshMeta, 1500);
         });
-
-        $('lists').addEventListener('change', event => {
-            if (!event.target.matches('[data-list-name]')) return;
-            const list = customLists.find(entry => entry.id === event.target.closest('[data-list]').dataset.list);
-            if (!list) return;
-            list.name = event.target.value.trim().slice(0, 40) || list.name;
-            event.target.value = list.name;
-            buildColumns(); render(); scheduleSave();
+        $('cover-clear').addEventListener('click', () => { editing.customCover = ''; editing.cover = ''; paintDialog(); commit(true); setTimeout(refreshMeta, 1500); });
+        $('cover-upload').addEventListener('click', () => $('cover-file').click());
+        async function uploadCover(file) {
+            const types = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' };
+            const type = file.type && file.type.startsWith('image/') ? file.type : types[(file.name.split('.').pop() || '').toLowerCase()];
+            if (!type) { setStatus('Choose a PNG, JPEG, GIF, WebP or SVG image.'); return; }
+            try {
+                const response = await fetch('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': type, 'X-Asset-Name': (file.name || 'cover.png').replace(/[^\x20-\x7e]+/g, '-') }, body: file });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Upload failed');
+                editing.customCover = data.url; editing.cover = data.url;
+                paintDialog(); commit(true);
+            } catch (error) { setStatus(`Upload failed: ${error.message}`); }
+        }
+        $('cover-file').addEventListener('change', event => { const file = event.target.files[0]; event.target.value = ''; if (file && editing) uploadCover(file); });
+        $('dlg').addEventListener('paste', event => {
+            const file = [...(event.clipboardData?.files || [])].find(entry => entry.type.startsWith('image/'));
+            if (file && editing) { event.preventDefault(); uploadCover(file); }
         });
+        $('f-remove').addEventListener('click', () => {
+            if (!editing || !confirm(`Remove “${editing.name}” from the plan?`)) return;
+            items = items.filter(entry => entry !== editing);
+            editing = null; $('dlg').close(); render(); scheduleSave();
+        });
+        $('f-done').addEventListener('click', () => $('dlg').close());
+        $('dlg').addEventListener('close', () => { editing = null; render(); });
 
         (async () => {
             try {
                 const data = await (await fetch('/api/game-plan', { cache: 'no-store' })).json();
                 items = data.items;
                 customLists = data.lists || [];
-                buildColumns();
                 render();
                 refreshMeta();
             } catch { setStatus('Could not load the game plan.'); }

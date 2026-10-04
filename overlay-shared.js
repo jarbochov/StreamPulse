@@ -516,6 +516,8 @@
         const style = element.style || {};
         let items = (plan?.items || []).filter(item => config.filter === 'all' || item.status === (config.filter || 'scheduled'));
         if (config.period) items = items.filter(item => String(item.period).toLowerCase() === String(config.period).toLowerCase());
+        if (config.sort === 'rating') items = [...items].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        else if (config.sort === 'name') items = [...items].sort((a, b) => String(a.name).localeCompare(String(b.name)));
         if (config.max > 0) items = items.slice(0, config.max);
         const layout = config.layout || 'grid';
         const gap = config.gap ?? 12;
@@ -563,6 +565,8 @@
             if (config.meta === 'year') return item.releaseYear ? String(item.releaseYear) : '';
             if (config.meta === 'genres') return (item.genres || []).slice(0, 2).join(' · ');
             if (config.meta === 'note') return item.note || '';
+            if (config.meta === 'rating') return item.rating > 0 ? '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating) : '';
+            if (config.meta === 'tags') return (item.tags || []).slice(0, 3).join(' · ');
             return '';
         };
         const scale = (config.coverScale || 100) / 100;

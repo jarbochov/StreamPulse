@@ -139,7 +139,8 @@ function normalizeOverlayElement(element = {}, index = 0) {
             titleWrap: element.gameList?.titleWrap === 'wrap' ? 'wrap' : 'ellipsis',
             showCovers: element.gameList?.showCovers !== false,
             showTitles: element.gameList?.showTitles !== false,
-            meta: ['none', 'year', 'genres', 'note'].includes(element.gameList?.meta) ? element.gameList.meta : 'none',
+            meta: ['none', 'year', 'genres', 'note', 'rating', 'tags'].includes(element.gameList?.meta) ? element.gameList.meta : 'none',
+            sort: ['plan', 'rating', 'name'].includes(element.gameList?.sort) ? element.gameList.sort : 'plan',
             headings: element.gameList?.headings !== false,
             highlightCurrent: element.gameList?.highlightCurrent !== false,
             accent: String(element.gameList?.accent || '#3fb950').slice(0, 80)
@@ -2716,7 +2717,12 @@ function normalizeGamePlan(input) {
         period: String(item?.period || '').trim().slice(0, 40),
         note: String(item?.note || '').trim().slice(0, 200),
         twitchCategory: String(item?.twitchCategory || '').trim().slice(0, 120),
-        igdbId: /^\d{1,9}$/.test(String(item?.igdbId || '')) ? String(item.igdbId) : ''
+        igdbId: /^\d{1,9}$/.test(String(item?.igdbId || '')) ? String(item.igdbId) : '',
+        custom: item?.custom === true,
+        customCover: /^(https?:\/\/|\/custom-overlay-assets\/)[^\s"'<>]{1,500}$/i.test(String(item?.customCover || '').trim()) ? String(item.customCover).trim() : '',
+        rating: Math.max(0, Math.min(5, Math.round(Number(item?.rating) || 0))),
+        tags: [...new Set((Array.isArray(item?.tags) ? item.tags : []).map(tag => String(tag || '').trim().slice(0, 24)).filter(Boolean))].slice(0, 8),
+        finished: /^\d{4}-\d{2}-\d{2}$/.test(String(item?.finished || '')) ? item.finished : ''
     })).filter(item => item.name);
     return { lists, items };
 }
@@ -2730,7 +2736,8 @@ const gameKey = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g
 // Looks up IGDB data for new names one at a time so a long list does not hit the rate limit.
 let gameWarmQueue = Promise.resolve();
 function warmGameInfo(games) {
-    for (const { name, igdbId } of games) {
+    for (const { name, igdbId, custom } of games) {
+        if (custom) continue;
         const cached = gameInfoCache[infoKey(name, igdbId)];
         if (cached && !cached.failed && !(cached.source === 'igdb' && !cached.igdbUrl && !cached.urlTried)) continue;
         gameWarmQueue = gameWarmQueue.then(() => refreshGameInfo(name, igdbId)).then(() => new Promise(resolve => setTimeout(resolve, 300)));
@@ -2746,15 +2753,15 @@ function buildGamePlanSnapshot() {
         current: category,
         lists: plan.lists,
         items: plan.items.map(item => {
-            const game = publicGameInfo(item.name, item.igdbId);
-            const raw = gameInfoCache[infoKey(item.name, item.igdbId)];
+            const game = item.custom ? { name: item.name } : publicGameInfo(item.name, item.igdbId);
+            const raw = item.custom ? null : gameInfoCache[infoKey(item.name, item.igdbId)];
             const keys = [item.name, item.twitchCategory, raw?.igdbName].map(gameKey).filter(Boolean);
             return {
                 ...item,
-                cover: game.cover || '',
+                cover: item.customCover || game.cover || '',
                 releaseYear: game.releaseYear || '',
                 genres: game.genres || [],
-                playingNow: !!current && keys.includes(current)
+                playingNow: !item.custom && !!current && keys.includes(current)
             };
         })
     };
