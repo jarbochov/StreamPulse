@@ -510,6 +510,14 @@
         holder._text.textContent = config.showLabel === false ? '' : label;
     }
 
+    function ensureTickerStyle() {
+        if (document.getElementById('sp-gl-ticker')) return;
+        const tag = document.createElement('style');
+        tag.id = 'sp-gl-ticker';
+        tag.textContent = '@keyframes spGlTicker{to{transform:translateX(-50%)}}';
+        document.head.appendChild(tag);
+    }
+
     // Renders the manual game plan as a cover grid, a cover strip or a text list.
     function renderGameList(node, element, plan) {
         const config = element.gameList || {};
@@ -528,6 +536,7 @@
         if (config.max > 0) items = items.slice(0, config.max);
         if (config.filter === 'scheduled' || config.filter === 'all' || config.sort === 'plan' || !config.sort) items = items.map((item, at) => ({ item, at })).sort((a, b) => rank(a.item) - rank(b.item) || a.at - b.at).map(entry => entry.item);
         const layout = config.layout || 'grid';
+        if (layout === 'ticker') ensureTickerStyle();
         const gap = config.gap ?? 12;
         const groupGap = config.groupGap ?? gap;
         const accent = config.accent || '#3fb950';
@@ -550,10 +559,22 @@
         node.appendChild(inner);
         const sections = [];
         const kanban = layout === 'kanban';
+        const tiers = layout === 'tiers';
+        const ticker = layout === 'ticker';
+        const alignH = config.alignH || 'left', alignV = config.alignV || 'top';
+        const hAlign = kanban || ticker ? 'left' : alignH;
+        const just = { left: 'flex-start', center: 'center', right: 'flex-end' }[hAlign];
+        const coverMargin = { left: '0 auto 0 0', center: '0 auto', right: '0 0 0 auto' }[hAlign];
+        const TIERS = [[5, 'S', '#ff7f7f'], [4, 'A', '#ffbf7f'], [3, 'B', '#ffdf7f'], [2, 'C', '#bfff7f'], [1, 'D', '#7fbfff'], [0, '?', '#b0b0b0']];
         const autoColumns = layout === 'grid' && config.columns === 0;
         const statusNames = { scheduled: 'Scheduled', backlog: 'Backlog', played: 'Played' };
         for (const entry of plan?.lists || []) statusNames[entry.id] = entry.name;
-        if (kanban) {
+        if (tiers) {
+            for (const [stars, label, color] of TIERS) {
+                const tierItems = items.filter(item => Math.max(0, Math.min(5, item.rating || 0)) === stars);
+                if (tierItems.length) sections.push({ label, color, items: tierItems });
+            }
+        } else if (kanban) {
             // One column per period, or per list when showing everything.
             for (const item of items) {
                 const label = config.filter === 'all' ? (statusNames[item.status] || item.status) : (item.period || 'No period');
@@ -562,7 +583,7 @@
                 section.items.push(item);
             }
             inner.style.cssText += `display:flex;align-items:flex-start;gap:${groupGap}px;transform-origin:top left;`;
-        } else if (config.headings !== false && config.filter !== 'backlog') {
+        } else if (!ticker && config.headings !== false && config.filter !== 'backlog') {
             for (const item of items) {
                 const label = item.period || '';
                 let section = sections.find(entry => entry.label === label);
@@ -580,7 +601,7 @@
             return '';
         };
         const scale = (config.coverScale || 100) / 100;
-        const compact = layout === 'grid' || layout === 'strip';
+        const compact = layout === 'grid' || layout === 'strip' || tiers || ticker;
         // Opacity would cut text out of a parent's clipped gradient fill, so dimmed text stays solid when the text color is a gradient.
         const dim = value => (style.textGradient?.enabled ? '' : `opacity:${value};`);
         // Text sizes are percentages of the element's own font size; the old px settings still apply when no percentage is set.
@@ -618,30 +639,40 @@
                 holder.dataset.glCover = '1';
                 holder.style.cssText = `flex:1 1 0;min-width:0;background:rgba(255,255,255,.06);border-radius:${Math.min(16, style.borderRadius || 10)}px;padding:.6em;box-sizing:border-box;`;
                 inner.appendChild(holder);
+            } else if (tiers) {
+                holder = document.createElement('div');
+                holder.dataset.glSection = '1';
+                holder.style.cssText = `display:flex;align-items:stretch;gap:.6em;min-width:0;margin-bottom:${groupGap}px;`;
+                const badgeBox = document.createElement('div');
+                badgeBox.textContent = section.label;
+                badgeBox.style.cssText = `flex:none;width:2.2em;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:${headingSize};background:${section.color};color:#000;border-radius:${Math.min(12, style.borderRadius || 8)}px;`;
+                holder.appendChild(badgeBox);
+                inner.appendChild(holder);
             } else if (autoColumns || config.periodsAcross > 0) {
                 holder = document.createElement('div');
                 holder.dataset.glSection = '1';
                 holder.style.minWidth = '0';
                 inner.appendChild(holder);
             }
-            if (section.label) {
+            if (section.label && !tiers) {
                 const heading = document.createElement('div');
                 heading.textContent = section.label;
-                heading.style.cssText = `font-weight:700;margin:0 0 .5em;${dim(.85)}font-size:${headingSize};`;
+                heading.style.cssText = `font-weight:700;margin:0 0 .5em;text-align:${hAlign};${dim(.85)}font-size:${headingSize};`;
                 holder.appendChild(heading);
             }
             const body = document.createElement('div');
-            body.style.marginBottom = kanban ? '0' : `${groupGap}px`;
+            body.style.marginBottom = kanban || tiers ? '0' : `${groupGap}px`;
+            if (tiers) body.style.cssText += 'flex:1;min-width:0;';
             if (layout === 'list' || kanban) {
                 body.style.cssText += `display:flex;flex-direction:column;gap:${gap / 2}px;`;
                 for (const item of section.items) {
                     const row = document.createElement('div');
-                    row.style.cssText = 'display:flex;align-items:center;gap:.6em;';
+                    row.style.cssText = `display:flex;align-items:center;gap:.6em;justify-content:${just};`;
                     if (config.showCovers !== false) row.appendChild(cover(item, `width:${((kanban ? 3 : 2.4) * scale).toFixed(2)}em;height:${((kanban ? 4 : 3.2) * scale).toFixed(2)}em;flex:none;`));
                     const text = document.createElement('div');
-                    text.style.cssText = 'min-width:0;flex:1;';
+                    text.style.cssText = `min-width:0;flex:${hAlign === 'left' ? '1' : '0 1 auto'};text-align:${hAlign};`;
                     const title = document.createElement('div');
-                    title.style.cssText = 'display:flex;align-items:center;gap:.5em;';
+                    title.style.cssText = `display:flex;align-items:center;gap:.5em;justify-content:${just};`;
                     const name = document.createElement('span');
                     name.textContent = item.name;
                     name.style.cssText = `font-weight:600;${titleFlow};font-size:${titleSize};`;
@@ -655,14 +686,18 @@
                 }
             } else {
                 const strip = layout === 'strip';
+                const cols = ticker ? (config.columns || 5) : tiers ? (config.columns || 6) : (config.columns || 3);
                 body.style.cssText += strip
                     ? `display:flex;gap:${gap}px;`
-                    : `display:grid;grid-template-columns:repeat(${config.columns || 3},minmax(0,1fr));gap:${gap}px;`;
-                if (!strip) body.dataset.glGrid = '1';
-                for (const item of section.items) {
+                    : ticker ? 'display:flex;width:max-content;'
+                    : `display:flex;flex-wrap:wrap;gap:${gap}px;justify-content:${just};--cols:${cols};`;
+                if (!strip && !ticker) body.dataset.glGrid = '1';
+                const fill = target => { for (const item of section.items) {
                     const card = document.createElement('div');
-                    card.style.cssText = strip ? 'flex:1 1 0;min-width:0;' : 'min-width:0;';
-                    const face = cover(item, `width:${Math.min(100, scale * 100)}%;margin:0 auto;${config.coverFit === 'natural' && item.cover ? '' : 'aspect-ratio:3/4;'}`, onCover);
+                    card.style.cssText = strip ? 'flex:1 1 0;min-width:0;'
+                        : ticker ? `flex:0 0 calc((100cqw - ${(cols - 1) * gap}px) / ${cols});min-width:0;`
+                        : `flex:0 0 calc((100% - (var(--cols) - 1) * ${gap}px) / var(--cols) - .5px);min-width:0;`;
+                    const face = cover(item, `width:${Math.min(100, scale * 100)}%;margin:${coverMargin};${config.coverFit === 'natural' && item.cover ? '' : 'aspect-ratio:3/4;'}`, onCover);
                     const extra = meta(item);
                     if (onCover) {
                         face.style.position = 'relative';
@@ -678,17 +713,26 @@
                         card.appendChild(face);
                     } else {
                         card.appendChild(face);
-                        if (item.playingNow && config.highlightCurrent !== false) { const holder = document.createElement('div'); holder.style.cssText = 'text-align:center;margin-top:.35em;'; holder.appendChild(badge()); card.appendChild(holder); }
+                        if (item.playingNow && config.highlightCurrent !== false) { const holder = document.createElement('div'); holder.style.cssText = `text-align:${hAlign};margin-top:.35em;`; holder.appendChild(badge()); card.appendChild(holder); }
                         if (config.showTitles !== false) {
                             const name = document.createElement('div');
                             name.textContent = item.name;
-                            name.style.cssText = `margin-top:.35em;font-weight:600;text-align:center;font-size:${titleSize};${titleFlow};`;
+                            name.style.cssText = `margin-top:.35em;font-weight:600;text-align:${hAlign};font-size:${titleSize};${titleFlow};`;
                             card.appendChild(name);
                         }
-                        if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = `font-size:${metaSize};${dim(.65)}text-align:center;${titleFlow};`; card.appendChild(line); }
+                        if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = `font-size:${metaSize};${dim(.65)}text-align:${hAlign};${titleFlow};`; card.appendChild(line); }
                     }
-                    body.appendChild(card);
-                }
+                    target.appendChild(card);
+                } };
+                if (ticker) {
+                    for (let copy = 0; copy < 2; copy++) {
+                        const half = document.createElement('div');
+                        half.dataset.glTickerCopy = '1';
+                        half.style.cssText = `display:flex;gap:${gap}px;padding-right:${gap}px;`;
+                        fill(half);
+                        body.appendChild(half);
+                    }
+                } else fill(body);
             }
             holder.appendChild(body);
         }
@@ -696,8 +740,9 @@
         // Placement: auto columns pick the fewest columns (biggest covers) that fit the box, "shrink" scales down when still too tall,
         // and the position options decide where leftover space goes.
         const shrink = config.fit === 'shrink';
-        const alignH = config.alignH || 'left', alignV = config.alignV || 'top';
-        if (typeof ResizeObserver !== 'function' || !(autoColumns || shrink || config.periodsAcross > 0 || alignV !== 'top' || alignH !== 'left')) return;
+        if (ticker) node.style.containerType = 'inline-size';
+        else node.style.containerType = '';
+        if (typeof ResizeObserver !== 'function' || !(ticker || autoColumns || shrink || config.periodsAcross > 0 || alignV !== 'top' || alignH !== 'left')) return;
         const grids = [...inner.querySelectorAll('[data-gl-grid]')];
         if (config.periodsAcross > 0 && !kanban) {
             inner.style.display = 'grid';
@@ -706,6 +751,16 @@
             inner.style.alignItems = 'start';
         }
         const place = () => {
+            if (ticker) {
+                const copies = [...inner.querySelectorAll('[data-gl-ticker-copy]')];
+                if (!copies.length) return;
+                const width = copies[0].getBoundingClientRect().width;
+                const scrolls = width > node.clientWidth + 1;
+                copies[1].style.display = scrolls ? 'flex' : 'none';
+                const body = copies[0].parentElement;
+                body.style.animation = scrolls ? `spGlTicker ${(width / (config.tickerSpeed || 60)).toFixed(2)}s linear infinite` : 'none';
+                return;
+            }
             inner.style.transform = '';
             inner.style.transformOrigin = 'left top';
             const avail = node.clientHeight;
@@ -722,7 +777,7 @@
                 for (let across = config.periodsAcross > 0 ? Math.min(config.periodsAcross, sectionEls.length) : 1; across <= (config.periodsAcross > 0 ? Math.min(config.periodsAcross, sectionEls.length) : sectionEls.length); across++) {
                     inner.style.gridTemplateColumns = `repeat(${across},minmax(0,1fr))`;
                     for (let columns = 1; columns <= most; columns++) {
-                        grids.forEach(grid => { grid.style.gridTemplateColumns = `repeat(${columns},minmax(0,1fr))`; });
+                        grids.forEach(grid => grid.style.setProperty('--cols', columns));
                         const need = inner.offsetHeight;
                         const fit = need > avail ? avail / need : 1;
                         const cell = (width - (across - 1) * groupGap) / across;
@@ -731,7 +786,7 @@
                     }
                 }
                 inner.style.gridTemplateColumns = `repeat(${best.across},minmax(0,1fr))`;
-                grids.forEach(grid => { grid.style.gridTemplateColumns = `repeat(${best.columns},minmax(0,1fr))`; });
+                grids.forEach(grid => grid.style.setProperty('--cols', best.columns));
             }
             const need = inner.offsetHeight;
             const factor = shrink && need > avail ? avail / need : 1;

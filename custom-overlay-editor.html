@@ -1261,7 +1261,7 @@
     function gameListSection(el) {
         const g = el.gameList || {};
         const layout = g.layout || 'grid';
-        const compact = layout === 'grid' || layout === 'strip';
+        const compact = ['grid', 'strip', 'tiers', 'ticker'].includes(layout);
         const covers = g.showCovers !== false;
         const titles = g.showTitles !== false;
         const what = F.section('gamelist', 'Game list: what to show', `
@@ -1269,24 +1269,29 @@
             ${periodPicker(g)}
             <div class="grid2">${F.number('gameList.maxPeriods', 'Max periods (0 = all)', g.maxPeriods || 0, { min: 0, max: 20 })}${F.number('gameList.max', 'Max games (0 = all)', g.max || 0, { min: 0, max: 100 })}</div>
             ${F.select('gameList.sort', 'Order', g.sort || 'plan', [['plan', 'Plan order'], ['rating', 'Highest rating first'], ['name', 'Name A–Z']])}
-            ${F.check('gameList.headings', 'Group by period with headings', g.headings !== false)}
+            ${['tiers', 'ticker'].includes(g.layout) ? '' : F.check('gameList.headings', 'Group by period with headings', g.headings !== false)}
             ${F.check('gameList.highlightCurrent', 'Highlight the game you are playing now', g.highlightCurrent !== false)}
             ${g.highlightCurrent === false ? '' : F.color('gameList.accent', 'Highlight color', g.accent || '#3fb950')}
             <p class="hint">Games come from the <a href="/game-plan-editor.html" target="_blank" style="color:var(--accent)">Game Plan</a>. “Playing now” follows your Twitch category.</p>`);
-        const grouped = layout === 'kanban' || g.headings !== false;
+        const tiers = layout === 'tiers', ticker = layout === 'ticker', kanban = layout === 'kanban';
+        const grouped = kanban || (g.headings !== false && !tiers && !ticker);
+        const LAYOUT_HINTS = { grid: 'Covers in rows, grouped by period.', strip: 'One row of covers per group, sharing the width.', list: 'Small cover and title per line.', kanban: 'One column per group (period, or list when showing everything).', tiers: 'Tier list: games sorted into S–D rows by their star rating (? = unrated).', ticker: 'One row of covers that scrolls sideways, for slim banners.' };
         const lay = F.section('gamelayout', 'Game list: layout', `
-            ${F.select('gameList.layout', 'Layout', layout, [['grid', 'Cover grid'], ['strip', 'Cover strip (one row)'], ['list', 'Text list'], ['kanban', 'Columns (one per group)']])}
+            ${F.select('gameList.layout', 'Layout', layout, [['grid', 'Cover grid'], ['strip', 'Cover strip (one row)'], ['list', 'Text list'], ['kanban', 'Columns (one per group)'], ['tiers', 'Tier list (by star rating)'], ['ticker', 'Scrolling ticker']])}
+            <p class="hint">${LAYOUT_HINTS[layout]}</p>
             ${grouped ? '<div class="sub-head">Groups (periods)</div>' : ''}
-            ${grouped && layout !== 'kanban' ? `${F.number('gameList.periodsAcross', 'Groups side by side (0 = auto)', g.periodsAcross || 0, { min: 0, max: 8 })}` : ''}
+            ${grouped && !kanban ? F.number('gameList.periodsAcross', 'Groups side by side (0 = auto)', g.periodsAcross || 0, { min: 0, max: 8 }) : ''}
             ${grouped ? F.number('gameList.groupGap', 'Gap between groups (px)', g.groupGap ?? g.gap ?? 12, { min: 0, max: 200 }) : ''}
-            ${layout === 'kanban' ? '<p class="hint">Each group gets its own column, so they are always side by side.</p>' : ''}
-            <div class="sub-head">Games</div>
+            ${tiers ? F.number('gameList.groupGap', 'Gap between tiers (px)', g.groupGap ?? g.gap ?? 12, { min: 0, max: 200 }) : ''}
+            ${['grid', 'tiers', 'ticker', 'strip', 'list', 'kanban'].includes(layout) && layout !== 'list' && !kanban && layout !== 'strip' ? '<div class="sub-head">Games</div>' : ''}
             ${layout === 'grid' ? `${F.number('gameList.columns', 'Games per row (0 = auto)', g.columns ?? 3, { min: 0, max: 12 })}<p class="hint">0 picks the biggest covers that fit the box.</p>` : ''}
-            ${F.number('gameList.gap', 'Gap between games (px)', g.gap ?? 12, { min: 0, max: 80 })}
-            <div class="sub-head">Inside the box</div>
+            ${tiers ? F.number('gameList.columns', 'Games per row', g.columns || 6, { min: 1, max: 12 }) : ''}
+            ${ticker ? `${F.number('gameList.columns', 'Games visible at once', g.columns || 5, { min: 1, max: 12 })}${F.number('gameList.tickerSpeed', 'Scroll speed (px/second)', g.tickerSpeed || 60, { min: 10, max: 600 })}<p class="hint">Scrolls only when there are more games than fit.</p>` : ''}
+            ${layout === 'grid' || tiers || ticker || layout === 'strip' ? F.number('gameList.gap', 'Gap between games (px)', g.gap ?? 12, { min: 0, max: 80 }) : F.number('gameList.gap', 'Gap between rows (px)', g.gap ?? 12, { min: 0, max: 80 })}
+            ${ticker ? '' : `<div class="sub-head">Inside the box</div>
             ${F.select('gameList.fit', 'If the list is too tall', g.fit || 'none', [['none', 'Clip it'], ['shrink', 'Shrink everything to fit (text too)']])}
-            <div class="grid2">${F.select('gameList.alignH', 'Horizontal position', g.alignH || 'left', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']])}${F.select('gameList.alignV', 'Vertical position', g.alignV || 'top', [['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']])}</div>
-            <p class="hint">Position places the list when it doesn't fill the box.</p>`);
+            <div class="grid2">${kanban ? '<span></span>' : F.select('gameList.alignH', 'Horizontal position', g.alignH || 'left', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']])}${F.select('gameList.alignV', 'Vertical position', g.alignV || 'top', [['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']])}</div>
+            <p class="hint">Position lines up each row (and the whole list when it is shorter than the box).</p>`}`);
         const look = F.section('gamecovers', 'Game list: covers & titles', `
             ${F.check('gameList.showCovers', 'Show covers', covers)}
             ${F.check('gameList.showTitles', 'Show titles', titles)}
@@ -1298,7 +1303,7 @@
             ${F.select('gameList.meta', 'Extra line', g.meta || 'none', [['none', 'None'], ['year', 'Release year'], ['genres', 'Genres'], ['note', 'Your note'], ['rating', 'Star rating'], ['tags', 'Tags']])}`);
         const text = F.section('gametext', 'Game list: text sizes', `
             <p class="hint">Percentages of this element's font size (Typography). Change that one to scale all the text; use these to tune the parts.</p>
-            ${g.headings === false ? '' : F.number('gameList.headingScale', 'Group heading (%)', g.headingScale || 100, { min: 10, max: 400 })}
+            ${(g.headings === false && !tiers) || ticker ? '' : F.number('gameList.headingScale', tiers ? 'Tier label (%)' : 'Group heading (%)', g.headingScale || 100, { min: 10, max: 400 })}
             ${titles || !covers ? F.number('gameList.titleScale', 'Game title (%)', g.titleScale || (compact ? 80 : 100), { min: 10, max: 400 }) : ''}
             ${g.meta && g.meta !== 'none' ? F.number('gameList.metaScale', 'Extra line (%)', g.metaScale || (compact ? 65 : 70), { min: 10, max: 400 }) : ''}`);
         return what + lay + look + text;
