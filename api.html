@@ -613,6 +613,32 @@
                     details: 'Pushes the change live to every browser source. Returns 400 if pages are not enabled. A control panel is available at /overlay-control.html?id=<id>.'
                 },
                 {
+                    method: 'POST', path: '/api/custom-overlays/:id/slideshow',
+                    desc: 'Control a slideshow element',
+                    body: '{ "action": "next" | "prev" | "pause" | "play" | "toggle", "element": "optional element id (default: all slideshows)" }',
+                    details: 'Pushes the action live to every browser source of the overlay. Returns { ok, action, element, listeners } where listeners is the number of connected overlay clients. Manual-advance slideshows only change on next/prev. A control panel is at /overlay-control.html?id=<id>.'
+                },
+                {
+                    method: 'GET', path: '/api/asset-library',
+                    desc: 'Assets by tag or name for slideshows',
+                    details: 'Query: tags=a,b&mode=any|all&kinds=image|video|both, or names=<newline-separated>. Returns [{ name, kind, label, caption, url }].'
+                },
+                {
+                    method: 'POST', path: '/api/asset-tags',
+                    desc: 'Add, remove or set tags on assets',
+                    body: '{ "names": ["asset"], "add": ["tag"], "remove": ["tag"], "set": ["tag"] }'
+                },
+                {
+                    method: 'POST', path: '/api/asset-tags/manage',
+                    desc: 'Rename, merge or delete a tag everywhere',
+                    body: '{ "action": "rename" | "delete", "tag": "name", "to": "new name (rename; existing name merges)" }'
+                },
+                {
+                    method: 'POST', path: '/api/asset-captions',
+                    desc: 'Set an asset caption',
+                    body: '{ "name": "asset", "caption": "text (empty clears)" }'
+                },
+                {
                     method: 'GET', path: '/api/alerts',
                     desc: 'Alert rules, settings and queue state',
                     details: 'Returns { settings, rules, queue: { pending, current, paused, history }, meta }.'
