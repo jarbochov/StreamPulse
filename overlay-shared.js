@@ -405,7 +405,7 @@
         };
         const text = isTextGradient(style, type) ? style.textGradient : null;
         const box = style.gradient?.enabled && type !== 'progress' ? style.gradient : null;
-        if (!text && !box) return Object.assign(out, { backgroundSize: '', backgroundClip: '', webkitBackgroundClip: '', backgroundPosition: '', animation: '' });
+        if (!text && !box) return Object.assign(out, { webkitTextFillColor: '', backgroundSize: '', backgroundClip: '', webkitBackgroundClip: '', backgroundPosition: '', animation: '' });
         ensureGradientKeyframes();
         // One background list: the text gradient is clipped to the letters, the box gradient or color fills the box behind it.
         const layers = [], sizes = [], clips = [];
@@ -429,7 +429,9 @@
             webkitBackgroundClip: clips.join(', '),
             animation: anims.join(', ')
         });
-        if (text) out.color = 'transparent';
+        // Fill is transparent but color stays solid, so borders, rules and bullets that use currentColor remain visible.
+        out.webkitTextFillColor = text ? 'transparent' : '';
+        if (text) out.color = text.from || '#1f6feb';
         return out;
     }
 
