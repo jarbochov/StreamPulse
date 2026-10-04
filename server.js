@@ -109,7 +109,7 @@ function normalizeGradient(g) {
         enabled: g.enabled === true,
         from: String(g.from || '#1f6feb').slice(0, 80),
         to: String(g.to || '#8957e5').slice(0, 80),
-        angle: Math.max(0, Math.min(360, Number(g.angle) || 135)),
+        angle: Number.isFinite(Number(g.angle)) && g.angle !== '' && g.angle !== null ? Math.max(0, Math.min(360, Number(g.angle))) : 135,
         type: g.type === 'radial' ? 'radial' : 'linear',
         mid: String(g.mid || '').slice(0, 80),
         position: ['center', 'top', 'bottom', 'left', 'right'].includes(g.position) ? g.position : 'center',
