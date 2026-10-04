@@ -128,7 +128,9 @@ function normalizeOverlayElement(element = {}, index = 0) {
             filter: ['scheduled', 'backlog', 'played', 'all'].includes(element.gameList?.filter) || /^list-[a-z0-9-]{1,40}$/.test(element.gameList?.filter || '') ? element.gameList.filter : 'scheduled',
             period: String(element.gameList?.period || '').slice(0, 40),
             layout: ['grid', 'strip', 'list', 'kanban'].includes(element.gameList?.layout) ? element.gameList.layout : 'grid',
-            columns: Math.max(1, Math.min(12, Math.round(Number(element.gameList?.columns) || 3))),
+            columns: element.gameList?.columns === 0 ? 0 : Math.max(1, Math.min(12, Math.round(Number(element.gameList?.columns) || 3))),
+            alignH: ['left', 'center', 'right'].includes(element.gameList?.alignH) ? element.gameList.alignH : 'left',
+            alignV: ['top', 'middle', 'bottom'].includes(element.gameList?.alignV) ? element.gameList.alignV : 'top',
             gap: Math.max(0, Math.min(80, Number(element.gameList?.gap ?? 12))),
             max: Math.max(0, Math.min(100, Math.round(Number(element.gameList?.max) || 0))),
             coverFit: ['cover', 'contain', 'natural'].includes(element.gameList?.coverFit) ? element.gameList.coverFit : 'cover',
@@ -956,6 +958,23 @@ function timerSoundUsers(name) {
         if (matches(timer.soundUrl)) users.push({ id: `timer:${timer.id}`, name: `Timer: ${timer.label || timer.id}` });
     }
     return users;
+}
+
+// Game plan items can use library images as custom artwork.
+function gamePlanAssetUsers(name) {
+    return loadGamePlan().items.filter(item => item.customCover && assetReferencedIn(item.customCover, name, null)).map(item => ({ id: `game:${item.id}`, name: `Game plan: ${item.name}` }));
+}
+
+function rewriteGamePlanReferences(oldName, newName) {
+    const plan = loadGamePlan();
+    let changed = false;
+    for (const item of plan.items) {
+        if (!item.customCover) continue;
+        const next = rewriteAssetReferences(item.customCover, oldName, newName, null, null);
+        if (next !== item.customCover) { item.customCover = next; changed = true; }
+    }
+    if (changed) fs.writeFileSync(GAME_PLAN_PATH, JSON.stringify(plan, null, 2));
+    return changed;
 }
 
 function rewriteTimerSoundReferences(oldName, newName) {
@@ -4789,7 +4808,7 @@ const server = http.createServer(async (req, res) => {
             if (!stat.isFile()) return null;
             const kind = assetKind(name);
             const family = kind === 'font' ? assetFontFamily(name) : null;
-            const usedBy = [...serialized.filter(o => assetReferencedIn(o.text, name, family)).map(({ id, name: overlayName }) => ({ id, name: overlayName })), ...timerSoundUsers(name)];
+            const usedBy = [...serialized.filter(o => assetReferencedIn(o.text, name, family)).map(({ id, name: overlayName }) => ({ id, name: overlayName })), ...timerSoundUsers(name), ...gamePlanAssetUsers(name)];
             return { name, kind, family, label: assetLabel(name), url: `/custom-overlay-assets/${encodeURIComponent(name)}`, size: stat.size, modifiedAt: stat.mtime.toISOString(), usedBy };
         }).filter(Boolean).sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -4808,7 +4827,7 @@ const server = http.createServer(async (req, res) => {
         const family = assetKind(name) === 'font' ? assetFontFamily(name) : null;
 
         if (req.method === 'DELETE') {
-            const usedBy = [...Object.values(customOverlays).filter(o => assetReferencedIn(JSON.stringify(o), name, family)).map(o => o.id), ...timerSoundUsers(name).map(u => u.id)];
+            const usedBy = [...Object.values(customOverlays).filter(o => assetReferencedIn(JSON.stringify(o), name, family)).map(o => o.id), ...timerSoundUsers(name).map(u => u.id), ...gamePlanAssetUsers(name).map(u => u.id)];
             if (usedBy.length && new URL(req.url, 'http://localhost').searchParams.get('force') !== '1') return respond(409, { error: 'Asset is used by an overlay', usedBy });
             try { fs.unlinkSync(target); respond(200, { deleted: name }); } catch (err) { respond(500, { error: err.message }); }
             return;
@@ -4839,6 +4858,7 @@ const server = http.createServer(async (req, res) => {
             } catch { /* leave the overlay untouched if the rewritten copy is invalid */ }
         }
         if (rewriteTimerSoundReferences(name, newName)) updated.push('timers');
+        if (rewriteGamePlanReferences(name, newName)) updated.push('game-plan');
         if (updated.some(id => customOverlays[id])) {
             saveCustomOverlays();
             for (const id of updated.filter(id => customOverlays[id])) broadcastToOverlays('custom-overlay-update', { id, overlay: customOverlays[id] });

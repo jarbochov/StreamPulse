@@ -537,10 +537,11 @@
         }
 
         const inner = document.createElement('div');
-        inner.style.transformOrigin = 'top center';
+        inner.style.transformOrigin = 'top left';
         node.appendChild(inner);
         const sections = [];
         const kanban = layout === 'kanban';
+        const autoColumns = layout === 'grid' && config.columns === 0;
         const statusNames = { scheduled: 'Scheduled', backlog: 'Backlog', played: 'Played' };
         for (const entry of plan?.lists || []) statusNames[entry.id] = entry.name;
         if (kanban) {
@@ -597,6 +598,11 @@
                 holder = document.createElement('div');
                 holder.style.cssText = `flex:1 1 0;min-width:0;background:rgba(255,255,255,.06);border-radius:${Math.min(16, style.borderRadius || 10)}px;padding:.6em;box-sizing:border-box;`;
                 inner.appendChild(holder);
+            } else if (autoColumns) {
+                holder = document.createElement('div');
+                holder.dataset.glSection = '1';
+                holder.style.minWidth = '0';
+                inner.appendChild(holder);
             }
             if (section.label) {
                 const heading = document.createElement('div');
@@ -632,6 +638,7 @@
                 body.style.cssText += strip
                     ? `display:flex;gap:${gap}px;`
                     : `display:grid;grid-template-columns:repeat(${config.columns || 3},minmax(0,1fr));gap:${gap}px;`;
+                if (!strip) body.dataset.glGrid = '1';
                 for (const item of section.items) {
                     const card = document.createElement('div');
                     card.style.cssText = strip ? 'flex:1 1 0;min-width:0;' : 'min-width:0;';
@@ -651,18 +658,50 @@
             holder.appendChild(body);
         }
 
-        // "Fit everything" scales the whole list down (never up) so nothing is clipped by the element height.
-        if (config.fit === 'shrink' && typeof ResizeObserver === 'function') {
-            const fitContent = () => {
-                inner.style.transform = '';
-                const need = inner.offsetHeight, avail = node.clientHeight;
-                if (need > avail && avail > 0) inner.style.transform = `scale(${(avail / need).toFixed(4)})`;
-            };
-            node._fitObserver = new ResizeObserver(fitContent);
-            node._fitObserver.observe(node);
-            node.querySelectorAll('img').forEach(img => img.addEventListener('load', fitContent));
-            fitContent();
-        }
+        // Placement: auto columns pick the fewest columns (biggest covers) that fit the box, "shrink" scales down when still too tall,
+        // and the position options decide where leftover space goes.
+        const shrink = config.fit === 'shrink';
+        const alignH = config.alignH || 'left', alignV = config.alignV || 'top';
+        if (typeof ResizeObserver !== 'function' || !(autoColumns || shrink || alignV !== 'top' || alignH !== 'left')) return;
+        const grids = [...inner.querySelectorAll('[data-gl-grid]')];
+        const place = () => {
+            inner.style.transform = '';
+            inner.style.transformOrigin = `${alignH} top`;
+            const avail = node.clientHeight;
+            if (!(avail > 0)) return;
+            if (autoColumns && grids.length) {
+                // Try every mix of "periods side by side" and "covers per row", keeping the one with the biggest covers once fitted.
+                const sectionEls = [...inner.querySelectorAll(':scope > [data-gl-section]')];
+                const width = node.clientWidth;
+                const most = Math.min(12, Math.max(...grids.map(grid => grid.children.length)));
+                inner.style.display = 'grid';
+                inner.style.columnGap = `${gap}px`;
+                inner.style.alignItems = 'start';
+                let best = null;
+                for (let across = 1; across <= sectionEls.length; across++) {
+                    inner.style.gridTemplateColumns = `repeat(${across},minmax(0,1fr))`;
+                    for (let columns = 1; columns <= most; columns++) {
+                        grids.forEach(grid => { grid.style.gridTemplateColumns = `repeat(${columns},minmax(0,1fr))`; });
+                        const need = inner.offsetHeight;
+                        const fit = need > avail ? avail / need : 1;
+                        const cell = (width - (across - 1) * gap) / across;
+                        const score = ((cell - (columns - 1) * gap) / columns) * fit;
+                        if (!best || score > best.score * 1.02) best = { across, columns, score };
+                    }
+                }
+                inner.style.gridTemplateColumns = `repeat(${best.across},minmax(0,1fr))`;
+                grids.forEach(grid => { grid.style.gridTemplateColumns = `repeat(${best.columns},minmax(0,1fr))`; });
+            }
+            const need = inner.offsetHeight;
+            const factor = shrink && need > avail ? avail / need : 1;
+            const free = Math.max(0, avail - need * factor);
+            const dy = alignV === 'middle' ? free / 2 : alignV === 'bottom' ? free : 0;
+            if (factor < 1 || dy > 0) inner.style.transform = `translateY(${dy.toFixed(1)}px) scale(${factor.toFixed(4)})`;
+        };
+        node._fitObserver = new ResizeObserver(place);
+        node._fitObserver.observe(node);
+        node.querySelectorAll('img').forEach(img => img.addEventListener('load', place));
+        place();
     }
 
     // QR codes are rendered by the server as SVG, so the overlay only needs an image URL.
