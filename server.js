@@ -5397,7 +5397,7 @@ const server = http.createServer(async (req, res) => {
             if (!['next', 'prev', 'pause', 'play', 'toggle'].includes(action)) return respond(400, { error: 'action must be next, prev, pause, play or toggle' });
             const element = body.element ? String(body.element) : '';
             broadcastToOverlays('custom-overlay-slideshow', { id: overlay.id, action, element });
-            return respond(200, { ok: true, action, element: element || 'all' });
+            return respond(200, { ok: true, action, element: element || 'all', listeners: overlayClients.size });
         } catch (err) { return respond(400, { error: err.message }); }
     }
 

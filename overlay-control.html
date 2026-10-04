@@ -24,6 +24,7 @@
         .page.current { border-color: var(--accent); background: var(--accent-bg); }
         .page small { color: var(--text-muted); font-weight: 400; }
         .msg { padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); }
+        h2 { font-size: .95rem; margin: 1rem 0 .5rem; }
         .status { font-size: .8rem; color: var(--text-muted); margin-top: .8rem; }
     </style>
 </head>
@@ -37,7 +38,21 @@
     const api = `/api/custom-overlays/${encodeURIComponent(id)}/page`;
     const $ = key => document.getElementById(key);
     const esc = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    let state = null;
+    let state = null, slides = [], liveNote = '';
+    const slideApi = `/api/custom-overlays/${encodeURIComponent(id)}/slideshow`;
+    async function slide(action, element) {
+        try {
+            const r = await fetch(slideApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, element }) });
+            const d = await r.json();
+            $('status').textContent = d.listeners ? `Sent: ${action}` : 'No live overlay is connected (open it in OBS or the runtime page).';
+        } catch (error) { $('status').textContent = error.message; }
+    }
+    function slideHtml() {
+        if (!slides.length) return '';
+        return '<h2>Slideshows</h2><div class="pages">' + slides.map(s => `<div class="msg"><b>${esc(s.name)}</b>
+            <div class="nav" style="margin:.5rem 0 0"><button class="btn" data-slide="prev" data-el="${esc(s.id)}">Previous</button><button class="btn primary" data-slide="next" data-el="${esc(s.id)}">Next</button></div>
+            <div class="row" style="margin:.5rem 0 0"><button class="btn" data-slide="toggle" data-el="${esc(s.id)}">Pause / play</button></div></div>`).join('') + '</div>';
+    }
 
     async function send(body) {
         try {
@@ -50,16 +65,17 @@
     function draw() {
         if (!state) return;
         $('title').textContent = `Pages · ${id}`;
-        if (!state.enabled) { $('body').innerHTML = '<div class="msg">This overlay does not have pages enabled. Turn on <b>Pages</b> in the editor.</div>'; $('sub').textContent = ''; return; }
+        if (!state.enabled) { $('body').innerHTML = (slides.length ? '' : '<div class="msg">This overlay does not have pages enabled. Turn on <b>Pages</b> in the editor.</div>') + slideHtml(); $('sub').textContent = ''; return; }
         $('sub').textContent = `Showing “${state.name}” (${state.index + 1} of ${state.count})`;
         $('body').innerHTML = `
             <div class="nav"><button class="btn" data-act="prev">◀ Previous</button><button class="btn primary" data-act="next">Next ▶</button></div>
             <div class="row"><button class="btn" data-act="first">⏮ First</button><button class="btn" data-act="last">Last ⏭</button>
                 <button class="btn${state.auto ? ' active' : ''}" data-act="auto">${state.auto ? '⏸ Auto: on' : '▶ Auto: off'}</button></div>
-            <div class="pages">${state.pages.map((p, i) => `<button class="btn page${i === state.index ? ' current' : ''}" data-page="${esc(p.id)}"><span>${i + 1}. ${esc(p.name)}</span><small>${p.duration ? `${p.duration}s` : ''}</small></button>`).join('')}</div>`;
+            <div class="pages">${state.pages.map((p, i) => `<button class="btn page${i === state.index ? ' current' : ''}" data-page="${esc(p.id)}"><span>${i + 1}. ${esc(p.name)}</span><small>${p.duration ? `${p.duration}s` : ''}</small></button>`).join('')}</div>` + slideHtml();
     }
     document.addEventListener('click', event => {
         const t = event.target.closest('button'); if (!t) return;
+        if (t.dataset.slide) return slide(t.dataset.slide, t.dataset.el);
         if (t.dataset.page) send({ action: 'goto', page: t.dataset.page });
         else if (t.dataset.act === 'auto') send({ action: 'auto', auto: !state.auto });
         else if (t.dataset.act) send({ action: t.dataset.act });
@@ -71,7 +87,13 @@
     async function load() {
         const response = await fetch(api, { cache: 'no-store' });
         if (!response.ok) { $('body').innerHTML = `<div class="msg">Overlay “${esc(id)}” not found.</div>`; return; }
-        state = await response.json(); draw();
+        state = await response.json();
+        try {
+            const o = await (await fetch(`/api/custom-overlays/${encodeURIComponent(id)}`, { cache: 'no-store' })).json();
+            const list = o.overlay || o;
+            slides = (list.elements || []).filter(e => e.type === 'slideshow').map((e, i) => ({ id: e.id, name: e.name || `Slideshow ${i + 1}` }));
+        } catch { slides = []; }
+        draw();
     }
     function connect() {
         const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);

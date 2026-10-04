@@ -1352,7 +1352,8 @@
                 <button type="button" data-slide-ctl="toggle">Pause / play</button>
                 <button type="button" data-slide-ctl="next">Next</button>
             </div>
-            <p class="hint">Controls the saved overlay while it is running (OBS or the Open Runtime page). Also available as <code>POST /api/custom-overlays/${esc(overlay.id)}/slideshow</code> with <code>{"action":"next"}</code> (next, prev, pause, play, toggle), so a Stream Deck or hotkey tool can drive it.</p>`, false);
+            <div style="display:flex;gap:.6rem;align-items:center;margin-top:.5rem"><button type="button" data-slide-popout>Pop out controls</button><span class="hint" id="slide-ctl-status"></span></div>
+            <p class="hint">Drives the preview here and the saved overlay while it is running (OBS or the Open Runtime page). Also available as <code>POST /api/custom-overlays/${esc(overlay.id)}/slideshow</code> with <code>{"action":"next"}</code> (next, prev, pause, play, toggle), so a Stream Deck or hotkey tool can drive it.</p>`, false);
         return what + play + remote;
     }
     async function refreshSlideCount() {
@@ -1383,9 +1384,13 @@
     $('properties').addEventListener('click', event => {
         const ctl = event.target.closest('[data-slide-ctl]');
         if (ctl) {
-            const el = primary();
-            fetch(`/api/custom-overlays/${encodeURIComponent(overlay.id)}/slideshow`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: ctl.dataset.slideCtl, element: el?.id }) }).catch(() => {});
+            const el = primary(), status = document.getElementById('slide-ctl-status');
+            nodes.get(el?.id)?._slideHandle?.control(ctl.dataset.slideCtl);
+            fetch(`/api/custom-overlays/${encodeURIComponent(overlay.id)}/slideshow`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: ctl.dataset.slideCtl, element: el?.id }) })
+                .then(r => r.json()).then(d => { if (status) status.textContent = d.listeners ? 'Preview updated. Sent to live overlays.' : 'Preview updated. No live overlay is connected.'; })
+                .catch(() => { if (status) status.textContent = 'Preview updated. Could not reach the server.'; });
         }
+        if (event.target.closest('[data-slide-popout]')) window.open(`/overlay-control.html?id=${encodeURIComponent(overlay.id)}`, 'slideshow-remote', 'popup,width=420,height=640');
         const add = event.target.closest('[data-slide-addtag]'), remove = event.target.closest('[data-slide-untag]');
         if (add) changeSlideTags(tags => [...tags, add.dataset.slideAddtag]);
         if (remove) changeSlideTags(tags => tags.filter(tag => tag !== remove.dataset.slideUntag));
