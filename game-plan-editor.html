@@ -47,6 +47,9 @@
         .main .sub { font-size: 0.74rem; color: var(--text-muted); }
         .main .note { font-size: 0.76rem; color: var(--text-muted); font-style: italic; }
         .row-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .period-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0 0 0.6rem; font-size: 0.74rem; color: var(--text-muted); }
+        .period-bar .pchip { cursor: grab; border: 1px solid var(--border); border-radius: 999px; padding: 0.15rem 0.6rem; color: var(--text); background: var(--panel, transparent); }
+        .period-bar .pchip .num { opacity: 0.55; margin-right: 0.35rem; }
         .chip { font-size: 0.68rem; border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; color: var(--text-muted); }
         .period { padding: 0.2rem 0.5rem; font-size: 0.74rem; width: 160px; }
         .stars { display: inline-flex; gap: 1px; }
@@ -101,6 +104,7 @@
         </div>
 
         <div class="tabs" id="tabs"></div>
+        <div class="period-bar" id="period-bar" hidden></div>
         <div class="items" id="items"></div>
         <p class="hint">Click a game's cover or name for rating, tags, artwork and more. Drag the handle to reorder, or drop a card onto another tab to move it. Show lists in overlays with the <b>Game list</b> element in the <a href="/custom-overlays.html" style="color:var(--accent)">custom overlay editor</a>. The game you're streaming (from your Twitch category) is marked <b>Now playing</b>.</p>
     </div>
@@ -144,6 +148,8 @@
         const $ = id => document.getElementById(id);
         const BUILTIN = [{ id: 'scheduled', name: 'Scheduled', empty: "Games you're playing this period" }, { id: 'backlog', name: 'Backlog', empty: 'Games on the list, not scheduled' }, { id: 'played', name: 'Played', empty: 'Finished games' }];
         let customLists = [];
+        let periodOrder = [];
+        let periodSortable = null;
         let items = [];
         let active = 'scheduled';
         let editing = null;
@@ -195,6 +201,7 @@
                     </div>
                     <div class="item-actions"><button class="btn icon" data-edit title="Details">✎</button></div>
                 </div>`).join('');
+            buildPeriodBar();
             $('periods').innerHTML = [...new Set(items.map(item => item.period).filter(Boolean))].map(value => `<option value="${esc(value)}">`).join('');
             sortable?.destroy();
             sortable = new Sortable(holder, {
@@ -212,6 +219,29 @@
                     const order = [...holder.querySelectorAll('.item')].map(row => items.find(entry => entry.id === row.dataset.id)).filter(Boolean);
                     const slots = items.map((item, index) => (item.status === active ? index : -1)).filter(index => index >= 0);
                     slots.forEach((slot, index) => { items[slot] = order[index]; });
+                    scheduleSave();
+                }
+            });
+        }
+
+        const orderedPeriods = () => {
+            const used = [...new Set(items.map(item => item.period).filter(Boolean))];
+            return [...periodOrder.filter(name => used.includes(name)), ...used.filter(name => !periodOrder.includes(name))];
+        };
+
+        function buildPeriodBar() {
+            const bar = $('period-bar');
+            const names = orderedPeriods();
+            bar.hidden = active !== 'scheduled' || names.length < 2;
+            periodSortable?.destroy();
+            periodSortable = null;
+            if (bar.hidden) return;
+            bar.innerHTML = '<span>Period order (drag):</span>' + names.map((name, index) => `<span class="pchip" data-period="${esc(name)}"><span class="num">${index + 1}</span>${esc(name)}</span>`).join('');
+            periodSortable = new Sortable(bar, {
+                animation: 150, draggable: '.pchip',
+                onEnd() {
+                    periodOrder = [...bar.querySelectorAll('.pchip')].map(chip => chip.dataset.period);
+                    buildPeriodBar();
                     scheduleSave();
                 }
             });
@@ -235,7 +265,7 @@
                 const response = await fetch('/api/game-plan', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lists: customLists, items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tags, finished }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tags, finished })) })
+                    body: JSON.stringify({ lists: customLists, periods: orderedPeriods(), items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tags, finished }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tags, finished })) })
                 });
                 if (!response.ok) throw new Error((await response.json()).error || response.statusText);
                 setStatus('Saved. Overlays update within a few seconds.');
@@ -435,6 +465,7 @@
                 const data = await (await fetch('/api/game-plan', { cache: 'no-store' })).json();
                 items = data.items;
                 customLists = data.lists || [];
+                periodOrder = data.periods || [];
                 render();
                 refreshMeta();
             } catch { setStatus('Could not load the game plan.'); }

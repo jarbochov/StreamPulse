@@ -515,10 +515,18 @@
         const config = element.gameList || {};
         const style = element.style || {};
         let items = (plan?.items || []).filter(item => config.filter === 'all' || item.status === (config.filter || 'scheduled'));
-        if (config.period) items = items.filter(item => String(item.period).toLowerCase() === String(config.period).toLowerCase());
+        const order = (plan?.periods || []).map(name => String(name).toLowerCase());
+        const rank = item => { const at = order.indexOf(String(item.period || '').toLowerCase()); return at < 0 ? order.length : at; };
+        const wanted = (Array.isArray(config.periods) && config.periods.length ? config.periods : config.period ? [config.period] : []).map(name => String(name).toLowerCase());
+        if (wanted.length) items = items.filter(item => wanted.includes(String(item.period || '').toLowerCase()));
+        if (config.maxPeriods > 0) {
+            const keep = [...new Set(items.map(item => item.period || ''))].sort((a, b) => rank({ period: a }) - rank({ period: b })).slice(0, config.maxPeriods);
+            items = items.filter(item => keep.includes(item.period || ''));
+        }
         if (config.sort === 'rating') items = [...items].sort((a, b) => (b.rating || 0) - (a.rating || 0));
         else if (config.sort === 'name') items = [...items].sort((a, b) => String(a.name).localeCompare(String(b.name)));
         if (config.max > 0) items = items.slice(0, config.max);
+        if (config.filter === 'scheduled' || config.filter === 'all' || config.sort === 'plan' || !config.sort) items = items.map((item, at) => ({ item, at })).sort((a, b) => rank(a.item) - rank(b.item) || a.at - b.at).map(entry => entry.item);
         const layout = config.layout || 'grid';
         const gap = config.gap ?? 12;
         const accent = config.accent || '#3fb950';
@@ -598,7 +606,7 @@
                 holder = document.createElement('div');
                 holder.style.cssText = `flex:1 1 0;min-width:0;background:rgba(255,255,255,.06);border-radius:${Math.min(16, style.borderRadius || 10)}px;padding:.6em;box-sizing:border-box;`;
                 inner.appendChild(holder);
-            } else if (autoColumns) {
+            } else if (autoColumns || config.periodsAcross > 0) {
                 holder = document.createElement('div');
                 holder.dataset.glSection = '1';
                 holder.style.minWidth = '0';
@@ -664,6 +672,12 @@
         const alignH = config.alignH || 'left', alignV = config.alignV || 'top';
         if (typeof ResizeObserver !== 'function' || !(autoColumns || shrink || alignV !== 'top' || alignH !== 'left')) return;
         const grids = [...inner.querySelectorAll('[data-gl-grid]')];
+        if (config.periodsAcross > 0 && !kanban) {
+            inner.style.display = 'grid';
+            inner.style.gridTemplateColumns = `repeat(${config.periodsAcross},minmax(0,1fr))`;
+            inner.style.columnGap = `${gap}px`;
+            inner.style.alignItems = 'start';
+        }
         const place = () => {
             inner.style.transform = '';
             inner.style.transformOrigin = `${alignH} top`;
@@ -678,14 +692,14 @@
                 inner.style.columnGap = `${gap}px`;
                 inner.style.alignItems = 'start';
                 let best = null;
-                for (let across = 1; across <= sectionEls.length; across++) {
+                for (let across = config.periodsAcross > 0 ? Math.min(config.periodsAcross, sectionEls.length) : 1; across <= (config.periodsAcross > 0 ? Math.min(config.periodsAcross, sectionEls.length) : sectionEls.length); across++) {
                     inner.style.gridTemplateColumns = `repeat(${across},minmax(0,1fr))`;
                     for (let columns = 1; columns <= most; columns++) {
                         grids.forEach(grid => { grid.style.gridTemplateColumns = `repeat(${columns},minmax(0,1fr))`; });
                         const need = inner.offsetHeight;
                         const fit = need > avail ? avail / need : 1;
                         const cell = (width - (across - 1) * gap) / across;
-                        const score = ((cell - (columns - 1) * gap) / columns) * fit;
+                        const score = shrink || need <= avail ? ((cell - (columns - 1) * gap) / columns) * fit : fit * 0.0001;
                         if (!best || score > best.score * 1.02) best = { across, columns, score };
                     }
                 }

@@ -127,6 +127,9 @@ function normalizeOverlayElement(element = {}, index = 0) {
         gameList: {
             filter: ['scheduled', 'backlog', 'played', 'all'].includes(element.gameList?.filter) || /^list-[a-z0-9-]{1,40}$/.test(element.gameList?.filter || '') ? element.gameList.filter : 'scheduled',
             period: String(element.gameList?.period || '').slice(0, 40),
+            periods: [...new Set((Array.isArray(element.gameList?.periods) ? element.gameList.periods : []).map(value => String(value || '').trim().slice(0, 40)).filter(Boolean))].slice(0, 20),
+            maxPeriods: Math.max(0, Math.min(20, Math.round(Number(element.gameList?.maxPeriods) || 0))),
+            periodsAcross: Math.max(0, Math.min(8, Math.round(Number(element.gameList?.periodsAcross) || 0))),
             layout: ['grid', 'strip', 'list', 'kanban'].includes(element.gameList?.layout) ? element.gameList.layout : 'grid',
             columns: element.gameList?.columns === 0 ? 0 : Math.max(1, Math.min(12, Math.round(Number(element.gameList?.columns) || 3))),
             alignH: ['left', 'center', 'right'].includes(element.gameList?.alignH) ? element.gameList.alignH : 'left',
@@ -2743,11 +2746,14 @@ function normalizeGamePlan(input) {
         tags: [...new Set((Array.isArray(item?.tags) ? item.tags : []).map(tag => String(tag || '').trim().slice(0, 24)).filter(Boolean))].slice(0, 8),
         finished: /^\d{4}-\d{2}-\d{2}$/.test(String(item?.finished || '')) ? item.finished : ''
     })).filter(item => item.name);
-    return { lists, items };
+    const used = [...new Set(items.map(item => item.period).filter(Boolean))];
+    const saved = (Array.isArray(input?.periods) ? input.periods : []).map(value => String(value || '').trim().slice(0, 40)).filter(value => used.includes(value));
+    const periods = [...new Set([...saved, ...used])].slice(0, 40);
+    return { lists, items, periods };
 }
 
 function loadGamePlan() {
-    try { return normalizeGamePlan(JSON.parse(fs.readFileSync(GAME_PLAN_PATH, 'utf8'))); } catch { return { lists: [], items: [] }; }
+    try { return normalizeGamePlan(JSON.parse(fs.readFileSync(GAME_PLAN_PATH, 'utf8'))); } catch { return { lists: [], items: [], periods: [] }; }
 }
 
 const gameKey = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
@@ -2771,6 +2777,7 @@ function buildGamePlanSnapshot() {
     return {
         current: category,
         lists: plan.lists,
+        periods: plan.periods,
         items: plan.items.map(item => {
             const game = item.custom ? { name: item.name } : publicGameInfo(item.name, item.igdbId);
             const raw = item.custom ? null : gameInfoCache[infoKey(item.name, item.igdbId)];

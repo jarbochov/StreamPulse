@@ -1247,11 +1247,21 @@
             <div class="grid2">${F.number('width', 'Width', el.width, { min: LIMITS.elementW[0], max: LIMITS.elementW[1] })}${line ? '<span></span>' : F.number('height', 'Height', el.height, { min: LIMITS.elementH[0], max: LIMITS.elementH[1] })}</div>
             <details class="sub-details"><summary>Align to canvas</summary>${alignBody([el])}</details>`);
     }
+    function periodPicker(g) {
+        const known = liveStatus.gamePlan?.periods || [];
+        const picked = (g.periods?.length ? g.periods : g.period ? [g.period] : []);
+        const names = [...known, ...picked.filter(name => !known.includes(name))];
+        if (!names.length) return '';
+        return `<div class="field"><span>Periods to show (none ticked = all, in plan order)</span>
+            <input type="hidden" data-path="gameList.periods" data-kind="lines" value="${esc(picked.join('\n'))}">
+            ${names.map(name => `<label class="check"><input type="checkbox" data-period-pick value="${esc(name)}" ${picked.includes(name) ? 'checked' : ''}> ${esc(name)}</label>`).join('')}</div>`;
+    }
     function gameListSection(el) {
         const g = el.gameList || {};
         return F.section('gamelist', 'Game list', `
             ${F.select('gameList.filter', 'Show', g.filter || 'scheduled', [['scheduled', 'Scheduled games'], ['backlog', 'Backlog'], ['played', 'Played'], ...(liveStatus.gamePlan?.lists || []).map(list => [list.id, `List: ${list.name}`]), ['all', 'Everything']])}
-            ${F.text('gameList.period', 'Only this period', g.period || '', 'placeholder="e.g. October (blank = all)"')}
+            ${periodPicker(g)}
+            <div class="grid2">${F.number('gameList.maxPeriods', 'Max periods (0 = all)', g.maxPeriods || 0, { min: 0, max: 20 })}${F.number('gameList.periodsAcross', 'Periods across (0 = auto)', g.periodsAcross || 0, { min: 0, max: 8 })}</div>
             ${F.select('gameList.layout', 'Layout', g.layout || 'grid', [['grid', 'Cover grid'], ['strip', 'Cover strip'], ['list', 'Text list'], ['kanban', 'Columns (one per group)']])}
             ${g.layout === 'grid' || !g.layout ? F.number('gameList.columns', 'Columns (0 = auto-fit the box)', g.columns ?? 3, { min: 0, max: 12 }) : ''}
             <div class="grid2">${F.number('gameList.gap', 'Gap (px)', g.gap ?? 12, { min: 0, max: 80 })}${F.number('gameList.max', 'Max games (0 = all)', g.max || 0, { min: 0, max: 100 })}</div>
@@ -1350,6 +1360,14 @@
     }
     // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
     const RERENDER_PATHS = new Set(['style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent']);
+    $('properties').addEventListener('change', event => {
+        if (!event.target.matches('[data-period-pick]')) return;
+        const field = event.target.closest('.field');
+        const hidden = field.querySelector('input[type="hidden"]');
+        hidden.value = [...field.querySelectorAll('[data-period-pick]:checked')].map(box => box.value).join('\n');
+        selectedElements().forEach(target => { if (target.gameList) target.gameList.period = ''; });
+        hidden.dispatchEvent(new Event('input', { bubbles: true }));
+    });
     bindFields($('properties'), selectedElements, path => {
         for (const el of selectedElements()) { el.width = clamp(el.width, 1, 3840); el.height = clamp(el.height, 1, 2160); }
         renderCanvas(); updateStatusBar();
