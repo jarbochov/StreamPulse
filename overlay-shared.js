@@ -595,6 +595,7 @@
         };
         const cover = (item, extra, hideName) => {
             const wrap = document.createElement('div');
+            wrap.dataset.glCover = '1';
             wrap.style.cssText = `background:rgba(255,255,255,.08);border-radius:${Math.min(12, style.borderRadius || 8)}px;overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;font-size:.6em;padding:.3em;box-sizing:border-box;${extra}`;
             if (item.cover) {
                 const img = document.createElement('img');
@@ -611,6 +612,7 @@
             let holder = inner;
             if (kanban) {
                 holder = document.createElement('div');
+                holder.dataset.glCover = '1';
                 holder.style.cssText = `flex:1 1 0;min-width:0;background:rgba(255,255,255,.06);border-radius:${Math.min(16, style.borderRadius || 10)}px;padding:.6em;box-sizing:border-box;`;
                 inner.appendChild(holder);
             } else if (autoColumns || config.periodsAcross > 0) {
@@ -702,7 +704,7 @@
         }
         const place = () => {
             inner.style.transform = '';
-            inner.style.transformOrigin = `${alignH} top`;
+            inner.style.transformOrigin = 'left top';
             const avail = node.clientHeight;
             if (!(avail > 0)) return;
             if (autoColumns && grids.length) {
@@ -732,7 +734,22 @@
             const factor = shrink && need > avail ? avail / need : 1;
             const free = Math.max(0, avail - need * factor);
             const dy = alignV === 'middle' ? free / 2 : alignV === 'bottom' ? free : 0;
-            if (factor < 1 || dy > 0) inner.style.transform = `translateY(${dy.toFixed(1)}px) scale(${factor.toFixed(4)})`;
+            let dx = 0;
+            if (alignH !== 'left') {
+                // Align the visible content (covers and tight text bounds), not the stretched grid cells around it.
+                const box = node.getBoundingClientRect();
+                let left = Infinity, right = -Infinity;
+                const take = rect => { if (rect.width > 0) { left = Math.min(left, rect.left); right = Math.max(right, rect.right); } };
+                inner.querySelectorAll('[data-gl-cover], img').forEach(el => take(el.getBoundingClientRect()));
+                const range = document.createRange();
+                const walker = document.createTreeWalker(inner, NodeFilter.SHOW_TEXT);
+                while (walker.nextNode()) { if (walker.currentNode.textContent.trim()) { range.selectNodeContents(walker.currentNode); take(range.getBoundingClientRect()); } }
+                if (right > left) {
+                    const from = (left - box.left) * factor, to = (right - box.left) * factor;
+                    dx = alignH === 'center' ? (node.clientWidth - (to - from)) / 2 - from : node.clientWidth - to;
+                }
+            }
+            if (factor < 1 || dy > 0 || dx) inner.style.transform = `translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px) scale(${factor.toFixed(4)})`;
         };
         node._fitObserver = new ResizeObserver(place);
         node._fitObserver.observe(node);
