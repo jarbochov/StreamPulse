@@ -356,9 +356,9 @@
                         <button role="menuitem" data-add="embed"><span class="glyph">⊞</span>Webpage</button>
                         <button role="menuitem" data-add="shape"><span class="glyph">■</span>Shape</button>
                         <button role="menuitem" data-add="progress"><span class="glyph">▰</span>Progress bar / ring</button>
-                        <button role="menuitem" data-add="game-list"><span class="glyph">🎮</span>Game list (from Game Plan)</button>
-                        <button role="menuitem" data-add="alert"><span class="glyph">🔔</span>Alert box</button>
-                        <button role="menuitem" data-add="slideshow"><span class="glyph">🖼</span>Slideshow (from Asset Library)</button>
+                        <button role="menuitem" data-add="game-list"><span class="glyph">▤</span>Game list (from Game Plan)</button>
+                        <button role="menuitem" data-add="alert"><span class="glyph">!</span>Alert box</button>
+                        <button role="menuitem" data-add="slideshow"><span class="glyph">⧉</span>Slideshow (from Asset Library)</button>
                         <hr style="border:0;border-top:1px solid var(--border);margin:.3rem 0">
                         <button role="menuitem" id="open-presets"><span class="glyph">✦</span>Presets…</button>
                     </div>
@@ -411,6 +411,7 @@
     <dialog id="asset-dialog">
         <h3 id="asset-title">Choose an asset</h3>
         <input id="asset-search" type="search" placeholder="Filter by name…">
+        <input id="asset-tag-q" type="search" placeholder="Find a tag…" aria-label="Find a tag" style="margin-top:.5rem">
         <div id="asset-tags" class="tag-chips"></div>
         <div id="asset-grid"></div>
         <div class="dialog-actions"><label class="btn-like" style="margin-right:auto">Upload new…<input id="asset-upload" type="file" accept="image/*,video/*,.txt,.md,.markdown" hidden></label><button id="asset-close">Cancel</button></div>
@@ -418,6 +419,7 @@
     <dialog id="slide-dialog">
         <h3>Choose slideshow images</h3>
         <input id="slide-search" type="search" placeholder="Filter by name…">
+        <input id="slide-tag-q" type="search" placeholder="Find a tag…" aria-label="Find a tag" style="margin-top:.5rem">
         <div id="slide-tags" class="tag-chips"></div>
         <div id="slide-grid"></div>
         <div class="dialog-actions"><span id="slide-picked" class="hint" style="margin-right:auto"></span><button id="slide-all">Select shown</button><button id="slide-none">Clear</button><button id="slide-done" class="primary">Done</button></div>
@@ -460,6 +462,7 @@
     <script src="/vendor/marked.umd.js"></script>
     <script src="/vendor/purify.min.js"></script>
     <script src="/overlay-shared.js"></script>
+    <script src="/tag-chips.js"></script>
     <script src="/overlay-presets.js"></script>
     <script>
 (() => {
@@ -474,7 +477,7 @@
     const MIN_SIZE = 20;
     const TYPE_META = {
         text: { label: 'Text', icon: 'T' }, 'random-text': { label: 'Random Text', icon: '↻' }, markdown: { label: 'Markdown', icon: 'M↓' },
-        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, qr: { label: 'QR Code', icon: '▦' }, shape: { label: 'Shape', icon: '■' }, progress: { label: 'Progress', icon: '▰' }, 'game-list': { label: 'Game List', icon: '🎮' }, alert: { label: 'Alert Box', icon: '🔔' }, slideshow: { label: 'Slideshow', icon: '🖼' }
+        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, qr: { label: 'QR Code', icon: '▦' }, shape: { label: 'Shape', icon: '■' }, progress: { label: 'Progress', icon: '▰' }, 'game-list': { label: 'Game List', icon: '▤' }, alert: { label: 'Alert Box', icon: '!' }, slideshow: { label: 'Slideshow', icon: '⧉' }
     };
     const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
     const FILL_TEXT_TYPES = new Set([...TEXT_TYPES, 'game-list']);
@@ -776,7 +779,7 @@
             node.textContent = expand(shared.elementContent(el));
         } else if (el.type === 'slideshow') {
             node._slideHandle?.stop();
-            node._slideHandle = shared.mountSlideshow(node, el, { preview: true });
+            node._slideHandle = shared.mountSlideshow(node, el, { preview: true, animate: true });
         } else if (el.type === 'game-list') {
             shared.renderGameList(node, el, liveStatus.gamePlan);
         } else if (el.type === 'progress') {
@@ -798,7 +801,7 @@
     }
     const ALERT_TRIGGER_LABELS = { follow: 'Follow', sub: 'New sub', resub: 'Resub', milestone: 'Sub milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Channel point redeem', timer: 'Timer finished', goal: 'Goal reached', chat_word: 'Chat word' };
     const sourceSignature = el => { const state = shared.textSourceState(el); return state ? [state.text, state.error] : null; };
-    const contentSignature = (el, live) => JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
+    const contentSignature = (el, live) => el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) : JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
 
     function tickPlaceholders() {
         if (!prefs.live) return;
@@ -830,7 +833,7 @@
                 shared.fitText(node, el, probe);
             }
         });
-        for (const [id, node] of nodes) if (!seen.has(id)) { node.remove(); nodes.delete(id); }
+        for (const [id, node] of nodes) if (!seen.has(id)) { node._slideHandle?.stop(); node.remove(); nodes.delete(id); }
         $('empty-hint').classList.toggle('on', !visibleElements().length);
         renderSelectionUI();
     }
@@ -929,7 +932,7 @@
             <div class="layer${selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}" data-id="${esc(el.id)}">
                 <span class="layer-grip" title="Drag to reorder">${ICON.grip}</span>
                 <span class="layer-icon">${esc(TYPE_META[el.type].icon)}</span>
-                <span class="layer-name" title="Double-click to rename">${el.group ? '⛓ ' : ''}${pagesOn() && el.page === '*' ? '🌐 ' : ''}${esc(displayName(el))}</span>
+                <span class="layer-name" title="Double-click to rename">${el.group ? '⛓ ' : ''}${pagesOn() && el.page === '*' ? '◈ ' : ''}${esc(displayName(el))}</span>
                 <span class="layer-actions">
                     <button data-layer-action="lock" class="${el.locked ? 'on' : ''}" title="${el.locked ? 'Unlock' : 'Lock'}" aria-label="${el.locked ? 'Unlock' : 'Lock'} layer">${el.locked ? ICON.lock : ICON.unlock}</button>
                     <button data-layer-action="visible" title="${el.visible === false ? 'Show' : 'Hide'}" aria-label="${el.visible === false ? 'Show' : 'Hide'} layer">${el.visible === false ? ICON.eyeOff : ICON.eye}</button>
@@ -1319,14 +1322,14 @@
         const c = el.slideshow || {};
         const manual = c.source === 'manual';
         const picked = c.tags || [];
-        const names = [...new Set([...assetTagNames, ...picked])].sort((a, b) => a.localeCompare(b));
         const what = F.section('slide-what', 'Slideshow: images', `
             ${F.seg('slideshow.source', 'Choose images', c.source || 'tags', [['tags', 'Choose by tag (live)', 'By tag'], ['manual', 'Pick images manually', 'Manual']])}
             ${manual ? `<button type="button" id="slide-pick" class="primary">Choose images…</button>
                 <p class="hint">${(c.files || []).length} selected. ${(c.files || []).length ? '<a href="#" id="slide-clear" style="color:var(--accent)">Clear</a>' : ''}</p>`
-            : `<div class="field"><span>Tags (tick one or more)</span>
-                <input type="hidden" data-path="slideshow.tags" data-kind="lines" value="${esc(picked.join('\n'))}">
-                ${names.length ? names.map(name => `<label class="check"><input type="checkbox" data-slide-tag value="${esc(name)}" ${picked.some(tag => tag.toLowerCase() === name.toLowerCase()) ? 'checked' : ''}> ${esc(name)}</label>`).join('') : '<p class="hint">No tags yet. Tag assets in the <a href="/assets.html" target="_blank" style="color:var(--accent)">Asset Library</a>.</p>'}</div>
+            : `<div class="field"><span>Tags</span>
+                <div class="tag-chips" style="margin:0 0 .4rem">${picked.length ? picked.map(tag => `<button type="button" data-slide-untag="${esc(tag)}" aria-pressed="true" title="Remove tag">${esc(tag)} ×</button>`).join('') : '<span class="hint">None chosen yet.</span>'}</div>
+                <input id="slide-tag-q" type="search" placeholder="Search ${assetTagNames.length} tags to add…" aria-label="Search tags">
+                <div id="slide-tag-sugg" class="tag-chips"></div></div>
                 ${picked.length > 1 ? F.select('slideshow.tagMode', 'Match', c.tagMode || 'any', [['any', 'Any of the tags'], ['all', 'All of the tags']]) : ''}
                 <p class="hint">Live: adding or removing a tag on an asset updates the slideshow within about 20 seconds.</p>`}
             <p class="hint" id="slide-count"></p>
@@ -1340,7 +1343,7 @@
             ${c.transition === 'none' ? '' : F.number('slideshow.transitionMs', 'Transition time (ms)', c.transitionMs ?? 800, { min: 0, max: 5000, step: 50 })}
             ${c.transition === 'slide' ? F.select('slideshow.direction', 'Slide direction', c.direction || 'left', [['left', 'From the right (moves left)'], ['right', 'From the left (moves right)'], ['up', 'From the bottom (moves up)'], ['down', 'From the top (moves down)']]) : ''}
             ${F.check('slideshow.kenBurns', 'Slow zoom (Ken Burns)', c.kenBurns === true)}
-            ${F.check('slideshow.caption', 'Show file name caption', c.caption === true)}`);
+            ${F.select('slideshow.caption', 'Caption', c.caption === true ? 'name' : (c.caption || 'off'), [['off', 'None'], ['caption', 'Asset caption (set in Asset Library)'], ['name', 'File name']])}`);
         return what + play;
     }
     async function refreshSlideCount() {
@@ -1351,12 +1354,27 @@
         const target = document.getElementById('slide-count');
         if (target) target.textContent = (c.source === 'manual' || (c.tags || []).length) ? `${items.length} ${items.length === 1 ? 'item matches' : 'items match'} right now.` : 'Pick at least one tag.';
     }
-    $('properties').addEventListener('change', event => {
-        if (!event.target.matches('[data-slide-tag]')) return;
-        const field = event.target.closest('.field');
-        const hidden = field.querySelector('input[type="hidden"]');
-        hidden.value = [...field.querySelectorAll('[data-slide-tag]:checked')].map(box => box.value).join('\n');
-        hidden.dispatchEvent(new Event('input', { bubbles: true }));
+    function renderTagSuggestions() {
+        const box = document.getElementById('slide-tag-sugg'), el = primary();
+        if (!box || !el) return;
+        const q = document.getElementById('slide-tag-q').value.trim().toLowerCase();
+        const picked = new Set((el.slideshow?.tags || []).map(tag => tag.toLowerCase()));
+        const list = TagChips.counts(libraryAssets).filter(([tag]) => !picked.has(tag.toLowerCase()) && (!q || tag.toLowerCase().includes(q)));
+        const shown = list.slice(0, q ? 30 : 10);
+        box.innerHTML = shown.map(([tag, n]) => `<button type="button" data-slide-addtag="${esc(tag)}">+ ${esc(tag)} (${n})</button>`).join('')
+            + (list.length > shown.length ? `<span class="hint">+${list.length - shown.length} more. Type to search.</span>` : '')
+            + (!list.length && q ? '<span class="hint">No tag matches.</span>' : '');
+    }
+    function changeSlideTags(update) {
+        selectedElements().forEach(el => { el.slideshow = { ...el.slideshow, tags: update(el.slideshow?.tags || []) }; });
+        renderCanvas(); renderProperties(); changed(false);
+        document.getElementById('slide-tag-q')?.focus();
+    }
+    $('properties').addEventListener('input', event => { if (event.target.id === 'slide-tag-q') renderTagSuggestions(); });
+    $('properties').addEventListener('click', event => {
+        const add = event.target.closest('[data-slide-addtag]'), remove = event.target.closest('[data-slide-untag]');
+        if (add) changeSlideTags(tags => [...tags, add.dataset.slideAddtag]);
+        if (remove) changeSlideTags(tags => tags.filter(tag => tag !== remove.dataset.slideUntag));
     });
     function gameListSection(el) {
         const g = el.gameList || {};
@@ -1478,7 +1496,7 @@
         }
         root.parentElement.scrollTop = scroll;
         lastTextField = null;
-        refreshSlideCount();
+        refreshSlideCount(); renderTagSuggestions();
         // Rebuilding the panel drops focus; put it back so arrow keys and typing keep working.
         if (focused) {
             const next = [...root.querySelectorAll('[data-path]')].find(node => node.dataset.path === focused.path && !node.matches('[type=color]'));
@@ -1735,13 +1753,9 @@
     // ---- asset picker -----------------------------------------------------------------
     const assetDialog = $('asset-dialog'), assetGrid = $('asset-grid'), assetSearch = $('asset-search');
     let libraryAssets = [], pickerTarget = null, assetTagFilter = '';
-    const tagFilterMatch = (asset, filter) => !filter || (filter === '\u0000untagged' ? !(asset.tags || []).length : (asset.tags || []).some(tag => tag.toLowerCase() === filter.toLowerCase()));
-    function renderTagChips(container, assets, active) {
-        const tags = [...new Set(assets.flatMap(asset => asset.tags || []))].sort((a, b) => a.localeCompare(b));
-        const untagged = assets.some(asset => !(asset.tags || []).length);
-        if (!tags.length) { container.innerHTML = ''; return; }
-        const chip = (value, label) => `<button type="button" data-tag-filter="${esc(value)}" aria-pressed="${active === value}">${esc(label)}</button>`;
-        container.innerHTML = chip('', 'All') + tags.map(tag => chip(tag, tag)).join('') + (untagged ? chip('\u0000untagged', 'Untagged') : '');
+    const tagFilterMatch = TagChips.matches;
+    function renderTagChips(container, assets, active, query) {
+        container.innerHTML = assets.some(asset => (asset.tags || []).length) ? TagChips.html(assets, { active, query }) : '';
     }
     $('asset-tags').addEventListener('click', event => {
         const button = event.target.closest('[data-tag-filter]');
@@ -1757,15 +1771,15 @@
         const wanted = TEXT_TYPES.has(el.type) ? 'text' : el.type === 'video' ? 'video' : 'image';
         const current = TEXT_TYPES.has(el.type) ? el.source?.path : el.type === 'alert' ? el.alert?.sampleImage : el.src;
         const matches = libraryAssets.filter(asset => asset.kind === wanted && asset.label.toLowerCase().includes(query) && tagFilterMatch(asset, assetTagFilter));
-        renderTagChips($('asset-tags'), libraryAssets.filter(asset => asset.kind === wanted), assetTagFilter);
-        assetGrid.innerHTML = matches.length ? matches.map(asset => `<button type="button" class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === current ? 'aria-current="true"' : ''} title="${esc(asset.label)}"><span class="thumb">${asset.kind === 'text' ? '<span style="font-size:2rem">📄</span>' : asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="">`}</span><span class="cap">${esc(asset.label)}</span></button>`).join('') : `<p class="hint">No ${wanted} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
+        renderTagChips($('asset-tags'), libraryAssets.filter(asset => asset.kind === wanted), assetTagFilter, $('asset-tag-q').value);
+        assetGrid.innerHTML = matches.length ? matches.map(asset => `<button type="button" class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === current ? 'aria-current="true"' : ''} title="${esc(asset.label)}"><span class="thumb">${asset.kind === 'text' ? '<span style="font-size:2rem">¶</span>' : asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="">`}</span><span class="cap">${esc(asset.label)}</span></button>`).join('') : `<p class="hint">No ${wanted} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
     }
     async function openAssetPicker() {
         const el = primary();
         if (!el || !['image', 'video', 'alert', ...TEXT_TYPES].includes(el.type)) return;
         pickerTarget = el.id;
         $('asset-title').textContent = TEXT_TYPES.has(el.type) ? 'Choose a text or Markdown file' : `Choose ${el.type === 'video' ? 'a video' : 'an image'}`;
-        assetSearch.value = ''; assetTagFilter = '';
+        assetSearch.value = ''; $('asset-tag-q').value = ''; assetTagFilter = '';
         assetGrid.innerHTML = '<p class="hint">Loading…</p>';
         assetDialog.showModal();
         try {
@@ -1777,6 +1791,7 @@
     }
     $('properties').addEventListener('click', event => { if (event.target.closest('#open-assets, #source-library')) openAssetPicker(); });
     assetSearch.addEventListener('input', renderAssetGrid);
+    $('asset-tag-q').addEventListener('input', renderAssetGrid);
     const slideDialog = $('slide-dialog'), slideGrid = $('slide-grid');
     let slideTagFilter = '', slidePicked = new Set(), slideShown = [];
     function renderSlideGrid() {
@@ -1786,7 +1801,7 @@
         const pool = libraryAssets.filter(asset => kinds === 'both' ? ['image', 'video'].includes(asset.kind) : asset.kind === (kinds === 'video' ? 'video' : 'image'));
         const query = $('slide-search').value.trim().toLowerCase();
         slideShown = pool.filter(asset => asset.label.toLowerCase().includes(query) && tagFilterMatch(asset, slideTagFilter));
-        renderTagChips($('slide-tags'), pool, slideTagFilter);
+        renderTagChips($('slide-tags'), pool, slideTagFilter, $('slide-tag-q').value);
         slideGrid.innerHTML = slideShown.length ? slideShown.map(asset => `<button type="button" class="asset-tile" data-name="${esc(asset.name)}" aria-pressed="${slidePicked.has(asset.name)}" title="${esc(asset.label)}"><span class="thumb">${asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="">`}</span><span class="cap">${esc(asset.label)}</span></button>`).join('') : '<p class="hint">Nothing here. Upload in the Asset Library, or change the filter.</p>';
         $('slide-picked').textContent = `${slidePicked.size} selected`;
     }
@@ -1794,7 +1809,7 @@
         const el = primary();
         if (!el || el.type !== 'slideshow') return;
         pickerTarget = el.id;
-        slidePicked = new Set(el.slideshow?.files || []); slideTagFilter = ''; $('slide-search').value = '';
+        slidePicked = new Set(el.slideshow?.files || []); slideTagFilter = ''; $('slide-search').value = ''; $('slide-tag-q').value = '';
         slideGrid.innerHTML = '<p class="hint">Loading…</p>';
         slideDialog.showModal();
         await loadAssetTags();
@@ -1809,6 +1824,7 @@
         }
     });
     $('slide-search').addEventListener('input', renderSlideGrid);
+    $('slide-tag-q').addEventListener('input', renderSlideGrid);
     $('slide-tags').addEventListener('click', event => {
         const button = event.target.closest('[data-tag-filter]');
         if (button) { slideTagFilter = button.dataset.tagFilter; renderSlideGrid(); }

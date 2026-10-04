@@ -3,6 +3,7 @@
 <head>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
+    <script src="/tag-chips.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -53,6 +54,11 @@
         .badge.tag { border-color: var(--border-strong, var(--border)); color: var(--text); cursor: default; }
         .badge.tag button { all: unset; cursor: pointer; margin-left: .25rem; color: var(--text-muted); }
         .badge.tag button:hover { color: #f85149; }
+        #tag-manager { margin: auto; padding: 1rem 1.2rem; width: min(560px, 92vw); background: var(--surface, var(--card, #161b22)); color: var(--text); border: 1px solid var(--border); border-radius: 12px; }
+        #tag-manager::backdrop { background: rgba(0,0,0,.55); }
+        #tm-list { max-height: 50vh; overflow: auto; margin: .6rem 0; }
+        .tm-row { display: flex; align-items: center; gap: .4rem; padding: .3rem 0; border-bottom: 1px solid var(--border); }
+        .tm-row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .tagbar { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
         .tagbar button { padding: .15rem .65rem; border-radius: 999px; font-size: .8rem; }
         .tagbar button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -93,7 +99,12 @@
             <label class="size">Size <input id="thumb-size" type="range" min="64" max="360" step="8" value="180"></label>
         </div>
 
-        <div class="card toolbar tagbar" id="tagbar" hidden></div>
+        <div class="card toolbar tagbar" hidden id="tagwrap">
+            <span class="summary">Tags</span>
+            <input id="tag-search" type="search" placeholder="Find a tag…" aria-label="Find a tag" style="width:12rem">
+            <span id="tagbar" class="tagbar"></span>
+            <button class="btn" id="tag-manage" style="margin-left:auto">Manage tags…</button>
+        </div>
 
         <div class="card toolbar">
             <span class="summary" id="summary">Loading…</span>
@@ -111,6 +122,13 @@
         <div id="drop">Drop images, videos, audio, fonts or text files here to upload (100 MB max each)</div>
         <div id="items" class="grid"><div class="empty">Loading assets…</div></div>
     </div>
+    <dialog id="tag-manager">
+        <h3 style="margin-top:0">Manage tags</h3>
+        <input id="tm-search" type="search" placeholder="Search tags…" aria-label="Search tags" style="width:100%">
+        <div id="tm-list"></div>
+        <p class="meta">Renaming to an existing tag merges them. Slideshows using the tag are updated too.</p>
+        <div style="text-align:right"><button class="btn" id="tm-close">Close</button></div>
+    </dialog>
     <div id="toast"></div>
 
     <script>
@@ -183,8 +201,8 @@
         return `<div class="icon">${ICONS.other}</div>`;
     }
 
-    const UNTAGGED = '\u0000untagged';
-    const tagMatch = (asset, filter) => !filter || (filter === UNTAGGED ? !(asset.tags || []).length : (asset.tags || []).some(tag => tag.toLowerCase() === filter.toLowerCase()));
+    const UNTAGGED = TagChips.UNTAGGED;
+    const tagMatch = TagChips.matches;
     const parseTags = text => String(text || '').split(',').map(tag => tag.trim()).filter(Boolean);
     async function editTags(names, body) {
         try { await api('/api/asset-tags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ names, ...body }) }); }
@@ -192,19 +210,44 @@
         await load();
     }
     function renderTagBar() {
-        const counts = new Map();
-        for (const asset of assets) for (const tag of asset.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
-        const untagged = assets.filter(asset => !(asset.tags || []).length).length;
-        const bar = $('tagbar');
-        if (prefs.tag && prefs.tag !== UNTAGGED && !counts.has(prefs.tag)) prefs.tag = '';
-        bar.hidden = !assets.length;
-        const chip = (value, label) => `<button class="btn" type="button" data-tagf="${esc(value)}" aria-pressed="${prefs.tag === value}">${esc(label)}</button>`;
-        bar.innerHTML = `<span class="summary">Tags</span>${chip('', 'All')}${[...counts].sort((a, b) => a[0].localeCompare(b[0])).map(([tag, n]) => chip(tag, `${tag} (${n})`)).join('')}${chip(UNTAGGED, `Untagged (${untagged})`)}`;
+        const hasTags = assets.some(asset => (asset.tags || []).length);
+        if (prefs.tag && prefs.tag !== UNTAGGED && !assets.some(asset => (asset.tags || []).includes(prefs.tag))) prefs.tag = '';
+        $('tagwrap').hidden = !assets.length;
+        $('tag-manage').hidden = !hasTags;
+        $('tagbar').innerHTML = TagChips.html(assets, { active: prefs.tag, query: $('tag-search').value });
     }
+    $('tag-search').addEventListener('input', renderTagBar);
     $('tagbar').addEventListener('click', event => {
-        const button = event.target.closest('[data-tagf]');
+        const button = event.target.closest('[data-tag-filter]');
         if (!button) return;
-        prefs.tag = button.dataset.tagf; savePrefs(); render();
+        prefs.tag = button.dataset.tagFilter; savePrefs(); render();
+    });
+    function renderTagManager() {
+        const q = $('tm-search').value.trim().toLowerCase();
+        const rows = TagChips.counts(assets).filter(([tag]) => tag.toLowerCase().includes(q));
+        $('tm-list').innerHTML = rows.length ? rows.map(([tag, n]) => `<div class="tm-row"><span class="nm">${esc(tag)}</span><span class="meta">${n}</span>
+            <button class="btn small" data-tm="filter" data-tag="${esc(tag)}">Show</button>
+            <button class="btn small" data-tm="rename" data-tag="${esc(tag)}">Rename / merge</button>
+            <button class="btn small danger" data-tm="delete" data-tag="${esc(tag)}">Delete</button></div>`).join('') : '<p class="meta">No tags.</p>';
+    }
+    async function manageTag(body) {
+        try { await api('/api/asset-tags/manage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); }
+        catch (error) { alert(error.message); }
+        await load();
+        renderTagManager();
+    }
+    $('tag-manage').addEventListener('click', () => { $('tm-search').value = ''; renderTagManager(); $('tag-manager').showModal(); });
+    $('tm-close').addEventListener('click', () => $('tag-manager').close());
+    $('tm-search').addEventListener('input', renderTagManager);
+    $('tm-list').addEventListener('click', async event => {
+        const button = event.target.closest('[data-tm]');
+        if (!button) return;
+        const tag = button.dataset.tag;
+        if (button.dataset.tm === 'filter') { prefs.tag = tag; savePrefs(); $('tag-manager').close(); render(); }
+        else if (button.dataset.tm === 'rename') {
+            const to = prompt(`Rename "${tag}" to (an existing tag name merges them)`, tag);
+            if (to && to.trim() && to.trim() !== tag) await manageTag({ action: 'rename', tag, to: to.trim() });
+        } else if (confirm(`Delete the tag "${tag}" from every asset?`)) await manageTag({ action: 'delete', tag });
     });
     function render() {
         renderTagBar();
@@ -239,6 +282,7 @@
                 <div class="info">
                     <div><div class="name">${esc(asset.label)}</div><div class="meta">${esc(asset.kind)} · ${formatSize(asset.size)} · ${formatDate(asset.modifiedAt)}</div></div>
                     <div>${(asset.tags || []).map(tag => `<span class="badge tag">${esc(tag)}<button type="button" data-untag="${index}" data-tag="${esc(tag)}" title="Remove tag" aria-label="Remove tag ${esc(tag)}">×</button></span>`).join('')}<button class="btn small" data-act="tag" data-i="${index}" title="Add tags">+ Tag</button></div>
+                    ${asset.kind === 'image' || asset.kind === 'video' ? `<div class="meta">${asset.caption ? `Caption: ${esc(asset.caption)}` : ''} <button class="btn small" data-act="caption" data-i="${index}">${asset.caption ? 'Edit caption' : '+ Caption'}</button></div>` : ''}
                     <div>${asset.usedBy.length ? asset.usedBy.map(user => `<span class="badge used" title="${esc(user.id)}">${esc(user.name || user.id)}</span>`).join('') : '<span class="badge">Unused</span>'}</div>
                     <div class="actions">
                         <button class="btn small" data-act="copy" data-i="${index}">Copy URL</button>
@@ -273,6 +317,15 @@
         if (untag) { await editTags([shown[Number(untag.dataset.untag)].name], { remove: [untag.dataset.tag] }); return; }
         const button = event.target.closest('[data-act]');
         if (!button) return;
+        if (button.dataset.act === 'caption') {
+            const current = shown[Number(button.dataset.i)];
+            const text = prompt('Caption shown in slideshows (leave empty to remove)', current.caption || '');
+            if (text === null) return;
+            try { await api('/api/asset-captions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: current.name, caption: text }) }); }
+            catch (error) { alert(error.message); }
+            await load();
+            return;
+        }
         if (button.dataset.act === 'tag') {
             const tags = parseTags(prompt('Add tags (comma separated)', ''));
             if (tags.length) await editTags([shown[Number(button.dataset.i)].name], { add: tags });

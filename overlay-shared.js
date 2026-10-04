@@ -1109,8 +1109,16 @@
     const mediaKind = name => (/\.(mp4|webm|ogg)$/i.test(name) ? 'video' : /\.(png|jpe?g|gif|webp|svg)$/i.test(name) ? 'image' : 'other');
     async function slideshowItems(config) {
         if (config.source === 'manual') {
-            return (config.files || []).map(name => ({ name, kind: mediaKind(name), label: name.replace(/^[a-z0-9]{6,}-/, '').replace(/\.[A-Za-z0-9]{2,5}$/, ''), url: `/custom-overlay-assets/${encodeURIComponent(name)}` }))
-                .filter(item => config.kinds === 'both' ? item.kind !== 'other' : item.kind === (config.kinds === 'video' ? 'video' : 'image'));
+            if (!(config.files || []).length) return [];
+            const url = `/api/asset-library?kinds=${config.kinds || 'image'}&names=${encodeURIComponent((config.files || []).join('\n'))}`;
+            const cached = slideshowCache.get(url);
+            if (cached && Date.now() - cached.at < 8000) return cached.items;
+            try {
+                const response = await fetch(url, { cache: 'no-store' });
+                const items = response.ok ? await response.json() : [];
+                slideshowCache.set(url, { at: Date.now(), items });
+                return items;
+            } catch { return cached?.items || []; }
         }
         if (!(config.tags || []).length) return [];
         const url = `/api/asset-library?tags=${encodeURIComponent(config.tags.join(','))}&mode=${config.tagMode || 'any'}&kinds=${config.kinds || 'image'}`;
@@ -1127,6 +1135,7 @@
     // Plays a slideshow inside `node`. With { preview: true } it only shows the first slide. Returns { stop() }.
     function mountSlideshow(node, element, options = {}) {
         const config = element.slideshow || {};
+        const frozen = options.preview && !options.animate;
         let items = [], order = [], position = -1, timer = null, refreshTimer = null, stopped = false, current = null, token = 0;
         node.replaceChildren();
         node.style.position = node.style.position || 'absolute';
@@ -1159,9 +1168,10 @@
             media.src = item.url;
             media.alt = '';
             layer.appendChild(media);
-            if (config.caption && item.label) {
+            const captionText = config.caption === 'caption' ? item.caption : config.caption === 'name' || config.caption === true ? item.label : '';
+            if (captionText) {
                 const bar = document.createElement('div');
-                bar.textContent = item.label;
+                bar.textContent = captionText;
                 bar.style.cssText = `position:absolute;left:0;right:0;bottom:0;padding:${Math.max(8, node.clientHeight * 0.03)}px ${Math.max(12, node.clientWidth * 0.02)}px;font:600 ${Math.max(14, node.clientHeight * 0.045)}px sans-serif;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,0.7));text-shadow:0 1px 3px rgba(0,0,0,0.8);`;
                 layer.appendChild(bar);
             }
@@ -1197,7 +1207,7 @@
             const old = current;
             current = slide;
             stage.appendChild(slide.layer);
-            const ms = options.preview || !old ? 0 : config.transitionMs;
+            const ms = frozen || !old ? 0 : config.transitionMs;
             if (ms && config.transition === 'fade') {
                 slide.layer.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing: 'ease', fill: 'both' });
                 old.layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing: 'ease', fill: 'both' });
@@ -1206,13 +1216,13 @@
                 slide.layer.animate([{ transform: `translate(${x}px,${y}px)` }, { transform: 'translate(0,0)' }], { duration: ms, easing: 'ease', fill: 'both' });
                 old.layer.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${-x}px,${-y}px)` }], { duration: ms, easing: 'ease', fill: 'both' });
             }
-            if (config.kenBurns && item.kind === 'image' && !options.preview) {
+            if (config.kenBurns && item.kind === 'image' && !frozen) {
                 const grow = Math.random() < 0.5;
                 slide.media.animate([{ transform: `scale(${grow ? 1 : 1.08})` }, { transform: `scale(${grow ? 1.08 : 1})` }], { duration: config.seconds * 1000 + ms, easing: 'linear', fill: 'both' });
             }
             if (old) setTimeout(() => old.layer.remove(), ms + 60);
             note.textContent = '';
-            if (options.preview) return;
+            if (frozen) return;
             if (item.kind === 'video' && items.length < 2) slide.media.loop = true;
             else if (item.kind === 'video') {
                 slide.media.addEventListener('ended', () => schedule(0), { once: true });
@@ -1222,7 +1232,7 @@
 
         function schedule(ms) {
             clearTimeout(timer);
-            if (stopped || options.preview || items.length < 2) return;
+            if (stopped || frozen || items.length < 2) return;
             timer = setTimeout(show, ms);
         }
 
@@ -1246,7 +1256,7 @@
         }
 
         refresh(true);
-        if (!options.preview && config.source !== 'manual') refreshTimer = setInterval(() => refresh(false), 20000);
+        if (!frozen && config.source !== 'manual') refreshTimer = setInterval(() => refresh(false), 20000);
         return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length };
     }
 
