@@ -572,10 +572,13 @@
         for (const entry of plan?.lists || []) statusNames[entry.id] = entry.name;
         if (tiers) {
             if (config.tierSource === 'tier') {
-                for (const [label, color] of TIER_LETTERS) {
-                    const tierItems = items.filter(item => (item.tier || '?') === label);
-                    if (tierItems.length) sections.push({ label, color, items: tierItems });
+                const defs = (plan?.tiers?.length ? plan.tiers : TIER_LETTERS.slice(0, 6).map(([id, color]) => ({ id, label: id, color })));
+                for (const def of defs) {
+                    const tierItems = items.filter(item => item.tier === def.id);
+                    if (tierItems.length) sections.push({ label: def.label, color: def.color, items: tierItems });
                 }
+                const unranked = items.filter(item => !defs.some(def => def.id === item.tier));
+                if (unranked.length) sections.push({ label: '?', color: '#b0b0b0', items: unranked });
             } else for (const [stars, label, color] of TIERS) {
                 const tierItems = items.filter(item => Math.round(Math.max(0, Math.min(5, item.rating || 0))) === stars);
                 if (tierItems.length) sections.push({ label, color, items: tierItems });
@@ -643,6 +646,7 @@
             return wrap;
         };
 
+        const tierBoxWidth = Math.max(2.2, Math.min(6, Math.max(...sections.map(entry => String(entry.label || '').length), 1) * 0.65 + 0.8));
         for (const section of sections) {
             let holder = inner;
             if (kanban) {
@@ -656,7 +660,7 @@
                 holder.style.cssText = `display:flex;align-items:stretch;gap:.6em;min-width:0;margin-bottom:${groupGap}px;`;
                 const badgeBox = document.createElement('div');
                 badgeBox.textContent = section.label;
-                badgeBox.style.cssText = `flex:none;width:2.2em;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:${headingSize};background:${section.color};color:#000;border-radius:${Math.min(12, style.borderRadius || 8)}px;`;
+                badgeBox.style.cssText = `flex:none;width:${tierBoxWidth}em;display:flex;align-items:center;justify-content:center;text-align:center;overflow-wrap:anywhere;line-height:1.1;font-weight:800;font-size:${headingSize};background:${section.color};color:#000;border-radius:${Math.min(12, style.borderRadius || 8)}px;`;
                 holder.appendChild(badgeBox);
                 inner.appendChild(holder);
             } else if (autoColumns || config.periodsAcross > 0) {

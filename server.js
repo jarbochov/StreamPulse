@@ -2734,6 +2734,7 @@ function publicGameInfo(name, igdbId = '') {
 
 const GAME_PLAN_PATH = path.join(DATA_DIR, 'game-plan.json');
 const GAME_PLAN_STATUSES = ['scheduled', 'backlog', 'played'];
+const DEFAULT_TIERS = [['S', '#ff7f7f'], ['A', '#ffbf7f'], ['B', '#ffdf7f'], ['C', '#bfff7f'], ['D', '#7fbfff'], ['F', '#bf9fff']].map(([id, color]) => ({ id, label: id, color }));
 
 function normalizeGamePlan(input) {
     const lists = [];
@@ -2742,6 +2743,14 @@ function normalizeGamePlan(input) {
         const name = String(entry?.name || '').trim().slice(0, 40);
         if (id && name && !lists.some(list => list.id === id)) lists.push({ id, name });
     }
+    const tiers = [];
+    for (const entry of (Array.isArray(input?.tiers) ? input.tiers : []).slice(0, 12)) {
+        const id = /^[A-Za-z0-9-]{1,24}$/.test(entry?.id || '') ? entry.id : '';
+        const label = String(entry?.label || '').trim().slice(0, 24);
+        const color = /^#[0-9a-f]{6}$/i.test(entry?.color || '') ? entry.color : '#b0b0b0';
+        if (id && label && !tiers.some(tier => tier.id === id)) tiers.push({ id, label, color });
+    }
+    if (!tiers.length && !Array.isArray(input?.tiers)) tiers.push(...DEFAULT_TIERS);
     const validStatus = status => GAME_PLAN_STATUSES.includes(status) || lists.some(list => list.id === status);
     const items = (Array.isArray(input?.items) ? input.items : []).slice(0, 300).map((item, index) => ({
         id: sanitizeOverlayId(item?.id) || `game-${Date.now().toString(36)}-${index}`,
@@ -2754,18 +2763,18 @@ function normalizeGamePlan(input) {
         custom: item?.custom === true,
         customCover: /^(https?:\/\/|\/custom-overlay-assets\/)[^\s"'<>]{1,500}$/i.test(String(item?.customCover || '').trim()) ? String(item.customCover).trim() : '',
         rating: Math.max(0, Math.min(5, Math.round((Number(item?.rating) || 0) * 2) / 2)),
-        tier: ['S', 'A', 'B', 'C', 'D', 'F'].includes(String(item?.tier || '').toUpperCase()) ? String(item.tier).toUpperCase() : '',
+        tier: tiers.some(tier => tier.id === item?.tier) ? item.tier : '',
         tags: [...new Set((Array.isArray(item?.tags) ? item.tags : []).map(tag => String(tag || '').trim().slice(0, 24)).filter(Boolean))].slice(0, 8),
         finished: /^\d{4}-\d{2}-\d{2}$/.test(String(item?.finished || '')) ? item.finished : ''
     })).filter(item => item.name);
     const used = [...new Set(items.map(item => item.period).filter(Boolean))];
     const saved = (Array.isArray(input?.periods) ? input.periods : []).map(value => String(value || '').trim().slice(0, 40)).filter(value => used.includes(value));
     const periods = [...new Set([...saved, ...used])].slice(0, 40);
-    return { lists, items, periods };
+    return { lists, tiers, items, periods };
 }
 
 function loadGamePlan() {
-    try { return normalizeGamePlan(JSON.parse(fs.readFileSync(GAME_PLAN_PATH, 'utf8'))); } catch { return { lists: [], items: [], periods: [] }; }
+    try { return normalizeGamePlan(JSON.parse(fs.readFileSync(GAME_PLAN_PATH, 'utf8'))); } catch { return { lists: [], tiers: DEFAULT_TIERS, items: [], periods: [] }; }
 }
 
 const gameKey = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
@@ -2790,6 +2799,7 @@ function buildGamePlanSnapshot() {
         current: category,
         lists: plan.lists,
         periods: plan.periods,
+        tiers: plan.tiers,
         items: plan.items.map(item => {
             const game = item.custom ? { name: item.name } : publicGameInfo(item.name, item.igdbId);
             const raw = item.custom ? null : gameInfoCache[infoKey(item.name, item.igdbId)];

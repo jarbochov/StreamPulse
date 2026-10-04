@@ -58,6 +58,21 @@
         .stars button.half { background: linear-gradient(90deg, #f5b301 50%, var(--text-faint) 50%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
         .stars button:hover { transform: scale(1.15); }
         .item-actions { display: flex; gap: 0.3rem; }
+        .view-toggle { display: flex; gap: 0.35rem; align-items: center; margin: -0.2rem 0 0.2rem; font-size: 0.78rem; color: var(--text-muted); }
+        .view-toggle .tab { padding: 0.2rem 0.7rem; }
+        .board { display: flex; flex-direction: column; gap: 0.45rem; }
+        .trow { display: grid; grid-template-columns: 150px minmax(0, 1fr); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg-card); }
+        .tlabel { display: flex; flex-direction: column; gap: 0.3rem; align-items: stretch; justify-content: center; padding: 0.5rem; color: #000; }
+        .tlabel input[type=text] { background: rgba(255,255,255,.55); color: #000; border: 0; font-weight: 800; text-align: center; padding: 0.25rem; }
+        .tlabel .tools { display: flex; gap: 0.2rem; justify-content: center; }
+        .tlabel .tools button, .tlabel .tools input { background: rgba(255,255,255,.55); border: 0; border-radius: 4px; cursor: pointer; color: #000; padding: 0 0.3rem; height: 1.5rem; font-size: 0.75rem; }
+        .tlabel .tools input[type=color] { width: 1.9rem; padding: 0; }
+        .tbody { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.5rem; min-height: 92px; align-content: flex-start; }
+        .tbody:empty::before { content: 'Drop games here'; color: var(--text-faint); font-size: 0.78rem; padding: 0.6rem; }
+        .tile { width: 64px; cursor: grab; text-align: center; font-size: 0.64rem; color: var(--text-muted); }
+        .tile .cover { width: 64px; height: 86px; }
+        .tile div.nm { margin-top: 0.15rem; line-height: 1.15; max-height: 2.4em; overflow: hidden; }
+        .board-tools { display: flex; gap: 0.4rem; margin-top: 0.2rem; }
         .badge { display: inline-block; background: var(--success); color: #000; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; border-radius: 999px; padding: 0.1rem 0.5rem; margin-left: 0.4rem; vertical-align: middle; }
         .custom-badge { background: var(--bg-raised); color: var(--text-muted); }
         .sortable-ghost { opacity: 0.4; }
@@ -105,7 +120,9 @@
         </div>
 
         <div class="tabs" id="tabs"></div>
+        <div class="view-toggle"><span>View:</span><button type="button" class="tab active" data-view="list">List</button><button type="button" class="tab" data-view="tiers">Tiers</button></div>
         <div class="period-bar" id="period-bar" hidden></div>
+        <div class="board" id="board" hidden></div>
         <div class="items" id="items"></div>
         <p class="hint">Click a game's cover or name for rating, tags, artwork and more. Drag the handle to reorder, or drop a card onto another tab to move it. Show lists in overlays with the <b>Game list</b> element in the <a href="/custom-overlays.html" style="color:var(--accent)">custom overlay editor</a>. The game you're streaming (from your Twitch category) is marked <b>Now playing</b>.</p>
     </div>
@@ -124,7 +141,7 @@
             <div class="dlg-fields">
                 <label class="field">Name<input id="f-name" maxlength="120"></label>
                 <div class="field dlg-stars">Rating<span class="stars" id="f-rating"></span></div>
-                <label class="field">Tier (for the tier list, separate from stars)<select id="f-tier"><option value="">Unranked</option><option>S</option><option>A</option><option>B</option><option>C</option><option>D</option><option>F</option></select></label>
+                <label class="field">Tier (for the tier list, separate from stars)<select id="f-tier"><option value="">Unranked</option></select></label>
                 <label class="field">Artwork URL (paste a link, or paste an image with ⌘V)<input id="f-cover" placeholder="https://… or leave blank for the IGDB cover"></label>
                 <div class="field two">
                     <div><span>List</span><select id="f-status"></select></div>
@@ -150,6 +167,9 @@
         const $ = id => document.getElementById(id);
         const BUILTIN = [{ id: 'scheduled', name: 'Scheduled', empty: "Games you're playing this period" }, { id: 'backlog', name: 'Backlog', empty: 'Games on the list, not scheduled' }, { id: 'played', name: 'Played', empty: 'Finished games' }];
         let customLists = [];
+        let tiers = [];
+        let view = 'list';
+        let boardSortables = [];
         let periodOrder = [];
         let periodSortable = null;
         let items = [];
@@ -184,7 +204,43 @@
             return [item.releaseYear, (item.genres || []).slice(0, 2).join(' · ')].filter(Boolean).join(' · ') || 'Looking up…';
         }
 
+        const TIER_COLORS = ['#ff7f7f', '#ffbf7f', '#ffdf7f', '#bfff7f', '#7fbfff', '#bf9fff', '#ff9fd0', '#7fffd4'];
+        const DEFAULT_TIERS = ['S', 'A', 'B', 'C', 'D', 'F'].map((id, index) => ({ id, label: id, color: TIER_COLORS[index] }));
+
+        // Tier view: every tier is a row; dragging a cover onto a row sets that game's tier.
+        function renderBoard() {
+            const board = $('board');
+            const shown = items.filter(item => item.status === active);
+            const rows = [...tiers.map(tier => ({ ...tier, real: true })), { id: '', label: 'Unranked', color: '#8b949e', real: false }];
+            board.innerHTML = rows.map((row, index) => `
+                <div class="trow" data-tier-row="${esc(row.id)}">
+                    <div class="tlabel" style="background:${esc(row.color)}">
+                        ${row.real ? `<input type="text" data-tier-label="${esc(row.id)}" value="${esc(row.label)}" maxlength="24" aria-label="Tier name">
+                        <div class="tools"><input type="color" data-tier-color="${esc(row.id)}" value="${esc(row.color)}" title="Colour"><button type="button" data-tier-up="${esc(row.id)}" title="Move up"${index === 0 ? ' disabled' : ''}>▲</button><button type="button" data-tier-down="${esc(row.id)}" title="Move down"${index === tiers.length - 1 ? ' disabled' : ''}>▼</button><button type="button" data-tier-del="${esc(row.id)}" title="Delete tier (games become unranked)">✕</button></div>` : '<b style="text-align:center">Unranked</b>'}
+                    </div>
+                    <div class="tbody" data-tier-body="${esc(row.id)}">${shown.filter(item => (tiers.some(tier => tier.id === item.tier) ? item.tier : '') === row.id).map(item => `<div class="tile" data-id="${esc(item.id)}" title="${esc(item.name)}">${coverTag(item)}<div class="nm">${esc(item.name)}</div></div>`).join('')}</div>
+                </div>`).join('') + '<div class="board-tools"><button class="btn" type="button" id="tier-add">+ Add tier</button><button class="btn" type="button" id="tier-reset" title="Back to S A B C D F (games keep matching letters)">Reset to S–F</button></div>';
+            boardSortables.forEach(entry => entry.destroy());
+            boardSortables = [...board.querySelectorAll('.tbody')].map(body => new Sortable(body, {
+                group: 'tierboard', animation: 150, ghostClass: 'sortable-ghost',
+                onEnd() {
+                    const order = [];
+                    board.querySelectorAll('.tbody').forEach(zone => zone.querySelectorAll('.tile').forEach(tile => {
+                        const item = items.find(entry => entry.id === tile.dataset.id);
+                        if (item) { item.tier = zone.dataset.tierBody; order.push(item); }
+                    }));
+                    const slots = items.map((item, index) => (item.status === active ? index : -1)).filter(index => index >= 0);
+                    slots.forEach((slot, index) => { items[slot] = order[index]; });
+                    scheduleSave();
+                }
+            }));
+        }
+
         function render() {
+            document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === view));
+            $('board').hidden = view !== 'tiers';
+            $('items').hidden = view === 'tiers';
+            if (view === 'tiers') { buildTabs(); $('period-bar').hidden = true; renderBoard(); return; }
             buildTabs();
             const list = allLists().find(entry => entry.id === active) || BUILTIN[0];
             const holder = $('items');
@@ -269,7 +325,7 @@
                 const response = await fetch('/api/game-plan', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lists: customLists, periods: orderedPeriods(), items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished })) })
+                    body: JSON.stringify({ lists: customLists, tiers, periods: orderedPeriods(), items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished })) })
                 });
                 if (!response.ok) throw new Error((await response.json()).error || response.statusText);
                 setStatus('Saved. Overlays update within a few seconds.');
@@ -407,6 +463,7 @@
         function openDialog(item) {
             editing = item;
             $('f-name').value = item.name;
+            $('f-tier').innerHTML = '<option value="">Unranked</option>' + tiers.map(tier => `<option value="${esc(tier.id)}">${esc(tier.label)}</option>`).join('');
             $('f-tier').value = item.tier || '';
             $('f-name').disabled = !item.custom;
             $('f-status').innerHTML = allLists().map(list => `<option value="${esc(list.id)}"${list.id === item.status ? ' selected' : ''}>${esc(list.name)}</option>`).join('');
@@ -424,6 +481,32 @@
             const value = starValue(event, star, 'dstar');
             editing.rating = editing.rating === value ? 0 : value;
             paintDialog(); commit(true);
+        });
+        $('board').addEventListener('input', event => {
+            const label = event.target.closest('[data-tier-label]');
+            const color = event.target.closest('[data-tier-color]');
+            if (label) { const tier = tiers.find(entry => entry.id === label.dataset.tierLabel); if (tier && label.value.trim()) { tier.label = label.value.trim(); scheduleSave(); } }
+            if (color) { const tier = tiers.find(entry => entry.id === color.dataset.tierColor); if (tier) { tier.color = color.value; color.closest('.tlabel').style.background = color.value; scheduleSave(); } }
+        });
+        $('board').addEventListener('click', event => {
+            const button = event.target.closest('button');
+            const tile = event.target.closest('.tile');
+            if (tile && !button) { const item = items.find(entry => entry.id === tile.dataset.id); if (item) openDialog(item); return; }
+            if (!button) return;
+            const swap = (id, step) => { const index = tiers.findIndex(entry => entry.id === id); const other = index + step; if (index < 0 || other < 0 || other >= tiers.length) return; [tiers[index], tiers[other]] = [tiers[other], tiers[index]]; };
+            if (button.dataset.tierUp) swap(button.dataset.tierUp, -1);
+            else if (button.dataset.tierDown) swap(button.dataset.tierDown, 1);
+            else if (button.dataset.tierDel) { const id = button.dataset.tierDel; tiers = tiers.filter(entry => entry.id !== id); items.forEach(item => { if (item.tier === id) item.tier = ''; }); }
+            else if (button.id === 'tier-add') { if (tiers.length >= 12) return setStatus('Up to 12 tiers.'); tiers.push({ id: `t-${Math.random().toString(36).slice(2, 7)}`, label: 'New tier', color: TIER_COLORS[tiers.length % TIER_COLORS.length] }); }
+            else if (button.id === 'tier-reset') tiers = DEFAULT_TIERS.map(entry => ({ ...entry }));
+            else return;
+            render(); scheduleSave();
+        });
+        document.querySelector('.view-toggle').addEventListener('click', event => {
+            const button = event.target.closest('[data-view]');
+            if (!button) return;
+            view = button.dataset.view;
+            render();
         });
         $('f-tier').addEventListener('change', () => { if (editing) { editing.tier = $('f-tier').value; commit(false); } });
         $('f-name').addEventListener('change', () => { const name = $('f-name').value.trim(); if (editing && name) { editing.name = name; paintDialog(); commit(true); } });
@@ -472,6 +555,7 @@
                 items = data.items;
                 customLists = data.lists || [];
                 periodOrder = data.periods || [];
+                tiers = data.tiers || [];
                 render();
                 refreshMeta();
             } catch { setStatus('Could not load the game plan.'); }
