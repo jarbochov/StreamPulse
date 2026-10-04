@@ -78,7 +78,10 @@
             <div class="cfg-row"><label>Layout</label><select id="display" onchange="refreshWizard()"><option value="standard">Standard</option><option value="compact">Compact</option><option value="stacked">Stacked (3 days / 4 hours…)</option><option value="ring">Ring</option><option value="flip">Flip clock</option><option value="banner">Banner (full width)</option></select></div>
             <div class="cfg-row"><label>Theme</label><select id="theme" onchange="refreshWizard()"><option value="dark">Dark</option><option value="light">Light</option></select></div>
             <div class="cfg-row"><label>Units</label><select id="units" onchange="refreshWizard()"><option value="auto">Auto</option><option value="full">Full</option></select></div>
-            <div class="cfg-row"><label>Font</label><select id="font" onchange="refreshWizard()"></select></div>
+            <div class="cfg-row"><label>Timer font</label><select id="font" onchange="refreshWizard()"></select></div>
+            <div class="cfg-row"><label>Title font</label><select id="titlefont" onchange="refreshWizard()"></select></div>
+            <div class="cfg-row"><label>Timer weight</label><select id="timerweight" onchange="refreshWizard()"><option value="">Default (Bold)</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="900">Black</option></select></div>
+            <div class="cfg-row"><label>Title weight</label><select id="titleweight" onchange="refreshWizard()"><option value="">Default (Bold)</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="900">Black</option></select></div>
             <div class="cfg-row" id="ringfill-row"><label>Ring progress</label><select id="ringfill" onchange="refreshWizard()"><option value="drain">Drains (starts full)</option><option value="fill">Fills (starts empty)</option></select></div>
             <div class="cfg-row"><label>Overall scale</label><input type="number" id="fontscale" min="0.5" max="3" step="0.1" value="1" title="Scales the whole timer: text, padding and progress bar" oninput="refreshWizard()"></div>
             <div class="cfg-row"><label>Title scale</label><input type="number" id="titlescale" min="0.3" max="3" step="0.1" value="1" title="Multiplies the title size on top of Overall scale" oninput="refreshWizard()"></div>
@@ -215,7 +218,7 @@
         if (document.getElementById('title').value.trim()) params.set('title', document.getElementById('title').value.trim());
         if (kind === 'countdown') params.set('progress', document.getElementById('progress').checked ? 'true' : 'false');
         params.set('sound', document.getElementById('sound').checked ? 'true' : 'false');
-        if (document.getElementById('font').value) params.set('font', document.getElementById('font').value);
+        ['font', 'titlefont', 'timerweight', 'titleweight'].forEach(id => { const v = document.getElementById(id).value; if (v) params.set(id, v); });
         if (kind === 'countdown' && document.getElementById('display').value === 'ring' && document.getElementById('ringfill').value === 'fill') params.set('ringfill', 'fill');
         params.set('fontscale', document.getElementById('fontscale').value || '1');
         if ((document.getElementById('titlescale').value || '1') !== '1') params.set('titlescale', document.getElementById('titlescale').value);
@@ -322,16 +325,17 @@
     }
 
     async function loadFontChoices() {
-        const select = document.getElementById('font');
         const opt = (value, label) => `<option value="${value.replace(/"/g, '&quot;')}" style="font-family:${value.replace(/"/g, '&quot;')}">${label}</option>`;
         const system = [['sans-serif', 'System sans-serif'], ['Arial, sans-serif', 'Arial'], ['Helvetica, sans-serif', 'Helvetica'], ['Georgia, serif', 'Georgia'], ['Impact, sans-serif', 'Impact'], ['monospace', 'Monospace'], ["'Courier New', monospace", 'Courier New'], ["'Trebuchet MS', sans-serif", 'Trebuchet MS']];
         const serif = new Set(['Merriweather', 'Playfair Display']), mono = new Set(['Fira Code', 'Silkscreen']);
         const google = OverlayShared.GOOGLE_FONTS.map(n => [`'${n}', ${serif.has(n) ? 'serif' : mono.has(n) ? 'monospace' : 'sans-serif'}`, n]);
         const uploaded = (await OverlayShared.loadAssetFonts()).map(f => [`'${f.family}', sans-serif`, f.family]);
-        select.innerHTML = '<option value="">Saved theme font</option>' + system.map(f => opt(...f)).join('')
+        const html = system.map(f => opt(...f)).join('')
             + (uploaded.length ? `<optgroup label="Uploaded fonts">${uploaded.map(f => opt(...f)).join('')}</optgroup>` : '')
             + `<optgroup label="Google Fonts">${google.map(f => opt(...f)).join('')}</optgroup>`;
-        select.addEventListener('change', () => OverlayShared.loadGoogleFont(select.value));
+        document.getElementById('font').innerHTML = '<option value="">Saved theme font</option>' + html;
+        document.getElementById('titlefont').innerHTML = '<option value="">Same as timer font</option>' + html;
+        ['font', 'titlefont'].forEach(id => document.getElementById(id).addEventListener('change', e => OverlayShared.loadGoogleFont(e.target.value)));
         refreshWizard();
     }
     loadFontChoices();

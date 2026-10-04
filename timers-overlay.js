@@ -215,6 +215,13 @@
             document.documentElement.style.setProperty('--font-family', font);
             if (window.OverlayShared) { OverlayShared.loadGoogleFont(font); OverlayShared.loadAssetFonts(); }
         }
+        if (params.has('titlefont')) {
+            document.documentElement.style.setProperty('--title-font-family', params.get('titlefont'));
+            if (window.OverlayShared) { OverlayShared.loadGoogleFont(params.get('titlefont')); OverlayShared.loadAssetFonts(); }
+        }
+        const weight = value => ['400', '500', '600', '700', '900'].includes(value) ? value : '';
+        if (weight(params.get('timerweight'))) document.documentElement.style.setProperty('--timer-weight', params.get('timerweight'));
+        if (weight(params.get('titleweight'))) document.documentElement.style.setProperty('--title-weight', params.get('titleweight'));
         if (params.has('timercolor')) document.documentElement.style.setProperty('--timer-background', `#${params.get('timercolor')}`);
         if (params.has('textcolor')) document.documentElement.style.setProperty('--text-color', `#${params.get('textcolor')}`);
         if (params.has('labelcolor')) document.documentElement.style.setProperty('--label-color', `#${params.get('labelcolor')}`);
