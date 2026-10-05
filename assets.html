@@ -36,27 +36,46 @@
         .size input { padding: 0; width: 120px; accent-color: var(--accent); }
         .check { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--text-muted); font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
         .check input { width: auto; padding: 0; margin: 0; accent-color: var(--accent); }
-        .check.off { opacity: .5; }
         .summary { color: var(--text-muted); font-size: 0.8rem; }
         #drop { border: 1px dashed var(--border); border-radius: 8px; padding: 0.7rem; text-align: center; color: var(--text-faint); font-size: 0.82rem; }
         #drop.over { border-color: var(--accent); color: var(--accent); }
         .empty { color: var(--text-muted); text-align: center; padding: 2.5rem 1rem; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--thumb, 180px), 1fr)); gap: 0.75rem; }
-        .asset { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg-inset); display: flex; flex-direction: column; position: relative; }
+        .asset { border: 1px solid var(--border); border-radius: 10px; background: var(--bg-inset); display: flex; flex-direction: column; position: relative; transition: border-color .12s, box-shadow .12s; }
+        .asset:hover { border-color: var(--border-strong, var(--accent)); }
         .asset.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-        .thumb { position: relative; flex: none; height: var(--thumb, 180px); overflow: hidden; background: conic-gradient(var(--bg-raised) 25%, var(--bg-card) 0 50%, var(--bg-raised) 0 75%, var(--bg-card) 0) 0 0 / 16px 16px; }
+        .thumb { position: relative; flex: none; height: var(--thumb, 180px); overflow: hidden; border-radius: 9px 9px 0 0; background: conic-gradient(var(--bg-raised) 25%, var(--bg-card) 0 50%, var(--bg-raised) 0 75%, var(--bg-card) 0) 0 0 / 16px 16px; }
         .thumb img, .thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
         .thumb .sample { position: absolute; inset: 0; display: grid; place-items: center; padding: 0.4rem; font-size: 1.1rem; text-align: center; overflow: hidden; }
         .thumb .icon { position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--thumb, 180px) * 0.3); color: var(--accent); }
         .thumb audio { position: absolute; left: 4px; right: 4px; bottom: 4px; width: calc(100% - 8px); height: 32px; }
-        .pick { position: absolute; top: 6px; left: 6px; z-index: 2; width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
-        .info { padding: 0.5rem 0.65rem; display: grid; gap: 0.25rem; font-size: 0.8rem; min-width: 0; }
-        .name { overflow-wrap: anywhere; font-weight: 600; }
+        .pick { position: absolute; top: 8px; left: 8px; z-index: 2; width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; opacity: 0; transition: opacity .12s; }
+        .asset:hover .pick, .asset.selected .pick, .pick:focus-visible, body.has-selection .pick { opacity: 1; }
+        .info { padding: 0.6rem 0.7rem 0.7rem; display: flex; flex-direction: column; gap: 0.45rem; font-size: 0.8rem; min-width: 0; flex: 1; }
+        .i-head { min-width: 0; }
+        .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .meta { color: var(--text-muted); font-size: 0.74rem; }
-        .badge { display: inline-block; padding: 0.05rem 0.4rem; border-radius: 999px; font-size: 0.68rem; border: 1px solid var(--border); color: var(--text-muted); margin: 0 0.2rem 0.15rem 0; }
-        .badge.tag { border-color: var(--border-strong, var(--border)); color: var(--text); cursor: default; }
-        .badge.tag button { all: unset; cursor: pointer; margin-left: .25rem; color: var(--text-muted); }
+        .i-head .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .chips { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
+        .badge { display: inline-flex; align-items: center; padding: 0.08rem 0.5rem; border-radius: 999px; font-size: 0.7rem; line-height: 1.4; border: 1px solid var(--border); color: var(--text-muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .badge.tag { border-color: var(--border-strong, var(--border)); color: var(--text); background: var(--bg-raised); gap: .3rem; }
+        .badge.tag button { all: unset; cursor: pointer; color: var(--text-muted); font-size: .85rem; line-height: 1; }
         .badge.tag button:hover { color: #f85149; }
+        .badge.used { border-color: var(--accent-strong); color: var(--accent); }
+        .badge.more-count { cursor: default; }
+        .caption { color: var(--text-muted); font-size: 0.74rem; font-style: italic; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .actions { display: flex; gap: 0.3rem; align-items: center; margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+        .actions .btn { background: transparent; white-space: nowrap; }
+        .actions .btn:hover { background: var(--bg-raised); }
+        .menu { position: relative; margin-left: auto; }
+        .menu > summary { list-style: none; cursor: pointer; }
+        .menu > summary::-webkit-details-marker { display: none; }
+        .menu[open] > summary { border-color: var(--accent); background: var(--bg-raised); }
+        .menu-list { position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 20; min-width: 150px; padding: 0.25rem; display: flex; flex-direction: column; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+        .menu-list button { all: unset; box-sizing: border-box; padding: 0.4rem 0.6rem; border-radius: 5px; cursor: pointer; font-size: 0.8rem; color: var(--text); }
+        .menu-list button:hover, .menu-list button:focus-visible { background: var(--bg-raised); }
+        .menu-list button.danger { color: var(--danger, #f85149); }
+        .menu-list hr { border: 0; border-top: 1px solid var(--border); margin: 0.25rem 0; }
         #tag-manager { margin: auto; padding: 1rem 1.2rem; width: min(560px, 92vw); background: var(--surface, var(--card, #161b22)); color: var(--text); border: 1px solid var(--border); border-radius: 12px; }
         #tag-manager::backdrop { background: rgba(0,0,0,.55); }
         #tm-list { max-height: 50vh; overflow: auto; margin: .6rem 0; }
@@ -65,20 +84,21 @@
         .tagbar { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
         .tagbar button { padding: .15rem .65rem; border-radius: 999px; font-size: .8rem; }
         .tagbar button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .badge.used { border-color: var(--accent-strong); color: var(--accent); }
-        .actions { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.2rem; }
         .list { display: flex; flex-direction: column; gap: 0.4rem; }
-        .list .asset { flex-direction: row; align-items: center; }
-        .list .thumb { width: var(--thumb, 180px); height: var(--thumb, 180px); flex: none; }
-        .list .thumb .icon { font-size: calc(var(--thumb, 180px) * 0.4); }
-        .list .info { flex: 1; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: center; gap: 0.2rem 1rem; padding: 0.4rem 0.8rem; }
-        .list .info > :first-child { grid-column: auto; min-width: 12rem; }
-        .list .info .actions { justify-content: flex-end; margin: 0; flex-wrap: nowrap; flex: none; }
-        .list .info .actions .btn { white-space: nowrap; }
-        .list .pick { position: static; flex: none; margin: 0 0.2rem 0 0.7rem; }
+        .list .asset { flex-direction: row; align-items: stretch; }
+        .list .thumb { --lt: min(var(--thumb, 180px), 140px); width: var(--lt); height: var(--lt); border-radius: 9px 0 0 9px; }
+        .list .thumb .icon { font-size: calc(var(--lt) * 0.4); }
+        .list .info { flex-direction: row; align-items: center; gap: 1.2rem; padding: 0.5rem 0.9rem; }
+        .list .i-head { flex: 0 0 clamp(10rem, 24%, 18rem); }
+        .list .i-tags { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+        .list .i-use { flex: 0 0 clamp(8rem, 16%, 14rem); }
+        .list .actions { margin: 0 0 0 auto; padding: 0; border: 0; flex: none; }
+        .list .menu-list { bottom: auto; top: calc(100% + 6px); }
+        .list .pick { top: 50%; left: 8px; transform: translateY(-50%); }
+        .list .asset:hover .pick, .list .asset.selected .pick, body.has-selection .list .pick { opacity: 1; }
         #toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); background: var(--bg-raised); border: 1px solid var(--border); padding: 0.55rem 1rem; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 10; }
         #toast.show { opacity: 1; }
-        @media (max-width: 800px) { .container { padding: 1rem; } .list .info { grid-auto-flow: row; } .list .info .actions { flex-wrap: wrap; } }
+        @media (max-width: 800px) { .container { padding: 1rem; } .list .asset { flex-direction: column; } .list .thumb { width: 100%; border-radius: 9px 9px 0 0; } .list .info { flex-direction: column; align-items: stretch; gap: 0.45rem; } .list .actions { margin: auto 0 0; padding-top: 0.5rem; border-top: 1px solid var(--border); } }
     </style>
 </head>
 <body>
@@ -115,7 +135,7 @@
             <span class="summary" id="summary">Loading…</span>
             <span class="sep"></span>
             <label class="check" title="Show tags and captions on each asset"><input type="checkbox" id="show-tags"> Show tags</label>
-            <label class="check" title="Show the + Tag, + Caption and remove-tag buttons"><input type="checkbox" id="show-edit"> Edit buttons</label>
+            <label class="check" title="Show Copy, Open and the More menu on each asset"><input type="checkbox" id="show-edit"> Show buttons</label>
             <button class="btn" id="select-all">Select shown</button>
             <button class="btn" id="tag-selected" hidden></button>
             <button class="btn" id="untag-selected" hidden></button>
@@ -256,6 +276,19 @@
             if (to && to.trim() && to.trim() !== tag) await manageTag({ action: 'rename', tag, to: to.trim() });
         } else if (confirm(`Delete the tag "${tag}" from every asset?`)) await manageTag({ action: 'delete', tag });
     });
+    function tagsHtml(asset, index) {
+        const tags = asset.tags || [];
+        const chips = tags.map(tag => `<span class="badge tag" title="${esc(tag)}">${esc(tag)}${prefs.edit ? `<button type="button" data-untag="${index}" data-tag="${esc(tag)}" title="Remove tag" aria-label="Remove tag ${esc(tag)}">×</button>` : ''}</span>`).join('');
+        const caption = asset.caption ? `<div class="caption" title="${esc(asset.caption)}">${esc(asset.caption)}</div>` : '';
+        if (!chips && !caption) return '<div class="i-tags"><span class="meta">No tags</span></div>';
+        return `<div class="i-tags">${chips ? `<div class="chips">${chips}</div>` : ''}${caption}</div>`;
+    }
+    function usageHtml(asset) {
+        if (!asset.usedBy.length) return '<span class="badge">Unused</span>';
+        const names = asset.usedBy.map(user => user.name || user.id);
+        const extra = names.length > 2 ? `<span class="badge used more-count" title="${esc(names.join(', '))}">+${names.length - 2}</span>` : '';
+        return names.slice(0, 2).map((name, i) => `<span class="badge used" title="${esc(asset.usedBy[i].id)}">${esc(name)}</span>`).join('') + extra;
+    }
     function render() {
         renderTagBar();
         const query = $('search').value.trim().toLowerCase();
@@ -271,7 +304,7 @@
         $('summary').textContent = `${shown.length} of ${assets.length} assets · ${formatSize(total)} total · ${unused.length} unused`;
         $('purge').hidden = !unused.length;
         $('purge').textContent = `Delete ${unused.length} unused`;
-        $('show-edit').closest('label').classList.toggle('off', prefs.tags === false);
+        document.body.classList.toggle('has-selection', selected.size > 0);
         $('tag-selected').hidden = $('untag-selected').hidden = !selected.size;
         $('tag-selected').textContent = `Tag ${selected.size} selected…`;
         $('untag-selected').textContent = 'Untag…';
@@ -288,18 +321,22 @@
                 <input class="pick" type="checkbox" data-pick="${index}" aria-label="Select ${esc(asset.label)}" ${selected.has(asset.name) ? 'checked' : ''}>
                 <div class="thumb">${thumbHtml(asset)}</div>
                 <div class="info">
-                    <div><div class="name">${esc(asset.label)}</div><div class="meta">${esc(asset.kind)} · ${formatSize(asset.size)} · ${formatDate(asset.modifiedAt)}</div></div>
-                    ${prefs.tags !== false ? `<div class="i-tags">
-                        ${(asset.tags || []).length || prefs.edit ? `<div>${(asset.tags || []).map(tag => `<span class="badge tag">${esc(tag)}${prefs.edit ? `<button type="button" data-untag="${index}" data-tag="${esc(tag)}" title="Remove tag" aria-label="Remove tag ${esc(tag)}">×</button>` : ''}</span>`).join('')}${prefs.edit ? `<button class="btn small" data-act="tag" data-i="${index}" title="Add tags">+ Tag</button>` : ''}</div>` : ''}
-                        ${(asset.kind === 'image' || asset.kind === 'video') && (asset.caption || prefs.edit) ? `<div class="meta">${asset.caption ? `Caption: ${esc(asset.caption)} ` : ''}${prefs.edit ? `<button class="btn small" data-act="caption" data-i="${index}">${asset.caption ? 'Edit caption' : '+ Caption'}</button>` : ''}</div>` : ''}
-                    </div>` : ''}
-                    <div>${asset.usedBy.length ? asset.usedBy.map(user => `<span class="badge used" title="${esc(user.id)}">${esc(user.name || user.id)}</span>`).join('') : '<span class="badge">Unused</span>'}</div>
-                    <div class="actions">
-                        <button class="btn small" data-act="copy" data-i="${index}">Copy URL</button>
+                    <div class="i-head"><div class="name" title="${esc(asset.label)}">${esc(asset.label)}</div><div class="meta">${esc(asset.kind)} · ${formatSize(asset.size)} · ${formatDate(asset.modifiedAt)}</div></div>
+                    ${prefs.tags !== false ? tagsHtml(asset, index) : ''}
+                    <div class="i-use chips">${usageHtml(asset)}</div>
+                    ${prefs.edit ? `<div class="actions">
+                        <button class="btn small" data-act="copy" data-i="${index}" title="Copy the asset URL">Copy</button>
                         <a class="btn small" href="${esc(asset.url)}" target="_blank" rel="noopener">Open</a>
-                        <button class="btn small" data-act="rename" data-i="${index}">Rename</button>
-                        <button class="btn small danger" data-act="delete" data-i="${index}">Delete</button>
-                    </div>
+                        <details class="menu"><summary class="btn small" aria-label="More actions">More</summary>
+                            <div class="menu-list">
+                                <button type="button" data-act="tag" data-i="${index}">Add tags…</button>
+                                ${asset.kind === 'image' || asset.kind === 'video' ? `<button type="button" data-act="caption" data-i="${index}">${asset.caption ? 'Edit caption…' : 'Add caption…'}</button>` : ''}
+                                <button type="button" data-act="rename" data-i="${index}">Rename…</button>
+                                <hr>
+                                <button type="button" class="danger" data-act="delete" data-i="${index}">Delete</button>
+                            </div>
+                        </details>
+                    </div>` : ''}
                 </div>
             </article>`).join('') : `<div class="empty">${assets.length ? 'No assets match these filters.' : 'No assets yet. Upload some above.'}</div>`;
     }
@@ -327,6 +364,7 @@
         if (untag) { await editTags([shown[Number(untag.dataset.untag)].name], { remove: [untag.dataset.tag] }); return; }
         const button = event.target.closest('[data-act]');
         if (!button) return;
+        button.closest('details')?.removeAttribute('open');
         if (button.dataset.act === 'caption') {
             const current = shown[Number(button.dataset.i)];
             const text = prompt('Caption shown in slideshows (leave empty to remove)', current.caption || '');
@@ -358,6 +396,7 @@
         }
     });
 
+    document.addEventListener('click', event => { for (const menu of document.querySelectorAll('.menu[open]')) if (!menu.contains(event.target)) menu.removeAttribute('open'); });
     $('select-all').addEventListener('click', () => {
         const allSelected = shown.length && shown.every(asset => selected.has(asset.name));
         shown.forEach(asset => allSelected ? selected.delete(asset.name) : selected.add(asset.name));
