@@ -243,7 +243,7 @@
             </div>
 
             <div class="card">
-                <h2>Overlay URLs</h2>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:.75rem"><h2>Overlay URLs</h2><a class="btn" id="goal-wizard-link" href="/overlay-url-wizard.html?overlay=goals" target="_blank">Customize in URL Wizard</a></div>
                 <div class="url-box">
                     <code id="single-goal-url">/goal.html?goal=your-goal-id</code>
                     <button class="btn" onclick="copyText(document.getElementById('single-goal-url').textContent)">Copy</button>
@@ -254,7 +254,7 @@
                     <button class="btn" onclick="copyText(document.getElementById('cycle-goal-url').textContent)">Copy</button>
                     <a class="btn" id="cycle-goal-open" href="/goal.html?mode=cycle" target="_blank">Open</a>
                 </div>
-                <div class="hint" style="margin-top:0.75rem;">Cycle mode uses the saved editor settings by default. URL parameters can override behavior with <code>interval=</code>, <code>skipcompleted=true|false</code>, <code>pausecomplete=</code>, or <code>ids=goal-a,goal-b</code>.</div>
+                <div class="hint" style="margin-top:0.75rem;">Use the URL Wizard for font scale, label and cycle options. Cycle mode uses the saved editor settings by default. URL parameters can override behavior with <code>interval=</code>, <code>skipcompleted=true|false</code>, <code>pausecomplete=</code>, or <code>ids=goal-a,goal-b</code>.</div>
             </div>
         </div>
     </div>
@@ -626,6 +626,7 @@
         document.getElementById('single-goal-open').href = single;
         document.getElementById('cycle-goal-url').textContent = cycle;
         document.getElementById('cycle-goal-open').href = cycle;
+        document.getElementById('goal-wizard-link').href = `/overlay-url-wizard.html?overlay=goals${selectedGoalId ? `&goal=${encodeURIComponent(selectedGoalId)}` : ''}`;
     }
 
     function escapeHtml(str) {

@@ -450,6 +450,8 @@
                 addGoalCheckbox(subset, goal);
             });
             select.disabled = false;
+            const wanted = new URLSearchParams(location.search).get('goal');
+            if (wanted && goals.some(goal => goal.id === wanted)) select.value = wanted;
             if (!goals.length) {
                 select[0].textContent = 'No enabled goals — overlay will show setup message';
                 subset.append(Object.assign(document.createElement('span'), { className: 'empty', textContent: 'No enabled goals found.' }));
