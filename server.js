@@ -1873,6 +1873,7 @@ function computeGoalItemState(item, metrics) {
         ...normalized,
         tracking,
         metric_label: metricLabel,
+        unit: normalized.type === 'donations' ? 'usd' : 'count',
         raw_value: Number(rawValue.toFixed ? rawValue.toFixed(2) : rawValue),
         progress: Number(progress.toFixed ? progress.toFixed(2) : progress),
         remaining,

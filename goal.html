@@ -152,6 +152,12 @@
     let cycleIndex = 0;
     let currentGoalId = '';
 
+    function formatValue(value, goal) {
+        if (goal?.unit !== 'usd') return formatNumber(value);
+        const num = Number(value) || 0;
+        return `$${num.toLocaleString(undefined, { minimumFractionDigits: Number.isInteger(num) ? 0 : 2, maximumFractionDigits: 2 })}`;
+    }
+
     function formatNumber(value) {
         const num = Number(value) || 0;
         return Number.isInteger(num)
@@ -263,11 +269,11 @@
         overlay.classList.remove('hidden');
         title.textContent = goal.title || '';
         metricLabel.textContent = goal.metric_label || '';
-        value.textContent = `${formatNumber(goal.progress)} / ${formatNumber(goal.target)}`;
+        value.textContent = `${formatValue(goal.progress, goal)} / ${formatValue(goal.target, goal)}`;
         fill.style.width = `${Math.max(0, Math.min(100, Number(goal.percent) || 0))}%`;
         remaining.textContent = goal.complete
-            ? `${formatNumber(goal.progress)} reached`
-            : `${formatNumber(goal.remaining)} remaining`;
+            ? `${formatValue(goal.progress, goal)} reached`
+            : `${formatValue(goal.remaining, goal)} remaining`;
         complete.classList.toggle('hidden', !goal.complete);
     }
 

@@ -130,6 +130,10 @@
             out[`goal.${goal.id}.target`] = goal.target;
             out[`goal.${goal.id}.percent`] = goal.percent;
             out[`goal.${goal.id}.remaining`] = goal.remaining;
+            const text = value => goal.unit === 'usd' ? `$${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: Number.isInteger(Number(value)) ? 0 : 2, maximumFractionDigits: 2 })}` : String(value ?? '');
+            out[`goal.${goal.id}.current_text`] = text(goal.progress);
+            out[`goal.${goal.id}.target_text`] = text(goal.target);
+            out[`goal.${goal.id}.remaining_text`] = text(goal.remaining);
         }
         return out;
     }
@@ -186,7 +190,7 @@
             groups.push({ label: `Timer: ${timer.label}`, items });
         }
         for (const goal of status.goalItems || []) {
-            groups.push({ label: `Goal: ${goal.title}`, items: [['title', 'title'], ['current', 'current progress'], ['target', 'target'], ['percent', 'percent'], ['remaining', 'remaining']].map(([key, label]) => [`goal.${goal.id}.${key}`, `${goal.title} — ${label}`]) });
+            groups.push({ label: `Goal: ${goal.title}`, items: [['title', 'title'], ['current', 'current progress'], ['target', 'target'], ['percent', 'percent'], ['remaining', 'remaining'], ['current_text', 'current (with $ for donations)'], ['target_text', 'target (with $ for donations)'], ['remaining_text', 'remaining (with $ for donations)']].map(([key, label]) => [`goal.${goal.id}.${key}`, `${goal.title} — ${label}`]) });
         }
         return groups;
     }

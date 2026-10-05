@@ -151,7 +151,7 @@
                         <input type="checkbox" id="goal-enabled">
                     </div>
                     <div class="cfg-row">
-                        <label>Target</label>
+                        <label id="goal-target-label">Target</label>
                         <input type="number" id="goal-target" min="1" step="0.01">
                     </div>
                     <div class="cfg-row" id="goal-tracking-row">
@@ -314,6 +314,12 @@
             baseline_metrics: { followers: 0, subscribers: 0, gift_subs: 0, bits: 0, donations: 0 },
             weights: { ...DEFAULT_COMMUNITY_WEIGHTS }
         };
+    }
+
+    function formatValue(value, goal) {
+        if (goal?.unit !== 'usd') return formatNumber(value);
+        const num = Number(value) || 0;
+        return `$${num.toLocaleString(undefined, { minimumFractionDigits: Number.isInteger(num) ? 0 : 2, maximumFractionDigits: 2 })}`;
     }
 
     function formatNumber(value) {
@@ -503,7 +509,7 @@
         document.getElementById('metric-subscribers').textContent = formatNumber(metrics.persistent?.subscribers || 0);
         document.getElementById('metric-gift-subs').textContent = formatNumber(session.gift_subs || 0);
         document.getElementById('metric-bits').textContent = formatNumber(session.bits || 0);
-        document.getElementById('metric-donations').textContent = formatNumber(session.donations || 0);
+        document.getElementById('metric-donations').textContent = formatValue(session.donations || 0, { unit: 'usd' });
         document.getElementById('metric-community').textContent = formatNumber(communityValue);
     }
 
@@ -527,7 +533,7 @@
                     <div class="meta">
                         <span class="pill ${trackingClass}">${escapeHtml(item.type === 'viewers' ? 'live' : item.tracking || 'persistent')}</span>
                         <span>${escapeHtml(GOAL_LABELS[item.type] || 'Goal')}</span>
-                        <span>${state ? `${formatNumber(state.progress)} / ${formatNumber(state.target)}` : `${formatNumber(item.target)} target`}</span>
+                        <span>${state ? `${formatValue(state.progress, state)} / ${formatValue(state.target, state)}` : `${formatValue(item.target, item)} target`}</span>
                         ${completePill}
                     </div>
                 </div>
@@ -556,6 +562,7 @@
         document.getElementById('goal-type').value = goal.type || 'followers';
         document.getElementById('goal-enabled').checked = goal.enabled !== false;
         document.getElementById('goal-target').value = goal.target || 100;
+        document.getElementById('goal-target-label').textContent = goal.type === 'donations' ? 'Target ($)' : 'Target';
         document.getElementById('goal-tracking').value = goal.tracking || 'persistent';
         document.getElementById('goal-viewer-mode').value = goal.viewer_mode || 'current';
         document.getElementById('weight-followers').value = goal.weights?.followers ?? DEFAULT_COMMUNITY_WEIGHTS.followers;
@@ -588,7 +595,7 @@
             document.getElementById('goal-baseline-display').value = goal.baseline || 0;
         }
         document.getElementById('goal-editor-status').textContent = state
-            ? `${state.metric_label}: ${formatNumber(state.progress)} / ${formatNumber(state.target)}${state.complete ? ' • complete' : ''}`
+            ? `${state.metric_label}: ${formatValue(state.progress, state)} / ${formatValue(state.target, state)}${state.complete ? ' • complete' : ''}`
             : '';
     }
 
