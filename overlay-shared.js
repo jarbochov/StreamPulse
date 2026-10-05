@@ -326,7 +326,7 @@
         return JSON.stringify(table);
     }
 
-    function renderMarkdown(source) {
+    function renderMarkdown(source, el) {
         // Obsidian-style YAML frontmatter at the very top is metadata, not content.
         const body = String(source ?? '').replace(/^\uFEFF?\s*---[ \t]*\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/, '');
         const html = root.marked.parse(body, { breaks: true, gfm: true });
@@ -347,6 +347,20 @@
         });
         const holder = document.createElement('div');
         holder.appendChild(fragment);
+        const cols = el && el.columns > 1 ? Number(el.columns) : 0;
+        if (cols) {
+            // Each run of body blocks gets its own column group; spanning headings sit between groups. CSS column-span inside a fixed-height box mis-lays out in Safari.
+            const span = Number(el.headingSpan ?? 6);
+            const out = document.createElement('div');
+            let group = null;
+            [...holder.childNodes].forEach(child => {
+                const level = child.nodeType === 1 && /^H[1-6]$/.test(child.tagName) ? Number(child.tagName[1]) : 0;
+                if (level && level <= span) { group = null; out.appendChild(child); return; }
+                if (!group) { group = document.createElement('div'); group.className = 'md-col-group'; group.style.cssText = `column-count:${cols};column-gap:1.5em`; out.appendChild(group); }
+                group.appendChild(child);
+            });
+            return out.innerHTML;
+        }
         return holder.innerHTML;
     }
 

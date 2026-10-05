@@ -75,8 +75,8 @@
         return shared.expandVariables(value, liveStatus, variableContext());
     }
 
-    function renderMarkdown(source) {
-        return shared.renderMarkdown(expandVariables(source));
+    function renderMarkdown(source, element) {
+        return shared.renderMarkdown(expandVariables(source), element);
     }
 
     function applyElementStyle(node, element) {
@@ -113,8 +113,6 @@
             node.classList.toggle('md-right', style.textAlign === 'right');
             const cols = element.columns > 1 ? Number(element.columns) : 0;
             node.classList.toggle('md-cols', !!cols);
-            node.style.columnCount = cols || '';
-            node.style.columnGap = cols ? '1.5em' : '';
             node.dataset.span = element.headingSpan ?? 6;
             if (cols) node.style.display = 'block';
         }
@@ -144,7 +142,7 @@
     function tickPlaceholders() {
         for (const { node, element } of tickingNodes) {
             if (element.type === 'progress') shared.renderProgress(node, element, expandVariables);
-            else if (element.type === 'markdown') node.innerHTML = renderMarkdown(shared.elementContent(element));
+            else if (element.type === 'markdown') node.innerHTML = renderMarkdown(shared.elementContent(element), element);
             else node.textContent = expandVariables(shared.elementContent(element) || '');
             if (element.textFit && element.textFit !== 'none') shared.fitText(node, element);
         }
@@ -220,7 +218,7 @@
                 frame.style.cssText = 'width:100%;height:100%;border:0;';
                 node.appendChild(frame);
             } else if (element.type === 'markdown') {
-                node.innerHTML = renderMarkdown(shared.elementContent(element));
+                node.innerHTML = renderMarkdown(shared.elementContent(element), element);
             } else if (element.type === 'random-text') {
                 setRandomText(node, element);
                 const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;

@@ -241,7 +241,7 @@
         .canvas-element:not(.selected):hover { outline: calc(var(--inv, 1) * 1.5px) solid color-mix(in srgb, var(--accent) 67%, transparent); outline-offset: calc(var(--inv, 1) * 1px); }
         .canvas-element.type-markdown { white-space: normal; }
 .canvas-element.type-markdown li, .canvas-element.type-markdown h1, .canvas-element.type-markdown h2, .canvas-element.type-markdown h3 { break-inside: avoid; } .canvas-element.type-markdown h1, .canvas-element.type-markdown h2, .canvas-element.type-markdown h3, .canvas-element.type-markdown h4 { break-after: avoid; }
-.canvas-element.type-markdown.md-cols > * { margin-top: 0; margin-bottom: .6em; } .canvas-element.type-markdown.md-cols h1, .canvas-element.type-markdown.md-cols h2, .canvas-element.type-markdown.md-cols h3, .canvas-element.type-markdown.md-cols h4, .canvas-element.type-markdown.md-cols h5, .canvas-element.type-markdown.md-cols h6 { margin-bottom: .25em; }
+.canvas-element.type-markdown.md-cols > *, .canvas-element.type-markdown .md-col-group > * { margin-top: 0; margin-bottom: .6em; } .canvas-element.type-markdown.md-cols h1, .canvas-element.type-markdown.md-cols h2, .canvas-element.type-markdown.md-cols h3, .canvas-element.type-markdown.md-cols h4, .canvas-element.type-markdown.md-cols h5, .canvas-element.type-markdown.md-cols h6 { margin-bottom: .25em; }
         .canvas-element.type-markdown.md-cols[data-span="1"] > h1 { column-span: all; margin-bottom: .4em; }
         .canvas-element.type-markdown.md-cols[data-span="1"] > h1:not(:first-child) { margin-top: .5em; }
         .canvas-element.type-markdown.md-cols[data-span="2"] > h1, .canvas-element.type-markdown.md-cols[data-span="2"] > h2 { column-span: all; margin-bottom: .4em; }
@@ -734,8 +734,6 @@
             node.classList.toggle('md-right', s.textAlign === 'right');
             const cols = el.columns > 1 ? Number(el.columns) : 0;
             node.classList.toggle('md-cols', !!cols);
-            node.style.columnCount = cols || '';
-            node.style.columnGap = cols ? '1.5em' : '';
             node.dataset.span = el.headingSpan ?? 6;
             if (cols) node.style.display = 'block';
         }
@@ -776,7 +774,7 @@
             frame.sandbox = 'allow-forms allow-popups allow-scripts' + (sameOrigin ? ' allow-same-origin' : ''); frame.referrerPolicy = 'no-referrer';
             node.appendChild(frame);
         } else if (el.type === 'markdown') {
-            node.innerHTML = shared.renderMarkdown(expand(shared.elementContent(el)));
+            node.innerHTML = shared.renderMarkdown(expand(shared.elementContent(el)), el);
         } else if (el.type === 'random-text') {
             const first = shared.elementItems(el).find(Boolean) ?? el.content ?? '';
             if (el.random?.typewriter) {
@@ -823,7 +821,7 @@
             const node = nodes.get(el.id);
             if (!node || !['text', 'markdown', 'progress'].includes(el.type) || !shared.hasTicking(el.type === 'progress' ? `${el.content} ${el.progress?.label}` : shared.elementContent(el))) continue;
             if (el.type === 'progress') shared.renderProgress(node, el, expand);
-            else if (el.type === 'markdown') node.innerHTML = shared.renderMarkdown(expand(shared.elementContent(el)));
+            else if (el.type === 'markdown') node.innerHTML = shared.renderMarkdown(expand(shared.elementContent(el)), el);
             else node.textContent = expand(shared.elementContent(el));
             if (el.textFit && el.textFit !== 'none') shared.fitText(node, el);
         }
