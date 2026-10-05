@@ -1117,7 +1117,16 @@
         // Centered flex boxes hide overflow at the top, so measure as a normal block.
         node.style.display = 'block';
         if (probeText != null) node.replaceChildren(document.createTextNode(probeText));
-        const fits = size => { node.style.fontSize = `${size}px`; return node.scrollHeight <= node.clientHeight + 1 && node.scrollWidth <= node.clientWidth + 1; };
+        // Some browsers don't count overflowed columns in scrollWidth, so multi-column text is also checked against its actual content bounds.
+        const columnar = el.type === 'markdown' && el.columns > 1;
+        const inside = () => {
+            const box = node.getBoundingClientRect(), range = document.createRange();
+            range.selectNodeContents(node);
+            const used = range.getBoundingClientRect();
+            const tol = 2 * (box.width / (node.offsetWidth || box.width) || 1);
+            return used.right <= box.right + tol && used.bottom <= box.bottom + tol && used.left >= box.left - tol && used.top >= box.top - tol;
+        };
+        const fits = size => { node.style.fontSize = `${size}px`; return node.scrollHeight <= node.clientHeight + 1 && node.scrollWidth <= node.clientWidth + 1 && (!columnar || inside()); };
         let lo = 8, hi = mode === 'fit' ? 400 : base;
         if (!fits(hi)) {
             while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (fits(mid)) lo = mid; else hi = mid; }
