@@ -130,6 +130,10 @@
                         <label for="goal-fontscale">Font scale</label>
                         <input id="goal-fontscale" type="number" min="0.5" max="3" step="0.1" placeholder="Saved theme value">
                     </div>
+                    <div class="form-row">
+                        <label for="goal-showlabel">Type label</label>
+                        <select id="goal-showlabel"><option value="">Auto (hide when the title repeats it)</option><option value="true">Always show</option><option value="false">Always hide</option></select>
+                    </div>
                     <h3>Cycle options</h3>
                     <div class="form-row">
                         <label>Goals to rotate</label>
@@ -306,7 +310,7 @@
         'ht-view', 'ht-sort', 'ht-columns', 'ht-size', 'ht-limit', 'ht-min', 'ht-range', 'ht-days', 'ht-date', 'ht-from', 'ht-to', 'ht-title', 'ht-duration', 'ht-refresh', 'ht-counts', 'ht-weight', 'ht-autoscroll',
         'credits-timing', 'credits-duration', 'credits-speed', 'credits-days', 'credits-preview', 'credits-datapath',
         'stats-range', 'stats-days', 'stats-date', 'stats-from', 'stats-to', 'stats-limit', 'stats-refresh',
-        'goal-single', 'goal-fontscale', 'goal-interval', 'goal-skipcompleted', 'goal-pausecomplete',
+        'goal-single', 'goal-fontscale', 'goal-showlabel', 'goal-interval', 'goal-skipcompleted', 'goal-pausecomplete',
         'viewer-label', 'viewer-fontscale'
     ];
 
@@ -391,7 +395,7 @@
         if (timing === 'speed') credits.speed = numberValue('credits-speed', 0.1);
         setUrl('credits-url', buildUrl('/credits.html', credits));
 
-        const goalAppearance = { fontscale: numberValue('goal-fontscale', 0.5) };
+        const goalAppearance = { fontscale: numberValue('goal-fontscale', 0.5), showlabel: $('goal-showlabel').value };
         setUrl('goal-single-url', buildUrl('/goal.html', {
             mode: 'single',
             goal: $('goal-single').value,

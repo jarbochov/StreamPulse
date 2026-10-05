@@ -268,7 +268,13 @@
         currentGoalId = goal.id;
         overlay.classList.remove('hidden');
         title.textContent = goal.title || '';
-        metricLabel.textContent = goal.metric_label || '';
+        // "auto" hides the type label when the title already says it (e.g. title "Donations" over label "Donations").
+        const labelMode = (params.get('showlabel') || 'auto').toLowerCase();
+        const norm = text => String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        const redundant = norm(goal.title).includes(norm(goal.metric_label)) || norm(goal.metric_label).includes(norm(goal.title));
+        const showLabel = labelMode === 'auto' ? !!goal.metric_label && !redundant : ['1', 'true', 'yes', 'on'].includes(labelMode);
+        metricLabel.textContent = showLabel ? goal.metric_label || '' : '';
+        metricLabel.classList.toggle('hidden', !showLabel);
         value.textContent = `${formatValue(goal.progress, goal)} / ${formatValue(goal.target, goal)}`;
         fill.style.width = `${Math.max(0, Math.min(100, Number(goal.percent) || 0))}%`;
         remaining.textContent = goal.complete
