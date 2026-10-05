@@ -326,6 +326,40 @@
         return JSON.stringify(table);
     }
 
+    // Splits blocks into balanced flex columns, breaking lists between items and keeping numbering continuous.
+    function buildColumns(nodes, cols) {
+        const units = [];
+        nodes.forEach(node => {
+            const weight = n => 1 + Math.floor((n.textContent || '').length / 40);
+            if (node.nodeType === 1 && (node.tagName === 'UL' || node.tagName === 'OL')) {
+                const start = node.tagName === 'OL' ? Number(node.getAttribute('start') || 1) : 0;
+                [...node.children].forEach((li, index) => units.push({ node: li, list: node, number: start + index, weight: weight(li) }));
+            } else if (node.nodeType !== 3 || node.textContent.trim()) units.push({ node, weight: weight(node) });
+        });
+        const total = units.reduce((sum, unit) => sum + unit.weight, 0);
+        const group = document.createElement('div');
+        group.className = 'md-col-group';
+        group.style.cssText = `display:flex;align-items:flex-start;gap:1.5em`;
+        const columns = Array.from({ length: cols }, () => { const col = document.createElement('div'); col.style.cssText = 'flex:1 1 0;min-width:0'; group.appendChild(col); return col; });
+        let seen = 0, index = 0, lastList = null, lastCol = -1, listEl = null;
+        units.forEach(unit => {
+            index = Math.min(cols - 1, Math.floor(((seen + unit.weight / 2) / total) * cols));
+            seen += unit.weight;
+            const col = columns[index];
+            if (unit.list) {
+                if (unit.list !== lastList || index !== lastCol) {
+                    listEl = document.createElement(unit.list.tagName);
+                    [...unit.list.attributes].forEach(attr => listEl.setAttribute(attr.name, attr.value));
+                    if (unit.list.tagName === 'OL') listEl.setAttribute('start', unit.number);
+                    col.appendChild(listEl);
+                }
+                listEl.appendChild(unit.node);
+                lastList = unit.list; lastCol = index;
+            } else { col.appendChild(unit.node); lastList = null; }
+        });
+        return group;
+    }
+
     function renderMarkdown(source, el) {
         // Obsidian-style YAML frontmatter at the very top is metadata, not content.
         const body = String(source ?? '').replace(/^\uFEFF?\s*---[ \t]*\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/, '');
@@ -349,16 +383,16 @@
         holder.appendChild(fragment);
         const cols = el && el.columns > 1 ? Number(el.columns) : 0;
         if (cols) {
-            // Each run of body blocks gets its own column group; spanning headings sit between groups. CSS column-span inside a fixed-height box mis-lays out in Safari.
+            // Columns are real flex children, not CSS multicol: Safari can't paint a clipped text gradient through multicol, and CSS column-span mis-lays out in a fixed-height box.
             const span = Number(el.headingSpan ?? 6);
             const out = document.createElement('div');
-            let group = null;
+            let run = [];
+            const flush = () => { if (run.length) out.appendChild(buildColumns(run, cols)); run = []; };
             [...holder.childNodes].forEach(child => {
                 const level = child.nodeType === 1 && /^H[1-6]$/.test(child.tagName) ? Number(child.tagName[1]) : 0;
-                if (level && level <= span) { group = null; out.appendChild(child); return; }
-                if (!group) { group = document.createElement('div'); group.className = 'md-col-group'; group.style.cssText = `column-count:${cols};column-gap:1.5em`; out.appendChild(group); }
-                group.appendChild(child);
+                if (level && level <= span) { flush(); out.appendChild(child); } else run.push(child);
             });
+            flush();
             return out.innerHTML;
         }
         return holder.innerHTML;
