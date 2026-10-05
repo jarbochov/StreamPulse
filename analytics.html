@@ -145,7 +145,7 @@
 const $ = id => document.getElementById(id);
 const fmt = n => Number(n || 0).toLocaleString();
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const METRICS = [['durationMinutes', 'Stream Minutes'], ['messages', 'Messages'], ['chatters', 'Chatters'], ['subscribers', 'Subs'], ['giftSubs', 'Gift Subs'], ['followers', 'Followers'], ['bits', 'Bits'], ['donations', 'Donations'], ['raids', 'Raids'], ['peakViewers', 'Peak Viewers'], ['averageViewers', 'Avg Viewers'], ['emotes', 'Emotes'], ['hashtags', 'Hashtags']];
+const METRICS = [['durationMinutes', 'Stream Minutes'], ['messages', 'Messages'], ['chatters', 'Chatters'], ['uniqueChatters', 'Unique Chatters'], ['subscribers', 'Subs'], ['giftSubs', 'Gift Subs'], ['followers', 'Followers'], ['bits', 'Bits'], ['donations', 'Donations'], ['raids', 'Raids'], ['peakViewers', 'Peak Viewers'], ['averageViewers', 'Avg Viewers'], ['emotes', 'Emotes'], ['hashtags', 'Hashtags']];
 const LABELS = Object.fromEntries(METRICS);
 const SESSION_COLS = [
     ['date', 'Date'], ['title', 'Stream'], ['streamStartAt', 'Start'], ['streamStopAt', 'Stop'], ['durationMinutes', 'Duration', 1], ['categorySummary', 'Categories'],

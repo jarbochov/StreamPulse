@@ -6062,7 +6062,9 @@ const server = http.createServer(async (req, res) => {
                 } catch {}
             }
         }
+        const uniqueChatters = new Set();
         const rows = sessions.map(data => {
+            Object.keys(data.chatters || {}).forEach(name => uniqueChatters.add(name.trim().toLowerCase()));
             const viewers = data.viewerStats || {};
             const isCurrent = data.file === '__current__';
             const chatEntries = isCurrent
@@ -6086,6 +6088,7 @@ const server = http.createServer(async (req, res) => {
                 categorySummary: categories.map(entry => `${entry.category} (${entry.durationMinutes ?? 'in progress'} min)`).join(' | '),
                 messages: data.messageCount || 0,
                 chatters: Object.keys(data.chatters || {}).length,
+                uniqueChatters: Object.keys(data.chatters || {}).length,
                 chatterNames: Object.keys(data.chatters || {}).sort().join(' | '),
                 emotes: Object.keys(data.emotes || {}).length,
                 hashtags: Object.keys(data.hashtags || {}).length,
@@ -6103,11 +6106,12 @@ const server = http.createServer(async (req, res) => {
         const totals = rows.reduce((sum, row) => {
             for (const key of Object.keys(sum)) sum[key] += Number(row[key]) || 0;
             return sum;
-        }, { messages: 0, chatters: 0, emotes: 0, hashtags: 0, subscribers: 0, followers: 0, giftSubs: 0, bits: 0, donations: 0, raids: 0, peakViewers: 0, averageViewers: 0, durationMinutes: 0 });
+        }, { messages: 0, chatters: 0, uniqueChatters: 0, emotes: 0, hashtags: 0, subscribers: 0, followers: 0, giftSubs: 0, bits: 0, donations: 0, raids: 0, peakViewers: 0, averageViewers: 0, durationMinutes: 0 });
         totals.peakViewers = rows.reduce((max, row) => Math.max(max, Number(row.peakViewers) || 0), 0);
         totals.averageViewers = rows.length
             ? Number((rows.reduce((sum, row) => sum + (Number(row.averageViewers) || 0), 0) / rows.length).toFixed(1))
             : 0;
+        totals.uniqueChatters = uniqueChatters.size;
         totals.streamedSessions = rows.filter(row => row.durationMinutes !== null).length;
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ range, sessions: rows, totals }));
