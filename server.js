@@ -2713,6 +2713,7 @@ function startLifecycleWatcher() {
 const GAME_INFO_PATH = path.join(DATA_DIR, 'game-info-cache.json');
 const GAME_INFO_TTL_MS = 30 * 86400000;
 const GAME_INFO_RETRY_MS = 10 * 60000;
+const GAME_INFO_VERSION = 2;
 let gameInfoCache = {};
 try { gameInfoCache = JSON.parse(fs.readFileSync(GAME_INFO_PATH, 'utf8')); } catch { /* first run */ }
 const gameInfoPending = new Map();
@@ -2747,6 +2748,10 @@ async function fetchGameInfo(name, pinnedIgdbId = '') {
         info.boxArt = String(game.box_art_url || '').replace('{width}', '285').replace('{height}', '380');
         info.igdbId = game.igdb_id || '';
     }
+    info.v = GAME_INFO_VERSION;
+
+    // A Twitch category with no IGDB id (Just Chatting, Music, ...) is not a game, and a name search would match an unrelated one.
+    if (game && !info.igdbId) return info;
 
     // IGDB shares the Twitch app credentials; Twitch box art remains the fallback if it is unavailable.
     try {
@@ -2780,7 +2785,7 @@ function refreshGameInfo(name, igdbId = '') {
     if (!name || !TWITCH_CLIENT_ID) return Promise.resolve(null);
     const key = infoKey(name, igdbId);
     const cached = gameInfoCache[key];
-    const maxAge = cached?.failed ? GAME_INFO_RETRY_MS : GAME_INFO_TTL_MS;
+    const maxAge = cached?.failed || cached?.v !== GAME_INFO_VERSION ? (cached?.failed ? GAME_INFO_RETRY_MS : 0) : GAME_INFO_TTL_MS;
     const needsUrl = cached?.source === 'igdb' && !cached.igdbUrl && !cached.urlTried;
     if (needsUrl) cached.urlTried = true;
     if (cached && !needsUrl && Date.now() - cached.fetchedAt < maxAge) return Promise.resolve(cached);
@@ -2887,7 +2892,7 @@ function warmGameInfo(games) {
     for (const { name, igdbId, custom } of games) {
         if (custom) continue;
         const cached = gameInfoCache[infoKey(name, igdbId)];
-        if (cached && !cached.failed && !(cached.source === 'igdb' && !cached.igdbUrl && !cached.urlTried)) continue;
+        if (cached && !cached.failed && cached.v === GAME_INFO_VERSION && !(cached.source === 'igdb' && !cached.igdbUrl && !cached.urlTried)) continue;
         gameWarmQueue = gameWarmQueue.then(() => refreshGameInfo(name, igdbId)).then(() => new Promise(resolve => setTimeout(resolve, 300)));
     }
 }

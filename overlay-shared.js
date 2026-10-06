@@ -18,9 +18,10 @@
     const PLAN_ITEMS = [['plan.now', 'Game from your plan you are playing now'], ['plan.scheduled', 'Scheduled games (comma list)'], ['plan.backlog', 'Backlog games (comma list)']];
     const EVENT_ITEMS = [['latest.follower', 'Latest follower'], ['latest.subscriber', 'Latest subscriber'], ['latest.gifter', 'Latest gift sub gifter'], ['latest.cheer', 'Latest cheerer'], ['latest.cheer.amount', 'Latest cheer amount'], ['latest.donation', 'Latest donor'], ['latest.donation.amount', 'Latest donation amount'], ['latest.raider', 'Latest raider'], ['latest.raider.viewers', 'Latest raid size'], ['chatter.top', 'Top chatter this session'], ['chatter.top.count', 'Top chatter message count']];
     // Values that change every second are refreshed in place instead of re-rendering the overlay.
-    const TICKING = /^(now$|time|date|weekday|month|year|uptime|timer\.|music\.(position|remaining|percent)$)/;
+    // Live counters change constantly, so they refresh their text in place instead of re-rendering (and flashing) the whole overlay.
+    const TICKING = /^(now$|time|date|weekday|month|year|uptime|timer\.|music\.(position|remaining|percent)$|category\.|viewers?\.|chatters$|messages$)/;
     const isTicking = name => TICKING.test(name);
-    const hasTicking = value => /\{\{\s*(now|time|date|weekday|month|year|uptime|timer\.|music\.(position|remaining|percent))/.test(String(value ?? ''));
+    const hasTicking = value => /\{\{\s*(now|time|date|weekday|month|year|uptime|timer\.|music\.(position|remaining|percent)|category\.|viewers?\.|chatters|messages)/.test(String(value ?? ''));
 
     function formatMinutes(minutes) {
         const m = Math.max(0, Math.round(minutes || 0));
