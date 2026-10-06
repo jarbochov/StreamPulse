@@ -15,6 +15,7 @@
         @keyframes pg-slide-out { to { opacity: 0; transform: translate(calc(var(--pg-x, 120px) * -1), calc(var(--pg-y, 0px) * -1)); } }
         .overlay-element { position: absolute; overflow: hidden; box-sizing: border-box; white-space: pre-wrap; word-break: break-word; }
         .overlay-markdown { white-space: normal; }
+        .overlay-markdown > :first-child, .overlay-markdown > .md-col-group:first-child > :first-child > :first-child { margin-top: 0 !important; }
 .overlay-markdown li, .overlay-markdown h1, .overlay-markdown h2, .overlay-markdown h3 { break-inside: avoid; } .overlay-markdown h1, .overlay-markdown h2, .overlay-markdown h3, .overlay-markdown h4 { break-after: avoid; }
 .overlay-markdown.md-cols > *, .overlay-markdown .md-col-group > * > * { margin-top: 0; margin-bottom: .6em; } .overlay-markdown.md-cols h1, .overlay-markdown.md-cols h2, .overlay-markdown.md-cols h3, .overlay-markdown.md-cols h4, .overlay-markdown.md-cols h5, .overlay-markdown.md-cols h6 { margin-bottom: .25em; }
         .overlay-markdown.md-cols[data-span="1"] > h1 { column-span: all; margin-bottom: .4em; }
