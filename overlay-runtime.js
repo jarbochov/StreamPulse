@@ -301,12 +301,17 @@
             transitioning = false;
             if (pendingRender) { const next = pendingRender; pendingRender = null; render(next); }
         };
+        // Fresh embeds are blank until loaded, so hold the switch briefly (max 2s) until they have painted.
+        const loading = incoming.flatMap(node => [...node.querySelectorAll('iframe')]).filter(frame => {
+            try { return frame.contentDocument?.readyState !== 'complete' || frame.contentWindow.location.href === 'about:blank'; } catch { return true; }
+        });
+        const ready = loading.length ? Promise.race([Promise.all(loading.map(frame => new Promise(done => frame.addEventListener('load', done, { once: true })))), new Promise(done => setTimeout(done, 2000))]) : Promise.resolve();
         if (!ms) { finish(); return; }
-        requestAnimationFrame(() => requestAnimationFrame(() => {
+        ready.then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
             incoming.forEach(node => { slideVars(node); node.style.visibility = ''; node.style.animation = `pg-${kind}-in ${ms}ms ease both`; });
             outgoing.forEach(node => { slideVars(node); node.style.animation = `pg-${kind}-out ${ms}ms ease both`; });
             pageSwitchTimer = setTimeout(finish, ms + 30);
-        }));
+        })));
     }
 
     async function load() {
