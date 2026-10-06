@@ -159,12 +159,16 @@
 
     // A re-render mid-transition replaces every node and makes the animation jump, so it waits until the switch finishes.
     let transitioning = false, pendingRender = null;
+    // Embedded widgets (music, goals, timers) keep their iframe across re-renders so they do not reload and flash.
+    const embeds = new Map();
+    let embedsKept = new Set();
     function render(overlay) {
         if (transitioning) { pendingRender = overlay; return; }
         fitNodes.length = 0;
         currentOverlay = overlay;
         stopRandomTimers();
         slideshowsKept = new Set();
+        embedsKept = new Set();
         stopAlerts();
         tickingNodes.length = 0;
         alertNodes.length = 0;
@@ -172,10 +176,13 @@
         root.style.width = `${overlay.canvas.width}px`;
         root.style.height = `${overlay.canvas.height}px`;
         root.style.background = overlay.canvas.background || 'transparent';
-        root.replaceChildren();
         if (pagesOn(overlay) && !(overlay.pages.items || []).some(item => item.id === currentPage && item.enabled !== false)) currentPage = (overlay.pages.items.find(item => item.enabled !== false) || overlay.pages.items[0]).id;
-        for (const element of pageElements(overlay)) root.appendChild(buildNode(element));
+        const built = pageElements(overlay).map(buildNode);
+        // Moving or detaching an iframe reloads it, so kept embeds stay where they are and everything else is swapped around them.
+        [...root.children].forEach(child => { if (!built.includes(child)) child.remove(); });
+        built.forEach(node => { if (node.parentNode !== root) root.appendChild(node); });
         stopSlideshows(new Set([...slideshows.keys()].filter(id => !slideshowsKept.has(id))));
+        for (const id of [...embeds.keys()]) if (!embedsKept.has(id)) embeds.delete(id);
         refit();
     }
 
@@ -183,6 +190,11 @@
         if (element.type === 'slideshow') {
             const existing = slideshows.get(element.id);
             if (existing && existing.sig === JSON.stringify(element)) { slideshowsKept.add(element.id); existing.node.dataset.pg = element.page || ''; return existing.node; }
+        }
+        const embedSig = element.type === 'embed' ? `${JSON.stringify(element)}|${expandVariables(element.src || '')}` : '';
+        if (embedSig) {
+            const existing = embeds.get(element.id);
+            if (existing && existing.sig === embedSig) { embedsKept.add(element.id); return existing.node; }
         }
         {
             const node = document.createElement('div');
@@ -242,6 +254,7 @@
             const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : shared.elementContent(element);
             if (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource)) tickingNodes.push({ node, element });
             if (element.textFit && element.textFit !== 'none') fitNodes.push({ node, element });
+            if (embedSig) { embeds.set(element.id, { sig: embedSig, node }); embedsKept.add(element.id); }
             return node;
         }
     }
@@ -257,6 +270,7 @@
         const gone = new Set(outgoing);
         const prune = list => { for (let i = list.length - 1; i >= 0; i--) if (gone.has(list[i].node)) list.splice(i, 1); };
         [fitNodes, tickingNodes, alertNodes].forEach(prune);
+        for (const element of currentOverlay.elements || []) if (element.page === previous && element.page !== '*') embeds.delete(element.id);
         stopSlideshows(new Set((currentOverlay.elements || []).filter(element => element.page === previous && element.page !== '*').map(element => element.id)));
         for (const element of currentOverlay.elements || []) {
             if (element.page !== previous || element.page === '*') continue;

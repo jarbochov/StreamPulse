@@ -813,7 +813,7 @@
     }
     const ALERT_TRIGGER_LABELS = { follow: 'Follow', sub: 'New sub', resub: 'Resub', milestone: 'Sub milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Channel point redeem', timer: 'Timer finished', goal: 'Goal reached', chat_word: 'Chat word' };
     const sourceSignature = el => { const state = shared.textSourceState(el); return state ? [state.text, state.error] : null; };
-    const contentSignature = (el, live) => el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) : JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
+    const contentSignature = (el, live) => el.type === 'embed' ? JSON.stringify([el.type, expand(el.src)]) : el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) : JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, live]);
 
     function tickPlaceholders() {
         if (!prefs.live) return;
