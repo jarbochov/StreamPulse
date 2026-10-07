@@ -41,6 +41,7 @@ const TWITCH_CLIENT_SECRET = cleanConfigValue(config.twitch?.client_secret);
 const SSN_SESSION_ID = config.ssn?.session_id;
 const SSN_SERVER = config.ssn?.server || 'wss://io.socialstream.ninja';
 const REFRESH_MINUTES = config.twitch_refresh_minutes || 10;
+const STREAM_INFO_POLL_SECONDS = Math.max(10, config.twitch_stream_info_seconds || 30);
 const MUSIC_CONFIG = config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 };
 const VIEWER_TRACKING_CONFIG = config.viewer_tracking || { enabled: true, source: 'best_available', poll_seconds: 60, retain_samples: 720 };
 
@@ -2213,10 +2214,12 @@ async function refreshTwitchToken() {
         return true;
     } catch (err) {
         console.error('[Twitch] Token refresh failed:', err.message);
-        // Clear invalid tokens
-        twitchAccessToken = null;
-        twitchRefreshToken = null;
-        try { fs.unlinkSync(TOKEN_PATH); } catch { /* ignore */ }
+        // Only a rejection from Twitch means the token is dead; network errors keep it for the next try.
+        if (/invalid refresh token|invalid_grant|Invalid refresh|"status":40[01]/i.test(err.message)) {
+            twitchAccessToken = null;
+            twitchRefreshToken = null;
+            try { fs.unlinkSync(TOKEN_PATH); } catch { /* ignore */ }
+        }
         return false;
     }
 }
@@ -2311,7 +2314,14 @@ async function ensureToken() {
 // TWITCH API HELPERS
 // ============================================================================
 
-function twitchApiRequest(endpoint, params = {}) {
+// A 401 means the access token was revoked or expired early, so refresh once and replay.
+async function twitchApiRequest(endpoint, params = {}) {
+    const result = await twitchApiRequestOnce(endpoint, params);
+    if (result.status === 401 && twitchRefreshToken && await refreshTwitchToken()) return twitchApiRequestOnce(endpoint, params);
+    return result;
+}
+
+function twitchApiRequestOnce(endpoint, params = {}) {
     return new Promise((resolve, reject) => {
         const query = new URLSearchParams(params).toString();
         const url = `https://api.twitch.tv/helix${endpoint}${query ? '?' + query : ''}`;
@@ -7737,6 +7747,10 @@ server.listen(PORT, () => {
         }, REFRESH_MINUTES * 60 * 1000);
         console.log(`[Twitch] Auto-refresh every ${REFRESH_MINUTES} minutes`);
     }
+    // Title and category are cheap to poll, so they stay near real time.
+    setInterval(fetchStreamInfo, STREAM_INFO_POLL_SECONDS * 1000).unref();
+    // Keep the token fresh in the background so an idle server never lets it lapse.
+    setInterval(() => { if (twitchRefreshToken && Date.now() > twitchTokenExpiry - 30 * 60000) refreshTwitchToken(); }, 5 * 60000).unref();
 
     startViewerTracking();
     startLifecycleWatcher();
