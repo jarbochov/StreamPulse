@@ -144,6 +144,32 @@
         setTimeout(() => t.classList.remove('show'), 2500);
     }
 
+    function showRestartNotice() {
+        let box = document.getElementById('restart-notice');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'restart-notice';
+            box.style.cssText = 'position:fixed;left:50%;bottom:1.5rem;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:0.8rem;padding:0.7rem 1rem;border-radius:8px;background:var(--surface,#222);border:1px solid var(--border-strong,#888);box-shadow:0 6px 24px rgba(0,0,0,0.4);';
+            box.innerHTML = '<span id="restart-msg">Saved. Restart StreamPulse to apply the connection changes.</span><button type="button" class="btn" id="restart-now" style="width:auto;padding:0.3rem 0.8rem;">Restart now</button><button type="button" class="btn" id="restart-later" style="width:auto;padding:0.3rem 0.8rem;">Later</button>';
+            document.body.appendChild(box);
+            document.getElementById('restart-later').onclick = () => box.remove();
+            document.getElementById('restart-now').onclick = restartNow;
+        }
+    }
+
+    async function restartNow() {
+        const msg = document.getElementById('restart-msg');
+        document.getElementById('restart-now').disabled = true;
+        document.getElementById('restart-later').remove();
+        msg.textContent = 'Restarting...';
+        try { await fetch('/api/restart', { cache: 'no-store' }); } catch { /* connection drops while it restarts */ }
+        for (let i = 0; i < 40; i++) {
+            await new Promise(r => setTimeout(r, 1500));
+            try { const r = await fetch('/api/config', { cache: 'no-store' }); if (r.ok) { location.reload(); return; } } catch { /* still down */ }
+        }
+        msg.textContent = 'Did not come back. Start StreamPulse manually.';
+    }
+
     function escapeHtml(str) {
         const div = document.createElement('div');
         div.textContent = str || '';
@@ -1115,7 +1141,7 @@
             });
             const data = await res.json();
             if (data.status === 'saved') {
-                showToast(data.restartRequired ? 'Saved. Restart StreamPulse to apply connection changes.' : 'Config saved and applied!');
+                if (data.restartRequired) showRestartNotice(); else showToast('Config saved and applied!');
                 setTimeout(showWeatherStatus, 3000);
             } else {
                 showToast(data.error || 'Save failed');
