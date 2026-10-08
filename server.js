@@ -3902,6 +3902,14 @@ function restartServer() {
     setTimeout(launchReplacement, 1500);
 }
 
+// Release tags are "0.8" or "0.8.1" while package.json uses "0.8.0", so compare numerically.
+function sameVersion(a, b) {
+    const parts = v => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+    const x = parts(a), y = parts(b);
+    for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return false;
+    return true;
+}
+
 async function getUpdateStatus(mode = 'release') {
     let currentSha = null;
     try {
@@ -3915,7 +3923,9 @@ async function getUpdateStatus(mode = 'release') {
     }
     const release = await getJson(`https://api.github.com/repos/${UPDATE_REPOSITORY}/releases/latest`);
     if (!currentSha) {
-        return { mode, installation: 'release-folder', currentSha: null, currentLabel: 'Downloaded release folder', latestSha: release.target_commitish, latestLabel: release.tag_name, releaseName: release.name || release.tag_name, releaseUrl: release.html_url, downloadUrl: release.zipball_url, updateAvailable: true };
+        let installedVersion = '';
+        try { installedVersion = String(JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8')).version || ''); } catch {}
+        return { mode, installation: 'release-folder', currentSha: null, currentLabel: installedVersion || 'Downloaded release folder', latestSha: release.target_commitish, latestLabel: release.tag_name, releaseName: release.name || release.tag_name, releaseUrl: release.html_url, downloadUrl: release.zipball_url, updateAvailable: !installedVersion || !sameVersion(installedVersion, release.tag_name) };
     }
     let currentLabel = '';
     try {
