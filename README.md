@@ -113,9 +113,9 @@ SSN captures live chat messages, subscriptions, follows, raids, bits, and donati
 
 **Install & Configure:**
 1. Install [SocialStream Ninja](https://socialstream.ninja/) — available as a **browser extension** or a **standalone desktop app**
-2. Open SSN settings and go to **Global Settings → Mechanics**
-3. Enable **Toggle 1** (Enable remote API control)
-4. Enable **Toggle 3** (Send chat messages to API server)
+2. Open SSN settings and go to **Global Mechanics → Mechanics - Connections & Integrations**
+3. Enable **Enable remote API control**
+4. Enable **Send chat messages to API server**
 5. Note your **Session ID** — visible in the `?session=` parameter of your dock.html or featured.html URL
 6. Keep the SSN dock page open during your stream (browser tab or standalone app)
 
@@ -453,7 +453,7 @@ streampulse/
 
 ### No SSN/chat data
 1. SSN dock page must be open in a browser tab
-2. Ensure **Toggle 1** and **Toggle 3** are enabled in SSN Global Settings → Mechanics
+2. Ensure **Enable remote API control** and **Send chat messages to API server** are enabled in SSN under Global Mechanics → Mechanics - Connections & Integrations
 3. Verify `session_id` in `config.json` matches the `?session=` value in your SSN dock URL
 4. Check `http://localhost:3000/api/status` — `ssn.connected` should be `true`
 5. Test with the [SSN API Sandbox](https://socialstream.ninja/sampleapi.html) to verify messages are flowing
