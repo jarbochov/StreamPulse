@@ -628,6 +628,7 @@
             page: pagesOn() ? curPage : overlay.pages.items[0].id, src: '', x: Math.round((overlay.canvas.width - width) / 2 + offset), y: Math.round((overlay.canvas.height - height) / 2 + offset), width, height, zIndex: overlay.elements.length, visible: true,
             style: { fontFamily: 'sans-serif', fontSize: type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48, fontWeight: type === 'alert' ? '600' : '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#1f6feb' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent', borderColor: '#ffffff', borderWidth: 0, borderRadius: type === 'alert' ? 24 : 0, opacity: 1, objectFit: 'cover', shape: 'rectangle', fill: '#1f6feb', gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 }, blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' } }
         };
+        if (type === 'icon') Object.assign(data.style, { textAlign: 'center', verticalAlign: 'middle' });
         return Object.assign(data, overrides);
     }
 
@@ -761,7 +762,7 @@
             media.addEventListener('error', () => { node.replaceChildren(placeholder(`Couldn't load this ${el.type}. Check the URL or upload it again.`)); });
             node.appendChild(media);
         } else if (el.type === 'icon') {
-            shared.renderIcon(node, el.content);
+            shared.renderIcon(node, el.content, el.style);
         } else if (el.type === 'qr') {
             const url = shared.qrUrl(expand(el.src), el.qr);
             if (!url || /\{\{/.test(expand(el.src))) { node.appendChild(placeholder('Enter a link or text for the QR code')); return; }
@@ -1358,7 +1359,9 @@
             body += F.text('content', 'Font Awesome icon', el.content, 'placeholder="fa-brands fa-twitch" spellcheck="false"');
             body += `<div class="field"><span>Icon</span><button type="button" id="pick-icon">Choose icon…</button></div>`;
             body += F.color('style.color', 'Icon color', el.style.color);
-            body += '<span class="hint">The icon scales to fill its box. Resize the element to resize the icon.</span>';
+            body += `<div class="grid2">${F.seg('style.textAlign', 'Horizontal', el.style.textAlign, [['left', 'Align left', ICON.textLeft], ['center', 'Center horizontally', ICON.textCenter], ['right', 'Align right', ICON.textRight]])}${F.seg('style.verticalAlign', 'Vertical', el.style.verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>`;
+            body += `<div class="field"><span>Box</span><button type="button" id="fit-icon">Fit box to icon</button></div>`;
+            body += '<span class="hint">The icon is as tall as its box. Change the height to resize it; the width only adds space for alignment.</span>';
         }
         if (el.type === 'qr') {
             const q = el.qr || {};
@@ -1708,6 +1711,10 @@
         const alignTarget = target.closest('[data-target]');
         if (alignTarget) { prefs.alignTo = alignTarget.dataset.target; savePrefs(); alignTarget.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === alignTarget))); return; }
         if (target.closest('#open-variables')) openVariableDialog();
+        if (target.closest('#fit-icon')) {
+            const el = primary(), glyph = nodes.get(el?.id)?.querySelector('i');
+            if (el && glyph) { el.width = Math.max(LIMITS.elementW[0], Math.ceil(glyph.offsetWidth)); changed(true); renderCanvas(); renderProperties(); }
+        }
         if (target.closest('#pick-icon')) {
             const input = $('properties').querySelector('[data-path="content"]');
             IconPicker.open({ value: input?.value, onPick: cls => { if (!input) return; input.value = cls; input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); } });

@@ -214,7 +214,7 @@
                 media.style.objectFit = element.style?.objectFit || 'cover';
                 node.appendChild(media);
             } else if (element.type === 'icon') {
-                shared.renderIcon(node, element.content);
+                shared.renderIcon(node, element.content, element.style || {});
             } else if (element.type === 'qr') {
                 const img = document.createElement('img');
                 img.src = shared.qrUrl(expandVariables(element.src || ''), element.qr);

@@ -944,7 +944,7 @@
 
     // QR codes are rendered by the server as SVG, so the overlay only needs an image URL.
     // Font Awesome icon. The class list is restricted to safe characters, and the stylesheet loads on first use.
-    function renderIcon(node, value) {
+    function renderIcon(node, value, style = {}) {
         node.replaceChildren();
         const cls = String(value || '').trim().replace(/^fab\b/, 'fa-brands').replace(/^fas\b/, 'fa-solid').replace(/^far\b/, 'fa-regular');
         if (!cls) return;
@@ -956,12 +956,12 @@
         if (!/^[a-z0-9 -]+$/i.test(cls)) { node.textContent = cls.slice(0, 4); return; }
         const icon = document.createElement('i');
         icon.className = cls;
-        // Sizes to the box so the icon always fills the element, whatever its dimensions.
-        icon.style.cssText = 'font-size:80cqmin;line-height:1;display:block;';
+        // Sized to the box height; width follows the glyph, and alignment places it in the box.
+        icon.style.cssText = 'font-size:100cqh;line-height:1;display:block;flex:none;';
         node.style.containerType = 'size';
         node.style.display = 'flex';
-        node.style.alignItems = 'center';
-        node.style.justifyContent = 'center';
+        node.style.alignItems = style.verticalAlign === 'top' ? 'flex-start' : style.verticalAlign === 'bottom' ? 'flex-end' : 'center';
+        node.style.justifyContent = style.textAlign === 'left' ? 'flex-start' : style.textAlign === 'right' ? 'flex-end' : 'center';
         node.appendChild(icon);
     }
 
