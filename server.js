@@ -3729,7 +3729,8 @@ const RESTART_REQUIRED_CONFIG_PATHS = [
     'twitch.client_secret',
     'ssn.session_id',
     'ssn.server',
-    'twitch_refresh_minutes'
+    'twitch_refresh_minutes',
+    'twitch_stream_info_seconds'
 ];
 
 function getConfigPathValue(obj, dottedPath) {
@@ -5577,6 +5578,23 @@ const server = http.createServer(async (req, res) => {
                 try {
                     const updates = JSON.parse(body);
                     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+                    const previous = JSON.parse(JSON.stringify(current));
+
+                    // Connection settings are applied at startup, so they save to config.json and ask for a restart.
+                    if (typeof updates.ssn_session_id === 'string') {
+                        const id = updates.ssn_session_id.trim();
+                        if (id) {
+                            if (!/^[\w-]{1,100}$/.test(id)) throw new Error('SocialStream session ID can only contain letters, numbers, - and _');
+                            current.ssn = { ...(current.ssn || {}), session_id: id };
+                        }
+                    }
+                    const setInterval_ = (key, min, max, fallback) => {
+                        if (updates[key] === undefined) return;
+                        const value = Math.max(min, Math.min(max, Math.round(Number(updates[key])) || fallback));
+                        if (value !== (previous[key] || fallback)) current[key] = value;
+                    };
+                    setInterval_('twitch_refresh_minutes', 1, 1440, 10);
+                    setInterval_('twitch_stream_info_seconds', 10, 3600, 30);
 
                     // Only allow safe fields to be edited
                     const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals'];
@@ -5591,7 +5609,8 @@ const server = http.createServer(async (req, res) => {
 
                     console.log('[Config] Updated and hot-reloaded');
                     res.writeHead(200, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ status: 'saved', message: 'Config updated and applied' }));
+                    const restartFields = getRestartRequiredConfigChanges(previous, current);
+                    res.end(JSON.stringify({ status: 'saved', message: 'Config updated and applied', restartRequired: restartFields.length > 0, restartFields }));
                 } catch (err) {
                     res.writeHead(400, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: err.message }));
@@ -5618,7 +5637,8 @@ const server = http.createServer(async (req, res) => {
                 twitch_client_configured: !!TWITCH_CLIENT_ID,
                 twitch_auth_mode: TWITCH_CLIENT_SECRET ? 'own_app' : 'shared_device',
                 subs_source: config.subs_source || 'twitch',
-                twitch_refresh_minutes: REFRESH_MINUTES
+                twitch_refresh_minutes: REFRESH_MINUTES,
+                twitch_stream_info_seconds: STREAM_INFO_POLL_SECONDS
             },
             exclude_users: config.exclude_users || [],
             banned_users: config.banned_users || [],
