@@ -574,7 +574,7 @@
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
-                    <div class="detail-text">SSN captures live chat, subs, follows, raids, bits and donations from Twitch (and YouTube, Kick, etc.) and forwards them to StreamPulse.<br><br>1. Install <a href="https://socialstream.ninja/" style="color:var(--accent);">SocialStream Ninja</a> (browser extension or desktop app)<br>2. SSN settings → <strong>Global Mechanics → Mechanics - Connections &amp; Integrations</strong><br>3. Enable <strong>Enable remote API control</strong> and <strong>Send chat messages to API server</strong><br>4. Copy your <strong>Session ID</strong> from the <code>?session=</code> value of your dock or featured URL<br>5. Keep the SSN dock page open during your stream<br><br>Test the connection with SSN's <a href="https://socialstream.ninja/sampleapi.html" style="color:var(--accent);">API Sandbox</a>.</div>
+                    <div class="detail-text">SSN captures live chat, subs, follows, raids, bits and donations from Twitch (and YouTube, Kick, etc.) and forwards them to StreamPulse.<br><br>1. Install <a href="https://socialstream.ninja/" style="color:var(--accent);">SocialStream Ninja</a> (browser extension or desktop app)<br>2. SSN settings → <strong>Global Mechanics → Mechanics - Connections &amp; Integrations</strong><br>3. Enable <strong>Enable remote API control of extension</strong> and <strong>Send chat messages to API server</strong><br>4. Copy your <strong>Session ID</strong> from the <code>?session=</code> value of your dock or featured URL<br>5. Keep the SSN dock page open during your stream<br><br>Test the connection with SSN's <a href="https://socialstream.ninja/sampleapi.html" style="color:var(--accent);">API Sandbox</a>.</div>
                 </div>
             </div>
             <div class="card open">
@@ -645,7 +645,7 @@
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
-                    <div class="detail-text">1. The SSN dock page must be open in a browser tab<br>2. Remote API control and Send chat messages to API server enabled in SSN under Global Mechanics → Mechanics - Connections &amp; Integrations<br>3. <code>session_id</code> in <code>config.json</code> matches the dock URL <code>?session=</code><br>4. <code>/api/status</code> should show <code>ssn.connected: true</code><br>5. Try the SSN API Sandbox to confirm messages flow</div>
+                    <div class="detail-text">1. The SSN dock page must be open in a browser tab<br>2. Enable remote API control of extension and Send chat messages to API server enabled in SSN under Global Mechanics → Mechanics - Connections &amp; Integrations<br>3. <code>session_id</code> in <code>config.json</code> matches the dock URL <code>?session=</code><br>4. <code>/api/status</code> should show <code>ssn.connected: true</code><br>5. Try the SSN API Sandbox to confirm messages flow</div>
                 </div>
             </div>
             <div class="card open">
@@ -798,7 +798,7 @@
                         <div class="detail-text">
                             • Set <code>ssn.session_id</code> in config.json<br>
                             • SSN dock page must be open in a browser tab<br>
-                            • SSN Global Mechanics → Mechanics - Connections &amp; Integrations → Enable remote API control and Send chat messages to API server must be enabled<br>
+                            • SSN Global Mechanics → Mechanics - Connections &amp; Integrations → Enable remote API control of extension and Send chat messages to API server must be enabled<br>
                             • Auto-reconnects every 5 seconds if disconnected
                         </div>
                     </div>
