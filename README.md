@@ -69,6 +69,8 @@ Start the server:
 npm start
 ```
 
+Or double-click `start-streampulse.bat` (Windows) or run `./start-streampulse.sh` (macOS/Linux). They install dependencies on first run and start the server.
+
 On first run, a browser window opens for Twitch authorization. After that, the server handles everything automatically.
 
 ### 5. Add to OBS
