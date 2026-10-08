@@ -348,6 +348,8 @@ function renderCredits() {
             enabled: section?.enabled !== false,
             title: section?.title || '',
             subtitle: section?.subtitle || '',
+            image: typeof section?.image === 'string' ? section.image : '',
+            image_width: Math.min(100, Math.max(10, parseInt(section?.image_width, 10) || 60)),
             body: section?.body || '',
             columns: [1, 2, 3].includes(section?.columns) ? section.columns : 1,
             display_style: normalizeDisplayStyle(section?.display_style),
@@ -562,15 +564,18 @@ function renderCredits() {
         const subtitle = section?.subtitle || '';
         const body = String(section?.body || '').trim();
         const names = Array.isArray(section?.names) ? section.names.filter(Boolean) : [];
-        if (!title && !subtitle && !body && names.length === 0) return;
+        const image = section?.image || '';
+        const imageWidth = Math.min(100, Math.max(10, parseInt(section?.image_width, 10) || 60));
+        if (!title && !subtitle && !body && !image && names.length === 0) return;
 
         if (normalizeDisplayStyle(section?.display_style) === 'fade') {
-            pushFade(buildFadePanelHtml({ title, subtitle, body, names, columns: section?.columns }), section?.display_duration);
+            pushFade(buildFadePanelHtml({ title, subtitle, image, imageWidth, body, names, columns: section?.columns }), section?.display_duration);
             return;
         }
 
         let html = '<div class="section custom-section">';
         if (title || subtitle) html += sectionHeader(title || 'Credits', subtitle);
+        html += sectionImageHtml(image, imageWidth);
         if (body) {
             html += `<div class="custom-section-body">${formatMultilineText(body)}</div>`;
         }
@@ -586,10 +591,15 @@ function renderCredits() {
         pushScroll(html);
     }
 
-    function buildFadePanelHtml({ title = '', subtitle = '', body = '', names = [], columns = 1, className = '' }) {
+    function sectionImageHtml(image, width) {
+        return image ? `<img src="${escapeHtml(image)}" class="section-img" style="max-width:${width}%" alt="">` : '';
+    }
+
+    function buildFadePanelHtml({ title = '', subtitle = '', image = '', imageWidth = 60, body = '', names = [], columns = 1, className = '' }) {
         const cols = columns === 2 ? 'two-col' : columns === 3 ? 'three-col' : '';
         let panelHtml = `<div class="fade-panel-card${className ? ` ${className}` : ''}">`;
         if (title || subtitle) panelHtml += sectionHeader(title || 'Credits', subtitle);
+        panelHtml += sectionImageHtml(image, imageWidth);
         if (body) panelHtml += `<div class="custom-section-body">${formatMultilineText(body)}</div>`;
         if (names.length > 0) {
             panelHtml += `<div class="people-list ${cols}">`;

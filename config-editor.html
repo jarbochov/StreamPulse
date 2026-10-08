@@ -112,6 +112,7 @@
     <div class="toast" id="toast"></div>
 
     <script src="/icon-picker.js"></script>
+    <script src="/image-picker.js"></script>
     <script>
     IconPicker.ensureFont();
     (function initAppearance() {
@@ -142,6 +143,23 @@
         t.textContent = msg;
         t.classList.add('show');
         setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function updateImagePreview(input) {
+        const img = document.querySelector(`.img-preview[data-for="${input.id}"]`);
+        if (!img) return;
+        const v = input.value.trim();
+        img.style.display = v ? '' : 'none';
+        if (v) img.src = v;
+    }
+
+    function initImagePreviews() {
+        document.querySelectorAll('.img-preview').forEach(img => { const i = document.getElementById(img.dataset.for); if (i) updateImagePreview(i); });
+    }
+
+    function chooseImageFor(id) {
+        const input = document.getElementById(id);
+        ImagePicker.open({ value: input.value.trim(), onPick: url => { input.value = url; updateImagePreview(input); input.dispatchEvent(new Event('change', { bubbles: true })); } });
     }
 
     function showRestartNotice() {
@@ -210,6 +228,8 @@
             enabled: section?.enabled !== false,
             title: section?.title || '',
             subtitle: section?.subtitle || '',
+            image: typeof section?.image === 'string' ? section.image : '',
+            image_width: Math.min(100, Math.max(10, parseInt(section?.image_width, 10) || 60)),
             body: section?.body || '',
             columns: [1, 2, 3].includes(section?.columns) ? section.columns : 1,
             display_style: CREDIT_DISPLAY_STYLE_OPTIONS.includes(section?.display_style) ? section.display_style : 'scroll',
@@ -496,9 +516,11 @@
 
             <div class="cfg-section">Credits Header</div>
             <div class="cfg-row">
-                <label>Image URL</label>
-                <input type="text" id="cfg-header-image" value="${escapeHtml(cfg.credits?.header?.image || '')}">
+                <label>Image</label>
+                <input type="text" id="cfg-header-image" value="${escapeHtml(cfg.credits?.header?.image || '')}" placeholder="URL, or choose a file" oninput="updateImagePreview(this)">
+                <button type="button" class="btn" style="width:auto;margin-left:0.6rem;padding:0.2rem 0.6rem;" onclick="chooseImageFor('cfg-header-image')">Choose…</button>
             </div>
+            <img class="img-preview" data-for="cfg-header-image" alt="" style="display:none;max-width:12rem;max-height:6rem;margin:0.3rem 0 0.4rem;border:1px solid var(--border);border-radius:6px;">
             <div class="cfg-row">
                 <label>Title</label>
                 <input type="text" id="cfg-header-title" value="${escapeHtml(cfg.credits?.header?.title || '')}">
@@ -821,6 +843,16 @@
                     <button onclick="removeCustomSection(${index})" style="margin-left:auto;background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.95rem;padding:0.2rem 0.4rem;" title="Remove section">✕</button>
                 </div>
                 <div class="cfg-row">
+                    <label>Image</label>
+                    <input type="text" class="custom-section-image" id="csi-${index}" value="${escapeHtml(section.image || '')}" placeholder="optional URL, or choose a file" oninput="updateImagePreview(this)">
+                    <button type="button" class="btn" style="width:auto;margin-left:0.6rem;padding:0.2rem 0.6rem;" onclick="chooseImageFor('csi-${index}')">Choose…</button>
+                </div>
+                <img class="img-preview" data-for="csi-${index}" alt="" style="display:none;max-width:12rem;max-height:6rem;margin:0.3rem 0 0.4rem;border:1px solid var(--border);border-radius:6px;">
+                <div class="cfg-row" style="margin-top:0.5rem;">
+                    <label>Image width (%)</label>
+                    <input type="number" min="10" max="100" class="custom-section-image-width" value="${section.image_width || 60}">
+                </div>
+                <div class="cfg-row" style="margin-top:0.5rem;">
                     <label>Title</label>
                     <input type="text" class="custom-section-title" value="${escapeHtml(section.title || '')}" placeholder="Community Awards">
                 </div>
@@ -868,6 +900,7 @@
             : '<div style="font-size:0.8rem;color:var(--border-strong);padding:0.6rem 0;">No custom sections yet.</div>';
         editor.querySelectorAll('.custom-section-title').forEach(input => input.addEventListener('input', renderCreditsOrderEditor));
         renderCreditsOrderEditor();
+        initImagePreviews();
     }
 
     function toggleCustomSectionDuration(index) {
@@ -890,6 +923,8 @@
                 enabled: card.querySelector('.custom-section-enabled')?.checked !== false,
                 title: card.querySelector('.custom-section-title')?.value.trim() || '',
                 subtitle: card.querySelector('.custom-section-subtitle')?.value.trim() || '',
+                image: card.querySelector('.custom-section-image')?.value.trim() || '',
+                image_width: Math.min(100, Math.max(10, parseInt(card.querySelector('.custom-section-image-width')?.value, 10) || 60)),
                 body: card.querySelector('.custom-section-body')?.value || '',
                 columns: parseInt(card.querySelector('.custom-section-columns')?.value, 10) || 1,
                 display_style: CREDIT_DISPLAY_STYLE_OPTIONS.includes(card.querySelector('.custom-section-display-style')?.value) ? card.querySelector('.custom-section-display-style').value : 'scroll',
@@ -898,7 +933,7 @@
                     .map(input => input.value.trim())
                     .filter(Boolean)
             };
-            return (section.title || section.subtitle || section.body.trim() || section.names.length > 0) ? section : null;
+            return (section.title || section.subtitle || section.image || section.body.trim() || section.names.length > 0) ? section : null;
         }).filter(Boolean);
     }
 
@@ -913,6 +948,8 @@
             enabled: true,
             title: '',
             subtitle: '',
+            image: '',
+            image_width: 60,
             body: '',
             columns: 1,
             display_style: 'scroll',

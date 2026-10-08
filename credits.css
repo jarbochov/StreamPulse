@@ -168,6 +168,12 @@ h3 {
     font-size: 25px;
 }
 
+.section-img {
+    height: auto;
+    margin: 0 auto 30px auto;
+    display: block;
+}
+
 .header-img {
     max-width: 80%;
     height: auto;
