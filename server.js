@@ -1068,6 +1068,19 @@ function timerSoundUsers(name) {
     return users;
 }
 
+// The credits header and custom credit sections can use library images.
+function creditsAssetUsers(name) {
+    const users = [];
+    const credits = config.credits || {};
+    if (credits.header?.image && assetReferencedIn(credits.header.image, name, null)) users.push({ id: 'credits:header', name: 'Credits: header image' });
+    (credits.custom_sections || []).forEach((section, index) => {
+        if (section?.image && assetReferencedIn(section.image, name, null)) {
+            users.push({ id: `credits:${section.id || index}`, name: `Credits: ${section.label || section.title || `custom section ${index + 1}`}` });
+        }
+    });
+    return users;
+}
+
 // Game plan items can use library images as custom artwork.
 function gamePlanAssetUsers(name) {
     return loadGamePlan().items.filter(item => item.customCover && assetReferencedIn(item.customCover, name, null)).map(item => ({ id: `game:${item.id}`, name: `Game plan: ${item.name}` }));
@@ -1083,6 +1096,19 @@ function rewriteGamePlanReferences(oldName, newName) {
     }
     if (changed) fs.writeFileSync(GAME_PLAN_PATH, JSON.stringify(plan, null, 2));
     return changed;
+}
+
+function rewriteCreditsReferences(oldName, newName) {
+    const credits = config.credits;
+    if (!credits) return false;
+    const before = JSON.stringify(credits);
+    const rewritten = rewriteAssetReferences(before, oldName, newName, null, null);
+    if (rewritten === before) return false;
+    const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    current.credits = JSON.parse(rewriteAssetReferences(JSON.stringify(current.credits || {}), oldName, newName, null, null));
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
+    applyRuntimeConfig(current);
+    return true;
 }
 
 function rewriteTimerSoundReferences(oldName, newName) {
@@ -5158,7 +5184,7 @@ const server = http.createServer(async (req, res) => {
             if (!stat.isFile()) return null;
             const kind = assetKind(name);
             const family = kind === 'font' ? assetFontFamily(name) : null;
-            const usedBy = [...serialized.filter(o => assetReferencedIn(o.text, name, family)).map(({ id, name: overlayName }) => ({ id, name: overlayName })), ...timerSoundUsers(name), ...gamePlanAssetUsers(name)];
+            const usedBy = [...serialized.filter(o => assetReferencedIn(o.text, name, family)).map(({ id, name: overlayName }) => ({ id, name: overlayName })), ...timerSoundUsers(name), ...creditsAssetUsers(name), ...gamePlanAssetUsers(name)];
             return { name, kind, family, label: assetLabel(name), url: `/custom-overlay-assets/${encodeURIComponent(name)}`, size: stat.size, modifiedAt: stat.mtime.toISOString(), usedBy, tags: assetTags[name] || [], caption: assetCaptions[name] || '' };
         }).filter(Boolean).sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -5177,7 +5203,7 @@ const server = http.createServer(async (req, res) => {
         const family = assetKind(name) === 'font' ? assetFontFamily(name) : null;
 
         if (req.method === 'DELETE') {
-            const usedBy = [...Object.values(customOverlays).filter(o => assetReferencedIn(JSON.stringify(o), name, family)).map(o => o.id), ...timerSoundUsers(name).map(u => u.id), ...gamePlanAssetUsers(name).map(u => u.id)];
+            const usedBy = [...Object.values(customOverlays).filter(o => assetReferencedIn(JSON.stringify(o), name, family)).map(o => o.id), ...timerSoundUsers(name).map(u => u.id), ...creditsAssetUsers(name).map(u => u.id), ...gamePlanAssetUsers(name).map(u => u.id)];
             if (usedBy.length && new URL(req.url, 'http://localhost').searchParams.get('force') !== '1') return respond(409, { error: 'Asset is used by an overlay', usedBy });
             try { fs.unlinkSync(target); if (assetTags[name]) { delete assetTags[name]; saveAssetTags(); } if (assetCaptions[name] !== undefined) { delete assetCaptions[name]; saveAssetCaptions(); } respond(200, { deleted: name }); } catch (err) { respond(500, { error: err.message }); }
             return;
@@ -5211,6 +5237,7 @@ const server = http.createServer(async (req, res) => {
         }
         if (rewriteTimerSoundReferences(name, newName)) updated.push('timers');
         if (rewriteGamePlanReferences(name, newName)) updated.push('game-plan');
+        if (rewriteCreditsReferences(name, newName)) updated.push('credits');
         if (updated.some(id => customOverlays[id])) {
             saveCustomOverlays();
             for (const id of updated.filter(id => customOverlays[id])) broadcastToOverlays('custom-overlay-update', { id, overlay: customOverlays[id] });
