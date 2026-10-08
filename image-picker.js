@@ -21,7 +21,16 @@
 .mp-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .mp-cap { padding: 4px 6px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mp-empty { grid-column: 1 / -1; text-align: center; color: var(--text-muted, #8b949e); padding: 20px; }
-.mp-status { margin-right: auto; }`;
+.mp-status { margin-right: auto; }
+.mf { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.mf-tabs { display: inline-flex; border: 1px solid var(--border, #30363d); border-radius: 6px; overflow: hidden; align-self: flex-start; }
+.mf-tabs button { background: transparent; color: inherit; border: 0; padding: 4px 10px; cursor: pointer; font: inherit; font-size: 12px; }
+.mf-tabs button[aria-pressed=true] { background: var(--accent, #58a6ff); color: #fff; }
+.mf-body { display: flex; flex-direction: column; gap: 6px; }
+.mf-row { display: flex; gap: 6px; align-items: center; }
+.mf-row input[type=text] { flex: 1; min-width: 0; }
+.mf-hint { font-size: 11px; color: var(--text-muted, #8b949e); }
+.mf-preview { max-width: 12rem; max-height: 6rem; border: 1px solid var(--border, #30363d); border-radius: 6px; align-self: flex-start; }`;
         document.head.appendChild(style);
     }
 
@@ -93,5 +102,69 @@
         input.focus();
     }
 
-    window.ImagePicker = { open };
+    const LOCAL = '/local-file?path=';
+    const friendly = url => decodeURIComponent(String(url).split('/').pop()).replace(/^[a-z0-9]{6,}-/, '');
+
+    // Turns a hidden/text input into a three-way image source field: library, file on this computer, or web URL.
+    function mount(input) {
+        injectStyle();
+        input.type = 'hidden';
+        const host = document.createElement('div');
+        host.className = 'mf';
+        input.after(host);
+        const kindOf = v => !v ? 'library' : v.startsWith('/custom-overlay-assets/') ? 'library' : v.startsWith(LOCAL) ? 'file' : 'url';
+        let tab = kindOf(input.value);
+        const set = v => { input.value = v; input.dispatchEvent(new Event('change', { bubbles: true })); draw(); };
+
+        function draw() {
+            const v = input.value;
+            host.innerHTML = `<div class="mf-tabs">${[['library', 'Library & upload'], ['file', 'File on computer'], ['url', 'Web URL']].map(([k, l]) => `<button type="button" data-tab="${k}" aria-pressed="${tab === k}">${l}</button>`).join('')}</div><div class="mf-body"></div>`;
+            const body = host.querySelector('.mf-body');
+            if (tab === 'file') {
+                body.innerHTML = `<div class="mf-row"><input type="text" placeholder="/Users/you/Pictures/logo.png" spellcheck="false" value="${esc(v.startsWith(LOCAL) ? decodeURIComponent(v.slice(LOCAL.length)) : '')}"><button type="button" class="btn" data-browse style="width:auto;padding:0.2rem 0.6rem;">Browse…</button></div><div class="mf-hint">Uses the file in place, nothing is uploaded. If you move or delete it, the image disappears.</div>`;
+                const t = body.querySelector('input');
+                t.onchange = () => t.value.trim() && set(LOCAL + encodeURIComponent(t.value.trim()));
+                body.querySelector('[data-browse]').onclick = async e => {
+                    const b = e.currentTarget; b.disabled = true; b.textContent = 'Choosing…';
+                    try {
+                        const r = await fetch('/api/system/choose-file', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'media' }) });
+                        const d = await r.json().catch(() => ({}));
+                        if (d.path) { set(LOCAL + encodeURIComponent(d.path)); return; }
+                    } catch { /* fall through */ }
+                    b.disabled = false; b.textContent = 'Browse…';
+                };
+            } else if (tab === 'url') {
+                body.innerHTML = '<div class="mf-row"><input type="text" placeholder="https://example.com/image.png" spellcheck="false"></div>';
+                const t = body.querySelector('input');
+                t.value = kindOf(v) === 'url' ? v : '';
+                t.onchange = () => set(t.value.trim());
+            } else {
+                body.innerHTML = `<div class="mf-row"><input type="text" readonly placeholder="Nothing chosen" value="${esc(v.startsWith('/custom-overlay-assets/') ? friendly(v) : '')}"><button type="button" class="btn" data-lib style="width:auto;padding:0.2rem 0.6rem;">Library…</button><label class="btn" style="width:auto;padding:0.2rem 0.6rem;cursor:pointer;margin:0;">Upload new…<input type="file" accept="image/*" hidden></label></div><div class="mf-hint">Pick from the Asset Library or upload a new image (saved to the library).</div>`;
+                body.querySelector('[data-lib]').onclick = () => open({ value: v, onPick: set });
+                body.querySelector('input[type=file]').onchange = async e => {
+                    const f = e.target.files[0]; if (!f) return;
+                    try {
+                        const r = await fetch('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-Asset-Name': f.name }, body: f });
+                        const d = await r.json();
+                        if (r.ok) set(d.url);
+                    } catch { /* ignore */ }
+                };
+            }
+            if (v) {
+                const img = document.createElement('img');
+                img.className = 'mf-preview'; img.alt = ''; img.src = v;
+                img.onerror = () => { img.style.display = 'none'; };
+                body.appendChild(img);
+                const clear = document.createElement('button');
+                clear.type = 'button'; clear.className = 'btn'; clear.textContent = 'Remove image';
+                clear.style.cssText = 'width:auto;padding:0.15rem 0.6rem;align-self:flex-start;';
+                clear.onclick = () => set('');
+                body.appendChild(clear);
+            }
+            host.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; draw(); });
+        }
+        draw();
+    }
+
+    window.ImagePicker = { open, mount };
 })();

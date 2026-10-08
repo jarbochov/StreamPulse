@@ -145,21 +145,10 @@
         setTimeout(() => t.classList.remove('show'), 2500);
     }
 
-    function updateImagePreview(input) {
-        const img = document.querySelector(`.img-preview[data-for="${input.id}"]`);
-        if (!img) return;
-        const v = input.value.trim();
-        img.style.display = v ? '' : 'none';
-        if (v) img.src = v;
-    }
-
     function initImagePreviews() {
-        document.querySelectorAll('.img-preview').forEach(img => { const i = document.getElementById(img.dataset.for); if (i) updateImagePreview(i); });
-    }
-
-    function chooseImageFor(id) {
-        const input = document.getElementById(id);
-        ImagePicker.open({ value: input.value.trim(), onPick: url => { input.value = url; updateImagePreview(input); input.dispatchEvent(new Event('change', { bubbles: true })); } });
+        document.querySelectorAll('input[data-imagefield]').forEach(input => {
+            if (input.type !== 'hidden') ImagePicker.mount(input);
+        });
     }
 
     function showRestartNotice() {
@@ -517,10 +506,8 @@
             <div class="cfg-section">Credits Header</div>
             <div class="cfg-row">
                 <label>Image</label>
-                <input type="text" id="cfg-header-image" value="${escapeHtml(cfg.credits?.header?.image || '')}" placeholder="URL, or choose a file" oninput="updateImagePreview(this)">
-                <button type="button" class="btn" style="width:auto;margin-left:0.6rem;padding:0.2rem 0.6rem;" onclick="chooseImageFor('cfg-header-image')">Choose…</button>
+                <input type="text" id="cfg-header-image" data-imagefield value="${escapeHtml(cfg.credits?.header?.image || '')}">
             </div>
-            <img class="img-preview" data-for="cfg-header-image" alt="" style="display:none;max-width:12rem;max-height:6rem;margin:0.3rem 0 0.4rem;border:1px solid var(--border);border-radius:6px;">
             <div class="cfg-row">
                 <label>Title</label>
                 <input type="text" id="cfg-header-title" value="${escapeHtml(cfg.credits?.header?.title || '')}">
@@ -844,10 +831,8 @@
                 </div>
                 <div class="cfg-row">
                     <label>Image</label>
-                    <input type="text" class="custom-section-image" id="csi-${index}" value="${escapeHtml(section.image || '')}" placeholder="optional URL, or choose a file" oninput="updateImagePreview(this)">
-                    <button type="button" class="btn" style="width:auto;margin-left:0.6rem;padding:0.2rem 0.6rem;" onclick="chooseImageFor('csi-${index}')">Choose…</button>
+                    <input type="text" class="custom-section-image" data-imagefield value="${escapeHtml(section.image || '')}">
                 </div>
-                <img class="img-preview" data-for="csi-${index}" alt="" style="display:none;max-width:12rem;max-height:6rem;margin:0.3rem 0 0.4rem;border:1px solid var(--border);border-radius:6px;">
                 <div class="cfg-row" style="margin-top:0.5rem;">
                     <label>Image width (%)</label>
                     <input type="number" min="10" max="100" class="custom-section-image-width" value="${section.image_width || 60}">
