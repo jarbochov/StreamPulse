@@ -216,6 +216,7 @@
             id: (typeof section?.id === 'string' && section.id.trim()) ? section.id.trim() : generateCustomSectionId(),
             enabled: section?.enabled !== false,
             title: section?.title || '',
+            label: typeof section?.label === 'string' ? section.label : '',
             subtitle: section?.subtitle || '',
             image: typeof section?.image === 'string' ? section.image : '',
             image_width: Math.min(100, Math.max(10, parseInt(section?.image_width, 10) || 60)),
@@ -262,9 +263,14 @@
             ?.querySelector('.custom-section-title')
             ?.value.trim();
         if (customTitle) return customTitle;
+        const customName = [...document.querySelectorAll('.custom-section-card')]
+            .find(card => card.dataset.sectionId === id)
+            ?.querySelector('.custom-section-label')
+            ?.value.trim();
+        if (customName) return customName;
         const section = customSectionsState.find(item => item.id === id);
         if (!section) return 'Custom Section';
-        return section.title || `Custom Section ${customSectionsState.indexOf(section) + 1}`;
+        return section.title || section.label || `Custom Section ${customSectionsState.indexOf(section) + 1}`;
     }
 
     function getCreditsOrderItemKind(id) {
@@ -834,6 +840,10 @@
                     <input type="text" class="custom-section-image" data-imagefield value="${escapeHtml(section.image || '')}">
                 </div>
                 <div class="cfg-row" style="margin-top:0.5rem;">
+                    <label>Name in editor</label>
+                    <input type="text" class="custom-section-label" value="${escapeHtml(section.label || '')}" placeholder="Only used here and in the order list, not shown on screen">
+                </div>
+                <div class="cfg-row" style="margin-top:0.5rem;">
                     <label>Image width (%)</label>
                     <input type="number" min="10" max="100" class="custom-section-image-width" value="${section.image_width || 60}">
                 </div>
@@ -883,7 +893,7 @@
         editor.innerHTML = customSectionsState.length
             ? customSectionsState.map((section, index) => customSectionCard(section, index)).join('')
             : '<div style="font-size:0.8rem;color:var(--border-strong);padding:0.6rem 0;">No custom sections yet.</div>';
-        editor.querySelectorAll('.custom-section-title').forEach(input => input.addEventListener('input', renderCreditsOrderEditor));
+        editor.querySelectorAll('.custom-section-title, .custom-section-label').forEach(input => input.addEventListener('input', renderCreditsOrderEditor));
         renderCreditsOrderEditor();
         initImagePreviews();
     }
@@ -908,6 +918,7 @@
                 enabled: card.querySelector('.custom-section-enabled')?.checked !== false,
                 title: card.querySelector('.custom-section-title')?.value.trim() || '',
                 subtitle: card.querySelector('.custom-section-subtitle')?.value.trim() || '',
+                label: card.querySelector('.custom-section-label')?.value.trim() || '',
                 image: card.querySelector('.custom-section-image')?.value.trim() || '',
                 image_width: Math.min(100, Math.max(10, parseInt(card.querySelector('.custom-section-image-width')?.value, 10) || 60)),
                 body: card.querySelector('.custom-section-body')?.value || '',
@@ -933,6 +944,7 @@
             enabled: true,
             title: '',
             subtitle: '',
+            label: '',
             image: '',
             image_width: 60,
             body: '',
