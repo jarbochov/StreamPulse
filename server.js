@@ -14,6 +14,8 @@ const { createAlertEngine, TRIGGERS: ALERT_TRIGGERS, ANIM_IN: ALERT_ANIM_IN, ANI
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+// Node refuses to spawn .cmd files without a shell on Windows (EINVAL); the arguments here are fixed.
+const runNpmCi = () => execFileAsync(NPM_COMMAND, ['ci', '--omit=dev'], { cwd: __dirname, timeout: 300000, shell: process.platform === 'win32' });
 const PROCESS_STARTED_AT = new Date().toISOString();
 
 // ============================================================================
@@ -3942,7 +3944,7 @@ async function applyUpdate(mode) {
                 if (['config.json', 'data', 'node_modules'].includes(entry)) continue;
                 fs.cpSync(path.join(extractDir, root.name, entry), path.join(__dirname, entry), { recursive: true, force: true });
             }
-            await execFileAsync(NPM_COMMAND, ['ci', '--omit=dev'], { cwd: __dirname, timeout: 300000 });
+            await runNpmCi();
         } finally {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
@@ -3960,7 +3962,7 @@ async function applyUpdate(mode) {
         await execFileAsync('git', ['checkout', status.latestLabel], { cwd: __dirname });
     }
     try {
-        await execFileAsync(NPM_COMMAND, ['ci', '--omit=dev'], { cwd: __dirname, timeout: 300000 });
+        await runNpmCi();
     } catch (err) {
         throw new Error(`Dependencies failed to install: ${err.message}`);
     }
