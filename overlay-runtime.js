@@ -213,6 +213,8 @@
                 media.style.height = '100%';
                 media.style.objectFit = element.style?.objectFit || 'cover';
                 node.appendChild(media);
+            } else if (element.type === 'icon') {
+                shared.renderIcon(node, element.content);
             } else if (element.type === 'qr') {
                 const img = document.createElement('img');
                 img.src = shared.qrUrl(expandVariables(element.src || ''), element.qr);

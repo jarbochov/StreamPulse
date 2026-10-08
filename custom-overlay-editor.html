@@ -364,6 +364,7 @@
                         <button role="menuitem" data-add="markdown"><span class="glyph">M↓</span>Markdown</button>
                         <button role="menuitem" data-add="image"><span class="glyph">▨</span>Image</button>
                         <button role="menuitem" data-add="video"><span class="glyph">▶</span>Video</button>
+                        <button role="menuitem" data-add="icon"><span class="glyph">★</span>Icon</button>
                         <button role="menuitem" data-add="qr"><span class="glyph">▦</span>QR code</button>
                         <button role="menuitem" data-add="embed"><span class="glyph">⊞</span>Webpage</button>
                         <button role="menuitem" data-add="shape"><span class="glyph">■</span>Shape</button>
@@ -475,6 +476,7 @@
     <script src="/vendor/purify.min.js"></script>
     <script src="/overlay-shared.js"></script>
     <script src="/tag-chips.js"></script>
+    <script src="/icon-picker.js"></script>
     <script src="/overlay-presets.js"></script>
     <script>
 (() => {
@@ -489,7 +491,7 @@
     const MIN_SIZE = 20;
     const TYPE_META = {
         text: { label: 'Text', icon: 'T' }, 'random-text': { label: 'Random Text', icon: '↻' }, markdown: { label: 'Markdown', icon: 'M↓' },
-        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, qr: { label: 'QR Code', icon: '▦' }, shape: { label: 'Shape', icon: '■' }, progress: { label: 'Progress', icon: '▰' }, 'game-list': { label: 'Game List', icon: '▤' }, alert: { label: 'Alert Box', icon: '!' }, slideshow: { label: 'Slideshow', icon: '⧉' }
+        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, qr: { label: 'QR Code', icon: '▦' }, icon: { label: 'Icon', icon: '★' }, shape: { label: 'Shape', icon: '■' }, progress: { label: 'Progress', icon: '▰' }, 'game-list': { label: 'Game List', icon: '▤' }, alert: { label: 'Alert Box', icon: '!' }, slideshow: { label: 'Slideshow', icon: '⧉' }
     };
     const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
     const FILL_TEXT_TYPES = new Set([...TEXT_TYPES, 'game-list']);
@@ -606,12 +608,12 @@
     }
 
     function createElementData(type, overrides = {}) {
-        const sizes = { text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270], video: [640, 360], embed: [640, 360], qr: [320, 320], shape: [480, 160], progress: [480, 48], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360] };
+        const sizes = { text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270], video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: [480, 160], progress: [480, 48], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360] };
         const [width, height] = sizes[type];
         const offset = (overlay.elements.length % 6) * 24;
         const data = {
             id: uid(type), name: '', locked: false, type,
-            content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', shape: '', progress: '50', 'game-list': '', alert: '', slideshow: '' }[type],
+            content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', progress: '50', 'game-list': '', alert: '', slideshow: '' }[type],
             textFit: 'none',
             columns: 1,
             headingSpan: 6,
@@ -758,6 +760,8 @@
             if (el.type === 'video') { media.muted = true; media.loop = true; media.autoplay = true; media.playsInline = true; }
             media.addEventListener('error', () => { node.replaceChildren(placeholder(`Couldn't load this ${el.type}. Check the URL or upload it again.`)); });
             node.appendChild(media);
+        } else if (el.type === 'icon') {
+            shared.renderIcon(node, el.content);
         } else if (el.type === 'qr') {
             const url = shared.qrUrl(expand(el.src), el.qr);
             if (!url || /\{\{/.test(expand(el.src))) { node.appendChild(placeholder('Enter a link or text for the QR code')); return; }
@@ -1350,6 +1354,12 @@
             body += `<label class="field"><span>Value (percent, 0–100)</span><textarea id="prop-content" data-path="content" data-kind="text" rows="2" style="min-height:0">${esc(el.content)}</textarea><span class="hint">Use a number or a placeholder such as {{timer.&lt;id&gt;.percent}} or {{goal.&lt;id&gt;.percent}}.</span></label>`;
             body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button></div>`;
         }
+        if (el.type === 'icon') {
+            body += F.text('content', 'Font Awesome icon', el.content, 'placeholder="fa-brands fa-twitch" spellcheck="false"');
+            body += `<div class="field"><span>Icon</span><button type="button" id="pick-icon">Choose icon…</button></div>`;
+            body += F.color('style.color', 'Icon color', el.style.color);
+            body += '<span class="hint">The icon scales to fill its box. Resize the element to resize the icon.</span>';
+        }
         if (el.type === 'qr') {
             const q = el.qr || {};
             body += F.text('src', 'Link or text', el.src, 'placeholder="https://twitch.tv/yourchannel"');
@@ -1698,6 +1708,10 @@
         const alignTarget = target.closest('[data-target]');
         if (alignTarget) { prefs.alignTo = alignTarget.dataset.target; savePrefs(); alignTarget.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === alignTarget))); return; }
         if (target.closest('#open-variables')) openVariableDialog();
+        if (target.closest('#pick-icon')) {
+            const input = $('properties').querySelector('[data-path="content"]');
+            IconPicker.open({ value: input?.value, onPick: cls => { if (!input) return; input.value = cls; input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); } });
+        }
     });
     $('properties').addEventListener('change', async event => {
         if (event.target.id === 'font-upload' && event.target.files[0]) {

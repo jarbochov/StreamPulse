@@ -943,6 +943,28 @@
     }
 
     // QR codes are rendered by the server as SVG, so the overlay only needs an image URL.
+    // Font Awesome icon. The class list is restricted to safe characters, and the stylesheet loads on first use.
+    function renderIcon(node, value) {
+        node.replaceChildren();
+        const cls = String(value || '').trim().replace(/^fab\b/, 'fa-brands').replace(/^fas\b/, 'fa-solid').replace(/^far\b/, 'fa-regular');
+        if (!cls) return;
+        if (!document.querySelector('link[data-fa]')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet'; link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'; link.dataset.fa = '1';
+            document.head.appendChild(link);
+        }
+        if (!/^[a-z0-9 -]+$/i.test(cls)) { node.textContent = cls.slice(0, 4); return; }
+        const icon = document.createElement('i');
+        icon.className = cls;
+        // Sizes to the box so the icon always fills the element, whatever its dimensions.
+        icon.style.cssText = 'font-size:80cqmin;line-height:1;display:block;';
+        node.style.containerType = 'size';
+        node.style.display = 'flex';
+        node.style.alignItems = 'center';
+        node.style.justifyContent = 'center';
+        node.appendChild(icon);
+    }
+
     function qrUrl(text, qr = {}) {
         const value = String(text ?? '').trim();
         if (!value) return '';
@@ -1350,5 +1372,5 @@
         return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length, control };
     }
 
-    root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
 })(window);

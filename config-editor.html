@@ -111,7 +111,9 @@
     </div>
     <div class="toast" id="toast"></div>
 
+    <script src="/icon-picker.js"></script>
     <script>
+    IconPicker.ensureFont();
     (function initAppearance() {
         const ap = window.StreamPulseAppearance;
         const SWATCHES = ['#58a6ff', '#a371f7', '#f778ba', '#3fb950', '#d29922', '#f0883e', '#f85149', '#00e1aa'];
@@ -542,21 +544,7 @@
                 ${(social.links || []).map((link, i) => socialLinkRow(link, i)).join('')}
             </div>
             <button class="btn" onclick="addSocialLink()" style="margin-top: 0.5rem; width: auto;">＋ Add Social Link</button>
-            <div style="font-size:0.75rem;color:var(--border-strong);margin-top:0.5rem;line-height:1.6;">
-                <strong style="color:var(--text-muted);">Common icons:</strong>
-                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-twitch')" title="Click to copy">fab fa-twitch</span> ·
-                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-youtube')" title="Click to copy">fab fa-youtube</span> ·
-                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-twitter')" title="Click to copy">fab fa-twitter</span> ·
-                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-instagram')" title="Click to copy">fab fa-instagram</span> ·
-                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-tiktok')" title="Click to copy">fab fa-tiktok</span> ·
-                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-discord')" title="Click to copy">fab fa-discord</span> ·
-                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-threads')" title="Click to copy">fab fa-threads</span> ·
-                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-mastodon')" title="Click to copy">fab fa-mastodon</span> ·
-                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-github')" title="Click to copy">fab fa-github</span> ·
-                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fab fa-linkedin')" title="Click to copy">fab fa-linkedin</span> ·
-                <span style="cursor:pointer;" onclick="navigator.clipboard.writeText('fas fa-globe')" title="Click to copy">fas fa-globe</span>
-                <br>Click to copy · Or use any emoji · <a href="https://fontawesome.com/search?o=r&m=free" target="_blank" style="color:var(--accent);">Browse all FA icons ↗</a>
-            </div>
+            <div style="font-size:0.75rem;color:var(--border-strong);margin-top:0.5rem;line-height:1.6;">Click the icon button on a row to pick a Font Awesome icon, or type any emoji.</div>
 
             <div class="cfg-section">Session Lifecycle</div>
             <div class="cfg-toggle">
@@ -708,7 +696,7 @@
 
         const creditGroups = ['Credits Header', 'Fade Card Layout', 'Sections', 'Custom Credit Sections', 'Special Thanks Names', 'Closing', 'Social Links'];
         const hiddenGroups = editorSection === 'credits'
-            ? ['General', 'Viewer Tracking', 'Clip Detection', 'Connection', 'Rate Limiting']
+            ? ['General', 'Session Lifecycle', 'Viewer Tracking', 'Weather', 'Clip Detection', 'Connection', 'Rate Limiting']
             : creditGroups;
         el.querySelectorAll('.cfg-section').forEach(section => {
             const group = section.textContent.trim();
@@ -927,6 +915,22 @@
         renderCustomSectionsEditor();
     }
 
+    function socialIconPreview(icon) {
+        const v = String(icon || '').trim();
+        if (!v) return '+';
+        return v.includes(' ') ? `<i class="${escapeHtml(IconPicker.normalize(v))}"></i>` : escapeHtml(v);
+    }
+
+    function refreshSocialPreview(input) {
+        input.closest('.social-link-row').querySelector('.sl-pick').innerHTML = socialIconPreview(input.value);
+    }
+
+    function pickSocialIcon(btn) {
+        const row = btn.closest('.social-link-row');
+        const input = row.querySelector('.sl-icon');
+        IconPicker.open({ value: input.value, onPick: cls => { input.value = cls; refreshSocialPreview(input); } });
+    }
+
     function socialLinkRow(link, index) {
         return `
             <div class="social-link-row" data-index="${index}" style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--bg-raised);">
@@ -934,7 +938,8 @@
                     <button onclick="moveSocialLink(${index},-1)" style="background:none;border:none;color:var(--border-strong);cursor:pointer;font-size:0.6rem;padding:0;line-height:1;" title="Move up">▲</button>
                     <button onclick="moveSocialLink(${index},1)" style="background:none;border:none;color:var(--border-strong);cursor:pointer;font-size:0.6rem;padding:0;line-height:1;" title="Move down">▼</button>
                 </span>
-                <input type="text" class="sl-icon" value="${escapeHtml(link.icon || '')}" placeholder="fab fa-twitch or 🦋" style="width:140px;padding:0.3rem 0.5rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.8rem;">
+                <button type="button" class="sl-pick" onclick="pickSocialIcon(this)" title="Pick an icon" aria-label="Pick an icon" style="width:2.1rem;height:2.1rem;flex:none;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer;font-size:1rem;">${socialIconPreview(link.icon)}</button>
+                <input type="text" class="sl-icon" oninput="refreshSocialPreview(this)" value="${escapeHtml(link.icon || '')}" placeholder="fab fa-twitch or 🦋" style="width:140px;padding:0.3rem 0.5rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.8rem;">
                 <input type="text" class="sl-handle" value="${escapeHtml(link.handle || '')}" placeholder="username" style="flex:1;padding:0.3rem 0.5rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.8rem;">
                 <button onclick="removeSocialLink(this)" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:1rem;padding:0.2rem 0.4rem;" title="Remove">✕</button>
             </div>`;

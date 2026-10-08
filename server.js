@@ -96,7 +96,7 @@ const isLoopbackRequest = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includ
 const TEXT_SOURCE_TYPES = new Set(['text', 'random-text', 'markdown']);
 const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
 const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert', 'slideshow']);
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert', 'slideshow', 'icon']);
 let customOverlays = {};
 
 function sanitizeOverlayId(value) {
@@ -4650,22 +4650,53 @@ function processChatMessage(msg) {
     }
 }
 
+let ssnAttempts = 0;
+
 function connectSSN() {
     if (!SSN_SESSION_ID) {
         console.warn('[SSN] No session_id in config.json — chat collection disabled');
         return;
     }
 
+    clearTimeout(ssnReconnectTimer);
     console.log(`[SSN] Connecting to ${SSN_SERVER}...`);
-    ssnSocket = new WebSocket(SSN_SERVER);
+    let socket;
+    try {
+        socket = new WebSocket(SSN_SERVER, { handshakeTimeout: 15000 });
+    } catch (err) {
+        console.error(`[SSN] Could not start connection: ${err.message}`);
+        scheduleSSNReconnect();
+        return;
+    }
+    ssnSocket = socket;
 
-    ssnSocket.on('open', () => {
+    // A sleeping Mac or dropped network can leave the socket half-open with no close event,
+    // so ping regularly and drop the connection if nothing at all comes back.
+    let lastHeard = Date.now();
+    let watchdog = null;
+    let closed = false;
+    const heard = () => { lastHeard = Date.now(); };
+
+    socket.on('open', () => {
+        ssnAttempts = 0;
+        heard();
         console.log(`[SSN] Connected! Joining session: ${SSN_SESSION_ID}`);
-        ssnSocket.send(JSON.stringify({ join: SSN_SESSION_ID, in: 4, out: 3 }));
+        socket.send(JSON.stringify({ join: SSN_SESSION_ID, in: 4, out: 3 }));
         console.log('[SSN] Listening for chat messages...');
+        watchdog = setInterval(() => {
+            if (Date.now() - lastHeard > 60000) {
+                console.warn('[SSN] No response for 60s — reconnecting');
+                socket.terminate();
+                return;
+            }
+            try { socket.ping(); } catch { /* socket closing */ }
+        }, 20000);
     });
 
-    ssnSocket.on('message', (raw) => {
+    socket.on('pong', heard);
+
+    socket.on('message', (raw) => {
+        heard();
         try {
             let msg = JSON.parse(raw.toString());
             if (msg.overlayNinja) msg = msg.overlayNinja;
@@ -4674,17 +4705,28 @@ function connectSSN() {
         } catch { /* ignore parse errors */ }
     });
 
-    ssnSocket.on('error', (err) => {
+    socket.on('error', (err) => {
         console.error(`[SSN] Error: ${err.message}`);
     });
 
-    ssnSocket.on('close', () => {
-        console.log('[SSN] Disconnected. Reconnecting in 3s...');
+    socket.on('close', () => {
+        if (closed) return;
+        closed = true;
+        clearInterval(watchdog);
+        if (ssnSocket !== socket) return;
         saveChatData();
         saveChatLog();
-        clearTimeout(ssnReconnectTimer);
-        ssnReconnectTimer = setTimeout(connectSSN, 3000);
+        scheduleSSNReconnect();
     });
+}
+
+// Backs off from 3s up to 30s, and never gives up.
+function scheduleSSNReconnect() {
+    ssnAttempts++;
+    const delay = Math.min(30000, 3000 * Math.pow(2, Math.min(ssnAttempts - 1, 4)));
+    console.log(`[SSN] Disconnected. Reconnecting in ${Math.round(delay / 1000)}s...`);
+    clearTimeout(ssnReconnectTimer);
+    ssnReconnectTimer = setTimeout(connectSSN, delay);
 }
 
 // ============================================================================
@@ -5626,7 +5668,7 @@ const server = http.createServer(async (req, res) => {
             memory: process.memoryUsage(),
             ssn: {
                 connected: ssnSocket?.readyState === WebSocket.OPEN,
-                session: SSN_SESSION_ID || null,
+                session: SSN_SESSION_ID ? 'configured' : null,
                 messages: chatData.messageCount,
                 chatters: Object.keys(chatData.chatters).length,
                 emotes: Object.keys(chatData.emotes).length,

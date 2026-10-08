@@ -556,7 +556,7 @@
         setDot('dot-server', 'green');
         setText('uptime', formatUptime(data.uptime));
         setText('memory', `${Math.round((data.memory?.rss || 0) / 1048576)} MB`);
-        if (ssn.connected) { setDot('dot-ssn', 'green'); setText('ssn-status', `Connected (${ssn.session})`); }
+        if (ssn.connected) { setDot('dot-ssn', 'green'); setText('ssn-status', 'Connected'); }
         else if (ssn.session) { setDot('dot-ssn', 'red'); setText('ssn-status', 'Disconnected'); }
         else { setDot('dot-ssn', 'yellow'); setText('ssn-status', 'Not configured'); }
         setDot('dot-twitch', data.twitch?.hasToken ? 'green' : 'red');
