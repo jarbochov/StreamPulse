@@ -5614,6 +5614,7 @@ const server = http.createServer(async (req, res) => {
                 broadcaster_id: config.broadcaster_id || null,
                 ssn_server: config.ssn?.server || null,
                 ssn_session_configured: !!config.ssn?.session_id,
+                ssn_session_id: config.ssn?.session_id || '',
                 twitch_client_configured: !!TWITCH_CLIENT_ID,
                 twitch_auth_mode: TWITCH_CLIENT_SECRET ? 'own_app' : 'shared_device',
                 subs_source: config.subs_source || 'twitch',

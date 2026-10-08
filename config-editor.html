@@ -633,11 +633,11 @@
                 ['Broadcaster', conn.broadcaster_name ? `${conn.broadcaster_name}${conn.broadcaster_id ? ' (' + conn.broadcaster_id + ')' : ''}` : '—'],
                 ['Port', conn.port],
                 ['SocialStream server', conn.ssn_server || '—'],
-                ['SocialStream session', conn.ssn_session_configured ? 'Configured' : 'Not set'],
+                ['SocialStream session', conn.ssn_session_id ? 'SSN_SESSION' : 'Not set'],
                 ['Twitch app credentials', conn.twitch_client_configured ? 'Configured' : 'Not set'],
                 ['Subscriber source', conn.subs_source],
                 ['Twitch refresh', `every ${conn.twitch_refresh_minutes} min`]
-            ].map(([k, v]) => `<div class="cfg-row"><label style="min-width:11rem;">${k}</label><span style="color:var(--text);font-size:0.85rem;">${escapeHtml(String(v ?? '—'))}</span></div>`).join('')}
+            ].map(([k, v]) => `<div class="cfg-row"><label style="min-width:11rem;">${k}</label>${v === 'SSN_SESSION' ? `<span id="ssn-session-value" data-secret="${escapeHtml(conn.ssn_session_id)}" style="color:var(--text);font-size:0.85rem;font-family:monospace;">••••••••••</span><button type="button" class="btn" id="ssn-session-toggle" onclick="toggleSsnSession()" style="width:auto;margin-left:0.6rem;padding:0.2rem 0.6rem;">Show</button>` : `<span style="color:var(--text);font-size:0.85rem;">${escapeHtml(String(v ?? '—'))}</span>`}</div>`).join('')}
 
             <div class="cfg-section">Rate Limiting</div>
             <div class="cfg-toggle">
@@ -702,6 +702,7 @@
             const group = section.textContent.trim();
             section.parentElement.hidden = hiddenGroups.includes(group);
         });
+        document.getElementById('appearance-card').hidden = editorSection === 'credits';
         document.querySelector('.header h1 span').textContent = editorSection === 'credits' ? 'Credits' : 'Config';
         document.querySelector('#config-editor').closest('.card').querySelector('h2').textContent = editorSection === 'credits' ? 'Credits Editor' : 'Config Editor';
         document.getElementById('top-save-config').textContent = editorSection === 'credits' ? '💾 Save Credits' : '💾 Save Config';
@@ -913,6 +914,14 @@
         if (target < 0 || target >= names.length) return;
         [names[nameIndex], names[target]] = [names[target], names[nameIndex]];
         renderCustomSectionsEditor();
+    }
+
+    function toggleSsnSession() {
+        const value = document.getElementById('ssn-session-value');
+        const button = document.getElementById('ssn-session-toggle');
+        const hidden = button.textContent === 'Show';
+        value.textContent = hidden ? value.dataset.secret : '••••••••••';
+        button.textContent = hidden ? 'Hide' : 'Show';
     }
 
     function socialIconPreview(icon) {
