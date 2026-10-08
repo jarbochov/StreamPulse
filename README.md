@@ -33,16 +33,14 @@ Go to the [Releases page](https://github.com/jarbochov/streampulse/releases) and
 
 ### 3. Set up credentials
 
-Before starting, you'll need a **Twitch Application** and **SocialStream Ninja** configured (see [Prerequisites](#prerequisites) below).
+Before starting, you'll need a **SocialStream Ninja** session ID (see [Prerequisites](#prerequisites) below). Twitch is connected from inside StreamPulse, so you don't need a Twitch developer app.
 
 Open the `streampulse` folder and:
 
 1. Make a copy of `config.example.json` and name it `config.json`
 2. Open `config.json` in any text editor and fill in your credentials:
-   - `broadcaster_id` — Your Twitch numeric ID (look it up at [streamscharts.com/tools/convert-username](https://streamscharts.com/tools/convert-username))
-   - `broadcaster_name` — Your Twitch username
-   - `client_id` and `client_secret` — From your Twitch application (see [Prerequisites](#prerequisites))
-   - `session_id` — Your SSN Session ID
+   - `session_id` — Your SSN Session ID (you can also set it later in the Config Editor)
+   - Twitch is optional here. Leave `broadcaster_id`, `broadcaster_name` and the `twitch` fields blank and connect from the app in the next step. Only fill them in if you want to use your own Twitch application (see [Twitch](#twitch-application))
 
 ### 4. Install and run
 
@@ -71,7 +69,7 @@ npm start
 
 Or double-click `start-streampulse.bat` (Windows) or run `./start-streampulse.sh` (macOS/Linux). They install dependencies on first run and start the server.
 
-On first run, a browser window opens for Twitch authorization. After that, the server handles everything automatically.
+On first run, open `http://localhost:3000/twitch-connect.html`, click **Connect with Twitch**, enter the code on twitch.tv and approve. Your Twitch ID and username are filled in automatically, and the token is refreshed in the background from then on.
 
 ### 5. Add to OBS
 
@@ -125,19 +123,14 @@ SSN captures live chat messages, subscriptions, follows, raids, bits, and donati
 
 ### Twitch Application
 
-A Twitch app provides subscriber, follower, and bits data via the Twitch API.
+**You don't need to create one.** StreamPulse ships with a built-in Twitch connection. Start it, open `http://localhost:3000/twitch-connect.html`, click **Connect with Twitch**, enter the code on twitch.tv and approve. This provides subscriber, follower, and bits data, and fills in your Twitch ID and username automatically. Leave the `twitch` fields in `config.json` blank.
 
-Clip creation in **Clips (Beta)** requires `clips:edit` for live clips. VOD clip creation requires broadcaster authorization with `channel:manage:clips` (or editor authorization with `editor:manage:clips`). If StreamPulse was authorized before VOD clipping was enabled, visit `/auth/twitch` again to refresh the saved token with the new permissions.
+Clip creation in **Clips (Beta)** requires `clips:edit` for live clips. VOD clip creation requires broadcaster authorization with `channel:manage:clips` (or editor authorization with `editor:manage:clips`). If StreamPulse was authorized before VOD clipping was enabled, reconnect from the Twitch connect page to refresh the saved token with the new permissions.
 
-**Create your app:**
+**Optional: use your own Twitch app** (for example if you host StreamPulse somewhere other than localhost):
 1. Go to [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) and create a new application
-2. Set the **OAuth Redirect URL** to the exact address StreamPulse uses:
-   - `http://localhost:3000/auth/callback`
-3. Note your **Client ID** and **Client Secret**
-
-> **Easiest option:** skip this and leave the `twitch` fields blank. Start StreamPulse, open `http://localhost:3000/twitch-connect.html`, click **Connect with Twitch**, enter the code on twitch.tv and approve. Your Twitch ID and username are filled in automatically.
-
-If StreamPulse is intentionally hosted somewhere other than localhost, set `twitch.redirect_uri` in `config.json` to the exact URL registered in Twitch.
+2. Set the **OAuth Redirect URL** to the exact address StreamPulse uses (`http://localhost:3000/auth/callback`, or the value of `twitch.redirect_uri`)
+3. Put the **Client ID** and **Client Secret** in `config.json`:
 
 ```json
 "twitch": {
@@ -169,7 +162,7 @@ If StreamPulse is intentionally hosted somewhere other than localhost, set `twit
 - **Hashtag Tracking** — Live hashtag overlays with moderation plus a dedicated sortable admin stats page
 - **Dashboard** — Server status, session stats, message volume chart, and quick actions
 - **Fully Configurable** — All sections, titles, social links, and options editable via web UI or `config.json`
-- **Twitch OAuth** — Browser-based authorization with automatic token refresh
+- **Twitch Connect** — Built-in device-code sign-in (no Twitch developer app needed) with automatic background token refresh
 - **WebSocket Push** — Live data pushed to overlays in real-time
 - **Session Lifecycle** — End/start session endpoints for Companion integration
 - **Backup & Restore** — Download full data backups as ZIP, including the current live session, and restore them with restart guidance when connection settings changed
@@ -225,12 +218,9 @@ Copy `config.example.json` to `config.json` and fill in your credentials:
 ```json
 {
   "port": 8080,
-  "broadcaster_id": "YOUR_BROADCASTER_ID",
-  "broadcaster_name": "YOUR_TWITCH_USERNAME",
-  "twitch": {
-    "client_id": "YOUR_TWITCH_CLIENT_ID",
-    "client_secret": "YOUR_TWITCH_CLIENT_SECRET"
-  },
+  "broadcaster_id": "",
+  "broadcaster_name": "",
+  "twitch": {},
   "ssn": {
     "session_id": "YOUR_SSN_SESSION_ID",
     "server": "wss://io.socialstream.ninja"
@@ -238,7 +228,7 @@ Copy `config.example.json` to `config.json` and fill in your credentials:
 }
 ```
 
-All other settings can be edited live via the [Config Editor](http://localhost:3000/config-editor.html) — no restart needed.
+All other settings can be edited via the [Config Editor](http://localhost:3000/config-editor.html). Most apply immediately; the SocialStream session and Twitch polling intervals need a restart, and the editor offers a **Restart now** button when you change them.
 
 ### Key Options
 
@@ -247,7 +237,8 @@ All other settings can be edited live via the [Config Editor](http://localhost:3
 | `port` | number | `8080` | HTTP server port |
 | `broadcaster_id` | string | | Your Twitch numeric broadcaster ID |
 | `broadcaster_name` | string | | Your Twitch username (filtered from sub/follower lists) |
-| `twitch_refresh_minutes` | number | `10` | Auto-refresh interval for Twitch API data |
+| `twitch_refresh_minutes` | number | `10` | Auto-refresh interval for Twitch API data (followers, subs, clips) |
+| `twitch_stream_info_seconds` | number | `30` | How often the stream title and category are polled |
 | `days_filter` | number | `30` | Only show followers from last N days |
 | `active_subs_only` | boolean | `false` | Only show subscribers who chatted this stream |
 | `exclude_users` | array | `[]` | Usernames to exclude from all data (case-insensitive) |
@@ -468,9 +459,8 @@ streampulse/
 5. Test with the [SSN API Sandbox](https://socialstream.ninja/sampleapi.html) to verify messages are flowing
 
 ### Twitch API errors (401)
-- Visit `/auth/twitch` on the same host where StreamPulse is running to re-authorize
-- Ensure the configured `twitch.redirect_uri` is registered exactly as an OAuth Redirect URL
-- Verify `client_id` and `client_secret` in `config.json`
+- Open `/twitch-connect.html` on the same host where StreamPulse is running and reconnect
+- If you use your own Twitch app: ensure `twitch.redirect_uri` is registered exactly as an OAuth Redirect URL, and verify `client_id` and `client_secret` in `config.json`
 
 ### Credits not loading
 
