@@ -566,7 +566,18 @@
         setText('overlay-clients', data.overlayClients);
 
         setDot('dot-conn', 'green');
-        setHtml('conn-text', `<strong>${data.sessionActive ? 'Session live' : 'Session ended'}</strong>${data.startedAt ? ' · started ' + new Date(data.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}`);
+        const clock = iso => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const dayClock = iso => (new Date(iso).toDateString() === new Date().toDateString() ? '' : new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ') + clock(iso);
+        let sessionText;
+        if (data.sessionPhase === 'waiting') {
+            sessionText = `<strong>Waiting for stream</strong>${data.lastSessionEndedAt ? ' · last session ended ' + dayClock(data.lastSessionEndedAt) : ''}`;
+        } else if (data.sessionPhase === 'ended') {
+            sessionText = `<strong>Session ended</strong>${data.lastSessionEndedAt ? ' · ' + dayClock(data.lastSessionEndedAt) : ''}`;
+        } else {
+            const since = data.streamStartedAt || data.startedAt;
+            sessionText = `<strong>Session live</strong>${since ? (data.streamStartedAt ? ' · live since ' : ' · started ') + dayClock(since) : ''}`;
+        }
+        setHtml('conn-text', sessionText);
 
         setText('stat-messages', fmt(ssn.messages));
         setText('stat-chatters', fmt(ssn.chatters));

@@ -2737,6 +2737,13 @@ function getLifecycleStatus() {
     };
 }
 
+// "waiting" means auto sessions are on and nothing has happened yet, so the empty session's start time (usually just when the server booted) is not meaningful.
+function getSessionPhase() {
+    const cfg = normalizeLifecycleConfig(config.session_lifecycle);
+    if (cfg.auto && !sessionHasData() && !lifecycle.liveStreak) return 'waiting';
+    return sessionActive ? 'active' : 'ended';
+}
+
 function startLifecycleWatcher() {
     if (lifecycle.timer) clearInterval(lifecycle.timer);
     const cfg = normalizeLifecycleConfig(config.session_lifecycle);
@@ -5787,6 +5794,9 @@ const server = http.createServer(async (req, res) => {
             overlayClients: overlayClients.size,
             sessionActive,
             lifecycle: getLifecycleStatus(),
+            sessionPhase: getSessionPhase(),
+            streamStartedAt: normalizeViewerStats(chatData.viewerStats).streamStartedAt || null,
+            lastSessionEndedAt: lifecycleMemo.lastArchive?.endedAt ? new Date(lifecycleMemo.lastArchive.endedAt).toISOString() : null,
             startedAt: chatData.startedAt,
             hourlyMessages: chatData.hourlyMessages,
             streamInfo: chatData.streamInfo,
