@@ -2614,6 +2614,9 @@ function endSessionNow({ endedAtIso = null, discard = false } = {}) {
         }
     }
     const streamEndedAt = finalizeSessionStreamEnd();
+    // Close the last category entry at the real stream end so grace/offline time isn't counted
+    const lastInfo = chatData.streamInfo?.[chatData.streamInfo.length - 1];
+    if (lastInfo && streamEndedAt) lastInfo.endedAt = streamEndedAt;
     saveChatData();
     saveStats();
     saveChatLog();
@@ -2649,6 +2652,9 @@ function resumeArchivedSession(name) {
     loadCurrentSessionStateFromDisk();
     // Keep the original stream start so reconnects don't shorten the session
     chatData.viewerStats = normalizeViewerStats({ ...chatData.viewerStats, live: true, streamEndedAt: null });
+    // Restart category timing from now so the offline gap isn't counted
+    const lastInfo = chatData.streamInfo?.[chatData.streamInfo.length - 1];
+    if (lastInfo?.endedAt) chatData.streamInfo.push({ title: lastInfo.title, category: lastInfo.category, changedAt: new Date().toISOString() });
     sessionActive = true;
     broadcastSessionState();
     return true;
@@ -4927,11 +4933,14 @@ async function generatePdf(htmlContent) {
 let statusHeavyCache = null;
 
 // Minutes spent in each category by one session's stream-info history.
-function categoryMinutesFor(streamInfo, endMs) {
+function categoryMinutesFor(streamInfo, endMs, startFloorMs = null) {
     const minutes = {};
     (streamInfo || []).forEach((entry, i) => {
-        const start = Date.parse(entry.changedAt);
-        const end = i + 1 < streamInfo.length ? Date.parse(streamInfo[i + 1].changedAt) : endMs;
+        let start = Date.parse(entry.changedAt);
+        let end = i + 1 < streamInfo.length ? Date.parse(streamInfo[i + 1].changedAt) : endMs;
+        const closedAt = Date.parse(entry.endedAt || '');
+        if (Number.isFinite(closedAt) && closedAt < end) end = closedAt;
+        if (Number.isFinite(startFloorMs) && start < startFloorMs) start = startFloorMs;
         if (!Number.isFinite(start) || !Number.isFinite(end)) return;
         const name = entry.category || '(No Category)';
         minutes[name] = (minutes[name] || 0) + Math.max(0, end - start) / 60000;
@@ -4946,7 +4955,8 @@ function archivedCategoryMinutes() {
         try {
             const data = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
             const endMs = Date.parse(data.lastUpdated || data.startedAt);
-            for (const [name, minutes] of Object.entries(categoryMinutesFor(data.streamInfo, endMs))) totals[name] = (totals[name] || 0) + minutes;
+            const floor = Date.parse(data.viewerStats?.streamStartedAt || '');
+            for (const [name, minutes] of Object.entries(categoryMinutesFor(data.streamInfo, endMs, floor))) totals[name] = (totals[name] || 0) + minutes;
         } catch {}
     }
     return totals;
@@ -4956,7 +4966,8 @@ function currentCategoryStats(archivedTotals) {
     const info = chatData.streamInfo || [];
     const name = info.length ? (info[info.length - 1].category || '(No Category)') : '';
     if (!name) return { name: '', sessionMinutes: 0, totalMinutes: 0 };
-    const sessionMinutes = categoryMinutesFor(info, Date.now())[name] || 0;
+    const floor = Date.parse(normalizeViewerStats(chatData.viewerStats).streamStartedAt || '');
+    const sessionMinutes = categoryMinutesFor(info, Date.now(), floor)[name] || 0;
     return { name, sessionMinutes: Math.round(sessionMinutes), totalMinutes: Math.round((archivedTotals[name] || 0) + sessionMinutes) };
 }
 const server = http.createServer(async (req, res) => {
