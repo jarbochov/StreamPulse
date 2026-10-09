@@ -5517,6 +5517,29 @@ const server = http.createServer(async (req, res) => {
         return respond(200, pageSnapshot(overlay));
     }
 
+    if (pathname === '/api/slideshows' && req.method === 'GET') {
+        const slideshows = [];
+        for (const overlay of Object.values(customOverlays)) {
+            for (const element of overlay.elements || []) {
+                if (element.type !== 'slideshow') continue;
+                const live = slideshowStates.get(`${overlay.id}::${element.id}`);
+                slideshows.push({
+                    overlayId: overlay.id,
+                    overlayName: overlay.name,
+                    elementId: element.id,
+                    name: element.name || element.id,
+                    live: !!live,
+                    paused: live ? live.paused : null,
+                    position: live ? live.position : 0,
+                    count: live ? live.count : 0
+                });
+            }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ slideshows }));
+        return;
+    }
+
     const slideshowControlMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/slideshow$/);
     if (slideshowControlMatch && req.method === 'POST') {
         const respond = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
@@ -7768,6 +7791,7 @@ console.log('============================================');
 // WebSocket server for live overlay push
 const overlayWss = new WebSocket.Server({ server });
 const overlayClients = new Set();
+const slideshowStates = new Map();
 
 overlayWss.on('connection', (ws) => {
     overlayClients.add(ws);
@@ -7790,7 +7814,20 @@ overlayWss.on('connection', (ws) => {
         ws.send(JSON.stringify({ type: 'overlay-visibility', data: { visible: false } }));
     }
 
+    // Overlay pages report slideshow state so controllers can show play/pause and position
+    ws.on('message', (raw) => {
+        try {
+            const msg = JSON.parse(raw);
+            if (msg.type !== 'slideshow-state' || !msg.id || !msg.element) return;
+            const key = `${String(msg.id).slice(0, 80)}::${String(msg.element).slice(0, 80)}`;
+            slideshowStates.set(key, { paused: !!msg.paused, position: Number(msg.position) || 0, count: Number(msg.count) || 0, at: Date.now() });
+            ws.slideshowKeys = ws.slideshowKeys || new Set();
+            ws.slideshowKeys.add(key);
+        } catch { /* ignore malformed overlay messages */ }
+    });
+
     ws.on('close', () => {
+        for (const key of ws.slideshowKeys || []) slideshowStates.delete(key);
         overlayClients.delete(ws);
         console.log(`[WS] Overlay client disconnected (${overlayClients.size} total)`);
     });

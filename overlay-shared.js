@@ -1311,6 +1311,7 @@
             if (!slide || stopped || mine !== token) return schedule(config.seconds * 1000);
             const old = current;
             current = slide;
+            emitState();
             stage.appendChild(slide.layer);
             const ms = frozen || !old ? 0 : config.transitionMs;
             if (ms && config.transition === 'fade') {
@@ -1333,6 +1334,11 @@
                 slide.media.addEventListener('ended', () => schedule(0), { once: true });
                 schedule(Math.max(config.seconds, 600) * 1000);
             } else schedule(config.seconds * 1000);
+        }
+
+        // Lets StreamPulse report slideshow state (for Companion and other controllers)
+        function emitState() {
+            if (options.onState) options.onState({ paused, position: Math.max(0, position) + 1, count: items.length });
         }
 
         function schedule(ms) {
@@ -1366,8 +1372,8 @@
             if (stopped || !items.length) return;
             if (action === 'toggle') action = paused ? 'play' : 'pause';
             if (action === 'next' || action === 'prev') { clearTimeout(timer); show(action === 'prev' ? -1 : 1); }
-            else if (action === 'pause') { paused = true; clearTimeout(timer); timer = null; }
-            else if (action === 'play') { paused = false; if (!timer) schedule(config.seconds * 1000); }
+            else if (action === 'pause') { paused = true; clearTimeout(timer); timer = null; emitState(); }
+            else if (action === 'play') { paused = false; if (!timer) schedule(config.seconds * 1000); emitState(); }
         };
         return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length, control };
     }

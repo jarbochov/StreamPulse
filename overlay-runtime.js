@@ -239,7 +239,7 @@
                 randomTimers.set(element.id, setInterval(() => setRandomText(node, element), interval));
             } else if (element.type === 'slideshow') {
                 slideshows.get(element.id)?.handle.stop();
-                slideshows.set(element.id, { sig: JSON.stringify(element), node, handle: shared.mountSlideshow(node, element) });
+                slideshows.set(element.id, { sig: JSON.stringify(element), node, handle: shared.mountSlideshow(node, element, { onState: state => reportSlideshow(element.id, state) }) });
                 slideshowsKept.add(element.id);
             } else if (element.type === 'game-list') {
                 shared.renderGameList(node, element, liveStatus.gamePlan);
@@ -355,9 +355,15 @@
         } catch {}
     }
 
+    let liveSocket = null;
+    function reportSlideshow(elementId, state) {
+        if (liveSocket && liveSocket.readyState === WebSocket.OPEN) liveSocket.send(JSON.stringify({ type: 'slideshow-state', id: overlayId, element: elementId, ...state }));
+    }
+
     function connect() {
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
         const socket = new WebSocket(`${protocol}//${location.host}`);
+        liveSocket = socket;
         socket.addEventListener('message', event => {
             try {
                 const message = JSON.parse(event.data);
