@@ -77,10 +77,11 @@
         <div class="card full-width">
             <h2>Build Custom Overlay URLs</h2>
             <p class="info-text">
-                Customize each OBS overlay source independently using URL parameters. The base overlay reads from your
-                <a href="/music-editor.html" style="color:var(--accent);">saved settings</a> — parameters here <strong>override</strong>
-                individual values per-source. Only changed parameters are added to the URL.
+                Each OBS music source is defined by its URL, so you can run different looks in different scenes.
+                Only changed parameters are added. Anything left out falls back to your
+                <a href="/music-editor.html" style="color:var(--accent);">default theme</a>.
             </p>
+            <button class="btn" type="button" onclick="loadSavedTheme()">Start from default theme</button>
         </div>
 
         <!-- Mode & Sizing -->
@@ -496,6 +497,21 @@
         const toast = document.getElementById('copy-toast');
         toast.classList.add('show');
         setTimeout(() => toast.classList.remove('show'), 1500);
+    }
+
+    async function loadSavedTheme() {
+        const cfg = await (await fetch('/api/config')).json();
+        const t = (cfg.music || {}).theme || {};
+        const set = (id, v) => { const el = document.getElementById(id); if (el && v != null && v !== '') el.value = v; };
+        const fontEl = document.getElementById('wiz-font');
+        if ([...fontEl.options].some(o => o.value === t.font_family)) fontEl.value = t.font_family;
+        set('wiz-textColor', t.text_color); set('wiz-accentColor', t.accent_color);
+        set('wiz-bgColor', t.bg_color); set('wiz-scrimColor', t.art_scrim_color);
+        if (t.font_scale) { set('wiz-fontScale', t.font_scale); document.getElementById('wiz-fontScale-val').textContent = t.font_scale + '×'; }
+        if (t.art_brightness) { set('wiz-artBrightness', t.art_brightness); document.getElementById('wiz-artBrightness-val').textContent = Math.round(t.art_brightness * 100) + '%'; }
+        if (t.art_blur != null) { set('wiz-artBlur', t.art_blur); document.getElementById('wiz-artBlur-val').textContent = t.art_blur + 'px'; }
+        document.getElementById('wiz-persist').checked = !!t.art_persist_info;
+        onWizChange();
     }
 
     function resetWizard() {

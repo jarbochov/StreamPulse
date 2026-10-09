@@ -61,7 +61,7 @@
             { label: 'Assets', href: '/assets.html' },
             { label: 'Timers', href: '/timers-editor.html' },
             { label: 'Alerts (Beta)', href: '/alerts.html' },
-            { label: 'Music (Beta)', href: '/music-editor.html' },
+            { label: 'Music Settings (Beta)', href: '/music-editor.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html' },
             { heading: 'System' },
             { label: 'Config', href: '/config-editor.html' },
