@@ -12,6 +12,29 @@
         return COLOR.test(value) ? value : '';
     }
 
+    // Font families offered in the wizard; mirrors the custom overlay editor's font list.
+    const SYSTEM_FONTS = ['Arial', 'Helvetica', 'Georgia', 'Impact', 'Courier New', 'Trebuchet MS'];
+    const GOOGLE_FONTS = ['Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Oswald', 'Poppins', 'Raleway', 'Merriweather', 'Playfair Display', 'Bebas Neue', 'Fira Code', 'Silkscreen'];
+    window.OverlayFonts = { system: SYSTEM_FONTS, google: GOOGLE_FONTS };
+
+    function loadUrlFont(name) {
+        if (GOOGLE_FONTS.includes(name)) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(name).replace(/%20/g, '+')}:wght@400;600;700;900&display=swap`;
+            document.head.appendChild(link);
+        } else if (!SYSTEM_FONTS.includes(name)) {
+            // May be an uploaded font; register it if the assets library has a match.
+            fetch('/api/custom-overlays/assets', { cache: 'no-store' }).then(r => r.ok ? r.json() : []).then(assets => {
+                const match = assets.find(a => a.kind === 'font' && a.family === name);
+                if (!match) return;
+                const style = document.createElement('style');
+                style.textContent = `@font-face { font-family: '${name.replace(/'/g, '')}'; src: url('${match.url}'); font-display: swap; }`;
+                document.head.appendChild(style);
+            }).catch(() => {});
+        }
+    }
+
     window.applyOverlayTheme = function applyOverlayTheme(theme, vars, options = {}) {
         const t = theme || {};
         const params = window.overlayParams ? window.overlayParams() : { get: () => null };
@@ -22,6 +45,7 @@
         const family = urlFont || t.font_family || options.defaultFont || '';
         if (family && vars.font) {
             resolved.font = family;
+            if (urlFont) loadUrlFont(urlFont);
             root.setProperty(vars.font, `"${family}", ${options.fontFallback || 'sans-serif'}`);
             if (!urlFont && t.font_import) {
                 const link = document.createElement('link');

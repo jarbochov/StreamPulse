@@ -255,7 +255,7 @@
                 <div class="form-row">
                     <label for="ap-font">Font</label>
                     <input id="ap-font" type="text" list="ap-font-list" placeholder="Saved theme font">
-                    <datalist id="ap-font-list"><option value="Arial"><option value="Helvetica Neue"><option value="Segoe UI"><option value="Impact"><option value="Georgia"><option value="Verdana"><option value="Trebuchet MS"><option value="Courier New"></datalist>
+                    <datalist id="ap-font-list"></datalist>
                 </div>
                 <p class="hint">Use a font installed on the computer running OBS.</p>
                 <div class="form-row">
@@ -333,6 +333,7 @@
         </section>
     </main>
 
+    <script src="/overlay-theme.js"></script>
     <script src="/nav.js"></script>
     <script>
     const $ = id => document.getElementById(id);
@@ -541,6 +542,15 @@
     document.querySelectorAll('[data-copy]').forEach(button => {
         button.addEventListener('click', () => copyUrl(button.dataset.copy, button));
     });
+
+(async function fillFonts() {
+        const names = [...OverlayFonts.system, ...OverlayFonts.google];
+        try {
+            const assets = await (await fetch('/api/custom-overlays/assets', { cache: 'no-store' })).json();
+            assets.filter(a => a.kind === 'font').forEach(a => names.push(a.family));
+        } catch { /* uploaded fonts are optional */ }
+        $('ap-font-list').innerHTML = [...new Set(names)].map(n => `<option value="${n.replace(/"/g, '')}">`).join('');
+    })();
 
     refreshUrls();
     loadGoals();
