@@ -22,6 +22,8 @@
         .conn { display: flex; align-items: center; gap: .5rem; color: var(--text-muted); font-size: .78rem; min-width: 0; }
         .conn strong { color: var(--text); font-weight: 600; }
         a.layout-btn { text-decoration: none; display: inline-block; }
+        a.layout-btn.accent { border-color: var(--accent-strong); background: var(--accent-bg); color: var(--accent); }
+        a.layout-btn.accent:hover { background: var(--accent-border); color: var(--text); }
         .tool-group { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
         .layout-btn { border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text-muted); padding: .35rem .7rem; font-size: .78rem; cursor: pointer; font-family: inherit; }
         .layout-btn:hover { border-color: var(--accent); color: var(--text); background: var(--accent-bg); }
@@ -122,8 +124,8 @@
     <div class="toolbar">
         <div class="conn"><span class="dot" id="dot-conn"></span><span id="conn-text">Connecting…</span></div>
         <div class="tool-group">
-            <a class="layout-btn" href="/sessions.html?session=__current__" target="_blank" rel="noopener" title="Open the live session in a new tab">Current session</a>
-            <a class="layout-btn" href="/sessions.html?session=__current__&view=chat" target="_blank" rel="noopener" title="Open the live chat log in a new tab">Current chat log</a>
+            <a class="layout-btn accent" href="/sessions.html?session=__current__" target="_blank" rel="noopener" title="Open the live session in a new tab">Current session</a>
+            <a class="layout-btn accent" href="/sessions.html?session=__current__&view=chat" target="_blank" rel="noopener" title="Open the live chat log in a new tab">Current chat log</a>
             <button class="layout-btn" id="density-btn" title="Smaller text and tighter spacing to fit more data">Compact</button>
             <button class="layout-btn" id="edit-btn" title="Reorder, hide and restore panels">✎ Edit layout</button>
             <button class="layout-btn" id="reset-btn">↺ Reset layout</button>
