@@ -1135,14 +1135,18 @@
         section: (id, title, body, openByDefault = true) => `<details class="sect" data-sect="${id}" ${(prefs.sections[id] ?? openByDefault) ? 'open' : ''}><summary>${title}</summary><div class="sect-body">${body}</div></details>`
     };
 
-    function readField(input) {
+    function readField(input, event) {
         const kind = input.dataset.kind;
         if (kind === 'check') return input.checked;
         if (kind === 'number') {
             if (input.value.trim() === '' || !Number.isFinite(Number(input.value))) return undefined;
             const scale = Number(input.dataset.scale) || 1;
             let value = Number(input.value);
-            if (input.dataset.min !== undefined) value = Math.max(Number(input.dataset.min), value);
+            // While typing, a half-typed value (the "8" of "850") must not snap to the minimum; clamp when the field is committed.
+            if (input.dataset.min !== undefined) {
+                if (event?.type === 'input' && value < Number(input.dataset.min)) return undefined;
+                value = Math.max(Number(input.dataset.min), value);
+            }
             if (input.dataset.max !== undefined) value = Math.min(Number(input.dataset.max), value);
             return round2(value * scale);
         }
@@ -1160,7 +1164,7 @@
     }
     function bindFields(container, getTargets, onApply) {
         const apply = (input, event) => {
-            const value = readField(input);
+            const value = readField(input, event);
             if (value === undefined) return;
             const targets = getTargets();
             if (!targets.length) return;
@@ -1177,7 +1181,7 @@
         container.addEventListener('change', event => {
             const input = event.target.closest('[data-path]');
             if (!input) return;
-            if (input.dataset.lazy === '1') apply(input, event);
+            if (input.dataset.lazy === '1' || input.dataset.kind === 'number') apply(input, event);
             const target = getTargets()[0];
             if (target && input.dataset.kind === 'number') input.value = fmt(getPath(target, input.dataset.path), Number(input.dataset.scale) || 1);
             changed(true);
