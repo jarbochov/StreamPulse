@@ -32,3 +32,25 @@
     window.addEventListener('storage', event => { if (event.key === KEY) apply(); });
     window.StreamPulseAppearance = { read, save, apply };
 })();
+
+// Over plain http on a LAN address (e.g. http://192.168.1.4:3000) browsers hide navigator.clipboard, so every Copy button would fail.
+(function () {
+    function legacyCopy(text) {
+        const area = document.createElement('textarea');
+        area.value = String(text);
+        area.setAttribute('readonly', '');
+        area.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        document.body.appendChild(area);
+        area.select();
+        area.setSelectionRange(0, area.value.length);
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch { ok = false; }
+        area.remove();
+        return ok ? Promise.resolve() : Promise.reject(new Error('Copy is not available in this browser'));
+    }
+    const native = navigator.clipboard && window.isSecureContext ? navigator.clipboard : null;
+    const shim = { writeText: text => (native ? native.writeText(text).catch(() => legacyCopy(text)) : legacyCopy(text)) };
+    if (!native) {
+        try { Object.defineProperty(navigator, 'clipboard', { value: shim, configurable: true }); } catch { /* read-only navigator */ }
+    }
+})();

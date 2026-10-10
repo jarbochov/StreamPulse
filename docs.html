@@ -1154,6 +1154,9 @@
             btn.textContent = 'Copied!';
             btn.classList.add('copied');
             setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+        }).catch(() => {
+            btn.textContent = 'Copy failed';
+            setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
         });
     }
 
