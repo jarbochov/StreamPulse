@@ -34,13 +34,16 @@
         .preview { position: relative; height: calc(var(--card, 300px) * 0.57); overflow: hidden; background: conic-gradient(var(--bg-raised) 25%, var(--bg-card) 0 50%, var(--bg-raised) 0 75%, var(--bg-card) 0) 0 0 / 16px 16px; border-bottom: 1px solid var(--border); }
         .preview.off { display: none; }
         .preview iframe { position: absolute; top: 50%; left: 50%; border: 0; background: transparent; transform-origin: 0 0; pointer-events: none; }
-        .body { padding: 0.7rem 0.85rem 0.8rem; display: grid; gap: 0.35rem; }
+        .body { padding: 0.7rem 0.85rem 0.8rem; display: grid; gap: 0.35rem; flex: 1; grid-template-rows: auto auto 1fr; }
         .title { font-weight: 600; font-size: 0.98rem; overflow-wrap: anywhere; }
         .meta { color: var(--text-muted); font-size: 0.76rem; line-height: 1.5; }
-        .actions { display: grid; gap: 0.4rem; margin-top: 0.35rem; }
+        .actions { display: grid; gap: 0.4rem; margin-top: 0.35rem; align-self: end; }
         .act-main { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem; }
         .act-main .btn { text-align: center; white-space: nowrap; }
-        .act-main .primary { grid-column: 1 / -1; }
+        .act-main .primary { grid-column: 1 / -1; order: 0; }
+        .act-main .ctl { order: 1; }
+        .act-main .btn:not(.primary):not(.ctl) { order: 2; }
+        .act-main:has(.ctl) .primary { grid-column: auto; }
         .act-main .btn, .act-more .btn { padding-inline: 0.4rem; overflow: hidden; text-overflow: ellipsis; }
         .act-more { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.1rem; padding-top: 0.4rem; border-top: 1px solid var(--border); }
         .act-more .btn { padding-inline: 0.15rem; font-size: 0.74rem; border-color: transparent; background: transparent; color: var(--text-muted); }
@@ -50,7 +53,7 @@
         .empty { color: var(--text-muted); text-align: center; padding: 2.5rem 1rem; grid-column: 1 / -1; }
         .list .overlay { flex-direction: row; align-items: center; }
         .list .preview { width: calc(var(--card, 300px) * 0.73); height: calc(var(--card, 300px) * 0.41); flex: none; border-bottom: 0; border-right: 1px solid var(--border); }
-        .list .body { flex: 1; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.2rem 1rem; }
+        .list .body { flex: 1; grid-template-rows: none; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.2rem 1rem; }
         .list .actions { margin: 0; min-width: 270px; grid-row: 1 / span 2; grid-column: 2; }
         .list.grid { grid-template-columns: 1fr; }
         #toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); background: var(--bg-raised); border: 1px solid var(--border); padding: 0.55rem 1rem; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 10; }
@@ -145,7 +148,7 @@
                     <div class="actions">
                         <div class="act-main">
                             <a class="btn small primary" href="/custom-overlay-editor.html?id=${encodeURIComponent(o.id)}">Edit</a>
-                            <a class="btn small" href="/custom-overlay.html?id=${encodeURIComponent(o.id)}" target="_blank" rel="noopener">Open</a>${o.pageCount > 0 ? `<a class="btn small" href="/overlay-control.html?id=${encodeURIComponent(o.id)}" target="_blank" rel="noopener" title="Switch pages live">Control</a>` : ''}
+                            <a class="btn small" href="/custom-overlay.html?id=${encodeURIComponent(o.id)}" target="_blank" rel="noopener">Open</a>${o.pageCount > 0 ? `<a class="btn small ctl" href="/overlay-control.html?id=${encodeURIComponent(o.id)}" target="_blank" rel="noopener" title="Switch pages live">Control</a>` : ''}
                             <button class="btn small" data-act="copy" data-id="${esc(o.id)}">Copy OBS URL</button>
                         </div>
                         <div class="act-more">
