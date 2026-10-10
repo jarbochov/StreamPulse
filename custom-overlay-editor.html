@@ -1926,16 +1926,18 @@
         const query = $('variable-search').value.trim().toLowerCase();
         const table = shared.variableTable(liveStatus, variableContext());
         const format = $('variable-format').value.trim();
-        $('variable-format-presets').innerHTML = shared.FORMAT_PRESETS.map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('');
+        $('variable-format-presets').innerHTML = [...shared.FORMAT_PRESETS, ...shared.LIST_FORMAT_PRESETS].map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('');
         const html = shared.variableGroups(liveStatus).map(group => {
             const items = group.items.filter(([key, label]) => !query || `${group.label} ${key} ${label}`.toLowerCase().includes(query));
             if (!items.length) return '';
             return `<h4>${esc(group.label)}</h4>` + items.map(([key, label]) => {
-                const dated = format && shared.isDateKey(key);
+                const listed = shared.isListKey(key);
+                const dated = format && (shared.isDateKey(key) || listed);
                 const value = dated ? shared.applyFormat(key, table[key], format, Date.now()) : table[key];
                 const preview = value === undefined || value === null || value === '' ? '—' : String(value);
                 const token = dated ? `${key}|${format}` : key;
-                return `<button type="button" data-token="${esc(token)}"><span>${esc(label)}</span><code>{{${esc(token)}}}</code><span class="preview">${esc(preview)}</span></button>`;
+                const tip = listed ? 'Comma separated by default. Type a format above to change it: lines, bullets, numbered, 3 (first 3), or sep: / (custom separator).' : shared.isDateKey(key) ? 'Type a format above to change how this is shown.' : '';
+                return `<button type="button" data-token="${esc(token)}"${tip ? ` title="${esc(tip)}"` : ''}><span>${esc(label)}</span><code>{{${esc(token)}}}</code><span class="preview">${esc(preview)}</span></button>`;
             }).join('');
         }).join('');
         $('variable-list').innerHTML = html || '<p class="hint">No placeholders match.</p>';
