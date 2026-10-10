@@ -1749,6 +1749,10 @@
         if (item) {
             loadSession(requested, item).then(() => {
                 if (Number.isFinite(timestamp) && timestamp > 0) openChatAtTimestamp(timestamp);
+                else if (params.get('view') === 'chat') {
+                    const button = [...document.querySelectorAll('.detail-header-actions button')].find(btn => btn.getAttribute('onclick')?.includes('chatlog'));
+                    if (button) { switchTool('chatlog', button); loadChatLog(activeSessionFile); }
+                }
             });
         }
     });
