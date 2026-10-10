@@ -426,6 +426,7 @@ streampulse/
 ├── countdown.html         # Countdown overlay (OBS browser source)
 ├── stopwatch.html         # Stopwatch overlay (OBS browser source)
 ├── alerts.js              # Alert engine (rules, queue, gift batching)
+├── game-plan.js           # Game Plan normalizer and helpers (pure, no server state)
 ├── admin.css              # Shared admin palette (dark/light)
 ├── appearance.js          # Light/dark mode and accent color
 ├── alerts.html            # Alerts manager
