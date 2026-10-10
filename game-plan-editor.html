@@ -116,6 +116,7 @@
                 <div class="name-wrap"><input id="add-name" placeholder="Add to this list — type a game name (IGDB lookup)" maxlength="120" autocomplete="off" required><div id="suggest" class="suggest" hidden></div></div>
                 <button class="btn primary" type="submit">Add</button>
                 <button class="btn" type="button" id="add-custom" title="Add something that isn't an IGDB game (tier list entries, challenges, anything) — you can give it your own artwork">Add as custom</button>
+                <button class="btn" type="button" id="backfill" title="Add games from past sessions that aren't on any list yet, and record the dates you streamed them">Import past games</button>
             </form>
             <p class="status" id="status"></p>
         </div>
@@ -553,6 +554,17 @@
             if (!editing || !confirm(`Remove “${editing.name}” from the plan?`)) return;
             items = items.filter(entry => entry !== editing);
             editing = null; $('dlg').close(); render(); scheduleSave();
+        });
+        $('backfill').addEventListener('click', async () => {
+            if (!confirm('Add games from past sessions that are not on any list yet to Played? Games already on a list stay where they are.')) return;
+            setStatus('Importing past games...');
+            try {
+                const result = await (await fetch('/api/game-plan/backfill', { method: 'POST' })).json();
+                if (result.error) throw new Error(result.error);
+                const data = await (await fetch('/api/game-plan', { cache: 'no-store' })).json();
+                items = data.items; periodOrder = data.periods || []; render();
+                setStatus(`Added ${result.added.length} game${result.added.length === 1 ? '' : 's'}; updated dates on ${result.updated} more.`);
+            } catch (error) { setStatus(`Could not import: ${error.message}`); }
         });
         $('f-done').addEventListener('click', () => $('dlg').close());
         $('dlg').addEventListener('close', () => { editing = null; render(); });

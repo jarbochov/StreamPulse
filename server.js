@@ -2995,35 +2995,54 @@ function buildGamePlanSnapshot() {
     };
 }
 
-// Adds the games streamed in a finished session to the Game Plan as played, with the dates they were streamed.
-// Twitch categories without an IGDB id (Just Chatting, Special Events, Music, ...) are not games and are skipped.
-async function recordPlayedGames(streamInfo, endMs, startFloorMs) {
+// Adds streamed games to the Game Plan as played, with the dates they were streamed.
+// Games already on any list keep their list and only gain dates. Twitch categories without an IGDB id
+// (Just Chatting, Special Events, Music, ...) are not games and are skipped.
+async function applyPlayedSpans(spans) {
     const auto = { enabled: true, min_minutes: 15, skip: ['Just Chatting'], ...(config.game_plan_auto || {}) };
-    if (!auto.enabled) return;
     const skip = new Set((Array.isArray(auto.skip) ? auto.skip : String(auto.skip || '').split(',')).map(gameKey).filter(Boolean));
-    const spent = categoryTimeFor(streamInfo, endMs, startFloorMs);
     const plan = loadGamePlan();
-    let changed = false;
-    for (const [name, slot] of Object.entries(spent)) {
-        if (name === '(No Category)' || slot.minutes < Number(auto.min_minutes || 0) || skip.has(gameKey(name))) continue;
-        const dates = [...slot.dates];
+    const result = { added: [], updated: 0 };
+    for (const { name, minutes, dates } of spans) {
+        if (!name || name === '(No Category)' || minutes < Number(auto.min_minutes || 0) || skip.has(gameKey(name))) continue;
         const key = gameKey(name);
         let item = plan.items.find(entry => [entry.name, entry.twitchCategory, gameInfoCache[infoKey(entry.name, entry.igdbId)]?.igdbName].map(gameKey).includes(key));
-        let info = null;
         if (!item) {
-            info = await refreshGameInfo(name);
+            const info = await refreshGameInfo(name);
             if (!info || info.failed || !info.igdbId) continue;
             item = { id: `game-${Date.now().toString(36)}-${plan.items.length}`, name, status: 'played', period: '', note: '', twitchCategory: name, igdbId: String(info.igdbId), custom: false, customCover: '', rating: 0, tier: '', tags: [], finished: '', played: [], autoAdded: true };
             plan.items.push(item);
-            console.log(`[GamePlan] Added "${name}" as played`);
-        } else if (item.status === 'scheduled' || item.status === 'backlog') {
-            item.status = 'played';
-            item.tier = '';
+            result.added.push(name);
         }
+        const before = (item.played || []).length;
         item.played = [...new Set([...(item.played || []), ...dates])].sort().slice(-400);
-        changed = true;
+        if (item.played.length !== before && !result.added.includes(name)) result.updated++;
     }
-    if (changed) fs.writeFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(plan), null, 2));
+    if (result.added.length || result.updated) fs.writeFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(plan), null, 2));
+    return result;
+}
+
+async function recordPlayedGames(streamInfo, endMs, startFloorMs) {
+    if ((config.game_plan_auto || {}).enabled === false) return;
+    const spent = categoryTimeFor(streamInfo, endMs, startFloorMs);
+    const result = await applyPlayedSpans(Object.entries(spent).map(([name, slot]) => ({ name, minutes: slot.minutes, dates: [...slot.dates] })));
+    for (const name of result.added) console.log(`[GamePlan] Added "${name}" as played`);
+}
+
+// Walks every archived session once so games streamed before auto-add existed are picked up too.
+async function backfillPlayedGames() {
+    const spans = [];
+    if (fs.existsSync(SESSIONS_DIR)) {
+        for (const file of fs.readdirSync(SESSIONS_DIR).filter(f => f.startsWith('chat-') && f.endsWith('.json')).sort()) {
+            try {
+                const data = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
+                const endMs = Date.parse(data.lastUpdated || data.startedAt);
+                const floor = Date.parse(data.viewerStats?.streamStartedAt || '');
+                for (const [name, slot] of Object.entries(categoryTimeFor(data.streamInfo, endMs, floor))) spans.push({ name, minutes: slot.minutes, dates: [...slot.dates] });
+            } catch { /* skip unreadable sessions */ }
+        }
+    }
+    return applyPlayedSpans(spans);
 }
 
 // ============================================================================
@@ -6877,6 +6896,18 @@ const server = http.createServer(async (req, res) => {
         const icon = String(url.searchParams.get('e') || '🌡️').replace(/[<>&"']/g, '').slice(0, 8);
         res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-store' });
         res.end(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="50" font-size="80" text-anchor="middle" dominant-baseline="central">${icon}</text></svg>`);
+        return;
+    }
+
+    if (pathname === '/api/game-plan/backfill' && req.method === 'POST') {
+        try {
+            const result = await backfillPlayedGames();
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+        } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
         return;
     }
 
