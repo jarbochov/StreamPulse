@@ -274,13 +274,24 @@
         return { values, visible, hundredths: String(hundredths).padStart(2, '0') };
     }
 
+    // render() runs every animation frame; only touch the DOM when a value actually changed or Safari churns memory.
+    function setText(el, text) {
+        const value = String(text);
+        if (el.textContent !== value) el.textContent = value;
+    }
+
+    function setHtml(el, html) {
+        if (el._html !== html) { el._html = html; el.innerHTML = html; }
+    }
+
     function renderValue(el, value, fraction = '') {
         const main = String(value).padStart(2, '0');
         if (fraction) {
-            el.innerHTML = `<span class="value-main">${main}</span><span class="value-fraction">${fraction}</span>`;
+            setHtml(el, `<span class="value-main">${main}</span><span class="value-fraction">${fraction}</span>`);
             return;
         }
-        el.textContent = main;
+        el._html = undefined;
+        setText(el, main);
     }
 
     function render() {
@@ -288,21 +299,21 @@
         const now = Date.now();
         const live = getLiveState(timerState, now);
         const title = params.get('title') || live.displayTitle || live.label || '';
-        titleEl.textContent = title;
+        setText(titleEl, title);
         const hasVisibleContent = !!live.showMainDisplay || !!live.showMessage;
         const overlayVisible = live.visible !== false && hasVisibleContent;
         titleEl.classList.toggle('visible', overlayVisible && showTitle && !!title);
         overlay.classList.toggle('hidden', !overlayVisible);
-        placeholder.classList.remove('visible');
+        if (placeholder.classList.contains('visible')) placeholder.classList.remove('visible');
         timerBox.style.display = live.showMainDisplay ? '' : 'none';
 
         const progressEnabled = kind === 'countdown'
             && (params.get('progress') ? params.get('progress') === 'true' : !!live.progress);
         if (progressWrap) progressWrap.classList.toggle('visible', progressEnabled && live.showMainDisplay);
-        if (progressEnabled && progressBar) progressBar.style.width = `${Math.max(0, Math.min(100, Math.round((live.percentComplete || 0) * 1000) / 10))}%`;
+        if (progressEnabled && progressBar) { const width = `${Math.max(0, Math.min(100, Math.round((live.percentComplete || 0) * 1000) / 10))}%`; if (progressBar.style.width !== width) progressBar.style.width = width; }
 
         messageEl.classList.toggle('visible', overlayVisible && !!live.showMessage);
-        messageEl.textContent = live.completeMessage || '';
+        setText(messageEl, live.completeMessage || '');
 
         if (live.showMainDisplay) {
             const parts = formatParts(live.displayMs, fullUnits);
@@ -399,17 +410,17 @@
             for (const unit of visible) {
                 const row = altNode.querySelector(`[data-unit="${unit}"]`);
                 const n = parts.values[unit];
-                row.querySelector('.stack-num').textContent = unit === 'seconds' && frac ? `${pad2(n)}.${frac}` : (unit === 'days' ? n : pad2(n));
-                row.querySelector('.stack-label').textContent = UNIT_LABELS[unit] + (n === 1 && !(unit === 'seconds' && frac) ? '' : 's');
+                setText(row.querySelector('.stack-num'), unit === 'seconds' && frac ? `${pad2(n)}.${frac}` : (unit === 'days' ? n : pad2(n)));
+                setText(row.querySelector('.stack-label'), UNIT_LABELS[unit] + (n === 1 && !(unit === 'seconds' && frac) ? '' : 's'));
             }
         } else if (mode === 'ring') {
             if (rebuild) {
                 altNode.innerHTML = `<svg class="ring-svg" viewBox="0 0 100 100"><circle class="ring-track" cx="50" cy="50" r="44"/><circle class="ring-fill" cx="50" cy="50" r="44" pathLength="100"/></svg><div class="ring-center"><div class="ring-time"></div><div class="ring-caption"></div></div>`;
             }
             const text = visible.map((u, i) => (i === 0 && u === 'days' ? parts.values[u] : pad2(parts.values[u]))).join(':');
-            altNode.querySelector('.ring-time').textContent = frac ? `${text}.${frac}` : text;
+            setText(altNode.querySelector('.ring-time'), frac ? `${text}.${frac}` : text);
             altNode.style.setProperty('--ring-chars', String((frac ? text.length + 3 : text.length)));
-            altNode.querySelector('.ring-caption').textContent = visible.map(u => u[0]).join(' : ').toUpperCase();
+            setText(altNode.querySelector('.ring-caption'), visible.map(u => u[0]).join(' : ').toUpperCase());
             const fill = altNode.querySelector('.ring-fill');
             fill.style.strokeDasharray = '100 100';
             fill.style.strokeDashoffset = String(100 - altFraction(live) * 100);
@@ -436,7 +447,7 @@
         } else if (mode === 'banner') {
             const text = visible.map((u, i) => `${i === 0 && u === 'days' ? parts.values[u] : pad2(parts.values[u])}${u[0]}`).join(' ');
             if (rebuild) altNode.innerHTML = '<span class="banner-time"></span>';
-            altNode.firstChild.textContent = frac ? `${text}.${frac}` : text;
+            setText(altNode.firstChild, frac ? `${text}.${frac}` : text);
         }
     }
 
