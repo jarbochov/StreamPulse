@@ -8,7 +8,7 @@ const https = require('https');
 const { exec, execFile } = require('child_process');
 const { promisify } = require('util');
 const WebSocket = require('ws');
-const archiver = require('archiver');
+const { ZipArchive } = require('archiver');
 const AdmZip = require('adm-zip');
 const { DEFAULT_TIERS, normalizeGamePlan, gameKey, sanitizeOverlayId } = require('./game-plan');
 const { createAlertEngine, TRIGGERS: ALERT_TRIGGERS, ANIM_IN: ALERT_ANIM_IN, ANIM_OUT: ALERT_ANIM_OUT } = require('./alerts');
@@ -7499,7 +7499,7 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
-        const archive = archiver('zip', { zlib: { level: 9 } });
+        const archive = new ZipArchive({ zlib: { level: 9 } });
         archive.pipe(res);
 
         for (const f of getBackupFileSpecs()) {

@@ -22,7 +22,7 @@
   "homepage": "https://github.com/jarbochov/streampulse#readme",
   "dependencies": {
     "adm-zip": "^0.6.1",
-    "archiver": "^7.0.1",
+    "archiver": "^8.0.0",
     "dompurify": "^3.4.16",
     "marked": "^18.0.14",
     "puppeteer": "^25.13.0",
