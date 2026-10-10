@@ -111,11 +111,6 @@
                         <input id="credits-preview" type="checkbox">
                         Show all credits without scrolling
                     </label>
-                    <div class="form-row">
-                        <label for="credits-datapath">Data path</label>
-                        <input id="credits-datapath" type="text" placeholder="./data (advanced)">
-                    </div>
-                    <p class="hint">Use a custom data path only when serving credits data from a different location.</p>
                 </section>
 
                 <section class="card overlay-config" data-overlay="goals" hidden>
@@ -322,7 +317,7 @@
             <table class="parameter-table">
                 <thead><tr><th>Overlay</th><th>Parameters</th><th>Purpose</th></tr></thead>
                 <tbody>
-                    <tr data-overlay="credits"><td>Credits</td><td><code>duration</code> <code>speed</code> <code>days</code> <code>preview</code> <code>datapath</code></td><td>Set roll timing, the data window, preview mode, or an advanced data location.</td></tr>
+                    <tr data-overlay="credits"><td>Credits</td><td><code>duration</code> <code>speed</code> <code>days</code> <code>preview</code></td><td>Set roll timing, the data window, preview mode, or an advanced data location.</td></tr>
                     <tr data-overlay="stats" hidden><td>Stats</td><td><code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>limit</code> <code>refresh</code></td><td>Choose the date window, how many rows each list shows, and how often it reloads.</td></tr>
                     <tr data-overlay="hashtags" hidden><td>Hashtags</td><td><code>view</code> <code>sort</code> <code>columns</code> <code>size</code> <code>limit</code> <code>min</code> <code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>title</code> <code>duration</code> <code>refresh</code> <code>counts</code> <code>weight</code> <code>scroll</code></td><td>Choose scroll, grid or cloud, the data window, sorting, and view-specific options.</td></tr>
                     <tr data-overlay="goals" hidden><td>Goal</td><td><code>goal</code> <code>mode</code> <code>ids</code> <code>interval</code> <code>skipcompleted</code> <code>pausecomplete</code> <code>showlabel</code></td><td>Select one goal or cycle a subset, and override cycle behavior or the type label.</td></tr>
@@ -339,7 +334,7 @@
     const $ = id => document.getElementById(id);
     const inputIds = [
         'ht-view', 'ht-sort', 'ht-columns', 'ht-size', 'ht-limit', 'ht-min', 'ht-range', 'ht-days', 'ht-date', 'ht-from', 'ht-to', 'ht-title', 'ht-duration', 'ht-refresh', 'ht-counts', 'ht-weight', 'ht-autoscroll',
-        'credits-timing', 'credits-duration', 'credits-speed', 'credits-days', 'credits-preview', 'credits-datapath',
+        'credits-timing', 'credits-duration', 'credits-speed', 'credits-days', 'credits-preview',
         'stats-range', 'stats-days', 'stats-date', 'stats-from', 'stats-to', 'stats-limit', 'stats-refresh',
         'goal-single', 'goal-showlabel', 'goal-interval', 'goal-skipcompleted', 'goal-pausecomplete',
         'viewer-label',
@@ -432,8 +427,7 @@
         const timing = $('credits-timing').value;
         const credits = {
             days: numberValue('credits-days', 1),
-            preview: $('credits-preview').checked ? 'true' : '',
-            datapath: $('credits-datapath').value.trim()
+            preview: $('credits-preview').checked ? 'true' : ''
         };
         if (timing === 'duration') credits.duration = numberValue('credits-duration', 1);
         if (timing === 'speed') credits.speed = numberValue('credits-speed', 0.1);
