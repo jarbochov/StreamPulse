@@ -886,11 +886,14 @@
 
     if (document.fonts) document.fonts.addEventListener('loadingdone', () => { if (overlay.elements.some(el => el.textFit && el.textFit !== 'none')) renderCanvas(); });
 
-    function renderCanvas() {
+    // Pass `only` (a set of element ids) during drags and resizes to restyle just those nodes.
+    let lastLive = '';
+    function renderCanvas(only) {
         const seen = new Set();
-        const live = liveSignature();
+        const live = only ? lastLive : (lastLive = liveSignature());
         overlay.elements.forEach((el, index) => {
             seen.add(el.id);
+            if (only && !only.has(el.id)) return;
             let node = nodes.get(el.id);
             if (!node) { node = document.createElement('div'); node.dataset.id = el.id; nodes.set(el.id, node); canvasEl.appendChild(node); }
             const signature = contentSignature(el, live);
@@ -902,6 +905,7 @@
                 shared.fitText(node, el, probe);
             }
         });
+        if (only) return;
         for (const [id, node] of nodes) if (!seen.has(id)) { node._slideHandle?.stop(); node.remove(); nodes.delete(id); }
         $('empty-hint').classList.toggle('on', !visibleElements().length);
         renderSelectionUI();
@@ -2457,7 +2461,7 @@
         }
         for (const item of gesture.items) { item.el.x = Math.round(item.x + dx); item.el.y = Math.round(item.y + dy); }
         showGuides(guideX, guideY);
-        renderCanvas(); renderSelectionUI(gesture.items.length === 1 ? `${gesture.items[0].el.x}, ${gesture.items[0].el.y}` : undefined);
+        renderCanvas(new Set(gesture.items.map(item => item.el.id))); renderSelectionUI(gesture.items.length === 1 ? `${gesture.items[0].el.x}, ${gesture.items[0].el.y}` : undefined);
         syncGeometryInputs(); updateStatusBar();
     }
     function multiResizeGesture(event, dx, dy) {
@@ -2479,7 +2483,7 @@
         const anchor = { x: dir.includes('w') ? right : orig.x, y: dir.includes('n') ? bottom : orig.y };
         const used = applyScale(snaps, anchor, sx, sy);
         showGuides(guides.xs, guides.ys);
-        renderCanvas(); renderSelectionUI(`${Math.round(used.sx * 100)}% × ${Math.round(used.sy * 100)}%`.replace(/^(\d+)% × \1%$/, '$1%'));
+        renderCanvas(new Set(selectedIds)); renderSelectionUI(`${Math.round(used.sx * 100)}% × ${Math.round(used.sy * 100)}%`.replace(/^(\d+)% × \1%$/, '$1%'));
         syncGeometryInputs(); updateStatusBar();
     }
     function resizeGesture(event, dx, dy) {
@@ -2506,7 +2510,7 @@
         el.x = Math.round(x); el.width = Math.round(w);
         if (!isLine(el)) { el.y = Math.round(y); el.height = Math.round(h); }
         showGuides(guides.xs, guides.ys);
-        renderCanvas(); renderSelectionUI(`${el.width} × ${Math.round(boxOf(el).h)}`);
+        renderCanvas(new Set([el.id])); renderSelectionUI(`${el.width} × ${Math.round(boxOf(el).h)}`);
         syncGeometryInputs(); updateStatusBar();
     }
     function marqueeGesture(event) {
