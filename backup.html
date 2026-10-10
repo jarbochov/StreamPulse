@@ -58,6 +58,20 @@
         .status-badge.on { background: color-mix(in srgb, var(--success) 19%, transparent); color: var(--success); }
         .status-badge.off { background: color-mix(in srgb, var(--danger) 13%, transparent); color: var(--danger); }
 
+        .share-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+        .share-col h3 { font-size: 0.8rem; color: var(--text); margin-bottom: 0.5rem; }
+        .share-group { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 0.75rem 0 0.25rem; }
+        .share-group:first-child { margin-top: 0; }
+        .share-list { max-height: 280px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.6rem; background: var(--bg-inset); }
+        .share-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.82rem; cursor: pointer; }
+        .share-row small { color: var(--text-muted); margin-left: auto; }
+        .share-opts { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin: 0.6rem 0; font-size: 0.8rem; color: var(--text-muted); }
+        .share-opts select { background: var(--bg-raised); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.5rem; }
+        .share-empty { color: var(--text-muted); font-size: 0.8rem; padding: 0.4rem 0; }
+        .share-links { font-size: 0.75rem; margin-bottom: 0.4rem; }
+        .share-links a { color: var(--accent); cursor: pointer; margin-right: 0.6rem; }
+        @media (max-width: 768px) { .share-grid { grid-template-columns: 1fr; } }
+
         @media (max-width: 768px) {
             .container { padding: 1rem; }
             .header { flex-direction: column; gap: 0.5rem; }
@@ -94,6 +108,38 @@
             <div id="restore-result" style="margin-top: 0.75rem; font-size: 0.8rem; display: none;"></div>
         </div>
 
+        <!-- Selective export / import -->
+        <div class="card">
+            <h2>Share individual items</h2>
+            <div class="info-box">
+                Export just the overlays, presets, or settings you pick into one ZIP, including the images, videos and fonts they use. Import a ZIP from this or another StreamPulse to add them. Your Twitch token, sessions and stats are never included.
+            </div>
+            <div class="share-grid">
+                <div class="share-col">
+                    <h3>Export</h3>
+                    <div class="share-links"><a onclick="shareToggleAll(true)">Select all</a><a onclick="shareToggleAll(false)">None</a></div>
+                    <div id="share-export-list" class="share-list"><div class="share-empty">Loading...</div></div>
+                    <div class="share-opts"><label><input type="checkbox" id="share-history"> Include overlay revision history</label></div>
+                    <button class="btn wide primary" onclick="shareExport()">Download selected</button>
+                </div>
+                <div class="share-col">
+                    <h3>Import</h3>
+                    <input type="file" id="share-file" accept=".zip" onchange="shareInspect()" style="font-size: 0.85rem; color: var(--text-muted); width: 100%; margin-bottom: 0.5rem;">
+                    <div id="share-import-list" class="share-list"><div class="share-empty">Choose a share ZIP to see what is inside.</div></div>
+                    <div class="share-opts">
+                        <span>If it already exists:</span>
+                        <select id="share-conflict">
+                            <option value="copy">Keep both (import as a copy)</option>
+                            <option value="replace">Replace it</option>
+                            <option value="skip">Skip it</option>
+                        </select>
+                    </div>
+                    <button class="btn wide primary" onclick="shareImport()">Import selected</button>
+                    <div id="share-result" style="margin-top: 0.75rem; font-size: 0.8rem; display: none;"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- Auto-backup Settings -->
         <div class="card">
             <h2>⚙️ Auto-Backup Settings</h2>
@@ -127,6 +173,86 @@
         t.classList.add('show');
         setTimeout(() => t.classList.remove('show'), 2500);
     }
+
+    const SHARE_STATUS = { added: 'added', replaced: 'replaced', copied: 'added as a copy', skipped: 'skipped', failed: 'failed' };
+    const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const shareKey = item => item.id ? item.type + ':' + item.id : item.type;
+    const shareRow = (item, checked, extra) => '<label class="share-row"><input type="checkbox" value="' + esc(shareKey(item)) + '"' + (checked ? ' checked' : '') + '> ' + esc(item.name) + (extra ? '<small>' + extra + '</small>' : '') + '</label>';
+
+    async function shareLoad() {
+        const box = document.getElementById('share-export-list');
+        try {
+            const data = await (await fetch('/api/share/items')).json();
+            const groups = [['Overlays', data.overlays], ['Presets', data.presets], ['Settings', data.singles]];
+            const html = groups.filter(([, list]) => list.length).map(([title, list]) =>
+                '<div class="share-group">' + title + '</div>' + list.map(item => shareRow(item, false, item.category ? esc(item.category) : '')).join('')).join('');
+            box.innerHTML = html || '<div class="share-empty">Nothing to share yet.</div>';
+        } catch { box.innerHTML = '<div class="share-empty">Could not load items.</div>'; }
+    }
+
+    function shareToggleAll(on) {
+        document.querySelectorAll('#share-export-list input[type=checkbox]').forEach(el => { el.checked = on; });
+    }
+
+    async function shareExport() {
+        const items = [...document.querySelectorAll('#share-export-list input:checked')].map(el => el.value);
+        if (!items.length) { showToast('Select at least one item'); return; }
+        try {
+            const res = await fetch('/api/share/export', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items, includeHistory: document.getElementById('share-history').checked })
+            });
+            if (!res.ok) throw new Error((await res.json()).error || 'Export failed');
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(await res.blob());
+            link.download = (res.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'streampulse-share.zip';
+            link.click();
+            URL.revokeObjectURL(link.href);
+            showToast('Exported ' + items.length + ' item' + (items.length === 1 ? '' : 's'));
+        } catch (err) { showToast(err.message); }
+    }
+
+    async function shareInspect() {
+        const file = document.getElementById('share-file').files[0];
+        const box = document.getElementById('share-import-list');
+        if (!file) return;
+        box.innerHTML = '<div class="share-empty">Reading...</div>';
+        try {
+            const res = await fetch('/api/share/inspect', { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: file });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Could not read file');
+            const labels = { overlay: 'Overlay', preset: 'Preset' };
+            box.innerHTML = data.items.length
+                ? data.items.map(item => shareRow(item, true, (labels[item.type] || 'Settings') + (item.exists ? ' - already exists' : ''))).join('')
+                : '<div class="share-empty">This file has no items.</div>';
+        } catch (err) { box.innerHTML = '<div class="share-empty" style="color:var(--danger);">' + esc(err.message) + '</div>'; }
+    }
+
+    async function shareImport() {
+        const file = document.getElementById('share-file').files[0];
+        const items = [...document.querySelectorAll('#share-import-list input:checked')].map(el => el.value);
+        if (!file || !items.length) { showToast('Choose a file and select items'); return; }
+        const conflict = document.getElementById('share-conflict').value;
+        const resultEl = document.getElementById('share-result');
+        resultEl.style.display = 'block';
+        resultEl.style.color = 'var(--text-muted)';
+        resultEl.textContent = 'Importing...';
+        try {
+            const res = await fetch('/api/share/import?conflict=' + conflict + '&items=' + encodeURIComponent(items.join(',')), { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: file });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Import failed');
+            resultEl.style.color = data.results.some(r => r.status === 'failed') ? 'var(--warn)' : 'var(--success)';
+            resultEl.innerHTML = data.results.map(r => esc(r.key) + ': ' + (SHARE_STATUS[r.status] || r.status) + (r.error ? ' (' + esc(r.error) + ')' : '')).join('<br>');
+            showToast('Import finished');
+            shareLoad();
+        } catch (err) {
+            resultEl.style.color = 'var(--danger)';
+            resultEl.textContent = err.message;
+        }
+    }
+
+    shareLoad();
 
     async function restoreBackup() {
         const fileInput = document.getElementById('restore-file');

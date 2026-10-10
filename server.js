@@ -3940,6 +3940,180 @@ function getBackupFileSpecs() {
     ];
 }
 
+// Selective share bundles: pick individual overlays, presets and settings to export or import.
+const SHARE_FORMAT = 'streampulse-share';
+const SHARE_MAX_BYTES = 600 * 1024 * 1024;
+const SHARE_SINGLES = {
+    gameplan: { label: 'Game Plan', path: () => GAME_PLAN_PATH, entry: 'game-plan.json' },
+    timers: { label: 'Timers', path: () => TIMERS_PATH, entry: 'timers.json' },
+    alerts: { label: 'Alerts', path: () => path.join(DATA_DIR, 'alerts.json'), entry: 'alerts.json' }
+};
+const FONT_EXTENSIONS = new Set(['.ttf', '.otf', '.woff', '.woff2']);
+
+function readBinaryBody(req, limit = SHARE_MAX_BYTES) {
+    return new Promise((resolve, reject) => {
+        const chunks = [];
+        let size = 0;
+        req.on('data', chunk => {
+            size += chunk.length;
+            if (size > limit) { reject(new Error('File is too large')); req.destroy(); return; }
+            chunks.push(chunk);
+        });
+        req.on('end', () => resolve(Buffer.concat(chunks)));
+        req.on('error', reject);
+    });
+}
+
+function listShareItems() {
+    const singles = Object.entries(SHARE_SINGLES)
+        .filter(([, def]) => fs.existsSync(def.path()))
+        .map(([type, def]) => ({ type, name: def.label }));
+    return {
+        overlays: Object.values(customOverlays).map(o => ({ type: 'overlay', id: o.id, name: o.name })),
+        presets: overlayPresets.map(p => ({ type: 'preset', id: p.id, name: p.name, category: p.category })),
+        singles
+    };
+}
+
+function shareAssetNames(text) {
+    if (!fs.existsSync(CUSTOM_OVERLAY_ASSETS_DIR)) return [];
+    return fs.readdirSync(CUSTOM_OVERLAY_ASSETS_DIR).filter(name =>
+        assetReferencedIn(text, name, FONT_EXTENSIONS.has(path.extname(name).toLowerCase()) ? assetFontFamily(name) : ''));
+}
+
+function buildShareZip(selection, includeHistory) {
+    const zip = new AdmZip();
+    const manifest = { format: SHARE_FORMAT, version: 1, createdAt: new Date().toISOString(), items: [] };
+    const assets = new Set();
+    const presetsOut = [];
+    for (const { type, id } of selection) {
+        if (type === 'overlay') {
+            const overlay = customOverlays[sanitizeOverlayId(id)];
+            if (!overlay) continue;
+            const text = JSON.stringify(overlay, null, 2);
+            zip.addFile(`overlays/${overlay.id}.json`, Buffer.from(text));
+            manifest.items.push({ type, id: overlay.id, name: overlay.name });
+            shareAssetNames(text).forEach(n => assets.add(n));
+            if (includeHistory && fs.existsSync(historyFile(overlay.id))) zip.addLocalFile(historyFile(overlay.id), 'overlays', `${overlay.id}.history.json`);
+        } else if (type === 'preset') {
+            const preset = overlayPresets.find(p => p.id === id);
+            if (!preset) continue;
+            presetsOut.push(preset);
+            manifest.items.push({ type, id: preset.id, name: preset.name });
+            shareAssetNames(JSON.stringify(preset)).forEach(n => assets.add(n));
+        } else if (SHARE_SINGLES[type] && fs.existsSync(SHARE_SINGLES[type].path())) {
+            zip.addLocalFile(SHARE_SINGLES[type].path(), '', SHARE_SINGLES[type].entry);
+            manifest.items.push({ type, name: SHARE_SINGLES[type].label });
+        }
+    }
+    if (presetsOut.length) zip.addFile('presets.json', Buffer.from(JSON.stringify(presetsOut, null, 2)));
+    for (const name of assets) zip.addLocalFile(path.join(CUSTOM_OVERLAY_ASSETS_DIR, name), 'assets', name);
+    zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest, null, 2)));
+    return { buffer: zip.toBuffer(), count: manifest.items.length };
+}
+
+function openShareZip(buffer) {
+    const zip = new AdmZip(buffer);
+    const manifestEntry = zip.getEntry('manifest.json');
+    if (!manifestEntry) throw new Error('Not a StreamPulse share file (manifest.json is missing)');
+    const manifest = JSON.parse(manifestEntry.getData().toString('utf8'));
+    if (manifest.format !== SHARE_FORMAT) throw new Error('Not a StreamPulse share file');
+    return { zip, manifest };
+}
+
+function freeId(base, taken) {
+    let n = 2;
+    while (taken(`${base}-${n}`)) n++;
+    return `${base}-${n}`.slice(0, 60);
+}
+
+function importShareZip(buffer, selected, conflict) {
+    const { zip, manifest } = openShareZip(buffer);
+    const wanted = new Set(selected);
+    const results = [];
+    const entryText = name => { const e = zip.getEntry(name); return e ? e.getData().toString('utf8') : null; };
+
+    // Copy used assets in, renaming only when a different file already has that name.
+    const assetMap = {};
+    const importAssets = text => {
+        let out = text;
+        for (const entry of zip.getEntries()) {
+            if (!entry.entryName.startsWith('assets/') || entry.isDirectory) continue;
+            const name = path.basename(entry.entryName);
+            if (name !== entry.entryName.slice('assets/'.length)) continue;
+            const family = FONT_EXTENSIONS.has(path.extname(name).toLowerCase()) ? assetFontFamily(name) : '';
+            if (!assetReferencedIn(text, name, family)) continue;
+            if (!(name in assetMap)) {
+                const data = entry.getData();
+                const dest = path.join(CUSTOM_OVERLAY_ASSETS_DIR, name);
+                if (!fs.existsSync(dest)) { fs.writeFileSync(dest, data); assetMap[name] = name; }
+                else if (fs.readFileSync(dest).equals(data)) assetMap[name] = name;
+                else {
+                    const renamed = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}-${name.replace(/^[a-z0-9]{6,}-/, '')}`;
+                    fs.writeFileSync(path.join(CUSTOM_OVERLAY_ASSETS_DIR, renamed), data);
+                    assetMap[name] = renamed;
+                }
+            }
+            if (assetMap[name] !== name) out = rewriteAssetReferences(out, name, assetMap[name], family, FONT_EXTENSIONS.has(path.extname(name).toLowerCase()) ? assetFontFamily(assetMap[name]) : '');
+        }
+        return out;
+    };
+
+    for (const item of manifest.items || []) {
+        const key = item.id ? `${item.type}:${item.id}` : item.type;
+        if (!wanted.has(key)) continue;
+        try {
+            if (item.type === 'overlay') {
+                const sourceId = sanitizeOverlayId(item.id);
+                const raw = entryText(`overlays/${sourceId}.json`);
+                if (!raw) throw new Error('missing from file');
+                const exists = !!customOverlays[sourceId];
+                if (exists && conflict === 'skip') { results.push({ key, status: 'skipped' }); continue; }
+                const targetId = exists && conflict === 'copy' ? freeId(sourceId, id => !!customOverlays[id]) : sourceId;
+                const parsed = JSON.parse(importAssets(raw));
+                if (exists && conflict === 'copy') parsed.name = `${parsed.name || sourceId} (imported)`;
+                const previous = customOverlays[targetId];
+                if (previous) recordOverlayRevision(previous);
+                const overlay = normalizeCustomOverlay({ ...parsed, revision: previous ? previous.revision + 1 : 1, updatedAt: new Date().toISOString() }, targetId);
+                customOverlays[targetId] = overlay;
+                saveCustomOverlays();
+                syncOverlayPages(overlay, previous);
+                const history = !previous && entryText(`overlays/${sourceId}.history.json`);
+                if (history) { fs.mkdirSync(CUSTOM_OVERLAY_HISTORY_DIR, { recursive: true }); fs.writeFileSync(historyFile(targetId), history); }
+                broadcastToOverlays('custom-overlay-update', { id: targetId, overlay });
+                broadcastPage(overlay);
+                results.push({ key, status: targetId === sourceId ? (previous ? 'replaced' : 'added') : 'copied', id: targetId });
+            } else if (item.type === 'preset') {
+                const raw = entryText('presets.json');
+                const source = raw && JSON.parse(raw).find(p => p.id === item.id);
+                if (!source) throw new Error('missing from file');
+                const exists = overlayPresets.some(p => p.id === source.id);
+                if (exists && conflict === 'skip') { results.push({ key, status: 'skipped' }); continue; }
+                const targetId = exists && conflict === 'copy' ? freeId(source.id, id => overlayPresets.some(p => p.id === id)) : source.id;
+                const [preset] = normalizeOverlayPresets([{ ...JSON.parse(importAssets(JSON.stringify(source))), id: targetId }]);
+                if (!preset) throw new Error('invalid preset');
+                overlayPresets = [...overlayPresets.filter(p => p.id !== targetId), preset];
+                saveOverlayPresets();
+                results.push({ key, status: exists ? (targetId === source.id ? 'replaced' : 'copied') : 'added', id: targetId });
+            } else if (SHARE_SINGLES[item.type]) {
+                const def = SHARE_SINGLES[item.type];
+                const raw = entryText(def.entry);
+                if (!raw) throw new Error('missing from file');
+                JSON.parse(raw);
+                if (conflict === 'skip' && fs.existsSync(def.path())) { results.push({ key, status: 'skipped' }); continue; }
+                if (fs.existsSync(def.path())) fs.copyFileSync(def.path(), `${def.path()}.pre-import.bak`);
+                fs.writeFileSync(def.path(), raw);
+                if (item.type === 'timers') { loadTimers(); broadcastToOverlays('timers-snapshot', buildTimersSnapshot()); }
+                if (item.type === 'alerts') alertEngine.setConfig(JSON.parse(raw));
+                results.push({ key, status: 'replaced' });
+            }
+        } catch (err) {
+            results.push({ key, status: 'failed', error: err.message });
+        }
+    }
+    return results;
+}
+
 function getJson(url) {
     return new Promise((resolve, reject) => {
         https.get(url, { headers: { 'User-Agent': 'StreamPulse-Updater', Accept: 'application/vnd.github+json' } }, response => {
@@ -7522,7 +7696,68 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (pathname === '/api/restore' && req.method === 'POST') {
+        if (pathname === '/api/share/items' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(listShareItems()));
+        return;
+    }
+
+    if (pathname === '/api/share/export' && req.method === 'POST') {
+        try {
+            const body = JSON.parse(await readRequestBody(req) || '{}');
+            const selection = (Array.isArray(body.items) ? body.items : []).map(entry => {
+                const [type, ...rest] = String(entry).split(':');
+                return { type, id: rest.join(':') };
+            });
+            const { buffer, count } = buildShareZip(selection, !!body.includeHistory);
+            if (!count) throw new Error('Nothing selected to export');
+            const stamp = new Date().toISOString().slice(0, 10);
+            res.writeHead(200, {
+                'Content-Type': 'application/zip',
+                'Content-Disposition': `attachment; filename="streampulse-share-${stamp}.zip"`,
+                'Content-Length': buffer.length
+            });
+            res.end(buffer);
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if (pathname === '/api/share/inspect' && req.method === 'POST') {
+        try {
+            const { manifest } = openShareZip(await readBinaryBody(req));
+            const items = (manifest.items || []).map(item => ({
+                ...item,
+                exists: item.type === 'overlay' ? !!customOverlays[sanitizeOverlayId(item.id)]
+                    : item.type === 'preset' ? overlayPresets.some(p => p.id === item.id)
+                    : !!SHARE_SINGLES[item.type] && fs.existsSync(SHARE_SINGLES[item.type].path())
+            }));
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ items }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if (pathname === '/api/share/import' && req.method === 'POST') {
+        try {
+            const selected = (url.searchParams.get('items') || '').split(',').filter(Boolean);
+            const conflict = ['replace', 'copy', 'skip'].includes(url.searchParams.get('conflict')) ? url.searchParams.get('conflict') : 'copy';
+            const results = importShareZip(await readBinaryBody(req), selected, conflict);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ results }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+if (pathname === '/api/restore' && req.method === 'POST') {
         const chunks = [];
         req.on('data', chunk => chunks.push(chunk));
         req.on('end', () => {

@@ -166,6 +166,7 @@ Clip creation in **Clips (Beta)** requires `clips:edit` for live clips. VOD clip
 - **WebSocket Push** — Live data pushed to overlays in real-time
 - **Session Lifecycle** — End/start session endpoints for Companion integration
 - **Backup & Restore** — Download full data backups as ZIP, including the current live session, and restore them with restart guidance when connection settings changed
+- **Share individual items** — On the Backup page, pick specific overlays, presets, Game Plan, timers or alerts and export them as one ZIP (with the images, videos and fonts they use). Import a ZIP elsewhere and choose to keep both, replace or skip anything that already exists. Tokens, sessions and stats are never included.
 - **Update** — Check for and manually install the latest stable release, or explicitly opt in to a warned nightly `main` build from the Manage menu
 
 The updater works on Windows, macOS, and Linux when StreamPulse is run from a Git checkout with Git and Node.js/npm available. On Windows, the server uses the native `npm.cmd` command automatically. Keep the production folder writable and avoid running with uncommitted tracked code changes; data is backed up before an update.
@@ -367,6 +368,10 @@ The goal overlay fills the browser-source viewport at 100% width and height. Typ
 | `GET/POST/DELETE /api/hashtags/banned` | Hashtag moderation |
 | `GET /api/export` | Stats CSV export (`?type=chatters\|emotes\|all`) |
 | `GET /api/backup` | Download full data backup (ZIP) |
+| `GET /api/share/items` | List overlays, presets and settings that can be shared |
+| `POST /api/share/export` | Download a share ZIP for `{ items: ["overlay:id", "preset:id", "gameplan", "timers", "alerts"], includeHistory }` |
+| `POST /api/share/inspect` | Read a share ZIP (request body) and list its items |
+| `POST /api/share/import?items=…&conflict=copy\|replace\|skip` | Import selected items from a share ZIP (request body) |
 | `GET /api/clip-candidates` | List beta clip candidates |
 | `POST /api/clip-candidates` | Add a beta clip marker |
 | `GET/PUT /api/clip-candidates/config` | Read or update beta detection thresholds |
