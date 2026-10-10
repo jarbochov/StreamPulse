@@ -208,9 +208,11 @@
         const prettyDate = value => new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
         function seenLine(item) {
             const dates = [...(item.played || [])].sort();
-            if (!dates.length) return '';
+            const mins = item.minutesPlayed || 0;
+            const time = mins > 0 ? `${mins >= 60 ? `${Math.floor(mins / 60)}h ` : ''}${mins % 60 ? `${mins % 60}m ` : ''}streamed`.trim() : '';
+            if (!dates.length) return time;
             const first = prettyDate(dates[0]), last = prettyDate(dates[dates.length - 1]);
-            return first === last ? `Streamed ${first}` : `First seen ${first} · Last seen ${last}`;
+            return [first === last ? `Streamed ${first}` : `First seen ${first} · Last seen ${last}`, time].filter(Boolean).join(' · ');
         }
 
         function subLine(item) {
@@ -360,7 +362,7 @@
                     const item = items.find(entry => entry.id === fresh.id);
                     if (!item) continue;
                     if (item.cover !== fresh.cover || item.playingNow !== fresh.playingNow || item.releaseYear !== fresh.releaseYear) changed = true;
-                    Object.assign(item, { cover: fresh.cover, releaseYear: fresh.releaseYear, genres: fresh.genres, playingNow: fresh.playingNow });
+                    Object.assign(item, { cover: fresh.cover, releaseYear: fresh.releaseYear, genres: fresh.genres, playingNow: fresh.playingNow, minutesPlayed: fresh.minutesPlayed });
                     if (!fresh.cover && !item.custom) missing = true;
                 }
                 if (changed && !$('items').contains(document.activeElement) && !$('dlg').open) render();

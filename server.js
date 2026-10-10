@@ -2969,8 +2969,23 @@ function warmGameInfo(games) {
     }
 }
 
+// Minutes streamed per category across archived sessions plus the open one, keyed by normalized category name.
+let playTimeCache = { at: 0, totals: {} };
+function streamedMinutesByKey() {
+    if (Date.now() - playTimeCache.at > 60000) {
+        const totals = {};
+        for (const [name, minutes] of Object.entries(archivedCategoryMinutes())) totals[gameKey(name)] = (totals[gameKey(name)] || 0) + minutes;
+        playTimeCache = { at: Date.now(), totals };
+    }
+    const floor = Date.parse(normalizeViewerStats(chatData.viewerStats).streamStartedAt || '');
+    const merged = { ...playTimeCache.totals };
+    for (const [name, minutes] of Object.entries(categoryMinutesFor(chatData.streamInfo, Date.now(), floor))) merged[gameKey(name)] = (merged[gameKey(name)] || 0) + minutes;
+    return merged;
+}
+
 function buildGamePlanSnapshot() {
     const plan = loadGamePlan();
+    const streamed = streamedMinutesByKey();
     const category = chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category || '';
     const current = gameKey(category);
     warmGameInfo(plan.items);
@@ -2986,6 +3001,7 @@ function buildGamePlanSnapshot() {
             const keys = [item.name, item.twitchCategory, raw?.igdbName].map(gameKey).filter(Boolean);
             return {
                 ...item,
+                minutesPlayed: Math.round([...new Set(keys)].reduce((sum, key) => sum + (streamed[key] || 0), 0)),
                 cover: item.customCover || game.cover || '',
                 releaseYear: game.releaseYear || '',
                 genres: game.genres || [],
