@@ -205,6 +205,14 @@
             return item.cover ? `<img class="cover" src="${esc(item.cover)}" alt="" loading="lazy" data-edit>` : `<div class="cover" data-edit>${item.custom ? '🖼' : ''}</div>`;
         }
 
+        const prettyDate = value => new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        function seenLine(item) {
+            const dates = [...(item.played || [])].sort();
+            if (!dates.length) return '';
+            const first = prettyDate(dates[0]), last = prettyDate(dates[dates.length - 1]);
+            return first === last ? `Streamed ${first}` : `First seen ${first} · Last seen ${last}`;
+        }
+
         function subLine(item) {
             if (item.custom) return 'Custom item';
             return [item.releaseYear, (item.genres || []).slice(0, 2).join(' · ')].filter(Boolean).join(' · ') || 'Looking up…';
@@ -259,6 +267,7 @@
                     <div class="main">
                         <div class="name" data-edit title="${esc(item.name)}">${esc(item.name)}${item.playingNow ? '<span class="badge">NOW PLAYING</span>' : ''}${item.custom ? '<span class="badge custom-badge">CUSTOM</span>' : ''}</div>
                         <div class="sub">${esc(subLine(item))}</div>
+                        ${seenLine(item) ? `<div class="sub" title="Dates you streamed this game (recorded automatically when a session ends)">${esc(seenLine(item))}</div>` : ''}
                         <div class="row-meta">
                             <span class="stars" data-stars>${starsHtml(item.rating || 0, 'data-star')}</span>
                             ${(item.tags || []).map(tag => `<span class="chip">${esc(tag)}</span>`).join('')}
