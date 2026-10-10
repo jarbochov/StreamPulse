@@ -31,7 +31,7 @@ if (!fs.existsSync(CONFIG_PATH)) {
 }
 
 let config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-const PORT = config.port || 8080;
+const PORT = config.port || 3000;
 const cleanConfigValue = v => { const t = String(v ?? '').trim(); return /^YOUR_/i.test(t) ? '' : t; };
 let BROADCASTER_ID = cleanConfigValue(config.broadcaster_id);
 let BROADCASTER_NAME = cleanConfigValue(config.broadcaster_name);
