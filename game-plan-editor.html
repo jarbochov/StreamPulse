@@ -17,6 +17,16 @@
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.2rem; }
         .hint { color: var(--text-muted); font-size: 0.78rem; line-height: 1.45; }
         .add-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.6rem; }
+        .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-top: 0.5rem; }
+        .card-foot .status { margin: 0; }
+        .btn.ghost { background: none; border-color: transparent; color: var(--text-muted); padding: 0.2rem 0.5rem; font-size: 0.76rem; }
+        .btn.ghost:hover { color: var(--text); border-color: var(--border); }
+        .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap; margin: 0.1rem 0 0.2rem; }
+        .toolbar .view-toggle { margin: 0; }
+        .view-bar { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; font-size: 0.74rem; color: var(--text-muted); }
+        .view-bar label { display: inline-flex; align-items: center; gap: 0.35rem; }
+        .view-bar select { padding: 0.25rem 0.45rem; font-size: 0.78rem; }
+        .view-bar #v-count { color: var(--text-faint); }
         input, select, textarea { padding: 0.5rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; font-family: inherit; min-width: 0; }
         input:focus, select:focus { outline: none; border-color: var(--accent); }
         .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.82rem; cursor: pointer; }
@@ -48,7 +58,6 @@
         .main .note { font-size: 0.76rem; color: var(--text-muted); font-style: italic; }
         .row-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
         .period-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0 0 0.6rem; font-size: 0.74rem; color: var(--text-muted); }
-        .period-bar select { font: inherit; background: var(--panel, transparent); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.15rem 0.3rem; margin-left: 0.2rem; }
         .period-bar .pchip { cursor: grab; border: 1px solid var(--border); border-radius: 999px; padding: 0.15rem 0.6rem; color: var(--text); background: var(--panel, transparent); }
         .period-bar .pchip .num { opacity: 0.55; margin-right: 0.35rem; }
         .chip { font-size: 0.68rem; border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; color: var(--text-muted); }
@@ -117,18 +126,19 @@
                 <div class="name-wrap"><input id="add-name" placeholder="Add to this list — type a game name (IGDB lookup)" maxlength="120" autocomplete="off" required><div id="suggest" class="suggest" hidden></div></div>
                 <button class="btn primary" type="submit">Add</button>
                 <button class="btn" type="button" id="add-custom" title="Add something that isn't an IGDB game (tier list entries, challenges, anything) — you can give it your own artwork">Add as custom</button>
-                <button class="btn" type="button" id="backfill" title="Add games from past sessions that aren't on any list yet, and record the dates you streamed them">Import past games</button>
             </form>
-            <p class="status" id="status"></p>
+            <div class="card-foot"><p class="status" id="status"></p><button class="btn ghost" type="button" id="backfill" title="Add games from past sessions that aren't on any list yet, and record the dates you streamed them">Import past games</button></div>
         </div>
 
         <div class="tabs" id="tabs"></div>
+        <div class="toolbar">
         <div class="view-toggle"><span>View:</span><button type="button" class="tab active" data-view="list">List</button><button type="button" class="tab" data-view="tiers">Tiers</button></div>
-        <div class="period-bar" id="view-bar" hidden>
+        <div class="view-bar" id="view-bar" hidden>
             <label>Sort <select id="v-sort"><option value="manual">Manual order</option><option value="name">Name</option><option value="last">Last seen (newest)</option><option value="first">First seen (oldest)</option><option value="time">Most time streamed</option><option value="rating">Rating</option><option value="year">Release year</option><option value="system">System</option></select></label>
             <label>Streamed <select id="v-when"><option value="">Any time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="month">This month</option><option value="year">This year</option><option value="never">Never streamed</option></select></label>
             <label>System <select id="v-system"><option value="">All</option></select></label>
             <span id="v-count"></span>
+        </div>
         </div>
         <div class="period-bar" id="period-bar" hidden></div>
         <div class="board" id="board" hidden></div>
