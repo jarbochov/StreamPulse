@@ -1780,7 +1780,7 @@
         const alignTarget = target.closest('[data-target]');
         if (alignTarget) { prefs.alignTo = alignTarget.dataset.target; savePrefs(); alignTarget.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === alignTarget))); return; }
         if (target.closest('#open-variables')) openVariableDialog();
-        const quick = target.closest('[data-scale]');
+        const quick = target.closest('button[data-scale]');
         if (quick) scaleSelectionBy(Number(quick.dataset.scale));
         if (target.closest('#scale-apply')) scaleSelectionBy(Number($('scale-pct').value));
         if (target.closest('#fit-icon')) {
