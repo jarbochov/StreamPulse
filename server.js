@@ -3567,6 +3567,21 @@ function recordSubTenure(chatname, msg, nowISO) {
     if (!existing || months >= existing.months) statsData.subTenure[key] = { months, seenAt: nowISO };
 }
 
+const recentChatLog = [];
+const CHAT_WINDOWS = [5, 10, 15, 30, 60];
+function recentChatSummary() {
+    const now = Date.now();
+    while (recentChatLog.length && now - recentChatLog[0].at > 60 * 60000) recentChatLog.shift();
+    const windows = {};
+    for (const minutes of CHAT_WINDOWS) {
+        const counts = {};
+        for (const entry of recentChatLog) if (now - entry.at <= minutes * 60000) counts[entry.name] = (counts[entry.name] || 0) + 1;
+        const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+        windows[minutes] = top ? { name: top[0], count: top[1] } : null;
+    }
+    return { last: recentChatLog.length ? recentChatLog[recentChatLog.length - 1].name : null, windows };
+}
+
 function updateStats(chatname, msg) {
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -4732,6 +4747,8 @@ function processChatMessage(msg) {
             chatData.chatters[chatname] = { chatname, chatimg: msg.chatimg, type: msg.type, messageCount: 0 };
         }
         chatData.chatters[chatname].messageCount++;
+        recentChatLog.push({ name: chatname, at: Date.now() });
+        if (recentChatLog.length > 5000) recentChatLog.splice(0, recentChatLog.length - 5000);
     }
 
     if (msg.event === 'follow' || msg.event === 'new_follower') {
@@ -6099,6 +6116,7 @@ const server = http.createServer(async (req, res) => {
                 .sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0))
                 .slice(0, 100)
                 .map(c => ({ chatname: c.chatname, chatimg: c.chatimg || '', messageCount: c.messageCount || 0 })),
+            recentChat: recentChatSummary(),
             recentEvents: buildRecentEvents(12)
         };
         res.writeHead(200, { 'Content-Type': 'application/json' });
