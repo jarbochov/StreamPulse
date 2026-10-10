@@ -319,8 +319,19 @@
         return format.replace(/\[([^\]]*)\]|th|tm|ts|dd|d|hh|h|mm|m|ss|s/g, (token, literal) => literal !== undefined ? literal : String(map[token]));
     }
 
+    const isListKey = name => /^(plan\.scheduled|plan\.backlog|plan\.list\..+|game\.genres|game\.platforms)$/.test(name);
+
     function applyFormat(name, value, format, now, table = {}) {
         if (!format) return value;
+        if (isListKey(name)) {
+            const items = String(value ?? '').split(', ').filter(Boolean);
+            if (/^(lines|newline|br)$/i.test(format)) return items.join('\n');
+            if (/^bullets$/i.test(format)) return items.map(item => `• ${item}`).join('\n');
+            if (/^numbered$/i.test(format)) return items.map((item, i) => `${i + 1}. ${item}`).join('\n');
+            const limit = format.match(/^(\d+)(?::(.*))?$/s);
+            if (limit) return items.slice(0, Number(limit[1])).join(limit[2] === undefined ? ', ' : limit[2].replace(/\\n/g, '\n').replace(/\\s/g, ' '));
+            return items.join(format.replace(/^sep:/, '').replace(/\\n/g, '\n').replace(/\\s/g, ' '));
+        }
         if (/^timer\.[a-zA-Z0-9_-]+$/.test(name) && table[`${name}.ms`] !== undefined) return formatDuration(table[`${name}.ms`], format);
         const clockKey = /^(now|time|time\.24|time\.seconds|date|date\.long)$/.test(name);
         const date = clockKey ? new Date(now) : parseDateValue(value);
