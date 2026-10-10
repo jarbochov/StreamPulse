@@ -367,6 +367,11 @@ The goal overlay fills the browser-source viewport at 100% width and height. Typ
 | `GET /api/sessions` | List archived sessions |
 | `GET/POST/DELETE /api/highlights` | Pin/unpin/list highlights |
 | `GET /api/highlights/export` | Export highlights (`?format=`, `?session=`, `?q=`) |
+| `GET/POST/DELETE /api/overlay-presets` | Saved overlay editor element presets |
+| `POST /api/share/export`, `/inspect`, `/import` | Share bundles of overlays, presets, timers, alerts and Game Plan (`GET /api/share/items` lists them) |
+| `GET /api/custom-overlays/:id/history` | Saved revisions of a custom overlay |
+| `GET /api/weather` | Current weather snapshot (`?refresh=1` to refetch) |
+| `POST /api/game-plan/backfill` | Add past streamed games to Played |
 | `GET /api/hashtags/stats` | Hashtag stats summary + table data |
 | `GET/POST/DELETE /api/hashtags/banned` | Hashtag moderation |
 | `GET /api/export` | Stats CSV export (`?type=chatters\|emotes\|all`) |

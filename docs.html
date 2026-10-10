@@ -328,6 +328,29 @@
                     ]
                 },
                 {
+                    name: 'Weather',
+                    note: 'Powers the {{weather.*}} placeholders in custom overlays (data from Open-Meteo, no key needed).',
+                    items: [
+                        { param: 'weather.enabled', type: 'boolean', default: 'false', desc: 'Turn weather placeholders on.', hot: true },
+                        { param: 'weather.location', type: 'string', default: '""', desc: 'City to look up, e.g. Pittsburgh, PA.', hot: true },
+                        { param: 'weather.extra_locations', type: 'array', default: '[]', desc: 'Up to 8 extra cities, used as {{weather.<city>.temp}}.', hot: true },
+                        { param: 'weather.units', type: 'string', default: 'imperial', desc: 'imperial (F, mph) or metric (C, km/h).', hot: true },
+                        { param: 'weather.poll_minutes', type: 'number', default: '15', desc: 'How often to refresh the weather.', hot: true }
+                    ]
+                },
+                {
+                    name: 'Chat, Backups & Limits',
+                    items: [
+                        { param: 'hashtags_enabled', type: 'boolean', default: 'true', desc: 'Track hashtags from chat.', hot: true },
+                        { param: 'chat_log_enabled', type: 'boolean', default: 'true', desc: 'Keep the per-session chat log.', hot: true },
+                        { param: 'banned_users', type: 'array', default: '[]', desc: 'Usernames completely hidden from everything.', hot: true },
+                        { param: 'auto_backup_on_session_end', type: 'boolean', default: 'false', desc: 'Auto-backup data when a session ends.', hot: true },
+                        { param: 'rate_limit.enabled', type: 'boolean', default: 'false', desc: 'Limit API requests per client. Useful if the server is reachable by others.', restart: true },
+                        { param: 'rate_limit.requests_per_minute', type: 'number', default: '120', desc: 'Read requests allowed per minute.', restart: true },
+                        { param: 'rate_limit.mutation_per_minute', type: 'number', default: '30', desc: 'Write requests allowed per minute.', restart: true }
+                    ]
+                },
+                {
                     name: 'Goals',
                     items: [
                         { param: 'goals.enabled', type: 'boolean', default: 'true', desc: 'Master toggle for goal overlays and goal cycling.', hot: true },
@@ -862,13 +885,20 @@
                 Any text, image/video/embed source or QR value can include <code>{{token}}</code> placeholders that update live. Add a format with <code>{{token|format}}</code>. Use the <strong>Insert placeholder</strong> dialog in the editor to browse everything available.
             </div>
             <table>
-                <tr><th>Group</th><th>Examples</th></tr>
-                <tr><td>Clock</td><td><code>now</code> <code>time</code> <code>time.24</code> <code>date</code> <code>date.long</code></td></tr>
-                <tr><td>Timers</td><td><code>timer.&lt;id&gt;</code> <code>timer.&lt;id&gt;.label</code> <code>timer.&lt;id&gt;.state</code> <code>timer.&lt;id&gt;.target</code> <code>timer.&lt;id&gt;.ms</code></td></tr>
-                <tr><td>Goals, events, viewers</td><td>Goal progress, latest follower/sub/donation, viewer counts, current category time</td></tr>
-                <tr><td>Game</td><td><code>game.*</code> (IGDB details for the current category)</td></tr>
-                <tr><td>Game plan</td><td><code>plan.*</code> and <code>plan.list.&lt;id&gt;</code> for custom lists</td></tr>
+                <tr><th>Group</th><th>Placeholders</th></tr>
+                <tr><td>Viewers</td><td><code>viewers.current</code> <code>viewers.peak</code> <code>viewers.average</code></td></tr>
+                <tr><td>Chat</td><td><code>chatters</code> <code>messages</code> <code>followers</code> <code>followers.session</code> <code>subscribers</code> <code>subscribers.session</code> <code>chatter.top</code> <code>chatter.top.count</code></td></tr>
+                <tr><td>Engagement</td><td><code>gift_subs</code> <code>gift_subs.total</code> <code>bits</code> <code>bits.total</code> <code>donations</code> <code>donations.total</code></td></tr>
+                <tr><td>Hashtags</td><td><code>hashtags.top</code> <code>hashtags.session_top</code> <code>hashtags.total</code></td></tr>
+                <tr><td>Latest events</td><td><code>latest.follower</code> <code>latest.subscriber</code> <code>latest.gifter</code> <code>latest.cheer</code> <code>latest.cheer.amount</code> <code>latest.donation</code> <code>latest.donation.amount</code> <code>latest.raider</code> <code>latest.raider.viewers</code></td></tr>
+                <tr><td>Stream</td><td><code>stream.title</code> <code>stream.category</code> <code>category.session_time</code> <code>category.total_time</code> <code>category.total_hours</code> <code>uptime</code> <code>overlay.name</code></td></tr>
+                <tr><td>Clock</td><td><code>now</code> <code>time</code> <code>time.24</code> <code>time.seconds</code> <code>date</code> <code>date.long</code> <code>weekday</code> <code>month</code> <code>year</code></td></tr>
+                <tr><td>Timers</td><td><code>timer.&lt;id&gt;</code> <code>timer.&lt;id&gt;.label</code> <code>timer.&lt;id&gt;.state</code> <code>timer.&lt;id&gt;.target</code> <code>timer.&lt;id&gt;.ms</code> <code>timer.&lt;id&gt;.percent</code></td></tr>
+                <tr><td>Goals</td><td><code>goal.&lt;id&gt;.title</code> <code>.current</code> <code>.target</code> <code>.percent</code> <code>.remaining</code> <code>.current_text</code> <code>.target_text</code> <code>.remaining_text</code></td></tr>
+                <tr><td>Game (IGDB)</td><td><code>game.cover</code> <code>game.release_date</code> <code>game.release_year</code> <code>game.genres</code> <code>game.developer</code> <code>game.platforms</code> <code>game.rating</code> <code>game.summary</code></td></tr>
+                <tr><td>Game plan</td><td><code>plan.now</code> <code>plan.scheduled</code> <code>plan.backlog</code> and <code>plan.list.&lt;id&gt;</code> for custom lists</td></tr>
                 <tr><td>Music</td><td><code>music.title</code> <code>music.artist</code> <code>music.album</code> <code>music.cover</code> <code>music.position</code> <code>music.duration</code> <code>music.remaining</code> <code>music.percent</code></td></tr>
+                <tr><td>Weather</td><td>Needs <code>weather.enabled</code> in <code>config.json</code>. <code>weather.temp</code> <code>weather.temp_full</code> <code>weather.unit</code> <code>weather.feels_like</code> <code>weather.condition</code> <code>weather.icon</code> <code>weather.icon.url</code> <code>weather.humidity</code> <code>weather.wind</code> <code>weather.wind.speed</code> <code>weather.wind.dir</code> <code>weather.high</code> <code>weather.low</code> <code>weather.precip_chance</code> <code>weather.city</code> <code>weather.location</code> <code>weather.gusts</code> <code>weather.cloud_cover</code> <code>weather.pressure</code> <code>weather.pressure.unit</code> <code>weather.uv</code> <code>weather.sunrise</code> <code>weather.sunset</code>. Hourly: <code>weather.h1.time</code> <code>.temp</code> <code>.icon</code> <code>.icon.url</code> <code>.condition</code> <code>.precip</code> (h1 to h6). Daily: <code>weather.d1.day</code> <code>.high</code> <code>.low</code> <code>.icon</code> <code>.icon.url</code> <code>.condition</code> <code>.precip</code> (d1 = tomorrow, to d5). Extra cities use <code>weather.&lt;city&gt;.temp</code> and so on.</td></tr>
             </table>
             <div class="detail-label">Date and time formats</div>
             <div class="detail-text">

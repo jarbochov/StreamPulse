@@ -706,6 +706,57 @@
                     details: 'Used by Text, Random Text and Markdown elements. mode is "file" (an absolute path on this computer) or "library" (an uploaded asset URL). Only .txt and .md files up to 512 KB are served. Other computers can only read files that a saved overlay already references. Returns text, mtimeMs and name.'
                 },
                 {
+                    method: 'GET', path: '/api/custom-overlays/:id/history',
+                    desc: 'List saved revisions of an overlay',
+                    details: 'Returns { current, revisions: [{ revision, updatedAt, name, elementCount }] }, newest first. Every save keeps a revision.'
+                },
+                {
+                    method: 'GET', path: '/api/custom-overlays/:id/history/:revision',
+                    desc: 'Read one saved revision',
+                    details: 'Returns the full overlay as it was saved at that revision. Returns 404 if the revision is gone.'
+                },
+                {
+                    method: 'GET', path: '/api/overlay-presets',
+                    desc: 'List element presets',
+                    details: 'Returns your saved editor presets (reusable groups of elements shown under Add element, then Presets).'
+                },
+                {
+                    method: 'POST', path: '/api/overlay-presets',
+                    desc: 'Save an element preset',
+                    details: 'Creates or replaces a preset by id. A preset needs an id and at least one element. Maximum 100 presets.',
+                    body: '{ "id": "lower-third", "name": "Lower third", "category": "Titles", "elements": [ ... ] }'
+                },
+                {
+                    method: 'DELETE', path: '/api/overlay-presets/:id',
+                    desc: 'Delete an element preset',
+                    details: 'Returns { ok: true }, or 404 with { ok: false } when the id does not exist.'
+                },
+                {
+                    method: 'GET', path: '/api/share/items',
+                    desc: 'List shareable items',
+                    details: 'Returns { overlays, presets, singles } that can go in a share bundle. singles are Game Plan, Timers and Alerts when their files exist.'
+                },
+                {
+                    method: 'POST', path: '/api/share/export',
+                    desc: 'Export a share bundle (ZIP)',
+                    details: 'Returns a ZIP with the chosen items plus the assets and fonts they use. Items are "overlay:<id>", "preset:<id>", "gameplan", "timers" or "alerts". Set includeHistory to also include overlay revisions.',
+                    body: '{ "items": ["overlay:my-overlay", "preset:lower-third", "timers"], "includeHistory": false }'
+                },
+                {
+                    method: 'POST', path: '/api/share/inspect',
+                    desc: 'Preview a share bundle',
+                    details: 'Send the raw ZIP bytes. Returns { items } with an exists flag for each item so you can see what an import would overwrite.'
+                },
+                {
+                    method: 'POST', path: '/api/share/import',
+                    desc: 'Import a share bundle',
+                    details: 'Send the raw ZIP bytes. Query: items=comma,list of items to import (as listed by inspect) and conflict=copy|replace|skip (default copy). Returns { results }.',
+                    params: [
+                        { name: 'items', desc: 'Items to import', values: 'comma-separated', default: '—' },
+                        { name: 'conflict', desc: 'What to do when an item already exists', values: 'copy | replace | skip', default: 'copy' }
+                    ]
+                },
+                {
                     method: 'POST', path: '/api/system/choose-file',
                     desc: 'Open the macOS file chooser',
                     details: 'Opens a native file dialog on the StreamPulse computer and returns { path } or { cancelled: true }. Loopback requests only; macOS only.'
@@ -738,6 +789,27 @@
                     method: 'PUT', path: '/api/game-plan',
                     desc: 'Save the game plan',
                     details: 'Replaces the stored game plan with the normalized payload and pushes the update to overlays.'
+                },
+                {
+                    method: 'POST', path: '/api/game-plan/backfill',
+                    desc: 'Add past games to Played',
+                    details: 'Walks every archived session once and adds games you streamed before auto-add existed to the Played list. Returns the result counts.'
+                },
+                {
+                    method: 'GET', path: '/api/weather',
+                    desc: 'Current weather',
+                    details: 'Returns { enabled, units, location, ... } with the latest conditions, hourly and daily forecast used by the {{weather.*}} placeholders. Empty unless weather.enabled is true in config.json.',
+                    params: [
+                        { name: 'refresh', desc: 'Fetch fresh data now', values: '1', default: 'off' }
+                    ]
+                },
+                {
+                    method: 'GET', path: '/api/weather/icon.svg',
+                    desc: 'Weather emoji as an SVG image',
+                    details: 'Renders an emoji as an image so it can be used as an image source. This is what {{weather.icon.url}} points to.',
+                    params: [
+                        { name: 'e', desc: 'Emoji to draw', values: 'emoji', default: '🌡️' }
+                    ]
                 },
                 {
                     method: 'GET', path: '/api/game-search',
