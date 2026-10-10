@@ -26,10 +26,12 @@
         .btn.small { padding: 0.28rem 0.6rem; font-size: 0.78rem; }
         .btn.active { border-color: var(--accent); background: var(--accent-bg); }
         .summary { color: var(--text-muted); font-size: 0.8rem; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.9rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--card, 300px), 1fr)); gap: 0.9rem; }
+        .size { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text-muted); font-size: 0.78rem; }
+        .size input { padding: 0; width: 120px; accent-color: var(--accent); }
         .overlay { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); overflow: hidden; display: flex; flex-direction: column; }
         .overlay:hover { border-color: var(--border-strong); }
-        .preview { position: relative; height: 170px; overflow: hidden; background: conic-gradient(var(--bg-raised) 25%, var(--bg-card) 0 50%, var(--bg-raised) 0 75%, var(--bg-card) 0) 0 0 / 16px 16px; border-bottom: 1px solid var(--border); }
+        .preview { position: relative; height: calc(var(--card, 300px) * 0.57); overflow: hidden; background: conic-gradient(var(--bg-raised) 25%, var(--bg-card) 0 50%, var(--bg-raised) 0 75%, var(--bg-card) 0) 0 0 / 16px 16px; border-bottom: 1px solid var(--border); }
         .preview.off { display: none; }
         .preview iframe { position: absolute; top: 50%; left: 50%; border: 0; background: transparent; transform-origin: 0 0; pointer-events: none; }
         .body { padding: 0.7rem 0.85rem 0.8rem; display: grid; gap: 0.35rem; }
@@ -46,7 +48,7 @@
         .act-more .danger:hover { background: transparent; }
         .empty { color: var(--text-muted); text-align: center; padding: 2.5rem 1rem; grid-column: 1 / -1; }
         .list .overlay { flex-direction: row; align-items: center; }
-        .list .preview { width: 220px; height: 124px; flex: none; border-bottom: 0; border-right: 1px solid var(--border); }
+        .list .preview { width: calc(var(--card, 300px) * 0.73); height: calc(var(--card, 300px) * 0.41); flex: none; border-bottom: 0; border-right: 1px solid var(--border); }
         .list .body { flex: 1; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.2rem 1rem; }
         .list .actions { margin: 0; min-width: 270px; grid-row: 1 / span 2; grid-column: 2; }
         .list.grid { grid-template-columns: 1fr; }
@@ -66,6 +68,7 @@
                 <option value="updated">Recently edited</option><option value="created">Recently created</option><option value="name">Name A–Z</option><option value="elements">Most elements</option>
             </select>
             <button class="btn" id="toggle-preview" title="Show or hide live previews">Previews</button>
+            <label class="size">Size <input id="card-size" type="range" min="200" max="560" step="10" value="300"></label>
             <button class="btn" id="toggle-view" title="Switch between grid and list">List view</button>
             <a class="btn" href="/assets.html">Asset Library →</a>
         </div>
@@ -76,7 +79,7 @@
     <script>
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const prefs = Object.assign({ previews: true, view: 'grid', sort: 'updated' }, JSON.parse(localStorage.getItem('customOverlaysPrefs') || '{}'));
+    const prefs = Object.assign({ previews: true, view: 'grid', sort: 'updated', size: 300 }, JSON.parse(localStorage.getItem('customOverlaysPrefs') || '{}'));
     const savePrefs = () => localStorage.setItem('customOverlaysPrefs', JSON.stringify(prefs));
     let overlays = [];
 
@@ -209,6 +212,10 @@
     $('search').addEventListener('input', render);
     $('sort').value = prefs.sort;
     $('sort').addEventListener('change', () => { prefs.sort = $('sort').value; savePrefs(); render(); });
+    const applySize = () => { $('overlay-list').style.setProperty('--card', `${prefs.size}px`); fitPreviews(); };
+    $('card-size').value = prefs.size;
+    $('card-size').addEventListener('input', () => { prefs.size = Number($('card-size').value); savePrefs(); applySize(); });
+    $('overlay-list').style.setProperty('--card', `${prefs.size}px`);
     $('toggle-preview').addEventListener('click', () => { prefs.previews = !prefs.previews; savePrefs(); render(); });
     $('toggle-view').addEventListener('click', () => { prefs.view = prefs.view === 'list' ? 'grid' : 'list'; savePrefs(); render(); });
     window.addEventListener('resize', fitPreviews);
