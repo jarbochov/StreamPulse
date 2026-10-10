@@ -38,11 +38,11 @@
         .title { font-weight: 600; font-size: 0.98rem; overflow-wrap: anywhere; }
         .meta { color: var(--text-muted); font-size: 0.76rem; line-height: 1.5; }
         .actions { display: grid; gap: 0.4rem; margin-top: 0.35rem; }
-        .act-main { display: flex; gap: 0.35rem; }
+        .act-main { display: flex; flex-wrap: wrap; gap: 0.35rem; }
         .act-main .btn { text-align: center; white-space: nowrap; }
-        .act-main .primary { flex: 1; }
-        .act-more { display: flex; gap: 0.15rem; padding-top: 0.4rem; border-top: 1px solid var(--border); }
-        .act-more .btn { border-color: transparent; background: transparent; color: var(--text-muted); }
+        .act-main .primary { flex: 1 0 auto; }
+        .act-more { display: flex; flex-wrap: wrap; gap: 0.15rem; padding-top: 0.4rem; border-top: 1px solid var(--border); }
+        .act-more .btn { padding-inline: 0.45rem; border-color: transparent; background: transparent; color: var(--text-muted); }
         .act-more .btn:hover { color: var(--text); background: var(--bg-raised); border-color: var(--border); }
         .act-more .danger { margin-left: auto; }
         .act-more .danger:hover { background: transparent; }
