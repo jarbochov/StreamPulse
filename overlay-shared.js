@@ -202,7 +202,7 @@
     }
 
     function variableTable(status = {}, context = {}, now = Date.now()) {
-        return {
+        const table = {
             ...clockValues(status, now),
             ...eventValues(status),
             ...goalValues(status),
@@ -267,11 +267,22 @@
             'stream.title': status.stream?.title,
             'overlay.name': context.overlayName
         };
+        // Real arrays for list tokens, so items containing commas survive formatting.
+        const planItems = status.gamePlan?.items || [];
+        const lists = {
+            'plan.scheduled': planItems.filter(item => item.status === 'scheduled').map(item => item.name),
+            'plan.backlog': planItems.filter(item => item.status === 'backlog').map(item => item.name),
+            'game.genres': status.stream?.game?.genres || [],
+            'game.platforms': status.stream?.game?.platforms || []
+        };
+        for (const list of status.gamePlan?.lists || []) lists[`plan.list.${list.id}`] = planItems.filter(item => inPlanList(item, list.id)).map(item => item.name);
+        Object.defineProperty(table, '__lists', { value: lists, enumerable: false });
+        return table;
     }
 
 
     // Date/time formatting for {{token|format}}. Tokens follow the familiar Moment/Day.js style; wrap literal text in [brackets].
-    const LIST_FORMAT_PRESETS = [['lines', 'One per line'], ['bullets', '• One per line'], ['numbered', '1. One per line'], ['3', 'First 3 only'], ['sep: / ', 'Separated by /'], ['sep: • ', 'Separated by •']];
+    const LIST_FORMAT_PRESETS = [['lines', 'One per line'], ['bullets', '• One per line'], ['numbered', '1. One per line'], ['3', 'First 3 only'], ['sep:\\s/\\s', 'Separated by /'], ['sep:\\s•\\s', 'Separated by •']];
     const FORMAT_PRESETS = [['short', '4d 3h 22m 2s (timers)'], ['long', '4 days, 3 hours… (timers)'], ['clock', '4d 3:22:02 (timers)'], ['d[d] h[h] m[m]', '4d 3h 22m (timers)'], ['MMMM D, YYYY', 'October 2, 2026'], ['MMM D', 'Oct 2'], ['ddd, MMM D', 'Fri, Oct 2'], ['dddd, MMMM Do', 'Friday, October 2nd'], ['YYYY-MM-DD', '2026-10-02'], ['MM/DD/YYYY', '10/02/2026'], ['h:mm A', '1:34 PM'], ['HH:mm', '13:34'], ['MMM D, h:mm A', 'Oct 2, 1:34 PM'], ['dddd [at] h A', 'Friday at 1 PM']];
     const isDateKey = name => /^timer\.[a-zA-Z0-9_-]+$/.test(name) || /^(now|time|time\.24|time\.seconds|date|date\.long|game\.release_date|session\.started|timer\.[a-zA-Z0-9_-]+\.target)$/.test(name);
     const ordinal = n => { const v = n % 100; return n + (['th', 'st', 'nd', 'rd'][(v - 20) % 10] || ['th', 'st', 'nd', 'rd'][v] || 'th'); };
@@ -320,12 +331,13 @@
         return format.replace(/\[([^\]]*)\]|th|tm|ts|dd|d|hh|h|mm|m|ss|s/g, (token, literal) => literal !== undefined ? literal : String(map[token]));
     }
 
+    const isListFormat = format => /^(lines|newline|br|bullets|numbered|sep:|\d+(:|$))/i.test(String(format || '').trim());
     const isListKey = name => /^(plan\.scheduled|plan\.backlog|plan\.list\..+|game\.genres|game\.platforms)$/.test(name);
 
     function applyFormat(name, value, format, now, table = {}) {
         if (!format) return value;
         if (isListKey(name)) {
-            const items = String(value ?? '').split(', ').filter(Boolean);
+            const items = (table.__lists?.[name] || String(value ?? '').split(', ')).filter(Boolean);
             if (/^(lines|newline|br)$/i.test(format)) return items.join('\n');
             if (/^bullets$/i.test(format)) return items.map(item => `• ${item}`).join('\n');
             if (/^numbered$/i.test(format)) return items.map((item, i) => `${i + 1}. ${item}`).join('\n');
@@ -344,7 +356,7 @@
         const now = Date.now();
         const table = variableTable(status, context, now);
         return String(value ?? '').replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
-            const resolved = format === undefined ? table[name] : applyFormat(name, table[name], format.trim(), now, table);
+            const resolved = format === undefined ? table[name] : applyFormat(name, table[name], isListKey(name) ? format.replace(/^\s+/, '') : format.trim(), now, table);
             const text = resolved === undefined || resolved === null ? '' : String(resolved);
             return text === '' && keepEmpty ? match : text;
         });
@@ -1531,5 +1543,5 @@
         return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length, control };
     }
 
-    root.OverlayShared = { isListKey, LIST_FORMAT_PRESETS, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
+    root.OverlayShared = { isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
 })(window);

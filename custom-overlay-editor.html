@@ -1942,7 +1942,7 @@
             if (!items.length) return '';
             return `<h4>${esc(group.label)}</h4>` + items.map(([key, label]) => {
                 const listed = shared.isListKey(key);
-                const dated = format && (shared.isDateKey(key) || listed);
+                const dated = format && (listed ? shared.isListFormat(format) : shared.isDateKey(key) && !shared.isListFormat(format));
                 const value = dated ? shared.applyFormat(key, table[key], format, Date.now()) : table[key];
                 const preview = value === undefined || value === null || value === '' ? '—' : String(value);
                 const token = dated ? `${key}|${format}` : key;
@@ -2483,7 +2483,7 @@
         const anchor = { x: dir.includes('w') ? right : orig.x, y: dir.includes('n') ? bottom : orig.y };
         const used = applyScale(snaps, anchor, sx, sy);
         showGuides(guides.xs, guides.ys);
-        renderCanvas(new Set(selectedIds)); renderSelectionUI(`${Math.round(used.sx * 100)}% × ${Math.round(used.sy * 100)}%`.replace(/^(\d+)% × \1%$/, '$1%'));
+        renderCanvas(new Set(gesture.ids)); renderSelectionUI(`${Math.round(used.sx * 100)}% × ${Math.round(used.sy * 100)}%`.replace(/^(\d+)% × \1%$/, '$1%'));
         syncGeometryInputs(); updateStatusBar();
     }
     function resizeGesture(event, dx, dy) {
