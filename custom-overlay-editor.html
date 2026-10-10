@@ -790,6 +790,7 @@
         }
         if (el.type === 'random-text' && node._extra !== undefined) node.style.setProperty('--marquee-duration', `${Math.max(10, el.random?.marqueeSpeed || 60)}s`);
         shared.loadGoogleFont(s.fontFamily);
+        if (['image', 'video', 'slideshow'].includes(el.type)) shared.applyMediaFilter(node, el);
     }
     const placeholder = text => { const node = document.createElement('div'); node.className = 'media-placeholder'; node.textContent = text; return node; };
     function buildContent(node, el) {
@@ -1468,6 +1469,24 @@
             assetTagNames = [...new Set(list.flatMap(asset => asset.tags || []))].sort((a, b) => a.localeCompare(b));
         } catch { /* server offline */ }
     }
+    function filterSection(el) {
+        const f = { ...shared.defaultMediaFilter(), ...(el.mediaFilter || {}) };
+        const tint = f.tint || {}, duo = f.duotone || {};
+        const presets = shared.MEDIA_FILTER_PRESETS;
+        const body = `
+            <label class="field"><span>Preset</span><select data-fx-preset><option value="">Choose a preset…</option>${presets.map(([id, name]) => `<option value="${id}">${name}</option>`).join('')}</select></label>
+            ${F.range('mediaFilter.blur', 'Blur', f.blur, { min: 0, max: 60, unit: 'px' })}
+            ${F.range('mediaFilter.brightness', 'Brightness', f.brightness, { min: 0, max: 200, unit: '%' })}
+            ${F.range('mediaFilter.contrast', 'Contrast', f.contrast, { min: 0, max: 200, unit: '%' })}
+            ${F.range('mediaFilter.saturate', 'Saturation', f.saturate, { min: 0, max: 300, unit: '%' })}
+            ${F.range('mediaFilter.grayscale', 'Grayscale', f.grayscale, { min: 0, max: 100, unit: '%' })}
+            ${F.check('mediaFilter.duotone.enabled', 'Duotone', duo.enabled)}
+            ${duo.enabled ? `<div class="grid2">${F.color('mediaFilter.duotone.dark', 'Shadows', duo.dark)}${F.color('mediaFilter.duotone.light', 'Highlights', duo.light)}</div>` : ''}
+            ${F.check('mediaFilter.tint.enabled', 'Color tint', tint.enabled)}
+            ${tint.enabled ? `${F.color('mediaFilter.tint.color', 'Tint color', tint.color)}${F.range('mediaFilter.tint.opacity', 'Tint strength', tint.opacity, { min: 0, max: 100, scale: 0.01, unit: '%' })}` : ''}
+            ${f.blur > 20 && el.type === 'video' ? '<p class="hint">Heavy blur on video can be slow in the editor.</p>' : ''}`;
+        return F.section('media-filter', 'Filters', body, false);
+    }
     function slideshowSection(el) {
         const c = el.slideshow || {};
         const manual = c.source === 'manual';
@@ -1664,7 +1683,7 @@
         } else {
             const el = items[0];
             const specific = { 'random-text': randomSection, progress: progressSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection }[el.type];
-            root.innerHTML = `${actionBar(items)}${sharedBlock(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${contentSection(el)}${specific ? specific(el) : ''}${hasText(el) ? typographySection(el) : ''}${fillSection(el)}${effectsSection(el)}${layoutSection(el)}`;
+            root.innerHTML = `${actionBar(items)}${sharedBlock(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${contentSection(el)}${specific ? specific(el) : ''}${['image', 'video', 'slideshow'].includes(el.type) ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${fillSection(el)}${effectsSection(el)}${layoutSection(el)}`;
         }
         root.parentElement.scrollTop = scroll;
         lastTextField = null;
@@ -1682,7 +1701,7 @@
         }
     }
     // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
-    const RERENDER_PATHS = new Set(['style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'slideshow.source', 'slideshow.advance', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
+    const RERENDER_PATHS = new Set(['mediaFilter.duotone.enabled', 'mediaFilter.tint.enabled', 'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'slideshow.source', 'slideshow.advance', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
     $('properties').addEventListener('change', event => {
         if (!event.target.matches('[data-period-pick]')) return;
         const field = event.target.closest('.field');
@@ -2011,6 +2030,14 @@
             selectedElements().forEach(el => { el.slideshow = { ...el.slideshow, files: [] }; });
             renderCanvas(); renderProperties(); changed(false);
         }
+    });
+    $('properties').addEventListener('change', event => {
+        const select = event.target.closest('[data-fx-preset]');
+        if (!select || !select.value) return;
+        const preset = shared.MEDIA_FILTER_PRESETS.find(item => item[0] === select.value);
+        if (!preset) return;
+        selectedElements().forEach(el => { el.mediaFilter = JSON.parse(JSON.stringify(preset[2])); });
+        renderCanvas(); renderProperties(); changed(false);
     });
     $('slide-search').addEventListener('input', renderSlideGrid);
     $('slide-tag-q').addEventListener('input', renderSlideGrid);

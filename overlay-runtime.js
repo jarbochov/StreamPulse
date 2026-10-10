@@ -257,6 +257,7 @@
             if (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource)) tickingNodes.push({ node, element });
             if (element.textFit && element.textFit !== 'none') fitNodes.push({ node, element });
             if (embedSig) { embeds.set(element.id, { sig: embedSig, node }); embedsKept.add(element.id); }
+            if (['image', 'video', 'slideshow'].includes(element.type)) shared.applyMediaFilter(node, element);
             return node;
         }
     }

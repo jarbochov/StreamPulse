@@ -400,6 +400,66 @@
         return holder.innerHTML;
     }
 
+    // ---- media filters (images, videos, slideshows) ----
+    const defaultMediaFilter = () => ({ blur: 0, brightness: 100, contrast: 100, saturate: 100, grayscale: 0, tint: { enabled: false, color: '#000000', opacity: 0.4 }, duotone: { enabled: false, dark: '#1b1464', light: '#ff9de2' } });
+    const MEDIA_FILTER_PRESETS = [
+        ['none', 'None', defaultMediaFilter()],
+        ['dark', 'Dark background', { ...defaultMediaFilter(), brightness: 45 }],
+        ['soft', 'Soft blur', { ...defaultMediaFilter(), blur: 12, brightness: 80 }],
+        ['dim-blur', 'Dim and blur', { ...defaultMediaFilter(), blur: 10, brightness: 55, saturate: 80 }],
+        ['noir', 'Noir', { ...defaultMediaFilter(), grayscale: 100, contrast: 125, brightness: 80 }],
+        ['dusk', 'Duotone dusk', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#1b1464', light: '#ff9de2' } }],
+        ['mono-green', 'Duotone green', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#031a0f', light: '#7dffb2' } }],
+        ['sepia', 'Duotone sepia', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#2b1a0c', light: '#f3d9a6' } }]
+    ];
+
+    function mediaFilterActive(f) {
+        if (!f) return false;
+        return f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.tint?.enabled || f.duotone?.enabled;
+    }
+
+    // Idempotent: call after every render. Filters the media itself (or the slideshow stage) and adds a tint layer.
+    function applyMediaFilter(node, element) {
+        const f = { ...defaultMediaFilter(), ...(element.mediaFilter || {}) };
+        const signature = JSON.stringify([f, element.type, element.width, element.height]);
+        const isSlideshow = element.type === 'slideshow';
+        const target = isSlideshow ? node.firstElementChild : node.querySelector(':scope > video, :scope > img');
+        if (!target) { node._fxSig = ''; return; }
+        if (node._fxSig === signature && node._fxTarget === target) return;
+        node._fxSig = signature; node._fxTarget = target;
+        node.querySelectorAll(':scope > .sp-fx').forEach(n => n.remove());
+        if (!mediaFilterActive(f)) { target.style.filter = ''; target.style.transform = ''; return; }
+        const parts = [];
+        if (f.duotone.enabled) {
+            const id = `sp-duo-${String(element.id || 'x').replace(/[^a-z0-9_-]/gi, '')}`;
+            const rgb = hex => [1, 3, 5].map(i => (parseInt(hex.slice(i, i + 2), 16) / 255).toFixed(4));
+            const [dr, dg, db] = rgb(f.duotone.dark), [lr, lg, lb] = rgb(f.duotone.light);
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('class', 'sp-fx');
+            svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
+            svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;';
+            svg.innerHTML = `<filter id="${id}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0"/><feComponentTransfer><feFuncR type="table" tableValues="${dr} ${lr}"/><feFuncG type="table" tableValues="${dg} ${lg}"/><feFuncB type="table" tableValues="${db} ${lb}"/></feComponentTransfer></filter>`;
+            node.appendChild(svg);
+            parts.push(`url(#${id})`);
+        }
+        if (f.blur > 0) parts.push(`blur(${f.blur}px)`);
+        if (f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
+        if (f.contrast !== 100) parts.push(`contrast(${f.contrast}%)`);
+        if (f.saturate !== 100) parts.push(`saturate(${f.saturate}%)`);
+        if (f.grayscale > 0) parts.push(`grayscale(${f.grayscale}%)`);
+        target.style.filter = parts.join(' ');
+        // Blur fades the edges, so enlarge the media slightly and let the element crop it.
+        const size = Math.max(1, Math.min(Number(element.width) || 100, Number(element.height) || 100));
+        target.style.transform = f.blur > 0 ? `scale(${(1 + (f.blur * 2.2) / size).toFixed(3)})` : '';
+        node.style.overflow = 'hidden';
+        if (f.tint.enabled && f.tint.opacity > 0) {
+            const tint = document.createElement('div');
+            tint.className = 'sp-fx';
+            tint.style.cssText = `position:absolute;inset:0;pointer-events:none;background:${f.tint.color};opacity:${f.tint.opacity};`;
+            node.appendChild(tint);
+        }
+    }
+
     // Embeds saved as http://localhost:PORT/... break when the overlay is opened from another device; point them at the current origin.
     function embedUrl(url) {
         try {
@@ -1418,5 +1478,5 @@
         return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length, control };
     }
 
-    root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl };
+    root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl, applyMediaFilter, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
 })(window);

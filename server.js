@@ -119,6 +119,21 @@ function normalizeGradient(g) {
     };
 }
 
+// Look for images, videos and slideshows (blur, darken, tint, duotone).
+function normalizeMediaFilter(f = {}) {
+    const hex = (value, fallback) => (/^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value).toLowerCase() : fallback);
+    const num = (value, min, max, fallback) => (Number.isFinite(Number(value)) && value !== '' && value !== null ? Math.max(min, Math.min(max, Number(value))) : fallback);
+    return {
+        blur: num(f.blur, 0, 60, 0),
+        brightness: num(f.brightness, 0, 200, 100),
+        contrast: num(f.contrast, 0, 200, 100),
+        saturate: num(f.saturate, 0, 300, 100),
+        grayscale: num(f.grayscale, 0, 100, 0),
+        tint: { enabled: f.tint?.enabled === true, color: hex(f.tint?.color, '#000000'), opacity: num(f.tint?.opacity, 0, 1, 0.4) },
+        duotone: { enabled: f.duotone?.enabled === true, dark: hex(f.duotone?.dark, '#1b1464'), light: hex(f.duotone?.light, '#ff9de2') }
+    };
+}
+
 function normalizeOverlayElement(element = {}, index = 0) {
     const type = CUSTOM_OVERLAY_ELEMENT_TYPES.has(element.type) ? element.type : 'text';
     return {
@@ -129,6 +144,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
         groupName: element.group ? String(element.groupName || '').trim().slice(0, 60) : '',
         page: element.page === '*' ? '*' : sanitizeOverlayId(element.page).slice(0, 40),
         type,
+        mediaFilter: normalizeMediaFilter(element.mediaFilter),
         slideshow: {
             source: element.slideshow?.source === 'manual' ? 'manual' : 'tags',
             tags: normalizeAssetTagList(element.slideshow?.tags).slice(0, 20),
