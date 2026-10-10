@@ -223,7 +223,7 @@ function normalizeOverlayElement(element = {}, index = 0) {
             path: String(element.source?.path || '').trim().slice(0, 1000),
             split: element.source?.split === 'blocks' ? 'blocks' : 'lines'
         },
-        items: Array.isArray(element.items) ? element.items.map(item => String(item).slice(0, 2000)).filter(Boolean).slice(0, 100) : [],
+        items: Array.isArray(element.items) ? element.items.map(item => String(item).slice(0, 2000)).filter(Boolean).slice(0, 2000) : [],
         src: String(element.src || '').slice(0, 2000),
         alert: {
             layout: ['stack', 'side', 'text', 'media'].includes(element.alert?.layout) ? element.alert.layout : 'stack',
