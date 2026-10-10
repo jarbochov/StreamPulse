@@ -465,7 +465,22 @@ function setPageAuto(overlay, on) {
 function syncOverlayPages(overlay, previous) {
     const state = overlayPageState.get(overlay.id) || { page: overlay.pages.items[0].id, auto: false, timer: null };
     overlayPageState.set(overlay.id, state);
-    if (!overlay.pages.items.some(item => item.id === state.page && item.enabled)) state.page = (overlay.pages.items.find(item => item.enabled) || overlay.pages.items[0]).id;
+    const items = overlay.pages.items;
+    if (!items.some(item => item.id === state.page && item.enabled)) {
+        // The current page was disabled or removed: carry on with the next enabled page in rotation, not the first
+        let from = items.findIndex(item => item.id === state.page);
+        if (from >= 0) from += 1;
+        else {
+            const oldAt = (previous?.pages?.items || []).findIndex(item => item.id === state.page);
+            from = oldAt >= 0 ? Math.min(oldAt, items.length) : 0;
+        }
+        let pick = null;
+        for (let i = 0; i < items.length && !pick; i++) {
+            const candidate = items[(from + i) % items.length];
+            if (candidate.enabled) pick = candidate;
+        }
+        state.page = (pick || items[0]).id;
+    }
     if (!previous || previous.pages?.mode !== overlay.pages.mode || previous.pages?.enabled !== overlay.pages.enabled) {
         state.auto = overlay.pages.enabled && overlay.pages.mode === 'auto';
     }
