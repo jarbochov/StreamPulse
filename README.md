@@ -12,7 +12,7 @@ StreamPulse started as a way to give every community member their moment in the 
 
 ### 1. Install Node.js
 
-StreamPulse runs on [Node.js](https://nodejs.org/). Download and install the **LTS version** (v18 or newer):
+StreamPulse runs on [Node.js](https://nodejs.org/). Download and install the **LTS version** (v22.12 or newer):
 
 - **Mac:** Download the `.pkg` installer from [nodejs.org](https://nodejs.org/) and double-click to install
 - **Windows:** Download the `.msi` installer from [nodejs.org](https://nodejs.org/) and run through the setup wizard
