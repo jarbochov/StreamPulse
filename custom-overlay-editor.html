@@ -105,6 +105,8 @@
         #variable-list h4 { margin: .8rem 0 .3rem; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
         #variable-list button { display: grid; grid-template-columns: 1fr auto; gap: .2rem .8rem; width: 100%; text-align: left; margin-bottom: .25rem; }
         #variable-list code { grid-column: 1; font-size: .72rem; color: var(--muted); }
+        #variable-list .chips { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; margin: -.1rem 0 .4rem .5rem; font-size: .7rem; color: var(--muted); }
+        #variable-list .chip { width: auto; margin: 0; padding: .15rem .5rem; font-size: .7rem; display: inline-block; }
         #variable-list .tag { grid-column: 1 / span 2; font-size: .68rem; color: var(--accent); }
         #variable-list .preview { grid-row: 1 / span 2; grid-column: 2; align-self: center; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); }
         #preset-dialog { width: min(860px, 94vw); max-width: 860px; }
@@ -451,7 +453,7 @@
         <div class="field" style="margin-top:.6rem"><span>Format <span class="hint">(optional; dates, timer clocks and lists)</span></span>
             <div style="display:flex;gap:.4rem"><input id="variable-format" list="variable-format-presets" placeholder="e.g. dddd, MMM D · h:mm A" spellcheck="false"><datalist id="variable-format-presets"></datalist></div>
             <span class="hint">YYYY year · MMMM/MMM/MM month · dddd/ddd weekday · D/Do/DD day · h/hh/H/HH hour · mm minutes · ss seconds · A am/pm · [text] literal</span>
-            <span class="hint"><strong>Lists</strong> (marked below): <code>lines</code> · <code>bullets</code> · <code>numbered</code> · <code>3</code> first 3 · <code>sep: / </code> custom separator (<code>\n</code> line break, <code>\s</code> space)</span></div>
+            <span class="hint"><strong>Lists</strong> have buttons under them (One per line, Bullets…). For your own separator, type <code>sep: / </code> in this box (the text after <code>sep:</code> goes between items), then click the list. You get <code>{{plan.backlog|sep: / }}</code>.</span></div>
         <div id="variable-list"></div>
         <div class="dialog-actions"><button id="variable-close">Close</button></div>
     </dialog>
@@ -1938,8 +1940,8 @@
                 const value = dated ? shared.applyFormat(key, table[key], format, Date.now()) : table[key];
                 const preview = value === undefined || value === null || value === '' ? '—' : String(value);
                 const token = dated ? `${key}|${format}` : key;
-                const tag = listed ? '<span class="tag">list · use the format box to change the separator</span>' : '';
-                return `<button type="button" data-token="${esc(token)}"><span>${esc(label)}</span><code>{{${esc(token)}}}</code><span class="preview">${esc(preview)}</span>${tag}</button>`;
+                const chips = listed ? `<div class="chips">Insert as: ${[['', 'Comma'], ['lines', 'One per line'], ['bullets', 'Bullets'], ['numbered', 'Numbered'], ['3', 'First 3'], ['3:\\n', 'First 3, lines']].map(([f, name]) => `<button type="button" class="chip" data-token="${esc(f ? `${key}|${f}` : key)}">${name}</button>`).join('')}</div>` : '';
+                return `<button type="button" data-token="${esc(token)}"><span>${esc(label)}</span><code>{{${esc(token)}}}</code><span class="preview">${esc(preview)}</span></button>${chips}`;
             }).join('');
         }).join('');
         $('variable-list').innerHTML = html || '<p class="hint">No placeholders match.</p>';
