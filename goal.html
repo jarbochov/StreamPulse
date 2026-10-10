@@ -138,6 +138,7 @@
 
     <script src="/overlay-visibility.js" data-key="goal"></script>
     <script src="/url-params.js"></script>
+    <script src="/overlay-theme.js"></script>
     <script>
     const params = overlayParams();
     const singleGoalId = (params.get('goal') || '').trim().toLowerCase();
@@ -187,21 +188,11 @@
 
     function applyTheme() {
         const root = document.documentElement;
-        const theme = configSnapshot?.theme || {};
-        const fontFamily = theme.font_family || 'Segoe UI';
-        const quoted = fontFamily.includes(' ') ? `"${fontFamily}"` : fontFamily;
-        root.style.setProperty('--goal-font-family', `${quoted}, system-ui, sans-serif`);
-        if (theme.text_color) root.style.setProperty('--goal-text-color', theme.text_color);
-        if (theme.accent_color) root.style.setProperty('--goal-accent-color', theme.accent_color);
-        root.style.setProperty('--goal-muted-color', withAlpha(theme.text_color, 0.72));
-        if (theme.goal_background_color) root.style.setProperty('--goal-background', theme.goal_background_color);
-        if (theme.text_outline_color) root.style.setProperty('--goal-outline-color', theme.text_outline_color);
-        if (theme.font_scale) root.style.setProperty('--goal-font-scale', theme.font_scale);
-
-        if (params.get('fontscale')) {
-            const scale = Math.max(0.5, Math.min(3, Number(params.get('fontscale')) || 1));
-            root.style.setProperty('--goal-font-scale', scale);
-        }
+        const resolved = applyOverlayTheme(configSnapshot?.theme, {
+            font: '--goal-font-family', text: '--goal-text-color', accent: '--goal-accent-color',
+            background: '--goal-background', outline: '--goal-outline-color', scale: '--goal-font-scale'
+        }, { defaultFont: 'Segoe UI', fontFallback: 'system-ui, sans-serif', backgroundKey: 'goal_background_color' });
+        root.style.setProperty('--goal-muted-color', withAlpha(resolved.text, 0.72));
     }
 
     function getCycleSettings() {

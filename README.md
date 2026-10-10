@@ -97,6 +97,7 @@ Add **Browser Sources** in OBS with these URLs:
 - Overlays hub (every browser source, copy URL, customize): `http://localhost:3000/overlays.html`
 - Overlay URL Wizard: `http://localhost:3000/overlay-url-wizard.html`
 - Overlay URL parameter names are case-insensitive (`fontScale` = `fontscale`); lowercase is the documented form.
+- Credits, stats, hashtags, goal and viewer overlays share appearance overrides: `font`, `fontscale`, `text`, `accent`, `bg` and `outline` (`none` removes the outline). The wizard has an Appearance card that adds them to any URL.
 - Custom Overlays: `http://localhost:3000/custom-overlays.html`
 - Game Plan: `http://localhost:3000/game-plan-editor.html`
 - Music Editor: `http://localhost:3000/music-editor.html`

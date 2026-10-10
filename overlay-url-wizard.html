@@ -31,6 +31,7 @@
         input:not([type="checkbox"]), select { min-width: 0; flex: 1; padding: .48rem .6rem; color: var(--text); background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: .82rem; }
         input:focus, select:focus { outline: none; border-color: var(--accent); }
         input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+        input[type="color"] { flex: none; width: 42px; height: 34px; padding: 2px; cursor: pointer; }
         .hint { margin: -.2rem 0 .75rem 125px; color: var(--text-muted); font-size: .75rem; line-height: 1.45; }
         .check-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: .4rem .7rem; max-height: 145px; overflow-y: auto; padding: .65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; }
         .check-list label { display: flex; align-items: center; gap: .4rem; color: var(--text); font-size: .78rem; overflow-wrap: anywhere; }
@@ -126,10 +127,6 @@
                         </select>
                     </div>
                     <p class="hint">The single-goal URL falls back to the first enabled goal when no goal is selected.</p>
-                    <div class="form-row">
-                        <label for="goal-fontscale">Font scale</label>
-                        <input id="goal-fontscale" type="number" min="0.5" max="3" step="0.1" placeholder="Saved theme value">
-                    </div>
                     <div class="form-row">
                         <label for="goal-showlabel">Type label</label>
                         <select id="goal-showlabel"><option value="">Auto (hide when the title repeats it)</option><option value="true">Always show</option><option value="false">Always hide</option></select>
@@ -249,12 +246,44 @@
                         <label for="viewer-label">Label override</label>
                         <input id="viewer-label" type="text" placeholder="Saved label (viewers)">
                     </div>
-                    <div class="form-row">
-                        <label for="viewer-fontscale">Font scale</label>
-                        <input id="viewer-fontscale" type="number" min="0.5" max="3" step="0.1" placeholder="Saved theme value">
-                    </div>
                 </section>
             </div>
+
+            <section class="card" id="appearance-card">
+                <h2>Appearance (all overlays)</h2>
+                <p class="hint" style="margin-left:0;">Leave a field empty to use the saved theme. These apply to the selected overlay's URL only.</p>
+                <div class="form-row">
+                    <label for="ap-font">Font</label>
+                    <input id="ap-font" type="text" list="ap-font-list" placeholder="Saved theme font">
+                    <datalist id="ap-font-list"><option value="Arial"><option value="Helvetica Neue"><option value="Segoe UI"><option value="Impact"><option value="Georgia"><option value="Verdana"><option value="Trebuchet MS"><option value="Courier New"></datalist>
+                </div>
+                <p class="hint">Use a font installed on the computer running OBS.</p>
+                <div class="form-row">
+                    <label for="ap-fontscale">Font scale</label>
+                    <input id="ap-fontscale" type="number" min="0.5" max="3" step="0.1" placeholder="Saved theme value">
+                </div>
+                <div class="form-row">
+                    <label for="ap-text">Text color</label>
+                    <input id="ap-text" type="text" placeholder="Saved theme color">
+                    <input type="color" data-color-for="ap-text" aria-label="Pick text color">
+                </div>
+                <div class="form-row">
+                    <label for="ap-accent">Accent color</label>
+                    <input id="ap-accent" type="text" placeholder="Saved theme color">
+                    <input type="color" data-color-for="ap-accent" aria-label="Pick accent color">
+                </div>
+                <div class="form-row">
+                    <label for="ap-bg">Background</label>
+                    <input id="ap-bg" type="text" placeholder="Saved theme color, or rgba(0,0,0,.5)">
+                    <input type="color" data-color-for="ap-bg" aria-label="Pick background color">
+                </div>
+                <div class="form-row">
+                    <label for="ap-outline">Text outline</label>
+                    <input id="ap-outline" type="text" placeholder="Saved theme color, or none">
+                    <input type="color" data-color-for="ap-outline" aria-label="Pick outline color">
+                </div>
+                <p class="hint">Colors accept #hex, rgb()/rgba() or a color name.</p>
+            </section>
 
             <section class="card">
                 <h2>Generated Browser-Source URLs</h2>
@@ -296,8 +325,9 @@
                     <tr data-overlay="credits"><td>Credits</td><td><code>duration</code> <code>speed</code> <code>days</code> <code>preview</code> <code>datapath</code></td><td>Set roll timing, the data window, preview mode, or an advanced data location.</td></tr>
                     <tr data-overlay="stats" hidden><td>Stats</td><td><code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>limit</code> <code>refresh</code></td><td>Choose the date window, how many rows each list shows, and how often it reloads.</td></tr>
                     <tr data-overlay="hashtags" hidden><td>Hashtags</td><td><code>view</code> <code>sort</code> <code>columns</code> <code>size</code> <code>limit</code> <code>min</code> <code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>title</code> <code>duration</code> <code>refresh</code> <code>counts</code> <code>weight</code> <code>scroll</code></td><td>Choose scroll, grid or cloud, the data window, sorting, and view-specific options.</td></tr>
-                    <tr data-overlay="goals" hidden><td>Goal</td><td><code>goal</code> <code>mode</code> <code>ids</code> <code>interval</code> <code>skipcompleted</code> <code>pausecomplete</code> <code>fontscale</code></td><td>Select one goal or cycle a subset, and override cycle behavior or type scale.</td></tr>
-                    <tr data-overlay="viewers" hidden><td>Viewer Count</td><td><code>label</code> <code>fontscale</code></td><td>Override the count label or type scale.</td></tr>
+                    <tr data-overlay="goals" hidden><td>Goal</td><td><code>goal</code> <code>mode</code> <code>ids</code> <code>interval</code> <code>skipcompleted</code> <code>pausecomplete</code> <code>showlabel</code></td><td>Select one goal or cycle a subset, and override cycle behavior or the type label.</td></tr>
+                    <tr data-overlay="viewers" hidden><td>Viewer Count</td><td><code>label</code></td><td>Override the count label.</td></tr>
+                    <tr><td>All overlays</td><td><code>font</code> <code>fontscale</code> <code>text</code> <code>accent</code> <code>bg</code> <code>outline</code></td><td>Override the saved theme font, scale, text, accent and background colors, and text outline (use <code>none</code> to remove it).</td></tr>
                 </tbody>
             </table>
         </section>
@@ -310,8 +340,9 @@
         'ht-view', 'ht-sort', 'ht-columns', 'ht-size', 'ht-limit', 'ht-min', 'ht-range', 'ht-days', 'ht-date', 'ht-from', 'ht-to', 'ht-title', 'ht-duration', 'ht-refresh', 'ht-counts', 'ht-weight', 'ht-autoscroll',
         'credits-timing', 'credits-duration', 'credits-speed', 'credits-days', 'credits-preview', 'credits-datapath',
         'stats-range', 'stats-days', 'stats-date', 'stats-from', 'stats-to', 'stats-limit', 'stats-refresh',
-        'goal-single', 'goal-fontscale', 'goal-showlabel', 'goal-interval', 'goal-skipcompleted', 'goal-pausecomplete',
-        'viewer-label', 'viewer-fontscale'
+        'goal-single', 'goal-showlabel', 'goal-interval', 'goal-skipcompleted', 'goal-pausecomplete',
+        'viewer-label',
+        'ap-font', 'ap-fontscale', 'ap-text', 'ap-accent', 'ap-bg', 'ap-outline'
     ];
 
     function numberValue(id, minimum = 0) {
@@ -321,9 +352,21 @@
         return Number.isFinite(value) && value >= minimum ? String(value) : '';
     }
 
+    // Shared appearance overrides are added to every overlay URL.
+    function appearanceParams() {
+        return {
+            font: $('ap-font').value.trim(),
+            fontscale: numberValue('ap-fontscale', 0.5),
+            text: $('ap-text').value.trim(),
+            accent: $('ap-accent').value.trim(),
+            bg: $('ap-bg').value.trim(),
+            outline: $('ap-outline').value.trim()
+        };
+    }
+
     function buildUrl(path, params) {
         const url = new URL(path, location.origin);
-        for (const [key, value] of Object.entries(params)) {
+        for (const [key, value] of Object.entries({ ...params, ...appearanceParams() })) {
             if (value !== '' && value !== false && value != null) url.searchParams.set(key, value);
         }
         return url.toString();
@@ -395,7 +438,7 @@
         if (timing === 'speed') credits.speed = numberValue('credits-speed', 0.1);
         setUrl('credits-url', buildUrl('/credits.html', credits));
 
-        const goalAppearance = { fontscale: numberValue('goal-fontscale', 0.5), showlabel: $('goal-showlabel').value };
+        const goalAppearance = { showlabel: $('goal-showlabel').value };
         setUrl('goal-single-url', buildUrl('/goal.html', {
             mode: 'single',
             goal: $('goal-single').value,
@@ -410,8 +453,7 @@
             ...goalAppearance
         }));
         setUrl('viewer-url', buildUrl('/viewers.html', {
-            label: $('viewer-label').value.trim(),
-            fontscale: numberValue('viewer-fontscale', 0.5)
+            label: $('viewer-label').value.trim()
         }));
     }
 
@@ -492,6 +534,9 @@
     inputIds.forEach(id => {
         $(id).addEventListener('input', refreshUrls);
         $(id).addEventListener('change', refreshUrls);
+    });
+    document.querySelectorAll('[data-color-for]').forEach(picker => {
+        picker.addEventListener('input', () => { $(picker.dataset.colorFor).value = picker.value; refreshUrls(); });
     });
     document.querySelectorAll('[data-copy]').forEach(button => {
         button.addEventListener('click', () => copyUrl(button.dataset.copy, button));
