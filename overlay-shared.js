@@ -418,6 +418,7 @@
         return f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.tint?.enabled || f.duotone?.enabled;
     }
 
+    let fxCounter = 0;
     const MEDIA_TYPES = new Set(['image', 'video', 'slideshow']);
     const FILTERABLE = element => element.type !== 'embed';
 
@@ -431,9 +432,10 @@
         const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.duotone.enabled);
         const signature = JSON.stringify([f, media, element.id, Number(element.width), Number(element.height)]);
         const base = media ? '' : node.style.filter;
-        const id = `sp-duo-${String(element.id || 'x').replace(/[^a-z0-9_-]/gi, '')}`;
+        // A fresh id per change makes browsers re-evaluate the filter; the same url() string would keep the old colors.
         if (node._fxSig !== signature || node._fxTarget !== target) {
             node._fxSig = signature; node._fxTarget = target;
+            node._fxId = `sp-duo-${String(element.id || 'x').replace(/[^a-z0-9_-]/gi, '')}-${++fxCounter}`;
             node.querySelectorAll(':scope > .sp-fx').forEach(n => n.remove());
             if (active && f.duotone.enabled) {
                 const rgb = hex => [1, 3, 5].map(i => (parseInt(hex.slice(i, i + 2), 16) / 255).toFixed(4));
@@ -442,7 +444,7 @@
                 svg.setAttribute('class', 'sp-fx');
                 svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
                 svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;';
-                svg.innerHTML = `<filter id="${id}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0"/><feComponentTransfer><feFuncR type="table" tableValues="${dr} ${lr}"/><feFuncG type="table" tableValues="${dg} ${lg}"/><feFuncB type="table" tableValues="${db} ${lb}"/></feComponentTransfer></filter>`;
+                svg.innerHTML = `<filter id="${node._fxId}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0"/><feComponentTransfer><feFuncR type="table" tableValues="${dr} ${lr}"/><feFuncG type="table" tableValues="${dg} ${lg}"/><feFuncB type="table" tableValues="${db} ${lb}"/></feComponentTransfer></filter>`;
                 node.appendChild(svg);
             }
             if (media && active && f.tint.enabled && f.tint.opacity > 0) {
@@ -454,7 +456,7 @@
         }
         const parts = base ? [base] : [];
         if (active) {
-            if (f.duotone.enabled) parts.push(`url(#${id})`);
+            if (f.duotone.enabled) parts.push(`url(#${node._fxId})`);
             if (f.blur > 0) parts.push(`blur(${f.blur}px)`);
             if (f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
             if (f.contrast !== 100) parts.push(`contrast(${f.contrast}%)`);
