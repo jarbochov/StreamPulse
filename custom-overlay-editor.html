@@ -798,6 +798,7 @@
         if (el.type === 'image' || el.type === 'video') {
             const url = expand(el.src);
             if (!url) { node.appendChild(placeholder(`No ${el.type} yet — upload one or paste a URL`)); return; }
+            if (/\{\{/.test(url)) { node.appendChild(placeholder(`${url} (shows when a value is available)`)); return; }
             const media = document.createElement(el.type === 'image' ? 'img' : 'video');
             media.src = url; media.draggable = false; media.style.objectFit = el.style.objectFit || 'cover';
             if (el.type === 'video') { media.muted = true; media.loop = true; media.autoplay = true; media.playsInline = true; }
