@@ -27,6 +27,7 @@
         .toolbar .view-toggle { margin: 0; }
         .view-bar { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; font-size: 0.74rem; color: var(--text-muted); }
         .view-bar label { display: inline-flex; align-items: center; gap: 0.35rem; }
+        .view-bar input { padding: 0.2rem 0.4rem; font-size: 0.78rem; }
         .view-bar select { padding: 0.25rem 0.45rem; font-size: 0.78rem; }
         .view-bar #v-count { color: var(--text-faint); }
         input, select, textarea { padding: 0.5rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; font-family: inherit; min-width: 0; }
@@ -137,8 +138,9 @@
         <div class="view-toggle"><span>View:</span><button type="button" class="tab active" data-view="list">List</button><button type="button" class="tab" data-view="tiers">Tiers</button></div>
         <div class="view-bar" id="view-bar" hidden>
             <label>Sort <select id="v-sort"><option value="manual">Manual order</option><option value="name">Name</option><option value="last">Last seen (newest)</option><option value="first">First seen (oldest)</option><option value="time">Most time streamed</option><option value="rating">Rating</option><option value="year">Release year</option><option value="system">System</option></select></label>
-            <label>Streamed <select id="v-when"><option value="">Any time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="month">This month</option><option value="year">This year</option><option value="never">Never streamed</option></select></label>
+            <label>Streamed <select id="v-when"><option value="">Any time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="month">This month</option><option value="year">This year</option><option value="never">Never streamed</option><option value="pick-month">Pick a month…</option><option value="range">Date range…</option></select></label>
             <label>System <select id="v-system"><option value="">All</option></select></label>
+            <input type="month" id="v-month" hidden aria-label="Month"><span id="v-range" hidden><input type="date" id="v-from" aria-label="From"> to <input type="date" id="v-to" aria-label="To"></span>
             <span id="v-count"></span>
         </div>
         </div>
@@ -237,7 +239,7 @@
             return [first === last ? `Streamed ${first}` : `First seen ${first} · Last seen ${last}`, time].filter(Boolean).join(' · ');
         }
 
-        const viewState = { sort: 'manual', when: '', system: '' };
+        const viewState = { sort: 'manual', when: '', system: '', month: '', from: '', to: '' };
         const systemsOf = item => (item.system ? [item.system] : (item.platforms || []));
         const localDay = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         function visibleItems() {
@@ -246,7 +248,9 @@
             const cutoff = viewState.when === 'month' ? localDay(new Date(now.getFullYear(), now.getMonth(), 1))
                 : viewState.when === 'year' ? `${now.getFullYear()}-01-01`
                 : /^\d+$/.test(viewState.when) ? localDay(new Date(now.getTime() - Number(viewState.when) * 86400000)) : '';
-            if (viewState.when === 'never') list = list.filter(item => !(item.played || []).length);
+            if (viewState.when === 'pick-month' && viewState.month) list = list.filter(item => (item.played || []).some(day => day.startsWith(viewState.month)));
+            else if (viewState.when === 'range' && (viewState.from || viewState.to)) list = list.filter(item => (item.played || []).some(day => (!viewState.from || day >= viewState.from) && (!viewState.to || day <= viewState.to)));
+            else if (viewState.when === 'never') list = list.filter(item => !(item.played || []).length);
             else if (cutoff) list = list.filter(item => (item.played || []).some(day => day >= cutoff));
             if (viewState.system) list = list.filter(item => systemsOf(item).includes(viewState.system));
             const last = item => [...(item.played || [])].sort().pop() || '';
@@ -268,10 +272,12 @@
             if (viewState.system && !systems.includes(viewState.system)) viewState.system = '';
             $('v-system').innerHTML = '<option value="">All</option>' + systems.map(name => `<option value="${esc(name)}"${name === viewState.system ? ' selected' : ''}>${esc(name)}</option>`).join('');
             $('v-sort').value = viewState.sort; $('v-when').value = viewState.when;
+            $('v-month').hidden = viewState.when !== 'pick-month'; $('v-range').hidden = viewState.when !== 'range';
+            $('v-month').value = viewState.month; $('v-from').value = viewState.from; $('v-to').value = viewState.to;
             const total = items.filter(item => inList(item, active)).length, shown = visibleItems().length;
             $('v-count').textContent = shown === total ? '' : `Showing ${shown} of ${total}`;
         }
-        for (const [id, key] of [['v-sort', 'sort'], ['v-when', 'when'], ['v-system', 'system']]) $(id).addEventListener('change', () => { viewState[key] = $(id).value; render(); });
+        for (const [id, key] of [['v-sort', 'sort'], ['v-when', 'when'], ['v-system', 'system'], ['v-month', 'month'], ['v-from', 'from'], ['v-to', 'to']]) $(id).addEventListener('change', () => { viewState[key] = $(id).value; render(); });
 
         function subLine(item) {
             if (item.custom) return 'Custom item';
