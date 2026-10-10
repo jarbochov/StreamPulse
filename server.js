@@ -2944,7 +2944,8 @@ function normalizeGamePlan(input) {
         tags: [...new Set((Array.isArray(item?.tags) ? item.tags : []).map(tag => String(tag || '').trim().slice(0, 24)).filter(Boolean))].slice(0, 8),
         finished: /^\d{4}-\d{2}-\d{2}$/.test(String(item?.finished || '')) ? item.finished : '',
         played: [...new Set((Array.isArray(item?.played) ? item.played : []).map(String).filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date)))].sort().slice(-400),
-        autoAdded: item?.autoAdded === true
+        autoAdded: item?.autoAdded === true,
+        system: String(item?.system || '').trim().slice(0, 40)
     })).filter(item => item.name);
     const used = [...new Set(items.map(item => item.period).filter(Boolean))];
     const saved = (Array.isArray(input?.periods) ? input.periods : []).map(value => String(value || '').trim().slice(0, 40)).filter(value => used.includes(value));
@@ -3005,6 +3006,7 @@ function buildGamePlanSnapshot() {
                 cover: item.customCover || game.cover || '',
                 releaseYear: game.releaseYear || '',
                 genres: game.genres || [],
+                platforms: game.platforms || [],
                 playingNow: !item.custom && !!current && keys.includes(current)
             };
         })

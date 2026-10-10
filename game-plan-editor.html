@@ -48,6 +48,7 @@
         .main .note { font-size: 0.76rem; color: var(--text-muted); font-style: italic; }
         .row-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
         .period-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0 0 0.6rem; font-size: 0.74rem; color: var(--text-muted); }
+        .period-bar select { font: inherit; background: var(--panel, transparent); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.15rem 0.3rem; margin-left: 0.2rem; }
         .period-bar .pchip { cursor: grab; border: 1px solid var(--border); border-radius: 999px; padding: 0.15rem 0.6rem; color: var(--text); background: var(--panel, transparent); }
         .period-bar .pchip .num { opacity: 0.55; margin-right: 0.35rem; }
         .chip { font-size: 0.68rem; border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; color: var(--text-muted); }
@@ -123,6 +124,12 @@
 
         <div class="tabs" id="tabs"></div>
         <div class="view-toggle"><span>View:</span><button type="button" class="tab active" data-view="list">List</button><button type="button" class="tab" data-view="tiers">Tiers</button></div>
+        <div class="period-bar" id="view-bar" hidden>
+            <label>Sort <select id="v-sort"><option value="manual">Manual order</option><option value="name">Name</option><option value="last">Last seen (newest)</option><option value="first">First seen (oldest)</option><option value="time">Most time streamed</option><option value="rating">Rating</option><option value="year">Release year</option><option value="system">System</option></select></label>
+            <label>Streamed <select id="v-when"><option value="">Any time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="month">This month</option><option value="year">This year</option><option value="never">Never streamed</option></select></label>
+            <label>System <select id="v-system"><option value="">All</option></select></label>
+            <span id="v-count"></span>
+        </div>
         <div class="period-bar" id="period-bar" hidden></div>
         <div class="board" id="board" hidden></div>
         <div class="items" id="items"></div>
@@ -153,6 +160,7 @@
                     <div><span>Finished</span><input id="f-finished" type="date"></div>
                     <div><span>Tags (comma separated)</span><input id="f-tags" maxlength="200" placeholder="co-op, horror"></div>
                 </div>
+                <label class="field">System (overrides the automatic IGDB platforms)<input id="f-system" maxlength="40" placeholder="e.g. Switch, PC, SNES"></label>
                 <label class="field">Note<input id="f-note" maxlength="200"></label>
             </div>
         </div>
@@ -215,6 +223,42 @@
             return [first === last ? `Streamed ${first}` : `First seen ${first} · Last seen ${last}`, time].filter(Boolean).join(' · ');
         }
 
+        const viewState = { sort: 'manual', when: '', system: '' };
+        const systemsOf = item => (item.system ? [item.system] : (item.platforms || []));
+        const localDay = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        function visibleItems() {
+            let list = items.filter(item => item.status === active);
+            const now = new Date();
+            const cutoff = viewState.when === 'month' ? localDay(new Date(now.getFullYear(), now.getMonth(), 1))
+                : viewState.when === 'year' ? `${now.getFullYear()}-01-01`
+                : /^\d+$/.test(viewState.when) ? localDay(new Date(now.getTime() - Number(viewState.when) * 86400000)) : '';
+            if (viewState.when === 'never') list = list.filter(item => !(item.played || []).length);
+            else if (cutoff) list = list.filter(item => (item.played || []).some(day => day >= cutoff));
+            if (viewState.system) list = list.filter(item => systemsOf(item).includes(viewState.system));
+            const last = item => [...(item.played || [])].sort().pop() || '';
+            const first = item => [...(item.played || [])].sort()[0] || '';
+            const by = {
+                name: (a, b) => a.name.localeCompare(b.name),
+                last: (a, b) => last(b).localeCompare(last(a)),
+                first: (a, b) => (first(a) || '9').localeCompare(first(b) || '9'),
+                time: (a, b) => (b.minutesPlayed || 0) - (a.minutesPlayed || 0),
+                rating: (a, b) => (b.rating || 0) - (a.rating || 0),
+                year: (a, b) => String(b.releaseYear || 0).localeCompare(String(a.releaseYear || 0)),
+                system: (a, b) => (systemsOf(a)[0] || '~').localeCompare(systemsOf(b)[0] || '~')
+            }[viewState.sort];
+            return by ? [...list].sort(by) : list;
+        }
+        function buildViewBar() {
+            $('view-bar').hidden = false;
+            const systems = [...new Set(items.filter(item => item.status === active).flatMap(systemsOf))].sort();
+            if (viewState.system && !systems.includes(viewState.system)) viewState.system = '';
+            $('v-system').innerHTML = '<option value="">All</option>' + systems.map(name => `<option value="${esc(name)}"${name === viewState.system ? ' selected' : ''}>${esc(name)}</option>`).join('');
+            $('v-sort').value = viewState.sort; $('v-when').value = viewState.when;
+            const total = items.filter(item => item.status === active).length, shown = visibleItems().length;
+            $('v-count').textContent = shown === total ? '' : `Showing ${shown} of ${total}`;
+        }
+        for (const [id, key] of [['v-sort', 'sort'], ['v-when', 'when'], ['v-system', 'system']]) $(id).addEventListener('change', () => { viewState[key] = $(id).value; render(); });
+
         function subLine(item) {
             if (item.custom) return 'Custom item';
             return [item.releaseYear, (item.genres || []).slice(0, 2).join(' · ')].filter(Boolean).join(' · ') || 'Looking up…';
@@ -257,12 +301,12 @@
             document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === view));
             $('board').hidden = view !== 'tiers';
             $('items').hidden = view === 'tiers';
-            if (view === 'tiers') { buildTabs(); $('period-bar').hidden = true; renderBoard(); return; }
+            if (view === 'tiers') { buildTabs(); $('period-bar').hidden = true; $('view-bar').hidden = true; renderBoard(); return; }
             buildTabs();
             const list = allLists().find(entry => entry.id === active) || BUILTIN[0];
             const holder = $('items');
             holder.dataset.empty = list.empty;
-            holder.innerHTML = items.filter(item => item.status === active).map(item => `
+            holder.innerHTML = visibleItems().map(item => `
                 <div class="item${item.playingNow ? ' now' : ''}" data-id="${esc(item.id)}">
                     <span class="grip" title="Drag to reorder, or drop on a tab to move">⋮⋮</span>
                     ${coverTag(item)}
@@ -279,10 +323,12 @@
                     </div>
                     <div class="item-actions"><button class="btn icon" data-edit title="Details">✎</button></div>
                 </div>`).join('');
+            buildViewBar();
             buildPeriodBar();
             $('periods').innerHTML = [...new Set(items.map(item => item.period).filter(Boolean))].map(value => `<option value="${esc(value)}">`).join('');
             sortable?.destroy();
             sortable = new Sortable(holder, {
+                disabled: viewState.sort !== 'manual' || !!viewState.when || !!viewState.system,
                 group: 'games', animation: 150, handle: '.grip', ghostClass: 'sortable-ghost',
                 onEnd(event) {
                     const point = event.originalEvent;
@@ -344,7 +390,7 @@
                 const response = await fetch('/api/game-plan', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lists: customLists, tiers, tierSets, periods: orderedPeriods(), items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded })) })
+                    body: JSON.stringify({ lists: customLists, tiers, tierSets, periods: orderedPeriods(), items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system })) })
                 });
                 if (!response.ok) throw new Error((await response.json()).error || response.statusText);
                 setStatus('Saved. Overlays update within a few seconds.');
@@ -362,7 +408,7 @@
                     const item = items.find(entry => entry.id === fresh.id);
                     if (!item) continue;
                     if (item.cover !== fresh.cover || item.playingNow !== fresh.playingNow || item.releaseYear !== fresh.releaseYear) changed = true;
-                    Object.assign(item, { cover: fresh.cover, releaseYear: fresh.releaseYear, genres: fresh.genres, playingNow: fresh.playingNow, minutesPlayed: fresh.minutesPlayed });
+                    Object.assign(item, { cover: fresh.cover, releaseYear: fresh.releaseYear, genres: fresh.genres, playingNow: fresh.playingNow, minutesPlayed: fresh.minutesPlayed, platforms: fresh.platforms });
                     if (!fresh.cover && !item.custom) missing = true;
                 }
                 if (changed && !$('items').contains(document.activeElement) && !$('dlg').open) render();
@@ -490,6 +536,7 @@
             $('f-finished').value = item.finished || '';
             $('f-tags').value = (item.tags || []).join(', ');
             $('f-note').value = item.note || '';
+            $('f-system').value = item.system || '';
             paintDialog();
             if (!$('dlg').open) $('dlg').showModal();
         }
@@ -533,6 +580,7 @@
         $('f-note').addEventListener('change', () => { editing.note = $('f-note').value.trim(); commit(true); });
         $('f-period').addEventListener('change', () => { editing.period = $('f-period').value.trim(); commit(true); });
         $('f-finished').addEventListener('change', () => { editing.finished = $('f-finished').value; commit(false); });
+        $('f-system').addEventListener('change', () => { editing.system = $('f-system').value.trim().slice(0, 40); commit(true); });
         $('f-tags').addEventListener('change', () => { editing.tags = [...new Set($('f-tags').value.split(',').map(tag => tag.trim().slice(0, 24)).filter(Boolean))].slice(0, 8); $('f-tags').value = editing.tags.join(', '); commit(true); });
         $('f-status').addEventListener('change', () => { moveTo(editing, $('f-status').value); active = editing.status; $('f-finished').value = editing.finished || ''; commit(true); });
         $('f-cover').addEventListener('change', () => {
