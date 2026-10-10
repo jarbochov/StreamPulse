@@ -38,13 +38,14 @@
         .title { font-weight: 600; font-size: 0.98rem; overflow-wrap: anywhere; }
         .meta { color: var(--text-muted); font-size: 0.76rem; line-height: 1.5; }
         .actions { display: grid; gap: 0.4rem; margin-top: 0.35rem; }
-        .act-main { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .act-main { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem; }
         .act-main .btn { text-align: center; white-space: nowrap; }
-        .act-main .primary { flex: 1 0 auto; }
-        .act-more { display: flex; flex-wrap: wrap; gap: 0.15rem; padding-top: 0.4rem; border-top: 1px solid var(--border); }
-        .act-more .btn { padding-inline: 0.45rem; border-color: transparent; background: transparent; color: var(--text-muted); }
+        .act-main .primary { grid-column: 1 / -1; }
+        .act-main .btn, .act-more .btn { padding-inline: 0.4rem; overflow: hidden; text-overflow: ellipsis; }
+        .act-more { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.1rem; padding-top: 0.4rem; border-top: 1px solid var(--border); }
+        .act-more .btn { padding-inline: 0.15rem; font-size: 0.74rem; border-color: transparent; background: transparent; color: var(--text-muted); }
         .act-more .btn:hover { color: var(--text); background: var(--bg-raised); border-color: var(--border); }
-        .act-more .danger { margin-left: auto; }
+        .act-more .btn { text-align: center; white-space: nowrap; }
         .act-more .danger:hover { background: transparent; }
         .empty { color: var(--text-muted); text-align: center; padding: 2.5rem 1rem; grid-column: 1 / -1; }
         .list .overlay { flex-direction: row; align-items: center; }
