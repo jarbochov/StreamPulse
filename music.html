@@ -678,7 +678,7 @@
                 const msg = JSON.parse(e.data);
                 if (msg.type === 'music') {
                     render(msg.data);
-                } else if (msg.type === 'overlay-visibility') {
+                } else if (msg.type === 'overlay-visibility' && (!msg.data.key || msg.data.key === 'music')) {
                     const player = document.getElementById('player');
                     if (msg.data.visible) {
                         player.classList.remove('hidden-by-api');

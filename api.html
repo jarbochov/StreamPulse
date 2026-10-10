@@ -489,6 +489,16 @@
                     details: 'Control overlay visibility. Send JSON body { "action": "on"|"off"|"toggle" } or use query param ?action=toggle. GET returns current state { visible: true/false }. All connected overlay instances respond instantly via WebSocket.'
                 },
                 {
+                    method: 'GET', path: '/api/overlay-visibility',
+                    desc: 'List overlays and whether each is shown',
+                    details: 'Returns { overlays: [{ key, label, type, visible }] }. Keys: credits, goal, countdown, stopwatch, music, and custom:<overlayId> for each custom overlay.'
+                },
+                {
+                    method: 'POST', path: '/api/overlay-visibility/{key}',
+                    desc: 'Show/hide an entire overlay',
+                    details: 'Send JSON { "action": "on"|"off"|"toggle" } or ?action=off. Hides the whole overlay page in OBS instantly via WebSocket, including newly opened pages. Resets to visible on server restart. Returns 404 for an unknown key.'
+                },
+                {
                     method: 'GET', path: '/api/music/artwork',
                     desc: 'Album artwork image (PNG)',
                     details: 'Serves the album art of the currently playing track as a PNG image. Returns 404 if no artwork is available. Cache-busted automatically by the overlay.'

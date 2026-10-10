@@ -3127,6 +3127,34 @@ let musicState = { track: '', artist: '', album: '', year: '', duration: 0, posi
 let musicPolledAt = 0;
 let musicPollTimer = null;
 let overlayVisible = true;
+// Overlays hidden through the API; the music overlay keeps its own flag (overlayVisible).
+const hiddenOverlays = new Set();
+const BUILTIN_OVERLAYS = [
+    { key: 'credits', label: 'Credits' },
+    { key: 'goal', label: 'Goals' },
+    { key: 'countdown', label: 'Countdown timers' },
+    { key: 'stopwatch', label: 'Stopwatch timers' },
+    { key: 'music', label: 'Music' }
+];
+
+function listOverlayVisibility() {
+    const visible = key => key === 'music' ? overlayVisible : !hiddenOverlays.has(key);
+    return [
+        ...BUILTIN_OVERLAYS.map(o => ({ ...o, type: 'builtin', visible: visible(o.key) })),
+        ...Object.values(customOverlays).map(o => ({ key: `custom:${o.id}`, label: o.name || o.id, type: 'custom', visible: visible(`custom:${o.id}`) }))
+    ];
+}
+
+function setOverlayVisibility(key, action) {
+    const entry = listOverlayVisibility().find(o => o.key === key);
+    if (!entry) return null;
+    const next = action === 'on' ? true : action === 'off' ? false : !entry.visible;
+    if (key === 'music') overlayVisible = next;
+    else if (next) hiddenOverlays.delete(key);
+    else hiddenOverlays.add(key);
+    broadcastToOverlays('overlay-visibility', { key, visible: next });
+    return { ...entry, visible: next };
+}
 let viewerPollHandle = null;
 let lastSSNViewerUpdateAt = 0;
 
@@ -6503,14 +6531,32 @@ const server = http.createServer(async (req, res) => {
             const qAction = new URL(req.url, `http://${req.headers.host}`).searchParams.get('action');
             if (qAction) action = qAction;
 
-            if (action === 'on') overlayVisible = true;
-            else if (action === 'off') overlayVisible = false;
-            else overlayVisible = !overlayVisible;
-
-            broadcastToOverlays('overlay-visibility', { visible: overlayVisible });
+            setOverlayVisibility('music', action);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ visible: overlayVisible }));
         });
+        return;
+    }
+
+    // Per-overlay visibility: GET /api/overlay-visibility, POST /api/overlay-visibility/:key { action: "on"|"off"|"toggle" }
+    // Keys: credits, goal, countdown, stopwatch, music, custom:<overlayId>
+    if (pathname === '/api/overlay-visibility' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ overlays: listOverlayVisibility() }));
+        return;
+    }
+    const visibilityMatch = pathname.match(/^\/api\/overlay-visibility\/(.+)$/);
+    if (visibilityMatch && req.method === 'POST') {
+        let key = '';
+        try { key = decodeURIComponent(visibilityMatch[1]); } catch { key = visibilityMatch[1]; }
+        let action = url.searchParams.get('action') || '';
+        if (!action) {
+            try { action = JSON.parse(await readRequestBody(req) || '{}').action || ''; } catch {}
+        }
+        action = ['on', 'off', 'toggle'].includes(action) ? action : 'toggle';
+        const result = setOverlayVisibility(key, action);
+        res.writeHead(result ? 200 : 404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result || { error: `Unknown overlay "${key}"` }));
         return;
     }
 
@@ -7821,8 +7867,8 @@ overlayWss.on('connection', (ws) => {
     ws.send(JSON.stringify({ type: 'timers-snapshot', data: buildTimersSnapshot() }));
 
     // Send current overlay visibility state
-    if (!overlayVisible) {
-        ws.send(JSON.stringify({ type: 'overlay-visibility', data: { visible: false } }));
+    for (const entry of listOverlayVisibility().filter(o => !o.visible)) {
+        ws.send(JSON.stringify({ type: 'overlay-visibility', data: { key: entry.key, visible: false } }));
     }
 
     // Overlay pages report slideshow state so controllers can show play/pause and position
