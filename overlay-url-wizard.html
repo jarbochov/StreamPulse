@@ -254,6 +254,18 @@
                 </div>
                 <p class="hint">Use a font installed on the computer running OBS.</p>
                 <div class="form-row">
+                    <label for="ap-weight">Font weight</label>
+                    <select id="ap-weight">
+                        <option value="">Default</option>
+                        <option value="300">Light (300)</option>
+                        <option value="400">Regular (400)</option>
+                        <option value="500">Medium (500)</option>
+                        <option value="600">Semi-bold (600)</option>
+                        <option value="700">Bold (700)</option>
+                        <option value="900">Black (900)</option>
+                    </select>
+                </div>
+                <div class="form-row">
                     <label for="ap-fontscale">Font scale</label>
                     <input id="ap-fontscale" type="number" min="0.5" max="3" step="0.1" placeholder="Saved theme value">
                 </div>
@@ -322,7 +334,7 @@
                     <tr data-overlay="hashtags" hidden><td>Hashtags</td><td><code>view</code> <code>sort</code> <code>columns</code> <code>size</code> <code>limit</code> <code>min</code> <code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>title</code> <code>duration</code> <code>refresh</code> <code>counts</code> <code>weight</code> <code>scroll</code></td><td>Choose scroll, grid or cloud, the data window, sorting, and view-specific options.</td></tr>
                     <tr data-overlay="goals" hidden><td>Goal</td><td><code>goal</code> <code>mode</code> <code>ids</code> <code>interval</code> <code>skipcompleted</code> <code>pausecomplete</code> <code>showlabel</code></td><td>Select one goal or cycle a subset, and override cycle behavior or the type label.</td></tr>
                     <tr data-overlay="viewers" hidden><td>Viewer Count</td><td><code>label</code></td><td>Override the count label.</td></tr>
-                    <tr><td>All overlays</td><td><code>font</code> <code>fontscale</code> <code>text</code> <code>accent</code> <code>bg</code> <code>outline</code></td><td>Override the saved theme font, scale, text, accent and background colors, and text outline (use <code>none</code> to remove it).</td></tr>
+                    <tr><td>All overlays</td><td><code>font</code> <code>weight</code> <code>fontscale</code> <code>text</code> <code>accent</code> <code>bg</code> <code>outline</code></td><td>Override the saved theme font, scale, text, accent and background colors, and text outline (use <code>none</code> to remove it).</td></tr>
                 </tbody>
             </table>
         </section>
@@ -338,7 +350,7 @@
         'stats-range', 'stats-days', 'stats-date', 'stats-from', 'stats-to', 'stats-limit', 'stats-refresh',
         'goal-single', 'goal-showlabel', 'goal-interval', 'goal-skipcompleted', 'goal-pausecomplete',
         'viewer-label',
-        'ap-font', 'ap-fontscale', 'ap-text', 'ap-accent', 'ap-bg', 'ap-outline'
+        'ap-font', 'ap-weight', 'ap-fontscale', 'ap-text', 'ap-accent', 'ap-bg', 'ap-outline'
     ];
 
     function numberValue(id, minimum = 0) {
@@ -352,6 +364,7 @@
     function appearanceParams() {
         return {
             font: $('ap-font').value.trim(),
+            weight: $('ap-weight').value,
             fontscale: numberValue('ap-fontscale', 0.5),
             text: $('ap-text').value.trim(),
             accent: $('ap-accent').value.trim(),

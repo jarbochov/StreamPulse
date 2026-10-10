@@ -1,6 +1,6 @@
 // Shared theme handling for the browser-source overlays (credits, stats, hashtags, goal, viewers).
 // Applies the saved theme, then lets URL parameters override it per browser source:
-// ?font=Arial &text=#ffffff &accent=#ff0066 &bg=rgba(0,0,0,.5) &outline=#000000 (or none) &fontscale=1.2
+// ?font=Arial &text=#ffffff &accent=#ff0066 &bg=rgba(0,0,0,.5) &outline=#000000 (or none) &fontscale=1.2 &weight=400 (100-900, normal or bold)
 // Needs url-params.js. `vars` maps each role to the overlay's own CSS variable name.
 (function () {
     const COLOR = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([0-9.,%\s/]+\)|[a-z]{3,20})$/i;
@@ -53,6 +53,14 @@
                 link.href = t.font_import;
                 document.head.appendChild(link);
             }
+        }
+
+        const rawWeight = String(params.get('weight') || '').trim().toLowerCase();
+        const weight = { normal: '400', bold: '700' }[rawWeight] || (/^[1-9]00$/.test(rawWeight) ? rawWeight : '');
+        if (weight) {
+            const style = document.createElement('style');
+            style.textContent = `body, body * { font-weight: ${weight} !important; }`;
+            document.head.appendChild(style);
         }
 
         const colors = [
