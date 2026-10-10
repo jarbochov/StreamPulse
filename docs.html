@@ -634,7 +634,7 @@
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
-                    <div class="detail-text">Customize the shared look of supported overlays in the <a href="/theme-editor.html" style="color:var(--accent);">Theme Editor</a>:<br>• <strong>Font</strong> — popular Google Fonts or any custom Google Font name<br>• <strong>Text / accent colors</strong> — pickers with hex/rgb input<br>• <strong>Background</strong> — <code>transparent</code> for OBS, or a color for previewing; separate backgrounds for goal and viewer overlays<br>• <strong>Text outline</strong> — toggle and color<br>• <strong>Font scale</strong> — 0.5× to 2×<br>• <strong>Presets</strong> — export/import the theme as JSON<br><br>URL parameter names are case-insensitive (<code>fontScale</code> = <code>fontscale</code>).</div>
+                    <div class="detail-text">Customize the shared look of supported overlays in the <a href="/theme-editor.html" style="color:var(--accent);">Theme Editor</a>:<br>• <strong>Font</strong> — popular Google Fonts or any custom Google Font name<br>• <strong>Text / accent colors</strong> — pickers with hex/rgb input<br>• <strong>Background</strong> — <code>transparent</code> for OBS, or a color for previewing; separate backgrounds for goal and viewer overlays<br>• <strong>Text outline</strong> — toggle and color<br>• <strong>Font scale</strong> — 0.5× to 2×<br>• <strong>Presets</strong> — export/import the theme as JSON<br><br>URL parameter names are case-insensitive (<code>fontScale</code> = <code>fontscale</code>).<br><br><strong>Per-URL overrides:</strong> any theme-aware overlay also accepts <code>font</code>, <code>weight</code> (100-900), <code>fontscale</code>, <code>text</code>, <code>accent</code>, <code>bg</code> and <code>outline</code> (<code>none</code> removes it), for example <code>?font=Poppins&amp;weight=700&amp;accent=ff6600</code>. The <a href="/overlay-url-wizard.html" style="color:var(--accent);">URL Wizard</a> builds these for you.</div>
                 </div>
             </div>`;
 
@@ -850,6 +850,7 @@
                 <li>Drag, drop or <strong>paste</strong> (Ctrl/⌘+V) images and videos onto the canvas to upload them automatically</li>
                 <li>Every save keeps a revision; use <strong>History</strong> to restore one into the editor</li>
                 <li>Ctrl/⌘+C / V / D copy, paste and duplicate elements; Ctrl/⌘+G groups</li>
+                <li>The <strong>Filters</strong> section (every layer except embeds) adds blur, brightness, contrast, saturation, grayscale, duotone and presets; color tint is for images, video and slideshows</li>
             </ul></div>
     </div>    <div class="card open">
         <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
@@ -1096,6 +1097,17 @@
     </div>`;
 
             case 'companion': return `
+                <div class="card open">
+                    <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                        <strong style="font-size:0.9rem;">StreamPulse Companion Module</strong>
+                        <span class="chevron">▶</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="detail-text">
+                            A dedicated Bitfocus Companion module with StreamPulse actions, feedbacks and variables, so you don't have to build every button by hand. Get it from <a href="https://github.com/jarbochov/companion-module-streampulse" style="color:var(--accent);" target="_blank" rel="noopener">jarbochov/companion-module-streampulse</a>. The Generic HTTP guide below still works if you prefer it.
+                        </div>
+                    </div>
+                </div>
                 <div class="card open">
                     <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
                         <strong style="font-size:0.9rem;">Setup Guide</strong>
