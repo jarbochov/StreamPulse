@@ -794,7 +794,7 @@
                 badgeBox.style.cssText = `flex:none;width:${tierBoxWidth}em;display:flex;align-items:center;justify-content:center;text-align:center;overflow-wrap:anywhere;line-height:1.1;font-weight:800;font-size:${headingSize};background:${section.color};color:#000;border-radius:${Math.min(12, style.borderRadius || 8)}px;`;
                 holder.appendChild(badgeBox);
                 inner.appendChild(holder);
-            } else if (autoColumns || config.periodsAcross > 0) {
+            } else if (autoColumns || config.periodsAcross > 0 || config.fit === 'shrink') {
                 holder = document.createElement('div');
                 holder.dataset.glSection = '1';
                 holder.style.minWidth = '0';
@@ -834,13 +834,13 @@
                 const strip = layout === 'strip';
                 const cols = ticker ? (config.columns || 5) : tiers ? (config.columns || 6) : (config.columns || 3);
                 body.style.cssText += strip
-                    ? `display:flex;gap:${gap}px;`
+                    ? `display:flex;gap:${gap}px;justify-content:${just};`
                     : ticker ? 'display:flex;width:max-content;'
                     : `display:flex;flex-wrap:wrap;gap:${gap}px;justify-content:${just};--cols:${cols};`;
                 if (!strip && !ticker) body.dataset.glGrid = '1';
                 const fill = target => { for (const item of section.items) {
                     const card = document.createElement('div');
-                    card.style.cssText = strip ? 'flex:1 1 0;min-width:0;'
+                    card.style.cssText = strip ? `flex:1 1 0;min-width:0;max-width:calc((100% - ${5 * gap}px) / 6);`
                         : ticker ? `flex:0 0 calc((100cqw - ${(cols - 1) * gap}px) / ${cols});min-width:0;`
                         : `flex:0 0 calc((100% - (var(--cols) - 1) * ${gap}px) / var(--cols) - .5px);min-width:0;`;
                     const face = cover(item, `width:${Math.min(100, scale * 100)}%;margin:${coverMargin};${config.coverFit === 'natural' && item.cover ? '' : `aspect-ratio:${config.coverRatio || '3/4'};`}`, onCover);
@@ -898,12 +898,15 @@
             inner.style.columnGap = `${groupGap}px`;
             inner.style.alignItems = 'start';
         }
+        // "Shrink to fit" first reflows grids/tiers into more games per row (never fewer than set) so covers stay big before anything is scaled down.
+        const reflow = autoColumns || (shrink && (layout === 'grid' || tiers));
+        const minCols = autoColumns ? 1 : (config.columns || (tiers ? 6 : 3));
         const place = () => {
             if (ticker) {
                 const copies = [...inner.querySelectorAll('[data-gl-ticker-copy]')];
                 if (!copies.length) return;
-                const width = copies[0].getBoundingClientRect().width;
-                const scrolls = width > node.clientWidth + 1;
+                // offsetWidth ignores CSS transforms, so this also works in the editor's zoomed canvas.
+                const scrolls = copies[0].offsetWidth > node.clientWidth + 1;
                 copies[1].style.display = scrolls ? 'flex' : 'none';
                 const body = copies[0].parentElement;
                 body.style.animation = scrolls ? `${config.tickerDirection === 'right' ? 'spGlTickerR' : 'spGlTicker'} ${(copies[0].children.length * (config.tickerPace || 3)).toFixed(2)}s linear infinite` : 'none';
@@ -913,18 +916,18 @@
             inner.style.transformOrigin = 'left top';
             const avail = node.clientHeight;
             if (!(avail > 0)) return;
-            if (autoColumns && grids.length) {
+            if (reflow && grids.length) {
                 // Try every mix of "periods side by side" and "covers per row", keeping the one with the biggest covers once fitted.
                 const sectionEls = [...inner.querySelectorAll(':scope > [data-gl-section]')];
                 const width = node.clientWidth;
-                const most = Math.min(12, Math.max(...grids.map(grid => grid.children.length)));
+                const most = Math.max(1, Math.min(12, Math.max(...grids.map(grid => grid.children.length))));
                 inner.style.display = 'grid';
                 inner.style.columnGap = `${groupGap}px`;
                 inner.style.alignItems = 'start';
                 let best = null;
                 for (let across = config.periodsAcross > 0 ? Math.min(config.periodsAcross, sectionEls.length) : 1; across <= (config.periodsAcross > 0 ? Math.min(config.periodsAcross, sectionEls.length) : sectionEls.length); across++) {
                     inner.style.gridTemplateColumns = `repeat(${across},minmax(0,1fr))`;
-                    for (let columns = 1; columns <= most; columns++) {
+                    for (let columns = Math.min(minCols, most); columns <= most; columns++) {
                         grids.forEach(grid => grid.style.setProperty('--cols', columns));
                         const need = inner.offsetHeight;
                         const fit = need > avail ? avail / need : 1;
@@ -933,8 +936,10 @@
                         if (!best || score > best.score * 1.02) best = { across, columns, score };
                     }
                 }
-                inner.style.gridTemplateColumns = `repeat(${best.across},minmax(0,1fr))`;
-                grids.forEach(grid => grid.style.setProperty('--cols', best.columns));
+                if (best) {
+                    inner.style.gridTemplateColumns = `repeat(${best.across},minmax(0,1fr))`;
+                    grids.forEach(grid => grid.style.setProperty('--cols', best.columns));
+                }
             }
             const need = inner.offsetHeight;
             const factor = shrink && need > avail ? avail / need : 1;
@@ -944,6 +949,7 @@
             if (alignH !== 'left') {
                 // Align the visible content (covers and tight text bounds), not the stretched grid cells around it.
                 const box = node.getBoundingClientRect();
+                const zoom = node.offsetWidth ? box.width / node.offsetWidth : 1;
                 let left = Infinity, right = -Infinity;
                 const take = rect => { if (rect.width > 0) { left = Math.min(left, rect.left); right = Math.max(right, rect.right); } };
                 inner.querySelectorAll('[data-gl-cover], img').forEach(el => take(el.getBoundingClientRect()));
@@ -951,7 +957,7 @@
                 const walker = document.createTreeWalker(inner, NodeFilter.SHOW_TEXT);
                 while (walker.nextNode()) { if (walker.currentNode.textContent.trim()) { range.selectNodeContents(walker.currentNode); take(range.getBoundingClientRect()); } }
                 if (right > left) {
-                    const from = (left - box.left) * factor, to = (right - box.left) * factor;
+                    const from = (left - box.left) / zoom * factor, to = (right - box.left) / zoom * factor;
                     dx = alignH === 'center' ? (node.clientWidth - (to - from)) / 2 - from : node.clientWidth - to;
                 }
             }
