@@ -19,6 +19,8 @@
         .add-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.6rem; }
         .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-top: 0.5rem; }
         .card-foot .status { margin: 0; }
+        .extra-lists { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.82rem; }
+        .extra-lists label { display: inline-flex; align-items: center; gap: 0.3rem; cursor: pointer; }
         .btn.ghost { background: none; border-color: transparent; color: var(--text-muted); padding: 0.2rem 0.5rem; font-size: 0.76rem; }
         .btn.ghost:hover { color: var(--text); border-color: var(--border); }
         .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap; margin: 0.1rem 0 0.2rem; }
@@ -163,13 +165,14 @@
                 <label class="field">Tier (for the tier list, separate from stars)<select id="f-tier"><option value="">Unranked</option></select></label>
                 <label class="field">Artwork URL (paste a link, or paste an image with ⌘V)<input id="f-cover" placeholder="https://… or leave blank for the IGDB cover"></label>
                 <div class="field two">
-                    <div><span>List</span><select id="f-status"></select></div>
+                    <div><span>Main list</span><select id="f-status"></select></div>
                     <div><span>Period</span><input id="f-period" list="periods" maxlength="40" placeholder="e.g. October"></div>
                 </div>
                 <div class="field two">
                     <div><span>Finished</span><input id="f-finished" type="date"></div>
                     <div><span>Tags (comma separated)</span><input id="f-tags" maxlength="200" placeholder="co-op, horror"></div>
                 </div>
+                <div class="field" id="f-extra-wrap" hidden><span>Also on (custom lists)</span><div class="extra-lists" id="f-extra"></div></div>
                 <label class="field">System (overrides the automatic IGDB platforms)<input id="f-system" maxlength="40" placeholder="e.g. Switch, PC, SNES"></label>
                 <label class="field">Note<input id="f-note" maxlength="200"></label>
             </div>
@@ -190,6 +193,7 @@
         let tiers = [];
         let tierSets = {};
         // Each list has its own tier set; the first time one is edited it starts as a copy of the default set.
+        const inList = (item, id) => item.status === id || (item.extraLists || []).includes(id);
         const tiersOf = listId => tierSets[listId] || tiers;
         const ownTiers = listId => (tierSets[listId] ||= tiers.map(entry => ({ ...entry })));
         let view = 'list';
@@ -212,10 +216,10 @@
         const starValue = (event, star, attr) => { const n = Number(star.dataset[attr]); const box = star.getBoundingClientRect(); return event.clientX - box.left < box.width / 2 ? n - 0.5 : n; };
 
         function buildTabs(adding) {
-            const tabs = allLists().map(list => `<button type="button" class="tab${list.id === active ? ' active' : ''}" data-tab="${esc(list.id)}">${esc(list.name)}<span class="n">${items.filter(item => item.status === list.id).length || ''}</span></button>`).join('');
+            const tabs = allLists().map(list => `<button type="button" class="tab${list.id === active ? ' active' : ''}" data-tab="${esc(list.id)}">${esc(list.name)}<span class="n">${items.filter(item => inList(item, list.id)).length || ''}</span></button>`).join('');
             const isCustom = customLists.some(list => list.id === active);
             $('tabs').innerHTML = tabs + (adding ? '<input class="tab-input" id="new-list-name" placeholder="List name, then Enter" maxlength="40">' : '<button type="button" class="tab tab-new" id="new-list" title="Create your own list, e.g. “Scariest horror games”">+ List</button>')
-                + (isCustom ? '<span class="tab-tools"><button class="btn icon" type="button" id="rename-list" title="Rename list">Rename</button><button class="btn icon danger" type="button" id="delete-list" title="Delete list (games move to Backlog)">Delete</button></span>' : '');
+                + (isCustom ? '<span class="tab-tools"><button class="btn icon" type="button" id="rename-list" title="Rename list">Rename</button><button class="btn icon danger" type="button" id="delete-list" title="Delete list (games only on it move to Backlog)">Delete</button></span>' : '');
             if (adding) $('new-list-name').focus();
         }
 
@@ -237,7 +241,7 @@
         const systemsOf = item => (item.system ? [item.system] : (item.platforms || []));
         const localDay = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         function visibleItems() {
-            let list = items.filter(item => item.status === active);
+            let list = items.filter(item => inList(item, active));
             const now = new Date();
             const cutoff = viewState.when === 'month' ? localDay(new Date(now.getFullYear(), now.getMonth(), 1))
                 : viewState.when === 'year' ? `${now.getFullYear()}-01-01`
@@ -260,11 +264,11 @@
         }
         function buildViewBar() {
             $('view-bar').hidden = false;
-            const systems = [...new Set(items.filter(item => item.status === active).flatMap(systemsOf))].sort();
+            const systems = [...new Set(items.filter(item => inList(item, active)).flatMap(systemsOf))].sort();
             if (viewState.system && !systems.includes(viewState.system)) viewState.system = '';
             $('v-system').innerHTML = '<option value="">All</option>' + systems.map(name => `<option value="${esc(name)}"${name === viewState.system ? ' selected' : ''}>${esc(name)}</option>`).join('');
             $('v-sort').value = viewState.sort; $('v-when').value = viewState.when;
-            const total = items.filter(item => item.status === active).length, shown = visibleItems().length;
+            const total = items.filter(item => inList(item, active)).length, shown = visibleItems().length;
             $('v-count').textContent = shown === total ? '' : `Showing ${shown} of ${total}`;
         }
         for (const [id, key] of [['v-sort', 'sort'], ['v-when', 'when'], ['v-system', 'system']]) $(id).addEventListener('change', () => { viewState[key] = $(id).value; render(); });
@@ -346,12 +350,12 @@
                     const id = event.item.dataset.id;
                     if (tab && tab.dataset.tab !== active) {
                         const item = items.find(entry => entry.id === id);
-                        if (item) moveTo(item, tab.dataset.tab);
+                        if (item) { if (customLists.some(entry => entry.id === tab.dataset.tab) && item.status !== tab.dataset.tab) item.extraLists = [...new Set([...(item.extraLists || []), tab.dataset.tab])]; else moveTo(item, tab.dataset.tab); }
                         render(); scheduleSave();
                         return;
                     }
                     const order = [...holder.querySelectorAll('.item')].map(row => items.find(entry => entry.id === row.dataset.id)).filter(Boolean);
-                    const slots = items.map((item, index) => (item.status === active ? index : -1)).filter(index => index >= 0);
+                    const slots = items.map((item, index) => (inList(item, active) ? index : -1)).filter(index => index >= 0);
                     slots.forEach((slot, index) => { items[slot] = order[index]; });
                     scheduleSave();
                 }
@@ -383,6 +387,7 @@
 
         function moveTo(item, status) {
             item.status = status;
+            item.extraLists = (item.extraLists || []).filter(id => id !== status);
             if (!tiersOf(status).some(entry => entry.id === item.tier)) item.tier = '';
             if (status !== 'scheduled') item.period = item.period || '';
             if (status === 'played' && !item.finished) item.finished = new Date().toISOString().slice(0, 10);
@@ -400,7 +405,7 @@
                 const response = await fetch('/api/game-plan', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lists: customLists, tiers, tierSets, periods: orderedPeriods(), items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system })) })
+                    body: JSON.stringify({ lists: customLists, tiers, tierSets, periods: orderedPeriods(), items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists })) })
                 });
                 if (!response.ok) throw new Error((await response.json()).error || response.statusText);
                 setStatus('Saved. Overlays update within a few seconds.');
@@ -483,8 +488,8 @@
             }
             if (event.target.closest('#delete-list')) {
                 const list = customLists.find(entry => entry.id === active);
-                if (!list || !confirm(`Delete the list “${list.name}”? Its games move to Backlog.`)) return;
-                for (const item of items) if (item.status === active) item.status = 'backlog';
+                if (!list || !confirm(`Delete the list “${list.name}”? Games only on this list move to Backlog.`)) return;
+                for (const item of items) { if (item.status === active) item.status = 'backlog'; item.extraLists = (item.extraLists || []).filter(id => id !== active); }
                 customLists = customLists.filter(entry => entry.id !== active);
                 active = 'backlog';
                 render(); scheduleSave();
@@ -535,6 +540,15 @@
             $('f-rating').innerHTML = starsHtml(item.rating || 0, 'data-dstar');
             $('f-cover').value = item.customCover || '';
         }
+        function paintExtra() {
+            const choices = customLists.filter(list => list.id !== editing.status);
+            $('f-extra-wrap').hidden = !choices.length;
+            $('f-extra').innerHTML = choices.map(list => `<label><input type="checkbox" data-extra="${esc(list.id)}"${(editing.extraLists || []).includes(list.id) ? ' checked' : ''}>${esc(list.name)}</label>`).join('');
+        }
+        $('f-extra').addEventListener('change', () => {
+            editing.extraLists = [...$('f-extra').querySelectorAll('input:checked')].map(box => box.dataset.extra);
+            commit(true);
+        });
         function openDialog(item) {
             editing = item;
             $('f-name').value = item.name;
@@ -542,6 +556,7 @@
             $('f-tier').value = item.tier || '';
             $('f-name').disabled = !item.custom;
             $('f-status').innerHTML = allLists().map(list => `<option value="${esc(list.id)}"${list.id === item.status ? ' selected' : ''}>${esc(list.name)}</option>`).join('');
+            paintExtra();
             $('f-period').value = item.period || '';
             $('f-finished').value = item.finished || '';
             $('f-tags').value = (item.tags || []).join(', ');
@@ -592,7 +607,7 @@
         $('f-finished').addEventListener('change', () => { editing.finished = $('f-finished').value; commit(false); });
         $('f-system').addEventListener('change', () => { editing.system = $('f-system').value.trim().slice(0, 40); commit(true); });
         $('f-tags').addEventListener('change', () => { editing.tags = [...new Set($('f-tags').value.split(',').map(tag => tag.trim().slice(0, 24)).filter(Boolean))].slice(0, 8); $('f-tags').value = editing.tags.join(', '); commit(true); });
-        $('f-status').addEventListener('change', () => { moveTo(editing, $('f-status').value); active = editing.status; $('f-finished').value = editing.finished || ''; commit(true); });
+        $('f-status').addEventListener('change', () => { moveTo(editing, $('f-status').value); active = editing.status; paintExtra(); $('f-finished').value = editing.finished || ''; commit(true); });
         $('f-cover').addEventListener('change', () => {
             const value = $('f-cover').value.trim();
             editing.customCover = value;

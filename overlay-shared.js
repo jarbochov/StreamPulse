@@ -117,9 +117,10 @@
         return out;
     }
 
+    const inPlanList = (item, id) => item.status === id || (item.extraLists || []).includes(id);
     function planListValues(status) {
         const out = {};
-        for (const list of status.gamePlan?.lists || []) out[`plan.list.${list.id}`] = (status.gamePlan.items || []).filter(item => item.status === list.id).map(item => item.name).join(', ');
+        for (const list of status.gamePlan?.lists || []) out[`plan.list.${list.id}`] = (status.gamePlan.items || []).filter(item => inPlanList(item, list.id)).map(item => item.name).join(', ');
         return out;
     }
 
@@ -323,7 +324,7 @@
         for (const key of Object.keys(table)) if (isTicking(key) && !key.startsWith('timer.')) delete table[key];
         // Timer clocks tick on their own, so only structural timer values count as changes.
         for (const key of Object.keys(table)) if (key.startsWith('timer.') && !/\.(label|state)$/.test(key)) delete table[key];
-        table.__plan = (status.gamePlan?.items || []).map(item => [item.name, item.status, item.period, item.cover, item.playingNow, item.note, item.finished, (item.played || []).join(',')]);
+        table.__plan = (status.gamePlan?.items || []).map(item => [item.name, item.status, item.period, item.cover, item.playingNow, item.note, item.finished, (item.played || []).join(','), (item.extraLists || []).join(',')]);
         return JSON.stringify(table);
     }
 
@@ -632,7 +633,7 @@
     function renderGameList(node, element, plan) {
         const config = element.gameList || {};
         const style = element.style || {};
-        let items = (plan?.items || []).filter(item => config.filter === 'all' || item.status === (config.filter || 'scheduled'));
+        let items = (plan?.items || []).filter(item => config.filter === 'all' || inPlanList(item, config.filter || 'scheduled'));
         const order = (plan?.periods || []).map(name => String(name).toLowerCase());
         const rank = item => { const at = order.indexOf(String(item.period || '').toLowerCase()); return at < 0 ? order.length : at; };
         const wanted = (Array.isArray(config.periods) && config.periods.length ? config.periods : config.period ? [config.period] : []).map(name => String(name).toLowerCase());

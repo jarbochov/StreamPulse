@@ -2929,6 +2929,8 @@ function normalizeGamePlan(input) {
         if (validStatus(key) && Array.isArray(value)) tierSets[key] = cleanTiers(value);
     }
     const tiersFor = status => tierSets[status] || tiers;
+    const extraById = {};
+    for (const item of Array.isArray(input?.items) ? input.items : []) if (item?.id) extraById[sanitizeOverlayId(item.id)] = item.extraLists;
     const items = (Array.isArray(input?.items) ? input.items : []).slice(0, 300).map((item, index) => ({
         id: sanitizeOverlayId(item?.id) || `game-${Date.now().toString(36)}-${index}`,
         name: String(item?.name || '').trim().slice(0, 120),
@@ -2946,6 +2948,10 @@ function normalizeGamePlan(input) {
         played: [...new Set((Array.isArray(item?.played) ? item.played : []).map(String).filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date)))].sort().slice(-400),
         autoAdded: item?.autoAdded === true,
         system: String(item?.system || '').trim().slice(0, 40)
+    })).map(item => ({
+        ...item,
+        // Custom lists are not exclusive: a game can also belong to others besides its main list.
+        extraLists: [...new Set((Array.isArray(extraById[item.id]) ? extraById[item.id] : []).filter(id => lists.some(list => list.id === id) && id !== item.status))]
     })).filter(item => item.name);
     const used = [...new Set(items.map(item => item.period).filter(Boolean))];
     const saved = (Array.isArray(input?.periods) ? input.periods : []).map(value => String(value || '').trim().slice(0, 40)).filter(value => used.includes(value));
