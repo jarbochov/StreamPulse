@@ -496,7 +496,7 @@
                 {
                     method: 'POST', path: '/api/overlay-visibility/{key}',
                     desc: 'Show/hide an entire overlay',
-                    details: 'Send JSON { "action": "on"|"off"|"toggle" } or ?action=off. Hides the whole overlay page in OBS instantly via WebSocket, including newly opened pages. Resets to visible on server restart. Returns 404 for an unknown key.'
+                    details: 'Send JSON { "action": "on"|"off"|"toggle" } or ?action=off. Fades the whole overlay page out or in (about half a second) in OBS via WebSocket, including newly opened pages. Resets to visible on server restart. Returns 404 for an unknown key.'
                 },
                 {
                     method: 'GET', path: '/api/music/artwork',
