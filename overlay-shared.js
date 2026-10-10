@@ -418,45 +418,55 @@
         return f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.tint?.enabled || f.duotone?.enabled;
     }
 
-    // Idempotent: call after every render. Filters the media itself (or the slideshow stage) and adds a tint layer.
+    const MEDIA_TYPES = new Set(['image', 'video', 'slideshow']);
+    const FILTERABLE = element => element.type !== 'embed';
+
+    // Call after every style pass. Media layers filter the media itself (so a tint can sit on top); other layers filter the whole layer.
     function applyMediaFilter(node, element) {
+        if (!FILTERABLE(element)) return;
         const f = { ...defaultMediaFilter(), ...(element.mediaFilter || {}) };
-        const signature = JSON.stringify([f, element.type, element.width, element.height]);
-        const isSlideshow = element.type === 'slideshow';
-        const target = isSlideshow ? node.firstElementChild : node.querySelector(':scope > video, :scope > img');
+        const media = MEDIA_TYPES.has(element.type);
+        const target = !media ? node : element.type === 'slideshow' ? node.firstElementChild : node.querySelector(':scope > video, :scope > img');
         if (!target) { node._fxSig = ''; return; }
-        if (node._fxSig === signature && node._fxTarget === target) return;
-        node._fxSig = signature; node._fxTarget = target;
-        node.querySelectorAll(':scope > .sp-fx').forEach(n => n.remove());
-        if (!mediaFilterActive(f)) { target.style.filter = ''; target.style.transform = ''; return; }
-        const parts = [];
-        if (f.duotone.enabled) {
-            const id = `sp-duo-${String(element.id || 'x').replace(/[^a-z0-9_-]/gi, '')}`;
-            const rgb = hex => [1, 3, 5].map(i => (parseInt(hex.slice(i, i + 2), 16) / 255).toFixed(4));
-            const [dr, dg, db] = rgb(f.duotone.dark), [lr, lg, lb] = rgb(f.duotone.light);
-            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('class', 'sp-fx');
-            svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
-            svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;';
-            svg.innerHTML = `<filter id="${id}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0"/><feComponentTransfer><feFuncR type="table" tableValues="${dr} ${lr}"/><feFuncG type="table" tableValues="${dg} ${lg}"/><feFuncB type="table" tableValues="${db} ${lb}"/></feComponentTransfer></filter>`;
-            node.appendChild(svg);
-            parts.push(`url(#${id})`);
+        const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.duotone.enabled);
+        const signature = JSON.stringify([f, media, element.id, Number(element.width), Number(element.height)]);
+        const base = media ? '' : node.style.filter;
+        const id = `sp-duo-${String(element.id || 'x').replace(/[^a-z0-9_-]/gi, '')}`;
+        if (node._fxSig !== signature || node._fxTarget !== target) {
+            node._fxSig = signature; node._fxTarget = target;
+            node.querySelectorAll(':scope > .sp-fx').forEach(n => n.remove());
+            if (active && f.duotone.enabled) {
+                const rgb = hex => [1, 3, 5].map(i => (parseInt(hex.slice(i, i + 2), 16) / 255).toFixed(4));
+                const [dr, dg, db] = rgb(f.duotone.dark), [lr, lg, lb] = rgb(f.duotone.light);
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('class', 'sp-fx');
+                svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
+                svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;';
+                svg.innerHTML = `<filter id="${id}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0"/><feComponentTransfer><feFuncR type="table" tableValues="${dr} ${lr}"/><feFuncG type="table" tableValues="${dg} ${lg}"/><feFuncB type="table" tableValues="${db} ${lb}"/></feComponentTransfer></filter>`;
+                node.appendChild(svg);
+            }
+            if (media && active && f.tint.enabled && f.tint.opacity > 0) {
+                const tint = document.createElement('div');
+                tint.className = 'sp-fx';
+                tint.style.cssText = `position:absolute;inset:0;pointer-events:none;background:${f.tint.color};opacity:${f.tint.opacity};`;
+                node.appendChild(tint);
+            }
         }
-        if (f.blur > 0) parts.push(`blur(${f.blur}px)`);
-        if (f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
-        if (f.contrast !== 100) parts.push(`contrast(${f.contrast}%)`);
-        if (f.saturate !== 100) parts.push(`saturate(${f.saturate}%)`);
-        if (f.grayscale > 0) parts.push(`grayscale(${f.grayscale}%)`);
+        const parts = base ? [base] : [];
+        if (active) {
+            if (f.duotone.enabled) parts.push(`url(#${id})`);
+            if (f.blur > 0) parts.push(`blur(${f.blur}px)`);
+            if (f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
+            if (f.contrast !== 100) parts.push(`contrast(${f.contrast}%)`);
+            if (f.saturate !== 100) parts.push(`saturate(${f.saturate}%)`);
+            if (f.grayscale > 0) parts.push(`grayscale(${f.grayscale}%)`);
+        }
         target.style.filter = parts.join(' ');
-        // Blur fades the edges, so enlarge the media slightly and let the element crop it.
-        const size = Math.max(1, Math.min(Number(element.width) || 100, Number(element.height) || 100));
-        target.style.transform = f.blur > 0 ? `scale(${(1 + (f.blur * 2.2) / size).toFixed(3)})` : '';
-        node.style.overflow = 'hidden';
-        if (f.tint.enabled && f.tint.opacity > 0) {
-            const tint = document.createElement('div');
-            tint.className = 'sp-fx';
-            tint.style.cssText = `position:absolute;inset:0;pointer-events:none;background:${f.tint.color};opacity:${f.tint.opacity};`;
-            node.appendChild(tint);
+        if (media) {
+            // Blur fades the edges, so enlarge the media slightly and let the element crop it.
+            const size = Math.max(1, Math.min(Number(element.width) || 100, Number(element.height) || 100));
+            target.style.transform = active && f.blur > 0 ? `scale(${(1 + (f.blur * 2.2) / size).toFixed(3)})` : '';
+            if (active) node.style.overflow = 'hidden';
         }
     }
 
@@ -633,6 +643,16 @@
             textTransform: style.textTransform && style.textTransform !== 'none' ? style.textTransform : '',
             textDecoration: style.textDecoration && style.textDecoration !== 'none' ? style.textDecoration : ''
         };
+    }
+
+    // Layers clip their content, which cuts off text shadows and glows at the box edge. Let the shadow spill out instead.
+    function shadowClipStyle(element) {
+        const style = element.style || {};
+        const blur = Number(style.textShadow?.blur) || 0;
+        const textual = !['image', 'video', 'slideshow', 'embed', 'qr', 'icon', 'shape', 'progress', 'game-list'].includes(element.type);
+        if (!(blur > 0) || !textual || element.random?.marquee) return { overflow: '', overflowClipMargin: '' };
+        if (window.CSS?.supports?.('overflow-clip-margin', '4px')) return { overflow: 'clip', overflowClipMargin: `${Math.ceil(blur * 2 + 4)}px` };
+        return { overflow: 'visible', overflowClipMargin: '' };
     }
 
     // Draws or updates a progress bar/ring in place so CSS transitions keep animating between ticks.
@@ -1478,5 +1498,5 @@
         return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length, control };
     }
 
-    root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl, applyMediaFilter, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
+    root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
 })(window);
