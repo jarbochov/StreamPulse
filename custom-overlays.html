@@ -119,6 +119,23 @@
         elements: (a, b) => b.elementCount - a.elementCount
     };
 
+    // Each preview is a full running overlay (socket, timers, media). Only keep the ones on screen alive, and none while the tab is hidden.
+    const visiblePreviews = new Set();
+    const previewObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
+        for (const entry of entries) { entry.isIntersecting ? visiblePreviews.add(entry.target) : visiblePreviews.delete(entry.target); syncPreview(entry.target); }
+    }, { rootMargin: '150px' }) : null;
+    function syncPreview(frame) {
+        const wanted = !document.hidden && (!previewObserver || visiblePreviews.has(frame));
+        const target = wanted ? frame.dataset.src : 'about:blank';
+        if (frame.getAttribute('src') !== target) frame.setAttribute('src', target);
+    }
+    function watchPreviews() {
+        visiblePreviews.clear();
+        previewObserver?.disconnect();
+        for (const frame of document.querySelectorAll('.preview iframe')) { if (previewObserver) previewObserver.observe(frame); else syncPreview(frame); }
+    }
+    document.addEventListener('visibilitychange', () => document.querySelectorAll('.preview iframe').forEach(syncPreview));
+
     function fitPreviews() {
         for (const box of document.querySelectorAll('.preview:not(.off)')) {
             const frame = box.firstElementChild;
@@ -141,7 +158,7 @@
         $('toggle-view').textContent = prefs.view === 'list' ? 'Grid view' : 'List view';
         list.innerHTML = shown.length ? shown.map(o => `
             <article class="overlay">
-                <div class="preview${prefs.previews ? '' : ' off'}">${prefs.previews ? `<iframe loading="lazy" tabindex="-1" data-w="${o.canvas.width}" data-h="${o.canvas.height}" src="/custom-overlay.html?id=${encodeURIComponent(o.id)}" title="Preview of ${esc(o.name)}"></iframe>` : ''}</div>
+                <div class="preview${prefs.previews ? '' : ' off'}">${prefs.previews ? `<iframe tabindex="-1" data-w="${o.canvas.width}" data-h="${o.canvas.height}" data-src="/custom-overlay.html?id=${encodeURIComponent(o.id)}" title="Preview of ${esc(o.name)}"></iframe>` : ''}</div>
                 <div class="body">
                     <div class="title">${esc(o.name)}</div>
                     <div class="meta">${esc(o.id)} · ${o.canvas.width}×${o.canvas.height} · ${o.elementCount} element${o.elementCount === 1 ? '' : 's'}${o.pageCount ? ` · ${o.pageCount} pages` : ''}<br>Edited ${ago(o.updatedAt)} · revision ${o.revision}</div>
@@ -159,6 +176,7 @@
                     </div>
                 </div>
             </article>`).join('') : `<div class="empty">${overlays.length ? 'No overlays match your search.' : 'No custom overlays yet. Create your first one.'}</div>`;
+        watchPreviews();
         requestAnimationFrame(fitPreviews);
     }
 
