@@ -231,7 +231,7 @@
 
         const prettyDate = value => new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
         function seenLine(item) {
-            const dates = [...(item.played || [])].sort();
+            const dates = item.played || [];
             const mins = item.minutesPlayed || 0;
             const time = mins > 0 ? `${mins >= 60 ? `${Math.floor(mins / 60)}h ` : ''}${mins % 60 ? `${mins % 60}m ` : ''}streamed`.trim() : '';
             if (!dates.length) return time;
@@ -253,8 +253,9 @@
             else if (viewState.when === 'never') list = list.filter(item => !(item.played || []).length);
             else if (cutoff) list = list.filter(item => (item.played || []).some(day => day >= cutoff));
             if (viewState.system) list = list.filter(item => systemsOf(item).includes(viewState.system));
-            const last = item => [...(item.played || [])].sort().pop() || '';
-            const first = item => [...(item.played || [])].sort()[0] || '';
+            const played = item => item.played || [];
+            const last = item => played(item)[played(item).length - 1] || '';
+            const first = item => played(item)[0] || '';
             const by = {
                 name: (a, b) => a.name.localeCompare(b.name),
                 last: (a, b) => last(b).localeCompare(last(a)),
