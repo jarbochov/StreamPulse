@@ -400,6 +400,19 @@
         return holder.innerHTML;
     }
 
+    // Embeds saved as http://localhost:PORT/... break when the overlay is opened from another device; point them at the current origin.
+    function embedUrl(url) {
+        try {
+            const parsed = new URL(url, location.href);
+            if (['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname) && parsed.host !== location.host) {
+                parsed.protocol = location.protocol;
+                parsed.host = location.host;
+                return parsed.toString();
+            }
+        } catch { /* leave invalid URLs untouched */ }
+        return url;
+    }
+
     function loadGoogleFont(fontFamily) {
         const name = String(fontFamily || '').split(',')[0].replace(/^['"]|['"]$/g, '').trim();
         if (!googleFontSet.has(name)) return;
@@ -1405,5 +1418,5 @@
         return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length, control };
     }
 
-    root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont };
+    root.OverlayShared = { applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl };
 })(window);

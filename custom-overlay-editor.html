@@ -813,7 +813,7 @@
             media.addEventListener('error', () => { node.replaceChildren(placeholder("Couldn't build this QR code. Try shorter text.")); });
             node.appendChild(media);
         } else if (el.type === 'embed') {
-            const url = expand(el.src);
+            const url = shared.embedUrl(expand(el.src));
             if (!/^https?:\/\//i.test(url)) { node.appendChild(placeholder('Enter an http(s) webpage URL')); return; }
             const frame = document.createElement('iframe');
             frame.src = url;

@@ -223,7 +223,7 @@
                 node.appendChild(img);
             } else if (element.type === 'embed') {
                 const frame = document.createElement('iframe');
-                frame.src = expandVariables(element.src || '') || 'about:blank';
+                frame.src = shared.embedUrl(expandVariables(element.src || '')) || 'about:blank';
                 // Own widgets (timers, goals, music) need their origin to call the local API; external pages stay sandboxed.
                 let sameOrigin = false;
                 try { sameOrigin = new URL(frame.src, location.href).origin === location.origin; } catch { /* invalid URL stays sandboxed */ }
