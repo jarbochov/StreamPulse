@@ -151,6 +151,8 @@ function normalizeOverlayElement(element = {}, index = 0) {
             filter: ['scheduled', 'backlog', 'played', 'all'].includes(element.gameList?.filter) || /^list-[a-z0-9-]{1,40}$/.test(element.gameList?.filter || '') ? element.gameList.filter : 'scheduled',
             period: String(element.gameList?.period || '').slice(0, 40),
             periods: [...new Set((Array.isArray(element.gameList?.periods) ? element.gameList.periods : []).map(value => String(value || '').trim().slice(0, 40)).filter(Boolean))].slice(0, 20),
+            when: /^(thisYear|lastYear|thisMonth|lastMonth|\d{4}|\d{4}-(0[1-9]|1[0-2]))$/.test(element.gameList?.when || '') ? element.gameList.when : '',
+            groupBy: ['month', 'year'].includes(element.gameList?.groupBy) ? element.gameList.groupBy : 'period',
             maxPeriods: Math.max(0, Math.min(20, Math.round(Number(element.gameList?.maxPeriods) || 0))),
             periodsAcross: Math.max(0, Math.min(8, Math.round(Number(element.gameList?.periodsAcross) || 0))),
             layout: ['grid', 'strip', 'list', 'kanban', 'tiers', 'ticker'].includes(element.gameList?.layout) ? element.gameList.layout : 'grid',
@@ -2637,6 +2639,8 @@ function endSessionNow({ endedAtIso = null, discard = false } = {}) {
     saveChatLog();
     let archiveName = null;
     if (!discard) {
+        recordPlayedGames(JSON.parse(JSON.stringify(chatData.streamInfo || [])), Date.parse(streamEndedAt || '') || Date.now(), Date.parse(normalizeViewerStats(chatData.viewerStats).streamStartedAt || ''))
+            .catch(err => console.error('[GamePlan] Auto-add failed:', err.message));
         archiveName = archiveSession();
         performAutoBackup();
     }
@@ -2938,7 +2942,9 @@ function normalizeGamePlan(input) {
         rating: Math.max(0, Math.min(5, Math.round((Number(item?.rating) || 0) * 2) / 2)),
         tier: tiersFor(validStatus(item?.status) ? item.status : 'backlog').some(tier => tier.id === item?.tier) ? item.tier : '',
         tags: [...new Set((Array.isArray(item?.tags) ? item.tags : []).map(tag => String(tag || '').trim().slice(0, 24)).filter(Boolean))].slice(0, 8),
-        finished: /^\d{4}-\d{2}-\d{2}$/.test(String(item?.finished || '')) ? item.finished : ''
+        finished: /^\d{4}-\d{2}-\d{2}$/.test(String(item?.finished || '')) ? item.finished : '',
+        played: [...new Set((Array.isArray(item?.played) ? item.played : []).map(String).filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date)))].sort().slice(-400),
+        autoAdded: item?.autoAdded === true
     })).filter(item => item.name);
     const used = [...new Set(items.map(item => item.period).filter(Boolean))];
     const saved = (Array.isArray(input?.periods) ? input.periods : []).map(value => String(value || '').trim().slice(0, 40)).filter(value => used.includes(value));
@@ -2987,6 +2993,37 @@ function buildGamePlanSnapshot() {
             };
         })
     };
+}
+
+// Adds the games streamed in a finished session to the Game Plan as played, with the dates they were streamed.
+// Twitch categories without an IGDB id (Just Chatting, Special Events, Music, ...) are not games and are skipped.
+async function recordPlayedGames(streamInfo, endMs, startFloorMs) {
+    const auto = { enabled: true, min_minutes: 15, skip: ['Just Chatting'], ...(config.game_plan_auto || {}) };
+    if (!auto.enabled) return;
+    const skip = new Set((Array.isArray(auto.skip) ? auto.skip : String(auto.skip || '').split(',')).map(gameKey).filter(Boolean));
+    const spent = categoryTimeFor(streamInfo, endMs, startFloorMs);
+    const plan = loadGamePlan();
+    let changed = false;
+    for (const [name, slot] of Object.entries(spent)) {
+        if (name === '(No Category)' || slot.minutes < Number(auto.min_minutes || 0) || skip.has(gameKey(name))) continue;
+        const dates = [...slot.dates];
+        const key = gameKey(name);
+        let item = plan.items.find(entry => [entry.name, entry.twitchCategory, gameInfoCache[infoKey(entry.name, entry.igdbId)]?.igdbName].map(gameKey).includes(key));
+        let info = null;
+        if (!item) {
+            info = await refreshGameInfo(name);
+            if (!info || info.failed || !info.igdbId) continue;
+            item = { id: `game-${Date.now().toString(36)}-${plan.items.length}`, name, status: 'played', period: '', note: '', twitchCategory: name, igdbId: String(info.igdbId), custom: false, customCover: '', rating: 0, tier: '', tags: [], finished: '', played: [], autoAdded: true };
+            plan.items.push(item);
+            console.log(`[GamePlan] Added "${name}" as played`);
+        } else if (item.status === 'scheduled' || item.status === 'backlog') {
+            item.status = 'played';
+            item.tier = '';
+        }
+        item.played = [...new Set([...(item.played || []), ...dates])].sort().slice(-400);
+        changed = true;
+    }
+    if (changed) fs.writeFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(plan), null, 2));
 }
 
 // ============================================================================
@@ -4975,20 +5012,30 @@ async function generatePdf(htmlContent) {
 
 let statusHeavyCache = null;
 
-// Minutes spent in each category by one session's stream-info history.
-function categoryMinutesFor(streamInfo, endMs, startFloorMs = null) {
-    const minutes = {};
+// Minutes spent in each category by one session's stream-info history, plus the local dates it was streamed on.
+function categoryTimeFor(streamInfo, endMs, startFloorMs = null) {
+    const result = {};
     (streamInfo || []).forEach((entry, i) => {
         let start = Date.parse(entry.changedAt);
         let end = i + 1 < streamInfo.length ? Date.parse(streamInfo[i + 1].changedAt) : endMs;
         const closedAt = Date.parse(entry.endedAt || '');
         if (Number.isFinite(closedAt) && closedAt < end) end = closedAt;
         if (Number.isFinite(startFloorMs) && start < startFloorMs) start = startFloorMs;
-        if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
         const name = entry.category || '(No Category)';
-        minutes[name] = (minutes[name] || 0) + Math.max(0, end - start) / 60000;
+        const slot = result[name] || (result[name] = { minutes: 0, dates: new Set() });
+        slot.minutes += (end - start) / 60000;
+        slot.dates.add(localDateString(new Date(start)));
     });
-    return minutes;
+    return result;
+}
+
+function localDateString(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function categoryMinutesFor(streamInfo, endMs, startFloorMs = null) {
+    return Object.fromEntries(Object.entries(categoryTimeFor(streamInfo, endMs, startFloorMs)).map(([name, slot]) => [name, slot.minutes]));
 }
 
 function archivedCategoryMinutes() {

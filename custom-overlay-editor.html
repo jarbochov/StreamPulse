@@ -1549,6 +1549,9 @@
         const what = F.section('gamelist', 'Game list: what to show', `
             ${F.select('gameList.filter', 'Show', g.filter || 'scheduled', [['scheduled', 'Scheduled games'], ['backlog', 'Backlog'], ['played', 'Played'], ...(liveStatus.gamePlan?.lists || []).map(list => [list.id, `List: ${list.name}`]), ['all', 'Everything']])}
             ${periodPicker(g)}
+            ${F.text('gameList.when', 'Played in (blank = any time)', g.when || '', 'placeholder="thisYear, lastMonth, 2026, 2026-10" maxlength="9" list="game-when-list"')}
+            <datalist id="game-when-list"><option value="thisYear"><option value="lastYear"><option value="thisMonth"><option value="lastMonth"><option value="${new Date().getFullYear()}"><option value="${new Date().toISOString().slice(0, 7)}"></datalist>
+            ${F.select('gameList.groupBy', 'Group by', g.groupBy || 'period', [['period', 'Period (manual labels)'], ['month', 'Month played'], ['year', 'Year played']])}
             <div class="grid2">${F.number('gameList.maxPeriods', 'Max periods (0 = all)', g.maxPeriods || 0, { min: 0, max: 20 })}${F.number('gameList.max', 'Max games (0 = all)', g.max || 0, { min: 0, max: 100 })}</div>
             ${F.select('gameList.sort', 'Order', g.sort || 'plan', [['plan', 'Plan order'], ['rating', 'Highest rating first'], ['name', 'Name A–Z']])}
             ${['tiers', 'ticker'].includes(g.layout) ? '' : F.check('gameList.headings', 'Group by period with headings', g.headings !== false)}

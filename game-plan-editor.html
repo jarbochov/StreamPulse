@@ -332,7 +332,7 @@
                 const response = await fetch('/api/game-plan', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lists: customLists, tiers, tierSets, periods: orderedPeriods(), items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished })) })
+                    body: JSON.stringify({ lists: customLists, tiers, tierSets, periods: orderedPeriods(), items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded })) })
                 });
                 if (!response.ok) throw new Error((await response.json()).error || response.statusText);
                 setStatus('Saved. Overlays update within a few seconds.');

@@ -323,7 +323,7 @@
         for (const key of Object.keys(table)) if (isTicking(key) && !key.startsWith('timer.')) delete table[key];
         // Timer clocks tick on their own, so only structural timer values count as changes.
         for (const key of Object.keys(table)) if (key.startsWith('timer.') && !/\.(label|state)$/.test(key)) delete table[key];
-        table.__plan = (status.gamePlan?.items || []).map(item => [item.name, item.status, item.period, item.cover, item.playingNow, item.note]);
+        table.__plan = (status.gamePlan?.items || []).map(item => [item.name, item.status, item.period, item.cover, item.playingNow, item.note, item.finished, (item.played || []).join(',')]);
         return JSON.stringify(table);
     }
 
@@ -637,6 +637,26 @@
         const rank = item => { const at = order.indexOf(String(item.period || '').toLowerCase()); return at < 0 ? order.length : at; };
         const wanted = (Array.isArray(config.periods) && config.periods.length ? config.periods : config.period ? [config.period] : []).map(name => String(name).toLowerCase());
         if (wanted.length) items = items.filter(item => wanted.includes(String(item.period || '').toLowerCase()));
+        // Date filter and grouping use the dates a game was streamed on (auto-recorded) plus its finished date.
+        const datesOf = item => [...new Set([...(item.played || []), item.finished].filter(Boolean))];
+        const monthKey = (year, month) => { const d = new Date(year, month, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+        const today = new Date();
+        const when = config.when || '';
+        const inWindow = !when ? null
+            : when === 'thisYear' ? date => date.startsWith(String(today.getFullYear()))
+            : when === 'lastYear' ? date => date.startsWith(String(today.getFullYear() - 1))
+            : when === 'thisMonth' ? date => date.startsWith(monthKey(today.getFullYear(), today.getMonth()))
+            : when === 'lastMonth' ? date => date.startsWith(monthKey(today.getFullYear(), today.getMonth() - 1))
+            : date => date.startsWith(when);
+        if (inWindow) items = items.filter(item => datesOf(item).some(inWindow));
+        if (config.groupBy === 'month' || config.groupBy === 'year') {
+            const size = config.groupBy === 'month' ? 7 : 4;
+            const label = key => !key ? 'Undated' : size === 7 ? new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' }) : key;
+            items = items.flatMap(item => {
+                const keys = [...new Set(datesOf(item).filter(date => !inWindow || inWindow(date)).map(date => date.slice(0, size)))].sort();
+                return (keys.length ? keys : ['']).map(key => ({ ...item, period: label(key), __groupKey: key }));
+            }).sort((a, b) => a.__groupKey.localeCompare(b.__groupKey));
+        }
         if (config.maxPeriods > 0) {
             const keep = [...new Set(items.map(item => item.period || ''))].sort((a, b) => rank({ period: a }) - rank({ period: b })).slice(0, config.maxPeriods);
             items = items.filter(item => keep.includes(item.period || ''));
