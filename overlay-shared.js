@@ -450,7 +450,7 @@
     }
 
     // ---- media filters (images, videos, slideshows) ----
-    const defaultMediaFilter = () => ({ blur: 0, brightness: 100, contrast: 100, saturate: 100, grayscale: 0, tint: { enabled: false, color: '#000000', opacity: 0.4 }, duotone: { enabled: false, dark: '#1b1464', light: '#ff9de2' } });
+    const defaultMediaFilter = () => ({ blur: 0, brightness: 100, contrast: 100, saturate: 100, grayscale: 0, tint: { enabled: false, color: '#000000', opacity: 0.4 }, duotone: { enabled: false, dark: '#1b1464', light: '#ff9de2', animate: 'none', dark2: '#0b3d2e', light2: '#7dffb2', speed: 6 }, grain: { enabled: false, amount: 0.25, size: 1, animate: true } });
     const MEDIA_FILTER_PRESETS = [
         ['none', 'None', defaultMediaFilter()],
         ['dark', 'Dark background', { ...defaultMediaFilter(), brightness: 45 }],
@@ -464,17 +464,39 @@
 
     function mediaFilterActive(f) {
         if (!f) return false;
-        return f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.tint?.enabled || f.duotone?.enabled;
+        return f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.tint?.enabled || f.duotone?.enabled || f.grain?.enabled;
     }
 
     let fxCounter = 0;
+    const fxAnimated = new Set();
+    let fxRaf = 0;
+    function fxLoop(now) {
+        for (const node of fxAnimated) {
+            if (!node.isConnected || !node._fxAnim) { fxAnimated.delete(node); continue; }
+            if (now - node._fxAnim.last < 33) continue;
+            node._fxAnim.last = now;
+            node._fxAnim.step(now);
+        }
+        fxRaf = fxAnimated.size ? requestAnimationFrame(fxLoop) : 0;
+    }
+    function ensureGrainStyle() {
+        if (document.getElementById('sp-grain-style')) return;
+        const style = document.createElement('style');
+        style.id = 'sp-grain-style';
+        style.textContent = '@keyframes sp-grain{0%{background-position:0 0}10%{background-position:-37px 21px}20%{background-position:19px -43px}30%{background-position:-52px -14px}40%{background-position:41px 33px}50%{background-position:-9px 58px}60%{background-position:63px -27px}70%{background-position:-28px 47px}80%{background-position:34px -56px}90%{background-position:-61px 12px}100%{background-position:0 0}}';
+        document.head.append(style);
+    }
+    const grainImage = `url("data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>")}")`;
     const MEDIA_TYPES = new Set(['image', 'video', 'slideshow']);
     const FILTERABLE = element => element.type !== 'embed';
 
     // Call after every style pass. Media layers filter the media itself (so a tint can sit on top); other layers filter the whole layer.
     function applyMediaFilter(node, element) {
         if (!FILTERABLE(element)) return;
-        const f = { ...defaultMediaFilter(), ...(element.mediaFilter || {}) };
+        const defaults = defaultMediaFilter();
+        const f = { ...defaults, ...(element.mediaFilter || {}) };
+        f.duotone = { ...defaults.duotone, ...(f.duotone || {}) };
+        f.grain = { ...defaults.grain, ...(f.grain || {}) };
         const media = MEDIA_TYPES.has(element.type);
         const target = !media ? node : element.type === 'slideshow' ? node.firstElementChild : node.querySelector(':scope > video, :scope > img');
         if (!target) { node._fxSig = ''; return; }
@@ -486,15 +508,31 @@
             node._fxSig = signature; node._fxTarget = target;
             node._fxId = `sp-duo-${String(element.id || 'x').replace(/[^a-z0-9_-]/gi, '')}-${++fxCounter}`;
             node.querySelectorAll(':scope > .sp-fx').forEach(n => n.remove());
+            node._fxAnim = null; node._fxGrain = null;
             if (active && f.duotone.enabled) {
                 const rgb = hex => [1, 3, 5].map(i => (parseInt(hex.slice(i, i + 2), 16) / 255).toFixed(4));
                 const [dr, dg, db] = rgb(f.duotone.dark), [lr, lg, lb] = rgb(f.duotone.light);
+                const mode = f.duotone.animate, blend = mode === 'blend' || mode === 'both', hue = mode === 'hue' || mode === 'both';
                 const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                 svg.setAttribute('class', 'sp-fx');
                 svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
                 svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;';
-                svg.innerHTML = `<filter id="${node._fxId}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0"/><feComponentTransfer><feFuncR type="table" tableValues="${dr} ${lr}"/><feFuncG type="table" tableValues="${dg} ${lg}"/><feFuncB type="table" tableValues="${db} ${lb}"/></feComponentTransfer></filter>`;
+                svg.innerHTML = `<filter id="${node._fxId}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0"/><feComponentTransfer><feFuncR type="table" tableValues="${dr} ${lr}"/><feFuncG type="table" tableValues="${dg} ${lg}"/><feFuncB type="table" tableValues="${db} ${lb}"/></feComponentTransfer>${hue ? '<feColorMatrix class="sp-hue" type="hueRotate" values="0"/>' : ''}</filter>`;
                 node.appendChild(svg);
+                if (blend || hue) {
+                    const num = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+                    const c1 = [num(f.duotone.dark), num(f.duotone.light)], c2 = [num(f.duotone.dark2), num(f.duotone.light2)];
+                    const fns = ['R', 'G', 'B'].map(c => svg.querySelector(`feFunc${c}`)), hueNode = svg.querySelector('.sp-hue');
+                    const period = Math.max(1, Number(f.duotone.speed) || 6);
+                    node._fxAnim = { last: 0, step(now) {
+                        const s = now / 1000 / period;
+                        if (blend) {
+                            const t = (1 - Math.cos(s * 2 * Math.PI)) / 2, mix = (a, b) => (a + (b - a) * t).toFixed(4);
+                            fns.forEach((fn, i) => fn.setAttribute('tableValues', `${mix(c1[0][i], c2[0][i])} ${mix(c1[1][i], c2[1][i])}`));
+                        }
+                        if (hue) hueNode.setAttribute('values', String(Math.round((s * 360) % 360)));
+                    } };
+                }
             }
             if (media && active && f.tint.enabled && f.tint.opacity > 0) {
                 const tint = document.createElement('div');
@@ -502,7 +540,17 @@
                 tint.style.cssText = `position:absolute;inset:0;pointer-events:none;background:${f.tint.color};opacity:${f.tint.opacity};`;
                 node.appendChild(tint);
             }
+            if (f.grain.enabled && f.grain.amount > 0) {
+                ensureGrainStyle();
+                const grain = node._fxGrain = document.createElement('div');
+                grain.className = 'sp-fx sp-grain';
+                const size = Math.max(0.5, Math.min(4, Number(f.grain.size) || 1));
+                grain.style.cssText = `position:absolute;inset:0;pointer-events:none;border-radius:inherit;mix-blend-mode:overlay;background-image:${grainImage};background-size:${Math.round(200 * size)}px;opacity:${f.grain.amount};${f.grain.animate ? 'animation:sp-grain .6s steps(1) infinite;' : ''}`;
+                node.appendChild(grain);
+            }
         }
+        if (node._fxGrain && node._fxGrain.parentNode !== node) node.append(node._fxGrain);
+        if (node._fxAnim) { fxAnimated.add(node); if (!fxRaf) fxRaf = requestAnimationFrame(fxLoop); }
         const parts = base ? [base] : [];
         if (active) {
             if (f.duotone.enabled) parts.push(`url(#${node._fxId})`);

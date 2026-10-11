@@ -1508,7 +1508,7 @@
     }
     function filterSection(el) {
         const f = { ...shared.defaultMediaFilter(), ...(el.mediaFilter || {}) };
-        const tint = f.tint || {}, duo = f.duotone || {};
+        const tint = f.tint || {}, duo = { ...shared.defaultMediaFilter().duotone, ...(f.duotone || {}) }, grain = { ...shared.defaultMediaFilter().grain, ...(f.grain || {}) };
         const presets = shared.MEDIA_FILTER_PRESETS;
         const media = ['image', 'video', 'slideshow'].includes(el.type);
         const body = `
@@ -1520,8 +1520,13 @@
             ${F.range('mediaFilter.grayscale', 'Grayscale', f.grayscale, { min: 0, max: 100, unit: '%' })}
             ${F.check('mediaFilter.duotone.enabled', 'Duotone', duo.enabled)}
             ${duo.enabled ? `<div class="grid2">${F.color('mediaFilter.duotone.dark', 'Shadows', duo.dark)}${F.color('mediaFilter.duotone.light', 'Highlights', duo.light)}</div>` : ''}
+            ${duo.enabled ? F.select('mediaFilter.duotone.animate', 'Duotone animation', duo.animate, [['none', 'Still'], ['blend', 'Blend to second colors'], ['hue', 'Hue cycle'], ['both', 'Blend and hue cycle']]) : ''}
+            ${duo.enabled && (duo.animate === 'blend' || duo.animate === 'both') ? `<div class="grid2">${F.color('mediaFilter.duotone.dark2', 'Shadows 2', duo.dark2)}${F.color('mediaFilter.duotone.light2', 'Highlights 2', duo.light2)}</div>` : ''}
+            ${duo.enabled && duo.animate !== 'none' ? F.range('mediaFilter.duotone.speed', 'Cycle length', duo.speed, { min: 1, max: 60, unit: 's' }) : ''}
             ${media ? F.check('mediaFilter.tint.enabled', 'Color tint', tint.enabled) : ''}
             ${media && tint.enabled ? `${F.color('mediaFilter.tint.color', 'Tint color', tint.color)}${F.range('mediaFilter.tint.opacity', 'Tint strength', tint.opacity, { min: 0, max: 100, scale: 0.01, unit: '%' })}` : ''}
+            ${F.check('mediaFilter.grain.enabled', 'Film grain', grain.enabled)}
+            ${grain.enabled ? `${F.range('mediaFilter.grain.amount', 'Grain strength', grain.amount, { min: 0, max: 100, scale: 0.01, unit: '%' })}${F.range('mediaFilter.grain.size', 'Grain size', grain.size, { min: 50, max: 400, scale: 0.01, unit: '%' })}${F.check('mediaFilter.grain.animate', 'Animate grain', grain.animate)}` : ''}
             ${f.blur > 20 && el.type === 'video' ? '<p class="hint">Heavy blur on video can be slow in the editor.</p>' : ''}`;
         return F.section('media-filter', 'Filters', body, false);
     }
@@ -1739,7 +1744,7 @@
         }
     }
     // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
-    const RERENDER_PATHS = new Set(['style.objectFit', 'mediaFilter.duotone.enabled', 'mediaFilter.tint.enabled', 'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'slideshow.source', 'slideshow.advance', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
+    const RERENDER_PATHS = new Set(['style.objectFit', 'mediaFilter.duotone.enabled', 'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled', 'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'slideshow.source', 'slideshow.advance', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
     $('properties').addEventListener('change', event => {
         if (!event.target.matches('[data-period-pick]')) return;
         const field = event.target.closest('.field');
