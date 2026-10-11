@@ -79,6 +79,14 @@
                     </select>
                 </div>
                 <div class="field">
+                    <label for="filter-min-count">Min Count</label>
+                    <input type="number" id="filter-min-count" min="0" placeholder="0">
+                </div>
+                <div class="field">
+                    <label for="filter-max-count">Max Count</label>
+                    <input type="number" id="filter-max-count" min="0" placeholder="no limit">
+                </div>
+                <div class="field">
                     <label for="filter-days">Last N Days</label>
                     <input type="number" id="filter-days" min="0" value="0" placeholder="0 = all time">
                 </div>
@@ -204,7 +212,11 @@
     function getFilteredRows() {
         const search = document.getElementById('filter-search').value.trim().toLowerCase();
         const status = document.getElementById('filter-status').value;
+        const minCount = parseInt(document.getElementById('filter-min-count').value, 10);
+        const maxCount = parseInt(document.getElementById('filter-max-count').value, 10);
         let rows = hashtagStats.filter(row => {
+            if (!Number.isNaN(minCount) && (row.count || 0) < minCount) return false;
+            if (!Number.isNaN(maxCount) && (row.count || 0) > maxCount) return false;
             if (search && !row.tag.toLowerCase().includes(search)) return false;
             if (status === 'live' && row.sessionCount <= 0) return false;
             if (status === 'banned' && !row.banned) return false;
@@ -288,6 +300,8 @@
     function resetFilters() {
         document.getElementById('filter-search').value = '';
         document.getElementById('filter-status').value = 'all';
+        document.getElementById('filter-min-count').value = '';
+        document.getElementById('filter-max-count').value = '';
         document.getElementById('filter-days').value = '0';
         document.getElementById('filter-from').value = '';
         document.getElementById('filter-to').value = '';
@@ -330,6 +344,8 @@
 
     document.getElementById('filter-search').addEventListener('input', renderTable);
     document.getElementById('filter-status').addEventListener('change', renderTable);
+    document.getElementById('filter-min-count').addEventListener('input', renderTable);
+    document.getElementById('filter-max-count').addEventListener('input', renderTable);
     document.getElementById('filter-days').addEventListener('keydown', event => { if (event.key === 'Enter') refreshStats(); });
     document.getElementById('filter-from').addEventListener('change', refreshStats);
     document.getElementById('filter-to').addEventListener('change', refreshStats);
