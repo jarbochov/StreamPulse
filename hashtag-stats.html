@@ -23,6 +23,8 @@
         .actions { display: flex; gap: 0.65rem; align-items: flex-end; flex-wrap: wrap; }
         .btn { padding: 0.6rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-decoration: none; }
         .actions { grid-column: 1 / -1; padding-top: 0.75rem; margin-top: 0.25rem; border-top: 1px solid var(--border); }
+        .date-range { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; grid-column: span 2; }
+        @media (max-width: 480px) { .date-range { grid-column: auto; grid-template-columns: 1fr; } }
         .btn.primary { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; font-weight: 600; }
         .btn.primary:hover { filter: brightness(1.1); background: var(--accent-strong); }
         .btn.link { margin-left: auto; text-decoration: none; display: inline-flex; align-items: center; }
@@ -95,13 +97,15 @@
                     <label for="filter-days">Last N Days</label>
                     <input type="number" id="filter-days" min="0" value="0" placeholder="0 = all time">
                 </div>
-                <div class="field">
-                    <label for="filter-from">From</label>
-                    <input type="date" id="filter-from">
-                </div>
-                <div class="field">
-                    <label for="filter-to">To</label>
-                    <input type="date" id="filter-to">
+                <div class="field date-range">
+                    <div>
+                        <label for="filter-from">From</label>
+                        <input type="date" id="filter-from">
+                    </div>
+                    <div>
+                        <label for="filter-to">To</label>
+                        <input type="date" id="filter-to">
+                    </div>
                 </div>
                 <div class="actions">
                     <button class="btn primary" onclick="applyFilters()">Apply filters</button>
