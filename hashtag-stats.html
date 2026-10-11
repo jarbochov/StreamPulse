@@ -22,6 +22,11 @@
         .field input, .field select { width: 100%; padding: 0.5rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; }
         .actions { display: flex; gap: 0.65rem; align-items: flex-end; flex-wrap: wrap; }
         .btn { padding: 0.6rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+        .actions { grid-column: 1 / -1; padding-top: 0.75rem; margin-top: 0.25rem; border-top: 1px solid var(--border); }
+        .btn.primary { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; font-weight: 600; }
+        .btn.primary:hover { filter: brightness(1.1); background: var(--accent-strong); }
+        .btn.link { margin-left: auto; text-decoration: none; display: inline-flex; align-items: center; }
+        .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
         .btn:hover { border-color: var(--accent); background: var(--accent-bg); }
         .btn.danger { border-color: color-mix(in srgb, var(--danger) 31%, transparent); }
         .btn.danger:hover { border-color: var(--danger); background: var(--danger-soft-bg); }
@@ -99,9 +104,9 @@
                     <input type="date" id="filter-to">
                 </div>
                 <div class="actions">
-                    <button class="btn" onclick="refreshStats()">Apply</button>
+                    <button class="btn primary" onclick="applyFilters()">Apply filters</button>
                     <button class="btn" onclick="resetFilters()">Reset</button>
-                    <a class="btn" href="/manage-hashtags.html">Moderation Tools</a>
+                    <a class="btn link" href="/manage-hashtags.html">Moderation tools</a>
                 </div>
             </div>
             <div class="status-line" id="range-status">Showing all tracked hashtag stats.</div>
@@ -150,6 +155,13 @@
     let sortKey = 'count';
     let sortDirection = 'desc';
     let refreshTimer = null;
+    const FILTER_IDS = ['search', 'status', 'min-count', 'max-count', 'days', 'from', 'to'];
+    let applied = {};
+    function readFilters() {
+        applied = {};
+        for (const id of FILTER_IDS) applied[id] = document.getElementById(`filter-${id}`).value.trim();
+    }
+    function applyFilters() { readFilters(); refreshStats(); }
 
     function showToast(msg) {
         const t = document.getElementById('toast');
@@ -178,9 +190,9 @@
 
     function buildQuery() {
         const params = new URLSearchParams();
-        const days = parseInt(document.getElementById('filter-days').value, 10) || 0;
-        const from = document.getElementById('filter-from').value;
-        const to = document.getElementById('filter-to').value;
+        const days = parseInt(applied.days, 10) || 0;
+        const from = applied.from || '';
+        const to = applied.to || '';
         if (days > 0) params.set('days', days);
         if (from) params.set('from', from);
         if (to) params.set('to', to);
@@ -210,10 +222,10 @@
     }
 
     function getFilteredRows() {
-        const search = document.getElementById('filter-search').value.trim().toLowerCase();
-        const status = document.getElementById('filter-status').value;
-        const minCount = parseInt(document.getElementById('filter-min-count').value, 10);
-        const maxCount = parseInt(document.getElementById('filter-max-count').value, 10);
+        const search = (applied.search || '').toLowerCase();
+        const status = applied.status || 'all';
+        const minCount = parseInt(applied['min-count'], 10);
+        const maxCount = parseInt(applied['max-count'], 10);
         let rows = hashtagStats.filter(row => {
             if (!Number.isNaN(minCount) && (row.count || 0) < minCount) return false;
             if (!Number.isNaN(maxCount) && (row.count || 0) > maxCount) return false;
@@ -305,7 +317,7 @@
         document.getElementById('filter-days').value = '0';
         document.getElementById('filter-from').value = '';
         document.getElementById('filter-to').value = '';
-        refreshStats();
+        applyFilters();
     }
 
     async function banHashtag(encodedTag) {
@@ -342,14 +354,11 @@
         }
     }
 
-    document.getElementById('filter-search').addEventListener('input', renderTable);
-    document.getElementById('filter-status').addEventListener('change', renderTable);
-    document.getElementById('filter-min-count').addEventListener('input', renderTable);
-    document.getElementById('filter-max-count').addEventListener('input', renderTable);
-    document.getElementById('filter-days').addEventListener('keydown', event => { if (event.key === 'Enter') refreshStats(); });
-    document.getElementById('filter-from').addEventListener('change', refreshStats);
-    document.getElementById('filter-to').addEventListener('change', refreshStats);
+    document.querySelector('.filters').addEventListener('keydown', event => {
+        if (event.key === 'Enter' && event.target.tagName === 'INPUT') applyFilters();
+    });
 
+    readFilters();
     refreshStats();
     refreshTimer = setInterval(refreshStats, 15000);
     window.addEventListener('beforeunload', () => clearInterval(refreshTimer));
