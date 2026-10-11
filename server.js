@@ -8223,6 +8223,10 @@ function broadcastToOverlays(type, payload) {
     }
 }
 
+// Node's 5s default keep-alive closes sockets Safari still tries to reuse, which stalls requests until the browser is restarted.
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
+
 server.listen(PORT, () => {
     console.log(`  HTTP:      http://localhost:${PORT}`);
     console.log(`  Credits:   http://localhost:${PORT}/credits.html`);

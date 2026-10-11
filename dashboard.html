@@ -541,7 +541,7 @@
         if (inFlight || document.hidden) return;
         inFlight = true;
         try {
-            const response = await fetch('/api/status', { cache: 'no-store' });
+            const response = await fetch('/api/status', { cache: 'no-store', signal: AbortSignal.timeout(8000) });
             if (!response.ok) throw new Error('Status fetch failed');
             render(await response.json());
             lastOk = Date.now();
