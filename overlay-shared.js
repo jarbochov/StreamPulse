@@ -470,10 +470,19 @@
     let fxCounter = 0;
     const fxAnimated = new Set();
     let fxRaf = 0;
+    let fxPaused = false;
+    function fxResume() { if (!fxRaf && fxAnimated.size && !fxPaused && !document.hidden) fxRaf = requestAnimationFrame(fxLoop); }
+    function setEffectsPaused(paused) {
+        fxPaused = !!paused;
+        document.documentElement.classList.toggle('sp-fx-paused', fxPaused);
+        fxResume();
+    }
+    document.addEventListener('visibilitychange', fxResume);
     function fxLoop(now) {
+        if (fxPaused || document.hidden) { fxRaf = 0; return; }
         for (const node of fxAnimated) {
             if (!node.isConnected || !node._fxAnim) { fxAnimated.delete(node); continue; }
-            if (now - node._fxAnim.last < 33) continue;
+            if (now - node._fxAnim.last < 50) continue;
             node._fxAnim.last = now;
             node._fxAnim.step(now);
         }
@@ -483,7 +492,7 @@
         if (document.getElementById('sp-grain-style')) return;
         const style = document.createElement('style');
         style.id = 'sp-grain-style';
-        style.textContent = '@keyframes sp-grain{0%{background-position:0 0}10%{background-position:-37px 21px}20%{background-position:19px -43px}30%{background-position:-52px -14px}40%{background-position:41px 33px}50%{background-position:-9px 58px}60%{background-position:63px -27px}70%{background-position:-28px 47px}80%{background-position:34px -56px}90%{background-position:-61px 12px}100%{background-position:0 0}}';
+        style.textContent = '@keyframes sp-grain{0%{background-position:0 0}10%{background-position:-37px 21px}20%{background-position:19px -43px}30%{background-position:-52px -14px}40%{background-position:41px 33px}50%{background-position:-9px 58px}60%{background-position:63px -27px}70%{background-position:-28px 47px}80%{background-position:34px -56px}90%{background-position:-61px 12px}100%{background-position:0 0}}.sp-fx-paused .sp-grain{animation-play-state:paused!important}';
         document.head.append(style);
     }
     const grainImage = `url("data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>")}")`;
@@ -550,7 +559,7 @@
             }
         }
         if (node._fxGrain && node._fxGrain.parentNode !== node) node.append(node._fxGrain);
-        if (node._fxAnim) { fxAnimated.add(node); if (!fxRaf) fxRaf = requestAnimationFrame(fxLoop); }
+        if (node._fxAnim) { fxAnimated.add(node); fxResume(); }
         const parts = base ? [base] : [];
         if (active) {
             if (f.duotone.enabled) parts.push(`url(#${node._fxId})`);
@@ -1597,5 +1606,5 @@
         return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length, control };
     }
 
-    root.OverlayShared = { isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
+    root.OverlayShared = { setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
 })(window);

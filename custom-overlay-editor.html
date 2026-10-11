@@ -387,6 +387,7 @@
                 <span class="divider"></span>
                 <button id="toggle-snap" aria-pressed="true" title="Snap to canvas and other elements. Hold Alt while dragging to bypass.">Snap</button>
                 <button id="toggle-grid" aria-pressed="false" title="Show grid">Grid</button>
+                <button id="toggle-fx" aria-pressed="true" title="Run animated duotone and film grain in the editor. Turn off for a smoother editor; the live overlay still animates.">Effects</button>
                 <button id="toggle-live" aria-pressed="true" title="Preview {{placeholders}} with live data">Live data</button>
                 <div class="zoom-controls">
                     <button id="zoom-out" class="icon" title="Zoom out (-)" aria-label="Zoom out"></button>
@@ -553,7 +554,7 @@
 
     // ---- preferences ------------------------------------------------------------------
     const PREF_KEY = 'streampulse.overlayEditor.v1';
-    const prefs = Object.assign({ snap: true, scaleText: true, grid: false, live: true, backdrop: 'checker', alignTo: 'selection', sections: {} }, (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch { return {}; } })());
+    const prefs = Object.assign({ snap: true, scaleText: true, grid: false, live: true, fx: true, backdrop: 'checker', alignTo: 'selection', sections: {} }, (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch { return {}; } })());
     const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch {} };
 
     // ---- state ------------------------------------------------------------------------
@@ -1520,13 +1521,13 @@
             ${F.range('mediaFilter.grayscale', 'Grayscale', f.grayscale, { min: 0, max: 100, unit: '%' })}
             ${F.check('mediaFilter.duotone.enabled', 'Duotone', duo.enabled)}
             ${duo.enabled ? `<div class="grid2">${F.color('mediaFilter.duotone.dark', 'Shadows', duo.dark)}${F.color('mediaFilter.duotone.light', 'Highlights', duo.light)}</div>` : ''}
-            ${duo.enabled ? F.select('mediaFilter.duotone.animate', 'Duotone animation', duo.animate, [['none', 'Still'], ['blend', 'Blend to second colors'], ['hue', 'Hue cycle'], ['both', 'Blend and hue cycle']]) : ''}
+            ${duo.enabled ? F.select('mediaFilter.duotone.animate', 'Duotone animation', duo.animate, [['none', 'Still'], ['blend', 'Blend to second colors'], ['hue', 'Hue cycle'], ['both', 'Blend and hue cycle']]) + (duo.animate !== 'none' ? '<p class="hint">Animates in the live overlay. Use the Effects toggle in the toolbar to pause it while editing.</p>' : '') : ''}
             ${duo.enabled && (duo.animate === 'blend' || duo.animate === 'both') ? `<div class="grid2">${F.color('mediaFilter.duotone.dark2', 'Shadows 2', duo.dark2)}${F.color('mediaFilter.duotone.light2', 'Highlights 2', duo.light2)}</div>` : ''}
             ${duo.enabled && duo.animate !== 'none' ? F.range('mediaFilter.duotone.speed', 'Cycle length', duo.speed, { min: 1, max: 60, unit: 's' }) : ''}
             ${media ? F.check('mediaFilter.tint.enabled', 'Color tint', tint.enabled) : ''}
             ${media && tint.enabled ? `${F.color('mediaFilter.tint.color', 'Tint color', tint.color)}${F.range('mediaFilter.tint.opacity', 'Tint strength', tint.opacity, { min: 0, max: 100, scale: 0.01, unit: '%' })}` : ''}
             ${F.check('mediaFilter.grain.enabled', 'Film grain', grain.enabled)}
-            ${grain.enabled ? `${F.range('mediaFilter.grain.amount', 'Grain strength', grain.amount, { min: 0, max: 100, scale: 0.01, unit: '%' })}${F.range('mediaFilter.grain.size', 'Grain size', grain.size, { min: 50, max: 400, scale: 0.01, unit: '%' })}${F.check('mediaFilter.grain.animate', 'Animate grain', grain.animate)}` : ''}
+            ${grain.enabled ? `${F.range('mediaFilter.grain.amount', 'Grain strength', grain.amount, { min: 0, max: 100, scale: 0.01, unit: '%' })}${F.range('mediaFilter.grain.size', 'Grain size', grain.size, { min: 50, max: 400, scale: 0.01, unit: '%' })}${F.check('mediaFilter.grain.animate', 'Animate grain', grain.animate)}<p class="hint">Grain sits over the element. Keep strength low (10-30%) for a film look.</p>` : ''}
             ${f.blur > 20 && el.type === 'video' ? '<p class="hint">Heavy blur on video can be slow in the editor.</p>' : ''}`;
         return F.section('media-filter', 'Filters', body, false);
     }
@@ -2626,9 +2627,12 @@
         $('toggle-snap').setAttribute('aria-pressed', String(prefs.snap));
         $('toggle-grid').setAttribute('aria-pressed', String(prefs.grid));
         $('toggle-live').setAttribute('aria-pressed', String(prefs.live));
+        $('toggle-fx').setAttribute('aria-pressed', String(prefs.fx));
+        shared.setEffectsPaused(!prefs.fx);
     }
     $('toggle-snap').addEventListener('click', () => { prefs.snap = !prefs.snap; savePrefs(); syncToggles(); });
     $('toggle-grid').addEventListener('click', () => { prefs.grid = !prefs.grid; savePrefs(); syncToggles(); syncCanvasUI(); });
+    $('toggle-fx').addEventListener('click', () => { prefs.fx = !prefs.fx; savePrefs(); syncToggles(); });
     $('toggle-live').addEventListener('click', () => { prefs.live = !prefs.live; savePrefs(); syncToggles(); renderCanvas(); });
     $('zoom-in').addEventListener('click', () => zoomAt(zoom * 1.25));
     $('zoom-out').addEventListener('click', () => zoomAt(zoom / 1.25));
