@@ -56,6 +56,9 @@
         .rail::-webkit-scrollbar { width: 10px; } .rail::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid var(--panel); }
 
         details.sect { border-bottom: 1px solid var(--border-soft); }
+        .focus-pick { position: relative; display: inline-block; max-width: 100%; cursor: crosshair; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; touch-action: none; line-height: 0; }
+        .focus-pick img, .focus-pick video { max-width: 100%; max-height: 160px; display: block; pointer-events: none; }
+        .focus-dot { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #000, 0 0 6px #000; pointer-events: none; }
         details.sect > summary { list-style: none; cursor: pointer; padding: .6rem .85rem; font-weight: 600; font-size: 12px; letter-spacing: .02em; color: var(--text); display: flex; align-items: center; gap: .45rem; user-select: none; }
         details.sect > summary::-webkit-details-marker { display: none; }
         details.sect > summary::before { content: ''; width: 6px; height: 6px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(-45deg); transition: transform .12s; margin-right: .1rem; }
@@ -808,7 +811,7 @@
             if (!url) { node.appendChild(placeholder(`No ${el.type} yet — upload one or paste a URL`)); return; }
             if (/\{\{/.test(url)) { node.appendChild(placeholder(`${url} (shows when a value is available)`)); return; }
             const media = document.createElement(el.type === 'image' ? 'img' : 'video');
-            media.src = url; media.draggable = false; media.style.objectFit = el.style.objectFit || 'cover';
+            media.src = url; media.draggable = false; media.style.objectFit = el.style.objectFit || 'cover'; media.style.objectPosition = `${el.style.focusX ?? 50}% ${el.style.focusY ?? 50}%`;
             if (el.type === 'video') { media.muted = true; media.loop = true; media.autoplay = true; media.playsInline = true; }
             media.addEventListener('error', () => { node.replaceChildren(placeholder(`Couldn't load this ${el.type}. Check the URL or upload it again.`)); });
             node.appendChild(media);
@@ -1199,6 +1202,23 @@
             if (target && input.dataset.kind === 'number') input.value = fmt(getPath(target, input.dataset.path), Number(input.dataset.scale) || 1);
             changed(true);
         });
+        container.addEventListener('pointerdown', event => {
+            const pick = event.target.closest('[data-focus-pick]');
+            if (!pick) return;
+            event.preventDefault();
+            const dot = pick.querySelector('.focus-dot');
+            const move = e => {
+                const r = pick.getBoundingClientRect();
+                const x = Math.round(Math.max(0, Math.min(100, (e.clientX - r.left) / r.width * 100)));
+                const y = Math.round(Math.max(0, Math.min(100, (e.clientY - r.top) / r.height * 100)));
+                dot.style.left = `${x}%`; dot.style.top = `${y}%`;
+                getTargets().forEach(t => { setPath(t, 'style.focusX', x); setPath(t, 'style.focusY', y); });
+                onApply('style.focusX', e);
+            };
+            const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); changed(true); };
+            addEventListener('pointermove', move); addEventListener('pointerup', up);
+            move(event);
+        });
         container.addEventListener('click', event => {
             const seg = event.target.closest('[data-seg-value]');
             if (seg) {
@@ -1333,10 +1353,16 @@
     function appearanceSection(el, multi) {
         return F.section('appearance', multi ? 'Appearance (all selected)' : 'Appearance', appearanceBody(el, multi));
     }
+    function focusField(el) {
+        if ((el.style.objectFit || 'cover') !== 'cover' || !el.src || /\{\{/.test(el.src)) return '';
+        const x = el.style.focusX ?? 50, y = el.style.focusY ?? 50;
+        const thumb = el.type === 'image' ? `<img src="${esc(el.src)}" draggable="false">` : `<video src="${esc(el.src)}" muted preload="metadata"></video>`;
+        return `<div class="field focus-field"><span>Focus point</span><div class="focus-pick" data-focus-pick>${thumb}<i class="focus-dot" style="left:${x}%;top:${y}%"></i></div><small class="hint">Drag to choose which part stays in view when cropped.</small></div>`;
+    }
     function fillSection(el) {
         const s = el.style, shape = el.type === 'shape';
         return F.section('fill', shape ? 'Fill & outline' : 'Background & border', `
-            ${!shape && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) : ''}
+            ${!shape && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) + focusField(el) : ''}
             ${shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
             ${fillControl(s, 'gradient', shape ? 'Fill' : 'Background', F.color('style.background', 'Color', s.background, { clear: true }))}
             <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${noRadius(s, shape) ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
@@ -1368,7 +1394,7 @@
             ${boxEffectFields(el, multi)}
             ${F.range('style.opacity', 'Opacity', s.opacity ?? 1, { min: 0, max: 100, scale: 0.01, unit: '%' })}
             ${!multi && shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
-            ${!multi && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) : ''}`;
+            ${!multi && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) + focusField(el) : ''}`;
     }
     const mediaTab = new Map();
     const LOCAL_MEDIA = '/local-file?path=';
@@ -1713,7 +1739,7 @@
         }
     }
     // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
-    const RERENDER_PATHS = new Set(['mediaFilter.duotone.enabled', 'mediaFilter.tint.enabled', 'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'slideshow.source', 'slideshow.advance', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
+    const RERENDER_PATHS = new Set(['style.objectFit', 'mediaFilter.duotone.enabled', 'mediaFilter.tint.enabled', 'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'slideshow.source', 'slideshow.advance', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
     $('properties').addEventListener('change', event => {
         if (!event.target.matches('[data-period-pick]')) return;
         const field = event.target.closest('.field');

@@ -213,6 +213,7 @@
                 media.style.width = '100%';
                 media.style.height = '100%';
                 media.style.objectFit = element.style?.objectFit || 'cover';
+                media.style.objectPosition = `${element.style?.focusX ?? 50}% ${element.style?.focusY ?? 50}%`;
                 node.appendChild(media);
             } else if (element.type === 'icon') {
                 shared.renderIcon(node, element.content, element.style || {});

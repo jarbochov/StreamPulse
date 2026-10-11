@@ -268,6 +268,8 @@ function normalizeOverlayElement(element = {}, index = 0) {
                 ? Math.max(0, Math.min(1, Number(element.style.opacity)))
                 : 1,
             objectFit: element.style?.objectFit === 'contain' ? 'contain' : 'cover',
+            focusX: Number.isFinite(Number(element.style?.focusX)) ? Math.max(0, Math.min(100, Number(element.style.focusX))) : 50,
+            focusY: Number.isFinite(Number(element.style?.focusY)) ? Math.max(0, Math.min(100, Number(element.style.focusY))) : 50,
             shape: ['rectangle', 'circle', 'pill', 'line'].includes(element.style?.shape) ? element.style.shape : 'rectangle',
             fill: String(element.style?.fill || '#1f6feb').slice(0, 80),
             gradient: normalizeGradient(element.style?.gradient),
