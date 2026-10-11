@@ -358,6 +358,7 @@
     }
 
     let liveSocket = null;
+    let closing = false;
     function reportSlideshow(elementId, state) {
         if (liveSocket && liveSocket.readyState === WebSocket.OPEN) liveSocket.send(JSON.stringify({ type: 'slideshow-state', id: overlayId, element: elementId, ...state }));
     }
@@ -387,7 +388,7 @@
                 }
             } catch {}
         });
-        socket.addEventListener('close', () => setTimeout(connect, 2000));
+        socket.addEventListener('close', () => { if (!closing) setTimeout(connect, 2000); });
     }
 
     load().catch(error => {
@@ -400,4 +401,13 @@
     setInterval(refreshStatus, 5000);
     setInterval(tickPlaceholders, 1000);
     connect();
+
+    // Tear everything down on close so Safari doesn't unload live videos, iframes and timers all at once.
+    addEventListener('pagehide', () => {
+        closing = true;
+        try { liveSocket?.close(); } catch {}
+        root.querySelectorAll('video, audio').forEach(media => { try { media.pause(); media.removeAttribute('src'); media.load(); } catch {} });
+        root.querySelectorAll('iframe').forEach(frame => { frame.src = 'about:blank'; });
+        root.replaceChildren();
+    });
 })();
