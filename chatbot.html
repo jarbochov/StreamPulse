@@ -149,6 +149,7 @@ function commandHtml(c, i) {
             <label class="f">Also responds to<input data-k="aliases" value="${esc((c.aliases || []).join(', '))}" placeholder="np, track"></label>
             <label class="f">Cooldown (s)<input data-k="cooldown" type="number" min="0" value="${c.cooldown ?? ''}" placeholder="default"></label>
         </div>
+        <div class="row"><label class="f">Counter to change (optional)<input data-k="counter" value="${esc(c.counter || '')}" placeholder="deaths"></label><label class="f">When used<select data-k="counterAction"><option value="increment" ${c.counterAction !== 'decrement' && c.counterAction !== 'reset' ? 'selected' : ''}>Add 1</option><option value="decrement" ${c.counterAction === 'decrement' ? 'selected' : ''}>Subtract 1</option><option value="reset" ${c.counterAction === 'reset' ? 'selected' : ''}>Reset</option></select></label><span class="muted">Then reply with <code>{{var.deaths}}</code></span></div>
         <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Reply <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="response" rows="2" maxlength="1000" placeholder="Now playing: {{track}} by {{artist}}">${esc(c.response)}</textarea></label>
         <div class="preview" data-preview></div>
         <div class="row"><label class="check" title="Put one reply per line; each use sends a random one"><input type="checkbox" data-k="random" ${c.random ? 'checked' : ''}> Random line</label><label class="check">Who can use <select data-k="access"><option value="everyone">Everyone</option><option value="subs" ${c.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${c.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
@@ -161,7 +162,7 @@ function readCommands() {
     return [...document.querySelectorAll('#commands .item')].map(item => {
         const open = item.open;
         const get = k => item.querySelector(`[data-k="${k}"]`);
-        return { name: get('name').value, aliases: get('aliases').value, cooldown: get('cooldown').value, response: get('response').value, enabled: get('enabled').checked, access: get('access').value, random: get('random').checked, _open: open };
+        return { name: get('name').value, aliases: get('aliases').value, cooldown: get('cooldown').value, response: get('response').value, enabled: get('enabled').checked, access: get('access').value, random: get('random').checked, counter: get('counter').value, counterAction: get('counterAction').value, _open: open };
     });
 }
 

@@ -12,7 +12,7 @@ const MAX_TRIGGERS = 100;
 const KINDS = ['interval', 'hourly', 'daily', 'datetime', 'dateinterval'];
 const NAME_RE = /^[a-z0-9_]{1,30}$/;
 
-module.exports = function createChatbot({ dataDir, getConfig, port }) {
+module.exports = function createChatbot({ dataDir, getConfig, port, variables }) {
     const file = path.join(dataDir, 'chatbot.json');
     let data = { settings: { ...DEFAULT_SETTINGS }, commands: [], quotes: [], nextQuoteId: 1, messages: [], triggers: [] };
     const startedAt = Date.now();
@@ -54,6 +54,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             aliases: [...new Set(aliases)].slice(0, 5),
             response: clean(input.response, 1000),
             random: input.random === true,
+            counter: clean(input.counter, 40).toLowerCase().replace(/[^a-z0-9_]/g, '_'),
+            counterAction: ['increment', 'decrement', 'reset'].includes(input.counterAction) ? input.counterAction : 'increment',
             access: ACCESS.includes(input.access) ? input.access : input.modOnly === true ? 'mods' : 'everyone',
             cooldown: input.cooldown === '' || input.cooldown === null || input.cooldown === undefined ? null : Math.max(0, Math.min(3600, Number(input.cooldown) || 0)),
             enabled: input.enabled !== false
@@ -183,7 +185,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
 
     function isSub(msg) {
         if ([msg.subscriber, msg.isSub, msg.isSubscriber, msg.is_subscriber, msg.member, msg.isMember, msg.hasMembership, msg.vip].some(v => v === true || v === 'true' || v === 1)) return true;
-        return /subscriber|"sub"|member|founder|vip/.test(JSON.stringify(msg.chatbadges ?? msg.badges ?? msg.membership ?? '').toLowerCase());
+        if (/subscriber|member|founder|vip/i.test(String(msg.membership || ''))) return true;
+        return /subscriber|"sub"|member|founder|vip/.test(JSON.stringify(msg.chatbadges ?? msg.badges ?? '').toLowerCase());
     }
 
     const allowed = (access, msg) => access === 'everyone' || isMod(msg) || (access === 'subs' && isSub(msg));
@@ -271,6 +274,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
         if (builtin === 'quotes') return reply(key, `${data.quotes.length} quote${data.quotes.length === 1 ? '' : 's'} saved. Use ${prefix}quote or ${prefix}quote <number>.`);
         if (builtin === 'quote') return reply(key, quoteReply(arg, msg));
+        if (custom.counter && variables) { try { variables.change(custom.counter, custom.counterAction, 1); statusCache.at = 0; } catch (err) { console.warn(`[Chatbot] ${err.message}`); } }
         try { await reply(key, await expand(pick(custom.response, custom.random).replace(/\{\{\s*args?\s*\}\}/g, arg)) || '(no value yet)'); } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
     }
 
