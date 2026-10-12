@@ -394,6 +394,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 const text = clean(body.text, 300);
                 if (!text) return json(400, { error: 'Quote text is required' }), true;
                 quote.text = text;
+                if (body.game !== undefined) quote.game = clean(body.game, 80);
+                if (body.by !== undefined) quote.by = clean(body.by, 60);
                 save();
                 return json(200, snapshot()), true;
             }

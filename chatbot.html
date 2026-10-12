@@ -385,9 +385,17 @@ $('quotes').addEventListener('click', async event => {
     try {
         if (act === 'del-quote' && confirm(`Delete quote #${id}?`)) applyState(await api(`/api/chatbot/quotes/${id}`, 'DELETE'));
         if (act === 'edit-quote') {
-            const current = state.quotes.find(q => q.id === Number(id));
-            const text = prompt(`Edit quote #${id}`, current.text);
-            if (text !== null && text.trim()) applyState(await api(`/api/chatbot/quotes/${id}`, 'PUT', { text }));
+            const q = state.quotes.find(x => x.id === Number(id));
+            row.outerHTML = `<div class="quote" data-id="${id}" style="grid-template-columns:3rem 1fr"><span class="num">#${id}</span><div style="display:grid;gap:.4rem">
+                <textarea data-q="text" rows="2" maxlength="300" style="width:100%;padding:.5rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);font:inherit">${esc(q.text)}</textarea>
+                <div class="row"><label class="f" style="flex:1">Game<input data-q="game" value="${esc(q.game || '')}" style="display:block;width:100%;margin-top:.2rem;padding:.4rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text)"></label><label class="f" style="flex:1">Added by<input data-q="by" value="${esc(q.by || '')}" style="display:block;width:100%;margin-top:.2rem;padding:.4rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text)"></label></div>
+                <div class="row end"><button class="btn small" data-act="cancel-quote">Cancel</button><button class="btn small primary" data-act="save-quote">Save</button></div></div></div>`;
+        }
+        if (act === 'cancel-quote') renderQuotes();
+        if (act === 'save-quote') {
+            const v = k => row.querySelector(`[data-q="${k}"]`).value;
+            if (!v('text').trim()) throw new Error('Quote text is required');
+            applyState(await api(`/api/chatbot/quotes/${id}`, 'PUT', { text: v('text'), game: v('game'), by: v('by') })); toast('Quote saved');
         }
     } catch (e) { toast(e.message); }
 });
