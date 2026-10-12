@@ -34,6 +34,7 @@
     <div class="card" style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
         <label class="muted">Show commands for <select id="audience" class="b"><option value="viewers">Viewers</option><option value="subscribers">Subscribers</option><option value="mods">Mods (everything)</option></select></label><button class="b" id="copy">Copy Markdown</button><button class="b" id="md">Download Markdown</button>
         <label class="muted"><input type="checkbox" id="inc-quotes" style="width:auto"> Include all quotes</label>
+        <label class="muted"><input type="checkbox" id="inc-details" style="width:auto"> Quote details</label>
         <span class="muted" style="flex:1;text-align:right">Generated live. Read only.</span>
     </div>
     <div id="out"></div>
@@ -72,7 +73,7 @@ function renderPage() {
     let html = `<div class="card"><h2>Built-in commands</h2>${m.builtin.map(c => `<div class="row"><code>${esc(c.cmd)}</code>${badge(c)}<div class="muted">${esc(c.desc)}</div></div>`).join('')}</div>`;
     html += `<div class="card"><h2>Custom commands (${m.commands.length})</h2>${m.commands.map(c => `<div class="row"><code>${esc(c.cmd)}</code>${badge(c)}${off(c)}${reply(c)}</div>`).join('') || '<div class="muted">None.</div>'}</div>`;
     html += `<div class="card"><h2>Word triggers (${m.triggers.length})</h2>${m.triggers.map(t => `<div class="row"><b>${esc(t.name)}</b>${badge(t)}${off(t)}<div class="muted">When chat says: ${t.words.map(esc).join(', ')}</div>${reply(t)}</div>`).join('') || '<div class="muted">None.</div>'}</div>`;
-    if ($('inc-quotes').checked) html += `<div class="card"><h2>Quotes (${state.quotes.length})</h2>${state.quotes.map(q => `<div class="row"><b>#${q.id}</b> ${esc(q.text)}<div class="meta">${[q.game, q.by && 'Added by ' + q.by].filter(Boolean).map(esc).join(' · ')}</div></div>`).join('')}</div>`;
+    if ($('inc-quotes').checked) html += `<div class="card"><h2>Quotes (${state.quotes.length})</h2>${state.quotes.map(q => `<div class="row"><b>#${q.id}</b> ${esc(q.text)}${$('inc-details').checked ? `<div class="meta">${[q.game, q.by && 'Added by ' + q.by].filter(Boolean).map(esc).join(' · ')}</div>` : ''}</div>`).join('')}</div>`;
     $('out').innerHTML = html;
 }
 
@@ -89,11 +90,12 @@ function markdown() {
     const trigs = m.triggers.filter(t => t.enabled);
     md += '\n\n## Word triggers\n\n';
     md += trigs.length ? '| Trigger | When chat says | Reply | Who |\n|---|---|---|---|\n' + trigs.map(t => `| ${cell(t.name)} | ${cell(t.words.join(', '))} | ${rep(t)} | ${who2(t)} |`).join('\n') : '_None._';
-    if ($('inc-quotes').checked) md += `\n\n## Quotes\n\n| # | Quote | Game | Added by |\n|---|---|---|---|\n${state.quotes.map(q => `| ${q.id} | ${cell(q.text)} | ${cell(q.game)} | ${cell(q.by)} |`).join('\n')}`;
+    if ($('inc-quotes').checked) md += `\n\n## Quotes\n\n${$('inc-details').checked ? '| # | Quote | Game | Added by |\n|---|---|---|---|' : '| # | Quote |\n|---|---|'}\n${state.quotes.map(q => $('inc-details').checked ? `| ${q.id} | ${cell(q.text)} | ${cell(q.game)} | ${cell(q.by)} |` : `| ${q.id} | ${cell(q.text)} |`).join('\n')}`;
     return md + '\n';
 }
 
 $('inc-quotes').onchange = renderPage;
+$('inc-details').onchange = renderPage;
 $('audience').value = new URLSearchParams(location.search).get('for') || 'viewers';
 $('audience').onchange = renderPage;
 $('copy').onclick = async () => { try { await navigator.clipboard.writeText(markdown()); $('copy').textContent = 'Copied'; } catch { const t = document.createElement('textarea'); t.value = markdown(); document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); $('copy').textContent = 'Copied'; } setTimeout(() => $('copy').textContent = 'Copy Markdown', 1500); };
