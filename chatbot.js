@@ -13,7 +13,7 @@ const KINDS = ['interval', 'hourly', 'daily', 'datetime', 'dateinterval'];
 const USER_RE = /\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi;
 const NAME_RE = /^[a-z0-9_]{1,30}$/;
 
-module.exports = function createChatbot({ dataDir, getConfig, port, variables }) {
+module.exports = function createChatbot({ sessionKey = () => '', dataDir, getConfig, port, variables }) {
     const file = path.join(dataDir, 'chatbot.json');
     let data = { settings: { ...DEFAULT_SETTINGS }, commands: [], quotes: [], nextQuoteId: 1, messages: [], triggers: [] };
     const startedAt = Date.now();
@@ -58,10 +58,39 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             counter: clean(input.counter, 40).toLowerCase().replace(/[^a-z0-9_]/g, '_'),
             counterAction: ['increment', 'decrement', 'reset', 'roll'].includes(input.counterAction) ? input.counterAction : 'increment',
             access: ACCESS.includes(input.access) ? input.access : input.modOnly === true ? 'mods' : 'everyone',
+            limit: input.limit === '' || input.limit === null || input.limit === undefined ? null : Math.max(1, Math.min(1000, Math.round(Number(input.limit)) || 1)),
+            limitPer: ['session', 'day', 'forever'].includes(input.limitPer) ? input.limitPer : 'session',
             cooldown: input.cooldown === '' || input.cooldown === null || input.cooldown === undefined ? null : Math.max(0, Math.min(3600, Number(input.cooldown) || 0)),
             enabled: input.enabled !== false
         };
     }
+
+    const usageFile = path.join(dataDir, 'chatbot-usage.json');
+    let usage = {};
+    try { usage = JSON.parse(fs.readFileSync(usageFile, 'utf8')) || {}; } catch { /* first run */ }
+    const saveUsage = () => { try { fs.mkdirSync(dataDir, { recursive: true }); fs.writeFileSync(usageFile, JSON.stringify(usage)); } catch { /* non-fatal */ } };
+    const stampFor = per => per === 'forever' ? 'all' : per === 'day' ? new Date().toLocaleDateString('en-CA') : `s${sessionKey()}`;
+    // Returns true when this person is out of uses; otherwise counts this use.
+    function limited(key, item, msg) {
+        if (!item.limit || isMod(msg)) return false;
+        const user = String(msg.chatname || '').toLowerCase();
+        const stamp = stampFor(item.limitPer);
+        const u = (usage[key] = usage[key] || {})[user];
+        if (u && u.stamp === stamp && u.n >= item.limit) return true;
+        usage[key][user] = { n: u && u.stamp === stamp ? u.n + 1 : 1, stamp, name: msg.chatname || user };
+        saveUsage();
+        return false;
+    }
+    function usageList() {
+        const items = [...data.commands.map(c => ({ key: c.name, label: prefixOf() + c.name, item: c })), ...data.triggers.map(t => ({ key: `t:${t.id}`, label: `Trigger: ${t.name || t.words[0]}`, item: t }))];
+        const rows = [];
+        for (const { key, label, item } of items) {
+            if (!item.limit) continue;
+            for (const [user, u] of Object.entries(usage[key] || {})) if (u.stamp === stampFor(item.limitPer)) rows.push({ key, label, user, name: u.name, n: u.n, limit: item.limit, per: item.limitPer });
+        }
+        return rows;
+    }
+    const prefixOf = () => data.settings.prefix;
 
     const newId = () => crypto.randomBytes(5).toString('hex');
     const num = (value, min, max, fallback) => { const n = Number(value); return Number.isFinite(n) && value !== '' && value !== null ? Math.max(min, Math.min(max, Math.round(n))) : fallback; };
@@ -102,6 +131,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             words: [...new Set(words)].slice(0, 30),
             wholeWord: input.wholeWord !== false,
             access: ACCESS.includes(input.access) ? input.access : 'everyone',
+            limit: input.limit === '' || input.limit === null || input.limit === undefined ? null : Math.max(1, Math.min(1000, Math.round(Number(input.limit)) || 1)),
+            limitPer: ['session', 'day', 'forever'].includes(input.limitPer) ? input.limitPer : 'session',
             cooldown: num(input.cooldown, 0, 86400, 60),
             random: input.random === true,
             text
@@ -278,6 +309,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const wait = (cfg.cooldown !== null && cfg.cooldown !== undefined ? cfg.cooldown : cooldown) * 1000;
         if (now - (lastUsed.get(key) || 0) < wait || now - lastAny < 1000) return;
 
+        if (custom && limited(key, custom, msg)) return;
         logUse('command', key, msg.chatname);
         if (builtin === 'addquote' || builtin === 'delquote') {
             if (builtin === 'addquote') {
@@ -301,6 +333,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             if (now - (lastUsed.get(`t:${t.id}`) || 0) < t.cooldown * 1000 || now - lastAny < 1000) continue;
             const hit = t.words.some(w => new RegExp(t.wholeWord ? `(^|[^\\p{L}\\p{N}_])${escapeRe(w)}($|[^\\p{L}\\p{N}_])` : escapeRe(w), 'iu').test(text));
             if (!hit) continue;
+            if (limited(`t:${t.id}`, t, msg)) continue;
             logUse('trigger', t.name || t.id, msg.chatname);
             const out = await expand(pick(t.text, t.random).replace(USER_RE, msg.chatname || ''));
             if (out) await reply(`t:${t.id}`, out);
@@ -395,6 +428,14 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 const out = {};
                 for (const [k, v] of Object.entries(table)) if (v !== undefined && v !== null && typeof v !== 'object') out[k] = String(v);
                 return json(200, out), true;
+            }
+            if (pathname === '/api/chatbot/usage' && req.method === 'GET') return json(200, { usage: usageList() }), true;
+            if (pathname === '/api/chatbot/usage/reset' && req.method === 'POST') {
+                if (!body.key) usage = {};
+                else if (!body.user) delete usage[body.key];
+                else if (usage[body.key]) delete usage[body.key][String(body.user).toLowerCase()];
+                saveUsage();
+                return json(200, { usage: usageList() }), true;
             }
             if (pathname === '/api/chatbot/activity' && req.method === 'GET') return json(200, { enabled: enabled(), seq, activity: activity.slice(-20) }), true;
             if (pathname === '/api/chatbot/enabled' && req.method === 'POST') { enabledOverride = body.action === 'toggle' ? !enabled() : body.enabled === true; return json(200, { enabled: enabled() }), true; }

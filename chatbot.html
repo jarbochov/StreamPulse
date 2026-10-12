@@ -95,6 +95,7 @@
             <h2>Commands</h2>
             <p class="muted" style="margin-bottom:.75rem;">Responses use the same {{placeholders}} as overlays, for example <code>Now playing: {{track}} by {{artist}}</code>. Use {{user}} (or $(sender)) for the chatter's name and {{args}} for whatever follows the command. Use \n for a second message.</p>
             <div id="commands"></div>
+            <details id="usage-box" hidden><summary class="hint" style="cursor:pointer;margin-top:.75rem;">Usage counts for limited commands</summary><div id="usage"></div></details>
             <div class="row" style="margin-top:.75rem;"><button class="btn" id="add-command">Add command</button><button class="btn primary" id="save-commands">Save commands</button></div>
         </div>
 
@@ -157,7 +158,7 @@ function renderBanner() {
 function renderSettings() {
     const s = state.settings;
     $('s-prefix').value = s.prefix || '!'; $('s-tag').value = s.tag ?? ''; $('s-cooldown').value = s.cooldown ?? 5; $('s-mods').value = (s.mods || []).join(', ');
-    $('builtins').innerHTML = ['quote', 'quotes', 'addquote', 'delquote'].map(n => { const b = (s.builtins || {})[n] || {}; return `<div class="row" data-b="${n}"><code style="min-width:7rem">${s.prefix || '!'}${n}</code><label class="check">Who can use <select data-bk="access"><option value="everyone" ${b.access === 'everyone' ? 'selected' : ''}>Everyone</option><option value="subs" ${b.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${b.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label><label class="check">Cooldown (s)<input data-bk="cooldown" type="number" min="0" value="${b.cooldown ?? ''}" placeholder="default" style="width:6rem"></label></div>`; }).join('');
+    $('builtins').innerHTML = ['quote', 'quotes', 'addquote', 'delquote'].map(n => { const b = (s.builtins || {})[n] || {}; return `<div class="row" data-b="${n}"><code style="min-width:7rem">${s.prefix || '!'}${n}</code><label class="check" title="Max uses per person. Mods are exempt. Blank is unlimited.">Limit <input data-k="limit" type="number" min="1" style="width:4.5rem" value="${c.limit ?? ''}" placeholder="none"> per <select data-k="limitPer">${[['session','session'],['day','day'],['forever','all time']].map(([v, l]) => `<option value="${v}" ${c.limitPer === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label><label class="check">Who can use <select data-bk="access"><option value="everyone" ${b.access === 'everyone' ? 'selected' : ''}>Everyone</option><option value="subs" ${b.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${b.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label><label class="check">Cooldown (s)<input data-bk="cooldown" type="number" min="0" value="${b.cooldown ?? ''}" placeholder="default" style="width:6rem"></label></div>`; }).join('');
 }
 
 function commandHtml(c, i) {
@@ -181,7 +182,7 @@ function readCommands() {
     return [...document.querySelectorAll('#commands .item')].map(item => {
         const open = item.open;
         const get = k => item.querySelector(`[data-k="${k}"]`);
-        return { name: get('name').value, aliases: get('aliases').value, cooldown: get('cooldown').value, response: get('response').value, enabled: get('enabled').checked, access: get('access').value, random: get('random').checked, counter: get('useCounter').checked ? (get('counter')?.value || '') : '', _counter: get('useCounter').checked, counterAction: get('counterAction')?.value || 'increment', _open: open };
+        return { name: get('name').value, aliases: get('aliases').value, cooldown: get('cooldown').value, response: get('response').value, enabled: get('enabled').checked, access: get('access').value, limit: get('limit').value, limitPer: get('limitPer').value, random: get('random').checked, counter: get('useCounter').checked ? (get('counter')?.value || '') : '', _counter: get('useCounter').checked, counterAction: get('counterAction')?.value || 'increment', _open: open };
     });
 }
 
@@ -237,7 +238,7 @@ function triggerHtml(t, i) {
         </div>
         <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Reply <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="text" rows="2" maxlength="1000" placeholder="Welcome in, {{user}}!">${esc(t.text)}</textarea></label>
         <div class="preview" data-preview></div>
-        <div class="row"><label class="check"><input type="checkbox" data-k="wholeWord" ${t.wholeWord !== false ? 'checked' : ''}> Whole words only</label><label class="check"><input type="checkbox" data-k="random" ${t.random ? 'checked' : ''}> Random line</label><label class="check">Who can trigger <select data-k="access">${accessOpts(t.access || 'everyone')}</select></label><span style="flex:1"></span><button class="btn small danger" data-act="remove">Remove</button></div>
+        <div class="row"><label class="check"><input type="checkbox" data-k="wholeWord" ${t.wholeWord !== false ? 'checked' : ''}> Whole words only</label><label class="check"><input type="checkbox" data-k="random" ${t.random ? 'checked' : ''}> Random line</label><label class="check" title="Max uses per person. Mods are exempt. Blank is unlimited.">Limit <input data-k="limit" type="number" min="1" style="width:4.5rem" value="${t.limit ?? ''}" placeholder="none"> per <select data-k="limitPer">${[['session','session'],['day','day'],['forever','all time']].map(([v, l]) => `<option value="${v}" ${t.limitPer === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label><label class="check">Who can trigger <select data-k="access">${accessOpts(t.access || 'everyone')}</select></label><span style="flex:1"></span><button class="btn small danger" data-act="remove">Remove</button></div>
     </details>`;
 }
 const listCfg = {
@@ -364,7 +365,18 @@ function updateCounts() {
     set('commands', state.commands.length); set('quotes', state.quotes.length); set('messages', state.messages.length); set('triggers', state.triggers.length);
     set('variables', ($('var-count').textContent || '').replace(/[()]/g, ''));
 }
-function applyState(data) { state = data; updateCounts(); renderBanner(); renderSettings(); renderCommands(); renderQuotes(); renderList('messages'); renderList('triggers'); }
+async function loadUsage() {
+    const rows = (await api('/api/chatbot/usage')).usage;
+    $('usage-box').hidden = !rows.length;
+    $('usage').innerHTML = rows.length ? `<table style="width:100%;margin-top:.5rem"><tr><th align=left>Command</th><th align=left>Person</th><th align=left>Used</th><th><button class="btn small" data-reset-all>Reset all</button></th></tr>${rows.map(r => `<tr><td>${esc(r.label)}</td><td>${esc(r.name)}</td><td>${r.n}/${r.limit} (${r.per === 'forever' ? 'all time' : r.per})</td><td><button class="btn small" data-reset-key="${esc(r.key)}" data-reset-user="${esc(r.user)}">Reset</button></td></tr>`).join('')}</table>` : '';
+}
+$('usage').addEventListener('click', async e => {
+    const b = e.target.closest('button'); if (!b) return;
+    await api('/api/chatbot/usage/reset', 'POST', b.hasAttribute('data-reset-all') ? {} : { key: b.dataset.resetKey, user: b.dataset.resetUser });
+    loadUsage();
+});
+setInterval(() => { if (!document.hidden) loadUsage().catch(() => {}); }, 5000);
+function applyState(data) { loadUsage().catch(() => {}); state = data; updateCounts(); renderBanner(); renderSettings(); renderCommands(); renderQuotes(); renderList('messages'); renderList('triggers'); }
 
 $('save-settings').onclick = async () => {
     try { applyState(await api('/api/chatbot', 'PUT', { settings: { prefix: $('s-prefix').value, tag: $('s-tag').value, cooldown: $('s-cooldown').value, mods: $('s-mods').value, builtins: Object.fromEntries([...document.querySelectorAll('#builtins [data-b]')].map(r => [r.dataset.b, { access: r.querySelector('[data-bk=access]').value, cooldown: r.querySelector('[data-bk=cooldown]').value }])) } })); toast('Settings saved'); } catch (e) { toast(e.message); }
