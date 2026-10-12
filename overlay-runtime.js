@@ -179,6 +179,16 @@
         root.style.background = overlay.canvas.background || 'transparent';
         if (pagesOn(overlay) && !(overlay.pages.items || []).some(item => item.id === currentPage && item.enabled !== false)) currentPage = (overlay.pages.items.find(item => item.enabled !== false) || overlay.pages.items[0]).id;
         const built = pageElements(overlay).map(buildNode);
+        // Embeds on trigger pages stay loaded (hidden) so they already listen when the page takes over.
+        if (pagesOn(overlay)) {
+            const trig = new Set(overlay.pages.items.filter(item => item.trigger).map(item => item.id));
+            for (const element of overlay.elements || []) {
+                if (element.type !== 'embed' || element.visible === false || !trig.has(element.page) || element.page === currentPage) continue;
+                const node = buildNode(element);
+                node.style.visibility = 'hidden'; node.style.pointerEvents = 'none';
+                built.push(node);
+            }
+        }
         // Moving or detaching an iframe reloads it, so kept embeds stay where they are and everything else is swapped around them.
         [...root.children].forEach(child => { if (!built.includes(child)) child.remove(); });
         built.forEach(node => { if (node.parentNode !== root) root.appendChild(node); });
@@ -275,7 +285,8 @@
         const gone = new Set(outgoing);
         const prune = list => { for (let i = list.length - 1; i >= 0; i--) if (gone.has(list[i].node)) list.splice(i, 1); };
         [fitNodes, tickingNodes, alertNodes].forEach(prune);
-        for (const element of currentOverlay.elements || []) if (element.page === previous && element.page !== '*') embeds.delete(element.id);
+        const prevTrigger = !!currentOverlay.pages.items.find(item => item.id === previous)?.trigger;
+        for (const element of currentOverlay.elements || []) if (element.page === previous && element.page !== '*' && !(prevTrigger && element.type === 'embed')) embeds.delete(element.id);
         stopSlideshows(new Set((currentOverlay.elements || []).filter(element => element.page === previous && element.page !== '*').map(element => element.id)));
         for (const element of currentOverlay.elements || []) {
             if (element.page !== previous || element.page === '*') continue;
@@ -296,13 +307,16 @@
         const incoming = pageElements(currentOverlay).filter(element => element.page === currentPage).map(buildNode);
         incoming.forEach(node => {
             if (ms) { node.style.visibility = 'hidden'; node.style.willChange = 'transform, opacity'; }
-            root.appendChild(node);
+            if (node.parentNode !== root) root.appendChild(node);
         });
         outgoing.forEach(node => { if (ms) node.style.willChange = 'transform, opacity'; });
         refit();
         const finish = () => {
-            outgoing.forEach(node => node.remove());
-            incoming.forEach(node => { node.style.animation = ''; node.style.willChange = ''; });
+            outgoing.forEach(node => {
+                if (prevTrigger && node.classList.contains('overlay-embed')) { node.style.animation = ''; node.style.willChange = ''; node.style.visibility = 'hidden'; node.style.pointerEvents = 'none'; }
+                else node.remove();
+            });
+            incoming.forEach(node => { node.style.animation = ''; node.style.willChange = ''; node.style.visibility = ''; node.style.pointerEvents = ''; });
             transitioning = false;
             if (pendingRender) { const next = pendingRender; pendingRender = null; render(next); }
         };
