@@ -95,7 +95,7 @@
             <details class="item" style="margin-bottom:1rem;"><summary><b>Quote commands</b><span class="sum">Who can use them and cooldowns</span></summary><div id="builtins" style="display:grid;gap:.5rem;"></div><div class="row end"><button class="btn" id="save-quote-settings">Save quote settings</button></div></details>
             <div class="row" style="margin-bottom:.5rem;"><input id="new-quote" class="grow" style="flex:1;min-width:200px;padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);" maxlength="300" placeholder="Add a quote"><button class="btn primary" id="add-quote">Add</button></div>
             <div class="row" style="margin:.75rem 0 .25rem;"><input id="quote-search" style="flex:1;min-width:180px;padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);" placeholder="Search quotes"><button class="btn" id="export-json">Export JSON</button><button class="btn" id="export-txt">Export text</button><button class="btn" id="import-quotes">Import</button><input type="file" id="import-file" accept=".json,.txt,.csv,text/plain,application/json" hidden></div>
-            <p class="muted" style="margin-bottom:.5rem;">Import accepts a JSON export or a text file with one quote per line. Duplicates are skipped.</p>
+            <p class="muted" style="margin-bottom:.5rem;">Import accepts a JSON export or a text file with one quote per line. Duplicates are skipped. The repo includes <code>quotes-seed.json</code> with your first 21 quotes.</p>
             <div id="quotes" style="max-height:60vh;overflow:auto;"></div>
         </div>
 
@@ -181,7 +181,7 @@ function renderQuotes() {
     const shown = state.quotes.filter(q => !term || q.text.toLowerCase().includes(term) || String(q.id) === term.replace('#', ''));
     $('quotes').innerHTML = shown.length ? [...shown].reverse().map(q => `<div class="quote" data-id="${q.id}">
         <span class="num">#${q.id}</span>
-        <div><div class="q-text">${esc(q.text)}</div><div class="meta">${q.by ? `Added by ${esc(q.by)} · ` : ''}${new Date(q.at).toLocaleDateString()}</div></div>
+        <div><div class="q-text">${esc(q.text)}</div><div class="meta">${q.game ? `${esc(q.game)} · ` : ''}${q.by ? `Added by ${esc(q.by)} · ` : ''}${new Date(q.at).toLocaleDateString()}</div></div>
         <div class="row"><button class="btn small" data-act="edit-quote">Edit</button><button class="btn small danger" data-act="del-quote">Delete</button></div></div>`).join('') : '<div class="empty">No quotes yet.</div>';
 }
 
@@ -272,7 +272,7 @@ function download(name, type, content) {
     a.href = URL.createObjectURL(new Blob([content], { type }));
     a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
-$('export-json').onclick = () => download('streampulse-quotes.json', 'application/json', JSON.stringify(state.quotes.map(({ text, by, at }) => ({ text, by, at })), null, 2));
+$('export-json').onclick = () => download('streampulse-quotes.json', 'application/json', JSON.stringify(state.quotes.map(({ text, by, at, game }) => ({ text, by, at, game })), null, 2));
 $('export-txt').onclick = () => download('streampulse-quotes.txt', 'text/plain', state.quotes.map(q => q.text).join('\n'));
 $('import-quotes').onclick = () => $('import-file').click();
 $('import-file').onchange = async event => {

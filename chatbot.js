@@ -114,7 +114,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
     function normalizeQuote(input = {}) {
         const text = clean(input.text, 300);
         if (!text) return null;
-        return { id: Math.max(1, Number(input.id) || 0), text, by: clean(input.by, 60), at: Number(input.at) || Date.now() };
+        return { id: Math.max(1, Number(input.id) || 0), text, game: clean(input.game, 80), by: clean(input.by, 60), at: Number(input.at) || Date.now() };
     }
 
     function load() {
@@ -337,10 +337,12 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         let added = 0, skipped = 0;
         for (const item of list) {
             const base = typeof item === 'string' ? { text: item } : item || {};
-            const q = normalizeQuote({ ...base, id: data.nextQuoteId });
+            const wanted = Number(base.id);
+            const keep = Number.isInteger(wanted) && wanted > 0 && !data.quotes.some(x => x.id === wanted);
+            const q = normalizeQuote({ ...base, id: keep ? wanted : data.nextQuoteId });
             if (!q || have.has(q.text.toLowerCase()) || data.quotes.length >= MAX_QUOTES) { skipped++; continue; }
             have.add(q.text.toLowerCase());
-            data.nextQuoteId++;
+            data.nextQuoteId = Math.max(data.nextQuoteId, q.id + 1);
             data.quotes.push(q);
             added++;
         }
