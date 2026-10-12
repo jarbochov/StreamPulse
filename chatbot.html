@@ -139,10 +139,11 @@
     <div class="toast" id="toast"></div>
 <script src="/overlay-shared.js"></script>
 <script src="/placeholder-picker.js"></script>
-<script>
+<script src="/poll.js"></script>
+    <script>
 let liveStatus = {};
 const refreshStatus = () => fetch('/api/status', { cache: 'no-store' }).then(r => r.json()).then(async s => { liveStatus = s; try { await OverlayShared.loadLiveExtras(s); } catch {} }).catch(() => {});
-refreshStatus(); setInterval(refreshStatus, 5000);
+refreshStatus(); pollVisible(refreshStatus, 5000);
 let state = { settings: {}, commands: [], quotes: [], messages: [], triggers: [] };
 const $ = id => document.getElementById(id);
 const esc = v => { const d = document.createElement('div'); d.textContent = v ?? ''; return d.innerHTML; };
@@ -392,7 +393,7 @@ $('usage').closest('.card').addEventListener('click', async e => {
     } else if (b.dataset.resetKey) await api('/api/chatbot/usage/reset', 'POST', { key: b.dataset.resetKey, user: b.dataset.resetUser });
     loadUsage();
 });
-setInterval(() => { if (!document.hidden) loadUsage().catch(() => {}); }, 5000);
+pollVisible(() => loadUsage().catch(() => {}), 5000);
 function applyState(data) { loadUsage().catch(() => {}); state = data; updateCounts(); renderBanner(); renderSettings(); renderCommands(); renderQuotes(); renderList('messages'); renderList('triggers'); }
 
 $('save-settings').onclick = async () => {

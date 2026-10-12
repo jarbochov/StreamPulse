@@ -472,6 +472,7 @@
     <script src="/tag-chips.js"></script>
     <script src="/icon-picker.js"></script>
     <script src="/overlay-presets.js"></script>
+    <script src="/poll.js"></script>
     <script>
 (() => {
     'use strict';
@@ -2760,7 +2761,7 @@
         if (isNew || !pagesOn()) return;
         try { const response = await fetch(`/api/custom-overlays/${encodeURIComponent(overlay.id)}/page`, { cache: 'no-store' }); if (response.ok) { liveState = await response.json(); if (!pagesPanelBusy()) renderPageBar(); } } catch {}
     }
-    setInterval(refreshLivePage, 5000);
+    pollVisible(refreshLivePage, 5000);
     function switchEditPage(id) {
         flushHistory(); curPage = id; selectedIds = new Set();
         renderPageBar(); renderCanvas(); renderLayers(); renderProperties(); updateStatusBar();
@@ -2880,7 +2881,7 @@
         if (isNew) { dirty = true; updateHistoryUI(); }
         fitView(true);
         refreshLiveStatus(); refreshLivePage(); loadAssetTags().then(() => { if (primary()?.type === 'slideshow') renderProperties(); });
-        setInterval(refreshLiveStatus, 10000);
+        pollVisible(refreshLiveStatus, 10000);
         setInterval(tickPlaceholders, 1000);
     }
     new ResizeObserver(() => { if (autoFit) fitView(true); else applyView(); }).observe(stage);

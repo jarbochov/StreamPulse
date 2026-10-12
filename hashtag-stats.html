@@ -153,6 +153,7 @@
 
     <div class="toast" id="toast"></div>
 
+    <script src="/poll.js"></script>
     <script>
     let hashtagStats = [];
     let currentSummary = null;
@@ -364,7 +365,7 @@
 
     readFilters();
     refreshStats();
-    refreshTimer = setInterval(refreshStats, 15000);
+    refreshTimer = pollVisible(refreshStats, 15000);
     window.addEventListener('beforeunload', () => clearInterval(refreshTimer));
     </script>
 </body>

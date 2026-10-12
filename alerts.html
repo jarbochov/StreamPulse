@@ -193,7 +193,8 @@
 
 <dialog class="lib" id="lib"><div class="lib-head"><input id="lib-q" placeholder="Search your library…"><button class="btn sm" id="lib-close">Close</button></div><div class="lib-grid" id="lib-grid"></div></dialog>
 <script src="/overlay-shared.js"></script>
-<script>
+<script src="/poll.js"></script>
+    <script>
 (() => {
     const $ = id => document.getElementById(id);
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -566,7 +567,7 @@
         try { queue = (await api('/api/alerts', { cache: 'no-store' })).queue; renderQueue(); } catch { /* server restarting */ }
     }
     window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
-    setInterval(() => { if (!document.hidden) refreshQueue(); }, 3000);
+    pollVisible(refreshQueue, 3000);
     loadAll().catch(err => toast(err.message, true));
 })();
 </script>

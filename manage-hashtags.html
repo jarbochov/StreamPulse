@@ -90,6 +90,7 @@
 
     <div class="toast" id="toast"></div>
 
+    <script src="/poll.js"></script>
     <script>
     function showToast(msg) {
         const t = document.getElementById('toast');
@@ -203,7 +204,7 @@
     });
 
     refresh();
-    setInterval(refresh, 5000);
+    pollVisible(refresh, 5000);
     </script>
 </body>
 </html>

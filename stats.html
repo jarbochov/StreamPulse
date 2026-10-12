@@ -116,6 +116,7 @@
 
     <script src="/url-params.js"></script>
     <script src="/overlay-theme.js"></script>
+    <script src="/poll.js"></script>
     <script>
         const urlParams = overlayParams();
         const DAYS = parseInt(urlParams.get('days')) || 0;
@@ -273,7 +274,7 @@
         }
 
         loadStats();
-        setInterval(loadStats, REFRESH * 1000);
+        pollVisible(loadStats, REFRESH * 1000);
     </script>
 </body>
 </html>
