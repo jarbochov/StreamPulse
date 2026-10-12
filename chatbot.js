@@ -58,6 +58,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             counter: clean(input.counter, 40).toLowerCase().replace(/[^a-z0-9_]/g, '_'),
             counterAction: ['increment', 'decrement', 'reset', 'roll'].includes(input.counterAction) ? input.counterAction : 'increment',
             access: ACCESS.includes(input.access) ? input.access : input.modOnly === true ? 'mods' : 'everyone',
+            modCooldown: input.modCooldown === '' || input.modCooldown === null || input.modCooldown === undefined ? null : Math.max(0, Math.min(86400, Number(input.modCooldown) || 0)),
             limit: input.limit === '' || input.limit === null || input.limit === undefined ? null : Math.max(1, Math.min(1000, Math.round(Number(input.limit)) || 1)),
             limitPer: ['session', 'day', 'forever'].includes(input.limitPer) ? input.limitPer : 'session',
             cooldown: input.cooldown === '' || input.cooldown === null || input.cooldown === undefined ? null : Math.max(0, Math.min(3600, Number(input.cooldown) || 0)),
@@ -131,6 +132,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             words: [...new Set(words)].slice(0, 30),
             wholeWord: input.wholeWord !== false,
             access: ACCESS.includes(input.access) ? input.access : 'everyone',
+            modCooldown: input.modCooldown === '' || input.modCooldown === null || input.modCooldown === undefined ? null : Math.max(0, Math.min(86400, Number(input.modCooldown) || 0)),
             limit: input.limit === '' || input.limit === null || input.limit === undefined ? null : Math.max(1, Math.min(1000, Math.round(Number(input.limit)) || 1)),
             limitPer: ['session', 'day', 'forever'].includes(input.limitPer) ? input.limitPer : 'session',
             cooldown: num(input.cooldown, 0, 86400, 60),
@@ -306,7 +308,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const key = custom ? custom.name : builtin === 'quotes' ? 'quote' : builtin;
         const cfg = custom || data.settings.builtins?.[key] || { access: BUILTIN_DEFAULTS[key], cooldown: null };
         if (!allowed(cfg.access, msg)) return;
-        const wait = (cfg.cooldown !== null && cfg.cooldown !== undefined ? cfg.cooldown : cooldown) * 1000;
+        const base = cfg.cooldown !== null && cfg.cooldown !== undefined ? cfg.cooldown : cooldown;
+        const wait = (cfg.modCooldown != null && isMod(msg) ? cfg.modCooldown : base) * 1000;
         if (now - (lastUsed.get(key) || 0) < wait || now - lastAny < 1000) return;
 
         if (custom && limited(key, custom, msg)) return;
@@ -330,7 +333,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const now = Date.now();
         for (const t of data.triggers) {
             if (!t.enabled || !allowed(t.access, msg)) continue;
-            if (now - (lastUsed.get(`t:${t.id}`) || 0) < t.cooldown * 1000 || now - lastAny < 1000) continue;
+            if (now - (lastUsed.get(`t:${t.id}`) || 0) < (t.modCooldown != null && isMod(msg) ? t.modCooldown : t.cooldown) * 1000 || now - lastAny < 1000) continue;
             const hit = t.words.some(w => new RegExp(t.wholeWord ? `(^|[^\\p{L}\\p{N}_])${escapeRe(w)}($|[^\\p{L}\\p{N}_])` : escapeRe(w), 'iu').test(text));
             if (!hit) continue;
             if (limited(`t:${t.id}`, t, msg)) continue;
