@@ -319,10 +319,11 @@ function normalizePages(input = {}) {
             enabled: item?.enabled !== false,
             trigger: ['alert', 'featured', 'command'].includes(item?.trigger) ? item.trigger : '',
             triggerName: String(item?.triggerName || '').trim().toLowerCase().replace(/^[^a-z0-9_]+/, '').slice(0, 60),
+            triggerRules: item?.trigger === 'alert' && Array.isArray(item.triggerRules) ? [...new Set(item.triggerRules.map(String))].slice(0, 100) : [],
             triggerSeconds: Math.max(0, Math.min(3600, Number(item?.triggerSeconds) || 0))
         };
     });
-    if (!items.length) items.push({ id: 'page-1', name: 'Page 1', duration: 0, enabled: true, trigger: '', triggerName: '', triggerSeconds: 0 });
+    if (!items.length) items.push({ id: 'page-1', name: 'Page 1', duration: 0, enabled: true, trigger: '', triggerName: '', triggerRules: [], triggerSeconds: 0 });
     if (!items.some(item => item.enabled)) items[0].enabled = true;
     return {
         enabled: input.enabled === true,
@@ -521,7 +522,7 @@ function syncOverlayPages(overlay, previous) {
 function takeoverPages(kind, name, ms) {
     for (const overlay of Object.values(customOverlays)) {
         if (!overlay.pages?.enabled) continue;
-        const target = overlay.pages.items.find(p => p.enabled && p.trigger === kind && (kind !== 'command' || !p.triggerName || p.triggerName === String(name || '').toLowerCase()));
+        const target = overlay.pages.items.find(p => p.enabled && p.trigger === kind && (kind === 'featured' || (kind === 'alert' ? !p.triggerRules.length || p.triggerRules.includes(name) : !p.triggerName || p.triggerName === String(name || '').toLowerCase())));
         if (!target) continue;
         let state = overlayPageState.get(overlay.id);
         if (!state) { state = { page: overlay.pages.items[0].id, auto: false, timer: null }; overlayPageState.set(overlay.id, state); }
@@ -4690,7 +4691,7 @@ function contentImageHtml(contentimg) {
 
 const alertEngine = createAlertEngine({
     dataDir: DATA_DIR,
-    broadcast: (type, payload) => { broadcastToOverlays(type, payload); if (type === 'alert') takeoverPages('alert', '', payload?.durationMs); },
+    broadcast: (type, payload) => { broadcastToOverlays(type, payload); if (type === 'alert') takeoverPages('alert', payload?.ruleId, payload?.durationMs); },
     runTimerAction: (timerId, action, params) => applyTimerControl(getTimerOrThrow(timerId), action, params),
     log: message => console.log(message)
 });
