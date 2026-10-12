@@ -191,11 +191,11 @@ const varyHtml = m => `<label class="check" style="align-self:flex-end;padding-b
 const prefixOf = () => state.settings?.prefix || '!';
 function schedText(m) {
     const k = m.kind || 'interval';
-    if (k === 'interval') return m.vary ? `Random ${m.every ?? 30}-${m.everyMax} min` : `Every ${m.every ?? 30} min`;
+    if (k === 'interval') return m.vary ? `Random ${m.every ?? 30}-${m.everyMax ?? (m.every ?? 30) * 2} min` : `Every ${m.every ?? 30} min`;
     if (k === 'hourly') return `Hourly at :${String(m.minute ?? 0).padStart(2, '0')}`;
     if (k === 'daily') return `Daily at ${m.time || '12:00'}`;
     if (k === 'datetime') return `${m.date || 'no date'} at ${m.time || '12:00'}`;
-    return `Every year ${m.md || '??-??'}, ${m.vary ? `random ${m.every ?? 30}-${m.everyMax}` : `every ${m.every ?? 30}`} min`;
+    return `Every year ${m.md || '??-??'}, ${m.vary ? `random ${m.every ?? 30}-${m.everyMax ?? (m.every ?? 30) * 2}` : `every ${m.every ?? 30}`} min`;
 }
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function messageHtml(m, i) {
