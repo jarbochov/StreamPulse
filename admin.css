@@ -60,3 +60,6 @@
 
 /* Keep embedded overlay previews transparent regardless of admin color scheme */
 iframe { color-scheme: normal; }
+
+/* Larger checkboxes and radios across the admin pages */
+input[type="checkbox"], input[type="radio"] { width: 1.15rem !important; height: 1.15rem !important; min-width: 0; accent-color: var(--accent, #7c5cff); cursor: pointer; vertical-align: middle; flex: none; }
