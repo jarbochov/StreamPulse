@@ -78,6 +78,7 @@ function renderPage() {
 
 function markdown() {
     const m = model(), cell = v => String(v ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
+    const codes = v => String(v).split(' / ').map(n => '`' + cell(n) + '`').join('<br>');
     const who2 = x => x.who;
     const nice = r => cell(r).replace(/\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi, '(name)');
     const rep = x => x.random ? '*Random, one of these:*<br>' + x.replies.map(nice).join('<br>') : x.replies.map(nice).join('<br>');
@@ -85,7 +86,7 @@ function markdown() {
     md += m.builtin.map(c => `| \`${cell(c.cmd)}\` | ${cell(c.desc)} | ${who2(c)} |`).join('\n');
     md += '\n\n## Custom commands\n\n';
     const cmds = m.commands.filter(c => c.enabled);
-    md += cmds.length ? '| Command | Reply | Who |\n|---|---|---|\n' + cmds.map(c => `| \`${cell(c.cmd)}\` | ${rep(c)} | ${who2(c)} |`).join('\n') : '_None._';
+    md += cmds.length ? '| Command | Reply | Who |\n|---|---|---|\n' + cmds.map(c => `| ${codes(c.cmd)} | ${rep(c)} | ${who2(c)} |`).join('\n') : '_None._';
     const trigs = m.triggers.filter(t => t.enabled);
     md += '\n\n## Word triggers\n\n';
     md += trigs.length ? '| Trigger | When chat says | Reply | Who |\n|---|---|---|---|\n' + trigs.map(t => `| ${cell(t.name)} | ${cell(t.words.join(', '))} | ${rep(t)} | ${who2(t)} |`).join('\n') : '_None._';
