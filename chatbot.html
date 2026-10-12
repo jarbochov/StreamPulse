@@ -59,6 +59,7 @@
                 <label class="f">Reply tag<input id="s-tag" maxlength="20" placeholder="[BOT]"></label>
                 <label class="f">Default cooldown (seconds)<input id="s-cooldown" type="number" min="0" max="3600"></label>
             </div>
+            <div id="builtins" style="margin-top:.75rem;display:grid;gap:.5rem;"></div>
             <label class="f" style="margin-top:.75rem;">Moderator usernames (fallback)<input id="s-mods" placeholder="name1, name2"></label>
             <p class="muted" style="margin-top:.5rem;">Replies are sent as your SocialStream account, starting with the tag. Messages that start with the tag are never treated as commands. Mods are detected from SocialStream chat data when it includes them; usernames listed here are always treated as mods.</p>
             <div class="row end" style="margin-top:.75rem;"><button class="btn primary" id="save-settings">Save settings</button></div>
@@ -106,6 +107,7 @@ function renderBanner() {
 function renderSettings() {
     const s = state.settings;
     $('s-prefix').value = s.prefix || '!'; $('s-tag').value = s.tag ?? ''; $('s-cooldown').value = s.cooldown ?? 5; $('s-mods').value = (s.mods || []).join(', ');
+    $('builtins').innerHTML = ['quote', 'quotes', 'addquote', 'delquote'].map(n => { const b = (s.builtins || {})[n] || {}; return `<div class="row" data-b="${n}"><code style="min-width:7rem">${s.prefix || '!'}${n}</code><label class="check">Who can use <select data-bk="access"><option value="everyone" ${b.access === 'everyone' ? 'selected' : ''}>Everyone</option><option value="subs" ${b.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${b.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label><label class="check">Cooldown (s)<input data-bk="cooldown" type="number" min="0" value="${b.cooldown ?? ''}" placeholder="default" style="width:6rem"></label></div>`; }).join('');
 }
 
 function commandHtml(c, i) {
@@ -117,7 +119,7 @@ function commandHtml(c, i) {
         </div>
         <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Reply <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="response" rows="2" maxlength="1000" placeholder="Now playing: {{track}} by {{artist}}">${esc(c.response)}</textarea></label>
         <div class="preview" data-preview></div>
-        <div class="row"><label class="check"><input type="checkbox" data-k="enabled" ${c.enabled !== false ? 'checked' : ''}> Enabled</label><label class="check"><input type="checkbox" data-k="modOnly" ${c.modOnly ? 'checked' : ''}> Mods only</label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
+        <div class="row"><label class="check"><input type="checkbox" data-k="enabled" ${c.enabled !== false ? 'checked' : ''}> Enabled</label><label class="check">Who can use <select data-k="access"><option value="everyone">Everyone</option><option value="subs" ${c.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${c.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
     </div>`;
 }
 function renderCommands() {
@@ -126,7 +128,7 @@ function renderCommands() {
 function readCommands() {
     return [...document.querySelectorAll('#commands .item')].map(item => {
         const get = k => item.querySelector(`[data-k="${k}"]`);
-        return { name: get('name').value, aliases: get('aliases').value, cooldown: get('cooldown').value, response: get('response').value, enabled: get('enabled').checked, modOnly: get('modOnly').checked };
+        return { name: get('name').value, aliases: get('aliases').value, cooldown: get('cooldown').value, response: get('response').value, enabled: get('enabled').checked, access: get('access').value };
     });
 }
 
@@ -141,9 +143,9 @@ function renderQuotes() {
 function applyState(data) { state = data; renderBanner(); renderSettings(); renderCommands(); renderQuotes(); }
 
 $('save-settings').onclick = async () => {
-    try { applyState(await api('/api/chatbot', 'PUT', { settings: { prefix: $('s-prefix').value, tag: $('s-tag').value, cooldown: $('s-cooldown').value, mods: $('s-mods').value } })); toast('Settings saved'); } catch (e) { toast(e.message); }
+    try { applyState(await api('/api/chatbot', 'PUT', { settings: { prefix: $('s-prefix').value, tag: $('s-tag').value, cooldown: $('s-cooldown').value, mods: $('s-mods').value, builtins: Object.fromEntries([...document.querySelectorAll('#builtins [data-b]')].map(r => [r.dataset.b, { access: r.querySelector('[data-bk=access]').value, cooldown: r.querySelector('[data-bk=cooldown]').value }])) } })); toast('Settings saved'); } catch (e) { toast(e.message); }
 };
-$('add-command').onclick = () => { state.commands = readCommands(); state.commands.push({ name: '', aliases: [], response: '', enabled: true, modOnly: false, cooldown: null }); renderCommands(); document.querySelector('#commands .item:last-child [data-k="name"]').focus(); };
+$('add-command').onclick = () => { state.commands = readCommands(); state.commands.push({ name: '', aliases: [], response: '', enabled: true, access: 'everyone', cooldown: null }); renderCommands(); document.querySelector('#commands .item:last-child [data-k="name"]').focus(); };
 $('save-commands').onclick = async () => {
     try {
         const list = readCommands();

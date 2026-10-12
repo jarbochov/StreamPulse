@@ -16,7 +16,9 @@ module.exports = function createChatbot({ dataDir, getConfig, port }) {
     let shared = null;
     let statusCache = { at: 0, value: null };
 
-    const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, max);
+    const ACCESS = ['everyone', 'subs', 'mods'];
+const BUILTIN_DEFAULTS = { quote: 'everyone', quotes: 'everyone', addquote: 'mods', delquote: 'mods' };
+const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, max);
 
     function normalizeSettings(input = {}) {
         const mods = Array.isArray(input.mods) ? input.mods : String(input.mods || '').split(/[\s,]+/);
@@ -24,7 +26,14 @@ module.exports = function createChatbot({ dataDir, getConfig, port }) {
             prefix: clean(input.prefix, 3) || DEFAULT_SETTINGS.prefix,
             tag: clean(input.tag, 20),
             cooldown: Math.max(0, Math.min(3600, Number(input.cooldown ?? DEFAULT_SETTINGS.cooldown) || 0)),
-            mods: [...new Set(mods.map(m => clean(m, 60).toLowerCase().replace(/^@/, '')).filter(Boolean))].slice(0, 200)
+            mods: [...new Set(mods.map(m => clean(m, 60).toLowerCase().replace(/^@/, '')).filter(Boolean))].slice(0, 200),
+            builtins: Object.fromEntries(Object.entries(BUILTIN_DEFAULTS).map(([name, access]) => {
+                const b = (input.builtins || {})[name] || {};
+                return [name, {
+                    access: ACCESS.includes(b.access) ? b.access : access,
+                    cooldown: b.cooldown === '' || b.cooldown === null || b.cooldown === undefined ? null : Math.max(0, Math.min(3600, Number(b.cooldown) || 0))
+                }];
+            }))
         };
     }
 
@@ -37,7 +46,7 @@ module.exports = function createChatbot({ dataDir, getConfig, port }) {
             name,
             aliases: [...new Set(aliases)].slice(0, 5),
             response: clean(input.response, 1000),
-            modOnly: input.modOnly === true,
+            access: ACCESS.includes(input.access) ? input.access : input.modOnly === true ? 'mods' : 'everyone',
             cooldown: input.cooldown === '' || input.cooldown === null || input.cooldown === undefined ? null : Math.max(0, Math.min(3600, Number(input.cooldown) || 0)),
             enabled: input.enabled !== false
         };
@@ -113,6 +122,13 @@ module.exports = function createChatbot({ dataDir, getConfig, port }) {
         return data.settings.mods.includes(String(msg.chatname || '').toLowerCase());
     }
 
+    function isSub(msg) {
+        if ([msg.subscriber, msg.isSub, msg.isSubscriber, msg.is_subscriber, msg.member, msg.isMember].some(v => v === true || v === 'true' || v === 1)) return true;
+        return /subscriber|"sub"|member|founder|vip/.test(JSON.stringify(msg.chatbadges ?? msg.badges ?? msg.membership ?? '').toLowerCase());
+    }
+
+    const allowed = (access, msg) => access === 'everyone' || isMod(msg) || (access === 'subs' && isSub(msg));
+
     const formatQuote = q => `"${q.text}" (#${q.id}${q.by ? `, added by ${q.by}` : ''}, ${new Date(q.at).getFullYear()})`;
 
     function quoteReply(arg, msg) {
@@ -163,17 +179,17 @@ module.exports = function createChatbot({ dataDir, getConfig, port }) {
         const [first, ...rest] = text.slice(prefix.length).trim().split(/\s+/);
         const name = String(first || '').toLowerCase();
         const arg = rest.join(' ').trim();
-        const mod = isMod(msg);
         const now = Date.now();
         const custom = data.commands.find(c => c.enabled && (c.name === name || c.aliases.includes(name)));
         const builtin = ['quote', 'quotes', 'addquote', 'delquote'].includes(name) ? name : null;
         if (!custom && !builtin) return;
         const key = custom ? custom.name : builtin === 'quotes' ? 'quote' : builtin;
-        const wait = ((custom && custom.cooldown !== null ? custom.cooldown : cooldown)) * 1000;
+        const cfg = custom || data.settings.builtins?.[key] || { access: BUILTIN_DEFAULTS[key], cooldown: null };
+        if (!allowed(cfg.access, msg)) return;
+        const wait = (cfg.cooldown !== null && cfg.cooldown !== undefined ? cfg.cooldown : cooldown) * 1000;
         if (now - (lastUsed.get(key) || 0) < wait || now - lastAny < 1000) return;
 
         if (builtin === 'addquote' || builtin === 'delquote') {
-            if (!mod) return;
             if (builtin === 'addquote') {
                 const quote = addQuote(arg, msg.chatname);
                 return reply(key, quote ? `Quote #${quote.id} added.` : 'Usage: addquote <text>');
@@ -182,7 +198,6 @@ module.exports = function createChatbot({ dataDir, getConfig, port }) {
         }
         if (builtin === 'quotes') return reply(key, `${data.quotes.length} quote${data.quotes.length === 1 ? '' : 's'} saved. Use ${prefix}quote or ${prefix}quote <number>.`);
         if (builtin === 'quote') return reply(key, quoteReply(arg, msg));
-        if (custom.modOnly && !mod) return;
         try { await reply(key, await expand(custom.response.replace(/\{\{\s*args?\s*\}\}/g, arg)) || '(no value yet)'); } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
     }
 
