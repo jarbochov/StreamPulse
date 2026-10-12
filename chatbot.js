@@ -34,6 +34,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             prefix: clean(input.prefix, 3) || DEFAULT_SETTINGS.prefix,
             tag: clean(input.tag, 20),
             cooldown: Math.max(0, Math.min(3600, Number(input.cooldown ?? DEFAULT_SETTINGS.cooldown) || 0)),
+            modCooldown: input.modCooldown === '' || input.modCooldown === null || input.modCooldown === undefined ? null : Math.max(0, Math.min(3600, Number(input.modCooldown) || 0)),
             mods: [...new Set(mods.map(m => clean(m, 60).toLowerCase().replace(/^@/, '')).filter(Boolean))].slice(0, 200),
             builtins: Object.fromEntries(Object.entries(BUILTIN_DEFAULTS).map(([name, access]) => {
                 const b = (input.builtins || {})[name] || {};
@@ -309,7 +310,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const cfg = custom || data.settings.builtins?.[key] || { access: BUILTIN_DEFAULTS[key], cooldown: null };
         if (!allowed(cfg.access, msg)) return;
         const base = cfg.cooldown !== null && cfg.cooldown !== undefined ? cfg.cooldown : cooldown;
-        const wait = (cfg.modCooldown != null && isMod(msg) ? cfg.modCooldown : base) * 1000;
+        const wait = (isMod(msg) ? (cfg.modCooldown ?? data.settings.modCooldown ?? base) : base) * 1000;
         if (now - (lastUsed.get(key) || 0) < wait || now - lastAny < 1000) return;
 
         if (custom && limited(key, custom, msg)) return;
@@ -333,7 +334,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const now = Date.now();
         for (const t of data.triggers) {
             if (!t.enabled || !allowed(t.access, msg)) continue;
-            if (now - (lastUsed.get(`t:${t.id}`) || 0) < (t.modCooldown != null && isMod(msg) ? t.modCooldown : t.cooldown) * 1000 || now - lastAny < 1000) continue;
+            if (now - (lastUsed.get(`t:${t.id}`) || 0) < (isMod(msg) ? (t.modCooldown ?? data.settings.modCooldown ?? t.cooldown) : t.cooldown) * 1000 || now - lastAny < 1000) continue;
             const hit = t.words.some(w => new RegExp(t.wholeWord ? `(^|[^\\p{L}\\p{N}_])${escapeRe(w)}($|[^\\p{L}\\p{N}_])` : escapeRe(w), 'iu').test(text));
             if (!hit) continue;
             if (limited(`t:${t.id}`, t, msg)) continue;

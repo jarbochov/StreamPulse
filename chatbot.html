@@ -82,6 +82,7 @@
                 <label class="f">Command prefix<input id="s-prefix" maxlength="3"></label>
                 <label class="f">Reply tag<input id="s-tag" maxlength="20" placeholder="[BOT]"></label>
                 <label class="f">Default cooldown (seconds)<input id="s-cooldown" type="number" min="0" max="3600"></label>
+                <label class="f">Default mod cooldown (seconds)<input id="s-modcooldown" type="number" min="0" max="3600" placeholder="same as above"></label>
             </div>
             <label class="f" style="margin-top:.75rem;">Moderator usernames (fallback)<input id="s-mods" placeholder="name1, name2"></label>
             <p class="muted" style="margin-top:.5rem;">Replies are sent as your SocialStream account, starting with the tag. Messages that start with the tag are never treated as commands. Mods are detected from SocialStream chat data when it includes them; usernames listed here are always treated as mods.</p>
@@ -162,7 +163,7 @@ function renderBanner() {
 
 function renderSettings() {
     const s = state.settings;
-    $('s-prefix').value = s.prefix || '!'; $('s-tag').value = s.tag ?? ''; $('s-cooldown').value = s.cooldown ?? 5; $('s-mods').value = (s.mods || []).join(', ');
+    $('s-prefix').value = s.prefix || '!'; $('s-tag').value = s.tag ?? ''; $('s-cooldown').value = s.cooldown ?? 5; $('s-modcooldown').value = s.modCooldown ?? ''; $('s-mods').value = (s.mods || []).join(', ');
     $('builtins').innerHTML = ['quote', 'quotes', 'addquote', 'delquote'].map(n => { const b = (s.builtins || {})[n] || {}; return `<div class="row" data-b="${n}"><code style="min-width:7rem">${s.prefix || '!'}${n}</code><label class="check">Who can use <select data-bk="access"><option value="everyone" ${b.access === 'everyone' ? 'selected' : ''}>Everyone</option><option value="subs" ${b.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${b.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label><label class="check">Cooldown (s)<input data-bk="cooldown" type="number" min="0" value="${b.cooldown ?? ''}" placeholder="default" style="width:6rem"></label></div>`; }).join('');
 }
 
@@ -395,7 +396,7 @@ setInterval(() => { if (!document.hidden) loadUsage().catch(() => {}); }, 5000);
 function applyState(data) { loadUsage().catch(() => {}); state = data; updateCounts(); renderBanner(); renderSettings(); renderCommands(); renderQuotes(); renderList('messages'); renderList('triggers'); }
 
 $('save-settings').onclick = async () => {
-    try { applyState(await api('/api/chatbot', 'PUT', { settings: { prefix: $('s-prefix').value, tag: $('s-tag').value, cooldown: $('s-cooldown').value, mods: $('s-mods').value, builtins: Object.fromEntries([...document.querySelectorAll('#builtins [data-b]')].map(r => [r.dataset.b, { access: r.querySelector('[data-bk=access]').value, cooldown: r.querySelector('[data-bk=cooldown]').value }])) } })); toast('Settings saved'); } catch (e) { toast(e.message); }
+    try { applyState(await api('/api/chatbot', 'PUT', { settings: { prefix: $('s-prefix').value, tag: $('s-tag').value, cooldown: $('s-cooldown').value, modCooldown: $('s-modcooldown').value, mods: $('s-mods').value, builtins: Object.fromEntries([...document.querySelectorAll('#builtins [data-b]')].map(r => [r.dataset.b, { access: r.querySelector('[data-bk=access]').value, cooldown: r.querySelector('[data-bk=cooldown]').value }])) } })); toast('Settings saved'); } catch (e) { toast(e.message); }
 };
 $('add-command').onclick = () => { state.commands = readCommands(); state.commands.push({ _open: true, name: '', aliases: [], response: '', enabled: true, access: 'everyone', cooldown: null }); renderCommands(); document.querySelector('#commands .item:last-child [data-k="name"]').focus(); };
 $('save-commands').onclick = async () => {
