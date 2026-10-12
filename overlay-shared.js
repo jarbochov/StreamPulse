@@ -16,7 +16,7 @@
         ['weather.h1.time', 'Next hours: h1–h6 time (3 PM)'], ['weather.h1.temp', 'Next hours: h1–h6 temperature'], ['weather.h1.icon', 'Next hours: h1–h6 icon (emoji)'], ['weather.h1.icon.url', 'Next hours: h1–h6 icon image URL'], ['weather.h1.condition', 'Next hours: h1–h6 conditions'], ['weather.h1.precip', 'Next hours: h1–h6 chance of precipitation %'],
         ['weather.d1.day', 'Next days: d1–d5 weekday (d1 = tomorrow)'], ['weather.d1.high', 'Next days: d1–d5 high'], ['weather.d1.low', 'Next days: d1–d5 low'], ['weather.d1.icon', 'Next days: d1–d5 icon (emoji)'], ['weather.d1.icon.url', 'Next days: d1–d5 icon image URL'], ['weather.d1.condition', 'Next days: d1–d5 conditions'], ['weather.d1.precip', 'Next days: d1–d5 chance of precipitation %']];
     const PLAN_ITEMS = [['plan.now', 'Game from your plan you are playing now'], ['plan.scheduled', 'Scheduled games (comma list)'], ['plan.backlog', 'Backlog games (comma list)'], ['plan.next', 'Next scheduled game'], ['plan.scheduled.count', 'Number of scheduled games'], ['plan.backlog.count', 'Number of backlog games']];
-    const EVENT_ITEMS = [['latest.follower', 'Latest follower'], ['latest.subscriber', 'Latest subscriber'], ['latest.gifter', 'Latest gift sub gifter'], ['latest.gifter.recipient', 'Latest gift sub recipient'], ['latest.subscriber.tier', 'Latest subscriber tier or type'], ['latest.cheer', 'Latest cheerer'], ['latest.cheer.amount', 'Latest cheer amount'], ['latest.donation', 'Latest donor'], ['latest.donation.amount', 'Latest donation amount'], ['latest.raider', 'Latest raider'], ['latest.raider.viewers', 'Latest raid size'], ['chatter.top', 'Top chatter this session'], ['chatter.top.count', 'Top chatter message count'], ['chatter.last', 'Most recent chatter'], ['chatter.top.5m', 'Top chatter, last 5 minutes (also 10m, 15m, 30m, 60m)'], ['chatter.top.10m', 'Top chatter, last 10 minutes'], ['chatter.top.15m', 'Top chatter, last 15 minutes'], ['chatter.top.30m', 'Top chatter, last 30 minutes'], ['chatter.top.60m', 'Top chatter, last hour'], ['chatter.top.5m.count', 'Messages from the last-5-minutes top chatter (also 10m…60m)']];
+    const EVENT_ITEMS = [['latest.follower', 'Latest follower'], ['latest.subscriber', 'Latest subscriber'], ['latest.gifter', 'Latest gift sub gifter'], ['latest.gifter.recipient', 'Latest gift sub recipient'], ['latest.subscriber.tier', 'Latest subscriber tier or type'], ['latest.cheer', 'Latest cheerer'], ['latest.cheer.amount', 'Latest cheer amount'], ['latest.donation', 'Latest donor'], ['latest.donation.amount', 'Latest donation amount'], ['latest.raider', 'Latest raider'], ['latest.raider.viewers', 'Latest raid size'], ['chatter.top', 'Top chatter this session'], ['chatter.top.count', 'Top chatter message count'], ['chatter.last', 'Most recent chatter'], ['chatter.random', 'Random chatter seen this session'], ['chatter.list', 'Chatters seen this session (first 20)'], ['chatter.top.5m', 'Top chatter, last 5 minutes (also 10m, 15m, 30m, 60m)'], ['chatter.top.10m', 'Top chatter, last 10 minutes'], ['chatter.top.15m', 'Top chatter, last 15 minutes'], ['chatter.top.30m', 'Top chatter, last 30 minutes'], ['chatter.top.60m', 'Top chatter, last hour'], ['chatter.top.5m.count', 'Messages from the last-5-minutes top chatter (also 10m…60m)']];
     // Values that change every second are refreshed in place instead of re-rendering the overlay.
     // Live counters change constantly, so they refresh their text in place instead of re-rendering (and flashing) the whole overlay.
     const TICKING = /^(now$|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)$|category\.|viewers?\.|chatters$|messages$)/;
@@ -156,6 +156,8 @@
         const top = status.topChatters?.[0];
         if (top) { out['chatter.top'] = top.chatname; out['chatter.top.count'] = top.messageCount; }
         out['chatter.last'] = status.recentChat?.last;
+        const seen = (status.topChatters || []).map(c => c.chatname).filter(Boolean);
+        if (seen.length) { out['chatter.random'] = seen[Math.floor(Math.random() * seen.length)]; out['chatter.list'] = seen.slice(0, 20).join(', '); }
         for (const minutes of [5, 10, 15, 30, 60]) {
             const w = status.recentChat?.windows?.[minutes];
             out[`chatter.top.${minutes}m`] = w?.name;
@@ -186,7 +188,7 @@
     function variableGroups(status = {}) {
         const groups = VARIABLE_GROUPS.map(g => ({ label: g.label, items: g.items.slice() }));
         groups.push({ label: 'Clock', items: CLOCK_ITEMS });
-        if (status.customVars?.length) groups.push({ label: 'Variables and counters', items: status.customVars.map(v => [`var.${v.name}`, `${v.name} (${v.type})`]) });
+        if (status.customVars?.length) groups.push({ label: 'Variables and counters', items: status.customVars.flatMap(v => [[`var.${v.name}`, `${v.name} (${v.type})`], ...(v.type === 'list' ? [[`var.${v.name}.random`, `${v.name}, random item each time`]] : [])]) });
         if (status.weather?.enabled) {
             groups.push({ label: 'Weather', items: WEATHER_ITEMS });
             for (const [slug, extra] of Object.entries(status.weather.extras || {})) {
@@ -218,6 +220,7 @@
             ...planListValues(status),
             ...weatherValues(status),
             ...Object.fromEntries((status.customVars || []).map(v => [`var.${v.name}`, v.value])),
+            ...Object.fromEntries((status.customVars || []).filter(v => v.type === 'list' && v.items?.length).map(v => [`var.${v.name}.random`, v.items[Math.floor(Math.random() * v.items.length)]])),
             'stream.category': status.stream?.category?.name,
             'stream.live': status.viewers?.live ? 'yes' : 'no',
             'session.started': status.startedAt,
