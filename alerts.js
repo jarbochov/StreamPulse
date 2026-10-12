@@ -340,7 +340,7 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             if (milestoneRule) { rule = milestoneRule; effective = milestoneEvent; }
         }
         if (!rule) rule = chooseRule(ev);
-        if (!rule) { if (!test) recordEvent(ev, null, 'no matching rule'); return null; }
+        if (!rule) { if (!test && ev.type !== 'chat_word') recordEvent(ev, null, 'no matching rule'); return null; }
 
         const cooldown = rule.conditions.cooldownSeconds * 1000;
         const now = Date.now();

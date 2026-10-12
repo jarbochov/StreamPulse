@@ -181,7 +181,7 @@
             </div>
         </div>
         <div class="card">
-            <h2>Events <span class="hint" style="text-transform:none">latest 100 · ↻ re-runs through current rules</span></h2>
+            <h2>Events <span class="hint" style="text-transform:none">latest 100 · ↻ re-runs through current rules</span> <label class="hint" style="text-transform:none;float:right;cursor:pointer"><input type="checkbox" id="hide-unmatched"> Hide unmatched</label></h2>
             <div class="history tall" id="events"></div>
         </div>
         <div class="card">
@@ -214,6 +214,7 @@
     };
     let cfg = { settings: { enabled: true, gapSeconds: 2 }, rules: [] };
     const openVariants = new Set();
+    let hideUnmatched = localStorage.getItem('alerts.hideUnmatched') === '1';
     let sel = null, dirty = false, assets = [], timers = [], goals = [], queue = {}, paused = false;
 
     const toast = (message, err) => { const t = $('toast'); t.textContent = message; t.className = err ? 'err' : ''; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 2600); };
@@ -371,9 +372,14 @@
                 ${a.http.enabled ? `${field('URL', inp('actions.http.url', a.http.url, 'text', 'placeholder="http://localhost:…"'), 'Sends rule, trigger, user, amount and message as JSON (POST) or query string (GET).')}${field('Method', sel_('actions.http.method', a.http.method, [['POST', 'POST'], ['GET', 'GET']]))}` : ''}
             </div>`;
     }
+    document.addEventListener('change', e => {
+        if (e.target.id !== 'hide-unmatched') return;
+        hideUnmatched = e.target.checked; localStorage.setItem('alerts.hideUnmatched', hideUnmatched ? '1' : '0'); renderEvents();
+    });
     function renderEvents() {
-        const list = queue.events || [];
+        const list = (queue.events || []).filter(e => !hideUnmatched || e.status !== 'no matching rule');
         if (!$('events')) return;
+        $('hide-unmatched').checked = hideUnmatched;
         $('events').innerHTML = list.length ? list.map(e => `<div><span class="grow"><span>${esc(TRIGGERS[e.event.type] || e.event.type)}: ${esc(e.event.user || e.event.name || '')}${e.event.amount ? ' · ' + esc(e.event.amount) : ''}</span><span class="st ${e.status === 'shown' ? 'shown' : ''}">${esc(e.status)} · ${new Date(e.at).toLocaleTimeString()}</span></span><button class="btn sm" data-replay-event="${esc(e.id)}" title="Run this event through your current rules again">↻ Replay</button></div>`).join('') : '<p class="hint">Real stream events show up here, including ones that matched no rule.</p>';
     }
     function renderQueue() {
