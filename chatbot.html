@@ -91,6 +91,13 @@
         </div>
 
         <div class="card">
+            <h2>Variables and counters <span id="var-count" class="muted"></span></h2>
+            <p class="muted" style="margin-bottom:.75rem;">Use <code>{{var.name}}</code> in chat replies and custom overlays. Set them here, via the API (<code>/api/variables</code>) or Companion. Counter endpoints: <code>POST /api/variables/NAME/increment</code>, <code>/decrement</code>, <code>/reset</code> (optional body <code>{"amount": 5}</code>).</p>
+            <div class="row" style="margin-bottom:.75rem;"><input id="var-name" placeholder="name (e.g. deaths)" style="padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"><select id="var-type" style="padding:.5rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"><option value="counter">Counter</option><option value="text">Text</option></select><button class="btn primary" id="var-add">Add</button></div>
+            <div id="vars"></div>
+        </div>
+
+        <div class="card">
             <h2>Timed messages <span id="msg-count" class="muted"></span></h2>
             <p class="muted" style="margin-bottom:.75rem;">Send a message every N minutes, every hour at a minute past, or daily at a set time. "Only if chat active" skips the message unless at least that many chat messages arrived since it last ran, so the bot never talks to an empty room. Timers only run while the bot is on.</p>
             <div id="messages"></div>
@@ -278,6 +285,26 @@ $('show-recent').onclick = async () => {
 };
 $('quote-search').addEventListener('input', renderQuotes);
 $('save-quote-settings').onclick = () => $('save-settings').click();
+
+async function loadVars() {
+    try {
+        const { variables } = await api('/api/variables');
+        $('var-count').textContent = `(${variables.length})`;
+        $('vars').innerHTML = variables.length ? variables.map(v => `<div class="quote" style="grid-template-columns:1fr auto" data-n="${esc(v.name)}"><div><b>${esc(v.name)}</b> <span class="meta">${v.type} · {{var.${esc(v.name)}}}</span></div><div class="row">${v.type === 'counter' ? `<button class="btn small" data-v="decrement">-</button><input data-v="value" type="number" value="${v.value}" style="width:6rem;padding:.25rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text)"><button class="btn small" data-v="increment">+</button><button class="btn small" data-v="reset">Reset</button>` : `<input data-v="value" value="${esc(v.value)}" style="width:14rem;padding:.25rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text)">`}<button class="btn small danger" data-v="delete">Delete</button></div></div>`).join('') : '<div class="empty">None yet.</div>';
+    } catch (e) { toast(e.message); }
+}
+$('var-add').onclick = async () => { try { await api(`/api/variables/${encodeURIComponent($('var-name').value)}`, 'PUT', { type: $('var-type').value }); $('var-name').value = ''; loadVars(); } catch (e) { toast(e.message); } };
+$('vars').addEventListener('click', async event => {
+    const act = event.target.dataset.v, row = event.target.closest('[data-n]');
+    if (!act || act === 'value' || !row) return;
+    const url = `/api/variables/${encodeURIComponent(row.dataset.n)}`;
+    try { if (act === 'delete') await api(url, 'DELETE'); else await api(`${url}/${act}`, 'POST', {}); loadVars(); } catch (e) { toast(e.message); }
+});
+$('vars').addEventListener('change', async event => {
+    const row = event.target.closest('[data-n]');
+    if (event.target.dataset.v === 'value' && row) try { await api(`/api/variables/${encodeURIComponent(row.dataset.n)}`, 'PUT', { value: event.target.value }); loadVars(); } catch (e) { toast(e.message); }
+});
+loadVars();
 
 function applyState(data) { state = data; renderBanner(); renderSettings(); renderCommands(); renderQuotes(); renderList('messages'); renderList('triggers'); }
 
