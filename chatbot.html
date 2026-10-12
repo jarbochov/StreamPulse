@@ -41,6 +41,12 @@
         .quote { display: grid; grid-template-columns: 3rem 1fr auto; gap: .6rem; align-items: center; padding: .55rem 0; border-bottom: 1px solid var(--bg-raised); font-size: .85rem; }
         .quote .num { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
         .quote .meta { font-size: .72rem; color: var(--text-muted); }
+        details.item > summary { display: flex; align-items: center; gap: .75rem; cursor: pointer; list-style: none; }
+        details.item > summary::-webkit-details-marker { display: none; }
+        details.item > summary::before { content: '\25B8'; color: var(--text-muted); }
+        details.item[open] > summary::before { content: '\25BE'; }
+        details.item > summary .sum { flex: 1; color: var(--text-muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        details.item[open] > summary { margin-bottom: .6rem; }
         .empty { text-align: center; color: var(--text-muted); padding: 1rem; font-size: .85rem; }
         .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--accent-strong); color: #fff; padding: .75rem 1.25rem; border-radius: 8px; opacity: 0; transition: opacity .3s; pointer-events: none; }
         .toast.show { opacity: 1; }
@@ -61,6 +67,8 @@
             </div>
             <label class="f" style="margin-top:.75rem;">Moderator usernames (fallback)<input id="s-mods" placeholder="name1, name2"></label>
             <p class="muted" style="margin-top:.5rem;">Replies are sent as your SocialStream account, starting with the tag. Messages that start with the tag are never treated as commands. Mods are detected from SocialStream chat data when it includes them; usernames listed here are always treated as mods.</p>
+            <div class="row" style="margin-top:.75rem;"><button class="btn" id="show-recent">Check chat detection</button><span class="muted">Shows what SocialStream sent for recent chatters and whether they count as mod or subscriber.</span></div>
+            <div id="recent" style="margin-top:.5rem;"></div>
             <div class="row end" style="margin-top:.75rem;"><button class="btn primary" id="save-settings">Save settings</button></div>
         </div>
 
@@ -128,7 +136,7 @@ function renderSettings() {
 }
 
 function commandHtml(c, i) {
-    return `<div class="item" data-i="${i}">
+    return `<details class="item" data-i="${i}" ${c._open ? 'open' : ''}><summary><b>${esc(c.name ? prefixOf() + c.name : 'New command')}</b><span class="sum">${esc(String(c.response || '').split('\\n')[0].slice(0, 70))}</span><label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-k="enabled" ${c.enabled !== false ? 'checked' : ''}> On</label></summary>
         <div class="top">
             <label class="f">Command<input data-k="name" value="${esc(c.name)}" placeholder="song"></label>
             <label class="f">Also responds to<input data-k="aliases" value="${esc((c.aliases || []).join(', '))}" placeholder="np, track"></label>
@@ -136,16 +144,17 @@ function commandHtml(c, i) {
         </div>
         <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Reply <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="response" rows="2" maxlength="1000" placeholder="Now playing: {{track}} by {{artist}}">${esc(c.response)}</textarea></label>
         <div class="preview" data-preview></div>
-        <div class="row"><label class="check"><input type="checkbox" data-k="enabled" ${c.enabled !== false ? 'checked' : ''}> Enabled</label><label class="check" title="Put one reply per line; each use sends a random one"><input type="checkbox" data-k="random" ${c.random ? 'checked' : ''}> Random line</label><label class="check">Who can use <select data-k="access"><option value="everyone">Everyone</option><option value="subs" ${c.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${c.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
-    </div>`;
+        <div class="row"><label class="check" title="Put one reply per line; each use sends a random one"><input type="checkbox" data-k="random" ${c.random ? 'checked' : ''}> Random line</label><label class="check">Who can use <select data-k="access"><option value="everyone">Everyone</option><option value="subs" ${c.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${c.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
+    </details>`;
 }
 function renderCommands() {
     $('commands').innerHTML = state.commands.length ? state.commands.map(commandHtml).join('') : '<div class="empty">No commands yet. Add one to get started.</div>';
 }
 function readCommands() {
     return [...document.querySelectorAll('#commands .item')].map(item => {
+        const open = item.open;
         const get = k => item.querySelector(`[data-k="${k}"]`);
-        return { name: get('name').value, aliases: get('aliases').value, cooldown: get('cooldown').value, response: get('response').value, enabled: get('enabled').checked, access: get('access').value, random: get('random').checked };
+        return { name: get('name').value, aliases: get('aliases').value, cooldown: get('cooldown').value, response: get('response').value, enabled: get('enabled').checked, access: get('access').value, random: get('random').checked, _open: open };
     });
 }
 
@@ -160,43 +169,54 @@ function renderQuotes() {
 }
 
 const accessOpts = v => [['everyone', 'Everyone'], ['subs', 'Subscribers + mods'], ['mods', 'Mods only']].map(([k, n]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${n}</option>`).join('');
+const prefixOf = () => state.settings?.prefix || '!';
+function schedText(m) {
+    const k = m.kind || 'interval';
+    if (k === 'interval') return `Every ${m.every ?? 30} min`;
+    if (k === 'hourly') return `Hourly at :${String(m.minute ?? 0).padStart(2, '0')}`;
+    if (k === 'daily') return `Daily at ${m.time || '12:00'}`;
+    if (k === 'datetime') return `${m.date || 'no date'} at ${m.time || '12:00'}`;
+    return `Every year ${m.md || '??-??'}, every ${m.every ?? 30} min`;
+}
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function messageHtml(m, i) {
     const k = m.kind || 'interval';
-    return `<div class="item" data-i="${i}">
-        <div class="top" style="grid-template-columns:minmax(120px,1fr) 160px 1fr;">
+    return `<details class="item" data-i="${i}" ${m._open ? 'open' : ''}><summary><b>${esc(m.name || 'New message')}</b><span class="sum">${esc(schedText(m))}</span><label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-k="enabled" ${m.enabled !== false ? 'checked' : ''}> On</label></summary>
+        <div class="top" style="grid-template-columns:minmax(120px,1fr) 200px 1fr;">
             <label class="f">Name<input data-k="name" value="${esc(m.name)}" placeholder="Follow reminder"></label>
-            <label class="f">Schedule<select data-k="kind"><option value="interval" ${k === 'interval' ? 'selected' : ''}>Every N minutes</option><option value="hourly" ${k === 'hourly' ? 'selected' : ''}>Every hour</option><option value="daily" ${k === 'daily' ? 'selected' : ''}>Daily at a time</option></select></label>
+            <label class="f">Schedule<select data-k="kind"><option value="interval" ${k === 'interval' ? 'selected' : ''}>Every N minutes</option><option value="hourly" ${k === 'hourly' ? 'selected' : ''}>Every hour</option><option value="daily" ${k === 'daily' ? 'selected' : ''}>Daily at a time</option><option value="datetime" ${k === 'datetime' ? 'selected' : ''}>Once, on a date and time</option><option value="dateinterval" ${k === 'dateinterval' ? 'selected' : ''}>Every year on a date, repeating</option></select></label>
             <div class="row" style="align-items:flex-end;">
                 ${k === 'interval' ? `<label class="f">Every (min)<input data-k="every" type="number" min="1" max="1440" value="${m.every ?? 30}" style="width:6rem"></label>` : ''}
                 ${k === 'hourly' ? `<label class="f">Minutes past<input data-k="minute" type="number" min="0" max="59" value="${m.minute ?? 0}" style="width:6rem"></label>` : ''}
+                ${k === 'datetime' ? `<label class="f">Date<input data-k="date" type="date" value="${m.date || ''}"></label><label class="f">Time<input data-k="time" type="time" value="${m.time || '12:00'}"></label>` : ''}
+                ${k === 'dateinterval' ? `<label class="f">Month-day (MM-DD)<input data-k="md" value="${esc(m.md || '')}" placeholder="07-04" maxlength="5" style="width:6rem"></label><label class="f">Every (min)<input data-k="every" type="number" min="1" max="1440" value="${m.every ?? 30}" style="width:6rem"></label><label class="f">From<input data-k="from" type="time" value="${m.from || '00:00'}"></label><label class="f">Until<input data-k="to" type="time" value="${m.to || '23:59'}"></label>` : ''}
                 ${k === 'daily' ? `<label class="f">Time<input data-k="time" type="time" value="${m.time || '12:00'}"></label>` : ''}
-                <label class="f">Only if chat active (msgs)<input data-k="minChat" type="number" min="0" value="${m.minChat ?? 5}" style="width:7rem"></label>
+                ${k !== 'datetime' && k !== 'dateinterval' ? `<label class="f">Only if chat active (msgs)<input data-k="minChat" type="number" min="0" value="${m.minChat ?? 5}" style="width:7rem"></label>` : ''}
             </div>
         </div>
-        ${k !== 'interval' ? `<div class="row"><span class="muted">Days (none selected = every day)</span>${DAYS.map((d, n) => `<label class="check"><input type="checkbox" data-day="${n}" ${(m.days || []).includes(n) ? 'checked' : ''}> ${d}</label>`).join('')}</div>` : ''}
+        ${['hourly', 'daily'].includes(k) ? `<div class="row"><span class="muted">Days (none selected = every day)</span>${DAYS.map((d, n) => `<label class="check"><input type="checkbox" data-day="${n}" ${(m.days || []).includes(n) ? 'checked' : ''}> ${d}</label>`).join('')}</div>` : ''}
         <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Message <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="text" rows="2" maxlength="1000" placeholder="Enjoying the stream? Hit follow!">${esc(m.text)}</textarea></label>
-        <div class="row"><label class="check"><input type="checkbox" data-k="enabled" ${m.enabled !== false ? 'checked' : ''}> Enabled</label><label class="check" title="One message per line; a random one is sent each time"><input type="checkbox" data-k="random" ${m.random ? 'checked' : ''}> Random line</label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
-    </div>`;
+        <div class="row"><label class="check" title="One message per line; a random one is sent each time"><input type="checkbox" data-k="random" ${m.random ? 'checked' : ''}> Random line</label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
+    </details>`;
 }
 function triggerHtml(t, i) {
-    return `<div class="item" data-i="${i}">
+    return `<details class="item" data-i="${i}" ${t._open ? 'open' : ''}><summary><b>${esc(t.name || 'New trigger')}</b><span class="sum">${esc((t.words || []).join(', ').slice(0, 70))}</span><label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-k="enabled" ${t.enabled !== false ? 'checked' : ''}> On</label></summary>
         <div class="top" style="grid-template-columns:minmax(120px,1fr) 2fr 110px;">
             <label class="f">Name<input data-k="name" value="${esc(t.name)}" placeholder="Greeting"></label>
             <label class="f">Words or phrases (comma separated)<input data-k="words" value="${esc((t.words || []).join(', '))}" placeholder="hello, hi there"></label>
             <label class="f">Cooldown (s)<input data-k="cooldown" type="number" min="0" value="${t.cooldown ?? 60}"></label>
         </div>
         <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Reply <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="text" rows="2" maxlength="1000" placeholder="Welcome in, {{user}}!">${esc(t.text)}</textarea></label>
-        <div class="row"><label class="check"><input type="checkbox" data-k="enabled" ${t.enabled !== false ? 'checked' : ''}> Enabled</label><label class="check"><input type="checkbox" data-k="wholeWord" ${t.wholeWord !== false ? 'checked' : ''}> Whole words only</label><label class="check"><input type="checkbox" data-k="random" ${t.random ? 'checked' : ''}> Random line</label><label class="check">Who can trigger <select data-k="access">${accessOpts(t.access || 'everyone')}</select></label><span style="flex:1"></span><button class="btn small danger" data-act="remove">Remove</button></div>
-    </div>`;
+        <div class="row"><label class="check"><input type="checkbox" data-k="wholeWord" ${t.wholeWord !== false ? 'checked' : ''}> Whole words only</label><label class="check"><input type="checkbox" data-k="random" ${t.random ? 'checked' : ''}> Random line</label><label class="check">Who can trigger <select data-k="access">${accessOpts(t.access || 'everyone')}</select></label><span style="flex:1"></span><button class="btn small danger" data-act="remove">Remove</button></div>
+    </details>`;
 }
 const listCfg = {
-    messages: { el: 'messages', html: messageHtml, blank: () => ({ kind: 'interval', every: 30, minChat: 5, minute: 0, time: '12:00', days: [], enabled: true, text: '' }) },
-    triggers: { el: 'triggers', html: triggerHtml, blank: () => ({ words: [], cooldown: 60, enabled: true, wholeWord: true, access: 'everyone', text: '' }) }
+    messages: { el: 'messages', html: messageHtml, blank: () => ({ _open: true, kind: 'interval', every: 30, minChat: 5, minute: 0, time: '12:00', days: [], enabled: true, text: '' }) },
+    triggers: { el: 'triggers', html: triggerHtml, blank: () => ({ _open: true, words: [], cooldown: 60, enabled: true, wholeWord: true, access: 'everyone', text: '' }) }
 };
 function readList(name) {
     return [...document.querySelectorAll(`#${listCfg[name].el} .item`)].map(item => {
-        const o = {};
+        const o = { _open: item.open };
         item.querySelectorAll('[data-k]').forEach(f => { o[f.dataset.k] = f.type === 'checkbox' ? f.checked : f.value; });
         if (name === 'messages') o.days = [...item.querySelectorAll('[data-day]:checked')].map(c => Number(c.dataset.day));
         return o;
@@ -250,6 +270,12 @@ $('import-file').onchange = async event => {
         applyState(result); toast(`Imported ${result.added}, skipped ${result.skipped} duplicates or invalid`);
     } catch (e) { toast(e.message); }
 };
+$('show-recent').onclick = async () => {
+    try {
+        const { recent } = await api('/api/chatbot/recent');
+        $('recent').innerHTML = recent.length ? recent.map(r => `<details class="item" style="margin-top:.4rem"><summary><b>${esc(r.user)}</b><span class="sum">mod: ${r.mod ? 'yes' : 'no'} · subscriber: ${r.sub ? 'yes' : 'no'}</span></summary><pre style="white-space:pre-wrap;font-size:.72rem;color:var(--text-muted)">${esc(Object.entries(r.fields).map(([k, v]) => `${k}: ${v}`).join('\n'))}</pre></details>`).join('') : '<div class="empty">No chat seen since the server started. Send a message in chat, then try again.</div>';
+    } catch (e) { toast(e.message); }
+};
 $('quote-search').addEventListener('input', renderQuotes);
 $('save-quote-settings').onclick = () => $('save-settings').click();
 
@@ -258,7 +284,7 @@ function applyState(data) { state = data; renderBanner(); renderSettings(); rend
 $('save-settings').onclick = async () => {
     try { applyState(await api('/api/chatbot', 'PUT', { settings: { prefix: $('s-prefix').value, tag: $('s-tag').value, cooldown: $('s-cooldown').value, mods: $('s-mods').value, builtins: Object.fromEntries([...document.querySelectorAll('#builtins [data-b]')].map(r => [r.dataset.b, { access: r.querySelector('[data-bk=access]').value, cooldown: r.querySelector('[data-bk=cooldown]').value }])) } })); toast('Settings saved'); } catch (e) { toast(e.message); }
 };
-$('add-command').onclick = () => { state.commands = readCommands(); state.commands.push({ name: '', aliases: [], response: '', enabled: true, access: 'everyone', cooldown: null }); renderCommands(); document.querySelector('#commands .item:last-child [data-k="name"]').focus(); };
+$('add-command').onclick = () => { state.commands = readCommands(); state.commands.push({ _open: true, name: '', aliases: [], response: '', enabled: true, access: 'everyone', cooldown: null }); renderCommands(); document.querySelector('#commands .item:last-child [data-k="name"]').focus(); };
 $('save-commands').onclick = async () => {
     try {
         const list = readCommands();

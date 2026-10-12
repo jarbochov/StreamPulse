@@ -9,7 +9,7 @@ const MAX_COMMANDS = 200;
 const MAX_QUOTES = 5000;
 const MAX_MESSAGES = 100;
 const MAX_TRIGGERS = 100;
-const KINDS = ['interval', 'hourly', 'daily'];
+const KINDS = ['interval', 'hourly', 'daily', 'datetime', 'dateinterval'];
 const NAME_RE = /^[a-z0-9_]{1,30}$/;
 
 module.exports = function createChatbot({ dataDir, getConfig, port }) {
@@ -76,6 +76,10 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             minChat: num(input.minChat, 0, 1000, 5),
             minute: num(input.minute, 0, 59, 0),
             time,
+            date: /^\d{4}-\d{2}-\d{2}$/.test(String(input.date || '')) ? input.date : '',
+            md: /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(String(input.md || '')) ? input.md : '',
+            from: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(input.from || '')) ? input.from : '00:00',
+            to: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(input.to || '')) ? input.to : '23:59',
             days: [...new Set((Array.isArray(input.days) ? input.days : []).map(Number).filter(d => d >= 0 && d <= 6))].sort(),
             random: input.random === true,
             text
@@ -171,14 +175,14 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
     }
 
     function isMod(msg) {
-        if ([msg.mod, msg.moderator, msg.isMod, msg.isModerator, msg.is_mod, msg.broadcaster, msg.isBroadcaster].some(v => v === true || v === 'true' || v === 1)) return true;
+        if ([msg.mod, msg.moderator, msg.isMod, msg.isModerator, msg.is_mod, msg.broadcaster, msg.isBroadcaster, msg.admin, msg.host, msg.owner].some(v => v === true || v === 'true' || v === 1)) return true;
         const badges = JSON.stringify(msg.chatbadges ?? msg.badges ?? msg.membership ?? '').toLowerCase();
         if (/moderator|broadcaster|"mod"/.test(badges)) return true;
         return data.settings.mods.includes(String(msg.chatname || '').toLowerCase());
     }
 
     function isSub(msg) {
-        if ([msg.subscriber, msg.isSub, msg.isSubscriber, msg.is_subscriber, msg.member, msg.isMember].some(v => v === true || v === 'true' || v === 1)) return true;
+        if ([msg.subscriber, msg.isSub, msg.isSubscriber, msg.is_subscriber, msg.member, msg.isMember, msg.hasMembership, msg.vip].some(v => v === true || v === 'true' || v === 1)) return true;
         return /subscriber|"sub"|member|founder|vip/.test(JSON.stringify(msg.chatbadges ?? msg.badges ?? msg.membership ?? '').toLowerCase());
     }
 
@@ -225,7 +229,19 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
     }
 
     // Called for every incoming chat message.
+    const recent = [];
+    function capture(msg) {
+        const fields = {};
+        for (const [k, v] of Object.entries(msg || {})) {
+            if (/message|html|img|content|image|source|avatar/i.test(k) && !/badge/i.test(k)) continue;
+            fields[k] = typeof v === 'object' ? JSON.stringify(v).slice(0, 160) : String(v).slice(0, 80);
+        }
+        recent.unshift({ at: Date.now(), user: msg.chatname || '', mod: isMod(msg), sub: isSub(msg), fields });
+        recent.length = Math.min(recent.length, 15);
+    }
+
     async function handle(msg) {
+        if (!msg || msg.event || msg.hasDonation) { /* events carry no chatter flags worth logging */ } else if (!/^\[BOT\]/.test(String(msg.chatmessage || ''))) capture(msg);
         if (!enabled()) return;
         const { prefix, tag, cooldown } = data.settings;
         const text = String(msg.chatmessage || '').replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, ' ').trim();
@@ -273,13 +289,21 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
     }
 
+    const pad2 = n => String(n).padStart(2, '0');
     function messageDue(m, d) {
-        const slot = k => timerState.get(m.id)?.slot !== k && k;
-        if (m.days.length && m.kind !== 'interval' && !m.days.includes(d.getDay())) return null;
-        const day = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-        if (m.kind === 'hourly') return d.getMinutes() === m.minute ? slot(`${day}-${d.getHours()}`) || null : null;
-        if (m.kind === 'daily') return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` === m.time ? slot(`${day}-d`) || null : null;
-        const st = timerState.get(m.id) || { at: startedAt, count: chatCount };
+        const day = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+        const hm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+        const fresh = k => (timerState.get(m.id)?.slot === k ? null : k);
+        if (m.kind === 'datetime') return m.date === day && hm === m.time ? fresh(`${day}-${hm}`) : null;
+        if (m.kind === 'dateinterval') {
+            if (m.md !== day.slice(5) || hm < m.from || hm > m.to) return null;
+            const st = timerState.get(m.id);
+            return !st || Date.now() - st.at >= m.every * 60000 ? 'di' : null;
+        }
+        if (m.days.length && !m.days.includes(d.getDay())) return null;
+        if (m.kind === 'hourly') return d.getMinutes() === m.minute ? fresh(`${day}-${d.getHours()}`) : null;
+        if (m.kind === 'daily') return hm === m.time ? fresh(`${day}-d`) : null;
+        const st = timerState.get(m.id) || { at: startedAt };
         return Date.now() - st.at >= m.every * 60000 ? 'interval' : null;
     }
 
@@ -291,7 +315,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             const due = messageDue(m, d);
             if (!due) continue;
             const prev = timerState.get(m.id) || { at: startedAt, count: chatCount };
-            if (m.minChat && chatCount - prev.count < m.minChat) {
+            if (m.minChat && !['datetime', 'dateinterval'].includes(m.kind) && chatCount - prev.count < m.minChat) {
                 if (m.kind !== 'interval') timerState.set(m.id, { ...prev, slot: due });
                 continue;
             }
@@ -361,6 +385,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 save();
                 return json(200, snapshot()), true;
             }
+            if (pathname === '/api/chatbot/recent' && req.method === 'GET') return json(200, { recent }), true;
             if (pathname === '/api/chatbot/preview' && req.method === 'POST') return json(200, { text: await expand(clean(body.text, 1000)) }), true;
             if (pathname === '/api/chatbot/send' && req.method === 'POST') {
                 await send(clean(body.text, 400));
