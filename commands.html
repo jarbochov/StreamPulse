@@ -34,7 +34,7 @@
     <div class="card" style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
         <button class="b" id="copy">Copy Markdown</button><button class="b" id="md">Download Markdown</button>
         <label class="muted"><input type="checkbox" id="inc-quotes" style="width:auto"> Include all quotes</label>
-        <span class="muted" style="flex:1;text-align:right">Generated live from your settings. Read only.</span>
+        <span class="muted" style="flex:1;text-align:right">Generated live. Read only.</span>
     </div>
     <div id="out"></div>
 </div>
@@ -47,30 +47,29 @@ const lines = t => String(t || '').split(/\\n|\n/).map(l => l.trim()).filter(Boo
 
 // One model feeds both the page and the Markdown so they never drift apart.
 function model() {
-    const s = state.settings, p = s.prefix || '!', def = s.cooldown ?? 5, b = s.builtins || {};
-    const cd = v => `${v ?? def}s`;
-    const builtin = [
-        ['quote [number|word] [details]', 'A random quote, a numbered quote, or one matching a word. Add "details" for game, author and date.', 'quote'],
+    const s = state.settings, p = s.prefix || '!', b = s.builtins || {};
+        const builtin = [
+        ['quote [number or word]', 'A random quote, a numbered quote, or one matching a word.', 'quote'],
         ['quotes', 'How many quotes are saved.', 'quotes'],
         ['addquote text', 'Add a quote.', 'addquote'],
         ['delquote number', 'Remove a quote.', 'delquote']
-    ].map(([cmd, desc, k]) => ({ cmd: p + cmd, desc, who: who(b[k]?.access), cd: cd(b[k]?.cooldown) }));
+    ].map(([cmd, desc, k]) => ({ cmd: p + cmd, desc, who: who(b[k]?.access) }));
     const commands = state.commands.map(c => ({
-        cmd: [c.name, ...(c.aliases || [])].map(n => p + n).join(' / '), enabled: c.enabled !== false, who: who(c.access), cd: cd(c.cooldown),
-        random: !!c.random, replies: c.random ? lines(c.response) : [String(c.response || '')],
-        effect: c.counter ? `${({ increment: 'Adds 1 to', decrement: 'Subtracts 1 from', reset: 'Resets', roll: 'Picks next in' })[c.counterAction] || 'Changes'} ${c.counter}` : ''
+        cmd: [c.name, ...(c.aliases || [])].map(n => p + n).join(' / '), enabled: c.enabled !== false, who: who(c.access),
+        random: !!c.random, replies: c.random ? lines(c.response) : [String(c.response || '')]
     }));
-    const triggers = state.triggers.map(t => ({ name: t.name || t.words[0], words: t.words, enabled: t.enabled !== false, who: who(t.access), cd: `${t.cooldown}s`, random: !!t.random, replies: t.random ? lines(t.text) : [t.text] }));
-    return { p, builtin, commands, triggers };
+    const triggers = state.triggers.map(t => ({ name: t.name || t.words[0], words: t.words, enabled: t.enabled !== false, who: who(t.access), random: !!t.random, replies: t.random ? lines(t.text) : [t.text] }));
+    const pub = x => x.who !== 'Mods only';
+    return { p, builtin: builtin.filter(pub), commands: commands.filter(pub), triggers: triggers.filter(pub) };
 }
 
 function renderPage() {
     const m = model();
     const reply = x => x.random ? `<div class="muted">Random, one of:</div><ul>${x.replies.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : `<div>${esc(x.replies[0])}</div>`;
     const off = x => x.enabled ? '' : ' <span class="muted">(disabled)</span>';
-    let html = `<div class="card"><h2>Built-in commands</h2>${m.builtin.map(c => `<div class="row"><code>${esc(c.cmd)}</code><div class="muted">${esc(c.desc)}</div><div class="meta">${c.who} · cooldown ${c.cd}</div></div>`).join('')}</div>`;
-    html += `<div class="card"><h2>Custom commands (${m.commands.length})</h2>${m.commands.map(c => `<div class="row"><code>${esc(c.cmd)}</code>${off(c)}${reply(c)}<div class="meta">${c.who} · cooldown ${c.cd}${c.effect ? ' · ' + esc(c.effect) : ''}</div></div>`).join('') || '<div class="muted">None.</div>'}</div>`;
-    html += `<div class="card"><h2>Word triggers (${m.triggers.length})</h2>${m.triggers.map(t => `<div class="row"><b>${esc(t.name)}</b>${off(t)}<div class="muted">When chat says: ${t.words.map(esc).join(', ')}</div>${reply(t)}<div class="meta">${t.who} · cooldown ${t.cd}</div></div>`).join('') || '<div class="muted">None.</div>'}</div>`;
+    let html = `<div class="card"><h2>Built-in commands</h2>${m.builtin.map(c => `<div class="row"><code>${esc(c.cmd)}</code><div class="muted">${esc(c.desc)}</div>${c.who !== 'Everyone' ? `<div class="meta">${c.who}</div>` : ''}</div>`).join('')}</div>`;
+    html += `<div class="card"><h2>Custom commands (${m.commands.length})</h2>${m.commands.map(c => `<div class="row"><code>${esc(c.cmd)}</code>${off(c)}${reply(c)}${c.who !== 'Everyone' ? `<div class="meta">${c.who}</div>` : ''}</div>`).join('') || '<div class="muted">None.</div>'}</div>`;
+    html += `<div class="card"><h2>Word triggers (${m.triggers.length})</h2>${m.triggers.map(t => `<div class="row"><b>${esc(t.name)}</b>${off(t)}<div class="muted">When chat says: ${t.words.map(esc).join(', ')}</div>${reply(t)}${t.who !== 'Everyone' ? `<div class="meta">${t.who}</div>` : ''}</div>`).join('') || '<div class="muted">None.</div>'}</div>`;
     if ($('inc-quotes').checked) html += `<div class="card"><h2>Quotes (${state.quotes.length})</h2>${state.quotes.map(q => `<div class="row"><b>#${q.id}</b> ${esc(q.text)}<div class="meta">${[q.game, q.by && 'Added by ' + q.by].filter(Boolean).map(esc).join(' · ')}</div></div>`).join('')}</div>`;
     $('out').innerHTML = html;
 }
@@ -78,12 +77,12 @@ function renderPage() {
 function markdown() {
     const m = model(), esc2 = v => String(v).replace(/\|/g, '\\|');
     const rep = x => x.random ? x.replies.map(r => `  - ${r}`).join('\n') : `  - ${x.replies[0]}`;
-    let md = '# Chat commands\n\n## Built-in\n\n| Command | What it does | Who | Cooldown |\n|---|---|---|---|\n';
-    md += m.builtin.map(c => `| \`${c.cmd}\` | ${esc2(c.desc)} | ${c.who} | ${c.cd} |`).join('\n');
+    let md = '# Chat commands\n\n## Built-in\n\n| Command | What it does | Who |\n|---|---|---|\n';
+    md += m.builtin.map(c => `| \`${c.cmd}\` | ${esc2(c.desc)} | ${c.who} |`).join('\n');
     md += '\n\n## Custom commands\n\n';
-    md += m.commands.filter(c => c.enabled).map(c => `- **\`${c.cmd}\`** (${c.who}, cooldown ${c.cd})${c.effect ? ` - ${c.effect}` : ''}\n${c.random ? '  Random reply, one of:\n' : '  Reply:\n'}${rep(c)}`).join('\n') || '_None._';
+    md += m.commands.filter(c => c.enabled).map(c => `- **\`${c.cmd}\`** (${c.who})\n${c.random ? '  Random reply, one of:\n' : '  Reply:\n'}${rep(c)}`).join('\n') || '_None._';
     md += '\n\n## Word triggers\n\n';
-    md += m.triggers.filter(t => t.enabled).map(t => `- **${t.name}** - when chat says: ${t.words.join(', ')} (${t.who}, cooldown ${t.cd})\n${t.random ? '  Random reply, one of:\n' : '  Reply:\n'}${rep(t)}`).join('\n') || '_None._';
+    md += m.triggers.filter(t => t.enabled).map(t => `- **${t.name}** - when chat says: ${t.words.join(', ')} (${t.who})\n${t.random ? '  Random reply, one of:\n' : '  Reply:\n'}${rep(t)}`).join('\n') || '_None._';
     if ($('inc-quotes').checked) md += `\n\n## Quotes\n\n${state.quotes.map(q => `${q.id}. "${q.text}"${[q.game, q.by && 'added by ' + q.by].filter(Boolean).length ? ` (${[q.game, q.by && 'added by ' + q.by].filter(Boolean).join(', ')})` : ''}`).join('\n')}`;
     return md + '\n';
 }

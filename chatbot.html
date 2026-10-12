@@ -65,7 +65,13 @@
     <div class="header"><h1>StreamPulse <span>Chat Bot</span> <span class="beta">BETA</span></h1><div id="main-nav" class="nav"></div><script src="/nav.js"></script></div>
     <div class="container">
         <div id="banner"></div>
-        <nav class="tabs" id="tabs"><button type="button" data-t="commands">Commands <span class="count" data-c="commands"></span></button><button type="button" data-t="quotes">Quotes <span class="count" data-c="quotes"></span></button><button type="button" data-t="messages">Timed messages <span class="count" data-c="messages"></span></button><button type="button" data-t="triggers">Word triggers <span class="count" data-c="triggers"></span></button><button type="button" data-t="variables">Variables <span class="count" data-c="variables"></span></button><button type="button" data-t="settings">Settings <span class="count" data-c="settings"></span></button></nav>
+        <nav class="tabs" id="tabs"><button type="button" data-t="commands">Commands <span class="count" data-c="commands"></span></button><button type="button" data-t="quotes">Quotes <span class="count" data-c="quotes"></span></button><button type="button" data-t="messages">Timed messages <span class="count" data-c="messages"></span></button><button type="button" data-t="triggers">Word triggers <span class="count" data-c="triggers"></span></button><button type="button" data-t="variables">Variables <span class="count" data-c="variables"></span></button><button type="button" data-t="reference">Reference</button><button type="button" data-t="settings">Settings <span class="count" data-c="settings"></span></button></nav>
+
+        <div class="card" data-tab="reference">
+            <h2>Viewer reference</h2>
+            <p class="muted" style="margin-bottom:.75rem;">A read-only list of chat commands for viewers, generated live. No cooldowns or schedules. Copy it as Markdown for a web page. <a href="/commands.html" target="_blank">Open on its own</a>.</p>
+            <iframe id="ref-frame" style="width:100%;height:70vh;border:1px solid var(--border);border-radius:6px;background:var(--bg-page)"></iframe>
+        </div>
 
         <div class="card" data-tab="settings">
             <h2>Settings</h2>
@@ -92,7 +98,6 @@
         <div class="card" data-tab="quotes">
             <h2>Quotes <span id="quote-count" class="muted"></span></h2>
             <p class="muted" style="margin-bottom:.75rem;">Chat: <code>!quote</code> random, <code>!quote 12</code> by number, <code>!quote word</code> search, add <code>details</code> (e.g. <code>!quote 12 details</code>) to also show game, author and date, <code>!quotes</code> count. Mods: <code>!addquote text</code> and <code>!delquote 12</code>.</p>
-            <p class="muted" style="margin-bottom:.75rem;"><a href="/commands.html" target="_blank">Open the read-only command reference</a> (all commands, random lines and quotes, with Markdown export).</p>
             <details class="item" style="margin-bottom:1rem;"><summary><b>Quote commands</b><span class="sum">Who can use them and cooldowns</span></summary><div id="builtins" style="display:grid;gap:.5rem;"></div><div class="row end"><button class="btn" id="save-quote-settings">Save quote settings</button></div></details>
             <div class="row" style="margin-bottom:.5rem;"><input id="new-quote" class="grow" style="flex:1;min-width:200px;padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);" maxlength="300" placeholder="Add a quote"><button class="btn primary" id="add-quote">Add</button></div>
             <div class="row" style="margin:.75rem 0 .25rem;"><input id="quote-search" style="flex:1;min-width:180px;padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);" placeholder="Search quotes"><button class="btn" id="export-json">Export JSON</button><button class="btn" id="export-txt">Export text</button><button class="btn" id="import-quotes">Import</button><input type="file" id="import-file" accept=".json,.txt,.csv,text/plain,application/json" hidden></div>
@@ -330,6 +335,7 @@ loadVars().then(updateCounts);
 function showTab(name) {
     if (!document.querySelector(`#tabs [data-t="${name}"]`)) name = 'commands';
     document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.t === name)));
+    if (name === 'reference') $('ref-frame').src = '/commands.html';
     document.querySelectorAll('.card[data-tab]').forEach(c => { c.hidden = c.dataset.tab !== name; });
     history.replaceState(null, '', `#${name}`);
 }
