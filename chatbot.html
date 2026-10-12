@@ -79,7 +79,12 @@
         </div>
     </div>
     <div class="toast" id="toast"></div>
+<script src="/overlay-shared.js"></script>
+<script src="/placeholder-picker.js"></script>
 <script>
+let liveStatus = {};
+const refreshStatus = () => fetch('/api/status', { cache: 'no-store' }).then(r => r.json()).then(async s => { liveStatus = s; try { await OverlayShared.loadLiveExtras(s); } catch {} }).catch(() => {});
+refreshStatus(); setInterval(refreshStatus, 5000);
 let state = { settings: {}, commands: [], quotes: [] };
 const $ = id => document.getElementById(id);
 const esc = v => { const d = document.createElement('div'); d.textContent = v ?? ''; return d.innerHTML; };
@@ -110,7 +115,7 @@ function commandHtml(c, i) {
             <label class="f">Also responds to<input data-k="aliases" value="${esc((c.aliases || []).join(', '))}" placeholder="np, track"></label>
             <label class="f">Cooldown (s)<input data-k="cooldown" type="number" min="0" value="${c.cooldown ?? ''}" placeholder="default"></label>
         </div>
-        <label class="f">Reply<textarea data-k="response" rows="2" maxlength="1000" placeholder="Now playing: {{track}} by {{artist}}">${esc(c.response)}</textarea></label>
+        <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Reply <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="response" rows="2" maxlength="1000" placeholder="Now playing: {{track}} by {{artist}}">${esc(c.response)}</textarea></label>
         <div class="preview" data-preview></div>
         <div class="row"><label class="check"><input type="checkbox" data-k="enabled" ${c.enabled !== false ? 'checked' : ''}> Enabled</label><label class="check"><input type="checkbox" data-k="modOnly" ${c.modOnly ? 'checked' : ''}> Mods only</label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
     </div>`;
@@ -149,6 +154,11 @@ $('save-commands').onclick = async () => {
 $('commands').addEventListener('click', async event => {
     const act = event.target.dataset.act, item = event.target.closest('.item');
     if (!act || !item) return;
+    if (act === 'placeholder') {
+        const field = item.querySelector('[data-k="response"]');
+        PlaceholderPicker.open({ getStatus: () => liveStatus, onWarn: toast, onPick: token => PlaceholderPicker.insertInto(field, token) });
+        return;
+    }
     if (act === 'remove') { state.commands = readCommands(); state.commands.splice(Number(item.dataset.i), 1); renderCommands(); }
     if (act === 'test') {
         try { const text = item.querySelector('[data-k="response"]').value; const { text: out } = await api('/api/chatbot/preview', 'POST', { text: text.replace(/\{\{\s*args?\s*\}\}/g, 'example') }); await api('/api/chatbot/send', 'POST', { text: out || text }); toast('Test sent to chat'); } catch (e) { toast(e.message); }
