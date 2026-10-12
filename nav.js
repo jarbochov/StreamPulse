@@ -61,6 +61,7 @@
             { label: 'Assets', href: '/assets.html' },
             { label: 'Timers', href: '/timers-editor.html' },
             { label: 'Alerts (Beta)', href: '/alerts.html' },
+            { label: 'Chat Bot (Beta)', href: '/chatbot.html' },
             { label: 'Music Settings (Beta)', href: '/music-editor.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html' },
             { heading: 'System' },

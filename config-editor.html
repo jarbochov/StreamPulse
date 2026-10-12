@@ -69,6 +69,7 @@
             .credits-order-badges { margin-left: 0; }
         }
 
+    .beta-tag { font-size: .65rem; padding: .05rem .4rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); letter-spacing: .05em; }
     </style>
 </head>
 <body>
@@ -495,6 +496,10 @@
             <div class="cfg-toggle">
                 <input type="checkbox" id="cfg-hashtags-enabled" ${cfg.hashtags_enabled !== false ? 'checked' : ''}>
                 <label for="cfg-hashtags-enabled">Enable hashtag tracking</label>
+            </div>
+            <div class="cfg-toggle">
+                <input type="checkbox" id="cfg-chatbot-enabled" ${cfg.chatbot_enabled === true ? 'checked' : ''}>
+                <label for="cfg-chatbot-enabled">Enable chat bot <span class="beta-tag">BETA</span> <a href="/chatbot.html" style="margin-left:.5rem;">Manage commands and quotes</a></label>
             </div>
             <div class="cfg-toggle">
                 <input type="checkbox" id="cfg-chatlog-enabled" ${cfg.chat_log_enabled !== false ? 'checked' : ''}>
@@ -1106,6 +1111,7 @@
             days_filter: parseInt(document.getElementById('cfg-days-filter').value) || 30,
             active_subs_only: document.getElementById('cfg-active-subs').checked,
             hashtags_enabled: document.getElementById('cfg-hashtags-enabled').checked,
+            chatbot_enabled: document.getElementById('cfg-chatbot-enabled').checked,
             chat_log_enabled: document.getElementById('cfg-chatlog-enabled').checked,
             auto_backup_on_session_end: document.getElementById('cfg-auto-backup').checked,
             exclude_users: document.getElementById('cfg-exclude').value.split(',').map(s => s.trim()).filter(Boolean),

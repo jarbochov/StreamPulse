@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Chat Bot</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
+        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: var(--accent); }
+        .nav { display: flex; gap: 0.75rem; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 1.5rem 2rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.75rem; display: flex; align-items: center; gap: .5rem; }
+        .beta { font-size: .65rem; padding: .1rem .4rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); letter-spacing: .05em; }
+        .muted { color: var(--text-muted); font-size: .82rem; line-height: 1.5; }
+        .banner { padding: .75rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-inset); font-size: .85rem; }
+        .banner.warn { border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .75rem; }
+        label.f { display: block; font-size: .75rem; color: var(--text-muted); }
+        label.f > input, label.f > textarea, label.f > select { display: block; width: 100%; margin-top: .25rem; padding: .5rem .65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; font-size: .85rem; }
+        input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+        .btn { padding: .5rem .9rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); font-size: .83rem; cursor: pointer; }
+        .btn:hover { border-color: var(--accent); background: var(--accent-bg); }
+        .btn.primary { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; font-weight: 600; }
+        .btn.danger:hover { border-color: var(--danger); background: var(--danger-soft-bg); }
+        .btn.small { padding: .25rem .55rem; font-size: .75rem; }
+        .row { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+        .row.end { justify-content: flex-end; }
+        .item { display: grid; gap: .6rem; padding: .85rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-inset); }
+        .item + .item { margin-top: .6rem; }
+        .item .top { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) 110px; gap: .6rem; }
+        .check { display: inline-flex; align-items: center; gap: .35rem; font-size: .8rem; color: var(--text); }
+        .preview { font-size: .78rem; color: var(--text-muted); min-height: 1.1em; }
+        .preview b { color: var(--text); font-weight: 500; }
+        .quote { display: grid; grid-template-columns: 3rem 1fr auto; gap: .6rem; align-items: center; padding: .55rem 0; border-bottom: 1px solid var(--bg-raised); font-size: .85rem; }
+        .quote .num { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+        .quote .meta { font-size: .72rem; color: var(--text-muted); }
+        .empty { text-align: center; color: var(--text-muted); padding: 1rem; font-size: .85rem; }
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--accent-strong); color: #fff; padding: .75rem 1.25rem; border-radius: 8px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+        .toast.show { opacity: 1; }
+        @media (max-width: 640px) { .item .top { grid-template-columns: 1fr; } .container { padding: 1rem; } }
+    </style>
+</head>
+<body>
+    <div class="header"><h1>StreamPulse <span>Chat Bot</span></h1><div id="main-nav" class="nav"></div><script src="/nav.js"></script></div>
+    <div class="container">
+        <div id="banner"></div>
+
+        <div class="card">
+            <h2>Settings <span class="beta">BETA</span></h2>
+            <div class="grid">
+                <label class="f">Command prefix<input id="s-prefix" maxlength="3"></label>
+                <label class="f">Reply tag<input id="s-tag" maxlength="20" placeholder="[BOT]"></label>
+                <label class="f">Default cooldown (seconds)<input id="s-cooldown" type="number" min="0" max="3600"></label>
+            </div>
+            <label class="f" style="margin-top:.75rem;">Moderator usernames (fallback)<input id="s-mods" placeholder="name1, name2"></label>
+            <p class="muted" style="margin-top:.5rem;">Replies are sent as your SocialStream account, starting with the tag. Messages that start with the tag are never treated as commands. Mods are detected from SocialStream chat data when it includes them; usernames listed here are always treated as mods.</p>
+            <div class="row end" style="margin-top:.75rem;"><button class="btn primary" id="save-settings">Save settings</button></div>
+        </div>
+
+        <div class="card">
+            <h2>Commands</h2>
+            <p class="muted" style="margin-bottom:.75rem;">Responses use the same {{placeholders}} as overlays, for example <code>Now playing: {{track}} by {{artist}}</code>. Use {{args}} for whatever follows the command. Use \n for a second message.</p>
+            <div id="commands"></div>
+            <div class="row" style="margin-top:.75rem;"><button class="btn" id="add-command">Add command</button><button class="btn primary" id="save-commands">Save commands</button></div>
+        </div>
+
+        <div class="card">
+            <h2>Quotes <span id="quote-count" class="muted"></span></h2>
+            <p class="muted" style="margin-bottom:.75rem;">Chat: <code>!quote</code> random, <code>!quote 12</code> by number, <code>!quote word</code> search, <code>!quotes</code> count. Mods: <code>!addquote text</code> and <code>!delquote 12</code>.</p>
+            <div class="row" style="margin-bottom:.5rem;"><input id="new-quote" class="grow" style="flex:1;min-width:200px;padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);" maxlength="300" placeholder="Add a quote"><button class="btn primary" id="add-quote">Add</button></div>
+            <div id="quotes"></div>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+<script>
+let state = { settings: {}, commands: [], quotes: [] };
+const $ = id => document.getElementById(id);
+const esc = v => { const d = document.createElement('div'); d.textContent = v ?? ''; return d.innerHTML; };
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
+async function api(path, method = 'GET', body) {
+    const res = await fetch(path, { method, headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    return data;
+}
+
+function renderBanner() {
+    const msgs = [];
+    if (!state.enabled) msgs.push('The chat bot is off. Turn it on in <a href="/config-editor.html">Config</a> (Enable chat bot).');
+    if (!state.ssnConfigured) msgs.push('Add your SocialStream session ID in Config so the bot can reply.');
+    $('banner').innerHTML = msgs.length ? `<div class="banner warn">${msgs.join('<br>')}</div>` : '<div class="banner">Chat bot is on.</div>';
+}
+
+function renderSettings() {
+    const s = state.settings;
+    $('s-prefix').value = s.prefix || '!'; $('s-tag').value = s.tag ?? ''; $('s-cooldown').value = s.cooldown ?? 5; $('s-mods').value = (s.mods || []).join(', ');
+}
+
+function commandHtml(c, i) {
+    return `<div class="item" data-i="${i}">
+        <div class="top">
+            <label class="f">Command<input data-k="name" value="${esc(c.name)}" placeholder="song"></label>
+            <label class="f">Also responds to<input data-k="aliases" value="${esc((c.aliases || []).join(', '))}" placeholder="np, track"></label>
+            <label class="f">Cooldown (s)<input data-k="cooldown" type="number" min="0" value="${c.cooldown ?? ''}" placeholder="default"></label>
+        </div>
+        <label class="f">Reply<textarea data-k="response" rows="2" maxlength="1000" placeholder="Now playing: {{track}} by {{artist}}">${esc(c.response)}</textarea></label>
+        <div class="preview" data-preview></div>
+        <div class="row"><label class="check"><input type="checkbox" data-k="enabled" ${c.enabled !== false ? 'checked' : ''}> Enabled</label><label class="check"><input type="checkbox" data-k="modOnly" ${c.modOnly ? 'checked' : ''}> Mods only</label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
+    </div>`;
+}
+function renderCommands() {
+    $('commands').innerHTML = state.commands.length ? state.commands.map(commandHtml).join('') : '<div class="empty">No commands yet. Add one to get started.</div>';
+}
+function readCommands() {
+    return [...document.querySelectorAll('#commands .item')].map(item => {
+        const get = k => item.querySelector(`[data-k="${k}"]`);
+        return { name: get('name').value, aliases: get('aliases').value, cooldown: get('cooldown').value, response: get('response').value, enabled: get('enabled').checked, modOnly: get('modOnly').checked };
+    });
+}
+
+function renderQuotes() {
+    $('quote-count').textContent = `(${state.quotes.length})`;
+    $('quotes').innerHTML = state.quotes.length ? [...state.quotes].reverse().map(q => `<div class="quote" data-id="${q.id}">
+        <span class="num">#${q.id}</span>
+        <div><div class="q-text">${esc(q.text)}</div><div class="meta">${q.by ? `Added by ${esc(q.by)} · ` : ''}${new Date(q.at).toLocaleDateString()}</div></div>
+        <div class="row"><button class="btn small" data-act="edit-quote">Edit</button><button class="btn small danger" data-act="del-quote">Delete</button></div></div>`).join('') : '<div class="empty">No quotes yet.</div>';
+}
+
+function applyState(data) { state = data; renderBanner(); renderSettings(); renderCommands(); renderQuotes(); }
+
+$('save-settings').onclick = async () => {
+    try { applyState(await api('/api/chatbot', 'PUT', { settings: { prefix: $('s-prefix').value, tag: $('s-tag').value, cooldown: $('s-cooldown').value, mods: $('s-mods').value } })); toast('Settings saved'); } catch (e) { toast(e.message); }
+};
+$('add-command').onclick = () => { state.commands = readCommands(); state.commands.push({ name: '', aliases: [], response: '', enabled: true, modOnly: false, cooldown: null }); renderCommands(); document.querySelector('#commands .item:last-child [data-k="name"]').focus(); };
+$('save-commands').onclick = async () => {
+    try {
+        const list = readCommands();
+        if (list.some(c => !/^[a-z0-9_]{1,30}$/i.test(String(c.name).replace(/^[^a-z0-9_]+/i, '')))) throw new Error('Each command needs a name (letters, numbers, underscore)');
+        applyState(await api('/api/chatbot', 'PUT', { commands: list })); toast('Commands saved');
+    } catch (e) { toast(e.message); }
+};
+$('commands').addEventListener('click', async event => {
+    const act = event.target.dataset.act, item = event.target.closest('.item');
+    if (!act || !item) return;
+    if (act === 'remove') { state.commands = readCommands(); state.commands.splice(Number(item.dataset.i), 1); renderCommands(); }
+    if (act === 'test') {
+        try { const text = item.querySelector('[data-k="response"]').value; const { text: out } = await api('/api/chatbot/preview', 'POST', { text: text.replace(/\{\{\s*args?\s*\}\}/g, 'example') }); await api('/api/chatbot/send', 'POST', { text: out || text }); toast('Test sent to chat'); } catch (e) { toast(e.message); }
+    }
+});
+let previewTimer = null;
+$('commands').addEventListener('input', event => {
+    if (event.target.dataset.k !== 'response') return;
+    clearTimeout(previewTimer);
+    const item = event.target.closest('.item');
+    previewTimer = setTimeout(async () => {
+        try { const { text } = await api('/api/chatbot/preview', 'POST', { text: event.target.value.replace(/\{\{\s*args?\s*\}\}/g, 'example') }); item.querySelector('[data-preview]').innerHTML = text ? `Preview: <b>${esc(text)}</b>` : ''; } catch { /* preview is optional */ }
+    }, 350);
+});
+$('add-quote').onclick = async () => {
+    const text = $('new-quote').value.trim(); if (!text) return;
+    try { applyState(await api('/api/chatbot/quotes', 'POST', { text })); $('new-quote').value = ''; toast('Quote added'); } catch (e) { toast(e.message); }
+};
+$('new-quote').addEventListener('keydown', e => { if (e.key === 'Enter') $('add-quote').click(); });
+$('quotes').addEventListener('click', async event => {
+    const act = event.target.dataset.act, row = event.target.closest('.quote');
+    if (!act || !row) return;
+    const id = row.dataset.id;
+    try {
+        if (act === 'del-quote' && confirm(`Delete quote #${id}?`)) applyState(await api(`/api/chatbot/quotes/${id}`, 'DELETE'));
+        if (act === 'edit-quote') {
+            const current = state.quotes.find(q => q.id === Number(id));
+            const text = prompt(`Edit quote #${id}`, current.text);
+            if (text !== null && text.trim()) applyState(await api(`/api/chatbot/quotes/${id}`, 'PUT', { text }));
+        }
+    } catch (e) { toast(e.message); }
+});
+
+api('/api/chatbot').then(applyState).catch(e => { $('banner').innerHTML = `<div class="banner warn">${esc(e.message)}</div>`; });
+</script>
+</body>
+</html>

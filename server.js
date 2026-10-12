@@ -50,6 +50,7 @@ const VIEWER_TRACKING_CONFIG = config.viewer_tracking || { enabled: true, source
 
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = path.join(__dirname, 'data');
+const chatbot = require('./chatbot')({ dataDir: DATA_DIR, getConfig: () => config, port: Number(process.env.PORT) || Number(config.port) || 3000 });
 const LIVE_CHAT_PATH = path.join(DATA_DIR, 'chat.json');
 const BANNED_HASHTAGS_PATH = path.join(DATA_DIR, '.banned-hashtags.json');
 const CHAT_LOG_PATH = path.join(DATA_DIR, 'chat-log.jsonl');
@@ -5029,6 +5030,7 @@ function connectSSN() {
             if (msg.overlayNinja) msg = msg.overlayNinja;
             processSSNViewerUpdate(msg);
             processChatMessage(msg);
+            chatbot.handle(msg).catch(() => {});
         } catch { /* ignore parse errors */ }
     });
 
@@ -5962,7 +5964,7 @@ const server = http.createServer(async (req, res) => {
                     setInterval_('twitch_stream_info_seconds', 10, 3600, 30);
 
                     // Only allow safe fields to be edited
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'chatbot_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             current[key] = updates[key];
@@ -5990,6 +5992,7 @@ const server = http.createServer(async (req, res) => {
 
             active_subs_only: config.active_subs_only || false,
             hashtags_enabled: config.hashtags_enabled !== false,
+            chatbot_enabled: config.chatbot_enabled === true,
             chat_log_enabled: config.chat_log_enabled !== false,
             broadcaster_name: BROADCASTER_NAME,
             connection: {
@@ -6028,6 +6031,8 @@ const server = http.createServer(async (req, res) => {
         fetchViewerCount();
         return;
     }
+
+    if (pathname.startsWith('/api/chatbot') && await chatbot.handleApi(req, res, pathname, readRequestBody)) return;
 
     if (pathname === '/favicon.ico') {
         try {
