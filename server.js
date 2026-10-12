@@ -51,7 +51,7 @@ const VIEWER_TRACKING_CONFIG = config.viewer_tracking || { enabled: true, source
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = path.join(__dirname, 'data');
 const variablesStore = require('./variables')({ dataDir: DATA_DIR });
-const chatbot = require('./chatbot')({ dataDir: DATA_DIR, getConfig: () => config, port: Number(process.env.PORT) || Number(config.port) || 3000, variables: variablesStore, sessionKey: () => String(chatData.startedAt || '') });
+const chatbot = require('./chatbot')({ dataDir: DATA_DIR, getConfig: () => config, port: Number(process.env.PORT) || Number(config.port) || 3000, variables: variablesStore, onUse: (kind, name) => takeoverPages('command', name), sessionKey: () => String(chatData.startedAt || '') });
 const LIVE_CHAT_PATH = path.join(DATA_DIR, 'chat.json');
 const BANNED_HASHTAGS_PATH = path.join(DATA_DIR, '.banned-hashtags.json');
 const CHAT_LOG_PATH = path.join(DATA_DIR, 'chat-log.jsonl');
@@ -316,10 +316,13 @@ function normalizePages(input = {}) {
             id,
             name: String(item?.name || '').trim().slice(0, 60) || `Page ${index + 1}`,
             duration: Math.max(0, Math.min(86400, Number(item?.duration) || 0)),
-            enabled: item?.enabled !== false
+            enabled: item?.enabled !== false,
+            trigger: ['alert', 'featured', 'command'].includes(item?.trigger) ? item.trigger : '',
+            triggerName: String(item?.triggerName || '').trim().toLowerCase().replace(/^[^a-z0-9_]+/, '').slice(0, 60),
+            triggerSeconds: Math.max(0, Math.min(3600, Number(item?.triggerSeconds) || 0))
         };
     });
-    if (!items.length) items.push({ id: 'page-1', name: 'Page 1', duration: 0, enabled: true });
+    if (!items.length) items.push({ id: 'page-1', name: 'Page 1', duration: 0, enabled: true, trigger: '', triggerName: '', triggerSeconds: 0 });
     if (!items.some(item => item.enabled)) items[0].enabled = true;
     return {
         enabled: input.enabled === true,
@@ -423,7 +426,7 @@ function pageSnapshot(overlay) {
         index,
         count: items.length,
         auto: !!state?.auto,
-        pages: items.map(({ id, name, duration, enabled }) => ({ id, name, duration, enabled }))
+        pages: items.map(({ id, name, duration, enabled, trigger }) => ({ id, name, duration, enabled, trigger }))
     };
 }
 function broadcastPage(overlay) {
@@ -434,7 +437,7 @@ function scheduleAutoAdvance(overlay) {
     if (!state) return;
     clearTimeout(state.timer);
     state.timer = null;
-    if (!state.auto || !overlay.pages.enabled || overlay.pages.items.filter(item => item.enabled).length < 2) return;
+    if (!state.auto || !overlay.pages.enabled || overlay.pages.items.filter(item => item.enabled && !item.trigger).length < 2 || state.takeoverTimer) return;
     const seconds = pageOf(overlay, state).duration || overlay.pages.cycleSeconds;
     state.timer = setTimeout(() => {
         const live = customOverlays[overlay.id];
@@ -454,15 +457,17 @@ function movePage(overlay, action, { target, auto } = {}) {
         for (let i = 1; i <= items.length; i++) {
             let at = current + dir * i;
             if (at < 0 || at >= items.length) { if (!overlay.pages.loop) return -1; at = (at + items.length) % items.length; }
-            if (items[at].enabled) return at === current ? -1 : at;
+            if (items[at].enabled && !items[at].trigger) return at === current ? -1 : at;
         }
         return -1;
     };
+    const manual = !auto;
+    if (manual && state.takeoverTimer) { clearTimeout(state.takeoverTimer); state.takeoverTimer = null; state.returnPage = null; }
     let next = current;
     if (action === 'next') next = step(1);
     else if (action === 'prev') next = step(-1);
-    else if (action === 'first') next = items.findIndex(item => item.enabled);
-    else if (action === 'last') next = items.map(item => item.enabled).lastIndexOf(true);
+    else if (action === 'first') next = items.findIndex(item => item.enabled && !item.trigger);
+    else if (action === 'last') next = items.map(item => item.enabled && !item.trigger).lastIndexOf(true);
     else if (action === 'goto') {
         const key = String(target ?? '').trim().toLowerCase();
         next = items.findIndex(item => item.id === key || item.name.toLowerCase() === key);
@@ -502,7 +507,7 @@ function syncOverlayPages(overlay, previous) {
         let pick = null;
         for (let i = 0; i < items.length && !pick; i++) {
             const candidate = items[(from + i) % items.length];
-            if (candidate.enabled) pick = candidate;
+            if (candidate.enabled && !candidate.trigger) pick = candidate;
         }
         state.page = (pick || items[0]).id;
     }
@@ -511,6 +516,33 @@ function syncOverlayPages(overlay, previous) {
     }
     if (!overlay.pages.enabled) state.auto = false;
     scheduleAutoAdvance(overlay);
+}
+// Show a trigger page (alert, featured message or chat command) for a while, then return to the rotation.
+function takeoverPages(kind, name, ms) {
+    for (const overlay of Object.values(customOverlays)) {
+        if (!overlay.pages?.enabled) continue;
+        const target = overlay.pages.items.find(p => p.enabled && p.trigger === kind && (kind !== 'command' || !p.triggerName || p.triggerName === String(name || '').toLowerCase()));
+        if (!target) continue;
+        let state = overlayPageState.get(overlay.id);
+        if (!state) { state = { page: overlay.pages.items[0].id, auto: false, timer: null }; overlayPageState.set(overlay.id, state); }
+        const returnPage = state.takeoverTimer ? state.returnPage : state.page;
+        clearTimeout(state.takeoverTimer);
+        clearTimeout(state.timer);
+        state.returnPage = returnPage;
+        state.page = target.id;
+        const seconds = target.triggerSeconds || (ms ? ms / 1000 : 10);
+        state.takeoverTimer = setTimeout(() => {
+            state.takeoverTimer = null;
+            const live = customOverlays[overlay.id];
+            if (!live) return;
+            if (live.pages.items.some(p => p.id === state.returnPage && p.enabled)) state.page = state.returnPage;
+            state.returnPage = null;
+            scheduleAutoAdvance(live);
+            broadcastPage(live);
+        }, seconds * 1000);
+        state.takeoverTimer.unref?.();
+        broadcastPage(overlay);
+    }
 }
 function dropOverlayPages(id) {
     const state = overlayPageState.get(id);
@@ -4658,7 +4690,7 @@ function contentImageHtml(contentimg) {
 
 const alertEngine = createAlertEngine({
     dataDir: DATA_DIR,
-    broadcast: (type, payload) => broadcastToOverlays(type, payload),
+    broadcast: (type, payload) => { broadcastToOverlays(type, payload); if (type === 'alert') takeoverPages('alert', '', payload?.durationMs); },
     runTimerAction: (timerId, action, params) => applyTimerControl(getTimerOrThrow(timerId), action, params),
     log: message => console.log(message)
 });
@@ -4980,6 +5012,23 @@ function processChatMessage(msg) {
 }
 
 let ssnAttempts = 0;
+
+// The dock publishes clicked (featured) messages on channel 2, separate from the chat feed on channel 4.
+function connectFeaturedListener() {
+    if (!SSN_SESSION_ID) return;
+    let socket;
+    try { socket = new WebSocket(SSN_SERVER, { handshakeTimeout: 15000 }); } catch { return setTimeout(connectFeaturedListener, 30000); }
+    let last = '';
+    socket.on('open', () => socket.send(JSON.stringify({ join: SSN_SESSION_ID, in: 2, out: 9 })));
+    socket.on('message', raw => {
+        try {
+            const msg = JSON.parse(raw.toString());
+            if (msg && msg.clicked && msg.chatmessage !== undefined) { takeoverPages('featured', ''); last = msg.id; }
+        } catch { /* ignore */ }
+    });
+    socket.on('error', () => {});
+    socket.on('close', () => setTimeout(connectFeaturedListener, 15000));
+}
 
 function connectSSN() {
     if (!SSN_SESSION_ID) {
@@ -8287,6 +8336,7 @@ server.listen(PORT, () => {
 
     // Start SSN collector
     connectSSN();
+    connectFeaturedListener();
 
     // Load stored Twitch token and fetch data
     loadStoredToken();

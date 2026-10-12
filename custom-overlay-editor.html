@@ -2708,7 +2708,9 @@
                 </div>`).join('')}</div>
             <div class="hint">${shared ? `${shared} shared element${shared === 1 ? '' : 's'} show on every page.` : 'Mark an element “Show on all pages” to share it across pages.'}</div>
             <div class="pg-card"><h4>${esc(cur.name)}</h4>
-                ${F.number(`pages.items.${idx}.duration`, 'Seconds on screen (auto mode, 0 = default)', cur.duration || 0, { min: 0, max: 3600 })}</div>
+                ${F.select(`pages.items.${idx}.trigger`, 'Show this page', cur.trigger || '', [['', 'In the rotation'], ['alert', 'Only when an alert plays'], ['featured', 'Only when a message is featured'], ['command', 'Only when a chat command or trigger is used']])}
+                ${cur.trigger === 'command' ? F.text(`pages.items.${idx}.triggerName`, 'Command or trigger name (blank = any)', cur.triggerName || '') : ''}
+                ${cur.trigger ? F.number(`pages.items.${idx}.triggerSeconds`, 'Show for (seconds, 0 = default)', cur.triggerSeconds || 0, { min: 0, max: 3600 }) : `${F.number(`pages.items.${idx}.duration`, 'Seconds on screen (auto mode, 0 = default)', cur.duration || 0, { min: 0, max: 3600 })}`}</div>
             <div class="pg-card"><h4>Playback</h4>
                 ${F.select('pages.mode', 'Advance', P.mode, [['manual', 'Manual (editor, control panel, API)'], ['auto', 'Automatic']])}
                 ${P.mode === 'auto' ? `${F.number('pages.cycleSeconds', 'Default seconds per page', P.cycleSeconds, { min: 1, max: 3600 })}${F.check('pages.loop', 'Loop back to the first page', P.loop)}` : ''}
@@ -2817,7 +2819,7 @@
         if (path.startsWith('pages.items.')) { const page = overlay.pages.items[Number(path.split('.')[2])]; const meta = document.querySelector(`.pg-row[data-pid="${CSS.escape(page.id)}"] .pg-meta`); if (meta) meta.textContent = `${meta.textContent.replace(/ · \d+s$/, '')}${page.duration ? ` · ${page.duration}s` : ''}`; }
         changed(false);
     });
-    $('pages-panel').addEventListener('change', event => { const path = event.target.dataset?.path; if (path === 'pages.mode' || path === 'pages.transition') { renderPagesPanel(); } });
+    $('pages-panel').addEventListener('change', event => { const path = event.target.dataset?.path; if (path === 'pages.mode' || path === 'pages.transition' || /^pages\.items\.\d+\.trigger$/.test(path || '')) { renderPagesPanel(); } });
     $('properties').addEventListener('change', event => {
         if (event.target.id !== 'el-shared') return;
         for (const el of selectedElements()) el.page = event.target.checked ? '*' : curPage;

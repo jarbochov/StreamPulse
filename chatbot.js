@@ -13,7 +13,7 @@ const KINDS = ['interval', 'hourly', 'daily', 'datetime', 'dateinterval'];
 const USER_RE = /\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi;
 const NAME_RE = /^[a-z0-9_]{1,30}$/;
 
-module.exports = function createChatbot({ sessionKey = () => '', dataDir, getConfig, port, variables }) {
+module.exports = function createChatbot({ sessionKey = () => '', onUse = () => {}, dataDir, getConfig, port, variables }) {
     const file = path.join(dataDir, 'chatbot.json');
     let data = { settings: { ...DEFAULT_SETTINGS }, commands: [], quotes: [], nextQuoteId: 1, messages: [], triggers: [] };
     const startedAt = Date.now();
@@ -200,7 +200,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
     const enabled = () => enabledOverride !== null ? enabledOverride : getConfig().chatbot_enabled === true;
     let seq = 0;
     const activity = [];
-    const logUse = (kind, name, user) => { activity.push({ seq: ++seq, kind, name, user: user || '', at: Date.now() }); if (activity.length > 50) activity.shift(); };
+    const logUse = (kind, name, user) => { activity.push({ seq: ++seq, kind, name, user: user || '', at: Date.now() }); if (activity.length > 50) activity.shift(); try { onUse(kind, name); } catch { /* non-fatal */ } };
     const sessionId = () => getConfig().ssn?.session_id;
     const baseUrl = () => String(getConfig().ssn?.chat_base || getConfig().ssn?.server || 'https://io.socialstream.ninja').replace(/^wss:/, 'https:').replace(/^ws:/, 'http:').replace(/\/+$/, '');
 
