@@ -35,7 +35,7 @@
     </div>
 
     <div class="card">
-        <h2>All quotes</h2>
+        <h2 style="display:flex;justify-content:space-between;align-items:center;">All quotes <button id="md" style="padding:.3rem .7rem;background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;">Export Markdown</button></h2>
         <input id="search" type="search" placeholder="Search by text, game, author or number">
         <div id="list" style="margin-top:.5rem;"></div>
     </div>
@@ -67,6 +67,15 @@ function renderList() {
     $('list').innerHTML = shown.length ? shown.map(q => `<div class="quote"><span class="num">#${q.id}</span><div><div>${esc(q.text)}</div><div class="meta">${[q.game, q.by && 'Added by ' + q.by, new Date(q.at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })].filter(Boolean).map(esc).join(' · ')}</div></div></div>`).join('') : '<div class="muted">No quotes found.</div>';
 }
 
+$('md').onclick = () => {
+    const lines = state.quotes.map(q => {
+        const meta = [q.game, q.by && 'added by ' + q.by, new Date(q.at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })].filter(Boolean).join(', ');
+        return `${q.id}. "${q.text}" (${meta})`;
+    });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([`# Quotes\n\n${lines.join('\n')}\n`], { type: 'text/markdown' }));
+    a.download = 'streampulse-quotes.md'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
 $('search').addEventListener('input', renderList);
 fetch('/api/chatbot', { cache: 'no-store' }).then(r => r.json()).then(d => { state = d; renderHelp(); renderList(); });
 </script>
