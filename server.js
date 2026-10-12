@@ -6029,6 +6029,18 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    if (pathname === '/favicon.ico') {
+        try {
+            const icon = fs.readFileSync(path.join(__dirname, 'favicon.svg'));
+            res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' });
+            res.end(icon);
+        } catch {
+            res.writeHead(404);
+            res.end();
+        }
+        return;
+    }
+
     if (pathname === '/api/status') {
         // Directory listings and hashtag aggregation are comparatively expensive and the dashboard polls every few seconds.
         const nowMs = Date.now();
