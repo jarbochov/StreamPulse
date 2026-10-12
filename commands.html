@@ -78,9 +78,9 @@ function renderPage() {
 
 function markdown() {
     const m = model(), cell = v => String(v ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
-    const who2 = x => x.who === 'Everyone' ? '' : x.who;
+    const who2 = x => x.who;
     const nice = r => cell(r).replace(/\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi, '(name)');
-    const rep = x => x.random ? 'Random, one of:<br>' + x.replies.map(r => '• ' + nice(r)).join('<br>') : x.replies.map(nice).join('<br>');
+    const rep = x => x.random ? '*Random, one of these:*<br>' + x.replies.map(nice).join('<br>') : x.replies.map(nice).join('<br>');
     let md = '# Chat commands\n\n## Built-in\n\n| Command | What it does | Who |\n|---|---|---|\n';
     md += m.builtin.map(c => `| \`${cell(c.cmd)}\` | ${cell(c.desc)} | ${who2(c)} |`).join('\n');
     md += '\n\n## Custom commands\n\n';
