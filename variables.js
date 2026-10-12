@@ -25,7 +25,17 @@ module.exports = function createVariables({ dataDir }) {
         name = normName(name);
         if (!NAME_RE.test(name)) throw new Error('Name must be letters, numbers or underscore');
         const cur = vars[name];
-        const type = patch.type === 'counter' || patch.type === 'text' ? patch.type : cur?.type || 'text';
+        const type = ['counter', 'text', 'list'].includes(patch.type) ? patch.type : cur?.type || 'text';
+        if (type === 'list') {
+            const raw = patch.items ?? cur?.items ?? [];
+            const items = (Array.isArray(raw) ? raw : String(raw).split(/\r?\n/)).map(i => String(i).trim().slice(0, 300)).filter(Boolean).slice(0, 200);
+            const mode = patch.mode === 'sequential' ? 'sequential' : patch.mode === 'random' ? 'random' : cur?.mode || 'random';
+            let value = patch.value ?? cur?.value ?? '';
+            if (!items.includes(value)) value = items[0] || '';
+            vars[name] = { type, items, mode, value, updatedAt: Date.now() };
+            save();
+            return { name, ...vars[name] };
+        }
         if (!cur && Object.keys(vars).length >= 300) throw new Error('Too many variables');
         let value = patch.value ?? cur?.value ?? (type === 'counter' ? 0 : '');
         value = type === 'counter' ? (Number.isFinite(Number(value)) ? Number(value) : 0) : String(value).slice(0, 500);
@@ -43,14 +53,28 @@ module.exports = function createVariables({ dataDir }) {
         return set(name, { type: 'counter', value });
     }
 
+    function roll(name) {
+        name = normName(name);
+        const cur = vars[name];
+        if (!cur || cur.type !== 'list') throw new Error('Not a list');
+        const { items } = cur;
+        let value = cur.value;
+        if (items.length > 1) {
+            if (cur.mode === 'sequential') value = items[(items.indexOf(cur.value) + 1) % items.length];
+            else { const others = items.filter(i => i !== cur.value); value = others[Math.floor(Math.random() * others.length)]; }
+        }
+        return set(name, { value });
+    }
+
     async function handleApi(req, res, pathname, readBody) {
         const json = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
         try {
             const body = req.method === 'GET' || req.method === 'DELETE' ? {} : JSON.parse(await readBody(req) || '{}');
             if (pathname === '/api/variables' && req.method === 'GET') return json(200, { variables: list() }), true;
-            const m = pathname.match(/^\/api\/variables\/([^/]+)(?:\/(increment|decrement|reset))?$/);
+            const m = pathname.match(/^\/api\/variables\/([^/]+)(?:\/(increment|decrement|reset|roll))?$/);
             if (!m) return json(404, { error: 'Unknown variables endpoint' }), true;
             const name = decodeURIComponent(m[1]);
+            if (m[2] === 'roll' && req.method === 'POST') return json(200, roll(name)), true;
             if (m[2] && req.method === 'POST') return json(200, change(name, m[2], body.amount)), true;
             if (req.method === 'PUT' || req.method === 'POST') return json(200, set(name, body)), true;
             if (req.method === 'DELETE') { delete vars[normName(name)]; save(); return json(200, { variables: list() }), true; }
@@ -61,5 +85,5 @@ module.exports = function createVariables({ dataDir }) {
         return json(405, { error: 'Method not allowed' }), true;
     }
 
-    return { handleApi, values, list, set, change };
+    return { handleApi, values, list, set, change, roll };
 };

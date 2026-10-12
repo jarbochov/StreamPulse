@@ -92,8 +92,7 @@
         <div class="card" data-tab="quotes">
             <h2>Quotes <span id="quote-count" class="muted"></span></h2>
             <p class="muted" style="margin-bottom:.75rem;">Chat: <code>!quote</code> random, <code>!quote 12</code> by number, <code>!quote word</code> search, <code>!quotes</code> count. Mods: <code>!addquote text</code> and <code>!delquote 12</code>.</p>
-            <div id="builtins" style="margin-bottom:.75rem;display:grid;gap:.5rem;"></div>
-            <div class="row end" style="margin-bottom:1rem;"><button class="btn" id="save-quote-settings">Save quote settings</button></div>
+            <details class="item" style="margin-bottom:1rem;"><summary><b>Quote commands</b><span class="sum">Who can use them and cooldowns</span></summary><div id="builtins" style="display:grid;gap:.5rem;"></div><div class="row end"><button class="btn" id="save-quote-settings">Save quote settings</button></div></details>
             <div class="row" style="margin-bottom:.5rem;"><input id="new-quote" class="grow" style="flex:1;min-width:200px;padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);" maxlength="300" placeholder="Add a quote"><button class="btn primary" id="add-quote">Add</button></div>
             <div class="row" style="margin:.75rem 0 .25rem;"><input id="quote-search" style="flex:1;min-width:180px;padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);" placeholder="Search quotes"><button class="btn" id="export-json">Export JSON</button><button class="btn" id="export-txt">Export text</button><button class="btn" id="import-quotes">Import</button><input type="file" id="import-file" accept=".json,.txt,.csv,text/plain,application/json" hidden></div>
             <p class="muted" style="margin-bottom:.5rem;">Import accepts a JSON export or a text file with one quote per line. Duplicates are skipped.</p>
@@ -103,7 +102,7 @@
         <div class="card" data-tab="variables">
             <h2>Variables and counters <span id="var-count" class="muted"></span></h2>
             <p class="muted" style="margin-bottom:.75rem;">Use <code>{{var.name}}</code> in chat replies and custom overlays. Set them here, via the API (<code>/api/variables</code>) or Companion. Counter endpoints: <code>POST /api/variables/NAME/increment</code>, <code>/decrement</code>, <code>/reset</code> (optional body <code>{"amount": 5}</code>).</p>
-            <div class="row" style="margin-bottom:.75rem;"><input id="var-name" placeholder="name (e.g. deaths)" style="padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"><select id="var-type" style="padding:.5rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"><option value="counter">Counter</option><option value="text">Text</option></select><button class="btn primary" id="var-add">Add</button></div>
+            <div class="row" style="margin-bottom:.75rem;"><input id="var-name" placeholder="name (e.g. deaths)" style="padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"><select id="var-type" style="padding:.5rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"><option value="counter">Counter</option><option value="text">Text</option><option value="list">List</option></select><button class="btn primary" id="var-add">Add</button></div>
             <div id="vars"></div>
         </div>
 
@@ -159,7 +158,7 @@ function commandHtml(c, i) {
             <label class="f">Also responds to<input data-k="aliases" value="${esc((c.aliases || []).join(', '))}" placeholder="np, track"></label>
             <label class="f">Cooldown (s)<input data-k="cooldown" type="number" min="0" value="${c.cooldown ?? ''}" placeholder="default"></label>
         </div>
-        <div class="row"><label class="f">Counter to change (optional)<input data-k="counter" value="${esc(c.counter || '')}" placeholder="deaths"></label><label class="f">When used<select data-k="counterAction"><option value="increment" ${c.counterAction !== 'decrement' && c.counterAction !== 'reset' ? 'selected' : ''}>Add 1</option><option value="decrement" ${c.counterAction === 'decrement' ? 'selected' : ''}>Subtract 1</option><option value="reset" ${c.counterAction === 'reset' ? 'selected' : ''}>Reset</option></select></label><span class="muted">Then reply with <code>{{var.deaths}}</code></span></div>
+        <div class="row"><label class="f">Counter or list to change (optional)<input data-k="counter" value="${esc(c.counter || '')}" placeholder="deaths"></label><label class="f">When used<select data-k="counterAction"><option value="increment" ${c.counterAction !== 'decrement' && c.counterAction !== 'reset' ? 'selected' : ''}>Add 1</option><option value="decrement" ${c.counterAction === 'decrement' ? 'selected' : ''}>Subtract 1</option><option value="roll" ${c.counterAction === 'roll' ? 'selected' : ''}>Pick next (list)</option><option value="reset" ${c.counterAction === 'reset' ? 'selected' : ''}>Reset</option></select></label><span class="muted">Then reply with <code>{{var.deaths}}</code></span></div>
         <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Reply <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="response" rows="2" maxlength="1000" placeholder="Now playing: {{track}} by {{artist}}">${esc(c.response)}</textarea></label>
         <div class="preview" data-preview></div>
         <div class="row"><label class="check" title="Put one reply per line; each use sends a random one"><input type="checkbox" data-k="random" ${c.random ? 'checked' : ''}> Random line</label><label class="check">Who can use <select data-k="access"><option value="everyone">Everyone</option><option value="subs" ${c.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${c.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
@@ -301,15 +300,24 @@ async function loadVars() {
     try {
         const { variables } = await api('/api/variables');
         $('var-count').textContent = `(${variables.length})`; updateCounts();
-        $('vars').innerHTML = variables.length ? variables.map(v => `<div class="quote" style="grid-template-columns:1fr auto" data-n="${esc(v.name)}"><div><b>${esc(v.name)}</b> <span class="meta">${v.type} · {{var.${esc(v.name)}}}</span></div><div class="row">${v.type === 'counter' ? `<button class="btn small" data-v="decrement">-</button><input data-v="value" type="number" value="${v.value}" style="width:6rem;padding:.25rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text)"><button class="btn small" data-v="increment">+</button><button class="btn small" data-v="reset">Reset</button>` : `<input data-v="value" value="${esc(v.value)}" style="width:14rem;padding:.25rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text)">`}<button class="btn small danger" data-v="delete">Delete</button></div></div>`).join('') : '<div class="empty">None yet.</div>';
+        const inp = 'padding:.25rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text)';
+        $('vars').innerHTML = variables.length ? variables.map(v => {
+            const head = `<b>${esc(v.name)}</b> <span class="meta">${v.type} · {{var.${esc(v.name)}}}</span>`;
+            let body = '';
+            if (v.type === 'counter') body = `<button class="btn small" data-v="decrement">-</button><input data-v="value" type="number" value="${v.value}" style="width:6rem;${inp}"><button class="btn small" data-v="increment">+</button><button class="btn small" data-v="reset">Reset</button>`;
+            else if (v.type === 'text') body = `<input data-v="value" value="${esc(v.value)}" style="width:14rem;${inp}">`;
+            else body = `<span class="muted" style="max-width:14rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Now: ${esc(v.value) || '(empty)'}</span><button class="btn small" data-v="roll">Pick next</button>`;
+            const list = v.type === 'list' ? `<details style="grid-column:1/-1"><summary class="muted" style="cursor:pointer">${v.items.length} items · ${v.mode === 'sequential' ? 'in order' : 'random'} (edit)</summary><textarea data-v="items" rows="5" style="width:100%;margin-top:.4rem;${inp}" placeholder="One item per line">${esc(v.items.join('\n'))}</textarea><div class="row" style="margin-top:.4rem"><label class="check">Pick <select data-v="mode"><option value="random" ${v.mode !== 'sequential' ? 'selected' : ''}>Randomly</option><option value="sequential" ${v.mode === 'sequential' ? 'selected' : ''}>In order</option></select></label><button class="btn small" data-v="save-items">Save list</button></div></details>` : '';
+            return `<div class="quote" style="grid-template-columns:1fr auto" data-n="${esc(v.name)}"><div>${head}</div><div class="row">${body}<button class="btn small danger" data-v="delete">Delete</button></div>${list}</div>`;
+        }).join('') : '<div class="empty">None yet. Counters track numbers (deaths, wins), text holds a value, lists pick one item at a time.</div>';
     } catch (e) { toast(e.message); }
 }
 $('var-add').onclick = async () => { try { await api(`/api/variables/${encodeURIComponent($('var-name').value)}`, 'PUT', { type: $('var-type').value }); $('var-name').value = ''; loadVars(); } catch (e) { toast(e.message); } };
 $('vars').addEventListener('click', async event => {
     const act = event.target.dataset.v, row = event.target.closest('[data-n]');
-    if (!act || act === 'value' || !row) return;
+    if (!act || ['value', 'items', 'mode'].includes(act) || !row) return;
     const url = `/api/variables/${encodeURIComponent(row.dataset.n)}`;
-    try { if (act === 'delete') await api(url, 'DELETE'); else await api(`${url}/${act}`, 'POST', {}); loadVars(); } catch (e) { toast(e.message); }
+    try { if (act === 'delete') await api(url, 'DELETE'); else if (act === 'save-items') await api(url, 'PUT', { items: row.querySelector('[data-v=items]').value, mode: row.querySelector('[data-v=mode]').value }); else await api(`${url}/${act}`, 'POST', {}); loadVars(); } catch (e) { toast(e.message); }
 });
 $('vars').addEventListener('change', async event => {
     const row = event.target.closest('[data-n]');

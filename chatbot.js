@@ -55,7 +55,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             response: clean(input.response, 1000),
             random: input.random === true,
             counter: clean(input.counter, 40).toLowerCase().replace(/[^a-z0-9_]/g, '_'),
-            counterAction: ['increment', 'decrement', 'reset'].includes(input.counterAction) ? input.counterAction : 'increment',
+            counterAction: ['increment', 'decrement', 'reset', 'roll'].includes(input.counterAction) ? input.counterAction : 'increment',
             access: ACCESS.includes(input.access) ? input.access : input.modOnly === true ? 'mods' : 'everyone',
             cooldown: input.cooldown === '' || input.cooldown === null || input.cooldown === undefined ? null : Math.max(0, Math.min(3600, Number(input.cooldown) || 0)),
             enabled: input.enabled !== false
@@ -274,7 +274,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
         if (builtin === 'quotes') return reply(key, `${data.quotes.length} quote${data.quotes.length === 1 ? '' : 's'} saved. Use ${prefix}quote or ${prefix}quote <number>.`);
         if (builtin === 'quote') return reply(key, quoteReply(arg, msg));
-        if (custom.counter && variables) { try { variables.change(custom.counter, custom.counterAction, 1); statusCache.at = 0; } catch (err) { console.warn(`[Chatbot] ${err.message}`); } }
+        if (custom.counter && variables) { try { if (custom.counterAction === 'roll') variables.roll(custom.counter); else variables.change(custom.counter, custom.counterAction, 1); statusCache.at = 0; } catch (err) { console.warn(`[Chatbot] ${err.message}`); } }
         try { await reply(key, await expand(pick(custom.response, custom.random).replace(/\{\{\s*args?\s*\}\}/g, arg)) || '(no value yet)'); } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
     }
 
