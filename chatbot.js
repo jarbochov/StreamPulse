@@ -344,7 +344,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             timerState.set(m.id, { at: Date.now(), count: chatCount, slot: due, wait: waitMs(m) });
             try {
                 const out = await expand(pick(m.text, m.random));
-                if (out) await reply(`m:${m.id}`, out);
+                if (out) { logUse('message', m.name || m.id, ''); await reply(`m:${m.id}`, out); }
             } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
             return;
         }
