@@ -190,6 +190,9 @@
         .pg-actions button:hover { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); }
         .pg-actions button.go { color: #3fb950; }
         .pg-actions button.danger:hover { color: var(--danger, #f85149); }
+        .pg-sub { font-size: 11px; font-weight: 600; color: var(--muted); display: flex; justify-content: space-between; margin-top: .3rem; text-transform: uppercase; letter-spacing: .06em; }
+        .pg-sub span { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text-faint); }
+        .pg-trig .pg-grip { visibility: hidden; cursor: default; }
         .pg-card { border: 1px solid var(--border); border-radius: 10px; padding: .7rem; display: grid; gap: .6rem; background: color-mix(in srgb, var(--field) 55%, transparent); }
         .pg-card h4 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
         .pg-empty { text-align: center; padding: 1.2rem .8rem; border: 1px dashed var(--border); border-radius: 10px; display: grid; gap: .6rem; justify-items: center; }
@@ -2692,9 +2695,7 @@
         const count = id => overlay.elements.filter(el => el.page === id).length;
         const shared = overlay.elements.filter(el => el.page === '*').length;
         const P = overlay.pages;
-        panel.innerHTML = `
-            <div class="pg-head"><span>Pages</span><button id="page-add" title="Add a blank page">+ Add page</button></div>
-            <div class="pg-list" id="pg-list">${items.map((p, i) => `
+        const rowHtml = p => `
                 <div class="pg-row${p.id === curPage ? ' current' : ''}${p.enabled === false ? ' off' : ''}" data-pid="${esc(p.id)}">
                     <span class="pg-grip" title="Drag to reorder">${ICON.grip}</span>
                     <span class="pg-main"><span class="pg-name" title="Double-click to rename">${p.trigger ? `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" style="display:inline-block;vertical-align:-1px;margin-right:3px"><title>Trigger page</title><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg> ` : ''}${esc(p.name)}</span>
@@ -2705,7 +2706,11 @@
                         <button data-pg="dup" title="Duplicate page">⧉</button>
                         <button data-pg="del" class="danger" title="Delete page" ${items.length === 1 ? 'disabled' : ''}>✕</button>
                     </span>
-                </div>`).join('')}</div>
+                </div>`;
+        panel.innerHTML = `
+            <div class="pg-head"><span>Pages</span><button id="page-add" title="Add a blank page">+ Add page</button></div>
+            <div class="pg-list" id="pg-list">${items.filter(p => !p.trigger).map(rowHtml).join('')}</div>
+            ${items.some(p => p.trigger) ? `<div class="pg-sub">Triggered pages <span>not in the rotation</span></div><div class="pg-list pg-trig" id="pg-trig-list">${items.filter(p => p.trigger).map(rowHtml).join('')}</div>` : ''}
             <div class="hint">${shared ? `${shared} shared element${shared === 1 ? '' : 's'} show on every page.` : 'Mark an element “Show on all pages” to share it across pages.'}</div>
             <div class="pg-card"><h4>${esc(cur.name)}</h4>
                 ${F.select(`pages.items.${idx}.trigger`, 'Show this page', cur.trigger || '', [['', 'In the rotation'], ['alert', 'Only when an alert plays'], ['featured', 'Only when a message is featured'], ['command', 'Only when a chat command or trigger is used']])}
@@ -2725,8 +2730,10 @@
             animation: 150, handle: '.pg-grip', ghostClass: 'sortable-ghost',
             onEnd(event) {
                 if (event.oldIndex === event.newIndex) return;
-                const [moved] = overlay.pages.items.splice(event.oldIndex, 1);
-                overlay.pages.items.splice(event.newIndex, 0, moved);
+                const normal = overlay.pages.items.filter(p => !p.trigger), trig = overlay.pages.items.filter(p => p.trigger);
+                const [moved] = normal.splice(event.oldIndex, 1);
+                normal.splice(event.newIndex, 0, moved);
+                overlay.pages.items = [...normal, ...trig];
                 changed(true); renderPageBar();
             }
         });
