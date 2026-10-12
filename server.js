@@ -496,7 +496,7 @@ function syncOverlayPages(overlay, previous) {
     const state = overlayPageState.get(overlay.id) || { page: overlay.pages.items[0].id, auto: false, timer: null };
     overlayPageState.set(overlay.id, state);
     const items = overlay.pages.items;
-    if (!items.some(item => item.id === state.page && item.enabled)) {
+    if (!items.some(item => item.id === state.page && item.enabled && (!item.trigger || state.takeoverTimer))) {
         // The current page was disabled or removed: carry on with the next enabled page in rotation, not the first
         let from = items.findIndex(item => item.id === state.page);
         if (from >= 0) from += 1;
