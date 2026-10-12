@@ -75,6 +75,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             enabled: input.enabled !== false,
             kind: KINDS.includes(input.kind) ? input.kind : 'interval',
             every: num(input.every, 1, 1440, 30),
+            vary: input.vary === true,
+            everyMax: num(input.everyMax, 1, 1440, Math.max(1, num(input.every, 1, 1440, 30) * 2)),
             minChat: num(input.minChat, 0, 1000, 5),
             minute: num(input.minute, 0, 59, 0),
             time,
@@ -299,6 +301,9 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
     }
 
+    // Fixed interval, or a random one between every and everyMax when variability is on.
+    const waitMs = m => (m.vary && m.everyMax > m.every ? m.every + Math.random() * (m.everyMax - m.every) : m.every) * 60000;
+
     const pad2 = n => String(n).padStart(2, '0');
     function messageDue(m, d) {
         const day = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -308,13 +313,13 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         if (m.kind === 'dateinterval') {
             if (m.md !== day.slice(5) || hm < m.from || hm > m.to) return null;
             const st = timerState.get(m.id);
-            return !st || Date.now() - st.at >= m.every * 60000 ? 'di' : null;
+            return !st || Date.now() - st.at >= (st.wait ?? m.every * 60000) ? 'di' : null;
         }
         if (m.days.length && !m.days.includes(d.getDay())) return null;
         if (m.kind === 'hourly') return d.getMinutes() === m.minute ? fresh(`${day}-${d.getHours()}`) : null;
         if (m.kind === 'daily') return hm === m.time ? fresh(`${day}-d`) : null;
         const st = timerState.get(m.id) || { at: startedAt };
-        return Date.now() - st.at >= m.every * 60000 ? 'interval' : null;
+        return Date.now() - st.at >= (st.wait ?? m.every * 60000) ? 'interval' : null;
     }
 
     async function tick() {
@@ -329,7 +334,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 if (m.kind !== 'interval') timerState.set(m.id, { ...prev, slot: due });
                 continue;
             }
-            timerState.set(m.id, { at: Date.now(), count: chatCount, slot: due });
+            timerState.set(m.id, { at: Date.now(), count: chatCount, slot: due, wait: waitMs(m) });
             try {
                 const out = await expand(pick(m.text, m.random));
                 if (out) await reply(`m:${m.id}`, out);
