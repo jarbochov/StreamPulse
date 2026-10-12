@@ -191,20 +191,26 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
 
     const allowed = (access, msg) => access === 'everyone' || isMod(msg) || (access === 'subs' && isSub(msg));
 
-    const formatQuote = q => `"${q.text}" (#${q.id}${q.by ? `, added by ${q.by}` : ''}, ${new Date(q.at).getFullYear()})`;
+    const formatQuote = (q, details) => {
+        if (!details) return `"${q.text}" (#${q.id})`;
+        const when = new Date(q.at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        return `"${q.text}" (#${q.id}${q.game ? `, ${q.game}` : ''}${q.by ? `, added by ${q.by}` : ''}, ${when})`;
+    };
 
-    function quoteReply(arg, msg) {
+    function quoteReply(rawArg, msg) {
+        const details = /(^|\s)details?$/i.test(rawArg.trim());
+        const arg = rawArg.trim().replace(/(^|\s)details?$/i, '').trim();
         const [sub, ...rest] = arg.split(/\s+/);
         if (!data.quotes.length) return 'No quotes yet.';
         if (/^\d+$/.test(sub || '')) {
             const q = data.quotes.find(item => item.id === Number(sub));
-            return q ? formatQuote(q) : `No quote #${sub}.`;
+            return q ? formatQuote(q, details) : `No quote #${sub}.`;
         }
         if (arg) {
             const matches = data.quotes.filter(q => q.text.toLowerCase().includes(arg.toLowerCase()));
-            return matches.length ? formatQuote(matches[Math.floor(Math.random() * matches.length)]) : `No quote matches "${arg}".`;
+            return matches.length ? formatQuote(matches[Math.floor(Math.random() * matches.length)], details) : `No quote matches "${arg}".`;
         }
-        return formatQuote(data.quotes[Math.floor(Math.random() * data.quotes.length)]);
+        return formatQuote(data.quotes[Math.floor(Math.random() * data.quotes.length)], details);
     }
 
     function addQuote(text, by) {
