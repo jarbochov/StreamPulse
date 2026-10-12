@@ -32,7 +32,7 @@
 <div class="wrap">
     <h1>StreamPulse <span>Chat Commands</span></h1>
     <div class="card" style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
-        <button class="b" id="copy">Copy Markdown</button><button class="b" id="md">Download Markdown</button>
+        <label class="muted">Show commands for <select id="audience" class="b"><option value="viewers">Viewers</option><option value="subscribers">Subscribers</option><option value="mods">Mods (everything)</option></select></label><button class="b" id="copy">Copy Markdown</button><button class="b" id="md">Download Markdown</button>
         <label class="muted"><input type="checkbox" id="inc-quotes" style="width:auto"> Include all quotes</label>
         <span class="muted" style="flex:1;text-align:right">Generated live. Read only.</span>
     </div>
@@ -59,7 +59,8 @@ function model() {
         random: !!c.random, replies: c.random ? lines(c.response) : [String(c.response || '')]
     }));
     const triggers = state.triggers.map(t => ({ name: t.name || t.words[0], words: t.words, enabled: t.enabled !== false, who: who(t.access), random: !!t.random, replies: t.random ? lines(t.text) : [t.text] }));
-    const pub = x => x.who !== 'Mods only';
+    const rank = { 'Everyone': 0, 'Subscribers and mods': 1, 'Mods only': 2 }, level = { viewers: 0, subscribers: 1, mods: 2 }[$('audience').value] ?? 0;
+    const pub = x => (rank[x.who] ?? 0) <= level;
     return { p, builtin: builtin.filter(pub), commands: commands.filter(pub), triggers: triggers.filter(pub) };
 }
 
@@ -88,6 +89,8 @@ function markdown() {
 }
 
 $('inc-quotes').onchange = renderPage;
+$('audience').value = new URLSearchParams(location.search).get('for') || 'viewers';
+$('audience').onchange = renderPage;
 $('copy').onclick = async () => { try { await navigator.clipboard.writeText(markdown()); $('copy').textContent = 'Copied'; } catch { const t = document.createElement('textarea'); t.value = markdown(); document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); $('copy').textContent = 'Copied'; } setTimeout(() => $('copy').textContent = 'Copy Markdown', 1500); };
 $('md').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([markdown()], { type: 'text/markdown' })); a.download = 'streampulse-chat-commands.md'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); };
 fetch('/api/chatbot', { cache: 'no-store' }).then(r => r.json()).then(d => { state = d; renderPage(); });
