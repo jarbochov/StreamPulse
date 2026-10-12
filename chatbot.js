@@ -2,15 +2,22 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const crypto = require('crypto');
 
 const DEFAULT_SETTINGS = { prefix: '!', tag: '[BOT]', cooldown: 5, mods: [] };
 const MAX_COMMANDS = 200;
 const MAX_QUOTES = 5000;
+const MAX_MESSAGES = 100;
+const MAX_TRIGGERS = 100;
+const KINDS = ['interval', 'hourly', 'daily'];
 const NAME_RE = /^[a-z0-9_]{1,30}$/;
 
 module.exports = function createChatbot({ dataDir, getConfig, port }) {
     const file = path.join(dataDir, 'chatbot.json');
-    let data = { settings: { ...DEFAULT_SETTINGS }, commands: [], quotes: [], nextQuoteId: 1 };
+    let data = { settings: { ...DEFAULT_SETTINGS }, commands: [], quotes: [], nextQuoteId: 1, messages: [], triggers: [] };
+    const startedAt = Date.now();
+    let chatCount = 0;
+    const timerState = new Map();
     const lastUsed = new Map();
     let lastAny = 0;
     let shared = null;
@@ -46,11 +53,57 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             name,
             aliases: [...new Set(aliases)].slice(0, 5),
             response: clean(input.response, 1000),
+            random: input.random === true,
             access: ACCESS.includes(input.access) ? input.access : input.modOnly === true ? 'mods' : 'everyone',
             cooldown: input.cooldown === '' || input.cooldown === null || input.cooldown === undefined ? null : Math.max(0, Math.min(3600, Number(input.cooldown) || 0)),
             enabled: input.enabled !== false
         };
     }
+
+    const newId = () => crypto.randomBytes(5).toString('hex');
+    const num = (value, min, max, fallback) => { const n = Number(value); return Number.isFinite(n) && value !== '' && value !== null ? Math.max(min, Math.min(max, Math.round(n))) : fallback; };
+
+    function normalizeMessage(input = {}) {
+        const text = clean(input.text, 1000);
+        if (!text) return null;
+        const time = /^([01]?\d|2[0-3]):([0-5]\d)$/.test(String(input.time || '')) ? String(input.time).replace(/^(\d):/, '0$1:') : '12:00';
+        return {
+            id: clean(input.id, 20) || newId(),
+            name: clean(input.name, 60),
+            enabled: input.enabled !== false,
+            kind: KINDS.includes(input.kind) ? input.kind : 'interval',
+            every: num(input.every, 1, 1440, 30),
+            minChat: num(input.minChat, 0, 1000, 5),
+            minute: num(input.minute, 0, 59, 0),
+            time,
+            days: [...new Set((Array.isArray(input.days) ? input.days : []).map(Number).filter(d => d >= 0 && d <= 6))].sort(),
+            random: input.random === true,
+            text
+        };
+    }
+
+    function normalizeTrigger(input = {}) {
+        const words = (Array.isArray(input.words) ? input.words : String(input.words || '').split(/[\n,]+/)).map(w => clean(w, 60).toLowerCase()).filter(Boolean);
+        const text = clean(input.text, 1000);
+        if (!words.length || !text) return null;
+        return {
+            id: clean(input.id, 20) || newId(),
+            name: clean(input.name, 60),
+            enabled: input.enabled !== false,
+            words: [...new Set(words)].slice(0, 30),
+            wholeWord: input.wholeWord !== false,
+            access: ACCESS.includes(input.access) ? input.access : 'everyone',
+            cooldown: num(input.cooldown, 0, 86400, 60),
+            random: input.random === true,
+            text
+        };
+    }
+
+    const pick = (text, random) => {
+        if (!random) return text;
+        const lines = String(text).split(/\n/).map(l => l.trim()).filter(Boolean);
+        return lines.length ? lines[Math.floor(Math.random() * lines.length)] : text;
+    };
 
     function normalizeQuote(input = {}) {
         const text = clean(input.text, 300);
@@ -65,6 +118,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             const seen = new Set();
             data.commands = (raw.commands || []).map(normalizeCommand).filter(c => c && !seen.has(c.name) && seen.add(c.name)).slice(0, MAX_COMMANDS);
             data.quotes = (raw.quotes || []).map(normalizeQuote).filter(Boolean).slice(0, MAX_QUOTES);
+            data.messages = (raw.messages || []).map(normalizeMessage).filter(Boolean).slice(0, MAX_MESSAGES);
+            data.triggers = (raw.triggers || []).map(normalizeTrigger).filter(Boolean).slice(0, MAX_TRIGGERS);
             data.nextQuoteId = Math.max(Number(raw.nextQuoteId) || 1, ...data.quotes.map(q => q.id + 1), 1);
         } catch { /* first run */ }
     }
@@ -175,7 +230,9 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const { prefix, tag, cooldown } = data.settings;
         const text = String(msg.chatmessage || '').replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, ' ').trim();
         // Never react to our own tagged replies or to events.
-        if (!text || (tag && text.startsWith(tag)) || msg.event || msg.hasDonation || !text.startsWith(prefix)) return;
+        if (!text || (tag && text.startsWith(tag)) || msg.event || msg.hasDonation) return;
+        chatCount++;
+        if (!text.startsWith(prefix)) return runTriggers(text, msg);
         const [first, ...rest] = text.slice(prefix.length).trim().split(/\s+/);
         const name = String(first || '').toLowerCase();
         const arg = rest.join(' ').trim();
@@ -198,11 +255,73 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
         if (builtin === 'quotes') return reply(key, `${data.quotes.length} quote${data.quotes.length === 1 ? '' : 's'} saved. Use ${prefix}quote or ${prefix}quote <number>.`);
         if (builtin === 'quote') return reply(key, quoteReply(arg, msg));
-        try { await reply(key, await expand(custom.response.replace(/\{\{\s*args?\s*\}\}/g, arg)) || '(no value yet)'); } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
+        try { await reply(key, await expand(pick(custom.response, custom.random).replace(/\{\{\s*args?\s*\}\}/g, arg)) || '(no value yet)'); } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
+    }
+
+    const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    async function runTriggers(text, msg) {
+        const now = Date.now();
+        for (const t of data.triggers) {
+            if (!t.enabled || !allowed(t.access, msg)) continue;
+            if (now - (lastUsed.get(`t:${t.id}`) || 0) < t.cooldown * 1000 || now - lastAny < 1000) continue;
+            const hit = t.words.some(w => new RegExp(t.wholeWord ? `(^|[^\\p{L}\\p{N}_])${escapeRe(w)}($|[^\\p{L}\\p{N}_])` : escapeRe(w), 'iu').test(text));
+            if (!hit) continue;
+            const out = await expand(pick(t.text, t.random).replace(/\{\{\s*user\s*\}\}/g, msg.chatname || ''));
+            if (out) await reply(`t:${t.id}`, out);
+            return;
+        }
+    }
+
+    function messageDue(m, d) {
+        const slot = k => timerState.get(m.id)?.slot !== k && k;
+        if (m.days.length && m.kind !== 'interval' && !m.days.includes(d.getDay())) return null;
+        const day = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        if (m.kind === 'hourly') return d.getMinutes() === m.minute ? slot(`${day}-${d.getHours()}`) || null : null;
+        if (m.kind === 'daily') return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` === m.time ? slot(`${day}-d`) || null : null;
+        const st = timerState.get(m.id) || { at: startedAt, count: chatCount };
+        return Date.now() - st.at >= m.every * 60000 ? 'interval' : null;
+    }
+
+    async function tick() {
+        if (!enabled() || Date.now() - lastAny < 1000) return;
+        const d = new Date();
+        for (const m of data.messages) {
+            if (!m.enabled) continue;
+            const due = messageDue(m, d);
+            if (!due) continue;
+            const prev = timerState.get(m.id) || { at: startedAt, count: chatCount };
+            if (m.minChat && chatCount - prev.count < m.minChat) {
+                if (m.kind !== 'interval') timerState.set(m.id, { ...prev, slot: due });
+                continue;
+            }
+            timerState.set(m.id, { at: Date.now(), count: chatCount, slot: due });
+            try {
+                const out = await expand(pick(m.text, m.random));
+                if (out) await reply(`m:${m.id}`, out);
+            } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
+            return;
+        }
+    }
+
+    function importQuotes(list) {
+        const have = new Set(data.quotes.map(q => q.text.toLowerCase()));
+        let added = 0, skipped = 0;
+        for (const item of list) {
+            const base = typeof item === 'string' ? { text: item } : item || {};
+            const q = normalizeQuote({ ...base, id: data.nextQuoteId });
+            if (!q || have.has(q.text.toLowerCase()) || data.quotes.length >= MAX_QUOTES) { skipped++; continue; }
+            have.add(q.text.toLowerCase());
+            data.nextQuoteId++;
+            data.quotes.push(q);
+            added++;
+        }
+        if (added) save();
+        return { added, skipped };
     }
 
     function snapshot() {
-        return { enabled: enabled(), ssnConfigured: !!sessionId() && !/YOUR_SSN/.test(sessionId()), settings: data.settings, commands: data.commands, quotes: data.quotes };
+        return { enabled: enabled(), ssnConfigured: !!sessionId() && !/YOUR_SSN/.test(sessionId()), settings: data.settings, commands: data.commands, quotes: data.quotes, messages: data.messages, triggers: data.triggers };
     }
 
     // Returns true when the request was handled.
@@ -218,8 +337,14 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                     const seen = new Set();
                     data.commands = body.commands.map(normalizeCommand).filter(c => c && !seen.has(c.name) && seen.add(c.name)).slice(0, MAX_COMMANDS);
                 }
+                if (Array.isArray(body.messages)) data.messages = body.messages.map(normalizeMessage).filter(Boolean).slice(0, MAX_MESSAGES);
+                if (Array.isArray(body.triggers)) data.triggers = body.triggers.map(normalizeTrigger).filter(Boolean).slice(0, MAX_TRIGGERS);
                 save();
                 return json(200, snapshot()), true;
+            }
+            if (pathname === '/api/chatbot/quotes/import' && req.method === 'POST') {
+                if (!Array.isArray(body.quotes)) return json(400, { error: 'Expected a quotes array' }), true;
+                return json(200, { ...importQuotes(body.quotes.slice(0, MAX_QUOTES)), ...snapshot() }), true;
             }
             if (pathname === '/api/chatbot/quotes' && req.method === 'POST') {
                 const quote = addQuote(body.text, body.by || 'dashboard');
@@ -248,5 +373,6 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
     }
 
     load();
+    setInterval(() => tick().catch(() => {}), 15000).unref();
     return { handle, handleApi };
 };

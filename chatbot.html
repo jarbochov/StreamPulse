@@ -59,7 +59,6 @@
                 <label class="f">Reply tag<input id="s-tag" maxlength="20" placeholder="[BOT]"></label>
                 <label class="f">Default cooldown (seconds)<input id="s-cooldown" type="number" min="0" max="3600"></label>
             </div>
-            <div id="builtins" style="margin-top:.75rem;display:grid;gap:.5rem;"></div>
             <label class="f" style="margin-top:.75rem;">Moderator usernames (fallback)<input id="s-mods" placeholder="name1, name2"></label>
             <p class="muted" style="margin-top:.5rem;">Replies are sent as your SocialStream account, starting with the tag. Messages that start with the tag are never treated as commands. Mods are detected from SocialStream chat data when it includes them; usernames listed here are always treated as mods.</p>
             <div class="row end" style="margin-top:.75rem;"><button class="btn primary" id="save-settings">Save settings</button></div>
@@ -75,8 +74,26 @@
         <div class="card">
             <h2>Quotes <span id="quote-count" class="muted"></span></h2>
             <p class="muted" style="margin-bottom:.75rem;">Chat: <code>!quote</code> random, <code>!quote 12</code> by number, <code>!quote word</code> search, <code>!quotes</code> count. Mods: <code>!addquote text</code> and <code>!delquote 12</code>.</p>
+            <div id="builtins" style="margin-bottom:.75rem;display:grid;gap:.5rem;"></div>
+            <div class="row end" style="margin-bottom:1rem;"><button class="btn" id="save-quote-settings">Save quote settings</button></div>
             <div class="row" style="margin-bottom:.5rem;"><input id="new-quote" class="grow" style="flex:1;min-width:200px;padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);" maxlength="300" placeholder="Add a quote"><button class="btn primary" id="add-quote">Add</button></div>
-            <div id="quotes"></div>
+            <div class="row" style="margin:.75rem 0 .25rem;"><input id="quote-search" style="flex:1;min-width:180px;padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);" placeholder="Search quotes"><button class="btn" id="export-json">Export JSON</button><button class="btn" id="export-txt">Export text</button><button class="btn" id="import-quotes">Import</button><input type="file" id="import-file" accept=".json,.txt,.csv,text/plain,application/json" hidden></div>
+            <p class="muted" style="margin-bottom:.5rem;">Import accepts a JSON export or a text file with one quote per line. Duplicates are skipped.</p>
+            <div id="quotes" style="max-height:60vh;overflow:auto;"></div>
+        </div>
+
+        <div class="card">
+            <h2>Timed messages <span id="msg-count" class="muted"></span></h2>
+            <p class="muted" style="margin-bottom:.75rem;">Send a message every N minutes, every hour at a minute past, or daily at a set time. "Only if chat active" skips the message unless at least that many chat messages arrived since it last ran, so the bot never talks to an empty room. Timers only run while the bot is on.</p>
+            <div id="messages"></div>
+            <div class="row" style="margin-top:.75rem;"><button class="btn" id="add-message">Add message</button><button class="btn primary" id="save-messages">Save messages</button></div>
+        </div>
+
+        <div class="card">
+            <h2>Word triggers <span id="trig-count" class="muted"></span></h2>
+            <p class="muted" style="margin-bottom:.75rem;">Reply when chat contains certain words. Use {{user}} for the chatter's name. Each trigger has its own cooldown; the first matching trigger wins.</p>
+            <div id="triggers"></div>
+            <div class="row" style="margin-top:.75rem;"><button class="btn" id="add-trigger">Add trigger</button><button class="btn primary" id="save-triggers">Save triggers</button></div>
         </div>
     </div>
     <div class="toast" id="toast"></div>
@@ -119,7 +136,7 @@ function commandHtml(c, i) {
         </div>
         <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Reply <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="response" rows="2" maxlength="1000" placeholder="Now playing: {{track}} by {{artist}}">${esc(c.response)}</textarea></label>
         <div class="preview" data-preview></div>
-        <div class="row"><label class="check"><input type="checkbox" data-k="enabled" ${c.enabled !== false ? 'checked' : ''}> Enabled</label><label class="check">Who can use <select data-k="access"><option value="everyone">Everyone</option><option value="subs" ${c.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${c.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
+        <div class="row"><label class="check"><input type="checkbox" data-k="enabled" ${c.enabled !== false ? 'checked' : ''}> Enabled</label><label class="check" title="Put one reply per line; each use sends a random one"><input type="checkbox" data-k="random" ${c.random ? 'checked' : ''}> Random line</label><label class="check">Who can use <select data-k="access"><option value="everyone">Everyone</option><option value="subs" ${c.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${c.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
     </div>`;
 }
 function renderCommands() {
@@ -128,19 +145,115 @@ function renderCommands() {
 function readCommands() {
     return [...document.querySelectorAll('#commands .item')].map(item => {
         const get = k => item.querySelector(`[data-k="${k}"]`);
-        return { name: get('name').value, aliases: get('aliases').value, cooldown: get('cooldown').value, response: get('response').value, enabled: get('enabled').checked, access: get('access').value };
+        return { name: get('name').value, aliases: get('aliases').value, cooldown: get('cooldown').value, response: get('response').value, enabled: get('enabled').checked, access: get('access').value, random: get('random').checked };
     });
 }
 
 function renderQuotes() {
     $('quote-count').textContent = `(${state.quotes.length})`;
-    $('quotes').innerHTML = state.quotes.length ? [...state.quotes].reverse().map(q => `<div class="quote" data-id="${q.id}">
+    const term = ($('quote-search')?.value || '').trim().toLowerCase();
+    const shown = state.quotes.filter(q => !term || q.text.toLowerCase().includes(term) || String(q.id) === term.replace('#', ''));
+    $('quotes').innerHTML = shown.length ? [...shown].reverse().map(q => `<div class="quote" data-id="${q.id}">
         <span class="num">#${q.id}</span>
         <div><div class="q-text">${esc(q.text)}</div><div class="meta">${q.by ? `Added by ${esc(q.by)} · ` : ''}${new Date(q.at).toLocaleDateString()}</div></div>
         <div class="row"><button class="btn small" data-act="edit-quote">Edit</button><button class="btn small danger" data-act="del-quote">Delete</button></div></div>`).join('') : '<div class="empty">No quotes yet.</div>';
 }
 
-function applyState(data) { state = data; renderBanner(); renderSettings(); renderCommands(); renderQuotes(); }
+const accessOpts = v => [['everyone', 'Everyone'], ['subs', 'Subscribers + mods'], ['mods', 'Mods only']].map(([k, n]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${n}</option>`).join('');
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function messageHtml(m, i) {
+    const k = m.kind || 'interval';
+    return `<div class="item" data-i="${i}">
+        <div class="top" style="grid-template-columns:minmax(120px,1fr) 160px 1fr;">
+            <label class="f">Name<input data-k="name" value="${esc(m.name)}" placeholder="Follow reminder"></label>
+            <label class="f">Schedule<select data-k="kind"><option value="interval" ${k === 'interval' ? 'selected' : ''}>Every N minutes</option><option value="hourly" ${k === 'hourly' ? 'selected' : ''}>Every hour</option><option value="daily" ${k === 'daily' ? 'selected' : ''}>Daily at a time</option></select></label>
+            <div class="row" style="align-items:flex-end;">
+                ${k === 'interval' ? `<label class="f">Every (min)<input data-k="every" type="number" min="1" max="1440" value="${m.every ?? 30}" style="width:6rem"></label>` : ''}
+                ${k === 'hourly' ? `<label class="f">Minutes past<input data-k="minute" type="number" min="0" max="59" value="${m.minute ?? 0}" style="width:6rem"></label>` : ''}
+                ${k === 'daily' ? `<label class="f">Time<input data-k="time" type="time" value="${m.time || '12:00'}"></label>` : ''}
+                <label class="f">Only if chat active (msgs)<input data-k="minChat" type="number" min="0" value="${m.minChat ?? 5}" style="width:7rem"></label>
+            </div>
+        </div>
+        ${k !== 'interval' ? `<div class="row"><span class="muted">Days (none selected = every day)</span>${DAYS.map((d, n) => `<label class="check"><input type="checkbox" data-day="${n}" ${(m.days || []).includes(n) ? 'checked' : ''}> ${d}</label>`).join('')}</div>` : ''}
+        <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Message <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="text" rows="2" maxlength="1000" placeholder="Enjoying the stream? Hit follow!">${esc(m.text)}</textarea></label>
+        <div class="row"><label class="check"><input type="checkbox" data-k="enabled" ${m.enabled !== false ? 'checked' : ''}> Enabled</label><label class="check" title="One message per line; a random one is sent each time"><input type="checkbox" data-k="random" ${m.random ? 'checked' : ''}> Random line</label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
+    </div>`;
+}
+function triggerHtml(t, i) {
+    return `<div class="item" data-i="${i}">
+        <div class="top" style="grid-template-columns:minmax(120px,1fr) 2fr 110px;">
+            <label class="f">Name<input data-k="name" value="${esc(t.name)}" placeholder="Greeting"></label>
+            <label class="f">Words or phrases (comma separated)<input data-k="words" value="${esc((t.words || []).join(', '))}" placeholder="hello, hi there"></label>
+            <label class="f">Cooldown (s)<input data-k="cooldown" type="number" min="0" value="${t.cooldown ?? 60}"></label>
+        </div>
+        <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Reply <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="text" rows="2" maxlength="1000" placeholder="Welcome in, {{user}}!">${esc(t.text)}</textarea></label>
+        <div class="row"><label class="check"><input type="checkbox" data-k="enabled" ${t.enabled !== false ? 'checked' : ''}> Enabled</label><label class="check"><input type="checkbox" data-k="wholeWord" ${t.wholeWord !== false ? 'checked' : ''}> Whole words only</label><label class="check"><input type="checkbox" data-k="random" ${t.random ? 'checked' : ''}> Random line</label><label class="check">Who can trigger <select data-k="access">${accessOpts(t.access || 'everyone')}</select></label><span style="flex:1"></span><button class="btn small danger" data-act="remove">Remove</button></div>
+    </div>`;
+}
+const listCfg = {
+    messages: { el: 'messages', html: messageHtml, blank: () => ({ kind: 'interval', every: 30, minChat: 5, minute: 0, time: '12:00', days: [], enabled: true, text: '' }) },
+    triggers: { el: 'triggers', html: triggerHtml, blank: () => ({ words: [], cooldown: 60, enabled: true, wholeWord: true, access: 'everyone', text: '' }) }
+};
+function readList(name) {
+    return [...document.querySelectorAll(`#${listCfg[name].el} .item`)].map(item => {
+        const o = {};
+        item.querySelectorAll('[data-k]').forEach(f => { o[f.dataset.k] = f.type === 'checkbox' ? f.checked : f.value; });
+        if (name === 'messages') o.days = [...item.querySelectorAll('[data-day]:checked')].map(c => Number(c.dataset.day));
+        return o;
+    });
+}
+function renderList(name) {
+    const c = listCfg[name];
+    $(c.el).innerHTML = state[name].length ? state[name].map(c.html).join('') : `<div class="empty">None yet.</div>`;
+    $(name === 'messages' ? 'msg-count' : 'trig-count').textContent = `(${state[name].length})`;
+}
+for (const name of Object.keys(listCfg)) {
+    const c = listCfg[name];
+    $(`add-${name === 'messages' ? 'message' : 'trigger'}`).onclick = () => { state[name] = readList(name); state[name].push(c.blank()); renderList(name); };
+    $(`save-${name}`).onclick = async () => {
+        try {
+            const list = readList(name);
+            if (list.some(x => !String(x.text).trim() || (name === 'triggers' && !String(x.words).trim()))) throw new Error(name === 'triggers' ? 'Each trigger needs words and a reply' : 'Each message needs text');
+            applyState(await api('/api/chatbot', 'PUT', { [name]: list })); toast('Saved');
+        } catch (e) { toast(e.message); }
+    };
+    $(c.el).addEventListener('change', event => { if (event.target.dataset.k === 'kind') { state[name] = readList(name); renderList(name); } });
+    $(c.el).addEventListener('click', async event => {
+        const act = event.target.dataset.act, item = event.target.closest('.item');
+        if (!act || !item) return;
+        const field = item.querySelector('[data-k="text"]');
+        if (act === 'placeholder') PlaceholderPicker.open({ getStatus: () => liveStatus, onWarn: toast, onPick: token => PlaceholderPicker.insertInto(field, token) });
+        if (act === 'remove') { state[name] = readList(name); state[name].splice(Number(item.dataset.i), 1); renderList(name); }
+        if (act === 'test') {
+            try { const { text } = await api('/api/chatbot/preview', 'POST', { text: field.value.split('\n')[0] }); await api('/api/chatbot/send', 'POST', { text: text || field.value }); toast('Test sent to chat'); } catch (e) { toast(e.message); }
+        }
+    });
+}
+
+function download(name, type, content) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type }));
+    a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$('export-json').onclick = () => download('streampulse-quotes.json', 'application/json', JSON.stringify(state.quotes.map(({ text, by, at }) => ({ text, by, at })), null, 2));
+$('export-txt').onclick = () => download('streampulse-quotes.txt', 'text/plain', state.quotes.map(q => q.text).join('\n'));
+$('import-quotes').onclick = () => $('import-file').click();
+$('import-file').onchange = async event => {
+    const file = event.target.files[0]; event.target.value = '';
+    if (!file) return;
+    try {
+        const raw = await file.text();
+        let list;
+        try { const parsed = JSON.parse(raw); list = Array.isArray(parsed) ? parsed : parsed.quotes; } catch { list = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean); }
+        if (!Array.isArray(list)) throw new Error('No quotes found in that file');
+        const result = await api('/api/chatbot/quotes/import', 'POST', { quotes: list });
+        applyState(result); toast(`Imported ${result.added}, skipped ${result.skipped} duplicates or invalid`);
+    } catch (e) { toast(e.message); }
+};
+$('quote-search').addEventListener('input', renderQuotes);
+$('save-quote-settings').onclick = () => $('save-settings').click();
+
+function applyState(data) { state = data; renderBanner(); renderSettings(); renderCommands(); renderQuotes(); renderList('messages'); renderList('triggers'); }
 
 $('save-settings').onclick = async () => {
     try { applyState(await api('/api/chatbot', 'PUT', { settings: { prefix: $('s-prefix').value, tag: $('s-tag').value, cooldown: $('s-cooldown').value, mods: $('s-mods').value, builtins: Object.fromEntries([...document.querySelectorAll('#builtins [data-b]')].map(r => [r.dataset.b, { access: r.querySelector('[data-bk=access]').value, cooldown: r.querySelector('[data-bk=cooldown]').value }])) } })); toast('Settings saved'); } catch (e) { toast(e.message); }
