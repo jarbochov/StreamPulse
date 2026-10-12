@@ -384,6 +384,23 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 save();
                 return json(200, snapshot()), true;
             }
+            if (pathname === '/api/chatbot/export' && req.method === 'GET') {
+                return json(200, { format: 'streampulse-chatbot', version: 1, exportedAt: new Date().toISOString(), ...data, variables: variables ? variables.list() : [] }), true;
+            }
+            if (pathname === '/api/chatbot/import' && req.method === 'POST') {
+                if (body.format !== 'streampulse-chatbot') return json(400, { error: 'Not a StreamPulse chat bot export' }), true;
+                const seen = new Set();
+                data.settings = normalizeSettings(body.settings);
+                data.commands = (body.commands || []).map(normalizeCommand).filter(c => c && !seen.has(c.name) && seen.add(c.name)).slice(0, MAX_COMMANDS);
+                data.quotes = (body.quotes || []).map(normalizeQuote).filter(Boolean).slice(0, MAX_QUOTES);
+                data.messages = (body.messages || []).map(normalizeMessage).filter(Boolean).slice(0, MAX_MESSAGES);
+                data.triggers = (body.triggers || []).map(normalizeTrigger).filter(Boolean).slice(0, MAX_TRIGGERS);
+                data.nextQuoteId = Math.max(Number(body.nextQuoteId) || 1, ...data.quotes.map(q => q.id + 1), 1);
+                let vars = 0;
+                if (variables) for (const v of (body.variables || []).slice(0, 300)) { try { variables.set(v.name, v); vars++; } catch { /* skip bad variable */ } }
+                save();
+                return json(200, { variables: vars, ...snapshot() }), true;
+            }
             if (pathname === '/api/chatbot/quotes/import' && req.method === 'POST') {
                 if (!Array.isArray(body.quotes)) return json(400, { error: 'Expected a quotes array' }), true;
                 return json(200, { ...importQuotes(body.quotes.slice(0, MAX_QUOTES)), ...snapshot() }), true;
