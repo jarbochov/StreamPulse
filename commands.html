@@ -42,7 +42,8 @@
 const $ = id => document.getElementById(id);
 const esc = v => { const d = document.createElement('div'); d.textContent = v ?? ''; return d.innerHTML; };
 let state = null;
-const who = a => ({ everyone: 'Everyone', subs: 'Subscribers and mods', mods: 'Mods only' })[a] || 'Everyone';
+const who = a => ({ everyone: 'Everyone', subs: 'Subscribers only', mods: 'Mods only' })[a] || 'Everyone';
+const badge = x => x.who === 'Everyone' ? '' : ` <span class="meta" style="border:1px solid var(--border);border-radius:4px;padding:0 .35rem;">${x.who}</span>`;
 const lines = t => String(t || '').split(/\\n|\n/).map(l => l.trim()).filter(Boolean);
 
 // One model feeds both the page and the Markdown so they never drift apart.
@@ -59,7 +60,7 @@ function model() {
         random: !!c.random, replies: c.random ? lines(c.response) : [String(c.response || '')]
     }));
     const triggers = state.triggers.map(t => ({ name: t.name || t.words[0], words: t.words, enabled: t.enabled !== false, who: who(t.access), random: !!t.random, replies: t.random ? lines(t.text) : [t.text] }));
-    const rank = { 'Everyone': 0, 'Subscribers and mods': 1, 'Mods only': 2 }, level = { viewers: 0, subscribers: 1, mods: 2 }[$('audience').value] ?? 0;
+    const rank = { 'Everyone': 0, 'Subscribers only': 1, 'Mods only': 2 }, level = { viewers: 0, subscribers: 1, mods: 2 }[$('audience').value] ?? 0;
     const pub = x => (rank[x.who] ?? 0) <= level;
     return { p, builtin: builtin.filter(pub), commands: commands.filter(pub), triggers: triggers.filter(pub) };
 }
@@ -68,9 +69,9 @@ function renderPage() {
     const m = model();
     const reply = x => x.random ? `<div class="muted">Random, one of:</div><ul>${x.replies.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : `<div>${esc(x.replies[0])}</div>`;
     const off = x => x.enabled ? '' : ' <span class="muted">(disabled)</span>';
-    let html = `<div class="card"><h2>Built-in commands</h2>${m.builtin.map(c => `<div class="row"><code>${esc(c.cmd)}</code><div class="muted">${esc(c.desc)}</div>${c.who !== 'Everyone' ? `<div class="meta">${c.who}</div>` : ''}</div>`).join('')}</div>`;
-    html += `<div class="card"><h2>Custom commands (${m.commands.length})</h2>${m.commands.map(c => `<div class="row"><code>${esc(c.cmd)}</code>${off(c)}${reply(c)}${c.who !== 'Everyone' ? `<div class="meta">${c.who}</div>` : ''}</div>`).join('') || '<div class="muted">None.</div>'}</div>`;
-    html += `<div class="card"><h2>Word triggers (${m.triggers.length})</h2>${m.triggers.map(t => `<div class="row"><b>${esc(t.name)}</b>${off(t)}<div class="muted">When chat says: ${t.words.map(esc).join(', ')}</div>${reply(t)}${t.who !== 'Everyone' ? `<div class="meta">${t.who}</div>` : ''}</div>`).join('') || '<div class="muted">None.</div>'}</div>`;
+    let html = `<div class="card"><h2>Built-in commands</h2>${m.builtin.map(c => `<div class="row"><code>${esc(c.cmd)}</code>${badge(c)}<div class="muted">${esc(c.desc)}</div></div>`).join('')}</div>`;
+    html += `<div class="card"><h2>Custom commands (${m.commands.length})</h2>${m.commands.map(c => `<div class="row"><code>${esc(c.cmd)}</code>${badge(c)}${off(c)}${reply(c)}</div>`).join('') || '<div class="muted">None.</div>'}</div>`;
+    html += `<div class="card"><h2>Word triggers (${m.triggers.length})</h2>${m.triggers.map(t => `<div class="row"><b>${esc(t.name)}</b>${badge(t)}${off(t)}<div class="muted">When chat says: ${t.words.map(esc).join(', ')}</div>${reply(t)}</div>`).join('') || '<div class="muted">None.</div>'}</div>`;
     if ($('inc-quotes').checked) html += `<div class="card"><h2>Quotes (${state.quotes.length})</h2>${state.quotes.map(q => `<div class="row"><b>#${q.id}</b> ${esc(q.text)}<div class="meta">${[q.game, q.by && 'Added by ' + q.by].filter(Boolean).map(esc).join(' · ')}</div></div>`).join('')}</div>`;
     $('out').innerHTML = html;
 }
@@ -79,11 +80,11 @@ function markdown() {
     const m = model(), esc2 = v => String(v).replace(/\|/g, '\\|');
     const rep = x => x.random ? x.replies.map(r => `  - ${r}`).join('\n') : `  - ${x.replies[0]}`;
     let md = '# Chat commands\n\n## Built-in\n\n| Command | What it does | Who |\n|---|---|---|\n';
-    md += m.builtin.map(c => `| \`${c.cmd}\` | ${esc2(c.desc)} | ${c.who} |`).join('\n');
+    md += m.builtin.map(c => `| \`${c.cmd}\` | ${esc2(c.desc)} | ${c.who === 'Everyone' ? '' : c.who} |`).join('\n');
     md += '\n\n## Custom commands\n\n';
-    md += m.commands.filter(c => c.enabled).map(c => `- **\`${c.cmd}\`** (${c.who})\n${c.random ? '  Random reply, one of:\n' : '  Reply:\n'}${rep(c)}`).join('\n') || '_None._';
+    md += m.commands.filter(c => c.enabled).map(c => `- **\`${c.cmd}\`** ${c.who === 'Everyone' ? '' : ` (${c.who})`}\n${c.random ? '  Random reply, one of:\n' : '  Reply:\n'}${rep(c)}`).join('\n') || '_None._';
     md += '\n\n## Word triggers\n\n';
-    md += m.triggers.filter(t => t.enabled).map(t => `- **${t.name}** - when chat says: ${t.words.join(', ')} (${t.who})\n${t.random ? '  Random reply, one of:\n' : '  Reply:\n'}${rep(t)}`).join('\n') || '_None._';
+    md += m.triggers.filter(t => t.enabled).map(t => `- **${t.name}** - when chat says: ${t.words.join(', ')}${t.who === 'Everyone' ? '' : ` (${t.who})`}\n${t.random ? '  Random reply, one of:\n' : '  Reply:\n'}${rep(t)}`).join('\n') || '_None._';
     if ($('inc-quotes').checked) md += `\n\n## Quotes\n\n${state.quotes.map(q => `${q.id}. "${q.text}"${[q.game, q.by && 'added by ' + q.by].filter(Boolean).length ? ` (${[q.game, q.by && 'added by ' + q.by].filter(Boolean).join(', ')})` : ''}`).join('\n')}`;
     return md + '\n';
 }
