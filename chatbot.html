@@ -90,7 +90,7 @@
 
         <div class="card" data-tab="commands">
             <h2>Commands</h2>
-            <p class="muted" style="margin-bottom:.75rem;">Responses use the same {{placeholders}} as overlays, for example <code>Now playing: {{track}} by {{artist}}</code>. Use {{args}} for whatever follows the command. Use \n for a second message.</p>
+            <p class="muted" style="margin-bottom:.75rem;">Responses use the same {{placeholders}} as overlays, for example <code>Now playing: {{track}} by {{artist}}</code>. Use {{user}} (or $(sender)) for the chatter's name and {{args}} for whatever follows the command. Use \n for a second message.</p>
             <div id="commands"></div>
             <div class="row" style="margin-top:.75rem;"><button class="btn" id="add-command">Add command</button><button class="btn primary" id="save-commands">Save commands</button></div>
         </div>
@@ -368,7 +368,7 @@ $('commands').addEventListener('click', async event => {
     }
     if (act === 'remove') { state.commands = readCommands(); state.commands.splice(Number(item.dataset.i), 1); renderCommands(); }
     if (act === 'test') {
-        try { const text = item.querySelector('[data-k="response"]').value; const { text: out } = await api('/api/chatbot/preview', 'POST', { text: text.replace(/\{\{\s*args?\s*\}\}/g, 'example') }); await api('/api/chatbot/send', 'POST', { text: out || text }); toast('Test sent to chat'); } catch (e) { toast(e.message); }
+        try { const text = item.querySelector('[data-k="response"]').value; const { text: out } = await api('/api/chatbot/preview', 'POST', { text: text.replace(/\{\{\s*args?\s*\}\}/g, 'example').replace(/\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi, 'viewer') }); await api('/api/chatbot/send', 'POST', { text: out || text }); toast('Test sent to chat'); } catch (e) { toast(e.message); }
     }
 });
 let previewTimer = null;
@@ -377,7 +377,7 @@ $('commands').addEventListener('input', event => {
     clearTimeout(previewTimer);
     const item = event.target.closest('.item');
     previewTimer = setTimeout(async () => {
-        try { const { text } = await api('/api/chatbot/preview', 'POST', { text: event.target.value.replace(/\{\{\s*args?\s*\}\}/g, 'example') }); item.querySelector('[data-preview]').innerHTML = text ? `Preview: <b>${esc(text)}</b>` : ''; } catch { /* preview is optional */ }
+        try { const { text } = await api('/api/chatbot/preview', 'POST', { text: event.target.value.replace(/\{\{\s*args?\s*\}\}/g, 'example').replace(/\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi, 'viewer') }); item.querySelector('[data-preview]').innerHTML = text ? `Preview: <b>${esc(text)}</b>` : ''; } catch { /* preview is optional */ }
     }, 350);
 });
 $('add-quote').onclick = async () => {

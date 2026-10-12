@@ -10,6 +10,7 @@ const MAX_QUOTES = 5000;
 const MAX_MESSAGES = 100;
 const MAX_TRIGGERS = 100;
 const KINDS = ['interval', 'hourly', 'daily', 'datetime', 'dateinterval'];
+const USER_RE = /\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi;
 const NAME_RE = /^[a-z0-9_]{1,30}$/;
 
 module.exports = function createChatbot({ dataDir, getConfig, port, variables }) {
@@ -283,7 +284,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         if (builtin === 'quotes') return reply(key, `${data.quotes.length} quote${data.quotes.length === 1 ? '' : 's'} saved. Use ${prefix}quote or ${prefix}quote <number>.`);
         if (builtin === 'quote') return reply(key, quoteReply(arg, msg));
         if (custom.counter && variables) { try { if (custom.counterAction === 'roll') variables.roll(custom.counter); else variables.change(custom.counter, custom.counterAction, 1); statusCache.at = 0; } catch (err) { console.warn(`[Chatbot] ${err.message}`); } }
-        try { await reply(key, await expand(pick(custom.response, custom.random).replace(/\{\{\s*args?\s*\}\}/g, arg)) || '(no value yet)'); } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
+        try { await reply(key, await expand(pick(custom.response, custom.random).replace(/\{\{\s*args?\s*\}\}|\$\(args?\)/g, arg).replace(USER_RE, msg.chatname || '')) || '(no value yet)'); } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
     }
 
     const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -295,7 +296,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             if (now - (lastUsed.get(`t:${t.id}`) || 0) < t.cooldown * 1000 || now - lastAny < 1000) continue;
             const hit = t.words.some(w => new RegExp(t.wholeWord ? `(^|[^\\p{L}\\p{N}_])${escapeRe(w)}($|[^\\p{L}\\p{N}_])` : escapeRe(w), 'iu').test(text));
             if (!hit) continue;
-            const out = await expand(pick(t.text, t.random).replace(/\{\{\s*user\s*\}\}/g, msg.chatname || ''));
+            const out = await expand(pick(t.text, t.random).replace(USER_RE, msg.chatname || ''));
             if (out) await reply(`t:${t.id}`, out);
             return;
         }
