@@ -77,15 +77,19 @@ function renderPage() {
 }
 
 function markdown() {
-    const m = model(), esc2 = v => String(v).replace(/\|/g, '\\|');
-    const rep = x => x.random ? x.replies.map(r => `  - ${r}`).join('\n') : `  - ${x.replies[0]}`;
+    const m = model(), cell = v => String(v ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
+    const who2 = x => x.who === 'Everyone' ? '' : x.who;
+    const nice = r => cell(r).replace(/\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi, '(name)');
+    const rep = x => x.random ? 'Random, one of:<br>' + x.replies.map(r => '• ' + nice(r)).join('<br>') : x.replies.map(nice).join('<br>');
     let md = '# Chat commands\n\n## Built-in\n\n| Command | What it does | Who |\n|---|---|---|\n';
-    md += m.builtin.map(c => `| \`${c.cmd}\` | ${esc2(c.desc)} | ${c.who === 'Everyone' ? '' : c.who} |`).join('\n');
+    md += m.builtin.map(c => `| \`${cell(c.cmd)}\` | ${cell(c.desc)} | ${who2(c)} |`).join('\n');
     md += '\n\n## Custom commands\n\n';
-    md += m.commands.filter(c => c.enabled).map(c => `- **\`${c.cmd}\`** ${c.who === 'Everyone' ? '' : ` (${c.who})`}\n${c.random ? '  Random reply, one of:\n' : '  Reply:\n'}${rep(c)}`).join('\n') || '_None._';
+    const cmds = m.commands.filter(c => c.enabled);
+    md += cmds.length ? '| Command | Reply | Who |\n|---|---|---|\n' + cmds.map(c => `| \`${cell(c.cmd)}\` | ${rep(c)} | ${who2(c)} |`).join('\n') : '_None._';
+    const trigs = m.triggers.filter(t => t.enabled);
     md += '\n\n## Word triggers\n\n';
-    md += m.triggers.filter(t => t.enabled).map(t => `- **${t.name}** - when chat says: ${t.words.join(', ')}${t.who === 'Everyone' ? '' : ` (${t.who})`}\n${t.random ? '  Random reply, one of:\n' : '  Reply:\n'}${rep(t)}`).join('\n') || '_None._';
-    if ($('inc-quotes').checked) md += `\n\n## Quotes\n\n${state.quotes.map(q => `${q.id}. "${q.text}"${[q.game, q.by && 'added by ' + q.by].filter(Boolean).length ? ` (${[q.game, q.by && 'added by ' + q.by].filter(Boolean).join(', ')})` : ''}`).join('\n')}`;
+    md += trigs.length ? '| Trigger | When chat says | Reply | Who |\n|---|---|---|---|\n' + trigs.map(t => `| ${cell(t.name)} | ${cell(t.words.join(', '))} | ${rep(t)} | ${who2(t)} |`).join('\n') : '_None._';
+    if ($('inc-quotes').checked) md += `\n\n## Quotes\n\n| # | Quote | Game | Added by |\n|---|---|---|---|\n${state.quotes.map(q => `| ${q.id} | ${cell(q.text)} | ${cell(q.game)} | ${cell(q.by)} |`).join('\n')}`;
     return md + '\n';
 }
 
