@@ -162,7 +162,11 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         return String(getShared().expandVariables(text, await liveStatus(), {}, false) || '').replace(/\{\{[^}]*\}\}/g, '').trim();
     }
 
-    const enabled = () => getConfig().chatbot_enabled === true;
+    let enabledOverride = null;
+    const enabled = () => enabledOverride !== null ? enabledOverride : getConfig().chatbot_enabled === true;
+    let seq = 0;
+    const activity = [];
+    const logUse = (kind, name, user) => { activity.push({ seq: ++seq, kind, name, user: user || '', at: Date.now() }); if (activity.length > 50) activity.shift(); };
     const sessionId = () => getConfig().ssn?.session_id;
     const baseUrl = () => String(getConfig().ssn?.chat_base || getConfig().ssn?.server || 'https://io.socialstream.ninja').replace(/^wss:/, 'https:').replace(/^ws:/, 'http:').replace(/\/+$/, '');
 
@@ -274,6 +278,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const wait = (cfg.cooldown !== null && cfg.cooldown !== undefined ? cfg.cooldown : cooldown) * 1000;
         if (now - (lastUsed.get(key) || 0) < wait || now - lastAny < 1000) return;
 
+        logUse('command', key, msg.chatname);
         if (builtin === 'addquote' || builtin === 'delquote') {
             if (builtin === 'addquote') {
                 const quote = addQuote(arg, msg.chatname);
@@ -296,6 +301,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             if (now - (lastUsed.get(`t:${t.id}`) || 0) < t.cooldown * 1000 || now - lastAny < 1000) continue;
             const hit = t.words.some(w => new RegExp(t.wholeWord ? `(^|[^\\p{L}\\p{N}_])${escapeRe(w)}($|[^\\p{L}\\p{N}_])` : escapeRe(w), 'iu').test(text));
             if (!hit) continue;
+            logUse('trigger', t.name || t.id, msg.chatname);
             const out = await expand(pick(t.text, t.random).replace(USER_RE, msg.chatname || ''));
             if (out) await reply(`t:${t.id}`, out);
             return;
@@ -390,6 +396,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 for (const [k, v] of Object.entries(table)) if (v !== undefined && v !== null && typeof v !== 'object') out[k] = String(v);
                 return json(200, out), true;
             }
+            if (pathname === '/api/chatbot/activity' && req.method === 'GET') return json(200, { enabled: enabled(), seq, activity: activity.slice(-20) }), true;
+            if (pathname === '/api/chatbot/enabled' && req.method === 'POST') { enabledOverride = body.action === 'toggle' ? !enabled() : body.enabled === true; return json(200, { enabled: enabled() }), true; }
             if (pathname === '/api/chatbot/export' && req.method === 'GET') {
                 return json(200, { format: 'streampulse-chatbot', version: 1, exportedAt: new Date().toISOString(), ...data, variables: variables ? variables.list() : [] }), true;
             }
