@@ -37,6 +37,8 @@
         .item .top { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) 110px; gap: .6rem; }
         .check { display: inline-flex; align-items: center; gap: .35rem; font-size: .8rem; color: var(--text); }
         .preview { font-size: .78rem; color: var(--text-muted); min-height: 1.1em; }
+        .preview ul, .preview ol { margin: .25rem 0 0 1.2rem; }
+        .preview li { color: var(--text); }
         .preview b { color: var(--text); font-weight: 500; }
         .quote { display: grid; grid-template-columns: 3rem 1fr auto; gap: .6rem; align-items: center; padding: .55rem 0; border-bottom: 1px solid var(--bg-raised); font-size: .85rem; }
         .quote .num { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -221,6 +223,7 @@ function messageHtml(m, i) {
         </div>
         ${['hourly', 'daily'].includes(k) ? `<div class="row"><span class="muted">Days (none selected = every day)</span>${DAYS.map((d, n) => `<label class="check"><input type="checkbox" data-day="${n}" ${(m.days || []).includes(n) ? 'checked' : ''}> ${d}</label>`).join('')}</div>` : ''}
         <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Message <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="text" rows="2" maxlength="1000" placeholder="Enjoying the stream? Hit follow!">${esc(m.text)}</textarea></label>
+        <div class="preview" data-preview></div>
         <div class="row"><label class="check" title="One message per line; a random one is sent each time"><input type="checkbox" data-k="random" ${m.random ? 'checked' : ''}> Random line</label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
     </details>`;
 }
@@ -232,6 +235,7 @@ function triggerHtml(t, i) {
             <label class="f">Cooldown (s)<input data-k="cooldown" type="number" min="0" value="${t.cooldown ?? 60}"></label>
         </div>
         <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Reply <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="text" rows="2" maxlength="1000" placeholder="Welcome in, {{user}}!">${esc(t.text)}</textarea></label>
+        <div class="preview" data-preview></div>
         <div class="row"><label class="check"><input type="checkbox" data-k="wholeWord" ${t.wholeWord !== false ? 'checked' : ''}> Whole words only</label><label class="check"><input type="checkbox" data-k="random" ${t.random ? 'checked' : ''}> Random line</label><label class="check">Who can trigger <select data-k="access">${accessOpts(t.access || 'everyone')}</select></label><span style="flex:1"></span><button class="btn small danger" data-act="remove">Remove</button></div>
     </details>`;
 }
@@ -373,15 +377,31 @@ $('commands').addEventListener('click', async event => {
         try { const text = item.querySelector('[data-k="response"]').value; const { text: out } = await api('/api/chatbot/preview', 'POST', { text: text.replace(/\{\{\s*args?\s*\}\}/g, 'example').replace(/\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi, 'viewer') }); await api('/api/chatbot/send', 'POST', { text: out || text }); toast('Test sent to chat'); } catch (e) { toast(e.message); }
     }
 });
-let previewTimer = null;
-$('commands').addEventListener('input', event => {
-    if (event.target.dataset.k !== 'response') return;
-    clearTimeout(previewTimer);
-    const item = event.target.closest('.item');
-    previewTimer = setTimeout(async () => {
-        try { const { text } = await api('/api/chatbot/preview', 'POST', { text: event.target.value.replace(/\{\{\s*args?\s*\}\}/g, 'example').replace(/\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi, 'viewer') }); item.querySelector('[data-preview]').innerHTML = text ? `Preview: <b>${esc(text)}</b>` : ''; } catch { /* preview is optional */ }
-    }, 350);
-});
+const subst = t => t.replace(/\{\{\s*args?\s*\}\}|\$\(args?\)/g, 'example').replace(/\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi, 'viewer');
+async function renderPreview(item) {
+    const field = item.querySelector('[data-k="response"], [data-k="text"]'), box = item.querySelector('[data-preview]');
+    if (!field || !box) return;
+    const lines = field.value.split(/\\n|\n/).map(l => l.trim()).filter(Boolean).slice(0, 12);
+    if (!lines.length) { box.innerHTML = ''; return; }
+    try {
+        const out = await Promise.all(lines.map(l => api('/api/chatbot/preview', 'POST', { text: subst(l) }).then(r => r.text || '(no value yet)')));
+        const random = item.querySelector('[data-k="random"]')?.checked;
+        box.innerHTML = random
+            ? `Preview, one of these at random:<ul>${out.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`
+            : out.length > 1 ? `Preview, sent as ${out.length} messages:<ol>${out.map(t => `<li>${esc(t)}</li>`).join('')}</ol>` : `Preview: <b>${esc(out[0])}</b>`;
+    } catch { /* preview is optional */ }
+}
+const previewTimers = new WeakMap();
+for (const id of ['commands', 'messages', 'triggers']) {
+    $(id).addEventListener('input', event => {
+        if (!['response', 'text'].includes(event.target.dataset.k)) return;
+        const item = event.target.closest('.item');
+        clearTimeout(previewTimers.get(item));
+        previewTimers.set(item, setTimeout(() => renderPreview(item), 350));
+    });
+    $(id).addEventListener('change', event => { if (event.target.dataset.k === 'random') renderPreview(event.target.closest('.item')); });
+    $(id).addEventListener('toggle', event => { if (event.target.open) renderPreview(event.target); }, true);
+}
 $('add-quote').onclick = async () => {
     const text = $('new-quote').value.trim(); if (!text) return;
     try { applyState(await api('/api/chatbot/quotes', 'POST', { text })); $('new-quote').value = ''; toast('Quote added'); } catch (e) { toast(e.message); }
