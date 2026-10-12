@@ -170,7 +170,7 @@ function commandHtml(c, i) {
     return `<details class="item" data-i="${i}" ${c._open ? 'open' : ''}><summary><b>${esc(c.name ? prefixOf() + c.name : 'New command')}</b><span class="sum">${esc(String(c.response || '').split('\\n')[0].slice(0, 70))}</span><label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-k="enabled" ${c.enabled !== false ? 'checked' : ''}> On</label></summary>
         <div class="top">
             <label class="f">Command<input data-k="name" value="${esc(c.name)}" placeholder="song"></label>
-            <label class="f">Also responds to<input data-k="aliases" value="${esc((c.aliases || []).join(', '))}" placeholder="np, track"></label>
+            <label class="f">Also responds to<input data-k="aliases" value="${esc(Array.isArray(c.aliases) ? c.aliases.join(', ') : c.aliases || '')}" placeholder="np, track"></label>
             <label class="f">Cooldown (s)<input data-k="cooldown" type="number" min="0" value="${c.cooldown ?? ''}" placeholder="default"></label>
         </div>
         <label class="check"><input type="checkbox" data-k="useCounter" ${c.counter || c._counter ? 'checked' : ''}> Also change a counter or list</label>
