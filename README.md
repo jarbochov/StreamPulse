@@ -143,7 +143,7 @@ Clip creation in **Clips (Beta)** requires `clips:edit` for live clips. VOD clip
 
 ### Optional
 
-- **Bitfocus Companion** — Trigger API endpoints via Stream Deck buttons
+- **Bitfocus Companion** — Trigger API endpoints via Stream Deck buttons, or use the dedicated [companion-module-streampulse](https://github.com/jarbochov/companion-module-streampulse) module
 - **OBS Studio** — For displaying browser source overlays
 
 ## Features
@@ -398,7 +398,8 @@ The goal overlay fills the browser-source viewport at 100% width and height. Typ
 
 ## Bitfocus Companion Integration
 
-Use the **Generic HTTP** module:
+A dedicated module with StreamPulse actions, feedbacks and variables is available at [jarbochov/companion-module-streampulse](https://github.com/jarbochov/companion-module-streampulse). Or use the **Generic HTTP** module as below.
+
 
 | Action | URL |
 | --- | --- |
