@@ -384,6 +384,12 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 save();
                 return json(200, snapshot()), true;
             }
+            if (pathname === '/api/chatbot/placeholders' && req.method === 'GET') {
+                const table = getShared().variableTable(await liveStatus(), {});
+                const out = {};
+                for (const [k, v] of Object.entries(table)) if (v !== undefined && v !== null && typeof v !== 'object') out[k] = String(v);
+                return json(200, out), true;
+            }
             if (pathname === '/api/chatbot/export' && req.method === 'GET') {
                 return json(200, { format: 'streampulse-chatbot', version: 1, exportedAt: new Date().toISOString(), ...data, variables: variables ? variables.list() : [] }), true;
             }
