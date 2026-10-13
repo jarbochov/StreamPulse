@@ -2485,7 +2485,7 @@ function twitchCreateClip() {
 // TWITCH DATA FETCHER
 // ============================================================================
 
-async function fetchAllPages(endpoint, params, dataKey = 'data') {
+async function fetchAllPages(endpoint, params, dataKey = 'data', strict = false) {
     const allData = [];
     let cursor = null;
 
@@ -2496,6 +2496,7 @@ async function fetchAllPages(endpoint, params, dataKey = 'data') {
         const result = await twitchApiRequest(endpoint, queryParams);
         if (result.status !== 200) {
             console.error(`[Twitch] ${endpoint} returned ${result.status}:`, JSON.stringify(result.body).substring(0, 200));
+            if (strict) throw new Error(`${endpoint} returned ${result.status}`);
             break;
         }
 
@@ -2505,6 +2506,26 @@ async function fetchAllPages(endpoint, params, dataKey = 'data') {
     } while (cursor);
 
     return allData;
+}
+
+// One follower snapshot per day (last refresh wins), with who joined and left since the previous fetch
+const FOLLOWER_HISTORY_PATH = path.join(DATA_DIR, 'follower-history.json');
+function recordFollowerSnapshot(followers) {
+    try {
+        const history = readJsonFileSafe(FOLLOWER_HISTORY_PATH, { snapshots: [], ids: [] }) || { snapshots: [], ids: [] };
+        const snapshots = Array.isArray(history.snapshots) ? history.snapshots : [];
+        const previous = new Set(Array.isArray(history.ids) ? history.ids : []);
+        const ids = [...new Set(followers.map(f => String(f.user_id || f.user_login || '')).filter(Boolean))];
+        const idSet = new Set(ids);
+        const now = new Date();
+        const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const had = previous.size > 0;
+        const entry = { date, total: ids.length, joined: had ? ids.filter(id => !previous.has(id)).length : 0, left: had ? [...previous].filter(id => !idSet.has(id)).length : 0 };
+        const last = snapshots[snapshots.length - 1];
+        if (last && last.date === date) { entry.joined += last.joined || 0; entry.left += last.left || 0; snapshots[snapshots.length - 1] = entry; }
+        else snapshots.push(entry);
+        fs.writeFileSync(FOLLOWER_HISTORY_PATH, JSON.stringify({ snapshots: snapshots.slice(-730), ids }));
+    } catch (err) { console.warn('[Twitch] Could not record follower snapshot:', err.message); }
 }
 
 // One snapshot per day (last refresh wins) so the analytics page can chart subscriber growth and churn
@@ -2540,24 +2561,29 @@ function recordSubSnapshot(subs) {
 async function fetchTwitchData() {
     if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) {
         console.warn('[Twitch] Missing credentials or broadcaster_id in config.json — skipping Twitch fetch');
-        return;
+        return { error: 'Missing Twitch credentials' };
     }
 
     const hasToken = await ensureToken();
     if (!hasToken) {
         console.warn(`[Twitch] No user token — visit http://localhost:${PORT}/auth/twitch to authorize`);
-        return;
+        return { error: 'Twitch is not connected. Reconnect it.' };
     }
+    const result = {};
 
     console.log('[Twitch] Fetching data for broadcaster:', BROADCASTER_ID);
 
     try {
         // Fetch subscribers
         console.log('[Twitch] Fetching subscribers...');
-        const subs = await fetchAllPages('/subscriptions', { broadcaster_id: BROADCASTER_ID });
-        fs.writeFileSync(path.join(DATA_DIR, 'subs.json'), JSON.stringify({ data: subs }, null, 2));
-        console.log(`[Twitch] Saved ${subs.length} subscribers`);
-        recordSubSnapshot(subs);
+        // Strict: a failed request must not overwrite saved data or history with an empty list
+        try {
+            const subs = await fetchAllPages('/subscriptions', { broadcaster_id: BROADCASTER_ID }, 'data', true);
+            fs.writeFileSync(path.join(DATA_DIR, 'subs.json'), JSON.stringify({ data: subs }, null, 2));
+            console.log(`[Twitch] Saved ${subs.length} subscribers`);
+            recordSubSnapshot(subs);
+            result.subs = subs.length;
+        } catch (err) { result.error = err.message; }
 
         // Fetch bits leaderboard (month)
         console.log('[Twitch] Fetching bits leaderboard...');
@@ -2572,14 +2598,20 @@ async function fetchTwitchData() {
 
         // Fetch followers
         console.log('[Twitch] Fetching followers...');
-        const followers = await fetchAllPages('/channels/followers', { broadcaster_id: BROADCASTER_ID });
-        fs.writeFileSync(path.join(DATA_DIR, 'followers.json'), JSON.stringify({ data: followers }, null, 2));
-        console.log(`[Twitch] Saved ${followers.length} followers`);
+        try {
+            const followers = await fetchAllPages('/channels/followers', { broadcaster_id: BROADCASTER_ID }, 'data', true);
+            fs.writeFileSync(path.join(DATA_DIR, 'followers.json'), JSON.stringify({ data: followers }, null, 2));
+            console.log(`[Twitch] Saved ${followers.length} followers`);
+            recordFollowerSnapshot(followers);
+            result.followers = followers.length;
+        } catch (err) { result.error = result.error || err.message; }
 
         console.log('[Twitch] Data fetch complete!');
     } catch (err) {
         console.error('[Twitch] Fetch error:', err.message);
+        result.error = result.error || err.message;
     }
+    return result;
 }
 
 async function fetchViewerCount() {
@@ -6083,11 +6115,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/fetch') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'fetching' }));
-        fetchTwitchData();
+        const result = await fetchTwitchData();
         fetchStreamInfo();
         fetchViewerCount();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: result?.error ? 'error' : 'ok', ...result }));
         return;
     }
 
@@ -6678,6 +6710,17 @@ const server = http.createServer(async (req, res) => {
         try { updatedAt = fs.statSync(subsPath).mtime.toISOString(); } catch { /* no subs file yet */ }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ updatedAt, summary, history: snapshots, subscribers: rows }));
+        return;
+    }
+
+    if (pathname === '/api/followers/current' && req.method === 'GET') {
+        const file = path.join(DATA_DIR, 'followers.json');
+        const rows = (readJsonFileSafe(file, { data: [] })?.data || []).map(f => ({ name: f.user_name || f.user_login || '', followedAt: f.followed_at || null })).filter(r => r.name);
+        const snapshots = readJsonFileSafe(FOLLOWER_HISTORY_PATH, { snapshots: [] })?.snapshots || [];
+        let updatedAt = null;
+        try { updatedAt = fs.statSync(file).mtime.toISOString(); } catch { /* none yet */ }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ updatedAt, total: rows.length, history: snapshots, followers: rows }));
         return;
     }
 

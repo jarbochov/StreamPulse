@@ -713,7 +713,7 @@
     const actions = {
         async 'fetch-twitch'() {
             showToast('Fetching Twitch data…');
-            try { const data = await call('/api/fetch'); showToast(`Twitch: ${data.subs || 0} subs, ${data.followers || 0} followers`); refresh(); }
+            try { const data = await call('/api/fetch'); showToast(data.error ? `Twitch fetch problem: ${data.error}` : `Twitch: ${data.subs ?? '?'} subs, ${data.followers ?? '?'} followers`); refresh(); }
             catch { showToast('Fetch failed'); }
         },
         'reauth-twitch'() { window.open('/auth/twitch?return=/dashboard.html', '_blank'); showToast('Opening Twitch auth…'); },

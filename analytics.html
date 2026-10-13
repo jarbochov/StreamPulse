@@ -140,6 +140,12 @@
             <div class="table-wrap"><table id="subscribers-table"><thead><tr id="sub-head"></tr></thead><tbody id="subs"></tbody></table></div>
             <p class="muted note">Twitch's API doesn't expose subscription length. <b>Tenure</b> is the highest month count StreamPulse has seen on a subscriber's chat badge or resub alert, so it fills in as subscribers chat. <b>Observed</b> is how long StreamPulse has tracked them. Gifted subs show who gifted them.</p>
         </section>
+        <section class="card">
+            <div class="card-head"><h2>Followers <span class="muted" id="fol-count"></span></h2><div class="head-tools"><input id="fol-search" type="search" placeholder="Filter followers…" aria-label="Filter followers"><button class="btn" id="fol-export">Export CSV</button></div></div>
+            <p class="muted note" id="fol-summary"></p>
+            <div class="table-wrap" style="max-height:24rem;overflow:auto"><table><thead><tr id="fol-head"></tr></thead><tbody id="fols"></tbody></table></div>
+            <p class="muted note">Updated whenever StreamPulse fetches Twitch data. Joined and left are measured between fetches, so they are approximate.</p>
+        </section>
     </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -163,7 +169,7 @@ function compareRows(a, b, key, isDate) {
     if (typeof av === 'number' || typeof bv === 'number') return Number(av || 0) - Number(bv || 0);
     return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
 }
-const DATE_KEYS = new Set(['date', 'streamStartAt', 'streamStopAt', 'firstSeen', 'lastSeen']);
+const DATE_KEYS = new Set(['date', 'streamStartAt', 'streamStopAt', 'firstSeen', 'lastSeen', 'followedAt']);
 function sorted(rows, { key, dir }) {
     return [...rows].sort((a, b) => (dir === 'asc' ? 1 : -1) * compareRows(a, b, key, DATE_KEYS.has(key)));
 }
@@ -199,12 +205,14 @@ async function load() {
         const subData = await (await fetch('/api/subscribers/current')).json();
         subInfo = subData;
         subscriberRows = subData.subscribers || [];
+        folInfo = await (await fetch('/api/followers/current')).json();
+        folRows = folInfo.followers || [];
     } catch {
         $('status').textContent = 'Could not load analytics. Is the server running?';
         return;
     }
     $('status').textContent = `${report.sessions.length} session${report.sessions.length === 1 ? '' : 's'}`;
-    renderSummary(); renderSessions(); drawChart(); renderSubscriberSummary(); drawGrowth(); renderSubscribers();
+    renderSummary(); renderSessions(); drawChart(); renderSubscriberSummary(); drawGrowth(); renderSubscribers(); renderFollowers();
 }
 
 function renderSummary() {
@@ -309,6 +317,27 @@ function renderSubscribers() {
         <td class="num${s.observedDays ? '' : ' zero'}">${s.observedDays ? `${fmt(s.observedDays)} days` : 'Not observed'}</td></tr>`).join('')
         || `<tr><td colspan="${SUB_COLS.length}" class="empty">${subscriberRows.length ? 'No subscribers match your filter.' : 'No current subscribers found.'}</td></tr>`;
 }
+let folRows = [], folInfo = { history: [] };
+const folSort = { key: 'followedAt', dir: 'desc' };
+function filteredFollowers() {
+    const q = $('fol-search').value.trim().toLowerCase();
+    return sorted(folRows, folSort).filter(f => !q || f.name.toLowerCase().includes(q));
+}
+function renderFollowers() {
+    renderHead('fol-head', [['name', 'Follower'], ['followedAt', 'Followed']], folSort, key => { toggleSort(folSort, key, ['name']); renderFollowers(); });
+    const rows = filteredFollowers();
+    $('fol-count').textContent = folRows.length ? `(${fmt(folRows.length)})` : '';
+    const h = folInfo.history || [], last = h[h.length - 1], week = h.filter(s => Date.now() - Date.parse(s.date + 'T12:00:00') <= 7 * 86400000);
+    $('fol-summary').textContent = last ? `Last 7 days of snapshots: +${fmt(week.reduce((n, s) => n + (s.joined || 0), 0))} joined, -${fmt(week.reduce((n, s) => n + (s.left || 0), 0))} left. ${fmt(h.length)} days tracked.` : 'History starts with the next Twitch fetch.';
+    $('fols').innerHTML = rows.map(f => `<tr><td>${esc(f.name)}</td><td>${f.followedAt ? new Date(f.followedAt).toLocaleDateString() : '—'}</td></tr>`).join('') || `<tr><td colspan="2" class="empty">${folRows.length ? 'No followers match your filter.' : 'No followers found.'}</td></tr>`;
+}
+$('fol-search').addEventListener('input', renderFollowers);
+$('fol-export').addEventListener('click', () => {
+    const csv = ['name,followedAt', ...filteredFollowers().map(r => [r.name, r.followedAt].map(csvCell).join(','))].join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'streampulse-followers.csv'; a.click(); URL.revokeObjectURL(a.href);
+});
 $('sub-export').addEventListener('click', () => {
     const headers = ['name', 'tier', 'tenureMonths', 'isGift', 'gifter', 'plan', 'firstSeen', 'lastSeen', 'observedDays'];
     const csv = [headers.join(','), ...filteredSubscribers().map(r => headers.map(k => csvCell(r[k])).join(','))].join('\r\n');
