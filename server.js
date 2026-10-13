@@ -2304,10 +2304,17 @@ function twitchTokenRequest(body) {
     });
 }
 
-async function refreshTwitchToken() {
-    if (!twitchRefreshToken) return false;
+// Twitch rotates the refresh token on every use, so overlapping refreshes would invalidate each other. Share one in-flight call.
+let refreshInFlight = null;
+function refreshTwitchToken() {
+    if (!twitchRefreshToken) return Promise.resolve(false);
+    if (!refreshInFlight) refreshInFlight = doRefreshTwitchToken().finally(() => { refreshInFlight = null; });
+    return refreshInFlight;
+}
+async function doRefreshTwitchToken() {
+    const used = twitchRefreshToken;
     try {
-        const refreshBody = { client_id: TWITCH_CLIENT_ID, grant_type: 'refresh_token', refresh_token: twitchRefreshToken };
+        const refreshBody = { client_id: TWITCH_CLIENT_ID, grant_type: 'refresh_token', refresh_token: used };
         if (TWITCH_CLIENT_SECRET) refreshBody.client_secret = TWITCH_CLIENT_SECRET;
         const tokenData = await twitchTokenRequest(refreshBody);
         saveToken(tokenData);
@@ -2316,7 +2323,8 @@ async function refreshTwitchToken() {
     } catch (err) {
         console.error('[Twitch] Token refresh failed:', err.message);
         // Only a rejection from Twitch means the token is dead; network errors keep it for the next try.
-        if (/invalid refresh token|invalid_grant|Invalid refresh|"status":40[01]/i.test(err.message)) {
+        // Skip the wipe if a newer token was saved while this call was failing (e.g. a fresh re-auth).
+        if (twitchRefreshToken === used && /invalid refresh token|invalid_grant|Invalid refresh|"status":40[01]/i.test(err.message)) {
             twitchAccessToken = null;
             twitchRefreshToken = null;
             try { fs.unlinkSync(TOKEN_PATH); } catch { /* ignore */ }
