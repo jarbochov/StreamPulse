@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Placeholders</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
+        .wrap { max-width: 960px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; display: grid; gap: 1rem; }
+        h1 { font-size: 1.4rem; } h1 span { color: var(--accent); }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem; }
+        .card h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-bottom: .6rem; }
+        .muted { color: var(--text-muted); font-size: .82rem; line-height: 1.5; }
+        table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+        td { padding: .35rem .5rem; border-bottom: 1px solid var(--bg-raised); vertical-align: top; }
+        td:first-child { white-space: nowrap; }
+        td.val { color: var(--accent); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        code { background: var(--bg-inset); padding: .1rem .35rem; border-radius: 4px; }
+        input[type="search"] { padding: .45rem .7rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; flex: 1; min-width: 12rem; }
+        .b { padding: .45rem .8rem; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px; color: var(--text); cursor: pointer; font: inherit; }
+        .bar { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>StreamPulse <span>Placeholders</span></h1>
+    <div class="card bar">
+        <input type="search" id="q" placeholder="Search placeholders" aria-label="Search placeholders">
+        <label class="muted"><input type="checkbox" id="vals" checked> Show current values</label>
+        <button class="b" id="copy">Copy Markdown</button>
+        <button class="b" id="md">Download .md</button>
+    </div>
+    <div class="card muted">
+        Use any placeholder as <code>{{name}}</code> in overlay text, embeds, QR codes, alert messages and chat bot replies. Dates, timers and lists accept a format: <code>{{name|format}}</code>. Lists also take <code>.random</code> in chat bot replies, for example <code>{{var.NAME.random}}</code>. Generated live from your setup (timers, goals, variables, lists).
+    </div>
+    <div id="out"></div>
+</div>
+<script src="/overlay-shared.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const S = window.OverlayShared;
+const esc = v => { const d = document.createElement('div'); d.textContent = v ?? ''; return d.innerHTML; };
+let status = {};
+
+function groups() {
+    const table = S.variableTable(status, {});
+    const q = $('q').value.trim().toLowerCase();
+    const show = $('vals').checked;
+    return S.variableGroups(status).map(g => ({
+        label: g.label,
+        items: g.items.filter(([key, label]) => !q || `${g.label} ${key} ${label}`.toLowerCase().includes(q)).map(([key, label]) => {
+            const v = table[key];
+            return { key, label, value: show && v !== undefined && v !== null && v !== '' ? String(v) : '' };
+        })
+    })).filter(g => g.items.length);
+}
+
+function render() {
+    const gs = groups();
+    $('out').innerHTML = gs.map(g => `<div class="card"><h2>${esc(g.label)}</h2><table>${g.items.map(i => `<tr><td><code>{{${esc(i.key)}}}</code></td><td>${esc(i.label)}</td>${$('vals').checked ? `<td class="val">${esc(i.value)}</td>` : ''}</tr>`).join('')}</table></div>`).join('') || '<div class="card muted">No placeholders match.</div>';
+}
+
+function markdown() {
+    const cell = v => String(v ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
+    const show = $('vals').checked;
+    let md = '# Placeholders\n\nUse as `{{name}}`. Dates, timers and lists accept a format: `{{name|format}}`.\n';
+    for (const g of groups()) {
+        md += `\n## ${cell(g.label)}\n\n| Placeholder | What it shows |${show ? ' Example |' : ''}\n|---|---|${show ? '---|' : ''}\n`;
+        md += g.items.map(i => `| \`{{${cell(i.key)}}}\` | ${cell(i.label)} |${show ? ` ${cell(i.value)} |` : ''}`).join('\n') + '\n';
+    }
+    return md;
+}
+
+$('q').oninput = render;
+$('vals').onchange = render;
+$('copy').onclick = async () => {
+    try { await navigator.clipboard.writeText(markdown()); $('copy').textContent = 'Copied'; }
+    catch { const t = document.createElement('textarea'); t.value = markdown(); document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); $('copy').textContent = 'Copied'; }
+    setTimeout(() => { $('copy').textContent = 'Copy Markdown'; }, 1500);
+};
+$('md').onclick = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([markdown()], { type: 'text/markdown' }));
+    a.download = 'streampulse-placeholders.md'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+fetch('/api/status', { cache: 'no-store' }).then(r => r.json()).then(async s => {
+    status = s;
+    try { await S.loadLiveExtras(s); } catch { /* extras are optional */ }
+    render();
+}).catch(render);
+</script>
+</body>
+</html>
