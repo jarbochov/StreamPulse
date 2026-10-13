@@ -129,7 +129,7 @@
                     <p class="muted note" id="growth-note"></p>
                 </div>
                 <div>
-                    <h3>Top gifters <span class="muted">(active gifted subs)</span></h3>
+                    <h3 id="side-title">Top gifters <span class="muted">(active gifted subs)</span></h3>
                     <ul class="gifters" id="gifters"></ul>
                 </div>
             </div>
@@ -249,7 +249,28 @@ function renderSessions() {
 
 const tenureLabel = months => !months ? '—' : months >= 12 ? `${Math.floor(months / 12)}y${months % 12 ? ` ${months % 12}m` : ''}` : `${months}m`;
 
+function renderFollowerSummary() {
+    const list = [...(folInfo.followers || [])].sort((a, b) => new Date(b.followedAt) - new Date(a.followedAt));
+    const hist = (folInfo.history || []).slice(-7);
+    const joined = hist.reduce((n, r) => n + (r.joined || 0), 0), left = hist.reduce((n, r) => n + (r.left || 0), 0);
+    const day = 864e5, now = Date.now();
+    const within = d => list.filter(f => now - new Date(f.followedAt) < d * day).length;
+    const cards = [
+        [fmt(folInfo.total), 'Followers'],
+        [list[0] ? esc(list[0].name) : '—', 'Latest follower'],
+        [fmt(within(1)), 'Followed last 24h'],
+        [fmt(within(7)), 'Followed last 7 days'],
+        [`+${fmt(joined)} / −${fmt(left)}`, 'Joined / left (tracked)'],
+        [fmt(folInfo.history ? folInfo.history.length : 0), 'Days tracked']
+    ];
+    $('sub-summary').innerHTML = cards.map(([value, label]) => `<div class="stat"><strong>${value}</strong><span>${label}</span></div>`).join('');
+    $('sub-updated').textContent = folInfo.updatedAt ? `Twitch list refreshed ${formatDateTime(folInfo.updatedAt)}` : '';
+    $('side-title').textContent = 'Newest followers';
+    $('gifters').innerHTML = list.slice(0, 10).map(f => `<li><span>${esc(f.name)}</span><b>${esc(shortDate(f.followedAt))}</b></li>`).join('') || '<li class="muted">No followers yet.</li>';
+}
 function renderSubscriberSummary() {
+    if (growthMode === 'followers') return renderFollowerSummary();
+    $('side-title').innerHTML = 'Top gifters <span class="muted">(active gifted subs)</span>';
     const m = subInfo.summary || {};
     const t = m.tiers || {};
     const cards = [
@@ -271,6 +292,7 @@ document.addEventListener('click', e => {
     if (!b) return;
     growthMode = b.dataset.mode;
     document.querySelectorAll('#growth-mode button').forEach(x => x.classList.toggle('active', x === b));
+    renderSubscriberSummary();
     drawGrowth();
 });
 function drawGrowth() {
