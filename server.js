@@ -8335,7 +8335,12 @@ server.listen(PORT, () => {
         sessionActive = true;
         console.log(`[Startup] Resumed session from ${chatData.startedAt}`);
     } else {
-        console.log('[Startup] No active session data to resume');
+        if (normalizeLifecycleConfig(config.session_lifecycle).auto) {
+            sessionActive = false;
+            console.log('[Startup] No session data; waiting for the stream to go live to start one');
+        } else {
+            console.log('[Startup] No active session data to resume');
+        }
     }
 
     // Load persistent stats
