@@ -202,10 +202,10 @@
             const existing = slideshows.get(element.id);
             if (existing && existing.sig === JSON.stringify(element)) { slideshowsKept.add(element.id); existing.node.dataset.pg = element.page || ''; return existing.node; }
         }
-        const embedSig = element.type === 'embed' ? `${JSON.stringify(element)}|${expandVariables(element.src || '')}` : '';
+        const embedSig = element.type === 'embed' || element.type === 'video' ? `${JSON.stringify(element)}|${expandVariables(element.src || '')}` : '';
         if (embedSig) {
             const existing = embeds.get(element.id);
-            if (existing && existing.sig === embedSig) { embedsKept.add(element.id); return existing.node; }
+            if (existing && existing.sig === embedSig) { embedsKept.add(element.id); const v = existing.node.querySelector(':scope > video'); if (v && v.paused) v.play().catch(() => {}); return existing.node; }
         }
         {
             const node = document.createElement('div');
