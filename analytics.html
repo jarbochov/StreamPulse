@@ -124,7 +124,7 @@
             <div class="stats static" id="sub-summary"></div>
             <div class="split">
                 <div>
-                    <h3>Subscriber growth</h3>
+                    <div class="card-head"><h3 id="growth-title">Subscriber growth</h3><div class="seg" id="growth-mode" role="group" aria-label="Growth chart"><button data-mode="subs" class="active">Subscribers</button><button data-mode="followers">Followers</button></div></div>
                     <div class="chart-wrap"><div id="growth" class="chart short"></div><div id="growth-tip" class="tip"></div></div>
                     <p class="muted note" id="growth-note"></p>
                 </div>
@@ -265,8 +265,19 @@ function renderSubscriberSummary() {
     $('gifters').innerHTML = (m.topGifters || []).map(g => `<li><span>${esc(g.name)}</span><b>${fmt(g.count)}</b></li>`).join('') || '<li class="muted">No gifted subs right now.</li>';
 }
 
+let growthMode = 'subs';
+document.addEventListener('click', e => {
+    const b = e.target.closest('#growth-mode button');
+    if (!b) return;
+    growthMode = b.dataset.mode;
+    document.querySelectorAll('#growth-mode button').forEach(x => x.classList.toggle('active', x === b));
+    drawGrowth();
+});
 function drawGrowth() {
-    const rows = subInfo.history || [];
+    const isFol = growthMode === 'followers';
+    const noun = isFol ? 'followers' : 'subscribers';
+    $('growth-title').textContent = isFol ? 'Follower growth' : 'Subscriber growth';
+    const rows = (isFol ? folInfo.history : subInfo.history) || [];
     const box = $('growth');
     if (!rows.length) { box.innerHTML = '<div class="empty">No snapshots yet. One is recorded each time Twitch data refreshes.</div>'; $('growth-note').textContent = ''; return; }
     $('growth-note').textContent = rows.length < 2 ? 'Tracking started today. The chart fills in as daily snapshots accumulate.' : `${rows.length} daily snapshots. Joined/left counts compare each refresh to the one before.`;
@@ -284,12 +295,12 @@ function drawGrowth() {
     const dots = rows.map((r, i) => `<circle class="dot" cx="${cx(i)}" cy="${cy(r.total)}" r="4"/>`).join('');
     const step = rows.length > 1 ? innerW / (rows.length - 1) : innerW;
     const hits = rows.map((r, i) => `<rect class="hit" data-i="${i}" x="${cx(i) - step / 2}" y="${top}" width="${step}" height="${innerH}" style="cursor:default"/>`).join('');
-    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Subscriber count over time">${grid}${xl}${line}${dots}${hits}</svg>`;
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${noun} count over time">${grid}${xl}${line}${dots}${hits}</svg>`;
     const tip = $('growth-tip'), wrap = box.parentElement;
     box.querySelectorAll('.hit').forEach(hit => {
         const i = Number(hit.dataset.i), r = rows[i];
         hit.addEventListener('mouseenter', () => {
-            tip.innerHTML = `<b>${fmt(r.total)}</b> subscribers<br>${esc(shortDate(r.date + 'T12:00:00'))}<br><span class="muted">T1 ${r.t1} · T2 ${r.t2} · T3 ${r.t3} · gifted ${r.gifted}</span><br><span class="muted">+${r.joined || 0} joined · −${r.left || 0} left</span>`;
+            tip.innerHTML = `<b>${fmt(r.total)}</b> ${noun}<br>${esc(shortDate(r.date + 'T12:00:00'))}<br>${isFol ? '' : `<span class="muted">T1 ${r.t1} · T2 ${r.t2} · T3 ${r.t3} · gifted ${r.gifted}</span><br>`}<span class="muted">+${r.joined || 0} joined · −${r.left || 0} left</span>`;
             const b = box.getBoundingClientRect(), base = wrap.getBoundingClientRect();
             tip.style.left = `${b.left - base.left + (cx(i) / W) * b.width}px`;
             tip.style.top = `${b.top - base.top + (cy(r.total) / H) * b.height - 8}px`;
