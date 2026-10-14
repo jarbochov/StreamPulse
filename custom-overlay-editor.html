@@ -1463,11 +1463,18 @@
     }
     function alignBody(items) {
         const multi = items.length > 1;
-        const buttons = [['left', ICON.alignLeft, 'Align left'], ['center', ICON.alignCenter, 'Align horizontal centers'], ['right', ICON.alignRight, 'Align right'], ['top', ICON.alignTop, 'Align top'], ['middle', ICON.alignMiddle, 'Align vertical centers'], ['bottom', ICON.alignBottom, 'Align bottom']];
+        const buttons = [
+            ['left', ICON.alignLeft, multi ? 'Align left edges' : 'Align to left edge of canvas'],
+            ['center', ICON.alignCenter, multi ? 'Align horizontal centers' : 'Center horizontally on canvas'],
+            ['right', ICON.alignRight, multi ? 'Align right edges' : 'Align to right edge of canvas'],
+            ['top', ICON.alignTop, multi ? 'Align top edges' : 'Align to top edge of canvas'],
+            ['middle', ICON.alignMiddle, multi ? 'Align vertical centers' : 'Center vertically on canvas'],
+            ['bottom', ICON.alignBottom, multi ? 'Align bottom edges' : 'Align to bottom edge of canvas']
+        ];
         const target = multi
-            ? `<div class="field"><span>Align relative to</span><span class="seg" data-align-target>${[['selection', 'Selection'], ['canvas', 'Canvas']].map(([v, l]) => `<button type="button" data-target="${v}" aria-pressed="${prefs.alignTo === v}">${l}</button>`).join('')}</span></div>`
-            : '<p class="hint">Aligns to the canvas edges and centers.</p>';
-        const distribute = multi && items.length > 2 ? `<div class="grid2"><button type="button" data-distribute="h">${ICON.distH} Distribute H</button><button type="button" data-distribute="v">${ICON.distV} Distribute V</button></div>` : '';
+            ? `<div class="field" style="margin-bottom:.35rem"><span>Align relative to</span><span class="seg" data-align-target>${[['selection', 'Selection'], ['canvas', 'Canvas']].map(([v, l]) => `<button type="button" data-target="${v}" aria-pressed="${prefs.alignTo === v}">${l}</button>`).join('')}</span></div>`
+            : '<div class="sub-head" style="margin-top:.45rem;padding-top:.45rem">Align to canvas</div>';
+        const distribute = multi && items.length > 2 ? `<div class="grid2" style="margin-top:.4rem"><button type="button" data-distribute="h">${ICON.distH} Distribute H</button><button type="button" data-distribute="v">${ICON.distV} Distribute V</button></div>` : '';
         return `${target}<div class="align-grid">${buttons.map(([m, i, t]) => `<button type="button" data-align="${m}" title="${t}" aria-label="${t}">${i}</button>`).join('')}</div>${distribute}`;
     }
     function typographySection(el) {
@@ -1645,7 +1652,7 @@
         return F.section('layout', 'Position & size', `
             <div class="grid2">${F.number('x', 'X', el.x, { min: -7680, max: 7680 })}${F.number('y', 'Y', el.y, { min: -4320, max: 4320 })}</div>
             <div class="grid2">${F.number('width', 'Width', el.width, { min: LIMITS.elementW[0], max: LIMITS.elementW[1] })}${line ? '<span></span>' : F.number('height', 'Height', el.height, { min: LIMITS.elementH[0], max: LIMITS.elementH[1] })}</div>
-            <details class="sub-details"><summary>Align to canvas</summary>${alignBody([el])}</details>`);
+            ${alignBody([el])}`);
     }
     function periodPicker(g) {
         const known = liveStatus.gamePlan?.periods || [];
@@ -1884,7 +1891,7 @@
         } else {
             const el = items[0];
             const specific = { 'random-text': randomSection, progress: progressSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection }[el.type];
-            root.innerHTML = `${actionBar(items)}${sharedBlock(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${contentSection(el)}${specific ? specific(el) : ''}${el.type !== 'embed' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${fillSection(el)}${effectsSection(el)}${layoutSection(el)}`;
+            root.innerHTML = `${actionBar(items)}${sharedBlock(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${layoutSection(el)}${contentSection(el)}${specific ? specific(el) : ''}${el.type !== 'embed' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${fillSection(el)}${effectsSection(el)}`;
         }
         root.parentElement.scrollTop = scroll;
         lastTextField = null;
@@ -2562,6 +2569,16 @@
             else el.y = relative.y + relative.h - b.h;
             el.x = Math.round(el.x); el.y = Math.round(el.y);
         }
+        let guideX = [], guideY = [];
+        if (mode === 'left') guideX = [relative.x];
+        else if (mode === 'center') guideX = [relative.x + relative.w / 2];
+        else if (mode === 'right') guideX = [relative.x + relative.w];
+        else if (mode === 'top') guideY = [relative.y];
+        else if (mode === 'middle') guideY = [relative.y + relative.h / 2];
+        else if (mode === 'bottom') guideY = [relative.y + relative.h];
+        showGuides(guideX, guideY);
+        clearTimeout(alignSelection._timer);
+        alignSelection._timer = setTimeout(() => showGuides(), 800);
         renderCanvas(); syncGeometryInputs(); updateStatusBar(); changed(true);
     }
     function distributeSelection(axis) {
