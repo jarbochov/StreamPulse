@@ -21,7 +21,7 @@
         if (GOOGLE_FONTS.includes(name)) {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
-            link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(name).replace(/%20/g, '+')}:wght@400;600;700;900&display=swap`;
+            link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(name).replace(/%20/g, '+')}:wght@300;400;500;600;700;900&display=swap`;
             document.head.appendChild(link);
         } else if (!SYSTEM_FONTS.includes(name)) {
             // May be an uploaded font; register it if the assets library has a match.
@@ -55,12 +55,13 @@
             }
         }
 
-        const rawWeight = String(params.get('weight') || '').trim().toLowerCase();
+        const rawWeight = String(params.get('weight') || t.font_weight || '').trim().toLowerCase();
         const weight = { normal: '400', bold: '700' }[rawWeight] || (/^[1-9]00$/.test(rawWeight) ? rawWeight : '');
         if (weight) {
             const style = document.createElement('style');
             style.textContent = `body, body * { font-weight: ${weight} !important; }`;
             document.head.appendChild(style);
+            resolved.weight = weight;
         }
 
         const colors = [

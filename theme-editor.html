@@ -3,6 +3,7 @@
 <head>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
+    <script src="/overlay-theme.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -27,8 +28,8 @@
         .row > label { font-size: .82rem; color: var(--text-muted); }
         .row .hint { grid-column: 2; margin-top: -.2rem; }
         .ctl { display: flex; gap: .4rem; align-items: center; min-width: 0; }
-        .ctl input[type=text], .ctl input[type=number] { flex: 1; min-width: 0; padding: .34rem .55rem; background: var(--bg-inset); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: .82rem; }
-        .ctl input:focus { outline: none; border-color: var(--accent); }
+        .ctl input[type=text], .ctl input[type=number], .ctl select { flex: 1; min-width: 0; padding: .34rem .55rem; background: var(--bg-inset); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: .82rem; }
+        .ctl input:focus, .ctl select:focus { outline: none; border-color: var(--accent); }
         .ctl input[type=color] { flex: none; width: 38px; height: 30px; padding: 2px; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
         .ctl input[type=range] { width: 90px; flex: none; accent-color: var(--accent); }
         .ctl .pct { font-size: .72rem; color: var(--text-muted); width: 2.4rem; flex: none; }
@@ -82,9 +83,21 @@
                 </div>
                 <div class="card">
                     <h3>Typography</h3>
-                    <div class="row"><label for="font">Font family</label><div class="ctl"><input id="font" type="text" placeholder="Any Google Font, e.g. Jersey 20"></div>
-                        <span class="hint">Loaded from Google Fonts by name. Spelling must match exactly. The preview shows what OBS will render.</span></div>
-                    <div class="row"><label for="scale">Font scale</label><div class="ctl"><input id="scale-range" type="range" min=".5" max="2" step=".05" style="flex:1;width:auto"><input id="scale" type="number" min=".5" max="3" step=".05" style="flex:none;width:72px"></div></div>
+                    <div class="row"><label for="font">Font family</label><div class="ctl"><input id="font" type="text" list="font-list" placeholder="Any Google Font, e.g. Jersey 20"><datalist id="font-list"></datalist></div>
+                        <span class="hint">Loaded from Google Fonts by name or selected from system/uploaded fonts. The preview shows what OBS will render.</span></div>
+                    <div class="row"><label for="weight">Font weight</label><div class="ctl">
+                        <select id="weight">
+                            <option value="">Default (theme / font default)</option>
+                            <option value="300">Light (300)</option>
+                            <option value="400">Regular (400)</option>
+                            <option value="500">Medium (500)</option>
+                            <option value="600">Semi-bold (600)</option>
+                            <option value="700">Bold (700)</option>
+                            <option value="900">Black (900)</option>
+                        </select>
+                    </div>
+                        <span class="hint">Sets base weight globally across overlays. Wizard URLs can still override this per browser source.</span></div>
+                    <div class="row"><label for="scale">Font scale</label><div class="ctl"><input id="scale-range" type="range" min=".5" max="4" step=".05" style="flex:1;width:auto"><input id="scale" type="number" min=".5" max="4" step=".05" style="flex:none;width:72px"></div></div>
                 </div>
                 <div class="card">
                     <h3>Colors</h3>
@@ -118,10 +131,10 @@
 <script>
 let config, saved = '';
 const $ = id => document.getElementById(id);
-const fields = { font: 'font_family', scale: 'font_scale', text: 'text_color', accent: 'accent_color', background: 'background_color', 'goal-background': 'goal_background_color', 'viewer-background': 'viewer_background_color', outline: 'text_outline_color' };
+const fields = { font: 'font_family', weight: 'font_weight', scale: 'font_scale', text: 'text_color', accent: 'accent_color', background: 'background_color', 'goal-background': 'goal_background_color', 'viewer-background': 'viewer_background_color', outline: 'text_outline_color' };
 const COLOR_IDS = ['text', 'accent', 'background', 'goal-background', 'viewer-background', 'outline'];
 const ALPHA_IDS = ['background', 'goal-background', 'viewer-background'];
-const defaults = { font: 'Jersey 20', scale: 1, text: 'rgb(214, 227, 225)', accent: 'rgb(255, 255, 255)', background: 'transparent', 'goal-background': 'rgba(0, 0, 0, 0.45)', 'viewer-background': 'rgba(0, 0, 0, 0.45)', outline: '#00000066' };
+const defaults = { font: 'Jersey 20', weight: '', scale: 1, text: 'rgb(214, 227, 225)', accent: 'rgb(255, 255, 255)', background: 'transparent', 'goal-background': 'rgba(0, 0, 0, 0.45)', 'viewer-background': 'rgba(0, 0, 0, 0.45)', outline: '#00000066' };
 const PRESETS = [
     { name: 'Default', swatch: '#d6e3e1', v: { ...defaults, outlineOn: true } },
     { name: 'White on dark', swatch: '#ffffff', v: { text: '#ffffff', accent: '#58a6ff', background: 'transparent', 'goal-background': 'rgba(0, 0, 0, 0.55)', 'viewer-background': 'rgba(0, 0, 0, 0.55)', outline: '#000000aa', outlineOn: true } },
@@ -150,14 +163,34 @@ function toRgba(hex, a) {
     const n = parseInt(hex.slice(1), 16);
     return a >= 1 ? hex : `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${Math.round(a * 100) / 100})`;
 }
-function fontUrl(f) { return `https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, '+')}&display=swap`; }
+function fontUrl(f, w) {
+    if (!f) return '';
+    const encoded = encodeURIComponent(f).replace(/%20/g, '+');
+    const multiWeight = ['Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Oswald', 'Poppins', 'Raleway', 'Merriweather', 'Playfair Display', 'Fira Code', 'Inter', 'Noto Sans'];
+    if (w && multiWeight.includes(f)) {
+        return `https://fonts.googleapis.com/css2?family=${encoded}:wght@${w}&display=swap`;
+    }
+    if (multiWeight.includes(f)) {
+        return `https://fonts.googleapis.com/css2?family=${encoded}:wght@300;400;500;600;700;900&display=swap`;
+    }
+    return `https://fonts.googleapis.com/css2?family=${encoded}&display=swap`;
+}
 let fontLink;
 function loadFont() {
     const f = $('font').value.trim();
     if (!f) return;
     if (!fontLink) { fontLink = document.createElement('link'); fontLink.rel = 'stylesheet'; document.head.appendChild(fontLink); }
-    const url = fontUrl(f);
+    const url = fontUrl(f, $('weight').value.trim());
     if (fontLink.href !== url) fontLink.href = url;
+    if (window.OverlayFonts && !window.OverlayFonts.google.includes(f) && !window.OverlayFonts.system.includes(f)) {
+        fetch('/api/custom-overlays/assets', { cache: 'no-store' }).then(r => r.ok ? r.json() : []).then(assets => {
+            const match = assets.find(a => a.kind === 'font' && a.family === f);
+            if (!match) return;
+            let customStyle = $('custom-font-style');
+            if (!customStyle) { customStyle = document.createElement('style'); customStyle.id = 'custom-font-style'; document.head.appendChild(customStyle); }
+            customStyle.textContent = `@font-face { font-family: '${f.replace(/'/g, '')}'; src: url('${match.url}'); font-display: swap; }`;
+        }).catch(() => {});
+    }
 }
 function syncControls() {
     COLOR_IDS.forEach(id => {
@@ -170,21 +203,29 @@ function syncControls() {
 function readTheme() {
     const theme = { ...(config.theme || {}) };
     for (const [id, key] of Object.entries(fields)) {
-        theme[key] = id === 'scale' ? Math.max(.5, Math.min(3, Number($(id).value) || 1)) : $(id).value.trim();
+        theme[key] = id === 'scale' ? Math.max(.5, Math.min(4, Number($(id).value) || 1)) : $(id).value.trim();
     }
     if (!theme.font_family) theme.font_family = defaults.font;
-    theme.font_import = fontUrl(theme.font_family);
+    theme.font_import = fontUrl(theme.font_family, theme.font_weight);
     theme.text_outline = $('outline-enabled').checked;
     return theme;
 }
 function renderPreview() {
-    const scale = Math.max(.5, Math.min(3, Number($('scale').value) || 1));
+    const scale = Math.max(.5, Math.min(4, Number($('scale').value) || 1));
     const outline = $('outline-enabled').checked ? $('outline').value || '#000000' : 'transparent';
+    const weight = $('weight').value.trim();
     const stage = $('stage');
     stage.style.setProperty('--scale', scale);
     stage.style.fontFamily = `'${$('font').value.trim() || defaults.font}', system-ui, sans-serif`;
     stage.style.color = $('text').value;
     stage.style.textShadow = `-1px -1px 0 ${outline}, 1px -1px 0 ${outline}, -1px 1px 0 ${outline}, 1px 1px 0 ${outline}`;
+    let weightStyle = $('preview-weight-style');
+    if (!weightStyle) {
+        weightStyle = document.createElement('style');
+        weightStyle.id = 'preview-weight-style';
+        document.head.appendChild(weightStyle);
+    }
+    weightStyle.textContent = weight ? `#stage .pv, #stage .pv *:not(.lab) { font-weight: ${weight} !important; }` : '';
     $('pv-acc').style.color = $('accent').value;
     $('pv-head').style.color = $('accent').value;
     $('pv-fill').style.background = $('accent').value;
@@ -223,7 +264,19 @@ $('scale-range').addEventListener('input', () => { $('scale').value = $('scale-r
 $('scale').addEventListener('input', () => { $('scale-range').value = $('scale').value; refresh(); });
 $('font').addEventListener('change', () => { loadFont(); refresh(); });
 $('font').addEventListener('input', refresh);
+$('weight').addEventListener('change', () => { loadFont(); refresh(); });
 $('outline-enabled').addEventListener('change', refresh);
+
+(async function fillFonts() {
+    const system = window.OverlayFonts?.system || ['Arial', 'Helvetica', 'Georgia', 'Impact', 'Courier New', 'Trebuchet MS'];
+    const google = window.OverlayFonts?.google || ['Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Oswald', 'Poppins', 'Raleway', 'Merriweather', 'Playfair Display', 'Bebas Neue', 'Fira Code', 'Silkscreen'];
+    const names = [...system, ...google];
+    try {
+        const assets = await (await fetch('/api/custom-overlays/assets', { cache: 'no-store' })).json();
+        assets.filter(a => a.kind === 'font').forEach(a => names.push(a.family));
+    } catch { /* uploaded fonts are optional */ }
+    $('font-list').innerHTML = [...new Set(names)].map(n => `<option value="${n.replace(/"/g, '')}">`).join('');
+})();
 
 $('presets').innerHTML = PRESETS.map((p, i) => `<button class="preset" type="button" data-i="${i}"><i style="background:${p.swatch}"></i>${p.name}</button>`).join('');
 $('presets').addEventListener('click', event => {

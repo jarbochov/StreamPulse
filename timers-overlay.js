@@ -250,6 +250,10 @@
             }
             if (theme.accent_color) root.setProperty('--progress-color', theme.accent_color);
             if (theme.font_scale) root.setProperty('--font-scale', theme.font_scale);
+            if (theme.font_weight) {
+                root.setProperty('--timer-weight', theme.font_weight);
+                root.setProperty('--title-weight', theme.font_weight);
+            }
         } catch (error) { console.warn('[Timers] Shared theme load failed:', error.message); }
     }
 
