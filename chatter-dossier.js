@@ -269,6 +269,11 @@
                 border: 1px solid rgba(234, 179, 8, 0.4);
                 color: #facc15;
             }
+            .dossier-badge.mod {
+                background: rgba(56, 139, 253, 0.2);
+                border: 1px solid rgba(56, 139, 253, 0.45);
+                color: #58a6ff;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -444,11 +449,14 @@
             document.getElementById('dos-username').textContent = data.username;
 
             let badgesHtml = '';
-            if (data.isSubscriber) {
-                badgesHtml += `<span class="dossier-badge sub">${data.subMonths ? `${data.subMonths}m Sub` : 'Sub'}</span>`;
+            if (data.isMod || (data.tags || []).some(t => t.toLowerCase() === 'mod')) {
+                badgesHtml += `<span class="dossier-badge mod">🛡️ Mod</span>`;
             }
             if (data.isVip || (data.tags || []).some(t => t.toLowerCase() === 'vip')) {
-                badgesHtml += `<span class="dossier-badge vip">VIP</span>`;
+                badgesHtml += `<span class="dossier-badge vip">★ VIP</span>`;
+            }
+            if (data.isSubscriber) {
+                badgesHtml += `<span class="dossier-badge sub">${data.subMonths ? `${data.subMonths}m Sub` : 'Sub'}</span>`;
             }
             document.getElementById('dos-badges').innerHTML = badgesHtml;
 

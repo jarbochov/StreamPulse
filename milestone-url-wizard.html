@@ -50,6 +50,12 @@
         .p-chip { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s ease; }
         .p-chip:hover { transform: scale(1.15); }
         .p-chip.active { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
+        .preset-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0.6rem 0; }
+        .preset-chip { font-size: 0.74rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 4px; padding: 0.3rem 0.6rem; cursor: pointer; color: var(--text-muted); transition: all 0.15s ease; }
+        .preset-chip:hover { border-color: var(--accent); color: var(--text); }
+        .preset-chip.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+        .dim-inputs { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; margin: 0.5rem 0 0.2rem; color: var(--text-muted); }
+        .dim-inputs input { width: 72px; padding: 0.3rem 0.5rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.78rem; text-align: center; }
         @media (max-width: 980px) {
             .container { grid-template-columns: 1fr; padding: 1rem; }
             .header { flex-direction: column; gap: 0.6rem; }
@@ -120,9 +126,18 @@
             </div>
 
             <div class="cfg-row">
-                <label>Scale Factor</label>
-                <input type="range" id="scale" min="0.7" max="1.6" step="0.05" value="1.0" oninput="refreshWizard()" style="flex:1">
-                <span id="scale-val" style="font-size:0.8rem; width:40px; text-align:right">1.0x</span>
+                <label>Font Scale <span style="font-size:0.7rem;color:var(--accent);">fontScale</span></label>
+                <input type="range" id="scale" min="0.5" max="2.5" step="0.05" value="1.0" oninput="refreshWizard()" style="flex:1">
+                <span id="scale-val" style="font-size:0.8rem; width:45px; text-align:right">1.00x</span>
+            </div>
+
+            <div class="cfg-row">
+                <label>Alignment</label>
+                <select id="align" onchange="refreshWizard()">
+                    <option value="center">Center</option>
+                    <option value="left">Left / Start</option>
+                    <option value="right">Right / End</option>
+                </select>
             </div>
 
             <div class="group-title" id="toggles-title">Visible Elements</div>
@@ -142,12 +157,34 @@
         <div style="display:flex; flex-direction:column; gap:1.25rem;">
             <div class="card">
                 <h2>OBS Browser Source Preview</h2>
-                <div class="preview-frame">
-                    <iframe id="preview-iframe" src="/milestones.html?mode=card&theme=glass"></iframe>
+                
+                <!-- Canvas Presets -->
+                <div style="margin-bottom:0.6rem;">
+                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Canvas Size Presets:</span>
+                    <div class="preset-chips">
+                        <button type="button" class="preset-chip active" onclick="applyPresetSize(600, 170, this)">Card / Lower Third (600×170)</button>
+                        <button type="button" class="preset-chip" onclick="applyPresetSize(480, 65, this)">Pill Bar (480×65)</button>
+                        <button type="button" class="preset-chip" onclick="applyPresetSize(720, 90, this)">Goal Bar (720×90)</button>
+                        <button type="button" class="preset-chip" onclick="applyPresetSize(220, 65, this)">Mini Badge (220×65)</button>
+                        <button type="button" class="preset-chip" onclick="applyPresetSize(1920, 1080, this)">Full HD Canvas (1920×1080)</button>
+                    </div>
+                    <div class="dim-inputs">
+                        <span>Preview Size:</span>
+                        <input type="number" id="prev-w" value="600" min="100" max="1920" onchange="applyCustomSize()">
+                        <span>×</span>
+                        <input type="number" id="prev-h" value="170" min="40" max="1080" onchange="applyCustomSize()">
+                        <span>px</span>
+                    </div>
+                </div>
+
+                <div class="preview-frame" id="preview-frame" style="min-height: 200px;">
+                    <div id="preview-wrapper" style="width:600px; height:170px; max-width:100%; transition:all 0.2s ease; border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px; overflow: hidden;">
+                        <iframe id="preview-iframe" style="width:100%; height:100%; border:none;" src="/milestones.html?mode=card&theme=glass"></iframe>
+                    </div>
                 </div>
                 
                 <div class="obs-hint" id="obs-hint">
-                    📐 Recommended Browser Source Size: <b id="obs-size">Width: 440px | Height: 190px</b>
+                    ✨ <b>Fluid &amp; Responsive:</b> Milestones fluidly adapts to <b id="obs-size">any size</b> in OBS. Set your browser source to whatever dimensions fit your stream scene best!
                 </div>
 
                 <div class="url-box">
@@ -173,6 +210,16 @@
                             <td><code>mode</code></td>
                             <td><code>card</code>, <code>pill</code>, <code>streak</code>, <code>goal</code>, <code>stream_num</code></td>
                             <td>Display layout of the overlay.</td>
+                        </tr>
+                        <tr>
+                            <td><code>fontScale</code> / <code>scale</code></td>
+                            <td>Number, e.g. <code>1.2</code></td>
+                            <td>Font size scaling factor (0.5 to 2.5). Adapts fluidly with viewport typography.</td>
+                        </tr>
+                        <tr>
+                            <td><code>align</code></td>
+                            <td><code>center</code>, <code>left</code>, <code>right</code></td>
+                            <td>Horizontal alignment within browser source canvas.</td>
                         </tr>
                         <tr>
                             <td><code>theme</code></td>
@@ -214,11 +261,6 @@
                             <td><code>1</code></td>
                             <td>Hide the goal progress bar section.</td>
                         </tr>
-                        <tr>
-                            <td><code>scale</code></td>
-                            <td>Number, e.g. <code>1.2</code></td>
-                            <td>Zoom scaling factor.</td>
-                        </tr>
                     </tbody>
                 </table>
             </details>
@@ -226,9 +268,36 @@
     </div>
 
     <script>
+    let currentWidth = 600;
+    let currentHeight = 170;
+
     function setAccent(color) {
         document.getElementById('accent-color').value = color;
         refreshWizard();
+    }
+
+    function applyPresetSize(w, h, btn) {
+        currentWidth = w;
+        currentHeight = h;
+        document.getElementById('prev-w').value = w;
+        document.getElementById('prev-h').value = h;
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        updatePreviewSize();
+    }
+
+    function applyCustomSize() {
+        currentWidth = parseInt(document.getElementById('prev-w').value, 10) || 600;
+        currentHeight = parseInt(document.getElementById('prev-h').value, 10) || 170;
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+        updatePreviewSize();
+    }
+
+    function updatePreviewSize() {
+        const wrap = document.getElementById('preview-wrapper');
+        wrap.style.width = `${currentWidth}px`;
+        wrap.style.height = `${currentHeight}px`;
+        document.getElementById('obs-size').textContent = `${currentWidth}px × ${currentHeight}px`;
     }
 
     function refreshWizard() {
@@ -236,6 +305,7 @@
         const theme = document.getElementById('theme').value;
         const accent = document.getElementById('accent-color').value;
         const scale = parseFloat(document.getElementById('scale').value || '1');
+        const align = document.getElementById('align').value;
         const customTitle = document.getElementById('custom-title').value.trim();
         const goalType = document.getElementById('goal-type').value;
 
@@ -253,32 +323,12 @@
         document.getElementById('toggles-box').style.display = isCard ? 'grid' : 'none';
         document.getElementById('goal-row').style.display = (isCard || mode === 'goal') ? 'flex' : 'none';
 
-        // Recommended OBS dimensions
-        let recWidth = 440;
-        let recHeight = 190;
-        if (mode === 'pill') {
-            recWidth = 460;
-            recHeight = 60;
-        } else if (mode === 'streak') {
-            recWidth = 200;
-            recHeight = 54;
-        } else if (mode === 'stream_num') {
-            recWidth = 180;
-            recHeight = 50;
-        } else if (mode === 'goal') {
-            recWidth = 460;
-            recHeight = 80;
-        }
-
-        recWidth = Math.round(recWidth * scale);
-        recHeight = Math.round(recHeight * scale);
-        document.getElementById('obs-size').textContent = `Width: ${recWidth}px | Height: ${recHeight}px`;
-
         const params = new URLSearchParams();
         if (mode !== 'card') params.set('mode', mode);
         if (theme !== 'glass') params.set('theme', theme);
         if (accent && accent !== '#8b5cf6') params.set('accent', accent);
-        if (scale !== 1) params.set('scale', scale.toFixed(2));
+        if (scale !== 1) params.set('fontScale', scale.toFixed(2));
+        if (align !== 'center') params.set('align', align);
         if (isCard && customTitle) params.set('title', customTitle);
         if ((isCard || mode === 'goal') && goalType !== 'streams') params.set('goal', goalType);
 
@@ -295,7 +345,7 @@
         document.getElementById('url-output').textContent = fullUrl;
         document.getElementById('open-btn').href = fullUrl;
         document.getElementById('preview-iframe').src = fullUrl;
-        document.getElementById('preview-iframe').style.height = `${Math.max(recHeight + 30, 200)}px`;
+        updatePreviewSize();
     }
 
     async function copyUrl() {

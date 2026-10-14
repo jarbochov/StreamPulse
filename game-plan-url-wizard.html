@@ -40,7 +40,13 @@
         .toggle input { accent-color: var(--accent); }
         .left-col { align-self: start; }
         .sticky { position: sticky; top: 1rem; }
-        .obs-hint { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: var(--accent); background: var(--accent-bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.25rem 0.55rem; margin-top: 0.5rem; }
+        .obs-hint { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.74rem; color: var(--accent); background: var(--accent-bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.28rem 0.65rem; margin-top: 0.5rem; }
+        .preset-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0.6rem 0; }
+        .preset-chip { font-size: 0.74rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 4px; padding: 0.3rem 0.6rem; cursor: pointer; color: var(--text-muted); transition: all 0.15s ease; }
+        .preset-chip:hover { border-color: var(--accent); color: var(--text); }
+        .preset-chip.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+        .dim-inputs { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; margin: 0.5rem 0 0.2rem; color: var(--text-muted); }
+        .dim-inputs input { width: 72px; padding: 0.3rem 0.5rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.78rem; text-align: center; }
         details.card > summary { cursor: pointer; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; list-style: none; }
         details.card > summary::before { content: '▸ '; }
         details.card[open] > summary::before { content: '▾ '; }
@@ -65,7 +71,7 @@
             <div class="group-title">Layout &amp; Source</div>
             <div class="cfg-row">
                 <label>View Mode</label>
-                <select id="view-mode" onchange="refreshWizard()">
+                <select id="view-mode" onchange="onViewChange()">
                     <option value="schedule">Schedule Strip (Horizontal Cards)</option>
                     <option value="ticker">Ticker (Now Playing &amp; Up Next)</option>
                     <option value="checklist">Checklist (Vertical Queue)</option>
@@ -104,8 +110,17 @@
                 <input type="text" id="accent" value="#3b82f6" placeholder="#3b82f6" oninput="syncColorFromText()">
             </div>
             <div class="cfg-row">
-                <label>Scale</label>
-                <input type="number" id="scale" min="0.5" max="2.5" step="0.05" value="1" oninput="refreshWizard()">
+                <label>Font Scale <span style="font-size:0.7rem;color:var(--accent);">fontScale</span></label>
+                <input type="range" id="scale" min="0.5" max="2.5" step="0.05" value="1.0" oninput="refreshWizard()" style="flex:1">
+                <span id="scale-val" style="font-size:0.8rem; width:45px; text-align:right">1.00x</span>
+            </div>
+            <div class="cfg-row">
+                <label>Alignment</label>
+                <select id="align" onchange="refreshWizard()">
+                    <option value="center">Center</option>
+                    <option value="left">Left / Start</option>
+                    <option value="right">Right / End</option>
+                </select>
             </div>
 
             <div class="group-title">Options</div>
@@ -121,20 +136,39 @@
 
         <div style="display:flex; flex-direction:column; gap:1.25rem;">
             <div class="card sticky">
-                <h2>OBS Browser Source URL</h2>
-                <div class="url-box">
-                    <a id="overlay-link" href="/game-plan.html" target="_blank"></a>
-                    <button class="btn" type="button" id="copy-btn" onclick="copyUrl()">Copy URL</button>
-                </div>
-                <div class="obs-hint" id="obs-dim-hint">
-                    Recommended OBS Source Size: <strong id="obs-size-text">800 × 120</strong>
+                <h2>OBS Browser Source Preview</h2>
+                
+                <!-- Canvas Presets -->
+                <div style="margin-bottom:0.6rem;">
+                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Canvas Size Presets:</span>
+                    <div class="preset-chips">
+                        <button type="button" class="preset-chip active" id="btn-schedule" onclick="applyPresetSize(920, 140, this)">Schedule Strip (920×140)</button>
+                        <button type="button" class="preset-chip" id="btn-ticker" onclick="applyPresetSize(720, 85, this)">Ticker Bar (720×85)</button>
+                        <button type="button" class="preset-chip" id="btn-checklist" onclick="applyPresetSize(380, 520, this)">Vertical Dock (380×520)</button>
+                        <button type="button" class="preset-chip" onclick="applyPresetSize(1920, 1080, this)">Full HD Canvas (1920×1080)</button>
+                    </div>
+                    <div class="dim-inputs">
+                        <span>Preview Size:</span>
+                        <input type="number" id="prev-w" value="920" min="100" max="1920" onchange="applyCustomSize()">
+                        <span>×</span>
+                        <input type="number" id="prev-h" value="140" min="40" max="1080" onchange="applyCustomSize()">
+                        <span>px</span>
+                    </div>
                 </div>
 
-                <div style="margin-top:1.25rem;">
-                    <h2>Live Overlay Preview</h2>
-                    <div class="preview-frame">
-                        <iframe id="preview-iframe" src="/game-plan.html"></iframe>
+                <div class="preview-frame" id="preview-frame" style="min-height: 220px; display:flex; justify-content:center; align-items:center;">
+                    <div id="preview-wrapper" style="width:920px; height:140px; max-width:100%; transition:all 0.2s ease; border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px; overflow: hidden;">
+                        <iframe id="preview-iframe" style="width:100%; height:100%; border:none;" src="/game-plan.html"></iframe>
                     </div>
+                </div>
+
+                <div class="obs-hint" id="obs-dim-hint">
+                    ✨ <b>Fluid &amp; Responsive:</b> Game Plan fluidly adapts to <b id="obs-size-text">any size</b> in OBS. Set your browser source to whatever dimensions fit your stream layout best!
+                </div>
+
+                <div class="url-box" style="margin-top:0.75rem;">
+                    <a id="overlay-link" href="/game-plan.html" target="_blank"></a>
+                    <button class="btn" type="button" id="copy-btn" onclick="copyUrl()">Copy URL</button>
                 </div>
             </div>
 
@@ -146,6 +180,8 @@
                     </thead>
                     <tbody>
                         <tr><td><code>view</code></td><td><code>schedule</code></td><td>Layout: <code>schedule</code> (horizontal strip), <code>ticker</code> (lower-third bar), <code>checklist</code> (vertical stack)</td></tr>
+                        <tr><td><code>fontScale</code> / <code>scale</code></td><td><code>1</code></td><td>Font size multiplier (0.5 to 2.5) with fluid clamp typography</td></tr>
+                        <tr><td><code>align</code></td><td><code>center</code></td><td>Horizontal alignment: <code>center</code>, <code>left</code>, <code>right</code></td></tr>
                         <tr><td><code>list</code></td><td><code>scheduled</code></td><td>Source list: <code>scheduled</code>, <code>backlog</code>, <code>played</code>, or custom list ID</td></tr>
                         <tr><td><code>period</code></td><td><em>none</em></td><td>Optional filter by period name (e.g. <code>Tonight</code>)</td></tr>
                         <tr><td><code>max</code></td><td><code>5</code></td><td>Maximum number of cards/items to render</td></tr>
@@ -153,7 +189,6 @@
                         <tr><td><code>covers</code></td><td><code>1</code></td><td><code>1</code> to show IGDB/custom cover images, <code>0</code> to hide</td></tr>
                         <tr><td><code>notes</code></td><td><code>1</code></td><td><code>1</code> to display notes and periods, <code>0</code> to hide</td></tr>
                         <tr><td><code>accent</code></td><td><code>#3b82f6</code></td><td>Custom accent color (hex)</td></tr>
-                        <tr><td><code>scale</code></td><td><code>1</code></td><td>Zoom multiplier (e.g. <code>1.2</code> for larger display)</td></tr>
                     </tbody>
                 </table>
             </details>
@@ -161,6 +196,45 @@
     </div>
 
     <script>
+    let currentWidth = 920;
+    let currentHeight = 140;
+
+    function applyPresetSize(w, h, btn) {
+        currentWidth = w;
+        currentHeight = h;
+        document.getElementById('prev-w').value = w;
+        document.getElementById('prev-h').value = h;
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        updatePreviewSize();
+    }
+
+    function applyCustomSize() {
+        currentWidth = parseInt(document.getElementById('prev-w').value, 10) || 920;
+        currentHeight = parseInt(document.getElementById('prev-h').value, 10) || 140;
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+        updatePreviewSize();
+    }
+
+    function updatePreviewSize() {
+        const wrap = document.getElementById('preview-wrapper');
+        wrap.style.width = `${currentWidth}px`;
+        wrap.style.height = `${currentHeight}px`;
+        document.getElementById('obs-size-text').textContent = `${currentWidth}px × ${currentHeight}px`;
+    }
+
+    function onViewChange() {
+        const view = document.getElementById('view-mode').value;
+        if (view === 'ticker') {
+            applyPresetSize(720, 85, document.getElementById('btn-ticker'));
+        } else if (view === 'checklist') {
+            applyPresetSize(380, 520, document.getElementById('btn-checklist'));
+        } else {
+            applyPresetSize(920, 140, document.getElementById('btn-schedule'));
+        }
+        refreshWizard();
+    }
+
     async function loadCustomLists() {
         try {
             const res = await fetch('/api/game-plan', { cache: 'no-store' });
@@ -196,9 +270,12 @@
         const max = document.getElementById('max-items').value.trim();
         const theme = document.getElementById('theme').value;
         const accent = document.getElementById('accent').value.trim();
-        const scale = document.getElementById('scale').value.trim();
+        const scale = parseFloat(document.getElementById('scale').value || '1');
+        const align = document.getElementById('align').value;
         const showCovers = document.getElementById('show-covers').checked;
         const showNotes = document.getElementById('show-notes').checked;
+
+        document.getElementById('scale-val').textContent = `${scale.toFixed(2)}x`;
 
         const params = new URLSearchParams();
         if (view !== 'schedule') params.set('view', view);
@@ -207,7 +284,8 @@
         if (max && max !== '5') params.set('max', max);
         if (theme !== 'glass') params.set('theme', theme);
         if (accent && accent !== '#3b82f6') params.set('accent', accent);
-        if (scale && scale !== '1') params.set('scale', scale);
+        if (scale !== 1) params.set('fontScale', scale.toFixed(2));
+        if (align !== 'center') params.set('align', align);
         if (!showCovers) params.set('covers', '0');
         if (!showNotes) params.set('notes', '0');
 
@@ -223,16 +301,7 @@
         if (iframe.src !== absUrl) {
             iframe.src = relUrl;
         }
-
-        // Recommended dimensions
-        const sizeHint = document.getElementById('obs-size-text');
-        if (view === 'ticker') {
-            sizeHint.textContent = '650 × 80';
-        } else if (view === 'checklist') {
-            sizeHint.textContent = '360 × 600';
-        } else {
-            sizeHint.textContent = '850 × 120';
-        }
+        updatePreviewSize();
     }
 
     async function copyUrl() {

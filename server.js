@@ -2256,7 +2256,7 @@ if (!fs.existsSync(CUSTOM_OVERLAY_ASSETS_DIR)) {
 // TWITCH OAUTH (User Token via Authorization Code Flow)
 // ============================================================================
 
-const TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips channel:read:polls';
+const TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips channel:read:polls channel:read:vips moderation:read';
 const TWITCH_REDIRECT_URI = config.twitch?.redirect_uri || `http://localhost:${PORT}/auth/callback`;
 const TOKEN_PATH = path.join(DATA_DIR, '.twitch-token.json');
 
@@ -2635,6 +2635,28 @@ async function fetchTwitchData() {
             recordFollowerSnapshot(followers);
             result.followers = followers.length;
         } catch (err) { result.error = result.error || err.message; }
+
+        // Fetch VIPs
+        console.log('[Twitch] Fetching VIPs...');
+        try {
+            const vips = await fetchAllPages('/channels/vips', { broadcaster_id: BROADCASTER_ID }, 'data', true);
+            fs.writeFileSync(path.join(DATA_DIR, 'vips.json'), JSON.stringify({ data: vips }, null, 2));
+            console.log(`[Twitch] Saved ${vips.length} VIPs`);
+            result.vips = vips.length;
+        } catch (err) {
+            console.warn('[Twitch] VIPs fetch skipped or not authorized (reconnect Twitch to grant channel:read:vips):', err.message);
+        }
+
+        // Fetch Moderators
+        console.log('[Twitch] Fetching moderators...');
+        try {
+            const mods = await fetchAllPages('/moderators', { broadcaster_id: BROADCASTER_ID }, 'data', true);
+            fs.writeFileSync(path.join(DATA_DIR, 'moderators.json'), JSON.stringify({ data: mods }, null, 2));
+            console.log(`[Twitch] Saved ${mods.length} moderators`);
+            result.moderators = mods.length;
+        } catch (err) {
+            console.warn('[Twitch] Moderators fetch skipped or not authorized (reconnect Twitch to grant moderation:read):', err.message);
+        }
 
         console.log('[Twitch] Data fetch complete!');
     } catch (err) {
@@ -5712,6 +5734,12 @@ function getChatterDossier(username) {
         .slice(0, 10);
 
     const noteEntry = chatterNotes[key] || {};
+    const vipsList = readJsonFileSafe(path.join(DATA_DIR, 'vips.json'), { data: [] })?.data || [];
+    const modsList = readJsonFileSafe(path.join(DATA_DIR, 'moderators.json'), { data: [] })?.data || [];
+    const isTwitchVip = vipsList.some(v => (v.user_login || v.user_name || '').toLowerCase() === key);
+    const isTwitchMod = modsList.some(m => (m.user_login || m.user_name || '').toLowerCase() === key);
+    const isVip = Boolean(noteEntry.isVip || isTwitchVip);
+    const isMod = Boolean(isTwitchMod || (noteEntry.tags || []).some(t => t.toLowerCase() === 'mod'));
 
     return {
         username: displayName,
@@ -5730,7 +5758,8 @@ function getChatterDossier(username) {
         recentActivity,
         notes: noteEntry.notes || '',
         tags: noteEntry.tags || [],
-        isVip: Boolean(noteEntry.isVip),
+        isVip,
+        isMod,
         updatedAt: noteEntry.updatedAt || null
     };
 }
@@ -7160,10 +7189,15 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // Chatter Dossier & Community CRM endpoints
+    // Chatter Dossier & Community Chatters endpoints
     if (pathname === '/api/chatters' && req.method === 'GET') {
         const query = (url.searchParams.get('q') || '').toLowerCase().trim();
         const tagFilter = (url.searchParams.get('tag') || '').toLowerCase().trim();
+        const vipsList = readJsonFileSafe(path.join(DATA_DIR, 'vips.json'), { data: [] })?.data || [];
+        const modsList = readJsonFileSafe(path.join(DATA_DIR, 'moderators.json'), { data: [] })?.data || [];
+        const vipSet = new Set(vipsList.map(v => (v.user_login || v.user_name || '').toLowerCase()));
+        const modSet = new Set(modsList.map(m => (m.user_login || m.user_name || '').toLowerCase()));
+
         const chattersList = Object.entries(statsData.chatters || {}).map(([username, d]) => {
             const days = d.days || {};
             const totalMsgs = Object.values(days).reduce((s, c) => s + (Number(c) || 0), 0);
@@ -7171,6 +7205,10 @@ const server = http.createServer(async (req, res) => {
             const subTenure = statsData.subTenure?.[username.toLowerCase()] || statsData.subTenure?.[username];
             const subMonths = subTenure?.months || 0;
             const isSubscriber = Boolean(subMonths > 0 || statsData.subscribers?.[username] || statsData.subscribers?.[username.toLowerCase()]);
+            const isTwitchVip = vipSet.has(username.toLowerCase());
+            const isTwitchMod = modSet.has(username.toLowerCase());
+            const isVip = Boolean(notes.isVip || isTwitchVip);
+            const isMod = Boolean(isTwitchMod || (notes.tags || []).some(t => t.toLowerCase() === 'mod'));
             return {
                 username,
                 chatname: d.chatname || username,
@@ -7179,7 +7217,8 @@ const server = http.createServer(async (req, res) => {
                 sessionsAttended: Object.keys(days).length,
                 firstSeen: d.firstSeen || null,
                 lastSeen: d.lastSeen || null,
-                isVip: Boolean(notes.isVip),
+                isVip,
+                isMod,
                 isSubscriber,
                 subMonths,
                 notes: notes.notes || '',
@@ -7189,6 +7228,8 @@ const server = http.createServer(async (req, res) => {
             if (tagFilter) {
                 if (tagFilter === 'vip') {
                     if (!c.isVip) return false;
+                } else if (tagFilter === 'mod' || tagFilter === 'moderator') {
+                    if (!c.isMod) return false;
                 } else if (tagFilter === 'sub' || tagFilter === 'subscriber') {
                     if (!c.isSubscriber) return false;
                 } else if (!(c.tags || []).some(t => t.toLowerCase() === tagFilter)) {
@@ -7203,7 +7244,7 @@ const server = http.createServer(async (req, res) => {
         })
           .sort((a, b) => b.totalMessages - a.totalMessages);
 
-        const allTagsSet = new Set(['VIP', 'Subscriber']);
+        const allTagsSet = new Set(['VIP', 'Mod', 'Subscriber']);
         for (const note of Object.values(chatterNotes)) {
             if (Array.isArray(note.tags)) {
                 for (const t of note.tags) {
@@ -7218,6 +7259,20 @@ const server = http.createServer(async (req, res) => {
             total: chattersList.length,
             tags: Array.from(allTagsSet)
         }));
+        return;
+    }
+
+    if (pathname === '/api/vips' && req.method === 'GET') {
+        const vipsList = readJsonFileSafe(path.join(DATA_DIR, 'vips.json'), { data: [] })?.data || [];
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ total: vipsList.length, vips: vipsList }));
+        return;
+    }
+
+    if (pathname === '/api/moderators' && req.method === 'GET') {
+        const modsList = readJsonFileSafe(path.join(DATA_DIR, 'moderators.json'), { data: [] })?.data || [];
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ total: modsList.length, moderators: modsList }));
         return;
     }
 

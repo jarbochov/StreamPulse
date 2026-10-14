@@ -16,7 +16,7 @@
             --gp-now-bg: rgba(35, 134, 54, 0.25);
             --gp-now-border: #238636;
             --gp-now-text: #3fb950;
-            --gp-scale: 1;
+            --gp-font-scale: 1;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,16 +30,17 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Container & Scaling */
+        /* Container */
         #container {
             width: 100%;
             height: 100%;
             display: flex;
             align-items: center;
-            justify-content: flex-start;
-            padding: 12px;
-            transform-origin: top left;
-            transform: scale(var(--gp-scale));
+            justify-content: center;
+            padding: clamp(6px, 1.8vmin, 18px);
+            box-sizing: border-box;
+            min-width: 0;
+            min-height: 0;
         }
 
         /* Theme Variants */
@@ -47,7 +48,7 @@
             --gp-bg: rgba(15, 23, 42, 0.72);
             --gp-border: rgba(255, 255, 255, 0.16);
         }
-        body.theme-glass .card, body.theme-glass .ticker-bar {
+        body.theme-glass .card, body.theme-glass .ticker-bar, body.theme-glass .schedule-card, body.theme-glass .checklist-item {
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
@@ -56,7 +57,7 @@
             --gp-bg: transparent;
             --gp-border: transparent;
         }
-        body.theme-transparent .card, body.theme-transparent .ticker-bar {
+        body.theme-transparent .card, body.theme-transparent .ticker-bar, body.theme-transparent .schedule-card, body.theme-transparent .checklist-item {
             background: transparent !important;
             border-color: transparent !important;
             box-shadow: none !important;
@@ -80,11 +81,11 @@
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            font-size: 0.68rem;
+            font-size: calc(clamp(0.62rem, 1.8vmin, 1.05rem) * var(--gp-font-scale));
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            padding: 2px 7px;
+            padding: clamp(2px, 0.5vmin, 5px) clamp(6px, 1.4vmin, 12px);
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.1);
             color: var(--gp-muted);
@@ -113,54 +114,65 @@
         }
 
         .cover-img {
-            width: 48px;
-            height: 64px;
+            width: clamp(38px, 6vmin, 72px);
+            height: clamp(52px, 8vmin, 96px);
             object-fit: cover;
-            border-radius: 6px;
+            border-radius: clamp(4px, 1vmin, 8px);
             flex-shrink: 0;
             background: #161b22;
             border: 1px solid var(--gp-border);
         }
         .cover-img.small {
-            width: 32px;
-            height: 42px;
-            border-radius: 4px;
+            width: clamp(26px, 4.5vmin, 48px);
+            height: clamp(34px, 6vmin, 64px);
+            border-radius: clamp(3px, 0.8vmin, 6px);
         }
 
         /* VIEW 1: TICKER (Lower-Third bar) */
         .view-ticker {
             display: flex;
             align-items: center;
-            width: auto;
-            max-width: 100%;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            min-width: 0;
+            min-height: 0;
         }
         .ticker-bar {
             display: inline-flex;
             align-items: center;
-            gap: 12px;
+            justify-content: center;
+            gap: clamp(8px, 2vmin, 20px);
             background: var(--gp-bg);
             border: 1px solid var(--gp-border);
-            border-radius: 10px;
-            padding: 8px 16px;
+            border-radius: clamp(8px, 1.8vmin, 16px);
+            padding: clamp(6px, 1.6vmin, 14px) clamp(12px, 2.5vmin, 24px);
+            max-width: 100%;
+            box-sizing: border-box;
+            flex-wrap: wrap;
         }
         .ticker-segment {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: clamp(6px, 1.5vmin, 14px);
+            min-width: 0;
         }
         .ticker-divider {
             width: 1px;
-            height: 28px;
+            height: clamp(20px, 4vmin, 36px);
             background: var(--gp-border);
-            margin: 0 4px;
+            margin: 0 clamp(2px, 0.6vmin, 6px);
+            flex-shrink: 0;
         }
         .ticker-title {
-            font-size: 0.95rem;
+            font-size: calc(clamp(0.85rem, 2.6vmin, 1.8rem) * var(--gp-font-scale));
             font-weight: 700;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .ticker-sub {
-            font-size: 0.75rem;
+            font-size: calc(clamp(0.68rem, 1.8vmin, 1.25rem) * var(--gp-font-scale));
             color: var(--gp-muted);
             white-space: nowrap;
         }
@@ -169,23 +181,30 @@
         .view-schedule {
             display: flex;
             align-items: stretch;
-            gap: 12px;
-            width: auto;
+            justify-content: center;
+            gap: clamp(8px, 2vmin, 18px);
+            width: 100%;
+            height: 100%;
             max-width: 100%;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
+            box-sizing: border-box;
+            flex-wrap: wrap;
         }
         .schedule-card {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: clamp(8px, 2vmin, 16px);
             background: var(--gp-bg);
             border: 1px solid var(--gp-border);
-            border-radius: 10px;
-            padding: 10px 14px;
-            min-width: 200px;
-            max-width: 300px;
+            border-radius: clamp(8px, 1.8vmin, 14px);
+            padding: clamp(8px, 2vmin, 18px) clamp(10px, 2.2vmin, 20px);
+            flex: 1 1 clamp(180px, 24vmin, 340px);
+            max-width: 440px;
+            min-width: 0;
             position: relative;
             transition: all 0.2s ease;
+            box-sizing: border-box;
         }
         .schedule-card.active {
             border-color: var(--gp-now-border);
@@ -200,9 +219,11 @@
             flex-direction: column;
             gap: 4px;
             overflow: hidden;
+            min-width: 0;
+            flex: 1;
         }
         .schedule-title {
-            font-size: 0.9rem;
+            font-size: calc(clamp(0.82rem, 2.5vmin, 1.6rem) * var(--gp-font-scale));
             font-weight: 700;
             white-space: nowrap;
             overflow: hidden;
@@ -219,18 +240,23 @@
         .view-checklist {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            width: 320px;
+            justify-content: center;
+            gap: clamp(6px, 1.6vmin, 12px);
+            width: 100%;
+            height: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
         }
         .checklist-item {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: clamp(8px, 2vmin, 14px);
             background: var(--gp-bg);
             border: 1px solid var(--gp-border);
-            border-radius: 8px;
-            padding: 8px 12px;
+            border-radius: clamp(6px, 1.5vmin, 12px);
+            padding: clamp(6px, 1.8vmin, 14px) clamp(10px, 2vmin, 18px);
             position: relative;
+            box-sizing: border-box;
         }
         .checklist-item.active {
             border-color: var(--gp-now-border);
@@ -241,7 +267,7 @@
             opacity: 0.6;
         }
         .checklist-idx {
-            font-size: 0.8rem;
+            font-size: calc(clamp(0.75rem, 2vmin, 1.15rem) * var(--gp-font-scale));
             font-weight: 700;
             color: var(--gp-muted);
             min-width: 20px;
@@ -249,16 +275,17 @@
         .checklist-info {
             flex: 1;
             overflow: hidden;
+            min-width: 0;
         }
         .checklist-title {
-            font-size: 0.88rem;
+            font-size: calc(clamp(0.82rem, 2.4vmin, 1.5rem) * var(--gp-font-scale));
             font-weight: 700;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .checklist-note {
-            font-size: 0.72rem;
+            font-size: calc(clamp(0.68rem, 1.8vmin, 1.2rem) * var(--gp-font-scale));
             color: var(--gp-muted);
             white-space: nowrap;
             overflow: hidden;
@@ -269,7 +296,7 @@
         }
 
         .empty-placeholder {
-            font-size: 0.85rem;
+            font-size: calc(clamp(0.82rem, 2.2vmin, 1.3rem) * var(--gp-font-scale));
             color: var(--gp-muted);
             padding: 8px 14px;
             background: var(--gp-bg);
@@ -283,6 +310,7 @@
 
     <script src="/overlay-visibility.js" data-key="game-plan"></script>
     <script src="/url-params.js"></script>
+    <script src="/overlay-theme.js"></script>
     <script>
     (function() {
         const params = overlayParams();
@@ -296,18 +324,37 @@
         const showNotes = params.get('notes') !== '0';
         const theme = (params.get('theme') || 'glass').toLowerCase();
         const accent = params.get('accent') || '';
-        const scale = parseFloat(params.get('scale') || '1');
+        const fontScaleParam = parseFloat(params.get('fontscale') || params.get('fontScale') || params.get('scale') || '1');
+        const align = (params.get('align') || 'center').toLowerCase();
 
         if (['glass', 'dark', 'light', 'transparent'].includes(theme)) {
             document.body.className = `theme-${theme}`;
         }
+        if (align === 'left' || align === 'start') {
+            container.style.justifyContent = 'flex-start';
+        } else if (align === 'right' || align === 'end') {
+            container.style.justifyContent = 'flex-end';
+        }
         if (accent) {
             document.documentElement.style.setProperty('--gp-accent', accent.startsWith('#') ? accent : `#${accent}`);
         }
-        if (scale && scale > 0) {
-            document.documentElement.style.setProperty('--gp-scale', scale);
+        if (!isNaN(fontScaleParam) && fontScaleParam > 0) {
+            document.documentElement.style.setProperty('--gp-font-scale', fontScaleParam);
         }
 
+        // Apply shared overlay theme from server config
+        fetch('/api/config', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(cfg => {
+            if (cfg?.theme) {
+                applyOverlayTheme(cfg.theme, {
+                    font: '--gp-font',
+                    text: '--gp-text',
+                    accent: '--gp-accent',
+                    scale: '--gp-font-scale'
+                }, { defaultFont: 'Segoe UI', fontFallback: 'system-ui, sans-serif' });
+                if (accent) {
+                    document.documentElement.style.setProperty('--gp-accent', accent.startsWith('#') ? accent : `#${accent}`);
+                }
+            }
         let currentPlan = null;
 
         function esc(str) {

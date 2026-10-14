@@ -15,7 +15,7 @@
             --ms-accent: #8b5cf6;
             --ms-accent-bg: rgba(139, 92, 246, 0.15);
             --ms-fire: #f59e0b;
-            --ms-scale: 1;
+            --ms-font-scale: 1;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -32,7 +32,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 8px;
+            padding: clamp(4px, 1.8vmin, 16px);
         }
 
         /* Themes */
@@ -76,97 +76,115 @@
         .ms-container {
             background: var(--ms-bg);
             border: 1px solid var(--ms-border);
-            border-radius: 14px;
+            border-radius: clamp(8px, 2vmin, 16px);
             transition: all 0.25s ease;
-            transform-origin: center center;
-            transform: scale(var(--ms-scale));
+            box-sizing: border-box;
+            min-width: 0;
+            min-height: 0;
+            max-width: 100%;
+            max-height: 100%;
         }
 
         /* Mode: Card (Default) */
         .mode-card {
-            width: 420px;
-            padding: 16px 20px;
+            width: 100%;
+            height: 100%;
+            padding: clamp(8px, 3.2vmin, 26px) clamp(12px, 4vmin, 34px);
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            justify-content: center;
+            gap: clamp(6px, 2vmin, 14px);
         }
 
         .card-top {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 8px;
+            gap: clamp(6px, 1.5vmin, 12px);
+            min-width: 0;
         }
 
         .card-title {
-            font-size: 0.72rem;
+            font-size: calc(clamp(0.65rem, 2vmin, 1.15rem) * var(--ms-font-scale));
             text-transform: uppercase;
             letter-spacing: 0.08em;
             font-weight: 700;
             color: var(--ms-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .streak-pill {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-            padding: 3px 9px;
+            gap: clamp(3px, 0.8vmin, 6px);
+            padding: clamp(2px, 0.6vmin, 6px) clamp(6px, 1.5vmin, 12px);
             border-radius: 999px;
-            font-size: 0.76rem;
+            font-size: calc(clamp(0.68rem, 2vmin, 1.18rem) * var(--ms-font-scale));
             font-weight: 700;
             background: rgba(245, 158, 11, 0.14);
             border: 1px solid rgba(245, 158, 11, 0.35);
             color: var(--ms-fire);
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .streak-pill .icon {
-            font-size: 0.85rem;
+            font-size: 1.1em;
         }
 
         .card-main {
             display: flex;
             align-items: baseline;
             justify-content: space-between;
-            gap: 12px;
+            gap: clamp(8px, 2vmin, 16px);
+            min-width: 0;
         }
 
         .stream-num {
-            font-size: 1.85rem;
+            font-size: calc(clamp(1.2rem, 5.8vmin, 3.8rem) * var(--ms-font-scale));
             font-weight: 800;
             letter-spacing: -0.02em;
             color: var(--ms-accent);
             line-height: 1.1;
+            white-space: nowrap;
         }
 
         .stream-hours {
-            font-size: 0.95rem;
+            font-size: calc(clamp(0.8rem, 2.8vmin, 1.7rem) * var(--ms-font-scale));
             font-weight: 600;
             color: var(--ms-text);
             display: inline-flex;
             align-items: center;
-            gap: 5px;
+            gap: clamp(3px, 0.8vmin, 6px);
+            white-space: nowrap;
         }
 
         .card-meta {
             display: flex;
             align-items: center;
-            gap: 12px;
-            font-size: 0.78rem;
+            gap: clamp(8px, 2.5vmin, 18px);
+            font-size: calc(clamp(0.68rem, 2vmin, 1.2rem) * var(--ms-font-scale));
             color: var(--ms-muted);
+            flex-wrap: wrap;
+            min-width: 0;
         }
 
         .card-meta span {
             display: inline-flex;
             align-items: center;
             gap: 4px;
+            white-space: nowrap;
         }
 
         .goal-section {
             display: flex;
             flex-direction: column;
-            gap: 5px;
-            padding-top: 6px;
+            gap: clamp(4px, 1.2vmin, 8px);
+            padding-top: clamp(4px, 1.2vmin, 8px);
             border-top: 1px solid rgba(255, 255, 255, 0.08);
+            min-width: 0;
         }
 
         body.theme-light .goal-section {
@@ -177,25 +195,33 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 0.74rem;
+            font-size: calc(clamp(0.65rem, 2vmin, 1.15rem) * var(--ms-font-scale));
+            gap: 6px;
+            min-width: 0;
         }
 
         .goal-name {
             font-weight: 600;
             color: var(--ms-text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .goal-rem {
             color: var(--ms-muted);
-            font-size: 0.72rem;
+            font-size: calc(clamp(0.62rem, 1.8vmin, 1.05rem) * var(--ms-font-scale));
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .goal-bar {
-            height: 8px;
+            height: clamp(6px, 1.8vmin, 18px);
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.1);
             overflow: hidden;
             position: relative;
+            width: 100%;
         }
 
         body.theme-light .goal-bar {
@@ -211,20 +237,25 @@
 
         /* Mode: Pill */
         .mode-pill {
+            width: 100%;
+            height: 100%;
             display: inline-flex;
             align-items: center;
-            gap: 14px;
-            padding: 10px 22px;
+            justify-content: center;
+            gap: clamp(8px, 2.5vmin, 24px);
+            padding: clamp(6px, 2vmin, 16px) clamp(14px, 3.5vmin, 32px);
             border-radius: 999px;
             white-space: nowrap;
+            flex-wrap: wrap;
         }
 
         .mode-pill .stream-pill-item {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            font-size: 0.95rem;
+            gap: clamp(4px, 1vmin, 8px);
+            font-size: calc(clamp(0.8rem, 2.8vmin, 1.8rem) * var(--ms-font-scale));
             font-weight: 600;
+            white-space: nowrap;
         }
 
         .mode-pill .stream-pill-item.accent {
@@ -239,48 +270,71 @@
 
         /* Mode: Streak Minimal */
         .mode-streak {
+            width: 100%;
+            height: 100%;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 18px;
+            justify-content: center;
+            gap: clamp(6px, 2vmin, 16px);
+            padding: clamp(6px, 2vmin, 16px) clamp(12px, 3vmin, 24px);
             border-radius: 999px;
+            white-space: nowrap;
         }
 
         .mode-streak .streak-val {
-            font-size: 1.15rem;
+            font-size: calc(clamp(1.1rem, 5vmin, 3.4rem) * var(--ms-font-scale));
             font-weight: 800;
             color: var(--ms-fire);
         }
 
         .mode-streak .streak-sub {
-            font-size: 0.82rem;
+            font-size: calc(clamp(0.75rem, 2.4vmin, 1.4rem) * var(--ms-font-scale));
             font-weight: 600;
             color: var(--ms-muted);
         }
 
         /* Mode: Stream Number Minimal */
         .mode-stream_num {
+            width: 100%;
+            height: 100%;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 8px 16px;
-            border-radius: 12px;
-            font-size: 1.25rem;
+            justify-content: center;
+            gap: clamp(6px, 2vmin, 16px);
+            padding: clamp(6px, 2vmin, 16px) clamp(12px, 3vmin, 24px);
+            border-radius: clamp(6px, 1.5vmin, 14px);
+            font-size: calc(clamp(1.1rem, 5vmin, 3.4rem) * var(--ms-font-scale));
             font-weight: 800;
             color: var(--ms-accent);
+            white-space: nowrap;
         }
 
         /* Mode: Goal Focused */
         .mode-goal {
-            width: 440px;
-            padding: 14px 18px;
+            width: 100%;
+            height: 100%;
+            padding: clamp(8px, 2.5vmin, 24px) clamp(12px, 3vmin, 28px);
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            justify-content: center;
+            gap: clamp(6px, 1.8vmin, 14px);
+        }
+
+        .mode-goal .goal-header {
+            font-size: calc(clamp(0.75rem, 2.4vmin, 1.4rem) * var(--ms-font-scale));
+        }
+
+        .mode-goal .goal-name {
+            font-size: calc(clamp(0.85rem, 3.2vmin, 2rem) * var(--ms-font-scale));
+            font-weight: 700;
+        }
+
+        .mode-goal .goal-rem {
+            font-size: calc(clamp(0.72rem, 2.4vmin, 1.4rem) * var(--ms-font-scale));
         }
 
         .mode-goal .goal-bar {
-            height: 12px;
+            height: clamp(8px, 2.6vmin, 24px);
         }
     </style>
 </head>
@@ -297,7 +351,8 @@
     const mode = (params.get('mode') || 'card').toLowerCase();
     const theme = (params.get('theme') || 'glass').toLowerCase();
     const customAccent = params.get('color') || params.get('accent');
-    const scale = parseFloat(params.get('scale') || '1');
+    const fontScaleParam = parseFloat(params.get('fontscale') || params.get('fontScale') || params.get('scale') || '1');
+    const align = (params.get('align') || 'center').toLowerCase();
     const customTitle = params.get('title') || 'BROADCAST STATS';
     const goalType = (params.get('goal') || 'streams').toLowerCase();
     const hideStreak = params.has('hideStreak') || params.get('streak') === '0';
@@ -309,12 +364,33 @@
     document.body.className = `theme-${theme}`;
     root.className = `ms-container mode-${mode}`;
 
+    if (align === 'left' || align === 'start') {
+        document.body.style.justifyContent = 'flex-start';
+    } else if (align === 'right' || align === 'end') {
+        document.body.style.justifyContent = 'flex-end';
+    }
+
     if (customAccent) {
-        document.documentElement.style.setProperty('--ms-accent', customAccent);
+        document.documentElement.style.setProperty('--ms-accent', customAccent.startsWith('#') ? customAccent : `#${customAccent}`);
     }
-    if (!isNaN(scale) && scale > 0) {
-        document.documentElement.style.setProperty('--ms-scale', scale);
+    if (!isNaN(fontScaleParam) && fontScaleParam > 0) {
+        document.documentElement.style.setProperty('--ms-font-scale', fontScaleParam);
     }
+
+    // Apply shared overlay theme (font, text, accent, scale) from server config if present
+    fetch('/api/config', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(cfg => {
+        if (cfg?.theme) {
+            applyOverlayTheme(cfg.theme, {
+                font: '--ms-font',
+                text: '--ms-text',
+                accent: '--ms-accent',
+                scale: '--ms-font-scale'
+            }, { defaultFont: 'Segoe UI', fontFallback: 'system-ui, sans-serif' });
+            if (customAccent) {
+                document.documentElement.style.setProperty('--ms-accent', customAccent.startsWith('#') ? customAccent : `#${customAccent}`);
+            }
+        }
+    }).catch(() => {});
 
     let currentData = null;
 
