@@ -1237,6 +1237,8 @@
         try {
             const url = filename === '__current__' ? '/api/chat-log' : `/api/sessions/${filename}/chat-log`;
             const res = await fetch(url);
+            if (!res.ok) throw new Error('Failed to fetch chat log');
+            const data = await res.json();
             chatLogCache[filename] = data.messages || [];
             const cacheKeys = Object.keys(chatLogCache);
             if (cacheKeys.length > 3) {
