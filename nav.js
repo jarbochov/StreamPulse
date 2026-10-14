@@ -61,6 +61,7 @@
             { label: 'Viewer Count', href: '/viewers.html', target: '_blank' },
             { label: 'Goal', href: '/goal.html', target: '_blank' },
             { label: 'Goals Cycle', href: '/goal.html?mode=cycle', target: '_blank' },
+            { label: 'Game Plan', href: '/game-plan.html', target: '_blank' },
             { heading: 'Music (Beta)' },
             { label: 'Full', href: '/music.html?mode=full', target: '_blank' },
             { label: 'Art Only', href: '/music.html?mode=art', target: '_blank' },
@@ -71,7 +72,8 @@
             { heading: 'URL Builders' },
             { label: 'Credits, Goals & Viewers', href: '/overlay-url-wizard.html' },
             { label: 'Timers', href: '/timer-url-wizard.html' },
-            { label: 'Music', href: '/music-url-wizard.html' }
+            { label: 'Music', href: '/music-url-wizard.html' },
+            { label: 'Game Plan', href: '/game-plan-url-wizard.html' }
         ]},
         { label: 'Library ▾', children: [
             { label: 'Highlights', href: '/highlights.html' },

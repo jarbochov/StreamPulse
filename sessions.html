@@ -3,6 +3,7 @@
 <head>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
+    <script src="/chatter-dossier.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -587,7 +588,7 @@
         document.getElementById('pane-chatters').innerHTML = chatterEntries.length
             ? chatterEntries.map(c => `<div class="entry">
                 ${c.chatimg ? `<img src="${c.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
-                <span class="name">${escapeHtml(c.chatname)}</span>
+                <span class="name dossier-clickable" data-chatter="${escapeHtml(c.chatname)}" title="View Chatter Dossier">${escapeHtml(c.chatname)}</span>
                 <span class="count">${c.messageCount || 0} msgs</span>
             </div>`).join('')
             : '<div class="empty">No chatters</div>';
@@ -623,7 +624,7 @@
         document.getElementById('pane-subs').innerHTML = subEntries.length
             ? subEntries.map(s => `<div class="entry">
                 ${s.chatimg ? `<img src="${s.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
-                <span class="name">${escapeHtml(s.chatname)}</span>
+                <span class="name dossier-clickable" data-chatter="${escapeHtml(s.chatname)}" title="View Chatter Dossier">${escapeHtml(s.chatname)}</span>
                 ${s.membership ? `<span class="count">${escapeHtml(s.membership)}</span>` : ''}
             </div>`).join('')
             : '<div class="empty">No subscribers</div>';
@@ -636,7 +637,7 @@
                 const label = g.recipient ? `${gifter} → ${g.recipient}` : gifter;
                 return `<div class="entry">
                     ${g.chatimg ? `<img src="${g.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
-                    <span class="name">${escapeHtml(label)}</span>
+                    <span class="name dossier-clickable" data-chatter="${escapeHtml(gifter)}" title="View Chatter Dossier">${escapeHtml(label)}</span>
                 </div>`;
             }).join('')
             : '<div class="empty">No gift subs</div>';
@@ -1165,7 +1166,7 @@
         return `<div class="chat-msg" data-message-ts="${m.ts}">
             ${m.avatar ? `<img class="chat-avatar" src="${m.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
             <div class="chat-meta">
-                <div><span class="chat-user" style="color:${userColor(m.user)}">${escapeHtml(m.user)}</span>${badges}<button class="${pinClass}" onclick="togglePin(this)" ${pinData}>${pinStar}</button></div>
+                <div><span class="chat-user dossier-clickable" data-chatter="${escapeHtml(m.user)}" title="View Chatter Dossier" style="color:${userColor(m.user)}">${escapeHtml(m.user)}</span>${badges}<button class="${pinClass}" onclick="togglePin(this)" ${pinData}>${pinStar}</button></div>
                 <div class="chat-text">${displayHtml}</div>
                 ${sessionTag}
             </div>
@@ -1528,7 +1529,7 @@
                 return `<div class="chat-msg">
                     ${message.avatar ? `<img class="chat-avatar" src="${escapeHtml(message.avatar)}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
                     <div class="chat-meta">
-                        <div><span class="chat-user" style="color:${userColor(message.user)}">${escapeHtml(message.user)}</span><span class="chat-session-tag">${escapeHtml(session)}</span></div>
+                        <div><span class="chat-user dossier-clickable" data-chatter="${escapeHtml(message.user)}" title="View Chatter Dossier" style="color:${userColor(message.user)}">${escapeHtml(message.user)}</span><span class="chat-session-tag">${escapeHtml(session)}</span></div>
                         <div class="chat-text">${urls.map(url => `<div><a href="${escapeHtml(/^(?:[a-z][a-z0-9+.-]*:\/\/)/i.test(url) ? url : `https://${url}`)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a><span class="chat-actions"><button class="chat-action-btn" onclick="copyLink('${encodeURIComponent(url)}')">Copy</button><a class="chat-action-btn" href="${escapeHtml(/^(?:[a-z][a-z0-9+.-]*:\/\/)/i.test(url) ? url : `https://${url}`)}" target="_blank" rel="noopener noreferrer">Open</a></span></div>`).join('')}</div>
                         <div class="chat-session-tag">${formatDateTimestamp(message.ts)}${message.message ? ` · ${escapeHtml(message.message)}` : ''}</div>
                     </div>
@@ -1674,7 +1675,7 @@
                 return `<div class="chat-msg">
                     ${h.avatar ? `<img class="chat-avatar" src="${h.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
                     <div class="chat-meta">
-                        <div><span class="chat-user" style="color:${userColor(h.user)}">${escapeHtml(h.user)}</span>
+                        <div><span class="chat-user dossier-clickable" data-chatter="${escapeHtml(h.user)}" title="View Chatter Dossier" style="color:${userColor(h.user)}">${escapeHtml(h.user)}</span>
                         <button class="pin-btn pinned" onclick="unpinHighlight(this, ${h.ts}, '${escapeHtml(h.user)}')" title="Unpin">⭐</button></div>
                         <div class="chat-text">${displayHtml}</div>
                         <div class="chat-session-tag">Pinned ${formatDateTimestamp(h.pinnedAt)} · Key: <code>${h.ts}:${escapeHtml(h.user)}</code></div>

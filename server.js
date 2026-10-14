@@ -3165,6 +3165,7 @@ function buildGamePlanSnapshot() {
     warmGameInfo(plan.items);
     return {
         current: category,
+        playingNowId: plan.playingNowId || null,
         lists: plan.lists,
         periods: plan.periods,
         tiers: plan.tiers,
@@ -3173,6 +3174,8 @@ function buildGamePlanSnapshot() {
             const game = item.custom ? { name: item.name } : publicGameInfo(item.name, item.igdbId);
             const raw = item.custom ? null : gameInfoCache[infoKey(item.name, item.igdbId)];
             const keys = [item.name, item.twitchCategory, raw?.igdbName].map(gameKey).filter(Boolean);
+            const isManualNow = !!plan.playingNowId && item.id === plan.playingNowId;
+            const isAutoNow = !plan.playingNowId && !item.custom && !!current && keys.includes(current);
             return {
                 ...item,
                 minutesPlayed: Math.round([...new Set(keys)].reduce((sum, key) => sum + (streamed[key] || 0), 0)),
@@ -3180,7 +3183,7 @@ function buildGamePlanSnapshot() {
                 releaseYear: game.releaseYear || '',
                 genres: game.genres || [],
                 platforms: game.platforms || [],
-                playingNow: !item.custom && !!current && keys.includes(current)
+                playingNow: isManualNow || isAutoNow
             };
         })
     };
@@ -3924,7 +3927,9 @@ function updateStats(chatname, msg) {
         const decoded = stripped.replace(/&#?\w+;/g, '');
         const hashtags = decoded.match(/#[a-zA-Z]\w{1,}/g);
         if (hashtags) {
+            const maxTagLen = Math.max(10, Math.min(100, Number(config.hashtag_max_length) || 50));
             hashtags.forEach(h => {
+                if (h.length < 2 || h.length > maxTagLen) return;
                 const normalized = h.toLowerCase();
                 if (bannedHashtags.has(normalized)) return;
                 if (!statsData.hashtags[normalized]) {
@@ -5164,8 +5169,9 @@ function processChatMessage(msg) {
         if (config.hashtags_enabled !== false) {
         const hashtags = decoded2.match(/#[a-zA-Z]\w{1,}/g);
         if (hashtags) {
+            const maxTagLen = Math.max(10, Math.min(100, Number(config.hashtag_max_length) || 50));
             hashtags.forEach(tag => {
-                if (tag.length < 2 || tag.length > 35) return;
+                if (tag.length < 2 || tag.length > maxTagLen) return;
                 const normalized = tag.toLowerCase();
                 if (bannedHashtags.has(normalized)) return;
                 if (!chatData.hashtags[normalized]) {
@@ -5483,6 +5489,252 @@ function currentCategoryStats(archivedTotals) {
     const sessionMinutes = categoryMinutesFor(info, Date.now(), floor)[name] || 0;
     return { name, sessionMinutes: Math.round(sessionMinutes), totalMinutes: Math.round((archivedTotals[name] || 0) + sessionMinutes) };
 }
+
+// Stream Milestones & Streaks Tracker
+let milestoneCache = { at: 0, data: null };
+function computeMilestones() {
+    const nowMs = Date.now();
+    if (milestoneCache.data && (nowMs - milestoneCache.at < 30000)) {
+        return milestoneCache.data;
+    }
+
+    let archivedFiles = [];
+    if (fs.existsSync(SESSIONS_DIR)) {
+        archivedFiles = fs.readdirSync(SESSIONS_DIR).filter(f => f.startsWith('chat-') && f.endsWith('.json'));
+    }
+
+    let totalDurationMs = 0;
+    const streamDates = new Set();
+    const weekSet = new Set();
+
+    function getIsoWeek(d) {
+        const date = new Date(d.getTime());
+        date.setHours(0, 0, 0, 0);
+        date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+        const week1 = new Date(date.getFullYear(), 0, 4);
+        const weekNr = 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+        return `${date.getFullYear()}-W${String(weekNr).padStart(2, '0')}`;
+    }
+
+    for (const file of archivedFiles) {
+        try {
+            const data = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
+            const start = Date.parse(data.startedAt || '');
+            const end = Date.parse(data.lastUpdated || '');
+            if (start && end && end > start) {
+                totalDurationMs += (end - start);
+            }
+            const dateStr = String(data.startedAt || file).slice(0, 10);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                streamDates.add(dateStr);
+                weekSet.add(getIsoWeek(new Date(dateStr + 'T12:00:00Z')));
+            }
+        } catch {}
+    }
+
+    // Add current live session if active
+    if (chatData.startedAt) {
+        const liveStart = Date.parse(chatData.startedAt);
+        const liveEnd = Date.now();
+        if (liveEnd > liveStart) {
+            totalDurationMs += (liveEnd - liveStart);
+        }
+        const todayStr = new Date().toISOString().slice(0, 10);
+        streamDates.add(todayStr);
+        weekSet.add(getIsoWeek(new Date()));
+    }
+
+    const streamNumber = archivedFiles.length + (chatData.startedAt && !archivedFiles.some(f => f.includes(chatData.startedAt.slice(0, 10))) ? 1 : 0);
+    const totalMinutes = Math.round(totalDurationMs / 60000);
+    const totalHours = Math.floor(totalMinutes / 60);
+    const remainingMinutes = totalMinutes % 60;
+    const totalTimeString = `${totalHours}h ${remainingMinutes}m`;
+
+    // Streaks
+    const fmtDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const todayDate = new Date();
+    const todayStr = fmtDay(todayDate);
+    const yestDate = new Date(todayDate);
+    yestDate.setDate(yestDate.getDate() - 1);
+    const yestStr = fmtDay(yestDate);
+
+    let streakDays = 0;
+    let curDay = streamDates.has(todayStr) ? new Date(todayDate) : (streamDates.has(yestStr) ? yestDate : null);
+    if (curDay) {
+        while (true) {
+            const s = fmtDay(curDay);
+            if (streamDates.has(s)) {
+                streakDays++;
+                curDay.setDate(curDay.getDate() - 1);
+            } else {
+                break;
+            }
+        }
+    }
+
+    let streakWeeks = 0;
+    const thisWeek = getIsoWeek(todayDate);
+    const lastWeekDate = new Date(todayDate);
+    lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+    const lastWeek = getIsoWeek(lastWeekDate);
+
+    let curWeek = weekSet.has(thisWeek) ? new Date(todayDate) : (weekSet.has(lastWeek) ? lastWeekDate : null);
+    if (curWeek) {
+        while (true) {
+            const w = getIsoWeek(curWeek);
+            if (weekSet.has(w)) {
+                streakWeeks++;
+                curWeek.setDate(curWeek.getDate() - 7);
+            } else {
+                break;
+            }
+        }
+    }
+
+    const lifetimeChatters = Object.keys(statsData.chatters || {}).length;
+    const lifetimeMessages = (statsData.totalMessages || 0) + (chatData.messageCount || 0);
+
+    const nextStreamGoal = streamNumber < 25 ? 25 : (streamNumber < 50 ? 50 : (Math.floor(streamNumber / 25) + 1) * 25);
+    const nextHoursGoal = totalHours < 100 ? 100 : (Math.floor(totalHours / 100) + 1) * 100;
+    const nextChattersGoal = lifetimeChatters < 50 ? 50 : (lifetimeChatters < 100 ? 100 : (Math.floor(lifetimeChatters / 50) + 1) * 50);
+
+    const milestonesList = [
+        { type: 'streams', title: `Stream #${nextStreamGoal}`, current: streamNumber, target: nextStreamGoal, remaining: Math.max(0, nextStreamGoal - streamNumber), unit: 'streams' },
+        { type: 'hours', title: `${nextHoursGoal} Broadcast Hours`, current: totalHours, target: nextHoursGoal, remaining: Math.max(0, nextHoursGoal - totalHours), unit: 'hours' },
+        { type: 'chatters', title: `${nextChattersGoal} Unique Chatters`, current: lifetimeChatters, target: nextChattersGoal, remaining: Math.max(0, nextChattersGoal - lifetimeChatters), unit: 'chatters' }
+    ];
+
+    const result = {
+        stream_number: streamNumber,
+        total_hours: totalHours,
+        total_minutes: totalMinutes,
+        total_time: totalTimeString,
+        streak_days: streakDays,
+        streak_weeks: streakWeeks,
+        lifetime_chatters: lifetimeChatters,
+        lifetime_messages: lifetimeMessages,
+        next_stream_goal: nextStreamGoal,
+        next_hours_goal: nextHoursGoal,
+        milestones: milestonesList
+    };
+
+    milestoneCache = { at: nowMs, data: result };
+    return result;
+}
+
+// Chatter Dossier / Community CRM
+const CHATTER_NOTES_FILE = path.join(DATA_DIR, 'chatter-notes.json');
+let chatterNotes = {};
+try {
+    if (fs.existsSync(CHATTER_NOTES_FILE)) {
+        chatterNotes = JSON.parse(fs.readFileSync(CHATTER_NOTES_FILE, 'utf8')) || {};
+    }
+} catch (e) {
+    console.warn('[Chatter Notes] Failed to load:', e.message);
+}
+
+function saveChatterNotes() {
+    try {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+        fs.writeFileSync(`${CHATTER_NOTES_FILE}.tmp`, JSON.stringify(chatterNotes, null, 2), 'utf8');
+        fs.renameSync(`${CHATTER_NOTES_FILE}.tmp`, CHATTER_NOTES_FILE);
+    } catch (e) {
+        console.error('[Chatter Notes] Save error:', e);
+    }
+}
+
+function getChatterDossier(username) {
+    if (!username) return null;
+    const key = String(username).toLowerCase().trim();
+
+    let chatter = null;
+    let displayName = username;
+    for (const [k, c] of Object.entries(statsData.chatters || {})) {
+        if (k.toLowerCase() === key) {
+            chatter = c;
+            displayName = c.chatname || k;
+            break;
+        }
+    }
+    if (!chatter && chatData.chatters) {
+        for (const [k, c] of Object.entries(chatData.chatters)) {
+            if (k.toLowerCase() === key) {
+                chatter = { chatimg: c.chatimg, type: c.type, firstSeen: chatData.startedAt, lastSeen: chatData.startedAt, days: { [chatData.startedAt?.slice(0, 10) || 'today']: c.messageCount || 1 } };
+                displayName = c.chatname || k;
+                break;
+            }
+        }
+    }
+
+    const days = chatter?.days || {};
+    const totalMessages = Object.values(days).reduce((sum, n) => sum + (Number(n) || 0), 0);
+    const sessionsAttended = Object.keys(days).length;
+
+    const subTenure = statsData.subTenure?.[key] || statsData.subTenure?.[displayName];
+    const subMonths = subTenure?.months || 0;
+    const subscriber = statsData.subscribers?.[displayName] || statsData.subscribers?.[key];
+    const isSubscriber = Boolean(subMonths > 0 || subscriber);
+
+    const bitsRecord = statsData.bits?.[displayName] || statsData.bits?.[key];
+    const bitsTotal = bitsRecord ? Object.values(bitsRecord.days || {}).reduce((sum, n) => sum + (Number(n) || 0), 0) : 0;
+
+    const giftSubsRecord = statsData.giftSubs?.[displayName] || statsData.giftSubs?.[key];
+    const giftSubsTotal = giftSubsRecord ? Object.values(giftSubsRecord.days || {}).reduce((sum, n) => sum + (Number(n) || 0), 0) : 0;
+
+    const raidsRecord = statsData.raids?.[displayName] || statsData.raids?.[key];
+    const raidsCount = raidsRecord ? Object.keys(raidsRecord.days || {}).length : 0;
+
+    const categoriesMap = {};
+    if (fs.existsSync(SESSIONS_DIR)) {
+        for (const file of fs.readdirSync(SESSIONS_DIR).filter(f => f.startsWith('chat-') && f.endsWith('.json'))) {
+            try {
+                const sData = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
+                const chatterEntry = Object.entries(sData.chatters || {}).find(([k]) => k.toLowerCase() === key);
+                if (chatterEntry) {
+                    const count = chatterEntry[1]?.messageCount || 1;
+                    const cats = (sData.streamInfo || []).map(s => s.category).filter(Boolean);
+                    const uniqueCats = [...new Set(cats)];
+                    if (!uniqueCats.length && sData.category) uniqueCats.push(sData.category);
+                    for (const cat of uniqueCats) {
+                        if (!categoriesMap[cat]) categoriesMap[cat] = { category: cat, sessions: 0, messages: 0 };
+                        categoriesMap[cat].sessions++;
+                        categoriesMap[cat].messages += count;
+                    }
+                }
+            } catch {}
+        }
+    }
+    const favoriteGames = Object.values(categoriesMap).sort((a, b) => b.messages - a.messages).slice(0, 8);
+
+    const recentActivity = Object.entries(days)
+        .map(([date, msgs]) => ({ date, messages: msgs }))
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 10);
+
+    const noteEntry = chatterNotes[key] || {};
+
+    return {
+        username: displayName,
+        chatimg: chatter?.chatimg || '',
+        type: chatter?.type || 'twitch',
+        firstSeen: chatter?.firstSeen || null,
+        lastSeen: chatter?.lastSeen || null,
+        totalMessages,
+        sessionsAttended,
+        isSubscriber,
+        subMonths,
+        bitsTotal,
+        giftSubsTotal,
+        raidsCount,
+        favoriteGames,
+        recentActivity,
+        notes: noteEntry.notes || '',
+        tags: noteEntry.tags || [],
+        isVip: Boolean(noteEntry.isVip),
+        updatedAt: noteEntry.updatedAt || null
+    };
+}
+
 const server = http.createServer(async (req, res) => {
     try {
         const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -6192,10 +6444,12 @@ const server = http.createServer(async (req, res) => {
                     setInterval_('twitch_stream_info_seconds', 10, 3600, 30);
 
                     // Only allow safe fields to be edited
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'chat_log_enabled', 'chatbot_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
-                            current[key] = updates[key];
+                            current[key] = key === 'hashtag_max_length'
+                                ? Math.max(10, Math.min(100, Math.round(Number(updates[key])) || 50))
+                                : updates[key];
                         }
                     }
 
@@ -6220,6 +6474,7 @@ const server = http.createServer(async (req, res) => {
 
             active_subs_only: config.active_subs_only || false,
             hashtags_enabled: config.hashtags_enabled !== false,
+            hashtag_max_length: Number(config.hashtag_max_length) || 50,
             chatbot_enabled: config.chatbot_enabled === true,
             chat_log_enabled: config.chat_log_enabled !== false,
             broadcaster_name: BROADCASTER_NAME,
@@ -6407,7 +6662,8 @@ const server = http.createServer(async (req, res) => {
                 .slice(0, 100)
                 .map(c => ({ chatname: c.chatname, chatimg: c.chatimg || '', messageCount: c.messageCount || 0 })),
             recentChat: recentChatSummary(),
-            recentEvents: buildRecentEvents(12)
+            recentEvents: buildRecentEvents(12),
+            milestones: computeMilestones()
         };
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(status));
@@ -6894,6 +7150,77 @@ const server = http.createServer(async (req, res) => {
         try { updatedAt = fs.statSync(file).mtime.toISOString(); } catch { /* none yet */ }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ updatedAt, total: rows.length, history: snapshots, followers: rows }));
+        return;
+    }
+
+    // Milestones & Streaks endpoint
+    if (pathname === '/api/milestones' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(computeMilestones()));
+        return;
+    }
+
+    // Chatter Dossier & Community CRM endpoints
+    if (pathname === '/api/chatters' && req.method === 'GET') {
+        const query = (url.searchParams.get('q') || '').toLowerCase().trim();
+        const chattersList = Object.entries(statsData.chatters || {}).map(([username, d]) => {
+            const days = d.days || {};
+            const totalMsgs = Object.values(days).reduce((s, c) => s + (Number(c) || 0), 0);
+            const notes = chatterNotes[username.toLowerCase()] || {};
+            return {
+                username,
+                chatimg: d.chatimg || '',
+                totalMessages: totalMsgs,
+                sessionsAttended: Object.keys(days).length,
+                lastSeen: d.lastSeen || null,
+                isVip: Boolean(notes.isVip),
+                tags: notes.tags || []
+            };
+        }).filter(c => !query || c.username.toLowerCase().includes(query) || (c.tags || []).some(t => t.toLowerCase().includes(query)))
+          .sort((a, b) => b.totalMessages - a.totalMessages)
+          .slice(0, 100);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ chatters: chattersList }));
+        return;
+    }
+
+    const mChatterNotes = pathname.match(/^\/api\/chatters\/([^/]+)\/notes$/);
+    if (mChatterNotes && req.method === 'POST') {
+        const username = decodeURIComponent(mChatterNotes[1]);
+        const key = username.toLowerCase().trim();
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const data = JSON.parse(body || '{}');
+                chatterNotes[key] = {
+                    notes: String(data.notes || '').slice(0, 3000),
+                    tags: Array.isArray(data.tags) ? data.tags.slice(0, 15).map(t => String(t).trim().slice(0, 30)).filter(Boolean) : (chatterNotes[key]?.tags || []),
+                    isVip: Boolean(data.isVip),
+                    updatedAt: new Date().toISOString()
+                };
+                saveChatterNotes();
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(getChatterDossier(username)));
+            } catch (err) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: err.message }));
+            }
+        });
+        return;
+    }
+
+    const mChatter = pathname.match(/^\/api\/chatters\/([^/]+)$/);
+    if (mChatter && req.method === 'GET') {
+        const username = decodeURIComponent(mChatter[1]);
+        const dossier = getChatterDossier(username);
+        if (!dossier) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Chatter not found' }));
+            return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(dossier));
         return;
     }
 
@@ -7433,6 +7760,57 @@ const server = http.createServer(async (req, res) => {
             const result = await backfillPlayedGames();
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(result));
+        } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if (pathname === '/api/game-plan/now' && req.method === 'POST') {
+        try {
+            const body = JSON.parse(await readRequestBody(req) || '{}');
+            const plan = loadGamePlan();
+            const id = typeof body.id === 'string' ? sanitizeOverlayId(body.id) : '';
+            plan.playingNowId = id;
+            safeWriteFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(plan), null, 2));
+            const snapshot = buildGamePlanSnapshot();
+            broadcastToOverlays('game-plan-update', snapshot);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(snapshot));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if (pathname === '/api/game-plan/advance' && req.method === 'POST') {
+        try {
+            const plan = loadGamePlan();
+            const today = new Date().toISOString().slice(0, 10);
+            const currentItem = plan.items.find(i => i.id === plan.playingNowId) ||
+                plan.items.find(i => !i.custom && gameKey(i.name) === gameKey(chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category));
+
+            if (currentItem && currentItem.status === 'scheduled') {
+                currentItem.status = 'played';
+                currentItem.finished = today;
+                if (!currentItem.played) currentItem.played = [];
+                if (!currentItem.played.includes(today)) currentItem.played.push(today);
+            }
+
+            const nextItem = plan.items.find(i => i.status === 'scheduled' && (!currentItem || i.id !== currentItem.id));
+            plan.playingNowId = nextItem ? nextItem.id : '';
+            safeWriteFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(plan), null, 2));
+            const snapshot = buildGamePlanSnapshot();
+            broadcastToOverlays('game-plan-update', snapshot);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                status: 'advanced',
+                previous: currentItem?.name || null,
+                current: nextItem?.name || null,
+                snapshot
+            }));
         } catch (err) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: err.message }));

@@ -3,6 +3,7 @@
 <head>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
+    <script src="/chatter-dossier.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -266,7 +267,7 @@ function renderFollowerSummary() {
     $('sub-summary').innerHTML = cards.map(([value, label]) => `<div class="stat"><strong>${value}</strong><span>${label}</span></div>`).join('');
     $('sub-updated').textContent = folInfo.updatedAt ? `Twitch list refreshed ${formatDateTime(folInfo.updatedAt)}` : '';
     $('side-title').textContent = 'Newest followers';
-    $('gifters').innerHTML = list.slice(0, 10).map(f => `<li><span>${esc(f.name)}</span><b>${esc(shortDate(f.followedAt))}</b></li>`).join('') || '<li class="muted">No followers yet.</li>';
+    $('gifters').innerHTML = list.slice(0, 10).map(f => `<li class="dossier-clickable" data-chatter="${esc(f.name)}" title="View Chatter Dossier"><span>${esc(f.name)}</span><b>${esc(shortDate(f.followedAt))}</b></li>`).join('') || '<li class="muted">No followers yet.</li>';
 }
 function renderSubscriberSummary() {
     if (growthMode === 'followers') return renderFollowerSummary();
@@ -283,7 +284,7 @@ function renderSubscriberSummary() {
     ];
     $('sub-summary').innerHTML = cards.map(([value, label]) => `<div class="stat"><strong>${value}</strong><span>${label}</span></div>`).join('');
     $('sub-updated').textContent = subInfo.updatedAt ? `Twitch list refreshed ${formatDateTime(subInfo.updatedAt)}` : '';
-    $('gifters').innerHTML = (m.topGifters || []).map(g => `<li><span>${esc(g.name)}</span><b>${fmt(g.count)}</b></li>`).join('') || '<li class="muted">No gifted subs right now.</li>';
+    $('gifters').innerHTML = (m.topGifters || []).map(g => `<li class="dossier-clickable" data-chatter="${esc(g.name)}" title="View Chatter Dossier"><span>${esc(g.name)}</span><b>${fmt(g.count)}</b></li>`).join('') || '<li class="muted">No gifted subs right now.</li>';
 }
 
 let growthMode = 'subs';
@@ -342,7 +343,7 @@ function renderSubscribers() {
     const rows = filteredSubscribers();
     const date = value => value ? new Date(value).toLocaleDateString() : '—';
     $('subs').innerHTML = rows.map(s => `<tr>
-        <td>${esc(s.name)}</td>
+        <td><span class="dossier-clickable" data-chatter="${esc(s.name)}" title="View Chatter Dossier">${esc(s.name)}</span></td>
         <td><span class="badge t${esc(String(s.tier).charAt(0))}">${esc(tierLabel(s.tier))}</span></td>
         <td class="num${s.tenureMonths ? '' : ' zero'}" title="${s.tenureMonths ? `${s.tenureMonths} months (highest seen in chat)` : 'Not seen yet. Fills in when they chat or resub.'}">${tenureLabel(s.tenureMonths)}</td>
         <td>${s.isGift ? esc(s.gifter) : '<span class="zero">—</span>'}</td>
@@ -362,7 +363,7 @@ function renderFollowers() {
     $('fol-count').textContent = folRows.length ? `(${fmt(folRows.length)})` : '';
     const h = folInfo.history || [], last = h[h.length - 1], week = h.filter(s => Date.now() - Date.parse(s.date + 'T12:00:00') <= 7 * 86400000);
     $('fol-summary').textContent = last ? `Last 7 days of snapshots: +${fmt(week.reduce((n, s) => n + (s.joined || 0), 0))} joined, -${fmt(week.reduce((n, s) => n + (s.left || 0), 0))} left. ${fmt(h.length)} days tracked.` : 'History starts with the next Twitch fetch.';
-    $('fols').innerHTML = rows.map(f => `<tr><td>${esc(f.name)}</td><td>${f.followedAt ? new Date(f.followedAt).toLocaleDateString() : '—'}</td></tr>`).join('') || `<tr><td colspan="2" class="empty">${folRows.length ? 'No followers match your filter.' : 'No followers found.'}</td></tr>`;
+    $('fols').innerHTML = rows.map(f => `<tr><td><span class="dossier-clickable" data-chatter="${esc(f.name)}" title="View Chatter Dossier">${esc(f.name)}</span></td><td>${f.followedAt ? new Date(f.followedAt).toLocaleDateString() : '—'}</td></tr>`).join('') || `<tr><td colspan="2" class="empty">${folRows.length ? 'No followers match your filter.' : 'No followers found.'}</td></tr>`;
 }
 $('fol-search').addEventListener('input', renderFollowers);
 $('fol-export').addEventListener('click', () => {

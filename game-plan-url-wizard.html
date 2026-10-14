@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Game Plan URL Wizard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
+        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: var(--accent); }
+        .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 430px minmax(0, 1fr); gap: 1.25rem; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem 1.2rem; }
+        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.9rem; }
+        .cfg-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.7rem; flex-wrap: wrap; }
+        .cfg-row label { min-width: 110px; font-size: 0.82rem; color: var(--text-muted); }
+        .cfg-row input, .cfg-row select { flex: 1; min-width: 0; font-family: inherit; padding: 0.48rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.82rem; }
+        .cfg-row input[type="color"] { flex: none; width: 42px; height: 34px; padding: 2px; cursor: pointer; }
+        .hint { color: var(--text-muted); font-size: 0.78rem; line-height: 1.45; }
+        .url-box { display: flex; align-items: center; gap: 0.6rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.55rem 0.7rem; margin-top: 0.55rem; }
+        .url-box code { flex: 1; word-break: break-all; font-family: 'SF Mono', monospace; font-size: 0.8rem; }
+        .url-box a { flex: 1; word-break: break-all; font-family: 'SF Mono', monospace; font-size: 0.8rem; color: var(--accent-soft); text-decoration: none; }
+        .url-box a:hover { text-decoration: underline; }
+        .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 6px; padding: 0.46rem 0.85rem; font-size: 0.8rem; cursor: pointer; }
+        .btn:hover { border-color: var(--accent); }
+        .btn.copied { border-color: var(--success); color: var(--success); }
+        .preview-frame { background: #000 repeating-conic-gradient(var(--bg-raised) 0% 25%, var(--bg-inset) 0% 50%) 50% / 20px 20px; border-radius: 8px; padding: 1.5rem; display: flex; justify-content: flex-start; align-items: center; min-height: 380px; overflow: hidden; }
+        .preview-frame iframe { color-scheme: normal; border: none; background: transparent; width: 100%; height: 380px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 0.5rem; }
+        th, td { text-align: left; padding: 0.5rem 0.65rem; border-bottom: 1px solid var(--bg-raised); vertical-align: top; }
+        th { color: var(--text-muted); background: var(--bg-inset); }
+        .group-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); margin: 1rem 0 0.6rem; padding-top: 0.8rem; border-top: 1px solid var(--bg-raised); }
+        .group-title:first-of-type { margin-top: 0.2rem; padding-top: 0; border-top: 0; }
+        .toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 0.9rem; margin-bottom: 0.4rem; }
+        .toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text); cursor: pointer; }
+        .toggle input { accent-color: var(--accent); }
+        .left-col { align-self: start; }
+        .sticky { position: sticky; top: 1rem; }
+        .obs-hint { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: var(--accent); background: var(--accent-bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.25rem 0.55rem; margin-top: 0.5rem; }
+        details.card > summary { cursor: pointer; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; list-style: none; }
+        details.card > summary::before { content: '▸ '; }
+        details.card[open] > summary::before { content: '▾ '; }
+        details.card[open] > summary { margin-bottom: 0.6rem; }
+        td code { font-family: 'SF Mono', monospace; font-size: 0.74rem; word-break: break-all; }
+        @media (max-width: 980px) {
+            .container { grid-template-columns: 1fr; padding: 1rem; }
+            .header { flex-direction: column; gap: 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>StreamPulse <span>Game Plan URL Wizard</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <div class="container">
+        <div class="card left-col">
+            <h2>Overlay Builder</h2>
+            <div class="group-title">Layout &amp; Source</div>
+            <div class="cfg-row">
+                <label>View Mode</label>
+                <select id="view-mode" onchange="refreshWizard()">
+                    <option value="schedule">Schedule Strip (Horizontal Cards)</option>
+                    <option value="ticker">Ticker (Now Playing &amp; Up Next)</option>
+                    <option value="checklist">Checklist (Vertical Queue)</option>
+                </select>
+            </div>
+            <div class="cfg-row">
+                <label>Game List</label>
+                <select id="list-id" onchange="refreshWizard()">
+                    <option value="scheduled">Scheduled (Current Period)</option>
+                    <option value="backlog">Backlog</option>
+                    <option value="played">Played</option>
+                </select>
+            </div>
+            <div class="cfg-row">
+                <label>Period Filter</label>
+                <input type="text" id="period-filter" placeholder="e.g. Tonight (blank = all)" oninput="refreshWizard()">
+            </div>
+            <div class="cfg-row">
+                <label>Max Items</label>
+                <input type="number" id="max-items" min="1" max="20" value="5" oninput="refreshWizard()">
+            </div>
+
+            <div class="group-title">Styling &amp; Theme</div>
+            <div class="cfg-row">
+                <label>Theme</label>
+                <select id="theme" onchange="refreshWizard()">
+                    <option value="glass">Glass (Frosted Glass Blur)</option>
+                    <option value="dark">Dark</option>
+                    <option value="transparent">Transparent (Borderless)</option>
+                    <option value="light">Light</option>
+                </select>
+            </div>
+            <div class="cfg-row">
+                <label>Accent Color</label>
+                <input type="color" id="accent-picker" value="#3b82f6" oninput="syncColor()">
+                <input type="text" id="accent" value="#3b82f6" placeholder="#3b82f6" oninput="syncColorFromText()">
+            </div>
+            <div class="cfg-row">
+                <label>Scale</label>
+                <input type="number" id="scale" min="0.5" max="2.5" step="0.05" value="1" oninput="refreshWizard()">
+            </div>
+
+            <div class="group-title">Options</div>
+            <div class="toggles">
+                <label class="toggle"><input type="checkbox" id="show-covers" checked onchange="refreshWizard()"><span>Show cover art</span></label>
+                <label class="toggle"><input type="checkbox" id="show-notes" checked onchange="refreshWizard()"><span>Show notes &amp; tags</span></label>
+            </div>
+
+            <div class="hint" style="margin-top:1rem;">
+                Looking to manage your lineup? Open the <a href="/game-plan-editor.html" style="color:var(--accent);">Game Plan Editor</a> to drag games, set current game, or create custom collections.
+            </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:1.25rem;">
+            <div class="card sticky">
+                <h2>OBS Browser Source URL</h2>
+                <div class="url-box">
+                    <a id="overlay-link" href="/game-plan.html" target="_blank"></a>
+                    <button class="btn" type="button" id="copy-btn" onclick="copyUrl()">Copy URL</button>
+                </div>
+                <div class="obs-hint" id="obs-dim-hint">
+                    Recommended OBS Source Size: <strong id="obs-size-text">800 × 120</strong>
+                </div>
+
+                <div style="margin-top:1.25rem;">
+                    <h2>Live Overlay Preview</h2>
+                    <div class="preview-frame">
+                        <iframe id="preview-iframe" src="/game-plan.html"></iframe>
+                    </div>
+                </div>
+            </div>
+
+            <details class="card">
+                <summary>URL Parameters Reference</summary>
+                <table>
+                    <thead>
+                        <tr><th>Param</th><th>Default</th><th>Description</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>view</code></td><td><code>schedule</code></td><td>Layout: <code>schedule</code> (horizontal strip), <code>ticker</code> (lower-third bar), <code>checklist</code> (vertical stack)</td></tr>
+                        <tr><td><code>list</code></td><td><code>scheduled</code></td><td>Source list: <code>scheduled</code>, <code>backlog</code>, <code>played</code>, or custom list ID</td></tr>
+                        <tr><td><code>period</code></td><td><em>none</em></td><td>Optional filter by period name (e.g. <code>Tonight</code>)</td></tr>
+                        <tr><td><code>max</code></td><td><code>5</code></td><td>Maximum number of cards/items to render</td></tr>
+                        <tr><td><code>theme</code></td><td><code>glass</code></td><td>Theme: <code>glass</code>, <code>dark</code>, <code>transparent</code>, <code>light</code></td></tr>
+                        <tr><td><code>covers</code></td><td><code>1</code></td><td><code>1</code> to show IGDB/custom cover images, <code>0</code> to hide</td></tr>
+                        <tr><td><code>notes</code></td><td><code>1</code></td><td><code>1</code> to display notes and periods, <code>0</code> to hide</td></tr>
+                        <tr><td><code>accent</code></td><td><code>#3b82f6</code></td><td>Custom accent color (hex)</td></tr>
+                        <tr><td><code>scale</code></td><td><code>1</code></td><td>Zoom multiplier (e.g. <code>1.2</code> for larger display)</td></tr>
+                    </tbody>
+                </table>
+            </details>
+        </div>
+    </div>
+
+    <script>
+    async function loadCustomLists() {
+        try {
+            const res = await fetch('/api/game-plan', { cache: 'no-store' });
+            if (!res.ok) return;
+            const data = await res.json();
+            const listSelect = document.getElementById('list-id');
+            (data.lists || []).forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = l.id;
+                opt.textContent = `Collection: ${l.name}`;
+                listSelect.appendChild(opt);
+            });
+        } catch {}
+    }
+
+    function syncColor() {
+        document.getElementById('accent').value = document.getElementById('accent-picker').value;
+        refreshWizard();
+    }
+
+    function syncColorFromText() {
+        const val = document.getElementById('accent').value.trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+            document.getElementById('accent-picker').value = val;
+        }
+        refreshWizard();
+    }
+
+    function refreshWizard() {
+        const view = document.getElementById('view-mode').value;
+        const list = document.getElementById('list-id').value;
+        const period = document.getElementById('period-filter').value.trim();
+        const max = document.getElementById('max-items').value.trim();
+        const theme = document.getElementById('theme').value;
+        const accent = document.getElementById('accent').value.trim();
+        const scale = document.getElementById('scale').value.trim();
+        const showCovers = document.getElementById('show-covers').checked;
+        const showNotes = document.getElementById('show-notes').checked;
+
+        const params = new URLSearchParams();
+        if (view !== 'schedule') params.set('view', view);
+        if (list !== 'scheduled') params.set('list', list);
+        if (period) params.set('period', period);
+        if (max && max !== '5') params.set('max', max);
+        if (theme !== 'glass') params.set('theme', theme);
+        if (accent && accent !== '#3b82f6') params.set('accent', accent);
+        if (scale && scale !== '1') params.set('scale', scale);
+        if (!showCovers) params.set('covers', '0');
+        if (!showNotes) params.set('notes', '0');
+
+        const qs = params.toString();
+        const relUrl = `/game-plan.html${qs ? `?${qs}` : ''}`;
+        const absUrl = `${location.origin}${relUrl}`;
+
+        const link = document.getElementById('overlay-link');
+        link.textContent = absUrl;
+        link.href = relUrl;
+
+        const iframe = document.getElementById('preview-iframe');
+        if (iframe.src !== absUrl) {
+            iframe.src = relUrl;
+        }
+
+        // Recommended dimensions
+        const sizeHint = document.getElementById('obs-size-text');
+        if (view === 'ticker') {
+            sizeHint.textContent = '650 × 80';
+        } else if (view === 'checklist') {
+            sizeHint.textContent = '360 × 600';
+        } else {
+            sizeHint.textContent = '850 × 120';
+        }
+    }
+
+    async function copyUrl() {
+        const link = document.getElementById('overlay-link').textContent;
+        const btn = document.getElementById('copy-btn');
+        try {
+            await navigator.clipboard.writeText(link);
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = 'Copy URL';
+                btn.classList.remove('copied');
+            }, 1800);
+        } catch {
+            const ta = document.createElement('textarea');
+            ta.value = link;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = 'Copy URL';
+                btn.classList.remove('copied');
+            }, 1800);
+        }
+    }
+
+    loadCustomLists().then(() => refreshWizard());
+    </script>
+</body>
+</html>

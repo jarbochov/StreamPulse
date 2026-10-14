@@ -899,6 +899,46 @@
                     details: 'Walks every archived session once and adds games you streamed before auto-add existed to the Played list. Returns the result counts.'
                 },
                 {
+                    method: 'POST', path: '/api/game-plan/now',
+                    desc: 'Set or clear active game playing on stream',
+                    companion: true,
+                    details: 'Sets the currently playing game (by item id, e.g. {"id": "game-xxx"}) or clears active game ({"clear": true}). Broadcasts live update to game-plan overlays.'
+                },
+                {
+                    method: 'POST', path: '/api/game-plan/advance',
+                    desc: 'Finish active game and advance to next',
+                    companion: true,
+                    details: 'Marks the specified (or currently playing) game as played with today\'s date, advances active status to the next scheduled game, and pushes real-time websocket update.'
+                }
+            ]
+        },
+        {
+            section: 'Community CRM & Milestones',
+            items: [
+                {
+                    method: 'GET', path: '/api/milestones',
+                    desc: 'Stream milestones and streak stats',
+                    details: 'Returns total broadcast hours, stream count, daily and weekly streaks, unique chatters all-time, lifetime messages, and next milestone targets.'
+                },
+                {
+                    method: 'GET', path: '/api/chatters',
+                    desc: 'Search community chatters directory',
+                    details: 'Returns top chatters ranked by lifetime message volume with attendance counts, sub status, and CRM tags. Filter with ?q=name_or_tag.',
+                    params: [
+                        { name: 'q', desc: 'Search query for username or CRM tag', values: 'string', default: 'none' }
+                    ]
+                },
+                {
+                    method: 'GET', path: '/api/chatters/:username',
+                    desc: 'Get full chatter dossier',
+                    details: 'Aggregates a community member\'s lifetime statistics, sub tenure, bits, gift subs, raids, favorite games/categories watched across sessions, and private CRM notes.'
+                },
+                {
+                    method: 'POST', path: '/api/chatters/:username/notes',
+                    desc: 'Save private streamer notes & CRM tags',
+                    details: 'Saves private notes, VIP designation, and tags for a community member to data/chatter-notes.json. Body: {"notes": "string", "tags": ["tag1", "tag2"]}.'
+                },
+                {
                     method: 'GET', path: '/api/weather',
                     desc: 'Current weather',
                     details: 'Returns { enabled, units, location, ... } with the latest conditions, hourly and daily forecast used by the {{weather.*}} placeholders. Empty unless weather.enabled is true in config.json.',

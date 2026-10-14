@@ -13,7 +13,7 @@
         .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
-        .container { max-width: 900px; margin: 0 auto; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.2rem; }
         .hint { color: var(--text-muted); font-size: 0.78rem; line-height: 1.45; }
         .add-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.6rem; }
@@ -39,38 +39,58 @@
         .btn.icon { padding: 0.25rem 0.55rem; }
         .status { color: var(--text-muted); font-size: 0.78rem; min-height: 1.2em; margin-top: 0.4rem; }
 
-        .tabs { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
-        .tab { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); border-radius: 999px; padding: 0.35rem 0.85rem; font-size: 0.82rem; cursor: pointer; display: inline-flex; gap: 0.4rem; align-items: center; }
+        .tabs { display: flex; flex-direction: column; gap: 0.7rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem 1.1rem; }
+        .tabs-group { display: flex; flex-direction: column; gap: 0.45rem; }
+        .tabs-group-header { display: flex; justify-content: space-between; align-items: center; }
+        .tabs-group-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: var(--text-muted); }
+        .tabs-group-items { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+        .tabs-divider { height: 1px; background: var(--bg-raised); margin: 0.1rem 0; }
+
+        .tab { border: 1px solid var(--border); background: var(--bg-inset); color: var(--text-muted); border-radius: 6px; padding: 0.38rem 0.85rem; font-size: 0.82rem; cursor: pointer; display: inline-flex; gap: 0.45rem; align-items: center; transition: all 0.15s; }
         .tab:hover { border-color: var(--accent); color: var(--text); }
-        .tab.active { background: color-mix(in srgb, var(--accent-strong) 22%, transparent); border-color: var(--accent); color: var(--text); font-weight: 600; }
+        .tab.active { background: color-mix(in srgb, var(--accent-strong) 22%, transparent); border-color: var(--accent); color: var(--accent); font-weight: 600; }
         .tab.drop { border-color: var(--success); background: color-mix(in srgb, var(--success) 25%, transparent); }
-        .tab .n { font-size: 0.72rem; color: var(--text-faint); }
+        .tab .n { font-size: 0.7rem; padding: 0.1rem 0.45rem; border-radius: 999px; background: var(--bg-card); color: var(--text-muted); font-weight: normal; }
+        .tab.active .n { background: var(--accent-bg); color: var(--accent); }
         .tab-new { border-style: dashed; }
-        .tab-input { border-radius: 999px; padding: 0.3rem 0.8rem; width: 170px; }
-        .tab-tools { margin-left: auto; display: flex; gap: 0.3rem; }
+        .tab-input { border-radius: 6px; padding: 0.35rem 0.7rem; width: 170px; }
+        .tab-tools { display: flex; gap: 0.3rem; }
 
         .items { display: flex; flex-direction: column; gap: 0.5rem; min-height: 64px; }
         .items:empty::before { content: attr(data-empty); color: var(--text-faint); font-size: 0.82rem; border: 1px dashed var(--border); border-radius: 8px; padding: 1.4rem; text-align: center; }
         .item { display: grid; grid-template-columns: auto 52px minmax(0, 1fr) auto; gap: 0.7rem; align-items: center; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.7rem; }
-        .item.now { border-color: var(--success); box-shadow: 0 0 0 1px color-mix(in srgb, var(--success) 40%, transparent); }
+        .item.now { border-color: var(--success); box-shadow: 0 0 0 1px color-mix(in srgb, var(--success) 40%, transparent); background: color-mix(in srgb, var(--success) 8%, var(--bg-card)); }
         .grip { cursor: grab; color: var(--text-faint); user-select: none; padding: 0 0.15rem; }
         .cover { width: 52px; height: 70px; border-radius: 5px; background: var(--bg-raised); object-fit: cover; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: var(--text-faint); cursor: pointer; }
         .main { min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; }
         .main .name { font-weight: 600; font-size: 0.92rem; line-height: 1.25; cursor: pointer; }
         .main .sub { font-size: 0.74rem; color: var(--text-muted); }
         .main .note { font-size: 0.76rem; color: var(--text-muted); font-style: italic; }
-        .row-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .row-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.15rem; }
         .period-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0 0 0.6rem; font-size: 0.74rem; color: var(--text-muted); }
         .period-bar .pchip { cursor: grab; border: 1px solid var(--border); border-radius: 999px; padding: 0.15rem 0.6rem; color: var(--text); background: var(--panel, transparent); }
         .period-bar .pchip .num { opacity: 0.55; margin-right: 0.35rem; }
         .chip { font-size: 0.68rem; border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; color: var(--text-muted); }
-        .period { padding: 0.2rem 0.5rem; font-size: 0.74rem; width: 160px; }
+        .period-edit-wrap { display: inline-flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+        .period { padding: 0.2rem 0.5rem; font-size: 0.74rem; width: 150px; }
+        .quick-periods { display: inline-flex; gap: 0.25rem; }
+        .qchip { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); border-radius: 4px; font-size: 0.68rem; padding: 0.15rem 0.4rem; cursor: pointer; }
+        .qchip:hover { border-color: var(--accent); color: var(--text); }
         .stars { display: inline-flex; gap: 1px; }
         .stars button { background: none; border: 0; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 1px; color: var(--text-faint); }
         .stars button.on { color: #f5b301; }
         .stars button.half { background: linear-gradient(90deg, #f5b301 50%, var(--text-faint) 50%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
         .stars button:hover { transform: scale(1.15); }
-        .item-actions { display: flex; gap: 0.3rem; }
+        .item-actions { display: flex; gap: 0.4rem; align-items: center; }
+        .play-btn { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, transparent); }
+        .play-btn:hover { background: color-mix(in srgb, var(--success) 15%, transparent); }
+        .stop-btn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+        .stop-btn:hover { background: color-mix(in srgb, var(--warn) 15%, transparent); }
+        .advance-btn { color: var(--accent); border-color: var(--accent); }
+        .advance-btn:hover { background: var(--accent-bg); }
+        .schedule-btn { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+        .schedule-btn:hover { background: var(--accent-bg); }
+        .now-badge { background: var(--success); color: #000; font-weight: 800; }
         .view-toggle { display: flex; gap: 0.35rem; align-items: center; margin: -0.2rem 0 0.2rem; font-size: 0.78rem; color: var(--text-muted); }
         .view-toggle .tab { padding: 0.2rem 0.7rem; }
         [hidden] { display: none !important; }
@@ -130,7 +150,13 @@
                 <button class="btn primary" type="submit">Add</button>
                 <button class="btn" type="button" id="add-custom" title="Add something that isn't an IGDB game (tier list entries, challenges, anything) — you can give it your own artwork">Add as custom</button>
             </form>
-            <div class="card-foot"><p class="status" id="status"></p><button class="btn ghost" type="button" id="backfill" title="Add games from past sessions that aren't on any list yet, and record the dates you streamed them">Import past games</button></div>
+            <div class="card-foot">
+                <p class="status" id="status"></p>
+                <div style="display:flex;gap:0.6rem;align-items:center;">
+                    <a class="btn" href="/game-plan-url-wizard.html" style="text-decoration:none;">🎮 Overlay URL Wizard</a>
+                    <button class="btn ghost" type="button" id="backfill" title="Add games from past sessions that aren't on any list yet, and record the dates you streamed them">Import past games</button>
+                </div>
+            </div>
         </div>
 
         <div class="tabs" id="tabs"></div>
@@ -218,10 +244,24 @@
         const starValue = (event, star, attr) => { const n = Number(star.dataset[attr]); const box = star.getBoundingClientRect(); return event.clientX - box.left < box.width / 2 ? n - 0.5 : n; };
 
         function buildTabs(adding) {
-            const tabs = allLists().map(list => `<button type="button" class="tab${list.id === active ? ' active' : ''}" data-tab="${esc(list.id)}">${esc(list.name)}<span class="n">${items.filter(item => inList(item, list.id)).length || ''}</span></button>`).join('');
+            const streamTabs = BUILTIN.map(list => `<button type="button" class="tab${list.id === active ? ' active' : ''}" data-tab="${esc(list.id)}">${esc(list.name)}<span class="n">${items.filter(item => inList(item, list.id)).length || ''}</span></button>`).join('');
+            const customTabs = customLists.map(list => `<button type="button" class="tab${list.id === active ? ' active' : ''}" data-tab="${esc(list.id)}">${esc(list.name)}<span class="n">${items.filter(item => inList(item, list.id)).length || ''}</span></button>`).join('');
             const isCustom = customLists.some(list => list.id === active);
-            $('tabs').innerHTML = tabs + (adding ? '<input class="tab-input" id="new-list-name" placeholder="List name, then Enter" maxlength="40">' : '<button type="button" class="tab tab-new" id="new-list" title="Create your own list, e.g. “Scariest horror games”">+ List</button>')
-                + (isCustom ? '<span class="tab-tools"><button class="btn icon" type="button" id="rename-list" title="Rename list">Rename</button><button class="btn icon danger" type="button" id="delete-list" title="Delete list (games only on it move to Backlog)">Delete</button></span>' : '');
+            $('tabs').innerHTML = `
+                <div class="tabs-group">
+                    <span class="tabs-group-title">Schedule</span>
+                    <div class="tabs-group-items">${streamTabs}</div>
+                </div>
+                <div class="tabs-divider"></div>
+                <div class="tabs-group">
+                    <span class="tabs-group-title">Custom Collections</span>
+                    <div class="tabs-group-items">
+                        ${customTabs}
+                        ${adding ? '<input class="tab-input" id="new-list-name" placeholder="List name, then Enter" maxlength="40">' : '<button type="button" class="tab tab-new" id="new-list" title="Create your own collection, e.g. “Scariest horror games”">+ Collection</button>'}
+                        ${isCustom ? '<span class="tab-tools"><button class="btn icon" type="button" id="rename-list" title="Rename list">Rename</button><button class="btn icon danger" type="button" id="delete-list" title="Delete list (games only on it move to Backlog)">Delete</button></span>' : ''}
+                    </div>
+                </div>
+            `;
             if (adding) $('new-list-name').focus();
         }
 
@@ -332,23 +372,66 @@
             const list = allLists().find(entry => entry.id === active) || BUILTIN[0];
             const holder = $('items');
             holder.dataset.empty = list.empty;
-            holder.innerHTML = visibleItems().map(item => `
-                <div class="item${item.playingNow ? ' now' : ''}" data-id="${esc(item.id)}">
+            holder.innerHTML = visibleItems().map(item => {
+                const isScheduled = active === 'scheduled';
+                const isBacklog = active === 'backlog';
+                const isPlaying = Boolean(item.playingNow);
+
+                let scheduleActions = '';
+                if (isScheduled) {
+                    if (isPlaying) {
+                        scheduleActions = `
+                            <button type="button" class="btn stop-btn" data-action="stop-now" title="Stop playing on stream">■ Stop</button>
+                            <button type="button" class="btn advance-btn" data-action="advance-item" title="Mark as played and move to next scheduled game">⏭ Finish &amp; Next</button>
+                        `;
+                    } else {
+                        scheduleActions = `
+                            <button type="button" class="btn play-btn" data-action="play-now" title="Set as Currently Playing on stream">▶ Play Now</button>
+                        `;
+                    }
+                } else if (isBacklog) {
+                    scheduleActions = `
+                        <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Scheduled for stream">📅 Schedule</button>
+                        <button type="button" class="btn play-btn" data-action="play-backlog" title="Move to Scheduled and Play Now">▶ Play Now</button>
+                    `;
+                }
+
+                const quickPeriodsHtml = isScheduled ? `
+                    <span class="period-edit-wrap">
+                        <input class="period" data-field="period" list="periods" value="${esc(item.period)}" placeholder="Period (e.g. Tonight)" maxlength="40">
+                        <span class="quick-periods">
+                            <button type="button" class="qchip${item.period === 'Tonight' ? ' active' : ''}" data-set-period="Tonight">Tonight</button>
+                            <button type="button" class="qchip${item.period === 'Next Stream' ? ' active' : ''}" data-set-period="Next Stream">Next</button>
+                            <button type="button" class="qchip${item.period === 'Weekend' ? ' active' : ''}" data-set-period="Weekend">Weekend</button>
+                        </span>
+                    </span>
+                ` : '';
+
+                return `
+                <div class="item${isPlaying ? ' now' : ''}" data-id="${esc(item.id)}">
                     <span class="grip" title="Drag to reorder, or drop on a tab to move">⋮⋮</span>
                     ${coverTag(item)}
                     <div class="main">
-                        <div class="name" data-edit title="${esc(item.name)}">${esc(item.name)}${item.playingNow ? '<span class="badge">NOW PLAYING</span>' : ''}${item.custom ? '<span class="badge custom-badge">CUSTOM</span>' : ''}</div>
+                        <div class="name" data-edit title="${esc(item.name)}">
+                            ${esc(item.name)}
+                            ${isPlaying ? '<span class="badge now-badge">▶ PLAYING NOW</span>' : ''}
+                            ${item.custom ? '<span class="badge custom-badge">CUSTOM</span>' : ''}
+                        </div>
                         <div class="sub">${esc(subLine(item))}</div>
                         ${seenLine(item) ? `<div class="sub" title="Dates you streamed this game (recorded automatically when a session ends)">${esc(seenLine(item))}</div>` : ''}
                         <div class="row-meta">
                             <span class="stars" data-stars>${starsHtml(item.rating || 0, 'data-star')}</span>
                             ${(item.tags || []).map(tag => `<span class="chip">${esc(tag)}</span>`).join('')}
-                            ${active === 'scheduled' ? `<input class="period" data-field="period" list="periods" value="${esc(item.period)}" placeholder="Period (e.g. October)" maxlength="40">` : ''}
+                            ${quickPeriodsHtml}
                         </div>
                         ${item.note ? `<div class="note">${esc(item.note)}</div>` : ''}
                     </div>
-                    <div class="item-actions"><button class="btn icon" data-edit title="Details">✎</button></div>
-                </div>`).join('');
+                    <div class="item-actions">
+                        ${scheduleActions}
+                        <button class="btn icon" data-edit title="Details">✎</button>
+                    </div>
+                </div>`;
+            }).join('');
             buildViewBar();
             buildPeriodBar();
             $('periods').innerHTML = [...new Set(items.map(item => item.period).filter(Boolean))].map(value => `<option value="${esc(value)}">`).join('');
@@ -522,11 +605,87 @@
         });
         $('tabs').addEventListener('focusout', event => { if (event.target.matches('#new-list-name') && !event.target.value.trim()) setTimeout(() => { if (document.getElementById('new-list-name')) buildTabs(); }, 100); });
 
-        $('items').addEventListener('click', event => {
+        $('items').addEventListener('click', async event => {
             const row = event.target.closest('.item');
             if (!row) return;
             const item = items.find(entry => entry.id === row.dataset.id);
             if (!item) return;
+
+            // Quick period chip click
+            const periodBtn = event.target.closest('[data-set-period]');
+            if (periodBtn) {
+                const targetPeriod = periodBtn.dataset.setPeriod;
+                item.period = item.period === targetPeriod ? '' : targetPeriod;
+                render();
+                scheduleSave();
+                return;
+            }
+
+            // Quick action buttons
+            const actionBtn = event.target.closest('[data-action]');
+            if (actionBtn) {
+                const action = actionBtn.dataset.action;
+                if (action === 'play-now') {
+                    items.forEach(g => { g.playingNow = (g.id === item.id); });
+                    render();
+                    try {
+                        await fetch('/api/game-plan/now', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: item.id })
+                        });
+                        setStatus(`Now playing on stream: ${item.name}`);
+                    } catch (e) { setStatus(`Failed to set playing: ${e.message}`); }
+                    return;
+                }
+                if (action === 'stop-now') {
+                    item.playingNow = false;
+                    render();
+                    try {
+                        await fetch('/api/game-plan/now', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ clear: true })
+                        });
+                        setStatus('Stopped active game on stream');
+                    } catch (e) { setStatus(`Failed to stop: ${e.message}`); }
+                    return;
+                }
+                if (action === 'advance-item') {
+                    setStatus(`Advancing from ${item.name}…`);
+                    try {
+                        const res = await fetch('/api/game-plan/advance', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: item.id })
+                        });
+                        const data = await res.json();
+                        if (data.error) throw new Error(data.error);
+                        const planRes = await fetch('/api/game-plan', { cache: 'no-store' });
+                        const freshPlan = await planRes.json();
+                        items = freshPlan.items;
+                        render();
+                        setStatus(data.next ? `Marked ${item.name} as played. Now playing: ${data.next.name}` : `Marked ${item.name} as played.`);
+                    } catch (e) { setStatus(`Failed to advance: ${e.message}`); }
+                    return;
+                }
+                if (action === 'schedule-item' || action === 'play-backlog') {
+                    moveTo(item, 'scheduled');
+                    if (!item.period) item.period = 'Tonight';
+                    if (action === 'play-backlog') {
+                        items.forEach(g => { g.playingNow = (g.id === item.id); });
+                        fetch('/api/game-plan/now', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: item.id })
+                        }).catch(() => {});
+                    }
+                    render();
+                    scheduleSave();
+                    return;
+                }
+            }
+
             const star = event.target.closest('[data-star]');
             if (star) {
                 const value = starValue(event, star, 'star');

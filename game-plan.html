@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse Game Plan Overlay</title>
+    <style>
+        :root {
+            --gp-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --gp-bg: rgba(13, 17, 23, 0.88);
+            --gp-border: rgba(255, 255, 255, 0.12);
+            --gp-text: #f0f6fc;
+            --gp-muted: #8b949e;
+            --gp-accent: #3b82f6;
+            --gp-now-bg: rgba(35, 134, 54, 0.25);
+            --gp-now-border: #238636;
+            --gp-now-text: #3fb950;
+            --gp-scale: 1;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            overflow: hidden;
+            font-family: var(--gp-font);
+            color: var(--gp-text);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Container & Scaling */
+        #container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 12px;
+            transform-origin: top left;
+            transform: scale(var(--gp-scale));
+        }
+
+        /* Theme Variants */
+        body.theme-glass {
+            --gp-bg: rgba(15, 23, 42, 0.72);
+            --gp-border: rgba(255, 255, 255, 0.16);
+        }
+        body.theme-glass .card, body.theme-glass .ticker-bar {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+        }
+        body.theme-transparent {
+            --gp-bg: transparent;
+            --gp-border: transparent;
+        }
+        body.theme-transparent .card, body.theme-transparent .ticker-bar {
+            background: transparent !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+        }
+        body.theme-dark {
+            --gp-bg: #0d1117;
+            --gp-border: #30363d;
+        }
+        body.theme-light {
+            --gp-bg: #ffffff;
+            --gp-border: #d0d7de;
+            --gp-text: #1f2328;
+            --gp-muted: #656d76;
+            --gp-now-bg: #dafbe1;
+            --gp-now-border: #1a7f37;
+            --gp-now-text: #1a7f37;
+        }
+
+        /* Common Elements */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--gp-muted);
+            white-space: nowrap;
+        }
+        .badge-now {
+            background: var(--gp-now-bg);
+            border: 1px solid var(--gp-now-border);
+            color: var(--gp-now-text);
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+        .badge-next {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #60a5fa;
+        }
+        .badge-done {
+            background: rgba(139, 148, 158, 0.2);
+            color: var(--gp-muted);
+            text-decoration: line-through;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.85; transform: scale(1.03); }
+        }
+
+        .cover-img {
+            width: 48px;
+            height: 64px;
+            object-fit: cover;
+            border-radius: 6px;
+            flex-shrink: 0;
+            background: #161b22;
+            border: 1px solid var(--gp-border);
+        }
+        .cover-img.small {
+            width: 32px;
+            height: 42px;
+            border-radius: 4px;
+        }
+
+        /* VIEW 1: TICKER (Lower-Third bar) */
+        .view-ticker {
+            display: flex;
+            align-items: center;
+            width: auto;
+            max-width: 100%;
+        }
+        .ticker-bar {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--gp-bg);
+            border: 1px solid var(--gp-border);
+            border-radius: 10px;
+            padding: 8px 16px;
+        }
+        .ticker-segment {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .ticker-divider {
+            width: 1px;
+            height: 28px;
+            background: var(--gp-border);
+            margin: 0 4px;
+        }
+        .ticker-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .ticker-sub {
+            font-size: 0.75rem;
+            color: var(--gp-muted);
+            white-space: nowrap;
+        }
+
+        /* VIEW 2: SCHEDULE (Horizontal Cards Strip) */
+        .view-schedule {
+            display: flex;
+            align-items: stretch;
+            gap: 12px;
+            width: auto;
+            max-width: 100%;
+            overflow: hidden;
+        }
+        .schedule-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--gp-bg);
+            border: 1px solid var(--gp-border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            min-width: 200px;
+            max-width: 300px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        .schedule-card.active {
+            border-color: var(--gp-now-border);
+            background: color-mix(in srgb, var(--gp-now-bg) 35%, var(--gp-bg));
+            box-shadow: 0 0 16px rgba(35, 134, 54, 0.3);
+        }
+        .schedule-card.played {
+            opacity: 0.65;
+        }
+        .schedule-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            overflow: hidden;
+        }
+        .schedule-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .schedule-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        /* VIEW 3: CHECKLIST (Vertical Stack) */
+        .view-checklist {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 320px;
+        }
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--gp-bg);
+            border: 1px solid var(--gp-border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            position: relative;
+        }
+        .checklist-item.active {
+            border-color: var(--gp-now-border);
+            background: color-mix(in srgb, var(--gp-now-bg) 40%, var(--gp-bg));
+            box-shadow: 0 0 14px rgba(35, 134, 54, 0.35);
+        }
+        .checklist-item.played {
+            opacity: 0.6;
+        }
+        .checklist-idx {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--gp-muted);
+            min-width: 20px;
+        }
+        .checklist-info {
+            flex: 1;
+            overflow: hidden;
+        }
+        .checklist-title {
+            font-size: 0.88rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .checklist-note {
+            font-size: 0.72rem;
+            color: var(--gp-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .checklist-status {
+            flex-shrink: 0;
+        }
+
+        .empty-placeholder {
+            font-size: 0.85rem;
+            color: var(--gp-muted);
+            padding: 8px 14px;
+            background: var(--gp-bg);
+            border: 1px dashed var(--gp-border);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+
+    <script src="/overlay-visibility.js" data-key="game-plan"></script>
+    <script src="/url-params.js"></script>
+    <script>
+    (function() {
+        const params = overlayParams();
+        const container = document.getElementById('container');
+
+        const view = (params.get('view') || 'schedule').toLowerCase();
+        const listFilter = params.get('list') || 'scheduled';
+        const periodFilter = params.get('period') || '';
+        const maxItems = Math.max(1, parseInt(params.get('max') || '5', 10));
+        const showCovers = params.get('covers') !== '0';
+        const showNotes = params.get('notes') !== '0';
+        const theme = (params.get('theme') || 'glass').toLowerCase();
+        const accent = params.get('accent') || '';
+        const scale = parseFloat(params.get('scale') || '1');
+
+        if (['glass', 'dark', 'light', 'transparent'].includes(theme)) {
+            document.body.className = `theme-${theme}`;
+        }
+        if (accent) {
+            document.documentElement.style.setProperty('--gp-accent', accent.startsWith('#') ? accent : `#${accent}`);
+        }
+        if (scale && scale > 0) {
+            document.documentElement.style.setProperty('--gp-scale', scale);
+        }
+
+        let currentPlan = null;
+
+        function esc(str) {
+            return String(str || '').replace(/[&<>"']/g, ch => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[ch]));
+        }
+
+        function renderTicker(items, playing) {
+            if (!items.length && !playing) {
+                container.innerHTML = '<div class="empty-placeholder">No games scheduled</div>';
+                return;
+            }
+
+            const upNext = items.find(i => !i.playingNow && i.status !== 'played');
+            let html = '<div class="view-ticker"><div class="ticker-bar">';
+
+            if (playing) {
+                html += `
+                    <div class="ticker-segment">
+                        <span class="badge badge-now">▶ Playing Now</span>
+                        ${showCovers && playing.cover ? `<img class="cover-img small" src="${esc(playing.cover)}" alt="">` : ''}
+                        <div>
+                            <div class="ticker-title">${esc(playing.name)}</div>
+                            ${playing.period ? `<div class="ticker-sub">${esc(playing.period)}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (playing && upNext) {
+                html += '<div class="ticker-divider"></div>';
+            }
+
+            if (upNext) {
+                html += `
+                    <div class="ticker-segment">
+                        <span class="badge badge-next">⏭ Up Next</span>
+                        ${showCovers && upNext.cover ? `<img class="cover-img small" src="${esc(upNext.cover)}" alt="">` : ''}
+                        <div>
+                            <div class="ticker-title">${esc(upNext.name)}</div>
+                            ${upNext.period ? `<div class="ticker-sub">${esc(upNext.period)}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += '</div></div>';
+            container.innerHTML = html;
+        }
+
+        function renderSchedule(items, playing) {
+            if (!items.length) {
+                container.innerHTML = '<div class="empty-placeholder">No games scheduled</div>';
+                return;
+            }
+
+            let html = '<div class="view-schedule">';
+            items.slice(0, maxItems).forEach(item => {
+                const isNow = Boolean(item.playingNow);
+                const isPlayed = item.status === 'played';
+                html += `
+                    <div class="schedule-card${isNow ? ' active' : ''}${isPlayed ? ' played' : ''}">
+                        ${showCovers && item.cover ? `<img class="cover-img" src="${esc(item.cover)}" alt="">` : ''}
+                        <div class="schedule-info">
+                            <div class="schedule-meta">
+                                ${isNow ? '<span class="badge badge-now">▶ Playing</span>' : (isPlayed ? '<span class="badge badge-done">Done</span>' : '<span class="badge">Scheduled</span>')}
+                                ${item.period ? `<span class="badge">${esc(item.period)}</span>` : ''}
+                            </div>
+                            <div class="schedule-title" title="${esc(item.name)}">${esc(item.name)}</div>
+                            ${showNotes && item.note ? `<div class="checklist-note">${esc(item.note)}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function renderChecklist(items, playing) {
+            if (!items.length) {
+                container.innerHTML = '<div class="empty-placeholder">No games scheduled</div>';
+                return;
+            }
+
+            let html = '<div class="view-checklist">';
+            items.slice(0, maxItems).forEach((item, idx) => {
+                const isNow = Boolean(item.playingNow);
+                const isPlayed = item.status === 'played';
+                html += `
+                    <div class="checklist-item${isNow ? ' active' : ''}${isPlayed ? ' played' : ''}">
+                        <span class="checklist-idx">${idx + 1}</span>
+                        ${showCovers && item.cover ? `<img class="cover-img small" src="${esc(item.cover)}" alt="">` : ''}
+                        <div class="checklist-info">
+                            <div class="checklist-title">${esc(item.name)}</div>
+                            ${showNotes && (item.note || item.period) ? `<div class="checklist-note">${esc([item.period, item.note].filter(Boolean).join(' · '))}</div>` : ''}
+                        </div>
+                        <div class="checklist-status">
+                            ${isNow ? '<span class="badge badge-now">▶ Now</span>' : (isPlayed ? '<span class="badge badge-done">✓</span>' : '<span class="badge">Next</span>')}
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function render() {
+            if (!currentPlan || !Array.isArray(currentPlan.items)) return;
+
+            let items = currentPlan.items;
+
+            // Filter by list (e.g. 'scheduled', 'backlog', or custom list id)
+            if (listFilter) {
+                items = items.filter(i => i.status === listFilter || (i.extraLists || []).includes(listFilter));
+            }
+
+            // Filter by period if specified
+            if (periodFilter) {
+                items = items.filter(i => (i.period || '').toLowerCase() === periodFilter.toLowerCase());
+            }
+
+            // Determine playing now game
+            const playing = currentPlan.items.find(i => Boolean(i.playingNow)) || null;
+
+            if (view === 'ticker') {
+                renderTicker(items, playing);
+            } else if (view === 'checklist') {
+                renderChecklist(items, playing);
+            } else {
+                renderSchedule(items, playing);
+            }
+        }
+
+        async function fetchPlan() {
+            try {
+                const res = await fetch('/api/game-plan', { cache: 'no-store' });
+                if (res.ok) {
+                    currentPlan = await res.json();
+                    render();
+                }
+            } catch (e) {
+                console.warn('[Game Plan Overlay] Fetch error:', e);
+            }
+        }
+
+        function connectWs() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${proto}//${location.host}`);
+            ws.onmessage = evt => {
+                try {
+                    const msg = JSON.parse(evt.data);
+                    if (msg.type === 'game-plan-update') {
+                        currentPlan = msg.plan;
+                        render();
+                    }
+                } catch {}
+            };
+            ws.onclose = () => {
+                setTimeout(connectWs, 5000);
+            };
+        }
+
+        fetchPlan();
+        connectWs();
+        setInterval(fetchPlan, 10000); // Polling heartbeat
+    })();
+    </script>
+</body>
+</html>

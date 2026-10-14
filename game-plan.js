@@ -57,7 +57,8 @@ function normalizeGamePlan(input) {
     const used = [...new Set(items.map(item => item.period).filter(Boolean))];
     const saved = (Array.isArray(input?.periods) ? input.periods : []).map(value => String(value || '').trim().slice(0, 40)).filter(value => used.includes(value));
     const periods = [...new Set([...saved, ...used])].slice(0, 40);
-    return { lists, tiers, tierSets, items, periods };
+    const playingNowId = typeof input?.playingNowId === 'string' ? sanitizeOverlayId(input.playingNowId) : '';
+    return { lists, tiers, tierSets, items, periods, playingNowId };
 }
 
 const gameKey = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');

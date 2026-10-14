@@ -18,6 +18,17 @@
         ['weather.d1.day', 'Next days: d1–d5 weekday (d1 = tomorrow)'], ['weather.d1.high', 'Next days: d1–d5 high'], ['weather.d1.low', 'Next days: d1–d5 low'], ['weather.d1.icon', 'Next days: d1–d5 icon (emoji)'], ['weather.d1.icon.url', 'Next days: d1–d5 icon image URL'], ['weather.d1.condition', 'Next days: d1–d5 conditions'], ['weather.d1.precip', 'Next days: d1–d5 chance of precipitation %']];
     const PLAN_ITEMS = [['plan.now', 'Game from your plan you are playing now'], ['plan.scheduled', 'Scheduled games (comma list)'], ['plan.backlog', 'Backlog games (comma list)'], ['plan.next', 'Next scheduled game'], ['plan.scheduled.count', 'Number of scheduled games'], ['plan.backlog.count', 'Number of backlog games']];
     const EVENT_ITEMS = [['latest.follower', 'Latest follower'], ['latest.subscriber', 'Latest subscriber'], ['latest.gifter', 'Latest gift sub gifter'], ['latest.gifter.recipient', 'Latest gift sub recipient'], ['latest.subscriber.tier', 'Latest subscriber tier or type'], ['latest.cheer', 'Latest cheerer'], ['latest.cheer.amount', 'Latest cheer amount'], ['latest.donation', 'Latest donor'], ['latest.donation.amount', 'Latest donation amount'], ['latest.raider', 'Latest raider'], ['latest.raider.viewers', 'Latest raid size'], ['chatter.top', 'Top chatter this session'], ['chatter.top.count', 'Top chatter message count'], ['chatter.last', 'Most recent chatter'], ['chatter.random', 'Random chatter seen this session'], ['chatter.list', 'Chatters seen this session (first 20)'], ['chatter.top.5m', 'Top chatter, last 5 minutes (also 10m, 15m, 30m, 60m)'], ['chatter.top.10m', 'Top chatter, last 10 minutes'], ['chatter.top.15m', 'Top chatter, last 15 minutes'], ['chatter.top.30m', 'Top chatter, last 30 minutes'], ['chatter.top.60m', 'Top chatter, last hour'], ['chatter.top.5m.count', 'Messages from the last-5-minutes top chatter (also 10m…60m)']];
+    const MILESTONE_ITEMS = [
+        ['milestone.stream_number', 'Current stream broadcast number (e.g. 46)'],
+        ['milestone.total_hours', 'Total lifetime streamed hours (e.g. 466)'],
+        ['milestone.total_time', 'Total lifetime streamed time (e.g. 466h 18m)'],
+        ['milestone.streak_days', 'Consecutive stream days streak (e.g. 3)'],
+        ['milestone.streak_weeks', 'Consecutive stream weeks streak (e.g. 12)'],
+        ['milestone.lifetime_chatters', 'Total unique chatters all-time (e.g. 158)'],
+        ['milestone.lifetime_messages', 'Total chat messages all-time (e.g. 14,230)'],
+        ['milestone.next_stream_goal', 'Next stream count milestone (e.g. 50)'],
+        ['milestone.next_hours_goal', 'Next broadcast hours milestone (e.g. 500)']
+    ];
     // Values that change every second are refreshed in place instead of re-rendering the overlay.
     // Live counters change constantly, so they refresh their text in place instead of re-rendering (and flashing) the whole overlay.
     const TICKING = /^(now$|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)$|category\.|viewers?\.|chatters$|messages$|poll\.)/;
@@ -199,6 +210,7 @@
         groups.push({ label: 'Game (IGDB)', items: GAME_ITEMS });
         groups.push({ label: 'Game plan', items: [...PLAN_ITEMS, ...(status.gamePlan?.lists || []).map(list => [`plan.list.${list.id}`, `${list.name} list (comma list)`])] });
         groups.push({ label: 'Latest events', items: EVENT_ITEMS });
+        groups.push({ label: 'Milestones & Streaks', items: MILESTONE_ITEMS });
         for (const [id, timer] of Object.entries(status.timerData?.timers || {})) {
             const items = [[`timer.${id}`, `${timer.label} — clock (format it: {{timer.${id}|short}})`], [`timer.${id}.ms`, `${timer.label} — milliseconds`], [`timer.${id}.label`, `${timer.label} — title`], [`timer.${id}.state`, `${timer.label} — state`]];
             if (timer.kind === 'countdown') items.push([`timer.${id}.percent`, `${timer.label} — percent complete`]);
@@ -209,6 +221,21 @@
             groups.push({ label: `Goal: ${goal.title}`, items: [['title', 'title'], ['current', 'current progress'], ['target', 'target'], ['percent', 'percent'], ['remaining', 'remaining'], ['current_text', 'current (with $ for donations)'], ['target_text', 'target (with $ for donations)'], ['remaining_text', 'remaining (with $ for donations)']].map(([key, label]) => [`goal.${goal.id}.${key}`, `${goal.title} — ${label}`]) });
         }
         return groups;
+    }
+
+    function milestoneValues(status) {
+        const m = status.milestones || {};
+        return {
+            'milestone.stream_number': m.stream_number ?? '',
+            'milestone.total_hours': m.total_hours ?? '',
+            'milestone.total_time': m.total_time ?? '',
+            'milestone.streak_days': m.streak_days ?? 0,
+            'milestone.streak_weeks': m.streak_weeks ?? 0,
+            'milestone.lifetime_chatters': m.lifetime_chatters !== undefined ? Number(m.lifetime_chatters).toLocaleString() : '',
+            'milestone.lifetime_messages': m.lifetime_messages !== undefined ? Number(m.lifetime_messages).toLocaleString() : '',
+            'milestone.next_stream_goal': m.next_stream_goal ?? '',
+            'milestone.next_hours_goal': m.next_hours_goal ?? ''
+        };
     }
 
     function pollValues(status) {
@@ -241,6 +268,7 @@
             ...planListValues(status),
             ...weatherValues(status),
             ...pollValues(status),
+            ...milestoneValues(status),
             ...Object.fromEntries((status.customVars || []).map(v => [`var.${v.name}`, v.value])),
             ...Object.fromEntries((status.customVars || []).filter(v => v.type === 'list' && v.items?.length).map(v => [`var.${v.name}.random`, v.items[Math.floor(Math.random() * v.items.length)]])),
             'stream.category': status.stream?.category?.name,
