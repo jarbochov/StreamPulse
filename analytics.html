@@ -797,6 +797,7 @@ function updateStreamerModeUI() {
 async function loadChatters() {
     updateStreamerModeUI();
     const q = $('crm-search')?.value.trim() || '';
+    crmRenderLimit = 100;
     const params = new URLSearchParams();
     if (q) params.set('q', q);
     if (activeTagFilter) params.set('tag', activeTagFilter);
@@ -842,6 +843,8 @@ function onAvatarError(img) {
     img.src = FALLBACK_AVATAR;
 }
 
+let crmRenderLimit = 100;
+
 function renderCrmTable() {
     renderHead('crm-head', CRM_COLS, sort.crm, key => {
         toggleSort(sort.crm, key, ['username', 'tags', 'notes']);
@@ -850,7 +853,8 @@ function renderCrmTable() {
 
     const tbody = $('crm-table-body');
     if (!tbody) return;
-    $('crm-count').textContent = crmChatters.length ? `${fmt(crmChatters.length)} chatters shown` : '';
+    const totalCount = crmChatters.length;
+    $('crm-count').textContent = totalCount ? `${fmt(Math.min(crmRenderLimit, totalCount))} of ${fmt(totalCount)} chatters shown` : '';
 
     if (!crmChatters.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="empty">No community members match your filter.</td></tr>';
@@ -858,8 +862,9 @@ function renderCrmTable() {
     }
 
     const rows = sorted(crmChatters, sort.crm);
+    const visibleRows = rows.slice(0, crmRenderLimit);
 
-    tbody.innerHTML = rows.map(c => {
+    let html = visibleRows.map(c => {
         const avatarSrc = c.chatimg || FALLBACK_AVATAR;
         const lastSeenStr = c.lastSeen ? shortDate(c.lastSeen) : '—';
         let notesPreview;
@@ -880,7 +885,7 @@ function renderCrmTable() {
             <tr class="crm-row" data-chatter="${esc(c.username)}" title="Click to view ${esc(c.username)}'s dossier">
                 <td>
                     <div class="chatter-cell">
-                        <img class="chatter-avatar" src="${esc(avatarSrc)}" alt="" onerror="onAvatarError(this)">
+                        <img class="chatter-avatar" src="${esc(avatarSrc)}" alt="" loading="lazy" onerror="onAvatarError(this)">
                         <div>
                             <b>${esc(c.chatname || c.username)}</b>
                             ${c.chatname && c.chatname.toLowerCase() !== c.username.toLowerCase() ? `<br><span class="muted" style="font-size:0.72rem">@${esc(c.username)}</span>` : ''}
@@ -895,6 +900,28 @@ function renderCrmTable() {
             </tr>
         `;
     }).join('');
+
+    if (rows.length > crmRenderLimit) {
+        html += `
+            <tr id="crm-load-more-row">
+                <td colspan="6" style="text-align:center;padding:0.85rem;background:var(--bg-inset);">
+                    <button type="button" class="btn" id="crm-load-more-btn" style="padding:0.4rem 1.2rem;font-weight:600;">
+                        Show more (${fmt(rows.length - crmRenderLimit)} remaining)
+                    </button>
+                </td>
+            </tr>
+        `;
+    }
+
+    tbody.innerHTML = html;
+
+    const moreBtn = $('crm-load-more-btn');
+    if (moreBtn) {
+        moreBtn.addEventListener('click', () => {
+            crmRenderLimit += 150;
+            renderCrmTable();
+        });
+    }
 
     tbody.querySelectorAll('.crm-row').forEach(tr => {
         tr.addEventListener('click', () => {

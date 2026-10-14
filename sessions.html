@@ -1237,8 +1237,12 @@
         try {
             const url = filename === '__current__' ? '/api/chat-log' : `/api/sessions/${filename}/chat-log`;
             const res = await fetch(url);
-            const data = await res.json();
             chatLogCache[filename] = data.messages || [];
+            const cacheKeys = Object.keys(chatLogCache);
+            if (cacheKeys.length > 3) {
+                const oldest = cacheKeys.find(k => k !== filename && k !== '__current__');
+                if (oldest) delete chatLogCache[oldest];
+            }
             const messages = chatLogCache[filename];
             if (infoEl) infoEl.textContent = `${messages.length} message${messages.length !== 1 ? 's' : ''} recorded`;
 

@@ -751,7 +751,7 @@
         if (current !== hist.stack[hist.index]) {
             hist.stack.length = hist.index + 1;
             hist.stack.push(current);
-            if (hist.stack.length > 150) hist.stack.shift();
+            if (hist.stack.length > 35) hist.stack.shift();
             hist.index = hist.stack.length - 1;
         }
         dirty = current !== savedSnapshot;

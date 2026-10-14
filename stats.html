@@ -123,6 +123,8 @@
     <script>
         const urlParams = overlayParams();
         const DAYS = parseInt(urlParams.get('days')) || 0;
+        const RANGE_PARAM = (urlParams.get('range') || '').toLowerCase();
+        const IS_SESSION = RANGE_PARAM === 'session' || urlParams.get('session') === 'true' || urlParams.get('session') === '1' || urlParams.get('scope') === 'session';
         const DATE = urlParams.get('date') || '';
         const FROM = urlParams.get('from') || '';
         const TO = urlParams.get('to') || '';
@@ -145,6 +147,9 @@
 
         // Get the date range to filter by
         function getDateRange() {
+            if (IS_SESSION) {
+                return { session: true };
+            }
             if (DATE) {
                 return { from: DATE, to: DATE };
             }
@@ -176,12 +181,14 @@
 
         // Backward compat: get count from old or new format
         function getCount(entry, range) {
+            if (IS_SESSION) return entry.count || entry.messageCount || 0;
             if (entry.days) return sumBuckets(entry.days, range);
             // Old format fallback
             return entry.messageCount || entry.count || 0;
         }
 
         function getFilterLabel() {
+            if (IS_SESSION) return 'This session';
             if (DATE) return `Date: ${DATE}`;
             if (FROM && TO) return `${FROM} to ${TO}`;
             if (FROM) return `From ${FROM}`;
@@ -280,9 +287,10 @@
 
         async function loadStats() {
             try {
+                const statsUrl = IS_SESSION ? '/api/stats?scope=session' : '/api/stats';
                 const [statsRes, cfgRes] = await Promise.all([
-                    fetch('/api/stats'),
-                    fetch('/api/config')
+                    fetch(statsUrl, { cache: 'no-store' }),
+                    fetch('/api/config', { cache: 'no-store' })
                 ]);
                 if (cfgRes.ok) applyTheme(await cfgRes.json());
                 if (statsRes.ok) {

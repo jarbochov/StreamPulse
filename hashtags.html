@@ -36,6 +36,8 @@
     const COLUMNS  = Math.min(6, Math.max(1, parseInt(urlParams.get('columns')) || 3));
     const LIMIT    = parseInt(urlParams.get('limit')) || 0;
     const DAYS     = parseInt(urlParams.get('days')) || 0;
+    const RANGE    = (urlParams.get('range') || '').toLowerCase();
+    const IS_SESSION = RANGE === 'session' || urlParams.get('session') === 'true' || urlParams.get('session') === '1' || urlParams.get('scope') === 'session';
     const DATE     = urlParams.get('date') || '';
     const FROM     = urlParams.get('from') || '';
     const TO       = urlParams.get('to') || '';
@@ -58,6 +60,7 @@
     }
 
     function getDateRange() {
+        if (IS_SESSION) return { session: true };
         if (DATE) return { from: DATE, to: DATE };
         if (FROM || TO) return { from: FROM || '1970-01-01', to: TO || '9999-12-31' };
         if (DAYS) {
@@ -93,6 +96,7 @@
     }
 
     function getFilterLabel() {
+        if (IS_SESSION) return 'This session';
         if (DATE) return `Date: ${DATE}`;
         if (FROM && TO) return `${FROM} to ${TO}`;
         if (FROM) return `From ${FROM}`;
@@ -126,7 +130,8 @@
         const list = document.getElementById('scroll-list');
         const titleEl = document.getElementById('scroll-title');
 
-        titleEl.textContent = TITLE;
+        const displayTitle = (TITLE === 'All Hashtags' && IS_SESSION) ? 'Session Hashtags' : TITLE;
+        titleEl.textContent = displayTitle;
         container.style.display = 'block';
         list.className = `scroll-list cols-${COLUMNS}`;
 
@@ -326,18 +331,20 @@
 
     async function loadHashtags() {
         try {
+            const statsUrl = IS_SESSION ? '/api/stats?scope=session' : '/api/stats';
             const [res, cfgRes] = await Promise.all([
-                fetch('/api/stats'),
-                fetch('/api/config')
+                fetch(statsUrl, { cache: 'no-store' }),
+                fetch('/api/config', { cache: 'no-store' })
             ]);
             if (cfgRes.ok) applyTheme(await cfgRes.json());
             if (!res.ok) throw new Error('Stats fetch failed');
             const data = await res.json();
 
             const range = getDateRange();
+            const sourceTags = (IS_SESSION && data.sessionHashtags) ? data.sessionHashtags : (data.hashtags || {});
 
-            let hashtags = Object.entries(data.hashtags || {})
-                .map(([tag, d]) => ({ tag, count: getCount(d, range), data: d }))
+            let hashtags = Object.entries(sourceTags)
+                .map(([tag, d]) => ({ tag, count: IS_SESSION ? (d.count || 0) : getCount(d, range), data: d }))
                 .filter(h => h.count > 0 && h.count >= (MIN || 1));
 
             hashtags = sortHashtags(hashtags);

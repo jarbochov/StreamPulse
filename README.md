@@ -2,9 +2,19 @@
 
 # StreamPulse
 
-A self-hosted stream overlay toolkit — built around a cinematic **credits roll** that recognizes the people who make your stream what it is: subscribers, followers, cheerers, raiders, gifters, and chatters.
+**The ultimate self-hosted stream companion and overlay suite for [SocialStream Ninja](https://socialstream.ninja/) and Twitch.**
 
-StreamPulse started as a way to give every community member their moment in the spotlight at the end of a stream. It grew into a full data toolkit with live stats, session history, searchable chat logs, hashtag tracking, highlights, and more — all powered by [SocialStream Ninja](https://socialstream.ninja/) and the [Twitch API](https://dev.twitch.tv/docs/api/).
+StreamPulse turns your live broadcast data into cinematic OBS browser overlays, actionable community analytics, and hands-on production tools. Originally built around a cinematic **credits roll** that celebrates everyone who made your stream special (subscribers, followers, cheerers, raiders, gifters, and chatters), StreamPulse has evolved into a complete self-hosted broadcast platform:
+
+- 🎬 **Cinematic Credits & Dynamic Overlays** — Scrolling credits roll, hashtag trends, live viewer counts, customizable goals, and unified theme styling.
+- 🎨 **Custom Overlay Studio** — Visual canvas editor with drag-and-drop layers, animated gradients, Google Fonts, weather, music, countdowns, and dynamic `{{placeholders}}`.
+- 👥 **Community CRM & Chatter Dossiers** — Deep viewer history across sessions: lifetime messages, attendance streaks, cheers, gifts, raids led, favorite categories watched, and private streamer notes.
+- 🏆 **Stream Milestones & Streak Tracking** — Automated tracking of broadcast count, stream hours, daily/weekly streaks, unique community reach, and on-screen milestone counters.
+- 🎮 **Game Plan Scheduler** — IGDB game catalog integration with box art, schedule strips, "Now Playing" and "Up Next" overlays.
+- ⏱️ **Timers, Music & Alerts** — Named stopwatches and countdowns, "Now Playing" widgets (Apple Music, Spotify, VLC), tiered visual alerts, and an integrated Chat Bot with custom variables and counters.
+- 🎛️ **Bitfocus Companion Integration** — Deep Stream Deck control via the dedicated [companion-module-streampulse](https://github.com/jarbochov/companion-module-streampulse).
+
+> **Powered by SocialStream Ninja:** StreamPulse seamlessly ingests live chat, subs, follows, raids, bits, and tips from SSN's WebSocket API, bridging multi-platform stream events directly into OBS without third-party cloud lock-in.
 
 > **Hashtags** are a fun way to capture community moments in smaller streams — viewers drop `#blessed` or `#teamwipe` and they show up live on the overlay and in the credits. For larger communities, you'll want to use the built-in moderation tools (ban/purge) or disable hashtags entirely unless you have a solid moderation process.
 

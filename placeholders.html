@@ -6,7 +6,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StreamPulse — Placeholders</title>
+    <title>StreamPulse — Placeholders &amp; Variables</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
@@ -14,7 +14,7 @@
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
         @media (max-width: 768px) { .header { flex-direction: column; gap: .5rem; } }
-        .wrap { max-width: 960px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; display: grid; gap: 1rem; }
+        .wrap { max-width: 960px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; display: grid; gap: 1.2rem; }
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem; }
         .card h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-bottom: .6rem; }
         .muted { color: var(--text-muted); font-size: .82rem; line-height: 1.5; }
@@ -23,36 +23,279 @@
         td:first-child { white-space: nowrap; }
         td.val { color: var(--accent); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         code { background: var(--bg-inset); padding: .1rem .35rem; border-radius: 4px; }
-        input[type="search"] { padding: .45rem .7rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; flex: 1; min-width: 12rem; }
-        .b { padding: .45rem .8rem; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px; color: var(--text); cursor: pointer; font: inherit; }
+        code.copyable { cursor: pointer; transition: background 0.15s; }
+        code.copyable:hover { background: var(--accent-bg); color: var(--accent); }
+        input[type="search"], input[type="text"], input[type="number"], select, textarea {
+            padding: .45rem .7rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+        .b { padding: .45rem .8rem; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px; color: var(--text); cursor: pointer; font: inherit; transition: all .15s; }
+        .b:hover { background: var(--accent-bg); border-color: var(--accent); }
+        .b.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 500; }
+        .b.primary:hover { opacity: 0.9; }
+        .b.sm { padding: .25rem .55rem; font-size: .8rem; }
+        .b.danger { color: var(--danger, #ef4444); }
+        .b.danger:hover { background: rgba(239, 68, 68, 0.15); border-color: var(--danger, #ef4444); }
         .bar { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+        .var-row { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: .65rem .85rem; display: grid; gap: .5rem; }
+        .var-row:hover { border-color: var(--border-hover, var(--border)); }
+        .var-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; }
+        .badge { font-size: .72rem; text-transform: uppercase; padding: .15rem .4rem; border-radius: 4px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); }
     </style>
 </head>
 <body>
 <div class="header">
-    <h1>StreamPulse <span>Placeholders</span></h1>
+    <h1>StreamPulse <span>Placeholders &amp; Variables</span></h1>
     <div id="main-nav" class="nav"></div>
     <script src="/nav.js"></script>
 </div>
 <div class="wrap">
+    <!-- Custom Variables & Counters Management Card -->
+    <div class="card" id="vars-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.6rem; flex-wrap:wrap; gap:.5rem;">
+            <h2 style="margin-bottom:0;">Custom Variables &amp; Counters <span id="var-count" style="font-weight:400; text-transform:none; color:var(--text-muted);"></span></h2>
+            <div style="display:flex; gap:.6rem; align-items:center;">
+                <a href="/chatbot.html#variables" style="font-size:.8rem; color:var(--accent); text-decoration:none;">Open in Chat Bot ↗</a>
+            </div>
+        </div>
+        <p class="muted" style="margin-bottom:1rem;">
+            Custom variables can be displayed across overlays, alerts, game plans, and chat bot replies using <code>{{var.NAME}}</code>. Update their values here live without switching to the Chat Bot settings.
+        </p>
+
+        <!-- Create Variable Bar -->
+        <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin-bottom:1rem; background:var(--bg-inset); padding:.6rem .75rem; border-radius:6px; border:1px solid var(--border);">
+            <input type="text" id="var-name" placeholder="Variable name (e.g. deaths, boss)" style="flex:1; min-width:13rem;">
+            <select id="var-type">
+                <option value="counter">Counter (number)</option>
+                <option value="text">Text (string)</option>
+                <option value="list">List (rotating items)</option>
+            </select>
+            <button class="b primary" id="var-add">+ Add Variable</button>
+        </div>
+
+        <!-- Variables List Container -->
+        <div id="vars-list" style="display:grid; gap:.6rem;">
+            <div class="muted">Loading variables…</div>
+        </div>
+    </div>
+
+    <!-- Placeholders Reference Section -->
     <div class="card bar">
         <input type="search" id="q" placeholder="Search placeholders" aria-label="Search placeholders">
-        <label class="muted"><input type="checkbox" id="vals" checked> Show current values</label>
+        <label class="muted" style="display:flex; align-items:center; gap:.4rem; cursor:pointer;"><input type="checkbox" id="vals" checked> Show current values</label>
         <button class="b" id="copy">Copy Markdown</button>
         <button class="b" id="md">Download .md</button>
     </div>
     <div class="card muted">
-        Use any placeholder as <code>{{name}}</code> in overlay text, embeds, QR codes, alert messages and chat bot replies. Dates, timers and lists accept a format: <code>{{name|format}}</code>. Lists also take <code>.random</code> in chat bot replies, for example <code>{{var.NAME.random}}</code>. Generated live from your setup (timers, goals, variables, lists).
+        Use any placeholder as <code>{{name}}</code> in overlay text, embeds, QR codes, alert messages and chat bot replies. Dates, timers and lists accept a format: <code>{{name|format}}</code>. Lists also take <code>.random</code> in chat bot replies, for example <code>{{var.NAME.random}}</code>. Generated live from your setup (timers, goals, variables, lists). Click any code tag to copy.
     </div>
     <div id="out"></div>
 </div>
+
 <script src="/overlay-shared.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const S = window.OverlayShared;
 const esc = v => { const d = document.createElement('div'); d.textContent = v ?? ''; return d.innerHTML; };
+const toast = (msg, type = 'info') => {
+    if (window.StreamPulse?.toast) window.StreamPulse.toast(msg, type);
+    else console.log(msg);
+};
 let status = {};
+let customVars = [];
 
+// Copy helper
+async function copyToClipboard(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        toast(`Copied ${text}`, 'success');
+    } catch {
+        const t = document.createElement('textarea');
+        t.value = text;
+        document.body.append(t);
+        t.select();
+        document.execCommand('copy');
+        t.remove();
+        toast(`Copied ${text}`, 'success');
+    }
+}
+
+// Global click handler for copyable code tags
+document.addEventListener('click', e => {
+    const code = e.target.closest('code.copyable, [data-copy]');
+    if (code) {
+        const text = code.getAttribute('data-copy') || code.textContent;
+        if (text) copyToClipboard(text);
+    }
+});
+
+// API helper
+async function api(path, method = 'GET', body = null) {
+    const opts = { method, headers: {} };
+    if (body !== null) {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(body);
+    }
+    const res = await fetch(path, opts);
+    if (!res.ok) {
+        let msg = res.statusText;
+        try { const err = await res.json(); msg = err.error || err.message || msg; } catch {}
+        throw new Error(msg);
+    }
+    return res.json();
+}
+
+// Render Custom Variables
+function renderVars() {
+    const container = $('vars-list');
+    $('var-count').textContent = `(${customVars.length})`;
+
+    if (!customVars.length) {
+        container.innerHTML = '<div class="muted" style="padding:.5rem 0;">No custom variables defined yet. Create one above to display counters or custom text in your stream!</div>';
+        return;
+    }
+
+    container.innerHTML = customVars.map(v => {
+        let controls = '';
+        if (v.type === 'counter') {
+            controls = `
+                <button class="b sm" data-act="decrement" title="Decrement (-1)">-</button>
+                <input type="number" data-act="value" value="${v.value}" style="width:5rem; text-align:center; padding:.25rem .4rem;">
+                <button class="b sm" data-act="increment" title="Increment (+1)">+</button>
+                <button class="b sm" data-act="reset" title="Reset to 0">Reset</button>
+            `;
+        } else if (v.type === 'text') {
+            controls = `
+                <input type="text" data-act="value" value="${esc(v.value)}" placeholder="(empty value)" style="width:14rem; padding:.25rem .5rem;">
+            `;
+        } else {
+            controls = `
+                <span class="muted" style="max-width:14rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Current: <b style="color:var(--accent);">${esc(v.value) || '(empty)'}</b></span>
+                <button class="b sm" data-act="roll" title="Pick next item">Pick next</button>
+            `;
+        }
+
+        const listDetails = v.type === 'list' ? `
+            <details style="margin-top:.2rem;">
+                <summary class="muted" style="cursor:pointer; font-size:.8rem;">${(v.items || []).length} items · ${v.mode === 'sequential' ? 'Sequential order' : 'Random order'} (click to edit items)</summary>
+                <div style="margin-top:.5rem; display:grid; gap:.5rem;">
+                    <textarea data-act="items" rows="4" style="width:100%; padding:.45rem; font-family:monospace; font-size:.82rem;" placeholder="One item per line">${esc((v.items || []).join('\n'))}</textarea>
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
+                        <label style="font-size:.82rem; color:var(--text-muted);">
+                            Pick mode:
+                            <select data-act="mode" style="margin-left:.3rem; padding:.2rem .4rem;">
+                                <option value="random" ${v.mode !== 'sequential' ? 'selected' : ''}>Randomly</option>
+                                <option value="sequential" ${v.mode === 'sequential' ? 'selected' : ''}>In order</option>
+                            </select>
+                        </label>
+                        <button class="b sm primary" data-act="save-items">Save list items</button>
+                    </div>
+                </div>
+            </details>
+        ` : '';
+
+        return `
+            <div class="var-row" data-n="${esc(v.name)}">
+                <div class="var-head">
+                    <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+                        <strong style="font-size:.9rem;">${esc(v.name)}</strong>
+                        <span class="badge">${esc(v.type)}</span>
+                        <code class="copyable" title="Click to copy" data-copy="{{var.${esc(v.name)}}}">{{var.${esc(v.name)}}}</code>
+                    </div>
+                    <div style="display:flex; gap:.4rem; align-items:center;">
+                        ${controls}
+                        <button class="b sm danger" data-act="delete" title="Delete variable">Delete</button>
+                    </div>
+                </div>
+                ${listDetails}
+            </div>
+        `;
+    }).join('');
+}
+
+// Load Variables from API
+async function loadVars() {
+    try {
+        const res = await api('/api/variables');
+        customVars = res.variables || [];
+        status.customVars = customVars;
+        renderVars();
+        render(); // update placeholders table with latest variables
+    } catch (e) {
+        toast('Failed to load variables: ' + e.message, 'error');
+    }
+}
+
+// Add Variable
+$('var-add').onclick = async () => {
+    const rawName = $('var-name').value.trim();
+    const type = $('var-type').value;
+    const name = rawName.replace(/^[^a-z0-9_]+/i, '').replace(/[^a-z0-9_]/gi, '');
+    if (!name) {
+        toast('Variable name is required (letters, numbers, underscore)', 'error');
+        return;
+    }
+    try {
+        await api(`/api/variables/${encodeURIComponent(name)}`, 'PUT', { type });
+        $('var-name').value = '';
+        toast(`Variable "${name}" created`, 'success');
+        await loadVars();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+};
+
+$('var-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') $('var-add').click();
+});
+
+// Variables Actions
+$('vars-list').addEventListener('click', async event => {
+    const act = event.target.dataset.act;
+    const row = event.target.closest('[data-n]');
+    if (!act || ['value', 'items', 'mode'].includes(act) || !row) return;
+
+    const name = row.dataset.n;
+    const url = `/api/variables/${encodeURIComponent(name)}`;
+
+    try {
+        if (act === 'delete') {
+            const confirmed = window.StreamPulse?.confirm
+                ? await StreamPulse.confirm('Delete Variable', `Delete variable "${name}"? Any overlays using it will display empty.`, { danger: true, confirmText: 'Delete' })
+                : confirm(`Delete variable "${name}"?`);
+            if (!confirmed) return;
+
+            await api(url, 'DELETE');
+            toast(`Variable "${name}" deleted`, 'info');
+        } else if (act === 'save-items') {
+            const items = row.querySelector('[data-act="items"]').value;
+            const mode = row.querySelector('[data-act="mode"]').value;
+            await api(url, 'PUT', { items, mode });
+            toast(`List "${name}" saved`, 'success');
+        } else {
+            // increment, decrement, reset, roll
+            await api(`${url}/${act}`, 'POST', {});
+        }
+        await loadVars();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+});
+
+$('vars-list').addEventListener('change', async event => {
+    const row = event.target.closest('[data-n]');
+    if (event.target.dataset.act === 'value' && row) {
+        const name = row.dataset.n;
+        try {
+            await api(`/api/variables/${encodeURIComponent(name)}`, 'PUT', { value: event.target.value });
+            await loadVars();
+        } catch (e) {
+            toast(e.message, 'error');
+        }
+    }
+});
+
+// Placeholders rendering
 function groups() {
     const table = S.variableTable(status, {});
     const q = $('q').value.trim().toLowerCase();
@@ -68,7 +311,20 @@ function groups() {
 
 function render() {
     const gs = groups();
-    $('out').innerHTML = gs.map(g => `<div class="card"><h2>${esc(g.label)}</h2><table>${g.items.map(i => `<tr><td><code>{{${esc(i.key)}}}</code></td><td>${esc(i.label)}</td>${$('vals').checked ? `<td class="val">${esc(i.value)}</td>` : ''}</tr>`).join('')}</table></div>`).join('') || '<div class="card muted">No placeholders match.</div>';
+    $('out').innerHTML = gs.map(g => `
+        <div class="card">
+            <h2>${esc(g.label)}</h2>
+            <table>
+                ${g.items.map(i => `
+                    <tr>
+                        <td><code class="copyable" title="Click to copy" data-copy="{{${esc(i.key)}}}">{{${esc(i.key)}}}</code></td>
+                        <td>${esc(i.label)}</td>
+                        ${$('vals').checked ? `<td class="val">${esc(i.value)}</td>` : ''}
+                    </tr>
+                `).join('')}
+            </table>
+        </div>
+    `).join('') || '<div class="card muted">No placeholders match.</div>';
 }
 
 function markdown() {
@@ -95,8 +351,15 @@ $('md').onclick = () => {
     a.download = 'streampulse-placeholders.md'; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
+
+// Initial data load
+loadVars();
 fetch('/api/status', { cache: 'no-store' }).then(r => r.json()).then(async s => {
     status = s;
+    if (s.customVars) {
+        customVars = s.customVars;
+        renderVars();
+    }
     try { await S.loadLiveExtras(s); } catch { /* extras are optional */ }
     render();
 }).catch(render);

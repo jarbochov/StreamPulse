@@ -240,7 +240,8 @@
                     <div class="form-row">
                         <label for="stats-range">Date range</label>
                         <select id="stats-range">
-                            <option value="all">All time</option>
+                            <option value="session">This session</option>
+                            <option value="all" selected>All time</option>
                             <option value="days">Last N days</option>
                             <option value="date">Single date</option>
                             <option value="between">From / to dates</option>
@@ -298,10 +299,11 @@
                         <label for="ht-min">Minimum count</label>
                         <input id="ht-min" type="number" min="0" step="1" placeholder="0 = all">
                     </div>
-                    <div class="form-row" id="ht-range">
+                    <div class="form-row" id="ht-range-row">
                         <label for="ht-range">Date range</label>
                         <select id="ht-range">
-                            <option value="all">All time</option>
+                            <option value="session">This session</option>
+                            <option value="all" selected>All time</option>
                             <option value="days">Last N days</option>
                             <option value="date">Single date</option>
                             <option value="between">From / to dates</option>
@@ -529,8 +531,8 @@
                 <thead><tr><th>Overlay</th><th>Parameters</th><th>Purpose</th></tr></thead>
                 <tbody>
                     <tr data-overlay="credits"><td>Credits</td><td><code>duration</code> <code>speed</code> <code>days</code> <code>preview</code></td><td>Set roll timing, the data window, preview mode, or an advanced data location.</td></tr>
-                    <tr data-overlay="stats" hidden><td>Stats</td><td><code>view</code> <code>align</code> <code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>limit</code> <code>refresh</code></td><td>Choose columns to show (all, chatters, emotes, hashtags), canvas alignment, date window, list limit, and refresh rate.</td></tr>
-                    <tr data-overlay="hashtags" hidden><td>Hashtags</td><td><code>view</code> <code>sort</code> <code>columns</code> <code>size</code> <code>limit</code> <code>min</code> <code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>title</code> <code>duration</code> <code>refresh</code> <code>counts</code> <code>weight</code> <code>scroll</code></td><td>Choose scroll, grid or cloud, the data window, sorting, and view-specific options.</td></tr>
+                    <tr data-overlay="stats" hidden><td>Stats</td><td><code>view</code> <code>align</code> <code>range</code> <code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>limit</code> <code>refresh</code></td><td>Choose columns to show (all, chatters, emotes, hashtags), canvas alignment, date window (including session), list limit, and refresh rate.</td></tr>
+                    <tr data-overlay="hashtags" hidden><td>Hashtags</td><td><code>view</code> <code>sort</code> <code>columns</code> <code>size</code> <code>limit</code> <code>min</code> <code>range</code> <code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>title</code> <code>duration</code> <code>refresh</code> <code>counts</code> <code>weight</code> <code>scroll</code></td><td>Choose scroll, grid or cloud, the data window (including session), sorting, and view-specific options.</td></tr>
                     <tr data-overlay="goals" hidden><td>Goal</td><td><code>goal</code> <code>mode</code> <code>layout</code> <code>align</code> <code>ids</code> <code>interval</code> <code>skipcompleted</code> <code>pausecomplete</code> <code>showlabel</code></td><td>Select layout (card, bar, pill, minimal), horizontal alignment, one goal or cycle a subset, and override cycle behavior or the type label.</td></tr>
                     <tr data-overlay="viewers" hidden><td>Viewer Count</td><td><code>layout</code> <code>align</code> <code>label</code></td><td>Select layout (card, pill, badge, minimal, stacked), horizontal alignment, and label override.</td></tr>
                     <tr><td>All overlays</td><td><code>font</code> <code>weight</code> <code>fontscale</code> <code>align</code> <code>text</code> <code>accent</code> <code>bg</code> <code>outline</code></td><td>Override the saved theme font, scale, canvas alignment, text, accent and background colors, and text outline (use <code>none</code> to remove it).</td></tr>
@@ -748,6 +750,7 @@
             size: $('ht-size').value,
             limit: numberValue('ht-limit', 1),
             min: numberValue('ht-min', 1),
+            range: hr === 'session' ? 'session' : '',
             days: hr === 'days' ? numberValue('ht-days', 1) : '',
             date: hr === 'date' ? $('ht-date').value : '',
             from: hr === 'between' ? $('ht-from').value : '',
@@ -766,6 +769,7 @@
         $('stats-from-row').style.display = $('stats-to-row').style.display = range === 'between' ? '' : 'none';
         setUrl('stats-url', buildUrl('/stats.html', {
             view: $('stats-view').value !== 'all' ? $('stats-view').value : '',
+            range: range === 'session' ? 'session' : '',
             days: range === 'days' ? numberValue('stats-days', 1) : '',
             date: range === 'date' ? $('stats-date').value : '',
             from: range === 'between' ? $('stats-from').value : '',

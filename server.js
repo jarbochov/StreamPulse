@@ -4535,6 +4535,9 @@ async function applyUpdate(mode) {
 }
 
 function buildDateRange(params) {
+    if (params?.get('range') === 'session' || params?.get('session') === 'true' || params?.get('session') === '1' || params?.get('scope') === 'session') {
+        return { session: true };
+    }
     const days = parseInt(params?.get('days') || '0', 10) || 0;
     const date = params?.get('date') || '';
     const from = params?.get('from') || '';
@@ -4549,7 +4552,6 @@ function buildDateRange(params) {
             to: '9999-12-31'
         };
     }
-
 }
 
 function sumDailyBuckets(days, range) {
@@ -4571,6 +4573,7 @@ function countRangeDays(days, range) {
 }
 
 function collectHashtagStats(range = null) {
+    const isSessionOnly = range === 'session' || range?.session;
     const statsTags = Object.keys(statsData?.hashtags || {});
     const sessionTags = Object.keys(chatData?.hashtags || {});
     const allTags = new Set([...statsTags, ...sessionTags, ...bannedHashtags]);
@@ -4579,14 +4582,14 @@ function collectHashtagStats(range = null) {
         const sessionEntry = chatData?.hashtags?.[tag] || {};
         return {
             tag,
-            count: sumDailyBuckets(statsEntry.days, range),
+            count: isSessionOnly ? (sessionEntry.count || 0) : sumDailyBuckets(statsEntry.days, range),
             sessionCount: sessionEntry.count || 0,
-            uniqueDays: countRangeDays(statsEntry.days, range),
-            firstUsed: statsEntry.firstUsed || null,
-            lastUsed: statsEntry.lastUsed || null,
+            uniqueDays: isSessionOnly ? (sessionEntry.count > 0 ? 1 : 0) : countRangeDays(statsEntry.days, range),
+            firstUsed: isSessionOnly ? (sessionEntry.firstUsed || null) : (statsEntry.firstUsed || null),
+            lastUsed: isSessionOnly ? (sessionEntry.lastUsed || null) : (statsEntry.lastUsed || null),
             banned: bannedHashtags.has(tag)
         };
-    }).filter(item => item.count > 0 || item.sessionCount > 0 || item.banned)
+    }).filter(item => isSessionOnly ? item.count > 0 : (item.count > 0 || item.sessionCount > 0 || item.banned))
         .sort((a, b) => b.count - a.count || b.sessionCount - a.sessionCount || a.tag.localeCompare(b.tag));
 
     const top = hashtags.find(item => item.count > 0 || item.sessionCount > 0) || null;
@@ -5776,6 +5779,31 @@ const server = http.createServer(async (req, res) => {
     try {
         const url = new URL(req.url, `http://localhost:${PORT}`);
         const pathname = url.pathname;
+
+        // Auto-enforce strict anti-caching headers on dynamic API and auth endpoints
+        // to prevent WebKit / Safari from ballooning memory to 6-12GB by caching thousands of polled JSON responses
+        if (pathname.startsWith('/api/') || pathname.startsWith('/auth/')) {
+            const origWriteHead = res.writeHead;
+            res.writeHead = function(statusCode, statusMessage, headers) {
+                let h = typeof statusMessage === 'object' && statusMessage !== null ? statusMessage : headers;
+                if (!h) {
+                    this.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+                    this.setHeader('Pragma', 'no-cache');
+                    this.setHeader('Expires', '0');
+                } else {
+                    if (!h['Cache-Control'] && !h['cache-control']) {
+                        h['Cache-Control'] = 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0';
+                    }
+                    if (!h['Pragma'] && !h['pragma']) {
+                        h['Pragma'] = 'no-cache';
+                    }
+                    if (!h['Expires'] && !h['expires']) {
+                        h['Expires'] = '0';
+                    }
+                }
+                return origWriteHead.apply(this, arguments);
+            };
+        }
 
     // Rate limiting
     if (checkRateLimit(req, res)) return;
@@ -7015,8 +7043,37 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/stats') {
+        const isSession = url.searchParams.get('scope') === 'session' || url.searchParams.get('session') === '1' || url.searchParams.get('session') === 'true' || url.searchParams.get('range') === 'session';
+        if (isSession) {
+            const sessionHashtags = {};
+            for (const [tag, entry] of Object.entries(chatData.hashtags || {})) {
+                sessionHashtags[tag] = { count: entry.count || 0, firstUsed: entry.firstUsed, lastUsed: entry.lastUsed };
+            }
+            const sessionChatters = {};
+            for (const [user, entry] of Object.entries(chatData.chatters || {})) {
+                sessionChatters[user] = { chatname: entry.chatname || user, count: entry.messageCount || 0, chatimg: entry.chatimg || '' };
+            }
+            const sessionEmotes = {};
+            for (const [emote, entry] of Object.entries(chatData.emotes || {})) {
+                sessionEmotes[emote] = { count: typeof entry === 'number' ? entry : (entry.count || 0) };
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                hashtags: sessionHashtags,
+                chatters: sessionChatters,
+                emotes: sessionEmotes,
+                sessionActive: true,
+                startedAt: chatData.startedAt
+            }));
+            return;
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(statsData, null, 2));
+        res.end(JSON.stringify({
+            ...statsData,
+            sessionHashtags: chatData.hashtags || {},
+            sessionChatters: chatData.chatters || {},
+            sessionEmotes: chatData.emotes || {}
+        }));
         return;
     }
 
@@ -7654,7 +7711,7 @@ const server = http.createServer(async (req, res) => {
                 const art = fs.readFileSync(MUSIC_ART_PATH);
                 res.writeHead(200, {
                     'Content-Type': 'image/png',
-                    'Cache-Control': 'no-cache',
+                    'Cache-Control': 'no-store',
                     'Content-Length': art.length
                 });
                 res.end(art);
@@ -7673,7 +7730,7 @@ const server = http.createServer(async (req, res) => {
         if (req.method === 'GET' || req.method === 'HEAD') {
             if (fs.existsSync(MUSIC_FALLBACK_ART_PATH)) {
                 const art = fs.readFileSync(MUSIC_FALLBACK_ART_PATH);
-                res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-cache', 'Content-Length': art.length });
+                res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store', 'Content-Length': art.length });
                 res.end(req.method === 'HEAD' ? undefined : art);
             } else {
                 res.writeHead(404);
