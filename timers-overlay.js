@@ -204,7 +204,6 @@
 
     function applyTheme() {
         body.classList.toggle('theme-light', params.get('theme') === 'light');
-        if (params.get('theme') !== 'light') body.classList.remove('theme-light');
         if (params.has('bgcolor')) {
             document.documentElement.style.setProperty('--background-color', `#${params.get('bgcolor')}`);
             document.documentElement.style.background = `#${params.get('bgcolor')}`;

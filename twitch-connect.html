@@ -27,10 +27,17 @@
         a { color: var(--accent); }
         .hidden { display: none; }
         .note { background: var(--accent-bg); border: 1px solid color-mix(in srgb, var(--accent-strong) 33%, transparent); border-radius: 6px; padding: 0.6rem 0.8rem; margin-top: 0.8rem; font-size: 0.85rem; }
+        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; margin: 0; }
+        .header h1 span { color: var(--accent); }
     </style>
 </head>
 <body>
-    <script src="/nav.js"></script>
+    <div class="header">
+        <h1>Connect <span>Twitch</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
     <main>
         <h1>Connect Twitch</h1>
         <p class="lead">StreamPulse needs read access to your subscribers, followers and bits, plus permission to create clips. Your login stays on this computer.</p>

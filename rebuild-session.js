@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Rebuild a chat-*.json session file from its chatlog-*.jsonl companion
-// Usage: node fix-session.js <chatlog-file.jsonl>
+// Usage: node rebuild-session.js <chatlog-file.jsonl>
 // Output: writes the corresponding chat-*.json in the same directory
 
 const fs = require('fs');
@@ -8,7 +8,7 @@ const path = require('path');
 
 const jsonlFile = process.argv[2];
 if (!jsonlFile) {
-    console.error('Usage: node fix-session.js <chatlog-XXXX.jsonl>');
+    console.error('Usage: node rebuild-session.js <chatlog-XXXX.jsonl>');
     process.exit(1);
 }
 
@@ -17,8 +17,16 @@ if (!fs.existsSync(jsonlFile)) {
     process.exit(1);
 }
 
-const lines = fs.readFileSync(jsonlFile, 'utf8').trim().split('\n');
-const messages = lines.map(l => JSON.parse(l));
+const raw = fs.readFileSync(jsonlFile, 'utf8');
+const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+const messages = [];
+for (const l of lines) {
+    try {
+        messages.push(JSON.parse(l));
+    } catch {
+        // Skip malformed or partially written lines
+    }
+}
 
 // Build session data from chat log messages
 const chatters = {};

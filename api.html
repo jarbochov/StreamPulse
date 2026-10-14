@@ -583,6 +583,92 @@
             ]
         },
         {
+            section: 'Variables & Counters',
+            items: [
+                {
+                    method: 'GET', path: '/api/variables',
+                    desc: 'List all custom variables and counters',
+                    companion: true,
+                    details: 'Returns { variables: [...] } with every variable (type: text, counter, list), current value, and update timestamp. Used by overlays, alerts, chat bot, and Companion.'
+                },
+                {
+                    method: 'GET', path: '/api/variables/:name',
+                    desc: 'Read a single variable or counter',
+                    details: 'Returns { name, type, value, initial?, items?, mode? } or 404 if not found.'
+                },
+                {
+                    method: 'PUT', path: '/api/variables/:name',
+                    desc: 'Create or update a variable or counter',
+                    companion: true,
+                    details: 'Sets the value and optional properties. Body: { type: "counter"|"text"|"list", value: any, initial?: number, items?: string[], mode?: "random"|"sequential" }',
+                    body: '{ "value": "New value" }'
+                },
+                {
+                    method: 'POST', path: '/api/variables/:name/increment',
+                    desc: 'Increment a counter variable',
+                    companion: true,
+                    details: 'Increases the counter by amount (default: 1). Optional JSON body: { "amount": 1 }'
+                },
+                {
+                    method: 'POST', path: '/api/variables/:name/decrement',
+                    desc: 'Decrement a counter variable',
+                    companion: true,
+                    details: 'Decreases the counter by amount (default: 1). Optional JSON body: { "amount": 1 }'
+                },
+                {
+                    method: 'POST', path: '/api/variables/:name/reset',
+                    desc: 'Reset a counter variable to its initial value',
+                    companion: true,
+                    details: 'Resets the counter back to its configured initial value (default: 0).'
+                },
+                {
+                    method: 'POST', path: '/api/variables/:name/roll',
+                    desc: 'Advance or randomize a list variable',
+                    companion: true,
+                    details: 'Picks the next sequential item or a new random item for a list variable.'
+                },
+                {
+                    method: 'DELETE', path: '/api/variables/:name',
+                    desc: 'Delete a custom variable or counter',
+                    details: 'Removes the variable. Returns updated variables list.'
+                }
+            ]
+        },
+        {
+            section: 'Chat Bot (Beta)',
+            items: [
+                {
+                    method: 'GET', path: '/api/chatbot',
+                    desc: 'Get chat bot configuration, commands, and quotes',
+                    details: 'Returns { enabled, ssnConfigured, settings, commands, quotes, messages, triggers }.'
+                },
+                {
+                    method: 'PUT', path: '/api/chatbot',
+                    desc: 'Update chat bot settings, commands, triggers, or messages',
+                    details: 'Saves updated settings, custom commands, timed messages, and word triggers.',
+                    body: '{ "settings": { "prefix": "!", "tag": "[BOT]", "cooldown": 5 }, "commands": [...] }'
+                },
+                {
+                    method: 'POST', path: '/api/chatbot/send',
+                    desc: 'Send a message to live chat via SocialStream Ninja',
+                    companion: true,
+                    details: 'Sends a chat message out through the connected SocialStream Ninja tab or dock.',
+                    body: '{ "text": "Hello chat!" }'
+                },
+                {
+                    method: 'POST', path: '/api/chatbot/preview',
+                    desc: 'Preview placeholder expansion in message text',
+                    details: 'Expands {{user}}, {{now}}, and any custom variables in the given text.',
+                    body: '{ "text": "Current time: {{now|h:mm A}}" }'
+                },
+                {
+                    method: 'GET', path: '/api/chatbot/recent',
+                    desc: 'Get recent messages sent by the chat bot',
+                    details: 'Returns { recent: [...] } with timestamps and messages sent.'
+                }
+            ]
+        },
+        {
             section: 'Custom Overlays & Assets',
             items: [
                 {

@@ -26,7 +26,7 @@ const PROCESS_STARTED_AT = new Date().toISOString();
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 
 if (!fs.existsSync(CONFIG_PATH)) {
-    console.error('Missing config.json — copy config.json and fill in your credentials.');
+    console.error('Missing config.json — copy config.example.json to config.json and fill in your credentials.');
     process.exit(1);
 }
 
@@ -3262,6 +3262,9 @@ let overlayVisible = true;
 const hiddenOverlays = new Set();
 const BUILTIN_OVERLAYS = [
     { key: 'credits', label: 'Credits' },
+    { key: 'stats', label: 'Stats' },
+    { key: 'hashtags', label: 'Hashtags' },
+    { key: 'viewers', label: 'Viewer Count' },
     { key: 'goal', label: 'Goals' },
     { key: 'countdown', label: 'Countdown timers' },
     { key: 'stopwatch', label: 'Stopwatch timers' },
@@ -8232,11 +8235,23 @@ if (pathname === '/api/restore' && req.method === 'POST') {
         filePath = path.join(__dirname, filePath);
     }
 
-    // Security: prevent directory traversal
-    if (!localMedia && !filePath.startsWith(__dirname)) {
-        res.writeHead(403);
-        res.end('Forbidden');
-        return;
+    // Security: prevent directory traversal and protect sensitive files
+    if (!localMedia) {
+        if (!filePath.startsWith(__dirname)) {
+            res.writeHead(403);
+            res.end('Forbidden');
+            return;
+        }
+        if (!pathname.startsWith('/custom-overlay-assets/')) {
+            const rel = path.relative(__dirname, filePath);
+            const segments = rel.split(path.sep);
+            const lowerRel = rel.toLowerCase();
+            if (segments.some(seg => seg.startsWith('.')) || lowerRel === 'config.json' || lowerRel.startsWith('data' + path.sep)) {
+                res.writeHead(404);
+                res.end('Not Found');
+                return;
+            }
+        }
     }
 
     try {
@@ -8439,8 +8454,8 @@ server.listen(PORT, () => {
 });
 
 // Graceful shutdown
-process.on('SIGINT', () => {
-    console.log('\n[Server] Shutting down...');
+function gracefulShutdown(signal) {
+    console.log(`\n[Server] Received ${signal}. Shutting down...`);
     finalizeSessionStreamEnd();
     saveChatData();
     saveStats();
@@ -8452,4 +8467,7 @@ process.on('SIGINT', () => {
     server.close();
     console.log('[Server] Data saved. Goodbye!');
     process.exit(0);
-});
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

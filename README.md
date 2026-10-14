@@ -21,7 +21,7 @@ To verify it's installed, open **Terminal** (Mac) or **Command Prompt** (Windows
 ```bash
 node --version
 ```
-You should see something like `v20.x.x`.
+You should see something like `v22.x.x`.
 
 ### 2. Download StreamPulse
 

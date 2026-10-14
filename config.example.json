@@ -12,9 +12,12 @@
     "server": "wss://io.socialstream.ninja"
   },
   "twitch_refresh_minutes": 10,
+  "twitch_stream_info_seconds": 60,
+  "subs_source": "twitch",
   "days_filter": 30,
   "active_subs_only": false,
   "hashtags_enabled": true,
+  "chatbot_enabled": false,
   "chat_log_enabled": true,
   "exclude_users": [],
   "banned_users": [],
@@ -39,7 +42,12 @@
   "music": {
     "enabled": false,
     "source": "apple_music",
-    "poll_seconds": 5
+    "poll_seconds": 5,
+    "vlc": {
+      "host": "127.0.0.1",
+      "port": 8080,
+      "password": ""
+    }
   },
   "session_lifecycle": {
     "auto": true,
