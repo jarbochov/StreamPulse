@@ -83,6 +83,7 @@
             min-height: 0;
             max-width: 100%;
             max-height: 100%;
+            container-type: size;
         }
 
         /* Mode: Card (Default) */
@@ -105,7 +106,7 @@
         }
 
         .card-title {
-            font-size: calc(clamp(0.65rem, 2vmin, 1.15rem) * var(--ms-font-scale));
+            font-size: calc(clamp(0.75rem, max(2vmin, 9cqh, 9vh), 2.4rem) * var(--ms-font-scale));
             text-transform: uppercase;
             letter-spacing: 0.08em;
             font-weight: 700;
@@ -121,7 +122,7 @@
             gap: clamp(3px, 0.8vmin, 6px);
             padding: clamp(2px, 0.6vmin, 6px) clamp(6px, 1.5vmin, 12px);
             border-radius: 999px;
-            font-size: calc(clamp(0.68rem, 2vmin, 1.18rem) * var(--ms-font-scale));
+            font-size: calc(clamp(0.72rem, max(2vmin, 8.5cqh, 8.5vh), 2.2rem) * var(--ms-font-scale));
             font-weight: 700;
             background: rgba(245, 158, 11, 0.14);
             border: 1px solid rgba(245, 158, 11, 0.35);
@@ -143,7 +144,7 @@
         }
 
         .stream-num {
-            font-size: calc(clamp(1.2rem, 5.8vmin, 3.8rem) * var(--ms-font-scale));
+            font-size: calc(clamp(1.4rem, max(5.8vmin, 24cqh, 24vh), 6.5rem) * var(--ms-font-scale));
             font-weight: 800;
             letter-spacing: -0.02em;
             color: var(--ms-accent);
@@ -152,7 +153,7 @@
         }
 
         .stream-hours {
-            font-size: calc(clamp(0.8rem, 2.8vmin, 1.7rem) * var(--ms-font-scale));
+            font-size: calc(clamp(0.85rem, max(2.8vmin, 12cqh, 12vh), 3.2rem) * var(--ms-font-scale));
             font-weight: 600;
             color: var(--ms-text);
             display: inline-flex;
@@ -165,7 +166,7 @@
             display: flex;
             align-items: center;
             gap: clamp(8px, 2.5vmin, 18px);
-            font-size: calc(clamp(0.68rem, 2vmin, 1.2rem) * var(--ms-font-scale));
+            font-size: calc(clamp(0.7rem, max(2vmin, 8.5cqh, 8.5vh), 2.2rem) * var(--ms-font-scale));
             color: var(--ms-muted);
             flex-wrap: wrap;
             min-width: 0;
@@ -195,7 +196,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: calc(clamp(0.65rem, 2vmin, 1.15rem) * var(--ms-font-scale));
+            font-size: calc(clamp(0.72rem, max(2vmin, 9cqh, 9vh), 2.2rem) * var(--ms-font-scale));
             gap: 6px;
             min-width: 0;
         }
@@ -210,13 +211,13 @@
 
         .goal-rem {
             color: var(--ms-muted);
-            font-size: calc(clamp(0.62rem, 1.8vmin, 1.05rem) * var(--ms-font-scale));
+            font-size: calc(clamp(0.68rem, max(1.8vmin, 8cqh, 8vh), 1.8rem) * var(--ms-font-scale));
             white-space: nowrap;
             flex-shrink: 0;
         }
 
         .goal-bar {
-            height: clamp(6px, 1.8vmin, 18px);
+            height: calc(clamp(6px, max(1.8vmin, 6cqh, 6vh), 24px) * var(--ms-font-scale));
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.1);
             overflow: hidden;
@@ -253,7 +254,7 @@
             display: inline-flex;
             align-items: center;
             gap: clamp(4px, 1vmin, 8px);
-            font-size: calc(clamp(0.8rem, 2.8vmin, 1.8rem) * var(--ms-font-scale));
+            font-size: calc(clamp(0.85rem, max(2.8vmin, 22cqh, 22vh), 3.5rem) * var(--ms-font-scale));
             font-weight: 600;
             white-space: nowrap;
         }
@@ -282,13 +283,13 @@
         }
 
         .mode-streak .streak-val {
-            font-size: calc(clamp(1.1rem, 5vmin, 3.4rem) * var(--ms-font-scale));
+            font-size: calc(clamp(1.4rem, max(5vmin, 38cqh, 38vh), 6.5rem) * var(--ms-font-scale));
             font-weight: 800;
             color: var(--ms-fire);
         }
 
         .mode-streak .streak-sub {
-            font-size: calc(clamp(0.75rem, 2.4vmin, 1.4rem) * var(--ms-font-scale));
+            font-size: calc(clamp(0.8rem, max(2.4vmin, 18cqh, 18vh), 2.8rem) * var(--ms-font-scale));
             font-weight: 600;
             color: var(--ms-muted);
         }
@@ -303,7 +304,7 @@
             gap: clamp(6px, 2vmin, 16px);
             padding: clamp(6px, 2vmin, 16px) clamp(12px, 3vmin, 24px);
             border-radius: clamp(6px, 1.5vmin, 14px);
-            font-size: calc(clamp(1.1rem, 5vmin, 3.4rem) * var(--ms-font-scale));
+            font-size: calc(clamp(1.4rem, max(5vmin, 38cqh, 38vh), 6.5rem) * var(--ms-font-scale));
             font-weight: 800;
             color: var(--ms-accent);
             white-space: nowrap;
@@ -321,20 +322,20 @@
         }
 
         .mode-goal .goal-header {
-            font-size: calc(clamp(0.75rem, 2.4vmin, 1.4rem) * var(--ms-font-scale));
+            font-size: calc(clamp(0.8rem, max(2.4vmin, 14cqh, 14vh), 2.5rem) * var(--ms-font-scale));
         }
 
         .mode-goal .goal-name {
-            font-size: calc(clamp(0.85rem, 3.2vmin, 2rem) * var(--ms-font-scale));
+            font-size: calc(clamp(0.95rem, max(3.2vmin, 20cqh, 20vh), 3.6rem) * var(--ms-font-scale));
             font-weight: 700;
         }
 
         .mode-goal .goal-rem {
-            font-size: calc(clamp(0.72rem, 2.4vmin, 1.4rem) * var(--ms-font-scale));
+            font-size: calc(clamp(0.75rem, max(2.4vmin, 14cqh, 14vh), 2.2rem) * var(--ms-font-scale));
         }
 
         .mode-goal .goal-bar {
-            height: clamp(8px, 2.6vmin, 24px);
+            height: calc(clamp(8px, max(2.6vmin, 14cqh, 14vh), 32px) * var(--ms-font-scale));
         }
     </style>
 </head>

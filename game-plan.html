@@ -41,6 +41,7 @@
             box-sizing: border-box;
             min-width: 0;
             min-height: 0;
+            container-type: size;
         }
 
         /* Theme Variants */
@@ -81,11 +82,11 @@
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            font-size: calc(clamp(0.62rem, 1.8vmin, 1.05rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.68rem, max(1.8vmin, 12cqh, 12vh), 1.6rem) * var(--gp-font-scale));
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            padding: clamp(2px, 0.5vmin, 5px) clamp(6px, 1.4vmin, 12px);
+            padding: clamp(2px, 0.5vmin, 6px) clamp(6px, 1.4vmin, 14px);
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.1);
             color: var(--gp-muted);
@@ -114,8 +115,8 @@
         }
 
         .cover-img {
-            width: clamp(38px, 6vmin, 72px);
-            height: clamp(52px, 8vmin, 96px);
+            width: clamp(38px, max(6vmin, 55cqh, 55vh), 130px);
+            height: clamp(52px, max(8vmin, 75cqh, 75vh), 180px);
             object-fit: cover;
             border-radius: clamp(4px, 1vmin, 8px);
             flex-shrink: 0;
@@ -123,8 +124,8 @@
             border: 1px solid var(--gp-border);
         }
         .cover-img.small {
-            width: clamp(26px, 4.5vmin, 48px);
-            height: clamp(34px, 6vmin, 64px);
+            width: clamp(26px, max(4.5vmin, 38cqh, 38vh), 90px);
+            height: clamp(34px, max(6vmin, 50cqh, 50vh), 120px);
             border-radius: clamp(3px, 0.8vmin, 6px);
         }
 
@@ -165,14 +166,14 @@
             flex-shrink: 0;
         }
         .ticker-title {
-            font-size: calc(clamp(0.85rem, 2.6vmin, 1.8rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.95rem, max(2.8vmin, 24cqh, 24vh), 3.5rem) * var(--gp-font-scale));
             font-weight: 700;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .ticker-sub {
-            font-size: calc(clamp(0.68rem, 1.8vmin, 1.25rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.75rem, max(1.8vmin, 15cqh, 15vh), 2.2rem) * var(--gp-font-scale));
             color: var(--gp-muted);
             white-space: nowrap;
         }
@@ -223,7 +224,7 @@
             flex: 1;
         }
         .schedule-title {
-            font-size: calc(clamp(0.82rem, 2.5vmin, 1.6rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.85rem, max(2.5vmin, 15cqh, 15vh), 2.6rem) * var(--gp-font-scale));
             font-weight: 700;
             white-space: nowrap;
             overflow: hidden;
@@ -267,7 +268,7 @@
             opacity: 0.6;
         }
         .checklist-idx {
-            font-size: calc(clamp(0.75rem, 2vmin, 1.15rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.75rem, max(2vmin, 8cqh, 8vh), 1.8rem) * var(--gp-font-scale));
             font-weight: 700;
             color: var(--gp-muted);
             min-width: 20px;
@@ -278,14 +279,14 @@
             min-width: 0;
         }
         .checklist-title {
-            font-size: calc(clamp(0.82rem, 2.4vmin, 1.5rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.85rem, max(2.4vmin, 9cqh, 9vh), 2.4rem) * var(--gp-font-scale));
             font-weight: 700;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .checklist-note {
-            font-size: calc(clamp(0.68rem, 1.8vmin, 1.2rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.72rem, max(1.8vmin, 7cqh, 7vh), 1.8rem) * var(--gp-font-scale));
             color: var(--gp-muted);
             white-space: nowrap;
             overflow: hidden;
@@ -296,7 +297,7 @@
         }
 
         .empty-placeholder {
-            font-size: calc(clamp(0.82rem, 2.2vmin, 1.3rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.85rem, max(2.2vmin, 8cqh, 8vh), 2.2rem) * var(--gp-font-scale));
             color: var(--gp-muted);
             padding: 8px 14px;
             background: var(--gp-bg);

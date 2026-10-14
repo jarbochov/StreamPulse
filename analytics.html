@@ -112,16 +112,19 @@
 
         /* Community CRM */
         .crm-tags-bar { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; margin-top: 0.6rem; }
-        .tag-chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.76rem; background: var(--bg-inset); border: 1px solid var(--border); cursor: pointer; color: var(--text-muted); user-select: none; transition: all 0.15s; }
+        .tag-chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.72rem; background: var(--bg-inset); border: 1px solid var(--border); cursor: pointer; color: var(--text-muted); user-select: none; transition: all 0.15s; }
         .tag-chip:hover { border-color: var(--accent); color: var(--text); }
         .tag-chip.active { background: color-mix(in srgb, var(--accent) 18%, var(--bg-inset)); border-color: var(--accent); color: var(--accent); font-weight: 600; }
         .chatter-cell { display: inline-flex; align-items: center; gap: 0.65rem; }
         .chatter-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: var(--bg-raised); border: 1px solid var(--border); flex-shrink: 0; }
-        .tag-badge { display: inline-block; padding: 0.08rem 0.45rem; border-radius: 999px; font-size: 0.7rem; background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); margin-right: 0.25rem; }
-        .tag-badge.vip { border-color: #e3b341; color: #e3b341; background: rgba(227, 179, 65, 0.12); }
-        .tag-badge.mod { border-color: #388bfd; color: #58a6ff; background: rgba(56, 139, 253, 0.15); }
-        .tag-badge.sub { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
-        .note-preview { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 0.75rem; font-style: italic; }
+        .tag-badge { display: inline-flex; align-items: center; padding: 0.08rem 0.42rem; border-radius: 999px; font-size: 0.68rem; font-weight: 600; line-height: 1.15; background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); margin-right: 0.25rem; white-space: nowrap; vertical-align: middle; }
+        .tag-badge.vip { border-color: #e3b341; color: #e3b341; background: rgba(227, 179, 65, 0.12); font-size: 0.65rem; padding: 0.06rem 0.38rem; }
+        .tag-badge.mod { border-color: #388bfd; color: #58a6ff; background: rgba(56, 139, 253, 0.15); font-size: 0.65rem; padding: 0.06rem 0.38rem; }
+        .tag-badge.sub { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); font-size: 0.65rem; padding: 0.06rem 0.38rem; }
+        .note-preview { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 0.75rem; font-style: italic; }
+        .note-masked { font-family: ui-monospace, SFMono-Regular, monospace; letter-spacing: 2px; color: var(--text-muted); opacity: 0.6; font-style: normal; font-size: 0.78rem; }
+        .crm-row { cursor: pointer; transition: background 0.12s ease; }
+        .crm-row:hover { background: color-mix(in srgb, var(--accent) 8%, var(--bg-raised)) !important; }
 
         @media (max-width: 800px) { .split { grid-template-columns: minmax(0, 1fr); } .container { padding: 1rem; } .header { padding: 1rem; flex-wrap: wrap; } }
     </style>
@@ -239,8 +242,10 @@
                     <span class="muted" id="crm-count"></span>
                 </div>
                 <div class="toolbar" style="margin-bottom:0.4rem;">
-                    <input id="crm-search" type="search" placeholder="🔍 Search chatters, notes, or tags…" style="min-width:280px; flex:1;" aria-label="Search chatters">
-                    <button class="btn" id="crm-open-btn">Open Dossier</button>
+                    <input id="crm-search" type="search" placeholder="🔍 Search chatters, notes, or tags…" style="min-width:240px; flex:1;" aria-label="Search chatters">
+                    <button class="btn" id="crm-open-btn" type="button" title="Open dossier for search query">Open Dossier</button>
+                    <button class="btn" id="crm-streamer-mode-btn" type="button" title="Hide private notes from the table (useful while live on stream)">🕶️ Hide Notes</button>
+                    <button class="btn" id="crm-sync-twitch-btn" type="button" title="Fetch latest VIPs, Mods, and subscriber data from Twitch">↻ Sync Twitch</button>
                 </div>
                 <div class="crm-tags-bar" id="crm-tags-filter"></div>
             </section>
@@ -249,20 +254,12 @@
                 <div class="table-wrap">
                     <table>
                         <thead>
-                            <tr>
-                                <th>Chatter</th>
-                                <th>Community Tags</th>
-                                <th>Private Notes</th>
-                                <th class="num">Attendance</th>
-                                <th class="num">Messages</th>
-                                <th>Last Active</th>
-                                <th style="text-align:right">Action</th>
-                            </tr>
+                            <tr id="crm-head"></tr>
                         </thead>
                         <tbody id="crm-table-body"></tbody>
                     </table>
                 </div>
-                <p class="muted note">Click any row or avatar to view their complete Chatter Dossier, stream history, and private notes. Notes are saved automatically.</p>
+                <p class="muted note">💡 Click any row to view their complete Chatter Dossier, stream history, and private notes.</p>
             </section>
         </div>
 
@@ -331,7 +328,7 @@ const SUB_COLS = [['name', 'Subscriber'], ['tier', 'Tier'], ['tenureMonths', 'Te
 const prefs = Object.assign({ metric: 'messages', chart: 'bar', days: '30' }, JSON.parse(localStorage.getItem('analyticsPrefs') || '{}'));
 const savePrefs = () => localStorage.setItem('analyticsPrefs', JSON.stringify(prefs));
 let report = null, subscriberRows = [], subInfo = { summary: {}, history: [] }, folRows = [], folInfo = { history: [] };
-const sort = { sessions: { key: 'date', dir: 'desc' }, subs: { key: 'name', dir: 'asc' } };
+const sort = { sessions: { key: 'date', dir: 'desc' }, subs: { key: 'name', dir: 'asc' }, crm: { key: 'totalMessages', dir: 'desc' } };
 
 // Tab Navigation
 function switchTab(tabId, pushHash = true) {
@@ -371,7 +368,9 @@ window.addEventListener('hashchange', () => {
 // Compare & Sort helpers
 function compareRows(a, b, key, isDate) {
     if (isDate) return new Date(a[key] || 0).getTime() - new Date(b[key] || 0).getTime();
-    const av = a[key] ?? '', bv = b[key] ?? '';
+    let av = a[key] ?? '', bv = b[key] ?? '';
+    if (Array.isArray(av)) av = av.join(' ');
+    if (Array.isArray(bv)) bv = bv.join(' ');
     if (typeof av === 'number' || typeof bv === 'number') return Number(av || 0) - Number(bv || 0);
     return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
 }
@@ -768,8 +767,35 @@ let crmChatters = [];
 let crmTags = [];
 let activeTagFilter = '';
 let searchDebounce = null;
+let crmHideNotes = localStorage.getItem('crmHideNotes') === 'true';
+
+const CRM_COLS = [
+    ['username', 'Chatter'],
+    ['tags', 'Community Tags'],
+    ['notes', 'Private Notes'],
+    ['sessionsAttended', 'Attendance', 1],
+    ['totalMessages', 'Messages', 1],
+    ['lastSeen', 'Last Active']
+];
+
+function updateStreamerModeUI() {
+    const btn = $('crm-streamer-mode-btn');
+    if (!btn) return;
+    if (crmHideNotes) {
+        btn.textContent = '🕶️ Notes Hidden';
+        btn.style.borderColor = 'var(--warn, #f59e0b)';
+        btn.style.color = 'var(--warn, #f59e0b)';
+        btn.style.background = 'var(--warn-bg, rgba(245,158,11,0.12))';
+    } else {
+        btn.textContent = '👁️ Hide Notes';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+        btn.style.background = '';
+    }
+}
 
 async function loadChatters() {
+    updateStreamerModeUI();
     const q = $('crm-search')?.value.trim() || '';
     const params = new URLSearchParams();
     if (q) params.set('q', q);
@@ -817,29 +843,41 @@ function onAvatarError(img) {
 }
 
 function renderCrmTable() {
+    renderHead('crm-head', CRM_COLS, sort.crm, key => {
+        toggleSort(sort.crm, key, ['username', 'tags', 'notes']);
+        renderCrmTable();
+    });
+
     const tbody = $('crm-table-body');
     if (!tbody) return;
     $('crm-count').textContent = crmChatters.length ? `${fmt(crmChatters.length)} chatters shown` : '';
 
     if (!crmChatters.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty">No community members match your filter.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No community members match your filter.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = crmChatters.map(c => {
+    const rows = sorted(crmChatters, sort.crm);
+
+    tbody.innerHTML = rows.map(c => {
         const avatarSrc = c.chatimg || FALLBACK_AVATAR;
         const lastSeenStr = c.lastSeen ? shortDate(c.lastSeen) : '—';
-        const notesPreview = c.notes ? esc(c.notes) : '<span class="muted">—</span>';
-        
+        let notesPreview;
+        if (crmHideNotes) {
+            notesPreview = c.notes ? '<span class="note-masked" title="Hidden in Streamer Mode">••••••••</span>' : '<span class="muted">—</span>';
+        } else {
+            notesPreview = c.notes ? esc(c.notes) : '<span class="muted">—</span>';
+        }
+
         // Tags badges
         let tagsHtml = (c.tags || []).filter(t => t.toLowerCase() !== 'vip' && t.toLowerCase() !== 'mod' && t.toLowerCase() !== 'sub').map(t => `<span class="tag-badge">${esc(t)}</span>`).join('');
         if (c.isMod) tagsHtml = `<span class="tag-badge mod">🛡️ Mod</span> ` + tagsHtml;
         if (c.isVip) tagsHtml = `<span class="tag-badge vip">★ VIP</span> ` + tagsHtml;
-        if (c.isSubscriber) tagsHtml = `<span class="tag-badge sub">Sub${c.subMonths ? ` (${c.subMonths}m)` : ''}</span> ` + tagsHtml;
+        if (c.isSubscriber) tagsHtml = `<span class="tag-badge sub">★ Sub${c.subMonths ? ` · ${c.subMonths}m` : ''}</span> ` + tagsHtml;
         if (!tagsHtml) tagsHtml = '<span class="muted">—</span>';
 
         return `
-            <tr style="cursor:pointer;" data-chatter="${esc(c.username)}" title="Click to view ${esc(c.username)}'s dossier">
+            <tr class="crm-row" data-chatter="${esc(c.username)}" title="Click to view ${esc(c.username)}'s dossier">
                 <td>
                     <div class="chatter-cell">
                         <img class="chatter-avatar" src="${esc(avatarSrc)}" alt="" onerror="onAvatarError(this)">
@@ -851,15 +889,21 @@ function renderCrmTable() {
                 </td>
                 <td>${tagsHtml}</td>
                 <td><div class="note-preview">${notesPreview}</div></td>
-                <td class="num">${fmt(c.sessionsAttended)} streams</td>
+                <td class="num">${fmt(c.sessionsAttended)}</td>
                 <td class="num">${fmt(c.totalMessages)}</td>
                 <td>${esc(lastSeenStr)}</td>
-                <td style="text-align:right">
-                    <button class="btn" style="padding:0.2rem 0.55rem; font-size:0.74rem;" data-chatter="${esc(c.username)}">Dossier ✎</button>
-                </td>
             </tr>
         `;
     }).join('');
+
+    tbody.querySelectorAll('.crm-row').forEach(tr => {
+        tr.addEventListener('click', () => {
+            const username = tr.dataset.chatter;
+            if (username && typeof window.openChatterDossier === 'function') {
+                window.openChatterDossier(username);
+            }
+        });
+    });
 }
 
 $('crm-search')?.addEventListener('input', () => {
@@ -873,6 +917,31 @@ $('crm-open-btn')?.addEventListener('click', () => {
         window.openChatterDossier(q);
     } else {
         alert('Please enter a username in the search box first.');
+    }
+});
+
+$('crm-streamer-mode-btn')?.addEventListener('click', () => {
+    crmHideNotes = !crmHideNotes;
+    localStorage.setItem('crmHideNotes', String(crmHideNotes));
+    updateStreamerModeUI();
+    renderCrmTable();
+});
+
+$('crm-sync-twitch-btn')?.addEventListener('click', async () => {
+    const btn = $('crm-sync-twitch-btn');
+    if (!btn) return;
+    const orig = btn.textContent;
+    btn.textContent = '⏳ Syncing…';
+    btn.disabled = true;
+    try {
+        const res = await fetch('/api/twitch/fetch-data', { method: 'POST' });
+        const data = await res.json();
+        btn.textContent = `✓ Synced! (${data.moderators ?? 0} mods, ${data.vips ?? 0} VIPs)`;
+        setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2200);
+        await loadChatters();
+    } catch (err) {
+        btn.textContent = '✗ Sync failed';
+        setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2200);
     }
 });
 

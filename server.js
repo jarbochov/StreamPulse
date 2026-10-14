@@ -2650,7 +2650,7 @@ async function fetchTwitchData() {
         // Fetch Moderators
         console.log('[Twitch] Fetching moderators...');
         try {
-            const mods = await fetchAllPages('/moderators', { broadcaster_id: BROADCASTER_ID }, 'data', true);
+            const mods = await fetchAllPages('/moderation/moderators', { broadcaster_id: BROADCASTER_ID }, 'data', true);
             fs.writeFileSync(path.join(DATA_DIR, 'moderators.json'), JSON.stringify({ data: mods }, null, 2));
             console.log(`[Twitch] Saved ${mods.length} moderators`);
             result.moderators = mods.length;
@@ -3845,6 +3845,10 @@ function updateStats(chatname, msg) {
         statsData.chatters[chatname].days[today] = (statsData.chatters[chatname].days[today] || 0) + 1;
         statsData.chatters[chatname].lastSeen = nowISO;
         if (msg.chatimg) statsData.chatters[chatname].chatimg = msg.chatimg;
+        const isMsgMod = [msg.mod, msg.moderator, msg.isMod, msg.isModerator, msg.is_mod].some(v => v === true || v === 'true' || v === 1) || (typeof msg.badges === 'string' && msg.badges.includes('moderator'));
+        const isMsgVip = [msg.vip, msg.isVip, msg.is_vip].some(v => v === true || v === 'true' || v === 1) || (typeof msg.badges === 'string' && msg.badges.includes('vip'));
+        if (isMsgMod) statsData.chatters[chatname].isMod = true;
+        if (isMsgVip) statsData.chatters[chatname].isVip = true;
     }
 
     // Track follow events
@@ -5736,8 +5740,8 @@ function getChatterDossier(username) {
     const noteEntry = chatterNotes[key] || {};
     const vipsList = readJsonFileSafe(path.join(DATA_DIR, 'vips.json'), { data: [] })?.data || [];
     const modsList = readJsonFileSafe(path.join(DATA_DIR, 'moderators.json'), { data: [] })?.data || [];
-    const isTwitchVip = vipsList.some(v => (v.user_login || v.user_name || '').toLowerCase() === key);
-    const isTwitchMod = modsList.some(m => (m.user_login || m.user_name || '').toLowerCase() === key);
+    const isTwitchVip = vipsList.some(v => (v.user_login || v.user_name || '').toLowerCase() === key) || Boolean(chatter?.isVip);
+    const isTwitchMod = modsList.some(m => (m.user_login || m.user_name || '').toLowerCase() === key) || Boolean(chatter?.isMod);
     const isVip = Boolean(noteEntry.isVip || isTwitchVip);
     const isMod = Boolean(isTwitchMod || (noteEntry.tags || []).some(t => t.toLowerCase() === 'mod'));
 
@@ -7205,8 +7209,8 @@ const server = http.createServer(async (req, res) => {
             const subTenure = statsData.subTenure?.[username.toLowerCase()] || statsData.subTenure?.[username];
             const subMonths = subTenure?.months || 0;
             const isSubscriber = Boolean(subMonths > 0 || statsData.subscribers?.[username] || statsData.subscribers?.[username.toLowerCase()]);
-            const isTwitchVip = vipSet.has(username.toLowerCase());
-            const isTwitchMod = modSet.has(username.toLowerCase());
+            const isTwitchVip = vipSet.has(username.toLowerCase()) || Boolean(d.isVip);
+            const isTwitchMod = modSet.has(username.toLowerCase()) || Boolean(d.isMod);
             const isVip = Boolean(notes.isVip || isTwitchVip);
             const isMod = Boolean(isTwitchMod || (notes.tags || []).some(t => t.toLowerCase() === 'mod'));
             return {
