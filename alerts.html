@@ -508,7 +508,7 @@
             else if (v.sound) { const audio = new Audio(v.sound); audio.volume = (v.volume || 70) / 100; audio.play().catch(() => toast('Could not play that file')); }
         }
         else if (btn.dataset.delVariant !== undefined) { r.variants.splice(Number(btn.dataset.delVariant), 1); setDirty(true); renderEditor(); }
-        else if (btn.id === 'del-rule') { if (!confirm(`Delete "${r.name}"?`)) return; cfg.rules = cfg.rules.filter(x => x !== r); sel = cfg.rules[0]?.id || null; setDirty(true); renderAll(); }
+        else if (btn.id === 'del-rule') { if (!await StreamPulse.confirm('Delete Rule', `Delete "${r.name}"?`, { danger: true, confirmText: 'Delete' })) return; cfg.rules = cfg.rules.filter(x => x !== r); sel = cfg.rules[0]?.id || null; setDirty(true); renderAll(); }
         else if (btn.id === 'dup-rule') { const copy = JSON.parse(JSON.stringify(r)); copy.id = `rule-${Date.now().toString(36)}`; copy.name = `${r.name} copy`; cfg.rules.push(copy); sel = copy.id; setDirty(true); renderAll(); }
         else if (btn.dataset.test !== undefined) {
             await save();

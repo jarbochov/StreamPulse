@@ -257,7 +257,7 @@
     async function restoreBackup() {
         const fileInput = document.getElementById('restore-file');
         if (!fileInput.files.length) { showToast('Select a backup ZIP file first'); return; }
-        if (!confirm('⚠️ Restore from backup? This will OVERWRITE all current data including stats, config, and sessions.')) return;
+        if (!await StreamPulse.confirm('Restore from Backup', '⚠️ Restore from backup? This will OVERWRITE all current data including stats, config, and sessions.', { danger: true, confirmText: 'Restore & Overwrite' })) return;
         const resultEl = document.getElementById('restore-result');
         resultEl.style.display = 'block';
         resultEl.style.color = '#8b949e';

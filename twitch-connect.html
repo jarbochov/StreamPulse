@@ -143,8 +143,9 @@
     $('open-twitch').onclick = () => window.open(verificationUri, '_blank');
     $('copy-code').onclick = () => navigator.clipboard.writeText($('user-code').textContent);
     $('disconnect').onclick = async () => {
-        if (!confirm('Disconnect Twitch? Subscriber, follower and clip features stop until you reconnect.')) return;
+        if (!await StreamPulse.confirm('Disconnect Twitch', 'Disconnect Twitch? Subscriber, follower and clip features will stop until you reconnect.', { danger: true, confirmText: 'Disconnect' })) return;
         await fetch('/api/twitch/auth/disconnect', { method: 'POST' });
+        StreamPulse.toast('Twitch disconnected', 'info');
         refreshStatus();
     };
 

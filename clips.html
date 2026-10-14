@@ -328,7 +328,7 @@
     }
 
     async function backfillCandidates() {
-        if (!confirm('Rebuild current and archived analysis using the visible settings?\n\nUncreated automatic candidates will be removed and regenerated. Manual markers and already-created Twitch clips will be kept.')) return;
+        if (!await StreamPulse.confirm('Rebuild Historical Analysis', 'Rebuild current and archived analysis using the visible settings?\n\nUncreated automatic candidates will be removed and regenerated. Manual markers and already-created Twitch clips will be kept.', { confirmText: 'Rebuild Analysis' })) return;
         const res = await fetch('/api/clip-candidates/backfill', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -420,7 +420,7 @@
     }
 
     async function createClip(id) {
-        if (!confirm('Ask Twitch to create a clip from this candidate?')) return;
+        if (!await StreamPulse.confirm('Create Twitch Clip', 'Ask Twitch to create a clip from this candidate?', { confirmText: 'Create Clip' })) return;
         const res = await fetch(`/api/clip-candidates/${encodeURIComponent(id)}/create`, { method: 'POST' });
         const data = await res.json();
         if (!res.ok) { showToast(data.error || 'Clip creation failed'); return; }
@@ -429,7 +429,7 @@
     }
 
     async function deleteCandidate(id) {
-        if (!confirm('Delete this clip candidate?')) return;
+        if (!await StreamPulse.confirm('Delete Candidate', 'Delete this clip candidate?', { danger: true, confirmText: 'Delete' })) return;
         await fetch(`/api/clip-candidates/${encodeURIComponent(id)}`, { method: 'DELETE' });
         loadCandidates();
     }

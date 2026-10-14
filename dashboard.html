@@ -514,8 +514,8 @@
         $('edit-btn').classList.toggle('on', editing);
         $('edit-btn').textContent = editing ? '✓ Done' : '✎ Edit layout';
     });
-    $('reset-btn').addEventListener('click', () => {
-        if (!confirm('Reset the dashboard layout to the default?')) return;
+    $('reset-btn').addEventListener('click', async () => {
+        if (!await StreamPulse.confirm('Reset Layout', 'Reset the dashboard layout to the default?')) return;
         localStorage.removeItem(LAYOUT_KEY);
         layout = defaultLayout();
         defaultOrder.forEach(id => grid.appendChild(cards().find(c => c.dataset.panelId === id)));
@@ -718,16 +718,16 @@
         },
         'reauth-twitch'() { window.open('/auth/twitch?return=/dashboard.html', '_blank'); showToast('Opening Twitch auth…'); },
         async 'reset-chat'() {
-            if (!confirm('Reset all chat data for this session?')) return;
+            if (!await StreamPulse.confirm('Reset Chat', 'Reset all chat data for this session?', { danger: true, confirmText: 'Reset Chat' })) return;
             try { await call('/api/reset', 'Chat data reset'); refresh(); } catch { showToast('Reset failed'); }
         },
         async 'reset-stats'() {
-            if (!confirm('Reset ALL persistent stats? This cannot be undone.')) return;
+            if (!await StreamPulse.confirm('Reset Stats', 'Reset ALL persistent stats? This cannot be undone.', { danger: true, confirmText: 'Reset All Stats' })) return;
             try { await call('/api/stats/reset', 'Stats reset'); refresh(); } catch { showToast('Reset failed'); }
         },
         async 'toggle-session'() {
             if (sessionActive) {
-                if (!confirm('End session? This archives chat data and resets for the next stream. The server keeps running.')) return;
+                if (!await StreamPulse.confirm('End Session', 'End session? This archives chat data and resets for the next stream. The server keeps running.', { confirmText: 'End Session' })) return;
                 try { const data = await call('/api/end-session'); showToast(data.archived ? `Archived: ${data.archived}` : 'Session ended'); refresh(); }
                 catch { showToast('End session failed'); }
             } else {
@@ -735,7 +735,7 @@
             }
         },
         async shutdown() {
-            if (!confirm('Shut down the server? This archives data and stops the process.')) return;
+            if (!await StreamPulse.confirm('Shut Down Server', 'Shut down the server? This archives data and stops the process.', { danger: true, confirmText: 'Shut Down' })) return;
             try {
                 await call('/api/shutdown', 'Server shutting down…');
                 clearInterval(refreshInterval);
@@ -745,7 +745,7 @@
             } catch { showToast('Shutdown failed'); }
         },
         async restart() {
-            if (!confirm('Restart StreamPulse and continue the current session?')) return;
+            if (!await StreamPulse.confirm('Restart Server', 'Restart StreamPulse and continue the current session?', { confirmText: 'Restart' })) return;
             clearInterval(refreshInterval);
             showToast('Restart requested — waiting for the new process…');
             try {

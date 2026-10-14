@@ -215,7 +215,7 @@
                 toast('OBS URL copied');
             } else if (button.dataset.act === 'rename-id') {
                 const suggestion = String(overlay?.name || id).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
-                const next = prompt(`New id for "${overlay?.name || id}".\n\nThe OBS URL changes to ...?id=<new id>, so update any browser source that uses the old one.`, suggestion);
+                const next = await StreamPulse.prompt('Rename Overlay ID', `Enter a new ID for "${overlay?.name || id}". Any browser source using the old URL will need to be updated.`, suggestion);
                 if (next === null || !next.trim() || next.trim() === id) return;
                 await api(`/api/custom-overlays/${encodeURIComponent(id)}/rename-id`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newId: next.trim() }) });
                 toast('ID changed');
@@ -224,11 +224,11 @@
                 button.disabled = true;
                 await duplicate(id);
             } else if (button.dataset.act === 'delete') {
-                if (!confirm(`Delete "${overlay?.name || id}"? Its revision history is deleted too.`)) return;
+                if (!await StreamPulse.confirm('Delete Overlay', `Delete "${overlay?.name || id}"? Its revision history will also be permanently removed.`, { danger: true, confirmText: 'Delete' })) return;
                 await api(`/api/custom-overlays/${encodeURIComponent(id)}`, { method: 'DELETE' });
                 await load();
             }
-        } catch (error) { alert(error.message); button.disabled = false; }
+        } catch (error) { StreamPulse.toast(error.message, 'error'); button.disabled = false; }
     });
 
     $('search').addEventListener('input', render);

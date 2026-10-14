@@ -2674,7 +2674,7 @@
         const del = event.target.closest('[data-del-preset]');
         if (del) {
             const preset = userPresets.find(item => item.id === del.dataset.delPreset);
-            if (!preset || !confirm(`Delete the preset “${preset.name}”? Overlays already using it are not affected.`)) return;
+            if (!preset || !await StreamPulse.confirm('Delete Preset', `Delete the preset “${preset.name}”? Overlays already using it are not affected.`, { danger: true, confirmText: 'Delete' })) return;
             await fetch(`/api/overlay-presets/${encodeURIComponent(preset.id)}`, { method: 'DELETE' });
             await loadUserPresets(); renderPresets();
             return;
@@ -3392,11 +3392,11 @@
         });
         overlay.elements.push(...clones); normalizeZ(); changed(true); switchEditPage(id);
     }
-    function deletePage(page) {
+    async function deletePage(page) {
         const items = overlay.pages.items;
         if (items.length < 2) return;
         const doomed = overlay.elements.filter(el => el.page === page.id).length;
-        if (doomed && !confirm(`Delete “${page.name}” and its ${doomed} element${doomed > 1 ? 's' : ''}? (Undo can restore it.)`)) return;
+        if (doomed && !await StreamPulse.confirm('Delete Page', `Delete “${page.name}” and its ${doomed} element${doomed > 1 ? 's' : ''}? (Undo can restore it.)`, { danger: true, confirmText: 'Delete Page' })) return;
         const idx = items.indexOf(page);
         overlay.elements = overlay.elements.filter(el => el.page !== page.id);
         items.splice(idx, 1); normalizeZ(); changed(true);
@@ -3424,18 +3424,21 @@
     document.querySelector('.rail-tabs').addEventListener('click', event => { const b = event.target.closest('[data-rail-tab]'); if (b) setRailTab(b.dataset.railTab); });
     $('page-switch').addEventListener('click', event => { if (event.target.closest('#live-toggle')) livePage({ action: 'goto', page: curPage }); });
     $('page-switch').addEventListener('change', event => { if (event.target.id === 'page-select') switchEditPage(event.target.value); });
-    $('pages-panel').addEventListener('click', event => {
+    $('pages-panel').addEventListener('click', async event => {
         const t = event.target.closest('button'), row = event.target.closest('.pg-row');
         const items = overlay.pages.items;
         if (t?.id === 'pages-enable') return setPagesEnabled(true);
-        if (t?.id === 'pages-disable') { if (confirm('Turn off pages? Every page’s elements stay, and they all show together in one view.')) setPagesEnabled(false); return; }
+        if (t?.id === 'pages-disable') {
+            if (await StreamPulse.confirm('Turn Off Pages', 'Turn off pages? Every page’s elements stay, and they all show together in one view.', { confirmText: 'Turn Off Pages' })) setPagesEnabled(false);
+            return;
+        }
         if (t?.id === 'page-add') { const id = pageSeq(); items.push({ id, name: `Page ${items.length + 1}`, duration: 0, enabled: true }); changed(true); return switchEditPage(id); }
         if (!row) return;
         const page = items.find(p => p.id === row.dataset.pid);
         if (t?.dataset.pg === 'toggle') { page.enabled = page.enabled === false; changed(true); return renderPageBar(); }
         if (t?.dataset.pg === 'live') return livePage({ action: 'goto', page: page.id });
         if (t?.dataset.pg === 'dup') return duplicatePage(page);
-        if (t?.dataset.pg === 'del') return deletePage(page);
+        if (t?.dataset.pg === 'del') return await deletePage(page);
         if (!t && page.id !== curPage) switchEditPage(page.id);
     });
     $('pages-panel').addEventListener('dblclick', event => { const row = event.target.closest('.pg-row'); if (row && event.target.closest('.pg-name')) startPageRename(row); });

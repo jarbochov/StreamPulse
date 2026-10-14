@@ -302,11 +302,11 @@ $('import-all-file').onchange = async event => {
     if (!f) return;
     try {
         const body = JSON.parse(await f.text());
-        if (!confirm('Replace all chat bot commands, quotes, messages, triggers, variables and settings with this file?')) return;
+        if (!await StreamPulse.confirm('Import Chat Bot Configuration', 'Replace all chat bot commands, quotes, messages, triggers, variables and settings with this file?', { danger: true, confirmText: 'Replace All' })) return;
         const r = await api('/api/chatbot/import', 'POST', body);
         applyState(r); loadVars && loadVars();
-        alert('Imported.');
-    } catch (e) { alert('Import failed: ' + e.message); }
+        StreamPulse.toast('Configuration imported successfully', 'success');
+    } catch (e) { StreamPulse.toast('Import failed: ' + e.message, 'error'); }
 };
 $('import-quotes').onclick = () => $('import-file').click();
 $('import-file').onchange = async event => {
@@ -388,13 +388,17 @@ $('usage').closest('.card').addEventListener('click', async e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.hasAttribute('data-reset-all')) {
         const shown = [...$('usage').querySelectorAll('[data-reset-key]')];
-        if (!shown.length || !confirm(`Reset ${shown.length} count(s)?`)) return;
+        if (!shown.length || !await StreamPulse.confirm('Reset Usage', `Reset ${shown.length} count(s)?`, { danger: true, confirmText: 'Reset' })) return;
         for (const s of shown) await api('/api/chatbot/usage/reset', 'POST', { key: s.dataset.resetKey, user: s.dataset.resetUser });
     } else if (b.dataset.resetKey) await api('/api/chatbot/usage/reset', 'POST', { key: b.dataset.resetKey, user: b.dataset.resetUser });
     loadUsage();
 });
-pollVisible(() => loadUsage().catch(() => {}), 5000);
-function applyState(data) { loadUsage().catch(() => {}); state = data; updateCounts(); renderBanner(); renderSettings(); renderCommands(); renderQuotes(); renderList('messages'); renderList('triggers'); }
+let dirty = false;
+document.addEventListener('input', e => { if (e.target.closest('#tab-settings, #tab-commands, #tab-messages, #tab-triggers')) dirty = true; });
+document.addEventListener('change', e => { if (e.target.closest('#tab-settings, #tab-commands, #tab-messages, #tab-triggers')) dirty = true; });
+window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
+
+function applyState(data) { dirty = false; loadUsage().catch(() => {}); state = data; updateCounts(); renderBanner(); renderSettings(); renderCommands(); renderQuotes(); renderList('messages'); renderList('triggers'); }
 
 $('save-settings').onclick = async () => {
     try { applyState(await api('/api/chatbot', 'PUT', { settings: { prefix: $('s-prefix').value, tag: $('s-tag').value, cooldown: $('s-cooldown').value, modCooldown: $('s-modcooldown').value, mods: $('s-mods').value, builtins: Object.fromEntries([...document.querySelectorAll('#builtins [data-b]')].map(r => [r.dataset.b, { access: r.querySelector('[data-bk=access]').value, cooldown: r.querySelector('[data-bk=cooldown]').value }])) } })); toast('Settings saved'); } catch (e) { toast(e.message); }
@@ -456,7 +460,11 @@ $('quotes').addEventListener('click', async event => {
     if (!act || !row) return;
     const id = row.dataset.id;
     try {
-        if (act === 'del-quote' && confirm(`Delete quote #${id}?`)) applyState(await api(`/api/chatbot/quotes/${id}`, 'DELETE'));
+        if (act === 'del-quote') {
+            if (!await StreamPulse.confirm('Delete Quote', `Delete quote #${id}?`, { danger: true, confirmText: 'Delete' })) return;
+            applyState(await api(`/api/chatbot/quotes/${id}`, 'DELETE'));
+            toast(`Quote #${id} deleted`);
+        }
         if (act === 'edit-quote') {
             const q = state.quotes.find(x => x.id === Number(id));
             row.outerHTML = `<div class="quote" data-id="${id}" style="grid-template-columns:3rem 1fr"><span class="num">#${id}</span><div style="display:grid;gap:.4rem">

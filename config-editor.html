@@ -384,11 +384,11 @@
             </div>`;
     }
 
-    function renameCreditsOrderItem(id) {
+    async function renameCreditsOrderItem(id) {
         const card = [...document.querySelectorAll('.custom-section-card')].find(item => item.dataset.sectionId === id);
         const input = card?.querySelector('.custom-section-label');
         if (!input) return;
-        const next = window.prompt('Name for this section in the list (only shown here, not on screen). Leave empty to use its title.', input.value);
+        const next = await StreamPulse.prompt('Rename Section in List', 'Name for this section in the list (only shown here, not on screen). Leave empty to use its title.', input.value);
         if (next === null) return;
         input.value = next.trim();
         renderCreditsOrderEditor();
@@ -1184,6 +1184,7 @@
             });
             const data = await res.json();
             if (data.status === 'saved') {
+                isDirty = false;
                 if (data.restartRequired) showRestartNotice(); else showToast('Config saved and applied!');
                 setTimeout(showWeatherStatus, 3000);
             } else {
@@ -1193,6 +1194,19 @@
     }
 
     let configLoaded = false;
+    let isDirty = false;
+    document.addEventListener('input', e => {
+        if (configLoaded && e.target.closest('#config-editor, .container')) isDirty = true;
+    });
+    document.addEventListener('change', e => {
+        if (configLoaded && e.target.closest('#config-editor, .container')) isDirty = true;
+    });
+    window.addEventListener('beforeunload', event => {
+        if (isDirty) {
+            event.preventDefault();
+            event.returnValue = '';
+        }
+    });
     loadConfigEditor();
     </script>
 </body>

@@ -941,9 +941,10 @@
 
     async function deleteArchivedSession(filename = activeSessionFile) {
         if (!filename || filename === '__current__') return;
-        const confirmed = confirm(
-            `Permanently delete this archived session?\n\n${filename}\n\n` +
-            'This removes the session summary and its chat log. This cannot be undone.'
+        const confirmed = await StreamPulse.confirm(
+            'Delete Archived Session',
+            `Permanently delete this archived session?\n\n${filename}\n\nThis removes the session summary and its chat log. This cannot be undone.`,
+            { danger: true, confirmText: 'Permanently Delete' }
         );
         if (!confirmed) return;
         try {
@@ -956,8 +957,9 @@
                 document.getElementById('detail-panel').innerHTML = '<div class="placeholder">Select a session to view details</div>';
             }
             await loadSessions();
+            StreamPulse.toast('Session deleted', 'info');
         } catch (err) {
-            alert(`Could not delete session: ${err.message}`);
+            StreamPulse.toast(`Could not delete session: ${err.message}`, 'error');
         }
     }
 
@@ -1432,7 +1434,7 @@
                 format === 'pdf' ? 'application/pdf' : ''
             );
         } catch (err) {
-            alert(err.message || 'Export failed');
+            StreamPulse.toast(err.message || 'Export failed', 'error');
         }
     }
 
@@ -1454,7 +1456,7 @@
                 format === 'pdf' ? 'application/pdf' : ''
             );
         } catch (err) {
-            alert(err.message || 'Export failed');
+            StreamPulse.toast(err.message || 'Export failed', 'error');
         }
     }
 
@@ -1710,7 +1712,7 @@
                 format === 'pdf' ? 'application/pdf' : ''
             );
         } catch (err) {
-            alert(err.message || 'Export failed');
+            StreamPulse.toast(err.message || 'Export failed', 'error');
         }
     }
 

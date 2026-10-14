@@ -417,8 +417,8 @@
         $('revert-timer').disabled = !dirty;
     }
 
-    function confirmDiscard() {
-        return !dirty || confirm('You have unsaved changes to this timer. Discard them?');
+    async function confirmDiscard() {
+        return !dirty || await StreamPulse.confirm('Discard Changes', 'You have unsaved changes to this timer. Discard them?');
     }
 
     // ---- List -----------------------------------------------------------
@@ -628,8 +628,8 @@
         renderTimerList(true); renderLive(); updateUrls();
     }
 
-    function selectTimer(id) {
-        if (id === selectedId || !timersData[id] || !confirmDiscard()) return;
+    async function selectTimer(id) {
+        if (id === selectedId || !timersData[id] || !await confirmDiscard()) return;
         selectedId = id;
         populateForm(timersData[id]);
         renderTimerList(true); renderLive();
@@ -638,7 +638,7 @@
     async function saveTimer() {
         let payload;
         try { payload = collectTimerPayload(); } catch (error) { toast(error.message, 'error'); return; }
-        if (!selectedId && timersData[payload.id] && !confirm(`A timer with ID "${payload.id}" already exists. Overwrite it?`)) return;
+        if (!selectedId && timersData[payload.id] && !await StreamPulse.confirm('Overwrite Timer', `A timer with ID "${payload.id}" already exists. Overwrite it?`, { confirmText: 'Overwrite' })) return;
         try {
             const data = await api('/api/timers', jsonBody('POST', payload));
             timersData[data.timer.id] = data.timer;
@@ -652,7 +652,7 @@
     async function deleteTimer() {
         const id = selectedId;
         if (!id) { selectedId = ''; setDirty(false); await loadTimers(); return; }
-        if (!confirm(`Delete timer "${id}"? Overlays using it will stop updating.`)) return;
+        if (!await StreamPulse.confirm('Delete Timer', `Delete timer "${id}"? Overlays using it will stop updating.`, { danger: true, confirmText: 'Delete' })) return;
         try {
             await api(`/api/timers/${encodeURIComponent(id)}`, { method: 'DELETE' });
             delete timersData[id];
@@ -663,8 +663,8 @@
         } catch (error) { toast(error.message, 'error'); }
     }
 
-    function duplicateTimer() {
-        if (!confirmDiscard()) return;
+    async function duplicateTimer() {
+        if (!await confirmDiscard()) return;
         const source = timersData[selectedId] || {};
         let id = `${source.id || slugify($('timer-label').value) || 'timer'}-copy`;
         for (let n = 2; timersData[id]; n++) id = `${source.id || 'timer'}-copy-${n}`;
@@ -795,12 +795,12 @@
     });
 
     // ---- Wiring ---------------------------------------------------------
-    document.addEventListener('click', event => {
+    document.addEventListener('click', async event => {
         const target = event.target.closest('button, [data-select]');
         if (!target) return;
         if (target.dataset.quick) { event.stopPropagation(); control(target.dataset.id, target.dataset.quick); return; }
-        if (target.dataset.select) { selectTimer(target.dataset.select); return; }
-        if (target.dataset.new) { if (confirmDiscard()) { seedNewTimer(target.dataset.new); } return; }
+        if (target.dataset.select) { await selectTimer(target.dataset.select); return; }
+        if (target.dataset.new) { if (await confirmDiscard()) { seedNewTimer(target.dataset.new); } return; }
         if (target.dataset.control) { control(selectedId, target.dataset.control, target.dataset.value || ''); return; }
         if (target.dataset.adjust) { adjustTime(target.dataset.adjust); }
     });

@@ -277,7 +277,7 @@
     }
 
     async function unpinHighlight(btn, ts, user) {
-        if (!confirm(`Unpin message from ${user}?`)) return;
+        if (!await StreamPulse.confirm('Unpin Highlight', `Unpin message from ${user}?`, { danger: true, confirmText: 'Unpin' })) return;
         try {
             await fetch('/api/highlights', {
                 method: 'DELETE',

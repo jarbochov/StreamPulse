@@ -717,7 +717,7 @@
     }
 
     async function restoreDefaults() {
-        if (!confirm('Reset all music settings to defaults? This will save immediately.')) return;
+        if (!await StreamPulse.confirm('Reset Music Settings', 'Reset all music settings to defaults? This will save immediately.', { danger: true, confirmText: 'Reset to Defaults' })) return;
         try {
             const res = await fetch('/api/config', {
                 method: 'PUT',
@@ -728,11 +728,12 @@
                 loadConfig();
                 const iframe = document.getElementById('preview-iframe');
                 iframe.src = iframe.src;
+                StreamPulse.toast('Music settings reset to defaults', 'success');
             } else {
-                alert('Reset failed');
+                StreamPulse.toast('Reset failed', 'error');
             }
         } catch (err) {
-            alert('Reset error: ' + err.message);
+            StreamPulse.toast('Reset error: ' + err.message, 'error');
         }
     }
 

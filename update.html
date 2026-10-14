@@ -39,8 +39,8 @@ async function check(mode) {
     finally { setBusy(false); }
 }
 function escapeHtml(value) { const div = document.createElement('div'); div.textContent = value || ''; return div.innerHTML; }
-function confirmNightly() {
-    if (available.nightly && confirm('Nightly updates can break StreamPulse. Create a backup and install the latest main commit?')) apply('nightly');
+async function confirmNightly() {
+    if (available.nightly && await StreamPulse.confirm('Nightly Update Warning', 'Nightly updates can break StreamPulse. Create a backup and install the latest main commit?', { danger: true, confirmText: 'Install Nightly' })) apply('nightly');
 }
 async function apply(mode) {
     setBusy(true);

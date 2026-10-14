@@ -411,6 +411,7 @@
             clearTimeout(saveTimer);
             saveTimer = setTimeout(save, 500);
         }
+        window.addEventListener('beforeunload', () => { if (saveTimer) save(); });
 
         async function save() {
             try {
@@ -488,19 +489,19 @@
         $('add-form').addEventListener('submit', event => { event.preventDefault(); addItem(false); });
         $('add-custom').addEventListener('click', () => addItem(true));
 
-        $('tabs').addEventListener('click', event => {
+        $('tabs').addEventListener('click', async event => {
             const tab = event.target.closest('[data-tab]');
             if (tab) { active = tab.dataset.tab; render(); return; }
             if (event.target.closest('#new-list')) { buildTabs(true); return; }
             if (event.target.closest('#rename-list')) {
                 const list = customLists.find(entry => entry.id === active);
-                const name = list && prompt('Rename list:', list.name);
+                const name = list && await StreamPulse.prompt('Rename List', 'Enter a new name for this list:', list.name);
                 if (name && name.trim()) { list.name = name.trim().slice(0, 40); render(); scheduleSave(); }
                 return;
             }
             if (event.target.closest('#delete-list')) {
                 const list = customLists.find(entry => entry.id === active);
-                if (!list || !confirm(`Delete the list “${list.name}”? Games only on this list move to Backlog.`)) return;
+                if (!list || !await StreamPulse.confirm('Delete List', `Delete the list “${list.name}”? Games only on this list move to Backlog.`, { danger: true, confirmText: 'Delete' })) return;
                 for (const item of items) { if (item.status === active) item.status = 'backlog'; item.extraLists = (item.extraLists || []).filter(id => id !== active); }
                 customLists = customLists.filter(entry => entry.id !== active);
                 active = 'backlog';
@@ -646,13 +647,13 @@
             const file = [...(event.clipboardData?.files || [])].find(entry => entry.type.startsWith('image/'));
             if (file && editing) { event.preventDefault(); uploadCover(file); }
         });
-        $('f-remove').addEventListener('click', () => {
-            if (!editing || !confirm(`Remove “${editing.name}” from the plan?`)) return;
+        $('f-remove').addEventListener('click', async () => {
+            if (!editing || !await StreamPulse.confirm('Remove Game', `Remove “${editing.name}” from the plan?`, { danger: true, confirmText: 'Remove' })) return;
             items = items.filter(entry => entry !== editing);
             editing = null; $('dlg').close(); render(); scheduleSave();
         });
         $('backfill').addEventListener('click', async () => {
-            if (!confirm('Add games from past sessions that are not on any list yet to Played? Games already on a list stay where they are.')) return;
+            if (!await StreamPulse.confirm('Import Past Games', 'Add games from past sessions that are not on any list yet to Played? Games already on a list stay where they are.', { confirmText: 'Import Games' })) return;
             setStatus('Importing past games...');
             try {
                 const result = await (await fetch('/api/game-plan/backfill', { method: 'POST' })).json();

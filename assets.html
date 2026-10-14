@@ -284,9 +284,9 @@
         const tag = button.dataset.tag;
         if (button.dataset.tm === 'filter') { prefs.tag = tag; savePrefs(); $('tag-manager').close(); render(); }
         else if (button.dataset.tm === 'rename') {
-            const to = prompt(`Rename "${tag}" to (an existing tag name merges them)`, tag);
+            const to = await StreamPulse.prompt('Rename Tag', `Rename "${tag}" to (an existing tag name merges them):`, tag);
             if (to && to.trim() && to.trim() !== tag) await manageTag({ action: 'rename', tag, to: to.trim() });
-        } else if (confirm(`Delete the tag "${tag}" from every asset?`)) await manageTag({ action: 'delete', tag });
+        } else if (await StreamPulse.confirm('Delete Tag', `Delete the tag "${tag}" from every asset?`, { danger: true, confirmText: 'Delete Tag' })) await manageTag({ action: 'delete', tag });
     });
     function tagsHtml(asset, index) {
         const tags = asset.tags || [];
@@ -358,10 +358,10 @@
     async function removeAssets(list) {
         const inUse = list.filter(asset => asset.usedBy.length);
         const warning = inUse.length ? `\n\n${inUse.length} of these are in use (${inUse.slice(0, 4).map(a => a.label).join(', ')}${inUse.length > 4 ? '…' : ''}). Overlays or timers using them will lose the file.` : '';
-        if (!confirm(`Permanently delete ${list.length === 1 ? list[0].label : `${list.length} assets`}?${warning}`)) return;
+        if (!await StreamPulse.confirm('Permanently Delete Assets', `Permanently delete ${list.length === 1 ? list[0].label : `${list.length} assets`}?${warning}`, { danger: true, confirmText: 'Permanently Delete' })) return;
         for (const asset of list) {
             try { await api(`/api/custom-overlays/assets/${encodeURIComponent(asset.name)}${asset.usedBy.length ? '?force=1' : ''}`, { method: 'DELETE' }); selected.delete(asset.name); }
-            catch (error) { alert(error.message); break; }
+            catch (error) { StreamPulse.toast(error.message, 'error'); break; }
         }
         await load();
     }
@@ -381,15 +381,16 @@
         button.closest('details')?.removeAttribute('open');
         if (button.dataset.act === 'caption') {
             const current = shown[Number(button.dataset.i)];
-            const text = prompt('Caption shown in slideshows (leave empty to remove)', current.caption || '');
+            const text = await StreamPulse.prompt('Asset Caption', 'Caption shown in slideshows (leave empty to remove):', current.caption || '');
             if (text === null) return;
             try { await api('/api/asset-captions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: current.name, caption: text }) }); }
-            catch (error) { alert(error.message); }
+            catch (error) { StreamPulse.toast(error.message, 'error'); }
             await load();
             return;
         }
         if (button.dataset.act === 'tag') {
-            const tags = parseTags(prompt('Add tags (comma separated)', ''));
+            const tagInput = await StreamPulse.prompt('Add Tags', 'Add tags (comma separated):', '');
+            const tags = parseTags(tagInput || '');
             if (tags.length) await editTags([shown[Number(button.dataset.i)].name], { add: tags });
             return;
         }
@@ -398,12 +399,12 @@
             await navigator.clipboard.writeText(new URL(asset.url, location.origin).href);
             toast('URL copied');
         } else if (button.dataset.act === 'rename') {
-            const next = prompt('Rename asset', asset.label);
+            const next = await StreamPulse.prompt('Rename Asset', 'Enter a new label for this asset:', asset.label);
             if (next === null || !next.trim() || next.trim() === asset.label) return;
             try {
                 const result = await api(`/api/custom-overlays/assets/${encodeURIComponent(asset.name)}/rename`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: next }) });
                 if (result.updated?.length) toast(`Renamed. Updated ${result.updated.join(', ')}.`);
-            } catch (error) { alert(error.message); }
+            } catch (error) { StreamPulse.toast(error.message, 'error'); }
             await load();
         } else {
             await removeAssets([asset]);
@@ -417,11 +418,13 @@
         render();
     });
     $('tag-selected').addEventListener('click', async () => {
-        const tags = parseTags(prompt(`Add tags to ${selected.size} selected (comma separated)`, ''));
+        const input = await StreamPulse.prompt('Add Tags', `Add tags to ${selected.size} selected (comma separated):`, '');
+        const tags = parseTags(input || '');
         if (tags.length) await editTags([...selected], { add: tags });
     });
     $('untag-selected').addEventListener('click', async () => {
-        const tags = parseTags(prompt(`Remove tags from ${selected.size} selected (comma separated)`, prefs.tag && prefs.tag !== UNTAGGED ? prefs.tag : ''));
+        const input = await StreamPulse.prompt('Remove Tags', `Remove tags from ${selected.size} selected (comma separated):`, prefs.tag && prefs.tag !== UNTAGGED ? prefs.tag : '');
+        const tags = parseTags(input || '');
         if (tags.length) await editTags([...selected], { remove: tags });
     });
     $('delete-selected').addEventListener('click', () => removeAssets(assets.filter(asset => selected.has(asset.name))));

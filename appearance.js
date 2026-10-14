@@ -86,6 +86,11 @@
     }
 
     function confirm(title, message, options = {}) {
+        if (message === undefined || (typeof message === 'object' && message !== null)) {
+            options = message || {};
+            message = title;
+            title = options.title || 'Confirm';
+        }
         return new Promise((resolve) => {
             const dialog = document.createElement('dialog');
             dialog.className = 'sp-dialog';
@@ -96,15 +101,24 @@
             const actions = document.createElement('div');
             actions.className = 'sp-dialog-actions';
             const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
             cancelBtn.className = 'btn';
             cancelBtn.textContent = options.cancelText || 'Cancel';
             const okBtn = document.createElement('button');
+            okBtn.type = 'button';
             okBtn.className = `btn ${options.danger ? 'btn-danger' : 'btn-primary'}`;
             okBtn.textContent = options.confirmText || 'Confirm';
 
-            cancelBtn.onclick = () => { dialog.close(); dialog.remove(); resolve(false); };
-            okBtn.onclick = () => { dialog.close(); dialog.remove(); resolve(true); };
-            dialog.oncancel = () => { dialog.remove(); resolve(false); };
+            const cleanup = (val) => { dialog.close(); dialog.remove(); resolve(val); };
+            cancelBtn.onclick = () => cleanup(false);
+            okBtn.onclick = () => cleanup(true);
+            dialog.oncancel = (e) => { e.preventDefault(); cleanup(false); };
+            dialog.onclick = (e) => {
+                const rect = dialog.getBoundingClientRect();
+                if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+                    cleanup(false);
+                }
+            };
 
             actions.append(cancelBtn, okBtn);
             dialog.append(h3, p, actions);
@@ -115,6 +129,11 @@
     }
 
     function prompt(title, message, defaultValue = '') {
+        if (typeof message !== 'string') {
+            defaultValue = message || '';
+            message = title;
+            title = 'Input Required';
+        }
         return new Promise((resolve) => {
             const dialog = document.createElement('dialog');
             dialog.className = 'sp-dialog';
@@ -128,15 +147,24 @@
             const actions = document.createElement('div');
             actions.className = 'sp-dialog-actions';
             const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
             cancelBtn.className = 'btn';
             cancelBtn.textContent = 'Cancel';
             const okBtn = document.createElement('button');
+            okBtn.type = 'button';
             okBtn.className = 'btn btn-primary';
             okBtn.textContent = 'OK';
 
-            cancelBtn.onclick = () => { dialog.close(); dialog.remove(); resolve(null); };
-            okBtn.onclick = () => { const v = input.value; dialog.close(); dialog.remove(); resolve(v); };
-            dialog.oncancel = () => { dialog.remove(); resolve(null); };
+            const cleanup = (val) => { dialog.close(); dialog.remove(); resolve(val); };
+            cancelBtn.onclick = () => cleanup(null);
+            okBtn.onclick = () => cleanup(input.value);
+            dialog.oncancel = (e) => { e.preventDefault(); cleanup(null); };
+            dialog.onclick = (e) => {
+                const rect = dialog.getBoundingClientRect();
+                if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+                    cleanup(null);
+                }
+            };
             input.onkeydown = (e) => {
                 if (e.key === 'Enter') { e.preventDefault(); okBtn.click(); }
             };
