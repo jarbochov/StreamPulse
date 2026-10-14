@@ -369,7 +369,7 @@
     async function deleteHashtag(encodedTag) {
         const tag = decodeURIComponent(encodedTag);
         const confirmed = window.StreamPulse?.confirm
-            ? await StreamPulse.confirm(`Are you sure you want to delete ${tag}? All session and historical stats for this hashtag will be permanently removed.`)
+            ? await StreamPulse.confirm('Delete Hashtag', `Are you sure you want to delete ${tag}? All session and historical stats for this hashtag will be permanently removed.`, { danger: true, confirmText: 'Delete' })
             : confirm(`Are you sure you want to delete ${tag}? All session and historical stats for this hashtag will be permanently removed.`);
         if (!confirmed) return;
 

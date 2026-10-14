@@ -18,6 +18,9 @@
                 text-decoration: underline;
             }
             #chatter-dossier-dialog {
+                position: fixed;
+                inset: 0;
+                margin: auto;
                 background: var(--bg-card, #161b22);
                 border: 1px solid var(--border, #30363d);
                 border-radius: 12px;
@@ -25,12 +28,13 @@
                 padding: 0;
                 width: min(640px, 94vw);
                 max-height: 90vh;
-                box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+                box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75);
                 overflow: hidden;
             }
             #chatter-dossier-dialog::backdrop {
-                background: rgba(0, 0, 0, 0.65);
+                background: rgba(0, 0, 0, 0.7);
                 backdrop-filter: blur(3px);
+                -webkit-backdrop-filter: blur(3px);
             }
             .dossier-header {
                 display: flex;
@@ -274,6 +278,7 @@
         injectStyles();
         dialog = document.createElement('dialog');
         dialog.id = 'chatter-dossier-dialog';
+        dialog.style.margin = 'auto';
         dialog.innerHTML = `
             <div class="dossier-header">
                 <img class="dossier-avatar" id="dos-avatar" src="" alt="">

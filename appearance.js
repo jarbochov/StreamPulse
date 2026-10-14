@@ -94,6 +94,7 @@
         return new Promise((resolve) => {
             const dialog = document.createElement('dialog');
             dialog.className = 'sp-dialog';
+            dialog.style.margin = 'auto';
             const h3 = document.createElement('h3');
             h3.textContent = title;
             const p = document.createElement('p');
@@ -137,6 +138,7 @@
         return new Promise((resolve) => {
             const dialog = document.createElement('dialog');
             dialog.className = 'sp-dialog';
+            dialog.style.margin = 'auto';
             const h3 = document.createElement('h3');
             h3.textContent = title;
             const p = document.createElement('p');
