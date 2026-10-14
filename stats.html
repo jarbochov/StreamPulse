@@ -29,32 +29,34 @@
         }
 
         body {
-            width: 1920px;
-            height: 1080px;
+            width: 100%;
+            min-height: 100vh;
             background: var(--bg-color);
             overflow: hidden;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 40px;
+            padding: clamp(10px, 3vmin, 40px);
         }
 
         .stats-container {
             width: 100%;
             display: flex;
-            gap: 40px;
+            gap: clamp(16px, 3vmin, 40px);
             justify-content: center;
+            flex-wrap: wrap;
         }
 
         .stats-column {
             flex: 1;
+            min-width: 240px;
             max-width: 580px;
         }
 
         h2 {
-            font-size: calc(3vw * var(--font-scale));
+            font-size: calc(clamp(1.1rem, 3vmin, 3.2rem) * var(--font-scale));
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: clamp(8px, 1.5vmin, 20px);
         }
 
         .stats-list {
@@ -65,13 +67,13 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 8px 12px;
-            font-size: calc(1.8vw * var(--font-scale));
+            padding: clamp(4px, 1vmin, 8px) clamp(6px, 1.2vmin, 12px);
+            font-size: calc(clamp(0.85rem, 2vmin, 1.8rem) * var(--font-scale));
             border-bottom: 1px solid rgba(214, 227, 225, 0.1);
         }
 
         .stats-item .rank {
-            width: 40px;
+            width: clamp(24px, 3vmin, 40px);
             opacity: 0.6;
         }
 
@@ -84,13 +86,13 @@
 
         .stats-item .count {
             text-align: right;
-            min-width: 80px;
+            min-width: clamp(50px, 5vmin, 80px);
             opacity: 0.8;
         }
 
         .emote-img {
-            width: 28px;
-            height: 28px;
+            width: clamp(18px, 2.5vmin, 28px);
+            height: clamp(18px, 2.5vmin, 28px);
             vertical-align: middle;
             margin-right: 8px;
         }
@@ -102,9 +104,9 @@
         .filter-info {
             width: 100%;
             text-align: center;
-            font-size: calc(1.2vw * var(--font-scale));
+            font-size: calc(clamp(0.75rem, 1.5vmin, 1.3rem) * var(--font-scale));
             opacity: 0.5;
-            margin-bottom: 30px;
+            margin-bottom: clamp(10px, 2vmin, 30px);
         }
     </style>
 </head>
@@ -126,6 +128,14 @@
         const TO = urlParams.get('to') || '';
         const LIMIT = parseInt(urlParams.get('limit')) || 20;
         const REFRESH = parseInt(urlParams.get('refresh')) || 60;
+        const VIEW = (urlParams.get('view') || 'all').toLowerCase();
+        const ALIGN = (urlParams.get('align') || '').toLowerCase();
+
+        if (ALIGN === 'left' || ALIGN === 'start') {
+            document.body.style.alignItems = 'flex-start';
+        } else if (ALIGN === 'right' || ALIGN === 'end') {
+            document.body.style.alignItems = 'flex-end';
+        }
 
         function escapeHtml(str) {
             const div = document.createElement('div');
@@ -206,50 +216,60 @@
             const filterEl = document.getElementById('filter-info');
             filterEl.textContent = getFilterLabel();
 
+            const showChatters = VIEW === 'all' || VIEW === 'chatters';
+            const showEmotes = VIEW === 'all' || VIEW === 'emotes';
+            const showHashtags = VIEW === 'all' || VIEW === 'hashtags';
+
             let html = '';
 
             // Chatters column
-            html += '<div class="stats-column">';
-            html += '<h2>Top Chatters</h2>';
-            html += '<ul class="stats-list">';
-            topChatters.forEach((entry, i) => {
-                html += `<li class="stats-item">
-                    <span class="rank">${i + 1}.</span>
-                    <span class="name">${escapeHtml(entry.name)}</span>
-                    <span class="count">${entry.count} msgs</span>
-                </li>`;
-            });
-            if (topChatters.length === 0) html += '<li class="stats-item"><span class="name">No data yet</span></li>';
-            html += '</ul></div>';
+            if (showChatters) {
+                html += '<div class="stats-column">';
+                html += '<h2>Top Chatters</h2>';
+                html += '<ul class="stats-list">';
+                topChatters.forEach((entry, i) => {
+                    html += `<li class="stats-item">
+                        <span class="rank">${i + 1}.</span>
+                        <span class="name">${escapeHtml(entry.name)}</span>
+                        <span class="count">${entry.count} msgs</span>
+                    </li>`;
+                });
+                if (topChatters.length === 0) html += '<li class="stats-item"><span class="name">No data yet</span></li>';
+                html += '</ul></div>';
+            }
 
             // Emotes column
-            html += '<div class="stats-column">';
-            html += '<h2>Top Emotes</h2>';
-            html += '<ul class="stats-list">';
-            topEmotes.forEach((entry, i) => {
-                const img = entry.data.imageUrl ? `<img src="${entry.data.imageUrl}" class="emote-img" alt="${escapeHtml(entry.name)}">` : '';
-                html += `<li class="stats-item">
-                    <span class="rank">${i + 1}.</span>
-                    <span class="name">${img}${escapeHtml(entry.name)}</span>
-                    <span class="count">${entry.count}x</span>
-                </li>`;
-            });
-            if (topEmotes.length === 0) html += '<li class="stats-item"><span class="name">No data yet</span></li>';
-            html += '</ul></div>';
+            if (showEmotes) {
+                html += '<div class="stats-column">';
+                html += '<h2>Top Emotes</h2>';
+                html += '<ul class="stats-list">';
+                topEmotes.forEach((entry, i) => {
+                    const img = entry.data.imageUrl ? `<img src="${entry.data.imageUrl}" class="emote-img" alt="${escapeHtml(entry.name)}">` : '';
+                    html += `<li class="stats-item">
+                        <span class="rank">${i + 1}.</span>
+                        <span class="name">${img}${escapeHtml(entry.name)}</span>
+                        <span class="count">${entry.count}x</span>
+                    </li>`;
+                });
+                if (topEmotes.length === 0) html += '<li class="stats-item"><span class="name">No data yet</span></li>';
+                html += '</ul></div>';
+            }
 
             // Hashtags column
-            html += '<div class="stats-column">';
-            html += '<h2>Top Hashtags</h2>';
-            html += '<ul class="stats-list">';
-            topHashtags.forEach((entry, i) => {
-                html += `<li class="stats-item">
-                    <span class="rank">${i + 1}.</span>
-                    <span class="name hashtag-name">${escapeHtml(entry.tag)}</span>
-                    <span class="count">${entry.count}x</span>
-                </li>`;
-            });
-            if (topHashtags.length === 0) html += '<li class="stats-item"><span class="name">No data yet</span></li>';
-            html += '</ul></div>';
+            if (showHashtags) {
+                html += '<div class="stats-column">';
+                html += '<h2>Top Hashtags</h2>';
+                html += '<ul class="stats-list">';
+                topHashtags.forEach((entry, i) => {
+                    html += `<li class="stats-item">
+                        <span class="rank">${i + 1}.</span>
+                        <span class="name hashtag-name">${escapeHtml(entry.tag)}</span>
+                        <span class="count">${entry.count}x</span>
+                    </li>`;
+                });
+                if (topHashtags.length === 0) html += '<li class="stats-item"><span class="name">No data yet</span></li>';
+                html += '</ul></div>';
+            }
 
             container.innerHTML = html;
         }

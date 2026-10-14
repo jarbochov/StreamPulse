@@ -13,24 +13,27 @@
         .header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 2rem; background: var(--bg-card); border-bottom: 1px solid var(--border); }
         .header h1 { font-size: 1.3rem; font-weight: 600; white-space: nowrap; }
         .header h1 span { color: var(--accent); }
-        .container { max-width: 1240px; margin: 0 auto; padding: 1.5rem 2rem 2.5rem; }
+        .container { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem 2.5rem; }
         .intro, .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; }
         .intro { padding: 1.15rem 1.25rem; margin-bottom: 1.25rem; color: var(--text-muted); font-size: .88rem; line-height: 1.55; }
         .intro a { color: var(--accent); }
-        .overlay-picker { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.25rem; }
+        .overlay-picker { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.25rem; align-items:center; }
         .overlay-picker button { padding:.55rem .9rem; border:1px solid var(--border); border-radius:6px; background:var(--bg-raised); color:var(--text); cursor:pointer; font:inherit; font-size:.82rem; }
         .overlay-picker button:hover, .overlay-picker button[aria-pressed="true"] { border-color:var(--accent); background:var(--accent-bg); color:#fff; }
+        .picker-link { display: inline-flex; align-items: center; padding: .52rem .85rem; border: 1px dashed var(--border); border-radius: 6px; background: transparent; color: var(--text-muted); text-decoration: none; font-size: .82rem; transition: all 0.15s ease; }
+        .picker-link:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
         [hidden] { display:none !important; }
-        .layout { display: grid; grid-template-columns: minmax(320px, .9fr) minmax(420px, 1.1fr); gap: 1.25rem; align-items: start; }
+        .layout { display: grid; grid-template-columns: minmax(320px, 460px) minmax(420px, 1fr); gap: 1.25rem; align-items: start; }
         .controls { display: grid; gap: 1rem; }
         .card { padding: 1.15rem 1.2rem; }
         .card h2 { margin-bottom: .85rem; color: var(--text-muted); font-size: .82rem; text-transform: uppercase; letter-spacing: .5px; }
         .card h3 { margin: .9rem 0 .55rem; color: var(--accent); font-size: .85rem; }
         .form-row { display: flex; align-items: center; gap: .75rem; margin: 0 0 .65rem; }
         .form-row label { min-width: 125px; color: var(--text-muted); font-size: .82rem; }
-        input:not([type="checkbox"]), select { min-width: 0; flex: 1; padding: .48rem .6rem; color: var(--text); background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: .82rem; }
+        input:not([type="checkbox"]):not([type="range"]), select { min-width: 0; flex: 1; padding: .48rem .6rem; color: var(--text); background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: .82rem; }
         input:focus, select:focus { outline: none; border-color: var(--accent); }
         input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+        input[type="range"] { accent-color: var(--accent); cursor: pointer; }
         input[type="color"] { flex: none; width: 42px; height: 34px; padding: 2px; cursor: pointer; }
         .hint { margin: -.2rem 0 .75rem 125px; color: var(--text-muted); font-size: .75rem; line-height: 1.45; }
         .check-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: .4rem .7rem; max-height: 145px; overflow-y: auto; padding: .65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; }
@@ -50,6 +53,27 @@
         .parameter-table th { color: var(--text-muted); font-weight: 600; }
         code { padding: .1rem .3rem; color: var(--success-soft); background: var(--bg-raised); border-radius: 3px; }
         .reference { margin-top: 1.25rem; }
+
+        /* Palette Chips */
+        .palette-chips { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+        .p-chip { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s ease; }
+        .p-chip:hover { transform: scale(1.18); }
+        .p-chip.active { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
+
+        /* Canvas Size Presets */
+        .preset-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0.6rem 0; }
+        .preset-chip { font-size: 0.74rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 4px; padding: 0.3rem 0.6rem; cursor: pointer; color: var(--text-muted); transition: all 0.15s ease; font-family: inherit; }
+        .preset-chip:hover { border-color: var(--accent); color: var(--text); }
+        .preset-chip.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+        .dim-inputs { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; margin: 0.5rem 0 0.2rem; color: var(--text-muted); }
+        .dim-inputs input { width: 72px; padding: 0.3rem 0.5rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.78rem; text-align: center; }
+
+        /* Preview Area */
+        .preview-col { display: grid; gap: 1rem; }
+        .preview-frame { background: #000 repeating-conic-gradient(var(--bg-raised) 0% 25%, var(--bg-inset) 0% 50%) 50% / 20px 20px; border-radius: 8px; padding: 1.25rem; display: flex; justify-content: center; align-items: center; min-height: 220px; overflow: hidden; }
+        .preview-wrapper { width: 600px; height: 160px; max-width: 100%; transition: width 0.2s ease, height 0.2s ease; border: 1px dashed rgba(255,255,255,0.25); border-radius: 8px; overflow: hidden; display: flex; }
+        .preview-wrapper iframe { width: 100%; height: 100%; border: none; background: transparent; }
+
         @media (max-width: 950px) {
             .header { flex-direction: column; }
             .layout { grid-template-columns: 1fr; }
@@ -58,7 +82,7 @@
             .header, .container { padding-right: 1rem; padding-left: 1rem; }
             .form-row { align-items: flex-start; flex-direction: column; gap: .35rem; }
             .form-row label { min-width: 0; }
-            .form-row input:not([type="checkbox"]), .form-row select { width: 100%; }
+            .form-row input:not([type="checkbox"]):not([type="range"]), .form-row select { width: 100%; }
             .hint, .toggle { margin-left: 0; }
         }
     </style>
@@ -81,6 +105,11 @@
             <button type="button" data-overlay-choice="hashtags" aria-pressed="false">Hashtags</button>
             <button type="button" data-overlay-choice="goals" aria-pressed="false">Goals</button>
             <button type="button" data-overlay-choice="viewers" aria-pressed="false">Viewer Count</button>
+            <span style="color:var(--border); align-self:center; margin:0 0.25rem;">|</span>
+            <a href="/milestone-url-wizard.html" class="picker-link">Milestones ↗</a>
+            <a href="/game-plan-url-wizard.html" class="picker-link">Game Plan ↗</a>
+            <a href="/music-url-wizard.html" class="picker-link">Music ↗</a>
+            <a href="/timer-url-wizard.html" class="picker-link">Timers ↗</a>
         </div>
 
         <div class="layout">
@@ -115,6 +144,15 @@
 
                 <section class="card overlay-config" data-overlay="goals" hidden>
                     <h2>Goals</h2>
+                    <div class="form-row">
+                        <label for="goal-layout">Layout</label>
+                        <select id="goal-layout">
+                            <option value="card">Card (Title, Values, Progress Bar)</option>
+                            <option value="bar">Compact Progress Bar (Horizontal Banner)</option>
+                            <option value="pill">Pill (Capsule Badge with Mini Bar)</option>
+                            <option value="minimal">Minimal (Numbers &amp; Progress Bar)</option>
+                        </select>
+                    </div>
                     <div class="form-row">
                         <label for="goal-single">Single goal</label>
                         <select id="goal-single" disabled>
@@ -152,6 +190,15 @@
 
                 <section class="card overlay-config" data-overlay="stats" hidden>
                     <h2>Stats</h2>
+                    <div class="form-row">
+                        <label for="stats-view">Columns to show</label>
+                        <select id="stats-view">
+                            <option value="all">All (Chatters, Emotes, Hashtags)</option>
+                            <option value="chatters">Top Chatters only</option>
+                            <option value="emotes">Top Emotes only</option>
+                            <option value="hashtags">Top Hashtags only</option>
+                        </select>
+                    </div>
                     <div class="form-row">
                         <label for="stats-range">Date range</label>
                         <select id="stats-range">
@@ -213,7 +260,7 @@
                         <label for="ht-min">Minimum count</label>
                         <input id="ht-min" type="number" min="0" step="1" placeholder="0 = all">
                     </div>
-                    <div class="form-row">
+                    <div class="form-row" id="ht-range">
                         <label for="ht-range">Date range</label>
                         <select id="ht-range">
                             <option value="all">All time</option>
@@ -238,90 +285,203 @@
                 <section class="card overlay-config" data-overlay="viewers" hidden>
                     <h2>Viewer Count</h2>
                     <div class="form-row">
+                        <label for="viewer-layout">Layout</label>
+                        <select id="viewer-layout">
+                            <option value="card">Card (Badge Box)</option>
+                            <option value="pill">Live Pill (with pulsing 🔴 dot)</option>
+                            <option value="badge">Mini Badge (with 👁️ icon)</option>
+                            <option value="minimal">Minimal (Count only)</option>
+                            <option value="stacked">Stacked (Count above label)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
                         <label for="viewer-label">Label override</label>
                         <input id="viewer-label" type="text" placeholder="Saved label (viewers)">
                     </div>
                 </section>
+
+                <section class="card" id="appearance-card">
+                    <h2>Appearance (all overlays)</h2>
+                    <p class="hint" style="margin-left:0;">Leave a field empty to use the saved theme. These apply to the selected overlay's URL only.</p>
+                    <div class="form-row">
+                        <label for="ap-font">Font</label>
+                        <input id="ap-font" type="text" list="ap-font-list" placeholder="Saved theme font">
+                        <datalist id="ap-font-list"></datalist>
+                    </div>
+                    <p class="hint">Use a font installed on the computer running OBS.</p>
+                    <div class="form-row">
+                        <label for="ap-weight">Font weight</label>
+                        <select id="ap-weight">
+                            <option value="">Default</option>
+                            <option value="300">Light (300)</option>
+                            <option value="400">Regular (400)</option>
+                            <option value="500">Medium (500)</option>
+                            <option value="600">Semi-bold (600)</option>
+                            <option value="700">Bold (700)</option>
+                            <option value="900">Black (900)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="ap-fontscale">Font scale <span id="ap-fontscale-val" style="font-size:0.75rem; color:var(--accent); font-weight:600;">1.00x</span></label>
+                        <div style="display:flex; align-items:center; gap:0.5rem; flex:1;">
+                            <input id="ap-fontscale" type="range" min="0.5" max="2.5" step="0.05" value="1.0" style="flex:1;">
+                            <button type="button" class="button" style="padding:0.25rem 0.5rem; font-size:0.72rem;" onclick="resetFontScale()">Reset</button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label for="ap-align">Alignment</label>
+                        <select id="ap-align">
+                            <option value="">Default (Center)</option>
+                            <option value="left">Left / Start</option>
+                            <option value="center">Center</option>
+                            <option value="right">Right / End</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="ap-text">Text color</label>
+                        <input id="ap-text" type="text" placeholder="Saved theme color">
+                        <input type="color" data-color-for="ap-text" aria-label="Pick text color">
+                    </div>
+                    <div class="form-row">
+                        <label for="ap-accent">Accent color</label>
+                        <div style="display:flex; flex-direction:column; gap:0.4rem; flex:1;">
+                            <div style="display:flex; gap:0.5rem; align-items:center;">
+                                <input id="ap-accent" type="text" placeholder="Saved theme color">
+                                <input type="color" data-color-for="ap-accent" aria-label="Pick accent color">
+                            </div>
+                            <div class="palette-chips">
+                                <span class="p-chip" data-color="#8b5cf6" style="background:#8b5cf6" onclick="setAccent('#8b5cf6')" title="Purple"></span>
+                                <span class="p-chip" data-color="#3b82f6" style="background:#3b82f6" onclick="setAccent('#3b82f6')" title="Blue"></span>
+                                <span class="p-chip" data-color="#10b981" style="background:#10b981" onclick="setAccent('#10b981')" title="Green"></span>
+                                <span class="p-chip" data-color="#f59e0b" style="background:#f59e0b" onclick="setAccent('#f59e0b')" title="Amber"></span>
+                                <span class="p-chip" data-color="#f43f5e" style="background:#f43f5e" onclick="setAccent('#f43f5e')" title="Rose"></span>
+                                <span class="p-chip" data-color="#06b6d4" style="background:#06b6d4" onclick="setAccent('#06b6d4')" title="Cyan"></span>
+                                <span class="p-chip" data-color="#ffffff" style="background:#ffffff" onclick="setAccent('#ffffff')" title="White"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label for="ap-bg">Background</label>
+                        <input id="ap-bg" type="text" placeholder="Saved theme color, or rgba(0,0,0,.5)">
+                        <input type="color" data-color-for="ap-bg" aria-label="Pick background color">
+                    </div>
+                    <div class="form-row">
+                        <label for="ap-outline">Text outline</label>
+                        <input id="ap-outline" type="text" placeholder="Saved theme color, or none">
+                        <input type="color" data-color-for="ap-outline" aria-label="Pick outline color">
+                    </div>
+                    <p class="hint">Colors accept #hex, rgb()/rgba() or a color name.</p>
+                </section>
             </div>
 
-            <section class="card" id="appearance-card">
-                <h2>Appearance (all overlays)</h2>
-                <p class="hint" style="margin-left:0;">Leave a field empty to use the saved theme. These apply to the selected overlay's URL only.</p>
-                <div class="form-row">
-                    <label for="ap-font">Font</label>
-                    <input id="ap-font" type="text" list="ap-font-list" placeholder="Saved theme font">
-                    <datalist id="ap-font-list"></datalist>
-                </div>
-                <p class="hint">Use a font installed on the computer running OBS.</p>
-                <div class="form-row">
-                    <label for="ap-weight">Font weight</label>
-                    <select id="ap-weight">
-                        <option value="">Default</option>
-                        <option value="300">Light (300)</option>
-                        <option value="400">Regular (400)</option>
-                        <option value="500">Medium (500)</option>
-                        <option value="600">Semi-bold (600)</option>
-                        <option value="700">Bold (700)</option>
-                        <option value="900">Black (900)</option>
-                    </select>
-                </div>
-                <div class="form-row">
-                    <label for="ap-fontscale">Font scale</label>
-                    <input id="ap-fontscale" type="number" min="0.5" max="3" step="0.1" placeholder="Saved theme value">
-                </div>
-                <div class="form-row">
-                    <label for="ap-text">Text color</label>
-                    <input id="ap-text" type="text" placeholder="Saved theme color">
-                    <input type="color" data-color-for="ap-text" aria-label="Pick text color">
-                </div>
-                <div class="form-row">
-                    <label for="ap-accent">Accent color</label>
-                    <input id="ap-accent" type="text" placeholder="Saved theme color">
-                    <input type="color" data-color-for="ap-accent" aria-label="Pick accent color">
-                </div>
-                <div class="form-row">
-                    <label for="ap-bg">Background</label>
-                    <input id="ap-bg" type="text" placeholder="Saved theme color, or rgba(0,0,0,.5)">
-                    <input type="color" data-color-for="ap-bg" aria-label="Pick background color">
-                </div>
-                <div class="form-row">
-                    <label for="ap-outline">Text outline</label>
-                    <input id="ap-outline" type="text" placeholder="Saved theme color, or none">
-                    <input type="color" data-color-for="ap-outline" aria-label="Pick outline color">
-                </div>
-                <p class="hint">Colors accept #hex, rgb()/rgba() or a color name.</p>
-            </section>
+            <div class="preview-col">
+                <section class="card" id="preview-card">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.85rem;">
+                        <h2 style="margin-bottom:0;">Live Preview (<span id="preview-overlay-title">Credits</span>)</h2>
+                        <a id="preview-open-btn" class="button" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">Open ↗</a>
+                    </div>
 
-            <section class="card">
-                <h2>Generated Browser-Source URLs</h2>
-                <p class="hint" style="margin-left:0;">URLs use this server’s current origin: <code id="origin"></code></p>
-                <div class="url-list">
-                    <div class="url-item" data-overlay="credits">
-                        <div class="url-heading"><h3>Credits</h3><button class="button" data-copy="credits-url">Copy</button></div>
-                        <a id="credits-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                    <div id="preview-goal-mode-bar" style="display:none; margin-bottom:0.6rem; gap:0.4rem; align-items:center; font-size:0.75rem;">
+                        <span style="color:var(--text-muted); font-weight:600;">Goal Preview:</span>
+                        <button type="button" class="preset-chip active" id="btn-prev-single" onclick="setGoalPreviewMode('single')">Single Goal</button>
+                        <button type="button" class="preset-chip" id="btn-prev-cycle" onclick="setGoalPreviewMode('cycle')">Cycle Mode</button>
                     </div>
-                    <div class="url-item" data-overlay="stats" hidden>
-                        <div class="url-heading"><h3>Stats</h3><button class="button" data-copy="stats-url">Copy</button></div>
-                        <a id="stats-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+
+                    <div style="margin-bottom:0.75rem;">
+                        <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Canvas Size Presets:</span>
+                        <div class="preset-chips">
+                            <button type="button" class="preset-chip active" onclick="applyPresetSize(600, 160, this)">Lower Third (600×160)</button>
+                            <button type="button" class="preset-chip" onclick="applyPresetSize(480, 65, this)">Compact Bar (480×65)</button>
+                            <button type="button" class="preset-chip" onclick="applyPresetSize(220, 65, this)">Mini Badge (220×65)</button>
+                            <button type="button" class="preset-chip" onclick="applyPresetSize(360, 520, this)">Side Dock (360×520)</button>
+                            <button type="button" class="preset-chip" onclick="applyPresetSize(1920, 1080, this)">Full HD (1920×1080)</button>
+                        </div>
+                        <div class="dim-inputs">
+                            <span>Preview Canvas:</span>
+                            <input type="number" id="prev-w" value="600" min="80" max="1920" onchange="applyCustomSize()">
+                            <span>×</span>
+                            <input type="number" id="prev-h" value="160" min="30" max="1080" onchange="applyCustomSize()">
+                            <span>px</span>
+                        </div>
                     </div>
-                    <div class="url-item" data-overlay="hashtags" hidden>
-                        <div class="url-heading"><h3>Hashtags</h3><button class="button" data-copy="hashtags-url">Copy</button></div>
-                        <a id="hashtags-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+
+                    <div class="preview-frame" id="preview-frame">
+                        <div class="preview-wrapper" id="preview-wrapper">
+                            <iframe id="preview-iframe" src="/credits.html"></iframe>
+                        </div>
                     </div>
-                    <div class="url-item" data-overlay="goals" hidden>
-                        <div class="url-heading"><h3>Goal — Single</h3><button class="button" data-copy="goal-single-url">Copy</button></div>
-                        <a id="goal-single-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                    <p class="hint" style="margin-top:0.6rem; margin-bottom:0; margin-left:0;">
+                        💡 <b>OBS Tip:</b> Match your OBS Browser Source width &amp; height to these dimensions for pixel-perfect results.
+                    </p>
+                </section>
+
+                <section class="card">
+                    <h2>Generated Browser-Source URLs</h2>
+                    <p class="hint" style="margin-left:0;">URLs use this server’s current origin: <code id="origin"></code></p>
+                    <div class="url-list">
+                        <div class="url-item" data-overlay="credits">
+                            <div class="url-heading">
+                                <h3>Credits</h3>
+                                <div style="display:flex; gap:0.4rem;">
+                                    <button class="button" data-copy="credits-url">Copy</button>
+                                    <a class="button" data-open="credits-url" target="_blank" rel="noopener noreferrer">Open ↗</a>
+                                </div>
+                            </div>
+                            <a id="credits-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                        </div>
+                        <div class="url-item" data-overlay="stats" hidden>
+                            <div class="url-heading">
+                                <h3>Stats</h3>
+                                <div style="display:flex; gap:0.4rem;">
+                                    <button class="button" data-copy="stats-url">Copy</button>
+                                    <a class="button" data-open="stats-url" target="_blank" rel="noopener noreferrer">Open ↗</a>
+                                </div>
+                            </div>
+                            <a id="stats-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                        </div>
+                        <div class="url-item" data-overlay="hashtags" hidden>
+                            <div class="url-heading">
+                                <h3>Hashtags</h3>
+                                <div style="display:flex; gap:0.4rem;">
+                                    <button class="button" data-copy="hashtags-url">Copy</button>
+                                    <a class="button" data-open="hashtags-url" target="_blank" rel="noopener noreferrer">Open ↗</a>
+                                </div>
+                            </div>
+                            <a id="hashtags-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                        </div>
+                        <div class="url-item" data-overlay="goals" hidden>
+                            <div class="url-heading">
+                                <h3>Goal — Single</h3>
+                                <div style="display:flex; gap:0.4rem;">
+                                    <button class="button" data-copy="goal-single-url">Copy</button>
+                                    <a class="button" data-open="goal-single-url" target="_blank" rel="noopener noreferrer">Open ↗</a>
+                                </div>
+                            </div>
+                            <a id="goal-single-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                        </div>
+                        <div class="url-item" data-overlay="goals" hidden>
+                            <div class="url-heading">
+                                <h3>Goals — Cycle</h3>
+                                <div style="display:flex; gap:0.4rem;">
+                                    <button class="button" data-copy="goal-cycle-url">Copy</button>
+                                    <a class="button" data-open="goal-cycle-url" target="_blank" rel="noopener noreferrer">Open ↗</a>
+                                </div>
+                            </div>
+                            <a id="goal-cycle-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                        </div>
+                        <div class="url-item" data-overlay="viewers" hidden>
+                            <div class="url-heading">
+                                <h3>Viewer Count</h3>
+                                <div style="display:flex; gap:0.4rem;">
+                                    <button class="button" data-copy="viewer-url">Copy</button>
+                                    <a class="button" data-open="viewer-url" target="_blank" rel="noopener noreferrer">Open ↗</a>
+                                </div>
+                            </div>
+                            <a id="viewer-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
+                        </div>
                     </div>
-                    <div class="url-item" data-overlay="goals" hidden>
-                        <div class="url-heading"><h3>Goals — Cycle</h3><button class="button" data-copy="goal-cycle-url">Copy</button></div>
-                        <a id="goal-cycle-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
-                    </div>
-                    <div class="url-item" data-overlay="viewers" hidden>
-                        <div class="url-heading"><h3>Viewer Count</h3><button class="button" data-copy="viewer-url">Copy</button></div>
-                        <a id="viewer-url" class="url-output" target="_blank" rel="noopener noreferrer"></a>
-                    </div>
-                </div>
-            </section>
+                </section>
+            </div>
         </div>
 
         <section class="card reference">
@@ -330,11 +490,11 @@
                 <thead><tr><th>Overlay</th><th>Parameters</th><th>Purpose</th></tr></thead>
                 <tbody>
                     <tr data-overlay="credits"><td>Credits</td><td><code>duration</code> <code>speed</code> <code>days</code> <code>preview</code></td><td>Set roll timing, the data window, preview mode, or an advanced data location.</td></tr>
-                    <tr data-overlay="stats" hidden><td>Stats</td><td><code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>limit</code> <code>refresh</code></td><td>Choose the date window, how many rows each list shows, and how often it reloads.</td></tr>
+                    <tr data-overlay="stats" hidden><td>Stats</td><td><code>view</code> <code>align</code> <code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>limit</code> <code>refresh</code></td><td>Choose columns to show (all, chatters, emotes, hashtags), canvas alignment, date window, list limit, and refresh rate.</td></tr>
                     <tr data-overlay="hashtags" hidden><td>Hashtags</td><td><code>view</code> <code>sort</code> <code>columns</code> <code>size</code> <code>limit</code> <code>min</code> <code>days</code> <code>date</code> <code>from</code> <code>to</code> <code>title</code> <code>duration</code> <code>refresh</code> <code>counts</code> <code>weight</code> <code>scroll</code></td><td>Choose scroll, grid or cloud, the data window, sorting, and view-specific options.</td></tr>
-                    <tr data-overlay="goals" hidden><td>Goal</td><td><code>goal</code> <code>mode</code> <code>ids</code> <code>interval</code> <code>skipcompleted</code> <code>pausecomplete</code> <code>showlabel</code></td><td>Select one goal or cycle a subset, and override cycle behavior or the type label.</td></tr>
-                    <tr data-overlay="viewers" hidden><td>Viewer Count</td><td><code>label</code></td><td>Override the count label.</td></tr>
-                    <tr><td>All overlays</td><td><code>font</code> <code>weight</code> <code>fontscale</code> <code>text</code> <code>accent</code> <code>bg</code> <code>outline</code></td><td>Override the saved theme font, scale, text, accent and background colors, and text outline (use <code>none</code> to remove it).</td></tr>
+                    <tr data-overlay="goals" hidden><td>Goal</td><td><code>goal</code> <code>mode</code> <code>layout</code> <code>align</code> <code>ids</code> <code>interval</code> <code>skipcompleted</code> <code>pausecomplete</code> <code>showlabel</code></td><td>Select layout (card, bar, pill, minimal), horizontal alignment, one goal or cycle a subset, and override cycle behavior or the type label.</td></tr>
+                    <tr data-overlay="viewers" hidden><td>Viewer Count</td><td><code>layout</code> <code>align</code> <code>label</code></td><td>Select layout (card, pill, badge, minimal, stacked), horizontal alignment, and label override.</td></tr>
+                    <tr><td>All overlays</td><td><code>font</code> <code>weight</code> <code>fontscale</code> <code>align</code> <code>text</code> <code>accent</code> <code>bg</code> <code>outline</code></td><td>Override the saved theme font, scale, canvas alignment, text, accent and background colors, and text outline (use <code>none</code> to remove it).</td></tr>
                 </tbody>
             </table>
         </section>
@@ -344,13 +504,18 @@
     <script src="/nav.js"></script>
     <script>
     const $ = id => document.getElementById(id);
+    let currentOverlay = 'credits';
+    let goalPreviewMode = 'single';
+    let previewDebounce = null;
+    let currentPreviewUrl = '';
+
     const inputIds = [
         'ht-view', 'ht-sort', 'ht-columns', 'ht-size', 'ht-limit', 'ht-min', 'ht-range', 'ht-days', 'ht-date', 'ht-from', 'ht-to', 'ht-title', 'ht-duration', 'ht-refresh', 'ht-counts', 'ht-weight', 'ht-autoscroll',
         'credits-timing', 'credits-duration', 'credits-speed', 'credits-days', 'credits-preview',
-        'stats-range', 'stats-days', 'stats-date', 'stats-from', 'stats-to', 'stats-limit', 'stats-refresh',
-        'goal-single', 'goal-showlabel', 'goal-interval', 'goal-skipcompleted', 'goal-pausecomplete',
-        'viewer-label',
-        'ap-font', 'ap-weight', 'ap-fontscale', 'ap-text', 'ap-accent', 'ap-bg', 'ap-outline'
+        'stats-view', 'stats-range', 'stats-days', 'stats-date', 'stats-from', 'stats-to', 'stats-limit', 'stats-refresh',
+        'goal-layout', 'goal-single', 'goal-showlabel', 'goal-interval', 'goal-skipcompleted', 'goal-pausecomplete',
+        'viewer-layout', 'viewer-label',
+        'ap-font', 'ap-weight', 'ap-fontscale', 'ap-align', 'ap-text', 'ap-accent', 'ap-bg', 'ap-outline'
     ];
 
     function numberValue(id, minimum = 0) {
@@ -362,10 +527,12 @@
 
     // Shared appearance overrides are added to every overlay URL.
     function appearanceParams() {
+        const scaleVal = parseFloat($('ap-fontscale').value);
         return {
             font: $('ap-font').value.trim(),
             weight: $('ap-weight').value,
-            fontscale: numberValue('ap-fontscale', 0.5),
+            fontscale: scaleVal && scaleVal !== 1 ? String(scaleVal) : '',
+            align: $('ap-align').value,
             text: $('ap-text').value.trim(),
             accent: $('ap-accent').value.trim(),
             bg: $('ap-bg').value.trim(),
@@ -383,8 +550,113 @@
 
     function setUrl(id, value) {
         const element = $(id);
+        if (!element) return;
         element.href = value;
         element.textContent = value;
+        const openBtn = document.querySelector(`[data-open="${id}"]`);
+        if (openBtn) openBtn.href = value;
+    }
+
+    function updateFontScaleDisplay() {
+        const val = parseFloat($('ap-fontscale').value) || 1.0;
+        $('ap-fontscale-val').textContent = val === 1.0 ? '1.00x' : val.toFixed(2) + 'x';
+    }
+
+    function resetFontScale() {
+        $('ap-fontscale').value = '1.0';
+        updateFontScaleDisplay();
+        refreshUrls();
+    }
+
+    function setAccent(hex) {
+        $('ap-accent').value = hex;
+        const picker = document.querySelector('[data-color-for="ap-accent"]');
+        if (picker) picker.value = hex;
+        document.querySelectorAll('.p-chip').forEach(c => {
+            c.classList.toggle('active', c.getAttribute('data-color') === hex);
+        });
+        refreshUrls();
+    }
+
+    function applyPresetSize(w, h, btn) {
+        document.querySelectorAll('.preset-chip').forEach(c => {
+            if (c.id !== 'btn-prev-single' && c.id !== 'btn-prev-cycle') c.classList.remove('active');
+        });
+        if (btn) btn.classList.add('active');
+        $('prev-w').value = w;
+        $('prev-h').value = h;
+        const wrap = $('preview-wrapper');
+        if (wrap) {
+            wrap.style.width = w + 'px';
+            wrap.style.height = h + 'px';
+        }
+    }
+
+    function applyCustomSize() {
+        document.querySelectorAll('.preset-chip').forEach(c => {
+            if (c.id !== 'btn-prev-single' && c.id !== 'btn-prev-cycle') c.classList.remove('active');
+        });
+        const w = Math.max(80, Math.min(1920, parseInt($('prev-w').value, 10) || 600));
+        const h = Math.max(30, Math.min(1080, parseInt($('prev-h').value, 10) || 160));
+        const wrap = $('preview-wrapper');
+        if (wrap) {
+            wrap.style.width = w + 'px';
+            wrap.style.height = h + 'px';
+        }
+    }
+
+    function setGoalPreviewMode(mode) {
+        goalPreviewMode = mode;
+        const btnSingle = $('btn-prev-single');
+        const btnCycle = $('btn-prev-cycle');
+        if (btnSingle) btnSingle.classList.toggle('active', mode === 'single');
+        if (btnCycle) btnCycle.classList.toggle('active', mode === 'cycle');
+        updateLivePreview();
+    }
+
+    function updateLivePreview() {
+        let url = '';
+        const titleMap = {
+            credits: 'Credits',
+            stats: 'Stats',
+            hashtags: 'Hashtags',
+            goals: 'Goals',
+            viewers: 'Viewer Count'
+        };
+        const titleEl = $('preview-overlay-title');
+        if (titleEl) titleEl.textContent = titleMap[currentOverlay] || 'Overlay';
+
+        const goalBar = $('preview-goal-mode-bar');
+        if (goalBar) goalBar.style.display = currentOverlay === 'goals' ? 'flex' : 'none';
+
+        if (currentOverlay === 'credits') {
+            const el = $('credits-url');
+            if (el) url = el.href;
+        } else if (currentOverlay === 'stats') {
+            const el = $('stats-url');
+            if (el) url = el.href;
+        } else if (currentOverlay === 'hashtags') {
+            const el = $('hashtags-url');
+            if (el) url = el.href;
+        } else if (currentOverlay === 'goals') {
+            const el = goalPreviewMode === 'cycle' ? $('goal-cycle-url') : $('goal-single-url');
+            if (el) url = el.href;
+        } else if (currentOverlay === 'viewers') {
+            const el = $('viewer-url');
+            if (el) url = el.href;
+        }
+
+        const openBtn = $('preview-open-btn');
+        if (openBtn) openBtn.href = url || '#';
+
+        if (url && url !== currentPreviewUrl) {
+            clearTimeout(previewDebounce);
+            previewDebounce = setTimeout(() => {
+                currentPreviewUrl = url;
+                const iframe = $('preview-iframe');
+                if (iframe) iframe.src = url;
+            }, 100);
+        }
     }
 
     function selectedCycleIds() {
@@ -425,11 +697,13 @@
             weight: cloud && $('ht-weight').checked ? 'true' : '',
             scroll: hv === 'grid' && $('ht-autoscroll').checked ? 'true' : ''
         }));
+
         const range = $('stats-range').value;
         $('stats-days-row').style.display = range === 'days' ? '' : 'none';
         $('stats-date-row').style.display = range === 'date' ? '' : 'none';
         $('stats-from-row').style.display = $('stats-to-row').style.display = range === 'between' ? '' : 'none';
         setUrl('stats-url', buildUrl('/stats.html', {
+            view: $('stats-view').value !== 'all' ? $('stats-view').value : '',
             days: range === 'days' ? numberValue('stats-days', 1) : '',
             date: range === 'date' ? $('stats-date').value : '',
             from: range === 'between' ? $('stats-from').value : '',
@@ -437,6 +711,8 @@
             limit: numberValue('stats-limit', 1),
             refresh: numberValue('stats-refresh', 5)
         }));
+
+        // Credits URLs remain completely intact
         const timing = $('credits-timing').value;
         const credits = {
             days: numberValue('credits-days', 1),
@@ -446,7 +722,11 @@
         if (timing === 'speed') credits.speed = numberValue('credits-speed', 0.1);
         setUrl('credits-url', buildUrl('/credits.html', credits));
 
-        const goalAppearance = { showlabel: $('goal-showlabel').value };
+        const goalLayout = $('goal-layout').value;
+        const goalAppearance = {
+            showlabel: $('goal-showlabel').value,
+            layout: goalLayout !== 'card' ? goalLayout : ''
+        };
         setUrl('goal-single-url', buildUrl('/goal.html', {
             mode: 'single',
             goal: $('goal-single').value,
@@ -460,9 +740,14 @@
             pausecomplete: numberValue('goal-pausecomplete', 0),
             ...goalAppearance
         }));
+
+        const viewerLayout = $('viewer-layout').value;
         setUrl('viewer-url', buildUrl('/viewers.html', {
+            layout: viewerLayout !== 'card' ? viewerLayout : '',
             label: $('viewer-label').value.trim()
         }));
+
+        updateLivePreview();
     }
 
     function addGoalOption(select, goal) {
@@ -527,12 +812,14 @@
     }
 
     function selectOverlay(overlay) {
+        currentOverlay = overlay;
         document.querySelectorAll('[data-overlay-choice]').forEach(button => {
             button.setAttribute('aria-pressed', String(button.dataset.overlayChoice === overlay));
         });
-        document.querySelectorAll('.overlay-config, .url-item, .parameter-table tbody tr').forEach(element => {
+        document.querySelectorAll('.overlay-config, .url-item, .parameter-table tbody tr[data-overlay]').forEach(element => {
             element.hidden = element.dataset.overlay !== overlay;
         });
+        updateLivePreview();
     }
 
     $('origin').textContent = location.origin;
@@ -540,17 +827,31 @@
         button.addEventListener('click', () => selectOverlay(button.dataset.overlayChoice));
     });
     inputIds.forEach(id => {
-        $(id).addEventListener('input', refreshUrls);
-        $(id).addEventListener('change', refreshUrls);
+        const el = $(id);
+        if (el) {
+            el.addEventListener('input', refreshUrls);
+            el.addEventListener('change', refreshUrls);
+        }
     });
+    $('ap-fontscale').addEventListener('input', updateFontScaleDisplay);
+
     document.querySelectorAll('[data-color-for]').forEach(picker => {
-        picker.addEventListener('input', () => { $(picker.dataset.colorFor).value = picker.value; refreshUrls(); });
+        picker.addEventListener('input', () => {
+            const target = $(picker.dataset.colorFor);
+            if (target) target.value = picker.value;
+            if (picker.dataset.colorFor === 'ap-accent') {
+                document.querySelectorAll('.p-chip').forEach(c => {
+                    c.classList.toggle('active', c.getAttribute('data-color') === picker.value);
+                });
+            }
+            refreshUrls();
+        });
     });
     document.querySelectorAll('[data-copy]').forEach(button => {
         button.addEventListener('click', () => copyUrl(button.dataset.copy, button));
     });
 
-(async function fillFonts() {
+    (async function fillFonts() {
         const names = [...OverlayFonts.system, ...OverlayFonts.google];
         try {
             const assets = await (await fetch('/api/custom-overlays/assets', { cache: 'no-store' })).json();
@@ -559,6 +860,27 @@
         $('ap-font-list').innerHTML = [...new Set(names)].map(n => `<option value="${n.replace(/"/g, '')}">`).join('');
     })();
 
+    async function loadConfigTheme() {
+        try {
+            const res = await fetch('/api/config');
+            if (!res.ok) return;
+            const cfg = await res.json();
+            const t = cfg.theme || {};
+            if (t.accent_color) {
+                $('ap-accent').placeholder = t.accent_color;
+                const p = document.querySelector('[data-color-for="ap-accent"]');
+                if (p) p.value = t.accent_color;
+                document.querySelectorAll('.p-chip').forEach(c => {
+                    if (c.getAttribute('data-color') === t.accent_color) c.classList.add('active');
+                });
+            }
+            if (t.text_color) $('ap-text').placeholder = t.text_color;
+            if (t.background_color) $('ap-bg').placeholder = t.background_color;
+            if (t.font_family) $('ap-font').placeholder = t.font_family;
+        } catch { /* optional */ }
+    }
+
+    loadConfigTheme();
     refreshUrls();
     loadGoals();
     const requested = new URLSearchParams(location.search).get('overlay');
