@@ -14,7 +14,15 @@
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
         @media (max-width: 768px) { .header { flex-direction: column; gap: .5rem; } }
-        .wrap { max-width: 960px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; display: grid; gap: 1.2rem; }
+        .wrap { max-width: 960px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; display: grid; gap: 1rem; }
+        .tabs { display: flex; gap: .25rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: .25rem; }
+        .tabs button { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); padding: .65rem 1rem; font: inherit; font-size: .88rem; cursor: pointer; margin-bottom: -1px; transition: all .15s; }
+        .tabs button:hover { color: var(--text); }
+        .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+        .tabs .count { color: var(--text-muted); font-size: .75rem; font-weight: 400; margin-left: .25rem; }
+        .tabs .count:not(:empty)::before { content: '('; } .tabs .count:not(:empty)::after { content: ')'; }
+        .tab-content { display: grid; gap: 1rem; }
+        .tab-content[hidden] { display: none !important; }
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem; }
         .card h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-bottom: .6rem; }
         .muted { color: var(--text-muted); font-size: .82rem; line-height: 1.5; }
@@ -50,46 +58,56 @@
     <script src="/nav.js"></script>
 </div>
 <div class="wrap">
-    <!-- Custom Variables & Counters Management Card -->
-    <div class="card" id="vars-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.6rem; flex-wrap:wrap; gap:.5rem;">
-            <h2 style="margin-bottom:0;">Custom Variables &amp; Counters <span id="var-count" style="font-weight:400; text-transform:none; color:var(--text-muted);"></span></h2>
-            <div style="display:flex; gap:.6rem; align-items:center;">
-                <a href="/chatbot.html#variables" style="font-size:.8rem; color:var(--accent); text-decoration:none;">Open in Chat Bot ↗</a>
+    <!-- Top Tabs Navigation -->
+    <nav class="tabs" id="tabs">
+        <button type="button" data-t="placeholders" aria-selected="true">Placeholders <span class="count" id="ph-count"></span></button>
+        <button type="button" data-t="variables">Custom Variables &amp; Counters <span class="count" id="var-count"></span></button>
+    </nav>
+
+    <!-- Tab 1: Placeholders Reference -->
+    <div class="tab-content" id="tab-placeholders" data-tab="placeholders">
+        <div class="card bar">
+            <input type="search" id="q" placeholder="Search placeholders (e.g. followers, timer, weather, var)" aria-label="Search placeholders">
+            <label class="muted" style="display:flex; align-items:center; gap:.4rem; cursor:pointer;"><input type="checkbox" id="vals" checked> Show current values</label>
+            <button class="b" id="copy">Copy Markdown</button>
+            <button class="b" id="md">Download .md</button>
+        </div>
+        <div class="card muted">
+            Use any placeholder as <code>{{name}}</code> in overlay text, embeds, QR codes, alert messages and chat bot replies. Dates, timers and lists accept a format: <code>{{name|format}}</code>. Lists also take <code>.random</code> in chat bot replies, for example <code>{{var.NAME.random}}</code>. Generated live from your setup (timers, goals, variables, lists). Click any code tag to copy.
+        </div>
+        <div id="out"></div>
+    </div>
+
+    <!-- Tab 2: Custom Variables & Counters -->
+    <div class="tab-content" id="tab-variables" data-tab="variables" hidden>
+        <div class="card" id="vars-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.6rem; flex-wrap:wrap; gap:.5rem;">
+                <h2 style="margin-bottom:0;">Custom Variables &amp; Counters</h2>
+                <div style="display:flex; gap:.6rem; align-items:center;">
+                    <a href="/chatbot.html#variables" style="font-size:.8rem; color:var(--accent); text-decoration:none;">Open in Chat Bot ↗</a>
+                </div>
+            </div>
+            <p class="muted" style="margin-bottom:1rem;">
+                Custom variables can be displayed across overlays, alerts, game plans, and chat bot replies using <code>{{var.NAME}}</code>. Update their values here live without switching to the Chat Bot settings.
+            </p>
+
+            <!-- Create Variable Bar -->
+            <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin-bottom:1rem; background:var(--bg-inset); padding:.6rem .75rem; border-radius:6px; border:1px solid var(--border);">
+                <input type="text" id="var-name" placeholder="Variable name (e.g. deaths, boss)" style="flex:1; min-width:13rem;">
+                <select id="var-type">
+                    <option value="counter">Counter (number)</option>
+                    <option value="text">Text (string)</option>
+                    <option value="list">List (rotating items)</option>
+                </select>
+                <button class="b primary" id="var-add">+ Add Variable</button>
+            </div>
+
+            <!-- Variables List Container -->
+            <div id="vars-list" style="display:grid; gap:.6rem;">
+                <div class="muted">Loading variables…</div>
             </div>
         </div>
-        <p class="muted" style="margin-bottom:1rem;">
-            Custom variables can be displayed across overlays, alerts, game plans, and chat bot replies using <code>{{var.NAME}}</code>. Update their values here live without switching to the Chat Bot settings.
-        </p>
-
-        <!-- Create Variable Bar -->
-        <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin-bottom:1rem; background:var(--bg-inset); padding:.6rem .75rem; border-radius:6px; border:1px solid var(--border);">
-            <input type="text" id="var-name" placeholder="Variable name (e.g. deaths, boss)" style="flex:1; min-width:13rem;">
-            <select id="var-type">
-                <option value="counter">Counter (number)</option>
-                <option value="text">Text (string)</option>
-                <option value="list">List (rotating items)</option>
-            </select>
-            <button class="b primary" id="var-add">+ Add Variable</button>
-        </div>
-
-        <!-- Variables List Container -->
-        <div id="vars-list" style="display:grid; gap:.6rem;">
-            <div class="muted">Loading variables…</div>
-        </div>
     </div>
-
-    <!-- Placeholders Reference Section -->
-    <div class="card bar">
-        <input type="search" id="q" placeholder="Search placeholders" aria-label="Search placeholders">
-        <label class="muted" style="display:flex; align-items:center; gap:.4rem; cursor:pointer;"><input type="checkbox" id="vals" checked> Show current values</label>
-        <button class="b" id="copy">Copy Markdown</button>
-        <button class="b" id="md">Download .md</button>
-    </div>
-    <div class="card muted">
-        Use any placeholder as <code>{{name}}</code> in overlay text, embeds, QR codes, alert messages and chat bot replies. Dates, timers and lists accept a format: <code>{{name|format}}</code>. Lists also take <code>.random</code> in chat bot replies, for example <code>{{var.NAME.random}}</code>. Generated live from your setup (timers, goals, variables, lists). Click any code tag to copy.
-    </div>
-    <div id="out"></div>
 </div>
 
 <script src="/overlay-shared.js"></script>
@@ -103,6 +121,24 @@ const toast = (msg, type = 'info') => {
 };
 let status = {};
 let customVars = [];
+
+// Tab Navigation
+function showTab(name) {
+    if (name !== 'variables' && name !== 'vars' && name !== 'placeholders') name = 'placeholders';
+    const activeKey = (name === 'vars' || name === 'variables') ? 'variables' : 'placeholders';
+    document.querySelectorAll('#tabs button').forEach(b => {
+        b.setAttribute('aria-selected', String(b.dataset.t === activeKey));
+    });
+    document.querySelectorAll('.tab-content').forEach(c => {
+        c.hidden = c.dataset.tab !== activeKey;
+    });
+    history.replaceState(null, '', `#${activeKey}`);
+}
+
+$('tabs').addEventListener('click', e => {
+    const b = e.target.closest('button[data-t]');
+    if (b) showTab(b.dataset.t);
+});
 
 // Copy helper
 async function copyToClipboard(text) {
@@ -148,7 +184,7 @@ async function api(path, method = 'GET', body = null) {
 // Render Custom Variables
 function renderVars() {
     const container = $('vars-list');
-    $('var-count').textContent = `(${customVars.length})`;
+    $('var-count').textContent = customVars.length ? String(customVars.length) : '';
 
     if (!customVars.length) {
         container.innerHTML = '<div class="muted" style="padding:.5rem 0;">No custom variables defined yet. Create one above to display counters or custom text in your stream!</div>';
@@ -311,6 +347,10 @@ function groups() {
 
 function render() {
     const gs = groups();
+    let totalItems = 0;
+    gs.forEach(g => { totalItems += g.items.length; });
+    $('ph-count').textContent = totalItems ? String(totalItems) : '';
+
     $('out').innerHTML = gs.map(g => `
         <div class="card">
             <h2>${esc(g.label)}</h2>
@@ -351,6 +391,10 @@ $('md').onclick = () => {
     a.download = 'streampulse-placeholders.md'; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
+
+// Initial tab detection
+showTab(location.hash.slice(1));
+window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
 
 // Initial data load
 loadVars();
