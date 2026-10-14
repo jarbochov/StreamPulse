@@ -768,6 +768,7 @@
 
     // Outline, text shadow and case/decoration apply to the text itself (and inherit into markdown and alert text).
     function textEffectStyle(style = {}, type = '') {
+        if (type === 'icon') return {};
         const stroke = style.textStroke?.width > 0;
         return {
             webkitTextStroke: stroke ? `${style.textStroke.width}px ${style.textStroke.color || '#000'}` : '',
@@ -782,6 +783,7 @@
 
     // Layers clip their content, which cuts off text shadows and glows at the box edge. Let the shadow spill out instead.
     function shadowClipStyle(element) {
+        if (element.type === 'icon') return { overflow: 'visible', overflowClipMargin: '' };
         const style = element.style || {};
         const blur = Number(style.textShadow?.blur) || 0;
         const textual = !['image', 'video', 'slideshow', 'embed', 'qr', 'icon', 'shape', 'progress', 'game-list'].includes(element.type);
@@ -1220,6 +1222,7 @@
         if (style.textShadow?.blur > 0) {
             icon.style.filter = `drop-shadow(0 2px ${style.textShadow.blur}px ${style.textShadow.color || 'rgba(0,0,0,0.7)'})`;
         }
+        node.style.overflow = 'visible';
         node.style.containerType = 'size';
         node.style.display = 'flex';
         node.style.alignItems = style.verticalAlign === 'top' ? 'flex-start' : style.verticalAlign === 'bottom' ? 'flex-end' : 'center';
