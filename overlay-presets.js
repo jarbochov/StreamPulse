@@ -110,6 +110,25 @@
                 { type: 'shape', name: 'Webcam border', x: 0, y: 0, width: 400, height: 300, style: { background: 'transparent', borderColor: '#06b6d4', borderWidth: 3, borderRadius: 12, shadow: { blur: 20, color: 'rgba(0,0,0,0.6)' } } },
                 { type: 'shape', name: 'Handle tag background', x: 20, y: 274, width: 150, height: 28, style: { background: '#06b6d4', borderRadius: 6 } },
                 text('Streamer name', '{{streamer.name}}', 20, 274, 150, 28, { fontSize: 13, fontWeight: '700', textAlign: 'center', color: '#ffffff' })
+            ]),
+            build('milestone-card', 'Milestone & Stream # Card', 'Milestones', 'Stream broadcast number, lifetime hours, daily streak, and next goal progress bar.', 440, 180, [
+                panel(440, 180, 'Milestones panel'),
+                muted('Milestone title', 'BROADCAST STATS', 20, 12, 260, 24, 14),
+                text('Stream streak', '🔥 {{milestone.streak_days}} Day Streak', 270, 12, 150, 24, { fontSize: 13, fontWeight: '700', textAlign: 'right', color: '#f59e0b' }),
+                text('Stream number', 'Stream #{{milestone.stream_number}}', 20, 36, 400, 48, { fontSize: 34, fontWeight: '700', color: '#8b5cf6' }),
+                muted('Stream time', '⏱️ {{milestone.total_time}} streamed · 💬 {{milestone.lifetime_chatters}} chatters', 20, 84, 400, 26, 16),
+                muted('Goal title', 'Next goal: Stream #{{milestone.next_stream_goal}} ({{milestone.streams_remaining}} left)', 20, 116, 400, 22, 14),
+                { type: 'progress', name: 'Goal progress', content: '{{milestone.stream_goal_percent}}', x: 20, y: 142, width: 400, height: 10, style: { fontSize: 12 }, progress: { showLabel: false, thickness: 10, fill: '#8b5cf6' } }
+            ]),
+            build('milestone-pill', 'Stream & Streak Pill', 'Milestones', 'Compact horizontal badge with Stream #, day streak and broadcast hours.', 440, 54, [
+                { type: 'shape', name: 'Pill background', x: 0, y: 0, width: 440, height: 54, style: { ...PANEL, borderRadius: 27 } },
+                text('Pill text', '🎬 Stream #{{milestone.stream_number}}   ·   🔥 {{milestone.streak_days}} Days   ·   ⏱️ {{milestone.total_time}}', 15, 0, 410, 54, { fontSize: 16, fontWeight: '600', textAlign: 'center' })
+            ]),
+            build('milestone-goal-bar', 'Next Milestone Goal Bar', 'Milestones', 'Target progress bar toward next stream count milestone.', 440, 84, [
+                panel(440, 84, 'Goal panel'),
+                text('Goal label', '🎯 Stream #{{milestone.next_stream_goal}} Goal', 20, 14, 260, 28, { fontSize: 18, fontWeight: '700' }),
+                muted('Goal count', '{{milestone.streams_remaining}} to go', 280, 16, 140, 24, 14, 'right'),
+                { type: 'progress', name: 'Goal bar', content: '{{milestone.stream_goal_percent}}', x: 20, y: 48, width: 400, height: 14, style: { fontSize: 12 }, progress: { showLabel: false, thickness: 14, fill: '#8b5cf6' } }
             ])
         ];
     }

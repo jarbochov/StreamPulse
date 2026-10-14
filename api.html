@@ -913,7 +913,7 @@
             ]
         },
         {
-            section: 'Community CRM & Milestones',
+            section: 'Community Notes & Milestones',
             items: [
                 {
                     method: 'GET', path: '/api/milestones',
@@ -923,20 +923,21 @@
                 {
                     method: 'GET', path: '/api/chatters',
                     desc: 'Search community chatters directory',
-                    details: 'Returns top chatters ranked by lifetime message volume with attendance counts, sub status, and CRM tags. Filter with ?q=name_or_tag.',
+                    details: 'Returns top chatters ranked by lifetime message volume with attendance counts, sub status, notes, and community tags. Filter with ?q=name and ?tag=tag_name.',
                     params: [
-                        { name: 'q', desc: 'Search query for username or CRM tag', values: 'string', default: 'none' }
+                        { name: 'q', desc: 'Search query for username, notes, or tag', values: 'string', default: 'none' },
+                        { name: 'tag', desc: 'Filter by specific tag (e.g. VIP, Sub, Regular, Artist)', values: 'string', default: 'none' }
                     ]
                 },
                 {
                     method: 'GET', path: '/api/chatters/:username',
                     desc: 'Get full chatter dossier',
-                    details: 'Aggregates a community member\'s lifetime statistics, sub tenure, bits, gift subs, raids, favorite games/categories watched across sessions, and private CRM notes.'
+                    details: 'Aggregates a community member\'s lifetime statistics, sub tenure, bits, gift subs, raids, favorite games/categories watched across sessions, and private community notes.'
                 },
                 {
                     method: 'POST', path: '/api/chatters/:username/notes',
-                    desc: 'Save private streamer notes & CRM tags',
-                    details: 'Saves private notes, VIP designation, and tags for a community member to data/chatter-notes.json. Body: {"notes": "string", "tags": ["tag1", "tag2"]}.'
+                    desc: 'Save private streamer notes & community tags',
+                    details: 'Saves private notes, VIP designation, and community tags for a viewer to data/chatter-notes.json. Body: {"notes": "string", "tags": ["tag1", "tag2"]}.'
                 },
                 {
                     method: 'GET', path: '/api/weather',

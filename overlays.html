@@ -71,6 +71,17 @@
                 { name: 'Music — art only', desc: 'Album art with a brief title overlay on track change.', path: '/music.html?mode=art', customize: ['/music-url-wizard.html', 'Customize'] },
                 { name: 'Music — mini bar', desc: 'Compact text-only now-playing bar.', path: '/music.html?mode=mini', customize: ['/music-url-wizard.html', 'Customize'] }
             ] },
+            { title: 'Game Plan', manage: ['Game Plan manager', '/game-plan-editor.html'], items: [
+                { name: 'Game Plan — Schedule', desc: 'Horizontal visual schedule strip showing now playing and upcoming games.', path: '/game-plan.html?mode=schedule', customize: ['/game-plan-url-wizard.html?mode=schedule', 'Customize'] },
+                { name: 'Game Plan — Ticker', desc: 'Compact ticker bar showing current game and upcoming queue.', path: '/game-plan.html?mode=ticker', customize: ['/game-plan-url-wizard.html?mode=ticker', 'Customize'] },
+                { name: 'Game Plan — Checklist', desc: 'Vertical task/game queue with progress checkmarks.', path: '/game-plan.html?mode=checklist', customize: ['/game-plan-url-wizard.html?mode=checklist', 'Customize'] }
+            ] },
+            { title: 'Milestones & Streaks', manage: ['Analytics & Milestones', '/analytics.html#milestones'], items: [
+                { name: 'Milestone Card', desc: 'Broadcast milestones card with Stream #, lifetime hours, streak, and goal progress bar.', path: '/milestones.html?mode=card', customize: ['/milestone-url-wizard.html?mode=card', 'Customize'] },
+                { name: 'Stream & Streak Pill', desc: 'Compact horizontal badge showing Stream #, day/week streak, and hours.', path: '/milestones.html?mode=pill', customize: ['/milestone-url-wizard.html?mode=pill', 'Customize'] },
+                { name: 'Next Milestone Goal', desc: 'Target progress bar toward next stream count or hours milestone.', path: '/milestones.html?mode=goal', customize: ['/milestone-url-wizard.html?mode=goal', 'Customize'] },
+                { name: 'Streak Badge', desc: 'Minimal flame streak badge counter.', path: '/milestones.html?mode=streak', customize: ['/milestone-url-wizard.html?mode=streak', 'Customize'] }
+            ] },
             { id: 'timers', title: 'Timers', manage: ['Timer manager', '/timers-editor.html'], items: [] },
             { id: 'custom', title: 'Custom overlays', manage: ['All custom overlays & assets', '/custom-overlays.html'], items: [] }
         ];

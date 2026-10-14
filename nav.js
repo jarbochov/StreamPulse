@@ -62,6 +62,7 @@
             { label: 'Goal', href: '/goal.html', target: '_blank' },
             { label: 'Goals Cycle', href: '/goal.html?mode=cycle', target: '_blank' },
             { label: 'Game Plan', href: '/game-plan.html', target: '_blank' },
+            { label: 'Milestones & Streaks', href: '/milestones.html', target: '_blank' },
             { heading: 'Music (Beta)' },
             { label: 'Full', href: '/music.html?mode=full', target: '_blank' },
             { label: 'Art Only', href: '/music.html?mode=art', target: '_blank' },
@@ -73,14 +74,15 @@
             { label: 'Credits, Goals & Viewers', href: '/overlay-url-wizard.html' },
             { label: 'Timers', href: '/timer-url-wizard.html' },
             { label: 'Music', href: '/music-url-wizard.html' },
-            { label: 'Game Plan', href: '/game-plan-url-wizard.html' }
+            { label: 'Game Plan', href: '/game-plan-url-wizard.html' },
+            { label: 'Milestones', href: '/milestone-url-wizard.html' }
         ]},
         { label: 'Library ▾', children: [
             { label: 'Highlights', href: '/highlights.html' },
             { label: 'Clips (Beta)', href: '/clips.html' },
             { label: 'Sessions', href: '/sessions.html?session=__current__' },
             { label: 'Categories', href: '/categories.html' },
-            { label: 'Analytics & CRM', href: '/analytics.html' },
+            { label: 'Analytics & Community', href: '/analytics.html' },
             { label: 'Hashtag Stats', href: '/hashtag-stats.html' }
         ]},
         { label: 'Manage ▾', children: [
@@ -142,8 +144,9 @@
         }
         // Additional deep-link shortcuts for command palette
         list.push({ label: 'Milestones & Streaks', href: '/analytics.html#milestones', group: 'Analytics' });
-        list.push({ label: 'Community CRM (Chatters & Notes)', href: '/analytics.html#crm', group: 'Analytics' });
+        list.push({ label: 'Chatters & Notes (Community)', href: '/analytics.html#crm', group: 'Analytics' });
         list.push({ label: 'Subscribers & Growth', href: '/analytics.html#growth', group: 'Analytics' });
+        list.push({ label: 'Milestones Overlay URL Wizard', href: '/milestone-url-wizard.html', group: 'URL Builders' });
         return list;
     }
 

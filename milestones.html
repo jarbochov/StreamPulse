@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Milestones & Streaks Overlay</title>
+    <style>
+        :root {
+            --ms-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            --ms-bg: rgba(13, 17, 23, 0.82);
+            --ms-border: rgba(48, 54, 61, 0.9);
+            --ms-text: #f0f6fc;
+            --ms-muted: #8b949e;
+            --ms-accent: #8b5cf6;
+            --ms-accent-bg: rgba(139, 92, 246, 0.15);
+            --ms-fire: #f59e0b;
+            --ms-scale: 1;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: transparent;
+            font-family: var(--ms-font);
+            color: var(--ms-text);
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+        }
+
+        /* Themes */
+        body.theme-glass .ms-container {
+            background: rgba(15, 20, 32, 0.72) !important;
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+        }
+
+        body.theme-dark .ms-container {
+            background: #0d1117 !important;
+            border: 1px solid #30363d !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        body.theme-transparent .ms-container {
+            background: transparent !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+        }
+
+        body.theme-neon .ms-container {
+            background: rgba(10, 10, 20, 0.9) !important;
+            border: 1.5px solid var(--ms-accent) !important;
+            box-shadow: 0 0 24px color-mix(in srgb, var(--ms-accent) 45%, transparent), inset 0 0 12px color-mix(in srgb, var(--ms-accent) 15%, transparent);
+        }
+
+        body.theme-light .ms-container {
+            background: #ffffff !important;
+            border: 1px solid #d0d7de !important;
+            color: #1f2328 !important;
+            --ms-text: #1f2328;
+            --ms-muted: #57606a;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Base Container */
+        .ms-container {
+            background: var(--ms-bg);
+            border: 1px solid var(--ms-border);
+            border-radius: 14px;
+            transition: all 0.25s ease;
+            transform-origin: center center;
+            transform: scale(var(--ms-scale));
+        }
+
+        /* Mode: Card (Default) */
+        .mode-card {
+            width: 420px;
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .card-title {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+            color: var(--ms-muted);
+        }
+
+        .streak-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            background: rgba(245, 158, 11, 0.14);
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            color: var(--ms-fire);
+        }
+
+        .streak-pill .icon {
+            font-size: 0.85rem;
+        }
+
+        .card-main {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .stream-num {
+            font-size: 1.85rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--ms-accent);
+            line-height: 1.1;
+        }
+
+        .stream-hours {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--ms-text);
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .card-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.78rem;
+            color: var(--ms-muted);
+        }
+
+        .card-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .goal-section {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            padding-top: 6px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        body.theme-light .goal-section {
+            border-top-color: #e1e4e8;
+        }
+
+        .goal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.74rem;
+        }
+
+        .goal-name {
+            font-weight: 600;
+            color: var(--ms-text);
+        }
+
+        .goal-rem {
+            color: var(--ms-muted);
+            font-size: 0.72rem;
+        }
+
+        .goal-bar {
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        body.theme-light .goal-bar {
+            background: #e1e4e8;
+        }
+
+        .goal-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--ms-accent), color-mix(in srgb, var(--ms-accent) 70%, #fff));
+            border-radius: 999px;
+            transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Mode: Pill */
+        .mode-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 22px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+
+        .mode-pill .stream-pill-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .mode-pill .stream-pill-item.accent {
+            color: var(--ms-accent);
+            font-weight: 700;
+        }
+
+        .mode-pill .sep {
+            color: var(--ms-muted);
+            opacity: 0.5;
+        }
+
+        /* Mode: Streak Minimal */
+        .mode-streak {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 18px;
+            border-radius: 999px;
+        }
+
+        .mode-streak .streak-val {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--ms-fire);
+        }
+
+        .mode-streak .streak-sub {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--ms-muted);
+        }
+
+        /* Mode: Stream Number Minimal */
+        .mode-stream_num {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--ms-accent);
+        }
+
+        /* Mode: Goal Focused */
+        .mode-goal {
+            width: 440px;
+            padding: 14px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .mode-goal .goal-bar {
+            height: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="ms-root" class="ms-container mode-card">
+        <!-- Rendered dynamically -->
+    </div>
+
+    <script src="/overlay-visibility.js" data-key="milestones"></script>
+    <script src="/url-params.js"></script>
+    <script src="/overlay-theme.js"></script>
+    <script>
+    const params = overlayParams();
+    const mode = (params.get('mode') || 'card').toLowerCase();
+    const theme = (params.get('theme') || 'glass').toLowerCase();
+    const customAccent = params.get('color') || params.get('accent');
+    const scale = parseFloat(params.get('scale') || '1');
+    const customTitle = params.get('title') || 'BROADCAST STATS';
+    const goalType = (params.get('goal') || 'streams').toLowerCase();
+    const hideStreak = params.has('hideStreak') || params.get('streak') === '0';
+    const hideHours = params.has('hideHours') || params.get('hours') === '0';
+    const hideGoal = params.has('hideGoal') || params.get('showGoal') === '0';
+    const hideStats = params.has('hideStats') || params.get('stats') === '0';
+
+    const root = document.getElementById('ms-root');
+    document.body.className = `theme-${theme}`;
+    root.className = `ms-container mode-${mode}`;
+
+    if (customAccent) {
+        document.documentElement.style.setProperty('--ms-accent', customAccent);
+    }
+    if (!isNaN(scale) && scale > 0) {
+        document.documentElement.style.setProperty('--ms-scale', scale);
+    }
+
+    let currentData = null;
+
+    function render(data) {
+        if (!data) return;
+        currentData = data;
+
+        const streamNum = data.stream_number || 0;
+        const totalTime = data.total_time || `${data.total_hours || 0}h`;
+        const streakDays = data.streak_days || 0;
+        const streakWeeks = data.streak_weeks || 0;
+        const chatters = Number(data.lifetime_chatters || 0).toLocaleString();
+        const messages = Number(data.lifetime_messages || 0).toLocaleString();
+
+        // Calculate Goal info
+        let goalTitle = `Stream #${data.next_stream_goal || 50}`;
+        let goalCur = streamNum;
+        let goalTarget = data.next_stream_goal || 50;
+        let goalUnit = 'streams';
+
+        if (goalType === 'hours') {
+            goalTitle = `${data.next_hours_goal || 100} Broadcast Hours`;
+            goalCur = data.total_hours || 0;
+            goalTarget = data.next_hours_goal || 100;
+            goalUnit = 'hours';
+        } else if (goalType === 'chatters') {
+            const chattersGoal = (data.milestones || []).find(m => m.type === 'chatters');
+            goalTitle = chattersGoal ? chattersGoal.title : 'Chatters Goal';
+            goalCur = data.lifetime_chatters || 0;
+            goalTarget = chattersGoal ? chattersGoal.target : 50;
+            goalUnit = 'chatters';
+        }
+
+        const goalRem = Math.max(0, goalTarget - goalCur);
+        const goalPct = Math.min(100, Math.max(0, Math.round((goalCur / goalTarget) * 100)));
+
+        if (mode === 'card') {
+            root.innerHTML = `
+                <div class="card-top">
+                    <span class="card-title">${customTitle}</span>
+                    ${!hideStreak ? `
+                        <div class="streak-pill" title="${streakDays} consecutive broadcast days">
+                            <span class="icon">🔥</span>
+                            <span>${streakDays} ${streakDays === 1 ? 'Day' : 'Days'}</span>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="card-main">
+                    <div class="stream-num">Stream #${streamNum}</div>
+                    ${!hideHours ? `<div class="stream-hours"><span>⏱️</span> ${totalTime}</div>` : ''}
+                </div>
+                ${!hideStats ? `
+                    <div class="card-meta">
+                        <span>💬 ${chatters} Chatters</span>
+                        <span>📨 ${messages} Msgs</span>
+                        ${streakWeeks > 1 ? `<span>📅 ${streakWeeks} Wk Streak</span>` : ''}
+                    </div>
+                ` : ''}
+                ${!hideGoal ? `
+                    <div class="goal-section">
+                        <div class="goal-header">
+                            <span class="goal-name">Target: ${goalTitle}</span>
+                            <span class="goal-rem">${goalRem > 0 ? `${goalRem} ${goalUnit} to go (${goalPct}%)` : '🎉 Reached!'}</span>
+                        </div>
+                        <div class="goal-bar">
+                            <div class="goal-fill" style="width: ${goalPct}%;"></div>
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+        } else if (mode === 'pill') {
+            root.innerHTML = `
+                <div class="stream-pill-item accent">🎬 Stream #${streamNum}</div>
+                ${!hideStreak ? `
+                    <span class="sep">•</span>
+                    <div class="stream-pill-item" style="color:var(--ms-fire)">🔥 ${streakDays} ${streakDays === 1 ? 'Day' : 'Days'}</div>
+                ` : ''}
+                ${!hideHours ? `
+                    <span class="sep">•</span>
+                    <div class="stream-pill-item">⏱️ ${totalTime}</div>
+                ` : ''}
+            `;
+        } else if (mode === 'streak') {
+            root.innerHTML = `
+                <span style="font-size:1.3rem">🔥</span>
+                <span class="streak-val">${streakDays}</span>
+                <span class="streak-sub">${streakDays === 1 ? 'Day Streak' : 'Days Streak'}</span>
+            `;
+        } else if (mode === 'stream_num') {
+            root.innerHTML = `
+                <span>🎬</span>
+                <span>Stream #${streamNum}</span>
+            `;
+        } else if (mode === 'goal') {
+            root.innerHTML = `
+                <div class="goal-header" style="font-size:0.85rem">
+                    <span class="goal-name" style="font-size:1rem; font-weight:700">🎯 ${goalTitle}</span>
+                    <span class="goal-rem" style="font-size:0.8rem"><b>${goalCur}</b> / ${goalTarget} ${goalUnit} (${goalRem} to go)</span>
+                </div>
+                <div class="goal-bar" style="height:12px">
+                    <div class="goal-fill" style="width: ${goalPct}%;"></div>
+                </div>
+            `;
+        }
+    }
+
+    async function loadData() {
+        try {
+            const res = await fetch('/api/milestones');
+            if (res.ok) {
+                render(await res.json());
+            }
+        } catch (err) {
+            console.warn('[Milestones overlay] Fetch error:', err);
+        }
+    }
+
+    // Connect WebSocket for reactive live updates
+    function connectWS() {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        let ws;
+        try {
+            ws = new WebSocket(`${proto}//${location.host}`);
+        } catch (e) {
+            return;
+        }
+
+        ws.onmessage = evt => {
+            try {
+                const msg = JSON.parse(evt.data);
+                if (msg.type === 'status' && msg.data?.milestones) {
+                    render(msg.data.milestones);
+                } else if (msg.type === 'milestone-update') {
+                    render(msg.data);
+                }
+            } catch (e) {}
+        };
+
+        ws.onclose = () => {
+            setTimeout(connectWS, 5000);
+        };
+    }
+
+    loadData();
+    connectWS();
+    // Background polling fallback every 25s
+    setInterval(loadData, 25000);
+    </script>
+</body>
+</html>

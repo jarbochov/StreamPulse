@@ -142,7 +142,7 @@
                 <span class="tab-icon">🏆</span> Milestones &amp; Streaks
             </button>
             <button class="tab-btn" data-tab="crm" role="tab" aria-selected="false" aria-controls="tab-crm">
-                <span class="tab-icon">👥</span> Community CRM
+                <span class="tab-icon">👥</span> Chatters &amp; Notes
             </button>
             <button class="tab-btn" data-tab="growth" role="tab" aria-selected="false" aria-controls="tab-growth">
                 <span class="tab-icon">📈</span> Subscribers &amp; Growth
@@ -191,7 +191,10 @@
             <section class="card">
                 <div class="card-head">
                     <h2>Lifetime Broadcast Stats &amp; Streaks</h2>
-                    <button class="btn" id="refresh-milestones-btn">↻ Refresh</button>
+                    <div class="head-tools">
+                        <a class="btn" href="/milestone-url-wizard.html">🎨 Overlay Wizard ↗</a>
+                        <button class="btn" id="refresh-milestones-btn">↻ Refresh</button>
+                    </div>
                 </div>
                 <div class="stats static" id="milestone-summary"></div>
             </section>
@@ -207,7 +210,9 @@
             <section class="card">
                 <div class="card-head">
                     <h2>Overlay &amp; Chatbot Placeholders</h2>
-                    <span class="muted">Use these tokens in Custom Overlays, alerts, or chatbot commands</span>
+                    <div class="head-tools">
+                        <a class="btn" href="/milestone-url-wizard.html">🎨 Build Milestone Overlay</a>
+                    </div>
                 </div>
                 <div class="table-wrap">
                     <table class="cheat-table">
@@ -225,11 +230,11 @@
             </section>
         </div>
 
-        <!-- TAB 3: Community CRM -->
+        <!-- TAB 3: Chatters & Notes -->
         <div id="tab-crm" class="tab-pane" role="tabpanel" hidden>
             <section class="card">
                 <div class="card-head">
-                    <h2>Community Directory &amp; Chatter CRM</h2>
+                    <h2>Chatters &amp; Community Directory</h2>
                     <span class="muted" id="crm-count"></span>
                 </div>
                 <div class="toolbar" style="margin-bottom:0.4rem;">

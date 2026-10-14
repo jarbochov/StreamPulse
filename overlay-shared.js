@@ -27,7 +27,11 @@
         ['milestone.lifetime_chatters', 'Total unique chatters all-time (e.g. 158)'],
         ['milestone.lifetime_messages', 'Total chat messages all-time (e.g. 14,230)'],
         ['milestone.next_stream_goal', 'Next stream count milestone (e.g. 50)'],
-        ['milestone.next_hours_goal', 'Next broadcast hours milestone (e.g. 500)']
+        ['milestone.streams_remaining', 'Streams remaining until next stream goal (e.g. 4)'],
+        ['milestone.stream_goal_percent', 'Percent progress to next stream goal (e.g. 92)'],
+        ['milestone.next_hours_goal', 'Next broadcast hours milestone (e.g. 500)'],
+        ['milestone.hours_remaining', 'Broadcast hours remaining until goal (e.g. 34)'],
+        ['milestone.hours_goal_percent', 'Percent progress to next hours goal (e.g. 93)']
     ];
     // Values that change every second are refreshed in place instead of re-rendering the overlay.
     // Live counters change constantly, so they refresh their text in place instead of re-rendering (and flashing) the whole overlay.
@@ -225,6 +229,16 @@
 
     function milestoneValues(status) {
         const m = status.milestones || {};
+        const streamNum = Number(m.stream_number) || 0;
+        const nextStreamGoal = Number(m.next_stream_goal) || 0;
+        const streamsRemaining = Math.max(0, nextStreamGoal - streamNum);
+        const streamGoalPercent = nextStreamGoal > 0 ? Math.min(100, Math.round((streamNum / nextStreamGoal) * 100)) : 0;
+
+        const totalHours = Number(m.total_hours) || 0;
+        const nextHoursGoal = Number(m.next_hours_goal) || 0;
+        const hoursRemaining = Math.max(0, nextHoursGoal - totalHours);
+        const hoursGoalPercent = nextHoursGoal > 0 ? Math.min(100, Math.round((totalHours / nextHoursGoal) * 100)) : 0;
+
         return {
             'milestone.stream_number': m.stream_number ?? '',
             'milestone.total_hours': m.total_hours ?? '',
@@ -234,7 +248,11 @@
             'milestone.lifetime_chatters': m.lifetime_chatters !== undefined ? Number(m.lifetime_chatters).toLocaleString() : '',
             'milestone.lifetime_messages': m.lifetime_messages !== undefined ? Number(m.lifetime_messages).toLocaleString() : '',
             'milestone.next_stream_goal': m.next_stream_goal ?? '',
-            'milestone.next_hours_goal': m.next_hours_goal ?? ''
+            'milestone.streams_remaining': streamsRemaining,
+            'milestone.stream_goal_percent': streamGoalPercent,
+            'milestone.next_hours_goal': m.next_hours_goal ?? '',
+            'milestone.hours_remaining': hoursRemaining,
+            'milestone.hours_goal_percent': hoursGoalPercent
         };
     }
 
