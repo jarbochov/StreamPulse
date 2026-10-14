@@ -5165,6 +5165,7 @@ function processChatMessage(msg) {
         const hashtags = decoded2.match(/#[a-zA-Z]\w{1,}/g);
         if (hashtags) {
             hashtags.forEach(tag => {
+                if (tag.length < 2 || tag.length > 35) return;
                 const normalized = tag.toLowerCase();
                 if (bannedHashtags.has(normalized)) return;
                 if (!chatData.hashtags[normalized]) {
