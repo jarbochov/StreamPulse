@@ -1213,6 +1213,13 @@
         icon.className = cls;
         // Sized to the box height; width follows the glyph, and alignment places it in the box.
         icon.style.cssText = 'font-size:100cqh;line-height:1;display:block;flex:none;';
+        if (style.textStroke?.width > 0) {
+            icon.style.webkitTextStroke = `${style.textStroke.width}px ${style.textStroke.color || '#000000'}`;
+            icon.style.paintOrder = 'stroke fill';
+        }
+        if (style.textShadow?.blur > 0) {
+            icon.style.filter = `drop-shadow(0 2px ${style.textShadow.blur}px ${style.textShadow.color || 'rgba(0,0,0,0.7)'})`;
+        }
         node.style.containerType = 'size';
         node.style.display = 'flex';
         node.style.alignItems = style.verticalAlign === 'top' ? 'flex-start' : style.verticalAlign === 'bottom' ? 'flex-end' : 'center';
@@ -1312,8 +1319,20 @@
             const media = document.createElement(isEmoji ? 'div' : payload.video ? 'video' : 'img');
             const scale = Math.max(10, Math.min(100, Number(cfg.mediaScale) || 60));
             if (isEmoji) {
-                media.textContent = payload.emoji;
-                const count = Array.from(payload.emoji).length || 1;
+                const isFa = payload.emoji && (payload.emoji.startsWith('fa-') || payload.emoji.includes('fa-'));
+                if (isFa) {
+                    if (!document.querySelector('link[data-fa]')) {
+                        const link = document.createElement('link');
+                        link.rel = 'stylesheet'; link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'; link.dataset.fa = '1';
+                        document.head.appendChild(link);
+                    }
+                    const icon = document.createElement('i');
+                    icon.className = payload.emoji;
+                    media.appendChild(icon);
+                } else {
+                    media.textContent = payload.emoji;
+                }
+                const count = isFa ? 1 : (Array.from(payload.emoji).length || 1);
                 const boxH = node.clientHeight * (layout === 'media' ? 0.7 : scale / 100);
                 const boxW = node.clientWidth * (layout === 'side' ? 0.5 : 1) * 0.9;
                 media.style.fontSize = `${Math.max(12, Math.min(boxH * 0.8, boxW / (count * 1.15)))}px`;

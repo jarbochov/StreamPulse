@@ -626,10 +626,20 @@
     const byId = id => overlay.elements.find(item => item.id === id);
     const selectedElements = () => overlay.elements.filter(item => selectedIds.has(item.id));
     const primary = () => selectedElements()[0] || null;
-    const isLine = el => el.type === 'shape' && el.style.shape === 'line';
-    const boxOf = el => ({ x: el.x, y: el.y, w: el.width, h: isLine(el) ? Math.max(1, el.style.borderWidth || 4) : el.height });
+    const isLine = el => el.type === 'shape' && el.style?.shape === 'line';
+    const boxOf = el => ({ x: el.x, y: el.y, w: el.width, h: isLine(el) ? Math.max(1, el.style?.borderWidth || 4) : el.height });
+    function visualBoxOf(el) {
+        const b = boxOf(el);
+        const r = el.style?.rotate;
+        if (!r) return b;
+        const rad = Math.abs(r) * Math.PI / 180;
+        const cos = Math.cos(rad), sin = Math.sin(rad);
+        const w = Math.round(b.w * cos + b.h * sin);
+        const h = Math.round(b.w * sin + b.h * cos);
+        return { x: Math.round(b.x + (b.w - w) / 2), y: Math.round(b.y + (b.h - h) / 2), w, h };
+    }
     const boundsOf = items => {
-        const boxes = items.map(boxOf);
+        const boxes = items.map(visualBoxOf);
         const x = Math.min(...boxes.map(b => b.x)), y = Math.min(...boxes.map(b => b.y));
         return { x, y, w: Math.max(...boxes.map(b => b.x + b.w)) - x, h: Math.max(...boxes.map(b => b.y + b.h)) - y };
     };
@@ -999,12 +1009,19 @@
             uiEl.appendChild(group);
             if (items.some(el => !el.locked)) addHandles(Object.keys(HANDLE_POS), bounds);
         } else if (!items[0].locked) {
-            const dirs = isLine(items[0]) ? ['w', 'e'] : Object.keys(HANDLE_POS);
+            const single = items[0], b = boxOf(single);
+            const dirs = isLine(single) ? ['w', 'e'] : Object.keys(HANDLE_POS);
+            const rot = ((single.style?.rotate || 0) * Math.PI) / 180;
+            const cos = Math.cos(rot), sin = Math.sin(rot);
+            const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
             for (const dir of dirs) {
                 const handle = document.createElement('div');
                 handle.className = 'handle'; handle.dataset.dir = dir;
-                handle.style.left = `${bounds.x + bounds.w * HANDLE_POS[dir][0] / 100}px`;
-                handle.style.top = `${bounds.y + bounds.h * HANDLE_POS[dir][1] / 100}px`;
+                const lx = -b.w / 2 + b.w * HANDLE_POS[dir][0] / 100;
+                const ly = -b.h / 2 + b.h * HANDLE_POS[dir][1] / 100;
+                handle.style.left = `${Math.round(cx + lx * cos - ly * sin)}px`;
+                handle.style.top = `${Math.round(cy + lx * sin + ly * cos)}px`;
+                if (single.style?.rotate) handle.style.transform = `translate(-50%, -50%) rotate(${single.style.rotate}deg)`;
                 uiEl.appendChild(handle);
             }
         }
@@ -1585,6 +1602,12 @@
             <div class="grid2">${F.number('style.textStroke.width', 'Outline (px)', s.textStroke?.width || 0, { min: 0, max: 20, step: 0.5 })}${s.textStroke?.width > 0 ? F.color('style.textStroke.color', 'Outline color', s.textStroke?.color || '#000000') : '<span></span>'}</div>
             ${(s.textGradient?.enabled && (s.gradient?.enabled || (s.background && s.background !== 'transparent'))) ? '<p class="hint">Text shadow is off while the text is a gradient on a filled box (the shadow would hit the box).</p>' : `<div class="grid2">${F.number('style.textShadow.blur', 'Text shadow (px)', s.textShadow?.blur || 0, { min: 0, max: 60 })}${s.textShadow?.blur > 0 ? F.color('style.textShadow.color', 'Shadow color', s.textShadow?.color || 'rgba(0,0,0,0.7)') : '<span></span>'}</div>`}`, false);
     }
+    function iconEffectsSection(el) {
+        const s = el.style || {};
+        return F.section('iconEffects', 'Icon effects', `
+            <div class="grid2">${F.number('style.textStroke.width', 'Outline (px)', s.textStroke?.width || 0, { min: 0, max: 20, step: 0.5 })}${s.textStroke?.width > 0 ? F.color('style.textStroke.color', 'Outline color', s.textStroke?.color || '#000000') : '<span></span>'}</div>
+            <div class="grid2">${F.number('style.textShadow.blur', 'Shadow / glow (px)', s.textShadow?.blur || 0, { min: 0, max: 60 })}${s.textShadow?.blur > 0 ? F.color('style.textShadow.color', 'Shadow color', s.textShadow?.color || 'rgba(0,0,0,0.7)') : '<span></span>'}</div>`, false);
+    }
     const gradOf = (s, key) => ({ from: '#1f6feb', to: '#8957e5', angle: 135, type: 'linear', position: 'center', speed: 8, ...(s[key] || {}) });
     const fillSeg = (s, key, label) => F.seg(`style.${key}.enabled`, label, s[key]?.enabled ? 'true' : 'false', [['false', 'Solid color', 'Solid'], ['true', 'Gradient', 'Gradient']]);
     function gradientFields(s, key = 'gradient') {
@@ -1932,7 +1955,20 @@
             </div>
             <details class="sub-details"${a.sampleImage || a.sampleEmoji ? ' open' : ''}><summary>Preview media (editor only)</summary>
             <span class="hint">Only for this editor preview. Real alerts use the media set per alert.</span>
-            ${F.text('alert.sampleEmoji', 'Sample emoji', a.sampleEmoji || '', 'maxlength="40" placeholder="e.g. 🎉 (used when no image is chosen)"')}
+            <div class="field">
+                <span>Sample emoji or icon</span>
+                <span class="upload-row">
+                    <input data-path="alert.sampleEmoji" data-kind="text" value="${esc(a.sampleEmoji || '')}" placeholder="e.g. 🎉 or fa-solid fa-heart" maxlength="60">
+                    <button type="button" id="pick-alert-icon">Icon…</button>
+                </span>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+                    ${['🎉', '⭐', '💎', '🚀', '🔥', '💖', '👑', '🔔', 'fa-solid fa-heart', 'fa-solid fa-star', 'fa-brands fa-twitch'].map(item => {
+                        const isFa = item.startsWith('fa-');
+                        const display = isFa ? `<i class="${item}" style="font-size:12px;pointer-events:none"></i>` : item;
+                        return `<button type="button" class="btn sm" data-set-alert-emoji="${esc(item)}" style="padding:2px 6px;font-size:12px;min-width:28px" title="${esc(item)}">${display}</button>`;
+                    }).join('')}
+                </div>
+            </div>
             <div class="field"><span>Sample image</span><span class="upload-row"><input data-path="alert.sampleImage" data-kind="text" value="${esc(a.sampleImage || '')}" placeholder="Pick from library, or paste a URL" spellcheck="false"><button type="button" id="open-assets">Library…</button></span></div>
             </details>
             ${F.select('alert.layout', 'Layout', a.layout || 'stack', [['stack', 'Media above text'], ['side', 'Media beside text'], ['text', 'Text only'], ['media', 'Media only (text over it)']])}
@@ -1988,7 +2024,7 @@
         } else {
             const el = items[0];
             const specific = { 'random-text': randomSection, progress: progressSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection }[el.type];
-            root.innerHTML = `${actionBar(items)}${sharedBlock(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${layoutSection(el)}${contentSection(el)}${specific ? specific(el) : ''}${el.type !== 'embed' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${fillSection(el)}${effectsSection(el)}`;
+            root.innerHTML = `${actionBar(items)}${sharedBlock(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${layoutSection(el)}${contentSection(el)}${el.type === 'icon' ? iconEffectsSection(el) : ''}${specific ? specific(el) : ''}${el.type !== 'embed' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${fillSection(el)}${effectsSection(el)}`;
         }
         root.parentElement.scrollTop = scroll;
         lastTextField = null;
@@ -2137,6 +2173,24 @@
         if (target.closest('#pick-icon')) {
             const input = $('properties').querySelector('[data-path="content"]');
             IconPicker.open({ value: input?.value, onPick: cls => { if (!input) return; input.value = cls; input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); } });
+        }
+        if (target.closest('#pick-alert-icon')) {
+            const input = $('properties').querySelector('[data-path="alert.sampleEmoji"]');
+            IconPicker.open({ value: input?.value, onPick: cls => {
+                if (!input) return;
+                input.value = cls;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            } });
+        }
+        const alertEmojiChip = target.closest('[data-set-alert-emoji]');
+        if (alertEmojiChip) {
+            const input = $('properties').querySelector('[data-path="alert.sampleEmoji"]');
+            if (input) {
+                input.value = alertEmojiChip.dataset.setAlertEmoji;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
         }
     });
     $('properties').addEventListener('change', event => {
@@ -2681,13 +2735,13 @@
         if (!items.length) return;
         const relative = items.length > 1 && prefs.alignTo === 'selection' ? boundsOf(items) : { x: 0, y: 0, w: overlay.canvas.width, h: overlay.canvas.height };
         for (const el of items) {
-            const b = boxOf(el);
-            if (mode === 'left') el.x = relative.x;
-            else if (mode === 'center') el.x = relative.x + (relative.w - b.w) / 2;
-            else if (mode === 'right') el.x = relative.x + relative.w - b.w;
-            else if (mode === 'top') el.y = relative.y;
-            else if (mode === 'middle') el.y = relative.y + (relative.h - b.h) / 2;
-            else el.y = relative.y + relative.h - b.h;
+            const b = visualBoxOf(el);
+            if (mode === 'left') el.x += relative.x - b.x;
+            else if (mode === 'center') el.x += (relative.x + (relative.w - b.w) / 2) - b.x;
+            else if (mode === 'right') el.x += (relative.x + relative.w - b.w) - b.x;
+            else if (mode === 'top') el.y += relative.y - b.y;
+            else if (mode === 'middle') el.y += (relative.y + (relative.h - b.h) / 2) - b.y;
+            else el.y += (relative.y + relative.h - b.h) - b.y;
             el.x = Math.round(el.x); el.y = Math.round(el.y);
         }
         let guideX = [], guideY = [];
@@ -2706,14 +2760,19 @@
         const items = selectedElements().filter(el => !el.locked);
         if (items.length < 3) return;
         const horizontal = axis === 'h';
-        const sorted = items.slice().sort((a, b) => horizontal ? a.x - b.x : a.y - b.y);
-        const size = el => horizontal ? boxOf(el).w : boxOf(el).h;
-        const start = horizontal ? sorted[0].x : sorted[0].y;
+        const sorted = items.slice().sort((a, b) => horizontal ? visualBoxOf(a).x - visualBoxOf(b).x : visualBoxOf(a).y - visualBoxOf(b).y);
+        const size = el => horizontal ? visualBoxOf(el).w : visualBoxOf(el).h;
+        const start = horizontal ? visualBoxOf(sorted[0]).x : visualBoxOf(sorted[0]).y;
         const lastEl = sorted[sorted.length - 1];
-        const end = (horizontal ? lastEl.x : lastEl.y) + size(lastEl);
+        const end = (horizontal ? visualBoxOf(lastEl).x : visualBoxOf(lastEl).y) + size(lastEl);
         const gap = (end - start - sorted.reduce((sum, el) => sum + size(el), 0)) / (sorted.length - 1);
         let cursor = start;
-        for (const el of sorted) { if (horizontal) el.x = Math.round(cursor); else el.y = Math.round(cursor); cursor += size(el) + gap; }
+        for (const el of sorted) {
+            const b = visualBoxOf(el);
+            if (horizontal) el.x += Math.round(cursor - b.x);
+            else el.y += Math.round(cursor - b.y);
+            cursor += size(el) + gap;
+        }
         renderCanvas(); syncGeometryInputs(); changed(true);
     }
 
@@ -2786,7 +2845,7 @@
         const xs = [0, overlay.canvas.width / 2, overlay.canvas.width], ys = [0, overlay.canvas.height / 2, overlay.canvas.height];
         for (const el of visibleElements()) {
             if (excludeIds.has(el.id) || el.visible === false) continue;
-            const b = boxOf(el);
+            const b = visualBoxOf(el);
             xs.push(b.x, b.x + b.w / 2, b.x + b.w); ys.push(b.y, b.y + b.h / 2, b.y + b.h);
         }
         return { xs, ys };
@@ -2922,7 +2981,7 @@
         Object.assign(box.style, { display: 'block', left: `${Math.min(gesture.startX, event.clientX) - stageRect.left}px`, top: `${Math.min(gesture.startY, event.clientY) - stageRect.top}px`, width: `${Math.abs(event.clientX - gesture.startX)}px`, height: `${Math.abs(event.clientY - gesture.startY)}px` });
         const hit = visibleElements().filter(el => {
             if (el.visible === false) return false;
-            const b = boxOf(el);
+            const b = visualBoxOf(el);
             return b.x < rect.x + rect.w && b.x + b.w > rect.x && b.y < rect.y + rect.h && b.y + b.h > rect.y;
         }).map(el => el.id);
         setSelection([...withGroups([...gesture.base, ...hit])], { light: true });
