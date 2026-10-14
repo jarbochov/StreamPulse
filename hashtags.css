@@ -18,13 +18,19 @@
 }
 
 body {
-    width: 1920px;
-    height: 1080px;
+    width: 100%;
+    height: 100%;
     background: var(--bg-color);
     overflow: hidden;
     display: flex;
     justify-content: center;
     align-items: flex-start;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
 }
 
 /* ============================================================
@@ -35,8 +41,8 @@ body {
     width: 100%;
     text-align: center;
     position: absolute;
-    top: 1080px;
-    padding: 40px 80px;
+    top: 100%;
+    padding: clamp(12px, 3vmin, 40px) clamp(16px, 4vmin, 80px);
 }
 
 #scroll-container.scrollIt {
@@ -44,14 +50,14 @@ body {
 }
 
 @keyframes scroll-hashtags {
-    from { top: 1080px; }
+    from { top: 100%; }
     to   { top: calc(-1 * var(--content-height, 3000px)); }
 }
 
 #scroll-container h1 {
-    font-size: calc(6vw * var(--font-scale));
+    font-size: calc(clamp(1.2rem, 5vmin, 6vw) * var(--font-scale));
     text-transform: uppercase;
-    margin-bottom: 60px;
+    margin-bottom: clamp(16px, 4vmin, 60px);
 }
 
 .scroll-list {
@@ -62,9 +68,9 @@ body {
 }
 
 .scroll-item {
-    padding: 10px 0;
-    font-size: calc(3vw * var(--font-scale));
-    line-height: 150%;
+    padding: clamp(4px, 1vmin, 10px) 0;
+    font-size: calc(clamp(0.9rem, 3vmin, 3vw) * var(--font-scale));
+    line-height: 140%;
     text-align: center;
 }
 
@@ -77,9 +83,9 @@ body {
 .scroll-list.cols-6 .scroll-item { flex-basis: 16.666%; }
 
 /* Size variants for scroll */
-.scroll-item.size-sm { font-size: calc(2vw * var(--font-scale)); padding: 6px 0; }
-.scroll-item.size-md { font-size: calc(3vw * var(--font-scale)); padding: 10px 0; }
-.scroll-item.size-lg { font-size: calc(4vw * var(--font-scale)); padding: 14px 0; }
+.scroll-item.size-sm { font-size: calc(clamp(0.75rem, 2vmin, 2vw) * var(--font-scale)); padding: clamp(2px, 0.6vmin, 6px) 0; }
+.scroll-item.size-md { font-size: calc(clamp(0.9rem, 3vmin, 3vw) * var(--font-scale)); padding: clamp(4px, 1vmin, 10px) 0; }
+.scroll-item.size-lg { font-size: calc(clamp(1.1rem, 4vmin, 4vw) * var(--font-scale)); padding: clamp(6px, 1.4vmin, 14px) 0; }
 
 .scroll-item .tag { color: var(--accent-color); overflow-wrap: break-word; word-break: break-word; }
 .scroll-item .count { opacity: 0.6; font-size: 0.7em; margin-left: 0.3em; }
@@ -89,8 +95,8 @@ body {
    ============================================================ */
 
 #grid-container {
-    width: 1920px;
-    height: 1080px;
+    width: 100%;
+    height: 100%;
     position: relative;
     overflow: hidden;
 }
@@ -99,30 +105,30 @@ body {
     display: inline-flex;
     align-items: baseline;
     gap: 0.3em;
-    padding: 8px 18px;
-    border-radius: 8px;
+    padding: clamp(4px, 1vmin, 8px) clamp(8px, 1.8vmin, 18px);
+    border-radius: clamp(4px, 1vmin, 8px);
     background: rgba(255, 255, 255, 0.06);
     transition: transform 0.2s;
-    max-width: 380px;
+    max-width: 90%;
 }
 
 /* Grid view */
-.grid-tiles { display: grid; align-content: start; width: 1920px; }
+.grid-tiles { display: grid; align-content: start; width: 100%; box-sizing: border-box; }
 .grid-tiles.grid-scroll { animation: grid-scroll 30s ease-in-out infinite alternate; }
 @keyframes grid-scroll { from { transform: translateY(0); } to { transform: translateY(var(--grid-scroll, 0)); } }
-.grid-tile { display: flex; align-items: baseline; justify-content: center; gap: .4em; padding: 0 .6em; border-radius: 10px; background: rgba(255, 255, 255, 0.06); overflow: hidden; white-space: nowrap; line-height: 1.9; }
-.grid-tile .tag { color: var(--accent-color); overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+.grid-tile { display: flex; align-items: baseline; justify-content: center; gap: .4em; padding: 0 .6em; border-radius: clamp(4px, 1vmin, 10px); background: rgba(255, 255, 255, 0.06); overflow: hidden; white-space: nowrap; line-height: 1.9; }
+.grid-tile .tag { color: var(--accent-color); overflow: hidden; text-overflow: ellipsis; max-width: 80%; }
 .grid-tile .count { opacity: 0.55; font-size: 0.65em; }
 
-.grid-tag .tag { color: var(--accent-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; }
+.grid-tag .tag { color: var(--accent-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%; }
 .grid-tag .count { opacity: 0.5; font-size: 0.65em; }
 
 /* Filter info */
 .filter-info {
     position: fixed;
-    bottom: 20px;
-    right: 30px;
-    font-size: 1vw;
+    bottom: clamp(6px, 1.5vmin, 20px);
+    right: clamp(8px, 2vmin, 30px);
+    font-size: clamp(0.6rem, 1.4vmin, 1rem);
     opacity: 0.3;
     z-index: 10;
 }

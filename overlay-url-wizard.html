@@ -897,6 +897,33 @@
     });
     $('ap-fontscale').addEventListener('input', updateFontScaleDisplay);
 
+    $('goal-layout')?.addEventListener('change', () => {
+        const layout = $('goal-layout').value;
+        const chips = document.querySelectorAll('.preset-chips .preset-chip');
+        if (layout === 'bar' || layout === 'pill') {
+            const barBtn = Array.from(chips).find(c => c.textContent.includes('480×65'));
+            if (barBtn) applyPresetSize(480, 65, barBtn);
+        } else if (layout === 'card') {
+            const cardBtn = Array.from(chips).find(c => c.textContent.includes('600×160'));
+            if (cardBtn) applyPresetSize(600, 160, cardBtn);
+        }
+    });
+
+    $('viewer-layout')?.addEventListener('change', () => {
+        const layout = $('viewer-layout').value;
+        const chips = document.querySelectorAll('.preset-chips .preset-chip');
+        if (layout === 'badge') {
+            const badgeBtn = Array.from(chips).find(c => c.textContent.includes('220×65'));
+            if (badgeBtn) applyPresetSize(220, 65, badgeBtn);
+        } else if (layout === 'pill' || layout === 'minimal') {
+            const barBtn = Array.from(chips).find(c => c.textContent.includes('480×65'));
+            if (barBtn) applyPresetSize(480, 65, barBtn);
+        } else if (layout === 'card' || layout === 'stacked') {
+            const cardBtn = Array.from(chips).find(c => c.textContent.includes('600×160'));
+            if (cardBtn) applyPresetSize(600, 160, cardBtn);
+        }
+    });
+
     document.querySelectorAll('[data-color-for]').forEach(picker => {
         picker.addEventListener('input', () => {
             const target = $(picker.dataset.colorFor);

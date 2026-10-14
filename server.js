@@ -5618,7 +5618,10 @@ function computeMilestones() {
     }
 
     const lifetimeChatters = Object.keys(statsData.chatters || {}).length;
-    const lifetimeMessages = (statsData.totalMessages || 0) + (chatData.messageCount || 0);
+    const totalStoredMessages = typeof statsData.totalMessages === 'object' && statsData.totalMessages !== null
+        ? Object.values(statsData.totalMessages).reduce((sum, count) => sum + (Number(count) || 0), 0)
+        : (Number(statsData.totalMessages) || 0);
+    const lifetimeMessages = totalStoredMessages + (Number(chatData.messageCount) || 0);
 
     const nextStreamGoal = streamNumber < 25 ? 25 : (streamNumber < 50 ? 50 : (Math.floor(streamNumber / 25) + 1) * 25);
     const nextHoursGoal = totalHours < 100 ? 100 : (Math.floor(totalHours / 100) + 1) * 100;
@@ -6661,6 +6664,7 @@ const server = http.createServer(async (req, res) => {
             },
             goals: goalsSnapshot.summary,
             goalMetrics: goalsSnapshot.metrics,
+            milestones: computeMilestones(),
             timers: {
                 total: Object.keys(timerStore.timers).length,
                 countdowns: Object.values(timerStore.timers).filter(t => t.kind === 'countdown').length,

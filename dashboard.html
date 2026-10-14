@@ -271,6 +271,23 @@
             </div>
         </div>
 
+        <div class="card" data-panel-id="milestones" data-title="Milestones & Streaks" data-span="3">
+            <h2>Milestones &amp; Streaks</h2>
+            <div class="status-grid">
+                <div class="stat"><div class="value" id="milestone-stream-num">—</div><div class="label">Stream #</div></div>
+                <div class="stat"><div class="value" id="milestone-hours">—</div><div class="label">Hours</div></div>
+                <div class="stat"><div class="value" id="milestone-streak-days">—</div><div class="label">Daily Streak</div></div>
+                <div class="stat"><div class="value" id="milestone-streak-weeks">—</div><div class="label">Weekly Streak</div></div>
+            </div>
+            <div class="detail-line" style="margin-top:.4rem"><strong>Community:</strong> <span id="milestone-community">—</span></div>
+            <div class="detail-line"><strong>Next target:</strong> <span id="milestone-next-target">—</span></div>
+            <div class="link-grid">
+                <a class="btn sm" href="/analytics.html#milestones">🏆 Analytics</a>
+                <a class="btn sm" href="/milestone-url-wizard.html">🔗 Builder</a>
+                <a class="btn sm" href="/milestones.html" target="_blank">📺 Overlay</a>
+            </div>
+        </div>
+
         <div class="card" data-panel-id="quick-actions" data-title="Actions" data-span="12">
             <h2>Actions</h2>
             <div class="btn-grid">
@@ -337,8 +354,9 @@
     const fmt = (value, digits = 0) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: digits });
 
     // ---- Layout ----------------------------------------------------------
+    const defaultOrder = cards().map(c => c.dataset.panelId);
     function defaultLayout() {
-        return { order: cards().map(c => c.dataset.panelId), spans: {}, heights: {}, hidden: [], compact: false };
+        return { order: [...defaultOrder], spans: {}, heights: {}, hidden: [], compact: false };
     }
 
     function loadLayout() {
@@ -634,6 +652,17 @@
         setText('hashtags-banned', data.hashtags?.banned || 0);
         setText('hashtags-top-tag', data.hashtags?.topTag || '—');
 
+        const ms = data.milestones || {};
+        setText('milestone-stream-num', ms.stream_number != null ? `#${ms.stream_number}` : '—');
+        setText('milestone-hours', ms.total_hours != null ? `${ms.total_hours}h` : '—');
+        setText('milestone-streak-days', ms.streak_days != null ? `🔥 ${ms.streak_days}d` : '—');
+        setText('milestone-streak-weeks', ms.streak_weeks != null ? `⚡ ${ms.streak_weeks}w` : '—');
+        const commChatters = ms.lifetime_chatters != null ? fmt(ms.lifetime_chatters) : '0';
+        const commMsgs = ms.lifetime_messages != null ? fmt(ms.lifetime_messages) : '0';
+        setText('milestone-community', `${commChatters} chatters · ${commMsgs} msgs`);
+        const nextTarget = ms.next_stream_goal ? `Stream #${ms.next_stream_goal} (${Math.max(0, ms.next_stream_goal - (ms.stream_number || 0))} left)` : (ms.next_hours_goal ? `${ms.next_hours_goal}h` : '—');
+        setText('milestone-next-target', nextTarget);
+
         renderVolumeChart(data.hourlyMessages || {});
         renderChatters(data.topChatters || [], ssn.chatters || 0);
         renderEvents(data.recentEvents || []);
@@ -777,7 +806,6 @@
     }, 5000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 
-    const defaultOrder = cards().map(c => c.dataset.panelId);
     enhanceCards();
     applyLayout();
     refresh();

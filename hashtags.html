@@ -3,7 +3,7 @@
 <head>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1920, height=1080">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>All Hashtags</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -145,8 +145,9 @@
             const contentHeight = container.scrollHeight;
             container.style.setProperty('--content-height', `${contentHeight}px`);
 
-            // Use explicit duration if set, otherwise auto-calculate at ~50px/s
-            const totalDistance = 1080 + contentHeight;
+            // Use explicit duration if set, otherwise auto-calculate based on distance
+            const h = window.innerHeight || 1080;
+            const totalDistance = h + contentHeight;
             const duration = DURATION > 0 ? DURATION : totalDistance / 50;
             container.style.setProperty('--scroll-duration', `${duration}s`);
 
@@ -163,8 +164,9 @@
         container.style.position = 'relative';
         container.style.overflow = SCROLL ? 'hidden' : 'hidden';
 
-        const W = 1920, H = 1080;
-        const PAD = 40;
+        const W = container.clientWidth || window.innerWidth || 1920;
+        const H = container.clientHeight || window.innerHeight || 1080;
+        const PAD = Math.round(Math.min(W, H) * 0.04);
         // A cloud of thousands of tags is unreadable, so it shows the top 60 unless a limit is set.
         if (!LIMIT) hashtags = hashtags.slice(0, 60);
         const n = hashtags.length;
@@ -177,7 +179,7 @@
 
         // Dynamic font sizing based on count
         const sizeScale = SIZE === 'sm' ? 0.7 : SIZE === 'lg' ? 1.4 : 1.0;
-        const basePx = Math.max(10, Math.min(60, 800 / Math.sqrt(n))) * sizeScale;
+        const basePx = Math.max(10, Math.min(60, (Math.min(W, H) * 0.75) / Math.sqrt(n))) * sizeScale;
 
         function getFontSize(count) {
             if (!WEIGHT && n > 1) {
@@ -292,16 +294,23 @@
         container.style.position = 'relative';
         container.style.overflow = 'hidden';
         container.classList.remove('auto-scroll');
+        const containerW = container.clientWidth || window.innerWidth || 1920;
+        const containerH = container.clientHeight || window.innerHeight || 1080;
         const cols = Math.min(8, Math.max(1, parseInt(urlParams.get('columns')) || 4));
-        const fontPx = Math.round({ sm: 30, md: 42, lg: 58 }[SIZE === 'sm' || SIZE === 'lg' ? SIZE : 'md'] * (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--font-scale')) || 1));
-        const gap = 14, pad = 40, rowH = Math.round(fontPx * 1.9);
-        const rowsFit = Math.max(1, Math.floor((1080 - pad * 2 + gap) / (rowH + gap)));
+        const baseSizes = { sm: 22, md: 32, lg: 44 };
+        const rawPx = (baseSizes[SIZE] || 32) * (Math.min(containerW / 1920, containerH / 1080) * 0.6 + 0.4);
+        const fontPx = Math.max(12, Math.round(rawPx * (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--font-scale')) || 1)));
+        const gap = Math.max(6, Math.round(14 * (containerH / 1080)));
+        const pad = Math.max(8, Math.round(40 * (containerH / 1080)));
+        const rowH = Math.round(fontPx * 1.8);
+        const rowsFit = Math.max(1, Math.floor((containerH - pad * 2 + gap) / (rowH + gap)));
         // Without auto-scroll, show only the tiles that fit on screen.
         const shown = SCROLL ? hashtags : hashtags.slice(0, rowsFit * cols);
         const html = shown.map(h => `<div class="grid-tile" style="font-size:${fontPx}px;height:${rowH}px"><span class="tag">${escapeHtml(h.tag)}</span>${COUNTS ? `<span class="count">${h.count}</span>` : ''}</div>`).join('');
         container.innerHTML = `<div class="grid-tiles" style="grid-template-columns:repeat(${cols},minmax(0,1fr));gap:${gap}px;padding:${pad}px">${html}</div>`;
-        const tiles = container.firstElementChild, overflow = tiles.scrollHeight - 1080;
-        if (SCROLL && overflow > 0) {
+        const tiles = container.firstElementChild;
+        const overflow = tiles ? tiles.scrollHeight - containerH : 0;
+        if (SCROLL && overflow > 0 && tiles) {
             tiles.style.setProperty('--grid-scroll', `-${overflow}px`);
             tiles.style.animationDuration = `${Math.max(10, Math.round(shown.length / cols * 2))}s`;
             tiles.classList.add('grid-scroll');
