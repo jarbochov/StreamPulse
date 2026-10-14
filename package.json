@@ -1,6 +1,6 @@
 {
   "name": "streampulse",
-  "version": "0.10.0",
+  "version": "0.11.0-pre",
   "description": "A stream community tracking and overlay system for OBS that combines pre-fetched Twitch API data with live stream data from SocialStream Ninja (SSN).",
   "main": "server.js",
   "scripts": {
