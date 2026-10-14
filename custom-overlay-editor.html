@@ -348,6 +348,18 @@
 
         /* Backdrop screenshot image inside #backdrop */
         #backdrop-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; display: none; }
+
+        /* OBS & Twitch Safe Zones */
+        #safe-zones { position: absolute; inset: 0; pointer-events: none; display: none; z-index: 2; }
+        #safe-zones.on { display: block; }
+        .safe-zone-box { position: absolute; pointer-events: none; border-style: dashed; border-width: calc(var(--inv, 1) * 1.5px); }
+        .safe-action { inset: 5%; border-color: #f59e0baa; }
+        .safe-title { inset: 10%; border-color: #06b6d4aa; }
+        .safe-twitch-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 18%; border-top: calc(var(--inv, 1) * 1.5px) dashed #a855f7aa; background: repeating-linear-gradient(45deg, #a855f712 0 10px, transparent 10px 20px); pointer-events: none; }
+        .safe-label { position: absolute; font: 600 10px monospace; padding: 2px 6px; border-radius: 3px; transform: scale(var(--inv, 1)); transform-origin: 0 0; }
+        .safe-action .safe-label { top: 4px; left: 8px; color: #f59e0b; background: #000c; }
+        .safe-title .safe-label { top: 4px; left: 8px; color: #06b6d4; background: #000c; }
+        .safe-twitch-bar .safe-label { bottom: 6px; right: 8px; transform-origin: 100% 100%; color: #c084fc; background: #000c; }
     </style>
 </head>
 <body>
@@ -408,6 +420,7 @@
                 <span class="divider"></span>
                 <button id="toggle-snap" aria-pressed="true" title="Snap to canvas and other elements. Hold Alt while dragging to bypass.">Snap</button>
                 <button id="toggle-grid" aria-pressed="false" title="Show grid">Grid</button>
+                <button id="toggle-safe" aria-pressed="false" title="Show OBS Action/Title Safe Zones and Twitch Mobile overlay">Safe Zones</button>
                 <button id="toggle-fx" aria-pressed="true" title="Run animated duotone and film grain in the editor. Turn off for a smoother editor; the live overlay still animates.">Effects</button>
                 <button id="toggle-live" aria-pressed="true" title="Preview {{placeholders}} with live data">Live data</button>
                 <div class="zoom-controls">
@@ -422,6 +435,11 @@
                     <div id="backdrop" class="bd-checker"><img id="backdrop-img" alt=""></div>
                     <div id="canvas"></div>
                     <div id="grid"></div>
+                    <div id="safe-zones">
+                        <div class="safe-zone-box safe-action"><span class="safe-label">90% Action Safe</span></div>
+                        <div class="safe-zone-box safe-title"><span class="safe-label">80% Title Safe</span></div>
+                        <div class="safe-twitch-bar"><span class="safe-label">Twitch Mobile Controls / Chat</span></div>
+                    </div>
                     <div id="guides"></div>
                     <div id="ui"></div>
                 </div>
@@ -569,7 +587,7 @@
 
     // ---- preferences ------------------------------------------------------------------
     const PREF_KEY = 'streampulse.overlayEditor.v1';
-    const prefs = Object.assign({ snap: true, scaleText: true, grid: false, live: true, fx: true, backdrop: 'checker', backdropImage: '', backdropOpacity: 80, alignTo: 'selection', sections: {}, recentColors: [] }, (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch { return {}; } })());
+    const prefs = Object.assign({ snap: true, scaleText: true, grid: false, safeZones: false, live: true, fx: true, backdrop: 'checker', backdropImage: '', backdropOpacity: 80, alignTo: 'selection', sections: {}, recentColors: [] }, (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch { return {}; } })());
     const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch {} };
 
     // ---- state ------------------------------------------------------------------------
@@ -773,7 +791,7 @@
     // ---- canvas rendering -------------------------------------------------------------
     function syncCanvasUI() {
         const { width, height, background } = overlay.canvas;
-        for (const node of [backdrop, canvasEl, gridEl, guidesEl, uiEl]) { node.style.width = `${width}px`; node.style.height = `${height}px`; }
+        for (const node of [backdrop, canvasEl, gridEl, guidesEl, uiEl, $('safe-zones')]) { if (node) { node.style.width = `${width}px`; node.style.height = `${height}px`; } }
         canvasEl.style.background = background || 'transparent';
         backdrop.className = `bd-${prefs.backdrop}`;
         const bdImg = $('backdrop-img');
@@ -788,6 +806,7 @@
             }
         }
         gridEl.classList.toggle('on', prefs.grid);
+        $('safe-zones')?.classList.toggle('on', !!prefs.safeZones);
         applyView();
     }
     const variableContext = () => ({ overlayName: overlay.name });
@@ -828,6 +847,7 @@
         if (el.type === 'random-text' && node._extra !== undefined) node.style.setProperty('--marquee-duration', `${Math.max(10, el.random?.marqueeSpeed || 60)}s`);
         shared.loadGoogleFont(s.fontFamily);
         shared.applyMediaFilter(node, el);
+        node.style.transform = s.rotate ? `rotate(${s.rotate}deg)` : '';
     }
     const placeholder = text => { const node = document.createElement('div'); node.className = 'media-placeholder'; node.textContent = text; return node; };
     function buildContent(node, el) {
@@ -960,6 +980,7 @@
             const b = boxOf(el), outline = document.createElement('div');
             outline.className = `sel-outline${el.locked ? ' locked' : ''}`;
             Object.assign(outline.style, { left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px` });
+            if (el.style?.rotate) outline.style.transform = `rotate(${el.style.rotate}deg)`;
             uiEl.appendChild(outline);
         }
         const bounds = boundsOf(items);
@@ -1254,7 +1275,23 @@
             if (value === undefined) return;
             const targets = getTargets();
             if (!targets.length) return;
-            targets.forEach(target => setPath(target, input.dataset.path, value));
+            targets.forEach(target => {
+                setPath(target, input.dataset.path, value);
+                if (target.aspectLock && target.width > 0 && target.height > 0) {
+                    const ratio = target.aspectRatio || (target.width / target.height);
+                    if (input.dataset.path === 'width' && event.type === 'change') {
+                        const newH = Math.max(LIMITS.elementH[0], Math.min(LIMITS.elementH[1], Math.round(value / ratio)));
+                        target.height = newH;
+                        const hInput = container.querySelector('[data-path="height"]');
+                        if (hInput) hInput.value = String(newH);
+                    } else if (input.dataset.path === 'height' && event.type === 'change') {
+                        const newW = Math.max(LIMITS.elementW[0], Math.min(LIMITS.elementW[1], Math.round(value * ratio)));
+                        target.width = newW;
+                        const wInput = container.querySelector('[data-path="width"]');
+                        if (wInput) wInput.value = String(newW);
+                    }
+                }
+            });
             syncColorPair(input);
             if (input.type === 'color' || input.classList.contains('color-text')) addRecentColor(value);
             const output = input.parentElement.querySelector('output');
@@ -1649,9 +1686,12 @@
     }
     function layoutSection(el) {
         const line = isLine(el);
+        const locked = !!el.aspectLock;
         return F.section('layout', 'Position & size', `
             <div class="grid2">${F.number('x', 'X', el.x, { min: -7680, max: 7680 })}${F.number('y', 'Y', el.y, { min: -4320, max: 4320 })}</div>
             <div class="grid2">${F.number('width', 'Width', el.width, { min: LIMITS.elementW[0], max: LIMITS.elementW[1] })}${line ? '<span></span>' : F.number('height', 'Height', el.height, { min: LIMITS.elementH[0], max: LIMITS.elementH[1] })}</div>
+            ${line ? '' : `<div style="display:flex;justify-content:flex-end;margin:-.2rem 0 .45rem"><button type="button" id="toggle-aspect-lock" class="link-btn" style="font-size:11px;color:${locked ? 'var(--accent)' : 'var(--muted)'};display:inline-flex;align-items:center;gap:4px" title="${locked ? 'Unlock aspect ratio' : 'Lock aspect ratio when editing width/height'}">${locked ? '🔗 Proportions locked' : '🔓 Proportions unlocked'}</button></div>`}
+            ${F.range('style.rotate', 'Rotation', el.style?.rotate || 0, { min: -180, max: 180, step: 1, unit: '°' })}
             ${alignBody([el])}`);
     }
     function periodPicker(g) {
@@ -1832,7 +1872,16 @@
         const only = a.triggers || [];
         return F.section('alert', 'Alert box', `
             <p class="hint">What this box shows (text, images, sounds, animations) is set per alert in <a href="/alerts.html" target="_blank" style="color:var(--accent)">Alerts</a>. This is only the look.</p>
-            <button type="button" id="alert-play">▶ Play sample alert</button>
+            <div class="field">
+                <span>Simulate live event</span>
+                <div class="seg" style="display:flex;flex-wrap:wrap;gap:4px">
+                    <button type="button" data-sim-alert="follow">👤 Follow</button>
+                    <button type="button" data-sim-alert="sub">⭐ Sub</button>
+                    <button type="button" data-sim-alert="bits">💎 Bits</button>
+                    <button type="button" data-sim-alert="raid">🚀 Raid</button>
+                </div>
+                <span class="hint">Fires the full animation and layout directly on the canvas right now.</span>
+            </div>
             <details class="sub-details"${a.sampleImage || a.sampleEmoji ? ' open' : ''}><summary>Preview media (editor only)</summary>
             <span class="hint">Only for this editor preview. Real alerts use the media set per alert.</span>
             ${F.text('alert.sampleEmoji', 'Sample emoji', a.sampleEmoji || '', 'maxlength="40" placeholder="e.g. 🎉 (used when no image is chosen)"')}
@@ -1956,11 +2005,34 @@
         renderProperties(); renderCanvas(); changed(true);
     });
     $('properties').addEventListener('click', event => {
-        if (event.target.id !== 'alert-play') return;
-        const el = primary(), node = el && nodes.get(el.id);
-        if (!node) return;
-        if (node._alertHandle) node._alertHandle.stop();
-        node._alertHandle = shared.playAlert(node, el, { ...alertSample(el), animIn: 'pop', durationMs: 3500 }, { sound: false, onEnd: () => { node._sig = null; renderCanvas(); } });
+        const simBtn = event.target.closest('[data-sim-alert]');
+        if (simBtn || event.target.id === 'alert-play') {
+            const el = primary(), node = el && nodes.get(el.id);
+            if (!node) return;
+            const kind = simBtn?.dataset?.simAlert || 'follow';
+            const sample = alertSample(el);
+            const events = {
+                follow: { title: 'TwitchFan42 followed!', message: 'Thanks for the follow! 🎉', animIn: 'pop', durationMs: 4000 },
+                sub: { title: 'SubHero subscribed!', message: 'Tier 1 sub · 3 month streak ⭐', animIn: 'bounce', durationMs: 4500 },
+                bits: { title: 'BitMaster cheered 500 bits!', message: 'Hyped for the stream! 💎', animIn: 'slide', durationMs: 4500 },
+                raid: { title: 'CoolStreamer raided with 42 viewers!', message: 'Welcome raiders! 🚀', animIn: 'zoom', durationMs: 5000 }
+            };
+            if (node._alertHandle) node._alertHandle.stop();
+            toast(`Simulating ${kind} alert…`, 'info', 1200);
+            node._alertHandle = shared.playAlert(node, el, { ...sample, ...(events[kind] || events.follow) }, { sound: false, onEnd: () => { node._sig = null; renderCanvas(); } });
+            return;
+        }
+        if (event.target.closest('#toggle-aspect-lock')) {
+            const el = primary();
+            if (el) {
+                el.aspectLock = !el.aspectLock;
+                if (el.aspectLock) el.aspectRatio = el.width / Math.max(1, el.height);
+                changed(true);
+                renderProperties();
+                toast(el.aspectLock ? 'Proportions locked' : 'Proportions unlocked', 'info', 1200);
+            }
+            return;
+        }
     });
     // Alerts fired from the Alerts page (tests, simulations, real events) play on the canvas alert boxes too
     function connectAlertPreview() {
@@ -2779,7 +2851,7 @@
         if (dir.includes('e')) { w = edge(right + dx, 'xs', 'xs') - orig.x; }
         if (dir.includes('n')) { y = edge(orig.y + dy, 'ys', 'ys'); h = bottom - y; }
         if (dir.includes('s')) { h = edge(bottom + dy, 'ys', 'ys') - orig.y; }
-        if (event.shiftKey && dir.length === 2) {
+        if ((event.shiftKey || el.aspectLock) && dir.length === 2) {
             const scale = Math.max(w / orig.w, h / orig.h);
             w = orig.w * scale; h = orig.h * scale;
             if (dir.includes('w')) x = right - w;
@@ -2998,12 +3070,15 @@
     function syncToggles() {
         $('toggle-snap').setAttribute('aria-pressed', String(prefs.snap));
         $('toggle-grid').setAttribute('aria-pressed', String(prefs.grid));
+        $('toggle-safe')?.setAttribute('aria-pressed', String(!!prefs.safeZones));
         $('toggle-live').setAttribute('aria-pressed', String(prefs.live));
         $('toggle-fx').setAttribute('aria-pressed', String(prefs.fx));
+        $('safe-zones')?.classList.toggle('on', !!prefs.safeZones);
         shared.setEffectsPaused(!prefs.fx);
     }
     $('toggle-snap').addEventListener('click', () => { prefs.snap = !prefs.snap; savePrefs(); syncToggles(); });
     $('toggle-grid').addEventListener('click', () => { prefs.grid = !prefs.grid; savePrefs(); syncToggles(); syncCanvasUI(); });
+    $('toggle-safe')?.addEventListener('click', () => { prefs.safeZones = !prefs.safeZones; savePrefs(); syncToggles(); syncCanvasUI(); });
     $('toggle-fx').addEventListener('click', () => { prefs.fx = !prefs.fx; savePrefs(); syncToggles(); });
     $('toggle-live').addEventListener('click', () => { prefs.live = !prefs.live; savePrefs(); syncToggles(); renderCanvas(); });
     $('zoom-in').addEventListener('click', () => zoomAt(zoom * 1.25));

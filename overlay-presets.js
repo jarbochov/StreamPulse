@@ -100,7 +100,17 @@
             ], 'weather'),
             build('weather-details', 'Weather: current conditions', 'Weather', 'Detailed conditions: feels like, humidity, wind, high/low, rain, sunrise/sunset, UV.', 520, 240, weatherDetails(), 'weather'),
             build('weather-hourly', 'Weather: hourly forecast', 'Weather', 'The next six hours with icon, temperature and rain chance.', 700, 190, weatherHourly(), 'weather'),
-            build('weather-daily', 'Weather: 5-day forecast', 'Weather', 'The next five days with icon, high, low and rain chance.', 690, 236, weatherDaily(), 'weather')
+            build('weather-daily', 'Weather: 5-day forecast', 'Weather', 'The next five days with icon, high, low and rain chance.', 690, 236, weatherDaily(), 'weather'),
+            build('camera-16-9', 'Webcam frame (16:9)', 'Camera', 'Standard 16:9 webcam cutout with purple border, drop shadow, and streamer handle badge.', 480, 270, [
+                { type: 'shape', name: 'Webcam border', x: 0, y: 0, width: 480, height: 270, style: { background: 'transparent', borderColor: '#9146ff', borderWidth: 3, borderRadius: 12, shadow: { blur: 20, color: 'rgba(0,0,0,0.6)' } } },
+                { type: 'shape', name: 'Handle tag background', x: 20, y: 246, width: 160, height: 28, style: { background: '#9146ff', borderRadius: 6 } },
+                text('Streamer name', '{{streamer.name}}', 20, 246, 160, 28, { fontSize: 13, fontWeight: '700', textAlign: 'center', color: '#ffffff' })
+            ]),
+            build('camera-4-3', 'Webcam frame (4:3)', 'Camera', 'Classic 4:3 webcam cutout with cyan border, drop shadow, and streamer handle badge.', 400, 300, [
+                { type: 'shape', name: 'Webcam border', x: 0, y: 0, width: 400, height: 300, style: { background: 'transparent', borderColor: '#06b6d4', borderWidth: 3, borderRadius: 12, shadow: { blur: 20, color: 'rgba(0,0,0,0.6)' } } },
+                { type: 'shape', name: 'Handle tag background', x: 20, y: 274, width: 150, height: 28, style: { background: '#06b6d4', borderRadius: 6 } },
+                text('Streamer name', '{{streamer.name}}', 20, 274, 150, 28, { fontSize: 13, fontWeight: '700', textAlign: 'center', color: '#ffffff' })
+            ])
         ];
     }
 

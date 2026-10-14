@@ -122,6 +122,7 @@
             if (style.shape === 'pill') node.style.borderRadius = '999px';
             if (style.shape === 'line') { node.style.height = `${Math.max(1, style.borderWidth || 4)}px`; node.style.border = '0'; }
         }
+        node.style.transform = style.rotate ? `rotate(${style.rotate}deg)` : '';
     }
 
     const tickingNodes = [];
