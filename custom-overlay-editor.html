@@ -321,6 +321,33 @@
         @media (max-width: 1180px) { .app { grid-template-columns: 224px minmax(0, 1fr) 292px; } }
         @media (max-width: 900px) { .app { grid-template-columns: 200px minmax(0, 1fr) 260px; } .topbar .hide-narrow { display: none; } }
         @media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
+        /* Canvas Context Menu */
+        #canvas-ctx-menu { position: fixed; z-index: 1000; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 4px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45); min-width: 190px; display: none; flex-direction: column; gap: 2px; user-select: none; }
+        #canvas-ctx-menu.open { display: flex; }
+        .ctx-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-radius: 5px; font-size: 12px; color: var(--text); background: transparent; border: none; cursor: pointer; text-align: left; width: 100%; }
+        .ctx-item:hover { background: var(--accent-strong); color: #fff; }
+        .ctx-item:hover kbd { color: rgba(255, 255, 255, 0.85); border-color: rgba(255, 255, 255, 0.35); }
+        .ctx-item.danger:hover { background: var(--danger); color: #fff; }
+        .ctx-item kbd { font-size: 10px; font-family: inherit; color: var(--muted); background: var(--panel); border: 1px solid var(--border); padding: 1px 5px; border-radius: 4px; margin-left: 12px; }
+        .ctx-divider { height: 1px; background: var(--border); margin: 3px 2px; }
+
+        /* Inline Placeholder Autocomplete */
+        #placeholder-ac { position: fixed; z-index: 1001; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); max-width: 320px; width: 300px; max-height: 240px; overflow-y: auto; display: none; flex-direction: column; padding: 4px; }
+        #placeholder-ac.open { display: flex; }
+        .pac-item { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border-radius: 5px; cursor: pointer; border: none; background: transparent; text-align: left; width: 100%; color: var(--text); font-size: 11px; }
+        .pac-item:hover, .pac-item.active { background: color-mix(in srgb, var(--accent-strong) 25%, transparent); color: var(--text); }
+        .pac-item .pac-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+        .pac-item .pac-key { font-weight: 600; font-family: ui-monospace, Menlo, monospace; color: var(--accent); font-size: 11px; }
+        .pac-item .pac-label { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pac-item .pac-preview { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Document / Recent Color Swatches */
+        .color-swatches { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; align-items: center; }
+        .swatch-btn { width: 18px; height: 18px; padding: 0; border-radius: 4px; border: 1px solid var(--border); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15); cursor: pointer; transition: transform 0.1s ease, border-color 0.1s ease; }
+        .swatch-btn:hover { transform: scale(1.18); border-color: #fff; z-index: 2; }
+
+        /* Backdrop screenshot image inside #backdrop */
+        #backdrop-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; display: none; }
     </style>
 </head>
 <body>
@@ -392,7 +419,7 @@
             </div>
             <div id="stage" tabindex="-1" aria-label="Overlay canvas">
                 <div id="world">
-                    <div id="backdrop" class="bd-checker"></div>
+                    <div id="backdrop" class="bd-checker"><img id="backdrop-img" alt=""></div>
                     <div id="canvas"></div>
                     <div id="grid"></div>
                     <div id="guides"></div>
@@ -463,6 +490,9 @@
         </div>
         <div class="dialog-actions"><button id="help-close" class="primary">Done</button></div>
     </dialog>
+
+    <div id="canvas-ctx-menu" role="menu" aria-label="Canvas context menu"></div>
+    <div id="placeholder-ac" role="listbox" aria-label="Placeholder suggestions"></div>
 
     <script src="/vendor/Sortable.min.js"></script>
     <script src="/vendor/marked.umd.js"></script>
@@ -539,7 +569,7 @@
 
     // ---- preferences ------------------------------------------------------------------
     const PREF_KEY = 'streampulse.overlayEditor.v1';
-    const prefs = Object.assign({ snap: true, scaleText: true, grid: false, live: true, fx: true, backdrop: 'checker', alignTo: 'selection', sections: {} }, (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch { return {}; } })());
+    const prefs = Object.assign({ snap: true, scaleText: true, grid: false, live: true, fx: true, backdrop: 'checker', backdropImage: '', backdropOpacity: 80, alignTo: 'selection', sections: {}, recentColors: [] }, (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch { return {}; } })());
     const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch {} };
 
     // ---- state ------------------------------------------------------------------------
@@ -746,6 +776,17 @@
         for (const node of [backdrop, canvasEl, gridEl, guidesEl, uiEl]) { node.style.width = `${width}px`; node.style.height = `${height}px`; }
         canvasEl.style.background = background || 'transparent';
         backdrop.className = `bd-${prefs.backdrop}`;
+        const bdImg = $('backdrop-img');
+        if (bdImg) {
+            if (prefs.backdropImage) {
+                bdImg.src = prefs.backdropImage;
+                bdImg.style.display = 'block';
+                bdImg.style.opacity = String((prefs.backdropOpacity ?? 80) / 100);
+            } else {
+                bdImg.style.display = 'none';
+                bdImg.removeAttribute('src');
+            }
+        }
         gridEl.classList.toggle('on', prefs.grid);
         applyView();
     }
@@ -1121,6 +1162,49 @@
 
     // ---- field builders / generic binding ---------------------------------------------
     const fmt = (value, scale = 1) => String(round2((Number(value) || 0) / scale));
+
+    function getDocumentColors() {
+        const colors = new Set();
+        const add = val => {
+            if (!val || typeof val !== 'string') return;
+            val = val.trim();
+            if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(val)) colors.add(val.toLowerCase());
+            else if (/^rgba?\(/i.test(val) && !val.includes(', 0)')) colors.add(val);
+        };
+        if (overlay.canvas?.background) add(overlay.canvas.background);
+        for (const el of overlay.elements || []) {
+            if (el.style) {
+                add(el.style.color); add(el.style.background); add(el.style.borderColor);
+                add(el.style.shadowColor); add(el.style.glowColor);
+                if (el.style.fillColor) add(el.style.fillColor);
+                if (el.style.textGradient?.from) add(el.style.textGradient.from);
+                if (el.style.textGradient?.to) add(el.style.textGradient.to);
+                if (el.style.borderGradient?.from) add(el.style.borderGradient.from);
+                if (el.style.borderGradient?.to) add(el.style.borderGradient.to);
+            }
+            if (el.qr) { add(el.qr.fg); add(el.qr.bg); }
+        }
+        if (Array.isArray(prefs.recentColors)) {
+            for (const c of prefs.recentColors) add(c);
+        }
+        return [...colors].slice(0, 14);
+    }
+    function renderSwatches(path) {
+        const docColors = getDocumentColors();
+        if (!docColors.length) return '';
+        return `<div class="color-swatches" data-swatch-path="${path}">` +
+            docColors.map(c => `<button type="button" class="swatch-btn" data-color="${esc(c)}" title="${esc(c)}" style="background-color:${esc(c)}" aria-label="Use color ${esc(c)}"></button>`).join('') +
+            `</div>`;
+    }
+    function addRecentColor(color) {
+        if (!color || typeof color !== 'string') return;
+        color = color.trim().toLowerCase();
+        if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color) && !/^rgba?\(/i.test(color)) return;
+        if (!Array.isArray(prefs.recentColors)) prefs.recentColors = [];
+        prefs.recentColors = [color, ...prefs.recentColors.filter(c => c !== color)].slice(0, 12);
+        savePrefs();
+    }
+
     const F = {
         text: (path, label, value, extra = '') => `<label class="field"><span>${label}</span><input data-path="${path}" data-kind="text" value="${esc(value)}" ${extra}></label>`,
         number: (path, label, value, { min, max, step = 1, scale = 1, lazy = false } = {}) =>
@@ -1131,7 +1215,7 @@
         select: (path, label, value, options) => `<label class="field"><span>${label}</span><select data-path="${path}" data-kind="text">${options.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(value) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`,
         color: (path, label, value, { clear = false } = {}) => {
             const hex = /^#[0-9a-f]{6}$/i.test(value) ? value : /^#[0-9a-f]{3}$/i.test(value) ? `#${[...value.slice(1)].map(c => c + c).join('')}` : '#000000';
-            return `<div class="field"><span>${label}</span><span class="color-field"><input type="color" data-path="${path}" data-kind="text" value="${hex}" aria-label="${label} picker"><input class="color-text" data-path="${path}" data-kind="text" value="${esc(value)}" placeholder="#rrggbb or rgba()" spellcheck="false" aria-label="${label} value">${clear ? `<button type="button" data-clear="${path}" title="Make transparent">None</button>` : '<span></span>'}</span></div>`;
+            return `<div class="field"><span>${label}</span><span class="color-field"><input type="color" data-path="${path}" data-kind="text" value="${hex}" aria-label="${label} picker"><input class="color-text" data-path="${path}" data-kind="text" value="${esc(value)}" placeholder="#rrggbb or rgba()" spellcheck="false" aria-label="${label} value">${clear ? `<button type="button" data-clear="${path}" title="Make transparent">None</button>` : '<span></span>'}</span>${renderSwatches(path)}</div>`;
         },
         seg: (path, label, value, options) => `<div class="field"><span>${label}</span><span class="seg" data-seg-path="${path}">${options.map(([v, title, icon]) => `<button type="button" data-seg-value="${v}" aria-pressed="${v === value}" title="${title}" aria-label="${title}">${icon}</button>`).join('')}</span></div>`,
         section: (id, title, body, openByDefault = true) => `<details class="sect" data-sect="${id}" ${(prefs.sections[id] ?? openByDefault) ? 'open' : ''}><summary>${title}</summary><div class="sect-body">${body}</div></details>`
@@ -1172,6 +1256,7 @@
             if (!targets.length) return;
             targets.forEach(target => setPath(target, input.dataset.path, value));
             syncColorPair(input);
+            if (input.type === 'color' || input.classList.contains('color-text')) addRecentColor(value);
             const output = input.parentElement.querySelector('output');
             if (output && input.type === 'range') output.textContent = `${fmt(value, Number(input.dataset.scale) || 1)}`;
             onApply(input.dataset.path, event);
@@ -1221,6 +1306,30 @@
                 const wrap = clear.closest('.color-field');
                 wrap.querySelector('.color-text').value = 'transparent';
                 onApply(path, event); changed(true);
+                return;
+            }
+            const swatch = event.target.closest('[data-color]');
+            if (swatch) {
+                const wrap = swatch.closest('.color-swatches');
+                const path = wrap?.dataset.swatchPath;
+                const color = swatch.dataset.color;
+                if (path && color) {
+                    getTargets().forEach(target => setPath(target, path, color));
+                    const fieldWrap = wrap.parentElement;
+                    const colorField = fieldWrap?.querySelector('.color-field');
+                    if (colorField) {
+                        const hexInput = colorField.querySelector('input[type="color"]');
+                        const textInput = colorField.querySelector('.color-text');
+                        if (textInput) textInput.value = color;
+                        if (hexInput && /^#[0-9a-f]{3,6}$/i.test(color)) {
+                            hexInput.value = color.length === 4 ? `#${[...color.slice(1)].map(c => c + c).join('')}` : color;
+                        }
+                    }
+                    addRecentColor(color);
+                    onApply(path, event);
+                    changed(true);
+                }
+                return;
             }
         });
         container.addEventListener('focusin', event => { if (event.target.matches('textarea[data-path], input[data-path="src"]')) lastTextField = event.target; });
@@ -1237,12 +1346,50 @@
             <div class="grid2">${F.number('canvas.width', 'Width', c.width, { min: LIMITS.canvasW[0], max: LIMITS.canvasW[1], lazy: true })}${F.number('canvas.height', 'Height', c.height, { min: LIMITS.canvasH[0], max: LIMITS.canvasH[1], lazy: true })}</div>
             ${F.color('canvas.background', 'Canvas background', c.background, { clear: true })}
             <label class="field"><span>Preview backdrop</span><select id="backdrop-select">${[['checker', 'Transparent checkerboard'], ['dark', 'Dark'], ['light', 'Light'], ['green', 'Green screen']].map(([v, l]) => `<option value="${v}"${v === prefs.backdrop ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+            <div class="field">
+                <span>Screenshot backdrop</span>
+                <span class="upload-row">
+                    <input type="file" id="backdrop-upload" accept="image/*" style="display:none">
+                    <button type="button" id="backdrop-upload-btn">${prefs.backdropImage ? 'Change screenshot…' : 'Upload screenshot…'}</button>
+                    ${prefs.backdropImage ? `<button type="button" id="backdrop-clear-btn" class="danger" title="Remove backdrop screenshot">Clear</button>` : ''}
+                </span>
+                <span class="hint">Preview widgets over your actual gameplay or stream layout.</span>
+            </div>
+            ${prefs.backdropImage ? `
+            <label class="field">
+                <span>Backdrop opacity</span>
+                <span class="range-field">
+                    <input type="range" id="backdrop-opacity-range" min="5" max="100" step="5" value="${prefs.backdropOpacity ?? 80}">
+                    <output>${prefs.backdropOpacity ?? 80}%</output>
+                </span>
+            </label>` : ''}
             <p class="hint">${overlay.canvas.background && !/^(transparent|rgba\(.*,\s*0\))$/i.test(overlay.canvas.background) ? 'The canvas background is set, so it covers the backdrop. Click None to preview the backdrop.' : 'The backdrop is only for editing. The OBS browser source stays transparent unless you set a background.'}</p>`;
     }
     bindFields($('settings'), () => [overlay], path => {
         syncCanvasUI();
         if (path.startsWith('canvas.') && autoFit) fitView(true);
         changed(false);
+    });
+    $('settings').addEventListener('click', event => {
+        if (event.target.id === 'backdrop-upload-btn') {
+            $('backdrop-upload')?.click();
+        } else if (event.target.id === 'backdrop-clear-btn') {
+            prefs.backdropImage = '';
+            savePrefs();
+            syncCanvasUI();
+            renderSettings();
+            toast('Screenshot backdrop cleared', 'info', 1500);
+        }
+    });
+    $('settings').addEventListener('input', event => {
+        if (event.target.id === 'backdrop-opacity-range') {
+            prefs.backdropOpacity = Number(event.target.value);
+            savePrefs();
+            const bdImg = $('backdrop-img');
+            if (bdImg) bdImg.style.opacity = String(prefs.backdropOpacity / 100);
+            const output = event.target.parentElement?.querySelector('output');
+            if (output) output.textContent = `${prefs.backdropOpacity}%`;
+        }
     });
     $('settings').addEventListener('change', event => {
         const input = event.target;
@@ -1252,6 +1399,31 @@
             renderSettings(); syncCanvasUI(); if (autoFit) fitView(true); changed(true);
         } else if (input.id === 'backdrop-select') {
             prefs.backdrop = input.value; savePrefs(); syncCanvasUI();
+        } else if (input.id === 'backdrop-upload' && input.files?.[0]) {
+            const file = input.files[0];
+            toast('Loading screenshot backdrop…', 'info', 1500);
+            (async () => {
+                try {
+                    const url = await uploadAsset(file);
+                    prefs.backdropImage = url;
+                    prefs.backdropOpacity = prefs.backdropOpacity ?? 80;
+                    savePrefs();
+                    syncCanvasUI();
+                    renderSettings();
+                    toast('Backdrop screenshot loaded', 'success', 2000);
+                } catch {
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                        prefs.backdropImage = e.target.result;
+                        prefs.backdropOpacity = prefs.backdropOpacity ?? 80;
+                        savePrefs();
+                        syncCanvasUI();
+                        renderSettings();
+                        toast('Backdrop screenshot loaded', 'success', 2000);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            })();
         } else if (input.dataset.path?.startsWith('canvas.') && input.dataset.kind === 'number') {
             renderSettings();
         }
@@ -1961,6 +2133,115 @@
         });
     }
 
+    // ---- inline placeholder autocomplete ----------------------------------------------
+    const pacEl = $('placeholder-ac');
+    let pacTarget = null, pacMatchStart = 0, pacActiveIdx = 0, pacTokens = [];
+
+    function hidePlaceholderAC() {
+        if (pacEl) {
+            pacEl.classList.remove('open');
+            pacEl.innerHTML = '';
+        }
+        pacTarget = null;
+    }
+
+    function getAvailableTokens() {
+        if (!shared.variableGroups) return [];
+        const groups = shared.variableGroups(liveStatus);
+        const tokens = [];
+        const table = shared.variableTable(liveStatus, variableContext());
+        for (const g of groups) {
+            for (const [key, label] of g.items) {
+                const val = table[key];
+                const preview = val === undefined || val === null || val === '' ? '' : String(val);
+                tokens.push({ key, label, preview, group: g.label });
+            }
+        }
+        return tokens;
+    }
+
+    function renderPlaceholderACSelection() {
+        if (!pacEl) return;
+        const items = pacEl.querySelectorAll('.pac-item');
+        items.forEach((item, idx) => {
+            const isAct = idx === pacActiveIdx;
+            item.classList.toggle('active', isAct);
+            if (isAct) item.scrollIntoView({ block: 'nearest' });
+        });
+    }
+
+    function updatePlaceholderAC() {
+        if (!pacTarget || !document.contains(pacTarget)) { hidePlaceholderAC(); return; }
+        const val = pacTarget.value || '';
+        const selEnd = pacTarget.selectionStart ?? val.length;
+        const textBefore = val.slice(0, selEnd);
+        const match = textBefore.match(/\{\{([a-zA-Z0-9_.-]*)$/);
+        if (!match) { hidePlaceholderAC(); return; }
+
+        const pacQuery = match[1].toLowerCase();
+        pacMatchStart = match.index;
+
+        const all = getAvailableTokens();
+        pacTokens = pacQuery
+            ? all.filter(t => t.key.toLowerCase().includes(pacQuery) || t.label.toLowerCase().includes(pacQuery))
+            : all;
+
+        if (!pacTokens.length) { hidePlaceholderAC(); return; }
+        pacTokens = pacTokens.slice(0, 15);
+        if (pacActiveIdx >= pacTokens.length) pacActiveIdx = 0;
+
+        pacEl.innerHTML = pacTokens.map((t, i) => `
+            <button type="button" class="pac-item${i === pacActiveIdx ? ' active' : ''}" data-idx="${i}" data-token="${esc(t.key)}">
+                <div class="pac-head">
+                    <span class="pac-key">{{${esc(t.key)}}}</span>
+                    <span class="pac-label">${esc(t.label)}</span>
+                </div>
+                ${t.preview ? `<span class="pac-preview">${esc(t.preview)}</span>` : ''}
+            </button>
+        `).join('');
+        pacEl.classList.add('open');
+
+        const rect = pacTarget.getBoundingClientRect();
+        const popupH = 220;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const left = Math.max(8, Math.min(rect.left, window.innerWidth - 320));
+        let top = rect.bottom + 4;
+        if (spaceBelow < popupH && rect.top > popupH) {
+            top = rect.top - popupH - 4;
+        }
+        pacEl.style.left = `${left}px`;
+        pacEl.style.top = `${top}px`;
+    }
+
+    function insertPlaceholderToken(token) {
+        if (!pacTarget) return;
+        const val = pacTarget.value;
+        const selEnd = pacTarget.selectionStart ?? val.length;
+        pacTarget.focus();
+        pacTarget.setRangeText(`{{${token}}}`, pacMatchStart, selEnd, 'end');
+        pacTarget.dispatchEvent(new Event('input', { bubbles: true }));
+        pacTarget.dispatchEvent(new Event('change', { bubbles: true }));
+        hidePlaceholderAC();
+    }
+
+    $('properties').addEventListener('input', event => {
+        if (event.target.matches('textarea, input[data-kind="text"], input[data-path]')) {
+            pacTarget = event.target;
+            updatePlaceholderAC();
+        }
+    });
+
+    pacEl.addEventListener('click', event => {
+        const item = event.target.closest('[data-token]');
+        if (item) insertPlaceholderToken(item.dataset.token);
+    });
+
+    document.addEventListener('click', event => {
+        if (!event.target.closest('#placeholder-ac') && event.target !== pacTarget) {
+            hidePlaceholderAC();
+        }
+    });
+
     // ---- asset picker -----------------------------------------------------------------
     const assetDialog = $('asset-dialog'), assetGrid = $('asset-grid'), assetSearch = $('asset-search');
     let libraryAssets = [], pickerTarget = null, assetTagFilter = '';
@@ -2528,14 +2809,132 @@
         if (field) { field.focus(); field.select(); }
     });
     stage.addEventListener('wheel', event => {
+        hideContextMenu();
         event.preventDefault();
         if (event.ctrlKey || event.metaKey) zoomAt(zoom * Math.exp(-clamp(event.deltaY, -60, 60) * 0.01), event.clientX, event.clientY);
         else { pan.x -= event.shiftKey && !event.deltaX ? event.deltaY : event.deltaX; pan.y -= event.shiftKey && !event.deltaX ? 0 : event.deltaY; autoFit = false; applyView(); }
     }, { passive: false });
-    stage.addEventListener('contextmenu', event => { if (event.target.closest('#stage')) event.preventDefault(); });
+
+    // ---- canvas context menu ----------------------------------------------------------
+    const ctxMenu = $('canvas-ctx-menu');
+    function hideContextMenu() {
+        if (ctxMenu) {
+            ctxMenu.classList.remove('open');
+            ctxMenu.innerHTML = '';
+        }
+    }
+    document.addEventListener('click', event => {
+        if (!event.target.closest('#canvas-ctx-menu')) hideContextMenu();
+    });
+    stage.addEventListener('contextmenu', event => {
+        if (!event.target.closest('#stage')) return;
+        event.preventDefault();
+
+        const targetNode = event.target.closest('.canvas-element');
+        if (targetNode) {
+            const elId = [...nodes.entries()].find(([, n]) => n === targetNode)?.[0];
+            if (elId && !selectedIds.has(elId)) {
+                setSelection([elId]);
+            }
+        }
+
+        const items = selectedElements();
+        const hasSelection = items.length > 0;
+        let hasClipboard = false;
+        try { hasClipboard = Boolean(localStorage.getItem('streampulse.overlayEditor.clipboard')); } catch {}
+        const isMulti = items.length > 1;
+        const allLocked = hasSelection && items.every(el => el.locked);
+        const hasGroup = hasSelection && items.some(el => el.group);
+        const modKey = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl+';
+
+        let menuHtml = '';
+        if (hasSelection) {
+            menuHtml += `<button type="button" class="ctx-item" data-ctx-act="duplicate"><span>Duplicate</span><kbd>${modKey}D</kbd></button>`;
+            menuHtml += `<button type="button" class="ctx-item" data-ctx-act="copy"><span>Copy</span><kbd>${modKey}C</kbd></button>`;
+            if (hasClipboard) {
+                menuHtml += `<button type="button" class="ctx-item" data-ctx-act="paste"><span>Paste</span><kbd>${modKey}V</kbd></button>`;
+            }
+            menuHtml += `<div class="ctx-divider"></div>`;
+            menuHtml += `<button type="button" class="ctx-item" data-ctx-act="front"><span>Bring to Front</span><kbd>${modKey}⇧]</kbd></button>`;
+            menuHtml += `<button type="button" class="ctx-item" data-ctx-act="forward"><span>Bring Forward</span><kbd>${modKey}]</kbd></button>`;
+            menuHtml += `<button type="button" class="ctx-item" data-ctx-act="backward"><span>Send Backward</span><kbd>${modKey}[</kbd></button>`;
+            menuHtml += `<button type="button" class="ctx-item" data-ctx-act="back"><span>Send to Back</span><kbd>${modKey}⇧[</kbd></button>`;
+            menuHtml += `<div class="ctx-divider"></div>`;
+            if (isMulti) {
+                menuHtml += `<button type="button" class="ctx-item" data-ctx-act="group"><span>Group</span><kbd>${modKey}G</kbd></button>`;
+            }
+            if (hasGroup) {
+                menuHtml += `<button type="button" class="ctx-item" data-ctx-act="ungroup"><span>Ungroup</span><kbd>${modKey}⇧G</kbd></button>`;
+            }
+            menuHtml += `<button type="button" class="ctx-item" data-ctx-act="lock"><span>${allLocked ? 'Unlock' : 'Lock'}</span></button>`;
+            menuHtml += `<button type="button" class="ctx-item" data-ctx-act="hide"><span>${items.every(el => el.visible === false) ? 'Show' : 'Hide'}</span></button>`;
+            menuHtml += `<div class="ctx-divider"></div>`;
+            menuHtml += `<button type="button" class="ctx-item danger" data-ctx-act="delete"><span>Delete</span><kbd>Del</kbd></button>`;
+        } else {
+            if (hasClipboard) {
+                menuHtml += `<button type="button" class="ctx-item" data-ctx-act="paste"><span>Paste</span><kbd>${modKey}V</kbd></button>`;
+                menuHtml += `<div class="ctx-divider"></div>`;
+            }
+            menuHtml += `<button type="button" class="ctx-item" data-ctx-act="fit"><span>Fit to Screen</span><kbd>${modKey}0</kbd></button>`;
+            menuHtml += `<button type="button" class="ctx-item" data-ctx-act="select-all"><span>Select All</span><kbd>${modKey}A</kbd></button>`;
+        }
+
+        ctxMenu.innerHTML = menuHtml;
+        ctxMenu.classList.add('open');
+
+        const menuRect = ctxMenu.getBoundingClientRect();
+        const posX = Math.min(event.clientX, window.innerWidth - menuRect.width - 8);
+        const posY = Math.min(event.clientY, window.innerHeight - menuRect.height - 8);
+        ctxMenu.style.left = `${Math.max(8, posX)}px`;
+        ctxMenu.style.top = `${Math.max(8, posY)}px`;
+    });
+
+    ctxMenu.addEventListener('click', event => {
+        const btn = event.target.closest('[data-ctx-act]');
+        if (!btn) return;
+        const act = btn.dataset.ctxAct;
+        hideContextMenu();
+        if (act === 'duplicate') duplicateSelection();
+        else if (act === 'copy') copySelection();
+        else if (act === 'paste') pasteClipboard();
+        else if (['front', 'forward', 'backward', 'back'].includes(act)) reorder(act);
+        else if (act === 'group') groupSelection();
+        else if (act === 'ungroup') ungroupSelection();
+        else if (act === 'lock') runAction('lock');
+        else if (act === 'hide') runAction('hide');
+        else if (act === 'delete') deleteSelection();
+        else if (act === 'fit') fitView();
+        else if (act === 'select-all') setSelection(visibleElements().filter(el => el.visible !== false).map(el => el.id));
+    });
 
     // ---- keyboard ---------------------------------------------------------------------
     document.addEventListener('keydown', event => {
+        if (pacEl?.classList.contains('open') && pacTokens.length) {
+            if (event.key === 'ArrowDown') {
+                event.preventDefault(); event.stopPropagation();
+                pacActiveIdx = (pacActiveIdx + 1) % pacTokens.length;
+                renderPlaceholderACSelection();
+                return;
+            }
+            if (event.key === 'ArrowUp') {
+                event.preventDefault(); event.stopPropagation();
+                pacActiveIdx = (pacActiveIdx - 1 + pacTokens.length) % pacTokens.length;
+                renderPlaceholderACSelection();
+                return;
+            }
+            if (event.key === 'Enter' || event.key === 'Tab') {
+                if (pacTokens[pacActiveIdx]) {
+                    event.preventDefault(); event.stopPropagation();
+                    insertPlaceholderToken(pacTokens[pacActiveIdx].key);
+                    return;
+                }
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault(); event.stopPropagation();
+                hidePlaceholderAC();
+                return;
+            }
+        }
         const mod = event.ctrlKey || event.metaKey;
         const key = event.key.toLowerCase();
         const typing = event.target.matches('input:not([type="range"]):not([type="checkbox"]):not([type="color"]), textarea, select');
@@ -2554,7 +2953,12 @@
         if (mod && (event.key === ']' || event.key === '[')) { event.preventDefault(); reorder(event.key === ']' ? (event.shiftKey ? 'front' : 'forward') : (event.shiftKey ? 'back' : 'backward')); return; }
         if (event.key === ' ' && !event.target.closest('button, a, summary')) { event.preventDefault(); if (!spaceDown) { spaceDown = true; stage.classList.add('space'); } return; }
         if (event.key === 'Delete' || event.key === 'Backspace') { if (selectedIds.size) { event.preventDefault(); deleteSelection(); } return; }
-        if (event.key === 'Escape') { $('add-menu').classList.remove('open'); setSelection([]); return; }
+        if (event.key === 'Escape') {
+            if (ctxMenu?.classList.contains('open')) { hideContextMenu(); return; }
+            $('add-menu').classList.remove('open');
+            setSelection([]);
+            return;
+        }
         if (event.key === '+' || event.key === '=') { zoomAt(zoom * 1.25); return; }
         if (event.key === '-') { zoomAt(zoom / 1.25); return; }
         if (event.key.startsWith('Arrow')) {
