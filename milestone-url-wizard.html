@@ -3,6 +3,7 @@
 <head>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
+    <script src="/overlay-theme.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -69,6 +70,15 @@
         <script src="/nav.js"></script>
     </div>
 
+    <div style="max-width:1280px; margin:1rem auto 0; padding:0 2rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+        <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Wizards:</span>
+        <a href="/milestone-url-wizard.html" class="preset-chip active" style="text-decoration:none;">Milestones &amp; Streaks</a>
+        <a href="/game-plan-url-wizard.html" class="preset-chip" style="text-decoration:none;">Game Plan ↗</a>
+        <a href="/overlay-url-wizard.html" class="preset-chip" style="text-decoration:none;">Overlays (Goals, Viewers, Stats, Credits) ↗</a>
+        <a href="/music-url-wizard.html" class="preset-chip" style="text-decoration:none;">Music ↗</a>
+        <a href="/timer-url-wizard.html" class="preset-chip" style="text-decoration:none;">Timers ↗</a>
+    </div>
+
     <div class="container">
         <!-- Configuration Column -->
         <div class="card left-col">
@@ -109,6 +119,25 @@
                     <option value="transparent">Transparent (Borderless)</option>
                     <option value="neon">Neon Cyberpunk (Glowing)</option>
                     <option value="light">Light</option>
+                </select>
+            </div>
+
+            <div class="cfg-row">
+                <label>Font Family</label>
+                <input type="text" id="wiz-font" list="wiz-font-list" placeholder="Theme / System Default" oninput="refreshWizard()">
+                <datalist id="wiz-font-list"></datalist>
+            </div>
+
+            <div class="cfg-row">
+                <label>Font Weight</label>
+                <select id="wiz-weight" onchange="refreshWizard()">
+                    <option value="">Default (Auto)</option>
+                    <option value="300">Light (300)</option>
+                    <option value="400">Regular (400)</option>
+                    <option value="500">Medium (500)</option>
+                    <option value="600">Semi-bold (600)</option>
+                    <option value="700">Bold (700)</option>
+                    <option value="900">Black (900)</option>
                 </select>
             </div>
 
@@ -212,6 +241,16 @@
                             <td>Display layout of the overlay.</td>
                         </tr>
                         <tr>
+                            <td><code>font</code></td>
+                            <td>Font name, e.g. <code>Impact</code>, <code>Press Start 2P</code></td>
+                            <td>Font family name (supports system, Google, and uploaded fonts).</td>
+                        </tr>
+                        <tr>
+                            <td><code>weight</code></td>
+                            <td><code>300</code>, <code>400</code>, <code>500</code>, <code>600</code>, <code>700</code>, <code>900</code></td>
+                            <td>Font weight override (great for fonts that don't render well bold).</td>
+                        </tr>
+                        <tr>
                             <td><code>fontScale</code> / <code>scale</code></td>
                             <td>Number, e.g. <code>1.2</code></td>
                             <td>Font size scaling factor (0.5 to 2.5). Adapts fluidly with viewport typography.</td>
@@ -304,6 +343,8 @@
         const mode = document.getElementById('mode').value;
         const theme = document.getElementById('theme').value;
         const accent = document.getElementById('accent-color').value;
+        const font = (document.getElementById('wiz-font').value || '').trim();
+        const weight = document.getElementById('wiz-weight').value;
         const scale = parseFloat(document.getElementById('scale').value || '1');
         const align = document.getElementById('align').value;
         const customTitle = document.getElementById('custom-title').value.trim();
@@ -326,6 +367,8 @@
         const params = new URLSearchParams();
         if (mode !== 'card') params.set('mode', mode);
         if (theme !== 'glass') params.set('theme', theme);
+        if (font) params.set('font', font);
+        if (weight) params.set('weight', weight);
         if (accent && accent !== '#8b5cf6') params.set('accent', accent);
         if (scale !== 1) params.set('fontScale', scale.toFixed(2));
         if (align !== 'center') params.set('align', align);
@@ -363,6 +406,18 @@
             console.warn('Copy failed:', e);
         }
     }
+
+    (async function fillFonts() {
+        const names = [...(window.OverlayFonts?.system || []), ...(window.OverlayFonts?.google || [])];
+        try {
+            const assets = await (await fetch('/api/custom-overlays/assets', { cache: 'no-store' })).json();
+            assets.filter(a => a.kind === 'font').forEach(a => names.push(a.family));
+        } catch {}
+        const datalist = document.getElementById('wiz-font-list');
+        if (datalist) {
+            datalist.innerHTML = [...new Set(names)].map(n => `<option value="${n.replace(/"/g, '')}">`).join('');
+        }
+    })();
 
     // Initialize on load
     refreshWizard();

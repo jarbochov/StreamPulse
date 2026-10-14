@@ -66,6 +66,15 @@
         <script src="/overlay-shared.js"></script>
     </div>
 
+    <div style="max-width:1280px; margin:1rem auto 0; padding:0 2rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+        <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Wizards:</span>
+        <a href="/timer-url-wizard.html" class="preset-chip active" style="text-decoration:none; background:var(--accent-bg); border-color:var(--accent); color:var(--accent); font-weight:600; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Timers</a>
+        <a href="/milestone-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Milestones &amp; Streaks ↗</a>
+        <a href="/game-plan-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Game Plan ↗</a>
+        <a href="/overlay-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Overlays (Goals, Viewers, Stats, Credits) ↗</a>
+        <a href="/music-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Music ↗</a>
+    </div>
+
     <div class="container">
         <div class="card left-col">
             <h2>Overlay Builder</h2>
@@ -146,7 +155,7 @@
                     <iframe id="preview" src="/countdown.html"></iframe>
                 </div>
                 <div class="group-title">OBS browser source URL</div>
-                <div class="url-box"><a id="browser-source-url" href="#" target="_blank" rel="noopener noreferrer"></a><button class="btn" onclick="copyText('browser-source-url', this)">Copy</button></div>
+                <div class="url-box"><a id="browser-source-url" href="#" target="_blank" rel="noopener noreferrer"></a><button class="btn" onclick="copyText('browser-source-url', this)">Copy</button><a class="btn" id="open-btn" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">Open ↗</a></div>
                 <a id="overlay-url" hidden></a>
             </div>
 
@@ -253,6 +262,8 @@
         document.getElementById('overlay-url').href = relative;
         document.getElementById('browser-source-url').textContent = full;
         document.getElementById('browser-source-url').href = full;
+        const openBtn = document.getElementById('open-btn');
+        if (openBtn) openBtn.href = full;
         document.getElementById('preview').src = relative;
         renderActionRows(id, timer);
         renderFieldRows(id);

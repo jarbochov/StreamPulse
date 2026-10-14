@@ -3,6 +3,7 @@
 <head>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
+    <script src="/overlay-theme.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,6 +11,11 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
+
+        .palette-chips { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+        .p-chip { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s ease; }
+        .p-chip:hover { transform: scale(1.15); }
+        .p-chip.active { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
 
         .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
@@ -70,6 +76,15 @@
         <h1>StreamPulse <span>Music URL Wizard</span> <span style="font-size:0.6rem;background:var(--warn-bg);color:var(--warn);border:1px solid color-mix(in srgb, var(--warn) 19%, transparent);padding:0.15rem 0.4rem;border-radius:4px;vertical-align:middle;">Beta</span></h1>
         <div id="main-nav" class="nav"></div>
         <script src="/nav.js"></script>
+    </div>
+
+    <div style="max-width:960px; margin:1rem auto 0; padding:0 2rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+        <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Wizards:</span>
+        <a href="/music-url-wizard.html" class="preset-chip active" style="text-decoration:none; background:var(--accent-bg); border-color:var(--accent); color:var(--accent); font-weight:600; padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Music</a>
+        <a href="/milestone-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Milestones &amp; Streaks ↗</a>
+        <a href="/game-plan-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Game Plan ↗</a>
+        <a href="/overlay-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Overlays (Goals, Viewers, Stats, Credits) ↗</a>
+        <a href="/timer-url-wizard.html" class="preset-chip" style="text-decoration:none; background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); padding:0.3rem 0.6rem; border-radius:4px; font-size:0.74rem;">Timers ↗</a>
     </div>
 
     <div class="container">
@@ -149,17 +164,19 @@
             <h2>Appearance Overrides</h2>
             <div class="cfg-row">
                 <label>Font <span class="param-badge">font</span></label>
-                <select id="wiz-font">
+                <input type="text" id="wiz-font" list="wiz-font-list" placeholder="Theme / System default">
+                <datalist id="wiz-font-list"></datalist>
+            </div>
+            <div class="cfg-row">
+                <label>Font Weight <span class="param-badge">weight</span></label>
+                <select id="wiz-weight">
                     <option value="">— default —</option>
-                    <option value="Jersey 20">Jersey 20</option>
-                    <option value="Press Start 2P">Press Start 2P</option>
-                    <option value="Bebas Neue">Bebas Neue</option>
-                    <option value="Fredoka One">Fredoka One</option>
-                    <option value="Bangers">Bangers</option>
-                    <option value="Orbitron">Orbitron</option>
-                    <option value="Righteous">Righteous</option>
-                    <option value="Permanent Marker">Permanent Marker</option>
-                    <option value="Inter">Inter</option>
+                    <option value="300">Light (300)</option>
+                    <option value="400">Regular (400)</option>
+                    <option value="500">Medium (500)</option>
+                    <option value="600">Semi-bold (600)</option>
+                    <option value="700">Bold (700)</option>
+                    <option value="900">Black (900)</option>
                 </select>
             </div>
             <div class="cfg-row">
@@ -169,8 +186,20 @@
             </div>
             <div class="cfg-row">
                 <label>Accent <span class="param-badge">accentColor</span></label>
-                <input type="color" id="wiz-accentColor-pick" value="#58a6ff">
-                <input type="text" id="wiz-accentColor" placeholder="default" style="max-width:100px;">
+                <div style="display:flex; flex-direction:column; gap:0.4rem; flex:1;">
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="color" id="wiz-accentColor-pick" value="#58a6ff">
+                        <input type="text" id="wiz-accentColor" placeholder="default" style="max-width:100px;">
+                    </div>
+                    <div class="palette-chips">
+                        <span class="p-chip" style="background:#58a6ff" onclick="setAccent('#58a6ff')"></span>
+                        <span class="p-chip" style="background:#8b5cf6" onclick="setAccent('#8b5cf6')"></span>
+                        <span class="p-chip" style="background:#10b981" onclick="setAccent('#10b981')"></span>
+                        <span class="p-chip" style="background:#f59e0b" onclick="setAccent('#f59e0b')"></span>
+                        <span class="p-chip" style="background:#f43f5e" onclick="setAccent('#f43f5e')"></span>
+                        <span class="p-chip" style="background:#06b6d4" onclick="setAccent('#06b6d4')"></span>
+                    </div>
+                </div>
             </div>
             <div class="cfg-row">
                 <label>Background <span class="param-badge">bgColor</span></label>
@@ -228,6 +257,7 @@
             <div id="wiz-obs-hint" class="obs-hint"></div>
             <div style="margin-top:1rem; display:flex; gap:0.75rem;">
                 <button class="btn" onclick="resetWizard()">🔄 Reset All</button>
+                <a class="btn" id="open-btn" href="/music.html" target="_blank" rel="noopener" style="text-decoration:none;">Open ↗</a>
             </div>
         </div>
 
@@ -252,6 +282,7 @@
     const PARAMS = [
         { key: 'mode', type: 'string', desc: 'Overlay mode: full, art, or mini', example: 'full' },
         { key: 'font', type: 'string', desc: 'Font family name (must match available fonts)', example: 'Inter' },
+        { key: 'weight', type: 'string', desc: 'Font weight: 300, 400, 500, 600, 700, 900', example: '400' },
         { key: 'textColor', type: 'color', desc: 'Primary text color (hex or CSS color)', example: '#ffffff' },
         { key: 'accentColor', type: 'color', desc: 'Accent color for artist, label, progress bar', example: '#58a6ff' },
         { key: 'bgColor', type: 'color', desc: 'Background color (supports rgba for transparency)', example: 'rgba(0,0,0,0.7)' },
@@ -296,14 +327,16 @@
     syncWizColor('wiz-bgColor-pick', 'wiz-bgColor');
     syncWizColor('wiz-scrimColor-pick', 'wiz-scrimColor');
 
-    const GOOGLE_FONT_MAP = {
-        'Jersey 20': 'Jersey+20', 'Press Start 2P': 'Press+Start+2P', 'Bebas Neue': 'Bebas+Neue',
-        'Fredoka One': 'Fredoka+One', 'Bangers': 'Bangers', 'Orbitron': 'Orbitron',
-        'Righteous': 'Righteous', 'Permanent Marker': 'Permanent+Marker', 'Inter': 'Inter'
-    };
+    function setAccent(color) {
+        document.getElementById('wiz-accentColor').value = color;
+        document.getElementById('wiz-accentColor-pick').value = color;
+        onWizChange();
+    }
+
     function fontImportUrl(name) {
-        const gf = GOOGLE_FONT_MAP[name];
-        return gf ? `https://fonts.googleapis.com/css2?family=${gf}&display=swap` : '';
+        if (!name || name.includes('system-ui') || name.includes('Segoe UI')) return '';
+        const slug = name.replace(/'/g, '').trim().replace(/\s+/g, '+');
+        return `https://fonts.googleapis.com/css2?family=${slug}&display=swap`;
     }
 
     // Show/hide mode-specific controls
@@ -318,9 +351,11 @@
     function getWizTheme() {
         const mode = document.getElementById('wiz-mode').value;
         const font = document.getElementById('wiz-font').value;
+        const weight = document.getElementById('wiz-weight').value;
         const theme = {};
 
         if (font) { theme.font_family = font; theme.font_import = fontImportUrl(font); }
+        if (weight) theme.font_weight = weight;
 
         const tc = document.getElementById('wiz-textColor').value.trim();
         if (tc) theme.text_color = tc;
@@ -390,6 +425,9 @@
         const font = document.getElementById('wiz-font').value;
         if (font) p.set('font', font);
 
+        const weight = document.getElementById('wiz-weight').value;
+        if (weight) p.set('weight', weight);
+
         const tc = document.getElementById('wiz-textColor').value.trim();
         if (tc) p.set('textColor', tc);
 
@@ -447,6 +485,8 @@
 
         const url = `${base}?${p.toString()}`;
         document.getElementById('wiz-url').childNodes[0].textContent = url;
+        const openBtn = document.getElementById('open-btn');
+        if (openBtn) openBtn.href = url;
 
         // OBS hint
         const ow = w || { art: 200, full: 420, mini: 400 }[mode];
@@ -503,8 +543,8 @@
         const cfg = await (await fetch('/api/config')).json();
         const t = (cfg.music || {}).theme || {};
         const set = (id, v) => { const el = document.getElementById(id); if (el && v != null && v !== '') el.value = v; };
-        const fontEl = document.getElementById('wiz-font');
-        if ([...fontEl.options].some(o => o.value === t.font_family)) fontEl.value = t.font_family;
+        if (t.font_family) set('wiz-font', t.font_family);
+        if (t.font_weight) set('wiz-weight', t.font_weight);
         set('wiz-textColor', t.text_color); set('wiz-accentColor', t.accent_color);
         set('wiz-bgColor', t.bg_color); set('wiz-scrimColor', t.art_scrim_color);
         if (t.font_scale) { set('wiz-fontScale', t.font_scale); document.getElementById('wiz-fontScale-val').textContent = t.font_scale + '×'; }
@@ -517,6 +557,7 @@
     function resetWizard() {
         document.getElementById('wiz-mode').value = 'full';
         document.getElementById('wiz-font').value = '';
+        document.getElementById('wiz-weight').value = '';
         document.getElementById('wiz-textColor').value = '';
         document.getElementById('wiz-accentColor').value = '';
         document.getElementById('wiz-bgColor').value = '';
@@ -546,7 +587,7 @@
 
     // Attach listeners to all controls
     const wizIds = [
-        'wiz-mode', 'wiz-font', 'wiz-textColor', 'wiz-accentColor', 'wiz-bgColor',
+        'wiz-mode', 'wiz-font', 'wiz-weight', 'wiz-textColor', 'wiz-accentColor', 'wiz-bgColor',
         'wiz-fontScale', 'wiz-w', 'wiz-h', 'wiz-artSize', 'wiz-label', 'wiz-labelMode',
         'wiz-persist', 'wiz-artBrightness', 'wiz-scrimColor', 'wiz-artBlur',
         'wiz-layout', 'wiz-fields-override',
@@ -569,6 +610,18 @@
     document.getElementById('wiz-artBlur').addEventListener('input', (e) => {
         document.getElementById('wiz-artBlur-val').textContent = e.target.value + 'px';
     });
+
+    (async function fillFonts() {
+        const names = [...(window.OverlayFonts?.system || []), ...(window.OverlayFonts?.google || [])];
+        try {
+            const assets = await (await fetch('/api/custom-overlays/assets', { cache: 'no-store' })).json();
+            assets.filter(a => a.kind === 'font').forEach(a => names.push(a.family));
+        } catch {}
+        const datalist = document.getElementById('wiz-font-list');
+        if (datalist) {
+            datalist.innerHTML = [...new Set(names)].map(n => `<option value="${n.replace(/"/g, '')}">`).join('');
+        }
+    })();
 
     // Init
     updateModeUI();

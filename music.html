@@ -357,6 +357,18 @@
             const quoted = ff.includes(',') || ff.startsWith("'") || ff.startsWith('"') ? ff : `'${ff}'`;
             root.style.setProperty('--music-font-family', quoted);
         }
+        if (theme.font_weight) {
+            let style = document.getElementById('music-weight-style');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'music-weight-style';
+                document.head.appendChild(style);
+            }
+            style.textContent = `body, body * { font-weight: ${theme.font_weight} !important; }`;
+        } else if (theme.font_weight === '') {
+            const style = document.getElementById('music-weight-style');
+            if (style) style.remove();
+        }
         if (theme.text_color) root.style.setProperty('--music-text-color', theme.text_color);
         if (theme.accent_color) root.style.setProperty('--music-accent-color', theme.accent_color);
         if (theme.bg_color) root.style.setProperty('--music-bg-color', theme.bg_color);
@@ -599,9 +611,20 @@
     // URL param overrides (applied after config load)
     function applyUrlOverrides() {
         if (params.get('font')) {
-            musicTheme.font_family = params.get('font');
-            const gf = { 'Jersey 20':'Jersey+20','Press Start 2P':'Press+Start+2P','Bebas Neue':'Bebas+Neue','Fredoka One':'Fredoka+One','Bangers':'Bangers','Orbitron':'Orbitron','Righteous':'Righteous','Permanent Marker':'Permanent+Marker','Inter':'Inter' };
-            musicTheme.font_import = gf[params.get('font')] ? `https://fonts.googleapis.com/css2?family=${gf[params.get('font')]}&display=swap` : '';
+            const fontName = params.get('font');
+            musicTheme.font_family = fontName;
+            musicTheme.font_import = generateFontImport(fontName);
+        }
+        if (params.get('weight')) {
+            const weight = params.get('weight');
+            musicTheme.font_weight = weight;
+            let style = document.getElementById('music-weight-style');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'music-weight-style';
+                document.head.appendChild(style);
+            }
+            style.textContent = `body, body * { font-weight: ${weight} !important; }`;
         }
         if (params.get('textColor')) musicTheme.text_color = params.get('textColor');
         if (params.get('accentColor')) musicTheme.accent_color = params.get('accentColor');

@@ -3,6 +3,7 @@
 <head>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
+    <script src="/overlay-theme.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -41,6 +42,10 @@
         .left-col { align-self: start; }
         .sticky { position: sticky; top: 1rem; }
         .obs-hint { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.74rem; color: var(--accent); background: var(--accent-bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.28rem 0.65rem; margin-top: 0.5rem; }
+        .palette-chips { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+        .p-chip { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s ease; }
+        .p-chip:hover { transform: scale(1.15); }
+        .p-chip.active { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
         .preset-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0.6rem 0; }
         .preset-chip { font-size: 0.74rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 4px; padding: 0.3rem 0.6rem; cursor: pointer; color: var(--text-muted); transition: all 0.15s ease; }
         .preset-chip:hover { border-color: var(--accent); color: var(--text); }
@@ -63,6 +68,15 @@
         <h1>StreamPulse <span>Game Plan URL Wizard</span></h1>
         <div id="main-nav" class="nav"></div>
         <script src="/nav.js"></script>
+    </div>
+
+    <div style="max-width:1280px; margin:1rem auto 0; padding:0 2rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+        <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Wizards:</span>
+        <a href="/game-plan-url-wizard.html" class="preset-chip active" style="text-decoration:none;">Game Plan</a>
+        <a href="/milestone-url-wizard.html" class="preset-chip" style="text-decoration:none;">Milestones &amp; Streaks ↗</a>
+        <a href="/overlay-url-wizard.html" class="preset-chip" style="text-decoration:none;">Overlays (Goals, Viewers, Stats, Credits) ↗</a>
+        <a href="/music-url-wizard.html" class="preset-chip" style="text-decoration:none;">Music ↗</a>
+        <a href="/timer-url-wizard.html" class="preset-chip" style="text-decoration:none;">Timers ↗</a>
     </div>
 
     <div class="container">
@@ -105,9 +119,38 @@
                 </select>
             </div>
             <div class="cfg-row">
+                <label>Font Family</label>
+                <input type="text" id="wiz-font" list="wiz-font-list" placeholder="Theme / System Default" oninput="refreshWizard()">
+                <datalist id="wiz-font-list"></datalist>
+            </div>
+            <div class="cfg-row">
+                <label>Font Weight</label>
+                <select id="wiz-weight" onchange="refreshWizard()">
+                    <option value="">Default (Auto)</option>
+                    <option value="300">Light (300)</option>
+                    <option value="400">Regular (400)</option>
+                    <option value="500">Medium (500)</option>
+                    <option value="600">Semi-bold (600)</option>
+                    <option value="700">Bold (700)</option>
+                    <option value="900">Black (900)</option>
+                </select>
+            </div>
+            <div class="cfg-row">
                 <label>Accent Color</label>
-                <input type="color" id="accent-picker" value="#3b82f6" oninput="syncColor()">
-                <input type="text" id="accent" value="#3b82f6" placeholder="#3b82f6" oninput="syncColorFromText()">
+                <div style="display:flex; flex-direction:column; gap:0.4rem; flex:1;">
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="color" id="accent-picker" value="#3b82f6" oninput="syncColor()">
+                        <input type="text" id="accent" value="#3b82f6" placeholder="#3b82f6" oninput="syncColorFromText()">
+                    </div>
+                    <div class="palette-chips">
+                        <span class="p-chip" style="background:#3b82f6" onclick="setAccent('#3b82f6')"></span>
+                        <span class="p-chip" style="background:#8b5cf6" onclick="setAccent('#8b5cf6')"></span>
+                        <span class="p-chip" style="background:#10b981" onclick="setAccent('#10b981')"></span>
+                        <span class="p-chip" style="background:#f59e0b" onclick="setAccent('#f59e0b')"></span>
+                        <span class="p-chip" style="background:#f43f5e" onclick="setAccent('#f43f5e')"></span>
+                        <span class="p-chip" style="background:#06b6d4" onclick="setAccent('#06b6d4')"></span>
+                    </div>
+                </div>
             </div>
             <div class="cfg-row">
                 <label>Font Scale <span style="font-size:0.7rem;color:var(--accent);">fontScale</span></label>
@@ -169,6 +212,7 @@
                 <div class="url-box" style="margin-top:0.75rem;">
                     <a id="overlay-link" href="/game-plan.html" target="_blank"></a>
                     <button class="btn" type="button" id="copy-btn" onclick="copyUrl()">Copy URL</button>
+                    <a class="btn" id="open-btn" href="/game-plan.html" target="_blank" rel="noopener">Open ↗</a>
                 </div>
             </div>
 
@@ -180,6 +224,8 @@
                     </thead>
                     <tbody>
                         <tr><td><code>view</code></td><td><code>schedule</code></td><td>Layout: <code>schedule</code> (horizontal strip), <code>ticker</code> (lower-third bar), <code>checklist</code> (vertical stack)</td></tr>
+                        <tr><td><code>font</code></td><td><em>theme</em></td><td>Font family name (supports system, Google, and uploaded fonts)</td></tr>
+                        <tr><td><code>weight</code></td><td><em>default</em></td><td>Font weight: <code>300</code>, <code>400</code>, <code>500</code>, <code>600</code>, <code>700</code>, <code>900</code></td></tr>
                         <tr><td><code>fontScale</code> / <code>scale</code></td><td><code>1</code></td><td>Font size multiplier (0.5 to 2.5) with fluid clamp typography</td></tr>
                         <tr><td><code>align</code></td><td><code>center</code></td><td>Horizontal alignment: <code>center</code>, <code>left</code>, <code>right</code></td></tr>
                         <tr><td><code>list</code></td><td><code>scheduled</code></td><td>Source list: <code>scheduled</code>, <code>backlog</code>, <code>played</code>, or custom list ID</td></tr>
@@ -250,6 +296,12 @@
         } catch {}
     }
 
+    function setAccent(color) {
+        document.getElementById('accent-picker').value = color;
+        document.getElementById('accent').value = color;
+        refreshWizard();
+    }
+
     function syncColor() {
         document.getElementById('accent').value = document.getElementById('accent-picker').value;
         refreshWizard();
@@ -269,6 +321,8 @@
         const period = document.getElementById('period-filter').value.trim();
         const max = document.getElementById('max-items').value.trim();
         const theme = document.getElementById('theme').value;
+        const font = (document.getElementById('wiz-font').value || '').trim();
+        const weight = document.getElementById('wiz-weight').value;
         const accent = document.getElementById('accent').value.trim();
         const scale = parseFloat(document.getElementById('scale').value || '1');
         const align = document.getElementById('align').value;
@@ -283,6 +337,8 @@
         if (period) params.set('period', period);
         if (max && max !== '5') params.set('max', max);
         if (theme !== 'glass') params.set('theme', theme);
+        if (font) params.set('font', font);
+        if (weight) params.set('weight', weight);
         if (accent && accent !== '#3b82f6') params.set('accent', accent);
         if (scale !== 1) params.set('fontScale', scale.toFixed(2));
         if (align !== 'center') params.set('align', align);
@@ -296,6 +352,8 @@
         const link = document.getElementById('overlay-link');
         link.textContent = absUrl;
         link.href = relUrl;
+        const openBtn = document.getElementById('open-btn');
+        if (openBtn) openBtn.href = relUrl;
 
         const iframe = document.getElementById('preview-iframe');
         if (iframe.src !== absUrl) {
@@ -303,6 +361,18 @@
         }
         updatePreviewSize();
     }
+
+    (async function fillFonts() {
+        const names = [...(window.OverlayFonts?.system || []), ...(window.OverlayFonts?.google || [])];
+        try {
+            const assets = await (await fetch('/api/custom-overlays/assets', { cache: 'no-store' })).json();
+            assets.filter(a => a.kind === 'font').forEach(a => names.push(a.family));
+        } catch {}
+        const datalist = document.getElementById('wiz-font-list');
+        if (datalist) {
+            datalist.innerHTML = [...new Set(names)].map(n => `<option value="${n.replace(/"/g, '')}">`).join('');
+        }
+    })();
 
     async function copyUrl() {
         const link = document.getElementById('overlay-link').textContent;

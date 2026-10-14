@@ -377,6 +377,21 @@
         document.documentElement.style.setProperty('--ms-font-scale', fontScaleParam);
     }
 
+    const fontParam = params.get('font');
+    if (fontParam) {
+        document.documentElement.style.setProperty('--ms-font', `"${fontParam}", system-ui, sans-serif`);
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontParam).replace(/%20/g, '+')}:wght@300;400;500;600;700;900&display=swap`;
+        document.head.appendChild(link);
+    }
+    const weightParam = params.get('weight');
+    if (weightParam) {
+        const style = document.createElement('style');
+        style.textContent = `body, body * { font-weight: ${weightParam} !important; }`;
+        document.head.appendChild(style);
+    }
+
     // Apply shared overlay theme (font, text, accent, scale) from server config if present
     fetch('/api/config', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(cfg => {
         if (cfg?.theme) {
