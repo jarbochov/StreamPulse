@@ -387,6 +387,10 @@
                 const message = JSON.parse(event.data);
                 if (message.type === 'alert') showAlert(message.data);
                 else if (message.type === 'alert-skip' || message.type === 'alert-clear') stopAlerts();
+                else if (message.type === 'poll-update') {
+                    liveStatus.poll = message.data;
+                    tickPlaceholders();
+                }
                 else if (message.type === 'custom-overlay-page' && message.data?.id === overlayId) {
                     if (!resolvePage(currentOverlay, pageParam)) switchPage(resolvePage(currentOverlay, message.data.page));
                 }

@@ -7,6 +7,7 @@
         { label: 'Chat', items: [['chatters', 'Chatters'], ['messages', 'Messages'], ['followers', 'Followers (current total)'], ['followers.session', 'New followers this session'], ['subscribers', 'Subscribers (current total)'], ['subscribers.session', 'Subscribers seen this session'], ['emotes', 'Different emotes used this session'], ['raids', 'Raids this session'], ['highlights', 'Saved highlights'], ['clips.pending', 'Clip candidates waiting']] },
         { label: 'Engagement', items: [['gift_subs', 'Gift subs this session'], ['gift_subs.total', 'Gift subs (lifetime)'], ['bits', 'Bits this session'], ['bits.total', 'Bits (lifetime)'], ['donations', 'Donations this session'], ['donations.total', 'Donations (lifetime)']] },
         { label: 'Hashtags', items: [['hashtags.top', 'Most popular hashtag overall'], ['hashtags.session_top', 'Most popular hashtag this session'], ['hashtags.top.count', 'Mentions of the most popular hashtag'], ['hashtags.top.2', 'Second most popular hashtag'], ['hashtags.top.3', 'Third most popular hashtag'], ['hashtags.total', 'Total hashtag mentions']] },
+        { label: 'Twitch Poll', items: [['poll.title', 'Poll question / title'], ['poll.winner', 'Winning choice title'], ['poll.winner_votes', 'Winning choice vote count'], ['poll.winner_percent', 'Winning choice percentage (e.g. 64%)'], ['poll.total_votes', 'Total votes across all choices'], ['poll.status', 'Status (ACTIVE, COMPLETED, etc.)'], ['poll.choice.1.title', 'Choice 1 title'], ['poll.choice.1.votes', 'Choice 1 votes'], ['poll.choice.1.percent', 'Choice 1 percent'], ['poll.choice.2.title', 'Choice 2 title'], ['poll.choice.2.votes', 'Choice 2 votes'], ['poll.choice.2.percent', 'Choice 2 percent'], ['poll.choice.3.title', 'Choice 3 title'], ['poll.choice.3.votes', 'Choice 3 votes'], ['poll.choice.3.percent', 'Choice 3 percent'], ['poll.choice.4.title', 'Choice 4 title'], ['poll.choice.4.votes', 'Choice 4 votes'], ['poll.choice.4.percent', 'Choice 4 percent'], ['poll.choice.5.title', 'Choice 5 title'], ['poll.choice.5.votes', 'Choice 5 votes'], ['poll.choice.5.percent', 'Choice 5 percent']] },
         { label: 'Stream', items: [['music.title', 'Music title'], ['music.artist', 'Music artist'], ['music.album', 'Music album'], ['music.cover', 'Album art URL (use as an image source)'], ['music.position', 'Track position (m:ss)'], ['music.duration', 'Track length (m:ss)'], ['music.remaining', 'Track time remaining (m:ss)'], ['music.percent', 'Track progress % (for a progress element)'], ['music.state', 'Music state (playing / paused / stopped)'], ['stream.title', 'Stream title'], ['stream.category', 'Stream category (from Twitch)'], ['stream.live', 'Live on Twitch (yes / no)'], ['session.started', 'Session start time (formattable)'], ['session.duration', 'Time since the session started'], ['category.session_time', 'Time in this category, this session'], ['category.total_time', 'Time in this category, all sessions'], ['category.total_hours', 'Hours in this category, all sessions'], ['overlay.name', 'Overlay name']] }
     ];
 
@@ -19,9 +20,9 @@
     const EVENT_ITEMS = [['latest.follower', 'Latest follower'], ['latest.subscriber', 'Latest subscriber'], ['latest.gifter', 'Latest gift sub gifter'], ['latest.gifter.recipient', 'Latest gift sub recipient'], ['latest.subscriber.tier', 'Latest subscriber tier or type'], ['latest.cheer', 'Latest cheerer'], ['latest.cheer.amount', 'Latest cheer amount'], ['latest.donation', 'Latest donor'], ['latest.donation.amount', 'Latest donation amount'], ['latest.raider', 'Latest raider'], ['latest.raider.viewers', 'Latest raid size'], ['chatter.top', 'Top chatter this session'], ['chatter.top.count', 'Top chatter message count'], ['chatter.last', 'Most recent chatter'], ['chatter.random', 'Random chatter seen this session'], ['chatter.list', 'Chatters seen this session (first 20)'], ['chatter.top.5m', 'Top chatter, last 5 minutes (also 10m, 15m, 30m, 60m)'], ['chatter.top.10m', 'Top chatter, last 10 minutes'], ['chatter.top.15m', 'Top chatter, last 15 minutes'], ['chatter.top.30m', 'Top chatter, last 30 minutes'], ['chatter.top.60m', 'Top chatter, last hour'], ['chatter.top.5m.count', 'Messages from the last-5-minutes top chatter (also 10m…60m)']];
     // Values that change every second are refreshed in place instead of re-rendering the overlay.
     // Live counters change constantly, so they refresh their text in place instead of re-rendering (and flashing) the whole overlay.
-    const TICKING = /^(now$|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)$|category\.|viewers?\.|chatters$|messages$)/;
+    const TICKING = /^(now$|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)$|category\.|viewers?\.|chatters$|messages$|poll\.)/;
     const isTicking = name => TICKING.test(name);
-    const hasTicking = value => /\{\{\s*(now|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)|category\.|viewers?\.|chatters|messages)/.test(String(value ?? ''));
+    const hasTicking = value => /\{\{\s*(now|time|date|weekday|month|year|uptime|session\.duration|timer\.|music\.(position|remaining|percent)|category\.|viewers?\.|chatters|messages|poll\.)/.test(String(value ?? ''));
 
     function formatMinutes(minutes) {
         const m = Math.max(0, Math.round(minutes || 0));
@@ -210,6 +211,26 @@
         return groups;
     }
 
+    function pollValues(status) {
+        const poll = status.poll;
+        if (!poll) return {};
+        const p = {
+            'poll.title': poll.title || '',
+            'poll.status': poll.status || '',
+            'poll.winner': poll.winner || '',
+            'poll.winner_votes': poll.winningVotes !== undefined ? poll.winningVotes : '',
+            'poll.winner_percent': poll.winningPercent !== undefined ? `${poll.winningPercent}%` : '',
+            'poll.total_votes': poll.totalVotes !== undefined ? poll.totalVotes : ''
+        };
+        (poll.choices || []).forEach((c, i) => {
+            const idx = i + 1;
+            p[`poll.choice.${idx}.title`] = c.title || '';
+            p[`poll.choice.${idx}.votes`] = c.votes !== undefined ? c.votes : '';
+            p[`poll.choice.${idx}.percent`] = c.percent !== undefined ? `${c.percent}%` : '';
+        });
+        return p;
+    }
+
     function variableTable(status = {}, context = {}, now = Date.now()) {
         const table = {
             ...clockValues(status, now),
@@ -219,6 +240,7 @@
             ...musicValues(status, now),
             ...planListValues(status),
             ...weatherValues(status),
+            ...pollValues(status),
             ...Object.fromEntries((status.customVars || []).map(v => [`var.${v.name}`, v.value])),
             ...Object.fromEntries((status.customVars || []).filter(v => v.type === 'list' && v.items?.length).map(v => [`var.${v.name}.random`, v.items[Math.floor(Math.random() * v.items.length)]])),
             'stream.category': status.stream?.category?.name,

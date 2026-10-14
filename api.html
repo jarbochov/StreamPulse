@@ -210,6 +210,17 @@
                     method: 'GET', path: '/auth/twitch',
                     desc: 'Start Twitch OAuth authorization flow',
                     details: 'With no client secret configured this redirects to /twitch-connect.html (device-code sign-in; see /api/twitch/auth/status, /api/twitch/auth/device/start, /api/twitch/auth/device/poll and /api/twitch/auth/disconnect). With your own app it opens the Twitch authorization page. After approval, redirects to /auth/callback which stores the token. Open this in a browser — not suitable for Companion.'
+                },
+                {
+                    method: 'GET', path: '/api/polls/latest',
+                    desc: 'Get latest Twitch poll results and status',
+                    details: 'Returns the most recent Twitch poll (id, title, status, winner, winningVotes, winningPercent, totalVotes, choices with percentages, duration, timestamps).'
+                },
+                {
+                    method: 'POST', path: '/api/polls/test',
+                    desc: 'Trigger test poll-end event for overlays',
+                    companion: true,
+                    details: 'Generates a mock completed poll with sample choices and winner, broadcasts a poll-update WebSocket event, and triggers poll-end overlay trigger pages for testing.'
                 }
             ]
         },

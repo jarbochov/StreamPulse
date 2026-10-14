@@ -317,7 +317,7 @@ function normalizePages(input = {}) {
             name: String(item?.name || '').trim().slice(0, 60) || `Page ${index + 1}`,
             duration: Math.max(0, Math.min(86400, Number(item?.duration) || 0)),
             enabled: item?.enabled !== false,
-            trigger: ['alert', 'featured', 'command'].includes(item?.trigger) ? item.trigger : '',
+            trigger: ['alert', 'featured', 'command', 'poll-end', 'poll-active'].includes(item?.trigger) ? item.trigger : '',
             triggerName: String(item?.triggerName || '').trim().toLowerCase().replace(/^[^a-z0-9_]+/, '').slice(0, 60),
             triggerRules: item?.trigger === 'alert' && Array.isArray(item.triggerRules) ? [...new Set(item.triggerRules.map(String))].slice(0, 100) : [],
             triggerSeconds: Math.max(0, Math.min(3600, Number(item?.triggerSeconds) || 0))
@@ -2230,7 +2230,7 @@ if (!fs.existsSync(CUSTOM_OVERLAY_ASSETS_DIR)) {
 // TWITCH OAUTH (User Token via Authorization Code Flow)
 // ============================================================================
 
-const TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips';
+const TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips channel:read:polls';
 const TWITCH_REDIRECT_URI = config.twitch?.redirect_uri || `http://localhost:${PORT}/auth/callback`;
 const TOKEN_PATH = path.join(DATA_DIR, '.twitch-token.json');
 
@@ -2380,7 +2380,7 @@ async function pollDeviceAuth() {
         saveToken(r.data);
         deviceAuth.status = 'authorized';
         await syncBroadcasterFromToken();
-        fetchTwitchData(); fetchStreamInfo(); fetchViewerCount();
+        fetchTwitchData(); fetchStreamInfo(); fetchViewerCount(); fetchTwitchPoll();
     } else if (/authorization_pending/i.test(r.data.message || '')) {
         // still waiting for the user to approve
     } else if (/slow_down/i.test(r.data.message || '')) {
@@ -2424,9 +2424,13 @@ async function ensureToken() {
 // ============================================================================
 
 // A 401 means the access token was revoked or expired early, so refresh once and replay.
+// Missing-scope errors cannot be fixed by refreshing (refreshed tokens keep the same scopes).
 async function twitchApiRequest(endpoint, params = {}) {
     const result = await twitchApiRequestOnce(endpoint, params);
-    if (result.status === 401 && twitchRefreshToken && await refreshTwitchToken()) return twitchApiRequestOnce(endpoint, params);
+    const isMissingScope = /missing scope|scope/i.test(result.body?.message || '');
+    if (result.status === 401 && !isMissingScope && twitchRefreshToken && await refreshTwitchToken()) {
+        return twitchApiRequestOnce(endpoint, params);
+    }
     return result;
 }
 
@@ -2674,6 +2678,106 @@ async function fetchStreamInfo() {
     }
 }
 
+// ============================================================================
+// TWITCH POLLS
+// ============================================================================
+
+let latestPoll = null;
+let previousPollState = null;
+let pollScopeWarningLogged = false;
+let lastBroadcastedPollJson = '';
+
+async function fetchTwitchPoll() {
+    if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) return;
+    if (!twitchTokenScopes.includes('channel:read:polls')) {
+        if (!pollScopeWarningLogged) {
+            pollScopeWarningLogged = true;
+            console.log('[Twitch] Poll tracking requires channel:read:polls scope. Reconnect Twitch on /twitch-connect.html to enable poll tracking.');
+        }
+        return;
+    }
+    const hasToken = await ensureToken();
+    if (!hasToken) return;
+
+    try {
+        const result = await twitchApiRequest('/polls', { broadcaster_id: BROADCASTER_ID, first: 1 });
+        if (result.status === 401 || result.status === 403) {
+            if (!pollScopeWarningLogged) {
+                pollScopeWarningLogged = true;
+                console.log('[Twitch] Poll access requires channel:read:polls scope. Reconnect Twitch on /twitch-connect.html to enable poll tracking.');
+            }
+            return;
+        }
+        if (result.status !== 200 || !result.body?.data) return;
+        pollScopeWarningLogged = false;
+
+        const poll = result.body.data[0];
+        if (!poll) return;
+
+        const choices = (poll.choices || []).map(c => ({
+            id: c.id,
+            title: c.title,
+            votes: Number(c.votes) || 0,
+            channel_points_votes: Number(c.channel_points_votes) || 0,
+            bits_votes: Number(c.bits_votes) || 0
+        }));
+        const totalVotes = choices.reduce((sum, c) => sum + c.votes, 0);
+        const sorted = [...choices].sort((a, b) => b.votes - a.votes);
+        const winner = sorted[0];
+        const winningVotes = winner?.votes || 0;
+        const winningPercent = totalVotes > 0 ? Math.round((winningVotes / totalVotes) * 100) : 0;
+
+        const choicesWithPercent = choices.map(c => ({
+            ...c,
+            percent: totalVotes > 0 ? Math.round((c.votes / totalVotes) * 100) : 0
+        }));
+
+        const pollData = {
+            id: poll.id,
+            title: poll.title,
+            status: poll.status,
+            winner: winner?.title || '',
+            winningVotes,
+            winningPercent,
+            totalVotes,
+            choices: choicesWithPercent,
+            duration: poll.duration,
+            startedAt: poll.started_at,
+            endedAt: poll.ended_at
+        };
+
+        const prev = previousPollState;
+        const isNewPoll = !prev || prev.id !== poll.id;
+        const statusChanged = prev && prev.status !== poll.status;
+
+        if (isNewPoll) {
+            if (poll.status === 'ACTIVE') {
+                console.log(`[Twitch] Poll started: "${poll.title}"`);
+                takeoverPages('poll-active', poll.title, 15000);
+            } else if ((poll.status === 'COMPLETED' || poll.status === 'TERMINATED') && poll.ended_at && Date.now() - Date.parse(poll.ended_at) < 30000) {
+                console.log(`[Twitch] Poll ended: "${poll.title}" — Winner: "${winner?.title || '(none)'}" (${winningPercent}%)`);
+                takeoverPages('poll-end', poll.title, 15000);
+            }
+        } else if (statusChanged) {
+            if (poll.status === 'COMPLETED' || poll.status === 'TERMINATED') {
+                console.log(`[Twitch] Poll ended: "${poll.title}" — Winner: "${winner?.title || '(none)'}" (${winningPercent}%)`);
+                takeoverPages('poll-end', poll.title, 15000);
+            }
+        }
+
+        latestPoll = pollData;
+        previousPollState = { id: poll.id, status: poll.status };
+
+        const pollJson = JSON.stringify(pollData);
+        if (pollJson !== lastBroadcastedPollJson) {
+            lastBroadcastedPollJson = pollJson;
+            broadcastToOverlays('poll-update', pollData);
+        }
+    } catch (err) {
+        console.error('[Twitch] Poll fetch error:', err.message);
+    }
+}
+
 
 // ============================================================================
 // SESSION LIFECYCLE (auto start/end driven by Twitch live state)
@@ -2754,6 +2858,7 @@ function startSessionNow() {
         fetchTwitchData();
         fetchStreamInfo();
         fetchViewerCount();
+        fetchTwitchPoll();
     }
 }
 
@@ -5449,6 +5554,7 @@ const server = http.createServer(async (req, res) => {
                 fetchTwitchData();
                 fetchStreamInfo();
                 fetchViewerCount();
+                fetchTwitchPoll();
             } catch (err) {
                 console.error('[Twitch] Auth callback error:', err.message);
                 res.writeHead(500, { 'Content-Type': 'text/html' });
@@ -6121,8 +6227,43 @@ const server = http.createServer(async (req, res) => {
         const result = await fetchTwitchData();
         fetchStreamInfo();
         fetchViewerCount();
+        fetchTwitchPoll();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: result?.error ? 'error' : 'ok', ...result }));
+        return;
+    }
+
+    if (pathname === '/api/polls/latest' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', poll: latestPoll }));
+        return;
+    }
+
+    if (pathname === '/api/polls/test' && req.method === 'POST') {
+        const testPoll = {
+            id: `test-${Date.now()}`,
+            title: 'Which game should we play next?',
+            status: 'COMPLETED',
+            winner: 'Elden Ring',
+            winningVotes: 142,
+            winningPercent: 68,
+            totalVotes: 210,
+            choices: [
+                { id: '1', title: 'Elden Ring', votes: 142, percent: 68, channel_points_votes: 12, bits_votes: 0 },
+                { id: '2', title: 'Hollow Knight', votes: 45, percent: 21, channel_points_votes: 0, bits_votes: 0 },
+                { id: '3', title: 'Celeste', votes: 23, percent: 11, channel_points_votes: 0, bits_votes: 0 }
+            ],
+            duration: 300,
+            startedAt: new Date(Date.now() - 300000).toISOString(),
+            endedAt: new Date().toISOString()
+        };
+        latestPoll = testPoll;
+        previousPollState = { id: testPoll.id, status: 'COMPLETED' };
+        console.log(`[Twitch] Test poll triggered: "${testPoll.title}" — Winner: "${testPoll.winner}"`);
+        takeoverPages('poll-end', testPoll.title, 15000);
+        broadcastToOverlays('poll-update', testPoll);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', poll: testPoll }));
         return;
     }
 
@@ -6162,6 +6303,7 @@ const server = http.createServer(async (req, res) => {
         const goalsSnapshot = buildGoalsSnapshot();
         const status = {
             customVars: variablesStore.list(),
+            poll: latestPoll,
             processStartedAt: PROCESS_STARTED_AT,
             uptime: process.uptime(),
             memory: process.memoryUsage(),
@@ -8332,6 +8474,7 @@ overlayWss.on('connection', (ws) => {
     ws.send(JSON.stringify({ type: 'viewer-update', data: getViewerSummary() }));
     ws.send(JSON.stringify({ type: 'goals-update', data: buildGoalsSnapshot() }));
     ws.send(JSON.stringify({ type: 'timers-snapshot', data: buildTimersSnapshot() }));
+    if (latestPoll) ws.send(JSON.stringify({ type: 'poll-update', data: latestPoll }));
 
     // Send current overlay visibility state
     for (const entry of listOverlayVisibility().filter(o => !o.visible)) {
@@ -8416,6 +8559,7 @@ server.listen(PORT, () => {
         fetchTwitchData();
         fetchStreamInfo();
         fetchViewerCount();
+        fetchTwitchPoll();
     } else if (TWITCH_CLIENT_ID) {
         const authUrl = `http://localhost:${PORT}/auth/twitch`;
         console.log(`[Twitch] No token found — opening browser to authorize...`);
@@ -8432,6 +8576,8 @@ server.listen(PORT, () => {
     }
     // Title and category are cheap to poll, so they stay near real time.
     setInterval(fetchStreamInfo, STREAM_INFO_POLL_SECONDS * 1000).unref();
+    // Poll for active/completed Twitch polls every 10 seconds.
+    setInterval(fetchTwitchPoll, 10 * 1000).unref();
     // Keep the token fresh in the background so an idle server never lets it lapse.
     setInterval(() => { if (twitchRefreshToken && Date.now() > twitchTokenExpiry - 30 * 60000) refreshTwitchToken(); }, 5 * 60000).unref();
 
