@@ -77,7 +77,14 @@
         .check { display: flex; align-items: center; gap: .5rem; color: var(--text); font-size: 12px; cursor: pointer; }
         .color-field { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: .4rem; align-items: center; }
         .range-field { display: grid; grid-template-columns: minmax(0, 1fr) 3.2rem; gap: .5rem; align-items: center; }
+        .range-field.has-number { grid-template-columns: minmax(0, 1fr) 4.2rem; }
+        .range-field.has-number.has-reset { grid-template-columns: minmax(0, 1fr) 4.2rem 28px; }
+        .range-field.has-reset:not(.has-number) { grid-template-columns: minmax(0, 1fr) 3.2rem 28px; }
         .range-field output { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+        .range-field input[type="number"].range-num { padding: .25rem .35rem; text-align: right; font-variant-numeric: tabular-nums; font-size: 11px; height: 26px; }
+        .range-field .range-reset { padding: 0; width: 28px; height: 26px; border: 1px solid var(--border); border-radius: 5px; background: var(--field); color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+        .range-field .range-reset:hover { border-color: var(--accent); color: var(--text); background: var(--panel-2); }
+        .range-field .range-reset svg { width: 14px; height: 14px; }
         .seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
         .seg button { border: 0; border-radius: 0; background: var(--field); padding: .35rem .3rem; }
         .seg button + button { border-left: 1px solid var(--border); }
@@ -561,6 +568,7 @@
         grip: '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="6" cy="4" r="1.1"/><circle cx="10" cy="4" r="1.1"/><circle cx="6" cy="8" r="1.1"/><circle cx="10" cy="8" r="1.1"/><circle cx="6" cy="12" r="1.1"/><circle cx="10" cy="12" r="1.1"/></svg>',
         undo: svg('<path d="M5 3L2.5 5.5 5 8M2.5 5.5H9a4 4 0 010 8H6"/>'),
         redo: svg('<path d="M11 3l2.5 2.5L11 8M13.5 5.5H7a4 4 0 000 8h3"/>'),
+        reset: svg('<path d="M2.5 2.5v4h4"/><path d="M2.5 6.5A6 6 0 105 3.5"/>'),
         plus: svg('<path d="M8 3v10M3 8h10"/>'),
         minus: svg('<path d="M3 8h10"/>'),
         alignLeft: svg('<path d="M2 2v12M5 4h8v3H5zM5 9h5v3H5z"/>'), alignCenter: svg('<path d="M8 2v12M3 4h10v3H3zM5 9h6v3H5z"/>'), alignRight: svg('<path d="M14 2v12M3 4h8v3H3zM6 9h5v3H6z"/>'),
@@ -1230,8 +1238,17 @@
         text: (path, label, value, extra = '') => `<label class="field"><span>${label}</span><input data-path="${path}" data-kind="text" value="${esc(value)}" ${extra}></label>`,
         number: (path, label, value, { min, max, step = 1, scale = 1, lazy = false } = {}) =>
             `<label class="field"><span>${label}</span><input type="number" data-path="${path}" data-kind="number" value="${fmt(value, scale)}" ${min !== undefined ? `min="${min}" data-min="${min}"` : ''} ${max !== undefined ? `max="${max}" data-max="${max}"` : ''} step="${step}" data-scale="${scale}" ${lazy ? 'data-lazy="1"' : ''}></label>`,
-        range: (path, label, value, { min, max, step = 1, scale = 1, unit = '' }) =>
-            `<label class="field"><span>${label}</span><span class="range-field"><input type="range" data-path="${path}" data-kind="number" data-scale="${scale}" min="${min}" max="${max}" data-min="${min}" data-max="${max}" step="${step}" value="${fmt(value, scale)}"><output>${fmt(value, scale)}${unit}</output></span></label>`,
+        range: (path, label, value, { min, max, step = 1, scale = 1, unit = '', editable = false, reset = undefined, resetTitle = '' } = {}) => {
+            const v = fmt(value, scale);
+            const cls = ['range-field', editable ? 'has-number' : '', reset !== undefined ? 'has-reset' : ''].filter(Boolean).join(' ');
+            const valInput = editable
+                ? `<input type="number" class="range-num" data-path="${path}" data-kind="number" data-scale="${scale}" min="${min}" max="${max}" data-min="${min}" data-max="${max}" step="${step}" value="${v}" aria-label="${label} value">`
+                : `<output>${v}${unit}</output>`;
+            const resetBtn = reset !== undefined
+                ? `<button type="button" class="range-reset" data-reset="${path}" data-reset-value="${reset}" title="${esc(resetTitle || `Reset to ${reset}${unit}`)}" aria-label="${esc(resetTitle || `Reset to ${reset}${unit}`)}">${ICON.reset}</button>`
+                : '';
+            return `<label class="field"><span>${label}</span><span class="${cls}" data-unit="${esc(unit)}"><input type="range" data-path="${path}" data-kind="number" data-scale="${scale}" min="${min}" max="${max}" data-min="${min}" data-max="${max}" step="${step}" value="${v}">${valInput}${resetBtn}</span></label>`;
+        },
         check: (path, label, value) => `<label class="check"><input type="checkbox" data-path="${path}" data-kind="check" ${value ? 'checked' : ''}> ${label}</label>`,
         select: (path, label, value, options) => `<label class="field"><span>${label}</span><select data-path="${path}" data-kind="text">${options.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(value) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`,
         color: (path, label, value, { clear = false } = {}) => {
@@ -1294,8 +1311,13 @@
             });
             syncColorPair(input);
             if (input.type === 'color' || input.classList.contains('color-text')) addRecentColor(value);
-            const output = input.parentElement.querySelector('output');
-            if (output && input.type === 'range') output.textContent = `${fmt(value, Number(input.dataset.scale) || 1)}`;
+            const rangeWrap = input.closest('.range-field');
+            if (rangeWrap) {
+                const partner = rangeWrap.querySelector(input.type === 'range' ? 'input[type="number"]' : 'input[type="range"]');
+                if (partner && partner !== input) partner.value = input.value;
+                const output = rangeWrap.querySelector('output');
+                if (output) output.textContent = `${fmt(value, Number(input.dataset.scale) || 1)}${rangeWrap.dataset.unit || ''}`;
+            }
             onApply(input.dataset.path, event);
         };
         container.addEventListener('input', event => {
@@ -1307,7 +1329,15 @@
             if (!input) return;
             if (input.dataset.lazy === '1' || input.dataset.kind === 'number') apply(input, event);
             const target = getTargets()[0];
-            if (target && input.dataset.kind === 'number') input.value = fmt(getPath(target, input.dataset.path), Number(input.dataset.scale) || 1);
+            if (target && input.dataset.kind === 'number') {
+                const formatted = fmt(getPath(target, input.dataset.path), Number(input.dataset.scale) || 1);
+                input.value = formatted;
+                const rangeWrap = input.closest('.range-field');
+                if (rangeWrap) {
+                    const partner = rangeWrap.querySelector(input.type === 'range' ? 'input[type="number"]' : 'input[type="range"]');
+                    if (partner && partner !== input) partner.value = formatted;
+                }
+            }
             changed(true);
         });
         container.addEventListener('pointerdown', event => {
@@ -1343,6 +1373,24 @@
                 const wrap = clear.closest('.color-field');
                 wrap.querySelector('.color-text').value = 'transparent';
                 onApply(path, event); changed(true);
+                return;
+            }
+            const resetBtn = event.target.closest('[data-reset]');
+            if (resetBtn) {
+                const path = resetBtn.dataset.reset;
+                const resetVal = Number(resetBtn.dataset.resetValue ?? 0);
+                getTargets().forEach(target => setPath(target, path, resetVal));
+                const rangeWrap = resetBtn.closest('.range-field');
+                if (rangeWrap) {
+                    const rangeInp = rangeWrap.querySelector('input[type="range"]');
+                    if (rangeInp) rangeInp.value = String(resetVal);
+                    const numInp = rangeWrap.querySelector('input[type="number"]');
+                    if (numInp) numInp.value = String(resetVal);
+                    const output = rangeWrap.querySelector('output');
+                    if (output) output.textContent = `${resetVal}${rangeWrap.dataset.unit || ''}`;
+                }
+                onApply(path, event); changed(true);
+                if (path === 'style.rotate') toast('Rotation reset to 0°', 'info', 1000);
                 return;
             }
             const swatch = event.target.closest('[data-color]');
@@ -1691,7 +1739,7 @@
             <div class="grid2">${F.number('x', 'X', el.x, { min: -7680, max: 7680 })}${F.number('y', 'Y', el.y, { min: -4320, max: 4320 })}</div>
             <div class="grid2">${F.number('width', 'Width', el.width, { min: LIMITS.elementW[0], max: LIMITS.elementW[1] })}${line ? '<span></span>' : F.number('height', 'Height', el.height, { min: LIMITS.elementH[0], max: LIMITS.elementH[1] })}</div>
             ${line ? '' : `<div style="display:flex;justify-content:flex-end;margin:-.2rem 0 .45rem"><button type="button" id="toggle-aspect-lock" class="link-btn" style="font-size:11px;color:${locked ? 'var(--accent)' : 'var(--muted)'};display:inline-flex;align-items:center;gap:4px" title="${locked ? 'Unlock aspect ratio' : 'Lock aspect ratio when editing width/height'}">${locked ? '🔗 Proportions locked' : '🔓 Proportions unlocked'}</button></div>`}
-            ${F.range('style.rotate', 'Rotation', el.style?.rotate || 0, { min: -180, max: 180, step: 1, unit: '°' })}
+            ${F.range('style.rotate', 'Rotation (°)', el.style?.rotate || 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation to 0°' })}
             ${alignBody([el])}`);
     }
     function periodPicker(g) {
@@ -1984,7 +2032,7 @@
     }
     bindFields($('properties'), selectedElements, (path, event) => {
         for (const el of selectedElements()) { el.width = clamp(el.width, 1, 3840); el.height = clamp(el.height, 1, 2160); }
-        renderCanvas(); updateStatusBar();
+        renderCanvas(); renderSelectionUI(); updateStatusBar();
         if (path === 'name') renderLayers();
         if (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || RERENDER_PATHS.has(path) || /^style\.(gradient|textGradient|borderGradient)\.(enabled|type|animate)$/.test(path)) { if (numberCrossedZero(path, event)) renderProperties(); }
         if (path.startsWith('slideshow.')) refreshSlideCount();
@@ -2096,6 +2144,7 @@
     });
     $('properties').addEventListener('keydown', event => {
         if (event.key === 'Enter' && event.target.id === 'scale-pct') { event.preventDefault(); scaleSelectionBy(Number(event.target.value)); }
+        else if (event.key === 'Enter' && event.target.matches('input[data-path]')) { event.target.blur(); }
     });
     $('properties').addEventListener('change', async event => {
         if (event.target.id === 'font-upload' && event.target.files[0]) {
