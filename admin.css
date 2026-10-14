@@ -63,3 +63,52 @@ iframe { color-scheme: normal; }
 
 /* Larger checkboxes and radios across the admin pages */
 input[type="checkbox"], input[type="radio"] { width: 1.15rem !important; height: 1.15rem !important; min-width: 0; accent-color: var(--accent, #7c5cff); cursor: pointer; vertical-align: middle; flex: none; }
+
+/* ---- StreamPulse UI Design System ---------------------------------------- */
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; padding: .45rem .85rem; font: 600 13px system-ui, -apple-system, sans-serif; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); cursor: pointer; text-decoration: none; transition: background .15s ease, border-color .15s ease, transform .05s ease; user-select: none; line-height: 1.3; }
+.btn:hover { border-color: var(--border-strong); background: color-mix(in srgb, var(--bg-raised) 82%, var(--text)); color: var(--text); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; pointer-events: none; }
+.btn-primary { background: var(--accent-strong); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: color-mix(in srgb, var(--accent-strong) 85%, #fff); border-color: var(--accent-soft); color: #fff; }
+.btn-danger { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
+.btn-danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn-success { background: var(--success-strong); border-color: var(--success); color: #fff; }
+.btn-success:hover { background: var(--success-hover); border-color: var(--success-soft); color: #fff; }
+.btn-sm { padding: .25rem .55rem; font-size: 11px; border-radius: 5px; }
+.btn-icon { padding: .4rem; border-radius: 6px; min-width: 32px; min-height: 32px; }
+
+/* Form Controls */
+.input, .select, .textarea { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: .45rem .75rem; color: var(--text); font: inherit; font-size: 13px; box-sizing: border-box; transition: border-color .15s ease, box-shadow .15s ease; }
+.input:focus, .select:focus, .textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-border); }
+.input-sm { padding: .25rem .5rem; font-size: 12px; }
+
+/* Cards & Panels */
+.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; box-sizing: border-box; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .8rem; }
+.card-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+
+/* Badges */
+.badge { display: inline-flex; align-items: center; gap: .3rem; font-size: 11px; font-weight: 600; padding: .15rem .45rem; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-raised); color: var(--text-muted); }
+.badge-success { background: color-mix(in srgb, var(--success) 15%, transparent); border-color: var(--success); color: var(--success); }
+.badge-warn { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+.badge-danger { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
+.badge-purple { background: color-mix(in srgb, var(--purple) 18%, transparent); border-color: var(--purple); color: var(--purple); }
+
+/* ---- Toast Notification Stack -------------------------------------------- */
+#sp-toast-container { position: fixed; right: 1.25rem; bottom: 1.25rem; display: flex; flex-direction: column-reverse; gap: .5rem; z-index: 100000; pointer-events: none; }
+.sp-toast { pointer-events: auto; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: .65rem 1rem; box-shadow: 0 12px 32px rgba(0,0,0,.45); font: 500 13px system-ui, -apple-system, sans-serif; max-width: 380px; display: flex; align-items: center; justify-content: space-between; gap: .8rem; animation: sp-toast-in .18s ease-out; word-break: break-word; }
+.sp-toast.success { border-left-color: var(--success); }
+.sp-toast.warn { border-left-color: var(--warn); }
+.sp-toast.error { border-left-color: var(--danger); }
+@keyframes sp-toast-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* ---- Accessible Modal Dialog --------------------------------------------- */
+dialog.sp-dialog { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 1.4rem; max-width: 480px; width: 92vw; box-shadow: 0 20px 60px rgba(0,0,0,.6); font-family: system-ui, -apple-system, sans-serif; box-sizing: border-box; }
+dialog.sp-dialog::backdrop { background: rgba(0,0,0,.65); backdrop-filter: blur(2px); }
+dialog.sp-dialog h3 { margin: 0 0 .5rem; font-size: 1.15rem; font-weight: 600; color: var(--text); }
+dialog.sp-dialog p { margin: 0 0 1rem; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+dialog.sp-dialog .sp-dialog-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.25rem; }
+dialog.sp-dialog input.input { width: 100%; margin-top: .4rem; }

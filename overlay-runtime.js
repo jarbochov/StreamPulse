@@ -50,11 +50,16 @@
             node.replaceChildren(typed);
             let position = 0;
             const speed = Math.max(10, Number(config.typewriterSpeed) || 110);
-            const typeTimer = setInterval(() => {
+            if (node._typeTimer) clearInterval(node._typeTimer);
+            node._typeTimer = setInterval(() => {
                 typed.textContent = value.slice(0, ++position);
-                if (position >= value.length) clearInterval(typeTimer);
+                if (position >= value.length) {
+                    clearInterval(node._typeTimer);
+                    node._typeTimer = null;
+                }
             }, speed);
         } else {
+            if (node._typeTimer) { clearInterval(node._typeTimer); node._typeTimer = null; }
             node.classList.remove('overlay-typewriter');
             node.textContent = value;
         }
@@ -383,6 +388,11 @@
         const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
         const socket = new WebSocket(`${protocol}//${location.host}`);
         liveSocket = socket;
+        socket.addEventListener('open', () => {
+            // Re-sync overlay state and live status after reconnect so OBS browser source stays fresh
+            refreshStatus();
+            load().catch(() => {});
+        });
         socket.addEventListener('message', event => {
             try {
                 const message = JSON.parse(event.data);

@@ -68,6 +68,23 @@ const CUSTOM_OVERLAY_ASSETS_DIR = path.join(DATA_DIR, 'custom-overlay-assets');
 const CUSTOM_OVERLAY_HISTORY_DIR = path.join(DATA_DIR, 'custom-overlay-history');
 const CUSTOM_OVERLAY_HISTORY_LIMIT = 30;
 
+function safeWriteFileSync(targetPath, data) {
+    const dir = path.dirname(targetPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const tempPath = path.join(dir, `.${path.basename(targetPath)}.tmp.${process.pid}.${Date.now()}`);
+    fs.writeFileSync(tempPath, data);
+    fs.renameSync(tempPath, targetPath);
+}
+
+function escapeHtml(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 const GOAL_TYPE_LABELS = {
     followers: 'Followers',
     subscribers: 'Subscribers',
@@ -552,7 +569,7 @@ function dropOverlayPages(id) {
 }
 
 function saveCustomOverlays() {
-    fs.writeFileSync(CUSTOM_OVERLAYS_PATH, JSON.stringify(customOverlays, null, 2));
+    safeWriteFileSync(CUSTOM_OVERLAYS_PATH, JSON.stringify(customOverlays, null, 2));
 }
 
 loadCustomOverlays();
@@ -575,10 +592,10 @@ function normalizeAssetTagList(input) {
 // Asset captions: { "<asset file name>": "Caption text" }, shown by slideshows.
 let assetCaptions = {};
 try { if (fs.existsSync(ASSET_CAPTIONS_PATH)) assetCaptions = JSON.parse(fs.readFileSync(ASSET_CAPTIONS_PATH, 'utf8')) || {}; } catch (error) { console.warn('[Assets] Could not load asset captions:', error.message); }
-function saveAssetCaptions() { fs.writeFileSync(ASSET_CAPTIONS_PATH, JSON.stringify(assetCaptions, null, 2)); }
+function saveAssetCaptions() { safeWriteFileSync(ASSET_CAPTIONS_PATH, JSON.stringify(assetCaptions, null, 2)); }
 
 function saveAssetTags() {
-    fs.writeFileSync(ASSET_TAGS_PATH, JSON.stringify(assetTags, null, 2));
+    safeWriteFileSync(ASSET_TAGS_PATH, JSON.stringify(assetTags, null, 2));
 }
 
 function setAssetTags(name, tags) {
@@ -612,7 +629,7 @@ function normalizeOverlayPresets(list) {
 }
 
 function saveOverlayPresets() {
-    fs.writeFileSync(OVERLAY_PRESETS_PATH, JSON.stringify(overlayPresets, null, 2));
+    safeWriteFileSync(OVERLAY_PRESETS_PATH, JSON.stringify(overlayPresets, null, 2));
 }
 
 // Emote image cache: emote name → { path, format }
@@ -1167,7 +1184,7 @@ function rewriteGamePlanReferences(oldName, newName) {
         const next = rewriteAssetReferences(item.customCover, oldName, newName, null, null);
         if (next !== item.customCover) { item.customCover = next; changed = true; }
     }
-    if (changed) fs.writeFileSync(GAME_PLAN_PATH, JSON.stringify(plan, null, 2));
+    if (changed) safeWriteFileSync(GAME_PLAN_PATH, JSON.stringify(plan, null, 2));
     return changed;
 }
 
@@ -1179,7 +1196,7 @@ function rewriteCreditsReferences(oldName, newName) {
     if (rewritten === before) return false;
     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
     current.credits = JSON.parse(rewriteAssetReferences(JSON.stringify(current.credits || {}), oldName, newName, null, null));
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
+    safeWriteFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
     applyRuntimeConfig(current);
     return true;
 }
@@ -1301,7 +1318,7 @@ function buildTimersSnapshot() {
 }
 
 function saveTimers() {
-    fs.writeFileSync(TIMERS_PATH, JSON.stringify(timerStore, null, 2));
+    safeWriteFileSync(TIMERS_PATH, JSON.stringify(timerStore, null, 2));
 }
 
 function loadTimers() {
@@ -1648,10 +1665,19 @@ function applyTimerControl(timer, action, params = {}) {
     return snapshot;
 }
 
-async function readRequestBody(req) {
+async function readRequestBody(req, maxBytes = 25 * 1024 * 1024) {
     return await new Promise((resolve, reject) => {
         let body = '';
-        req.on('data', chunk => { body += chunk; });
+        let size = 0;
+        req.on('data', chunk => {
+            size += chunk.length;
+            if (size > maxBytes) {
+                req.destroy();
+                reject(new Error('Payload too large'));
+                return;
+            }
+            body += chunk;
+        });
         req.on('end', () => resolve(body));
         req.on('error', reject);
     });
@@ -2020,7 +2046,7 @@ setInterval(checkGoalAlerts, 5000).unref();
 function saveRuntimeConfigSection(updater) {
     const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
     updater(current);
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
+    safeWriteFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
     applyRuntimeConfig(current);
     return current;
 }
@@ -2264,7 +2290,7 @@ function saveToken(tokenData) {
     twitchRefreshToken = tokenData.refresh_token;
     twitchTokenExpiry = Date.now() + (tokenData.expires_in * 1000) - 60000;
     if (Array.isArray(tokenData.scope)) twitchTokenScopes = tokenData.scope;
-    fs.writeFileSync(TOKEN_PATH, JSON.stringify({
+    safeWriteFileSync(TOKEN_PATH, JSON.stringify({
         access_token: twitchAccessToken,
         refresh_token: twitchRefreshToken,
         expires_at: twitchTokenExpiry,
@@ -2406,7 +2432,7 @@ async function syncBroadcasterFromToken() {
             if (!cleanConfigValue(current.broadcaster_name)) current.broadcaster_name = user.login;
             BROADCASTER_ID = user.id;
             if (!BROADCASTER_NAME) BROADCASTER_NAME = user.login;
-            fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
+            safeWriteFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
             broadcasterSyncedFromToken = true;
             console.log(`[Twitch] Saved broadcaster ${user.login} (${user.id}) to config.json`);
         }
@@ -3183,7 +3209,7 @@ async function applyPlayedSpans(spans) {
         item.played = [...new Set([...(item.played || []), ...dates])].sort().slice(-400);
         if (item.played.length !== before && !result.added.includes(name)) result.updated++;
     }
-    if (result.added.length || result.updated) fs.writeFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(plan), null, 2));
+    if (result.added.length || result.updated) safeWriteFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(plan), null, 2));
     return result;
 }
 
@@ -3724,11 +3750,11 @@ function saveStats() {
     const data = JSON.stringify(statsData, null, 2);
     if (data === lastSavedStats) return;
     lastSavedStats = data;
-    fs.writeFileSync(STATS_PATH, data);
+    safeWriteFileSync(STATS_PATH, data);
 
     // Rotating backup (cycles through 1, 2, 3)
     const backupPath = path.join(DATA_DIR, `.stats-backup-${statsBackupRotation}.json`);
-    fs.writeFileSync(backupPath, data);
+    safeWriteFileSync(backupPath, data);
     statsBackupRotation = (statsBackupRotation % 3) + 1;
 }
 
@@ -3933,7 +3959,7 @@ function saveChatData() {
     if (fingerprint === lastSavedChatData) return;
     lastSavedChatData = fingerprint;
     chatData.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(LIVE_CHAT_PATH, JSON.stringify(chatData, null, 2));
+    safeWriteFileSync(LIVE_CHAT_PATH, JSON.stringify(chatData, null, 2));
 }
 
 function saveChatLog() {
@@ -5457,8 +5483,9 @@ function currentCategoryStats(archivedTotals) {
     return { name, sessionMinutes: Math.round(sessionMinutes), totalMinutes: Math.round((archivedTotals[name] || 0) + sessionMinutes) };
 }
 const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url, `http://localhost:${PORT}`);
-    const pathname = url.pathname;
+    try {
+        const url = new URL(req.url, `http://localhost:${PORT}`);
+        const pathname = url.pathname;
 
     // Rate limiting
     if (checkRateLimit(req, res)) return;
@@ -5532,8 +5559,8 @@ const server = http.createServer(async (req, res) => {
         const error = url.searchParams.get('error');
 
         if (error) {
-            res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end(`<h1>Authorization denied</h1><p>${error}</p><p><a href="/auth/twitch">Try again</a></p>`);
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(`<h1>Authorization denied</h1><p>${escapeHtml(error)}</p><p><a href="/auth/twitch">Try again</a></p>`);
             return;
         }
 
@@ -5557,8 +5584,8 @@ const server = http.createServer(async (req, res) => {
                 fetchTwitchPoll();
             } catch (err) {
                 console.error('[Twitch] Auth callback error:', err.message);
-                res.writeHead(500, { 'Content-Type': 'text/html' });
-                res.end(`<h1>Authorization failed</h1><p>${err.message}</p><p><a href="/auth/twitch">Try again</a></p>`);
+                res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(`<h1>Authorization failed</h1><p>${escapeHtml(err.message)}</p><p><a href="/auth/twitch">Try again</a></p>`);
             }
             return;
         }
@@ -6171,7 +6198,7 @@ const server = http.createServer(async (req, res) => {
                         }
                     }
 
-                    fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
+                    safeWriteFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
                     applyRuntimeConfig(current);
 
                     console.log('[Config] Updated and hot-reloaded');
@@ -6417,7 +6444,7 @@ const server = http.createServer(async (req, res) => {
                 const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
                 if (payload.viewer_tracking !== undefined) current.viewer_tracking = normalizeViewerTrackingConfig(payload.viewer_tracking);
                 if (payload.goals !== undefined) current.goals = normalizeGoalsConfig(payload.goals);
-                fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
+                safeWriteFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
                 applyRuntimeConfig(current);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
@@ -6512,7 +6539,7 @@ const server = http.createServer(async (req, res) => {
                 const settings = normalizeClipCandidateConfig(payload);
                 const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
                 current.clip_candidates = settings;
-                fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
+                safeWriteFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
                 applyRuntimeConfig(current);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(settings));
@@ -7358,7 +7385,7 @@ const server = http.createServer(async (req, res) => {
         if (req.method === 'PUT') {
             try {
                 const payload = JSON.parse(await readRequestBody(req) || '{}');
-                fs.writeFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(payload), null, 2));
+                safeWriteFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(payload), null, 2));
             } catch (err) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: err.message }));
@@ -8366,7 +8393,14 @@ if (pathname === '/api/restore' && req.method === 'POST') {
         filePath = requested;
         localMedia = true;
     } else if (pathname.startsWith('/custom-overlay-assets/')) {
-        const assetName = decodeURIComponent(pathname.slice('/custom-overlay-assets/'.length));
+        let assetName = '';
+        try {
+            assetName = decodeURIComponent(pathname.slice('/custom-overlay-assets/'.length));
+        } catch {
+            res.writeHead(400);
+            res.end('Bad Request');
+            return;
+        }
         if (!assetName || assetName.includes('/') || assetName.includes('\\')) {
             res.writeHead(404);
             res.end('Not Found');
@@ -8379,7 +8413,8 @@ if (pathname === '/api/restore' && req.method === 'POST') {
 
     // Security: prevent directory traversal and protect sensitive files
     if (!localMedia) {
-        if (!filePath.startsWith(__dirname)) {
+        const rootWithSep = __dirname.endsWith(path.sep) ? __dirname : __dirname + path.sep;
+        if (!filePath.startsWith(rootWithSep) && filePath !== __dirname) {
             res.writeHead(403);
             res.end('Forbidden');
             return;
@@ -8443,6 +8478,15 @@ if (pathname === '/api/restore' && req.method === 'POST') {
     } catch {
         res.writeHead(404);
         res.end('Not Found');
+    }
+    } catch (serverErr) {
+        console.error(`[Server] Request handler error on ${req.method} ${req.url}:`, serverErr);
+        if (!res.headersSent) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: serverErr.message || 'Internal Server Error' }));
+        } else {
+            res.end();
+        }
     }
 });
 
@@ -8617,3 +8661,10 @@ function gracefulShutdown(signal) {
 
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[Process] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('[Process] Uncaught Exception:', err);
+});

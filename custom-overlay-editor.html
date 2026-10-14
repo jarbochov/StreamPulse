@@ -964,8 +964,10 @@
             if (only && !only.has(el.id)) return;
             let node = nodes.get(el.id);
             if (!node) { node = document.createElement('div'); node.dataset.id = el.id; nodes.set(el.id, node); canvasEl.appendChild(node); }
-            const signature = contentSignature(el, live);
-            if (node._sig !== signature) { node._sig = signature; buildContent(node, el); }
+            if (!node._sig || !only) {
+                const signature = contentSignature(el, live);
+                if (node._sig !== signature) { node._sig = signature; buildContent(node, el); }
+            }
             applyNodeStyle(node, el, index);
             if (!inView(el)) { node.style.display = 'none'; return; }
             if (TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none') {

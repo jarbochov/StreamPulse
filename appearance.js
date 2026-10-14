@@ -54,3 +54,102 @@
         try { Object.defineProperty(navigator, 'clipboard', { value: shim, configurable: true }); } catch { /* read-only navigator */ }
     }
 })();
+
+// Global accessible in-app toast notifications and modal dialogs (replaces native alert/confirm/prompt)
+(function () {
+    function toast(message, type = 'info', duration = 3200) {
+        let container = document.getElementById('sp-toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'sp-toast-container';
+            document.body.appendChild(container);
+        }
+        const el = document.createElement('div');
+        el.className = `sp-toast ${type || ''}`.trim();
+        const text = document.createElement('span');
+        text.textContent = String(message || '');
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '&times;';
+        closeBtn.setAttribute('aria-label', 'Close');
+        closeBtn.style.cssText = 'background:none;border:none;color:currentColor;opacity:.6;cursor:pointer;font-size:16px;padding:0 0 0 8px;line-height:1;';
+        closeBtn.onclick = () => el.remove();
+        el.append(text, closeBtn);
+        container.appendChild(el);
+        if (duration > 0) {
+            setTimeout(() => {
+                el.style.transition = 'opacity .2s ease, transform .2s ease';
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(8px)';
+                setTimeout(() => el.remove(), 220);
+            }, duration);
+        }
+    }
+
+    function confirm(title, message, options = {}) {
+        return new Promise((resolve) => {
+            const dialog = document.createElement('dialog');
+            dialog.className = 'sp-dialog';
+            const h3 = document.createElement('h3');
+            h3.textContent = title;
+            const p = document.createElement('p');
+            p.textContent = message;
+            const actions = document.createElement('div');
+            actions.className = 'sp-dialog-actions';
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'btn';
+            cancelBtn.textContent = options.cancelText || 'Cancel';
+            const okBtn = document.createElement('button');
+            okBtn.className = `btn ${options.danger ? 'btn-danger' : 'btn-primary'}`;
+            okBtn.textContent = options.confirmText || 'Confirm';
+
+            cancelBtn.onclick = () => { dialog.close(); dialog.remove(); resolve(false); };
+            okBtn.onclick = () => { dialog.close(); dialog.remove(); resolve(true); };
+            dialog.oncancel = () => { dialog.remove(); resolve(false); };
+
+            actions.append(cancelBtn, okBtn);
+            dialog.append(h3, p, actions);
+            document.body.appendChild(dialog);
+            dialog.showModal();
+            okBtn.focus();
+        });
+    }
+
+    function prompt(title, message, defaultValue = '') {
+        return new Promise((resolve) => {
+            const dialog = document.createElement('dialog');
+            dialog.className = 'sp-dialog';
+            const h3 = document.createElement('h3');
+            h3.textContent = title;
+            const p = document.createElement('p');
+            p.textContent = message;
+            const input = document.createElement('input');
+            input.className = 'input';
+            input.value = defaultValue || '';
+            const actions = document.createElement('div');
+            actions.className = 'sp-dialog-actions';
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'btn';
+            cancelBtn.textContent = 'Cancel';
+            const okBtn = document.createElement('button');
+            okBtn.className = 'btn btn-primary';
+            okBtn.textContent = 'OK';
+
+            cancelBtn.onclick = () => { dialog.close(); dialog.remove(); resolve(null); };
+            okBtn.onclick = () => { const v = input.value; dialog.close(); dialog.remove(); resolve(v); };
+            dialog.oncancel = () => { dialog.remove(); resolve(null); };
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); okBtn.click(); }
+            };
+
+            actions.append(cancelBtn, okBtn);
+            dialog.append(h3, p, input, actions);
+            document.body.appendChild(dialog);
+            dialog.showModal();
+            input.focus();
+            input.select();
+        });
+    }
+
+    window.StreamPulse = Object.assign(window.StreamPulse || {}, { toast, confirm, prompt });
+    window.showToast = toast;
+})();
