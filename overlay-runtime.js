@@ -201,6 +201,7 @@
         stopSlideshows(new Set([...slideshows.keys()].filter(id => !slideshowsKept.has(id))));
         for (const id of [...embeds.keys()]) if (!embedsKept.has(id)) embeds.delete(id);
         refit();
+        checkViewportFit(overlay);
     }
 
     function buildNode(element) {
@@ -431,6 +432,78 @@
     setInterval(refreshStatus, 5000);
     setInterval(tickPlaceholders, 1000);
     connect();
+
+    let fitInitialized = false;
+    let fitMode = false;
+    function checkViewportFit(overlay) {
+        if (!overlay?.canvas) return;
+        const isPreview = params.get('preview') === 'true' || params.get('fit') === '1' || params.get('scale') === 'fit';
+        if (!isPreview) return;
+
+        if (!fitInitialized) {
+            fitInitialized = true;
+            fitMode = true;
+
+            window.addEventListener('resize', () => {
+                if (fitMode && currentOverlay) applyFit(currentOverlay);
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if ((e.key === 'f' || e.key === 'F') && !e.target.closest('input, textarea')) {
+                    fitMode = !fitMode;
+                    if (currentOverlay) applyFit(currentOverlay);
+                }
+            });
+        }
+
+        applyFit(overlay);
+    }
+
+    function applyFit(overlay) {
+        const toggleBtn = getOrCreateFitToggle();
+        if (!fitMode) {
+            root.style.transform = '';
+            root.style.transformOrigin = '';
+            root.style.boxShadow = '';
+            document.body.style.justifyContent = 'flex-start';
+            document.body.style.alignItems = 'flex-start';
+            if (toggleBtn) toggleBtn.textContent = '🔍 100% (Press F)';
+            return;
+        }
+
+        const canW = Number(overlay.canvas.width) || 1920;
+        const canH = Number(overlay.canvas.height) || 1080;
+        const pad = 24;
+        const scale = Math.min(1, (window.innerWidth - pad) / canW, (window.innerHeight - pad) / canH);
+
+        root.style.transform = `scale(${scale})`;
+        root.style.transformOrigin = 'center center';
+        root.style.boxShadow = scale < 0.999 ? '0 0 0 1px rgba(255,255,255,0.18), 0 12px 48px rgba(0,0,0,0.6)' : '';
+        document.body.style.justifyContent = 'center';
+        document.body.style.alignItems = 'center';
+
+        if (toggleBtn) {
+            toggleBtn.textContent = scale < 0.999 ? `🔍 Fit: ${Math.round(scale * 100)}% (Press F)` : '🔍 100%';
+        }
+    }
+
+    function getOrCreateFitToggle() {
+        if (window.obsstudio) return null; // Never display controls inside OBS
+        let btn = document.getElementById('preview-fit-pill');
+        if (!btn) {
+            btn = document.createElement('button');
+            btn.id = 'preview-fit-pill';
+            btn.style.cssText = 'position:fixed;bottom:14px;right:14px;z-index:999999;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#f0f6fc;border:1px solid rgba(255,255,255,0.2);border-radius:999px;padding:5px 14px;font:600 11px system-ui,-apple-system,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.5);opacity:0.75;transition:opacity 0.15s ease,transform 0.1s ease;';
+            btn.onmouseenter = () => { btn.style.opacity = '1'; btn.style.transform = 'scale(1.04)'; };
+            btn.onmouseleave = () => { btn.style.opacity = '0.75'; btn.style.transform = ''; };
+            btn.onclick = () => {
+                fitMode = !fitMode;
+                if (currentOverlay) applyFit(currentOverlay);
+            };
+            document.body.appendChild(btn);
+        }
+        return btn;
+    }
 
     // Tear everything down on close so Safari doesn't unload live videos, iframes and timers all at once.
     addEventListener('pagehide', () => {

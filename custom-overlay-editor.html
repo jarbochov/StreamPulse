@@ -3203,7 +3203,7 @@
     $('overlay-name').addEventListener('keydown', event => { if (event.key === 'Enter') event.target.blur(); });
     $('overlay-name').addEventListener('change', () => { if (!overlay.name.trim()) { overlay.name = overlay.id; $('overlay-name').value = overlay.id; } changed(true); });
     const runtimeUrl = () => `${location.origin}/custom-overlay.html?id=${encodeURIComponent(overlay.id)}`;
-    $('preview').addEventListener('click', () => { if (isNew) toast('Save the overlay first so the runtime has something to load.', 'warn'); window.open(runtimeUrl(), '_blank', 'noopener'); });
+    $('preview').addEventListener('click', () => { if (isNew) toast('Save the overlay first so the runtime has something to load.', 'warn'); window.open(`${runtimeUrl()}&preview=true`, '_blank', 'noopener'); });
     $('copy-url').addEventListener('click', async () => {
         try { await navigator.clipboard.writeText(runtimeUrl()); toast(`Copied. Use a ${overlay.canvas.width} × ${overlay.canvas.height} browser source in OBS.${isNew ? ' Save first.' : ''}`, 'success', 4200); }
         catch { window.prompt('Copy this OBS browser-source URL:', runtimeUrl()); }

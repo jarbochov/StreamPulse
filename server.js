@@ -5747,6 +5747,7 @@ function getChatterDossier(username) {
 
     return {
         username: displayName,
+        broadcaster: BROADCASTER_NAME || 'jarbochov',
         chatimg: chatter?.chatimg || '',
         type: chatter?.type || 'twitch',
         firstSeen: chatter?.firstSeen || null,

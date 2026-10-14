@@ -263,10 +263,39 @@
     }
 
     function updatePreviewSize() {
+        const frame = document.getElementById('preview-frame');
         const wrap = document.getElementById('preview-wrapper');
-        wrap.style.width = `${currentWidth}px`;
-        wrap.style.height = `${currentHeight}px`;
-        document.getElementById('obs-size-text').textContent = `${currentWidth}px × ${currentHeight}px`;
+        const iframe = document.getElementById('preview-iframe');
+        if (!wrap || !frame) return;
+
+        const w = currentWidth;
+        const h = currentHeight;
+        const padX = 40;
+        const availW = Math.max(120, frame.clientWidth - padX);
+        const availH = 380;
+
+        const scale = Math.min(1, availW / w, availH / h);
+
+        wrap.style.width = `${Math.round(w * scale)}px`;
+        wrap.style.height = `${Math.round(h * scale)}px`;
+        wrap.style.position = 'relative';
+
+        if (iframe) {
+            iframe.style.width = `${w}px`;
+            iframe.style.height = `${h}px`;
+            iframe.style.position = 'absolute';
+            iframe.style.left = '0';
+            iframe.style.top = '0';
+            iframe.style.transform = `scale(${scale})`;
+            iframe.style.transformOrigin = '0 0';
+        }
+
+        const badge = document.getElementById('obs-size-text');
+        if (badge) {
+            badge.textContent = scale < 0.999
+                ? `${w}px × ${h}px · ${Math.round(scale * 100)}% preview (Fit)`
+                : `${w}px × ${h}px`;
+        }
     }
 
     function onViewChange() {
@@ -401,6 +430,7 @@
         }
     }
 
+    window.addEventListener('resize', updatePreviewSize);
     loadCustomLists().then(() => refreshWizard());
     </script>
 </body>

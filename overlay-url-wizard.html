@@ -70,9 +70,47 @@
 
         /* Preview Area */
         .preview-col { display: grid; gap: 1rem; }
-        .preview-frame { background: #000 repeating-conic-gradient(var(--bg-raised) 0% 25%, var(--bg-inset) 0% 50%) 50% / 20px 20px; border-radius: 8px; padding: 1.25rem; display: flex; justify-content: center; align-items: center; min-height: 220px; overflow: hidden; }
-        .preview-wrapper { width: 600px; height: 160px; max-width: 100%; transition: width 0.2s ease, height 0.2s ease; border: 1px dashed rgba(255,255,255,0.25); border-radius: 8px; overflow: hidden; display: flex; }
-        .preview-wrapper iframe { width: 100%; height: 100%; border: none; background: transparent; }
+        .preview-frame {
+            background: #000 repeating-conic-gradient(var(--bg-raised) 0% 25%, var(--bg-inset) 0% 50%) 50% / 20px 20px;
+            border-radius: 8px;
+            padding: 1.25rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 220px;
+            overflow: hidden;
+            position: relative;
+        }
+        .preview-wrapper {
+            position: relative;
+            border: 1px dashed rgba(255,255,255,0.25);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            transition: width 0.2s ease, height 0.2s ease;
+        }
+        .preview-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            border: none;
+            background: transparent;
+            transform-origin: 0 0;
+        }
+        .preview-scale-pill {
+            position: absolute;
+            bottom: 8px;
+            right: 12px;
+            background: rgba(0, 0, 0, 0.72);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text-muted, #8b949e);
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 999px;
+            pointer-events: none;
+            font-family: ui-monospace, SFMono-Regular, monospace;
+        }
 
         @media (max-width: 950px) {
             .header { flex-direction: column; }
@@ -409,6 +447,7 @@
                         <div class="preview-wrapper" id="preview-wrapper">
                             <iframe id="preview-iframe" src="/credits.html"></iframe>
                         </div>
+                        <span class="preview-scale-pill" id="preview-scale-pill">600×160 (100%)</span>
                     </div>
                     <p class="hint" style="margin-top:0.6rem; margin-bottom:0; margin-left:0;">
                         💡 <b>OBS Tip:</b> Match your OBS Browser Source width &amp; height to these dimensions for pixel-perfect results.
@@ -578,6 +617,39 @@
         refreshUrls();
     }
 
+    function updatePreviewSize() {
+        const frame = $('preview-frame');
+        const wrap = $('preview-wrapper');
+        const iframe = $('preview-iframe');
+        if (!frame || !wrap || !iframe) return;
+
+        const w = Math.max(80, Math.min(3840, parseInt($('prev-w').value, 10) || 600));
+        const h = Math.max(30, Math.min(2160, parseInt($('prev-h').value, 10) || 160));
+
+        // Available area inside preview-frame
+        const padX = 40;
+        const availW = Math.max(120, frame.clientWidth - padX);
+        const availH = 380; // comfortable proportional height
+
+        // Proportional scale factor (capped at 1 so small overlays stay at true 1:1)
+        const scale = Math.min(1, availW / w, availH / h);
+
+        wrap.style.width = Math.round(w * scale) + 'px';
+        wrap.style.height = Math.round(h * scale) + 'px';
+
+        iframe.style.width = w + 'px';
+        iframe.style.height = h + 'px';
+        iframe.style.transform = `scale(${scale})`;
+        iframe.style.transformOrigin = '0 0';
+
+        const badge = $('preview-scale-pill');
+        if (badge) {
+            badge.textContent = scale < 0.999
+                ? `${w}×${h} · ${Math.round(scale * 100)}% scale (Fit)`
+                : `${w}×${h} (100%)`;
+        }
+    }
+
     function applyPresetSize(w, h, btn) {
         document.querySelectorAll('.preset-chip').forEach(c => {
             if (c.id !== 'btn-prev-single' && c.id !== 'btn-prev-cycle') c.classList.remove('active');
@@ -585,24 +657,14 @@
         if (btn) btn.classList.add('active');
         $('prev-w').value = w;
         $('prev-h').value = h;
-        const wrap = $('preview-wrapper');
-        if (wrap) {
-            wrap.style.width = w + 'px';
-            wrap.style.height = h + 'px';
-        }
+        updatePreviewSize();
     }
 
     function applyCustomSize() {
         document.querySelectorAll('.preset-chip').forEach(c => {
             if (c.id !== 'btn-prev-single' && c.id !== 'btn-prev-cycle') c.classList.remove('active');
         });
-        const w = Math.max(80, Math.min(1920, parseInt($('prev-w').value, 10) || 600));
-        const h = Math.max(30, Math.min(1080, parseInt($('prev-h').value, 10) || 160));
-        const wrap = $('preview-wrapper');
-        if (wrap) {
-            wrap.style.width = w + 'px';
-            wrap.style.height = h + 'px';
-        }
+        updatePreviewSize();
     }
 
     function setGoalPreviewMode(mode) {
@@ -885,6 +947,8 @@
     loadGoals();
     const requested = new URLSearchParams(location.search).get('overlay');
     selectOverlay(['credits', 'stats', 'hashtags', 'goals', 'viewers'].includes(requested) ? requested : 'credits');
+    window.addEventListener('resize', updatePreviewSize);
+    updatePreviewSize();
     </script>
 </body>
 </html>

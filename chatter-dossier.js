@@ -349,6 +349,7 @@
                 <div class="dossier-actions">
                     <button type="button" class="dossier-btn" id="dos-search-btn">🔍 Search Chat Log</button>
                     <a class="dossier-btn" id="dos-twitch-btn" href="#" target="_blank" rel="noopener">Twitch Channel ↗</a>
+                    <a class="dossier-btn" id="dos-viewercard-btn" href="#" target="_blank" rel="noopener" title="Open Twitch Viewer Card Popout">🪪 Viewer Card ↗</a>
                 </div>
                 <button type="button" class="dossier-btn primary" id="dos-done-btn">Done</button>
             </div>
@@ -487,6 +488,20 @@
             }
 
             document.getElementById('dos-twitch-btn').href = `https://twitch.tv/${encodeURIComponent(data.username)}`;
+            const broadcaster = data.broadcaster || 'jarbochov';
+            const viewerCardBtn = document.getElementById('dos-viewercard-btn');
+            if (viewerCardBtn) {
+                viewerCardBtn.href = `https://www.twitch.tv/popout/${encodeURIComponent(broadcaster)}/viewercard/${encodeURIComponent(data.username)}?popout=`;
+                viewerCardBtn.onclick = (e) => {
+                    if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+                        e.preventDefault();
+                        const w = 420, h = 680;
+                        const left = Math.max(0, Math.round((window.screen.width - w) / 2));
+                        const top = Math.max(0, Math.round((window.screen.height - h) / 2));
+                        window.open(viewerCardBtn.href, `twitch_viewercard_${encodeURIComponent(data.username)}`, `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`);
+                    }
+                };
+            }
         } catch (e) {
             document.getElementById('dos-sub-info').textContent = 'New chatter or no historical data found.';
         }

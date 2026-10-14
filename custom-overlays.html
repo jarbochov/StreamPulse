@@ -165,7 +165,7 @@
                     <div class="actions">
                         <div class="act-main">
                             <a class="btn small primary" href="/custom-overlay-editor.html?id=${encodeURIComponent(o.id)}">Edit</a>
-                            <a class="btn small" href="/custom-overlay.html?id=${encodeURIComponent(o.id)}" target="_blank" rel="noopener">Open</a>${o.pageCount > 0 ? `<a class="btn small ctl" href="/overlay-control.html?id=${encodeURIComponent(o.id)}" target="_blank" rel="noopener" title="Switch pages live">Control</a>` : ''}
+                            <a class="btn small" href="/custom-overlay.html?id=${encodeURIComponent(o.id)}&preview=true" target="_blank" rel="noopener">Open</a>${o.pageCount > 0 ? `<a class="btn small ctl" href="/overlay-control.html?id=${encodeURIComponent(o.id)}" target="_blank" rel="noopener" title="Switch pages live">Control</a>` : ''}
                             <button class="btn small" data-act="copy" data-id="${esc(o.id)}">Copy OBS URL</button>
                         </div>
                         <div class="act-more">
