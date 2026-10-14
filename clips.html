@@ -13,8 +13,7 @@
         .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
-        .nav { display: flex; gap: 0.75rem; align-items: center; }
-        .container { max-width: 1000px; margin: 0 auto; padding: 1.5rem 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem 2rem; }
         .notice, .toolbar, .candidate { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; }
         .notice { padding: 1rem; color: var(--text); line-height: 1.5; margin-bottom: 1rem; }
         .notice strong { color: var(--warn); }
@@ -241,10 +240,11 @@
     }
 
     function showToast(message) {
-        const toast = document.getElementById('toast');
-        toast.textContent = message;
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 2500);
+        if (window.StreamPulse?.toast) StreamPulse.toast(message);
+        else {
+            const toast = document.getElementById('toast');
+            if (toast) { toast.textContent = message; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2500); }
+        }
     }
 
     function formatTime(timestamp) {

@@ -14,28 +14,16 @@
         .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
-        .nav { display: flex; gap: 0.75rem; align-items: center; }
-        .nav a { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
-        .nav a:hover { color: var(--text); background: var(--bg-raised); }
-        .nav .dropdown { position: relative; display: flex; align-items: center; }
-        .nav .dropdown-toggle { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
-        .nav .dropdown-toggle:hover { color: var(--text); background: var(--bg-raised); }
-        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
-        .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
-        .nav .dropdown:hover .dropdown-menu { display: block; }
-        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
-        .nav .dropdown-menu a:hover { color: var(--text); background: var(--bg-raised); }
+        @media (max-width: 768px) { .header { flex-direction: column; gap: 0.5rem; } }
 
-        .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem 2rem; }
 
-        .filters { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; }
+        .filters { display: flex; gap: 0.6rem; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; }
         .filters label { font-size: 0.8rem; color: var(--text-muted); }
-        .filters input[type="date"], .filters input[type="month"] { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.6rem; color: var(--text); font-size: 0.82rem; outline: none; }
-        .filters input:focus { border-color: var(--accent); }
-        .filters button { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; padding: 0.4rem 0.75rem; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
-        .filters button:hover { color: var(--text); border-color: var(--accent); }
-        .preset { padding: 0.3rem 0.6rem !important; font-size: 0.75rem !important; }
-        .preset.active { border-color: var(--accent); color: var(--accent); }
+        .filters input[type="date"], .filters select { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.6rem; color: var(--text); font-size: 0.82rem; outline: none; }
+        .filters input:focus, .filters select:focus { border-color: var(--accent); }
+        .preset { padding: 0.35rem 0.65rem !important; font-size: 0.78rem !important; border-radius: 6px; }
+        .preset.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 600; }
 
         .summary-bar { display: flex; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
         .summary-stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 1rem; text-align: center; flex: 1; min-width: 120px; }
@@ -104,21 +92,21 @@
 
     <div class="container">
         <div class="filters">
-            <label>From</label>
+            <label for="filter-from">From</label>
             <input type="date" id="filter-from">
-            <label>To</label>
+            <label for="filter-to">To</label>
             <input type="date" id="filter-to">
-            <button onclick="applyFilters()">Apply</button>
-            <button onclick="clearFilters()">Clear</button>
+            <button class="btn btn-sm btn-primary" onclick="applyFilters()">Apply</button>
+            <button class="btn btn-sm" onclick="clearFilters()">Clear</button>
             <span style="border-left:1px solid var(--border); height:20px; margin:0 0.25rem;"></span>
-            <button class="preset" data-days="7" onclick="setPreset(7, this)">7d</button>
-            <button class="preset" data-days="30" onclick="setPreset(30, this)">30d</button>
-            <button class="preset" data-days="90" onclick="setPreset(90, this)">90d</button>
-            <button class="preset" data-days="365" onclick="setPreset(365, this)">1y</button>
-            <button class="preset" data-days="0" onclick="setPreset(0, this)">All</button>
+            <button class="btn btn-sm preset" data-days="7" onclick="setPreset(7, this)">7d</button>
+            <button class="btn btn-sm preset" data-days="30" onclick="setPreset(30, this)">30d</button>
+            <button class="btn btn-sm preset" data-days="90" onclick="setPreset(90, this)">90d</button>
+            <button class="btn btn-sm preset" data-days="365" onclick="setPreset(365, this)">1y</button>
+            <button class="btn btn-sm preset" data-days="0" onclick="setPreset(0, this)">All</button>
             <span style="border-left:1px solid var(--border); height:20px; margin:0 0.25rem;"></span>
-            <label>Sort</label>
-            <select id="sort-select" onchange="renderFromCache()" style="background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;padding:0.35rem 0.5rem;color:var(--text);font-size:0.8rem;outline:none;">
+            <label for="sort-select">Sort</label>
+            <select id="sort-select" onchange="renderFromCache()">
                 <option value="recent">Most Recent</option>
                 <option value="time">Most Played</option>
                 <option value="sessions">Most Sessions</option>
@@ -165,6 +153,7 @@
         if (from) params.set('from', from);
         if (to) params.set('to', to);
 
+        if (!lastData.length) document.getElementById('category-list').innerHTML = '<div class="empty">Loading categories…</div>';
         try {
             const res = await fetch('/api/categories' + (params.toString() ? '?' + params : ''));
             lastData = await res.json();

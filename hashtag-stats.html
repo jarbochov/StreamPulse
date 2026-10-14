@@ -42,6 +42,8 @@
         th, td { padding: 0.7rem 0.6rem; border-bottom: 1px solid var(--bg-raised); text-align: left; font-size: 0.84rem; vertical-align: middle; }
         th { color: var(--text-muted); font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer; user-select: none; }
         th.sort-active { color: var(--accent); }
+        th.sort-active::after { content: ' ▼'; font-size: 0.65rem; }
+        th.sort-active.asc::after { content: ' ▲'; font-size: 0.65rem; }
         td.numeric { text-align: right; font-variant-numeric: tabular-nums; }
         .muted { color: var(--text-muted); }
         .tag { color: var(--accent); font-weight: 600; }
@@ -169,10 +171,11 @@
     function applyFilters() { readFilters(); refreshStats(); }
 
     function showToast(msg) {
-        const t = document.getElementById('toast');
-        t.textContent = msg;
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 2500);
+        if (window.StreamPulse?.toast) StreamPulse.toast(msg);
+        else {
+            const t = document.getElementById('toast');
+            if (t) { t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
+        }
     }
 
     function escapeHtml(str) {
@@ -257,7 +260,9 @@
         const body = document.getElementById('stats-table-body');
         const rows = getFilteredRows();
         document.querySelectorAll('th[data-sort]').forEach(th => {
-            th.classList.toggle('sort-active', th.dataset.sort === sortKey);
+            const isActive = th.dataset.sort === sortKey;
+            th.classList.toggle('sort-active', isActive);
+            th.classList.toggle('asc', isActive && sortDirection === 'asc');
         });
 
         if (rows.length === 0) {

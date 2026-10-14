@@ -14,20 +14,8 @@
         .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
-        .nav { display: flex; gap: 0.75rem; align-items: center; }
-        .nav a { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
-        .nav a:hover { color: var(--text); background: var(--bg-raised); }
 
-        .nav .dropdown { position: relative; display: flex; align-items: center; }
-        .nav .dropdown-toggle { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
-        .nav .dropdown-toggle:hover { color: var(--text); background: var(--bg-raised); }
-        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
-        .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
-        .nav .dropdown:hover .dropdown-menu { display: block; }
-        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
-        .nav .dropdown-menu a:hover { color: var(--text); background: var(--bg-raised); }
-
-        .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem 2rem; }
 
         .toolbar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
         .toolbar input[type="text"] { flex: 1; min-width: 180px; padding: 0.5rem 0.75rem; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; outline: none; }
@@ -83,7 +71,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>⭐ <span>Highlights</span></h1>
+        <h1>StreamPulse <span>Highlights</span></h1>
         <div id="main-nav" class="nav"></div>
         <script src="/nav.js"></script>
     </div>
