@@ -53,6 +53,7 @@
         .row-actions { display: flex; gap: 0.45rem; justify-content: flex-end; }
         .mini-btn { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--text); cursor: pointer; padding: 0.35rem 0.55rem; font-size: 0.76rem; }
         .mini-btn:hover { border-color: var(--accent); background: var(--accent-bg); }
+        .mini-btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
         .mini-btn.danger:hover { border-color: var(--danger); background: var(--danger-soft-bg); }
         .empty { color: var(--text-muted); text-align: center; padding: 1rem; }
         .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--accent-strong); color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
@@ -287,8 +288,9 @@
                     <div class="row-actions">
                         ${row.banned
                             ? `<button class="mini-btn" onclick="unbanHashtag('${encodeURIComponent(row.tag)}')">Unban</button>`
-                            : `<button class="mini-btn danger" onclick="banHashtag('${encodeURIComponent(row.tag)}')">Ban</button>`
+                            : `<button class="mini-btn" onclick="banHashtag('${encodeURIComponent(row.tag)}')">Ban</button>`
                         }
+                        <button class="mini-btn danger" onclick="deleteHashtag('${encodeURIComponent(row.tag)}')">Delete</button>
                     </div>
                 </td>
             </tr>
@@ -361,6 +363,26 @@
             refreshStats();
         } catch (err) {
             showToast(err.message || 'Unban failed');
+        }
+    }
+
+    async function deleteHashtag(encodedTag) {
+        const tag = decodeURIComponent(encodedTag);
+        const confirmed = window.StreamPulse?.confirm
+            ? await StreamPulse.confirm(`Are you sure you want to delete ${tag}? All session and historical stats for this hashtag will be permanently removed.`)
+            : confirm(`Are you sure you want to delete ${tag}? All session and historical stats for this hashtag will be permanently removed.`);
+        if (!confirmed) return;
+
+        try {
+            const res = await fetch(`/api/hashtags?tag=${encodeURIComponent(tag)}`, {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Delete failed');
+            showToast(`Deleted ${data.tag}`);
+            refreshStats();
+        } catch (err) {
+            showToast(err.message || 'Delete failed');
         }
     }
 

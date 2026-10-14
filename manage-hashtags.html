@@ -14,10 +14,6 @@
         .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
-        .nav { display: flex; gap: 0.75rem; }
-        .nav a { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; }
-        .nav a:hover { color: var(--text); background: var(--bg-raised); }
-
         .container { max-width: 960px; margin: 0 auto; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
         .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 1rem; }
@@ -35,18 +31,12 @@
         .hashtag-pill.banned { background: var(--danger-soft-bg); border: 1px solid color-mix(in srgb, var(--danger) 31%, transparent); color: var(--danger); }
         .hashtag-pill.banned .unban-btn { background: none; border: none; color: var(--danger); opacity: 0.6; cursor: pointer; font-size: 0.75rem; padding: 0 0.15rem; }
         .hashtag-pill.banned .unban-btn:hover { opacity: 1; }
+        .hashtag-pill .delete-btn { background: none; border: none; color: inherit; opacity: 0.5; cursor: pointer; font-size: 0.75rem; padding: 0 0.15rem; }
+        .hashtag-pill .delete-btn:hover { opacity: 1; color: var(--danger); }
 
         .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--accent-strong); color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
         .toast.show { opacity: 1; }
 
-        .nav .dropdown { position: relative; display: flex; align-items: center; }
-        .nav .dropdown-toggle { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
-        .nav .dropdown-toggle:hover { color: var(--text); background: var(--bg-raised); }
-        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0; min-width: 180px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
-        .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
-        .nav .dropdown:hover .dropdown-menu { display: block; }
-        .nav .dropdown-menu a { display: block; padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
-        .nav .dropdown-menu a:hover { color: var(--text); background: var(--bg-raised); }
 
         @media (max-width: 768px) {
             .container { padding: 1rem; }
@@ -93,10 +83,11 @@
     <script src="/poll.js"></script>
     <script>
     function showToast(msg) {
-        const t = document.getElementById('toast');
-        t.textContent = msg;
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 2500);
+        if (window.StreamPulse?.toast) StreamPulse.toast(msg);
+        else {
+            const t = document.getElementById('toast');
+            if (t) { t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
+        }
     }
 
     function escapeHtml(str) {
@@ -117,6 +108,7 @@
                 `<span class="hashtag-pill banned">
                     <span class="tag">${escapeHtml(tag)}</span>
                     <button class="unban-btn" onclick="unbanHashtag('${escapeHtml(tag)}')" title="Unban">✕</button>
+                    <button class="delete-btn" onclick="deleteHashtagDirect('${escapeHtml(tag)}')" title="Delete permanently">🗑️</button>
                 </span>`
             ).join('') + '</div>';
     }
@@ -133,6 +125,7 @@
                 <span class="tag">${escapeHtml(h.tag)}</span>
                 <span class="count">×${h.count}</span>
                 <button class="ban-btn" onclick="banHashtagDirect('${escapeHtml(h.tag)}')" title="Ban">🚫</button>
+                <button class="delete-btn" onclick="deleteHashtagDirect('${escapeHtml(h.tag)}')" title="Delete permanently">🗑️</button>
             </span>`
         ).join('');
     }
@@ -197,6 +190,26 @@
                 refresh();
             }
         } catch { showToast('Unban failed'); }
+    }
+
+    async function deleteHashtagDirect(tag) {
+        const confirmed = window.StreamPulse?.confirm
+            ? await StreamPulse.confirm(`Are you sure you want to delete ${tag}? All session and historical stats for this hashtag will be permanently removed.`)
+            : confirm(`Are you sure you want to delete ${tag}? All session and historical stats for this hashtag will be permanently removed.`);
+        if (!confirmed) return;
+
+        try {
+            const res = await fetch(`/api/hashtags?tag=${encodeURIComponent(tag)}`, {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            if (res.ok && data.status === 'deleted') {
+                showToast(`Deleted ${data.tag}`);
+                refresh();
+            } else {
+                showToast(data.error || 'Delete failed');
+            }
+        } catch { showToast('Delete failed'); }
     }
 
     document.getElementById('ban-input').addEventListener('keydown', (e) => {

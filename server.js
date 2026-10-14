@@ -6970,6 +6970,64 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
+    if (pathname === '/api/hashtags' && req.method === 'DELETE') {
+        const queryTag = url.searchParams.get('tag');
+        const processDelete = (rawTag) => {
+            if (!rawTag) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing tag' }));
+                return;
+            }
+            const normalized = rawTag.toLowerCase().startsWith('#') ? rawTag.toLowerCase() : `#${rawTag.toLowerCase()}`;
+
+            let modified = false;
+
+            if (chatData?.hashtags && chatData.hashtags[normalized]) {
+                delete chatData.hashtags[normalized];
+                saveChatData();
+                modified = true;
+            }
+
+            if (statsData?.hashtags && statsData.hashtags[normalized]) {
+                delete statsData.hashtags[normalized];
+                saveStats();
+                modified = true;
+            }
+
+            if (bannedHashtags.has(normalized)) {
+                bannedHashtags.delete(normalized);
+                saveBannedHashtags();
+                modified = true;
+            }
+
+            if (modified) {
+                broadcastToOverlays('update', chatData);
+            }
+
+            console.log(`[Hashtags] Deleted hashtag: ${normalized}`);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'deleted', tag: normalized }));
+        };
+
+        if (queryTag) {
+            processDelete(queryTag);
+            return;
+        }
+
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const parsed = body ? JSON.parse(body) : {};
+                processDelete(parsed.tag);
+            } catch (err) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: err.message }));
+            }
+        });
+        return;
+    }
+
     if (pathname === '/api/sessions') {
         if (req.method === 'DELETE') {
             const sessionName = new URL(req.url, 'http://localhost').searchParams.get('session') || '';

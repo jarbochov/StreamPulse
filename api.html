@@ -381,6 +381,12 @@
                     desc: 'Unban a hashtag',
                     details: 'Removes a hashtag from the banned list. Does NOT restore previously purged data. Send JSON body with { "tag": "#example" }.',
                     body: '{ "tag": "#example" }'
+                },
+                {
+                    method: 'DELETE', path: '/api/hashtags',
+                    desc: 'Delete a hashtag completely',
+                    details: 'Permanently deletes a hashtag from session chat data, persistent stats, and banned list. Accepts ?tag=<tag> query parameter or JSON body with { "tag": "#example" }.',
+                    body: '{ "tag": "#example" }'
                 }
             ]
         },

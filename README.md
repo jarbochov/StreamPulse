@@ -375,6 +375,7 @@ The goal overlay fills the browser-source viewport at 100% width and height. Typ
 | `POST /api/game-plan/backfill` | Add past streamed games to Played |
 | `GET /api/hashtags/stats` | Hashtag stats summary + table data |
 | `GET/POST/DELETE /api/hashtags/banned` | Hashtag moderation |
+| `DELETE /api/hashtags` | Delete hashtag permanently (`?tag=`) |
 | `GET /api/export` | Stats CSV export (`?type=chatters\|emotes\|all`) |
 | `GET /api/backup` | Download full data backup (ZIP) |
 | `GET /api/share/items` | List overlays, presets and settings that can be shared |
