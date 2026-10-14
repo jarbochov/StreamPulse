@@ -7163,24 +7163,61 @@ const server = http.createServer(async (req, res) => {
     // Chatter Dossier & Community CRM endpoints
     if (pathname === '/api/chatters' && req.method === 'GET') {
         const query = (url.searchParams.get('q') || '').toLowerCase().trim();
+        const tagFilter = (url.searchParams.get('tag') || '').toLowerCase().trim();
         const chattersList = Object.entries(statsData.chatters || {}).map(([username, d]) => {
             const days = d.days || {};
             const totalMsgs = Object.values(days).reduce((s, c) => s + (Number(c) || 0), 0);
             const notes = chatterNotes[username.toLowerCase()] || {};
+            const subTenure = statsData.subTenure?.[username.toLowerCase()] || statsData.subTenure?.[username];
+            const subMonths = subTenure?.months || 0;
+            const isSubscriber = Boolean(subMonths > 0 || statsData.subscribers?.[username] || statsData.subscribers?.[username.toLowerCase()]);
             return {
                 username,
+                chatname: d.chatname || username,
                 chatimg: d.chatimg || '',
                 totalMessages: totalMsgs,
                 sessionsAttended: Object.keys(days).length,
+                firstSeen: d.firstSeen || null,
                 lastSeen: d.lastSeen || null,
                 isVip: Boolean(notes.isVip),
+                isSubscriber,
+                subMonths,
+                notes: notes.notes || '',
                 tags: notes.tags || []
             };
-        }).filter(c => !query || c.username.toLowerCase().includes(query) || (c.tags || []).some(t => t.toLowerCase().includes(query)))
-          .sort((a, b) => b.totalMessages - a.totalMessages)
-          .slice(0, 100);
+        }).filter(c => {
+            if (tagFilter) {
+                if (tagFilter === 'vip') {
+                    if (!c.isVip) return false;
+                } else if (tagFilter === 'sub' || tagFilter === 'subscriber') {
+                    if (!c.isSubscriber) return false;
+                } else if (!(c.tags || []).some(t => t.toLowerCase() === tagFilter)) {
+                    return false;
+                }
+            }
+            if (!query) return true;
+            return c.username.toLowerCase().includes(query)
+                || (c.chatname && c.chatname.toLowerCase().includes(query))
+                || (c.notes && c.notes.toLowerCase().includes(query))
+                || (c.tags || []).some(t => t.toLowerCase().includes(query));
+        })
+          .sort((a, b) => b.totalMessages - a.totalMessages);
+
+        const allTagsSet = new Set(['VIP', 'Subscriber']);
+        for (const note of Object.values(chatterNotes)) {
+            if (Array.isArray(note.tags)) {
+                for (const t of note.tags) {
+                    if (t && t.trim()) allTagsSet.add(t.trim());
+                }
+            }
+        }
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ chatters: chattersList }));
+        res.end(JSON.stringify({
+            chatters: chattersList.slice(0, 150),
+            total: chattersList.length,
+            tags: Array.from(allTagsSet)
+        }));
         return;
     }
 

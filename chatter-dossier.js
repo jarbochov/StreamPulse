@@ -350,6 +350,9 @@
         `;
         document.body.appendChild(dialog);
 
+        dialog.addEventListener('close', () => {
+            window.dispatchEvent(new CustomEvent('chatter-dossier-closed', { detail: { chatter: currentChatter } }));
+        });
         document.getElementById('dos-close').addEventListener('click', () => dialog.close());
         document.getElementById('dos-done-btn').addEventListener('click', () => dialog.close());
 
@@ -384,6 +387,7 @@
             const hint = document.getElementById('dos-saved-hint');
             hint.classList.add('show');
             setTimeout(() => hint.classList.remove('show'), 1500);
+            window.dispatchEvent(new CustomEvent('chatter-updated', { detail: { username: currentChatter.username, notes, tags: currentChatter.tags } }));
         } catch (e) {
             console.warn('[Chatter Dossier] Failed to save notes:', e);
         }

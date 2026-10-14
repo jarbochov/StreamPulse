@@ -80,7 +80,7 @@
             { label: 'Clips (Beta)', href: '/clips.html' },
             { label: 'Sessions', href: '/sessions.html?session=__current__' },
             { label: 'Categories', href: '/categories.html' },
-            { label: 'Analytics & Subscribers', href: '/analytics.html' },
+            { label: 'Analytics & CRM', href: '/analytics.html' },
             { label: 'Hashtag Stats', href: '/hashtag-stats.html' }
         ]},
         { label: 'Manage ▾', children: [
@@ -140,6 +140,10 @@
                 });
             }
         }
+        // Additional deep-link shortcuts for command palette
+        list.push({ label: 'Milestones & Streaks', href: '/analytics.html#milestones', group: 'Analytics' });
+        list.push({ label: 'Community CRM (Chatters & Notes)', href: '/analytics.html#crm', group: 'Analytics' });
+        list.push({ label: 'Subscribers & Growth', href: '/analytics.html#growth', group: 'Analytics' });
         return list;
     }
 

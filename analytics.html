@@ -14,7 +14,7 @@
         .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
-        .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.2rem; }
         .card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.8rem; }
         h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); font-weight: 600; }
@@ -32,7 +32,7 @@
         .seg button:last-child { border-radius: 0 6px 6px 0; }
         .seg button.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); position: relative; z-index: 1; }
         .spacer { flex: 1; }
-        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.6rem; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.6rem; }
         .stat { text-align: center; background: var(--bg-inset); border: 1px solid var(--bg-raised); border-radius: 8px; padding: 0.7rem 0.4rem; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
         .stat:hover { border-color: var(--border-strong); }
         .stat.active { border-color: var(--accent); background: var(--accent-bg); }
@@ -45,7 +45,6 @@
         .chart text { fill: var(--text-muted); font-size: 11px; }
         .chart .grid { stroke: var(--bg-raised); stroke-width: 1; }
         .chart .hit { cursor: pointer; fill: transparent; }
-        .chart .hit:hover + .dot, .chart .hit:hover ~ .dot { }
         .chart .bar { fill: var(--accent-strong); opacity: 0.85; }
         .chart .hot .bar { fill: var(--accent); opacity: 1; }
         .chart .dot { fill: var(--accent); stroke: var(--bg-inset); stroke-width: 2; }
@@ -82,72 +81,236 @@
         .gifters li:last-child { border-bottom: 0; }
         .gifters b { color: var(--accent); font-variant-numeric: tabular-nums; }
         .chart.short { height: 240px; }
-        .btn { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 0.3rem 0.7rem; font-size: 0.78rem; cursor: pointer; }
+        .btn { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; }
         .btn:hover { border-color: var(--accent); }
         .head-tools { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+        /* Tabs Navigation */
+        .tabs-nav { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.25rem; }
+        .tab-btn { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.55rem 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); font-size: 0.84rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; user-select: none; }
+        .tab-btn:hover { border-color: var(--accent); color: var(--text); }
+        .tab-btn.active { background: color-mix(in srgb, var(--accent) 14%, var(--bg-card)); border-color: var(--accent); color: var(--accent); font-weight: 600; box-shadow: 0 0 0 1px var(--accent); }
+        .tab-icon { font-size: 1rem; line-height: 1; }
+        .tab-pane { display: flex; flex-direction: column; gap: 1rem; }
+        .tab-pane[hidden] { display: none !important; }
+
+        /* Milestones & Streaks */
+        .milestone-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+        .milestone-card { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.2rem; display: flex; flex-direction: column; gap: 0.5rem; }
+        .milestone-card-head { display: flex; justify-content: space-between; align-items: center; }
+        .milestone-card-title { font-weight: 600; font-size: 0.9rem; color: var(--text); }
+        .milestone-card-badge { font-size: 0.72rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+        .milestone-progress-bar { height: 10px; border-radius: 999px; background: var(--bg-raised); border: 1px solid var(--border); overflow: hidden; margin: 0.2rem 0; }
+        .milestone-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-strong, #6366f1)); border-radius: 999px; transition: width 0.4s ease; }
+        .milestone-progress-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); }
+        .cheat-table { width: 100%; border-collapse: collapse; }
+        .cheat-table th, .cheat-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
+        .cheat-code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.78rem; background: var(--bg-inset); padding: 0.2rem 0.45rem; border-radius: 4px; border: 1px solid var(--border); color: var(--accent); }
+        .copy-btn { font-size: 0.72rem; padding: 0.22rem 0.55rem; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 5px; cursor: pointer; color: var(--text-muted); transition: all 0.15s; }
+        .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .copy-btn.copied { border-color: var(--success, #2ea043); color: var(--success, #2ea043); }
+
+        /* Community CRM */
+        .crm-tags-bar { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; margin-top: 0.6rem; }
+        .tag-chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.76rem; background: var(--bg-inset); border: 1px solid var(--border); cursor: pointer; color: var(--text-muted); user-select: none; transition: all 0.15s; }
+        .tag-chip:hover { border-color: var(--accent); color: var(--text); }
+        .tag-chip.active { background: color-mix(in srgb, var(--accent) 18%, var(--bg-inset)); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+        .chatter-cell { display: inline-flex; align-items: center; gap: 0.65rem; }
+        .chatter-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: var(--bg-raised); border: 1px solid var(--border); flex-shrink: 0; }
+        .tag-badge { display: inline-block; padding: 0.08rem 0.45rem; border-radius: 999px; font-size: 0.7rem; background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); margin-right: 0.25rem; }
+        .tag-badge.vip { border-color: #e3b341; color: #e3b341; background: rgba(227, 179, 65, 0.12); }
+        .tag-badge.sub { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+        .note-preview { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 0.75rem; font-style: italic; }
+
         @media (max-width: 800px) { .split { grid-template-columns: minmax(0, 1fr); } .container { padding: 1rem; } .header { padding: 1rem; flex-wrap: wrap; } }
     </style>
 </head>
 <body>
-    <div class="header"><h1>StreamPulse <span>Analytics</span></h1><div id="main-nav" class="nav"></div><script src="/nav.js"></script></div>
+    <div class="header">
+        <h1>StreamPulse <span>Analytics</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
     <main class="container">
-        <section class="card">
-            <div class="toolbar">
-                <div class="seg" id="presets" role="group" aria-label="Quick ranges">
-                    <button data-days="30">30 days</button><button data-days="60">60 days</button><button data-days="90">90 days</button><button data-days="all">All time</button>
+        <!-- Main Tabs Navigation -->
+        <nav class="tabs-nav" role="tablist" aria-label="Analytics Sections">
+            <button class="tab-btn active" data-tab="sessions" role="tab" aria-selected="true" aria-controls="tab-sessions">
+                <span class="tab-icon">📊</span> Streams &amp; Activity
+            </button>
+            <button class="tab-btn" data-tab="milestones" role="tab" aria-selected="false" aria-controls="tab-milestones">
+                <span class="tab-icon">🏆</span> Milestones &amp; Streaks
+            </button>
+            <button class="tab-btn" data-tab="crm" role="tab" aria-selected="false" aria-controls="tab-crm">
+                <span class="tab-icon">👥</span> Community CRM
+            </button>
+            <button class="tab-btn" data-tab="growth" role="tab" aria-selected="false" aria-controls="tab-growth">
+                <span class="tab-icon">📈</span> Subscribers &amp; Growth
+            </button>
+        </nav>
+
+        <!-- TAB 1: Streams & Volume -->
+        <div id="tab-sessions" class="tab-pane" role="tabpanel">
+            <section class="card">
+                <div class="toolbar">
+                    <div class="seg" id="presets" role="group" aria-label="Quick ranges">
+                        <button data-days="30">30 days</button><button data-days="60">60 days</button><button data-days="90">90 days</button><button data-days="all">All time</button>
+                    </div>
+                    <div class="field"><label for="from">From</label><input id="from" type="date"></div>
+                    <div class="field"><label for="to">To</label><input id="to" type="date"></div>
+                    <button id="apply">Apply</button>
+                    <span class="spacer"></span>
+                    <span id="status" class="muted"></span>
+                    <button id="export">Export CSV</button>
                 </div>
-                <div class="field"><label for="from">From</label><input id="from" type="date"></div>
-                <div class="field"><label for="to">To</label><input id="to" type="date"></div>
-                <button id="apply">Apply</button>
-                <span class="spacer"></span>
-                <span id="status" class="muted"></span>
-                <button id="export">Export CSV</button>
-            </div>
-        </section>
+            </section>
 
-        <section class="card"><div class="card-head"><h2>Summary</h2><span class="muted">Click a card to chart it</span></div><div class="stats" id="summary"></div></section>
+            <section class="card">
+                <div class="card-head"><h2>Summary</h2><span class="muted">Click a card to chart it</span></div>
+                <div class="stats" id="summary"></div>
+            </section>
 
-        <section class="card">
-            <div class="card-head">
-                <h2 id="activity-title">Messages by Session</h2>
-                <div class="seg" id="chart-type" role="group" aria-label="Chart type"><button data-type="bar" class="active">Bars</button><button data-type="line">Line</button></div>
-            </div>
-            <div class="chart-wrap"><div id="chart" class="chart"></div><div id="tip" class="tip"></div></div>
-        </section>
-
-        <section class="card">
-            <div class="card-head"><h2>Sessions</h2><span class="muted" id="sessions-count"></span></div>
-            <div class="table-wrap"><table id="sessions-table"><thead><tr id="session-head"></tr></thead><tbody id="sessions"></tbody></table></div>
-        </section>
-
-        <section class="card">
-            <div class="card-head"><h2>Subscribers</h2><span id="sub-updated" class="muted"></span></div>
-            <div class="stats static" id="sub-summary"></div>
-            <div class="split">
-                <div>
-                    <div class="card-head"><h3 id="growth-title">Subscriber growth</h3><div class="seg" id="growth-mode" role="group" aria-label="Growth chart"><button data-mode="subs" class="active">Subscribers</button><button data-mode="followers">Followers</button></div></div>
-                    <div class="chart-wrap"><div id="growth" class="chart short"></div><div id="growth-tip" class="tip"></div></div>
-                    <p class="muted note" id="growth-note"></p>
+            <section class="card">
+                <div class="card-head">
+                    <h2 id="activity-title">Messages by Session</h2>
+                    <div class="seg" id="chart-type" role="group" aria-label="Chart type">
+                        <button data-type="bar" class="active">Bars</button><button data-type="line">Line</button>
+                    </div>
                 </div>
-                <div>
-                    <h3 id="side-title">Top gifters <span class="muted">(active gifted subs)</span></h3>
-                    <ul class="gifters" id="gifters"></ul>
-                </div>
-            </div>
-        </section>
+                <div class="chart-wrap"><div id="chart" class="chart"></div><div id="tip" class="tip"></div></div>
+            </section>
 
-        <section class="card">
-            <div class="card-head"><h2>Current Subscribers</h2><div class="head-tools"><input id="sub-search" type="search" placeholder="Filter subscribers…" aria-label="Filter subscribers"><button class="btn" id="sub-export">Export CSV</button></div></div>
-            <div class="table-wrap"><table id="subscribers-table"><thead><tr id="sub-head"></tr></thead><tbody id="subs"></tbody></table></div>
-            <p class="muted note">Twitch's API doesn't expose subscription length. <b>Tenure</b> is the highest month count StreamPulse has seen on a subscriber's chat badge or resub alert, so it fills in as subscribers chat. <b>Observed</b> is how long StreamPulse has tracked them. Gifted subs show who gifted them.</p>
-        </section>
-        <section class="card">
-            <div class="card-head"><h2>Followers <span class="muted" id="fol-count"></span></h2><div class="head-tools"><input id="fol-search" type="search" placeholder="Filter followers…" aria-label="Filter followers"><button class="btn" id="fol-export">Export CSV</button></div></div>
-            <p class="muted note" id="fol-summary"></p>
-            <div class="table-wrap" style="max-height:24rem;overflow:auto"><table><thead><tr id="fol-head"></tr></thead><tbody id="fols"></tbody></table></div>
-            <p class="muted note">Updated whenever StreamPulse fetches Twitch data. Joined and left are measured between fetches, so they are approximate.</p>
-        </section>
+            <section class="card">
+                <div class="card-head"><h2>Sessions</h2><span class="muted" id="sessions-count"></span></div>
+                <div class="table-wrap"><table id="sessions-table"><thead><tr id="session-head"></tr></thead><tbody id="sessions"></tbody></table></div>
+            </section>
+        </div>
+
+        <!-- TAB 2: Milestones & Streaks -->
+        <div id="tab-milestones" class="tab-pane" role="tabpanel" hidden>
+            <section class="card">
+                <div class="card-head">
+                    <h2>Lifetime Broadcast Stats &amp; Streaks</h2>
+                    <button class="btn" id="refresh-milestones-btn">↻ Refresh</button>
+                </div>
+                <div class="stats static" id="milestone-summary"></div>
+            </section>
+
+            <section class="card">
+                <div class="card-head">
+                    <h2>Upcoming Goals &amp; Milestone Progress</h2>
+                    <span class="muted">Calculated automatically from your archived broadcast sessions</span>
+                </div>
+                <div class="milestone-grid" id="milestone-progress-cards"></div>
+            </section>
+
+            <section class="card">
+                <div class="card-head">
+                    <h2>Overlay &amp; Chatbot Placeholders</h2>
+                    <span class="muted">Use these tokens in Custom Overlays, alerts, or chatbot commands</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="cheat-table">
+                        <thead>
+                            <tr>
+                                <th>Placeholder</th>
+                                <th>Description</th>
+                                <th>Current Value</th>
+                                <th style="text-align:right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="placeholder-rows"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- TAB 3: Community CRM -->
+        <div id="tab-crm" class="tab-pane" role="tabpanel" hidden>
+            <section class="card">
+                <div class="card-head">
+                    <h2>Community Directory &amp; Chatter CRM</h2>
+                    <span class="muted" id="crm-count"></span>
+                </div>
+                <div class="toolbar" style="margin-bottom:0.4rem;">
+                    <input id="crm-search" type="search" placeholder="🔍 Search chatters, notes, or tags…" style="min-width:280px; flex:1;" aria-label="Search chatters">
+                    <button class="btn" id="crm-open-btn">Open Dossier</button>
+                </div>
+                <div class="crm-tags-bar" id="crm-tags-filter"></div>
+            </section>
+
+            <section class="card">
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Chatter</th>
+                                <th>Community Tags</th>
+                                <th>Private Notes</th>
+                                <th class="num">Attendance</th>
+                                <th class="num">Messages</th>
+                                <th>Last Active</th>
+                                <th style="text-align:right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="crm-table-body"></tbody>
+                    </table>
+                </div>
+                <p class="muted note">Click any row or avatar to view their complete Chatter Dossier, stream history, and private notes. Notes are saved automatically.</p>
+            </section>
+        </div>
+
+        <!-- TAB 4: Subscribers & Growth -->
+        <div id="tab-growth" class="tab-pane" role="tabpanel" hidden>
+            <section class="card">
+                <div class="card-head"><h2>Subscribers</h2><span id="sub-updated" class="muted"></span></div>
+                <div class="stats static" id="sub-summary"></div>
+                <div class="split">
+                    <div>
+                        <div class="card-head">
+                            <h3 id="growth-title">Subscriber growth</h3>
+                            <div class="seg" id="growth-mode" role="group" aria-label="Growth chart">
+                                <button data-mode="subs" class="active">Subscribers</button>
+                                <button data-mode="followers">Followers</button>
+                            </div>
+                        </div>
+                        <div class="chart-wrap"><div id="growth" class="chart short"></div><div id="growth-tip" class="tip"></div></div>
+                        <p class="muted note" id="growth-note"></p>
+                    </div>
+                    <div>
+                        <h3 id="side-title">Top gifters <span class="muted">(active gifted subs)</span></h3>
+                        <ul class="gifters" id="gifters"></ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-head">
+                    <h2>Current Subscribers</h2>
+                    <div class="head-tools">
+                        <input id="sub-search" type="search" placeholder="Filter subscribers…" aria-label="Filter subscribers">
+                        <button class="btn" id="sub-export">Export CSV</button>
+                    </div>
+                </div>
+                <div class="table-wrap"><table id="subscribers-table"><thead><tr id="sub-head"></tr></thead><tbody id="subs"></tbody></table></div>
+                <p class="muted note">Twitch's API doesn't expose subscription length. <b>Tenure</b> is the highest month count StreamPulse has seen on a subscriber's chat badge or resub alert, so it fills in as subscribers chat. <b>Observed</b> is how long StreamPulse has tracked them. Gifted subs show who gifted them.</p>
+            </section>
+
+            <section class="card">
+                <div class="card-head">
+                    <h2>Followers <span class="muted" id="fol-count"></span></h2>
+                    <div class="head-tools">
+                        <input id="fol-search" type="search" placeholder="Filter followers…" aria-label="Filter followers">
+                        <button class="btn" id="fol-export">Export CSV</button>
+                    </div>
+                </div>
+                <p class="muted note" id="fol-summary"></p>
+                <div class="table-wrap" style="max-height:24rem;overflow:auto"><table><thead><tr id="fol-head"></tr></thead><tbody id="fols"></tbody></table></div>
+                <p class="muted note">Updated whenever StreamPulse fetches Twitch data. Joined and left are measured between fetches, so they are approximate.</p>
+            </section>
+        </div>
     </main>
+
 <script>
 const $ = id => document.getElementById(id);
 const fmt = n => Number(n || 0).toLocaleString();
@@ -161,9 +324,45 @@ const SESSION_COLS = [
 const SUB_COLS = [['name', 'Subscriber'], ['tier', 'Tier'], ['tenureMonths', 'Tenure', 1], ['gifter', 'Gifted by'], ['plan', 'Plan'], ['firstSeen', 'First observed'], ['lastSeen', 'Last observed'], ['observedDays', 'Observed', 1]];
 const prefs = Object.assign({ metric: 'messages', chart: 'bar', days: '30' }, JSON.parse(localStorage.getItem('analyticsPrefs') || '{}'));
 const savePrefs = () => localStorage.setItem('analyticsPrefs', JSON.stringify(prefs));
-let report = null, subscriberRows = [], subInfo = { summary: {}, history: [] };
+let report = null, subscriberRows = [], subInfo = { summary: {}, history: [] }, folRows = [], folInfo = { history: [] };
 const sort = { sessions: { key: 'date', dir: 'desc' }, subs: { key: 'name', dir: 'asc' } };
 
+// Tab Navigation
+function switchTab(tabId, pushHash = true) {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        const isActive = btn.dataset.tab === tabId;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.hidden = (pane.id !== `tab-${tabId}`);
+    });
+    if (pushHash) {
+        history.replaceState(null, '', `#${tabId}`);
+    }
+    if (tabId === 'milestones') {
+        loadMilestones();
+    } else if (tabId === 'crm') {
+        loadChatters();
+    } else if (tabId === 'sessions') {
+        if (report) drawChart();
+    } else if (tabId === 'growth') {
+        if (subInfo) drawGrowth();
+    }
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+window.addEventListener('hashchange', () => {
+    const hash = location.hash.replace('#', '');
+    if (['sessions', 'milestones', 'crm', 'growth'].includes(hash)) {
+        switchTab(hash, false);
+    }
+});
+
+// Compare & Sort helpers
 function compareRows(a, b, key, isDate) {
     if (isDate) return new Date(a[key] || 0).getTime() - new Date(b[key] || 0).getTime();
     const av = a[key] ?? '', bv = b[key] ?? '';
@@ -176,6 +375,7 @@ function sorted(rows, { key, dir }) {
 }
 function renderHead(rowId, cols, state, onSort) {
     const row = $(rowId);
+    if (!row) return;
     row.innerHTML = cols.map(([key, label, num]) => `<th data-sort="${key}" class="${num ? 'num ' : ''}${state.key === key ? 'sort-active' + (state.dir === 'asc' ? ' asc' : '') : ''}">${label}</th>`).join('');
     row.querySelectorAll('th').forEach(th => th.addEventListener('click', () => onSort(th.dataset.sort)));
 }
@@ -296,6 +496,7 @@ document.addEventListener('click', e => {
     renderSubscriberSummary();
     drawGrowth();
 });
+
 function drawGrowth() {
     const isFol = growthMode === 'followers';
     const noun = isFol ? 'followers' : 'subscribers';
@@ -351,12 +552,12 @@ function renderSubscribers() {
         <td class="num${s.observedDays ? '' : ' zero'}">${s.observedDays ? `${fmt(s.observedDays)} days` : 'Not observed'}</td></tr>`).join('')
         || `<tr><td colspan="${SUB_COLS.length}" class="empty">${subscriberRows.length ? 'No subscribers match your filter.' : 'No current subscribers found.'}</td></tr>`;
 }
-let folRows = [], folInfo = { history: [] };
-const folSort = { key: 'followedAt', dir: 'desc' };
+
 function filteredFollowers() {
     const q = $('fol-search').value.trim().toLowerCase();
     return sorted(folRows, folSort).filter(f => !q || f.name.toLowerCase().includes(q));
 }
+const folSort = { key: 'followedAt', dir: 'desc' };
 function renderFollowers() {
     renderHead('fol-head', [['name', 'Follower'], ['followedAt', 'Followed']], folSort, key => { toggleSort(folSort, key, ['name']); renderFollowers(); });
     const rows = filteredFollowers();
@@ -393,7 +594,7 @@ function niceMax(value) {
 function drawChart() {
     $('activity-title').textContent = `${LABELS[prefs.metric] || 'Activity'} by Session`;
     document.querySelectorAll('#chart-type button').forEach(b => b.classList.toggle('active', b.dataset.type === prefs.chart));
-    const rows = [...(report.sessions || [])].sort((a, b) => compareRows(a, b, 'date', true));
+    const rows = [...(report?.sessions || [])].sort((a, b) => compareRows(a, b, 'date', true));
     if (!rows.length) { $('chart').innerHTML = '<div class="empty">No activity to chart in this range.</div>'; return; }
     const W = Math.max(320, Math.round($('chart').clientWidth || 1000)), H = 260, left = 46, right = 14, top = 14, bottom = 28;
     const values = rows.map(r => Number(r[prefs.metric]) || 0);
@@ -455,7 +656,229 @@ $('export').addEventListener('click', () => {
 });
 $('presets').addEventListener('click', event => { const b = event.target.closest('button'); if (b) setRange(b.dataset.days); });
 $('apply').addEventListener('click', () => { markPreset(''); load(); });
+
+// ==========================================
+// TAB 2: MILESTONES & STREAKS LOGIC
+// ==========================================
+let milestonesData = null;
+async function loadMilestones() {
+    try {
+        const res = await fetch('/api/milestones');
+        if (!res.ok) throw new Error('Failed to load milestones');
+        milestonesData = await res.json();
+        renderMilestonesView();
+    } catch (e) {
+        console.error('Milestones load error:', e);
+    }
+}
+$('refresh-milestones-btn')?.addEventListener('click', () => loadMilestones());
+
+function renderMilestonesView() {
+    if (!milestonesData) return;
+    const m = milestonesData;
+
+    // Overview cards
+    const summaryCards = [
+        [m.total_time || `${m.total_hours || 0}h`, 'Broadcast Hours'],
+        [`Stream #${m.stream_number || 0}`, 'Current Stream'],
+        [`${m.streak_days || 0} ${m.streak_days === 1 ? 'day' : 'days'}`, 'Daily Streak 🔥'],
+        [`${m.streak_weeks || 0} ${m.streak_weeks === 1 ? 'wk' : 'wks'}`, 'Weekly Streak 📅'],
+        [fmt(m.lifetime_chatters), 'Unique Chatters'],
+        [fmt(m.lifetime_messages), 'Lifetime Messages']
+    ];
+    $('milestone-summary').innerHTML = summaryCards.map(([val, lbl]) => `<div class="stat"><strong>${esc(val)}</strong><span>${esc(lbl)}</span></div>`).join('');
+
+    // Goal Progress cards
+    const milestones = m.milestones || [];
+    $('milestone-progress-cards').innerHTML = milestones.map(item => {
+        const current = item.current || 0;
+        const target = item.target || 1;
+        const remaining = Math.max(0, target - current);
+        const pct = Math.min(100, Math.max(0, Math.round((current / target) * 100)));
+        return `
+            <div class="milestone-card">
+                <div class="milestone-card-head">
+                    <span class="milestone-card-title">${esc(item.title)}</span>
+                    <span class="milestone-card-badge">${pct}%</span>
+                </div>
+                <div class="milestone-progress-bar">
+                    <div class="milestone-progress-fill" style="width: ${pct}%"></div>
+                </div>
+                <div class="milestone-progress-meta">
+                    <span>${fmt(current)} / ${fmt(target)} ${esc(item.unit)}</span>
+                    <span>${remaining > 0 ? `${fmt(remaining)} ${esc(item.unit)} to go` : 'Goal reached! 🎉'}</span>
+                </div>
+            </div>
+        `;
+    }).join('') || '<div class="empty">No goals active.</div>';
+
+    // Placeholders cheat sheet table
+    const placeholders = [
+        ['{milestone_stream_num}', 'Current stream number', `Stream #${m.stream_number}`],
+        ['{milestone_total_hours}', 'Formatted lifetime time (hours & minutes)', m.total_time],
+        ['{milestone_total_hours_only}', 'Lifetime hours as a single number', String(m.total_hours)],
+        ['{milestone_daily_streak}', 'Daily consecutive stream streak count', `${m.streak_days} days`],
+        ['{milestone_weekly_streak}', 'Weekly consecutive stream streak count', `${m.streak_weeks} weeks`],
+        ['{milestone_unique_chatters}', 'Unique chatters across all streams', fmt(m.lifetime_chatters)],
+        ['{milestone_total_messages}', 'Lifetime chat messages count', fmt(m.lifetime_messages)],
+        ['{milestone_next_stream}', 'Next stream number milestone goal', `Stream #${m.next_stream_goal}`],
+        ['{milestone_streams_left}', 'Streams remaining until next stream goal', `${Math.max(0, (m.next_stream_goal || 0) - (m.stream_number || 0))}`]
+    ];
+
+    $('placeholder-rows').innerHTML = placeholders.map(([code, desc, val]) => `
+        <tr>
+            <td><code class="cheat-code">${esc(code)}</code></td>
+            <td class="muted">${esc(desc)}</td>
+            <td><b>${esc(val)}</b></td>
+            <td style="text-align:right">
+                <button class="copy-btn" data-copy="${esc(code)}">Copy</button>
+            </td>
+        </tr>
+    `).join('');
+
+    $('placeholder-rows').querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const code = btn.dataset.copy;
+            try {
+                await navigator.clipboard.writeText(code);
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('copied');
+                }, 1400);
+            } catch (err) {
+                console.warn('Copy failed:', err);
+            }
+        });
+    });
+}
+
+// ==========================================
+// TAB 3: COMMUNITY CRM LOGIC
+// ==========================================
+let crmChatters = [];
+let crmTags = [];
+let activeTagFilter = '';
+let searchDebounce = null;
+
+async function loadChatters() {
+    const q = $('crm-search')?.value.trim() || '';
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (activeTagFilter) params.set('tag', activeTagFilter);
+
+    try {
+        const res = await fetch(`/api/chatters?` + params.toString());
+        if (!res.ok) throw new Error('Failed to load chatters');
+        const data = await res.json();
+        crmChatters = data.chatters || [];
+        if (data.tags) {
+            crmTags = data.tags;
+            renderCrmTagsBar();
+        }
+        renderCrmTable();
+    } catch (e) {
+        console.error('CRM load error:', e);
+    }
+}
+
+function renderCrmTagsBar() {
+    const wrap = $('crm-tags-filter');
+    if (!wrap) return;
+    const chips = ['All', ...crmTags];
+    wrap.innerHTML = chips.map(tag => {
+        const isAll = tag === 'All';
+        const isActive = isAll ? !activeTagFilter : activeTagFilter.toLowerCase() === tag.toLowerCase();
+        return `<button type="button" class="tag-chip${isActive ? ' active' : ''}" data-tag="${isAll ? '' : esc(tag)}">${esc(tag)}</button>`;
+    }).join('');
+
+    wrap.querySelectorAll('.tag-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            activeTagFilter = btn.dataset.tag;
+            renderCrmTagsBar();
+            loadChatters();
+        });
+    });
+}
+
+function renderCrmTable() {
+    const tbody = $('crm-table-body');
+    if (!tbody) return;
+    $('crm-count').textContent = crmChatters.length ? `${fmt(crmChatters.length)} chatters shown` : '';
+
+    if (!crmChatters.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">No community members match your filter.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = crmChatters.map(c => {
+        const fallbackAvatar = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="%238b949e" viewBox="0 0 16 16"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/></svg>';
+        const avatarSrc = c.chatimg || fallbackAvatar;
+        const lastSeenStr = c.lastSeen ? shortDate(c.lastSeen) : '—';
+        const notesPreview = c.notes ? esc(c.notes) : '<span class="muted">—</span>';
+        
+        // Tags badges
+        let tagsHtml = (c.tags || []).map(t => `<span class="tag-badge">${esc(t)}</span>`).join('');
+        if (c.isVip) tagsHtml = `<span class="tag-badge vip">★ VIP</span> ` + tagsHtml;
+        if (c.isSubscriber) tagsHtml = `<span class="tag-badge sub">Sub${c.subMonths ? ` (${c.subMonths}m)` : ''}</span> ` + tagsHtml;
+        if (!tagsHtml) tagsHtml = '<span class="muted">—</span>';
+
+        return `
+            <tr style="cursor:pointer;" data-chatter="${esc(c.username)}" title="Click to view ${esc(c.username)}'s dossier">
+                <td>
+                    <div class="chatter-cell">
+                        <img class="chatter-avatar" src="${esc(avatarSrc)}" alt="" onerror="this.src='${fallbackAvatar}'">
+                        <div>
+                            <b>${esc(c.chatname || c.username)}</b>
+                            ${c.chatname && c.chatname.toLowerCase() !== c.username.toLowerCase() ? `<br><span class="muted" style="font-size:0.72rem">@${esc(c.username)}</span>` : ''}
+                        </div>
+                    </div>
+                </td>
+                <td>${tagsHtml}</td>
+                <td><div class="note-preview">${notesPreview}</div></td>
+                <td class="num">${fmt(c.sessionsAttended)} streams</td>
+                <td class="num">${fmt(c.totalMessages)}</td>
+                <td>${esc(lastSeenStr)}</td>
+                <td style="text-align:right">
+                    <button class="btn" style="padding:0.2rem 0.55rem; font-size:0.74rem;" data-chatter="${esc(c.username)}">Dossier ✎</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+$('crm-search')?.addEventListener('input', () => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(loadChatters, 250);
+});
+
+$('crm-open-btn')?.addEventListener('click', () => {
+    const q = $('crm-search')?.value.trim();
+    if (q && typeof window.openChatterDossier === 'function') {
+        window.openChatterDossier(q);
+    } else {
+        alert('Please enter a username in the search box first.');
+    }
+});
+
+// Refresh CRM when dossier saves or closes
+window.addEventListener('chatter-updated', () => {
+    if (!$('tab-crm').hidden) loadChatters();
+});
+window.addEventListener('chatter-dossier-closed', () => {
+    if (!$('tab-crm').hidden) loadChatters();
+});
+
+// Initial Setup
+const initialHash = location.hash.replace('#', '');
 setRange(prefs.days);
+if (['sessions', 'milestones', 'crm', 'growth'].includes(initialHash)) {
+    switchTab(initialHash, false);
+} else {
+    switchTab('sessions', false);
+}
 </script>
 </body>
 </html>
