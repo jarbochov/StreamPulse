@@ -39,12 +39,12 @@
         .stat .label { margin-top: 0.3rem; font-size: 0.75rem; color: var(--text-muted); }
         .table-wrap { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 0.7rem 0.6rem; border-bottom: 1px solid var(--bg-raised); text-align: left; font-size: 0.84rem; vertical-align: middle; }
-        th { color: var(--text-muted); font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer; user-select: none; }
+        th, td { padding: 0.7rem 0.6rem; border-bottom: 1px solid var(--bg-raised); text-align: left; font-size: 0.84rem; vertical-align: middle; white-space: nowrap; }
+        th { color: var(--text-muted); font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer; user-select: none; white-space: nowrap; }
         th.sort-active { color: var(--accent); }
-        th.sort-active::after { content: ' ▼'; font-size: 0.65rem; }
-        th.sort-active.asc::after { content: ' ▲'; font-size: 0.65rem; }
-        td.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+        th.sort-active::after { content: '\00a0▼'; font-size: 0.65rem; display: inline-block; }
+        th.sort-active.asc::after { content: '\00a0▲'; }
+        th.numeric, td.numeric { text-align: right; font-variant-numeric: tabular-nums; }
         .muted { color: var(--text-muted); }
         .tag { color: var(--accent); font-weight: 600; }
         .pill { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.5rem; font-size: 0.72rem; }
@@ -136,9 +136,9 @@
                     <thead>
                         <tr>
                             <th data-sort="tag" onclick="setSort('tag')">Hashtag</th>
-                            <th data-sort="count" class="sort-active" onclick="setSort('count')">Count</th>
-                            <th data-sort="sessionCount" onclick="setSort('sessionCount')">Session</th>
-                            <th data-sort="uniqueDays" onclick="setSort('uniqueDays')">Days</th>
+                            <th data-sort="count" class="numeric sort-active" onclick="setSort('count')">Count</th>
+                            <th data-sort="sessionCount" class="numeric" onclick="setSort('sessionCount')">Session</th>
+                            <th data-sort="uniqueDays" class="numeric" onclick="setSort('uniqueDays')">Days</th>
                             <th data-sort="firstUsed" onclick="setSort('firstUsed')">First Seen</th>
                             <th data-sort="lastUsed" onclick="setSort('lastUsed')">Last Seen</th>
                             <th>Status</th>
