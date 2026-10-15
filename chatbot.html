@@ -25,12 +25,14 @@
         .banner.warn { border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: color-mix(in srgb, var(--danger) 6%, var(--bg-inset)); }
         
         /* Tabs */
-        .tabs { display: flex; gap: .35rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-page); z-index: 15; padding: .5rem 0; overflow-x: auto; scrollbar-width: none; }
+        .tabs { display: flex; gap: .35rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-page); z-index: 15; padding: .5rem .35rem; overflow-x: auto; scrollbar-width: none; }
         .tabs::-webkit-scrollbar { display: none; }
-        .tabs button { display: inline-flex; align-items: center; gap: .45rem; background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text-muted); padding: .45rem .85rem; font: inherit; font-size: .85rem; font-weight: 500; cursor: pointer; transition: all .15s; white-space: nowrap; }
+        .tabs button { flex-shrink: 0; display: inline-flex; align-items: center; gap: .45rem; background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text-muted); padding: .45rem .85rem; font: inherit; font-size: .85rem; font-weight: 500; cursor: pointer; transition: all .15s; white-space: nowrap; }
         .tabs button:hover { color: var(--text); background: var(--bg-card); }
         .tabs button[aria-selected="true"] { color: var(--text); background: var(--bg-card); border-color: var(--border); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .tabs button:last-child { margin-right: .5rem; }
         .tabs .count { background: var(--bg-inset); border: 1px solid var(--border); color: var(--text-muted); font-size: .7rem; font-weight: 600; padding: .1rem .45rem; border-radius: 999px; line-height: 1.2; }
+        .tabs .count:empty { display: none; }
         .tabs button[aria-selected="true"] .count { background: var(--accent-bg); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
         .card[data-tab][hidden] { display: none; }
         
@@ -111,7 +113,16 @@
     <div class="header"><h1>StreamPulse <span>Chat Bot</span> <span class="beta">BETA</span></h1><div id="main-nav" class="nav"></div><script src="/nav.js"></script></div>
     <div class="container">
         <div id="banner"></div>
-        <nav class="tabs" id="tabs"><button type="button" data-t="commands">Commands <span class="count" data-c="commands"></span></button><button type="button" data-t="quotes">Quotes <span class="count" data-c="quotes"></span></button><button type="button" data-t="messages">Timed messages <span class="count" data-c="messages"></span></button><button type="button" data-t="triggers">Word triggers <span class="count" data-c="triggers"></span></button><button type="button" data-t="variables">Variables <span class="count" data-c="variables"></span></button><button type="button" data-t="usage">Usage <span class="count" data-c="usage"></span></button><button type="button" data-t="reference">Reference</button><button type="button" data-t="settings">Settings <span class="count" data-c="settings"></span></button></nav>
+        <nav class="tabs" id="tabs">
+            <button type="button" data-t="commands">Commands <span class="count" data-c="commands"></span></button>
+            <button type="button" data-t="quotes">Quotes <span class="count" data-c="quotes"></span></button>
+            <button type="button" data-t="messages">Timed messages <span class="count" data-c="messages"></span></button>
+            <button type="button" data-t="triggers">Word triggers <span class="count" data-c="triggers"></span></button>
+            <button type="button" data-t="variables">Variables <span class="count" data-c="variables"></span></button>
+            <button type="button" data-t="usage">Usage</button>
+            <button type="button" data-t="reference">Reference</button>
+            <button type="button" data-t="settings">Settings</button>
+        </nav>
 
         <!-- Viewer Reference Tab -->
         <div class="card" data-tab="reference">
@@ -808,16 +819,29 @@ loadVars().then(updateCounts);
 
 function showTab(name) {
     if (!document.querySelector(`#tabs [data-t="${name}"]`)) name = 'commands';
-    document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.t === name)));
+    let activeBtn = null;
+    document.querySelectorAll('#tabs button').forEach(b => {
+        const isSel = b.dataset.t === name;
+        b.setAttribute('aria-selected', String(isSel));
+        if (isSel) activeBtn = b;
+    });
+    if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     if (name === 'reference') $('ref-frame').src = '/commands.html';
     document.querySelectorAll('.card[data-tab]').forEach(c => { c.hidden = c.dataset.tab !== name; });
     history.replaceState(null, '', `#${name}`);
 }
 $('tabs').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) showTab(b.dataset.t); });
 function updateCounts() {
-    const set = (k, n) => { const el = document.querySelector(`[data-c="${k}"]`); if (el) el.textContent = n ? String(n) : ''; };
-    set('commands', state.commands.length); set('quotes', state.quotes.length); set('messages', state.messages.length); set('triggers', state.triggers.length);
-    set('variables', ($('var-count').textContent || '').replace(/[()]/g, ''));
+    const set = (k, n) => {
+        const el = document.querySelector(`[data-c="${k}"]`);
+        if (el) el.textContent = (n && Number(n) > 0) ? String(n) : '';
+    };
+    set('commands', state.commands?.length);
+    set('quotes', state.quotes?.length);
+    set('messages', state.messages?.length);
+    set('triggers', state.triggers?.length);
+    const varMatch = ($('var-count')?.textContent || '').match(/\d+/);
+    set('variables', varMatch ? varMatch[0] : 0);
 }
 let usageRows = [];
 function renderUsage() {
