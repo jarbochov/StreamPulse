@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 async function readRequestBody(req, maxBytes = 25 * 1024 * 1024) {
     return await new Promise((resolve, reject) => {
         let body = '';
@@ -64,11 +67,21 @@ async function readBinaryBody(req, limit = 600 * 1024 * 1024) {
     });
 }
 
+function safeWriteFileSync(targetPath, data) {
+    const dir = path.dirname(targetPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const tempPath = path.join(dir, `.${path.basename(targetPath)}.tmp.${process.pid}.${Date.now()}`);
+    fs.writeFileSync(tempPath, data);
+    fs.renameSync(tempPath, targetPath);
+}
+
 module.exports = {
     readRequestBody,
     readBinaryBody,
     sendJson,
     sendText,
     sendError,
-    escapeHtml
+    escapeHtml,
+    safeWriteFileSync
 };
+

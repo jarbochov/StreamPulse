@@ -50,6 +50,9 @@ const { createGamePlanRoutes } = require('./server/routes/game-plan');
 const { createTwitchRoutes } = require('./server/routes/twitch');
 const { createSessionRoutes } = require('./server/routes/session');
 const { createOverlayRoutes } = require('./server/routes/overlays');
+const { createOverlayService, TEXT_SOURCE_TYPES, TEXT_SOURCE_EXTS, TEXT_SOURCE_MAX_BYTES, CUSTOM_OVERLAY_ELEMENT_TYPES, assetFontFamily } = require('./server/services/overlays');
+const { createClipService, normalizeClipCandidateConfig, DEFAULT_CLIP_CANDIDATE_CONFIG } = require('./server/services/clips');
+const { safeWriteFileSync, escapeHtml } = require('./server/routes/helpers');
 const { createCrmService } = require('./server/services/crm');
 const { createCrmRoutes } = require('./server/routes/crm');
 const { createSystemRoutes } = require('./server/routes/system');
@@ -94,6 +97,56 @@ const VIEWER_TRACKING_CONFIG = config.viewer_tracking || { enabled: true, source
 
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = path.join(__dirname, 'data');
+const isLoopbackRequest = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+
+const overlayService = createOverlayService({
+    dataDir: DATA_DIR,
+    safeWriteFileSync,
+    broadcastToOverlays: (type, payload) => broadcastToOverlays(type, payload),
+    ALERT_TRIGGERS,
+    log: console.log,
+    warn: console.warn
+});
+
+const customOverlays = overlayService.getCustomOverlays();
+const CUSTOM_OVERLAY_ASSETS_DIR = overlayService.customOverlayAssetsDir;
+const CUSTOM_OVERLAY_HISTORY_DIR = overlayService.customOverlayHistoryDir;
+const CUSTOM_OVERLAY_HISTORY_LIMIT = overlayService.customOverlayHistoryLimit;
+const takeoverPages = (kind, name, ms) => overlayService.takeoverPages(kind, name, ms);
+const assetReferencedIn = (text, name, family) => overlayService.assetReferencedIn(text, name, family);
+const rewriteAssetReferences = (text, oldName, newName, oldFamily, newFamily) => overlayService.rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily);
+const normalizeCustomOverlay = (input, idOverride) => overlayService.normalizeCustomOverlay(input, idOverride);
+const normalizeOverlayPresets = (list) => overlayService.normalizeOverlayPresets(list);
+const saveCustomOverlays = () => overlayService.saveCustomOverlays();
+const loadCustomOverlays = () => overlayService.loadCustomOverlays();
+const syncOverlayPages = (overlay, previous) => overlayService.syncOverlayPages(overlay, previous);
+const dropOverlayPages = (id) => overlayService.dropOverlayPages(id);
+const setPageAuto = (overlay, on) => overlayService.setPageAuto(overlay, on);
+const movePage = (overlay, action, params) => overlayService.movePage(overlay, action, params);
+const broadcastPage = (overlay) => overlayService.broadcastPage(overlay);
+const pageSnapshot = (overlay) => overlayService.pageSnapshot(overlay);
+const saveAssetTags = () => overlayService.saveAssetTags();
+const saveAssetCaptions = () => overlayService.saveAssetCaptions();
+const setAssetTags = (name, tags) => overlayService.setAssetTags(name, tags);
+const assetMatchesTags = (name, wanted, mode) => overlayService.assetMatchesTags(name, wanted, mode);
+const saveOverlayPresets = () => overlayService.saveOverlayPresets();
+const loadRandomizerPresets = () => overlayService.loadRandomizerPresets();
+const saveRandomizerPresets = (p) => overlayService.saveRandomizerPresets(p);
+const loadRandomizerButtonPresets = () => overlayService.loadRandomizerButtonPresets();
+const saveRandomizerButtonPresets = (p) => overlayService.saveRandomizerButtonPresets(p);
+const loadRandomizerQuotePresets = () => overlayService.loadRandomizerQuotePresets();
+const saveRandomizerQuotePresets = (p) => overlayService.saveRandomizerQuotePresets(p);
+const historyFile = id => path.join(CUSTOM_OVERLAY_HISTORY_DIR, `${sanitizeOverlayId(id)}.json`);
+const recordOverlayRevision = (prev) => overlayService.recordOverlayRevision(prev);
+
+const staticRouter = createStaticRouter({
+    rootDir: __dirname,
+    publicDir: path.join(__dirname, 'public'),
+    customOverlayAssetsDir: CUSTOM_OVERLAY_ASSETS_DIR,
+    isLoopbackRequest,
+    getCustomOverlays: () => customOverlays
+});
+
 const variablesStore = require('./server/services/variables')({ dataDir: DATA_DIR });
 const chatbot = require('./server/services/chatbot')({ dataDir: DATA_DIR, getConfig: () => config, port: Number(process.env.PORT) || Number(config.port) || 3000, variables: variablesStore, onUse: (kind, name) => takeoverPages('command', name), sessionKey: () => String(chatData.startedAt || '') });
 const LIVE_CHAT_PATH = path.join(DATA_DIR, 'chat.json');
@@ -105,816 +158,18 @@ const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
 const EMOTE_CACHE_DIR = path.join(DATA_DIR, 'emote-cache');
 const TIMERS_PATH = path.join(DATA_DIR, 'timers.json');
-const CUSTOM_OVERLAYS_PATH = path.join(DATA_DIR, 'custom-overlays.json');
-const OVERLAY_PRESETS_PATH = path.join(DATA_DIR, 'overlay-presets.json');
-const ASSET_TAGS_PATH = path.join(DATA_DIR, 'asset-tags.json');
-const ASSET_CAPTIONS_PATH = path.join(DATA_DIR, 'asset-captions.json');
-const CUSTOM_OVERLAY_ASSETS_DIR = path.join(DATA_DIR, 'custom-overlay-assets');
-const CUSTOM_OVERLAY_HISTORY_DIR = path.join(DATA_DIR, 'custom-overlay-history');
-const CUSTOM_OVERLAY_HISTORY_LIMIT = 30;
-const RANDOMIZER_PRESETS_PATH = path.join(DATA_DIR, 'randomizer-presets.json');
-const RANDOMIZER_BUTTON_PRESETS_PATH = path.join(DATA_DIR, 'randomizer-button-presets.json');
-const RANDOMIZER_QUOTE_PRESETS_PATH = path.join(DATA_DIR, 'randomizer-quote-presets.json');
+const CUSTOM_OVERLAYS_PATH = overlayService.customOverlaysPath;
+const OVERLAY_PRESETS_PATH = overlayService.overlayPresetsPath;
+const ASSET_TAGS_PATH = overlayService.assetTagsPath;
+const ASSET_CAPTIONS_PATH = overlayService.assetCaptionsPath;
+const RANDOMIZER_PRESETS_PATH = overlayService.randomizerPresetsPath;
+const RANDOMIZER_BUTTON_PRESETS_PATH = overlayService.randomizerButtonPresetsPath;
+const RANDOMIZER_QUOTE_PRESETS_PATH = overlayService.randomizerQuotePresetsPath;
 const SUB_HISTORY_PATH = path.join(DATA_DIR, 'sub-history.json');
 const FOLLOWER_HISTORY_PATH = path.join(DATA_DIR, 'follower-history.json');
 
-const DEFAULT_RANDOMIZER_PRESETS = [
-    {
-        id: 'jackbox',
-        name: 'Jackbox Party Games (60 Games)',
-        buttonPreset: 'games',
-        quotePreset: 'hype',
-        winnerHeader: 'NEXT GAME TO PLAY',
-        winnerSub: 'Booting up... prepare your phones!',
-        choices: [
-            "Bidiots", "Blather Round", "Bomb Corp", "Bracketeering", "Champ'd Up",
-            "Civic Doodle", "Devils and the Details", "Dictionarium", "Dodo Re Mi",
-            "Drawful", "Drawful 2", "Drawful Dirty", "Drawful Animate", "Earwax",
-            "Fakin' It", "Fakin' It All Night Long", "Fibbage", "Fibbage 2", "Fibbage 3",
-            "Fibbage 4", "Fibbage XL", "FixyText", "Guesspionage", "Hypnotorious",
-            "Job Job", "Joke Boat", "Junktopia", "Let Me Finish", "Lie Swatter",
-            "Mad Verse City", "Monster Seeking Monster", "Nonsensory", "Patently Stupid",
-            "Push the Button", "Poll Mine", "Quiplash", "Quiplash 2", "Quiplash 3",
-            "Quiplash XL", "Quixort", "Rifftrax: the Game", "Role Models", "Roomerang",
-            "Split the Room", "Survey Scramble", "Survive the Internet", "Talking Points",
-            "Tee K.O.", "Tee K.O. 2", "Timejinx", "Trivia Murder Party",
-            "Trivia Murder Party 2", "Use Your Words", "Weapons Drawn",
-            "Wheel of Enormous Proportions", "Word Spud", "You Don't Know Jack 2015",
-            "You Don't Know Jack Full Stream", "Zeeple Dome", "What the Dub"
-        ]
-    },
-    {
-        id: 'decision',
-        name: 'Quick Decision (Yes / No / Maybe)',
-        buttonPreset: 'chaos',
-        quotePreset: 'multiverse',
-        winnerHeader: 'THE ORACLE HAS SPOKEN',
-        winnerSub: 'The timeline has shifted. Fate is sealed.',
-        choices: [
-            "Yes, absolutely!", "No way", "Ask chat", "Spin again",
-            "Definitely yes", "Hard no", "Maybe later", "Roll a die"
-        ]
-    },
-    {
-        id: 'punishments',
-        name: 'Stream Challenges & Punishments',
-        buttonPreset: 'punish',
-        quotePreset: 'roast',
-        winnerHeader: 'PUNISHMENT CHOSEN',
-        winnerSub: 'No mercy. Do not pass GO. Fate is sealed.',
-        choices: [
-            "10 Pushups / Situps", "Hydrate check (huge gulp)", "Chat picks next music track",
-            "Play next round one-handed", "Give a VIP/Sub badge shoutout", "No talking for 3 minutes",
-            "Switch camera angle / face cam zoom", "Sing a 15-second jingle"
-        ]
-    }
-];
-
-const DEFAULT_RANDOMIZER_BUTTON_PRESETS = [
-    {
-        id: 'chaos',
-        name: 'Chaos & Mayhem (Original Randomizer)',
-        phrases: [
-            "Let Chaos Reign!",
-            "Shake It Up!",
-            "Spin the Wheel of Destiny!",
-            "Summon Randomness!",
-            "Unleash the Fates!",
-            "Roll the Cosmic Dice!",
-            "Mayhem Mode!",
-            "Toss into the Void!",
-            "Destiny, Take the Wheel!",
-            "Invoke the Randomizer!",
-            "Disorder, Please!",
-            "Activate Quantum Luck!",
-            "Who Knows?!",
-            "Bring the Pandemonium!",
-            "Release the Kraken!",
-            "YOLO Button!",
-            "Throw a Curveball!",
-            "Hurl into Uncertainty!",
-            "Choose or Lose!",
-            "Hit Me With Chaos!",
-            "Spin and Grin!",
-            "Let the Universe Decide!",
-            "Go Bananas!",
-            "SLAM IT ON IN THERE!",
-            "Guess You'll Die?",
-            "Hey look over there!",
-            "LET IT BURN",
-            "Punch it Margaret!",
-            "What's the Worst That Could Happen?"
-        ]
-    },
-    {
-        id: 'games',
-        name: 'Game Night & Jackbox',
-        phrases: [
-            "Pick Next Game!",
-            "Spin the Wheel!",
-            "What Are We Playing?",
-            "Game On!",
-            "Wheel of Destiny",
-            "Next Up!",
-            "Choose the Game!"
-        ]
-    },
-    {
-        id: 'punish',
-        name: 'Challenges & Punishments',
-        phrases: [
-            "Choose My Fate!",
-            "Spin the Wheel of Pain!",
-            "Hit Me With It!",
-            "No Mercy!",
-            "I Regret Nothing!",
-            "Make Me Suffer!"
-        ]
-    },
-    {
-        id: 'simple',
-        name: 'Simple & Direct',
-        phrases: [
-            "Spin",
-            "Randomize",
-            "Roll the Dice",
-            "Decide Now"
-        ]
-    }
-];
-
-const DEFAULT_RANDOMIZER_QUOTE_PRESETS = [
-    {
-        id: 'multiverse',
-        name: 'Multiverse Respin Quotes (15 Lines)',
-        quotes: [
-            "The timeline has shifted. But is this really better?",
-            "Another universe, another glorious outcome.",
-            "You just quantum-leaped to a new result!",
-            "That butterfly just flapped its wings. Welcome to a new timeline.",
-            "The fabric of fate is fraying. Result updated!",
-            "You have rewound the cosmic clock. Again.",
-            "A ripple in the multiverse delivers a different destiny.",
-            "Parallel worlds say hello! Enjoy your alternate fate.",
-            "The universe blinks. Your wish is (randomly) granted.",
-            "You've seen another potential future. Satisfied?",
-            "You've created a new branch of reality. Good luck!",
-            "Another roll, another dimension.",
-            "Multiverse roulette: new path unlocked.",
-            "Alternate luck engaged. Fate is fickle.",
-            "You glitched the matrix. This is your new outcome."
-        ]
-    },
-    {
-        id: 'hype',
-        name: 'Stream Hype & Victory',
-        quotes: [
-            "A champion emerges from the chaos!",
-            "Bow down to the chosen destiny!",
-            "History has been made on stream!",
-            "The gods of RNG have smiled upon us!",
-            "Absolute perfection. No notes.",
-            "Destiny has chosen its champion!"
-        ]
-    },
-    {
-        id: 'roast',
-        name: 'Sarcastic & Chat Roasts',
-        quotes: [
-            "Blame RNG, not your lack of skill.",
-            "Chat is in absolute shambles right now.",
-            "Quantum luck has spoken. Strictly no refunds!",
-            "Honestly, that looks like a skill issue.",
-            "Do not pass GO. Do not collect 200 bits.",
-            "Could have been worse. Probably."
-        ]
-    },
-    {
-        id: 'minimal',
-        name: 'Short & Clean',
-        quotes: [
-            "Fate is sealed.",
-            "Next up on stream.",
-            "Here we go!",
-            "The universe has spoken.",
-            "Decision locked in."
-        ]
-    }
-];
-
-function loadRandomizerPresets() {
-    try {
-        if (fs.existsSync(RANDOMIZER_PRESETS_PATH)) {
-            const data = JSON.parse(fs.readFileSync(RANDOMIZER_PRESETS_PATH, 'utf8'));
-            if (Array.isArray(data) && data.length) return data;
-        }
-    } catch (e) {
-        console.error('[Randomizer] Error loading presets:', e.message);
-    }
-    safeWriteFileSync(RANDOMIZER_PRESETS_PATH, JSON.stringify(DEFAULT_RANDOMIZER_PRESETS, null, 2));
-    return DEFAULT_RANDOMIZER_PRESETS;
-}
-
-function saveRandomizerPresets(presets) {
-    try {
-        safeWriteFileSync(RANDOMIZER_PRESETS_PATH, JSON.stringify(presets, null, 2));
-        return true;
-    } catch (e) {
-        console.error('[Randomizer] Error saving presets:', e.message);
-        return false;
-    }
-}
-
-function loadRandomizerButtonPresets() {
-    try {
-        if (fs.existsSync(RANDOMIZER_BUTTON_PRESETS_PATH)) {
-            const data = JSON.parse(fs.readFileSync(RANDOMIZER_BUTTON_PRESETS_PATH, 'utf8'));
-            if (Array.isArray(data) && data.length) return data;
-        }
-    } catch (e) {
-        console.error('[Randomizer] Error loading button presets:', e.message);
-    }
-    safeWriteFileSync(RANDOMIZER_BUTTON_PRESETS_PATH, JSON.stringify(DEFAULT_RANDOMIZER_BUTTON_PRESETS, null, 2));
-    return DEFAULT_RANDOMIZER_BUTTON_PRESETS;
-}
-
-function saveRandomizerButtonPresets(presets) {
-    try {
-        safeWriteFileSync(RANDOMIZER_BUTTON_PRESETS_PATH, JSON.stringify(presets, null, 2));
-        return true;
-    } catch (e) {
-        console.error('[Randomizer] Error saving button presets:', e.message);
-        return false;
-    }
-}
-
-function loadRandomizerQuotePresets() {
-    try {
-        if (fs.existsSync(RANDOMIZER_QUOTE_PRESETS_PATH)) {
-            const data = JSON.parse(fs.readFileSync(RANDOMIZER_QUOTE_PRESETS_PATH, 'utf8'));
-            if (Array.isArray(data) && data.length) return data;
-        }
-    } catch (e) {
-        console.error('[Randomizer] Error loading quote presets:', e.message);
-    }
-    safeWriteFileSync(RANDOMIZER_QUOTE_PRESETS_PATH, JSON.stringify(DEFAULT_RANDOMIZER_QUOTE_PRESETS, null, 2));
-    return DEFAULT_RANDOMIZER_QUOTE_PRESETS;
-}
-
-function saveRandomizerQuotePresets(presets) {
-    try {
-        safeWriteFileSync(RANDOMIZER_QUOTE_PRESETS_PATH, JSON.stringify(presets, null, 2));
-        return true;
-    } catch (e) {
-        console.error('[Randomizer] Error saving quote presets:', e.message);
-        return false;
-    }
-}
-
-function safeWriteFileSync(targetPath, data) {
-    const dir = path.dirname(targetPath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const tempPath = path.join(dir, `.${path.basename(targetPath)}.tmp.${process.pid}.${Date.now()}`);
-    fs.writeFileSync(tempPath, data);
-    fs.renameSync(tempPath, targetPath);
-}
-
-function escapeHtml(str) {
-    return String(str ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
 
 
-
-const isLoopbackRequest = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
-const TEXT_SOURCE_TYPES = new Set(['text', 'random-text', 'markdown']);
-const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
-const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert', 'slideshow', 'icon']);
-let customOverlays = {};
-
-const staticRouter = createStaticRouter({
-    rootDir: __dirname,
-    publicDir: path.join(__dirname, 'public'),
-    customOverlayAssetsDir: CUSTOM_OVERLAY_ASSETS_DIR,
-    isLoopbackRequest,
-    getCustomOverlays: () => customOverlays
-});
-
-
-// Shared by background, text and border gradients: linear or radial, 2-3 stops, optional animation.
-function normalizeGradient(g) {
-    g = g || {};
-    return {
-        enabled: g.enabled === true,
-        from: String(g.from || '#1f6feb').slice(0, 80),
-        to: String(g.to || '#8957e5').slice(0, 80),
-        angle: Number.isFinite(Number(g.angle)) && g.angle !== '' && g.angle !== null ? Math.max(0, Math.min(360, Number(g.angle))) : 135,
-        type: g.type === 'radial' ? 'radial' : 'linear',
-        mid: String(g.mid || '').slice(0, 80),
-        position: ['center', 'top', 'bottom', 'left', 'right'].includes(g.position) ? g.position : 'center',
-        animate: g.animate === true,
-        speed: Math.max(1, Math.min(120, Number(g.speed) || 8))
-    };
-}
-
-// Look for images, videos and slideshows (blur, darken, tint, duotone).
-function normalizeMediaFilter(f = {}) {
-    const hex = (value, fallback) => (/^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value).toLowerCase() : fallback);
-    const num = (value, min, max, fallback) => (Number.isFinite(Number(value)) && value !== '' && value !== null ? Math.max(min, Math.min(max, Number(value))) : fallback);
-    return {
-        blur: num(f.blur, 0, 60, 0),
-        brightness: num(f.brightness, 0, 200, 100),
-        contrast: num(f.contrast, 0, 200, 100),
-        saturate: num(f.saturate, 0, 300, 100),
-        grayscale: num(f.grayscale, 0, 100, 0),
-        tint: { enabled: f.tint?.enabled === true, color: hex(f.tint?.color, '#000000'), opacity: num(f.tint?.opacity, 0, 1, 0.4) },
-        duotone: {
-            enabled: f.duotone?.enabled === true, dark: hex(f.duotone?.dark, '#1b1464'), light: hex(f.duotone?.light, '#ff9de2'),
-            animate: ['none', 'blend', 'hue', 'both'].includes(f.duotone?.animate) ? f.duotone.animate : 'none',
-            dark2: hex(f.duotone?.dark2, '#0b3d2e'), light2: hex(f.duotone?.light2, '#7dffb2'), speed: num(f.duotone?.speed, 1, 60, 6)
-        },
-        grain: { enabled: f.grain?.enabled === true, amount: num(f.grain?.amount, 0, 1, 0.25), size: num(f.grain?.size, 0.5, 4, 1), animate: f.grain?.animate !== false }
-    };
-}
-
-function normalizeOverlayElement(element = {}, index = 0) {
-    const type = CUSTOM_OVERLAY_ELEMENT_TYPES.has(element.type) ? element.type : 'text';
-    return {
-        id: sanitizeOverlayId(element.id) || `element-${index + 1}`,
-        name: String(element.name || '').trim().slice(0, 80),
-        locked: element.locked === true,
-        group: sanitizeOverlayId(element.group).slice(0, 40),
-        groupName: element.group ? String(element.groupName || '').trim().slice(0, 60) : '',
-        page: element.page === '*' ? '*' : sanitizeOverlayId(element.page).slice(0, 40),
-        type,
-        mediaFilter: normalizeMediaFilter(element.mediaFilter),
-        slideshow: {
-            source: element.slideshow?.source === 'manual' ? 'manual' : 'tags',
-            tags: normalizeAssetTagList(element.slideshow?.tags).slice(0, 20),
-            tagMode: element.slideshow?.tagMode === 'all' ? 'all' : 'any',
-            files: [...new Set((Array.isArray(element.slideshow?.files) ? element.slideshow.files : []).map(value => String(value || '').slice(0, 200)).filter(name => name && !/[\\/]/.test(name)))].slice(0, 500),
-            kinds: element.slideshow?.kinds === 'both' ? 'both' : element.slideshow?.kinds === 'video' ? 'video' : 'image',
-            seconds: Math.max(1, Math.min(3600, Math.round((Number(element.slideshow?.seconds) || 5) * 10) / 10)),
-            order: ['sequential', 'shuffle', 'random'].includes(element.slideshow?.order) ? element.slideshow.order : 'sequential',
-            fit: ['cover', 'contain'].includes(element.slideshow?.fit) ? element.slideshow.fit : 'cover',
-            transition: ['none', 'fade', 'slide'].includes(element.slideshow?.transition) ? element.slideshow.transition : 'fade',
-            direction: PAGE_DIRECTIONS.includes(element.slideshow?.direction) ? element.slideshow.direction : 'left',
-            transitionMs: Math.max(0, Math.min(5000, Math.round(Number(element.slideshow?.transitionMs ?? 800)))),
-            advance: element.slideshow?.advance === 'manual' ? 'manual' : 'auto',
-            caption: ['off', 'caption', 'name'].includes(element.slideshow?.caption) ? element.slideshow.caption : element.slideshow?.caption === true ? 'name' : 'off',
-            kenBurns: element.slideshow?.kenBurns === true
-        },
-        gameList: {
-            filter: ['scheduled', 'backlog', 'played', 'all'].includes(element.gameList?.filter) || /^list-[a-z0-9-]{1,40}$/.test(element.gameList?.filter || '') ? element.gameList.filter : 'scheduled',
-            period: String(element.gameList?.period || '').slice(0, 40),
-            periods: [...new Set((Array.isArray(element.gameList?.periods) ? element.gameList.periods : []).map(value => String(value || '').trim().slice(0, 40)).filter(Boolean))].slice(0, 20),
-            when: /^(thisYear|lastYear|thisMonth|lastMonth|\d{4}|\d{4}-(0[1-9]|1[0-2]))$/.test(element.gameList?.when || '') ? element.gameList.when : '',
-            groupBy: ['month', 'year'].includes(element.gameList?.groupBy) ? element.gameList.groupBy : 'period',
-            maxPeriods: Math.max(0, Math.min(20, Math.round(Number(element.gameList?.maxPeriods) || 0))),
-            periodsAcross: Math.max(0, Math.min(8, Math.round(Number(element.gameList?.periodsAcross) || 0))),
-            layout: ['grid', 'strip', 'list', 'kanban', 'tiers', 'ticker'].includes(element.gameList?.layout) ? element.gameList.layout : 'grid',
-            columns: element.gameList?.columns === 0 ? 0 : Math.max(1, Math.min(12, Math.round(Number(element.gameList?.columns) || 3))),
-            coverRatio: ['3/4', '1/1', '4/3', '16/9', '21/9', '2/3'].includes(element.gameList?.coverRatio) ? element.gameList.coverRatio : '3/4',
-            tickerDirection: element.gameList?.tickerDirection === 'right' ? 'right' : 'left',
-            tickerFade: element.gameList?.tickerFade !== false,
-            tickerPace: Math.max(0.5, Math.min(30, Math.round((Number(element.gameList?.tickerPace) || 3) * 10) / 10)),
-            tickerSpeed: Math.max(10, Math.min(600, Math.round(Number(element.gameList?.tickerSpeed) || 60))),
-            alignH: ['left', 'center', 'right'].includes(element.gameList?.alignH) ? element.gameList.alignH : 'left',
-            alignV: ['top', 'middle', 'bottom'].includes(element.gameList?.alignV) ? element.gameList.alignV : 'top',
-            gap: Math.max(0, Math.min(80, Number(element.gameList?.gap ?? 12))),
-            groupGap: element.gameList?.groupGap === undefined || element.gameList?.groupGap === null || element.gameList?.groupGap === '' || !Number.isFinite(Number(element.gameList.groupGap)) ? null : Math.max(0, Math.min(200, Number(element.gameList.groupGap))),
-            max: Math.max(0, Math.min(100, Math.round(Number(element.gameList?.max) || 0))),
-            coverFit: ['cover', 'contain', 'natural'].includes(element.gameList?.coverFit) ? element.gameList.coverFit : 'cover',
-            fit: element.gameList?.fit === 'shrink' ? 'shrink' : 'none',
-            coverScale: Math.max(25, Math.min(400, Math.round(Number(element.gameList?.coverScale) || 100))),
-            headingSize: Math.max(0, Math.min(300, Math.round(Number(element.gameList?.headingSize) || 0))),
-            titleSize: Math.max(0, Math.min(300, Math.round(Number(element.gameList?.titleSize) || 0))),
-            titleWrap: element.gameList?.titleWrap === 'wrap' ? 'wrap' : 'ellipsis',
-            titlePlacement: element.gameList?.titlePlacement === 'overlay' ? 'overlay' : 'below',
-            headingScale: Math.max(0, Math.min(400, Math.round(Number(element.gameList?.headingScale) || 0))),
-            titleScale: Math.max(0, Math.min(400, Math.round(Number(element.gameList?.titleScale) || 0))),
-            metaScale: Math.max(0, Math.min(400, Math.round(Number(element.gameList?.metaScale) || 0))),
-            showCovers: element.gameList?.showCovers !== false,
-            showTitles: element.gameList?.showTitles !== false,
-            meta: ['none', 'year', 'genres', 'note', 'rating', 'tags'].includes(element.gameList?.meta) ? element.gameList.meta : 'none',
-            tierSource: element.gameList?.tierSource === 'tier' ? 'tier' : 'stars',
-            sort: ['plan', 'rating', 'name'].includes(element.gameList?.sort) ? element.gameList.sort : 'plan',
-            headings: element.gameList?.headings !== false,
-            highlightCurrent: element.gameList?.highlightCurrent !== false,
-            accent: String(element.gameList?.accent || '#3fb950').slice(0, 80)
-        },
-        qr: {
-            fg: /^#[0-9a-f]{6}$/i.test(element.qr?.fg || '') ? element.qr.fg : '#000000',
-            bg: /^#[0-9a-f]{6}$/i.test(element.qr?.bg || '') || element.qr?.bg === 'transparent' ? element.qr.bg : '#ffffff',
-            margin: Math.max(0, Math.min(8, Math.round(Number(element.qr?.margin ?? 2)))),
-            ecc: ['L', 'M', 'Q', 'H'].includes(element.qr?.ecc) ? element.qr.ecc : 'M'
-        },
-        progress: {
-            kind: element.progress?.kind === 'ring' ? 'ring' : 'bar',
-            label: String(element.progress?.label ?? '{{progress}}%').slice(0, 200),
-            showLabel: element.progress?.showLabel !== false,
-            trackColor: String(element.progress?.trackColor || 'rgba(255,255,255,0.18)').slice(0, 80),
-            thickness: Math.max(2, Math.min(40, Number(element.progress?.thickness) || 10))
-        },
-        content: String(element.content || '').slice(0, 20000),
-        columns: type === 'markdown' ? Math.max(1, Math.min(6, Math.round(Number(element.columns)) || 1)) : 1,
-        headingScale: type === 'markdown' && Number.isFinite(Number(element.headingScale)) ? Math.max(40, Math.min(200, Math.round(Number(element.headingScale)))) : 100,
-        headingSpan: type === 'markdown' && Number.isFinite(Number(element.headingSpan)) ? Math.max(0, Math.min(6, Math.round(Number(element.headingSpan)))) : 6,
-        textFit: ['shrink', 'fit'].includes(element.textFit) && TEXT_SOURCE_TYPES.has(type) ? element.textFit : 'none',
-        source: {
-            mode: ['library', 'file'].includes(element.source?.mode) && TEXT_SOURCE_TYPES.has(type) ? element.source.mode : 'inline',
-            path: String(element.source?.path || '').trim().slice(0, 1000),
-            split: element.source?.split === 'blocks' ? 'blocks' : 'lines'
-        },
-        items: Array.isArray(element.items) ? element.items.map(item => String(item).slice(0, 2000)).filter(Boolean).slice(0, 2000) : [],
-        src: String(element.src || '').slice(0, 2000),
-        alert: {
-            layout: ['stack', 'side', 'text', 'media'].includes(element.alert?.layout) ? element.alert.layout : 'stack',
-            mediaFit: element.alert?.mediaFit === 'cover' ? 'cover' : 'contain',
-            mediaScale: Math.max(10, Math.min(100, Number(element.alert?.mediaScale) || 60)),
-            titleSize: Math.max(8, Math.min(300, Number(element.alert?.titleSize) || 44)),
-            messageSize: Math.max(8, Math.min(300, Number(element.alert?.messageSize) || 28)),
-            titleColor: String(element.alert?.titleColor || '#ffd166').slice(0, 80),
-            gap: Math.max(0, Math.min(100, Number(element.alert?.gap) || 12)),
-            sound: element.alert?.sound !== false,
-            sampleImage: String(element.alert?.sampleImage || '').slice(0, 2000),
-            sampleEmoji: String(element.alert?.sampleEmoji || '').trim().slice(0, 40),
-            triggers: Array.isArray(element.alert?.triggers) ? element.alert.triggers.filter(t => ALERT_TRIGGERS[t]).slice(0, 20) : []
-        },
-        random: {
-            mode: ['random', 'order'].includes(element.random?.mode) ? element.random.mode : 'random',
-            intervalSeconds: Math.max(1, Math.min(3600, Number(element.random?.intervalSeconds) || 5)),
-            typewriter: element.random?.typewriter === true,
-            typewriterSpeed: Math.max(10, Math.min(1000, Number(element.random?.typewriterSpeed) || 110)),
-            marquee: element.random?.marquee === true,
-            marqueeSpeed: Math.max(10, Math.min(240, Number(element.random?.marqueeSpeed) || 60))
-        },
-        x: Number.isFinite(Number(element.x)) ? Number(element.x) : 0,
-        y: Number.isFinite(Number(element.y)) ? Number(element.y) : 0,
-        width: Math.max(1, Math.min(3840, Number(element.width) || 400)),
-        height: Math.max(1, Math.min(2160, Number(element.height) || 100)),
-        zIndex: Math.round(Number(element.zIndex) || 0),
-        visible: element.visible !== false,
-        style: {
-            fontFamily: String(element.style?.fontFamily || 'sans-serif').slice(0, 120),
-            fontSize: Math.max(8, Math.min(400, Number(element.style?.fontSize) || 32)),
-            fontWeight: String(element.style?.fontWeight || '400').slice(0, 20),
-            color: String(element.style?.color || '#ffffff').slice(0, 80),
-            textAlign: ['left', 'center', 'right'].includes(element.style?.textAlign) ? element.style.textAlign : 'left',
-            verticalAlign: ['top', 'middle', 'bottom'].includes(element.style?.verticalAlign) ? element.style.verticalAlign : 'top',
-            background: String(element.style?.background || 'transparent').slice(0, 120),
-            borderColor: String(element.style?.borderColor || 'transparent').slice(0, 80),
-            borderWidth: Math.max(0, Math.min(40, Number(element.style?.borderWidth) || 0)),
-            borderRadius: Math.max(0, Math.min(200, Number(element.style?.borderRadius) || 0)),
-            padding: TEXT_SOURCE_TYPES.has(type) ? Math.max(0, Math.min(200, Number(element.style?.padding) || 0)) : 0,
-            opacity: Number.isFinite(Number(element.style?.opacity))
-                ? Math.max(0, Math.min(1, Number(element.style.opacity)))
-                : 1,
-            objectFit: element.style?.objectFit === 'contain' ? 'contain' : 'cover',
-            focusX: Number.isFinite(Number(element.style?.focusX)) ? Math.max(0, Math.min(100, Number(element.style.focusX))) : 50,
-            focusY: Number.isFinite(Number(element.style?.focusY)) ? Math.max(0, Math.min(100, Number(element.style.focusY))) : 50,
-            shape: ['rectangle', 'circle', 'pill', 'line'].includes(element.style?.shape) ? element.style.shape : 'rectangle',
-            fill: String(element.style?.fill || '#1f6feb').slice(0, 80),
-            gradient: normalizeGradient(element.style?.gradient),
-            textGradient: normalizeGradient(element.style?.textGradient),
-            borderGradient: normalizeGradient(element.style?.borderGradient),
-            blur: Math.max(0, Math.min(60, Number(element.style?.blur) || 0)),
-            shadow: {
-                blur: Math.max(0, Math.min(100, Number(element.style?.shadow?.blur) || 0)),
-                color: String(element.style?.shadow?.color || 'rgba(0,0,0,0.5)').slice(0, 80)
-            },
-            textStroke: {
-                width: Math.max(0, Math.min(20, Number(element.style?.textStroke?.width) || 0)),
-                color: String(element.style?.textStroke?.color || '#000000').slice(0, 80)
-            },
-            textShadow: {
-                blur: Math.max(0, Math.min(60, Number(element.style?.textShadow?.blur) || 0)),
-                color: String(element.style?.textShadow?.color || 'rgba(0,0,0,0.7)').slice(0, 80)
-            },
-            textTransform: ['none', 'uppercase', 'lowercase', 'capitalize'].includes(element.style?.textTransform) ? element.style.textTransform : 'none',
-            textDecoration: ['none', 'underline', 'line-through'].includes(element.style?.textDecoration) ? element.style.textDecoration : 'none',
-            lineHeight: Math.max(0.5, Math.min(3, Number(element.style?.lineHeight) || 1.2)),
-            letterSpacing: Math.max(-10, Math.min(50, Number(element.style?.letterSpacing) || 0))
-        }
-    };
-}
-
-// Multipage overlays: every element belongs to one page, or to '*' (shared across all pages).
-const PAGE_TRANSITIONS = ['none', 'fade', 'slide'];
-const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
-function normalizePages(input = {}) {
-    const seen = new Set();
-    const items = (Array.isArray(input.items) ? input.items : []).slice(0, 50).map((item, index) => {
-        let id = sanitizeOverlayId(item?.id).slice(0, 40) || `page-${index + 1}`;
-        while (seen.has(id) || id === '*') id = `${id}-${index + 1}`;
-        seen.add(id);
-        return {
-            id,
-            name: String(item?.name || '').trim().slice(0, 60) || `Page ${index + 1}`,
-            duration: Math.max(0, Math.min(86400, Number(item?.duration) || 0)),
-            enabled: item?.enabled !== false,
-            trigger: ['alert', 'featured', 'command', 'poll-end', 'poll-active'].includes(item?.trigger) ? item.trigger : '',
-            triggerName: String(item?.triggerName || '').trim().toLowerCase().replace(/^[^a-z0-9_]+/, '').slice(0, 60),
-            triggerRules: item?.trigger === 'alert' && Array.isArray(item.triggerRules) ? [...new Set(item.triggerRules.map(String))].slice(0, 100) : [],
-            triggerSeconds: Math.max(0, Math.min(3600, Number(item?.triggerSeconds) || 0))
-        };
-    });
-    if (!items.length) items.push({ id: 'page-1', name: 'Page 1', duration: 0, enabled: true, trigger: '', triggerName: '', triggerRules: [], triggerSeconds: 0 });
-    if (!items.some(item => item.enabled)) items[0].enabled = true;
-    return {
-        enabled: input.enabled === true,
-        mode: input.mode === 'auto' ? 'auto' : 'manual',
-        cycleSeconds: Math.max(1, Math.min(86400, Number(input.cycleSeconds) || 10)),
-        loop: input.loop !== false,
-        transition: PAGE_TRANSITIONS.includes(input.transition) ? input.transition : 'fade',
-        transitionMs: Math.max(0, Math.min(5000, Number(input.transitionMs ?? 500))),
-        transitionDirection: PAGE_DIRECTIONS.includes(input.transitionDirection) ? input.transitionDirection : 'left',
-        transitionDistance: Math.max(10, Math.min(2000, Math.round(Number(input.transitionDistance) || 120))),
-        items
-    };
-}
-
-function normalizeCustomOverlay(input = {}, idOverride = '') {
-    const id = sanitizeOverlayId(idOverride || input.id);
-    if (!id) throw new Error('Overlay id is required');
-    const pages = normalizePages(input.pages);
-    const pageIds = new Set(pages.items.map(item => item.id));
-    const elements = (Array.isArray(input.elements)
-        ? input.elements.slice(0, 100).map(normalizeOverlayElement)
-        : []).map(element => ({ ...element, page: element.page === '*' || pageIds.has(element.page) ? element.page : pages.items[0].id }));
-    return {
-        id,
-        name: String(input.name || id).trim().slice(0, 120) || id,
-        revision: Math.max(1, Math.round(Number(input.revision) || 1)),
-        updatedAt: input.updatedAt || new Date().toISOString(),
-        canvas: {
-            width: Math.max(1, Math.min(3840, Number(input.canvas?.width) || 1920)),
-            height: Math.max(1, Math.min(2160, Number(input.canvas?.height) || 1080)),
-            background: String(input.canvas?.background || 'transparent').slice(0, 120)
-        },
-        pages,
-        elements
-    };
-}
-
-function loadCustomOverlays() {
-    try {
-        if (fs.existsSync(CUSTOM_OVERLAYS_PATH)) {
-            const stored = JSON.parse(fs.readFileSync(CUSTOM_OVERLAYS_PATH, 'utf8'));
-            customOverlays = Object.fromEntries(Object.entries(stored || {}).map(([id, overlay]) => {
-                const normalized = normalizeCustomOverlay(overlay, id);
-                return [normalized.id, normalized];
-            }));
-        }
-        console.log(`[Overlays] Loaded ${Object.keys(customOverlays).length} custom overlays`);
-    } catch (err) {
-        console.warn(`[Overlays] Could not load custom overlays: ${err.message}`);
-        customOverlays = {};
-    }
-}
-
-const ASSET_KIND_BY_EXT = { '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.gif': 'image', '.webp': 'image', '.svg': 'image', '.mp4': 'video', '.webm': 'video', '.ogg': 'video', '.ttf': 'font', '.otf': 'font', '.woff': 'font', '.woff2': 'font', '.mp3': 'audio', '.wav': 'audio', '.m4a': 'audio', '.aac': 'audio', '.oga': 'audio', '.txt': 'text', '.md': 'text', '.markdown': 'text', '.text': 'text' };
-const assetKind = name => ASSET_KIND_BY_EXT[path.extname(name).toLowerCase()] || 'other';
-const assetLabel = name => name.replace(/^[a-z0-9]{6,}-/, '').replace(/\.[A-Za-z0-9]+$/, '').replace(/^[-_.]+|[-_.]+$/g, '');
-// Uploaded fonts are referenced in overlays by this family name, so renames must rewrite it too.
-const assetFontFamily = name => assetLabel(name).replace(/[^a-zA-Z0-9 _-]+/g, '').replace(/[-_]+/g, ' ').trim() || 'Uploaded Font';
-const assetNameBoundary = '(?![A-Za-z0-9._%-])';
-const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-function assetReferencedIn(text, name, family) {
-    if (new RegExp(`/custom-overlay-assets/${escapeRegExp(encodeURIComponent(name))}${assetNameBoundary}`).test(text) || new RegExp(`/custom-overlay-assets/${escapeRegExp(name)}${assetNameBoundary}`).test(text)) return true;
-    return !!family && text.includes(`'${family}'`);
-}
-function rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily) {
-    let result = text;
-    for (const [from, to] of [[encodeURIComponent(oldName), encodeURIComponent(newName)], [oldName, newName]]) {
-        result = result.replace(new RegExp(`/custom-overlay-assets/${escapeRegExp(from)}${assetNameBoundary}`, 'g'), `/custom-overlay-assets/${to}`);
-    }
-    if (oldFamily && newFamily && oldFamily !== newFamily) result = result.split(`'${oldFamily}'`).join(`'${newFamily}'`);
-    return result;
-}
-
-// Every save keeps the version it replaced, so older revisions can be restored from the editor.
-const historyFile = id => path.join(CUSTOM_OVERLAY_HISTORY_DIR, `${sanitizeOverlayId(id)}.json`);
-function readOverlayHistory(id) {
-    try { const list = JSON.parse(fs.readFileSync(historyFile(id), 'utf8')); return Array.isArray(list) ? list : []; } catch { return []; }
-}
-function recordOverlayRevision(previous) {
-    if (!previous) return;
-    try {
-        fs.mkdirSync(CUSTOM_OVERLAY_HISTORY_DIR, { recursive: true });
-        const list = readOverlayHistory(previous.id).filter(entry => entry.revision !== previous.revision);
-        list.push({ revision: previous.revision, updatedAt: previous.updatedAt || '', name: previous.name, canvas: previous.canvas, pages: previous.pages, elements: previous.elements });
-        fs.writeFileSync(historyFile(previous.id), JSON.stringify(list.slice(-CUSTOM_OVERLAY_HISTORY_LIMIT)));
-    } catch (err) { console.warn('[Overlays] Could not record revision history:', err.message); }
-}
-
-// Live page state per multipage overlay. It is shared by every browser source and kept in memory only.
-const overlayPageState = new Map();
-const pageOf = (overlay, state) => overlay.pages.items.find(item => item.id === state.page) || overlay.pages.items[0];
-function pageSnapshot(overlay) {
-    const state = overlayPageState.get(overlay.id);
-    const items = overlay.pages.items;
-    const index = Math.max(0, items.findIndex(item => item.id === state?.page));
-    return {
-        id: overlay.id,
-        enabled: overlay.pages.enabled,
-        page: items[index].id,
-        name: items[index].name,
-        index,
-        count: items.length,
-        auto: !!state?.auto,
-        pages: items.map(({ id, name, duration, enabled, trigger }) => ({ id, name, duration, enabled, trigger }))
-    };
-}
-function broadcastPage(overlay) {
-    if (typeof broadcastToOverlays === 'function') broadcastToOverlays('custom-overlay-page', pageSnapshot(overlay));
-}
-function scheduleAutoAdvance(overlay) {
-    const state = overlayPageState.get(overlay.id);
-    if (!state) return;
-    clearTimeout(state.timer);
-    state.timer = null;
-    if (!state.auto || !overlay.pages.enabled || overlay.pages.items.filter(item => item.enabled && !item.trigger).length < 2 || state.takeoverTimer) return;
-    const seconds = pageOf(overlay, state).duration || overlay.pages.cycleSeconds;
-    state.timer = setTimeout(() => {
-        const live = customOverlays[overlay.id];
-        if (!live) return;
-        movePage(live, 'next', { auto: true });
-    }, seconds * 1000);
-    state.timer.unref?.();
-}
-// Returns false when the move did nothing (already at the end without looping, or an unknown page).
-function movePage(overlay, action, { target, auto } = {}) {
-    let state = overlayPageState.get(overlay.id);
-    if (!state) { state = { page: overlay.pages.items[0].id, auto: false, timer: null }; overlayPageState.set(overlay.id, state); }
-    const items = overlay.pages.items;
-    const current = Math.max(0, items.findIndex(item => item.id === state.page));
-    // Pages switched off in the editor are skipped by every move.
-    const step = dir => {
-        for (let i = 1; i <= items.length; i++) {
-            let at = current + dir * i;
-            if (at < 0 || at >= items.length) { if (!overlay.pages.loop) return -1; at = (at + items.length) % items.length; }
-            if (items[at].enabled && !items[at].trigger) return at === current ? -1 : at;
-        }
-        return -1;
-    };
-    const manual = !auto;
-    if (manual && state.takeoverTimer) { clearTimeout(state.takeoverTimer); state.takeoverTimer = null; state.returnPage = null; }
-    let next = current;
-    if (action === 'next') next = step(1);
-    else if (action === 'prev') next = step(-1);
-    else if (action === 'first') next = items.findIndex(item => item.enabled && !item.trigger);
-    else if (action === 'last') next = items.map(item => item.enabled && !item.trigger).lastIndexOf(true);
-    else if (action === 'goto') {
-        const key = String(target ?? '').trim().toLowerCase();
-        next = items.findIndex(item => item.id === key || item.name.toLowerCase() === key);
-        if (next < 0 && /^\d+$/.test(key)) next = Number(key) - 1;
-        if (next < 0 || next >= items.length || !items[next].enabled) return false;
-    }
-    if (next < 0) {
-        // Auto mode that reached the last page without looping simply stops.
-        if (auto) { state.auto = false; clearTimeout(state.timer); broadcastPage(overlay); }
-        return false;
-    }
-    state.page = items[next].id;
-    scheduleAutoAdvance(overlay);
-    broadcastPage(overlay);
-    return true;
-}
-function setPageAuto(overlay, on) {
-    let state = overlayPageState.get(overlay.id);
-    if (!state) { state = { page: overlay.pages.items[0].id, auto: false, timer: null }; overlayPageState.set(overlay.id, state); }
-    state.auto = on === undefined ? !state.auto : !!on;
-    scheduleAutoAdvance(overlay);
-    broadcastPage(overlay);
-}
-// Called after a load or save so the live state follows the saved config (mode, page list, timings).
-function syncOverlayPages(overlay, previous) {
-    const state = overlayPageState.get(overlay.id) || { page: overlay.pages.items[0].id, auto: false, timer: null };
-    overlayPageState.set(overlay.id, state);
-    const items = overlay.pages.items;
-    if (!items.some(item => item.id === state.page && item.enabled && (!item.trigger || state.takeoverTimer))) {
-        // The current page was disabled or removed: carry on with the next enabled page in rotation, not the first
-        let from = items.findIndex(item => item.id === state.page);
-        if (from >= 0) from += 1;
-        else {
-            const oldAt = (previous?.pages?.items || []).findIndex(item => item.id === state.page);
-            from = oldAt >= 0 ? Math.min(oldAt, items.length) : 0;
-        }
-        let pick = null;
-        for (let i = 0; i < items.length && !pick; i++) {
-            const candidate = items[(from + i) % items.length];
-            if (candidate.enabled && !candidate.trigger) pick = candidate;
-        }
-        state.page = (pick || items[0]).id;
-    }
-    if (!previous || previous.pages?.mode !== overlay.pages.mode || previous.pages?.enabled !== overlay.pages.enabled) {
-        state.auto = overlay.pages.enabled && overlay.pages.mode === 'auto';
-    }
-    if (!overlay.pages.enabled) state.auto = false;
-    scheduleAutoAdvance(overlay);
-}
-// Show a trigger page (alert, featured message or chat command) for a while, then return to the rotation.
-function takeoverPages(kind, name, ms) {
-    for (const overlay of Object.values(customOverlays)) {
-        if (!overlay.pages?.enabled) continue;
-        const target = overlay.pages.items.find(p => p.enabled && p.trigger === kind && (kind === 'featured' || (kind === 'alert' ? !p.triggerRules.length || p.triggerRules.includes(name) : !p.triggerName || p.triggerName === String(name || '').toLowerCase())));
-        if (!target) continue;
-        let state = overlayPageState.get(overlay.id);
-        if (!state) { state = { page: overlay.pages.items[0].id, auto: false, timer: null }; overlayPageState.set(overlay.id, state); }
-        const returnPage = state.takeoverTimer ? state.returnPage : state.page;
-        clearTimeout(state.takeoverTimer);
-        clearTimeout(state.timer);
-        state.returnPage = returnPage;
-        state.page = target.id;
-        const seconds = target.triggerSeconds || (ms ? ms / 1000 : 10);
-        state.takeoverTimer = setTimeout(() => {
-            state.takeoverTimer = null;
-            const live = customOverlays[overlay.id];
-            if (!live) return;
-            if (live.pages.items.some(p => p.id === state.returnPage && p.enabled)) state.page = state.returnPage;
-            state.returnPage = null;
-            scheduleAutoAdvance(live);
-            broadcastPage(live);
-        }, seconds * 1000);
-        state.takeoverTimer.unref?.();
-        broadcastPage(overlay);
-    }
-}
-function dropOverlayPages(id) {
-    const state = overlayPageState.get(id);
-    if (state) clearTimeout(state.timer);
-    overlayPageState.delete(id);
-}
-
-function saveCustomOverlays() {
-    safeWriteFileSync(CUSTOM_OVERLAYS_PATH, JSON.stringify(customOverlays, null, 2));
-}
-
-loadCustomOverlays();
-Object.values(customOverlays).forEach(overlay => syncOverlayPages(overlay));
-
-// Asset tags: { "<asset file name>": ["Tag", ...] }. Tags are matched case-insensitively.
-let assetTags = {};
-try { if (fs.existsSync(ASSET_TAGS_PATH)) assetTags = JSON.parse(fs.readFileSync(ASSET_TAGS_PATH, 'utf8')) || {}; } catch (error) { console.warn('[Assets] Could not load asset tags:', error.message); }
-
-function normalizeAssetTagList(input) {
-    const seen = new Set();
-    const out = [];
-    for (const raw of Array.isArray(input) ? input : String(input || '').split(',')) {
-        const tag = String(raw || '').trim().replace(/\s+/g, ' ').slice(0, 30);
-        if (tag && !seen.has(tag.toLowerCase())) { seen.add(tag.toLowerCase()); out.push(tag); }
-    }
-    return out;
-}
-
-// Asset captions: { "<asset file name>": "Caption text" }, shown by slideshows.
-let assetCaptions = {};
-try { if (fs.existsSync(ASSET_CAPTIONS_PATH)) assetCaptions = JSON.parse(fs.readFileSync(ASSET_CAPTIONS_PATH, 'utf8')) || {}; } catch (error) { console.warn('[Assets] Could not load asset captions:', error.message); }
-function saveAssetCaptions() { safeWriteFileSync(ASSET_CAPTIONS_PATH, JSON.stringify(assetCaptions, null, 2)); }
-
-function saveAssetTags() {
-    safeWriteFileSync(ASSET_TAGS_PATH, JSON.stringify(assetTags, null, 2));
-}
-
-function setAssetTags(name, tags) {
-    const list = normalizeAssetTagList(tags);
-    if (list.length) assetTags[name] = list; else delete assetTags[name];
-}
-
-function assetMatchesTags(name, wanted, mode) {
-    const have = new Set((assetTags[name] || []).map(tag => tag.toLowerCase()));
-    const need = wanted.map(tag => tag.toLowerCase());
-    if (!need.length) return false;
-    return mode === 'all' ? need.every(tag => have.has(tag)) : need.some(tag => have.has(tag));
-}
-
-// User-saved element presets for the overlay editor. Element positions are relative to the preset's top-left corner.
-let overlayPresets = [];
-try { if (fs.existsSync(OVERLAY_PRESETS_PATH)) overlayPresets = normalizeOverlayPresets(JSON.parse(fs.readFileSync(OVERLAY_PRESETS_PATH, 'utf8'))); } catch (error) { console.warn('[Presets] Could not load overlay presets:', error.message); }
-
-function normalizeOverlayPresets(list) {
-    return (Array.isArray(list) ? list : []).slice(0, 100).map(preset => {
-        const elements = (Array.isArray(preset?.elements) ? preset.elements : []).slice(0, 40).map(normalizeOverlayElement);
-        const id = sanitizeOverlayId(preset?.id);
-        if (!id || !elements.length) return null;
-        return {
-            id, name: String(preset.name || 'Preset').trim().slice(0, 60) || 'Preset',
-            category: String(preset.category || 'My presets').trim().slice(0, 30) || 'My presets',
-            width: Math.max(1, Math.round(Number(preset.width) || 1)), height: Math.max(1, Math.round(Number(preset.height) || 1)),
-            elements
-        };
-    }).filter(Boolean);
-}
-
-function saveOverlayPresets() {
-    safeWriteFileSync(OVERLAY_PRESETS_PATH, JSON.stringify(overlayPresets, null, 2));
-}
 
 // ============================================================================
 // SSN CHAT & STATS SERVICE
@@ -1053,310 +308,37 @@ loadHighlights();
 // BETA CLIP CANDIDATES
 // ============================================================================
 
-let clipCandidates = [];
 let recentChatTimestamps = [];
-let archivedVodCache = { fetchedAt: 0, videos: [] };
-const DEFAULT_CLIP_CANDIDATE_CONFIG = {
-    enabled: true,
-    chat_spike_messages: 20,
-    chat_spike_window_seconds: 60,
-    cooldown_seconds: 30,
-    include_subscriptions: true,
-    include_gift_subs: true,
-    include_highlights: true,
-    include_bits: true,
-    minimum_bits: 1,
-    include_donations: true,
-    minimum_donation: 0,
-    include_raids: true,
-    minimum_raid_viewers: 0
-};
 
-function normalizeClipCandidateConfig(value) {
-    const input = value && typeof value === 'object' ? value : {};
-    const number = (key, fallback, minimum = 0) => {
-        const parsed = Number(input[key]);
-        return Number.isFinite(parsed) ? Math.max(minimum, Math.round(parsed)) : fallback;
-    };
-    return {
-        enabled: input.enabled !== false,
-        chat_spike_messages: number('chat_spike_messages', DEFAULT_CLIP_CANDIDATE_CONFIG.chat_spike_messages, 2),
-        chat_spike_window_seconds: number('chat_spike_window_seconds', DEFAULT_CLIP_CANDIDATE_CONFIG.chat_spike_window_seconds, 10),
-        cooldown_seconds: number('cooldown_seconds', DEFAULT_CLIP_CANDIDATE_CONFIG.cooldown_seconds, 0),
-        include_subscriptions: input.include_subscriptions !== false,
-        include_gift_subs: input.include_gift_subs !== false,
-        include_highlights: input.include_highlights !== false,
-        include_bits: input.include_bits !== false,
-        minimum_bits: number('minimum_bits', DEFAULT_CLIP_CANDIDATE_CONFIG.minimum_bits, 1),
-        include_donations: input.include_donations !== false,
-        minimum_donation: number('minimum_donation', DEFAULT_CLIP_CANDIDATE_CONFIG.minimum_donation, 0),
-        include_raids: input.include_raids !== false,
-        minimum_raid_viewers: number('minimum_raid_viewers', DEFAULT_CLIP_CANDIDATE_CONFIG.minimum_raid_viewers, 0)
-    };
-}
+const clipService = createClipService({
+    dataDir: DATA_DIR,
+    sessionsDir: SESSIONS_DIR,
+    chatLogPath: CHAT_LOG_PATH,
+    clipCandidatesPath: CLIP_CANDIDATES_PATH,
+    getConfig: () => config,
+    getChatData: () => chatData,
+    isSessionActive: () => sessionActive,
+    getBroadcasterId: () => BROADCASTER_ID,
+    getBroadcasterName: () => BROADCASTER_NAME,
+    ensureToken: () => ensureToken(),
+    twitchApiRequest: (endpoint, params, method, body, extraHeaders) => twitchApiRequest(endpoint, params, method, body, extraHeaders),
+    getHighlights: () => highlights,
+    readChatLogFile: (filepath) => readChatLogFile(filepath),
+    getCurrentChatLogEntries: () => getCurrentChatLogEntries(),
+    localDateTimeStr,
+    log: console.log,
+    warn: console.warn
+});
 
-let CLIP_CANDIDATE_CONFIG = normalizeClipCandidateConfig(config.clip_candidates);
+const addClipCandidate = (reason, details, timestamp, score, sessionOverride, sourceKey) =>
+    clipService.addClipCandidate(reason, details, timestamp, score, sessionOverride, sourceKey);
+const resolveCandidateVodUrls = (candidates) => clipService.resolveCandidateVodUrls(candidates);
+const backfillClipCandidates = (rebuild) => clipService.backfillClipCandidates(rebuild);
+const clipSessionOverrideForName = (sessionName) => clipService.clipSessionOverrideForName(sessionName);
+const CLIP_CANDIDATE_CONFIG = clipService.getRuntimeConfig();
+const loadClipCandidates = () => clipService.loadClipCandidates();
+const saveClipCandidates = () => clipService.saveClipCandidates();
 
-function loadClipCandidates() {
-    try {
-        if (fs.existsSync(CLIP_CANDIDATES_PATH)) {
-            const stored = JSON.parse(fs.readFileSync(CLIP_CANDIDATES_PATH, 'utf8'));
-            clipCandidates = Array.isArray(stored) ? stored : [];
-            console.log(`[Clips Beta] Loaded ${clipCandidates.length} candidates`);
-        }
-    } catch (err) {
-        console.warn(`[Clips Beta] Could not load candidates: ${err.message}`);
-        clipCandidates = [];
-    }
-}
-
-function saveClipCandidates() {
-    fs.writeFileSync(CLIP_CANDIDATES_PATH, JSON.stringify(clipCandidates, null, 2));
-}
-
-function currentClipSession() {
-    return {
-        session: chatData.startedAt ? `chat-${localDateTimeStr(chatData.startedAt)}.json` : 'unknown',
-        startedAt: chatData.startedAt || null
-    };
-}
-
-function clipSessionOverrideForName(sessionName) {
-    const name = String(sessionName || '');
-    const current = currentClipSession();
-    if (!name || name === 'current' || name === current.session) return current;
-    if (!/^chat-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}\.json$/.test(name)) return null;
-    try {
-        const sessionPath = path.join(SESSIONS_DIR, name);
-        if (!fs.existsSync(sessionPath)) return null;
-        const data = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
-        return data.startedAt ? { session: name, startedAt: data.startedAt } : null;
-    } catch {
-        return null;
-    }
-}
-
-function parseTwitchDuration(duration) {
-    const match = String(duration || '').match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
-    if (!match) return 0;
-    return ((Number(match[1]) || 0) * 3600 + (Number(match[2]) || 0) * 60 + (Number(match[3]) || 0)) * 1000;
-}
-
-function formatVodOffset(seconds) {
-    const total = Math.max(0, Math.round(seconds));
-    const hours = Math.floor(total / 3600);
-    const minutes = Math.floor((total % 3600) / 60);
-    const remainder = total % 60;
-    return `${hours ? `${hours}h` : ''}${minutes ? `${minutes}m` : ''}${remainder || (!hours && !minutes) ? `${remainder}s` : ''}`;
-}
-
-async function getArchivedVods() {
-    if (!BROADCASTER_ID || !(await ensureToken())) return [];
-    if (Date.now() - archivedVodCache.fetchedAt < 60000) return archivedVodCache.videos;
-    try {
-        const result = await twitchApiRequest('/videos', { user_id: BROADCASTER_ID, first: '100', type: 'archive' });
-        if (result.status !== 200 || !Array.isArray(result.body.data)) return [];
-        archivedVodCache = { fetchedAt: Date.now(), videos: result.body.data };
-        return archivedVodCache.videos;
-    } catch (err) {
-        console.warn(`[Clips Beta] Could not load Twitch VODs: ${err.message}`);
-        return [];
-    }
-}
-
-async function resolveCandidateVodUrls(candidates) {
-    const fallback = BROADCASTER_NAME
-        ? `https://www.twitch.tv/${encodeURIComponent(BROADCASTER_NAME)}/videos`
-        : null;
-    const videos = await getArchivedVods();
-    return candidates.map(candidate => {
-        const timestamp = Number(candidate.timestamp);
-        const match = videos.find(video => {
-            const start = Date.parse(video.created_at);
-            const duration = parseTwitchDuration(video.duration);
-            return Number.isFinite(timestamp) && Number.isFinite(start)
-                && timestamp >= start - 15 * 60 * 1000
-                && timestamp <= start + duration + 15 * 60 * 1000;
-        });
-        const vodUrl = match?.id
-            ? `https://www.twitch.tv/videos/${encodeURIComponent(match.id)}?t=${formatVodOffset((timestamp - Date.parse(match.created_at)) / 1000)}`
-            : fallback;
-        return {
-            ...candidate,
-            vodUrl,
-            vodMatched: !!match?.id,
-            vodId: match?.id || null,
-            vodOffsetSeconds: match?.id ? Math.max(0, Math.round((timestamp - Date.parse(match.created_at)) / 1000)) : null
-        };
-    });
-}
-
-function addClipCandidate(reason, details = {}, timestamp = Date.now(), score = 0.5, sessionOverride = null, sourceKey = null) {
-    if (!sessionActive && !sessionOverride) return null;
-    const sessionStartedAt = sessionOverride?.startedAt || chatData.startedAt;
-    const duplicateWindow = timestamp - (CLIP_CANDIDATE_CONFIG.cooldown_seconds * 1000);
-    const duplicate = clipCandidates.some(candidate =>
-        candidate.sessionStartedAt === sessionStartedAt &&
-        (sourceKey && candidate.sourceKey === sourceKey ||
-            candidate.timestamp >= duplicateWindow && candidate.reason === reason)
-    );
-    if (duplicate) return null;
-
-    const session = sessionOverride || currentClipSession();
-    const candidate = {
-        id: `clip-${timestamp}-${Math.random().toString(36).slice(2, 8)}`,
-        timestamp,
-        detectedAt: new Date().toISOString(),
-        reason,
-        details,
-        score: Math.round(Math.max(0, Math.min(1, score)) * 100) / 100,
-        session: session.session,
-        sessionStartedAt,
-        sourceKey,
-        status: 'candidate',
-        clipId: null,
-        editUrl: null,
-        viewUrl: null,
-        createdAt: null,
-        error: null
-    };
-    clipCandidates.push(candidate);
-    clipCandidates = clipCandidates.slice(-500);
-    saveClipCandidates();
-    console.log(`[Clips Beta] Candidate: ${reason}`);
-    return candidate;
-}
-
-loadClipCandidates();
-
-function backfillClipCandidatesFromEntries(entries, sessionOverride) {
-    if (!Array.isArray(entries) || !sessionOverride?.startedAt) return 0;
-    const ordered = entries
-        .filter(entry => Number.isFinite(Number(entry.ts)))
-        .sort((a, b) => Number(a.ts) - Number(b.ts));
-    const timestamps = [];
-    let created = 0;
-
-    for (const entry of ordered) {
-        const timestamp = Number(entry.ts);
-        timestamps.push(timestamp);
-        while (timestamps.length && timestamp - timestamps[0] > CLIP_CANDIDATE_CONFIG.chat_spike_window_seconds * 1000) {
-            timestamps.shift();
-        }
-
-        if (CLIP_CANDIDATE_CONFIG.enabled && timestamps.length >= CLIP_CANDIDATE_CONFIG.chat_spike_messages) {
-            created += Number(Boolean(addClipCandidate(
-                'chat-spike',
-                { messagesInWindow: timestamps.length, windowSeconds: CLIP_CANDIDATE_CONFIG.chat_spike_window_seconds },
-                timestamp,
-                Math.min(0.95, 0.5 + timestamps.length / 100),
-                sessionOverride,
-                `${sessionOverride.session}:chat-spike:${timestamp}`
-            )));
-        }
-
-        const event = String(entry.event || '').toLowerCase();
-        const user = entry.user || 'unknown';
-        if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_gift_subs &&
-            ['subscription_gift', 'giftpurchase', 'giftredemption'].includes(event)) {
-            created += Number(Boolean(addClipCandidate('gift-sub', { user }, timestamp, 0.65, sessionOverride, `${sessionOverride.session}:gift-sub:${timestamp}`)));
-        } else if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_subscriptions &&
-            ['new_subscriber', 'resub', 'sponsorship'].includes(event)) {
-            created += Number(Boolean(addClipCandidate('subscription', { user, tier: entry.membership || event }, timestamp, 0.6, sessionOverride, `${sessionOverride.session}:subscription:${timestamp}`)));
-        }
-
-        if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_bits &&
-            (event === 'cheer' || String(entry.donation || '').toLowerCase().includes('bit'))) {
-            const amount = parseNumericAmount(entry.donation);
-            if (amount >= CLIP_CANDIDATE_CONFIG.minimum_bits) {
-                created += Number(Boolean(addClipCandidate('bits', { user, amount, label: entry.donation || `${amount} bits` }, timestamp, 0.65, sessionOverride, `${sessionOverride.session}:bits:${timestamp}`)));
-            }
-        }
-
-        if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_donations &&
-            entry.donation && !String(entry.donation).toLowerCase().includes('bit')) {
-            const amount = parseNumericAmount(entry.donation);
-            if (amount >= CLIP_CANDIDATE_CONFIG.minimum_donation) {
-                created += Number(Boolean(addClipCandidate('donation', { user, amount: entry.donation }, timestamp, 0.7, sessionOverride, `${sessionOverride.session}:donation:${timestamp}`)));
-            }
-        }
-
-        if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_raids && event === 'raid') {
-            const viewers = Number((entry.message || '').match(/(\d+)/)?.[1] || 0);
-            if (viewers >= CLIP_CANDIDATE_CONFIG.minimum_raid_viewers) {
-                created += Number(Boolean(addClipCandidate('raid', { user, viewers: viewers || null }, timestamp, 0.8, sessionOverride, `${sessionOverride.session}:raid:${timestamp}`)));
-            }
-        }
-    }
-    return created;
-}
-
-function backfillHighlightedClipCandidates() {
-    let created = 0;
-    for (const highlight of highlights) {
-        if (!CLIP_CANDIDATE_CONFIG.enabled || !CLIP_CANDIDATE_CONFIG.include_highlights) continue;
-        const sessionOverride = clipSessionOverrideForName(highlight.session);
-        if (!sessionOverride || !Number.isFinite(Number(highlight.ts))) continue;
-        created += Number(Boolean(addClipCandidate(
-            'highlighted-chat',
-            { user: highlight.user, message: highlight.message || '' },
-            Number(highlight.ts),
-            0.9,
-            sessionOverride,
-            `${sessionOverride.session}:highlight:${highlight.ts}:${highlight.user}`
-        )));
-    }
-    return created;
-}
-
-function backfillClipCandidates(rebuild = false) {
-    let removed = 0;
-    if (rebuild) {
-        const before = clipCandidates.length;
-        clipCandidates = clipCandidates.filter(candidate =>
-            candidate.status === 'created'
-            || !candidate.sourceKey
-            || candidate.sessionStartedAt === chatData.startedAt
-        );
-        removed = before - clipCandidates.length;
-        if (removed) saveClipCandidates();
-    }
-
-    const sessions = [];
-    if (chatData.startedAt && fs.existsSync(CHAT_LOG_PATH)) {
-        sessions.push({
-            session: `chat-${localDateTimeStr(chatData.startedAt)}.json`,
-            startedAt: chatData.startedAt,
-            entries: getCurrentChatLogEntries()
-        });
-    }
-
-    if (fs.existsSync(SESSIONS_DIR)) {
-        for (const file of fs.readdirSync(SESSIONS_DIR).filter(name => name.startsWith('chat-') && name.endsWith('.json'))) {
-            try {
-                const data = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
-                const logName = file.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
-                sessions.push({
-                    session: file,
-                    startedAt: data.startedAt,
-                    entries: readChatLogFile(path.join(SESSIONS_DIR, logName))
-                });
-            } catch (err) {
-                console.warn(`[Clips Beta] Could not analyze ${file}: ${err.message}`);
-            }
-        }
-    }
-
-    let created = 0;
-    for (const session of sessions) {
-        created += backfillClipCandidatesFromEntries(session.entries, {
-            session: session.session,
-            startedAt: session.startedAt
-        });
-    }
-    created += backfillHighlightedClipCandidates();
-    return { sessions: sessions.length, created, removed };
-}
 
 // ============================================================================
 // TIMERS
@@ -2028,7 +1010,7 @@ function listShareItems() {
         .map(([type, def]) => ({ type, name: def.label }));
     return {
         overlays: Object.values(customOverlays).map(o => ({ type: 'overlay', id: o.id, name: o.name })),
-        presets: overlayPresets.map(p => ({ type: 'preset', id: p.id, name: p.name, category: p.category })),
+        presets: overlayService.getOverlayPresets().map(p => ({ type: 'preset', id: p.id, name: p.name, category: p.category })),
         singles
     };
 }
@@ -2054,7 +1036,7 @@ function buildShareZip(selection, includeHistory) {
             shareAssetNames(text).forEach(n => assets.add(n));
             if (includeHistory && fs.existsSync(historyFile(overlay.id))) zip.addLocalFile(historyFile(overlay.id), 'overlays', `${overlay.id}.history.json`);
         } else if (type === 'preset') {
-            const preset = overlayPresets.find(p => p.id === id);
+            const preset = overlayService.getOverlayPresets().find(p => p.id === id);
             if (!preset) continue;
             presetsOut.push(preset);
             manifest.items.push({ type, id: preset.id, name: preset.name });
@@ -2145,12 +1127,13 @@ function importShareZip(buffer, selected, conflict) {
                 const raw = entryText('presets.json');
                 const source = raw && JSON.parse(raw).find(p => p.id === item.id);
                 if (!source) throw new Error('missing from file');
-                const exists = overlayPresets.some(p => p.id === source.id);
+                const presetsList = overlayService.getOverlayPresets();
+                const exists = presetsList.some(p => p.id === source.id);
                 if (exists && conflict === 'skip') { results.push({ key, status: 'skipped' }); continue; }
-                const targetId = exists && conflict === 'copy' ? freeId(source.id, id => overlayPresets.some(p => p.id === id)) : source.id;
+                const targetId = exists && conflict === 'copy' ? freeId(source.id, id => presetsList.some(p => p.id === id)) : source.id;
                 const [preset] = normalizeOverlayPresets([{ ...JSON.parse(importAssets(JSON.stringify(source))), id: targetId }]);
                 if (!preset) throw new Error('invalid preset');
-                overlayPresets = [...overlayPresets.filter(p => p.id !== targetId), preset];
+                overlayService.setOverlayPresets([...presetsList.filter(p => p.id !== targetId), preset]);
                 saveOverlayPresets();
                 results.push({ key, status: exists ? (targetId === source.id ? 'replaced' : 'copied') : 'added', id: targetId });
             } else if (SHARE_SINGLES[item.type]) {
@@ -2474,8 +1457,8 @@ const handleTwitchRoutes = createTwitchRoutes({
     fetchTwitchPoll,
     takeoverPages,
     broadcastToOverlays,
-    getClipCandidates: () => clipCandidates,
-    setClipCandidates: (arr) => { clipCandidates = arr; },
+    getClipCandidates: () => clipService.getClipCandidates(),
+    setClipCandidates: (arr) => { clipService.setClipCandidates(arr); },
     resolveCandidateVodUrls,
     addClipCandidate,
     normalizeClipCandidateConfig,
@@ -2517,48 +1500,22 @@ const handleSessionRoutes = createSessionRoutes({
 });
 
 const handleOverlayRoutes = createOverlayRoutes({
+    overlayService,
     alertEngine,
     ALERT_TRIGGERS,
     ALERT_ANIM_IN,
     ALERT_ANIM_OUT,
     chatbot,
-    getCustomOverlays: () => customOverlays,
-    getAssetTags: () => assetTags,
-    getAssetCaptions: () => assetCaptions,
-    saveAssetTags,
-    saveAssetCaptions,
-    getOverlayPresets: () => overlayPresets,
-    setOverlayPresets: (val) => { overlayPresets = val; },
-    saveOverlayPresets,
     slideshowStates,
     getOverlayClients: () => overlayClients,
     isLoopbackRequest,
-    customOverlayAssetsDir: CUSTOM_OVERLAY_ASSETS_DIR,
-    customOverlayHistoryDir: CUSTOM_OVERLAY_HISTORY_DIR,
-    customOverlayHistoryLimit: CUSTOM_OVERLAY_HISTORY_LIMIT,
-    textSourceExts: TEXT_SOURCE_EXTS,
-    textSourceMaxBytes: TEXT_SOURCE_MAX_BYTES,
     timerSoundUsers,
     creditsAssetUsers,
     gamePlanAssetUsers,
     rewriteTimerSoundReferences,
     rewriteGamePlanReferences,
     rewriteCreditsReferences,
-    normalizeCustomOverlay,
-    saveCustomOverlays,
-    syncOverlayPages,
-    dropOverlayPages,
-    setPageAuto,
-    movePage,
-    broadcastPage,
-    pageSnapshot,
     broadcastToOverlays,
-    loadRandomizerPresets,
-    saveRandomizerPresets,
-    loadRandomizerButtonPresets,
-    saveRandomizerButtonPresets,
-    loadRandomizerQuotePresets,
-    saveRandomizerQuotePresets,
     getChatData: () => chatData,
     getStatsData: () => statsData,
     listOverlayVisibility,
@@ -2629,7 +1586,7 @@ function buildStatusSnapshot() {
         library: {
             highlights: highlights.length,
             sessions: archivedSessions,
-            clipCandidates: clipCandidates.length
+            clipCandidates: clipService.getClipCandidates().length
         },
         hashtags: hashtagStats.summary,
         popularHashtags: {
@@ -2783,7 +1740,7 @@ const handleBackupRoutes = createBackupRoutes({
     onRestore: handleRestoreReload,
     getConfig: () => config,
     getCustomOverlays: () => customOverlays,
-    getOverlayPresets: () => overlayPresets,
+    getOverlayPresets: () => overlayService.getOverlayPresets(),
     sanitizeOverlayId,
     shareSingles: SHARE_SINGLES
 });
