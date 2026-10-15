@@ -716,6 +716,8 @@ function renderList(name) {
 for (const name of Object.keys(listCfg)) {
     const c = listCfg[name];
     $(`add-${name === 'messages' ? 'message' : 'trigger'}`).onclick = () => {
+        const filterEl = $(name === 'messages' ? 'msg-filter' : 'trig-filter');
+        if (filterEl) { filterEl.value = ''; filterEl.dispatchEvent(new Event('input')); }
         state[name] = readList(name);
         state[name].push(c.blank());
         renderList(name);
@@ -919,7 +921,13 @@ $('test-shoutout').onclick = async () => {
         toast('Test shoutout sent to chat');
     } catch (e) { toast(e.message); }
 };
-$('add-command').onclick = () => { state.commands = readCommands(); state.commands.push({ _open: true, name: '', aliases: [], response: '', enabled: true, access: 'everyone', cooldown: null }); renderCommands(); document.querySelector('#commands .item:last-child [data-k="name"]').focus(); };
+$('add-command').onclick = () => {
+    if ($('cmd-filter')) { $('cmd-filter').value = ''; $('cmd-filter').dispatchEvent(new Event('input')); }
+    state.commands = readCommands();
+    state.commands.push({ _open: true, name: '', aliases: [], response: '', enabled: true, access: 'everyone', cooldown: null });
+    renderCommands();
+    document.querySelector('#commands .item:last-child [data-k="name"]')?.focus();
+};
 $('save-commands').onclick = async () => {
     try {
         const list = readCommands();
