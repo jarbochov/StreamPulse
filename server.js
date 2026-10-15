@@ -19,6 +19,7 @@ const { createTimerService, DEFAULT_TIMER_SETTINGS, TIMER_EVENT_TYPES, formatTim
 const { createGoalsService, GOAL_TYPE_LABELS, GOAL_TYPES, GOAL_TRACKING_TYPES, GOAL_VIEWER_MODES, DEFAULT_COMMUNITY_WEIGHTS, DEFAULT_GOALS_CONFIG, sanitizeGoalId, normalizeGoalsConfig } = require('./server/services/goals');
 const { createViewerService, clampNumber, createEmptyViewerStats, normalizeViewerTrackingConfig, normalizeViewerStats, findSSNViewerCount } = require('./server/services/viewers');
 const { createTwitchService, DEFAULT_TWITCH_CLIENT_ID, DEFAULT_TWITCH_SCOPES, safeReturnPath } = require('./server/services/twitch');
+const { createSessionService, normalizeLifecycleConfig, localDateTimeStr, localDateString, categoryTimeFor, categoryMinutesFor, getSessionStreamTimes, getSessionCategorySegments } = require('./server/services/session');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -1557,203 +1558,56 @@ if (!fs.existsSync(CUSTOM_OVERLAY_ASSETS_DIR)) {
 
 
 
-// ============================================================================
-// SESSION LIFECYCLE (auto start/end driven by Twitch live state)
-// ============================================================================
-
-const LIFECYCLE_PATH = path.join(DATA_DIR, 'session-lifecycle.json');
-let lifecycleMemo = { lastArchive: null };
-try { lifecycleMemo = { lastArchive: null, ...JSON.parse(fs.readFileSync(LIFECYCLE_PATH, 'utf8')) }; } catch { /* first run */ }
-const lifecycle = {
-    liveStreak: 0,
-    liveId: null,        // Twitch stream id already handled
-    lastLiveAt: 0,
-    offlineSince: 0,
-    suppressed: false,   // set by a manual End Session while still live; cleared once Twitch reports offline
-    timer: null
-};
-
-function normalizeLifecycleConfig(input = {}) {
-    return {
-        auto: input?.auto !== false,
-        end_grace_minutes: clampNumber(input?.end_grace_minutes, 1, 240, 15),
-        resume_window_minutes: clampNumber(input?.resume_window_minutes, 0, 1440, 120),
-        min_session_minutes: clampNumber(input?.min_session_minutes, 0, 120, 5),
-        poll_seconds: clampNumber(input?.poll_seconds, 10, 600, 30)
-    };
-}
-
-function noteArchivedSession(name) {
-    lifecycleMemo.lastArchive = { name, endedAt: Date.now() };
-    try { fs.writeFileSync(LIFECYCLE_PATH, JSON.stringify(lifecycleMemo)); } catch { /* non-critical */ }
-}
-
-function sessionHasData() {
-    return (chatData.messageCount || 0) > 0 || chatLog.length > 0;
-}
-
-function broadcastSessionState() {
-    broadcastToOverlays('update', chatData);
-    broadcastToOverlays('viewer-update', getViewerSummary());
-    broadcastToOverlays('goals-update', buildGoalsSnapshot());
-}
-
-// Shared by the manual End Session endpoint and the automatic end
-function endSessionNow({ endedAtIso = null, discard = false } = {}) {
-    if (endedAtIso) {
-        const stats = normalizeViewerStats(chatData.viewerStats);
-        const startMs = Date.parse(stats.streamStartedAt || '');
-        if (Number.isFinite(startMs) && Date.parse(endedAtIso) > startMs) {
-            stats.streamEndedAt = endedAtIso;
-            chatData.viewerStats = stats;
-        }
-    }
-    const streamEndedAt = finalizeSessionStreamEnd();
-    // Close the last category entry at the real stream end so grace/offline time isn't counted
-    const lastInfo = chatData.streamInfo?.[chatData.streamInfo.length - 1];
-    if (lastInfo && streamEndedAt) lastInfo.endedAt = streamEndedAt;
-    saveChatData();
-    saveStats();
-    saveChatLog();
-    let archiveName = null;
-    if (!discard) {
-        recordPlayedGames(JSON.parse(JSON.stringify(chatData.streamInfo || [])), Date.parse(streamEndedAt || '') || Date.now(), Date.parse(normalizeViewerStats(chatData.viewerStats).streamStartedAt || ''))
-            .catch(err => console.error('[GamePlan] Auto-add failed:', err.message));
-        archiveName = archiveSession();
-        performAutoBackup();
-    }
-    resetChatData();
-    sessionActive = false;
-    broadcastSessionState();
-    return { archiveName, streamEndedAt };
-}
-
-function startSessionNow() {
-    resetChatData();
-    sessionActive = true;
-    broadcastSessionState();
-    if (twitchService.getAccessToken() && BROADCASTER_ID) {
-        fetchTwitchData();
-        fetchStreamInfo();
-        fetchViewerCount();
-        fetchTwitchPoll();
-    }
-}
-
-function resumeArchivedSession(name) {
-    const src = path.join(SESSIONS_DIR, name);
-    if (!fs.existsSync(src)) return false;
-    fs.copyFileSync(src, LIVE_CHAT_PATH);
-    const logSrc = path.join(SESSIONS_DIR, name.replace('chat-', 'chatlog-').replace('.json', '.jsonl'));
-    if (fs.existsSync(logSrc)) fs.copyFileSync(logSrc, CHAT_LOG_PATH);
-    else { try { fs.unlinkSync(CHAT_LOG_PATH); } catch { /* none */ } }
-    loadCurrentSessionStateFromDisk();
-    // Keep the original stream start so reconnects don't shorten the session
-    chatData.viewerStats = normalizeViewerStats({ ...chatData.viewerStats, live: true, streamEndedAt: null });
-    // Restart category timing from now so the offline gap isn't counted
-    const lastInfo = chatData.streamInfo?.[chatData.streamInfo.length - 1];
-    if (lastInfo?.endedAt) chatData.streamInfo.push({ title: lastInfo.title, category: lastInfo.category, changedAt: new Date().toISOString() });
-    sessionActive = true;
-    broadcastSessionState();
-    return true;
-}
-
-function lifecycleOnLive(stream, cfg) {
-    lifecycle.offlineSince = 0;
-    lifecycle.lastLiveAt = Date.now();
-    lifecycle.liveStreak++;
-    if (lifecycle.suppressed || lifecycle.liveStreak < 2 || lifecycle.liveId === stream.id) return;
-    lifecycle.liveId = stream.id;
-
-    const windowMs = cfg.resume_window_minutes * 60000;
-    const last = lifecycleMemo.lastArchive;
-    const recentArchive = last && Date.now() - last.endedAt <= windowMs ? last.name : null;
-
-    if (!sessionHasData()) {
-        if (recentArchive && resumeArchivedSession(recentArchive)) {
-            console.log(`[Lifecycle] Live again — resumed ${recentArchive}`);
-        } else {
-            startSessionNow();
-            console.log('[Lifecycle] Live — started a new session');
-        }
-        return;
-    }
-
-    // Leftover data from an earlier stream: close it out unless it's recent enough to be the same stream
-    const stats = normalizeViewerStats(chatData.viewerStats);
-    const lastActivity = Date.parse(chatData.lastUpdated || '') || 0;
-    const sameStream = !stats.streamStartedAt || stats.streamStartedAt === stream.started_at;
-    if (!sameStream && Date.now() - lastActivity > windowMs) {
-        const ended = endSessionNow({ endedAtIso: chatData.lastUpdated || null });
-        console.log(`[Lifecycle] Closed out stale session (${ended.archiveName || 'not archived'}) and starting a new one`);
-        startSessionNow();
-    } else if (!sessionActive) {
-        sessionActive = true;
-        broadcastSessionState();
-    }
-}
-
-function lifecycleOnOffline(cfg) {
-    lifecycle.liveStreak = 0;
-    lifecycle.suppressed = false;
-    if (!lifecycle.lastLiveAt || !sessionActive) return;
-    if (!lifecycle.offlineSince) lifecycle.offlineSince = Date.now();
-    if (Date.now() - lifecycle.offlineSince < cfg.end_grace_minutes * 60000) return;
-
-    const startMs = Date.parse(normalizeViewerStats(chatData.viewerStats).streamStartedAt || '');
-    const endedAtIso = new Date(lifecycle.lastLiveAt).toISOString();
-    const tooShort = Number.isFinite(startMs) && lifecycle.lastLiveAt - startMs < cfg.min_session_minutes * 60000;
-    const ended = endSessionNow({ endedAtIso, discard: tooShort });
-    console.log(tooShort
-        ? `[Lifecycle] Stream was under ${cfg.min_session_minutes} min — session discarded`
-        : `[Lifecycle] Offline ${cfg.end_grace_minutes} min — session ended${ended.archiveName ? ` (${ended.archiveName})` : ''}`);
-    lifecycle.offlineSince = 0;
-    lifecycle.lastLiveAt = 0;
-    lifecycle.liveId = null;
-}
-
-async function pollLifecycle() {
-    const cfg = normalizeLifecycleConfig(config.session_lifecycle);
-    if (!cfg.auto || !TWITCH_CLIENT_ID || !BROADCASTER_ID) return;
-    try {
-        if (!(await ensureToken())) return;
+const sessionService = createSessionService({
+    dataDir: DATA_DIR,
+    sessionsDir: SESSIONS_DIR,
+    liveChatPath: LIVE_CHAT_PATH,
+    chatLogPath: CHAT_LOG_PATH,
+    lifecyclePath: path.join(DATA_DIR, 'session-lifecycle.json'),
+    getConfig: () => config,
+    getChatData: () => chatData,
+    getChatLog: () => chatLog,
+    getStatsData: () => statsData,
+    getTwitchClientId: () => TWITCH_CLIENT_ID,
+    getBroadcasterId: () => BROADCASTER_ID,
+    ensureTwitchToken: () => ensureToken(),
+    fetchTwitchStream: async () => {
         const result = await twitchApiRequest('/streams', { user_id: BROADCASTER_ID });
-        // Network or API errors are not "offline", so an internet outage never ends a session
-        if (result.status !== 200) return;
-        const stream = result.body.data?.[0] || null;
-        if (stream) lifecycleOnLive(stream, cfg);
-        else lifecycleOnOffline(cfg);
-    } catch (err) {
-        console.warn('[Lifecycle] Poll failed:', err.message);
-    }
-}
-
-function getLifecycleStatus() {
-    const cfg = normalizeLifecycleConfig(config.session_lifecycle);
-    const endsAt = lifecycle.offlineSince && sessionActive
-        ? lifecycle.offlineSince + cfg.end_grace_minutes * 60000
-        : null;
-    return {
-        auto: cfg.auto,
-        state: !cfg.auto ? 'off' : lifecycle.suppressed ? 'manual' : endsAt ? 'ending' : lifecycle.liveStreak ? 'live' : 'waiting',
-        endsAt: endsAt ? new Date(endsAt).toISOString() : null,
-        graceMinutes: cfg.end_grace_minutes
-    };
-}
-
-// "waiting" means auto sessions are on and nothing has happened yet, so the empty session's start time (usually just when the server booted) is not meaningful.
-function getSessionPhase() {
-    const cfg = normalizeLifecycleConfig(config.session_lifecycle);
-    if (cfg.auto && !sessionHasData() && !lifecycle.liveStreak) return 'waiting';
-    return sessionActive ? 'active' : 'ended';
-}
-
-function startLifecycleWatcher() {
-    if (lifecycle.timer) clearInterval(lifecycle.timer);
-    const cfg = normalizeLifecycleConfig(config.session_lifecycle);
-    lifecycle.timer = setInterval(pollLifecycle, cfg.poll_seconds * 1000);
-    setTimeout(pollLifecycle, 3000);
-}
+        return result.status === 200 ? result.body.data?.[0] || null : null;
+    },
+    fetchTwitchData: () => fetchTwitchData(),
+    fetchStreamInfo: () => fetchStreamInfo(),
+    fetchViewerCount: () => fetchViewerCount(),
+    fetchTwitchPoll: () => fetchTwitchPoll(),
+    normalizeViewerStats: (v) => normalizeViewerStats(v),
+    getViewerSummary: () => getViewerSummary(),
+    buildGoalsSnapshot: () => buildGoalsSnapshot(),
+    broadcastToOverlays: (type, data) => broadcastToOverlays(type, data),
+    saveChatData: () => saveChatData(),
+    saveStats: () => saveStats(),
+    saveChatLog: () => saveChatLog(),
+    resetChatData: () => resetChatData(),
+    loadCurrentSessionStateFromDisk: () => loadCurrentSessionStateFromDisk(),
+    recordPlayedGames: (streamInfo, endMs, startFloorMs) => recordPlayedGames(streamInfo, endMs, startFloorMs),
+    performAutoBackup: (force) => performAutoBackup(force),
+    isSessionActive: () => sessionActive,
+    setSessionActive: (val) => { sessionActive = !!val; }
+});
+const noteArchivedSession = (name) => sessionService.noteArchivedSession(name);
+const sessionHasData = () => sessionService.sessionHasData();
+const broadcastSessionState = () => sessionService.broadcastSessionState();
+const finalizeSessionStreamEnd = () => sessionService.finalizeSessionStreamEnd();
+const archiveSession = () => sessionService.archiveSession();
+const endSessionNow = (opts) => sessionService.endSessionNow(opts);
+const startSessionNow = () => sessionService.startSessionNow();
+const resumeArchivedSession = (name) => sessionService.resumeArchivedSession(name);
+const getLifecycleStatus = () => sessionService.getLifecycleStatus();
+const getSessionPhase = () => sessionService.getSessionPhase();
+const startLifecycleWatcher = () => sessionService.startLifecycleWatcher();
+const stopLifecycleWatcher = () => sessionService.stopLifecycleWatcher();
+const archivedCategoryMinutes = () => sessionService.archivedCategoryMinutes();
+const currentCategoryStats = (archivedTotals) => sessionService.currentCategoryStats(archivedTotals);
+const computeMilestones = () => sessionService.computeMilestones();
 
 // ============================================================================
 // GAME INFO (Twitch box art + IGDB details for the current category)
@@ -2260,39 +2114,7 @@ function saveChatLog() {
     }
 }
 
-function finalizeSessionStreamEnd() {
-    const viewerStats = normalizeViewerStats(chatData.viewerStats);
-    if (!viewerStats.streamStartedAt) {
-        chatData.viewerStats = viewerStats;
-        return null;
-    }
 
-    const startMs = Date.parse(viewerStats.streamStartedAt);
-    if (!Number.isFinite(startMs)) {
-        chatData.viewerStats = viewerStats;
-        return null;
-    }
-    if (viewerStats.streamEndedAt) {
-        const recordedEndMs = Date.parse(viewerStats.streamEndedAt);
-        if (Number.isFinite(recordedEndMs) && recordedEndMs > startMs) {
-            return viewerStats.streamEndedAt;
-        }
-        viewerStats.streamEndedAt = null;
-    }
-
-    const lastChatEntry = [...chatLog].reverse().find(entry => {
-        const timestamp = Number(entry?.ts);
-        return Number.isFinite(timestamp) && timestamp > startMs;
-    });
-    const lastChatAt = lastChatEntry ? new Date(Number(lastChatEntry.ts)).toISOString() : null;
-    const candidateEnd = lastChatAt || new Date().toISOString();
-    const candidateMs = Date.parse(candidateEnd);
-    if (Number.isFinite(candidateMs) && candidateMs > startMs) {
-        viewerStats.streamEndedAt = candidateEnd;
-    }
-    chatData.viewerStats = viewerStats;
-    return viewerStats.streamEndedAt;
-}
 
 function readChatLogFile(filepath) {
     if (!fs.existsSync(filepath)) return [];
@@ -2952,145 +2774,7 @@ function filterChatMessages(messages, filters, sessionName) {
         .map(message => sessionName ? { ...message, session: sessionName } : message);
 }
 
-function localDateTimeStr(isoStr) {
-    const d = new Date(isoStr || Date.now());
-    const y = d.getFullYear();
-    const mo = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const h = String(d.getHours()).padStart(2, '0');
-    const mi = String(d.getMinutes()).padStart(2, '0');
-    return `${y}-${mo}-${day}T${h}-${mi}`;
-}
 
-function getSessionStreamTimes(data, chatEntries = []) {
-    const samples = Array.isArray(data?.viewerStats?.samples) ? data.viewerStats.samples : [];
-    const liveSamples = samples.filter(sample => sample.live && sample.ts);
-    const streamStartAt = data?.viewerStats?.streamStartedAt
-        || liveSamples[0]?.ts
-        || null;
-    const startMs = streamStartAt ? Date.parse(streamStartAt) : NaN;
-    let wasLive = false;
-    const offlineTransitions = [];
-    for (const sample of samples) {
-        const sampleMs = sample.ts ? Date.parse(sample.ts) : NaN;
-        if (sample.live && sample.ts && Number.isFinite(startMs) && sampleMs >= startMs) {
-            wasLive = true;
-        } else if (sample.live === false && sample.ts && wasLive) {
-            if (Number.isFinite(startMs) && Number.isFinite(sampleMs) && sampleMs > startMs) {
-                offlineTransitions.push(sample);
-            }
-            wasLive = false;
-        }
-    }
-    const candidateStopAt = data?.viewerStats?.streamEndedAt
-        || (offlineTransitions.length > 0
-            ? offlineTransitions[offlineTransitions.length - 1].ts
-            : null);
-    let stopMs = candidateStopAt ? Date.parse(candidateStopAt) : NaN;
-    let streamStopAt = streamStartAt
-        && Number.isFinite(startMs)
-        && Number.isFinite(stopMs)
-        && stopMs > startMs
-        ? candidateStopAt
-        : null;
-    if (!streamStopAt && Number.isFinite(startMs)) {
-        const lastChatEntry = [...chatEntries].reverse().find(entry => {
-            const timestamp = Number(entry?.ts);
-            return Number.isFinite(timestamp) && timestamp > startMs;
-        });
-        if (lastChatEntry) {
-            const lastChatAt = new Date(Number(lastChatEntry.ts)).toISOString();
-            stopMs = Date.parse(lastChatAt);
-            if (Number.isFinite(stopMs) && stopMs > startMs) {
-                streamStopAt = lastChatAt;
-            }
-        }
-    }
-    return { streamStartAt, streamStopAt };
-}
-
-function getSessionCategorySegments(data, streamStartAt, streamStopAt, isCurrent = false) {
-    const entries = Array.isArray(data?.streamInfo)
-        ? data.streamInfo
-            .filter(entry => entry && entry.changedAt)
-            .map(entry => ({
-                title: entry.title || '',
-                category: entry.category || '(No Category)',
-                changedAt: entry.changedAt
-            }))
-            .sort((a, b) => Date.parse(a.changedAt) - Date.parse(b.changedAt))
-        : [];
-    if (entries.length === 0) return [];
-
-    const startMs = streamStartAt ? Date.parse(streamStartAt) : NaN;
-    const endMs = streamStopAt
-        ? Date.parse(streamStopAt)
-        : (isCurrent ? Date.now() : NaN);
-    return entries.map((entry, index) => {
-        const rawStartMs = Date.parse(entry.changedAt);
-        const segmentStartMs = Number.isFinite(startMs) ? Math.max(rawStartMs, startMs) : rawStartMs;
-        const nextMs = index + 1 < entries.length ? Date.parse(entries[index + 1].changedAt) : endMs;
-        const segmentEndMs = Number.isFinite(nextMs) ? Math.max(segmentStartMs, nextMs) : null;
-        return {
-            title: entry.title,
-            category: entry.category,
-            startAt: new Date(segmentStartMs).toISOString(),
-            endAt: segmentEndMs ? new Date(segmentEndMs).toISOString() : null,
-            durationMinutes: segmentEndMs ? Math.round((segmentEndMs - segmentStartMs) / 60000) : null
-        };
-    }).filter(entry => Number.isFinite(Date.parse(entry.startAt)));
-}
-
-function archiveSession() {
-    const chatPath = path.join(DATA_DIR, 'chat.json');
-    try {
-        if (fs.existsSync(chatPath)) {
-            const prevChat = JSON.parse(fs.readFileSync(chatPath, 'utf8'));
-            if (prevChat.messageCount > 0) {
-                if (!fs.existsSync(SESSIONS_DIR)) {
-                    fs.mkdirSync(SESSIONS_DIR, { recursive: true });
-                }
-                // Use local time so the date matches what the streamer sees
-                const sessionDateTime = localDateTimeStr(prevChat.startedAt);
-                const archiveName = `chat-${sessionDateTime}.json`;
-                const archivePath = path.join(SESSIONS_DIR, archiveName);
-
-                // Skip if this session was already archived (same startedAt)
-                if (fs.existsSync(archivePath)) {
-                    try {
-                        const existing = JSON.parse(fs.readFileSync(archivePath, 'utf8'));
-                        if (existing.startedAt === prevChat.startedAt) {
-                            // Update the archive with latest data (more messages may have arrived)
-                            fs.copyFileSync(chatPath, archivePath);
-                            console.log(`[Session] Updated existing archive → data/sessions/${archiveName}`);
-                            if (fs.existsSync(CHAT_LOG_PATH)) {
-                                const logArchiveName = archiveName.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
-                                fs.copyFileSync(CHAT_LOG_PATH, path.join(SESSIONS_DIR, logArchiveName));
-                            }
-                            noteArchivedSession(archiveName);
-                            return archiveName;
-                        }
-                    } catch (_) { /* corrupted file, overwrite */ }
-                }
-                fs.copyFileSync(chatPath, archivePath);
-                console.log(`[Session] Archived → data/sessions/${archiveName}`);
-
-                // Archive chat log alongside the session
-                if (fs.existsSync(CHAT_LOG_PATH)) {
-                    const logArchiveName = archiveName.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
-                    fs.copyFileSync(CHAT_LOG_PATH, path.join(SESSIONS_DIR, logArchiveName));
-                    console.log(`[Session] Chat log archived → data/sessions/${logArchiveName}`);
-                }
-
-                noteArchivedSession(archiveName);
-                return archiveName;
-            }
-        }
-    } catch (err) {
-        console.warn('[Session] Could not archive:', err.message);
-    }
-    return null;
-}
 
 function performAutoBackup(force = false) {
     if (!force && !config.auto_backup_on_session_end) return;
@@ -3748,189 +3432,6 @@ async function generatePdf(htmlContent) {
 
 let statusHeavyCache = null;
 
-// Minutes spent in each category by one session's stream-info history, plus the local dates it was streamed on.
-function categoryTimeFor(streamInfo, endMs, startFloorMs = null) {
-    const result = {};
-    (streamInfo || []).forEach((entry, i) => {
-        let start = Date.parse(entry.changedAt);
-        let end = i + 1 < streamInfo.length ? Date.parse(streamInfo[i + 1].changedAt) : endMs;
-        const closedAt = Date.parse(entry.endedAt || '');
-        if (Number.isFinite(closedAt) && closedAt < end) end = closedAt;
-        if (Number.isFinite(startFloorMs) && start < startFloorMs) start = startFloorMs;
-        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
-        const name = entry.category || '(No Category)';
-        const slot = result[name] || (result[name] = { minutes: 0, dates: new Set() });
-        slot.minutes += (end - start) / 60000;
-        slot.dates.add(localDateString(new Date(start)));
-    });
-    return result;
-}
-
-function localDateString(date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-function categoryMinutesFor(streamInfo, endMs, startFloorMs = null) {
-    return Object.fromEntries(Object.entries(categoryTimeFor(streamInfo, endMs, startFloorMs)).map(([name, slot]) => [name, slot.minutes]));
-}
-
-function archivedCategoryMinutes() {
-    const totals = {};
-    if (!fs.existsSync(SESSIONS_DIR)) return totals;
-    for (const file of fs.readdirSync(SESSIONS_DIR).filter(f => f.startsWith('chat-') && f.endsWith('.json'))) {
-        try {
-            const data = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
-            const endMs = Date.parse(data.lastUpdated || data.startedAt);
-            const floor = Date.parse(data.viewerStats?.streamStartedAt || '');
-            for (const [name, minutes] of Object.entries(categoryMinutesFor(data.streamInfo, endMs, floor))) totals[name] = (totals[name] || 0) + minutes;
-        } catch {}
-    }
-    return totals;
-}
-
-function currentCategoryStats(archivedTotals) {
-    const info = chatData.streamInfo || [];
-    const name = info.length ? (info[info.length - 1].category || '(No Category)') : '';
-    if (!name) return { name: '', sessionMinutes: 0, totalMinutes: 0 };
-    const floor = Date.parse(normalizeViewerStats(chatData.viewerStats).streamStartedAt || '');
-    const sessionMinutes = categoryMinutesFor(info, Date.now(), floor)[name] || 0;
-    return { name, sessionMinutes: Math.round(sessionMinutes), totalMinutes: Math.round((archivedTotals[name] || 0) + sessionMinutes) };
-}
-
-// Stream Milestones & Streaks Tracker
-let milestoneCache = { at: 0, data: null };
-function computeMilestones() {
-    const nowMs = Date.now();
-    if (milestoneCache.data && (nowMs - milestoneCache.at < 30000)) {
-        return milestoneCache.data;
-    }
-
-    let archivedFiles = [];
-    if (fs.existsSync(SESSIONS_DIR)) {
-        archivedFiles = fs.readdirSync(SESSIONS_DIR).filter(f => f.startsWith('chat-') && f.endsWith('.json'));
-    }
-
-    let totalDurationMs = 0;
-    const streamDates = new Set();
-    const weekSet = new Set();
-
-    function getIsoWeek(d) {
-        const date = new Date(d.getTime());
-        date.setHours(0, 0, 0, 0);
-        date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
-        const week1 = new Date(date.getFullYear(), 0, 4);
-        const weekNr = 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
-        return `${date.getFullYear()}-W${String(weekNr).padStart(2, '0')}`;
-    }
-
-    for (const file of archivedFiles) {
-        try {
-            const data = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
-            const start = Date.parse(data.startedAt || '');
-            const end = Date.parse(data.lastUpdated || '');
-            if (start && end && end > start) {
-                totalDurationMs += (end - start);
-            }
-            const dateStr = String(data.startedAt || file).slice(0, 10);
-            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-                streamDates.add(dateStr);
-                weekSet.add(getIsoWeek(new Date(dateStr + 'T12:00:00Z')));
-            }
-        } catch {}
-    }
-
-    // Add current live session if active
-    if (chatData.startedAt) {
-        const liveStart = Date.parse(chatData.startedAt);
-        const liveEnd = Date.now();
-        if (liveEnd > liveStart) {
-            totalDurationMs += (liveEnd - liveStart);
-        }
-        const todayStr = new Date().toISOString().slice(0, 10);
-        streamDates.add(todayStr);
-        weekSet.add(getIsoWeek(new Date()));
-    }
-
-    const streamNumber = archivedFiles.length + (chatData.startedAt && !archivedFiles.some(f => f.includes(chatData.startedAt.slice(0, 10))) ? 1 : 0);
-    const totalMinutes = Math.round(totalDurationMs / 60000);
-    const totalHours = Math.floor(totalMinutes / 60);
-    const remainingMinutes = totalMinutes % 60;
-    const totalTimeString = `${totalHours}h ${remainingMinutes}m`;
-
-    // Streaks
-    const fmtDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const todayDate = new Date();
-    const todayStr = fmtDay(todayDate);
-    const yestDate = new Date(todayDate);
-    yestDate.setDate(yestDate.getDate() - 1);
-    const yestStr = fmtDay(yestDate);
-
-    let streakDays = 0;
-    let curDay = streamDates.has(todayStr) ? new Date(todayDate) : (streamDates.has(yestStr) ? yestDate : null);
-    if (curDay) {
-        while (true) {
-            const s = fmtDay(curDay);
-            if (streamDates.has(s)) {
-                streakDays++;
-                curDay.setDate(curDay.getDate() - 1);
-            } else {
-                break;
-            }
-        }
-    }
-
-    let streakWeeks = 0;
-    const thisWeek = getIsoWeek(todayDate);
-    const lastWeekDate = new Date(todayDate);
-    lastWeekDate.setDate(lastWeekDate.getDate() - 7);
-    const lastWeek = getIsoWeek(lastWeekDate);
-
-    let curWeek = weekSet.has(thisWeek) ? new Date(todayDate) : (weekSet.has(lastWeek) ? lastWeekDate : null);
-    if (curWeek) {
-        while (true) {
-            const w = getIsoWeek(curWeek);
-            if (weekSet.has(w)) {
-                streakWeeks++;
-                curWeek.setDate(curWeek.getDate() - 7);
-            } else {
-                break;
-            }
-        }
-    }
-
-    const lifetimeChatters = Object.keys(statsData.chatters || {}).length;
-    const totalStoredMessages = typeof statsData.totalMessages === 'object' && statsData.totalMessages !== null
-        ? Object.values(statsData.totalMessages).reduce((sum, count) => sum + (Number(count) || 0), 0)
-        : (Number(statsData.totalMessages) || 0);
-    const lifetimeMessages = totalStoredMessages + (Number(chatData.messageCount) || 0);
-
-    const nextStreamGoal = streamNumber < 25 ? 25 : (streamNumber < 50 ? 50 : (Math.floor(streamNumber / 25) + 1) * 25);
-    const nextHoursGoal = totalHours < 100 ? 100 : (Math.floor(totalHours / 100) + 1) * 100;
-    const nextChattersGoal = lifetimeChatters < 50 ? 50 : (lifetimeChatters < 100 ? 100 : (Math.floor(lifetimeChatters / 50) + 1) * 50);
-
-    const milestonesList = [
-        { type: 'streams', title: `Stream #${nextStreamGoal}`, current: streamNumber, target: nextStreamGoal, remaining: Math.max(0, nextStreamGoal - streamNumber), unit: 'streams' },
-        { type: 'hours', title: `${nextHoursGoal} Broadcast Hours`, current: totalHours, target: nextHoursGoal, remaining: Math.max(0, nextHoursGoal - totalHours), unit: 'hours' },
-        { type: 'chatters', title: `${nextChattersGoal} Unique Chatters`, current: lifetimeChatters, target: nextChattersGoal, remaining: Math.max(0, nextChattersGoal - lifetimeChatters), unit: 'chatters' }
-    ];
-
-    const result = {
-        stream_number: streamNumber,
-        total_hours: totalHours,
-        total_minutes: totalMinutes,
-        total_time: totalTimeString,
-        streak_days: streakDays,
-        streak_weeks: streakWeeks,
-        lifetime_chatters: lifetimeChatters,
-        lifetime_messages: lifetimeMessages,
-        next_stream_goal: nextStreamGoal,
-        next_hours_goal: nextHoursGoal,
-        milestones: milestonesList
-    };
-
-    milestoneCache = { at: nowMs, data: result };
-    return result;
-}
 
 // Chatter Dossier / Community CRM
 const CHATTER_NOTES_FILE = path.join(DATA_DIR, 'chatter-notes.json');
