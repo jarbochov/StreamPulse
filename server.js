@@ -7204,6 +7204,7 @@ const server = http.createServer(async (req, res) => {
             const suspense = body.suspense || query.suspense || 'normal';
             const duration = Number(body.duration || query.duration) || 6;
             const autohide = body.autohide !== undefined ? Number(body.autohide) : (query.autohide !== undefined ? Number(query.autohide) : 8);
+            const theme = body.theme || query.theme || '';
             const accent = body.accent || query.accent || '';
             const font = body.font || query.font || '';
 
@@ -7214,6 +7215,7 @@ const server = http.createServer(async (req, res) => {
                 winnerSub,
                 mode,
                 suspense,
+                theme,
                 duration,
                 autohide,
                 accent,
@@ -7225,7 +7227,7 @@ const server = http.createServer(async (req, res) => {
             };
             broadcastToOverlays('randomizer-spin', payload);
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: true, winner, preset: presetId, mode, payload }));
+            res.end(JSON.stringify({ ok: true, winner, preset: presetId, mode, theme, payload }));
         } catch (err) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: err.message }));

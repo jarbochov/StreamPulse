@@ -527,14 +527,29 @@
                                 </label>
                             </div>
 
-                            <!-- Overlay Appearance Section (Mirrors overlay-url-wizard.html) -->
+                            <!-- Overlay Appearance Section (Mirrors overlay-url-wizard.html with Curated Themes) -->
                             <div style="background:var(--bg-inset);border:1px solid var(--border);border-radius:8px;padding:.75rem;">
                                 <div style="font-size:.76rem;font-weight:700;color:var(--text);margin-bottom:.5rem;display:flex;align-items:center;justify-content:space-between;">
-                                    <span>Overlay Appearance (Shared Stream Theme)</span>
+                                    <span>Overlay Color Theme &amp; Appearance</span>
                                     <button class="btn small" id="btn-reset-overlay-theme" type="button" style="padding:.12rem .4rem;font-size:.68rem;" title="Reset to stream global theme">
-                                        Use Saved Overlay Theme
+                                        Use Stream Theme
                                     </button>
                                 </div>
+
+                                <label class="f" style="margin-bottom:.6rem;">
+                                    <span>Curated Color Theme</span>
+                                    <select id="theme-select">
+                                        <option value="system">StreamPulse Shared Theme (Default)</option>
+                                        <option value="purple">Purple Chaos</option>
+                                        <option value="rainbow">Vibrant Rainbow</option>
+                                        <option value="cyberpunk">Cyberpunk Neon</option>
+                                        <option value="gold">Royal Gold &amp; Navy</option>
+                                        <option value="fire">Fire &amp; Magma</option>
+                                        <option value="midnight">Midnight Nebula</option>
+                                        <option value="matrix">Hacker Terminal</option>
+                                        <option value="custom">Custom Color / Appearance</option>
+                                    </select>
+                                </label>
 
                                 <div class="form-row" style="display:flex;flex-direction:column;gap:.35rem;margin-bottom:.55rem;">
                                     <label style="font-size:.76rem;font-weight:600;color:var(--text-muted);">Accent Color (Slices, Indicators &amp; Highlights)</label>
@@ -977,6 +992,85 @@
             }
         }
 
+        // Curated Color Themes + StreamPulse Shared Theme
+        const THEMES = {
+            system: {
+                id: 'system',
+                name: 'StreamPulse Shared Theme (Default)',
+                accent: '',
+                indicator: '',
+                gradient: '',
+                glow: '',
+                slices: []
+            },
+            purple: {
+                id: 'purple',
+                name: 'Purple Chaos',
+                accent: '#a855f7',
+                indicator: '#ec4899',
+                gradient: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #f97316 100%)',
+                glow: 'rgba(168, 85, 247, 0.4)',
+                slices: ['#a855f7', '#ec4899', '#f97316', '#eab308', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#d946ef']
+            },
+            rainbow: {
+                id: 'rainbow',
+                name: 'Vibrant Rainbow',
+                accent: '#ef4444',
+                indicator: '#fbbf24',
+                gradient: 'linear-gradient(135deg, #ef4444 0%, #f97316 20%, #f59e0b 40%, #10b981 60%, #3b82f6 80%, #8b5cf6 100%)',
+                glow: 'rgba(239, 68, 68, 0.4)',
+                slices: ['#ef4444', '#f97316', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899']
+            },
+            cyberpunk: {
+                id: 'cyberpunk',
+                name: 'Cyberpunk Neon',
+                accent: '#00f0ff',
+                indicator: '#ff007f',
+                gradient: 'linear-gradient(135deg, #00f0ff 0%, #ff007f 100%)',
+                glow: 'rgba(0, 240, 255, 0.45)',
+                slices: ['#00f0ff', '#ff007f', '#ffe600', '#7928ca', '#00ff66', '#ff003c']
+            },
+            gold: {
+                id: 'gold',
+                name: 'Royal Gold & Navy',
+                accent: '#fbbf24',
+                indicator: '#fbbf24',
+                gradient: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)',
+                glow: 'rgba(251, 191, 36, 0.4)',
+                slices: ['#fbbf24', '#d97706', '#b45309', '#f59e0b', '#fef3c7', '#78350f', '#eab308']
+            },
+            fire: {
+                id: 'fire',
+                name: 'Fire & Magma',
+                accent: '#ef4444',
+                indicator: '#f59e0b',
+                gradient: 'linear-gradient(135deg, #ef4444 0%, #f97316 50%, #fbbf24 100%)',
+                glow: 'rgba(239, 68, 68, 0.45)',
+                slices: ['#ef4444', '#dc2626', '#b91c1c', '#f97316', '#ea580c', '#f59e0b']
+            },
+            midnight: {
+                id: 'midnight',
+                name: 'Midnight Nebula',
+                accent: '#8b5cf6',
+                indicator: '#38bdf8',
+                gradient: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 50%, #06b6d4 100%)',
+                glow: 'rgba(139, 92, 246, 0.4)',
+                slices: ['#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9', '#06b6d4', '#14b8a6']
+            },
+            matrix: {
+                id: 'matrix',
+                name: 'Hacker Terminal',
+                accent: '#10b981',
+                indicator: '#34d399',
+                gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                glow: 'rgba(16, 185, 129, 0.4)',
+                slices: ['#10b981', '#059669', '#047857', '#34d399', '#065f46', '#6ee7b7']
+            }
+        };
+
+        let currentTheme = 'system';
+        let currentThemeSlices = null;
+
         // Apply Shared Overlay Theme (Matches overlay-theme.js and overlay-url-wizard.html)
         async function loadOverlayTheme() {
             try {
@@ -985,15 +1079,44 @@
                     savedOverlayConfigTheme = res.theme;
                 }
             } catch {}
-            applyCurrentOverlayTheme();
+            applyTheme(isOverlay ? (params.get('theme') || 'system') : currentTheme);
         }
 
-        function applyCurrentOverlayTheme() {
+        function applyTheme(themeKey, skipInputSync = false) {
+            currentTheme = themeKey || 'system';
             const root = $('display-stage');
             if (!root) return;
 
             const t = savedOverlayConfigTheme || {};
-            const accent = (isOverlay ? params.get('accent') : $('ap-accent')?.value.trim()) || t.accent_color || '#8b5cf6';
+            let accent, indicator, gradient, glow, slices;
+
+            if (currentTheme !== 'system' && currentTheme !== 'custom' && THEMES[currentTheme]) {
+                const preset = THEMES[currentTheme];
+                accent = preset.accent;
+                indicator = preset.indicator;
+                gradient = preset.gradient;
+                glow = preset.glow;
+                slices = [...preset.slices];
+            } else {
+                // System or Custom
+                accent = (isOverlay ? params.get('accent') : $('ap-accent')?.value.trim()) || t.accent_color || '#8b5cf6';
+                indicator = `color-mix(in srgb, ${accent} 85%, #fff)`;
+                gradient = `linear-gradient(135deg, ${accent} 0%, color-mix(in srgb, ${accent} 70%, #ec4899) 50%, color-mix(in srgb, ${accent} 50%, #f97316) 100%)`;
+                glow = `color-mix(in srgb, ${accent} 40%, transparent)`;
+                slices = [
+                    accent,
+                    '#3b82f6',
+                    '#10b981',
+                    '#f59e0b',
+                    '#ec4899',
+                    '#06b6d4',
+                    '#f43f5e',
+                    '#eab308'
+                ];
+            }
+
+            currentThemeSlices = slices;
+
             const text = (isOverlay ? params.get('text') : $('ap-text')?.value.trim()) || t.text_color || '#ffffff';
             const font = (isOverlay ? params.get('font') : $('ap-font')?.value.trim()) || t.font_family || '';
             const weight = (isOverlay ? params.get('weight') : $('ap-weight')?.value.trim()) || t.font_weight || '600';
@@ -1002,9 +1125,9 @@
 
             // Update CSS variables on display stage
             root.style.setProperty('--stage-accent', accent);
-            root.style.setProperty('--stage-indicator', `color-mix(in srgb, ${accent} 85%, #fff)`);
-            root.style.setProperty('--stage-gradient', `linear-gradient(135deg, ${accent} 0%, color-mix(in srgb, ${accent} 70%, #ec4899) 50%, color-mix(in srgb, ${accent} 50%, #f97316) 100%)`);
-            root.style.setProperty('--stage-glow', `color-mix(in srgb, ${accent} 40%, transparent)`);
+            root.style.setProperty('--stage-indicator', indicator);
+            root.style.setProperty('--stage-gradient', gradient);
+            root.style.setProperty('--stage-glow', glow);
             if (font) root.style.fontFamily = `"${font}", -apple-system, system-ui, sans-serif`;
             if (weight) root.style.fontWeight = weight;
             if (text) root.style.color = text;
@@ -1013,20 +1136,21 @@
             // Update spin buttons styling
             const spinBtn = $('btn-spin');
             if (spinBtn) {
-                spinBtn.style.background = root.style.getPropertyValue('--stage-gradient');
-                spinBtn.style.boxShadow = `0 4px 20px ${root.style.getPropertyValue('--stage-glow')}`;
+                spinBtn.style.background = gradient;
+                spinBtn.style.boxShadow = `0 4px 20px ${glow}`;
             }
             const overlayBtn = $('overlay-spin-btn');
             if (overlayBtn) {
-                overlayBtn.style.background = root.style.getPropertyValue('--stage-gradient');
-                overlayBtn.style.boxShadow = `0 4px 20px ${root.style.getPropertyValue('--stage-glow')}`;
+                overlayBtn.style.background = gradient;
+                overlayBtn.style.boxShadow = `0 4px 20px ${glow}`;
             }
             const winnerHeader = $('winner-header-text');
-            if (winnerHeader) winnerHeader.style.color = root.style.getPropertyValue('--stage-indicator');
+            if (winnerHeader) winnerHeader.style.color = indicator;
 
             // Sync inputs in admin UI
-            if (!isOverlay) {
-                if ($('ap-accent') && !$('ap-accent').value) $('ap-accent').value = accent;
+            if (!isOverlay && !skipInputSync) {
+                if ($('theme-select')) $('theme-select').value = currentTheme;
+                if ($('ap-accent')) $('ap-accent').value = accent;
                 if ($('ap-accent-picker')) $('ap-accent-picker').value = accent.startsWith('#') && accent.length === 7 ? accent : '#8b5cf6';
                 if ($('ap-text') && !$('ap-text').value) $('ap-text').value = text;
                 if ($('ap-text-picker')) $('ap-text-picker').value = text.startsWith('#') && text.length === 7 ? text : '#ffffff';
@@ -1038,6 +1162,8 @@
             renderInitialState();
         }
 
+        const applyCurrentOverlayTheme = () => applyTheme(currentTheme);
+
         function highlightActiveAccentChip(color) {
             document.querySelectorAll('.p-chip').forEach(c => {
                 c.classList.toggle('active', c.dataset.color.toLowerCase() === color.toLowerCase());
@@ -1048,7 +1174,8 @@
             if ($('ap-accent')) $('ap-accent').value = color;
             if ($('ap-accent-picker')) $('ap-accent-picker').value = color;
             highlightActiveAccentChip(color);
-            applyCurrentOverlayTheme();
+            if ($('theme-select')) $('theme-select').value = 'custom';
+            applyTheme('custom');
             updateObsUrl();
         }
         document.querySelectorAll('.p-chip').forEach(c => {
@@ -1106,6 +1233,7 @@
             const showButton = $('overlay-button-enabled')?.checked ? '1' : '0';
             const duration = $('spin-duration')?.value || '6';
 
+            const theme = $('theme-select')?.value || currentTheme;
             const accent = $('ap-accent')?.value.trim();
             const text = $('ap-text')?.value.trim();
             const font = $('ap-font')?.value.trim();
@@ -1115,7 +1243,11 @@
 
             let url = `${window.location.origin}/randomizer.html?overlay=1&mode=${encodeURIComponent(mode)}&preset=${encodeURIComponent(preset)}&suspense=${encodeURIComponent(suspense)}&autohide=${encodeURIComponent(autohide)}&duration=${encodeURIComponent(duration)}&button=${showButton}`;
 
-            if (accent) url += `&accent=${encodeURIComponent(accent)}`;
+            if (theme && theme !== 'system' && theme !== 'custom') {
+                url += `&theme=${encodeURIComponent(theme)}`;
+            } else if (accent) {
+                url += `&accent=${encodeURIComponent(accent)}`;
+            }
             if (text) url += `&text=${encodeURIComponent(text)}`;
             if (font) url += `&font=${encodeURIComponent(font)}`;
             if (weight) url += `&weight=${encodeURIComponent(weight)}`;
@@ -1144,7 +1276,11 @@
 
             // Companion Stream Deck URL
             if ($('companion-url-input')) {
-                $('companion-url-input').value = `${window.location.origin}/api/randomizer/spin?preset=${encodeURIComponent(preset)}&mode=${encodeURIComponent(mode)}&suspense=${encodeURIComponent(suspense)}`;
+                let compUrl = `${window.location.origin}/api/randomizer/spin?preset=${encodeURIComponent(preset)}&mode=${encodeURIComponent(mode)}&suspense=${encodeURIComponent(suspense)}`;
+                if (theme && theme !== 'system' && theme !== 'custom') {
+                    compUrl += `&theme=${encodeURIComponent(theme)}`;
+                }
+                $('companion-url-input').value = compUrl;
             }
         }
 
@@ -1219,7 +1355,7 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             const accent = $('display-stage')?.style.getPropertyValue('--stage-accent') || '#8b5cf6';
-            const colors = [
+            const colors = (currentThemeSlices && currentThemeSlices.length) ? currentThemeSlices : [
                 accent,
                 '#3b82f6',
                 '#10b981',
@@ -1270,9 +1406,13 @@
             winnerSub = null,
             mode = (isOverlay ? (params.get('mode') || currentMode) : $('style-select')?.value),
             suspense = (isOverlay ? (params.get('suspense') || currentSuspense) : $('suspense-select')?.value),
+            theme = (isOverlay ? (params.get('theme') || currentTheme) : ($('theme-select')?.value || currentTheme)),
             duration = (Number(isOverlay ? params.get('duration') : $('spin-duration')?.value) || 6)
         } = {}) {
             if (isSpinning || !list.length) return;
+            if (theme && theme !== currentTheme) {
+                applyTheme(theme, true);
+            }
             isSpinning = true;
 
             clearTimeout(autohideTimer);
@@ -2040,43 +2180,52 @@
             };
 
             // Overlay Theme Inputs
+            $('theme-select').onchange = () => {
+                applyTheme($('theme-select').value);
+                updateObsUrl();
+            };
             $('ap-accent').oninput = () => {
                 highlightActiveAccentChip($('ap-accent').value.trim());
-                applyCurrentOverlayTheme();
+                if ($('theme-select')) $('theme-select').value = 'custom';
+                applyTheme('custom', true);
                 updateObsUrl();
             };
             $('ap-accent-picker').oninput = () => {
                 $('ap-accent').value = $('ap-accent-picker').value;
                 highlightActiveAccentChip($('ap-accent').value.trim());
-                applyCurrentOverlayTheme();
+                if ($('theme-select')) $('theme-select').value = 'custom';
+                applyTheme('custom', true);
                 updateObsUrl();
             };
             $('ap-text').oninput = () => {
-                applyCurrentOverlayTheme();
+                if ($('theme-select')) $('theme-select').value = 'custom';
+                applyTheme('custom', true);
                 updateObsUrl();
             };
             $('ap-text-picker').oninput = () => {
                 $('ap-text').value = $('ap-text-picker').value;
-                applyCurrentOverlayTheme();
+                if ($('theme-select')) $('theme-select').value = 'custom';
+                applyTheme('custom', true);
                 updateObsUrl();
             };
             $('ap-font').oninput = () => {
-                applyCurrentOverlayTheme();
+                applyTheme(currentTheme, true);
                 updateObsUrl();
             };
             $('ap-weight').onchange = () => {
-                applyCurrentOverlayTheme();
+                applyTheme(currentTheme, true);
                 updateObsUrl();
             };
             $('ap-bg').oninput = () => {
-                applyCurrentOverlayTheme();
+                applyTheme(currentTheme, true);
                 updateObsUrl();
             };
             $('ap-outline').oninput = () => {
-                applyCurrentOverlayTheme();
+                applyTheme(currentTheme, true);
                 updateObsUrl();
             };
             $('btn-reset-overlay-theme').onclick = () => {
+                if ($('theme-select')) $('theme-select').value = 'system';
                 if (savedOverlayConfigTheme) {
                     $('ap-accent').value = savedOverlayConfigTheme.accent_color || '#8b5cf6';
                     $('ap-text').value = savedOverlayConfigTheme.text_color || '#ffffff';
@@ -2084,9 +2233,9 @@
                     $('ap-weight').value = savedOverlayConfigTheme.font_weight || '600';
                     $('ap-bg').value = savedOverlayConfigTheme.background_color || '';
                     $('ap-outline').value = (savedOverlayConfigTheme.text_outline === false ? 'none' : savedOverlayConfigTheme.text_outline_color) || '';
-                    applyCurrentOverlayTheme();
+                    applyTheme('system');
                     updateObsUrl();
-                    toast('Reset to saved overlay theme');
+                    toast('Reset to stream shared theme');
                 }
             };
 
@@ -2157,6 +2306,7 @@
                 if (!list.length) return toast('Please enter at least 1 choice');
                 const mode = $('style-select').value;
                 const suspense = $('suspense-select').value;
+                const theme = $('theme-select')?.value || currentTheme;
                 const duration = Number($('spin-duration').value) || 6;
                 const autohide = Number($('autohide-select').value);
                 const winner = list[Math.floor(Math.random() * list.length)];
@@ -2175,6 +2325,7 @@
                     winnerSub: winSub,
                     mode,
                     suspense,
+                    theme,
                     duration
                 });
 
@@ -2190,6 +2341,7 @@
                             winnerSub: winSub,
                             mode,
                             suspense,
+                            theme,
                             duration,
                             autohide,
                             buttonPhrases: activeButtonPhrases
@@ -2216,7 +2368,11 @@
             updateObsUrl();
         } else {
             // Overlay Mode: fetch presets for initial population if specified
-            loadOverlayTheme();
+            if (params.get('theme')) {
+                applyTheme(params.get('theme'));
+            } else {
+                loadOverlayTheme();
+            }
             fetch('/api/randomizer/presets').then(r => r.json()).then(res => {
                 if (res.presets) {
                     presetsList = res.presets;
@@ -2261,7 +2417,9 @@
                         if (msg.type === 'randomizer-spin' && msg.data) {
                             const d = msg.data;
                             AudioFX.init();
-                            if (d.accent) {
+                            if (d.theme) {
+                                applyTheme(d.theme, true);
+                            } else if (d.accent) {
                                 $('display-stage')?.style.setProperty('--stage-accent', d.accent);
                             }
                             if (Array.isArray(d.buttonPhrases) && d.buttonPhrases.length) {
@@ -2275,6 +2433,7 @@
                                 winnerSub: d.winnerSub,
                                 mode: isOverlay ? (params.get('mode') || d.mode) : d.mode,
                                 suspense: d.suspense || currentSuspense,
+                                theme: d.theme || currentTheme,
                                 duration: d.duration || 6
                             });
                         }
