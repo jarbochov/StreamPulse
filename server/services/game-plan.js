@@ -4,7 +4,7 @@ function sanitizeOverlayId(value) {
     return String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 }
 
-const GAME_PLAN_STATUSES = ['scheduled', 'backlog', 'played'];
+const GAME_PLAN_STATUSES = ['tonight', 'scheduled', 'up-next', 'backlog', 'played'];
 const DEFAULT_TIERS = [['S', '#ff7f7f'], ['A', '#ffbf7f'], ['B', '#ffdf7f'], ['C', '#bfff7f'], ['D', '#7fbfff'], ['F', '#bf9fff']].map(([id, color]) => ({ id, label: id, color }));
 
 function normalizeGamePlan(input) {
@@ -37,6 +37,10 @@ function normalizeGamePlan(input) {
         id: sanitizeOverlayId(item?.id) || `game-${Date.now().toString(36)}-${index}`,
         name: String(item?.name || '').trim().slice(0, 120),
         status: validStatus(item?.status) ? item.status : 'backlog',
+        gameType: ['playthrough', 'one-off'].includes(item?.gameType) ? item.gameType : 'playthrough',
+        streamDate: /^\d{4}-\d{2}-\d{2}$/.test(String(item?.streamDate || '')) ? item.streamDate : '',
+        streamTime: /^\d{2}:\d{2}$/.test(String(item?.streamTime || '')) ? item.streamTime : '',
+        twitchSegmentId: String(item?.twitchSegmentId || '').trim().slice(0, 100),
         period: String(item?.period || '').trim().slice(0, 40),
         note: String(item?.note || '').trim().slice(0, 200),
         twitchCategory: String(item?.twitchCategory || '').trim().slice(0, 120),
@@ -228,7 +232,7 @@ function createGamePlanService({
         return snapshot;
     }
 
-    function advance() {
+    function advance({ markPlayed = true } = {}) {
         const plan = loadGamePlan();
         const today = new Date().toISOString().slice(0, 10);
         const streamInfo = getStreamInfo() || [];
@@ -236,14 +240,21 @@ function createGamePlanService({
         const currentItem = plan.items.find(i => i.id === plan.playingNowId) ||
             plan.items.find(i => !i.custom && gameKey(i.name) === gameKey(currentCategory));
 
-        if (currentItem && currentItem.status === 'scheduled') {
-            currentItem.status = 'played';
-            currentItem.finished = today;
+        if (currentItem) {
             if (!currentItem.played) currentItem.played = [];
             if (!currentItem.played.includes(today)) currentItem.played.push(today);
+
+            const isOneOff = currentItem.gameType === 'one-off';
+            if (markPlayed && (isOneOff || currentItem.status === 'tonight' || currentItem.status === 'scheduled')) {
+                if (isOneOff) {
+                    currentItem.status = 'played';
+                    currentItem.finished = today;
+                }
+            }
         }
 
-        const nextItem = plan.items.find(i => i.status === 'scheduled' && (!currentItem || i.id !== currentItem.id));
+        const nextItem = plan.items.find(i => i.status === 'tonight' && (!currentItem || i.id !== currentItem.id))
+            || plan.items.find(i => i.status === 'scheduled' && (!currentItem || i.id !== currentItem.id));
         plan.playingNowId = nextItem ? nextItem.id : '';
         saveGamePlan(plan);
         const snapshot = buildGamePlanSnapshot();

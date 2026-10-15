@@ -434,12 +434,19 @@
             items.slice(0, maxItems).forEach(item => {
                 const isNow = Boolean(item.playingNow);
                 const isPlayed = item.status === 'played';
+                const isTonight = item.status === 'tonight';
+                const isOneOff = item.gameType === 'one-off';
+                const statusBadge = isNow ? '<span class="badge badge-now">▶ Playing</span>' : (isPlayed ? '<span class="badge badge-done">Done</span>' : (isTonight ? '<span class="badge" style="background:rgba(59,130,246,0.2);color:#60a5fa;border:1px solid rgba(59,130,246,0.4);">Tonight</span>' : '<span class="badge">Scheduled</span>'));
+                const typeBadge = isOneOff ? '<span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);">⚡ One-Off</span>' : '';
+                const dateBadge = item.streamDate ? `<span class="badge">📅 ${esc(item.streamDate)}</span>` : '';
                 html += `
                     <div class="schedule-card${isNow ? ' active' : ''}${isPlayed ? ' played' : ''}">
                         ${showCovers && item.cover ? `<img class="cover-img" src="${esc(item.cover)}" alt="">` : ''}
                         <div class="schedule-info">
                             <div class="schedule-meta">
-                                ${isNow ? '<span class="badge badge-now">▶ Playing</span>' : (isPlayed ? '<span class="badge badge-done">Done</span>' : '<span class="badge">Scheduled</span>')}
+                                ${statusBadge}
+                                ${typeBadge}
+                                ${dateBadge}
                                 ${item.period ? `<span class="badge">${esc(item.period)}</span>` : ''}
                             </div>
                             <div class="schedule-title" title="${esc(item.name)}">${esc(item.name)}</div>
@@ -462,16 +469,20 @@
             items.slice(0, maxItems).forEach((item, idx) => {
                 const isNow = Boolean(item.playingNow);
                 const isPlayed = item.status === 'played';
+                const isTonight = item.status === 'tonight';
+                const isOneOff = item.gameType === 'one-off';
+                const statusBadge = isNow ? '<span class="badge badge-now">▶ Now</span>' : (isPlayed ? '<span class="badge badge-done">✓</span>' : (isTonight ? '<span class="badge" style="background:rgba(59,130,246,0.2);color:#60a5fa;">Tonight</span>' : '<span class="badge">Next</span>'));
+                const typeBadge = isOneOff ? '<span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);">⚡</span>' : '';
                 html += `
                     <div class="checklist-item${isNow ? ' active' : ''}${isPlayed ? ' played' : ''}">
                         <span class="checklist-idx">${idx + 1}</span>
                         ${showCovers && item.cover ? `<img class="cover-img small" src="${esc(item.cover)}" alt="">` : ''}
                         <div class="checklist-info">
-                            <div class="checklist-title">${esc(item.name)}</div>
-                            ${showNotes && (item.note || item.period) ? `<div class="checklist-note">${esc([item.period, item.note].filter(Boolean).join(' · '))}</div>` : ''}
+                            <div class="checklist-title">${esc(item.name)} ${typeBadge}</div>
+                            ${showNotes && (item.note || item.period || item.streamDate) ? `<div class="checklist-note">${esc([item.streamDate ? `📅 ${item.streamDate}` : '', item.period, item.note].filter(Boolean).join(' · '))}</div>` : ''}
                         </div>
                         <div class="checklist-status">
-                            ${isNow ? '<span class="badge badge-now">▶ Now</span>' : (isPlayed ? '<span class="badge badge-done">✓</span>' : '<span class="badge">Next</span>')}
+                            ${statusBadge}
                         </div>
                     </div>
                 `;
@@ -485,9 +496,13 @@
 
             let items = currentPlan.items;
 
-            // Filter by list (e.g. 'scheduled', 'backlog', or custom list id)
+            // Filter by list (e.g. 'tonight', 'scheduled', 'up-next', 'backlog', or custom list id)
             if (listFilter) {
-                items = items.filter(i => i.status === listFilter || (i.extraLists || []).includes(listFilter));
+                if (listFilter === 'scheduled') {
+                    items = items.filter(i => i.status === 'scheduled' || i.status === 'tonight' || (i.extraLists || []).includes('scheduled'));
+                } else {
+                    items = items.filter(i => i.status === listFilter || (i.extraLists || []).includes(listFilter));
+                }
             }
 
             // Filter by period if specified

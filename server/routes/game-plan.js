@@ -4,6 +4,7 @@ const { readRequestBody, sendJson, sendError } = require('./helpers');
 
 function createGamePlanRoutes({
     gamePlanService,
+    twitchService = null,
     getTwitchClientId = () => '',
     getAppToken = () => Promise.resolve(''),
     getChatData = () => ({}),
@@ -27,7 +28,8 @@ function createGamePlanRoutes({
         if (pathname === '/api/game-plan/now' && req.method === 'POST') {
             try {
                 const body = JSON.parse(await readRequestBody(req) || '{}');
-                const snapshot = gamePlanService.setPlayingNow(body.id);
+                const targetId = body.clear ? '' : (body.id || '');
+                const snapshot = gamePlanService.setPlayingNow(targetId);
                 sendJson(res, snapshot);
             } catch (err) {
                 sendError(res, err, 400);
@@ -43,6 +45,86 @@ function createGamePlanRoutes({
                 sendError(res, err, 500);
             }
             return true;
+        }
+
+        if (pathname === '/api/game-plan/twitch-schedule') {
+            if (!twitchService) {
+                sendJson(res, { ok: false, error: 'Twitch service not configured' }, 503);
+                return true;
+            }
+            if (req.method === 'POST') {
+                try {
+                    const body = JSON.parse(await readRequestBody(req) || '{}');
+                    const itemId = String(body.itemId || '').trim();
+                    if (!itemId) {
+                        sendJson(res, { ok: false, error: 'itemId is required' }, 400);
+                        return true;
+                    }
+                    const plan = gamePlanService.loadGamePlan();
+                    const item = plan.items.find(i => i.id === itemId);
+                    if (!item) {
+                        sendJson(res, { ok: false, error: 'Game item not found' }, 404);
+                        return true;
+                    }
+                    if (!item.streamDate) {
+                        sendJson(res, { ok: false, error: 'Game must have a Stream Date set' }, 400);
+                        return true;
+                    }
+
+                    const timePart = item.streamTime || '19:00';
+                    const localIso = `${item.streamDate}T${timePart}:00`;
+                    const dateObj = new Date(localIso);
+                    const startTime = !isNaN(dateObj.getTime()) ? dateObj.toISOString() : `${item.streamDate}T19:00:00Z`;
+                    const durationMinutes = Math.min(1380, Math.max(30, Number(body.durationMinutes) || 180));
+                    const title = String(body.title || item.name || 'Stream').slice(0, 140);
+
+                    const scheduleResult = await twitchService.createScheduleSegment({
+                        startTime,
+                        durationMinutes,
+                        title
+                    });
+
+                    if (!scheduleResult.ok) {
+                        sendJson(res, { ok: false, error: scheduleResult.error }, 400);
+                        return true;
+                    }
+
+                    item.twitchSegmentId = scheduleResult.segment?.id || '';
+                    gamePlanService.saveGamePlan(plan);
+                    const snapshot = gamePlanService.buildGamePlanSnapshot();
+                    sendJson(res, { ok: true, segment: scheduleResult.segment, item, snapshot });
+                } catch (err) {
+                    sendError(res, err, 500);
+                }
+                return true;
+            }
+
+            if (req.method === 'DELETE') {
+                try {
+                    const body = JSON.parse(await readRequestBody(req) || '{}');
+                    const itemId = String(body.itemId || '').trim();
+                    if (!itemId) {
+                        sendJson(res, { ok: false, error: 'itemId is required' }, 400);
+                        return true;
+                    }
+                    const plan = gamePlanService.loadGamePlan();
+                    const item = plan.items.find(i => i.id === itemId);
+                    if (!item) {
+                        sendJson(res, { ok: false, error: 'Game item not found' }, 404);
+                        return true;
+                    }
+                    if (item.twitchSegmentId) {
+                        await twitchService.deleteScheduleSegment(item.twitchSegmentId);
+                        item.twitchSegmentId = '';
+                        gamePlanService.saveGamePlan(plan);
+                    }
+                    const snapshot = gamePlanService.buildGamePlanSnapshot();
+                    sendJson(res, { ok: true, snapshot });
+                } catch (err) {
+                    sendError(res, err, 500);
+                }
+                return true;
+            }
         }
 
         if (pathname === '/api/game-plan') {

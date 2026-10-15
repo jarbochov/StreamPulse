@@ -816,6 +816,7 @@ const recordPlayedGames = (streamInfo, endMs, startFloorMs) => gamePlanService.r
 const backfillPlayedGames = () => gamePlanService.backfillPlayedGames();
 const handleGamePlanRoutes = createGamePlanRoutes({
     gamePlanService,
+    twitchService,
     getTwitchClientId: () => TWITCH_CLIENT_ID,
     getAppToken,
     getChatData: () => chatData,

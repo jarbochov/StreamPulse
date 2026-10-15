@@ -109,6 +109,12 @@
         .board-tools { display: flex; gap: 0.4rem; margin-top: 0.2rem; }
         .badge { display: inline-block; background: var(--success); color: #000; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; border-radius: 999px; padding: 0.1rem 0.5rem; margin-left: 0.4rem; vertical-align: middle; }
         .custom-badge { background: var(--bg-raised); color: var(--text-muted); }
+        .playthrough-badge { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); }
+        .oneoff-badge { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.35); }
+        .twitch-badge { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); }
+        .date-badge { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.68rem; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem 0.4rem; color: var(--text-muted); }
+        .order-num { font-weight: 800; font-size: 0.85rem; color: var(--accent); min-width: 22px; text-align: center; }
+        .tonight-banner { background: color-mix(in srgb, var(--accent) 10%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); border-radius: 8px; padding: 0.7rem 1rem; margin-bottom: 0.8rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
         .sortable-ghost { opacity: 0.4; }
         .name-wrap { position: relative; }
         .name-wrap input { width: 100%; }
@@ -193,13 +199,31 @@
                 <label class="field">Tier (for the tier list, separate from stars)<select id="f-tier"><option value="">Unranked</option></select></label>
                 <label class="field">Artwork URL (paste a link, or paste an image with ⌘V)<input id="f-cover" placeholder="https://… or leave blank for the IGDB cover"></label>
                 <div class="field two">
+                    <div>
+                        <span>Playstyle</span>
+                        <select id="f-game-type">
+                            <option value="playthrough">🔁 Playthrough / Campaign</option>
+                            <option value="one-off">⚡ One-Off / Variety / Segment</option>
+                        </select>
+                    </div>
                     <div><span>Main list</span><select id="f-status"></select></div>
-                    <div><span>Period</span><input id="f-period" list="periods" maxlength="40" placeholder="e.g. October"></div>
                 </div>
                 <div class="field two">
-                    <div><span>Finished</span><input id="f-finished" type="date"></div>
-                    <div><span>Tags (comma separated)</span><input id="f-tags" maxlength="200" placeholder="co-op, horror"></div>
+                    <div><span>Stream Date</span><input id="f-stream-date" type="date"></div>
+                    <div><span>Stream Time</span><input id="f-stream-time" type="time"></div>
                 </div>
+                <div id="f-twitch-sync-row" class="field" style="margin-top:0.2rem;">
+                    <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
+                        <button class="btn" type="button" id="f-push-twitch">🗓 Push to Twitch Schedule</button>
+                        <button class="btn ghost danger" type="button" id="f-del-twitch" hidden>Remove from Twitch</button>
+                        <span id="f-twitch-status" style="font-size:0.75rem;color:var(--text-muted);"></span>
+                    </div>
+                </div>
+                <div class="field two">
+                    <div><span>Period</span><input id="f-period" list="periods" maxlength="40" placeholder="e.g. Tonight"></div>
+                    <div><span>Finished Date</span><input id="f-finished" type="date"></div>
+                </div>
+                <div class="field"><span>Tags (comma separated)</span><input id="f-tags" maxlength="200" placeholder="co-op, horror"></div>
                 <div class="field" id="f-extra-wrap" hidden><span>Also on (custom lists)</span><div class="extra-lists" id="f-extra"></div></div>
                 <label class="field">System (overrides the automatic IGDB platforms)<input id="f-system" maxlength="40" placeholder="e.g. Switch, PC, SNES"></label>
                 <label class="field">Note<input id="f-note" maxlength="200"></label>
@@ -216,7 +240,13 @@
     <script>
     (() => {
         const $ = id => document.getElementById(id);
-        const BUILTIN = [{ id: 'scheduled', name: 'Scheduled', empty: "Games you're playing this period" }, { id: 'backlog', name: 'Backlog', empty: 'Games on the list, not scheduled' }, { id: 'played', name: 'Played', empty: 'Finished games' }];
+        const BUILTIN = [
+            { id: 'tonight', name: "Tonight's Lineup", empty: "No games on tonight's lineup. Drag games here or click 'Add to Tonight' from Schedule or Up Next!" },
+            { id: 'scheduled', name: 'Schedule', empty: "No upcoming games scheduled. Plan dates and games here, or push them to Twitch!" },
+            { id: 'up-next', name: 'Up Next', empty: "Games you are looking forward to playing soon." },
+            { id: 'backlog', name: 'Backlog', empty: 'Games in your backlog, to play eventually.' },
+            { id: 'played', name: 'Played', empty: 'Finished & streamed games archive.' }
+        ];
         let customLists = [];
         let tiers = [];
         let tierSets = {};
@@ -229,7 +259,7 @@
         let periodOrder = [];
         let periodSortable = null;
         let items = [];
-        let active = 'scheduled';
+        let active = 'tonight';
         let editing = null;
         let saveTimer = null;
         let polls = 0;
@@ -372,31 +402,80 @@
             const list = allLists().find(entry => entry.id === active) || BUILTIN[0];
             const holder = $('items');
             holder.dataset.empty = list.empty;
-            holder.innerHTML = visibleItems().map(item => {
+
+            let bannerHtml = '';
+            if (active === 'tonight') {
+                const tonightItems = items.filter(i => inList(i, 'tonight'));
+                const playingNow = items.find(i => Boolean(i.playingNow));
+                bannerHtml = `
+                    <div class="tonight-banner">
+                        <div>
+                            <div style="font-weight:700;font-size:0.95rem;display:flex;align-items:center;gap:0.5rem;">
+                                🎮 Tonight's Stream Rundown
+                                <span class="badge" style="background:var(--accent);color:#fff;">${tonightItems.length} Games</span>
+                            </div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;">
+                                ${playingNow ? `▶ Currently Active: <b style="color:var(--success)">${esc(playingNow.name)}</b>` : 'No game currently active on stream. Click "Play Now" on any game below.'}
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:0.5rem;align-items:center;">
+                            ${playingNow ? '<button type="button" class="btn advance-btn" data-action="advance-item" style="font-weight:600;">⏭ Finish &amp; Next Game</button>' : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            const visible = visibleItems();
+            const itemsHtml = visible.map((item, index) => {
+                const isTonight = active === 'tonight';
                 const isScheduled = active === 'scheduled';
+                const isUpNext = active === 'up-next';
                 const isBacklog = active === 'backlog';
+                const isPlayed = active === 'played';
                 const isPlaying = Boolean(item.playingNow);
 
                 let scheduleActions = '';
-                if (isScheduled) {
+                if (isTonight) {
                     if (isPlaying) {
                         scheduleActions = `
                             <button type="button" class="btn stop-btn" data-action="stop-now" title="Stop playing on stream">■ Stop</button>
-                            <button type="button" class="btn advance-btn" data-action="advance-item" title="Mark as played and move to next scheduled game">⏭ Finish &amp; Next</button>
+                            <button type="button" class="btn advance-btn" data-action="advance-item" title="Finish current session and advance to next game in rundown">⏭ Finish &amp; Next</button>
                         `;
                     } else {
                         scheduleActions = `
                             <button type="button" class="btn play-btn" data-action="play-now" title="Set as Currently Playing on stream">▶ Play Now</button>
+                            <button type="button" class="btn" data-action="move-to-schedule" title="Move back to Schedule">📅 Schedule</button>
                         `;
                     }
+                } else if (isScheduled) {
+                    scheduleActions = `
+                        <button type="button" class="btn play-btn" data-action="add-to-tonight" title="Add to Tonight's stream lineup">🎮 Add to Tonight</button>
+                        <button type="button" class="btn" data-action="play-now" title="Add to Tonight and Play Now">▶ Play Now</button>
+                        ${item.streamDate ? `<button type="button" class="btn" data-action="push-twitch" title="${item.twitchSegmentId ? 'Twitch Schedule synced' : 'Push this stream date to Twitch Schedule'}">🗓 ${item.twitchSegmentId ? 'Twitch Synced' : 'Sync Twitch'}</button>` : ''}
+                    `;
+                } else if (isUpNext) {
+                    scheduleActions = `
+                        <button type="button" class="btn play-btn" data-action="add-to-tonight" title="Add to Tonight's stream lineup">🎮 Tonight</button>
+                        <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">📅 Schedule</button>
+                    `;
                 } else if (isBacklog) {
                     scheduleActions = `
-                        <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Scheduled for stream">📅 Schedule</button>
-                        <button type="button" class="btn play-btn" data-action="play-backlog" title="Move to Scheduled and Play Now">▶ Play Now</button>
+                        <button type="button" class="btn" data-action="move-up-next" title="Move to Up Next (Looking Forward To)">⭐ Up Next</button>
+                        <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">📅 Schedule</button>
+                        <button type="button" class="btn play-btn" data-action="play-backlog" title="Add to Tonight and Play Now">▶ Play Now</button>
+                    `;
+                } else if (isPlayed) {
+                    scheduleActions = `
+                        <button type="button" class="btn" data-action="add-to-tonight" title="Play again on Tonight's stream">🔄 Replay Tonight</button>
+                    `;
+                } else {
+                    scheduleActions = `
+                        <button type="button" class="btn play-btn" data-action="add-to-tonight" title="Add to Tonight's stream lineup">🎮 Tonight</button>
+                        <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">📅 Schedule</button>
                     `;
                 }
 
-                const quickPeriodsHtml = isScheduled ? `
+                const quickPeriodsHtml = (isTonight || isScheduled) ? `
                     <span class="period-edit-wrap">
                         <input class="period" data-field="period" list="periods" value="${esc(item.period)}" placeholder="Period (e.g. Tonight)" maxlength="40">
                         <span class="quick-periods">
@@ -407,20 +486,30 @@
                     </span>
                 ` : '';
 
+                const isOneOff = item.gameType === 'one-off';
+                const playstyleBadge = isOneOff
+                    ? '<span class="badge oneoff-badge" title="One-off session, party game, tournament, or variety segment">⚡ ONE-OFF</span>'
+                    : '<span class="badge playthrough-badge" title="Campaign / multi-stream playthrough">🔁 PLAYTHROUGH</span>';
+                const twitchBadge = item.twitchSegmentId ? '<span class="badge twitch-badge" title="Synced to Twitch Schedule">🗓 TWITCH SYNCED</span>' : '';
+                const dateBadge = item.streamDate ? `<span class="date-badge" title="Scheduled Stream Date">📅 ${esc(item.streamDate)}${item.streamTime ? ` ${esc(item.streamTime)}` : ''}</span>` : '';
+
                 return `
                 <div class="item${isPlaying ? ' now' : ''}" data-id="${esc(item.id)}">
-                    <span class="grip" title="Drag to reorder, or drop on a tab to move">⋮⋮</span>
+                    ${isTonight ? `<span class="order-num" title="Order in tonight's lineup">${index + 1}.</span>` : '<span class="grip" title="Drag to reorder, or drop on a tab to move">⋮⋮</span>'}
                     ${coverTag(item)}
                     <div class="main">
                         <div class="name" data-edit title="${esc(item.name)}">
                             ${esc(item.name)}
                             ${isPlaying ? '<span class="badge now-badge">▶ PLAYING NOW</span>' : ''}
+                            ${playstyleBadge}
                             ${item.custom ? '<span class="badge custom-badge">CUSTOM</span>' : ''}
+                            ${twitchBadge}
                         </div>
                         <div class="sub">${esc(subLine(item))}</div>
                         ${seenLine(item) ? `<div class="sub" title="Dates you streamed this game (recorded automatically when a session ends)">${esc(seenLine(item))}</div>` : ''}
                         <div class="row-meta">
                             <span class="stars" data-stars>${starsHtml(item.rating || 0, 'data-star')}</span>
+                            ${dateBadge}
                             ${(item.tags || []).map(tag => `<span class="chip">${esc(tag)}</span>`).join('')}
                             ${quickPeriodsHtml}
                         </div>
@@ -432,13 +521,16 @@
                     </div>
                 </div>`;
             }).join('');
+
+            holder.innerHTML = bannerHtml + itemsHtml;
             buildViewBar();
             buildPeriodBar();
             $('periods').innerHTML = [...new Set(items.map(item => item.period).filter(Boolean))].map(value => `<option value="${esc(value)}">`).join('');
             sortable?.destroy();
             sortable = new Sortable(holder, {
                 disabled: viewState.sort !== 'manual' || !!viewState.when || !!viewState.system,
-                group: 'games', animation: 150, handle: '.grip', ghostClass: 'sortable-ghost',
+                group: 'games', animation: 150, handle: active === 'tonight' ? '.order-num' : '.grip', ghostClass: 'sortable-ghost',
+                filter: '.tonight-banner',
                 onEnd(event) {
                     const point = event.originalEvent;
                     const tab = point && document.elementFromPoint(point.clientX, point.clientY)?.closest('[data-tab]');
@@ -484,7 +576,7 @@
             item.status = status;
             item.extraLists = (item.extraLists || []).filter(id => id !== status);
             if (!tiersOf(status).some(entry => entry.id === item.tier)) item.tier = '';
-            if (status !== 'scheduled') item.period = item.period || '';
+            if (status === 'tonight' && !item.period) item.period = 'Tonight';
             if (status === 'played' && !item.finished) item.finished = new Date().toISOString().slice(0, 10);
             items = [...items.filter(entry => entry !== item), item];
         }
@@ -501,7 +593,7 @@
                 const response = await fetch('/api/game-plan', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lists: customLists, tiers, tierSets, periods: orderedPeriods(), items: items.map(({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists }) => ({ id, name, status, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists })) })
+                    body: JSON.stringify({ lists: customLists, tiers, tierSets, periods: orderedPeriods(), items: items.map(({ id, name, status, gameType, streamDate, streamTime, twitchSegmentId, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists }) => ({ id, name, status, gameType, streamDate, streamTime, twitchSegmentId, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists })) })
                 });
                 if (!response.ok) throw new Error((await response.json()).error || response.statusText);
                 setStatus('Saved. Overlays update within a few seconds.');
@@ -519,7 +611,18 @@
                     const item = items.find(entry => entry.id === fresh.id);
                     if (!item) continue;
                     if (item.cover !== fresh.cover || item.playingNow !== fresh.playingNow || item.releaseYear !== fresh.releaseYear) changed = true;
-                    Object.assign(item, { cover: fresh.cover, releaseYear: fresh.releaseYear, genres: fresh.genres, playingNow: fresh.playingNow, minutesPlayed: fresh.minutesPlayed, platforms: fresh.platforms });
+                    Object.assign(item, {
+                        cover: fresh.cover,
+                        releaseYear: fresh.releaseYear,
+                        genres: fresh.genres,
+                        playingNow: fresh.playingNow,
+                        minutesPlayed: fresh.minutesPlayed,
+                        platforms: fresh.platforms,
+                        gameType: fresh.gameType || item.gameType,
+                        streamDate: fresh.streamDate || item.streamDate,
+                        streamTime: fresh.streamTime || item.streamTime,
+                        twitchSegmentId: fresh.twitchSegmentId || item.twitchSegmentId
+                    });
                     if (!fresh.cover && !item.custom) missing = true;
                 }
                 if (changed && !$('items').contains(document.activeElement) && !$('dlg').open) render();
@@ -561,7 +664,7 @@
         function addItem(custom) {
             const name = $('add-name').value.trim();
             if (!name) { $('add-name').focus(); return; }
-            const item = { id: uid(), name, igdbId: custom ? '' : pickedId, custom, status: active, period: '', note: '', cover: '', customCover: '', rating: 0, tags: [], finished: '', genres: [], playingNow: false };
+            const item = { id: uid(), name, igdbId: custom ? '' : pickedId, custom, status: active, gameType: 'playthrough', streamDate: '', streamTime: '', twitchSegmentId: '', period: active === 'tonight' ? 'Tonight' : '', note: '', cover: '', customCover: '', rating: 0, tags: [], finished: '', genres: [], playingNow: false };
             if (active === 'played') item.finished = new Date().toISOString().slice(0, 10);
             items.push(item);
             $('add-name').value = ''; pickedId = ''; hideSuggest();
@@ -626,6 +729,7 @@
             if (actionBtn) {
                 const action = actionBtn.dataset.action;
                 if (action === 'play-now') {
+                    if (item.status !== 'tonight') moveTo(item, 'tonight');
                     items.forEach(g => { g.playingNow = (g.id === item.id); });
                     render();
                     try {
@@ -636,6 +740,7 @@
                         });
                         setStatus(`Now playing on stream: ${item.name}`);
                     } catch (e) { setStatus(`Failed to set playing: ${e.message}`); }
+                    scheduleSave();
                     return;
                 }
                 if (action === 'stop-now') {
@@ -649,10 +754,11 @@
                         });
                         setStatus('Stopped active game on stream');
                     } catch (e) { setStatus(`Failed to stop: ${e.message}`); }
+                    scheduleSave();
                     return;
                 }
                 if (action === 'advance-item') {
-                    setStatus(`Advancing from ${item.name}…`);
+                    setStatus(`Advancing stream rundown…`);
                     try {
                         const res = await fetch('/api/game-plan/advance', {
                             method: 'POST',
@@ -665,23 +771,66 @@
                         const freshPlan = await planRes.json();
                         items = freshPlan.items;
                         render();
-                        setStatus(data.next ? `Marked ${item.name} as played. Now playing: ${data.next.name}` : `Marked ${item.name} as played.`);
+                        setStatus(data.current ? `Advanced stream rundown! Now playing: ${data.current}` : `Stream rundown completed!`);
                     } catch (e) { setStatus(`Failed to advance: ${e.message}`); }
                     return;
                 }
-                if (action === 'schedule-item' || action === 'play-backlog') {
-                    moveTo(item, 'scheduled');
+                if (action === 'add-to-tonight') {
+                    moveTo(item, 'tonight');
                     if (!item.period) item.period = 'Tonight';
-                    if (action === 'play-backlog') {
-                        items.forEach(g => { g.playingNow = (g.id === item.id); });
-                        fetch('/api/game-plan/now', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ id: item.id })
-                        }).catch(() => {});
-                    }
                     render();
                     scheduleSave();
+                    setStatus(`Added "${item.name}" to Tonight's stream lineup`);
+                    return;
+                }
+                if (action === 'move-to-schedule' || action === 'schedule-item') {
+                    moveTo(item, 'scheduled');
+                    render();
+                    scheduleSave();
+                    setStatus(`Moved "${item.name}" to Schedule`);
+                    return;
+                }
+                if (action === 'move-up-next') {
+                    moveTo(item, 'up-next');
+                    render();
+                    scheduleSave();
+                    setStatus(`Moved "${item.name}" to Up Next`);
+                    return;
+                }
+                if (action === 'play-backlog') {
+                    moveTo(item, 'tonight');
+                    items.forEach(g => { g.playingNow = (g.id === item.id); });
+                    render();
+                    fetch('/api/game-plan/now', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: item.id })
+                    }).catch(() => {});
+                    scheduleSave();
+                    return;
+                }
+                if (action === 'push-twitch') {
+                    if (!item.streamDate) {
+                        openDialog(item);
+                        $('f-twitch-status').textContent = 'Please choose a Stream Date first';
+                        return;
+                    }
+                    setStatus(`Syncing "${item.name}" to Twitch Schedule…`);
+                    try {
+                        const res = await fetch('/api/game-plan/twitch-schedule', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ itemId: item.id })
+                        });
+                        const data = await res.json();
+                        if (!res.ok || !data.ok) throw new Error(data.error || 'Sync failed');
+                        item.twitchSegmentId = data.segment?.id || 'synced';
+                        render();
+                        scheduleSave();
+                        setStatus(`✓ Synced "${item.name}" with Twitch Schedule!`);
+                    } catch (e) {
+                        setStatus(`Failed to sync Twitch: ${e.message}`);
+                    }
                     return;
                 }
             }
@@ -727,8 +876,15 @@
             $('f-tier').innerHTML = '<option value="">Unranked</option>' + tiersOf(item.status).map(tier => `<option value="${esc(tier.id)}">${esc(tier.label)}</option>`).join('');
             $('f-tier').value = item.tier || '';
             $('f-name').disabled = !item.custom;
+            $('f-game-type').value = item.gameType || 'playthrough';
             $('f-status').innerHTML = allLists().map(list => `<option value="${esc(list.id)}"${list.id === item.status ? ' selected' : ''}>${esc(list.name)}</option>`).join('');
             paintExtra();
+            $('f-stream-date').value = item.streamDate || '';
+            $('f-stream-time').value = item.streamTime || '';
+            const hasTwitch = Boolean(item.twitchSegmentId);
+            $('f-del-twitch').hidden = !hasTwitch;
+            $('f-push-twitch').textContent = hasTwitch ? '🗓 Re-sync to Twitch' : '🗓 Push to Twitch Schedule';
+            $('f-twitch-status').textContent = hasTwitch ? '✓ Synced with Twitch Schedule' : (item.streamDate ? 'Ready to sync' : 'Set a Stream Date to sync');
             $('f-period').value = item.period || '';
             $('f-finished').value = item.finished || '';
             $('f-tags').value = (item.tags || []).join(', ');
@@ -773,6 +929,59 @@
             render();
         });
         $('f-tier').addEventListener('change', () => { if (editing) { editing.tier = $('f-tier').value; commit(false); } });
+        $('f-game-type').addEventListener('change', () => { if (editing) { editing.gameType = $('f-game-type').value; commit(true); } });
+        $('f-stream-date').addEventListener('change', () => {
+            if (editing) {
+                editing.streamDate = $('f-stream-date').value;
+                $('f-twitch-status').textContent = editing.twitchSegmentId ? '✓ Synced (re-sync needed)' : (editing.streamDate ? 'Ready to sync' : 'Set a Stream Date to sync');
+                commit(true);
+            }
+        });
+        $('f-stream-time').addEventListener('change', () => { if (editing) { editing.streamTime = $('f-stream-time').value; commit(true); } });
+        $('f-push-twitch').addEventListener('click', async () => {
+            if (!editing) return;
+            if (!editing.streamDate) {
+                $('f-twitch-status').textContent = '⚠️ Set a Stream Date first';
+                return;
+            }
+            $('f-twitch-status').textContent = 'Syncing to Twitch…';
+            try {
+                const res = await fetch('/api/game-plan/twitch-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemId: editing.id })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to sync');
+                editing.twitchSegmentId = data.segment?.id || 'synced';
+                $('f-del-twitch').hidden = false;
+                $('f-push-twitch').textContent = '🗓 Re-sync to Twitch';
+                $('f-twitch-status').textContent = '✓ Successfully synced to Twitch!';
+                commit(true);
+            } catch (e) {
+                $('f-twitch-status').textContent = `⚠️ ${e.message}`;
+            }
+        });
+        $('f-del-twitch').addEventListener('click', async () => {
+            if (!editing) return;
+            $('f-twitch-status').textContent = 'Removing…';
+            try {
+                const res = await fetch('/api/game-plan/twitch-schedule', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemId: editing.id })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to delete');
+                editing.twitchSegmentId = '';
+                $('f-del-twitch').hidden = true;
+                $('f-push-twitch').textContent = '🗓 Push to Twitch Schedule';
+                $('f-twitch-status').textContent = 'Removed from Twitch schedule.';
+                commit(true);
+            } catch (e) {
+                $('f-twitch-status').textContent = `⚠️ ${e.message}`;
+            }
+        });
         $('f-name').addEventListener('change', () => { const name = $('f-name').value.trim(); if (editing && name) { editing.name = name; paintDialog(); commit(true); } });
         $('f-note').addEventListener('change', () => { editing.note = $('f-note').value.trim(); commit(true); });
         $('f-period').addEventListener('change', () => { editing.period = $('f-period').value.trim(); commit(true); });

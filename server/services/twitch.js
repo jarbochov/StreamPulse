@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const DEFAULT_TWITCH_CLIENT_ID = 'gbe0673k90le0942bfhw7f7ko6t865';
-const DEFAULT_TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips channel:read:polls channel:read:vips moderation:read';
+const DEFAULT_TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips channel:read:polls channel:read:vips moderation:read channel:manage:schedule';
 
 function safeReturnPath(value) {
     const v = String(value || '');
@@ -268,6 +268,120 @@ function createTwitchService(options = {}) {
             return twitchApiRequestOnce(endpoint, params);
         }
         return result;
+    }
+
+    function twitchHelixRequestOnce(endpoint, { method = 'GET', params = {}, body = null } = {}) {
+        return new Promise((resolve, reject) => {
+            const query = params && Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : '';
+            const url = `https://api.twitch.tv/helix${endpoint}${query}`;
+
+            const headers = {
+                'Client-ID': getClientId(),
+                'Authorization': `Bearer ${twitchAccessToken}`
+            };
+            let payload = null;
+            if (body !== null && body !== undefined) {
+                payload = typeof body === 'string' ? body : JSON.stringify(body);
+                headers['Content-Type'] = 'application/json';
+                headers['Content-Length'] = Buffer.byteLength(payload);
+            }
+
+            const req = https.request(url, { method, headers }, (res) => {
+                let data = '';
+                res.on('data', chunk => { data += chunk; });
+                res.on('end', () => {
+                    try {
+                        resolve({ status: res.statusCode, body: data ? JSON.parse(data) : {} });
+                    } catch {
+                        resolve({ status: res.statusCode, body: { raw: data } });
+                    }
+                });
+            });
+            req.on('error', reject);
+            if (payload) req.write(payload);
+            req.end();
+        });
+    }
+
+    async function twitchHelixRequest(endpoint, options = {}) {
+        const result = await twitchHelixRequestOnce(endpoint, options);
+        const isMissingScope = /missing scope|scope/i.test(result.body?.message || '');
+        if (result.status === 401 && !isMissingScope && twitchRefreshToken && await refreshTwitchToken()) {
+            return twitchHelixRequestOnce(endpoint, options);
+        }
+        return result;
+    }
+
+    async function createScheduleSegment({ startTime, timezone = 'UTC', durationMinutes = 180, title = '', categoryId = '' } = {}) {
+        const broadcasterId = getBroadcasterId();
+        if (!twitchAccessToken || !broadcasterId) {
+            return { ok: false, error: 'Twitch is not connected or broadcaster ID is missing' };
+        }
+        const body = {
+            start_time: startTime,
+            timezone: timezone || 'UTC',
+            is_recurring: false,
+            duration: String(Math.min(1380, Math.max(30, Number(durationMinutes) || 180)))
+        };
+        if (title) body.title = String(title).slice(0, 140);
+        if (categoryId) body.category_id = String(categoryId);
+
+        try {
+            const res = await twitchHelixRequest('/schedule/segment', {
+                method: 'POST',
+                params: { broadcaster_id: broadcasterId },
+                body
+            });
+            if (res.status >= 200 && res.status < 300) {
+                const segment = res.body?.data?.segments?.[0] || null;
+                return { ok: true, segment };
+            }
+            const errMsg = res.body?.message || `Twitch schedule API error (HTTP ${res.status})`;
+            return { ok: false, error: errMsg, status: res.status };
+        } catch (err) {
+            return { ok: false, error: err.message };
+        }
+    }
+
+    async function deleteScheduleSegment(segmentId) {
+        const broadcasterId = getBroadcasterId();
+        if (!twitchAccessToken || !broadcasterId) {
+            return { ok: false, error: 'Twitch is not connected or broadcaster ID is missing' };
+        }
+        if (!segmentId) {
+            return { ok: false, error: 'Segment ID is required' };
+        }
+        try {
+            const res = await twitchHelixRequest('/schedule/segment', {
+                method: 'DELETE',
+                params: { broadcaster_id: broadcasterId, id: segmentId }
+            });
+            if (res.status >= 200 && res.status < 300) {
+                return { ok: true };
+            }
+            return { ok: false, error: res.body?.message || `Failed to delete segment (HTTP ${res.status})` };
+        } catch (err) {
+            return { ok: false, error: err.message };
+        }
+    }
+
+    async function getSchedule(params = {}) {
+        const broadcasterId = getBroadcasterId();
+        if (!twitchAccessToken || !broadcasterId) {
+            return { ok: false, error: 'Twitch is not connected' };
+        }
+        try {
+            const res = await twitchHelixRequest('/schedule', {
+                method: 'GET',
+                params: { broadcaster_id: broadcasterId, ...params }
+            });
+            if (res.status >= 200 && res.status < 300) {
+                return { ok: true, schedule: res.body?.data || null };
+            }
+            return { ok: false, error: res.body?.message || `HTTP ${res.status}` };
+        } catch (err) {
+            return { ok: false, error: err.message };
+        }
     }
 
     function twitchCreateClip() {
@@ -618,6 +732,10 @@ function createTwitchService(options = {}) {
         twitchTokenRequest,
         twitchApiRequest,
         twitchApiRequestOnce,
+        twitchHelixRequest,
+        createScheduleSegment,
+        deleteScheduleSegment,
+        getSchedule,
         twitchCreateClip,
         twitchCreateClipFromVod,
         getTwitchAuthenticatedUserId,

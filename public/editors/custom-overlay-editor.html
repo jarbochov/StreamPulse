@@ -1892,7 +1892,7 @@
         const covers = g.showCovers !== false;
         const titles = g.showTitles !== false;
         const what = F.section('gamelist', 'Game list: what to show', `
-            ${F.select('gameList.filter', 'Show', g.filter || 'scheduled', [['scheduled', 'Scheduled games'], ['backlog', 'Backlog'], ['played', 'Played'], ...(liveStatus.gamePlan?.lists || []).map(list => [list.id, `List: ${list.name}`]), ['all', 'Everything']])}
+            ${F.select('gameList.filter', 'Show', g.filter || 'scheduled', [['tonight', "Tonight's lineup"], ['scheduled', 'Scheduled games'], ['up-next', 'Up Next / Horizon'], ['backlog', 'Backlog'], ['played', 'Played'], ...(liveStatus.gamePlan?.lists || []).map(list => [list.id, `List: ${list.name}`]), ['all', 'Everything']])}
             ${periodPicker(g)}
             ${F.text('gameList.when', 'Played in (blank = any time)', g.when || '', 'placeholder="thisYear, lastMonth, 2026, 2026-10" maxlength="9" list="game-when-list"')}
             <datalist id="game-when-list"><option value="thisYear"><option value="lastYear"><option value="thisMonth"><option value="lastMonth"><option value="${new Date().getFullYear()}"><option value="${new Date().toISOString().slice(0, 7)}"></datalist>
