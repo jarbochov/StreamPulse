@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --check server.js && node --check scripts/rebuild-session.js && node --check server/alerts.js && node --check server/chatbot.js && node --check server/variables.js && node --check server/static-router.js && node --check server/game-plan.js && node --check server/services/weather.js && node --check server/services/music.js && node --check server/services/game-plan.js && node --check server/services/timers.js && node --check server/services/goals.js && node --check server/services/viewers.js && node --check server/services/twitch.js && node --check server/services/session.js",
+    "test": "node --check server.js && node --check scripts/rebuild-session.js && node --check server/alerts.js && node --check server/chatbot.js && node --check server/variables.js && node --check server/static-router.js && node --check server/game-plan.js && node --check server/services/weather.js && node --check server/services/music.js && node --check server/services/game-plan.js && node --check server/services/timers.js && node --check server/services/goals.js && node --check server/services/viewers.js && node --check server/services/twitch.js && node --check server/services/session.js && node --check server/services/ssn.js",
     "install:chrome": "puppeteer browsers install chrome",
     "smoke:editors": "node scripts/editor-smoke-test.mjs"
   },
