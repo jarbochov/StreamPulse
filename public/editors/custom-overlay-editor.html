@@ -1767,14 +1767,30 @@
             ${F.range('style.rotate', 'Rotation (°)', el.style?.rotate || 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation to 0°' })}
             ${alignBody([el])}`);
     }
+    const SMART_PERIOD_PRESETS = [
+        ['@today', '🎮 Tonight / Today (status or date is today)'],
+        ['@tomorrow', '⏭ Next Stream / Tomorrow'],
+        ['@this-week', '📅 This Week (current week dates)'],
+        ['@upcoming', '🚀 Upcoming Dates (future scheduled)'],
+        ['@unscheduled', '📦 No Period Set (undated)']
+    ];
     function periodPicker(g) {
         const known = liveStatus.gamePlan?.periods || [];
         const picked = (g.periods?.length ? g.periods : g.period ? [g.period] : []);
-        const names = [...known, ...picked.filter(name => !known.includes(name))];
-        if (!names.length) return '';
-        return `<div class="field"><span>Periods to show (none ticked = all, in plan order)</span>
+        const smartTokens = new Set(['@today', '@tomorrow', '@this-week', '@upcoming', '@unscheduled']);
+        const customNames = [...known, ...picked.filter(name => !known.includes(name) && !smartTokens.has(name))];
+
+        let html = `<div class="field"><span>Periods to show (none ticked = all, in plan order)</span>
             <input type="hidden" data-path="gameList.periods" data-kind="lines" value="${esc(picked.join('\n'))}">
-            ${names.map(name => `<label class="check"><input type="checkbox" data-period-pick value="${esc(name)}" ${picked.includes(name) ? 'checked' : ''}> ${esc(name)}</label>`).join('')}</div>`;
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:4px 0 2px;">Smart Date-Aware Presets</div>
+            ${SMART_PERIOD_PRESETS.map(([val, label]) => `<label class="check"><input type="checkbox" data-period-pick value="${esc(val)}" ${picked.includes(val) ? 'checked' : ''}> ${esc(label)}</label>`).join('')}`;
+
+        if (customNames.length) {
+            html += `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 2px;">Game Plan Periods</div>
+            ${customNames.map(name => `<label class="check"><input type="checkbox" data-period-pick value="${esc(name)}" ${picked.includes(name) ? 'checked' : ''}> ${esc(name)}</label>`).join('')}`;
+        }
+        html += `</div>`;
+        return html;
     }
     let assetTagNames = [];
     async function loadAssetTags() {

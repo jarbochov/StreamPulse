@@ -905,6 +905,84 @@
         document.head.appendChild(tag);
     }
 
+    function matchesPeriodToken(item, token) {
+        if (!item || !token) return true;
+        const t = String(token).trim().toLowerCase();
+        if (!t || t === 'all') return true;
+
+        const itemDates = [
+            item.streamDate,
+            ...(Array.isArray(item.streamDates) ? item.streamDates.map(d => typeof d === 'string' ? d : d?.date) : [])
+        ].filter(Boolean);
+
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+        const tom = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const tomorrowStr = `${tom.getFullYear()}-${pad(tom.getMonth() + 1)}-${pad(tom.getDate())}`;
+
+        const dayOfWeek = now.getDay();
+        const diffToMon = (dayOfWeek + 6) % 7;
+        const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMon);
+        const weekStartStr = `${mon.getFullYear()}-${pad(mon.getMonth() + 1)}-${pad(mon.getDate())}`;
+        const sun = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMon + 6);
+        const weekEndStr = `${sun.getFullYear()}-${pad(sun.getMonth() + 1)}-${pad(sun.getDate())}`;
+
+        const periodLower = String(item.period || '').trim().toLowerCase();
+
+        if (t === '@today' || t === 'today' || t === 'tonight') {
+            return item.status === 'tonight' ||
+                   periodLower === 'tonight' ||
+                   periodLower === 'today' ||
+                   itemDates.includes(todayStr);
+        }
+        if (t === '@tomorrow' || t === 'tomorrow' || t === 'next-stream' || t === 'next stream') {
+            return periodLower === 'next stream' ||
+                   periodLower === 'next-stream' ||
+                   periodLower === 'tomorrow' ||
+                   itemDates.includes(tomorrowStr);
+        }
+        if (t === '@this-week' || t === 'this-week' || t === 'thisweek' || t === 'this week') {
+            return periodLower === 'this week' ||
+                   periodLower === 'weekend' ||
+                   itemDates.some(d => d >= weekStartStr && d <= weekEndStr);
+        }
+        if (t === '@upcoming' || t === 'upcoming') {
+            return itemDates.some(d => d >= todayStr) ||
+                   Boolean(item.streamRecurring) ||
+                   (periodLower && !['played', 'backlog'].includes(periodLower) && !['played', 'backlog'].includes(item.status));
+        }
+        if (t === '@unscheduled' || t === 'unscheduled' || t === 'none' || t === 'no-period' || t === 'undated') {
+            return !periodLower && itemDates.length === 0;
+        }
+
+        if (t.startsWith('!')) {
+            const notToken = t.slice(1).trim().toLowerCase();
+            return periodLower !== notToken;
+        }
+
+        return periodLower === t;
+    }
+
+    function matchesPeriodFilter(item, wantedTokens) {
+        if (!item) return false;
+        if (!wantedTokens || !wantedTokens.length) return true;
+        const tokens = (Array.isArray(wantedTokens) ? wantedTokens : String(wantedTokens).split(','))
+            .map(t => String(t).trim())
+            .filter(Boolean);
+        if (!tokens.length) return true;
+
+        const pos = tokens.filter(t => !t.startsWith('!'));
+        const neg = tokens.filter(t => t.startsWith('!'));
+
+        if (neg.some(t => !matchesPeriodToken(item, t))) {
+            return false;
+        }
+        if (!pos.length) return true;
+        return pos.some(t => matchesPeriodToken(item, t));
+    }
+
     // Renders the manual game plan as a cover grid, a cover strip or a text list.
     function renderGameList(node, element, plan) {
         const config = element.gameList || {};
@@ -912,8 +990,8 @@
         let items = (plan?.items || []).filter(item => config.filter === 'all' || inPlanList(item, config.filter || 'scheduled'));
         const order = (plan?.periods || []).map(name => String(name).toLowerCase());
         const rank = item => { const at = order.indexOf(String(item.period || '').toLowerCase()); return at < 0 ? order.length : at; };
-        const wanted = (Array.isArray(config.periods) && config.periods.length ? config.periods : config.period ? [config.period] : []).map(name => String(name).toLowerCase());
-        if (wanted.length) items = items.filter(item => wanted.includes(String(item.period || '').toLowerCase()));
+        const wanted = (Array.isArray(config.periods) && config.periods.length ? config.periods : config.period ? [config.period] : []);
+        if (wanted.length) items = items.filter(item => matchesPeriodFilter(item, wanted));
         // Date filter and grouping use the dates a game was streamed on (auto-recorded) plus its finished date.
         const datesOf = item => [...new Set([...(item.played || []), item.finished].filter(Boolean))];
         const monthKey = (year, month) => { const d = new Date(year, month, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
@@ -1701,5 +1779,5 @@
         return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length, control };
     }
 
-    root.OverlayShared = { setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
+    root.OverlayShared = { setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
 })(window);

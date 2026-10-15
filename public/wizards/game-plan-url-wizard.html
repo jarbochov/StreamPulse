@@ -4,6 +4,7 @@
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
     <script src="/overlay-theme.js"></script>
+    <script src="/js/overlay-shared.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -95,15 +96,38 @@
                 <label>Game List</label>
                 <select id="list-id" onchange="refreshWizard()">
                     <option value="tonight">🎮 Tonight's Lineup (Stream Rundown)</option>
-                    <option value="scheduled">📅 Scheduled (Upcoming Games)</option>
+                    <option value="scheduled" selected>📅 Scheduled (Upcoming Games)</option>
                     <option value="up-next">⭐ Up Next (Horizon / Soon)</option>
                     <option value="backlog">📦 Backlog</option>
                     <option value="played">🏆 Played</option>
                 </select>
             </div>
-            <div class="cfg-row">
-                <label>Period Filter</label>
-                <input type="text" id="period-filter" placeholder="e.g. Tonight (blank = all)" oninput="refreshWizard()">
+            <div class="cfg-row" style="align-items:flex-start;">
+                <label style="padding-top:0.35rem;">Period Filter</label>
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:0.5rem;">
+                    <div>
+                        <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px;">Date-Aware Presets:</div>
+                        <div class="preset-chips" id="period-presets" style="margin:0;">
+                            <button type="button" class="preset-chip active" data-period-val="" onclick="selectPeriodPreset('', this)">All</button>
+                            <button type="button" class="preset-chip" data-period-val="@today" onclick="selectPeriodPreset('@today', this)" title="Tonight/Today status, or scheduled for today">🎮 Tonight / Today</button>
+                            <button type="button" class="preset-chip" data-period-val="@tomorrow" onclick="selectPeriodPreset('@tomorrow', this)" title="Next Stream or scheduled for tomorrow">⏭ Next Stream</button>
+                            <button type="button" class="preset-chip" data-period-val="@this-week" onclick="selectPeriodPreset('@this-week', this)" title="Scheduled within current week (Mon–Sun)">📅 This Week</button>
+                            <button type="button" class="preset-chip" data-period-val="@upcoming" onclick="selectPeriodPreset('@upcoming', this)" title="Any upcoming scheduled date or recurring">🚀 Upcoming</button>
+                            <button type="button" class="preset-chip" data-period-val="@unscheduled" onclick="selectPeriodPreset('@unscheduled', this)" title="Games with no period or dates set">📦 Unscheduled</button>
+                        </div>
+                    </div>
+
+                    <div id="plan-periods-wrap" style="display:none;">
+                        <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px;">Plan Periods (Multi-Select):</div>
+                        <div class="preset-chips" id="plan-period-chips" style="margin:0;"></div>
+                    </div>
+
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="text" id="period-filter" placeholder="e.g. @today, October, November (blank = all)" oninput="onPeriodInput()">
+                        <span id="period-match-badge" style="font-size:0.74rem; color:var(--accent); background:var(--accent-bg); padding:0.25rem 0.55rem; border-radius:4px; border:1px solid var(--border); white-space:nowrap; font-weight:600;">...</span>
+                    </div>
+                    <span class="hint" style="font-size:0.72rem; line-height:1.4;">Select presets or combine multiple periods with commas (e.g. <code>@today, Next Stream</code>).</span>
+                </div>
             </div>
             <div class="cfg-row">
                 <label>Max Items</label>
@@ -231,7 +255,7 @@
                         <tr><td><code>fontScale</code> / <code>scale</code></td><td><code>1</code></td><td>Font size multiplier (0.5 to 4.0) with fluid clamp typography</td></tr>
                         <tr><td><code>align</code></td><td><code>center</code></td><td>Horizontal alignment: <code>center</code>, <code>left</code>, <code>right</code></td></tr>
                         <tr><td><code>list</code></td><td><code>scheduled</code></td><td>Source list: <code>scheduled</code>, <code>backlog</code>, <code>played</code>, or custom list ID</td></tr>
-                        <tr><td><code>period</code></td><td><em>none</em></td><td>Optional filter by period name (e.g. <code>Tonight</code>)</td></tr>
+                        <tr><td><code>period</code></td><td><em>none</em></td><td>Filter by period name or smart tokens (comma-separated): <code>@today</code> (today/tonight), <code>@tomorrow</code> (next stream), <code>@this-week</code>, <code>@upcoming</code>, <code>@unscheduled</code>, or custom periods (e.g. <code>October,November</code>)</td></tr>
                         <tr><td><code>max</code></td><td><code>5</code></td><td>Maximum number of cards/items to render</td></tr>
                         <tr><td><code>theme</code></td><td><code>glass</code></td><td>Theme: <code>glass</code>, <code>dark</code>, <code>transparent</code>, <code>light</code></td></tr>
                         <tr><td><code>covers</code></td><td><code>1</code></td><td><code>1</code> to show IGDB/custom cover images, <code>0</code> to hide</td></tr>
@@ -312,18 +336,133 @@
         refreshWizard();
     }
 
+    let cachedPlan = null;
+
+    function getActivePeriodTokens() {
+        const val = document.getElementById('period-filter').value.trim();
+        if (!val) return [];
+        return val.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    function syncChipsFromInput() {
+        const tokens = getActivePeriodTokens();
+        const lowerTokens = tokens.map(t => t.toLowerCase());
+
+        // Sync preset chips
+        const presetChips = document.querySelectorAll('#period-presets .preset-chip');
+        if (!tokens.length) {
+            presetChips.forEach(c => c.classList.toggle('active', c.dataset.periodVal === ''));
+        } else {
+            presetChips.forEach(c => {
+                const val = c.dataset.periodVal;
+                c.classList.toggle('active', val ? lowerTokens.includes(val.toLowerCase()) : false);
+            });
+        }
+
+        // Sync custom period chips
+        document.querySelectorAll('#plan-period-chips .preset-chip').forEach(c => {
+            const name = c.dataset.periodName;
+            const isMatch = lowerTokens.includes(name.toLowerCase());
+            c.classList.toggle('active', isMatch);
+        });
+
+        updateMatchBadge();
+    }
+
+    function selectPeriodPreset(val, btn) {
+        document.getElementById('period-filter').value = val;
+        syncChipsFromInput();
+        refreshWizard();
+    }
+
+    function toggleCustomPeriod(name) {
+        // Filter out preset tokens when toggling custom periods
+        const smartTokens = new Set(['@today', 'today', 'tonight', '@tomorrow', 'tomorrow', 'next-stream', '@this-week', 'this-week', '@upcoming', 'upcoming', '@unscheduled', 'unscheduled']);
+        const currentTokens = getActivePeriodTokens().filter(t => !smartTokens.has(t.toLowerCase()));
+
+        const exists = currentTokens.some(t => t.toLowerCase() === name.toLowerCase());
+        let updated;
+        if (exists) {
+            updated = currentTokens.filter(t => t.toLowerCase() !== name.toLowerCase());
+        } else {
+            updated = [...currentTokens, name];
+        }
+
+        document.getElementById('period-filter').value = updated.join(', ');
+        syncChipsFromInput();
+        refreshWizard();
+    }
+
+    function onPeriodInput() {
+        syncChipsFromInput();
+        refreshWizard();
+    }
+
+    function renderPlanPeriodChips() {
+        const container = document.getElementById('plan-period-chips');
+        const wrap = document.getElementById('plan-periods-wrap');
+        if (!container || !cachedPlan) return;
+
+        const periods = cachedPlan.periods || [];
+        if (!periods.length) {
+            if (wrap) wrap.style.display = 'none';
+            return;
+        }
+
+        if (wrap) wrap.style.display = 'block';
+        container.innerHTML = periods.map(p => `
+            <button type="button" class="preset-chip" data-period-name="${p.replace(/"/g, '&quot;')}" onclick="toggleCustomPeriod('${p.replace(/'/g, "\\'")}')">${p}</button>
+        `).join('');
+
+        syncChipsFromInput();
+    }
+
+    function getFilteredItems() {
+        if (!cachedPlan || !Array.isArray(cachedPlan.items)) return [];
+        const list = document.getElementById('list-id').value;
+        const period = document.getElementById('period-filter').value.trim();
+
+        let items = cachedPlan.items;
+        if (list) {
+            if (list === 'scheduled') {
+                items = items.filter(i => i.status === 'scheduled' || i.status === 'tonight' || (i.extraLists || []).includes('scheduled'));
+            } else if (list !== 'all') {
+                items = items.filter(i => i.status === list || (i.extraLists || []).includes(list));
+            }
+        }
+
+        if (period && window.OverlayShared?.matchesPeriodFilter) {
+            items = items.filter(i => window.OverlayShared.matchesPeriodFilter(i, period));
+        }
+        return items;
+    }
+
+    function updateMatchBadge() {
+        const badge = document.getElementById('period-match-badge');
+        if (!badge) return;
+        if (!cachedPlan) {
+            badge.textContent = '...';
+            return;
+        }
+        const count = getFilteredItems().length;
+        badge.textContent = count === 1 ? '✨ 1 match' : `✨ ${count} matches`;
+        badge.style.opacity = count > 0 ? '1' : '0.6';
+    }
+
     async function loadCustomLists() {
         try {
             const res = await fetch('/api/game-plan', { cache: 'no-store' });
             if (!res.ok) return;
-            const data = await res.json();
+            cachedPlan = await res.json();
             const listSelect = document.getElementById('list-id');
-            (data.lists || []).forEach(l => {
+            (cachedPlan.lists || []).forEach(l => {
                 const opt = document.createElement('option');
                 opt.value = l.id;
                 opt.textContent = `Collection: ${l.name}`;
                 listSelect.appendChild(opt);
             });
+            renderPlanPeriodChips();
+            updateMatchBadge();
         } catch {}
     }
 
@@ -390,6 +529,7 @@
         if (iframe.src !== absUrl) {
             iframe.src = relUrl;
         }
+        updateMatchBadge();
         updatePreviewSize();
     }
 
@@ -432,8 +572,22 @@
         }
     }
 
+    function initFromUrl() {
+        const p = new URLSearchParams(location.search);
+        if (p.has('view')) document.getElementById('view-mode').value = p.get('view');
+        if (p.has('list')) document.getElementById('list-id').value = p.get('list');
+        if (p.has('period')) {
+            document.getElementById('period-filter').value = p.get('period');
+            syncChipsFromInput();
+        }
+    }
+
     window.addEventListener('resize', updatePreviewSize);
-    loadCustomLists().then(() => refreshWizard());
+    initFromUrl();
+    loadCustomLists().then(() => {
+        syncChipsFromInput();
+        refreshWizard();
+    });
     </script>
 </body>
 </html>
