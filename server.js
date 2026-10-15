@@ -10,8 +10,9 @@ const { promisify } = require('util');
 const WebSocket = require('ws');
 const { ZipArchive } = require('archiver');
 const AdmZip = require('adm-zip');
-const { DEFAULT_TIERS, normalizeGamePlan, gameKey, sanitizeOverlayId } = require('./game-plan');
+const { DEFAULT_TIERS, normalizeGamePlan, gameKey, sanitizeOverlayId } = require('./server/game-plan');
 const { createAlertEngine, TRIGGERS: ALERT_TRIGGERS, ANIM_IN: ALERT_ANIM_IN, ANIM_OUT: ALERT_ANIM_OUT } = require('./alerts');
+const { createStaticRouter } = require('./server/static-router');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -376,6 +377,14 @@ const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
 const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
 const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert', 'slideshow', 'icon']);
 let customOverlays = {};
+
+const staticRouter = createStaticRouter({
+    rootDir: __dirname,
+    publicDir: path.join(__dirname, 'public'),
+    customOverlayAssetsDir: CUSTOM_OVERLAY_ASSETS_DIR,
+    isLoopbackRequest,
+    getCustomOverlays: () => customOverlays
+});
 
 
 // Shared by background, text and border gradients: linear or radial, 2-3 stops, optional animation.
@@ -7251,7 +7260,8 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/favicon.ico') {
         try {
-            const icon = fs.readFileSync(path.join(__dirname, 'favicon.svg'));
+            const favPath = fs.existsSync(path.join(__dirname, 'public', 'favicon.svg')) ? path.join(__dirname, 'public', 'favicon.svg') : path.join(__dirname, 'favicon.svg');
+            const icon = fs.readFileSync(favPath);
             res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' });
             res.end(icon);
         } catch {
@@ -9604,106 +9614,9 @@ if (pathname === '/api/restore' && req.method === 'POST') {
         }
     }
 
-    // Static file serving
-    // A bare / opens the dashboard; / with overlay parameters still serves credits so older OBS sources keep working.
-    let filePath = pathname === '/' ? (new URL(req.url, 'http://localhost').search ? '/credits.html' : '/dashboard.html') : pathname;
-    let localMedia = false;
-    if (pathname === '/local-file') {
-        const requested = String(new URL(req.url, 'http://localhost').searchParams.get('path') || '');
-        const ext = path.extname(requested).toLowerCase();
-        const kind = ASSET_KIND_BY_EXT[ext];
-        const referenced = () => JSON.stringify(Object.values(customOverlays)).includes(`/local-file?path=${encodeURIComponent(requested)}`);
-        if (!path.isAbsolute(requested) || !['image', 'video'].includes(kind) || ext === '.oga') { res.writeHead(400); res.end('Only local image and video files can be used'); return; }
-        // Remote viewers may only load files that a saved overlay already points at.
-        if (!isLoopbackRequest(req) && !referenced()) { res.writeHead(403); res.end('Forbidden'); return; }
-        filePath = requested;
-        localMedia = true;
-    } else if (pathname.startsWith('/custom-overlay-assets/')) {
-        let assetName = '';
-        try {
-            assetName = decodeURIComponent(pathname.slice('/custom-overlay-assets/'.length));
-        } catch {
-            res.writeHead(400);
-            res.end('Bad Request');
-            return;
-        }
-        if (!assetName || assetName.includes('/') || assetName.includes('\\')) {
-            res.writeHead(404);
-            res.end('Not Found');
-            return;
-        }
-        filePath = path.join(CUSTOM_OVERLAY_ASSETS_DIR, assetName);
-    } else {
-        filePath = path.join(__dirname, filePath);
-    }
-
-    // Security: prevent directory traversal and protect sensitive files
-    if (!localMedia) {
-        const rootWithSep = __dirname.endsWith(path.sep) ? __dirname : __dirname + path.sep;
-        if (!filePath.startsWith(rootWithSep) && filePath !== __dirname) {
-            res.writeHead(403);
-            res.end('Forbidden');
-            return;
-        }
-        if (!pathname.startsWith('/custom-overlay-assets/')) {
-            const rel = path.relative(__dirname, filePath);
-            const segments = rel.split(path.sep);
-            const lowerRel = rel.toLowerCase();
-            if (segments.some(seg => seg.startsWith('.')) || lowerRel === 'config.json' || lowerRel.startsWith('data' + path.sep)) {
-                res.writeHead(404);
-                res.end('Not Found');
-                return;
-            }
-        }
-    }
-
-    try {
-        const stat = fs.statSync(filePath);
-        if (!stat.isFile()) {
-            res.writeHead(404);
-            res.end('Not Found');
-            return;
-        }
-        const contentType = MIME_TYPES[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
-        const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
-        const headers = {
-            'Content-Type': contentType,
-            'Accept-Ranges': 'bytes',
-            'ETag': etag,
-            'Last-Modified': stat.mtime.toUTCString(),
-            // Uploaded assets get unique names; everything else revalidates cheaply with the ETag.
-            'Cache-Control': pathname.startsWith('/custom-overlay-assets/') ? 'public, max-age=86400' : 'no-cache'
-        };
-        if (req.headers['if-none-match'] === etag) {
-            res.writeHead(304, headers);
-            res.end();
-            return;
-        }
-        let start = 0;
-        let end = stat.size - 1;
-        let status = 200;
-        const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
-        if (range && (range[1] || range[2])) {
-            if (range[1]) { start = Number(range[1]); if (range[2]) end = Math.min(Number(range[2]), end); }
-            else { start = Math.max(0, stat.size - Number(range[2])); }
-            if (start > end || start >= stat.size) {
-                res.writeHead(416, { 'Content-Range': `bytes */${stat.size}` });
-                res.end();
-                return;
-            }
-            status = 206;
-            headers['Content-Range'] = `bytes ${start}-${end}/${stat.size}`;
-        }
-        headers['Content-Length'] = stat.size === 0 ? 0 : end - start + 1;
-        res.writeHead(status, headers);
-        if (req.method === 'HEAD' || stat.size === 0) { res.end(); return; }
-        const stream = fs.createReadStream(filePath, { start, end });
-        stream.on('error', () => res.destroy());
-        res.on('close', () => stream.destroy());
-        stream.pipe(res);
-    } catch {
-        res.writeHead(404);
-        res.end('Not Found');
+    // Static file serving via cascading static router
+    if (staticRouter.handleRequest(req, res)) {
+        return;
     }
     } catch (serverErr) {
         console.error(`[Server] Request handler error on ${req.method} ${req.url}:`, serverErr);

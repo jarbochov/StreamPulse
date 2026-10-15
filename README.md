@@ -513,6 +513,21 @@ The live chat log is stored in `data/chat-log.jsonl`, while StreamPulse keeps on
 - Restart StreamPulse with `npm start`
 - If needed, reinstall dependencies first with `npm install`
 
+## Project Architecture & Static Routing
+
+Frontend files are organized into semantic directories under `public/`:
+- `public/overlays/` — OBS browser sources (`credits.html`, `randomizer.html`, `music.html`, `goal.html`, `viewers.html`, etc.)
+- `public/editors/` — Interactive studio controllers and configuration editors (`randomizer-editor.html`, `theme-editor.html`, etc.)
+- `public/wizards/` — URL builders for parameter configuration (`overlay-url-wizard.html`, `timer-url-wizard.html`, etc.)
+- `public/tools/` — Stream automation and bot tools (`chatbot.html`, `alerts.html`, `placeholders.html`, etc.)
+- `public/library/` — History, archives, and analytics (`sessions.html`, `analytics.html`, `highlights.html`, etc.)
+- `public/system/` — System settings and hub (`config-editor.html`, `overlays.html`, `backup.html`, etc.)
+- `public/css/` — Shared stylesheets (`admin.css`, etc.)
+- `public/js/` — Client-side scripts (`nav.js`, `appearance.js`, `overlay-shared.js`, etc.)
+
+### Backward Compatibility & Cascading Routing
+All URLs are **100% backward-compatible**. Existing OBS browser sources, bookmarks, and Stream Deck integrations using flat root paths (e.g. `http://localhost:3000/music.html` or `http://localhost:3000/credits.html`) continue to resolve seamlessly with zero redirects and zero latency overhead. The built-in cascading static router in `server/static-router.js` automatically resolves both root paths and structured subfolder paths (`http://localhost:3000/overlays/music.html`).
+
 ## Security
 
 - `config.json` contains credentials — git-ignored, never commit
