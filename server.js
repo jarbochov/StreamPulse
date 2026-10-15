@@ -7180,7 +7180,7 @@ const server = http.createServer(async (req, res) => {
                 const raw = await readRequestBody(req);
                 body = JSON.parse(raw || '{}');
             }
-            const query = parsedUrl.query || {};
+            const query = Object.fromEntries(url.searchParams.entries());
             const presetId = body.preset || query.preset || null;
             let choices = Array.isArray(body.choices) ? body.choices.map(c => String(c).trim()).filter(Boolean) : [];
             let winnerHeader = body.winnerHeader || query.winHeader || query.winnerHeader || '';

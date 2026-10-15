@@ -970,7 +970,12 @@
         let currentQuotePresetId = params.get('quotePreset') || 'multiverse';
         let currentSuspense = params.get('suspense') || 'normal';
         let showOverlayButton = params.get('button') === '1';
-        let choices = [];
+        const DEFAULT_FALLBACK_CHOICES = [
+            "Bidiots", "Blather Round", "Bomb Corp", "Bracketeering", "Champ'd Up",
+            "Civic Doodle", "Devils and the Details", "Dictionarium", "Dodo Re Mi",
+            "Drawful 2", "Fibbage 3", "Mad Verse City", "Quiplash 3", "Trivia Murder Party 2"
+        ];
+        let choices = [...DEFAULT_FALLBACK_CHOICES];
         let presetsList = [];
         let buttonPresetsList = [];
         let quotePresetsList = [];
@@ -988,9 +993,9 @@
             document.body.classList.add('overlay-mode');
             $('admin-ui')?.remove();
             document.body.appendChild(stageTpl.content.cloneNode(true));
-            const initialAutohide = params.get('autohide') !== null ? Number(params.get('autohide')) : 8;
-            if (initialAutohide !== 0 && !showOverlayButton) {
-                $('display-stage').classList.add('hidden-stage');
+            // Only hide initially if explicitly requested via query param `hidden=1`
+            if (params.get('hidden') === '1') {
+                $('display-stage')?.classList.add('hidden-stage');
             }
         } else {
             $('stage-wrapper').appendChild(stageTpl.content.cloneNode(true));
@@ -1576,7 +1581,12 @@
             duration = (Number(isOverlay ? params.get('duration') : $('spin-duration')?.value) || 6),
             autohide = null
         } = {}) {
-            if (isSpinning || !list.length) return;
+            if (isSpinning) return;
+            if (!list || !list.length) {
+                list = choices.length ? choices : DEFAULT_FALLBACK_CHOICES;
+            }
+            if (!list.length) return;
+
             if (theme && theme !== currentTheme) {
                 applyTheme(theme, true);
             }
@@ -1584,7 +1594,7 @@
 
             clearTimeout(autohideTimer);
             if (isOverlay) {
-                $('display-stage').classList.remove('hidden-stage');
+                $('display-stage')?.classList.remove('hidden-stage');
             }
 
             if ($('btn-spin')) $('btn-spin').disabled = true;
@@ -2560,12 +2570,20 @@
             } else {
                 loadOverlayTheme();
             }
+
+            if (params.get('choices')) {
+                choices = params.get('choices').split(/[,\n]/).map(s => s.trim()).filter(Boolean);
+                renderInitialState();
+            }
+
             fetch('/api/randomizer/presets').then(r => r.json()).then(res => {
-                if (res.presets) {
+                if (res.presets && Array.isArray(res.presets) && res.presets.length) {
                     presetsList = res.presets;
-                    const matched = presetsList.find(p => p.id === currentPresetId);
-                    if (matched) {
-                        choices = matched.choices || [];
+                    const matched = presetsList.find(p => p.id === currentPresetId) || presetsList[0];
+                    if (matched && matched.choices && matched.choices.length) {
+                        if (!params.get('choices')) {
+                            choices = matched.choices;
+                        }
                         renderInitialState();
                     }
                 }
@@ -2573,18 +2591,20 @@
 
             // Fetch quote preset for overlay
             fetch('/api/randomizer/quote-presets').then(r => r.json()).then(res => {
-                if (res.presets) {
-                    const matched = res.presets.find(p => p.id === currentQuotePresetId);
-                    if (matched) activeQuotesPool = matched.quotes || [];
+                if (res.presets && Array.isArray(res.presets)) {
+                    quotePresetsList = res.presets;
+                    const matched = quotePresetsList.find(p => p.id === currentQuotePresetId) || quotePresetsList[0];
+                    if (matched && matched.quotes) activeQuotesPool = matched.quotes;
                 }
             }).catch(() => {});
 
             // Fetch button preset for overlay
             fetch('/api/randomizer/button-presets').then(r => r.json()).then(res => {
-                if (res.presets) {
-                    const matched = res.presets.find(p => p.id === currentBtnPresetId);
-                    if (matched) {
-                        activeButtonPhrases = matched.phrases || [];
+                if (res.presets && Array.isArray(res.presets)) {
+                    buttonPresetsList = res.presets;
+                    const matched = buttonPresetsList.find(p => p.id === currentBtnPresetId) || buttonPresetsList[0];
+                    if (matched && matched.phrases) {
+                        activeButtonPhrases = matched.phrases;
                         updateButtonLabel();
                     }
                 }
@@ -2604,6 +2624,10 @@
                         if (msg.type === 'randomizer-spin' && msg.data) {
                             const d = msg.data;
                             AudioFX.init();
+                            clearTimeout(autohideTimer);
+                            if (isOverlay) {
+                                $('display-stage')?.classList.remove('hidden-stage');
+                            }
                             if (d.theme) {
                                 applyTheme(d.theme, true);
                             }
@@ -2624,8 +2648,9 @@
                                 activeButtonPhrases = d.buttonPhrases;
                                 updateButtonLabel();
                             }
+                            const spinChoices = (Array.isArray(d.choices) && d.choices.length) ? d.choices : (choices.length ? choices : DEFAULT_FALLBACK_CHOICES);
                             runSpin({
-                                choices: (Array.isArray(d.choices) && d.choices.length) ? d.choices : choices,
+                                choices: spinChoices,
                                 winner: d.winner,
                                 winnerHeader: d.winnerHeader,
                                 winnerSub: d.winnerSub,
