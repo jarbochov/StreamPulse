@@ -68,12 +68,15 @@ const CUSTOM_OVERLAY_ASSETS_DIR = path.join(DATA_DIR, 'custom-overlay-assets');
 const CUSTOM_OVERLAY_HISTORY_DIR = path.join(DATA_DIR, 'custom-overlay-history');
 const CUSTOM_OVERLAY_HISTORY_LIMIT = 30;
 const RANDOMIZER_PRESETS_PATH = path.join(DATA_DIR, 'randomizer-presets.json');
+const RANDOMIZER_BUTTON_PRESETS_PATH = path.join(DATA_DIR, 'randomizer-button-presets.json');
+const RANDOMIZER_QUOTE_PRESETS_PATH = path.join(DATA_DIR, 'randomizer-quote-presets.json');
 
 const DEFAULT_RANDOMIZER_PRESETS = [
     {
         id: 'jackbox',
         name: 'Jackbox Party Games (60 Games)',
         buttonPreset: 'games',
+        quotePreset: 'hype',
         winnerHeader: 'NEXT GAME TO PLAY',
         winnerSub: 'Booting up... prepare your phones!',
         choices: [
@@ -97,6 +100,7 @@ const DEFAULT_RANDOMIZER_PRESETS = [
         id: 'decision',
         name: 'Quick Decision (Yes / No / Maybe)',
         buttonPreset: 'chaos',
+        quotePreset: 'multiverse',
         winnerHeader: 'THE ORACLE HAS SPOKEN',
         winnerSub: 'The timeline has shifted. Fate is sealed.',
         choices: [
@@ -108,12 +112,145 @@ const DEFAULT_RANDOMIZER_PRESETS = [
         id: 'punishments',
         name: 'Stream Challenges & Punishments',
         buttonPreset: 'punish',
+        quotePreset: 'roast',
         winnerHeader: 'PUNISHMENT CHOSEN',
         winnerSub: 'No mercy. Do not pass GO. Fate is sealed.',
         choices: [
             "10 Pushups / Situps", "Hydrate check (huge gulp)", "Chat picks next music track",
             "Play next round one-handed", "Give a VIP/Sub badge shoutout", "No talking for 3 minutes",
             "Switch camera angle / face cam zoom", "Sing a 15-second jingle"
+        ]
+    }
+];
+
+const DEFAULT_RANDOMIZER_BUTTON_PRESETS = [
+    {
+        id: 'chaos',
+        name: 'Chaos & Mayhem (Original Randomizer)',
+        phrases: [
+            "Let Chaos Reign!",
+            "Shake It Up!",
+            "Spin the Wheel of Destiny!",
+            "Summon Randomness!",
+            "Unleash the Fates!",
+            "Roll the Cosmic Dice!",
+            "Mayhem Mode!",
+            "Toss into the Void!",
+            "Destiny, Take the Wheel!",
+            "Invoke the Randomizer!",
+            "Disorder, Please!",
+            "Activate Quantum Luck!",
+            "Who Knows?!",
+            "Bring the Pandemonium!",
+            "Release the Kraken!",
+            "YOLO Button!",
+            "Throw a Curveball!",
+            "Hurl into Uncertainty!",
+            "Choose or Lose!",
+            "Hit Me With Chaos!",
+            "Spin and Grin!",
+            "Let the Universe Decide!",
+            "Go Bananas!",
+            "SLAM IT ON IN THERE!",
+            "Guess You'll Die?",
+            "Hey look over there!",
+            "LET IT BURN",
+            "Punch it Margaret!",
+            "What's the Worst That Could Happen?"
+        ]
+    },
+    {
+        id: 'games',
+        name: 'Game Night & Jackbox',
+        phrases: [
+            "Pick Next Game!",
+            "Spin the Wheel!",
+            "What Are We Playing?",
+            "Game On!",
+            "Wheel of Destiny",
+            "Next Up!",
+            "Choose the Game!"
+        ]
+    },
+    {
+        id: 'punish',
+        name: 'Challenges & Punishments',
+        phrases: [
+            "Choose My Fate!",
+            "Spin the Wheel of Pain!",
+            "Hit Me With It!",
+            "No Mercy!",
+            "I Regret Nothing!",
+            "Make Me Suffer!"
+        ]
+    },
+    {
+        id: 'simple',
+        name: 'Simple & Direct',
+        phrases: [
+            "Spin",
+            "Randomize",
+            "Roll the Dice",
+            "Decide Now"
+        ]
+    }
+];
+
+const DEFAULT_RANDOMIZER_QUOTE_PRESETS = [
+    {
+        id: 'multiverse',
+        name: 'Multiverse Respin Quotes (15 Lines)',
+        quotes: [
+            "The timeline has shifted. But is this really better?",
+            "Another universe, another glorious outcome.",
+            "You just quantum-leaped to a new result!",
+            "That butterfly just flapped its wings. Welcome to a new timeline.",
+            "The fabric of fate is fraying. Result updated!",
+            "You have rewound the cosmic clock. Again.",
+            "A ripple in the multiverse delivers a different destiny.",
+            "Parallel worlds say hello! Enjoy your alternate fate.",
+            "The universe blinks. Your wish is (randomly) granted.",
+            "You've seen another potential future. Satisfied?",
+            "You've created a new branch of reality. Good luck!",
+            "Another roll, another dimension.",
+            "Multiverse roulette: new path unlocked.",
+            "Alternate luck engaged. Fate is fickle.",
+            "You glitched the matrix. This is your new outcome."
+        ]
+    },
+    {
+        id: 'hype',
+        name: 'Stream Hype & Victory',
+        quotes: [
+            "A champion emerges from the chaos!",
+            "Bow down to the chosen destiny!",
+            "History has been made on stream!",
+            "The gods of RNG have smiled upon us!",
+            "Absolute perfection. No notes.",
+            "Destiny has chosen its champion!"
+        ]
+    },
+    {
+        id: 'roast',
+        name: 'Sarcastic & Chat Roasts',
+        quotes: [
+            "Blame RNG, not your lack of skill.",
+            "Chat is in absolute shambles right now.",
+            "Quantum luck has spoken. Strictly no refunds!",
+            "Honestly, that looks like a skill issue.",
+            "Do not pass GO. Do not collect 200 bits.",
+            "Could have been worse. Probably."
+        ]
+    },
+    {
+        id: 'minimal',
+        name: 'Short & Clean',
+        quotes: [
+            "Fate is sealed.",
+            "Next up on stream.",
+            "Here we go!",
+            "The universe has spoken.",
+            "Decision locked in."
         ]
     }
 ];
@@ -137,6 +274,52 @@ function saveRandomizerPresets(presets) {
         return true;
     } catch (e) {
         console.error('[Randomizer] Error saving presets:', e.message);
+        return false;
+    }
+}
+
+function loadRandomizerButtonPresets() {
+    try {
+        if (fs.existsSync(RANDOMIZER_BUTTON_PRESETS_PATH)) {
+            const data = JSON.parse(fs.readFileSync(RANDOMIZER_BUTTON_PRESETS_PATH, 'utf8'));
+            if (Array.isArray(data) && data.length) return data;
+        }
+    } catch (e) {
+        console.error('[Randomizer] Error loading button presets:', e.message);
+    }
+    safeWriteFileSync(RANDOMIZER_BUTTON_PRESETS_PATH, JSON.stringify(DEFAULT_RANDOMIZER_BUTTON_PRESETS, null, 2));
+    return DEFAULT_RANDOMIZER_BUTTON_PRESETS;
+}
+
+function saveRandomizerButtonPresets(presets) {
+    try {
+        safeWriteFileSync(RANDOMIZER_BUTTON_PRESETS_PATH, JSON.stringify(presets, null, 2));
+        return true;
+    } catch (e) {
+        console.error('[Randomizer] Error saving button presets:', e.message);
+        return false;
+    }
+}
+
+function loadRandomizerQuotePresets() {
+    try {
+        if (fs.existsSync(RANDOMIZER_QUOTE_PRESETS_PATH)) {
+            const data = JSON.parse(fs.readFileSync(RANDOMIZER_QUOTE_PRESETS_PATH, 'utf8'));
+            if (Array.isArray(data) && data.length) return data;
+        }
+    } catch (e) {
+        console.error('[Randomizer] Error loading quote presets:', e.message);
+    }
+    safeWriteFileSync(RANDOMIZER_QUOTE_PRESETS_PATH, JSON.stringify(DEFAULT_RANDOMIZER_QUOTE_PRESETS, null, 2));
+    return DEFAULT_RANDOMIZER_QUOTE_PRESETS;
+}
+
+function saveRandomizerQuotePresets(presets) {
+    try {
+        safeWriteFileSync(RANDOMIZER_QUOTE_PRESETS_PATH, JSON.stringify(presets, null, 2));
+        return true;
+    } catch (e) {
+        console.error('[Randomizer] Error saving quote presets:', e.message);
         return false;
     }
 }
@@ -6821,30 +7004,228 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (pathname === '/api/randomizer/spin' && req.method === 'POST') {
+    // Button Phrase Presets CRUD
+    if (pathname === '/api/randomizer/button-presets' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, presets: loadRandomizerButtonPresets() }));
+        return;
+    }
+
+    if (pathname === '/api/randomizer/button-presets' && req.method === 'POST') {
         try {
             const raw = await readRequestBody(req);
             const body = JSON.parse(raw || '{}');
-            const choices = Array.isArray(body.choices) ? body.choices.map(c => String(c).trim()).filter(Boolean) : [];
-            const winner = body.winner || (choices.length ? choices[Math.floor(Math.random() * choices.length)] : 'Winner');
+            const name = String(body.name || '').trim();
+            if (!name) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Preset name is required' }));
+                return;
+            }
+            const phrases = Array.isArray(body.phrases)
+                ? body.phrases.map(s => String(s).trim()).filter(Boolean)
+                : String(body.phrases || '').split('\n').map(s => s.trim()).filter(Boolean);
+            if (!phrases.length) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Button phrases cannot be empty' }));
+                return;
+            }
+
+            const presets = loadRandomizerButtonPresets();
+            let presetId = body.id ? String(body.id).trim() : null;
+            let updatedPreset;
+            if (presetId) {
+                const idx = presets.findIndex(p => p.id === presetId);
+                if (idx !== -1) {
+                    presets[idx] = {
+                        ...presets[idx],
+                        name,
+                        phrases,
+                        updatedAt: Date.now()
+                    };
+                    updatedPreset = presets[idx];
+                }
+            }
+            if (!updatedPreset) {
+                presetId = presetId || 'btn_' + Date.now();
+                updatedPreset = {
+                    id: presetId,
+                    name,
+                    phrases,
+                    createdAt: Date.now()
+                };
+                presets.push(updatedPreset);
+            }
+            saveRandomizerButtonPresets(presets);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, preset: updatedPreset, presets }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if ((pathname.startsWith('/api/randomizer/button-presets/') && req.method === 'DELETE') ||
+        (pathname === '/api/randomizer/button-presets/delete' && req.method === 'POST')) {
+        try {
+            let idToDelete = '';
+            if (pathname.startsWith('/api/randomizer/button-presets/')) {
+                idToDelete = decodeURIComponent(pathname.slice('/api/randomizer/button-presets/'.length));
+            } else {
+                const raw = await readRequestBody(req);
+                const body = JSON.parse(raw || '{}');
+                idToDelete = body.id;
+            }
+            let presets = loadRandomizerButtonPresets();
+            presets = presets.filter(p => p.id !== idToDelete);
+            saveRandomizerButtonPresets(presets);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, presets }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    // Quote Pool Presets CRUD
+    if (pathname === '/api/randomizer/quote-presets' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, presets: loadRandomizerQuotePresets() }));
+        return;
+    }
+
+    if (pathname === '/api/randomizer/quote-presets' && req.method === 'POST') {
+        try {
+            const raw = await readRequestBody(req);
+            const body = JSON.parse(raw || '{}');
+            const name = String(body.name || '').trim();
+            if (!name) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Preset name is required' }));
+                return;
+            }
+            const quotes = Array.isArray(body.quotes)
+                ? body.quotes.map(s => String(s).trim()).filter(Boolean)
+                : String(body.quotes || '').split('\n').map(s => s.trim()).filter(Boolean);
+            if (!quotes.length) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Quotes cannot be empty' }));
+                return;
+            }
+
+            const presets = loadRandomizerQuotePresets();
+            let presetId = body.id ? String(body.id).trim() : null;
+            let updatedPreset;
+            if (presetId) {
+                const idx = presets.findIndex(p => p.id === presetId);
+                if (idx !== -1) {
+                    presets[idx] = {
+                        ...presets[idx],
+                        name,
+                        quotes,
+                        updatedAt: Date.now()
+                    };
+                    updatedPreset = presets[idx];
+                }
+            }
+            if (!updatedPreset) {
+                presetId = presetId || 'quote_' + Date.now();
+                updatedPreset = {
+                    id: presetId,
+                    name,
+                    quotes,
+                    createdAt: Date.now()
+                };
+                presets.push(updatedPreset);
+            }
+            saveRandomizerQuotePresets(presets);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, preset: updatedPreset, presets }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if ((pathname.startsWith('/api/randomizer/quote-presets/') && req.method === 'DELETE') ||
+        (pathname === '/api/randomizer/quote-presets/delete' && req.method === 'POST')) {
+        try {
+            let idToDelete = '';
+            if (pathname.startsWith('/api/randomizer/quote-presets/')) {
+                idToDelete = decodeURIComponent(pathname.slice('/api/randomizer/quote-presets/'.length));
+            } else {
+                const raw = await readRequestBody(req);
+                const body = JSON.parse(raw || '{}');
+                idToDelete = body.id;
+            }
+            let presets = loadRandomizerQuotePresets();
+            presets = presets.filter(p => p.id !== idToDelete);
+            saveRandomizerQuotePresets(presets);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, presets }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    // Spin Endpoint (Supports POST with JSON or GET for Bitfocus Companion Stream Deck actions!)
+    if (pathname === '/api/randomizer/spin' && (req.method === 'POST' || req.method === 'GET')) {
+        try {
+            let body = {};
+            if (req.method === 'POST') {
+                const raw = await readRequestBody(req);
+                body = JSON.parse(raw || '{}');
+            }
+            const query = parsedUrl.query || {};
+            const presetId = body.preset || query.preset || null;
+            let choices = Array.isArray(body.choices) ? body.choices.map(c => String(c).trim()).filter(Boolean) : [];
+            let winnerHeader = body.winnerHeader || query.winHeader || query.winnerHeader || '';
+            let winnerSub = body.winnerSub || query.winSub || query.winnerSub || '';
+            let buttonPhrases = Array.isArray(body.buttonPhrases) ? body.buttonPhrases : [];
+
+            // If no choices provided or preset specified, load from preset
+            if (!choices.length) {
+                const presets = loadRandomizerPresets();
+                const matched = (presetId ? presets.find(p => p.id === presetId) : null) || presets[0];
+                if (matched) {
+                    choices = matched.choices || [];
+                    if (!winnerHeader && matched.winnerHeader) winnerHeader = matched.winnerHeader;
+                    if (!winnerSub && matched.winnerSub) winnerSub = matched.winnerSub;
+                    if (!buttonPhrases.length && matched.buttonPhrases) buttonPhrases = matched.buttonPhrases;
+                }
+            }
+
+            const winner = body.winner || query.winner || (choices.length ? choices[Math.floor(Math.random() * choices.length)] : 'Winner');
+            const mode = body.mode || query.mode || 'roller';
+            const suspense = body.suspense || query.suspense || 'normal';
+            const duration = Number(body.duration || query.duration) || 6;
+            const autohide = body.autohide !== undefined ? Number(body.autohide) : (query.autohide !== undefined ? Number(query.autohide) : 8);
+            const accent = body.accent || query.accent || '';
+            const font = body.font || query.font || '';
+
             const payload = {
                 choices,
                 winner,
-                winnerHeader: body.winnerHeader || '',
-                winnerSub: body.winnerSub || '',
-                mode: body.mode || 'roller',
-                suspense: body.suspense || 'normal', // 'normal' | 'tricky'
-                theme: body.theme || 'system',
-                duration: Number(body.duration) || 6,
-                autohide: body.autohide !== undefined ? Number(body.autohide) : 8,
-                showButton: !!body.showButton,
-                buttonText: body.buttonText || '',
-                buttonPhrases: Array.isArray(body.buttonPhrases) ? body.buttonPhrases : [],
+                winnerHeader,
+                winnerSub,
+                mode,
+                suspense,
+                duration,
+                autohide,
+                accent,
+                font,
+                buttonPhrases,
+                showButton: body.showButton !== undefined ? !!body.showButton : (query.button === '1'),
+                buttonText: body.buttonText || query.btnText || '',
                 at: Date.now()
             };
             broadcastToOverlays('randomizer-spin', payload);
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: true, payload }));
+            res.end(JSON.stringify({ ok: true, winner, preset: presetId, mode, payload }));
         } catch (err) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: err.message }));

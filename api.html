@@ -1026,6 +1026,62 @@
             ]
         },
         {
+            section: 'Randomizer & Wheel',
+            items: [
+                {
+                    method: 'GET', path: '/api/randomizer/spin',
+                    desc: 'Spin wheel or vertical roller via Bitfocus Companion or HTTP GET',
+                    companion: true,
+                    details: 'Triggers a spin across all connected OBS overlays. Perfect for Bitfocus Companion Stream Deck buttons (Generic HTTP GET). Accepts optional query parameters: ?preset=jackbox (or decision / punishments), ?mode=roller (or wheel), ?suspense=normal (or tricky), ?duration=6, ?winner=OverrideName. Returns { ok: true, winner, preset, mode, payload }.'
+                },
+                {
+                    method: 'POST', path: '/api/randomizer/spin',
+                    desc: 'Trigger a spin with custom choices and announcement payload',
+                    companion: true,
+                    details: 'Broadcasts a spin with custom choices list, winner, mode, and overlay styling to all OBS overlays.',
+                    body: '{ "preset": "jackbox", "mode": "roller", "suspense": "normal" }'
+                },
+                {
+                    method: 'GET', path: '/api/randomizer/presets',
+                    desc: 'List saved choice presets',
+                    details: 'Returns all choice presets including Jackbox Games, Quick Decision, Stream Challenges, and custom presets.'
+                },
+                {
+                    method: 'POST', path: '/api/randomizer/presets',
+                    desc: 'Create or update a choice preset',
+                    details: 'Saves choices list and preset settings to data/randomizer-presets.json.',
+                    body: '{ "name": "Jackbox Night", "choices": ["Drawful", "Quiplash", "Trivia Murder Party"] }'
+                },
+                {
+                    method: 'GET', path: '/api/randomizer/button-presets',
+                    desc: 'List button phrase presets',
+                    details: 'Returns saved button phrase pools (Chaos & Mayhem, Game Night, Challenges, Simple, and custom presets).'
+                },
+                {
+                    method: 'POST', path: '/api/randomizer/button-presets',
+                    desc: 'Create or update a button phrase preset',
+                    details: 'Saves button phrases pool to data/randomizer-button-presets.json.',
+                    body: '{ "name": "Mayhem Mode", "phrases": ["Let Chaos Reign!", "Mayhem Mode!", "SLAM IT IN!"] }'
+                },
+                {
+                    method: 'GET', path: '/api/randomizer/quote-presets',
+                    desc: 'List winner celebration quote presets',
+                    details: 'Returns saved winner subtitle quote pools (Multiverse, Hype, Roasts, Minimal, and custom presets).'
+                },
+                {
+                    method: 'POST', path: '/api/randomizer/quote-presets',
+                    desc: 'Create or update a winner quote preset',
+                    details: 'Saves quotes pool to data/randomizer-quote-presets.json.',
+                    body: '{ "name": "Chat Roasts", "quotes": ["Skill issue, honestly.", "Chat is in shambles.", "No refunds!"] }'
+                },
+                {
+                    method: 'GET', path: '/api/randomizer/chatters',
+                    desc: 'List active chatters for the current session',
+                    details: 'Returns array of unique chatter usernames from the active session to populate randomizer choices dynamically.'
+                }
+            ]
+        },
+        {
             section: 'WebSocket',
             items: [
                 {

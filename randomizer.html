@@ -20,10 +20,10 @@
         .beta { font-size: .65rem; padding: .12rem .45rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); letter-spacing: .05em; font-weight: 600; }
 
         /* Layout Grid */
-        .container { max-width: 1240px; margin: 0 auto; padding: 1.25rem 1.75rem 2.5rem; }
+        .container { max-width: 1260px; margin: 0 auto; padding: 1.25rem 1.75rem 2.5rem; }
         .layout-grid {
             display: grid;
-            grid-template-columns: minmax(360px, 480px) minmax(420px, 1fr);
+            grid-template-columns: minmax(380px, 500px) minmax(420px, 1fr);
             gap: 1.25rem;
             align-items: start;
         }
@@ -43,22 +43,23 @@
             background: var(--bg-inset);
             padding: .3rem;
             border-radius: 9px;
-            gap: .3rem;
+            gap: .25rem;
             margin-bottom: 1rem;
             border: 1px solid var(--border);
+            overflow-x: auto;
         }
         .tab-btn {
             flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: .4rem;
-            padding: .5rem .5rem;
+            gap: .35rem;
+            padding: .45rem .4rem;
             background: transparent;
             border: none;
             border-radius: 6px;
             color: var(--text-muted);
-            font-size: .78rem;
+            font-size: .76rem;
             font-weight: 600;
             cursor: pointer;
             transition: all .15s ease;
@@ -75,6 +76,12 @@
         label.f { display: flex; flex-direction: column; gap: .3rem; font-size: .76rem; font-weight: 600; color: var(--text-muted); flex: 1; min-width: 140px; }
         label.f > input, label.f > select, label.f > textarea { width: 100%; padding: .45rem .65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; font-size: .82rem; }
         input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        /* Palette Chips (Matching overlay-url-wizard.html) */
+        .palette-chips { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+        .p-chip { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s ease; }
+        .p-chip:hover { transform: scale(1.18); }
+        .p-chip.active { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
 
         /* Buttons */
         .btn { padding: .42rem .75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); font-size: .8rem; font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap; display: inline-flex; align-items: center; gap: .45rem; }
@@ -115,7 +122,7 @@
             font-size: 1.15rem;
             font-weight: 800;
             color: #fff;
-            background: var(--stage-gradient, linear-gradient(135deg, var(--accent) 0%, #ec4899 50%, #f97316 100%));
+            background: var(--stage-gradient, linear-gradient(135deg, var(--overlay-accent, var(--accent)) 0%, #ec4899 50%, #f97316 100%));
             border: none;
             border-radius: 12px;
             cursor: pointer;
@@ -157,10 +164,13 @@
 
         /* Display Container (Shared between Admin Preview and OBS Overlay) */
         #display-stage {
-            --stage-accent: var(--accent, #6366f1);
-            --stage-indicator: var(--accent-strong, #4f46e5);
-            --stage-gradient: linear-gradient(135deg, var(--accent, #6366f1) 0%, color-mix(in srgb, var(--accent, #6366f1) 70%, #ec4899) 50%, color-mix(in srgb, var(--accent, #6366f1) 50%, #f97316) 100%);
-            --stage-glow: color-mix(in srgb, var(--accent, #6366f1) 40%, transparent);
+            --stage-accent: var(--overlay-accent, var(--accent, #6366f1));
+            --stage-indicator: color-mix(in srgb, var(--stage-accent) 85%, #fff);
+            --stage-gradient: linear-gradient(135deg, var(--stage-accent) 0%, color-mix(in srgb, var(--stage-accent) 70%, #ec4899) 50%, color-mix(in srgb, var(--stage-accent) 50%, #f97316) 100%);
+            --stage-glow: color-mix(in srgb, var(--stage-accent) 40%, transparent);
+
+            font-family: var(--overlay-font, inherit);
+            color: var(--overlay-text, var(--text));
 
             display: flex;
             flex-direction: column;
@@ -169,7 +179,7 @@
             position: relative;
             width: 100%;
             min-height: 350px;
-            background: rgba(15, 23, 42, 0.78);
+            background: var(--overlay-bg, rgba(15, 23, 42, 0.78));
             backdrop-filter: blur(10px);
             border: 1px solid var(--border);
             border-radius: 14px;
@@ -179,7 +189,7 @@
             transition: border-color .25s ease;
         }
         body.overlay-mode #display-stage {
-            background: rgba(15, 23, 42, 0.90);
+            background: var(--overlay-bg, rgba(15, 23, 42, 0.90));
             border: 2px solid color-mix(in srgb, var(--stage-accent) 60%, rgba(255,255,255,0.2));
             width: min(580px, 94vw);
             min-height: 420px;
@@ -405,28 +415,32 @@
                         <!-- Navigation Tabs -->
                         <div class="tabs-nav">
                             <button class="tab-btn active" id="tab-btn-presets" type="button">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="3"></rect><circle cx="8" cy="8" r="1.5" fill="currentColor"></circle><circle cx="16" cy="8" r="1.5" fill="currentColor"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor"></circle><circle cx="8" cy="16" r="1.5" fill="currentColor"></circle><circle cx="16" cy="16" r="1.5" fill="currentColor"></circle></svg>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="3"></rect><circle cx="8" cy="8" r="1.5" fill="currentColor"></circle><circle cx="16" cy="8" r="1.5" fill="currentColor"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor"></circle><circle cx="8" cy="16" r="1.5" fill="currentColor"></circle><circle cx="16" cy="16" r="1.5" fill="currentColor"></circle></svg>
                                 Choices
                             </button>
-                            <button class="tab-btn" id="tab-btn-display" type="button">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                                Style &amp; FX
+                            <button class="tab-btn" id="tab-btn-theme" type="button">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                                Overlay Theme
                             </button>
-                            <button class="tab-btn" id="tab-btn-button" type="button">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                                Button Text
+                            <button class="tab-btn" id="tab-btn-buttons" type="button">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                Button Presets
+                            </button>
+                            <button class="tab-btn" id="tab-btn-quotes" type="button">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                Quote Presets
                             </button>
                             <button class="tab-btn" id="tab-btn-obs" type="button">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-                                OBS Link
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                                OBS &amp; Deck
                             </button>
                         </div>
 
-                        <!-- TAB 1: Presets & Choices -->
+                        <!-- TAB 1: Choices & Presets -->
                         <div class="tab-pane active" id="tab-pane-presets">
                             <div class="row" style="justify-content:space-between;align-items:center;">
                                 <label class="f" style="flex:1;">
-                                    <span>Preset Source</span>
+                                    <span>Choices Preset</span>
                                     <select id="preset-select"></select>
                                 </label>
                                 <span id="choices-count-pill" class="meta-pill">0 choices</span>
@@ -438,22 +452,21 @@
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                                         Save
                                     </button>
-                                    <button class="btn small" id="btn-new-preset" type="button" title="Create a new custom preset">
+                                    <button class="btn small" id="btn-new-preset" type="button" title="Create a new custom choices preset">
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                                         New
                                     </button>
-                                    <button class="btn small" id="btn-rename-preset" type="button" title="Rename active preset">
+                                    <button class="btn small" id="btn-rename-preset" type="button" title="Rename active choices preset">
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                                         Rename
                                     </button>
                                 </div>
-                                <button class="btn small" id="btn-delete-preset" type="button" title="Delete custom preset" style="color:#f43f5e;">
+                                <button class="btn small" id="btn-delete-preset" type="button" title="Delete custom choices preset" style="color:#f43f5e;">
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                     Delete
                                 </button>
                             </div>
 
-                            <!-- List Variable picker (if variables selected) -->
                             <div id="var-picker-row" style="display:none;">
                                 <label class="f">
                                     <span>Select StreamPulse List Variable</span>
@@ -461,7 +474,6 @@
                                 </label>
                             </div>
 
-                            <!-- Choices Textarea -->
                             <label class="f">
                                 <span>Choices List (one per line)</span>
                                 <textarea id="choices-textarea" rows="7" placeholder="Type or paste choices here, one per line..."></textarea>
@@ -479,8 +491,8 @@
                             </div>
                         </div>
 
-                        <!-- TAB 2: Display & FX -->
-                        <div class="tab-pane" id="tab-pane-display">
+                        <!-- TAB 2: Overlay Theme & Style (Direct match to overlay-url-wizard.html) -->
+                        <div class="tab-pane" id="tab-pane-theme">
                             <div class="row">
                                 <label class="f">
                                     <span>Visual Style</span>
@@ -500,97 +512,170 @@
 
                             <div class="row">
                                 <label class="f">
-                                    <span>Color Theme</span>
-                                    <select id="theme-select">
-                                        <option value="system">StreamPulse Shared Theme (Default)</option>
-                                        <option value="purple">Purple Chaos</option>
-                                        <option value="rainbow">Vibrant Rainbow</option>
-                                        <option value="cyberpunk">Cyberpunk Neon</option>
-                                        <option value="gold">Royal Gold &amp; Navy</option>
-                                        <option value="fire">Fire &amp; Magma</option>
-                                        <option value="midnight">Midnight Nebula</option>
-                                        <option value="matrix">Hacker Terminal</option>
-                                    </select>
-                                </label>
-                                <label class="f">
                                     <span>Spin Duration (sec)</span>
                                     <input type="number" id="spin-duration" min="2" max="15" value="6">
                                 </label>
-                            </div>
-
-                            <!-- Winner Announcement Customization -->
-                            <div style="background:var(--bg-inset);border:1px solid var(--border);border-radius:8px;padding:.75rem;">
-                                <div style="font-size:.76rem;font-weight:700;color:var(--text);margin-bottom:.4rem;display:flex;align-items:center;justify-content:space-between;">
-                                    <span>Winner Celebration Banner</span>
-                                    <button class="btn small" id="btn-reset-winner-text" type="button" style="padding:.12rem .4rem;font-size:.68rem;" title="Reset banner and quotes to defaults">
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
-                                        Reset
-                                    </button>
-                                </div>
-                                <label class="f" style="margin-bottom:.4rem;">
-                                    <span>Header Banner Title</span>
-                                    <input type="text" id="winner-header-input" value="THE UNIVERSE HAS DECIDED" placeholder="e.g. THE UNIVERSE HAS DECIDED, NEXT GAME SELECTED">
-                                </label>
-                                <label class="f" style="margin-bottom:.4rem;">
-                                    <span>Subtitle / Quote Style</span>
-                                    <select id="winner-sub-mode">
-                                        <option value="random">Multiverse Quotes (Random per spin)</option>
-                                        <option value="fixed">Fixed Subtitle Line</option>
-                                        <option value="custom">Custom Quotes Pool</option>
+                                <label class="f">
+                                    <span>Font Weight</span>
+                                    <select id="ap-weight">
+                                        <option value="">Default (Semi-Bold)</option>
+                                        <option value="400">Regular (400)</option>
+                                        <option value="600">Semi-Bold (600)</option>
+                                        <option value="700">Bold (700)</option>
+                                        <option value="900">Black (900)</option>
                                     </select>
                                 </label>
-                                <div id="winner-sub-fixed-row" style="display:none;margin-bottom:.3rem;">
+                            </div>
+
+                            <!-- Overlay Appearance Section (Mirrors overlay-url-wizard.html) -->
+                            <div style="background:var(--bg-inset);border:1px solid var(--border);border-radius:8px;padding:.75rem;">
+                                <div style="font-size:.76rem;font-weight:700;color:var(--text);margin-bottom:.5rem;display:flex;align-items:center;justify-content:space-between;">
+                                    <span>Overlay Appearance (Shared Stream Theme)</span>
+                                    <button class="btn small" id="btn-reset-overlay-theme" type="button" style="padding:.12rem .4rem;font-size:.68rem;" title="Reset to stream global theme">
+                                        Use Saved Overlay Theme
+                                    </button>
+                                </div>
+
+                                <div class="form-row" style="display:flex;flex-direction:column;gap:.35rem;margin-bottom:.55rem;">
+                                    <label style="font-size:.76rem;font-weight:600;color:var(--text-muted);">Accent Color (Slices, Indicators &amp; Highlights)</label>
+                                    <div style="display:flex;gap:.5rem;align-items:center;">
+                                        <input id="ap-accent" type="text" placeholder="#8b5cf6" style="flex:1;padding:.4rem .6rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.8rem;">
+                                        <input type="color" id="ap-accent-picker" value="#8b5cf6" style="width:36px;height:32px;padding:2px;cursor:pointer;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);">
+                                    </div>
+                                    <div class="palette-chips">
+                                        <span class="p-chip" data-color="#8b5cf6" style="background:#8b5cf6" title="Purple"></span>
+                                        <span class="p-chip" data-color="#3b82f6" style="background:#3b82f6" title="Blue"></span>
+                                        <span class="p-chip" data-color="#10b981" style="background:#10b981" title="Green"></span>
+                                        <span class="p-chip" data-color="#f59e0b" style="background:#f59e0b" title="Amber"></span>
+                                        <span class="p-chip" data-color="#f43f5e" style="background:#f43f5e" title="Rose"></span>
+                                        <span class="p-chip" data-color="#06b6d4" style="background:#06b6d4" title="Cyan"></span>
+                                        <span class="p-chip" data-color="#ffffff" style="background:#ffffff" title="White"></span>
+                                    </div>
+                                </div>
+
+                                <div class="row" style="margin-bottom:.55rem;">
                                     <label class="f">
-                                        <span>Fixed Subtitle</span>
-                                        <input type="text" id="winner-sub-fixed" value="Another universe, another glorious outcome.">
+                                        <span>Font Family</span>
+                                        <input id="ap-font" type="text" list="ap-font-list" placeholder="System or Google Font">
+                                        <datalist id="ap-font-list"></datalist>
+                                    </label>
+                                    <label class="f">
+                                        <span>Text Color</span>
+                                        <div style="display:flex;gap:.3rem;align-items:center;">
+                                            <input id="ap-text" type="text" placeholder="#ffffff">
+                                            <input type="color" id="ap-text-picker" value="#ffffff" style="width:32px;height:30px;padding:2px;cursor:pointer;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);">
+                                        </div>
                                     </label>
                                 </div>
-                                <div id="winner-sub-custom-row" style="display:none;margin-bottom:.3rem;">
+
+                                <div class="row">
                                     <label class="f">
-                                        <span>Quotes Pool (one per line)</span>
-                                        <textarea id="winner-sub-custom" rows="2" placeholder="Another universe, another glorious outcome.&#10;Quantum luck has spoken. No refunds!"></textarea>
+                                        <span>Stage Background</span>
+                                        <input id="ap-bg" type="text" placeholder="rgba(15, 23, 42, 0.78)">
+                                    </label>
+                                    <label class="f">
+                                        <span>Text Outline</span>
+                                        <input id="ap-outline" type="text" placeholder="none or #000000">
                                     </label>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- TAB 3: Button Text & Phrase Sets -->
-                        <div class="tab-pane" id="tab-pane-button">
+                        <!-- TAB 3: Button Phrase Presets (Saved Presets just like Choices) -->
+                        <div class="tab-pane" id="tab-pane-buttons">
                             <label style="display:inline-flex;align-items:center;gap:.5rem;font-size:.82rem;cursor:pointer;font-weight:600;background:var(--bg-inset);padding:.55rem .75rem;border-radius:8px;border:1px solid var(--border);">
                                 <input type="checkbox" id="overlay-button-enabled"> Show Spin Button on Overlay
                             </label>
-                            <p class="muted" style="margin-top:-.4rem;font-size:.75rem;">
-                                Displays a clickable button directly on the overlay for OBS Interact mode or touchscreen studios.
-                            </p>
 
                             <div style="background:var(--bg-inset);border:1px solid var(--border);border-radius:8px;padding:.75rem;">
-                                <label class="f" style="margin-bottom:.4rem;">
-                                    <span>Button Phrase Preset</span>
-                                    <select id="btn-preset-select">
-                                        <option value="chaos">Chaos &amp; Mayhem (Mayhem Mode, Chaos Reign, etc.)</option>
-                                        <option value="games">Game Night &amp; Jackbox (Pick Next Game, etc.)</option>
-                                        <option value="punish">Challenges &amp; Punishments (Choose My Fate, etc.)</option>
-                                        <option value="simple">Simple &amp; Direct (Spin, Randomize, etc.)</option>
-                                        <option value="static">Fixed Single Title</option>
-                                        <option value="custom">Custom Phrases Pool (Editable)</option>
-                                    </select>
-                                </label>
-                                <div id="btn-text-static-row" style="display:none;margin-top:.4rem;">
+                                <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+                                    <label class="f" style="flex:1;">
+                                        <span>Button Phrase Preset</span>
+                                        <select id="btn-preset-select"></select>
+                                    </label>
+                                    <span id="btn-phrases-count-pill" class="meta-pill">0 phrases</span>
+                                </div>
+
+                                <div class="row" style="justify-content:space-between;gap:.4rem;margin-bottom:.6rem;">
+                                    <div class="row" style="gap:.4rem;">
+                                        <button class="btn small primary" id="btn-save-btnpreset" type="button" title="Save button phrases preset">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                            Save
+                                        </button>
+                                        <button class="btn small" id="btn-new-btnpreset" type="button" title="Create new button phrases preset">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                            New
+                                        </button>
+                                        <button class="btn small" id="btn-rename-btnpreset" type="button" title="Rename button preset">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                            Rename
+                                        </button>
+                                    </div>
+                                    <button class="btn small" id="btn-delete-btnpreset" type="button" title="Delete custom button preset" style="color:#f43f5e;">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                        Delete
+                                    </button>
+                                </div>
+
+                                <div id="btn-text-static-row" style="display:none;margin-bottom:.5rem;">
                                     <label class="f">
                                         <span>Fixed Button Title</span>
                                         <input type="text" id="btn-text-static" value="Pick Next Game!" placeholder="e.g. Pick Next Game!, Decide Fate!">
                                     </label>
                                 </div>
-                                <div id="btn-phrases-pool-row" style="margin-top:.4rem;">
-                                    <label class="f">
-                                        <span>Phrases Pool (cycles on hover &amp; idle)</span>
-                                        <textarea id="btn-phrases-textarea" rows="4"></textarea>
-                                    </label>
-                                </div>
+
+                                <label class="f">
+                                    <span>Phrases Pool (one per line — cycles on hover and overlay idle)</span>
+                                    <textarea id="btn-phrases-textarea" rows="5"></textarea>
+                                </label>
                             </div>
                         </div>
 
-                        <!-- TAB 4: OBS Source & Stream -->
+                        <!-- TAB 4: Quote Pool Presets (Saved Presets just like Choices) -->
+                        <div class="tab-pane" id="tab-pane-quotes">
+                            <label class="f" style="margin-bottom:.4rem;">
+                                <span>Header Banner Title</span>
+                                <input type="text" id="winner-header-input" value="THE UNIVERSE HAS DECIDED" placeholder="e.g. THE UNIVERSE HAS DECIDED, NEXT GAME SELECTED">
+                            </label>
+
+                            <div style="background:var(--bg-inset);border:1px solid var(--border);border-radius:8px;padding:.75rem;">
+                                <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+                                    <label class="f" style="flex:1;">
+                                        <span>Winner Subtitle Quotes Preset</span>
+                                        <select id="quote-preset-select"></select>
+                                    </label>
+                                    <span id="quotes-count-pill" class="meta-pill">0 quotes</span>
+                                </div>
+
+                                <div class="row" style="justify-content:space-between;gap:.4rem;margin-bottom:.6rem;">
+                                    <div class="row" style="gap:.4rem;">
+                                        <button class="btn small primary" id="btn-save-quotepreset" type="button" title="Save quote pool preset">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                            Save
+                                        </button>
+                                        <button class="btn small" id="btn-new-quotepreset" type="button" title="Create new quote pool preset">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                            New
+                                        </button>
+                                        <button class="btn small" id="btn-rename-quotepreset" type="button" title="Rename quote preset">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                            Rename
+                                        </button>
+                                    </div>
+                                    <button class="btn small" id="btn-delete-quotepreset" type="button" title="Delete custom quote preset" style="color:#f43f5e;">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                        Delete
+                                    </button>
+                                </div>
+
+                                <label class="f">
+                                    <span>Quotes Pool (one per line — randomized per winner spin)</span>
+                                    <textarea id="quotes-textarea" rows="5"></textarea>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- TAB 5: OBS Link & Bitfocus Companion -->
                         <div class="tab-pane" id="tab-pane-obs">
                             <label class="f">
                                 <span>Auto-Dismiss Duration (OBS Overlay)</span>
@@ -602,10 +687,8 @@
                                     <option value="0">Never (Stay visible on stream)</option>
                                 </select>
                             </label>
-                            <p class="muted" style="font-size:.76rem;margin-top:-.4rem;">
-                                In OBS Studio, the overlay stays hidden until triggered, then auto-fades away so it doesn't block stream gameplay.
-                            </p>
 
+                            <!-- OBS Browser Source Box -->
                             <div style="background:var(--bg-inset);border:1px solid var(--border);border-radius:8px;padding:.75rem;">
                                 <label class="f" style="margin-bottom:.5rem;">
                                     <span>OBS Browser Source URL</span>
@@ -622,9 +705,22 @@
                                     </a>
                                 </div>
                             </div>
-                            <p class="muted" style="font-size:.76rem;">
-                                <b>Interact Mode</b>: In OBS Studio, right-click the Browser Source &rarr; <b>Interact</b> to click and spin directly!
-                            </p>
+
+                            <!-- Bitfocus Companion / Stream Deck Box -->
+                            <div style="background:var(--bg-inset);border:1px solid var(--border);border-radius:8px;padding:.75rem;">
+                                <div style="font-size:.78rem;font-weight:700;color:var(--text);margin-bottom:.35rem;">
+                                    Bitfocus Companion / Stream Deck Action
+                                </div>
+                                <p class="muted" style="margin-bottom:.5rem;font-size:.75rem;">
+                                    Trigger a live spin from any physical Stream Deck button using a Companion <b>Generic HTTP</b> GET action:
+                                </p>
+                                <div class="row">
+                                    <input type="text" id="companion-url-input" readonly style="flex:1;font-family:monospace;font-size:.78rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:.4rem .6rem;">
+                                    <button class="btn small primary" id="btn-copy-companion" type="button">
+                                        Copy Companion URL
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -721,173 +817,7 @@
         const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         function toast(msg) { const t = $('toast'); if (!t) return; t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2400); }
 
-        const BUTTON_PRESETS = {
-            chaos: {
-                id: 'chaos',
-                name: 'Chaos & Mayhem (Original Randomizer)',
-                phrases: [
-                    "Let Chaos Reign!",
-                    "Shake It Up!",
-                    "Spin the Wheel of Destiny!",
-                    "Summon Randomness!",
-                    "Unleash the Fates!",
-                    "Roll the Cosmic Dice!",
-                    "Mayhem Mode!",
-                    "Toss into the Void!",
-                    "Destiny, Take the Wheel!",
-                    "Invoke the Randomizer!",
-                    "Disorder, Please!",
-                    "Activate Quantum Luck!",
-                    "Who Knows?!",
-                    "Bring the Pandemonium!",
-                    "Release the Kraken!",
-                    "YOLO Button!",
-                    "Throw a Curveball!",
-                    "Hurl into Uncertainty!",
-                    "Choose or Lose!",
-                    "Hit Me With Chaos!",
-                    "Spin and Grin!",
-                    "Let the Universe Decide!",
-                    "Go Bananas!",
-                    "SLAM IT ON IN THERE!",
-                    "Guess You'll Die?",
-                    "Hey look over there!",
-                    "LET IT BURN",
-                    "Punch it Margaret!",
-                    "What's the Worst That Could Happen?"
-                ]
-            },
-            games: {
-                id: 'games',
-                name: 'Game Night & Jackbox',
-                phrases: [
-                    "Pick Next Game!",
-                    "Spin the Wheel!",
-                    "What Are We Playing?",
-                    "Game On!",
-                    "Wheel of Destiny",
-                    "Next Up!",
-                    "Choose the Game!"
-                ]
-            },
-            punish: {
-                id: 'punish',
-                name: 'Challenges & Punishments',
-                phrases: [
-                    "Choose My Fate!",
-                    "Spin the Wheel of Pain!",
-                    "Hit Me With It!",
-                    "No Mercy!",
-                    "I Regret Nothing!",
-                    "Make Me Suffer!"
-                ]
-            },
-            simple: {
-                id: 'simple',
-                name: 'Simple & Direct',
-                phrases: [
-                    "Spin",
-                    "Randomize",
-                    "Roll the Dice",
-                    "Decide Now"
-                ]
-            }
-        };
-
-        const RESPIN_SUBS = [
-            "The timeline has shifted. But is this really better?",
-            "Another universe, another glorious outcome.",
-            "You just quantum-leaped to a new result!",
-            "That butterfly just flapped its wings. Welcome to a new timeline.",
-            "The fabric of fate is fraying. Result updated!",
-            "You have rewound the cosmic clock. Again.",
-            "A ripple in the multiverse delivers a different destiny.",
-            "Parallel worlds say hello! Enjoy your alternate fate.",
-            "The universe blinks. Your wish is (randomly) granted.",
-            "You've seen another potential future. Satisfied?",
-            "You've created a new branch of reality. Good luck!",
-            "Another roll, another dimension.",
-            "Multiverse roulette: new path unlocked.",
-            "Alternate luck engaged. Fate is fickle.",
-            "You glitched the matrix. This is your new outcome."
-        ];
-
-        const THEMES = {
-            system: {
-                id: 'system',
-                name: 'StreamPulse Shared Theme (Default)',
-                accent: 'var(--accent, #6366f1)',
-                indicator: 'var(--accent-strong, #4f46e5)',
-                gradient: 'linear-gradient(135deg, var(--accent, #6366f1) 0%, color-mix(in srgb, var(--accent, #6366f1) 70%, #ec4899) 50%, color-mix(in srgb, var(--accent, #6366f1) 50%, #f97316) 100%)',
-                glow: 'color-mix(in srgb, var(--accent, #6366f1) 40%, transparent)',
-                slices: null
-            },
-            purple: {
-                id: 'purple',
-                name: 'Purple Chaos',
-                accent: '#a855f7',
-                indicator: '#ec4899',
-                gradient: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #f97316 100%)',
-                glow: 'rgba(168, 85, 247, 0.4)',
-                slices: ['#a855f7', '#ec4899', '#f97316', '#eab308', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#d946ef']
-            },
-            rainbow: {
-                id: 'rainbow',
-                name: 'Vibrant Rainbow',
-                accent: '#ef4444',
-                indicator: '#fbbf24',
-                gradient: 'linear-gradient(135deg, #ef4444 0%, #f97316 20%, #f59e0b 40%, #10b981 60%, #3b82f6 80%, #8b5cf6 100%)',
-                glow: 'rgba(239, 68, 68, 0.4)',
-                slices: ['#ef4444', '#f97316', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899']
-            },
-            cyberpunk: {
-                id: 'cyberpunk',
-                name: 'Cyberpunk Neon',
-                accent: '#00f0ff',
-                indicator: '#ff007f',
-                gradient: 'linear-gradient(135deg, #00f0ff 0%, #ff007f 100%)',
-                glow: 'rgba(0, 240, 255, 0.45)',
-                slices: ['#00f0ff', '#ff007f', '#ffe600', '#7928ca', '#00ff66', '#ff003c']
-            },
-            gold: {
-                id: 'gold',
-                name: 'Royal Gold & Navy',
-                accent: '#fbbf24',
-                indicator: '#fbbf24',
-                gradient: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)',
-                glow: 'rgba(251, 191, 36, 0.4)',
-                slices: ['#fbbf24', '#d97706', '#b45309', '#f59e0b', '#fef3c7', '#78350f', '#eab308']
-            },
-            fire: {
-                id: 'fire',
-                name: 'Fire & Magma',
-                accent: '#ef4444',
-                indicator: '#f59e0b',
-                gradient: 'linear-gradient(135deg, #ef4444 0%, #f97316 50%, #fbbf24 100%)',
-                glow: 'rgba(239, 68, 68, 0.45)',
-                slices: ['#ef4444', '#dc2626', '#b91c1c', '#f97316', '#ea580c', '#f59e0b']
-            },
-            midnight: {
-                id: 'midnight',
-                name: 'Midnight Nebula',
-                accent: '#8b5cf6',
-                indicator: '#38bdf8',
-                gradient: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 50%, #06b6d4 100%)',
-                glow: 'rgba(139, 92, 246, 0.4)',
-                slices: ['#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9', '#06b6d4', '#14b8a6']
-            },
-            matrix: {
-                id: 'matrix',
-                name: 'Hacker Terminal',
-                accent: '#10b981',
-                indicator: '#34d399',
-                gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                glow: 'rgba(16, 185, 129, 0.4)',
-                slices: ['#10b981', '#059669', '#047857', '#34d399', '#065f46', '#6ee7b7']
-            }
-        };
-
-        // Synthesize Sound Effects via Web Audio API
+        // Audio Effects via Web Audio API
         const AudioFX = {
             ctx: null,
             enabled: true,
@@ -1007,21 +937,23 @@
         // State & URL Params
         const params = new URLSearchParams(window.location.search);
         const isOverlay = params.get('overlay') === '1' || params.get('overlay') === 'true';
-        let currentMode = params.get('mode') || 'roller'; // 'roller' or 'wheel'
+        let currentMode = params.get('mode') || 'roller';
         let currentPresetId = params.get('preset') || 'jackbox';
-        let currentTheme = params.get('theme') || 'system';
+        let currentBtnPresetId = params.get('btnPreset') || params.get('btnSet') || 'chaos';
+        let currentQuotePresetId = params.get('quotePreset') || 'multiverse';
         let currentSuspense = params.get('suspense') || 'normal';
         let showOverlayButton = params.get('button') === '1';
         let choices = [];
         let presetsList = [];
+        let buttonPresetsList = [];
+        let quotePresetsList = [];
+        let activeButtonPhrases = [];
+        let activeQuotesPool = [];
         let isSpinning = false;
         let autohideTimer = null;
         let idleButtonTimer = null;
         let currentRollerIndex = 0;
-
-        // Button phrase sets state
-        let activeButtonPhrases = [...BUTTON_PRESETS.chaos.phrases];
-        let currentBtnPreset = params.get('btnSet') || 'chaos';
+        let savedOverlayConfigTheme = null;
 
         // Mount Stage Template
         const stageTpl = $('stage-template');
@@ -1036,53 +968,116 @@
 
         Confetti.init($('confetti-canvas'));
 
-        // Load StreamPulse System Theme from server
-        async function loadSystemTheme() {
+        // Initialize Font Datalist from overlay-theme.js
+        if (window.OverlayFonts) {
+            const dl = $('ap-font-list');
+            if (dl) {
+                const allFonts = [...(window.OverlayFonts.system || []), ...(window.OverlayFonts.google || [])];
+                dl.innerHTML = allFonts.map(f => `<option value="${esc(f)}">`).join('');
+            }
+        }
+
+        // Apply Shared Overlay Theme (Matches overlay-theme.js and overlay-url-wizard.html)
+        async function loadOverlayTheme() {
             try {
                 const res = await fetch('/api/config').then(r => r.json());
-                if (res && res.theme && window.applyOverlayTheme) {
-                    window.applyOverlayTheme(res.theme, {
-                        font: '--stage-font',
-                        text: '--stage-text',
-                        accent: '--stage-accent'
-                    });
+                if (res && res.theme) {
+                    savedOverlayConfigTheme = res.theme;
                 }
             } catch {}
-            applyTheme(currentTheme);
+            applyCurrentOverlayTheme();
         }
-        loadSystemTheme();
 
-        function applyTheme(themeKey) {
-            currentTheme = themeKey;
-            const t = THEMES[themeKey] || THEMES.system;
-            const stage = $('display-stage');
-            if (stage) {
-                if (themeKey === 'system') {
-                    const sysAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#6366f1';
-                    stage.style.setProperty('--stage-accent', sysAccent);
-                    stage.style.setProperty('--stage-indicator', `color-mix(in srgb, ${sysAccent} 85%, #fff)`);
-                    stage.style.setProperty('--stage-gradient', `linear-gradient(135deg, ${sysAccent} 0%, color-mix(in srgb, ${sysAccent} 70%, #ec4899) 50%, color-mix(in srgb, ${sysAccent} 50%, #f97316) 100%)`);
-                    stage.style.setProperty('--stage-glow', `color-mix(in srgb, ${sysAccent} 40%, transparent)`);
-                } else {
-                    stage.style.setProperty('--stage-accent', t.accent);
-                    stage.style.setProperty('--stage-indicator', t.indicator);
-                    stage.style.setProperty('--stage-gradient', t.gradient);
-                    stage.style.setProperty('--stage-glow', t.glow);
-                }
-            }
+        function applyCurrentOverlayTheme() {
+            const root = $('display-stage');
+            if (!root) return;
+
+            const t = savedOverlayConfigTheme || {};
+            const accent = (isOverlay ? params.get('accent') : $('ap-accent')?.value.trim()) || t.accent_color || '#8b5cf6';
+            const text = (isOverlay ? params.get('text') : $('ap-text')?.value.trim()) || t.text_color || '#ffffff';
+            const font = (isOverlay ? params.get('font') : $('ap-font')?.value.trim()) || t.font_family || '';
+            const weight = (isOverlay ? params.get('weight') : $('ap-weight')?.value.trim()) || t.font_weight || '600';
+            const bg = (isOverlay ? params.get('bg') : $('ap-bg')?.value.trim()) || t.background_color || '';
+            const outline = (isOverlay ? params.get('outline') : $('ap-outline')?.value.trim()) || (t.text_outline === false ? 'none' : t.text_outline_color) || '';
+
+            // Update CSS variables on display stage
+            root.style.setProperty('--stage-accent', accent);
+            root.style.setProperty('--stage-indicator', `color-mix(in srgb, ${accent} 85%, #fff)`);
+            root.style.setProperty('--stage-gradient', `linear-gradient(135deg, ${accent} 0%, color-mix(in srgb, ${accent} 70%, #ec4899) 50%, color-mix(in srgb, ${accent} 50%, #f97316) 100%)`);
+            root.style.setProperty('--stage-glow', `color-mix(in srgb, ${accent} 40%, transparent)`);
+            if (font) root.style.fontFamily = `"${font}", -apple-system, system-ui, sans-serif`;
+            if (weight) root.style.fontWeight = weight;
+            if (text) root.style.color = text;
+            if (bg) root.style.background = bg;
+
+            // Update spin buttons styling
             const spinBtn = $('btn-spin');
             if (spinBtn) {
-                spinBtn.style.background = stage?.style.getPropertyValue('--stage-gradient') || t.gradient;
-                spinBtn.style.boxShadow = `0 4px 20px ${stage?.style.getPropertyValue('--stage-glow') || t.glow}`;
+                spinBtn.style.background = root.style.getPropertyValue('--stage-gradient');
+                spinBtn.style.boxShadow = `0 4px 20px ${root.style.getPropertyValue('--stage-glow')}`;
             }
             const overlayBtn = $('overlay-spin-btn');
             if (overlayBtn) {
-                overlayBtn.style.background = stage?.style.getPropertyValue('--stage-gradient') || t.gradient;
-                overlayBtn.style.boxShadow = `0 4px 20px ${stage?.style.getPropertyValue('--stage-glow') || t.glow}`;
+                overlayBtn.style.background = root.style.getPropertyValue('--stage-gradient');
+                overlayBtn.style.boxShadow = `0 4px 20px ${root.style.getPropertyValue('--stage-glow')}`;
             }
-            const winnerHeader = $('winner-header-text') || document.querySelector('.winner-header');
-            if (winnerHeader) winnerHeader.style.color = stage?.style.getPropertyValue('--stage-indicator') || t.indicator;
+            const winnerHeader = $('winner-header-text');
+            if (winnerHeader) winnerHeader.style.color = root.style.getPropertyValue('--stage-indicator');
+
+            // Sync inputs in admin UI
+            if (!isOverlay) {
+                if ($('ap-accent') && !$('ap-accent').value) $('ap-accent').value = accent;
+                if ($('ap-accent-picker')) $('ap-accent-picker').value = accent.startsWith('#') && accent.length === 7 ? accent : '#8b5cf6';
+                if ($('ap-text') && !$('ap-text').value) $('ap-text').value = text;
+                if ($('ap-text-picker')) $('ap-text-picker').value = text.startsWith('#') && text.length === 7 ? text : '#ffffff';
+                if ($('ap-font') && !$('ap-font').value && font) $('ap-font').value = font;
+                if ($('ap-weight') && !$('ap-weight').value && weight) $('ap-weight').value = weight;
+                highlightActiveAccentChip(accent);
+            }
+
             renderInitialState();
+        }
+
+        function highlightActiveAccentChip(color) {
+            document.querySelectorAll('.p-chip').forEach(c => {
+                c.classList.toggle('active', c.dataset.color.toLowerCase() === color.toLowerCase());
+            });
+        }
+
+        function setAccentColor(color) {
+            if ($('ap-accent')) $('ap-accent').value = color;
+            if ($('ap-accent-picker')) $('ap-accent-picker').value = color;
+            highlightActiveAccentChip(color);
+            applyCurrentOverlayTheme();
+            updateObsUrl();
+        }
+        document.querySelectorAll('.p-chip').forEach(c => {
+            c.onclick = () => setAccentColor(c.dataset.color);
+        });
+
+        // Setup Overlay Spin Button Click & Hover
+        const overlayBtnEl = $('overlay-spin-btn');
+        if (overlayBtnEl) {
+            overlayBtnEl.onclick = () => {
+                if (!isSpinning) {
+                    updateButtonLabel();
+                    if (!isOverlay && $('btn-spin')) {
+                        $('btn-spin').click();
+                    } else {
+                        runSpin();
+                    }
+                }
+            };
+            overlayBtnEl.onpointerenter = () => {
+                if (!isSpinning) updateButtonLabel();
+            };
+        }
+
+        // Overlay Button Visibility Sync
+        function syncOverlayButtonVisibility() {
+            const isChecked = isOverlay ? showOverlayButton : !!$('overlay-button-enabled')?.checked;
+            const btn = $('overlay-spin-btn');
+            if (btn) btn.style.display = isChecked ? 'inline-flex' : 'none';
         }
 
         // Choice Management
@@ -1101,54 +1096,61 @@
             return choices;
         }
 
-        // Overlay Button Visibility Sync
-        function syncOverlayButtonVisibility() {
-            const isChecked = isOverlay ? showOverlayButton : !!$('overlay-button-enabled')?.checked;
-            const btn = $('overlay-spin-btn');
-            if (btn) {
-                btn.style.display = isChecked ? 'inline-flex' : 'none';
-            }
-        }
-
+        // Update OBS and Bitfocus Companion URLs
         function updateObsUrl() {
             if (!$('obs-url-input')) return;
             const mode = $('style-select')?.value || currentMode;
             const preset = currentPresetId || 'jackbox';
-            const theme = $('theme-select')?.value || currentTheme;
             const suspense = $('suspense-select')?.value || currentSuspense;
             const autohide = $('autohide-select')?.value || '8';
             const showButton = $('overlay-button-enabled')?.checked ? '1' : '0';
             const duration = $('spin-duration')?.value || '6';
 
-            let url = `${window.location.origin}/randomizer.html?overlay=1&mode=${encodeURIComponent(mode)}&preset=${encodeURIComponent(preset)}&theme=${encodeURIComponent(theme)}&suspense=${encodeURIComponent(suspense)}&autohide=${encodeURIComponent(autohide)}&duration=${encodeURIComponent(duration)}&button=${showButton}`;
+            const accent = $('ap-accent')?.value.trim();
+            const text = $('ap-text')?.value.trim();
+            const font = $('ap-font')?.value.trim();
+            const weight = $('ap-weight')?.value.trim();
+            const bg = $('ap-bg')?.value.trim();
+            const outline = $('ap-outline')?.value.trim();
 
-            const btnPreset = $('btn-preset-select')?.value || 'chaos';
+            let url = `${window.location.origin}/randomizer.html?overlay=1&mode=${encodeURIComponent(mode)}&preset=${encodeURIComponent(preset)}&suspense=${encodeURIComponent(suspense)}&autohide=${encodeURIComponent(autohide)}&duration=${encodeURIComponent(duration)}&button=${showButton}`;
+
+            if (accent) url += `&accent=${encodeURIComponent(accent)}`;
+            if (text) url += `&text=${encodeURIComponent(text)}`;
+            if (font) url += `&font=${encodeURIComponent(font)}`;
+            if (weight) url += `&weight=${encodeURIComponent(weight)}`;
+            if (bg) url += `&bg=${encodeURIComponent(bg)}`;
+            if (outline) url += `&outline=${encodeURIComponent(outline)}`;
+
+            const btnPreset = currentBtnPresetId || 'chaos';
             if (btnPreset === 'static') {
-                const text = $('btn-text-static')?.value.trim();
-                if (text) url += `&btnText=${encodeURIComponent(text)}`;
+                const sText = $('btn-text-static')?.value.trim();
+                if (sText) url += `&btnText=${encodeURIComponent(sText)}`;
             } else {
-                url += `&btnSet=${encodeURIComponent(btnPreset)}`;
+                url += `&btnPreset=${encodeURIComponent(btnPreset)}`;
             }
+
+            const quotePreset = currentQuotePresetId || 'multiverse';
+            url += `&quotePreset=${encodeURIComponent(quotePreset)}`;
 
             const winHeader = $('winner-header-input')?.value.trim();
             if (winHeader && winHeader !== 'THE UNIVERSE HAS DECIDED') {
                 url += `&winHeader=${encodeURIComponent(winHeader)}`;
             }
 
-            const winSubMode = $('winner-sub-mode')?.value;
-            if (winSubMode === 'fixed') {
-                const winSub = $('winner-sub-fixed')?.value.trim();
-                if (winSub) url += `&winSub=${encodeURIComponent(winSub)}`;
-            }
-
             $('obs-url-input').value = url;
             if ($('btn-open-overlay')) $('btn-open-overlay').href = url;
             if ($('btn-quick-open-obs')) $('btn-quick-open-obs').href = url;
+
+            // Companion Stream Deck URL
+            if ($('companion-url-input')) {
+                $('companion-url-input').value = `${window.location.origin}/api/randomizer/spin?preset=${encodeURIComponent(preset)}&mode=${encodeURIComponent(mode)}&suspense=${encodeURIComponent(suspense)}`;
+            }
         }
 
         function updateButtonLabel() {
             let label = 'Let Chaos Reign!';
-            const presetVal = isOverlay ? (params.get('btnSet') || 'chaos') : ($('btn-preset-select')?.value || 'chaos');
+            const presetVal = isOverlay ? (params.get('btnPreset') || 'chaos') : (currentBtnPresetId || 'chaos');
 
             if (presetVal === 'static') {
                 label = (isOverlay ? params.get('btnText') : $('btn-text-static')?.value.trim()) || 'Spin Now!';
@@ -1161,49 +1163,10 @@
             return label;
         }
 
-        function loadButtonPreset(presetKey) {
-            currentBtnPreset = presetKey;
-            const staticRow = $('btn-text-static-row');
-            const poolRow = $('btn-phrases-pool-row');
-
-            if (presetKey === 'static') {
-                if (staticRow) staticRow.style.display = 'block';
-                if (poolRow) poolRow.style.display = 'none';
-            } else {
-                if (staticRow) staticRow.style.display = 'none';
-                if (poolRow) poolRow.style.display = 'block';
-                if (BUTTON_PRESETS[presetKey]) {
-                    activeButtonPhrases = [...BUTTON_PRESETS[presetKey].phrases];
-                    if ($('btn-phrases-textarea')) $('btn-phrases-textarea').value = activeButtonPhrases.join('\n');
-                }
-            }
-            updateButtonLabel();
-            updateObsUrl();
-        }
-
-        // Setup Overlay Spin Button Click & Hover
-        const overlayBtn = $('overlay-spin-btn');
-        if (overlayBtn) {
-            overlayBtn.onclick = () => {
-                if (!isSpinning) {
-                    updateButtonLabel();
-                    if (!isOverlay && $('btn-spin')) {
-                        $('btn-spin').click();
-                    } else {
-                        runSpin();
-                    }
-                }
-            };
-            overlayBtn.onpointerenter = () => {
-                if (!isSpinning) updateButtonLabel();
-            };
-        }
-
-        // Subtle idle phrase cycling every 6s
+        // Idle button phrase cycle every 6s
         idleButtonTimer = setInterval(() => {
-            if (!isSpinning) {
-                const isStatic = (isOverlay ? params.get('btnSet') : $('btn-preset-select')?.value) === 'static';
-                if (!isStatic) updateButtonLabel();
+            if (!isSpinning && currentBtnPresetId !== 'static') {
+                updateButtonLabel();
             }
         }, 6000);
 
@@ -1225,13 +1188,11 @@
             }
         }
 
-        // Continuous Roller Renderer (Idle State)
         function renderIdleRoller(centerIdx, list) {
             const track = $('roller-track');
             if (!track) return;
             track.innerHTML = '';
             const n = list.length || 1;
-            // Render 9 items centered on centerIdx
             for (let offset = -4; offset <= 4; offset++) {
                 const pos = (centerIdx + offset + n * 1000) % n;
                 const div = document.createElement('div');
@@ -1245,7 +1206,6 @@
             track.style.transform = `translateY(${92 - 4 * 56}px)`;
         }
 
-        // Wheel Canvas Renderer
         function drawWheel(rotationRad = 0, list) {
             const canvas = $('wheel-canvas');
             if (!canvas) return;
@@ -1258,23 +1218,17 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            let colors;
-            if (currentTheme === 'system') {
-                const sysAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#6366f1';
-                colors = [
-                    sysAccent,
-                    '#3b82f6',
-                    '#10b981',
-                    '#f59e0b',
-                    '#ec4899',
-                    '#8b5cf6',
-                    '#06b6d4',
-                    '#f43f5e'
-                ];
-            } else {
-                const activeThemeObj = THEMES[currentTheme] || THEMES.purple;
-                colors = activeThemeObj.slices || THEMES.purple.slices;
-            }
+            const accent = $('display-stage')?.style.getPropertyValue('--stage-accent') || '#8b5cf6';
+            const colors = [
+                accent,
+                '#3b82f6',
+                '#10b981',
+                '#f59e0b',
+                '#ec4899',
+                '#06b6d4',
+                '#f43f5e',
+                '#eab308'
+            ];
 
             ctx.save();
             ctx.translate(cx, cy);
@@ -1293,7 +1247,6 @@
                 ctx.strokeStyle = '#fff';
                 ctx.stroke();
 
-                // Slice Text
                 ctx.save();
                 ctx.rotate(start + sliceRad / 2);
                 ctx.textAlign = 'right';
@@ -1309,7 +1262,7 @@
             ctx.restore();
         }
 
-        // Execute Spin Animation (Authentic Smooth Deceleration + Optional Tricky Fake-Out)
+        // Spin Animation Execution
         async function runSpin({
             choices: list = getChoices(),
             winner = null,
@@ -1317,13 +1270,10 @@
             winnerSub = null,
             mode = (isOverlay ? (params.get('mode') || currentMode) : $('style-select')?.value),
             suspense = (isOverlay ? (params.get('suspense') || currentSuspense) : $('suspense-select')?.value),
-            theme = (isOverlay ? (params.get('theme') || currentTheme) : $('theme-select')?.value),
             duration = (Number(isOverlay ? params.get('duration') : $('spin-duration')?.value) || 6)
         } = {}) {
             if (isSpinning || !list.length) return;
             isSpinning = true;
-
-            if (theme && theme !== currentTheme) applyTheme(theme);
 
             clearTimeout(autohideTimer);
             if (isOverlay) {
@@ -1334,7 +1284,6 @@
             if ($('overlay-spin-btn')) $('overlay-spin-btn').disabled = true;
             $('winner-box').style.display = 'none';
 
-            // Resolve Winner Index
             let winnerIdx = -1;
             if (winner) {
                 winnerIdx = list.findIndex(c => c.toLowerCase() === String(winner).toLowerCase());
@@ -1359,18 +1308,16 @@
                 let targetIdxInList = winnerIdx;
 
                 if (isTricky) {
-                    nudgeSteps = Math.floor(Math.random() * 2) + 1; // 1 or 2 slots fake-out
+                    nudgeSteps = Math.floor(Math.random() * 2) + 1;
                     targetIdxInList = (winnerIdx - nudgeSteps + list.length * 1000) % list.length;
                 }
 
-                // Minimum items to spin through based on duration
                 const minRollItems = Math.max(32, Math.floor(totalDurationMs / 105));
                 const diff = (targetIdxInList - (startIdx % list.length) + list.length) % list.length;
                 const cycles = Math.ceil((minRollItems - diff) / list.length);
                 let finalStepCount = cycles * list.length + diff;
                 if (finalStepCount < minRollItems) finalStepCount += list.length;
 
-                // Build continuous track items
                 track.innerHTML = '';
                 const totalItemsToRender = finalStepCount + nudgeSteps + 5;
                 for (let i = 0; i < totalItemsToRender; i++) {
@@ -1390,13 +1337,10 @@
                 function stepRoll(now) {
                     const elapsed = now - startAt;
                     const progress = Math.min(1, elapsed / totalDurationMs);
-
-                    // Quartic mechanical deceleration curve
                     const ease = 1 - Math.pow(1 - progress, 3.8);
                     const currentTranslate = 92 - ease * totalDistance;
                     track.style.transform = `translateY(${currentTranslate.toFixed(1)}px)`;
 
-                    // Audio Tick & Dynamic Depth
                     const currentItem = Math.round((92 - currentTranslate) / 56);
                     if (currentItem !== lastTickIdx && currentItem >= 0 && currentItem < track.children.length) {
                         lastTickIdx = currentItem;
@@ -1415,12 +1359,10 @@
                     if (progress < 1) {
                         requestAnimationFrame(stepRoll);
                     } else {
-                        // Landed precisely on target
                         track.style.transform = `translateY(${92 - totalDistance}px)`;
                         currentRollerIndex = targetIdxInList;
 
                         if (isTricky) {
-                            // Phase 2: Decoy Suspense Hold!
                             rollerBox.classList.add('tricky-suspense');
                             setTimeout(() => {
                                 let nudgeDone = 0;
@@ -1470,7 +1412,6 @@
                 requestAnimationFrame(stepRoll);
 
             } else {
-                // Wheel Mode
                 $('roller-view').style.display = 'none';
                 $('wheel-view').style.display = 'flex';
 
@@ -1501,7 +1442,6 @@
 
                     drawWheel(currentRot, list);
 
-                    // Pointer tick physics
                     const slicePassed = Math.floor((currentRot / sliceRad));
                     if (slicePassed !== lastSliceIdx) {
                         lastSliceIdx = slicePassed;
@@ -1519,7 +1459,6 @@
                         drawWheel(totalRotation, list);
 
                         if (isTricky) {
-                            // Phase 2: Wheel Suspense Hold!
                             setTimeout(() => {
                                 let curNudge = 0;
                                 function doWheelNudge() {
@@ -1556,30 +1495,23 @@
             if ($('btn-spin')) $('btn-spin').disabled = false;
             if ($('overlay-spin-btn')) $('overlay-spin-btn').disabled = false;
             
-            // Header text
             let headerText = customHeader || (isOverlay ? params.get('winHeader') : $('winner-header-input')?.value.trim()) || 'THE UNIVERSE HAS DECIDED';
 
-            // Subtitle text
             let subText = customSub;
             if (!subText) {
                 if (isOverlay) {
-                    subText = params.get('winSub') || RESPIN_SUBS[Math.floor(Math.random() * RESPIN_SUBS.length)];
-                } else {
-                    const mode = $('winner-sub-mode')?.value || 'random';
-                    if (mode === 'fixed') {
-                        subText = $('winner-sub-fixed')?.value.trim() || 'Another universe, another glorious outcome.';
-                    } else if (mode === 'custom') {
-                        const lines = ($('winner-sub-custom')?.value || '').split('\n').map(s => s.trim()).filter(Boolean);
-                        subText = lines.length ? lines[Math.floor(Math.random() * lines.length)] : RESPIN_SUBS[Math.floor(Math.random() * RESPIN_SUBS.length)];
-                    } else {
-                        subText = RESPIN_SUBS[Math.floor(Math.random() * RESPIN_SUBS.length)];
-                    }
+                    subText = params.get('winSub');
+                }
+                if (!subText && activeQuotesPool && activeQuotesPool.length) {
+                    subText = activeQuotesPool[Math.floor(Math.random() * activeQuotesPool.length)];
+                }
+                if (!subText) {
+                    subText = 'The timeline has shifted. Fate is sealed.';
                 }
             }
 
-            // Show winner card
             $('winner-box').style.display = 'block';
-            const headerEl = $('winner-header-text') || document.querySelector('.winner-header');
+            const headerEl = $('winner-header-text');
             if (headerEl) headerEl.textContent = headerText;
             $('winner-text').textContent = winner;
             $('winner-sub').textContent = subText;
@@ -1597,27 +1529,28 @@
             }
         }
 
-        // Fetch presets from server & populate dropdown
-        async function fetchPresets() {
+        // --- PRESET MANAGERS ---
+
+        // 1. Choices Presets
+        async function fetchChoicesPresets() {
             try {
                 const res = await fetch('/api/randomizer/presets').then(r => r.json());
                 if (res.presets && Array.isArray(res.presets)) {
                     presetsList = res.presets;
-                    populatePresetsDropdown();
+                    populateChoicesPresetsDropdown();
                 }
             } catch (e) {
-                console.error('Failed to load presets:', e);
+                console.error('Failed to load choice presets:', e);
             }
         }
 
-        function populatePresetsDropdown() {
+        function populateChoicesPresetsDropdown() {
             const sel = $('preset-select');
             if (!sel) return;
             sel.innerHTML = '';
 
             const optCustom = document.createElement('optgroup');
             optCustom.label = 'Saved Presets';
-
             presetsList.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.id;
@@ -1629,7 +1562,6 @@
 
             const optDynamic = document.createElement('optgroup');
             optDynamic.label = 'Dynamic Sources';
-
             const optChat = document.createElement('option');
             optChat.value = 'chatters';
             optChat.textContent = 'Active Stream Chatters (Current Session)';
@@ -1640,17 +1572,11 @@
             optVar.textContent = 'StreamPulse List Variable…';
             optDynamic.appendChild(optVar);
 
-            const optScratch = document.createElement('option');
-            optScratch.value = 'scratch';
-            optScratch.textContent = 'Custom / Unsaved List';
-            optDynamic.appendChild(optScratch);
-
             sel.appendChild(optDynamic);
-
-            loadSelectedPreset();
+            loadSelectedChoicesPreset();
         }
 
-        function loadSelectedPreset() {
+        function loadSelectedChoicesPreset() {
             const selVal = $('preset-select')?.value || currentPresetId;
             currentPresetId = selVal;
             if ($('var-picker-row')) $('var-picker-row').style.display = selVal === 'variables' ? 'block' : 'none';
@@ -1661,29 +1587,114 @@
                 if ($('winner-header-input')) {
                     $('winner-header-input').value = matched.winnerHeader || 'THE UNIVERSE HAS DECIDED';
                 }
-                if ($('winner-sub-fixed')) {
-                    if (matched.winnerSub) {
-                        $('winner-sub-mode').value = 'fixed';
-                        $('winner-sub-fixed').value = matched.winnerSub;
-                        $('winner-sub-fixed-row').style.display = 'block';
-                        $('winner-sub-custom-row').style.display = 'none';
-                    } else {
-                        $('winner-sub-mode').value = 'random';
-                        $('winner-sub-fixed-row').style.display = 'none';
-                        $('winner-sub-custom-row').style.display = 'none';
-                    }
+                if (matched.buttonPreset) {
+                    currentBtnPresetId = matched.buttonPreset;
+                    if ($('btn-preset-select')) $('btn-preset-select').value = matched.buttonPreset;
+                    loadSelectedButtonPreset();
                 }
-                const btnSet = matched.buttonPreset || (matched.id === 'jackbox' ? 'games' : (matched.id === 'punishments' ? 'punish' : 'chaos'));
-                if ($('btn-preset-select')) $('btn-preset-select').value = btnSet;
-                loadButtonPreset(btnSet);
-                if (Array.isArray(matched.buttonPhrases) && matched.buttonPhrases.length) {
-                    activeButtonPhrases = [...matched.buttonPhrases];
-                    if ($('btn-phrases-textarea')) $('btn-phrases-textarea').value = activeButtonPhrases.join('\n');
+                if (matched.quotePreset) {
+                    currentQuotePresetId = matched.quotePreset;
+                    if ($('quote-preset-select')) $('quote-preset-select').value = matched.quotePreset;
+                    loadSelectedQuotePreset();
                 }
             } else if (selVal === 'chatters') {
                 loadChatters();
             } else if (selVal === 'variables') {
                 loadVariables();
+            }
+            updateObsUrl();
+        }
+
+        // 2. Button Phrase Presets (Saved Presets just like Choices)
+        async function fetchButtonPresets() {
+            try {
+                const res = await fetch('/api/randomizer/button-presets').then(r => r.json());
+                if (res.presets && Array.isArray(res.presets)) {
+                    buttonPresetsList = res.presets;
+                    populateButtonPresetsDropdown();
+                }
+            } catch (e) {
+                console.error('Failed to load button presets:', e);
+            }
+        }
+
+        function populateButtonPresetsDropdown() {
+            const sel = $('btn-preset-select');
+            if (!sel) return;
+            sel.innerHTML = '';
+            buttonPresetsList.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${p.name} (${p.phrases?.length || 0} phrases)`;
+                if (p.id === currentBtnPresetId) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            const optStatic = document.createElement('option');
+            optStatic.value = 'static';
+            optStatic.textContent = 'Fixed Single Title';
+            if (currentBtnPresetId === 'static') optStatic.selected = true;
+            sel.appendChild(optStatic);
+
+            loadSelectedButtonPreset();
+        }
+
+        function loadSelectedButtonPreset() {
+            const selVal = $('btn-preset-select')?.value || currentBtnPresetId;
+            currentBtnPresetId = selVal;
+            const staticRow = $('btn-text-static-row');
+
+            if (selVal === 'static') {
+                if (staticRow) staticRow.style.display = 'block';
+                activeButtonPhrases = [$('btn-text-static')?.value.trim() || 'Spin Now!'];
+                if ($('btn-phrases-count-pill')) $('btn-phrases-count-pill').textContent = '1 title';
+            } else {
+                if (staticRow) staticRow.style.display = 'none';
+                const matched = buttonPresetsList.find(p => p.id === selVal);
+                if (matched) {
+                    activeButtonPhrases = [...(matched.phrases || [])];
+                    if ($('btn-phrases-textarea')) $('btn-phrases-textarea').value = activeButtonPhrases.join('\n');
+                    if ($('btn-phrases-count-pill')) $('btn-phrases-count-pill').textContent = `${activeButtonPhrases.length} phrases`;
+                }
+            }
+            updateButtonLabel();
+            updateObsUrl();
+        }
+
+        // 3. Winner Quote Presets (Saved Presets just like Choices)
+        async function fetchQuotePresets() {
+            try {
+                const res = await fetch('/api/randomizer/quote-presets').then(r => r.json());
+                if (res.presets && Array.isArray(res.presets)) {
+                    quotePresetsList = res.presets;
+                    populateQuotePresetsDropdown();
+                }
+            } catch (e) {
+                console.error('Failed to load quote presets:', e);
+            }
+        }
+
+        function populateQuotePresetsDropdown() {
+            const sel = $('quote-preset-select');
+            if (!sel) return;
+            sel.innerHTML = '';
+            quotePresetsList.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${p.name} (${p.quotes?.length || 0} quotes)`;
+                if (p.id === currentQuotePresetId) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            loadSelectedQuotePreset();
+        }
+
+        function loadSelectedQuotePreset() {
+            const selVal = $('quote-preset-select')?.value || currentQuotePresetId;
+            currentQuotePresetId = selVal;
+            const matched = quotePresetsList.find(p => p.id === selVal);
+            if (matched) {
+                activeQuotesPool = [...(matched.quotes || [])];
+                if ($('quotes-textarea')) $('quotes-textarea').value = activeQuotesPool.join('\n');
+                if ($('quotes-count-pill')) $('quotes-count-pill').textContent = `${activeQuotesPool.length} quotes`;
             }
             updateObsUrl();
         }
@@ -1709,9 +1720,7 @@
                 sel.innerHTML = lists.length 
                     ? lists.map(v => `<option value="${esc(v.name)}">${esc(v.name)} (${v.items?.length || 0} items)</option>`).join('')
                     : '<option value="">(No list variables found)</option>';
-                if (lists.length) {
-                    setChoices(lists[0].items || []);
-                }
+                if (lists.length) setChoices(lists[0].items || []);
                 sel.onchange = () => {
                     const chosen = lists.find(v => v.name === sel.value);
                     if (chosen) setChoices(chosen.items || []);
@@ -1730,7 +1739,7 @@
                 pane.classList.add('active');
             }
         }
-        ['presets', 'display', 'button', 'obs'].forEach(tabId => {
+        ['presets', 'theme', 'buttons', 'quotes', 'obs'].forEach(tabId => {
             const btn = $(`tab-btn-${tabId}`);
             if (btn) btn.onclick = () => switchTab(tabId);
         });
@@ -1749,13 +1758,16 @@
 
         // Admin Event Listeners
         if (!isOverlay) {
-            fetchPresets();
-            loadButtonPreset('chaos');
+            loadOverlayTheme();
+            fetchChoicesPresets();
+            fetchButtonPresets();
+            fetchQuotePresets();
 
-            $('preset-select').onchange = loadSelectedPreset;
+            // 1. Choices Preset Actions
+            $('preset-select').onchange = loadSelectedChoicesPreset;
 
             $('btn-new-preset').onclick = async () => {
-                const name = prompt('Enter a name for the new preset:', 'My Custom Choices');
+                const name = prompt('Enter a name for the new choices preset:', 'Game Night Choices');
                 if (!name || !name.trim()) return;
                 try {
                     const res = await fetch('/api/randomizer/presets', {
@@ -1766,12 +1778,9 @@
                     if (res.ok) {
                         presetsList = res.presets;
                         currentPresetId = res.preset.id;
-                        populatePresetsDropdown();
-                        $('preset-select').value = currentPresetId;
+                        populateChoicesPresetsDropdown();
                         setChoices(res.preset.choices);
-                        toast(`Created preset "${res.preset.name}"`);
-                    } else {
-                        toast('Error: ' + res.error);
+                        toast(`Created choices preset "${res.preset.name}"`);
                     }
                 } catch (e) { toast('Failed to create preset: ' + e.message); }
             };
@@ -1785,13 +1794,9 @@
                 let id = existing ? existing.id : null;
 
                 if (!existing) {
-                    name = prompt('Enter preset name:', 'My Custom Choices');
+                    name = prompt('Enter preset name:', 'Custom Choices');
                     if (!name) return;
                 }
-
-                const winHeader = $('winner-header-input')?.value.trim();
-                const winSub = $('winner-sub-mode')?.value === 'fixed' ? $('winner-sub-fixed')?.value.trim() : '';
-                const btnPreset = $('btn-preset-select')?.value || 'chaos';
 
                 try {
                     const res = await fetch('/api/randomizer/presets', {
@@ -1801,20 +1806,16 @@
                             id,
                             name,
                             choices: currentChoices,
-                            winnerHeader: winHeader,
-                            winnerSub: winSub,
-                            buttonPreset: btnPreset,
-                            buttonPhrases: activeButtonPhrases
+                            winnerHeader: $('winner-header-input')?.value.trim(),
+                            buttonPreset: currentBtnPresetId,
+                            quotePreset: currentQuotePresetId
                         })
                     }).then(r => r.json());
                     if (res.ok) {
                         presetsList = res.presets;
                         currentPresetId = res.preset.id;
-                        populatePresetsDropdown();
-                        $('preset-select').value = currentPresetId;
-                        toast(`Saved preset "${res.preset.name}"`);
-                    } else {
-                        toast('Error: ' + res.error);
+                        populateChoicesPresetsDropdown();
+                        toast(`Saved choices preset "${res.preset.name}"`);
                     }
                 } catch (e) { toast('Failed to save preset: ' + e.message); }
             };
@@ -1834,8 +1835,7 @@
                     }).then(r => r.json());
                     if (res.ok) {
                         presetsList = res.presets;
-                        populatePresetsDropdown();
-                        $('preset-select').value = existing.id;
+                        populateChoicesPresetsDropdown();
                         toast(`Renamed to "${newName.trim()}"`);
                     }
                 } catch (e) { toast('Failed to rename: ' + e.message); }
@@ -1856,15 +1856,238 @@
                     if (res.ok) {
                         presetsList = res.presets;
                         currentPresetId = 'jackbox';
-                        populatePresetsDropdown();
+                        populateChoicesPresetsDropdown();
                         toast(`Deleted preset "${existing.name}"`);
                     }
                 } catch (e) { toast('Failed to delete: ' + e.message); }
             };
 
             $('btn-reload-preset').onclick = () => {
-                loadSelectedPreset();
+                loadSelectedChoicesPreset();
                 toast('Reloaded preset choices');
+            };
+
+            // 2. Button Phrase Preset Actions (Saved Presets just like Choices)
+            $('btn-preset-select').onchange = loadSelectedButtonPreset;
+
+            $('btn-new-btnpreset').onclick = async () => {
+                const name = prompt('Enter a name for the new button phrase preset:', 'Custom Phrases');
+                if (!name || !name.trim()) return;
+                try {
+                    const res = await fetch('/api/randomizer/button-presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: name.trim(), phrases: ['Spin Now!', 'Roll the Dice!', 'Pick One!'] })
+                    }).then(r => r.json());
+                    if (res.ok) {
+                        buttonPresetsList = res.presets;
+                        currentBtnPresetId = res.preset.id;
+                        populateButtonPresetsDropdown();
+                        toast(`Created button phrases preset "${res.preset.name}"`);
+                    }
+                } catch (e) { toast('Failed to create button preset: ' + e.message); }
+            };
+
+            $('btn-save-btnpreset').onclick = async () => {
+                const lines = ($('btn-phrases-textarea')?.value || '').split('\n').map(s => s.trim()).filter(Boolean);
+                if (!lines.length) return toast('Phrases pool cannot be empty!');
+                const selVal = $('btn-preset-select').value;
+                const existing = buttonPresetsList.find(p => p.id === selVal);
+                let name = existing ? existing.name : 'Custom Button Phrases';
+                let id = existing ? existing.id : null;
+
+                try {
+                    const res = await fetch('/api/randomizer/button-presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id, name, phrases: lines })
+                    }).then(r => r.json());
+                    if (res.ok) {
+                        buttonPresetsList = res.presets;
+                        currentBtnPresetId = res.preset.id;
+                        populateButtonPresetsDropdown();
+                        toast(`Saved button phrases preset "${res.preset.name}"`);
+                    }
+                } catch (e) { toast('Failed to save button preset: ' + e.message); }
+            };
+
+            $('btn-rename-btnpreset').onclick = async () => {
+                const selVal = $('btn-preset-select').value;
+                const existing = buttonPresetsList.find(p => p.id === selVal);
+                if (!existing) return toast('Select a button phrase preset to rename');
+                const newName = prompt('Enter new button preset name:', existing.name);
+                if (!newName || !newName.trim()) return;
+
+                try {
+                    const res = await fetch('/api/randomizer/button-presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: existing.id, name: newName.trim(), phrases: existing.phrases })
+                    }).then(r => r.json());
+                    if (res.ok) {
+                        buttonPresetsList = res.presets;
+                        populateButtonPresetsDropdown();
+                        toast(`Renamed to "${newName.trim()}"`);
+                    }
+                } catch (e) { toast('Failed to rename button preset: ' + e.message); }
+            };
+
+            $('btn-delete-btnpreset').onclick = async () => {
+                const selVal = $('btn-preset-select').value;
+                const existing = buttonPresetsList.find(p => p.id === selVal);
+                if (!existing) return toast('Cannot delete built-in preset');
+                if (!confirm(`Are you sure you want to delete button preset "${existing.name}"?`)) return;
+
+                try {
+                    const res = await fetch('/api/randomizer/button-presets/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: existing.id })
+                    }).then(r => r.json());
+                    if (res.ok) {
+                        buttonPresetsList = res.presets;
+                        currentBtnPresetId = 'chaos';
+                        populateButtonPresetsDropdown();
+                        toast(`Deleted button preset "${existing.name}"`);
+                    }
+                } catch (e) { toast('Failed to delete button preset: ' + e.message); }
+            };
+
+            // 3. Winner Quote Preset Actions (Saved Presets just like Choices)
+            $('quote-preset-select').onchange = loadSelectedQuotePreset;
+
+            $('btn-new-quotepreset').onclick = async () => {
+                const name = prompt('Enter a name for the new quotes preset:', 'Stream Quotes');
+                if (!name || !name.trim()) return;
+                try {
+                    const res = await fetch('/api/randomizer/quote-presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: name.trim(), quotes: ['Another universe, another glorious outcome.', 'Fate is sealed!'] })
+                    }).then(r => r.json());
+                    if (res.ok) {
+                        quotePresetsList = res.presets;
+                        currentQuotePresetId = res.preset.id;
+                        populateQuotePresetsDropdown();
+                        toast(`Created quote preset "${res.preset.name}"`);
+                    }
+                } catch (e) { toast('Failed to create quote preset: ' + e.message); }
+            };
+
+            $('btn-save-quotepreset').onclick = async () => {
+                const lines = ($('quotes-textarea')?.value || '').split('\n').map(s => s.trim()).filter(Boolean);
+                if (!lines.length) return toast('Quotes pool cannot be empty!');
+                const selVal = $('quote-preset-select').value;
+                const existing = quotePresetsList.find(p => p.id === selVal);
+                let name = existing ? existing.name : 'Custom Quotes';
+                let id = existing ? existing.id : null;
+
+                try {
+                    const res = await fetch('/api/randomizer/quote-presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id, name, quotes: lines })
+                    }).then(r => r.json());
+                    if (res.ok) {
+                        quotePresetsList = res.presets;
+                        currentQuotePresetId = res.preset.id;
+                        populateQuotePresetsDropdown();
+                        toast(`Saved quote preset "${res.preset.name}"`);
+                    }
+                } catch (e) { toast('Failed to save quote preset: ' + e.message); }
+            };
+
+            $('btn-rename-quotepreset').onclick = async () => {
+                const selVal = $('quote-preset-select').value;
+                const existing = quotePresetsList.find(p => p.id === selVal);
+                if (!existing) return toast('Select a quote preset to rename');
+                const newName = prompt('Enter new quote preset name:', existing.name);
+                if (!newName || !newName.trim()) return;
+
+                try {
+                    const res = await fetch('/api/randomizer/quote-presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: existing.id, name: newName.trim(), quotes: existing.quotes })
+                    }).then(r => r.json());
+                    if (res.ok) {
+                        quotePresetsList = res.presets;
+                        populateQuotePresetsDropdown();
+                        toast(`Renamed to "${newName.trim()}"`);
+                    }
+                } catch (e) { toast('Failed to rename quote preset: ' + e.message); }
+            };
+
+            $('btn-delete-quotepreset').onclick = async () => {
+                const selVal = $('quote-preset-select').value;
+                const existing = quotePresetsList.find(p => p.id === selVal);
+                if (!existing) return toast('Cannot delete built-in quote preset');
+                if (!confirm(`Are you sure you want to delete quote preset "${existing.name}"?`)) return;
+
+                try {
+                    const res = await fetch('/api/randomizer/quote-presets/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: existing.id })
+                    }).then(r => r.json());
+                    if (res.ok) {
+                        quotePresetsList = res.presets;
+                        currentQuotePresetId = 'multiverse';
+                        populateQuotePresetsDropdown();
+                        toast(`Deleted quote preset "${existing.name}"`);
+                    }
+                } catch (e) { toast('Failed to delete quote preset: ' + e.message); }
+            };
+
+            // Overlay Theme Inputs
+            $('ap-accent').oninput = () => {
+                highlightActiveAccentChip($('ap-accent').value.trim());
+                applyCurrentOverlayTheme();
+                updateObsUrl();
+            };
+            $('ap-accent-picker').oninput = () => {
+                $('ap-accent').value = $('ap-accent-picker').value;
+                highlightActiveAccentChip($('ap-accent').value.trim());
+                applyCurrentOverlayTheme();
+                updateObsUrl();
+            };
+            $('ap-text').oninput = () => {
+                applyCurrentOverlayTheme();
+                updateObsUrl();
+            };
+            $('ap-text-picker').oninput = () => {
+                $('ap-text').value = $('ap-text-picker').value;
+                applyCurrentOverlayTheme();
+                updateObsUrl();
+            };
+            $('ap-font').oninput = () => {
+                applyCurrentOverlayTheme();
+                updateObsUrl();
+            };
+            $('ap-weight').onchange = () => {
+                applyCurrentOverlayTheme();
+                updateObsUrl();
+            };
+            $('ap-bg').oninput = () => {
+                applyCurrentOverlayTheme();
+                updateObsUrl();
+            };
+            $('ap-outline').oninput = () => {
+                applyCurrentOverlayTheme();
+                updateObsUrl();
+            };
+            $('btn-reset-overlay-theme').onclick = () => {
+                if (savedOverlayConfigTheme) {
+                    $('ap-accent').value = savedOverlayConfigTheme.accent_color || '#8b5cf6';
+                    $('ap-text').value = savedOverlayConfigTheme.text_color || '#ffffff';
+                    $('ap-font').value = savedOverlayConfigTheme.font_family || '';
+                    $('ap-weight').value = savedOverlayConfigTheme.font_weight || '600';
+                    $('ap-bg').value = savedOverlayConfigTheme.background_color || '';
+                    $('ap-outline').value = (savedOverlayConfigTheme.text_outline === false ? 'none' : savedOverlayConfigTheme.text_outline_color) || '';
+                    applyCurrentOverlayTheme();
+                    updateObsUrl();
+                    toast('Reset to saved overlay theme');
+                }
             };
 
             const doShuffle = () => {
@@ -1879,7 +2102,6 @@
             $('btn-shuffle').onclick = doShuffle;
             $('btn-quick-shuffle').onclick = doShuffle;
 
-            // Audio Toggle
             $('btn-quick-sound').onclick = () => {
                 AudioFX.enabled = !AudioFX.enabled;
                 $('sound-status-label').textContent = AudioFX.enabled ? 'Sound On' : 'Sound Muted';
@@ -1887,37 +2109,29 @@
                 toast(AudioFX.enabled ? 'Audio effects enabled' : 'Audio effects muted');
             };
 
-            $('style-select').onchange = () => {
-                setStyleMode($('style-select').value);
-            };
-
+            $('style-select').onchange = () => setStyleMode($('style-select').value);
             $('suspense-select').onchange = () => {
                 currentSuspense = $('suspense-select').value;
                 updateObsUrl();
             };
-
-            $('theme-select').onchange = () => {
-                applyTheme($('theme-select').value);
-                updateObsUrl();
-            };
-
-            $('autohide-select').onchange = updateObsUrl;
             $('spin-duration').oninput = updateObsUrl;
-            
-            // Overlay Button Toggle Syncs to Preview Immediately
+            $('autohide-select').onchange = updateObsUrl;
             $('overlay-button-enabled').onchange = () => {
                 syncOverlayButtonVisibility();
                 updateObsUrl();
             };
 
-            $('btn-preset-select').onchange = () => {
-                loadButtonPreset($('btn-preset-select').value);
-            };
-
             $('btn-phrases-textarea').oninput = () => {
                 const lines = $('btn-phrases-textarea').value.split('\n').map(s => s.trim()).filter(Boolean);
                 if (lines.length) activeButtonPhrases = lines;
+                if ($('btn-phrases-count-pill')) $('btn-phrases-count-pill').textContent = `${activeButtonPhrases.length} phrases`;
                 updateButtonLabel();
+            };
+
+            $('quotes-textarea').oninput = () => {
+                const lines = $('quotes-textarea').value.split('\n').map(s => s.trim()).filter(Boolean);
+                if (lines.length) activeQuotesPool = lines;
+                if ($('quotes-count-pill')) $('quotes-count-pill').textContent = `${activeQuotesPool.length} quotes`;
             };
 
             $('btn-text-static').oninput = () => {
@@ -1927,25 +2141,6 @@
 
             $('winner-header-input').oninput = updateObsUrl;
 
-            $('winner-sub-mode').onchange = () => {
-                const mode = $('winner-sub-mode').value;
-                $('winner-sub-fixed-row').style.display = mode === 'fixed' ? 'block' : 'none';
-                $('winner-sub-custom-row').style.display = mode === 'custom' ? 'block' : 'none';
-                updateObsUrl();
-            };
-
-            $('winner-sub-fixed').oninput = updateObsUrl;
-            $('winner-sub-custom').oninput = updateObsUrl;
-
-            $('btn-reset-winner-text').onclick = () => {
-                $('winner-header-input').value = 'THE UNIVERSE HAS DECIDED';
-                $('winner-sub-mode').value = 'random';
-                $('winner-sub-fixed-row').style.display = 'none';
-                $('winner-sub-custom-row').style.display = 'none';
-                updateObsUrl();
-                toast('Reset winner text to defaults');
-            };
-
             $('choices-textarea').oninput = () => {
                 const list = getChoices();
                 if ($('choices-count-pill')) $('choices-count-pill').textContent = `${list.length} choices`;
@@ -1953,9 +2148,7 @@
             };
 
             $('btn-spin').onpointerenter = () => {
-                if ($('btn-preset-select').value !== 'static') {
-                    updateButtonLabel();
-                }
+                if (currentBtnPresetId !== 'static') updateButtonLabel();
             };
 
             $('btn-spin').onclick = async () => {
@@ -1964,24 +2157,17 @@
                 if (!list.length) return toast('Please enter at least 1 choice');
                 const mode = $('style-select').value;
                 const suspense = $('suspense-select').value;
-                const theme = $('theme-select').value;
                 const duration = Number($('spin-duration').value) || 6;
                 const autohide = Number($('autohide-select').value);
                 const winner = list[Math.floor(Math.random() * list.length)];
-
                 const winHeader = $('winner-header-input')?.value.trim() || 'THE UNIVERSE HAS DECIDED';
+
                 let winSub = '';
-                const subMode = $('winner-sub-mode')?.value || 'random';
-                if (subMode === 'fixed') {
-                    winSub = $('winner-sub-fixed')?.value.trim() || 'Another universe, another glorious outcome.';
-                } else if (subMode === 'custom') {
-                    const lines = ($('winner-sub-custom')?.value || '').split('\n').map(s => s.trim()).filter(Boolean);
-                    winSub = lines.length ? lines[Math.floor(Math.random() * lines.length)] : RESPIN_SUBS[Math.floor(Math.random() * RESPIN_SUBS.length)];
-                } else {
-                    winSub = RESPIN_SUBS[Math.floor(Math.random() * RESPIN_SUBS.length)];
+                if (activeQuotesPool && activeQuotesPool.length) {
+                    winSub = activeQuotesPool[Math.floor(Math.random() * activeQuotesPool.length)];
                 }
 
-                // Trigger locally in preview
+                // Trigger in preview
                 runSpin({
                     choices: list,
                     winner,
@@ -1989,11 +2175,10 @@
                     winnerSub: winSub,
                     mode,
                     suspense,
-                    theme,
                     duration
                 });
 
-                // Broadcast to OBS overlay via WebSocket / API
+                // Broadcast to OBS overlay via API / WebSocket
                 try {
                     await fetch('/api/randomizer/spin', {
                         method: 'POST',
@@ -2005,7 +2190,6 @@
                             winnerSub: winSub,
                             mode,
                             suspense,
-                            theme,
                             duration,
                             autohide,
                             buttonPhrases: activeButtonPhrases
@@ -2023,26 +2207,50 @@
             $('btn-copy-obs').onclick = doCopyObs;
             $('btn-quick-copy-obs').onclick = doCopyObs;
 
+            $('btn-copy-companion').onclick = () => {
+                navigator.clipboard.writeText($('companion-url-input').value).then(() => {
+                    toast('Copied Bitfocus Companion GET URL');
+                }).catch(() => {});
+            };
+
             updateObsUrl();
         } else {
             // Overlay Mode: fetch presets for initial population if specified
+            loadOverlayTheme();
             fetch('/api/randomizer/presets').then(r => r.json()).then(res => {
                 if (res.presets) {
                     presetsList = res.presets;
                     const matched = presetsList.find(p => p.id === currentPresetId);
                     if (matched) {
                         choices = matched.choices || [];
-                        if (Array.isArray(matched.buttonPhrases) && matched.buttonPhrases.length) {
-                            activeButtonPhrases = [...matched.buttonPhrases];
-                        }
                         renderInitialState();
                     }
                 }
             }).catch(() => {});
+
+            // Fetch quote preset for overlay
+            fetch('/api/randomizer/quote-presets').then(r => r.json()).then(res => {
+                if (res.presets) {
+                    const matched = res.presets.find(p => p.id === currentQuotePresetId);
+                    if (matched) activeQuotesPool = matched.quotes || [];
+                }
+            }).catch(() => {});
+
+            // Fetch button preset for overlay
+            fetch('/api/randomizer/button-presets').then(r => r.json()).then(res => {
+                if (res.presets) {
+                    const matched = res.presets.find(p => p.id === currentBtnPresetId);
+                    if (matched) {
+                        activeButtonPhrases = matched.phrases || [];
+                        updateButtonLabel();
+                    }
+                }
+            }).catch(() => {});
+
             renderInitialState();
         }
 
-        // Real-Time WebSocket Listener (Syncs spins from admin and chat)
+        // Real-Time WebSocket Listener (Syncs spins from Companion, admin, and chat)
         function connectWs() {
             try {
                 const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -2053,7 +2261,9 @@
                         if (msg.type === 'randomizer-spin' && msg.data) {
                             const d = msg.data;
                             AudioFX.init();
-                            if (d.theme) applyTheme(d.theme);
+                            if (d.accent) {
+                                $('display-stage')?.style.setProperty('--stage-accent', d.accent);
+                            }
                             if (Array.isArray(d.buttonPhrases) && d.buttonPhrases.length) {
                                 activeButtonPhrases = d.buttonPhrases;
                                 updateButtonLabel();
@@ -2065,7 +2275,6 @@
                                 winnerSub: d.winnerSub,
                                 mode: isOverlay ? (params.get('mode') || d.mode) : d.mode,
                                 suspense: d.suspense || currentSuspense,
-                                theme: d.theme || currentTheme,
                                 duration: d.duration || 6
                             });
                         }
