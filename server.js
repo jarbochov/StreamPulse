@@ -73,7 +73,8 @@ const DEFAULT_RANDOMIZER_PRESETS = [
     {
         id: 'jackbox',
         name: 'Jackbox Party Games (60 Games)',
-        winnerHeader: '🎮 NEXT GAME TO PLAY 🎮',
+        buttonPreset: 'games',
+        winnerHeader: 'NEXT GAME TO PLAY',
         winnerSub: 'Booting up... prepare your phones!',
         choices: [
             "Bidiots", "Blather Round", "Bomb Corp", "Bracketeering", "Champ'd Up",
@@ -95,7 +96,8 @@ const DEFAULT_RANDOMIZER_PRESETS = [
     {
         id: 'decision',
         name: 'Quick Decision (Yes / No / Maybe)',
-        winnerHeader: '🔮 The Oracle Has Spoken 🔮',
+        buttonPreset: 'chaos',
+        winnerHeader: 'THE ORACLE HAS SPOKEN',
         winnerSub: 'The timeline has shifted. Fate is sealed.',
         choices: [
             "Yes, absolutely!", "No way", "Ask chat", "Spin again",
@@ -105,7 +107,8 @@ const DEFAULT_RANDOMIZER_PRESETS = [
     {
         id: 'punishments',
         name: 'Stream Challenges & Punishments',
-        winnerHeader: '💀 PUNISHMENT CHOSEN 💀',
+        buttonPreset: 'punish',
+        winnerHeader: 'PUNISHMENT CHOSEN',
         winnerSub: 'No mercy. Do not pass GO. Fate is sealed.',
         choices: [
             "10 Pushups / Situps", "Hydrate check (huge gulp)", "Chat picks next music track",
@@ -6750,6 +6753,10 @@ const server = http.createServer(async (req, res) => {
             let presetId = body.id ? String(body.id).trim() : null;
             const winnerHeader = body.winnerHeader !== undefined ? String(body.winnerHeader).trim() : undefined;
             const winnerSub = body.winnerSub !== undefined ? String(body.winnerSub).trim() : undefined;
+            const buttonPreset = body.buttonPreset !== undefined ? String(body.buttonPreset).trim() : undefined;
+            const buttonPhrases = Array.isArray(body.buttonPhrases)
+                ? body.buttonPhrases.map(s => String(s).trim()).filter(Boolean)
+                : (typeof body.buttonPhrases === 'string' ? body.buttonPhrases.split('\n').map(s => s.trim()).filter(Boolean) : undefined);
             let updatedPreset;
             if (presetId) {
                 const idx = presets.findIndex(p => p.id === presetId);
@@ -6760,6 +6767,8 @@ const server = http.createServer(async (req, res) => {
                         choices,
                         ...(winnerHeader !== undefined ? { winnerHeader } : {}),
                         ...(winnerSub !== undefined ? { winnerSub } : {}),
+                        ...(buttonPreset !== undefined ? { buttonPreset } : {}),
+                        ...(buttonPhrases !== undefined ? { buttonPhrases } : {}),
                         updatedAt: Date.now()
                     };
                     updatedPreset = presets[idx];
@@ -6773,6 +6782,8 @@ const server = http.createServer(async (req, res) => {
                     choices,
                     winnerHeader: winnerHeader || '',
                     winnerSub: winnerSub || '',
+                    buttonPreset: buttonPreset || 'chaos',
+                    buttonPhrases: buttonPhrases || [],
                     createdAt: Date.now()
                 };
                 presets.push(updatedPreset);
@@ -6823,11 +6834,12 @@ const server = http.createServer(async (req, res) => {
                 winnerSub: body.winnerSub || '',
                 mode: body.mode || 'roller',
                 suspense: body.suspense || 'normal', // 'normal' | 'tricky'
-                theme: body.theme || 'purple',
+                theme: body.theme || 'system',
                 duration: Number(body.duration) || 6,
                 autohide: body.autohide !== undefined ? Number(body.autohide) : 8,
                 showButton: !!body.showButton,
                 buttonText: body.buttonText || '',
+                buttonPhrases: Array.isArray(body.buttonPhrases) ? body.buttonPhrases : [],
                 at: Date.now()
             };
             broadcastToOverlays('randomizer-spin', payload);
