@@ -581,8 +581,7 @@
                                 <div class="row" style="margin-bottom:.55rem;">
                                     <label class="f">
                                         <span>Font Family</span>
-                                        <input id="ap-font" type="text" list="ap-font-list" placeholder="System or Google Font">
-                                        <datalist id="ap-font-list"></datalist>
+                                        <select id="ap-font"></select>
                                     </label>
                                     <label class="f">
                                         <span>Text Color</span>
@@ -600,7 +599,10 @@
                                     </label>
                                     <label class="f">
                                         <span>Text Outline</span>
-                                        <input id="ap-outline" type="text" placeholder="none or #000000">
+                                        <div style="display:flex;gap:.3rem;align-items:center;">
+                                            <input id="ap-outline" type="text" placeholder="none or #000000">
+                                            <input type="color" id="ap-outline-picker" value="#000000" style="width:32px;height:30px;padding:2px;cursor:pointer;border:1px solid var(--border);border-radius:4px;background:var(--bg-card);">
+                                        </div>
                                     </label>
                                 </div>
                             </div>
@@ -1050,13 +1052,24 @@
 
         Confetti.init($('confetti-canvas'));
 
-        // Initialize Font Datalist from overlay-theme.js
-        if (window.OverlayFonts) {
-            const dl = $('ap-font-list');
-            if (dl) {
-                const allFonts = [...(window.OverlayFonts.system || []), ...(window.OverlayFonts.google || [])];
-                dl.innerHTML = allFonts.map(f => `<option value="${esc(f)}">`).join('');
-            }
+        // Initialize Font Dropdown Options
+        const fontSelect = $('ap-font');
+        if (fontSelect) {
+            const systemFonts = (window.OverlayFonts && window.OverlayFonts.system) || ['Arial', 'Helvetica', 'Georgia', 'Impact', 'Courier New', 'Trebuchet MS'];
+            const rawGoogle = (window.OverlayFonts && window.OverlayFonts.google) || ['Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Oswald', 'Poppins', 'Raleway', 'Merriweather', 'Playfair Display', 'Bebas Neue', 'Fira Code', 'Silkscreen'];
+            const googleFonts = ['Jersey 20', ...rawGoogle.filter(f => f !== 'Jersey 20')];
+
+            let html = '<option value="">Default (System Sans-Serif)</option>';
+            html += '<optgroup label="System Fonts">';
+            systemFonts.forEach(f => {
+                html += `<option value="${esc(f)}">${esc(f)}</option>`;
+            });
+            html += '</optgroup><optgroup label="Google Fonts">';
+            googleFonts.forEach(f => {
+                html += `<option value="${esc(f)}">${esc(f)}</option>`;
+            });
+            html += '</optgroup>';
+            fontSelect.innerHTML = html;
         }
 
         // Curated Color Themes + StreamPulse Shared Theme
@@ -1259,10 +1272,22 @@
                 if ($('ap-accent-picker')) $('ap-accent-picker').value = rgbToHex(accent);
                 if ($('ap-text')) $('ap-text').value = text;
                 if ($('ap-text-picker')) $('ap-text-picker').value = rgbToHex(text);
-                if ($('ap-font')) $('ap-font').value = font;
+                if ($('ap-font')) {
+                    if (font && !Array.from($('ap-font').options).some(o => o.value === font)) {
+                        const opt = document.createElement('option');
+                        opt.value = font;
+                        opt.textContent = font;
+                        $('ap-font').appendChild(opt);
+                    }
+                    $('ap-font').value = font;
+                }
                 if ($('ap-weight')) $('ap-weight').value = weight;
                 if ($('ap-bg')) $('ap-bg').value = bg;
                 if ($('ap-outline')) $('ap-outline').value = outline;
+                if ($('ap-outline-picker')) {
+                    const isNone = !outline || outline === 'none' || outline === 'transparent';
+                    $('ap-outline-picker').value = isNone ? '#000000' : rgbToHex(outline);
+                }
                 highlightActiveAccentChip(accent);
             }
 
@@ -2350,11 +2375,13 @@
                 applyTheme('custom', true);
                 updateObsUrl();
             };
-            $('ap-font').oninput = () => {
+            const onFontChange = () => {
                 if ($('theme-select')) $('theme-select').value = 'custom';
                 applyTheme('custom', true);
                 updateObsUrl();
             };
+            $('ap-font').onchange = onFontChange;
+            $('ap-font').oninput = onFontChange;
             $('ap-weight').onchange = () => {
                 if ($('theme-select')) $('theme-select').value = 'custom';
                 applyTheme('custom', true);
@@ -2366,6 +2393,16 @@
                 updateObsUrl();
             };
             $('ap-outline').oninput = () => {
+                if ($('theme-select')) $('theme-select').value = 'custom';
+                const val = $('ap-outline').value.trim();
+                if (val && val !== 'none' && val !== 'transparent' && $('ap-outline-picker')) {
+                    $('ap-outline-picker').value = rgbToHex(val);
+                }
+                applyTheme('custom', true);
+                updateObsUrl();
+            };
+            $('ap-outline-picker').oninput = () => {
+                $('ap-outline').value = $('ap-outline-picker').value;
                 if ($('theme-select')) $('theme-select').value = 'custom';
                 applyTheme('custom', true);
                 updateObsUrl();
