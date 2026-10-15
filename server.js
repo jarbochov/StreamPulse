@@ -44,6 +44,7 @@ const {
 const { createOverlayWsServer } = require('./server/ws');
 const { createTimersRoutes } = require('./server/routes/timers');
 const { createGoalsRoutes } = require('./server/routes/goals');
+const { createMusicRoutes } = require('./server/routes/music');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -1874,6 +1875,12 @@ function setOverlayVisibility(key, action) {
     broadcastToOverlays('overlay-visibility', { key, visible: next });
     return { ...entry, visible: next };
 }
+
+const handleMusicRoutes = createMusicRoutes({
+    musicService,
+    getOverlayVisible: () => overlayVisible,
+    setOverlayVisibility
+});
 
 
 
@@ -4602,44 +4609,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // Music now-playing API
-    if (pathname === '/api/music/now-playing') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(musicService.getState()));
-        return;
-    }
-
-    // Individual music field endpoints — plain text for easy integration
-    if (pathname.startsWith('/api/music/field/')) {
-        const field = pathname.split('/api/music/field/')[1];
-        const val = musicService.getField(field);
-        if (val !== null) {
-            res.writeHead(200, { 'Content-Type': 'text/plain' });
-            res.end(val);
-        } else {
-            res.writeHead(404, { 'Content-Type': 'text/plain' });
-            res.end(`Unknown field: ${field}. Available: state, track, artist, album, year, duration, position, artwork`);
-        }
-        return;
-    }
-
-    // Overlay visibility control: POST /api/music/overlay { action: "on"|"off"|"toggle" }
-    if (pathname === '/api/music/overlay' && req.method === 'POST') {
-        let body = '';
-        req.on('data', c => body += c);
-        req.on('end', () => {
-            let action = 'toggle';
-            try { action = JSON.parse(body).action || 'toggle'; } catch {}
-            // Also accept ?action= query param
-            const qAction = new URL(req.url, `http://${req.headers.host}`).searchParams.get('action');
-            if (qAction) action = qAction;
-
-            setOverlayVisibility('music', action);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ visible: overlayVisible }));
-        });
-        return;
-    }
+    if (await handleMusicRoutes(req, res, pathname)) return;
 
     // Per-overlay visibility: GET /api/overlay-visibility, POST /api/overlay-visibility/:key { action: "on"|"off"|"toggle" }
     // Keys: credits, goal, countdown, stopwatch, music, custom:<overlayId>
@@ -4663,80 +4633,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // GET to check overlay visibility state
-    if (pathname === '/api/music/overlay' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ visible: overlayVisible }));
-        return;
-    }
 
-    if (pathname === '/api/music/vlc-test') {
-        const params = new URL(req.url, `http://${req.headers.host}`).searchParams;
-        const host = params.get('host') || 'localhost';
-        const port = parseInt(params.get('port')) || 8080;
-        const password = params.get('password') || '';
-        const result = await musicService.testVLC(host, port, password);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result));
-        return;
-    }
-
-    if (pathname === '/api/music/artwork') {
-        try {
-            const art = musicService.getArtwork();
-            if (art) {
-                res.writeHead(200, {
-                    'Content-Type': 'image/png',
-                    'Cache-Control': 'no-store',
-                    'Content-Length': art.length
-                });
-                res.end(art);
-            } else {
-                res.writeHead(404);
-                res.end('No artwork');
-            }
-        } catch {
-            res.writeHead(500);
-            res.end('Artwork read error');
-        }
-        return;
-    }
-
-    if (pathname === '/api/music/fallback-art') {
-        if (req.method === 'GET' || req.method === 'HEAD') {
-            const art = musicService.getFallbackArt();
-            if (art) {
-                res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store', 'Content-Length': art.length });
-                res.end(req.method === 'HEAD' ? undefined : art);
-            } else {
-                res.writeHead(404);
-                res.end(req.method === 'HEAD' ? undefined : 'No fallback art');
-            }
-            return;
-        }
-        if (req.method === 'POST') {
-            const chunks = [];
-            req.on('data', c => chunks.push(c));
-            req.on('end', () => {
-                const buf = Buffer.concat(chunks);
-                if (buf.length > 2 * 1024 * 1024) {
-                    res.writeHead(413, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: 'File too large (max 2MB)' }));
-                    return;
-                }
-                musicService.saveFallbackArt(buf);
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ ok: true }));
-            });
-            return;
-        }
-        if (req.method === 'DELETE') {
-            musicService.deleteFallbackArt();
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: true }));
-            return;
-        }
-    }
 
     if (await handleTimersRoutes(req, res, pathname)) return;
 
