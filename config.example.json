@@ -17,7 +17,6 @@
   "days_filter": 30,
   "active_subs_only": false,
   "hashtags_enabled": true,
-  "chatbot_enabled": false,
   "chat_log_enabled": true,
   "exclude_users": [],
   "banned_users": [],

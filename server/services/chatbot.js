@@ -9,7 +9,7 @@ const DEFAULT_AUTO_SHOUTOUT = {
     message: 'Welcome raiders from @{{user}}! Show them some love: twitch.tv/{{user}}',
     minViewers: 0
 };
-const DEFAULT_SETTINGS = { prefix: '!', tag: '[BOT]', cooldown: 5, mods: [], autoShoutout: { ...DEFAULT_AUTO_SHOUTOUT } };
+const DEFAULT_SETTINGS = { enabled: false, prefix: '!', tag: '[BOT]', cooldown: 5, mods: [], autoShoutout: { ...DEFAULT_AUTO_SHOUTOUT } };
 const MAX_COMMANDS = 200;
 const MAX_QUOTES = 5000;
 const MAX_MESSAGES = 100;
@@ -96,6 +96,9 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const mods = Array.isArray(input.mods) ? input.mods : String(input.mods || '').split(/[\s,]+/);
         const autoShoutout = input.autoShoutout || {};
         return {
+            enabled: input.enabled !== undefined
+                ? input.enabled === true
+                : (typeof getConfig === 'function' ? getConfig()?.chatbot_enabled === true : false),
             prefix: clean(input.prefix, 3) || DEFAULT_SETTINGS.prefix,
             tag: clean(input.tag, 20),
             cooldown: Math.max(0, Math.min(3600, Number(input.cooldown ?? DEFAULT_SETTINGS.cooldown) || 0)),
@@ -228,7 +231,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
     function load() {
         try {
             const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-            data.settings = normalizeSettings(raw.settings);
+            data.settings = normalizeSettings(raw.settings || (raw.enabled !== undefined ? { enabled: raw.enabled } : {}));
             const seen = new Set();
             data.commands = (raw.commands || []).map(normalizeCommand).filter(c => c && !seen.has(c.name) && seen.add(c.name)).slice(0, MAX_COMMANDS);
             data.quotes = (raw.quotes || []).map(normalizeQuote).filter(Boolean).slice(0, MAX_QUOTES);
@@ -272,8 +275,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         return String(getShared().expandVariables(text, await liveStatus(), {}, false) || '').replace(/\{\{[^}]*\}\}/g, '').trim();
     }
 
-    let enabledOverride = null;
-    const enabled = () => enabledOverride !== null ? enabledOverride : getConfig().chatbot_enabled === true;
+    const enabled = () => data.settings.enabled === true;
     let seq = 0;
     const activity = [];
     const logUse = (kind, name, user) => { activity.push({ seq: ++seq, kind, name, user: user || '', at: Date.now() }); if (activity.length > 50) activity.shift(); try { onUse(kind, name); } catch { /* non-fatal */ } };
@@ -595,7 +597,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             const body = req.method === 'GET' || req.method === 'DELETE' ? {} : JSON.parse(await readBody(req) || '{}');
             if (pathname === '/api/chatbot' && req.method === 'GET') return json(200, snapshot()), true;
             if (pathname === '/api/chatbot' && req.method === 'PUT') {
-                if (body.settings) data.settings = normalizeSettings(body.settings);
+                if (body.settings) data.settings = normalizeSettings({ ...data.settings, ...body.settings });
                 if (Array.isArray(body.commands)) {
                     const seen = new Set();
                     data.commands = body.commands.map(normalizeCommand).filter(c => c && !seen.has(c.name) && seen.add(c.name)).slice(0, MAX_COMMANDS);
@@ -620,7 +622,11 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 return json(200, { usage: usageList() }), true;
             }
             if (pathname === '/api/chatbot/activity' && req.method === 'GET') return json(200, { enabled: enabled(), seq, activity: activity.slice(-20) }), true;
-            if (pathname === '/api/chatbot/enabled' && req.method === 'POST') { enabledOverride = body.action === 'toggle' ? !enabled() : body.enabled === true; return json(200, { enabled: enabled() }), true; }
+            if (pathname === '/api/chatbot/enabled' && req.method === 'POST') {
+                data.settings.enabled = body.action === 'toggle' ? !enabled() : body.enabled === true;
+                save();
+                return json(200, { enabled: enabled() }), true;
+            }
             if (pathname === '/api/chatbot/export' && req.method === 'GET') {
                 return json(200, { format: 'streampulse-chatbot', version: 1, exportedAt: new Date().toISOString(), ...data, variables: variables ? variables.list() : [] }), true;
             }
