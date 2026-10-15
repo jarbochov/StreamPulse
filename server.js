@@ -6604,7 +6604,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (pathname === '/api/fetch') {
+    if (pathname === '/api/fetch' || pathname === '/api/twitch/fetch-data') {
         const result = await fetchTwitchData();
         fetchStreamInfo();
         fetchViewerCount();

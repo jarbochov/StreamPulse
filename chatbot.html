@@ -144,12 +144,35 @@
                     <label class="f"><span>Default cooldown (seconds)</span><input id="s-cooldown" type="number" min="0" max="3600" placeholder="5"></label>
                     <label class="f"><span>Default mod cooldown (seconds)</span><input id="s-modcooldown" type="number" min="0" max="3600" placeholder="same as above"></label>
                 </div>
+                <p class="muted" style="margin-top:.5rem;font-size:.8rem;">Bot replies are sent through your connected SocialStream account prefixed with the bot tag. Messages starting with this tag are never treated as commands to prevent infinite reply loops.</p>
             </div>
 
             <div class="settings-section">
-                <h2>Moderator Roles &amp; Permissions</h2>
-                <label class="f"><span>Moderator usernames (fallback comma-separated list)</span><input id="s-mods" placeholder="name1, name2"></label>
-                <p class="muted" style="margin-top:.4rem;">Replies are sent through your connected SocialStream account starting with the bot tag. Messages starting with the tag are never treated as commands. Moderators are auto-detected from SocialStream chat data; usernames listed here are always granted mod permissions.</p>
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
+                    <div>
+                        <h2>Moderator Roles &amp; Permissions</h2>
+                        <p class="muted" style="margin:0;">Controls who can run mod-only commands, manage quotes, and bypass user cooldowns.</p>
+                    </div>
+                    <button class="btn small" id="sync-twitch-mods" type="button" title="Fetch latest moderators and VIPs from Twitch">🔄 Sync Twitch Mods</button>
+                </div>
+
+                <div id="twitch-mods-box" style="margin:.75rem 0;padding:.75rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;">
+                        <span style="font-weight:600;font-size:.88rem;">Twitch Auto-Detected Moderators &amp; Broadcaster</span>
+                        <span id="twitch-mods-count" class="meta-pill">Detecting…</span>
+                    </div>
+                    <div id="twitch-mods-chips" style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem;"></div>
+                    <div id="twitch-mods-note" class="muted" style="font-size:.78rem;margin-top:.4rem;"></div>
+                </div>
+
+                <label class="f"><span>Additional or Cross-Platform Moderators (fallback comma-separated list)</span><input id="s-mods" placeholder="e.g. yt_moderator, kick_mod, alt_account"></label>
+                <div class="muted" style="margin-top:.5rem;font-size:.8rem;line-height:1.5;">
+                    <div><b>How moderator status is determined:</b></div>
+                    <div>• <b>Twitch API</b>: Channel moderators are auto-synced from Twitch (shown above).</div>
+                    <div>• <b>Chat Badges</b>: Incoming chat from SocialStream with Moderator, Broadcaster, or Staff badges are detected in real time.</div>
+                    <div>• <b>Broadcaster</b>: The channel owner is always granted full moderator privileges.</div>
+                    <div>• <b>Fallback list</b>: Usernames listed above are always granted mod permissions across all platforms (ideal for YouTube/Kick mods or testing).</div>
+                </div>
             </div>
 
             <div class="settings-section">
@@ -431,12 +454,44 @@ function renderBanner() {
     }
 }
 
+function renderTwitchMods() {
+    const box = $('twitch-mods-box');
+    if (!box) return;
+    const mods = state.twitchMods || [];
+    const broadcaster = state.broadcaster || '';
+    const countEl = $('twitch-mods-count');
+    const chipsEl = $('twitch-mods-chips');
+    const noteEl = $('twitch-mods-note');
+
+    if (mods.length || broadcaster) {
+        countEl.textContent = `${mods.length} mod${mods.length === 1 ? '' : 's'} synced`;
+        countEl.style.color = 'var(--text)';
+        countEl.style.borderColor = 'var(--border)';
+
+        let chipsHtml = '';
+        if (broadcaster) {
+            chipsHtml += `<span class="meta-pill" style="color:#f59e0b;border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.08);font-weight:600;">👑 ${esc(broadcaster)} (Broadcaster)</span>`;
+        }
+        for (const m of mods) {
+            chipsHtml += `<span class="meta-pill" style="color:#a970ff;border-color:rgba(169,112,255,0.4);background:rgba(169,112,255,0.08);">🛡️ ${esc(m.name || m.login)}</span>`;
+        }
+        chipsEl.innerHTML = chipsHtml;
+        noteEl.innerHTML = `Auto-detected from Twitch API. These users automatically have mod privileges for all commands and quotes.`;
+    } else {
+        countEl.textContent = '0 synced';
+        countEl.style.color = '#f85149';
+        chipsEl.innerHTML = '<span class="muted" style="font-size:.82rem;">No Twitch moderators synced yet. Click "Sync Twitch Mods" or connect Twitch in Config.</span>';
+        noteEl.textContent = '';
+    }
+}
+
 function renderSettings() {
     const s = state.settings;
     $('s-prefix').value = s.prefix || '!'; $('s-tag').value = s.tag ?? ''; $('s-cooldown').value = s.cooldown ?? 5; $('s-modcooldown').value = s.modCooldown ?? ''; $('s-mods').value = (s.mods || []).join(', ');
     $('s-shoutout-enabled').checked = s.autoShoutout?.enabled === true;
     $('s-shoutout-message').value = s.autoShoutout?.message ?? 'Welcome raiders from @{{user}}! Show them some love: twitch.tv/{{user}}';
     $('s-shoutout-min').value = s.autoShoutout?.minViewers ?? 0;
+    renderTwitchMods();
     $('builtins').innerHTML = ['quote', 'quotes', 'addquote', 'delquote'].map(n => { const b = (s.builtins || {})[n] || {}; return `<div class="row" data-b="${n}"><code style="min-width:7rem">${s.prefix || '!'}${n}</code><label class="check">Who can use <select data-bk="access"><option value="everyone" ${b.access === 'everyone' ? 'selected' : ''}>Everyone</option><option value="subs" ${b.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${b.access === 'mods' ? 'selected' : ''}>Mods only</option><option value="disabled" ${b.access === 'disabled' ? 'selected' : ''}>Disabled</option></select></label><label class="check">Cooldown (s)<input data-bk="cooldown" type="number" min="0" value="${b.cooldown ?? ''}" placeholder="default" style="width:6rem"></label></div>`; }).join('');
 }
 
@@ -811,6 +866,23 @@ $('save-settings').onclick = async () => {
         }));
         toast('Settings saved');
     } catch (e) { toast(e.message); }
+};
+$('sync-twitch-mods').onclick = async () => {
+    const btn = $('sync-twitch-mods');
+    const orig = btn.textContent;
+    btn.textContent = '⏳ Syncing…';
+    btn.disabled = true;
+    try {
+        const res = await api('/api/fetch', 'POST');
+        const updated = await api('/api/chatbot');
+        applyState(updated);
+        toast(`✓ Synced with Twitch (${res.moderators ?? updated.twitchMods?.length ?? 0} mods detected)`);
+    } catch (e) {
+        toast(`Twitch sync failed: ${e.message}`);
+    } finally {
+        btn.textContent = orig;
+        btn.disabled = false;
+    }
 };
 $('test-shoutout').onclick = async () => {
     try {

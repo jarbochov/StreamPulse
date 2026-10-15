@@ -293,17 +293,93 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
     }
 
+    let twitchModsCache = { at: 0, list: [], details: [] };
+    function getTwitchMods() {
+        if (Date.now() - twitchModsCache.at < 5000 && twitchModsCache.list.length) return twitchModsCache.list;
+        try {
+            const p = path.join(dataDir, 'moderators.json');
+            if (fs.existsSync(p)) {
+                const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
+                const arr = Array.isArray(raw) ? raw : (raw?.data || []);
+                const list = arr.map(m => (m.user_login || m.user_name || '').toLowerCase().replace(/^@/, '')).filter(Boolean);
+                const details = arr.map(m => ({
+                    login: (m.user_login || '').toLowerCase().replace(/^@/, ''),
+                    name: m.user_name || m.user_login || ''
+                })).filter(m => m.login);
+                twitchModsCache = { at: Date.now(), list, details };
+                return list;
+            }
+        } catch { /* ignore */ }
+        twitchModsCache = { at: Date.now(), list: [], details: [] };
+        return [];
+    }
+
+    function getTwitchModsDetails() {
+        getTwitchMods();
+        return twitchModsCache.details || [];
+    }
+
+    function getBroadcaster() {
+        try {
+            const cfg = getConfig() || {};
+            const name = cfg.broadcaster_name || cfg.twitch?.broadcaster_name || '';
+            return String(name).toLowerCase().trim().replace(/^@/, '');
+        } catch { return ''; }
+    }
+
+    let twitchSubsCache = { at: 0, set: new Set() };
+    function getTwitchSubsAndVips() {
+        if (Date.now() - twitchSubsCache.at < 5000 && twitchSubsCache.set.size) return twitchSubsCache.set;
+        const set = new Set();
+        try {
+            const subsFile = path.join(dataDir, 'subs.json');
+            if (fs.existsSync(subsFile)) {
+                const parsed = JSON.parse(fs.readFileSync(subsFile, 'utf8'));
+                const list = Array.isArray(parsed) ? parsed : (parsed?.data || []);
+                list.forEach(s => {
+                    const u = (s.user_login || s.user_name || '').toLowerCase().replace(/^@/, '');
+                    if (u) set.add(u);
+                });
+            }
+        } catch {}
+        try {
+            const vipsFile = path.join(dataDir, 'vips.json');
+            if (fs.existsSync(vipsFile)) {
+                const parsed = JSON.parse(fs.readFileSync(vipsFile, 'utf8'));
+                const list = Array.isArray(parsed) ? parsed : (parsed?.data || []);
+                list.forEach(v => {
+                    const u = (v.user_login || v.user_name || '').toLowerCase().replace(/^@/, '');
+                    if (u) set.add(u);
+                });
+            }
+        } catch {}
+        twitchSubsCache = { at: Date.now(), set };
+        return set;
+    }
+
     function isMod(msg) {
+        if (!msg) return false;
         if ([msg.mod, msg.moderator, msg.isMod, msg.isModerator, msg.is_mod, msg.broadcaster, msg.isBroadcaster, msg.admin, msg.host, msg.owner].some(v => v === true || v === 'true' || v === 1)) return true;
         const badges = JSON.stringify(msg.chatbadges ?? msg.badges ?? msg.membership ?? '').toLowerCase();
         if (/moderator|broadcaster|"mod"/.test(badges)) return true;
-        return data.settings.mods.includes(String(msg.chatname || '').toLowerCase());
+        const name = String(msg.chatname || msg.user || msg.username || msg.sender || '').toLowerCase().trim().replace(/^@/, '');
+        if (!name) return false;
+        const broadcaster = getBroadcaster();
+        if (broadcaster && name === broadcaster) return true;
+        if (data.settings.mods.includes(name)) return true;
+        if (getTwitchMods().includes(name)) return true;
+        return false;
     }
 
     function isSub(msg) {
+        if (!msg) return false;
+        if (isMod(msg)) return true;
         if ([msg.subscriber, msg.isSub, msg.isSubscriber, msg.is_subscriber, msg.member, msg.isMember, msg.hasMembership, msg.vip].some(v => v === true || v === 'true' || v === 1)) return true;
         if (/subscriber|member|founder|vip/i.test(String(msg.membership || ''))) return true;
-        return /subscriber|"sub"|member|founder|vip/.test(JSON.stringify(msg.chatbadges ?? msg.badges ?? '').toLowerCase());
+        if (/subscriber|"sub"|member|founder|vip/.test(JSON.stringify(msg.chatbadges ?? msg.badges ?? '').toLowerCase())) return true;
+        const name = String(msg.chatname || msg.user || msg.username || msg.sender || '').toLowerCase().trim().replace(/^@/, '');
+        if (name && getTwitchSubsAndVips().has(name)) return true;
+        return false;
     }
 
     const allowed = (access, msg) => access !== 'disabled' && (access === 'everyone' || isMod(msg) || (access === 'subs' && isSub(msg)));
@@ -498,7 +574,17 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
     }
 
     function snapshot() {
-        return { enabled: enabled(), ssnConfigured: !!sessionId() && !/YOUR_SSN/.test(sessionId()), settings: data.settings, commands: data.commands, quotes: data.quotes, messages: data.messages, triggers: data.triggers };
+        return {
+            enabled: enabled(),
+            ssnConfigured: !!sessionId() && !/YOUR_SSN/.test(sessionId()),
+            broadcaster: getBroadcaster(),
+            twitchMods: getTwitchModsDetails(),
+            settings: data.settings,
+            commands: data.commands,
+            quotes: data.quotes,
+            messages: data.messages,
+            triggers: data.triggers
+        };
     }
 
     // Returns true when the request was handled.
