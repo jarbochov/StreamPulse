@@ -47,6 +47,7 @@ const { createGoalsRoutes } = require('./server/routes/goals');
 const { createMusicRoutes } = require('./server/routes/music');
 const { createWeatherRoutes } = require('./server/routes/weather');
 const { createGamePlanRoutes } = require('./server/routes/game-plan');
+const { createTwitchRoutes } = require('./server/routes/twitch');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -2555,6 +2556,48 @@ function getChatterDossier(username) {
     };
 }
 
+const handleTwitchRoutes = createTwitchRoutes({
+    twitchService,
+    getTwitchClientId: () => TWITCH_CLIENT_ID,
+    getTwitchClientSecret: () => TWITCH_CLIENT_SECRET,
+    getBroadcasterId: () => BROADCASTER_ID,
+    getTwitchRedirectUri: () => TWITCH_REDIRECT_URI,
+    getTwitchScopes: () => TWITCH_SCOPES,
+    ensureToken,
+    startDeviceAuth,
+    pollDeviceAuth,
+    clearToken,
+    saveToken,
+    twitchTokenRequest,
+    fetchTwitchData,
+    fetchStreamInfo,
+    fetchViewerCount,
+    fetchTwitchPoll,
+    takeoverPages,
+    broadcastToOverlays,
+    getClipCandidates: () => clipCandidates,
+    setClipCandidates: (arr) => { clipCandidates = arr; },
+    resolveCandidateVodUrls,
+    addClipCandidate,
+    normalizeClipCandidateConfig,
+    getConfig: () => config,
+    configPath: CONFIG_PATH,
+    safeWriteFileSync,
+    applyRuntimeConfig,
+    backfillClipCandidates,
+    isSessionActive: () => sessionActive,
+    getChatData: () => chatData,
+    twitchCreateClip,
+    getTwitchAuthenticatedUserId,
+    twitchCreateClipFromVod,
+    saveClipCandidates,
+    dataDir: DATA_DIR,
+    getStatsData: () => statsData,
+    readJsonFileSafe,
+    subHistoryPath: SUB_HISTORY_PATH,
+    followerHistoryPath: FOLLOWER_HISTORY_PATH
+});
+
 const server = http.createServer(async (req, res) => {
     try {
         const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -2588,109 +2631,7 @@ const server = http.createServer(async (req, res) => {
     // Rate limiting
     if (checkRateLimit(req, res)) return;
 
-    // Auth endpoints
-    if (pathname === '/api/twitch/auth/status' && req.method === 'GET') {
-        await ensureToken();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-            connected: !!twitchService.getAccessToken(),
-            mode: TWITCH_CLIENT_SECRET ? 'own_app' : 'shared_device',
-            clientId: TWITCH_CLIENT_ID,
-            broadcasterConfigured: !!BROADCASTER_ID,
-            broadcasterSaved: twitchService.isBroadcasterSynced(),
-            scopes: twitchService.getTokenScopes()
-        }));
-        return;
-    }
-
-    if (pathname === '/api/twitch/auth/device/start' && req.method === 'POST') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        try {
-            const d = await startDeviceAuth();
-            res.end(JSON.stringify({ userCode: d.userCode, verificationUri: d.verificationUri, interval: d.interval, expiresAt: d.expiresAt }));
-        } catch (err) {
-            res.statusCode = 502;
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
-
-    if (pathname === '/api/twitch/auth/device/poll' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        try {
-            const d = await pollDeviceAuth();
-            res.end(JSON.stringify({ status: d.status, error: d.error || '', interval: d.interval, broadcasterSaved: twitchService.isBroadcasterSynced() }));
-        } catch (err) {
-            res.end(JSON.stringify({ status: 'pending', error: err.message }));
-        }
-        return;
-    }
-
-    if (pathname === '/api/twitch/auth/disconnect' && req.method === 'POST') {
-        clearToken();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true }));
-        return;
-    }
-
-    if (pathname === '/auth/twitch') {
-        if (!TWITCH_CLIENT_SECRET) {
-            res.writeHead(302, { Location: '/twitch-connect.html' });
-            res.end();
-            return;
-        }
-        const authUrl = `https://id.twitch.tv/oauth2/authorize?` +
-            `client_id=${TWITCH_CLIENT_ID}` +
-            `&redirect_uri=${encodeURIComponent(TWITCH_REDIRECT_URI)}` +
-            `&response_type=code` +
-            `&scope=${encodeURIComponent(TWITCH_SCOPES)}` +
-            `&force_verify=true` +
-            `&state=${encodeURIComponent(safeReturnPath(url.searchParams.get('return')))}`;
-        res.writeHead(302, { Location: authUrl });
-        res.end();
-        return;
-    }
-
-    if (pathname === '/auth/callback') {
-        const code = url.searchParams.get('code');
-        const error = url.searchParams.get('error');
-
-        if (error) {
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-            res.end(`<h1>Authorization denied</h1><p>${escapeHtml(error)}</p><p><a href="/auth/twitch">Try again</a></p>`);
-            return;
-        }
-
-        if (code) {
-            try {
-                const tokenData = await twitchTokenRequest({
-                    client_id: TWITCH_CLIENT_ID,
-                    client_secret: TWITCH_CLIENT_SECRET,
-                    code: code,
-                    grant_type: 'authorization_code',
-                    redirect_uri: TWITCH_REDIRECT_URI
-                });
-                saveToken(tokenData);
-                console.log('[Twitch] User authorized! Token saved.');
-                const returnTo = safeReturnPath(url.searchParams.get('state'));
-                res.writeHead(302, { Location: returnTo === '/' ? '/clips.html?reauthorized=1' : returnTo });
-                res.end();
-                fetchTwitchData();
-                fetchStreamInfo();
-                fetchViewerCount();
-                fetchTwitchPoll();
-            } catch (err) {
-                console.error('[Twitch] Auth callback error:', err.message);
-                res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
-                res.end(`<h1>Authorization failed</h1><p>${escapeHtml(err.message)}</p><p><a href="/auth/twitch">Try again</a></p>`);
-            }
-            return;
-        }
-
-        res.writeHead(400, { 'Content-Type': 'text/html' });
-        res.end('<h1>Missing authorization code</h1><p><a href="/auth/twitch">Try again</a></p>');
-        return;
-    }
+    if (await handleTwitchRoutes(req, res, url, pathname)) return;
 
     if (pathname === '/api/alerts' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -3353,48 +3294,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (pathname === '/api/fetch' || pathname === '/api/twitch/fetch-data') {
-        const result = await fetchTwitchData();
-        fetchStreamInfo();
-        fetchViewerCount();
-        fetchTwitchPoll();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: result?.error ? 'error' : 'ok', ...result }));
-        return;
-    }
 
-    if (pathname === '/api/polls/latest' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok', poll: twitchService.getLatestPoll() }));
-        return;
-    }
-
-    if (pathname === '/api/polls/test' && req.method === 'POST') {
-        const testPoll = {
-            id: `test-${Date.now()}`,
-            title: 'Which game should we play next?',
-            status: 'COMPLETED',
-            winner: 'Elden Ring',
-            winningVotes: 142,
-            winningPercent: 68,
-            totalVotes: 210,
-            choices: [
-                { id: '1', title: 'Elden Ring', votes: 142, percent: 68, channel_points_votes: 12, bits_votes: 0 },
-                { id: '2', title: 'Hollow Knight', votes: 45, percent: 21, channel_points_votes: 0, bits_votes: 0 },
-                { id: '3', title: 'Celeste', votes: 23, percent: 11, channel_points_votes: 0, bits_votes: 0 }
-            ],
-            duration: 300,
-            startedAt: new Date(Date.now() - 300000).toISOString(),
-            endedAt: new Date().toISOString()
-        };
-        twitchService.setLatestPoll(testPoll);
-        console.log(`[Twitch] Test poll triggered: "${testPoll.title}" — Winner: "${testPoll.winner}"`);
-        takeoverPages('poll-end', testPoll.title, 15000);
-        broadcastToOverlays('poll-update', testPoll);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok', poll: testPoll }));
-        return;
-    }
 
     if (pathname.startsWith('/api/variables') && await variablesStore.handleApi(req, res, pathname, readRequestBody)) return;
     if (pathname.startsWith('/api/chatbot') && await chatbot.handleApi(req, res, pathname, readRequestBody)) return;
@@ -3859,167 +3759,7 @@ const server = http.createServer(async (req, res) => {
 
     if (await handleGoalsRoutes(req, res, pathname)) return;
 
-    if (pathname === '/api/clip-candidates' && req.method === 'GET') {
-        const sessionFilter = url.searchParams.get('session');
-        const statusFilter = url.searchParams.get('status');
-        let result = clipCandidates;
-        if (sessionFilter) result = result.filter(candidate => candidate.session === sessionFilter);
-        if (statusFilter) result = result.filter(candidate => candidate.status === statusFilter);
-        result = await resolveCandidateVodUrls(result);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result.slice().reverse()));
-        return;
-    }
 
-    if (pathname === '/api/clip-candidates' && req.method === 'POST') {
-        try {
-            const payload = JSON.parse(await readRequestBody(req) || '{}');
-            const reason = String(payload.reason || 'manual-marker').trim().slice(0, 120);
-            const details = typeof payload.details === 'object' && payload.details !== null ? payload.details : {};
-            const candidate = addClipCandidate(reason || 'manual-marker', details, Number(payload.timestamp) || Date.now(), Number(payload.score) || 0.9);
-            if (!candidate) {
-                res.writeHead(409, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'A matching candidate was already recorded recently or there is no active session.' }));
-                return;
-            }
-            res.writeHead(201, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(candidate));
-        } catch (err) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
-
-    if (pathname === '/api/clip-candidates/config') {
-        if (req.method === 'GET') {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(normalizeClipCandidateConfig(config.clip_candidates)));
-            return;
-        }
-        if (req.method === 'PUT') {
-            try {
-                const payload = JSON.parse(await readRequestBody(req) || '{}');
-                const settings = normalizeClipCandidateConfig(payload);
-                const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-                current.clip_candidates = settings;
-                safeWriteFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
-                applyRuntimeConfig(current);
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify(settings));
-            } catch (err) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: err.message }));
-            }
-            return;
-        }
-    }
-
-    if (pathname === '/api/clip-candidates/backfill' && req.method === 'POST') {
-        try {
-            const payload = JSON.parse(await readRequestBody(req) || '{}');
-            const result = backfillClipCandidates(payload.rebuild === true);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ status: 'analyzed', ...result }));
-        } catch (err) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
-
-    if (pathname.startsWith('/api/clip-candidates/')) {
-        const segments = pathname.slice('/api/clip-candidates/'.length).split('/').filter(Boolean).map(decodeURIComponent);
-        const candidateId = segments[0];
-        const candidate = clipCandidates.find(item => item.id === candidateId);
-        if (!candidate) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Clip candidate not found' }));
-            return;
-        }
-
-        if (segments[1] === 'create' && req.method === 'POST') {
-            if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'Twitch credentials and broadcaster_id are required.' }));
-                return;
-            }
-            if (!(await ensureToken())) {
-                res.writeHead(401, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'Twitch authorization is required. Re-authorize StreamPulse for clip creation.' }));
-                return;
-            }
-
-            try {
-                const isLiveCandidate = sessionActive && candidate.sessionStartedAt === chatData.startedAt;
-                let vodCandidate = null;
-                if (!isLiveCandidate) {
-                    vodCandidate = (await resolveCandidateVodUrls([candidate]))[0];
-                    if (!vodCandidate?.vodId) {
-                        res.writeHead(409, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ error: 'No matching Twitch VOD was found for this candidate.' }));
-                        return;
-                    }
-                }
-
-                let result;
-                if (isLiveCandidate) {
-                    result = await twitchCreateClip();
-                } else {
-                    const editorId = await getTwitchAuthenticatedUserId();
-                    if (!editorId) {
-                        res.writeHead(401, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ error: 'Could not identify the authorized Twitch user for VOD clipping. Re-authorize StreamPulse and try again.' }));
-                        return;
-                    }
-                    const duration = Math.min(30, Math.max(5, vodCandidate.vodOffsetSeconds || 0));
-                    result = await twitchCreateClipFromVod(
-                        editorId,
-                        vodCandidate.vodId,
-                        vodCandidate.vodOffsetSeconds,
-                        duration,
-                        candidate.reason
-                    );
-                }
-                if (result.status !== 202 || !result.body.data?.[0]?.id) {
-                    const message = result.body.message || `Twitch clip creation failed (${result.status})`;
-                    candidate.status = 'failed';
-                    candidate.error = message;
-                    saveClipCandidates();
-                    res.writeHead(result.status === 403 ? 403 : 502, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: message, twitchStatus: result.status }));
-                    return;
-                }
-
-                const clip = result.body.data[0];
-                candidate.status = 'created';
-                candidate.clipId = clip.id;
-                candidate.editUrl = clip.edit_url || null;
-                candidate.viewUrl = `https://clips.twitch.tv/${encodeURIComponent(clip.id)}`;
-                candidate.createdAt = new Date().toISOString();
-                candidate.error = null;
-                saveClipCandidates();
-                console.log(`[Clips Beta] Twitch clip requested: ${clip.id}`);
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify(candidate));
-            } catch (err) {
-                candidate.status = 'failed';
-                candidate.error = err.message;
-                saveClipCandidates();
-                res.writeHead(502, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: err.message }));
-            }
-            return;
-        }
-
-        if (!segments[1] && req.method === 'DELETE') {
-            clipCandidates = clipCandidates.filter(item => item.id !== candidateId);
-            saveClipCandidates();
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ status: 'deleted' }));
-            return;
-        }
-    }
 
     if (pathname === '/api/reset') {
         resetChatData();
@@ -4240,54 +3980,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (pathname === '/api/subscribers/current' && req.method === 'GET') {
-        const subsPath = path.join(DATA_DIR, 'subs.json');
-        const current = readJsonFileSafe(subsPath, { data: [] })?.data || [];
-        const tenure = statsData.subTenure || {};
-        const rows = current.map(sub => {
-            const name = sub.user_name || sub.user_login || '';
-            const history = statsData.subscribers?.[name] || statsData.subscribers?.[sub.user_login] || {};
-            const firstSeen = history.firstSeen || null;
-            const days = firstSeen ? Math.max(1, Math.floor((Date.now() - new Date(firstSeen).getTime()) / 86400000) + 1) : null;
-            const months = (tenure[String(name).toLowerCase()] || tenure[String(sub.user_login || '').toLowerCase()] || {}).months || null;
-            return {
-                name, tier: sub.tier || '', plan: sub.plan_name || '', isGift: !!sub.is_gift,
-                gifter: sub.is_gift ? (sub.gifter_name || sub.gifter_login || 'Anonymous') : '',
-                tenureMonths: months, firstSeen, lastSeen: history.lastSeen || null, observedDays: days
-            };
-        }).filter(row => row.name).sort((a, b) => (b.tenureMonths || 0) - (a.tenureMonths || 0) || (b.observedDays || 0) - (a.observedDays || 0));
 
-        const gifters = {};
-        rows.filter(row => row.isGift).forEach(row => { gifters[row.gifter] = (gifters[row.gifter] || 0) + 1; });
-        const withTenure = rows.filter(row => row.tenureMonths);
-        const summary = {
-            total: rows.length,
-            unique: new Set(rows.map(row => row.name.toLowerCase())).size,
-            tiers: { '1000': rows.filter(r => String(r.tier) === '1000').length, '2000': rows.filter(r => String(r.tier) === '2000').length, '3000': rows.filter(r => String(r.tier) === '3000').length },
-            gifted: rows.filter(r => r.isGift).length,
-            tenureKnown: withTenure.length,
-            averageTenureMonths: withTenure.length ? Math.round(withTenure.reduce((sum, r) => sum + r.tenureMonths, 0) / withTenure.length * 10) / 10 : 0,
-            longestTenureMonths: withTenure.length ? Math.max(...withTenure.map(r => r.tenureMonths)) : 0,
-            topGifters: Object.entries(gifters).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10)
-        };
-        const snapshots = readJsonFileSafe(SUB_HISTORY_PATH, { snapshots: [] })?.snapshots || [];
-        let updatedAt = null;
-        try { updatedAt = fs.statSync(subsPath).mtime.toISOString(); } catch { /* no subs file yet */ }
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ updatedAt, summary, history: snapshots, subscribers: rows }));
-        return;
-    }
-
-    if (pathname === '/api/followers/current' && req.method === 'GET') {
-        const file = path.join(DATA_DIR, 'followers.json');
-        const rows = (readJsonFileSafe(file, { data: [] })?.data || []).map(f => ({ name: f.user_name || f.user_login || '', followedAt: f.followed_at || null })).filter(r => r.name);
-        const snapshots = readJsonFileSafe(FOLLOWER_HISTORY_PATH, { snapshots: [] })?.snapshots || [];
-        let updatedAt = null;
-        try { updatedAt = fs.statSync(file).mtime.toISOString(); } catch { /* none yet */ }
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ updatedAt, total: rows.length, history: snapshots, followers: rows }));
-        return;
-    }
 
     // Milestones & Streaks endpoint
     if (pathname === '/api/milestones' && req.method === 'GET') {
@@ -4369,19 +4062,6 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (pathname === '/api/vips' && req.method === 'GET') {
-        const vipsList = readJsonFileSafe(path.join(DATA_DIR, 'vips.json'), { data: [] })?.data || [];
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ total: vipsList.length, vips: vipsList }));
-        return;
-    }
-
-    if (pathname === '/api/moderators' && req.method === 'GET') {
-        const modsList = readJsonFileSafe(path.join(DATA_DIR, 'moderators.json'), { data: [] })?.data || [];
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ total: modsList.length, moderators: modsList }));
-        return;
-    }
 
     const mChatterNotes = pathname.match(/^\/api\/chatters\/([^/]+)\/notes$/);
     if (mChatterNotes && req.method === 'POST') {

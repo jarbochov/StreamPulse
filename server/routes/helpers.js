@@ -37,9 +37,19 @@ function sendError(res, error, statusCode = 400) {
     sendJson(res, { error: message }, statusCode);
 }
 
+function escapeHtml(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 module.exports = {
     readRequestBody,
     sendJson,
     sendText,
-    sendError
+    sendError,
+    escapeHtml
 };
