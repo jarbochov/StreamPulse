@@ -20,7 +20,7 @@
         .container { max-width: 1100px; margin: 0 auto; padding: 1.25rem 2rem 2.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
         
         .grid-2 { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(340px, 1.2fr); gap: 1.25rem; }
-        @media (max-width: 820px) { .grid-2 { grid-template-columns: 1fr; } }
+        @media (max-width: 860px) { .grid-2 { grid-template-columns: 1fr; } }
 
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem 1.4rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
         .card h2 { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 0.6rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
@@ -34,7 +34,7 @@
         .btn { padding: .5rem .95rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); font-size: .83rem; font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap; display: inline-flex; align-items: center; gap: .4rem; }
         .btn:hover { border-color: var(--accent); background: var(--accent-bg); }
         .btn.primary { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
-        .btn.small { padding: .25rem .55rem; font-size: .75rem; }
+        .btn.small { padding: .3rem .6rem; font-size: .75rem; }
         .meta-pill { font-size: .72rem; color: var(--text-muted); background: var(--bg-inset); border: 1px solid var(--border); padding: .15rem .45rem; border-radius: 999px; font-weight: 600; }
 
         /* The Big Spin Button */
@@ -44,28 +44,46 @@
             font-size: 1.25rem;
             font-weight: 800;
             color: #fff;
-            background: linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #f97316 100%);
+            background: var(--stage-gradient, linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #f97316 100%));
             border: none;
             border-radius: 12px;
             cursor: pointer;
-            box-shadow: 0 4px 20px rgba(168, 85, 247, 0.35);
+            box-shadow: 0 4px 20px var(--stage-glow, rgba(168, 85, 247, 0.35));
             transition: all .18s cubic-bezier(0.34, 1.56, 0.64, 1);
             text-shadow: 0 1px 2px rgba(0,0,0,0.25);
             display: flex;
             align-items: center;
             justify-content: center;
             gap: .6rem;
+            user-select: none;
         }
         .btn-chaos:hover:not(:disabled) {
             transform: scale(1.025);
-            box-shadow: 0 6px 26px rgba(236, 72, 153, 0.45);
-            filter: brightness(1.05);
+            box-shadow: 0 6px 26px var(--stage-glow, rgba(236, 72, 153, 0.45));
+            filter: brightness(1.08);
         }
         .btn-chaos:active:not(:disabled) { transform: scale(0.98); }
         .btn-chaos:disabled { opacity: 0.55; cursor: not-allowed; filter: grayscale(0.4); }
 
+        .overlay-spin-btn {
+            margin-top: 1.25rem;
+            padding: .75rem 1.6rem;
+            font-size: 1.1rem;
+            border-radius: 999px;
+            width: auto;
+            min-width: 200px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            z-index: 15;
+            cursor: pointer;
+        }
+
         /* Display Container (Shared between Admin Preview and OBS Overlay) */
         #display-stage {
+            --stage-accent: #a855f7;
+            --stage-indicator: #ec4899;
+            --stage-gradient: linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #f97316 100%);
+            --stage-glow: rgba(168, 85, 247, 0.35);
+
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -73,20 +91,21 @@
             position: relative;
             width: 100%;
             min-height: 380px;
-            background: rgba(15, 23, 42, 0.7);
+            background: rgba(15, 23, 42, 0.72);
             backdrop-filter: blur(8px);
             border: 1px solid var(--border);
             border-radius: 16px;
             padding: 1.5rem;
             overflow: hidden;
             box-shadow: 0 12px 36px rgba(0,0,0,0.25);
+            transition: all .25s ease;
         }
         body.overlay-mode #display-stage {
             background: rgba(15, 23, 42, 0.88);
-            border: 2px solid color-mix(in srgb, var(--accent) 50%, rgba(255,255,255,0.15));
+            border: 2px solid color-mix(in srgb, var(--stage-accent) 60%, rgba(255,255,255,0.2));
             width: min(580px, 94vw);
             min-height: 420px;
-            box-shadow: 0 16px 50px rgba(0,0,0,0.55);
+            box-shadow: 0 16px 50px rgba(0,0,0,0.6);
             margin: auto;
             transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
@@ -103,28 +122,39 @@
             height: 240px;
             position: relative;
             overflow: hidden;
-            background: rgba(0, 0, 0, 0.4);
-            border: 2px solid color-mix(in srgb, #a855f7 50%, var(--border));
+            background: rgba(0, 0, 0, 0.45);
+            border: 2px solid color-mix(in srgb, var(--stage-accent) 55%, var(--border));
             border-radius: 14px;
             box-shadow: inset 0 0 24px rgba(0,0,0,0.6);
             display: flex;
             flex-direction: column;
             justify-content: center;
+            transition: border-color .2s;
         }
+        .roller-box.tricky-suspense {
+            animation: suspensePulse 0.35s infinite alternate ease-in-out;
+            border-color: var(--stage-indicator) !important;
+        }
+        @keyframes suspensePulse {
+            0% { box-shadow: inset 0 0 24px rgba(0,0,0,0.6), 0 0 10px var(--stage-indicator); }
+            100% { box-shadow: inset 0 0 34px rgba(0,0,0,0.8), 0 0 26px var(--stage-indicator); }
+        }
+
         .roller-indicator {
             position: absolute;
             left: 0; right: 0; top: 50%;
             transform: translateY(-50%);
             height: 58px;
-            border-top: 2px solid #ec4899;
-            border-bottom: 2px solid #ec4899;
-            background: linear-gradient(90deg, rgba(236,72,153,0.12) 0%, rgba(168,85,247,0.18) 50%, rgba(236,72,153,0.12) 100%);
+            border-top: 2px solid var(--stage-indicator);
+            border-bottom: 2px solid var(--stage-indicator);
+            background: linear-gradient(90deg, color-mix(in srgb, var(--stage-indicator) 15%, transparent) 0%, color-mix(in srgb, var(--stage-accent) 22%, transparent) 50%, color-mix(in srgb, var(--stage-indicator) 15%, transparent) 100%);
             pointer-events: none;
             z-index: 2;
-            box-shadow: 0 0 18px rgba(236, 72, 153, 0.25);
+            box-shadow: 0 0 18px color-mix(in srgb, var(--stage-indicator) 30%, transparent);
+            transition: border-color .2s;
         }
-        .roller-indicator::before { content: '▶'; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #ec4899; font-size: .85rem; }
-        .roller-indicator::after { content: '◀'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: #ec4899; font-size: .85rem; }
+        .roller-indicator::before { content: '▶'; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--stage-indicator); font-size: .85rem; }
+        .roller-indicator::after { content: '◀'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--stage-indicator); font-size: .85rem; }
 
         .roller-list {
             list-style: none;
@@ -154,10 +184,10 @@
             font-size: 1.65rem;
             font-weight: 800;
             color: #fff;
-            background: linear-gradient(135deg, #fff 0%, #fed7aa 50%, #f472b6 100%);
+            background: linear-gradient(135deg, #fff 0%, #fed7aa 50%, var(--stage-indicator) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 24px rgba(236, 72, 153, 0.6);
+            text-shadow: 0 0 24px var(--stage-glow);
             transform: scale(1.08);
             z-index: 3;
         }
@@ -175,7 +205,7 @@
             width: 300px;
             height: 300px;
             border-radius: 50%;
-            box-shadow: 0 0 30px rgba(0,0,0,0.5), 0 0 15px rgba(168, 85, 247, 0.3);
+            box-shadow: 0 0 30px rgba(0,0,0,0.5), 0 0 15px var(--stage-glow);
         }
         .wheel-pointer {
             position: absolute;
@@ -185,7 +215,7 @@
             width: 0; height: 0;
             border-left: 14px solid transparent;
             border-right: 14px solid transparent;
-            border-top: 24px solid #f43f5e;
+            border-top: 24px solid var(--stage-indicator);
             filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
             z-index: 10;
             transition: transform 0.05s ease-out;
@@ -194,7 +224,7 @@
             position: absolute;
             width: 44px; height: 44px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            background: var(--stage-gradient);
             border: 3px solid #fff;
             box-shadow: 0 2px 8px rgba(0,0,0,0.5);
             display: flex;
@@ -222,7 +252,7 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: .08em;
-            color: #f472b6;
+            color: var(--stage-indicator);
             margin-bottom: .4rem;
         }
         .winner-name {
@@ -231,10 +261,10 @@
             letter-spacing: -0.02em;
             line-height: 1.2;
             color: #fff;
-            background: linear-gradient(135deg, #ffffff 0%, #fed7aa 40%, #f472b6 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #fed7aa 40%, var(--stage-indicator) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 2px 14px rgba(244, 114, 182, 0.5));
+            filter: drop-shadow(0 2px 14px var(--stage-glow));
             word-break: break-word;
             padding: 0 .5rem;
         }
@@ -274,20 +304,28 @@
                     <!-- Preset Selection Card -->
                     <div class="card">
                         <h2>
-                            <span>🎲 Choose Slices &amp; Presets</span>
+                            <span>🎲 Presets &amp; Choices</span>
                             <span id="choices-count-pill" class="meta-pill">0 choices</span>
                         </h2>
-                        
-                        <label class="f" style="margin-bottom:.75rem;">
-                            <span>Active Preset</span>
-                            <select id="preset-select">
-                                <option value="jackbox">🎮 Jackbox Party Games (60 Games)</option>
-                                <option value="chatters">👥 Active Stream Chatters (Current Session)</option>
-                                <option value="variables">📦 StreamPulse List Variable…</option>
-                                <option value="custom">✏️ Custom Choices (Paste / Type)</option>
-                            </select>
-                        </label>
 
+                        <!-- Preset Dropdown + Action Buttons -->
+                        <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:.75rem;">
+                            <label class="f">
+                                <span>Active Preset</span>
+                                <select id="preset-select"></select>
+                            </label>
+                            
+                            <div class="row" style="justify-content:space-between;gap:.4rem;">
+                                <div class="row" style="gap:.4rem;">
+                                    <button class="btn small primary" id="btn-save-preset" type="button" title="Save choices to this preset">💾 Save</button>
+                                    <button class="btn small" id="btn-new-preset" type="button" title="Create a new custom preset">＋ New</button>
+                                    <button class="btn small" id="btn-rename-preset" type="button" title="Rename active preset">✏️ Rename</button>
+                                </div>
+                                <button class="btn small" id="btn-delete-preset" type="button" title="Delete custom preset" style="color:#f43f5e;">🗑️ Delete</button>
+                            </div>
+                        </div>
+
+                        <!-- Variable picker (if selected) -->
                         <div id="var-picker-row" style="display:none;margin-bottom:.75rem;">
                             <label class="f">
                                 <span>Select List Variable</span>
@@ -295,20 +333,21 @@
                             </label>
                         </div>
 
+                        <!-- Choices Textarea -->
                         <label class="f">
-                            <span>Choices (one per line)</span>
-                            <textarea id="choices-textarea" rows="8" placeholder="Type choices here, one per line..."></textarea>
+                            <span>Choices List (one per line)</span>
+                            <textarea id="choices-textarea" rows="8" placeholder="Type or paste choices here, one per line..."></textarea>
                         </label>
 
                         <div class="row" style="margin-top:.75rem;justify-content:space-between;">
-                            <button class="btn small" id="btn-shuffle" type="button" title="Shuffle current choices">🔀 Shuffle</button>
-                            <button class="btn small" id="btn-reset-jackbox" type="button" title="Reset to Jackbox Games">↺ Reload Jackbox List</button>
+                            <button class="btn small" id="btn-shuffle" type="button" title="Shuffle choices order">🔀 Shuffle</button>
+                            <button class="btn small" id="btn-reload-preset" type="button" title="Revert to saved preset version">↺ Revert / Reload</button>
                         </div>
                     </div>
 
                     <!-- Spin Settings Card -->
                     <div class="card">
-                        <h2>⚙️ Display &amp; Sound Settings</h2>
+                        <h2>⚙️ Display, Theme &amp; Suspense</h2>
                         
                         <div class="row" style="margin-bottom:.75rem;">
                             <label class="f">
@@ -319,21 +358,87 @@
                                 </select>
                             </label>
                             <label class="f">
+                                <span>Spin Style &amp; Suspense</span>
+                                <select id="suspense-select">
+                                    <option value="normal">Smooth Deceleration (Normal)</option>
+                                    <option value="tricky">🎭 Tricky Fake-Out (Suspense Nudge!)</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div class="row" style="margin-bottom:.75rem;">
+                            <label class="f">
+                                <span>Color Theme</span>
+                                <select id="theme-select">
+                                    <option value="purple">💜 Purple Chaos (Default)</option>
+                                    <option value="rainbow">🌈 Vibrant Rainbow</option>
+                                    <option value="cyberpunk">⚡ Cyberpunk Neon</option>
+                                    <option value="gold">👑 Royal Gold &amp; Navy</option>
+                                    <option value="fire">🔥 Fire &amp; Magma</option>
+                                    <option value="midnight">🌌 Midnight Nebula</option>
+                                    <option value="matrix">🟢 Hacker Terminal</option>
+                                </select>
+                            </label>
+                            <label class="f">
                                 <span>Spin Duration (sec)</span>
                                 <input type="number" id="spin-duration" min="2" max="15" value="6">
                             </label>
                         </div>
 
-                        <div class="row" style="justify-content:space-between;margin-top:.5rem;">
-                            <label style="display:inline-flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer;font-weight:600;">
-                                <input type="checkbox" id="sound-enabled" checked> 🔊 Ticker &amp; Fanfare Audio
+                        <!-- Button Text Customization -->
+                        <div style="background:var(--bg-inset);border:1px solid var(--border);border-radius:8px;padding:.75rem;margin-bottom:.75rem;">
+                            <div class="row" style="margin-bottom:.4rem;">
+                                <label class="f" style="flex:1;">
+                                    <span>Spin Button Text Randomness</span>
+                                    <select id="btn-text-mode">
+                                        <option value="chaotic">🎲 Chaotic Random Phrases (Cycles on hover)</option>
+                                        <option value="static">📌 Fixed Custom Title</option>
+                                        <option value="custom">🌀 Custom Random Phrases (User pool)</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div id="btn-text-static-row" style="display:none;">
+                                <label class="f">
+                                    <span>Fixed Button Title</span>
+                                    <input type="text" id="btn-text-static" value="Pick Next Game!" placeholder="e.g. Pick Next Game!, Decide Fate!">
+                                </label>
+                            </div>
+                            <div id="btn-text-custom-row" style="display:none;">
+                                <label class="f">
+                                    <span>Custom Phrases Pool (comma or line separated)</span>
+                                    <input type="text" id="btn-text-custom" value="Let's Go!, Choose or Lose!, Destiny Speaks!, YOLO!" placeholder="Phrase 1, Phrase 2, Phrase 3...">
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Overlay Toggles & Auto-Dismiss -->
+                        <div class="row" style="margin-bottom:.75rem;">
+                            <label class="f" style="flex:1;">
+                                <span>⏱️ Auto-Dismiss on Stream (OBS)</span>
+                                <select id="autohide-select">
+                                    <option value="8">8 seconds (Recommended)</option>
+                                    <option value="5">5 seconds (Fast)</option>
+                                    <option value="15">15 seconds (Relaxed)</option>
+                                    <option value="30">30 seconds (Long)</option>
+                                    <option value="0">Never (Stay visible on stream)</option>
+                                </select>
                             </label>
+                        </div>
+                        <p class="muted" style="margin-top:-.4rem;margin-bottom:.75rem;font-size:.76rem;">
+                            💡 <b>What is Auto-Dismiss?</b> In OBS Studio, overlay stays completely invisible until spun, then auto-fades away after celebration so it doesn't block stream gameplay!
+                        </p>
+
+                        <div class="row" style="justify-content:space-between;margin-top:.4rem;padding-top:.4rem;border-top:1px solid var(--border);">
                             <label style="display:inline-flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer;font-weight:600;">
-                                <input type="checkbox" id="autohide-enabled" checked> ⏱️ Auto-dismiss on stream (8s)
+                                <input type="checkbox" id="sound-enabled" checked> 🔊 Audio (Ticks &amp; Fanfare)
+                            </label>
+                            <label style="display:inline-flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer;font-weight:600;" title="Renders a clickable spin button on the overlay for OBS Interact mode or touchscreens">
+                                <input type="checkbox" id="overlay-button-enabled"> 🔘 Show Button on Overlay
                             </label>
                         </div>
 
-                        <div style="margin-top:1.25rem;">
+                        <!-- Main Spin Action Button -->
+                        <div style="margin-top:1.2rem;">
                             <button class="btn-chaos" id="btn-spin" type="button">
                                 <span>🎲</span>
                                 <span id="btn-spin-text">Let Chaos Reign!</span>
@@ -351,7 +456,7 @@
                             <a id="btn-open-overlay" class="btn small" target="_blank" href="#">↗ Open</a>
                         </div>
                         <p class="muted" style="margin-top:.5rem;font-size:.78rem;">
-                            💡 <b>Pro-Tip</b>: Chatters or mods can trigger spins via chat using <code>!spin</code> or <code>!randomize</code>!
+                            💡 <b>Interact Mode</b>: In OBS Studio, right-click the Browser Source &rarr; <b>Interact</b> to click the overlay button directly!
                         </p>
                     </div>
                 </div>
@@ -397,6 +502,12 @@
                 <div class="winner-name" id="winner-text">Trivia Murder Party 2</div>
                 <div class="winner-sub" id="winner-sub">The timeline has shifted. Fate is sealed.</div>
             </div>
+
+            <!-- Optional Overlay Interactive Spin Button (for OBS Interact / Touchscreens) -->
+            <button id="overlay-spin-btn" class="btn-chaos overlay-spin-btn" type="button" style="display:none;">
+                <span>🎲</span>
+                <span id="overlay-spin-btn-text">Spin!</span>
+            </button>
         </div>
     </template>
 
@@ -405,24 +516,7 @@
     <script>
         const $ = id => document.getElementById(id);
         const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-        function toast(msg) { const t = $('toast'); if (!t) return; t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
-
-        const JACKBOX_GAMES = [
-            "Bidiots", "Blather Round", "Bomb Corp", "Bracketeering", "Champ'd Up",
-            "Civic Doodle", "Devils and the Details", "Dictionarium", "Dodo Re Mi",
-            "Drawful", "Drawful 2", "Drawful Dirty", "Drawful Animate", "Earwax",
-            "Fakin' It", "Fakin' It All Night Long", "Fibbage", "Fibbage 2", "Fibbage 3",
-            "Fibbage 4", "Fibbage XL", "FixyText", "Guesspionage", "Hypnotorious",
-            "Job Job", "Joke Boat", "Junktopia", "Let Me Finish", "Lie Swatter",
-            "Mad Verse City", "Monster Seeking Monster", "Nonsensory", "Patently Stupid",
-            "Push the Button", "Poll Mine", "Quiplash", "Quiplash 2", "Quiplash 3",
-            "Quiplash XL", "Quixort", "Rifftrax: the Game", "Role Models", "Roomerang",
-            "Split the Room", "Survey Scramble", "Survive the Internet", "Talking Points",
-            "Tee K.O.", "Tee K.O. 2", "Timejinx", "Trivia Murder Party", "Trivia Murder Party 2",
-            "Use Your Words", "Weapons Drawn", "Wheel of Enormous Proportions", "Word Spud",
-            "You Don't Know Jack 2015", "You Don't Know Jack Full Stream", "Zeeple Dome",
-            "What the Dub", "TOTAL RIGGING FACTOR"
-        ];
+        function toast(msg) { const t = $('toast'); if (!t) return; t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2400); }
 
         const RANDOM_LABELS = [
             "Let Chaos Reign!", "Shake It Up!", "Spin the Wheel of Destiny!",
@@ -441,6 +535,72 @@
             "Chaos reigns supreme once again."
         ];
 
+        const THEMES = {
+            purple: {
+                id: 'purple',
+                name: '💜 Purple Chaos (Default)',
+                accent: '#a855f7',
+                indicator: '#ec4899',
+                gradient: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #f97316 100%)',
+                glow: 'rgba(168, 85, 247, 0.4)',
+                slices: ['#a855f7', '#ec4899', '#f97316', '#eab308', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#d946ef']
+            },
+            rainbow: {
+                id: 'rainbow',
+                name: '🌈 Vibrant Rainbow',
+                accent: '#ef4444',
+                indicator: '#fbbf24',
+                gradient: 'linear-gradient(135deg, #ef4444 0%, #f97316 20%, #f59e0b 40%, #10b981 60%, #3b82f6 80%, #8b5cf6 100%)',
+                glow: 'rgba(239, 68, 68, 0.4)',
+                slices: ['#ef4444', '#f97316', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899']
+            },
+            cyberpunk: {
+                id: 'cyberpunk',
+                name: '⚡ Cyberpunk Neon',
+                accent: '#00f0ff',
+                indicator: '#ff007f',
+                gradient: 'linear-gradient(135deg, #00f0ff 0%, #ff007f 100%)',
+                glow: 'rgba(0, 240, 255, 0.45)',
+                slices: ['#00f0ff', '#ff007f', '#ffe600', '#7928ca', '#00ff66', '#ff003c']
+            },
+            gold: {
+                id: 'gold',
+                name: '👑 Royal Gold & Navy',
+                accent: '#fbbf24',
+                indicator: '#fbbf24',
+                gradient: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)',
+                glow: 'rgba(251, 191, 36, 0.4)',
+                slices: ['#fbbf24', '#d97706', '#b45309', '#f59e0b', '#fef3c7', '#78350f', '#eab308']
+            },
+            fire: {
+                id: 'fire',
+                name: '🔥 Fire & Magma',
+                accent: '#ef4444',
+                indicator: '#f59e0b',
+                gradient: 'linear-gradient(135deg, #ef4444 0%, #f97316 50%, #fbbf24 100%)',
+                glow: 'rgba(239, 68, 68, 0.45)',
+                slices: ['#ef4444', '#dc2626', '#b91c1c', '#f97316', '#ea580c', '#f59e0b']
+            },
+            midnight: {
+                id: 'midnight',
+                name: '🌌 Midnight Nebula',
+                accent: '#8b5cf6',
+                indicator: '#38bdf8',
+                gradient: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 50%, #06b6d4 100%)',
+                glow: 'rgba(139, 92, 246, 0.4)',
+                slices: ['#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9', '#06b6d4', '#14b8a6']
+            },
+            matrix: {
+                id: 'matrix',
+                name: '🟢 Hacker Terminal',
+                accent: '#10b981',
+                indicator: '#34d399',
+                gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                glow: 'rgba(16, 185, 129, 0.4)',
+                slices: ['#10b981', '#059669', '#047857', '#34d399', '#065f46', '#6ee7b7']
+            }
+        };
+
         // Synthesize Sound Effects via Web Audio API (zero audio files needed!)
         const AudioFX = {
             ctx: null,
@@ -454,7 +614,7 @@
                 }
             },
             tick(speed = 1) {
-                if (!$('sound-enabled')?.checked && isOverlay !== 'muted') return;
+                if (!$('sound-enabled')?.checked && isOverlay && params.get('sound') === '0') return;
                 try {
                     this.init();
                     if (!this.ctx) return;
@@ -471,7 +631,7 @@
                 } catch {}
             },
             fanfare() {
-                if (!$('sound-enabled')?.checked && isOverlay !== 'muted') return;
+                if (!$('sound-enabled')?.checked && isOverlay && params.get('sound') === '0') return;
                 try {
                     this.init();
                     if (!this.ctx) return;
@@ -561,8 +721,12 @@
         const params = new URLSearchParams(window.location.search);
         const isOverlay = params.get('overlay') === '1' || params.get('overlay') === 'true';
         let currentMode = params.get('mode') || 'roller'; // 'roller' or 'wheel'
-        let currentPreset = params.get('preset') || 'jackbox';
-        let choices = [...JACKBOX_GAMES];
+        let currentPresetId = params.get('preset') || 'jackbox';
+        let currentTheme = params.get('theme') || 'purple';
+        let currentSuspense = params.get('suspense') || 'normal';
+        let showOverlayButton = params.get('button') === '1';
+        let choices = [];
+        let presetsList = [];
         let isSpinning = false;
         let autohideTimer = null;
 
@@ -574,11 +738,45 @@
             document.body.appendChild(stageTpl.content.cloneNode(true));
             // In overlay mode, stage starts hidden until a spin arrives
             $('display-stage').classList.add('hidden-stage');
+            if (showOverlayButton) {
+                const btn = $('overlay-spin-btn');
+                if (btn) {
+                    btn.style.display = 'inline-flex';
+                    if (params.get('btnText')) $('overlay-spin-btn-text').textContent = params.get('btnText');
+                    btn.onclick = () => runSpin();
+                }
+            }
         } else {
             $('stage-wrapper').appendChild(stageTpl.content.cloneNode(true));
         }
 
         Confetti.init($('confetti-canvas'));
+        applyTheme(currentTheme);
+
+        function applyTheme(themeKey) {
+            currentTheme = themeKey;
+            const t = THEMES[themeKey] || THEMES.purple;
+            const stage = $('display-stage');
+            if (stage) {
+                stage.style.setProperty('--stage-accent', t.accent);
+                stage.style.setProperty('--stage-indicator', t.indicator);
+                stage.style.setProperty('--stage-gradient', t.gradient);
+                stage.style.setProperty('--stage-glow', t.glow);
+            }
+            const spinBtn = $('btn-spin');
+            if (spinBtn) {
+                spinBtn.style.background = t.gradient;
+                spinBtn.style.boxShadow = `0 4px 20px ${t.glow}`;
+            }
+            const overlayBtn = $('overlay-spin-btn');
+            if (overlayBtn) {
+                overlayBtn.style.background = t.gradient;
+                overlayBtn.style.boxShadow = `0 4px 20px ${t.glow}`;
+            }
+            const winnerHeader = document.querySelector('.winner-header');
+            if (winnerHeader) winnerHeader.style.color = t.indicator;
+            renderInitialState();
+        }
 
         // Choice Management
         function setChoices(newChoices) {
@@ -599,17 +797,46 @@
         function updateObsUrl() {
             if (!$('obs-url-input')) return;
             const mode = $('style-select')?.value || currentMode;
-            const preset = $('preset-select')?.value || currentPreset;
-            const autohide = $('autohide-enabled')?.checked ? '1' : '0';
-            const url = `${window.location.origin}/randomizer.html?overlay=1&mode=${encodeURIComponent(mode)}&preset=${encodeURIComponent(preset)}&autohide=${autohide}`;
+            const preset = currentPresetId || 'jackbox';
+            const theme = $('theme-select')?.value || currentTheme;
+            const suspense = $('suspense-select')?.value || currentSuspense;
+            const autohide = $('autohide-select')?.value || '8';
+            const showButton = $('overlay-button-enabled')?.checked ? '1' : '0';
+            const duration = $('spin-duration')?.value || '6';
+
+            let url = `${window.location.origin}/randomizer.html?overlay=1&mode=${encodeURIComponent(mode)}&preset=${encodeURIComponent(preset)}&theme=${encodeURIComponent(theme)}&suspense=${encodeURIComponent(suspense)}&autohide=${encodeURIComponent(autohide)}&duration=${encodeURIComponent(duration)}&button=${showButton}`;
+
+            const btnMode = $('btn-text-mode')?.value;
+            if (btnMode === 'static') {
+                const text = $('btn-text-static')?.value.trim();
+                if (text) url += `&btnText=${encodeURIComponent(text)}`;
+            }
+
             $('obs-url-input').value = url;
             if ($('btn-open-overlay')) $('btn-open-overlay').href = url;
+        }
+
+        function updateButtonLabel() {
+            if (!$('btn-spin-text')) return;
+            const mode = $('btn-text-mode')?.value || 'chaotic';
+            let label = 'Let Chaos Reign!';
+            if (mode === 'static') {
+                label = $('btn-text-static')?.value.trim() || 'Spin Now!';
+            } else if (mode === 'custom') {
+                const raw = $('btn-text-custom')?.value || '';
+                const pool = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+                if (pool.length) label = pool[Math.floor(Math.random() * pool.length)];
+            } else {
+                label = RANDOM_LABELS[Math.floor(Math.random() * RANDOM_LABELS.length)];
+            }
+            $('btn-spin-text').textContent = label;
+            if ($('overlay-spin-btn-text')) $('overlay-spin-btn-text').textContent = label;
         }
 
         // Visual Renders
         function renderInitialState() {
             const list = getChoices();
-            const mode = isOverlay ? currentMode : ($('style-select')?.value || 'roller');
+            const mode = isOverlay ? (params.get('mode') || currentMode) : ($('style-select')?.value || 'roller');
             
             $('winner-box').style.display = 'none';
 
@@ -631,7 +858,7 @@
             rollerList.innerHTML = '';
             const n = list.length || 1;
             for (let offset = -2; offset <= 2; offset++) {
-                const pos = (centerIdx + offset + n * 100) % n;
+                const pos = (centerIdx + offset + n * 1000) % n;
                 const li = document.createElement('li');
                 li.className = 'roller-item';
                 if (offset === 0) li.classList.add('primary');
@@ -655,10 +882,8 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const colors = [
-                '#a855f7', '#ec4899', '#f97316', '#eab308', 
-                '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#d946ef'
-            ];
+            const activeThemeObj = THEMES[currentTheme] || THEMES.purple;
+            const colors = activeThemeObj.slices;
 
             ctx.save();
             ctx.translate(cx, cy);
@@ -683,7 +908,7 @@
                 ctx.textAlign = 'right';
                 ctx.fillStyle = '#fff';
                 ctx.font = `bold ${Math.max(11, Math.min(18, 380 / n))}px -apple-system, system-ui, sans-serif`;
-                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowColor = 'rgba(0,0,0,0.55)';
                 ctx.shadowBlur = 4;
                 const label = list[i] || '';
                 ctx.fillText(label.slice(0, 24), radius - 18, 5);
@@ -693,10 +918,19 @@
             ctx.restore();
         }
 
-        // Execute Spin Animation
-        async function runSpin({ choices: list = getChoices(), winner = null, mode = (isOverlay ? currentMode : $('style-select')?.value), duration = 6 } = {}) {
+        // Execute Spin Animation (Supports Normal & Tricky Fake-Out Suspense)
+        async function runSpin({
+            choices: list = getChoices(),
+            winner = null,
+            mode = (isOverlay ? (params.get('mode') || currentMode) : $('style-select')?.value),
+            suspense = (isOverlay ? (params.get('suspense') || currentSuspense) : $('suspense-select')?.value),
+            theme = (isOverlay ? (params.get('theme') || currentTheme) : $('theme-select')?.value),
+            duration = (Number(isOverlay ? params.get('duration') : $('spin-duration')?.value) || 6)
+        } = {}) {
             if (isSpinning || !list.length) return;
             isSpinning = true;
+
+            if (theme && theme !== currentTheme) applyTheme(theme);
 
             clearTimeout(autohideTimer);
             if (isOverlay) {
@@ -704,6 +938,7 @@
             }
 
             if ($('btn-spin')) $('btn-spin').disabled = true;
+            if ($('overlay-spin-btn')) $('overlay-spin-btn').disabled = true;
             $('winner-box').style.display = 'none';
 
             // Pick winner index
@@ -721,6 +956,18 @@
             if (mode === 'roller') {
                 $('wheel-view').style.display = 'none';
                 $('roller-view').style.display = 'flex';
+                const rollerBox = $('roller-view');
+                rollerBox.classList.remove('tricky-suspense');
+
+                const isTricky = (suspense === 'tricky') && list.length > 3;
+                let targetIdx = winnerIdx;
+                let nudgeCount = 0;
+
+                if (isTricky) {
+                    // Pick 1, 2, or 3 slots past decoy
+                    nudgeCount = Math.floor(Math.random() * 3) + 1;
+                    targetIdx = (winnerIdx - nudgeCount + list.length * 1000) % list.length;
+                }
 
                 let idx = Math.floor(Math.random() * list.length);
                 const totalSteps = 45 + Math.floor(Math.random() * 15);
@@ -731,7 +978,7 @@
                     const elapsed = now - startAt;
                     const progress = Math.min(1, elapsed / totalDurationMs);
                     
-                    // Quintic ease out for super dramatic slowdown
+                    // Quintic ease out for dramatic slowdown
                     const ease = 1 - Math.pow(1 - progress, 4);
 
                     const targetStep = Math.floor(ease * totalSteps);
@@ -739,7 +986,7 @@
                         step = targetStep;
                         idx = (idx + 1) % list.length;
                         if (step === totalSteps) {
-                            idx = winnerIdx;
+                            idx = targetIdx;
                         }
                         renderRoller(idx, list);
                         AudioFX.tick(1 - progress * 0.5);
@@ -748,8 +995,32 @@
                     if (progress < 1) {
                         requestAnimationFrame(stepRoller);
                     } else {
-                        renderRoller(winnerIdx, list);
-                        finishSpin(winner);
+                        renderRoller(targetIdx, list);
+
+                        if (isTricky) {
+                            // Phase 2: Decoy Suspense Hold! (The Fake-Out)
+                            rollerBox.classList.add('tricky-suspense');
+                            // Hold for 650ms of tension where chat thinks the decoy won
+                            setTimeout(() => {
+                                let curNudge = 0;
+                                function doNudge() {
+                                    if (curNudge < nudgeCount) {
+                                        curNudge++;
+                                        idx = (idx + 1) % list.length;
+                                        renderRoller(idx, list);
+                                        AudioFX.tick(0.4);
+                                        setTimeout(doNudge, 240);
+                                    } else {
+                                        rollerBox.classList.remove('tricky-suspense');
+                                        renderRoller(winnerIdx, list);
+                                        finishSpin(winner);
+                                    }
+                                }
+                                doNudge();
+                            }, 650);
+                        } else {
+                            finishSpin(winner);
+                        }
                     }
                 }
                 requestAnimationFrame(stepRoller);
@@ -760,11 +1031,17 @@
 
                 const n = list.length;
                 const sliceRad = (Math.PI * 2) / n;
-                // Target angle: the top pointer is at -Math.PI / 2
-                // Slice i center is at angle (i * sliceRad + sliceRad/2)
-                const targetSliceCenter = winnerIdx * sliceRad + sliceRad / 2;
+                const isTricky = (suspense === 'tricky') && list.length > 3;
+                let targetIdx = winnerIdx;
+                let nudgeCount = 0;
+
+                if (isTricky) {
+                    nudgeCount = Math.floor(Math.random() * 3) + 1;
+                    targetIdx = (winnerIdx - nudgeCount + list.length * 1000) % list.length;
+                }
+
+                const targetSliceCenter = targetIdx * sliceRad + sliceRad / 2;
                 const extraSpins = 6 + Math.floor(Math.random() * 3);
-                // Rotate wheel so targetSliceCenter aligns with top (-Math.PI/2)
                 const totalRotation = extraSpins * Math.PI * 2 + ((Math.PI * 1.5 - targetSliceCenter) % (Math.PI * 2));
 
                 const startAt = performance.now();
@@ -794,7 +1071,32 @@
                         requestAnimationFrame(stepWheel);
                     } else {
                         drawWheel(totalRotation, list);
-                        finishSpin(winner);
+
+                        if (isTricky) {
+                            // Phase 2: Wheel Suspense Hold!
+                            setTimeout(() => {
+                                let curNudge = 0;
+                                function doWheelNudge() {
+                                    if (curNudge < nudgeCount) {
+                                        curNudge++;
+                                        const nudgeRot = totalRotation + curNudge * sliceRad;
+                                        drawWheel(nudgeRot, list);
+                                        AudioFX.tick(0.4);
+                                        const ptr = $('wheel-pointer');
+                                        if (ptr) {
+                                            ptr.style.transform = 'translateX(-50%) rotate(18deg)';
+                                            setTimeout(() => { ptr.style.transform = 'translateX(-50%) rotate(0deg)'; }, 60);
+                                        }
+                                        setTimeout(doWheelNudge, 240);
+                                    } else {
+                                        finishSpin(winner);
+                                    }
+                                }
+                                doWheelNudge();
+                            }, 650);
+                        } else {
+                            finishSpin(winner);
+                        }
                     }
                 }
                 requestAnimationFrame(stepWheel);
@@ -804,6 +1106,7 @@
         function finishSpin(winner) {
             isSpinning = false;
             if ($('btn-spin')) $('btn-spin').disabled = false;
+            if ($('overlay-spin-btn')) $('overlay-spin-btn').disabled = false;
             
             // Show winner
             $('winner-box').style.display = 'block';
@@ -814,50 +1117,223 @@
             Confetti.burst();
 
             if (isOverlay) {
-                const autohide = params.get('autohide') !== '0';
-                if (autohide) {
+                const autohideSec = Number(params.get('autohide') !== null ? params.get('autohide') : 8);
+                if (autohideSec > 0) {
                     autohideTimer = setTimeout(() => {
                         $('display-stage')?.classList.add('hidden-stage');
-                    }, 8500);
+                    }, autohideSec * 1000);
                 }
             }
         }
 
+        // Fetch presets from server & populate dropdown
+        async function fetchPresets() {
+            try {
+                const res = await fetch('/api/randomizer/presets').then(r => r.json());
+                if (res.presets && Array.isArray(res.presets)) {
+                    presetsList = res.presets;
+                    populatePresetsDropdown();
+                }
+            } catch (e) {
+                console.error('Failed to load presets:', e);
+            }
+        }
+
+        function populatePresetsDropdown() {
+            const sel = $('preset-select');
+            if (!sel) return;
+            sel.innerHTML = '';
+
+            const optCustom = document.createElement('optgroup');
+            optCustom.label = '💾 Saved Presets';
+
+            presetsList.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `🎮 ${p.name} (${p.choices?.length || 0} choices)`;
+                if (p.id === currentPresetId) opt.selected = true;
+                optCustom.appendChild(opt);
+            });
+            sel.appendChild(optCustom);
+
+            const optDynamic = document.createElement('optgroup');
+            optDynamic.label = '⚡ Dynamic Sources';
+
+            const optChat = document.createElement('option');
+            optChat.value = 'chatters';
+            optChat.textContent = '👥 Active Stream Chatters (Current Session)';
+            optDynamic.appendChild(optChat);
+
+            const optVar = document.createElement('option');
+            optVar.value = 'variables';
+            optVar.textContent = '📦 StreamPulse List Variable…';
+            optDynamic.appendChild(optVar);
+
+            const optScratch = document.createElement('option');
+            optScratch.value = 'scratch';
+            optScratch.textContent = '✏️ Custom / Unsaved List';
+            optDynamic.appendChild(optScratch);
+
+            sel.appendChild(optDynamic);
+
+            // Load selected preset choices
+            loadSelectedPreset();
+        }
+
+        function loadSelectedPreset() {
+            const selVal = $('preset-select')?.value || currentPresetId;
+            currentPresetId = selVal;
+            $('var-picker-row').style.display = selVal === 'variables' ? 'block' : 'none';
+
+            const matched = presetsList.find(p => p.id === selVal);
+            if (matched) {
+                setChoices(matched.choices || []);
+            } else if (selVal === 'chatters') {
+                loadChatters();
+            } else if (selVal === 'variables') {
+                loadVariables();
+            }
+            updateObsUrl();
+        }
+
+        async function loadChatters() {
+            try {
+                const res = await fetch('/api/randomizer/chatters').then(r => r.json());
+                if (res.chatters && res.chatters.length) {
+                    setChoices(res.chatters);
+                    toast(`Loaded ${res.chatters.length} active chatters!`);
+                } else {
+                    toast('No active chatters recorded in session yet.');
+                    setChoices(['(No active chatters yet)']);
+                }
+            } catch (e) { toast('Could not load chatters: ' + e.message); }
+        }
+
+        async function loadVariables() {
+            try {
+                const res = await fetch('/api/variables').then(r => r.json());
+                const lists = (res.variables || []).filter(v => v.type === 'list');
+                const sel = $('var-select');
+                sel.innerHTML = lists.length 
+                    ? lists.map(v => `<option value="${esc(v.name)}">${esc(v.name)} (${v.items?.length || 0} items)</option>`).join('')
+                    : '<option value="">(No list variables found)</option>';
+                if (lists.length) {
+                    setChoices(lists[0].items || []);
+                }
+                sel.onchange = () => {
+                    const chosen = lists.find(v => v.name === sel.value);
+                    if (chosen) setChoices(chosen.items || []);
+                };
+            } catch (e) { toast('Could not load variables'); }
+        }
+
         // Admin Event Listeners
         if (!isOverlay) {
-            setChoices(JACKBOX_GAMES);
+            fetchPresets();
 
-            $('preset-select').onchange = async () => {
-                const val = $('preset-select').value;
-                $('var-picker-row').style.display = val === 'variables' ? 'block' : 'none';
-                
-                if (val === 'jackbox') {
-                    setChoices(JACKBOX_GAMES);
-                } else if (val === 'chatters') {
-                    try {
-                        const res = await fetch('/api/randomizer/chatters').then(r => r.json());
-                        if (res.chatters && res.chatters.length) {
-                            setChoices(res.chatters);
-                            toast(`Loaded ${res.chatters.length} active chatters!`);
-                        } else {
-                            toast('No active chatters recorded in session yet.');
-                        }
-                    } catch (e) { toast('Could not load chatters: ' + e.message); }
-                } else if (val === 'variables') {
-                    loadVariables();
+            $('preset-select').onchange = () => {
+                loadSelectedPreset();
+            };
+
+            $('btn-new-preset').onclick = async () => {
+                const name = prompt('Enter a name for the new preset:', 'My Custom Choices');
+                if (!name || !name.trim()) return;
+                try {
+                    const res = await fetch('/api/randomizer/presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: name.trim(), choices: ['Choice 1', 'Choice 2', 'Choice 3'] })
+                    }).then(r => r.json());
+                    if (res.ok) {
+                        presetsList = res.presets;
+                        currentPresetId = res.preset.id;
+                        populatePresetsDropdown();
+                        $('preset-select').value = currentPresetId;
+                        setChoices(res.preset.choices);
+                        toast(`✓ Created preset "${res.preset.name}"!`);
+                    } else {
+                        toast('Error: ' + res.error);
+                    }
+                } catch (e) { toast('Failed to create preset: ' + e.message); }
+            };
+
+            $('btn-save-preset').onclick = async () => {
+                const currentChoices = getChoices();
+                if (!currentChoices.length) return toast('Cannot save empty preset!');
+                const selVal = $('preset-select').value;
+                const existing = presetsList.find(p => p.id === selVal);
+                let name = existing ? existing.name : 'Custom Preset';
+                let id = existing ? existing.id : null;
+
+                if (!existing) {
+                    name = prompt('Enter preset name:', 'My Custom Choices');
+                    if (!name) return;
                 }
-                updateObsUrl();
+
+                try {
+                    const res = await fetch('/api/randomizer/presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id, name, choices: currentChoices })
+                    }).then(r => r.json());
+                    if (res.ok) {
+                        presetsList = res.presets;
+                        currentPresetId = res.preset.id;
+                        populatePresetsDropdown();
+                        $('preset-select').value = currentPresetId;
+                        toast(`✓ Saved preset "${res.preset.name}"!`);
+                    } else {
+                        toast('Error: ' + res.error);
+                    }
+                } catch (e) { toast('Failed to save preset: ' + e.message); }
             };
 
-            $('style-select').onchange = () => {
-                renderInitialState();
-                updateObsUrl();
+            $('btn-rename-preset').onclick = async () => {
+                const selVal = $('preset-select').value;
+                const existing = presetsList.find(p => p.id === selVal);
+                if (!existing) return toast('Select a saved preset to rename!');
+                const newName = prompt('Enter new preset name:', existing.name);
+                if (!newName || !newName.trim()) return;
+
+                try {
+                    const res = await fetch('/api/randomizer/presets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: existing.id, name: newName.trim(), choices: existing.choices })
+                    }).then(r => r.json());
+                    if (res.ok) {
+                        presetsList = res.presets;
+                        populatePresetsDropdown();
+                        $('preset-select').value = existing.id;
+                        toast(`✓ Renamed to "${newName.trim()}"!`);
+                    }
+                } catch (e) { toast('Failed to rename: ' + e.message); }
             };
 
-            $('choices-textarea').oninput = () => {
-                const list = getChoices();
-                if ($('choices-count-pill')) $('choices-count-pill').textContent = `${list.length} choices`;
-                renderInitialState();
+            $('btn-delete-preset').onclick = async () => {
+                const selVal = $('preset-select').value;
+                const existing = presetsList.find(p => p.id === selVal);
+                if (!existing) return toast('Cannot delete built-in source');
+                if (!confirm(`Are you sure you want to delete preset "${existing.name}"?`)) return;
+
+                try {
+                    const res = await fetch('/api/randomizer/presets/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: existing.id })
+                    }).then(r => r.json());
+                    if (res.ok) {
+                        presetsList = res.presets;
+                        currentPresetId = 'jackbox';
+                        populatePresetsDropdown();
+                        toast(`✓ Deleted preset "${existing.name}"`);
+                    }
+                } catch (e) { toast('Failed to delete: ' + e.message); }
+            };
+
+            $('btn-reload-preset').onclick = () => {
+                loadSelectedPreset();
+                toast('↺ Reloaded preset choices!');
             };
 
             $('btn-shuffle').onclick = () => {
@@ -867,17 +1343,55 @@
                     [list[i], list[j]] = [list[j], list[i]];
                 }
                 setChoices(list);
-                toast('Choices shuffled!');
+                toast('🔀 Choices shuffled!');
             };
 
-            $('btn-reset-jackbox').onclick = () => {
-                $('preset-select').value = 'jackbox';
-                setChoices(JACKBOX_GAMES);
-                toast('Reset to Jackbox Games!');
+            $('style-select').onchange = () => {
+                renderInitialState();
+                updateObsUrl();
+            };
+
+            $('suspense-select').onchange = () => {
+                currentSuspense = $('suspense-select').value;
+                updateObsUrl();
+            };
+
+            $('theme-select').onchange = () => {
+                applyTheme($('theme-select').value);
+                updateObsUrl();
+            };
+
+            $('autohide-select').onchange = updateObsUrl;
+            $('spin-duration').oninput = updateObsUrl;
+            $('overlay-button-enabled').onchange = updateObsUrl;
+
+            $('btn-text-mode').onchange = () => {
+                const mode = $('btn-text-mode').value;
+                $('btn-text-static-row').style.display = mode === 'static' ? 'block' : 'none';
+                $('btn-text-custom-row').style.display = mode === 'custom' ? 'block' : 'none';
+                updateButtonLabel();
+                updateObsUrl();
+            };
+
+            $('btn-text-static').oninput = () => {
+                updateButtonLabel();
+                updateObsUrl();
+            };
+
+            $('btn-text-custom').oninput = () => {
+                updateButtonLabel();
+            };
+
+            $('choices-textarea').oninput = () => {
+                const list = getChoices();
+                if ($('choices-count-pill')) $('choices-count-pill').textContent = `${list.length} choices`;
+                renderInitialState();
             };
 
             $('btn-spin').onpointerenter = () => {
-                $('btn-spin-text').textContent = RANDOM_LABELS[Math.floor(Math.random() * RANDOM_LABELS.length)];
+                if ($('btn-text-mode').value === 'chaotic') {
+                    updateButtonLabel();
+                }
             };
 
             $('btn-spin').onclick = async () => {
@@ -885,18 +1399,29 @@
                 const list = getChoices();
                 if (!list.length) return toast('Please enter at least 1 choice!');
                 const mode = $('style-select').value;
+                const suspense = $('suspense-select').value;
+                const theme = $('theme-select').value;
                 const duration = Number($('spin-duration').value) || 6;
+                const autohide = Number($('autohide-select').value);
                 const winner = list[Math.floor(Math.random() * list.length)];
 
                 // Trigger locally in preview
-                runSpin({ choices: list, winner, mode, duration });
+                runSpin({ choices: list, winner, mode, suspense, theme, duration });
 
                 // Broadcast to OBS overlay via WebSocket / API
                 try {
                     await fetch('/api/randomizer/spin', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ choices: list, winner, mode, duration })
+                        body: JSON.stringify({
+                            choices: list,
+                            winner,
+                            mode,
+                            suspense,
+                            theme,
+                            duration,
+                            autohide
+                        })
                     });
                 } catch { /* offline preview */ }
             };
@@ -908,30 +1433,19 @@
                 }).catch(() => {});
             };
 
-            async function loadVariables() {
-                try {
-                    const res = await fetch('/api/variables').then(r => r.json());
-                    const lists = (res.variables || []).filter(v => v.type === 'list');
-                    const sel = $('var-select');
-                    sel.innerHTML = lists.length 
-                        ? lists.map(v => `<option value="${esc(v.name)}">${esc(v.name)} (${v.items?.length || 0} items)</option>`).join('')
-                        : '<option value="">(No list variables found)</option>';
-                    if (lists.length) {
-                        setChoices(lists[0].items || []);
-                    }
-                    sel.onchange = () => {
-                        const chosen = lists.find(v => v.name === sel.value);
-                        if (chosen) setChoices(chosen.items || []);
-                    };
-                } catch (e) { toast('Could not load variables'); }
-            }
-
             updateObsUrl();
         } else {
-            // Overlay Mode: handle query presets
-            if (currentPreset === 'jackbox') {
-                choices = [...JACKBOX_GAMES];
-            }
+            // Overlay Mode: fetch presets so if query specified ?preset=... it populates
+            fetch('/api/randomizer/presets').then(r => r.json()).then(res => {
+                if (res.presets) {
+                    presetsList = res.presets;
+                    const matched = presetsList.find(p => p.id === currentPresetId);
+                    if (matched) {
+                        choices = matched.choices || [];
+                        renderInitialState();
+                    }
+                }
+            }).catch(() => {});
             renderInitialState();
         }
 
@@ -946,10 +1460,13 @@
                         if (msg.type === 'randomizer-spin' && msg.data) {
                             const d = msg.data;
                             AudioFX.init();
+                            if (d.theme) applyTheme(d.theme);
                             runSpin({
                                 choices: d.choices || choices,
                                 winner: d.winner,
                                 mode: isOverlay ? (params.get('mode') || d.mode) : d.mode,
+                                suspense: d.suspense || currentSuspense,
+                                theme: d.theme || currentTheme,
                                 duration: d.duration || 6
                             });
                         }

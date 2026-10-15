@@ -67,6 +67,70 @@ const ASSET_CAPTIONS_PATH = path.join(DATA_DIR, 'asset-captions.json');
 const CUSTOM_OVERLAY_ASSETS_DIR = path.join(DATA_DIR, 'custom-overlay-assets');
 const CUSTOM_OVERLAY_HISTORY_DIR = path.join(DATA_DIR, 'custom-overlay-history');
 const CUSTOM_OVERLAY_HISTORY_LIMIT = 30;
+const RANDOMIZER_PRESETS_PATH = path.join(DATA_DIR, 'randomizer-presets.json');
+
+const DEFAULT_RANDOMIZER_PRESETS = [
+    {
+        id: 'jackbox',
+        name: 'Jackbox Party Games (60 Games)',
+        choices: [
+            "Bidiots", "Blather Round", "Bomb Corp", "Bracketeering", "Champ'd Up",
+            "Civic Doodle", "Devils and the Details", "Dictionarium", "Dodo Re Mi",
+            "Drawful", "Drawful 2", "Drawful Dirty", "Drawful Animate", "Earwax",
+            "Fakin' It", "Fakin' It All Night Long", "Fibbage", "Fibbage 2", "Fibbage 3",
+            "Fibbage 4", "Fibbage XL", "FixyText", "Guesspionage", "Hypnotorious",
+            "Job Job", "Joke Boat", "Junktopia", "Let Me Finish", "Lie Swatter",
+            "Mad Verse City", "Monster Seeking Monster", "Nonsensory", "Patently Stupid",
+            "Push the Button", "Poll Mine", "Quiplash", "Quiplash 2", "Quiplash 3",
+            "Quiplash XL", "Quixort", "Rifftrax: the Game", "Role Models", "Roomerang",
+            "Split the Room", "Survey Scramble", "Survive the Internet", "Talking Points",
+            "Tee K.O.", "Tee K.O. 2", "Timejinx", "Trivia Murder Party",
+            "Trivia Murder Party 2", "Use Your Words", "Weapons Drawn",
+            "Wheel of Enormous Proportions", "Word Spud", "You Don't Know Jack 2015",
+            "You Don't Know Jack Full Stream", "Zeeple Dome", "What the Dub"
+        ]
+    },
+    {
+        id: 'decision',
+        name: 'Quick Decision (Yes / No / Maybe)',
+        choices: [
+            "Yes, absolutely!", "No way", "Ask chat", "Spin again",
+            "Definitely yes", "Hard no", "Maybe later", "Roll a die"
+        ]
+    },
+    {
+        id: 'punishments',
+        name: 'Stream Challenges & Punishments',
+        choices: [
+            "10 Pushups / Situps", "Hydrate check (huge gulp)", "Chat picks next music track",
+            "Play next round one-handed", "Give a VIP/Sub badge shoutout", "No talking for 3 minutes",
+            "Switch camera angle / face cam zoom", "Sing a 15-second jingle"
+        ]
+    }
+];
+
+function loadRandomizerPresets() {
+    try {
+        if (fs.existsSync(RANDOMIZER_PRESETS_PATH)) {
+            const data = JSON.parse(fs.readFileSync(RANDOMIZER_PRESETS_PATH, 'utf8'));
+            if (Array.isArray(data) && data.length) return data;
+        }
+    } catch (e) {
+        console.error('[Randomizer] Error loading presets:', e.message);
+    }
+    safeWriteFileSync(RANDOMIZER_PRESETS_PATH, JSON.stringify(DEFAULT_RANDOMIZER_PRESETS, null, 2));
+    return DEFAULT_RANDOMIZER_PRESETS;
+}
+
+function saveRandomizerPresets(presets) {
+    try {
+        safeWriteFileSync(RANDOMIZER_PRESETS_PATH, JSON.stringify(presets, null, 2));
+        return true;
+    } catch (e) {
+        console.error('[Randomizer] Error saving presets:', e.message);
+        return false;
+    }
+}
 
 function safeWriteFileSync(targetPath, data) {
     const dir = path.dirname(targetPath);
@@ -6651,6 +6715,79 @@ const server = http.createServer(async (req, res) => {
     if (pathname.startsWith('/api/variables') && await variablesStore.handleApi(req, res, pathname, readRequestBody)) return;
     if (pathname.startsWith('/api/chatbot') && await chatbot.handleApi(req, res, pathname, readRequestBody)) return;
 
+    if (pathname === '/api/randomizer/presets' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, presets: loadRandomizerPresets() }));
+        return;
+    }
+
+    if (pathname === '/api/randomizer/presets' && req.method === 'POST') {
+        try {
+            const raw = await readRequestBody(req);
+            const body = JSON.parse(raw || '{}');
+            const name = String(body.name || '').trim();
+            if (!name) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Preset name is required' }));
+                return;
+            }
+            const choices = Array.isArray(body.choices)
+                ? body.choices.map(c => String(c).trim()).filter(Boolean)
+                : String(body.choices || '').split('\n').map(c => c.trim()).filter(Boolean);
+            if (!choices.length) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Preset choices cannot be empty' }));
+                return;
+            }
+
+            const presets = loadRandomizerPresets();
+            let presetId = body.id ? String(body.id).trim() : null;
+            let updatedPreset;
+            if (presetId) {
+                const idx = presets.findIndex(p => p.id === presetId);
+                if (idx !== -1) {
+                    presets[idx] = { ...presets[idx], name, choices, updatedAt: Date.now() };
+                    updatedPreset = presets[idx];
+                }
+            }
+            if (!updatedPreset) {
+                presetId = presetId || 'preset_' + Date.now();
+                updatedPreset = { id: presetId, name, choices, createdAt: Date.now() };
+                presets.push(updatedPreset);
+            }
+            saveRandomizerPresets(presets);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, preset: updatedPreset, presets }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if ((pathname.startsWith('/api/randomizer/presets/') && req.method === 'DELETE') ||
+        (pathname === '/api/randomizer/presets/delete' && req.method === 'POST')) {
+        try {
+            let idToDelete = '';
+            if (pathname.startsWith('/api/randomizer/presets/')) {
+                idToDelete = decodeURIComponent(pathname.slice('/api/randomizer/presets/'.length));
+            } else {
+                const raw = await readRequestBody(req);
+                const body = JSON.parse(raw || '{}');
+                idToDelete = body.id;
+            }
+            let presets = loadRandomizerPresets();
+            presets = presets.filter(p => p.id !== idToDelete);
+            saveRandomizerPresets(presets);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, presets }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
     if (pathname === '/api/randomizer/spin' && req.method === 'POST') {
         try {
             const raw = await readRequestBody(req);
@@ -6661,7 +6798,12 @@ const server = http.createServer(async (req, res) => {
                 choices,
                 winner,
                 mode: body.mode || 'roller',
+                suspense: body.suspense || 'normal', // 'normal' | 'tricky'
+                theme: body.theme || 'purple',
                 duration: Number(body.duration) || 6,
+                autohide: body.autohide !== undefined ? Number(body.autohide) : 8,
+                showButton: !!body.showButton,
+                buttonText: body.buttonText || '',
                 at: Date.now()
             };
             broadcastToOverlays('randomizer-spin', payload);
