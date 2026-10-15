@@ -18,6 +18,7 @@ const { createMusicService } = require('./server/services/music');
 const { createTimerService, DEFAULT_TIMER_SETTINGS, TIMER_EVENT_TYPES, formatTimerClock, parseDurationMs, sanitizeTimerId, normalizeTimerSettings, normalizeTimerHttpActions, buildTimerSnapshot } = require('./server/services/timers');
 const { createGoalsService, GOAL_TYPE_LABELS, GOAL_TYPES, GOAL_TRACKING_TYPES, GOAL_VIEWER_MODES, DEFAULT_COMMUNITY_WEIGHTS, DEFAULT_GOALS_CONFIG, sanitizeGoalId, normalizeGoalsConfig } = require('./server/services/goals');
 const { createViewerService, clampNumber, createEmptyViewerStats, normalizeViewerTrackingConfig, normalizeViewerStats, findSSNViewerCount } = require('./server/services/viewers');
+const { createTwitchService, DEFAULT_TWITCH_CLIENT_ID, DEFAULT_TWITCH_SCOPES, safeReturnPath } = require('./server/services/twitch');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -44,9 +45,10 @@ let BROADCASTER_NAME = cleanConfigValue(config.broadcaster_name);
 let EXCLUDE_USERS = (config.exclude_users || []).map(u => u.toLowerCase());
 let BANNED_USERS = (config.banned_users || []).map(u => u.toLowerCase());
 // Shared public Twitch app (device-code flow, no secret). Users can still supply their own client_id/client_secret.
-const DEFAULT_TWITCH_CLIENT_ID = 'gbe0673k90le0942bfhw7f7ko6t865';
 const TWITCH_CLIENT_ID = cleanConfigValue(config.twitch?.client_id) || DEFAULT_TWITCH_CLIENT_ID;
 const TWITCH_CLIENT_SECRET = cleanConfigValue(config.twitch?.client_secret);
+const TWITCH_SCOPES = DEFAULT_TWITCH_SCOPES;
+const TWITCH_REDIRECT_URI = config.twitch?.redirect_uri || `http://localhost:${PORT}/auth/callback`;
 const SSN_SESSION_ID = config.ssn?.session_id;
 const SSN_SERVER = config.ssn?.server || 'wss://io.socialstream.ninja';
 const REFRESH_MINUTES = config.twitch_refresh_minutes || 10;
@@ -945,48 +947,8 @@ function saveBannedHashtags() {
     fs.writeFileSync(BANNED_HASHTAGS_PATH, JSON.stringify([...bannedHashtags], null, 2));
 }
 
-let twitchAuthenticatedUserId = null;
-
-async function getTwitchAuthenticatedUserId() {
-    if (twitchAuthenticatedUserId) return twitchAuthenticatedUserId;
-    const result = await twitchApiRequest('/users');
-    twitchAuthenticatedUserId = result.status === 200 ? result.body.data?.[0]?.id || null : null;
-    return twitchAuthenticatedUserId;
-}
-
-function twitchCreateClipFromVod(editorId, vodId, vodOffset, duration = 30, title = 'StreamPulse highlight') {
-    return new Promise((resolve, reject) => {
-        const clipDuration = Math.min(60, Math.max(5, Math.round(Number(duration) || 30)));
-        const offset = Math.max(clipDuration, Math.round(Number(vodOffset) || 0));
-        const query = new URLSearchParams({
-            editor_id: editorId,
-            broadcaster_id: BROADCASTER_ID,
-            vod_id: vodId,
-            vod_offset: String(offset),
-            duration: String(clipDuration),
-            title: String(title || 'StreamPulse highlight').slice(0, 140)
-        }).toString();
-        const req = https.request(`https://api.twitch.tv/helix/videos/clips?${query}`, {
-            method: 'POST',
-            headers: {
-                'Client-ID': TWITCH_CLIENT_ID,
-                'Authorization': `Bearer ${twitchAccessToken}`,
-            }
-        }, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                try {
-                    resolve({ status: res.statusCode, body: JSON.parse(data || '{}') });
-                } catch {
-                    reject(new Error(`Twitch VOD clip API parse error: ${data.substring(0, 200)}`));
-                }
-            });
-        });
-        req.on('error', reject);
-        req.end();
-    });
-}
+const getTwitchAuthenticatedUserId = () => twitchService.getTwitchAuthenticatedUserId();
+const twitchCreateClipFromVod = (editorId, vodId, vodOffset, duration, title) => twitchService.twitchCreateClipFromVod(editorId, vodId, vodOffset, duration, title);
 
 // ============================================================================
 // HIGHLIGHTS (Pin/Unpin chat messages)
@@ -1430,6 +1392,48 @@ function saveRuntimeConfigSection(updater) {
     return current;
 }
 
+const twitchService = createTwitchService({
+    dataDir: DATA_DIR,
+    getClientId: () => TWITCH_CLIENT_ID,
+    getClientSecret: () => TWITCH_CLIENT_SECRET,
+    getBroadcasterId: () => BROADCASTER_ID,
+    getBroadcasterName: () => BROADCASTER_NAME,
+    getRedirectUri: () => TWITCH_REDIRECT_URI,
+    getChatData: () => chatData,
+    readJsonFileSafe,
+    safeWriteFileSync,
+    onBroadcasterSynced: async (user) => {
+        const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+        current.broadcaster_id = user.id;
+        if (!cleanConfigValue(current.broadcaster_name)) current.broadcaster_name = user.login;
+        BROADCASTER_ID = user.id;
+        if (!BROADCASTER_NAME) BROADCASTER_NAME = user.login;
+        safeWriteFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
+    },
+    onStreamInfoChange: (category) => refreshGameInfo(category),
+    onPollUpdate: (pollData) => broadcastToOverlays('poll-update', pollData),
+    onTakeover: (action, title, duration) => takeoverPages(action, title, duration),
+    onViewerCountUpdate: () => fetchViewerCount()
+});
+const loadStoredToken = () => twitchService.loadStoredToken();
+const saveToken = (tokenData) => twitchService.saveToken(tokenData);
+const clearToken = () => twitchService.clearToken();
+const refreshTwitchToken = () => twitchService.refreshTwitchToken();
+const ensureToken = () => twitchService.ensureToken();
+const startDeviceAuth = () => twitchService.startDeviceAuth();
+const pollDeviceAuth = () => twitchService.pollDeviceAuth();
+const syncBroadcasterFromToken = () => twitchService.syncBroadcasterFromToken();
+const twitchTokenRequest = (body) => twitchService.twitchTokenRequest(body);
+const twitchApiRequest = (endpoint, params) => twitchService.twitchApiRequest(endpoint, params);
+const twitchApiRequestOnce = (endpoint, params) => twitchService.twitchApiRequestOnce(endpoint, params);
+const twitchCreateClip = () => twitchService.twitchCreateClip();
+const fetchAllPages = (endpoint, params, dataKey, strict) => twitchService.fetchAllPages(endpoint, params, dataKey, strict);
+const fetchTwitchData = () => twitchService.fetchTwitchData();
+const fetchStreamInfo = () => twitchService.fetchStreamInfo();
+const fetchTwitchPoll = () => twitchService.fetchTwitchPoll();
+const recordFollowerSnapshot = (followers) => twitchService.recordFollowerSnapshot(followers);
+const recordSubSnapshot = (subs) => twitchService.recordSubSnapshot(subs);
+
 const viewerService = createViewerService({
     getConfig: () => config,
     getChatData: () => chatData,
@@ -1550,546 +1554,7 @@ if (!fs.existsSync(CUSTOM_OVERLAY_ASSETS_DIR)) {
     fs.mkdirSync(CUSTOM_OVERLAY_ASSETS_DIR, { recursive: true });
 }
 
-// ============================================================================
-// TWITCH OAUTH (User Token via Authorization Code Flow)
-// ============================================================================
 
-const TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips channel:read:polls channel:read:vips moderation:read';
-const TWITCH_REDIRECT_URI = config.twitch?.redirect_uri || `http://localhost:${PORT}/auth/callback`;
-const TOKEN_PATH = path.join(DATA_DIR, '.twitch-token.json');
-
-let twitchAccessToken = null;
-let twitchRefreshToken = null;
-let twitchTokenExpiry = 0;
-let twitchTokenScopes = [];
-
-function loadStoredToken() {
-    try {
-        if (fs.existsSync(TOKEN_PATH)) {
-            const stored = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
-            twitchAccessToken = stored.access_token;
-            twitchRefreshToken = stored.refresh_token;
-            twitchTokenExpiry = stored.expires_at || 0;
-            twitchTokenScopes = Array.isArray(stored.scope) ? stored.scope : [];
-            if (stored.client_id && stored.client_id !== TWITCH_CLIENT_ID) {
-                console.warn('[Twitch] Stored token belongs to a different Twitch app — reconnect required');
-                twitchAccessToken = null; twitchRefreshToken = null; twitchTokenExpiry = 0; twitchTokenScopes = [];
-                return false;
-            }
-            console.log('[Twitch] Loaded stored token');
-            return true;
-        }
-    } catch { /* ignore */ }
-    return false;
-}
-
-function saveToken(tokenData) {
-    twitchAccessToken = tokenData.access_token;
-    twitchRefreshToken = tokenData.refresh_token;
-    twitchTokenExpiry = Date.now() + (tokenData.expires_in * 1000) - 60000;
-    if (Array.isArray(tokenData.scope)) twitchTokenScopes = tokenData.scope;
-    safeWriteFileSync(TOKEN_PATH, JSON.stringify({
-        access_token: twitchAccessToken,
-        refresh_token: twitchRefreshToken,
-        expires_at: twitchTokenExpiry,
-        scope: twitchTokenScopes,
-        client_id: TWITCH_CLIENT_ID
-    }));
-}
-
-function twitchTokenRequest(body) {
-    return new Promise((resolve, reject) => {
-        const postData = new URLSearchParams(body).toString();
-        const req = https.request('https://id.twitch.tv/oauth2/token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Content-Length': Buffer.byteLength(postData)
-            }
-        }, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                try {
-                    const json = JSON.parse(data);
-                    if (json.access_token) {
-                        resolve(json);
-                    } else {
-                        reject(new Error(`Token error: ${data}`));
-                    }
-                } catch {
-                    reject(new Error(`Token parse error: ${data.substring(0, 200)}`));
-                }
-            });
-        });
-        req.on('error', reject);
-        req.write(postData);
-        req.end();
-    });
-}
-
-// Twitch rotates the refresh token on every use, so overlapping refreshes would invalidate each other. Share one in-flight call.
-let refreshInFlight = null;
-function refreshTwitchToken() {
-    if (!twitchRefreshToken) return Promise.resolve(false);
-    if (!refreshInFlight) refreshInFlight = doRefreshTwitchToken().finally(() => { refreshInFlight = null; });
-    return refreshInFlight;
-}
-async function doRefreshTwitchToken() {
-    const used = twitchRefreshToken;
-    try {
-        const refreshBody = { client_id: TWITCH_CLIENT_ID, grant_type: 'refresh_token', refresh_token: used };
-        if (TWITCH_CLIENT_SECRET) refreshBody.client_secret = TWITCH_CLIENT_SECRET;
-        const tokenData = await twitchTokenRequest(refreshBody);
-        saveToken(tokenData);
-        console.log('[Twitch] Token refreshed, expires in', Math.round(tokenData.expires_in / 60), 'minutes');
-        return true;
-    } catch (err) {
-        console.error('[Twitch] Token refresh failed:', err.message);
-        // Only a rejection from Twitch means the token is dead; network errors keep it for the next try.
-        // Skip the wipe if a newer token was saved while this call was failing (e.g. a fresh re-auth).
-        if (twitchRefreshToken === used && /invalid refresh token|invalid_grant|Invalid refresh|"status":40[01]/i.test(err.message)) {
-            twitchAccessToken = null;
-            twitchRefreshToken = null;
-            try { fs.unlinkSync(TOKEN_PATH); } catch { /* ignore */ }
-        }
-        return false;
-    }
-}
-
-// Only allow same-site relative paths as post-auth redirect targets
-function safeReturnPath(value) {
-    const v = String(value || '');
-    return /^\/(?!\/)[\w\-./?=&%]*$/.test(v) ? v : '/';
-}
-
-// Device code grant flow (works for public Twitch apps with no client secret)
-let deviceAuth = null;
-
-function twitchFormPost(url, body) {
-    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body) })
-        .then(async r => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) }));
-}
-
-async function startDeviceAuth() {
-    const r = await twitchFormPost('https://id.twitch.tv/oauth2/device', { client_id: TWITCH_CLIENT_ID, scopes: TWITCH_SCOPES });
-    if (!r.ok || !r.data.device_code) throw new Error(r.data.message || `Twitch device request failed (${r.status})`);
-    deviceAuth = {
-        deviceCode: r.data.device_code,
-        userCode: r.data.user_code,
-        verificationUri: r.data.verification_uri,
-        interval: Math.max(1, r.data.interval || 5),
-        expiresAt: Date.now() + (r.data.expires_in || 1800) * 1000,
-        nextPollAt: Date.now() + Math.max(1, r.data.interval || 5) * 1000,
-        status: 'pending',
-        error: ''
-    };
-    return deviceAuth;
-}
-
-async function pollDeviceAuth() {
-    if (!deviceAuth) return { status: 'idle' };
-    if (deviceAuth.status !== 'pending') return deviceAuth;
-    if (Date.now() > deviceAuth.expiresAt) { deviceAuth.status = 'expired'; return deviceAuth; }
-    // Never hit Twitch faster than its polling interval, however often clients ask
-    if (Date.now() < deviceAuth.nextPollAt) return deviceAuth;
-    deviceAuth.nextPollAt = Date.now() + deviceAuth.interval * 1000;
-    const r = await twitchFormPost('https://id.twitch.tv/oauth2/token', {
-        client_id: TWITCH_CLIENT_ID,
-        scopes: TWITCH_SCOPES,
-        device_code: deviceAuth.deviceCode,
-        grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
-    });
-    if (r.ok && r.data.access_token) {
-        saveToken(r.data);
-        deviceAuth.status = 'authorized';
-        await syncBroadcasterFromToken();
-        fetchTwitchData(); fetchStreamInfo(); fetchViewerCount(); fetchTwitchPoll();
-    } else if (/authorization_pending/i.test(r.data.message || '')) {
-        // still waiting for the user to approve
-    } else if (/slow_down/i.test(r.data.message || '')) {
-        deviceAuth.interval += 5;
-        deviceAuth.nextPollAt = Date.now() + deviceAuth.interval * 1000;
-    } else {
-        deviceAuth.status = /expired|invalid device/i.test(r.data.message || '') ? 'expired' : 'error';
-        deviceAuth.error = r.data.message || `Twitch error (${r.status})`;
-    }
-    return deviceAuth;
-}
-
-// Fills in broadcaster_id / broadcaster_name from the authorized account when config.json has none
-let broadcasterSyncedFromToken = false;
-async function syncBroadcasterFromToken() {
-    try {
-        const r = await fetch('https://api.twitch.tv/helix/users', { headers: { 'Client-ID': TWITCH_CLIENT_ID, Authorization: `Bearer ${twitchAccessToken}` } });
-        const user = (await r.json()).data?.[0];
-        if (!user) return;
-        if (!BROADCASTER_ID) {
-            const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-            current.broadcaster_id = user.id;
-            if (!cleanConfigValue(current.broadcaster_name)) current.broadcaster_name = user.login;
-            BROADCASTER_ID = user.id;
-            if (!BROADCASTER_NAME) BROADCASTER_NAME = user.login;
-            safeWriteFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
-            broadcasterSyncedFromToken = true;
-            console.log(`[Twitch] Saved broadcaster ${user.login} (${user.id}) to config.json`);
-        }
-    } catch (err) { console.warn('[Twitch] Could not look up broadcaster:', err.message); }
-}
-
-async function ensureToken() {
-    if (twitchAccessToken && Date.now() < twitchTokenExpiry) return true;
-    if (twitchRefreshToken) return await refreshTwitchToken();
-    return false;
-}
-
-// ============================================================================
-// TWITCH API HELPERS
-// ============================================================================
-
-// A 401 means the access token was revoked or expired early, so refresh once and replay.
-// Missing-scope errors cannot be fixed by refreshing (refreshed tokens keep the same scopes).
-async function twitchApiRequest(endpoint, params = {}) {
-    const result = await twitchApiRequestOnce(endpoint, params);
-    const isMissingScope = /missing scope|scope/i.test(result.body?.message || '');
-    if (result.status === 401 && !isMissingScope && twitchRefreshToken && await refreshTwitchToken()) {
-        return twitchApiRequestOnce(endpoint, params);
-    }
-    return result;
-}
-
-function twitchApiRequestOnce(endpoint, params = {}) {
-    return new Promise((resolve, reject) => {
-        const query = new URLSearchParams(params).toString();
-        const url = `https://api.twitch.tv/helix${endpoint}${query ? '?' + query : ''}`;
-
-        const req = https.request(url, {
-            headers: {
-                'Client-ID': TWITCH_CLIENT_ID,
-                'Authorization': `Bearer ${twitchAccessToken}`
-            }
-        }, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                try {
-                    resolve({ status: res.statusCode, body: JSON.parse(data) });
-                } catch {
-                    reject(new Error(`Twitch API parse error: ${data.substring(0, 200)}`));
-                }
-            });
-        });
-        req.on('error', reject);
-        req.end();
-    });
-}
-
-function twitchCreateClip() {
-    return new Promise((resolve, reject) => {
-        const query = new URLSearchParams({ broadcaster_id: BROADCASTER_ID }).toString();
-        const req = https.request(`https://api.twitch.tv/helix/clips?${query}`, {
-            method: 'POST',
-            headers: {
-                'Client-ID': TWITCH_CLIENT_ID,
-                'Authorization': `Bearer ${twitchAccessToken}`
-            }
-        }, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                try {
-                    resolve({ status: res.statusCode, body: JSON.parse(data || '{}') });
-                } catch {
-                    reject(new Error(`Twitch clip API parse error: ${data.substring(0, 200)}`));
-                }
-            });
-        });
-        req.on('error', reject);
-        req.end();
-    });
-}
-
-// ============================================================================
-// TWITCH DATA FETCHER
-// ============================================================================
-
-async function fetchAllPages(endpoint, params, dataKey = 'data', strict = false) {
-    const allData = [];
-    let cursor = null;
-
-    do {
-        const queryParams = { ...params, first: '100' };
-        if (cursor) queryParams.after = cursor;
-
-        const result = await twitchApiRequest(endpoint, queryParams);
-        if (result.status !== 200) {
-            console.error(`[Twitch] ${endpoint} returned ${result.status}:`, JSON.stringify(result.body).substring(0, 200));
-            if (strict) throw new Error(`${endpoint} returned ${result.status}`);
-            break;
-        }
-
-        const pageData = result.body[dataKey] || [];
-        allData.push(...pageData);
-        cursor = result.body.pagination?.cursor || null;
-    } while (cursor);
-
-    return allData;
-}
-
-// One follower snapshot per day (last refresh wins), with who joined and left since the previous fetch
-const FOLLOWER_HISTORY_PATH = path.join(DATA_DIR, 'follower-history.json');
-function recordFollowerSnapshot(followers) {
-    try {
-        const history = readJsonFileSafe(FOLLOWER_HISTORY_PATH, { snapshots: [], ids: [] }) || { snapshots: [], ids: [] };
-        const snapshots = Array.isArray(history.snapshots) ? history.snapshots : [];
-        const previous = new Set(Array.isArray(history.ids) ? history.ids : []);
-        const ids = [...new Set(followers.map(f => String(f.user_id || f.user_login || '')).filter(Boolean))];
-        const idSet = new Set(ids);
-        const now = new Date();
-        const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        const had = previous.size > 0;
-        const entry = { date, total: ids.length, joined: had ? ids.filter(id => !previous.has(id)).length : 0, left: had ? [...previous].filter(id => !idSet.has(id)).length : 0 };
-        const last = snapshots[snapshots.length - 1];
-        if (last && last.date === date) { entry.joined += last.joined || 0; entry.left += last.left || 0; snapshots[snapshots.length - 1] = entry; }
-        else snapshots.push(entry);
-        fs.writeFileSync(FOLLOWER_HISTORY_PATH, JSON.stringify({ snapshots: snapshots.slice(-730), ids }));
-    } catch (err) { console.warn('[Twitch] Could not record follower snapshot:', err.message); }
-}
-
-// One snapshot per day (last refresh wins) so the analytics page can chart subscriber growth and churn
-const SUB_HISTORY_PATH = path.join(DATA_DIR, 'sub-history.json');
-
-function recordSubSnapshot(subs) {
-    try {
-        const history = readJsonFileSafe(SUB_HISTORY_PATH, { snapshots: [], ids: [] }) || { snapshots: [], ids: [] };
-        const snapshots = Array.isArray(history.snapshots) ? history.snapshots : [];
-        const previousIds = new Set(Array.isArray(history.ids) ? history.ids : []);
-        const ids = [...new Set(subs.map(sub => String(sub.user_id || sub.user_login || '')).filter(Boolean))];
-        const now = new Date();
-        const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        const tiers = tier => subs.filter(sub => String(sub.tier) === tier).length;
-        const hadHistory = previousIds.size > 0;
-        const joined = hadHistory ? ids.filter(id => !previousIds.has(id)).length : 0;
-        const left = hadHistory ? [...previousIds].filter(id => !ids.includes(id)).length : 0;
-        const entry = { date, total: subs.length, unique: ids.length, t1: tiers('1000'), t2: tiers('2000'), t3: tiers('3000'), gifted: subs.filter(sub => sub.is_gift).length, joined, left };
-        const last = snapshots[snapshots.length - 1];
-        if (last && last.date === date) {
-            entry.joined += last.joined || 0;
-            entry.left += last.left || 0;
-            snapshots[snapshots.length - 1] = entry;
-        } else {
-            snapshots.push(entry);
-        }
-        fs.writeFileSync(SUB_HISTORY_PATH, JSON.stringify({ snapshots: snapshots.slice(-730), ids }));
-    } catch (err) {
-        console.warn('[Twitch] Could not record subscriber snapshot:', err.message);
-    }
-}
-
-async function fetchTwitchData() {
-    if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) {
-        console.warn('[Twitch] Missing credentials or broadcaster_id in config.json — skipping Twitch fetch');
-        return { error: 'Missing Twitch credentials' };
-    }
-
-    const hasToken = await ensureToken();
-    if (!hasToken) {
-        console.warn(`[Twitch] No user token — visit http://localhost:${PORT}/auth/twitch to authorize`);
-        return { error: 'Twitch is not connected. Reconnect it.' };
-    }
-    const result = {};
-
-    console.log('[Twitch] Fetching data for broadcaster:', BROADCASTER_ID);
-
-    try {
-        // Fetch subscribers
-        console.log('[Twitch] Fetching subscribers...');
-        // Strict: a failed request must not overwrite saved data or history with an empty list
-        try {
-            const subs = await fetchAllPages('/subscriptions', { broadcaster_id: BROADCASTER_ID }, 'data', true);
-            fs.writeFileSync(path.join(DATA_DIR, 'subs.json'), JSON.stringify({ data: subs }, null, 2));
-            console.log(`[Twitch] Saved ${subs.length} subscribers`);
-            recordSubSnapshot(subs);
-            result.subs = subs.length;
-        } catch (err) { result.error = err.message; }
-
-        // Fetch bits leaderboard (month)
-        console.log('[Twitch] Fetching bits leaderboard...');
-        const bitsResult = await twitchApiRequest('/bits/leaderboard', { count: '100', period: 'month', started_at: new Date().toISOString() });
-        if (bitsResult.status === 200) {
-            fs.writeFileSync(path.join(DATA_DIR, 'bits.json'), JSON.stringify(bitsResult.body, null, 2));
-            console.log(`[Twitch] Saved ${bitsResult.body.data?.length || 0} bits leaders`);
-        } else {
-            console.warn('[Twitch] Bits leaderboard not available:', bitsResult.status);
-            fs.writeFileSync(path.join(DATA_DIR, 'bits.json'), JSON.stringify({ data: [] }));
-        }
-
-        // Fetch followers
-        console.log('[Twitch] Fetching followers...');
-        try {
-            const followers = await fetchAllPages('/channels/followers', { broadcaster_id: BROADCASTER_ID }, 'data', true);
-            fs.writeFileSync(path.join(DATA_DIR, 'followers.json'), JSON.stringify({ data: followers }, null, 2));
-            console.log(`[Twitch] Saved ${followers.length} followers`);
-            recordFollowerSnapshot(followers);
-            result.followers = followers.length;
-        } catch (err) { result.error = result.error || err.message; }
-
-        // Fetch VIPs
-        console.log('[Twitch] Fetching VIPs...');
-        try {
-            const vips = await fetchAllPages('/channels/vips', { broadcaster_id: BROADCASTER_ID }, 'data', true);
-            fs.writeFileSync(path.join(DATA_DIR, 'vips.json'), JSON.stringify({ data: vips }, null, 2));
-            console.log(`[Twitch] Saved ${vips.length} VIPs`);
-            result.vips = vips.length;
-        } catch (err) {
-            console.warn('[Twitch] VIPs fetch skipped or not authorized (reconnect Twitch to grant channel:read:vips):', err.message);
-        }
-
-        // Fetch Moderators
-        console.log('[Twitch] Fetching moderators...');
-        try {
-            const mods = await fetchAllPages('/moderation/moderators', { broadcaster_id: BROADCASTER_ID }, 'data', true);
-            fs.writeFileSync(path.join(DATA_DIR, 'moderators.json'), JSON.stringify({ data: mods }, null, 2));
-            console.log(`[Twitch] Saved ${mods.length} moderators`);
-            result.moderators = mods.length;
-        } catch (err) {
-            console.warn('[Twitch] Moderators fetch skipped or not authorized (reconnect Twitch to grant moderation:read):', err.message);
-        }
-
-        console.log('[Twitch] Data fetch complete!');
-    } catch (err) {
-        console.error('[Twitch] Fetch error:', err.message);
-        result.error = result.error || err.message;
-    }
-    return result;
-}
-
-
-async function fetchStreamInfo() {
-    if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) return;
-    const hasToken = await ensureToken();
-    if (!hasToken) return;
-
-    try {
-        const result = await twitchApiRequest('/channels', { broadcaster_id: BROADCASTER_ID });
-        if (result.status !== 200 || !result.body.data?.[0]) return;
-
-        const ch = result.body.data[0];
-        const title = ch.title || '';
-        const category = ch.game_name || '';
-        const now = new Date().toISOString();
-
-        // Only record if title or category changed from the last entry
-        const last = chatData.streamInfo[chatData.streamInfo.length - 1];
-        if (!last || last.title !== title || last.category !== category) {
-            chatData.streamInfo.push({ title, category, changedAt: now });
-            console.log(`[Twitch] Stream info: "${title}" — ${category || '(no category)'}`);
-        }
-        refreshGameInfo(category);
-    } catch (err) {
-        console.error('[Twitch] Stream info fetch error:', err.message);
-    }
-}
-
-// ============================================================================
-// TWITCH POLLS
-// ============================================================================
-
-let latestPoll = null;
-let previousPollState = null;
-let pollScopeWarningLogged = false;
-let lastBroadcastedPollJson = '';
-
-async function fetchTwitchPoll() {
-    if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) return;
-    if (!twitchTokenScopes.includes('channel:read:polls')) {
-        if (!pollScopeWarningLogged) {
-            pollScopeWarningLogged = true;
-            console.log('[Twitch] Poll tracking requires channel:read:polls scope. Reconnect Twitch on /twitch-connect.html to enable poll tracking.');
-        }
-        return;
-    }
-    const hasToken = await ensureToken();
-    if (!hasToken) return;
-
-    try {
-        const result = await twitchApiRequest('/polls', { broadcaster_id: BROADCASTER_ID, first: 1 });
-        if (result.status === 401 || result.status === 403) {
-            if (!pollScopeWarningLogged) {
-                pollScopeWarningLogged = true;
-                console.log('[Twitch] Poll access requires channel:read:polls scope. Reconnect Twitch on /twitch-connect.html to enable poll tracking.');
-            }
-            return;
-        }
-        if (result.status !== 200 || !result.body?.data) return;
-        pollScopeWarningLogged = false;
-
-        const poll = result.body.data[0];
-        if (!poll) return;
-
-        const choices = (poll.choices || []).map(c => ({
-            id: c.id,
-            title: c.title,
-            votes: Number(c.votes) || 0,
-            channel_points_votes: Number(c.channel_points_votes) || 0,
-            bits_votes: Number(c.bits_votes) || 0
-        }));
-        const totalVotes = choices.reduce((sum, c) => sum + c.votes, 0);
-        const sorted = [...choices].sort((a, b) => b.votes - a.votes);
-        const winner = sorted[0];
-        const winningVotes = winner?.votes || 0;
-        const winningPercent = totalVotes > 0 ? Math.round((winningVotes / totalVotes) * 100) : 0;
-
-        const choicesWithPercent = choices.map(c => ({
-            ...c,
-            percent: totalVotes > 0 ? Math.round((c.votes / totalVotes) * 100) : 0
-        }));
-
-        const pollData = {
-            id: poll.id,
-            title: poll.title,
-            status: poll.status,
-            winner: winner?.title || '',
-            winningVotes,
-            winningPercent,
-            totalVotes,
-            choices: choicesWithPercent,
-            duration: poll.duration,
-            startedAt: poll.started_at,
-            endedAt: poll.ended_at
-        };
-
-        const prev = previousPollState;
-        const isNewPoll = !prev || prev.id !== poll.id;
-        const statusChanged = prev && prev.status !== poll.status;
-
-        if (isNewPoll) {
-            if (poll.status === 'ACTIVE') {
-                console.log(`[Twitch] Poll started: "${poll.title}"`);
-                takeoverPages('poll-active', poll.title, 15000);
-            } else if ((poll.status === 'COMPLETED' || poll.status === 'TERMINATED') && poll.ended_at && Date.now() - Date.parse(poll.ended_at) < 30000) {
-                console.log(`[Twitch] Poll ended: "${poll.title}" — Winner: "${winner?.title || '(none)'}" (${winningPercent}%)`);
-                takeoverPages('poll-end', poll.title, 15000);
-            }
-        } else if (statusChanged) {
-            if (poll.status === 'COMPLETED' || poll.status === 'TERMINATED') {
-                console.log(`[Twitch] Poll ended: "${poll.title}" — Winner: "${winner?.title || '(none)'}" (${winningPercent}%)`);
-                takeoverPages('poll-end', poll.title, 15000);
-            }
-        }
-
-        latestPoll = pollData;
-        previousPollState = { id: poll.id, status: poll.status };
-
-        const pollJson = JSON.stringify(pollData);
-        if (pollJson !== lastBroadcastedPollJson) {
-            lastBroadcastedPollJson = pollJson;
-            broadcastToOverlays('poll-update', pollData);
-        }
-    } catch (err) {
-        console.error('[Twitch] Poll fetch error:', err.message);
-    }
-}
 
 
 // ============================================================================
@@ -2167,7 +1632,7 @@ function startSessionNow() {
     resetChatData();
     sessionActive = true;
     broadcastSessionState();
-    if (twitchAccessToken && BROADCASTER_ID) {
+    if (twitchService.getAccessToken() && BROADCASTER_ID) {
         fetchTwitchData();
         fetchStreamInfo();
         fetchViewerCount();
@@ -2307,7 +1772,7 @@ async function getAppToken() {
     // Public apps have no secret for client-credentials, so use the authorized user token instead
     if (!TWITCH_CLIENT_SECRET) {
         if (!(await ensureToken())) throw new Error('Connect Twitch to look up game info');
-        return twitchAccessToken;
+        return twitchService.getAccessToken();
     }
     if (appTokenCache.token && Date.now() < appTokenCache.expiresAt) return appTokenCache.token;
     const body = new URLSearchParams({ client_id: TWITCH_CLIENT_ID, client_secret: TWITCH_CLIENT_SECRET, grant_type: 'client_credentials' });
@@ -4626,12 +4091,12 @@ const server = http.createServer(async (req, res) => {
         await ensureToken();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
-            connected: !!twitchAccessToken,
+            connected: !!twitchService.getAccessToken(),
             mode: TWITCH_CLIENT_SECRET ? 'own_app' : 'shared_device',
             clientId: TWITCH_CLIENT_ID,
             broadcasterConfigured: !!BROADCASTER_ID,
-            broadcasterSaved: broadcasterSyncedFromToken,
-            scopes: twitchTokenScopes
+            broadcasterSaved: twitchService.isBroadcasterSynced(),
+            scopes: twitchService.getTokenScopes()
         }));
         return;
     }
@@ -4652,7 +4117,7 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         try {
             const d = await pollDeviceAuth();
-            res.end(JSON.stringify({ status: d.status, error: d.error || '', interval: d.interval, broadcasterSaved: broadcasterSyncedFromToken }));
+            res.end(JSON.stringify({ status: d.status, error: d.error || '', interval: d.interval, broadcasterSaved: twitchService.isBroadcasterSynced() }));
         } catch (err) {
             res.end(JSON.stringify({ status: 'pending', error: err.message }));
         }
@@ -4660,8 +4125,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/twitch/auth/disconnect' && req.method === 'POST') {
-        twitchAccessToken = null; twitchRefreshToken = null; twitchTokenExpiry = 0; twitchTokenScopes = [];
-        try { fs.unlinkSync(TOKEN_PATH); } catch { /* none stored */ }
+        clearToken();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
         return;
@@ -5399,7 +4863,7 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/polls/latest' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok', poll: latestPoll }));
+        res.end(JSON.stringify({ status: 'ok', poll: twitchService.getLatestPoll() }));
         return;
     }
 
@@ -5421,8 +4885,7 @@ const server = http.createServer(async (req, res) => {
             startedAt: new Date(Date.now() - 300000).toISOString(),
             endedAt: new Date().toISOString()
         };
-        latestPoll = testPoll;
-        previousPollState = { id: testPoll.id, status: 'COMPLETED' };
+        twitchService.setLatestPoll(testPoll);
         console.log(`[Twitch] Test poll triggered: "${testPoll.title}" — Winner: "${testPoll.winner}"`);
         takeoverPages('poll-end', testPoll.title, 15000);
         broadcastToOverlays('poll-update', testPoll);
@@ -5810,7 +5273,7 @@ const server = http.createServer(async (req, res) => {
         const goalsSnapshot = buildGoalsSnapshot();
         const status = {
             customVars: variablesStore.list(),
-            poll: latestPoll,
+            poll: twitchService.getLatestPoll(),
             processStartedAt: PROCESS_STARTED_AT,
             uptime: process.uptime(),
             memory: process.memoryUsage(),
@@ -5827,8 +5290,8 @@ const server = http.createServer(async (req, res) => {
             },
             twitch: {
                 broadcaster_id: BROADCASTER_ID || null,
-                hasToken: !!twitchAccessToken,
-                scopes: twitchTokenScopes,
+                hasToken: !!twitchService.getAccessToken(),
+                scopes: twitchService.getTokenScopes(),
                 refreshMinutes: REFRESH_MINUTES
             },
             viewers: viewerSummary,
@@ -8092,7 +7555,8 @@ overlayWss.on('connection', (ws) => {
     ws.send(JSON.stringify({ type: 'viewer-update', data: getViewerSummary() }));
     ws.send(JSON.stringify({ type: 'goals-update', data: buildGoalsSnapshot() }));
     ws.send(JSON.stringify({ type: 'timers-snapshot', data: buildTimersSnapshot() }));
-    if (latestPoll) ws.send(JSON.stringify({ type: 'poll-update', data: latestPoll }));
+    const curPoll = twitchService.getLatestPoll();
+    if (curPoll) ws.send(JSON.stringify({ type: 'poll-update', data: curPoll }));
 
     // Send current overlay visibility state
     for (const entry of listOverlayVisibility().filter(o => !o.visible)) {
@@ -8173,7 +7637,7 @@ server.listen(PORT, () => {
 
     // Load stored Twitch token and fetch data
     loadStoredToken();
-    if (twitchAccessToken) {
+    if (twitchService.getAccessToken()) {
         fetchTwitchData();
         fetchStreamInfo();
         fetchViewerCount();
@@ -8197,7 +7661,7 @@ server.listen(PORT, () => {
     // Poll for active/completed Twitch polls every 10 seconds.
     setInterval(fetchTwitchPoll, 10 * 1000).unref();
     // Keep the token fresh in the background so an idle server never lets it lapse.
-    setInterval(() => { if (twitchRefreshToken && Date.now() > twitchTokenExpiry - 30 * 60000) refreshTwitchToken(); }, 5 * 60000).unref();
+    setInterval(() => { if (twitchService.getRefreshToken() && Date.now() > twitchService.getTokenExpiry() - 30 * 60000) refreshTwitchToken(); }, 5 * 60000).unref();
 
     startViewerTracking();
     startLifecycleWatcher();
