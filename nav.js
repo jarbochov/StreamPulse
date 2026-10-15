@@ -58,60 +58,44 @@
     const nav = [
         { label: 'Dashboard', href: '/dashboard.html' },
         { label: 'Overlays ▾', children: [
+            { heading: 'Hub & Gallery' },
             { label: 'All Overlays', href: '/overlays.html' },
             { label: 'Custom Overlays', href: '/custom-overlays.html' },
-            { heading: 'Built-in' },
-            { label: 'Credits', href: '/credits.html', target: '_blank' },
-            { label: 'Stats', href: '/stats.html', target: '_blank' },
-            { label: 'Hashtags', href: '/hashtags.html', target: '_blank' },
-            { label: 'Viewer Count', href: '/viewers.html', target: '_blank' },
-            { label: 'Goal', href: '/goal.html', target: '_blank' },
-            { label: 'Goals Cycle', href: '/goal.html?mode=cycle', target: '_blank' },
-            { label: 'Game Plan', href: '/game-plan.html', target: '_blank' },
-            { label: 'Milestones & Streaks', href: '/milestones.html', target: '_blank' },
-            { label: 'Choice Randomizer', href: '/randomizer.html', target: '_blank' },
-            { heading: 'Music (Beta)' },
-            { label: 'Full', href: '/music.html?mode=full', target: '_blank' },
-            { label: 'Art Only', href: '/music.html?mode=art', target: '_blank' },
-            { label: 'Mini Bar', href: '/music.html?mode=mini', target: '_blank' },
-            { heading: 'Timers' },
-            { label: 'Countdown', href: '/countdown.html', target: '_blank' },
-            { label: 'Stopwatch', href: '/stopwatch.html', target: '_blank' },
-            { heading: 'URL Builders' },
-            { label: 'Credits, Goals & Viewers', href: '/overlay-url-wizard.html' },
+            { heading: 'Editors & Studios' },
+            { label: 'Credits Editor', href: '/credits-editor.html' },
+            { label: 'Theme Editor', href: '/theme-editor.html' },
+            { label: 'Choice Randomizer Studio', href: '/randomizer-editor.html' },
+            { label: 'Timers Studio', href: '/timers-editor.html' },
+            { label: 'Goals Manager', href: '/goals-editor.html' },
+            { label: 'Game Plan Manager', href: '/game-plan-editor.html' },
+            { label: 'Music Settings', href: '/music-editor.html' },
+            { label: 'Overlay Assets', href: '/assets.html' },
+            { heading: 'URL Wizards' },
+            { label: 'Credits, Goals & Stats', href: '/overlay-url-wizard.html' },
             { label: 'Timers', href: '/timer-url-wizard.html' },
             { label: 'Music', href: '/music-url-wizard.html' },
             { label: 'Game Plan', href: '/game-plan-url-wizard.html' },
-            { label: 'Milestones', href: '/milestone-url-wizard.html' },
-            { label: 'Choice Randomizer Studio', href: '/randomizer-editor.html' }
+            { label: 'Milestones', href: '/milestone-url-wizard.html' }
+        ]},
+        { label: 'Tools ▾', children: [
+            { label: 'Chat Bot', href: '/chatbot.html' },
+            { label: 'Alerts & SFX', href: '/alerts.html' },
+            { label: 'Placeholders & Variables', href: '/placeholders.html' },
+            { label: 'Hashtag Tools', href: '/manage-hashtags.html' }
         ]},
         { label: 'Library ▾', children: [
             { label: 'Highlights', href: '/highlights.html' },
-            { label: 'Clips (Beta)', href: '/clips.html' },
+            { label: 'Clips', href: '/clips.html' },
             { label: 'Sessions', href: '/sessions.html?session=__current__' },
             { label: 'Categories', href: '/categories.html' },
             { label: 'Analytics & Community', href: '/analytics.html' },
             { label: 'Hashtag Stats', href: '/hashtag-stats.html' }
         ]},
-        { label: 'Manage ▾', children: [
-            { heading: 'Overlay settings' },
-            { label: 'Credits', href: '/credits-editor.html' },
-            { label: 'Theme', href: '/theme-editor.html' },
-            { label: 'Goals', href: '/goals-editor.html' },
-            { label: 'Game Plan', href: '/game-plan-editor.html' },
-            { label: 'Assets', href: '/assets.html' },
-            { label: 'Timers', href: '/timers-editor.html' },
-            { label: 'Alerts (Beta)', href: '/alerts.html' },
-            { label: 'Chat Bot (Beta)', href: '/chatbot.html' },
-            { label: 'Placeholders & Variables', href: '/placeholders.html' },
-            { label: 'Choice Randomizer Studio', href: '/randomizer-editor.html' },
-            { label: 'Music Settings (Beta)', href: '/music-editor.html' },
-            { label: 'Hashtag Tools', href: '/manage-hashtags.html' },
-            { heading: 'System' },
+        { label: 'System ▾', children: [
             { label: 'Config', href: '/config-editor.html' },
             { label: 'Twitch Connect', href: '/twitch-connect.html' },
             { label: 'Backup & Restore', href: '/backup.html' },
-            { label: 'Update', href: '/update.html' }
+            { label: 'System Update', href: '/update.html' }
         ]},
         { label: 'API', href: '/api.html' },
         { label: 'Docs', href: '/docs.html' }
@@ -119,43 +103,91 @@
 
     const currentPath = window.location.pathname;
 
+    const pageParentMap = {
+        '/custom-overlay-editor.html': '/custom-overlays.html',
+        '/alert-queue.html': '/alerts.html',
+        '/commands.html': '/chatbot.html'
+    };
+
     function isActive(href) {
         if (!href) return false;
-        const clean = href.split('?')[0];
-        return currentPath === clean;
+        const cleanHref = href.split('?')[0].split('#')[0];
+        const cleanCurrent = currentPath.split('?')[0].split('#')[0];
+        if (cleanCurrent === cleanHref) return true;
+        if (pageParentMap[cleanCurrent] === cleanHref) return true;
+        return false;
     }
+
+    // Curated order of groups for Command Palette default view and search relevance
+    const groupOrder = [
+        'Navigation',
+        'Editors & Studios',
+        'Stream Tools',
+        'URL Wizards (OBS)',
+        'System & Settings',
+        'Overlays Hub',
+        'Library & Analytics',
+        'Reference'
+    ];
 
     // Flatten all navigable items for Command Palette search
     function flattenItems() {
         const list = [];
-        for (const item of nav) {
-            if (item.children) {
-                let currentHeading = item.label.replace(' ▾', '');
-                for (const child of item.children) {
-                    if (child.heading) {
-                        currentHeading = `${item.label.replace(' ▾', '')} › ${child.heading}`;
-                        continue;
-                    }
-                    list.push({
-                        label: child.label,
-                        href: child.href,
-                        target: child.target,
-                        group: currentHeading
-                    });
-                }
-            } else {
-                list.push({
-                    label: item.label,
-                    href: item.href,
-                    group: 'Navigation'
-                });
-            }
-        }
-        // Additional deep-link shortcuts for command palette
-        list.push({ label: 'Milestones & Streaks', href: '/analytics.html#milestones', group: 'Analytics' });
-        list.push({ label: 'Chatters & Notes (Community)', href: '/analytics.html#crm', group: 'Analytics' });
-        list.push({ label: 'Subscribers & Growth', href: '/analytics.html#growth', group: 'Analytics' });
-        list.push({ label: 'Milestones Overlay URL Wizard', href: '/milestone-url-wizard.html', group: 'URL Builders' });
+
+        // 1. Navigation / Core
+        list.push({ label: 'Dashboard', href: '/dashboard.html', group: 'Navigation' });
+
+        // 2. Editors & Studios (interactive configuration & live controllers)
+        list.push({ label: 'Credits Editor', href: '/credits-editor.html', group: 'Editors & Studios' });
+        list.push({ label: 'Theme Editor', href: '/theme-editor.html', group: 'Editors & Studios' });
+        list.push({ label: 'Choice Randomizer Studio', href: '/randomizer-editor.html', group: 'Editors & Studios' });
+        list.push({ label: 'Timers Studio', href: '/timers-editor.html', group: 'Editors & Studios' });
+        list.push({ label: 'Goals Manager', href: '/goals-editor.html', group: 'Editors & Studios' });
+        list.push({ label: 'Game Plan Manager', href: '/game-plan-editor.html', group: 'Editors & Studios' });
+        list.push({ label: 'Music Settings', href: '/music-editor.html', group: 'Editors & Studios' });
+        list.push({ label: 'Overlay Assets', href: '/assets.html', group: 'Editors & Studios' });
+
+        // 3. Stream Tools & Automation
+        list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools' });
+        list.push({ label: 'Alerts & SFX', href: '/alerts.html', group: 'Stream Tools' });
+        list.push({ label: 'Placeholders & Variables', href: '/placeholders.html', group: 'Stream Tools' });
+        list.push({ label: 'Hashtag Tools', href: '/manage-hashtags.html', group: 'Stream Tools' });
+        list.push({ label: 'Chat Commands Cheat Sheet', href: '/commands.html', group: 'Stream Tools' });
+        list.push({ label: 'Alert Queue Monitor', href: '/alert-queue.html', group: 'Stream Tools' });
+
+        // 4. URL Wizards (OBS Parameterized Source Generators)
+        list.push({ label: 'Credits, Goals & Stats Wizard', href: '/overlay-url-wizard.html', group: 'URL Wizards (OBS)' });
+        list.push({ label: 'Timers Wizard', href: '/timer-url-wizard.html', group: 'URL Wizards (OBS)' });
+        list.push({ label: 'Music Wizard', href: '/music-url-wizard.html', group: 'URL Wizards (OBS)' });
+        list.push({ label: 'Game Plan Wizard', href: '/game-plan-url-wizard.html', group: 'URL Wizards (OBS)' });
+        list.push({ label: 'Milestones Wizard', href: '/milestone-url-wizard.html', group: 'URL Wizards (OBS)' });
+
+        // 5. System & Settings
+        list.push({ label: 'System Config', href: '/config-editor.html', group: 'System & Settings' });
+        list.push({ label: 'Twitch Connect', href: '/twitch-connect.html', group: 'System & Settings' });
+        list.push({ label: 'Backup & Restore', href: '/backup.html', group: 'System & Settings' });
+        list.push({ label: 'System Update', href: '/update.html', group: 'System & Settings' });
+
+        // 6. Overlays Hub
+        list.push({ label: 'All Overlays (Gallery)', href: '/overlays.html', group: 'Overlays Hub' });
+        list.push({ label: 'Custom Overlays', href: '/custom-overlays.html', group: 'Overlays Hub' });
+        list.push({ label: 'New Custom Overlay Builder', href: '/custom-overlay-editor.html?new=1', group: 'Overlays Hub' });
+
+        // 7. Library & Analytics
+        list.push({ label: 'Analytics & Community', href: '/analytics.html', group: 'Library & Analytics' });
+        list.push({ label: 'Milestones & Streaks', href: '/analytics.html#milestones', group: 'Library & Analytics' });
+        list.push({ label: 'Chatters & Notes (Community CRM)', href: '/analytics.html#crm', group: 'Library & Analytics' });
+        list.push({ label: 'Subscribers & Growth', href: '/analytics.html#growth', group: 'Library & Analytics' });
+        list.push({ label: 'Sessions', href: '/sessions.html?session=__current__', group: 'Library & Analytics' });
+        list.push({ label: 'Highlights', href: '/highlights.html', group: 'Library & Analytics' });
+        list.push({ label: 'Clips', href: '/clips.html', group: 'Library & Analytics' });
+        list.push({ label: 'Categories', href: '/categories.html', group: 'Library & Analytics' });
+        list.push({ label: 'Hashtag Stats', href: '/hashtag-stats.html', group: 'Library & Analytics' });
+
+        // 8. Documentation & API
+        list.push({ label: 'Documentation', href: '/docs.html', group: 'Reference' });
+        list.push({ label: 'API Reference', href: '/api.html', group: 'Reference' });
+
         return list;
     }
 
@@ -239,11 +271,69 @@
         });
     }
 
+    function scoreItem(item, q) {
+        const label = item.label.toLowerCase();
+        const group = item.group.toLowerCase();
+        const href = item.href.toLowerCase();
+
+        // Exact match
+        if (label === q) return 100;
+        // Word begins with query
+        if (label.startsWith(q)) return 90;
+        // Query as distinct word
+        if (label.includes(' ' + q)) return 85;
+        // Substring inside label
+        if (label.includes(q)) return 70;
+        // Group match
+        if (group.startsWith(q)) return 50;
+        if (group.includes(q)) return 40;
+        // Href match
+        if (href.includes(q)) return 30;
+        return 0;
+    }
+
     function renderPaletteResults(query) {
         if (!paletteResults) return;
-        const filtered = query
-            ? allSearchItems.filter(i => `${i.label} ${i.group} ${i.href}`.toLowerCase().includes(query))
-            : allSearchItems;
+
+        let filtered = [];
+        if (!query) {
+            filtered = allSearchItems;
+        } else {
+            const scored = [];
+            for (const item of allSearchItems) {
+                const s = scoreItem(item, query);
+                if (s > 0) {
+                    scored.push({ item, score: s });
+                }
+            }
+
+            // Group matched items by category
+            const groupsMap = new Map();
+            for (const { item, score } of scored) {
+                if (!groupsMap.has(item.group)) {
+                    groupsMap.set(item.group, { maxScore: score, items: [] });
+                }
+                const g = groupsMap.get(item.group);
+                if (score > g.maxScore) g.maxScore = score;
+                g.items.push({ item, score });
+            }
+
+            // Sort categories by highest match score, breaking ties with groupOrder
+            const sortedGroups = [...groupsMap.entries()].sort((a, b) => {
+                if (b[1].maxScore !== a[1].maxScore) return b[1].maxScore - a[1].maxScore;
+                const ga = groupOrder.indexOf(a[0]);
+                const gb = groupOrder.indexOf(b[0]);
+                return (ga === -1 ? 99 : ga) - (gb === -1 ? 99 : gb);
+            });
+
+            // Within each category, sort items by score descending
+            for (const [, g] of sortedGroups) {
+                g.items.sort((a, b) => b.score - a.score);
+                for (const it of g.items) {
+                    filtered.push(it.item);
+                }
+            }
+        }
 
         if (!filtered.length) {
             paletteResults.innerHTML = '<div class="nav-palette-empty">No matching pages found</div>';
