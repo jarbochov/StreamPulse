@@ -17,6 +17,7 @@ const { createWeatherService, normalizeWeatherConfig } = require('./server/servi
 const { createMusicService } = require('./server/services/music');
 const { createTimerService, DEFAULT_TIMER_SETTINGS, TIMER_EVENT_TYPES, formatTimerClock, parseDurationMs, sanitizeTimerId, normalizeTimerSettings, normalizeTimerHttpActions, buildTimerSnapshot } = require('./server/services/timers');
 const { createGoalsService, GOAL_TYPE_LABELS, GOAL_TYPES, GOAL_TRACKING_TYPES, GOAL_VIEWER_MODES, DEFAULT_COMMUNITY_WEIGHTS, DEFAULT_GOALS_CONFIG, sanitizeGoalId, normalizeGoalsConfig } = require('./server/services/goals');
+const { createViewerService, clampNumber, createEmptyViewerStats, normalizeViewerTrackingConfig, normalizeViewerStats, findSSNViewerCount } = require('./server/services/viewers');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -1401,61 +1402,6 @@ async function readRequestBody(req, maxBytes = 25 * 1024 * 1024) {
 
 
 
-function createEmptyViewerStats() {
-    return {
-        live: false,
-        current: 0,
-        peak: 0,
-        average: 0,
-        source: null,
-        sampledAt: null,
-        streamStartedAt: null,
-        streamEndedAt: null,
-        samples: []
-    };
-}
-
-function normalizeViewerTrackingConfig(input = {}) {
-    return {
-        enabled: input?.enabled !== false,
-        source: input?.source === 'twitch' ? 'twitch' : 'best_available',
-        poll_seconds: clampNumber(input?.poll_seconds, 15, 3600, 60),
-        retain_samples: clampNumber(input?.retain_samples, 60, 5000, 720)
-    };
-}
-
-function normalizeViewerStats(input = {}) {
-    const normalized = createEmptyViewerStats();
-    normalized.live = !!input?.live;
-    normalized.current = Math.max(0, Math.round(Number(input?.current) || 0));
-    normalized.source = input?.source || null;
-    normalized.sampledAt = input?.sampledAt || null;
-    normalized.streamStartedAt = input?.streamStartedAt || null;
-    normalized.streamEndedAt = input?.streamEndedAt || null;
-    if (!normalized.streamStartedAt || normalized.streamStartedAt === normalized.streamEndedAt) {
-        normalized.streamEndedAt = null;
-    }
-    normalized.samples = Array.isArray(input?.samples)
-        ? input.samples
-            .map(sample => ({
-                ts: sample?.ts || new Date().toISOString(),
-                count: Math.max(0, Math.round(Number(sample?.count) || 0)),
-                live: sample?.live !== false,
-                source: sample?.source || null
-            }))
-            .filter(sample => sample.ts)
-        : [];
-
-    const liveSamples = normalized.samples.filter(sample => sample.live !== false);
-    normalized.peak = liveSamples.length > 0
-        ? liveSamples.reduce((max, sample) => Math.max(max, sample.count), 0)
-        : Math.max(0, Math.round(Number(input?.peak) || normalized.current));
-    normalized.average = liveSamples.length > 0
-        ? Number((liveSamples.reduce((sum, sample) => sum + sample.count, 0) / liveSamples.length).toFixed(1))
-        : Math.max(0, Number(input?.average) || (normalized.live ? normalized.current : 0));
-    return normalized;
-}
-
 // Parsed results are cached per file mtime/size because /api/status and goal broadcasts read the same files repeatedly.
 const jsonFileCache = new Map();
 function readJsonFileSafe(filePath, fallback = null) {
@@ -1484,6 +1430,40 @@ function saveRuntimeConfigSection(updater) {
     return current;
 }
 
+const viewerService = createViewerService({
+    getConfig: () => config,
+    getChatData: () => chatData,
+    setChatDataViewerStats: (stats) => { if (chatData) chatData.viewerStats = stats; },
+    onViewerUpdate: (summary) => broadcastToOverlays('viewer-update', summary),
+    onGoalsUpdate: () => broadcastToOverlays('goals-update', buildGoalsSnapshot()),
+    fetchLiveStreamViewer: async () => {
+        if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) {
+            console.warn('[Viewers] Missing Twitch credentials or broadcaster_id — viewer tracking unavailable');
+            return null;
+        }
+        const hasToken = await ensureToken();
+        if (!hasToken) return null;
+        const result = await twitchApiRequest('/streams', { user_id: BROADCASTER_ID });
+        if (result.status !== 200) {
+            console.warn(`[Viewers] Twitch /streams returned ${result.status}`);
+            return null;
+        }
+        const stream = result.body.data?.[0] || null;
+        return {
+            count: stream?.viewer_count || 0,
+            live: !!stream,
+            source: 'twitch',
+            streamStartedAt: stream?.started_at || null
+        };
+    }
+});
+const getViewerSummary = (sourceData) => viewerService.getViewerSummary(sourceData);
+const recordViewerSample = (sample) => viewerService.recordViewerSample(sample);
+const processSSNViewerUpdate = (msg) => viewerService.processSSNViewerUpdate(msg);
+const fetchViewerCount = () => viewerService.fetchViewerCount();
+const startViewerTracking = () => viewerService.startViewerTracking();
+const stopViewerTracking = () => viewerService.stopViewerTracking();
+
 const goalsService = createGoalsService({
     dataDir: DATA_DIR,
     getConfig: () => config,
@@ -1500,102 +1480,6 @@ const resetGoalBaseline = goalId => goalsService.resetGoalBaseline(goalId);
 const toggleGoalEnabled = (goalId, mode) => goalsService.toggleGoalEnabled(goalId, mode);
 const buildRecentEvents = limit => goalsService.buildRecentEvents(limit);
 setInterval(() => goalsService.checkGoalAlerts(), 5000).unref();
-
-function getViewerSummary(sourceData = chatData) {
-    const viewerStats = normalizeViewerStats(sourceData?.viewerStats);
-    return {
-        enabled: normalizeViewerTrackingConfig(config.viewer_tracking).enabled,
-        live: viewerStats.live,
-        current: viewerStats.current,
-        peak: viewerStats.peak,
-        average: viewerStats.average,
-        source: viewerStats.source,
-        sampledAt: viewerStats.sampledAt,
-        streamStartedAt: viewerStats.streamStartedAt,
-        streamEndedAt: viewerStats.streamEndedAt,
-        sampleCount: viewerStats.samples.length,
-        samples: viewerStats.samples
-    };
-}
-
-function recordViewerSample({ count, live, source, streamStartedAt }) {
-    const cfg = normalizeViewerTrackingConfig(config.viewer_tracking);
-    const normalized = normalizeViewerStats(chatData.viewerStats);
-    const wasLive = normalized.live;
-    const now = new Date().toISOString();
-    normalized.live = !!live;
-    normalized.current = Math.max(0, Math.round(Number(count) || 0));
-    normalized.source = source || normalized.source || 'twitch';
-    normalized.sampledAt = now;
-    if (normalized.live && (!wasLive || !normalized.streamStartedAt)) {
-        normalized.streamStartedAt = streamStartedAt || now;
-        normalized.streamEndedAt = null;
-    } else if (!normalized.live && wasLive && normalized.streamStartedAt) {
-        normalized.streamEndedAt = now;
-    }
-    normalized.samples.push({
-        ts: now,
-        count: normalized.current,
-        live: normalized.live,
-        source: normalized.source
-    });
-    while (normalized.samples.length > cfg.retain_samples) normalized.samples.shift();
-    chatData.viewerStats = normalizeViewerStats(normalized);
-    broadcastToOverlays('viewer-update', getViewerSummary());
-    broadcastToOverlays('goals-update', buildGoalsSnapshot());
-}
-
-function findSSNViewerCount(value, depth = 0) {
-    if (!value || typeof value !== 'object' || depth > 3) return null;
-
-    const viewerKeys = ['viewer_count', 'viewerCount', 'viewers', 'audience_count', 'audienceCount', 'current_viewers', 'currentViewers'];
-    for (const key of viewerKeys) {
-        if (Object.prototype.hasOwnProperty.call(value, key)) {
-            const count = Number(value[key]);
-            if (Number.isFinite(count) && count >= 0) {
-                return {
-                    count,
-                    live: value.live !== false && value.online !== false,
-                    streamStartedAt: value.stream_started_at || value.streamStartedAt || null
-                };
-            }
-        }
-    }
-
-    for (const key of ['data', 'payload', 'meta', 'overlayNinja']) {
-        const nested = findSSNViewerCount(value[key], depth + 1);
-        if (nested) return nested;
-    }
-    return null;
-}
-
-function processSSNViewerUpdate(msg) {
-    const viewerUpdate = findSSNViewerCount(msg);
-    if (!viewerUpdate) return false;
-
-    lastSSNViewerUpdateAt = Date.now();
-    recordViewerSample({
-        ...viewerUpdate,
-        source: 'socialstream'
-    });
-    return true;
-}
-
-function startViewerTracking() {
-    if (viewerPollHandle) return;
-    const cfg = normalizeViewerTrackingConfig(config.viewer_tracking);
-    if (!cfg.enabled) return;
-    fetchViewerCount();
-    viewerPollHandle = setInterval(fetchViewerCount, cfg.poll_seconds * 1000);
-    console.log(`[Viewers] Polling every ${cfg.poll_seconds}s`);
-}
-
-function stopViewerTracking() {
-    if (!viewerPollHandle) return;
-    clearInterval(viewerPollHandle);
-    viewerPollHandle = null;
-    console.log('[Viewers] Polling stopped');
-}
 
 // ============================================================================
 // RATE LIMITING
@@ -2080,39 +1964,6 @@ async function fetchTwitchData() {
     return result;
 }
 
-async function fetchViewerCount() {
-    const viewerConfig = normalizeViewerTrackingConfig(config.viewer_tracking);
-    if (!viewerConfig.enabled) return;
-    const ssnFreshnessMs = Math.max(viewerConfig.poll_seconds * 2000, 30000);
-    if (viewerConfig.source === 'best_available' && Date.now() - lastSSNViewerUpdateAt < ssnFreshnessMs) {
-        return;
-    }
-    if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) {
-        console.warn('[Viewers] Missing Twitch credentials or broadcaster_id — viewer tracking unavailable');
-        return;
-    }
-
-    const hasToken = await ensureToken();
-    if (!hasToken) return;
-
-    try {
-        const result = await twitchApiRequest('/streams', { user_id: BROADCASTER_ID });
-        if (result.status !== 200) {
-            console.warn(`[Viewers] Twitch /streams returned ${result.status}`);
-            return;
-        }
-
-        const stream = result.body.data?.[0] || null;
-        recordViewerSample({
-            count: stream?.viewer_count || 0,
-            live: !!stream,
-            source: 'twitch',
-            streamStartedAt: stream?.started_at || null
-        });
-    } catch (err) {
-        console.error('[Viewers] Fetch error:', err.message);
-    }
-}
 
 async function fetchStreamInfo() {
     if (!TWITCH_CLIENT_ID || !BROADCASTER_ID) return;
@@ -2641,9 +2492,6 @@ function setOverlayVisibility(key, action) {
     broadcastToOverlays('overlay-visibility', { key, visible: next });
     return { ...entry, visible: next };
 }
-let viewerPollHandle = null;
-let lastSSNViewerUpdateAt = 0;
-
 
 
 // ============================================================================
