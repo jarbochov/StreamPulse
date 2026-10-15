@@ -36,8 +36,16 @@
         .stats-bar .stat-val { color: var(--accent); font-weight: 600; }
         .stats-bar .stat-label { color: var(--text-muted); }
 
-        .session-group { margin-bottom: 1.25rem; }
-        .session-group h3 { font-size: 0.85rem; color: var(--accent); margin-bottom: 0.5rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--bg-raised); }
+        .session-group { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.25rem; overflow: hidden; }
+        .session-header { background: var(--bg-raised); border-bottom: 1px solid var(--border); padding: 0.6rem 0.85rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+        .session-title-wrap { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .session-title { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+        .session-badge { font-size: 0.7rem; background: color-mix(in srgb, var(--accent) 15%, var(--bg-card)); color: var(--accent); padding: 0.15rem 0.45rem; border-radius: 10px; font-weight: 600; }
+        .session-raw-name { font-size: 0.68rem; color: var(--text-muted); opacity: 0.7; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+        .session-actions { display: flex; gap: 0.35rem; align-items: center; }
+        .session-action-link { font-size: 0.75rem; padding: 0.25rem 0.55rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted); text-decoration: none; transition: all 0.15s ease; display: inline-flex; align-items: center; gap: 0.25rem; }
+        .session-action-link:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
+        .session-messages { padding: 0.35rem 0.5rem; display: flex; flex-direction: column; gap: 0.25rem; }
 
         .chat-msg { display: flex; gap: 0.5rem; padding: 0.35rem 0.5rem; border-radius: 4px; transition: background 0.15s; align-items: flex-start; }
         .chat-msg:hover { background: color-mix(in srgb, var(--bg-card) 50%, transparent); }
@@ -49,7 +57,9 @@
         .chat-text a { color: var(--accent); text-decoration: underline; }
         .chat-reply-quote { font-size: 0.75rem; color: var(--text-faint); border-left: 2px solid var(--border); padding-left: 0.5rem; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
         .chat-time { color: var(--border-strong); font-size: 0.65rem; white-space: nowrap; margin-top: 2px; flex-shrink: 0; }
-        .chat-pinned-at { font-size: 0.7rem; color: var(--border-strong); margin-top: 2px; }
+        .chat-pinned-at { font-size: 0.7rem; color: var(--border-strong); margin-top: 3px; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+        .chat-action-btn, .chat-jump-link { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem 0.4rem; font-size: 0.7rem; color: var(--text-muted); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.2rem; transition: all 0.15s ease; vertical-align: middle; }
+        .chat-action-btn:hover, .chat-jump-link:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
 
         .pin-btn { background: none; border: none; cursor: pointer; font-size: 0.85rem; opacity: 0.6; transition: all 0.15s; vertical-align: middle; margin-left: 0.3rem; }
         .pin-btn:hover { opacity: 1; color: var(--warn); }
@@ -148,6 +158,28 @@
         return `hsl(${hue}, 70%, 65%)`;
     }
 
+    function parseSessionDate(session, items = []) {
+        const m = String(session || '').match(/chat-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})(?:-(\d{2}))?/);
+        if (m) {
+            const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6] || 0));
+            if (!isNaN(d.getTime())) return d;
+        }
+        if (Array.isArray(items) && items.length) {
+            const earliest = Math.min(...items.map(h => Number(h.ts) || Infinity));
+            if (Number.isFinite(earliest) && earliest > 0) return new Date(earliest);
+        }
+        return null;
+    }
+
+    function formatSessionLabel(session, items = []) {
+        if (session === 'current' || session === '__current__') return 'Current Live Session';
+        const d = parseSessionDate(session, items);
+        if (!d) return session || 'Unknown Session';
+        const dateStr = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        return `${dateStr} · ${timeStr}`;
+    }
+
     let allHighlights = [];
 
     async function loadHighlights() {
@@ -162,7 +194,18 @@
                 return;
             }
 
-            const sessions = [...new Set(allHighlights.map(h => h.session || 'unknown'))].sort((a, b) => b.localeCompare(a));
+            const sessionMap = {};
+            for (const h of allHighlights) {
+                const s = h.session || 'unknown';
+                if (!sessionMap[s]) sessionMap[s] = [];
+                sessionMap[s].push(h);
+            }
+            const sessions = Object.keys(sessionMap).sort((a, b) => {
+                const da = parseSessionDate(a, sessionMap[a])?.getTime() || 0;
+                const db = parseSessionDate(b, sessionMap[b])?.getTime() || 0;
+                if (da && db) return db - da;
+                return b.localeCompare(a);
+            });
             const users = [...new Set(allHighlights.map(h => h.user))].sort((a, b) => a.localeCompare(b));
 
             let html = `
@@ -175,7 +218,11 @@
                     <input type="text" id="search" placeholder="Search highlights..." oninput="filterHighlights()">
                     <select id="session-filter" onchange="filterHighlights()">
                         <option value="">All Sessions</option>
-                        ${sessions.map(s => `<option value="${escapeHtml(s)}"${s === urlSession ? ' selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+                        ${sessions.map(s => {
+                            const label = formatSessionLabel(s, sessionMap[s]);
+                            const count = sessionMap[s].length;
+                            return `<option value="${escapeHtml(s)}"${s === urlSession ? ' selected' : ''}>${escapeHtml(label)} (${count})</option>`;
+                        }).join('')}
                     </select>
                     <select id="user-filter" onchange="filterHighlights()">
                         <option value="">All Users</option>
@@ -238,28 +285,57 @@
             groups[s].push(h);
         });
 
-        let html = '';
-        for (const [session, items] of Object.entries(groups).sort((a, b) => {
+        const sortedGroups = Object.entries(groups).sort((a, b) => {
             if (sort === 'user') return (a[1][0].user || '').localeCompare(b[1][0].user || '', undefined, { sensitivity: 'base' });
-            return b[0].localeCompare(a[0]);
-        })) {
-            html += `<div class="session-group"><h3>${escapeHtml(session)} (${items.length})</h3>`;
+            const da = parseSessionDate(a[0], a[1])?.getTime() || 0;
+            const db = parseSessionDate(b[0], b[1])?.getTime() || 0;
+            if (da && db) return sort === 'oldest' ? da - db : db - da;
+            return sort === 'oldest' ? a[0].localeCompare(b[0]) : b[0].localeCompare(a[0]);
+        });
+
+        let html = '';
+        for (const [session, items] of sortedGroups) {
+            const isCurrent = session === 'current' || session === '__current__';
+            const sessionParam = isCurrent ? '__current__' : session;
+            const titleText = formatSessionLabel(session, items);
+            const sessionUrl = `/sessions.html?session=${encodeURIComponent(sessionParam)}`;
+            const chatLogUrl = `/sessions.html?session=${encodeURIComponent(sessionParam)}&view=chat`;
+
+            html += `<div class="session-group">
+                <div class="session-header">
+                    <div class="session-title-wrap">
+                        <span class="session-title">${escapeHtml(titleText)}</span>
+                        <span class="session-badge">${items.length} highlight${items.length === 1 ? '' : 's'}</span>
+                        ${!isCurrent && session !== 'unknown' ? `<span class="session-raw-name">${escapeHtml(session)}</span>` : ''}
+                    </div>
+                    <div class="session-actions">
+                        <a class="session-action-link" href="${sessionUrl}" title="View session dashboard & stats">📊 View Session</a>
+                        <a class="session-action-link" href="${chatLogUrl}" title="View full chat log for this session">💬 Full Chat Log</a>
+                    </div>
+                </div>
+                <div class="session-messages">`;
+
             html += items.map(h => {
                 let displayHtml = h.messageHtml ? sanitizeHtml(h.messageHtml) : escapeHtml(h.message);
                 displayHtml = linkifyText(displayHtml);
                 displayHtml = formatReply(displayHtml);
+                const jumpUrl = `/sessions.html?session=${encodeURIComponent(sessionParam)}&ts=${encodeURIComponent(String(h.ts))}`;
                 return `<div class="chat-msg">
                     ${h.avatar ? `<img class="chat-avatar" src="${h.avatar}" alt="" onerror="this.style.display='none'">` : '<div style="width:22px;height:22px;flex-shrink:0"></div>'}
                     <div class="chat-meta">
                         <div><span class="chat-user" style="color:${userColor(h.user)}">${escapeHtml(h.user)}</span>
                         <button class="pin-btn pinned" onclick="unpinHighlight(this, ${h.ts}, '${escapeHtml(h.user)}')" title="Unpin">⭐</button></div>
                         <div class="chat-text">${displayHtml}</div>
-                        <div class="chat-pinned-at">Pinned ${formatDate(h.pinnedAt)} · Key: <code>${h.ts}:${escapeHtml(h.user)}</code> <button class="chat-action-btn" onclick="copyHighlightKey(${h.ts}, '${escapeHtml(h.user)}')">Copy key</button></div>
+                        <div class="chat-pinned-at">
+                            <span>Pinned ${formatDate(h.pinnedAt)} · Key: <code>${h.ts}:${escapeHtml(h.user)}</code></span>
+                            <button class="chat-action-btn" onclick="copyHighlightKey(${h.ts}, '${escapeHtml(h.user)}')">Copy key</button>
+                            <a class="chat-jump-link" href="${jumpUrl}" title="Jump to this message in chat log">Jump to chat ↗</a>
+                        </div>
                     </div>
                     <span class="chat-time">${formatTimestamp(h.ts)}</span>
                 </div>`;
             }).join('');
-            html += '</div>';
+            html += '</div></div>';
         }
         container.innerHTML = html;
     }

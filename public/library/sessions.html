@@ -1587,6 +1587,28 @@
         }
     }
 
+    function parseSessionDate(session, items = []) {
+        const m = String(session || '').match(/chat-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})(?:-(\d{2}))?/);
+        if (m) {
+            const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6] || 0));
+            if (!isNaN(d.getTime())) return d;
+        }
+        if (Array.isArray(items) && items.length) {
+            const earliest = Math.min(...items.map(h => Number(h.ts) || Infinity));
+            if (Number.isFinite(earliest) && earliest > 0) return new Date(earliest);
+        }
+        return null;
+    }
+
+    function formatSessionLabel(session, items = []) {
+        if (session === 'current' || session === '__current__') return 'Current Live Session';
+        const d = parseSessionDate(session, items);
+        if (!d) return session || 'Unknown Session';
+        const dateStr = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        return `${dateStr} · ${timeStr}`;
+    }
+
     async function loadHighlightsTab() {
         const pane = document.getElementById('pane-highlights');
         if (!pane) return;
@@ -1610,11 +1632,23 @@
                 return;
             }
 
-            // Build session options from unique sessions
-            const sessions = [...new Set(allHighlights.map(h => h.session || 'unknown'))].sort((a, b) => b.localeCompare(a));
+            const sessionMap = {};
+            for (const h of allHighlights) {
+                const s = h.session || 'unknown';
+                if (!sessionMap[s]) sessionMap[s] = [];
+                sessionMap[s].push(h);
+            }
+            const sessions = Object.keys(sessionMap).sort((a, b) => {
+                const da = parseSessionDate(a, sessionMap[a])?.getTime() || 0;
+                const db = parseSessionDate(b, sessionMap[b])?.getTime() || 0;
+                if (da && db) return db - da;
+                return b.localeCompare(a);
+            });
             const sessionOptions = sessions.map(s => {
                 const selected = (s === activeSessionName) ? ' selected' : '';
-                return `<option value="${escapeHtml(s)}"${selected}>${escapeHtml(s)}</option>`;
+                const label = formatSessionLabel(s, sessionMap[s]);
+                const count = sessionMap[s].length;
+                return `<option value="${escapeHtml(s)}"${selected}>${escapeHtml(label)} (${count})</option>`;
             }).join('');
 
             let html = `<div class="chatlog-toolbar">
@@ -1685,12 +1719,26 @@
             groups[s].push(h);
         });
 
-        let html = '';
-        for (const [session, items] of Object.entries(groups).sort((a, b) => {
+        const sortedGroups = Object.entries(groups).sort((a, b) => {
             if (sort === 'user') return (a[1][0].user || '').localeCompare(b[1][0].user || '', undefined, { sensitivity: 'base' });
-            return b[0].localeCompare(a[0]);
-        })) {
-            html += `<div class="highlight-group"><h3>${escapeHtml(session)}</h3>`;
+            const da = parseSessionDate(a[0], a[1])?.getTime() || 0;
+            const db = parseSessionDate(b[0], b[1])?.getTime() || 0;
+            if (da && db) return sort === 'oldest' ? da - db : db - da;
+            return sort === 'oldest' ? a[0].localeCompare(b[0]) : b[0].localeCompare(a[0]);
+        });
+
+        let html = '';
+        for (const [session, items] of sortedGroups) {
+            const isCurrent = session === 'current' || session === '__current__';
+            const titleText = formatSessionLabel(session, items);
+            html += `<div class="highlight-group" style="margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; background: var(--bg-card);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; border-bottom:1px solid var(--border); padding-bottom:0.4rem;">
+                    <div>
+                        <b style="font-size:0.9rem;">${escapeHtml(titleText)}</b>
+                        <span style="font-size:0.7rem; color:var(--accent); margin-left:0.4rem; font-weight:600;">(${items.length})</span>
+                        ${!isCurrent && session !== 'unknown' ? `<span style="font-size:0.68rem; color:var(--text-muted); opacity:0.7; margin-left:0.4rem; font-family:monospace;">${escapeHtml(session)}</span>` : ''}
+                    </div>
+                </div>`;
             html += items.map(h => {
                 const hReply = formatReply(h.messageHtml, h.message);
                 let displayHtml;
@@ -1707,7 +1755,10 @@
                         <div><span class="chat-user dossier-clickable" data-chatter="${escapeHtml(h.user)}" title="View Chatter Dossier" style="color:${userColor(h.user)}">${escapeHtml(h.user)}</span>
                         <button class="pin-btn pinned" onclick="unpinHighlight(this, ${h.ts}, '${escapeHtml(h.user)}')" title="Unpin">⭐</button></div>
                         <div class="chat-text">${displayHtml}</div>
-                        <div class="chat-session-tag">Pinned ${formatDateTimestamp(h.pinnedAt)} · Key: <code>${h.ts}:${escapeHtml(h.user)}</code></div>
+                        <div class="chat-session-tag" style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
+                            <span>Pinned ${formatDateTimestamp(h.pinnedAt)} · Key: <code>${h.ts}:${escapeHtml(h.user)}</code></span>
+                            <button class="chat-action-btn" style="padding:0.1rem 0.35rem;font-size:0.7rem;cursor:pointer;" onclick="openChatAtTimestamp(${h.ts})">Jump to chat ↗</button>
+                        </div>
                     </div>
                     <span class="chat-time">${formatTimestamp(h.ts)}</span>
                 </div>`;
@@ -1762,9 +1813,10 @@
     loadSessions().then(() => {
         connectLiveSessionSocket();
         const params = new URLSearchParams(location.search);
-        const requested = params.get('session');
+        let requested = params.get('session');
         const timestamp = Number(params.get('ts'));
         if (!requested) return;
+        if (requested === 'current') requested = '__current__';
         const item = document.querySelector(`.session-item[data-file="${CSS.escape(requested)}"]`);
         if (item) {
             loadSession(requested, item).then(() => {
