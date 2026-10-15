@@ -42,6 +42,7 @@ const {
     MAX_IN_MEMORY_CHAT_MESSAGES
 } = require('./server/services/ssn');
 const { createOverlayWsServer } = require('./server/ws');
+const { createTimersRoutes } = require('./server/routes/timers');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -1362,6 +1363,7 @@ const getTimerOrThrow = id => timerService.getTimerOrThrow(id);
 const applyTimerControl = (timer, action, params) => timerService.applyTimerControl(timer, action, params);
 const timerSoundUsers = name => timerService.timerSoundUsers(name, assetReferencedIn);
 const rewriteTimerSoundReferences = (oldName, newName) => timerService.rewriteTimerSoundReferences(oldName, newName, rewriteAssetReferences);
+const handleTimersRoutes = createTimersRoutes({ timerService });
 
 // The credits header and custom credit sections can use library images.
 function creditsAssetUsers(name) {
@@ -4800,137 +4802,7 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    if (pathname === '/api/timers' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(buildTimersSnapshot()));
-        return;
-    }
-
-    if (pathname === '/api/timers' && req.method === 'POST') {
-        try {
-            const body = await readRequestBody(req);
-            const payload = JSON.parse(body || '{}');
-            const timer = upsertTimer(payload);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: true, timer: buildTimerSnapshot(timer) }));
-        } catch (err) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
-
-    if (pathname === '/api/timers/settings' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(timerService.getSettings()));
-        return;
-    }
-
-    if (pathname === '/api/timers/settings' && req.method === 'PUT') {
-        try {
-            const body = await readRequestBody(req);
-            const payload = JSON.parse(body || '{}');
-            const settings = timerService.updateSettings(payload);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: true, settings }));
-        } catch (err) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
-
-    if (pathname.startsWith('/api/timers/')) {
-        const timerPath = pathname.slice('/api/timers/'.length);
-        const segments = timerPath.split('/').filter(Boolean).map(decodeURIComponent);
-        const timerId = sanitizeTimerId(segments[0]);
-
-        if (!timerId) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Timer not found' }));
-            return;
-        }
-
-        try {
-            if (segments.length === 1 && req.method === 'GET') {
-                const timer = getTimerOrThrow(timerId);
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify(buildTimerSnapshot(timer)));
-                return;
-            }
-
-            if (segments.length === 1 && req.method === 'PUT') {
-                const body = await readRequestBody(req);
-                const payload = JSON.parse(body || '{}');
-                payload.id = timerId;
-                const timer = upsertTimer(payload);
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ ok: true, timer: buildTimerSnapshot(timer) }));
-                return;
-            }
-
-            if (segments.length === 1 && req.method === 'DELETE') {
-                timerService.deleteTimer(timerId);
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ ok: true, deleted: timerId }));
-                return;
-            }
-
-            if (segments[1] === 'control' && (req.method === 'POST' || req.method === 'GET')) {
-                const body = req.method === 'POST' ? await readRequestBody(req) : '';
-                let payload = {};
-                if (body) payload = JSON.parse(body);
-                const urlObj = new URL(req.url, `http://${req.headers.host}`);
-                const action = String(payload.action || urlObj.searchParams.get('action') || '').trim().toLowerCase();
-                const timer = getTimerOrThrow(timerId);
-                const snapshot = applyTimerControl(timer, action, {
-                    ...payload,
-                    durationMs: payload.durationMs ?? urlObj.searchParams.get('durationMs'),
-                    days: payload.days ?? urlObj.searchParams.get('days'),
-                    hours: payload.hours ?? urlObj.searchParams.get('hours'),
-                    minutes: payload.minutes ?? urlObj.searchParams.get('minutes'),
-                    seconds: payload.seconds ?? urlObj.searchParams.get('seconds'),
-                    mode: payload.mode ?? urlObj.searchParams.get('mode'),
-                    value: payload.value ?? urlObj.searchParams.get('value')
-                });
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ ok: true, timer: snapshot }));
-                return;
-            }
-
-            if (segments[1] === 'field' && segments[2] && req.method === 'GET') {
-                const timer = getTimerOrThrow(timerId);
-                const snapshot = buildTimerSnapshot(timer);
-                const field = segments[2];
-                const valueMap = {
-                    id: snapshot.id,
-                    label: snapshot.label,
-                    kind: snapshot.kind,
-                    state: snapshot.state,
-                    visible: String(snapshot.visible),
-                    remaining_ms: snapshot.kind === 'countdown' ? String(snapshot.remainingMs) : '',
-                    remaining: snapshot.kind === 'countdown' ? snapshot.formattedRemaining : '',
-                    elapsed_ms: snapshot.kind === 'stopwatch' ? String(snapshot.elapsedMs) : '',
-                    elapsed: snapshot.kind === 'stopwatch' ? snapshot.formattedElapsed : '',
-                    progress: snapshot.kind === 'countdown' ? String(Math.round(snapshot.percentComplete * 100)) : '',
-                    title: snapshot.displayTitle || snapshot.label
-                };
-                if (!(field in valueMap)) {
-                    res.writeHead(404, { 'Content-Type': 'text/plain' });
-                    res.end(`Unknown field: ${field}`);
-                    return;
-                }
-                res.writeHead(200, { 'Content-Type': 'text/plain' });
-                res.end(valueMap[field]);
-                return;
-            }
-        } catch (err) {
-            const statusCode = err.message === 'Timer not found' ? 404 : 400;
-            res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-            return;
-        }
-    }
+    if (await handleTimersRoutes(req, res, pathname)) return;
 
     if (pathname === '/api/weather') {
         if (url.searchParams.get('refresh') === '1' && normalizeWeatherConfig(config.weather).enabled) await fetchWeather();
