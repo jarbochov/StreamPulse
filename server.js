@@ -6651,6 +6651,37 @@ const server = http.createServer(async (req, res) => {
     if (pathname.startsWith('/api/variables') && await variablesStore.handleApi(req, res, pathname, readRequestBody)) return;
     if (pathname.startsWith('/api/chatbot') && await chatbot.handleApi(req, res, pathname, readRequestBody)) return;
 
+    if (pathname === '/api/randomizer/spin' && req.method === 'POST') {
+        try {
+            const raw = await readRequestBody(req);
+            const body = JSON.parse(raw || '{}');
+            const choices = Array.isArray(body.choices) ? body.choices.map(c => String(c).trim()).filter(Boolean) : [];
+            const winner = body.winner || (choices.length ? choices[Math.floor(Math.random() * choices.length)] : 'Winner');
+            const payload = {
+                choices,
+                winner,
+                mode: body.mode || 'roller',
+                duration: Number(body.duration) || 6,
+                at: Date.now()
+            };
+            broadcastToOverlays('randomizer-spin', payload);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, payload }));
+        } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+    }
+
+    if (pathname === '/api/randomizer/chatters' && req.method === 'GET') {
+        const chatters = Object.keys(chatData?.chatters || {}).concat(Object.keys(statsData?.chatters || {}));
+        const unique = [...new Set(chatters.map(c => c.trim()).filter(Boolean))];
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ chatters: unique }));
+        return;
+    }
+
     if (pathname === '/favicon.ico') {
         try {
             const icon = fs.readFileSync(path.join(__dirname, 'favicon.svg'));
