@@ -53,6 +53,7 @@ const { createOverlayRoutes } = require('./server/routes/overlays');
 const { createCrmService } = require('./server/services/crm');
 const { createCrmRoutes } = require('./server/routes/crm');
 const { createSystemRoutes } = require('./server/routes/system');
+const { createHighlightsRoutes } = require('./server/routes/highlights');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -2703,6 +2704,20 @@ const handleSystemRoutes = createSystemRoutes({
     applyUpdate
 });
 
+const handleHighlightsRoutes = createHighlightsRoutes({
+    getHighlights: () => highlights,
+    setHighlights: (arr) => { highlights = arr; },
+    saveHighlights,
+    getChatLog: () => chatLog,
+    getChatData: () => chatData,
+    getClipCandidateConfig: () => CLIP_CANDIDATE_CONFIG,
+    clipSessionOverrideForName,
+    addClipCandidate,
+    buildChatPdfHtml,
+    generatePdf,
+    localDateTimeStr
+});
+
 const server = http.createServer(async (req, res) => {
     try {
         const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -3014,197 +3029,7 @@ if (pathname === '/api/restore' && req.method === 'POST') {
         return;
     }
 
-    // ========================================================================
-    // HIGHLIGHTS EXPORT
-    // ========================================================================
-
-    if (pathname === '/api/highlights/pin-last' && req.method === 'POST') {
-        if (chatLog.length === 0) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'No chat messages yet' }));
-            return;
-        }
-        const last = chatLog[chatLog.length - 1];
-        const already = highlights.some(h => h.ts === last.ts && h.user === last.user);
-        if (already) {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ status: 'already_pinned', user: last.user, message: last.message }));
-            return;
-        }
-        const sessionName = 'chat-' + localDateTimeStr(chatData.startedAt) + '.json';
-        highlights.push({ ts: last.ts, user: last.user, message: last.message || '', messageHtml: last.messageHtml || '', avatar: last.avatar || null, session: sessionName, pinnedAt: Date.now() });
-        saveHighlights();
-        console.log(`[Highlights] Pinned last message from ${last.user}`);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'pinned', user: last.user, message: last.message }));
-        return;
-    }
-
-    if (pathname === '/api/highlights/export' && req.method === 'GET') {
-        const format = url.searchParams.get('format');
-        const sessionFilter = url.searchParams.get('session');
-        const userFilter = (url.searchParams.get('user') || '').toLowerCase();
-        const rawQuery = (url.searchParams.get('q') || '').trim().toLowerCase();
-        let data = highlights;
-        if (sessionFilter) {
-            data = data.filter(h => h.session === sessionFilter);
-        }
-        if (userFilter) {
-            data = data.filter(h => (h.user || '').toLowerCase() === userFilter);
-        }
-        if (rawQuery) {
-            data = data.filter(h =>
-                (h.user || '').toLowerCase().includes(rawQuery) ||
-                (h.message || '').toLowerCase().includes(rawQuery)
-            );
-        }
-
-        const formatTime = (ts) => {
-            if (!ts) return '';
-            const d = new Date(ts);
-            return d.toLocaleString();
-        };
-
-        const safeFilename = sessionFilter
-            ? 'highlights-' + sessionFilter.replace(/[^a-zA-Z0-9_-]/g, '_')
-            : 'highlights';
-
-        if (format === 'tsv') {
-            const header = 'Timestamp\tUser\tMessage\tSession\tPinned At';
-            const rows = data.map(h =>
-                `${formatTime(h.ts)}\t${h.user}\t${(h.message || '').replace(/\t/g, ' ')}\t${h.session || ''}\t${formatTime(h.pinnedAt)}`
-            );
-            const content = header + '\n' + rows.join('\n');
-            res.writeHead(200, {
-                'Content-Type': 'text/tab-separated-values',
-                'Content-Disposition': `attachment; filename="${safeFilename}.tsv"`
-            });
-            res.end(content);
-            return;
-        }
-
-        if (format === 'txt') {
-            const groups = {};
-            data.forEach(h => {
-                const s = h.session || 'unknown';
-                if (!groups[s]) groups[s] = [];
-                groups[s].push(h);
-            });
-
-            let content = 'Highlights Export\n=================\n';
-            for (const [session, items] of Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]))) {
-                content += `\n--- Session: ${session} ---\n\n`;
-                for (const h of items) {
-                    const time = formatTime(h.ts);
-                    const timeStr = time ? time.split(', ').pop() || time : '';
-                    content += `[${timeStr}] ${h.user}: ${h.message || ''}\n`;
-                }
-            }
-            res.writeHead(200, {
-                'Content-Type': 'text/plain',
-                'Content-Disposition': `attachment; filename="${safeFilename}.txt"`
-            });
-            res.end(content);
-            return;
-        }
-
-        if (format === 'pdf') {
-            const title = sessionFilter
-                ? `Highlights — ${sessionFilter}`
-                : 'Highlights Export';
-            try {
-                const htmlContent = buildChatPdfHtml(title, `${data.length} highlights`, data);
-                const pdfBuffer = await generatePdf(htmlContent);
-                res.writeHead(200, {
-                    'Content-Type': 'application/pdf',
-                    'Content-Disposition': `attachment; filename="${safeFilename}.pdf"`,
-                    'Content-Length': pdfBuffer.length
-                });
-                res.end(pdfBuffer);
-            } catch (err) {
-                console.error('[PDF] Highlights export failed:', err.message);
-                res.writeHead(500, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'PDF generation failed: ' + err.message }));
-            }
-            return;
-        }
-
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid format. Use: tsv, txt, or pdf' }));
-        return;
-    }
-
-    // ========================================================================
-    // HIGHLIGHTS (Pin/Unpin)
-    // ========================================================================
-
-    if (pathname === '/api/highlights') {
-        if (req.method === 'GET') {
-            const sessionFilter = url.searchParams.get('session');
-            let result = highlights;
-            if (sessionFilter) {
-                result = highlights.filter(h => h.session === sessionFilter);
-            }
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(result));
-            return;
-        }
-
-        if (req.method === 'POST') {
-            let body = '';
-            req.on('data', chunk => { body += chunk; });
-            req.on('end', () => {
-                try {
-                    const { ts, user, message, messageHtml, avatar, session } = JSON.parse(body);
-                    if (!ts || !user) throw new Error('Missing ts or user');
-                    highlights.push({ ts, user, message: message || '', messageHtml: messageHtml || '', avatar: avatar || null, session: session || 'unknown', pinnedAt: Date.now() });
-                    saveHighlights();
-                    let candidate = null;
-                    if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_highlights) {
-                        const sessionOverride = clipSessionOverrideForName(session);
-                        if (sessionOverride) {
-                            candidate = addClipCandidate(
-                                'highlighted-chat',
-                                { user, message: message || '' },
-                                Number(ts),
-                                0.9,
-                                sessionOverride,
-                                `${sessionOverride.session}:highlight:${ts}:${user}`
-                            );
-                        }
-                    }
-                    console.log(`[Highlights] Pinned message from ${user}`);
-                    res.writeHead(200, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ status: 'pinned', count: highlights.length, candidateId: candidate?.id || null }));
-                } catch (err) {
-                    res.writeHead(400, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: err.message }));
-                }
-            });
-            return;
-        }
-
-        if (req.method === 'DELETE') {
-            let body = '';
-            req.on('data', chunk => { body += chunk; });
-            req.on('end', () => {
-                try {
-                    const { ts, user } = JSON.parse(body);
-                    if (!ts || !user) throw new Error('Missing ts or user');
-                    const before = highlights.length;
-                    highlights = highlights.filter(h => !(h.ts === ts && h.user === user));
-                    saveHighlights();
-                    console.log(`[Highlights] Unpinned message from ${user} (${before - highlights.length} removed)`);
-                    res.writeHead(200, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ status: 'unpinned', count: highlights.length }));
-                } catch (err) {
-                    res.writeHead(400, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: err.message }));
-                }
-            });
-            return;
-        }
-    }
+    if (await handleHighlightsRoutes(req, res, url, pathname)) return;
 
     // Static file serving via cascading static router
     if (staticRouter.handleRequest(req, res)) {
