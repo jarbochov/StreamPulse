@@ -46,6 +46,7 @@ const { createTimersRoutes } = require('./server/routes/timers');
 const { createGoalsRoutes } = require('./server/routes/goals');
 const { createMusicRoutes } = require('./server/routes/music');
 const { createWeatherRoutes } = require('./server/routes/weather');
+const { createGamePlanRoutes } = require('./server/routes/game-plan');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -1820,6 +1821,17 @@ const buildGamePlanSnapshot = () => gamePlanService.buildGamePlanSnapshot();
 const applyPlayedSpans = spans => gamePlanService.applyPlayedSpans(spans);
 const recordPlayedGames = (streamInfo, endMs, startFloorMs) => gamePlanService.recordPlayedGames(streamInfo, endMs, startFloorMs);
 const backfillPlayedGames = () => gamePlanService.backfillPlayedGames();
+const handleGamePlanRoutes = createGamePlanRoutes({
+    gamePlanService,
+    getTwitchClientId: () => TWITCH_CLIENT_ID,
+    getAppToken,
+    getChatData: () => chatData,
+    refreshGameInfo,
+    publicGameInfo,
+    gameInfoCache,
+    infoKey,
+    sessionsDir: SESSIONS_DIR
+});
 
 // ============================================================================
 // WEATHER (Open-Meteo Service)
@@ -4644,58 +4656,7 @@ const server = http.createServer(async (req, res) => {
 
     if (await handleWeatherRoutes(req, res, url, pathname)) return;
 
-    if (pathname === '/api/game-plan/backfill' && req.method === 'POST') {
-        try {
-            const result = await backfillPlayedGames();
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(result));
-        } catch (err) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
-
-    if (pathname === '/api/game-plan/now' && req.method === 'POST') {
-        try {
-            const body = JSON.parse(await readRequestBody(req) || '{}');
-            const snapshot = gamePlanService.setPlayingNow(body.id);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(snapshot));
-        } catch (err) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
-
-    if (pathname === '/api/game-plan/advance' && req.method === 'POST') {
-        try {
-            const result = gamePlanService.advance();
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(result));
-        } catch (err) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
-
-    if (pathname === '/api/game-plan') {
-        if (req.method === 'PUT') {
-            try {
-                const payload = JSON.parse(await readRequestBody(req) || '{}');
-                gamePlanService.updateGamePlan(payload);
-            } catch (err) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: err.message }));
-                return;
-            }
-        }
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(gamePlanService.buildGamePlanSnapshot()));
-        return;
-    }
+    if (await handleGamePlanRoutes(req, res, pathname)) return;
 
     if (pathname === '/api/qr') {
         const params = new URL(req.url, 'http://localhost').searchParams;
@@ -4718,135 +4679,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (pathname === '/api/game-search') {
-        const query = (new URL(req.url, 'http://localhost').searchParams.get('q') || '').trim().slice(0, 100);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        if (query.length < 2 || !TWITCH_CLIENT_ID) { res.end(JSON.stringify({ results: [] })); return; }
-        try {
-            const token = await getAppToken();
-            const body = `search "${query.replace(/["\\]/g, '')}"; fields name,first_release_date,cover.image_id,platforms.abbreviation,category,version_parent; limit 12;`;
-            const igdb = await fetch('https://api.igdb.com/v4/games', { method: 'POST', headers: { 'Client-ID': TWITCH_CLIENT_ID, Authorization: `Bearer ${token}` }, body });
-            const data = await igdb.json();
-            const results = (Array.isArray(data) ? data : []).filter(game => !game.version_parent).map(game => ({
-                id: String(game.id),
-                name: game.name || '',
-                year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : '',
-                platforms: (game.platforms || []).map(platform => platform.abbreviation).filter(Boolean).slice(0, 4),
-                cover: game.cover?.image_id ? `https://images.igdb.com/igdb/image/upload/t_cover_small/${game.cover.image_id}.jpg` : ''
-            }));
-            res.end(JSON.stringify({ results }));
-        } catch (err) {
-            res.end(JSON.stringify({ results: [], error: err.message }));
-        }
-        return;
-    }
 
-    if (pathname === '/api/game') {
-        const name = new URL(req.url, 'http://localhost').searchParams.get('name')
-            || chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category || '';
-        await refreshGameInfo(name);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(publicGameInfo(name)));
-        return;
-    }
-
-    if (pathname === '/api/categories') {
-        try {
-            const params = new URL(req.url, 'http://localhost').searchParams;
-            const from = params.get('from') || '';
-            const to = params.get('to') || '';
-
-            const allSessions = [];
-
-            // Current session
-            if (chatData.streamInfo && chatData.streamInfo.length > 0) {
-                allSessions.push({
-                    file: '__current__',
-                    startedAt: chatData.startedAt,
-                    endedAt: null,
-                    streamInfo: chatData.streamInfo,
-                    messageCount: chatData.messageCount
-                });
-            }
-
-            // Archived sessions
-            if (fs.existsSync(SESSIONS_DIR)) {
-                const files = fs.readdirSync(SESSIONS_DIR)
-                    .filter(f => f.startsWith('chat-') && f.endsWith('.json'))
-                    .sort();
-                for (const file of files) {
-                    try {
-                        const d = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
-                        if (d.streamInfo && d.streamInfo.length > 0) {
-                            allSessions.push({
-                                file,
-                                startedAt: d.startedAt,
-                                endedAt: d.lastUpdated || d.startedAt,
-                                streamInfo: d.streamInfo,
-                                messageCount: d.messageCount || 0
-                            });
-                        }
-                    } catch {}
-                }
-            }
-
-            // Aggregate: category → { totalMinutes, sessions: [{ date, title, category, minutes }] }
-            const categories = {};
-            for (const sess of allSessions) {
-                const sessDate = (sess.startedAt || '').substring(0, 10);
-                if (from && sessDate < from) continue;
-                if (to && sessDate > to) continue;
-
-                const info = sess.streamInfo;
-                const sessionEnd = sess.endedAt ? new Date(sess.endedAt) : new Date();
-
-                for (let i = 0; i < info.length; i++) {
-                    const entry = info[i];
-                    const cat = entry.category || '(No Category)';
-                    const start = new Date(entry.changedAt);
-                    const end = i + 1 < info.length ? new Date(info[i + 1].changedAt) : sessionEnd;
-                    const minutes = Math.max(0, (end - start) / 60000);
-
-                    if (!categories[cat]) categories[cat] = { totalMinutes: 0, sessions: [] };
-                    categories[cat].totalMinutes += minutes;
-                    categories[cat].sessions.push({
-                        date: sessDate,
-                        file: sess.file,
-                        changedAt: entry.changedAt,
-                        title: entry.title,
-                        minutes: Math.round(minutes)
-                    });
-                }
-            }
-
-            // Sort by total time descending
-            const sorted = Object.entries(categories)
-                .map(([name, data]) => ({ name, totalMinutes: Math.round(data.totalMinutes), sessions: data.sessions }))
-                .sort((a, b) => b.totalMinutes - a.totalMinutes);
-
-            // Cover art and details come from the cached IGDB lookup; unseen names are queued in the background.
-            const real = sorted.filter(c => c.name !== '(No Category)');
-            warmGameInfo(real.map(c => ({ name: c.name, igdbId: '' })));
-            let pending = 0;
-            for (const c of real) {
-                const g = publicGameInfo(c.name);
-                c.cover = g.cover || '';
-                c.genres = (g.genres || []).slice(0, 3);
-                c.releaseYear = g.releaseYear || '';
-                c.releaseDate = g.releaseDate || '';
-                c.igdbUrl = g.igdbUrl || '';
-                c.developers = (g.developers || []).slice(0, 2);
-                if (!g.cover && !gameInfoCache[infoKey(c.name)]) pending++;
-            }
-
-            res.writeHead(200, { 'Content-Type': 'application/json', 'X-Covers-Pending': String(pending) });
-            res.end(JSON.stringify(sorted));
-        } catch (err) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
 
     if (pathname === '/api/export') {
         const params = new URL(req.url, `http://localhost`).searchParams;

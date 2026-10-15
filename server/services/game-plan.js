@@ -236,6 +236,7 @@ function createGamePlanService({
         setPlayingNow,
         advance,
         updateGamePlan,
+        warmGameInfo,
         gamePlanAssetUsers,
         rewriteGamePlanReferences,
         get filePath() { return GAME_PLAN_PATH; }
