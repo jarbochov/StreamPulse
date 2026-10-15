@@ -43,6 +43,7 @@ const {
 } = require('./server/services/ssn');
 const { createOverlayWsServer } = require('./server/ws');
 const { createTimersRoutes } = require('./server/routes/timers');
+const { createGoalsRoutes } = require('./server/routes/goals');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -1540,6 +1541,13 @@ const resetGoalBaseline = goalId => goalsService.resetGoalBaseline(goalId);
 const toggleGoalEnabled = (goalId, mode) => goalsService.toggleGoalEnabled(goalId, mode);
 const buildRecentEvents = limit => goalsService.buildRecentEvents(limit);
 setInterval(() => goalsService.checkGoalAlerts(), 5000).unref();
+const handleGoalsRoutes = createGoalsRoutes({
+    goalsService,
+    getConfig: () => config,
+    configPath: CONFIG_PATH,
+    safeWriteFileSync,
+    applyRuntimeConfig
+});
 
 // ============================================================================
 // RATE LIMITING
@@ -3825,79 +3833,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (pathname === '/api/goals' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(buildGoalsSnapshot()));
-        return;
-    }
-
-    if (pathname === '/api/goals/config') {
-        if (req.method === 'GET') {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-                viewer_tracking: normalizeViewerTrackingConfig(config.viewer_tracking),
-                goals: normalizeGoalsConfig(config.goals || DEFAULT_GOALS_CONFIG)
-            }));
-            return;
-        }
-
-        if (req.method === 'PUT') {
-            try {
-                const body = await readRequestBody(req);
-                const payload = JSON.parse(body || '{}');
-                const current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-                if (payload.viewer_tracking !== undefined) current.viewer_tracking = normalizeViewerTrackingConfig(payload.viewer_tracking);
-                if (payload.goals !== undefined) current.goals = normalizeGoalsConfig(payload.goals);
-                safeWriteFileSync(CONFIG_PATH, JSON.stringify(current, null, 2));
-                applyRuntimeConfig(current);
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({
-                    status: 'saved',
-                    viewer_tracking: normalizeViewerTrackingConfig(current.viewer_tracking),
-                    goals: normalizeGoalsConfig(current.goals || DEFAULT_GOALS_CONFIG)
-                }));
-            } catch (err) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: err.message }));
-            }
-            return;
-        }
-    }
-
-    if (pathname.startsWith('/api/goals/') && req.method === 'POST') {
-        const goalPath = pathname.slice('/api/goals/'.length);
-        const [goalIdRaw, actionRaw] = goalPath.split('/').filter(Boolean).map(decodeURIComponent);
-        const goalId = sanitizeGoalId(goalIdRaw);
-        const action = String(actionRaw || '').toLowerCase();
-        if (!goalId || !action) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Goal action not found' }));
-            return;
-        }
-
-        try {
-            if (action === 'reset') {
-                const snapshot = resetGoalBaseline(goalId);
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ ok: true, goals: snapshot }));
-                return;
-            }
-
-            if (action === 'toggle' || action === 'enable' || action === 'disable') {
-                const snapshot = toggleGoalEnabled(goalId, action === 'enable' ? 'on' : action === 'disable' ? 'off' : 'toggle');
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ ok: true, goals: snapshot }));
-                return;
-            }
-
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: `Unsupported goal action: ${action}` }));
-        } catch (err) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
+    if (await handleGoalsRoutes(req, res, pathname)) return;
 
     if (pathname === '/api/clip-candidates' && req.method === 'GET') {
         const sessionFilter = url.searchParams.get('session');
