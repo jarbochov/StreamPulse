@@ -14,6 +14,7 @@ const { DEFAULT_TIERS, normalizeGamePlan, gameKey, sanitizeOverlayId } = require
 const { createAlertEngine, TRIGGERS: ALERT_TRIGGERS, ANIM_IN: ALERT_ANIM_IN, ANIM_OUT: ALERT_ANIM_OUT } = require('./server/alerts');
 const { createStaticRouter } = require('./server/static-router');
 const { createWeatherService, normalizeWeatherConfig } = require('./server/services/weather');
+const { createMusicService } = require('./server/services/music');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -3543,11 +3544,13 @@ const scheduleWeather = () => weatherService.scheduleWeather();
 // MUSIC NOW-PLAYING
 // ============================================================================
 
-const MUSIC_ART_PATH = path.join(DATA_DIR, 'music-artwork.png');
-const MUSIC_FALLBACK_ART_PATH = path.join(DATA_DIR, 'music-fallback.png');
-let musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
-let musicPolledAt = 0;
-let musicPollTimer = null;
+const musicService = createMusicService({
+    dataDir: DATA_DIR,
+    getConfig: () => config,
+    broadcastToOverlays: (type, data) => broadcastToOverlays(type, data)
+});
+const startMusicPolling = () => musicService.startPolling();
+const stopMusicPolling = () => musicService.stopPolling();
 let overlayVisible = true;
 // Overlays hidden through the API; the music overlay keeps its own flag (overlayVisible).
 const hiddenOverlays = new Set();
@@ -3583,256 +3586,7 @@ function setOverlayVisibility(key, action) {
 let viewerPollHandle = null;
 let lastSSNViewerUpdateAt = 0;
 
-// --- Apple Music (macOS only, via osascript) ---
 
-function runOsascript(lines, cb) {
-    const args = lines.map(l => `-e '${l.replace(/'/g, "'\\''")}'`).join(' ');
-    exec(`osascript ${args}`, cb);
-}
-
-function pollAppleMusic() {
-    runOsascript([
-        'if application "Music" is running then',
-        '  tell application "Music"',
-        '    set pState to player state as string',
-        '    if pState is "playing" or pState is "paused" then',
-        '      set tName to name of current track',
-        '      set tArtist to artist of current track',
-        '      set tAlbum to album of current track',
-        '      set tYear to year of current track',
-        '      set tDur to duration of current track',
-        '      set tPos to player position',
-        '      return pState & "|||" & tName & "|||" & tArtist & "|||" & tAlbum & "|||" & tYear & "|||" & tDur & "|||" & tPos',
-        '    else',
-        '      return "stopped|||||||||||"',
-        '    end if',
-        '  end tell',
-        'else',
-        '  return "stopped|||||||||||"',
-        'end if'
-    ], (err, stdout) => {
-        musicPolledAt = Date.now();
-        if (err) {
-            if (musicState.state !== 'stopped') {
-                musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
-                broadcastToOverlays('music', musicState);
-            }
-            return;
-        }
-
-        const parts = stdout.trim().split('|||');
-        const newState = {
-            state: parts[0] || 'stopped',
-            track: parts[1] || '',
-            artist: parts[2] || '',
-            album: parts[3] || '',
-            year: parts[4] || '',
-            duration: parseFloat(parts[5]) || 0,
-            position: parseFloat(parts[6]) || 0,
-            artworkUrl: ''
-        };
-
-        if (newState.state === 'stopped') {
-            if (musicState.state !== 'stopped') {
-                musicState = newState;
-                broadcastToOverlays('music', musicState);
-            }
-            return;
-        }
-
-        const trackChanged = newState.track !== musicState.track
-            || newState.artist !== musicState.artist
-            || newState.album !== musicState.album;
-        const stateChanged = newState.state !== musicState.state;
-
-        if (trackChanged) {
-            runOsascript([
-                'tell application "Music"',
-                '  set artData to raw data of artwork 1 of current track',
-                'end tell',
-                `set fRef to open for access (POSIX file "${MUSIC_ART_PATH}") with write permission`,
-                'set eof fRef to 0',
-                'write artData to fRef',
-                'close access fRef'
-            ], (artErr) => {
-                newState.artworkUrl = artErr ? '' : '/api/music/artwork?t=' + Date.now();
-                musicState = newState;
-                broadcastToOverlays('music', musicState);
-                console.log(`[Music] Now playing: ${musicState.track} — ${musicState.artist}`);
-            });
-        } else if (stateChanged) {
-            newState.artworkUrl = musicState.artworkUrl;
-            musicState = newState;
-            broadcastToOverlays('music', musicState);
-            console.log(`[Music] State: ${musicState.state}`);
-        } else {
-            // Update position/duration silently (for progress bar)
-            musicState.position = newState.position;
-            musicState.duration = newState.duration;
-        }
-    });
-}
-
-// --- VLC (cross-platform, via HTTP interface) ---
-
-function pollVLC() {
-    const vlcCfg = MUSIC_CONFIG.vlc || {};
-    const host = vlcCfg.host || 'localhost';
-    const port = vlcCfg.port || 8080;
-    const password = vlcCfg.password || '';
-    const auth = Buffer.from(`:${password}`).toString('base64');
-    const url = `http://${host}:${port}/requests/status.json`;
-
-    const req = http.request(url, {
-        headers: { 'Authorization': `Basic ${auth}` },
-        timeout: 3000,
-        insecureHTTPParser: true
-    }, (res) => {
-        let body = '';
-        res.on('data', chunk => body += chunk);
-        res.on('end', () => {
-            try {
-                const data = JSON.parse(body);
-                processVLCStatus(data);
-            } catch (e) {
-                if (musicState.state !== 'stopped') {
-                    musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
-                    broadcastToOverlays('music', musicState);
-                }
-            }
-        });
-    });
-
-    req.on('error', () => {
-        if (musicState.state !== 'stopped') {
-            musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
-            broadcastToOverlays('music', musicState);
-        }
-    });
-
-    req.on('timeout', () => req.destroy());
-    req.end();
-}
-
-function processVLCStatus(data) {
-    musicPolledAt = Date.now();
-    // VLC states: playing, paused, stopped
-    const vlcState = data.state || 'stopped';
-    const state = vlcState === 'playing' ? 'playing' : vlcState === 'paused' ? 'paused' : 'stopped';
-
-    if (state === 'stopped') {
-        if (musicState.state !== 'stopped') {
-            musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
-            broadcastToOverlays('music', musicState);
-        }
-        return;
-    }
-
-    // Extract metadata from VLC's category→meta info
-    const meta = (data.information && data.information.category && data.information.category.meta) || {};
-    const newState = {
-        state,
-        track: meta.title || meta.filename || data.information?.category?.meta?.title || '',
-        artist: meta.artist || '',
-        album: meta.album || '',
-        year: meta.date || '',
-        duration: data.length || 0,
-        position: Math.round((data.position || 0) * (data.length || 0)),
-        artworkUrl: ''
-    };
-
-    // If track name is empty, try to derive from filename
-    if (!newState.track && meta.filename) {
-        newState.track = meta.filename.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
-    }
-
-    const trackChanged = newState.track !== musicState.track
-        || newState.artist !== musicState.artist
-        || newState.album !== musicState.album;
-    const stateChanged = newState.state !== musicState.state;
-
-    if (trackChanged) {
-        // Try to fetch album art from VLC
-        fetchVLCArtwork((artUrl) => {
-            newState.artworkUrl = artUrl;
-            musicState = newState;
-            broadcastToOverlays('music', musicState);
-            console.log(`[Music/VLC] Now playing: ${musicState.track} — ${musicState.artist}`);
-        });
-    } else if (stateChanged) {
-        newState.artworkUrl = musicState.artworkUrl;
-        musicState = newState;
-        broadcastToOverlays('music', musicState);
-        console.log(`[Music/VLC] State: ${musicState.state}`);
-    } else {
-        musicState.position = newState.position;
-        musicState.duration = newState.duration;
-    }
-}
-
-function fetchVLCArtwork(cb) {
-    const vlcCfg = MUSIC_CONFIG.vlc || {};
-    const host = vlcCfg.host || 'localhost';
-    const port = vlcCfg.port || 8080;
-    const password = vlcCfg.password || '';
-    const auth = Buffer.from(`:${password}`).toString('base64');
-    const url = `http://${host}:${port}/art`;
-
-    const req = http.request(url, {
-        headers: { 'Authorization': `Basic ${auth}` },
-        timeout: 3000,
-        insecureHTTPParser: true
-    }, (res) => {
-        if (res.statusCode !== 200) {
-            cb('');
-            return;
-        }
-        const chunks = [];
-        res.on('data', chunk => chunks.push(chunk));
-        res.on('end', () => {
-            try {
-                const artBuffer = Buffer.concat(chunks);
-                if (artBuffer.length > 0) {
-                    fs.writeFileSync(MUSIC_ART_PATH, artBuffer);
-                    cb('/api/music/artwork?t=' + Date.now());
-                } else {
-                    cb('');
-                }
-            } catch {
-                cb('');
-            }
-        });
-    });
-
-    req.on('error', () => cb(''));
-    req.on('timeout', () => { req.destroy(); cb(''); });
-    req.end();
-}
-
-// --- Unified polling start/stop ---
-
-function currentPollFn() {
-    const source = MUSIC_CONFIG.source || 'apple_music';
-    return source === 'vlc' ? pollVLC : pollAppleMusic;
-}
-
-function startMusicPolling() {
-    if (musicPollTimer) return;
-    const interval = (MUSIC_CONFIG.poll_seconds || 5) * 1000;
-    const pollFn = currentPollFn();
-    const source = MUSIC_CONFIG.source || 'apple_music';
-    pollFn();
-    musicPollTimer = setInterval(pollFn, interval);
-    console.log(`[Music] Polling ${source === 'vlc' ? 'VLC' : 'Apple Music'} every ${MUSIC_CONFIG.poll_seconds || 5}s`);
-}
-
-function stopMusicPolling() {
-    if (musicPollTimer) {
-        clearInterval(musicPollTimer);
-        musicPollTimer = null;
-        console.log('[Music] Polling stopped');
-    }
-}
 
 // ============================================================================
 // SSN CHAT COLLECTOR
@@ -4285,18 +4039,7 @@ function applyRuntimeConfig(nextConfig) {
     for (const key of Object.keys(CLIP_CANDIDATE_CONFIG)) delete CLIP_CANDIDATE_CONFIG[key];
     Object.assign(CLIP_CANDIDATE_CONFIG, nextClipCandidates);
 
-    if (MUSIC_CONFIG.enabled && !prevMusicEnabled) {
-        startMusicPolling();
-    } else if (!MUSIC_CONFIG.enabled && prevMusicEnabled) {
-        stopMusicPolling();
-        musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
-        broadcastToOverlays('music', musicState);
-    } else if (MUSIC_CONFIG.enabled && MUSIC_CONFIG.source !== prevSource) {
-        stopMusicPolling();
-        musicState = { track: '', artist: '', album: '', year: '', duration: 0, position: 0, state: 'stopped', artworkUrl: '' };
-        broadcastToOverlays('music', musicState);
-        startMusicPolling();
-    }
+    musicService.handleConfigChange({ enabled: prevMusicEnabled, source: prevSource }, nextMusicConfig);
 
     const viewerChanged = prevViewerTracking.enabled !== nextViewerTracking.enabled
         || prevViewerTracking.source !== nextViewerTracking.source
@@ -7187,14 +6930,8 @@ const server = http.createServer(async (req, res) => {
             music: {
                 enabled: !!MUSIC_CONFIG.enabled,
                 source: MUSIC_CONFIG.source || 'apple_music',
-                state: musicState.state,
-                track: musicState.track,
-                artist: musicState.artist,
-                album: musicState.album,
-                artworkUrl: musicState.artworkUrl || '',
-                position: musicState.position || 0,
-                duration: musicState.duration || 0,
-                positionAgeMs: musicPolledAt ? Date.now() - musicPolledAt : 0
+                ...musicService.getState(),
+                positionAgeMs: musicService.getPolledAt() ? Date.now() - musicService.getPolledAt() : 0
             },
             stream: {
                 title: chatData.streamInfo?.[chatData.streamInfo.length - 1]?.title || '',
@@ -8099,29 +7836,20 @@ const server = http.createServer(async (req, res) => {
     // Music now-playing API
     if (pathname === '/api/music/now-playing') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(musicState));
+        res.end(JSON.stringify(musicService.getState()));
         return;
     }
 
     // Individual music field endpoints — plain text for easy integration
     if (pathname.startsWith('/api/music/field/')) {
         const field = pathname.split('/api/music/field/')[1];
-        const fields = {
-            state: musicState.state,
-            track: musicState.track,
-            artist: musicState.artist,
-            album: musicState.album,
-            year: musicState.year,
-            duration: String(musicState.duration),
-            position: String(musicState.position),
-            artwork: musicState.artworkUrl
-        };
-        if (field in fields) {
+        const val = musicService.getField(field);
+        if (val !== null) {
             res.writeHead(200, { 'Content-Type': 'text/plain' });
-            res.end(fields[field]);
+            res.end(val);
         } else {
             res.writeHead(404, { 'Content-Type': 'text/plain' });
-            res.end(`Unknown field: ${field}. Available: ${Object.keys(fields).join(', ')}`);
+            res.end(`Unknown field: ${field}. Available: state, track, artist, album, year, duration, position, artwork`);
         }
         return;
     }
@@ -8178,48 +7906,16 @@ const server = http.createServer(async (req, res) => {
         const host = params.get('host') || 'localhost';
         const port = parseInt(params.get('port')) || 8080;
         const password = params.get('password') || '';
-        const auth = Buffer.from(`:${password}`).toString('base64');
-        const testUrl = `http://${host}:${port}/requests/status.json`;
-
-        const testReq = http.request(testUrl, {
-            headers: { 'Authorization': `Basic ${auth}` },
-            timeout: 3000,
-            insecureHTTPParser: true
-        }, (testRes) => {
-            let body = '';
-            testRes.on('data', chunk => body += chunk);
-            testRes.on('end', () => {
-                try {
-                    const data = JSON.parse(body);
-                    const meta = data.information?.category?.meta || {};
-                    res.writeHead(200, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ ok: true, state: data.state, track: meta.title || '', artist: meta.artist || '' }));
-                } catch {
-                    res.writeHead(200, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ ok: false, error: 'Invalid response from VLC' }));
-                }
-            });
-        });
-
-        testReq.on('error', (err) => {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: false, error: err.code === 'ECONNREFUSED' ? 'Connection refused — is VLC running with HTTP interface enabled?' : err.message }));
-        });
-
-        testReq.on('timeout', () => {
-            testReq.destroy();
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: false, error: 'Connection timed out' }));
-        });
-
-        testReq.end();
+        const result = await musicService.testVLC(host, port, password);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
         return;
     }
 
     if (pathname === '/api/music/artwork') {
         try {
-            if (fs.existsSync(MUSIC_ART_PATH)) {
-                const art = fs.readFileSync(MUSIC_ART_PATH);
+            const art = musicService.getArtwork();
+            if (art) {
                 res.writeHead(200, {
                     'Content-Type': 'image/png',
                     'Cache-Control': 'no-store',
@@ -8239,8 +7935,8 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/music/fallback-art') {
         if (req.method === 'GET' || req.method === 'HEAD') {
-            if (fs.existsSync(MUSIC_FALLBACK_ART_PATH)) {
-                const art = fs.readFileSync(MUSIC_FALLBACK_ART_PATH);
+            const art = musicService.getFallbackArt();
+            if (art) {
                 res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store', 'Content-Length': art.length });
                 res.end(req.method === 'HEAD' ? undefined : art);
             } else {
@@ -8259,14 +7955,14 @@ const server = http.createServer(async (req, res) => {
                     res.end(JSON.stringify({ error: 'File too large (max 2MB)' }));
                     return;
                 }
-                fs.writeFileSync(MUSIC_FALLBACK_ART_PATH, buf);
+                musicService.saveFallbackArt(buf);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ ok: true }));
             });
             return;
         }
         if (req.method === 'DELETE') {
-            if (fs.existsSync(MUSIC_FALLBACK_ART_PATH)) fs.unlinkSync(MUSIC_FALLBACK_ART_PATH);
+            musicService.deleteFallbackArt();
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: true }));
             return;
@@ -9520,8 +9216,8 @@ overlayWss.on('connection', (ws) => {
     ws.send(JSON.stringify({ type: 'snapshot', data: chatData }));
 
     // Send current music state if music is enabled
-    if (MUSIC_CONFIG.enabled && musicState.state !== 'stopped') {
-        ws.send(JSON.stringify({ type: 'music', data: musicState }));
+    if (MUSIC_CONFIG.enabled && musicService.getState().state !== 'stopped') {
+        ws.send(JSON.stringify({ type: 'music', data: musicService.getState() }));
     }
 
     ws.send(JSON.stringify({ type: 'viewer-update', data: getViewerSummary() }));
