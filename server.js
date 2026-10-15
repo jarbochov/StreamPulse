@@ -7225,6 +7225,7 @@ const server = http.createServer(async (req, res) => {
                 text: body.text || query.text || '',
                 outline: body.outline || query.outline || '',
                 bg: body.bg || query.bg || '',
+                scale: body.scale || query.scale || '',
                 buttonPhrases,
                 showButton: body.showButton !== undefined ? !!body.showButton : (query.button === '1'),
                 buttonText: body.buttonText || query.btnText || '',

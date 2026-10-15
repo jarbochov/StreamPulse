@@ -43,13 +43,17 @@
             align-items: center;
             justify-content: center;
             position: relative;
-            width: min(580px, 94vw);
-            min-height: 400px;
-            background: var(--overlay-bg, rgba(15, 23, 42, 0.90));
-            backdrop-filter: blur(12px);
+            width: min(94vw, 94vh * 1.3, 620px);
+            max-height: 94vh;
+            min-height: clamp(280px, 45vmin, 420px);
+            transform: scale(var(--stage-scale, 1));
+            transform-origin: center center;
+            background: var(--overlay-bg, rgba(15, 23, 42, 0.85));
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
             border: 2px solid color-mix(in srgb, var(--stage-accent) 60%, rgba(255,255,255,0.2));
-            border-radius: 16px;
-            padding: 1.5rem 1.25rem;
+            border-radius: clamp(10px, 2.2vmin, 18px);
+            padding: clamp(1rem, 2.5vmin, 1.75rem) clamp(0.9rem, 2vmin, 1.5rem);
             overflow: hidden;
             box-shadow: 0 16px 50px rgba(0,0,0,0.6);
             margin: auto;
@@ -58,20 +62,20 @@
 
         #display-stage.hidden-stage {
             opacity: 0;
-            transform: scale(0.9) translateY(20px);
+            transform: scale(calc(var(--stage-scale, 1) * 0.9)) translateY(20px);
             pointer-events: none;
         }
 
         /* 1. Slot-Machine Roller Mode */
         .roller-box {
             width: 100%;
-            max-width: 440px;
-            height: 240px;
+            max-width: clamp(280px, 64vmin, 520px);
+            height: clamp(180px, 32vmin, 260px);
             position: relative;
             overflow: hidden;
             background: rgba(0, 0, 0, 0.45);
             border: 2px solid color-mix(in srgb, var(--stage-accent) 55%, rgba(255,255,255,0.15));
-            border-radius: 14px;
+            border-radius: clamp(8px, 1.6vmin, 14px);
             box-shadow: inset 0 0 24px rgba(0,0,0,0.6);
             transition: border-color .2s, box-shadow .2s;
         }
@@ -86,7 +90,8 @@
 
         .roller-indicator {
             position: absolute;
-            left: 0; right: 0; top: 92px;
+            left: 0; right: 0;
+            top: calc(50% - 28px);
             height: 56px;
             border-top: 2px solid var(--stage-indicator);
             border-bottom: 2px solid var(--stage-indicator);
@@ -118,30 +123,30 @@
             text-align: center;
             font-family: var(--stage-font);
             font-weight: var(--stage-weight);
-            padding: 0 2.2rem;
+            padding: 0 clamp(1rem, 3vmin, 2.2rem);
             width: 100%;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             transition: color 0.12s, transform 0.12s;
             user-select: none;
-            font-size: 1.15rem;
+            font-size: clamp(1rem, 2.2vmin, 1.25rem);
             color: color-mix(in srgb, var(--stage-text) 55%, transparent);
             text-shadow: var(--stage-outline-shadow);
             transform: scale(0.94);
         }
         .roller-item.tertiary {
-            font-size: .95rem;
+            font-size: clamp(0.8rem, 1.8vmin, 1rem);
             color: color-mix(in srgb, var(--stage-text) 28%, transparent);
             transform: scale(0.85);
         }
         .roller-item.secondary {
-            font-size: 1.15rem;
+            font-size: clamp(0.95rem, 2.1vmin, 1.2rem);
             color: color-mix(in srgb, var(--stage-text) 65%, transparent);
             transform: scale(0.92);
         }
         .roller-item.active-winner {
-            font-size: 1.6rem;
+            font-size: clamp(1.3rem, 3vmin, 1.75rem);
             font-weight: 800;
             color: var(--stage-text);
             text-shadow: var(--stage-outline-shadow), 0 0 24px var(--stage-glow);
@@ -152,15 +157,15 @@
         /* 2. Wheel Canvas Mode */
         .wheel-box {
             position: relative;
-            width: 290px;
-            height: 290px;
+            width: clamp(200px, 44vmin, 400px);
+            height: clamp(200px, 44vmin, 400px);
             display: flex;
             align-items: center;
             justify-content: center;
         }
         #wheel-canvas {
-            width: 290px;
-            height: 290px;
+            width: 100%;
+            height: 100%;
             border-radius: 50%;
             box-shadow: 0 0 30px rgba(0,0,0,0.5), 0 0 15px var(--stage-glow);
         }
@@ -179,7 +184,8 @@
         }
         .wheel-center-cap {
             position: absolute;
-            width: 44px; height: 44px;
+            width: clamp(34px, 7vmin, 48px);
+            height: clamp(34px, 7vmin, 48px);
             border-radius: 50%;
             background: var(--stage-gradient);
             border: 3px solid #fff;
@@ -213,7 +219,7 @@
             100% { opacity: 1; transform: scale(1) translateY(0); }
         }
         .winner-header {
-            font-size: .85rem;
+            font-size: clamp(0.72rem, 1.8vmin, 0.95rem);
             font-weight: 800;
             letter-spacing: .12em;
             text-transform: uppercase;
@@ -222,7 +228,7 @@
             text-shadow: 0 0 12px var(--stage-glow);
         }
         .winner-name {
-            font-size: 1.95rem;
+            font-size: clamp(1.4rem, 4.2vmin, 2.2rem);
             font-weight: 900;
             color: #fff;
             text-shadow: 0 2px 14px rgba(0,0,0,0.7), 0 0 24px var(--stage-glow);
@@ -230,7 +236,7 @@
             padding: 0 .5rem;
         }
         .winner-sub {
-            font-size: .85rem;
+            font-size: clamp(0.75rem, 1.8vmin, 0.95rem);
             color: color-mix(in srgb, #fff 80%, transparent);
             margin-top: .4rem;
             font-weight: 500;
@@ -537,6 +543,43 @@
         let currentTheme = 'system';
         let currentThemeSlices = null;
 
+        function applyBackgroundStyle(bgVal) {
+            const root = $('display-stage');
+            if (!root) return;
+            const accent = root.style.getPropertyValue('--stage-accent') || '#8b5cf6';
+            const val = (bgVal || '').trim();
+
+            if (!val || val === 'glass') {
+                root.style.setProperty('--overlay-bg', 'rgba(15, 23, 42, 0.85)');
+                root.style.background = 'var(--overlay-bg)';
+                root.style.backdropFilter = 'blur(14px)';
+                root.style.webkitBackdropFilter = 'blur(14px)';
+                root.style.border = `2px solid color-mix(in srgb, ${accent} 60%, rgba(255,255,255,0.2))`;
+                root.style.boxShadow = '0 16px 50px rgba(0,0,0,0.6)';
+            } else if (val === 'dark') {
+                root.style.setProperty('--overlay-bg', '#0d1117');
+                root.style.background = '#0d1117';
+                root.style.backdropFilter = 'none';
+                root.style.webkitBackdropFilter = 'none';
+                root.style.border = `2px solid color-mix(in srgb, ${accent} 60%, #30363d)`;
+                root.style.boxShadow = '0 12px 40px rgba(0,0,0,0.7)';
+            } else if (val === 'transparent') {
+                root.style.setProperty('--overlay-bg', 'transparent');
+                root.style.background = 'transparent';
+                root.style.backdropFilter = 'none';
+                root.style.webkitBackdropFilter = 'none';
+                root.style.border = '2px solid transparent';
+                root.style.boxShadow = 'none';
+            } else {
+                root.style.setProperty('--overlay-bg', val);
+                root.style.background = val;
+                root.style.backdropFilter = 'blur(12px)';
+                root.style.webkitBackdropFilter = 'blur(12px)';
+                root.style.border = `2px solid color-mix(in srgb, ${accent} 60%, rgba(255,255,255,0.2))`;
+                root.style.boxShadow = '0 16px 50px rgba(0,0,0,0.6)';
+            }
+        }
+
         async function loadOverlayTheme() {
             try {
                 const res = await fetch('/api/config').then(r => r.json());
@@ -545,7 +588,7 @@
             applyTheme(params.get('theme') || 'system');
         }
 
-        function applyTheme(themeKey) {
+        function applyTheme(themeKey, bgOverride) {
             currentTheme = themeKey || 'system';
             const root = $('display-stage');
             if (!root) return;
@@ -564,7 +607,7 @@
                 text = params.get('text') || '#ffffff';
                 font = params.get('font') || '';
                 weight = params.get('weight') || '600';
-                bg = params.get('bg') || '';
+                bg = bgOverride || params.get('bg') || 'glass';
                 outline = params.get('outline') || '';
             } else if (currentTheme === 'system') {
                 accent = params.get('accent') || t.accent_color || '#8b5cf6';
@@ -575,7 +618,7 @@
                 text = params.get('text') || t.text_color || '#ffffff';
                 font = params.get('font') || t.font_family || '';
                 weight = params.get('weight') || t.font_weight || '600';
-                bg = params.get('bg') || t.background_color || '';
+                bg = bgOverride || params.get('bg') || t.background_color || 'glass';
                 outline = params.get('outline') || (t.text_outline === false ? 'none' : t.text_outline_color) || '';
                 fontImport = t.font_import;
             } else {
@@ -587,7 +630,7 @@
                 text = params.get('text') || t.text_color || '#ffffff';
                 font = params.get('font') || t.font_family || '';
                 weight = params.get('weight') || t.font_weight || '600';
-                bg = params.get('bg') || t.background_color || '';
+                bg = bgOverride || params.get('bg') || t.background_color || 'glass';
                 outline = params.get('outline') || (t.text_outline === false ? 'none' : t.text_outline_color) || '';
             }
 
@@ -609,7 +652,7 @@
             if (font) root.style.fontFamily = `"${font}", -apple-system, system-ui, sans-serif`;
             if (weight) root.style.fontWeight = weight;
             if (text) root.style.color = text;
-            if (bg) root.style.background = bg;
+            applyBackgroundStyle(bg);
 
             const overlayBtn = $('overlay-spin-btn');
             if (overlayBtn) {
@@ -703,7 +746,9 @@
                 div.textContent = list[pos] || '(empty)';
                 track.appendChild(div);
             }
-            track.style.transform = `translateY(${92 - 4 * 56}px)`;
+            const boxHeight = $('roller-view')?.clientHeight || 240;
+            const centerOffset = (boxHeight - 56) / 2;
+            track.style.transform = `translateY(${centerOffset - 4 * 56}px)`;
         }
 
         function drawWheel(rotationRad = 0, list) {
@@ -844,7 +889,9 @@
                     track.appendChild(div);
                 }
 
-                track.style.transform = 'translateY(92px)';
+                const boxHeight = rollerBox.clientHeight || 240;
+                const centerOffset = (boxHeight - 56) / 2;
+                track.style.transform = `translateY(${centerOffset}px)`;
                 const totalDistance = finalStepCount * 56;
                 const startAt = performance.now();
                 let lastTickIdx = 0;
@@ -853,10 +900,10 @@
                     const elapsed = now - startAt;
                     const progress = Math.min(1, elapsed / totalDurationMs);
                     const ease = 1 - Math.pow(1 - progress, 3.8);
-                    const currentTranslate = 92 - ease * totalDistance;
+                    const currentTranslate = centerOffset - ease * totalDistance;
                     track.style.transform = `translateY(${currentTranslate.toFixed(1)}px)`;
 
-                    const currentItem = Math.round((92 - currentTranslate) / 56);
+                    const currentItem = Math.round((centerOffset - currentTranslate) / 56);
                     if (currentItem !== lastTickIdx && currentItem >= 0 && currentItem < track.children.length) {
                         lastTickIdx = currentItem;
                         AudioFX.tick(Math.max(0.35, 1 - progress * 0.65));
@@ -874,7 +921,7 @@
                     if (progress < 1) {
                         requestAnimationFrame(stepRoll);
                     } else {
-                        track.style.transform = `translateY(${92 - totalDistance}px)`;
+                        track.style.transform = `translateY(${centerOffset - totalDistance}px)`;
                         currentRollerIndex = targetIdxInList;
 
                         if (isTricky) {
@@ -884,8 +931,8 @@
                                 function doNudge() {
                                     if (nudgeDone < nudgeSteps) {
                                         nudgeDone++;
-                                        const fromY = 92 - (finalStepCount + nudgeDone - 1) * 56;
-                                        const toY = 92 - (finalStepCount + nudgeDone) * 56;
+                                        const fromY = centerOffset - (finalStepCount + nudgeDone - 1) * 56;
+                                        const toY = centerOffset - (finalStepCount + nudgeDone) * 56;
                                         const nStart = performance.now();
                                         const nDuration = 220;
                                         AudioFX.tick(0.45);
@@ -1039,6 +1086,12 @@
             }
         }
 
+        // Scale parameter support
+        const scaleParam = parseFloat(params.get('scale'));
+        if (!isNaN(scaleParam) && scaleParam > 0) {
+            $('display-stage')?.style.setProperty('--stage-scale', scaleParam);
+        }
+
         // Initial Data Fetch
         if (params.get('theme')) {
             applyTheme(params.get('theme'));
@@ -1097,6 +1150,8 @@
                             $('display-stage')?.classList.remove('hidden-stage');
 
                             if (d.theme) applyTheme(d.theme);
+                            if (d.bg) applyBackgroundStyle(d.bg);
+                            if (d.scale) $('display-stage')?.style.setProperty('--stage-scale', d.scale);
                             if (d.accent) $('display-stage')?.style.setProperty('--stage-accent', d.accent);
                             if (d.font) {
                                 ensureFontLoaded(d.font);

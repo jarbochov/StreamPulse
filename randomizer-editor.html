@@ -166,27 +166,31 @@
             justify-content: center;
             position: relative;
             width: 100%;
-            min-height: 340px;
-            background: var(--overlay-bg, rgba(15, 23, 42, 0.78));
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 1.25rem 1rem;
+            max-width: 580px;
+            min-height: clamp(280px, 45vmin, 400px);
+            background: var(--overlay-bg, rgba(15, 23, 42, 0.85));
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 2px solid color-mix(in srgb, var(--stage-accent) 60%, rgba(255,255,255,0.2));
+            border-radius: clamp(10px, 2.2vmin, 18px);
+            padding: clamp(1rem, 2.5vmin, 1.75rem) clamp(0.9rem, 2vmin, 1.5rem);
             overflow: hidden;
-            box-shadow: 0 12px 36px rgba(0,0,0,0.25);
-            transition: border-color .25s ease;
+            box-shadow: 0 16px 50px rgba(0,0,0,0.6);
+            transition: border-color .25s ease, background 0.25s ease;
+            transform: scale(var(--stage-scale, 1));
+            transform-origin: center center;
         }
 
         /* 1. Slot-Machine Roller Mode */
         .roller-box {
             width: 100%;
-            max-width: 440px;
-            height: 240px;
+            max-width: clamp(280px, 64vmin, 520px);
+            height: clamp(180px, 32vmin, 260px);
             position: relative;
             overflow: hidden;
             background: rgba(0, 0, 0, 0.45);
             border: 2px solid color-mix(in srgb, var(--stage-accent) 55%, var(--border));
-            border-radius: 14px;
+            border-radius: clamp(8px, 1.6vmin, 14px);
             box-shadow: inset 0 0 24px rgba(0,0,0,0.6);
             transition: border-color .2s, box-shadow .2s;
         }
@@ -201,7 +205,8 @@
 
         .roller-indicator {
             position: absolute;
-            left: 0; right: 0; top: 92px;
+            left: 0; right: 0;
+            top: calc(50% - 28px);
             height: 56px;
             border-top: 2px solid var(--stage-indicator);
             border-bottom: 2px solid var(--stage-indicator);
@@ -233,30 +238,30 @@
             text-align: center;
             font-family: var(--stage-font);
             font-weight: var(--stage-weight);
-            padding: 0 2.2rem;
+            padding: 0 clamp(1rem, 3vmin, 2.2rem);
             width: 100%;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             transition: color 0.12s, transform 0.12s;
             user-select: none;
-            font-size: 1.15rem;
+            font-size: clamp(1rem, 2.2vmin, 1.25rem);
             color: color-mix(in srgb, var(--stage-text) 55%, transparent);
             text-shadow: var(--stage-outline-shadow);
             transform: scale(0.94);
         }
         .roller-item.tertiary {
-            font-size: .95rem;
+            font-size: clamp(0.8rem, 1.8vmin, 1rem);
             color: color-mix(in srgb, var(--stage-text) 28%, transparent);
             transform: scale(0.85);
         }
         .roller-item.secondary {
-            font-size: 1.15rem;
+            font-size: clamp(0.95rem, 2.1vmin, 1.2rem);
             color: color-mix(in srgb, var(--stage-text) 65%, transparent);
             transform: scale(0.92);
         }
         .roller-item.active-winner {
-            font-size: 1.6rem;
+            font-size: clamp(1.3rem, 3vmin, 1.75rem);
             font-weight: 800;
             color: var(--stage-text);
             text-shadow: var(--stage-outline-shadow), 0 0 24px var(--stage-glow);
@@ -267,15 +272,15 @@
         /* 2. Wheel Canvas Mode */
         .wheel-box {
             position: relative;
-            width: 290px;
-            height: 290px;
+            width: clamp(200px, 44vmin, 340px);
+            height: clamp(200px, 44vmin, 340px);
             display: flex;
             align-items: center;
             justify-content: center;
         }
         #wheel-canvas {
-            width: 290px;
-            height: 290px;
+            width: 100%;
+            height: 100%;
             border-radius: 50%;
             box-shadow: 0 0 30px rgba(0,0,0,0.5), 0 0 15px var(--stage-glow);
         }
@@ -294,7 +299,8 @@
         }
         .wheel-center-cap {
             position: absolute;
-            width: 44px; height: 44px;
+            width: clamp(34px, 7vmin, 48px);
+            height: clamp(34px, 7vmin, 48px);
             border-radius: 50%;
             background: var(--stage-gradient);
             border: 3px solid #fff;
@@ -328,7 +334,7 @@
             100% { opacity: 1; transform: scale(1) translateY(0); }
         }
         .winner-header {
-            font-size: .8rem;
+            font-size: clamp(0.72rem, 1.8vmin, 0.95rem);
             font-weight: 800;
             letter-spacing: .12em;
             text-transform: uppercase;
@@ -337,7 +343,7 @@
             text-shadow: 0 0 12px var(--stage-glow);
         }
         .winner-name {
-            font-size: 1.85rem;
+            font-size: clamp(1.4rem, 4.2vmin, 2.2rem);
             font-weight: 900;
             color: #fff;
             text-shadow: 0 2px 14px rgba(0,0,0,0.7), 0 0 24px var(--stage-glow);
@@ -345,11 +351,10 @@
             padding: 0 .5rem;
         }
         .winner-sub {
-            font-size: .82rem;
+            font-size: clamp(0.75rem, 1.8vmin, 0.95rem);
             color: color-mix(in srgb, #fff 80%, transparent);
             margin-top: .4rem;
             font-weight: 500;
-            font-style: italic;
         }
 
         /* Confetti Canvas */
@@ -589,8 +594,27 @@
                             </div>
                         </label>
                         <label class="f">
-                            <span>Background Override</span>
-                            <input type="text" id="ap-bg" placeholder="e.g. rgba(15,23,42,0.9)">
+                            <span>Background Style</span>
+                            <select id="bg-style-select">
+                                <option value="glass" selected>Frosted Glass (Default)</option>
+                                <option value="dark">Solid Dark (#0d1117)</option>
+                                <option value="transparent">Transparent Floating (HUD)</option>
+                                <option value="custom">Custom Color &amp; Opacity</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div id="custom-bg-row" style="display:none;" class="row">
+                        <label class="f">
+                            <span>Custom Background Color</span>
+                            <div style="display:flex; gap:.4rem; align-items:center;">
+                                <input type="color" id="custom-bg-color-picker" value="#0f172a" style="width:38px; height:34px; padding:2px; cursor:pointer; flex:none;">
+                                <input type="text" id="custom-bg-color" value="#0f172a" placeholder="#0f172a">
+                            </div>
+                        </label>
+                        <label class="f">
+                            <span style="display:flex; justify-content:space-between;">Background Opacity <span id="custom-bg-opacity-label">85%</span></span>
+                            <input type="range" id="custom-bg-opacity" min="0" max="100" value="85" style="accent-color:var(--accent); cursor:pointer;">
                         </label>
                     </div>
 
@@ -683,6 +707,10 @@
                                 <option value="tricky">Tricky Tease (Slows then nudges +1-2)</option>
                             </select>
                         </label>
+                        <label class="f">
+                            <span style="display:flex; justify-content:space-between;">Overlay Scale <span id="scale-val-label">1.0x</span></span>
+                            <input type="range" id="overlay-scale" min="0.5" max="2.0" step="0.05" value="1.0" style="accent-color:var(--accent); cursor:pointer;">
+                        </label>
                     </div>
 
                     <div style="display:flex; align-items:center; gap:.6rem; padding:.4rem 0;">
@@ -714,6 +742,13 @@
                         <span class="muted" style="font-size:.72rem; display:block; margin-top:.35rem;">
                             Set button action to <strong>HTTP: Generic GET Request</strong> using the URL above, or use the native <strong>StreamPulse: Randomizer Spin</strong> action in the companion module.
                         </span>
+                    </div>
+
+                    <div class="row" style="margin-top:.85rem; border-top:1px solid var(--border); padding-top:.75rem;">
+                        <button class="btn small" id="btn-reset-studio" type="button" style="color:var(--text-muted);">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                            Reset Studio Settings to Default
+                        </button>
                     </div>
                 </div>
             </div>
@@ -937,6 +972,57 @@
         let currentRollerIndex = 0;
         let savedOverlayConfigTheme = null;
 
+        const STORAGE_KEY = 'streampulse_randomizer_studio';
+
+        function saveStudioState() {
+            try {
+                const state = {
+                    presetId: currentPresetId,
+                    mode: currentMode,
+                    theme: $('theme-select')?.value || currentTheme,
+                    bgStyle: $('bg-style-select')?.value || 'glass',
+                    customBgColor: $('custom-bg-color')?.value || '#0f172a',
+                    customBgOpacity: Number($('custom-bg-opacity')?.value) || 85,
+                    accentColor: $('ap-accent')?.value || '#8b5cf6',
+                    textColor: $('ap-text')?.value || '#ffffff',
+                    fontFamily: $('ap-font')?.value || '',
+                    fontWeight: $('ap-weight')?.value || '600',
+                    textOutline: $('ap-outline')?.value || '',
+                    btnPresetId: currentBtnPresetId,
+                    quotePresetId: currentQuotePresetId,
+                    winnerHeader: $('winner-header-input')?.value || 'THE UNIVERSE HAS DECIDED',
+                    suspense: $('suspense-select')?.value || 'normal',
+                    duration: $('spin-duration')?.value || '6',
+                    autohide: $('autohide-select')?.value || '8',
+                    scale: $('overlay-scale')?.value || '1',
+                    showButton: $('overlay-button-enabled')?.checked || false,
+                    soundEnabled: AudioFX.enabled,
+                    activeTab: document.querySelector('.tab-btn.active')?.id?.replace('tab-btn-', '') || 'presets'
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {}
+        }
+
+        function loadStudioState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return null;
+                return JSON.parse(raw);
+            } catch {
+                return null;
+            }
+        }
+
+        const savedStudio = loadStudioState();
+        if (savedStudio) {
+            if (savedStudio.mode) currentMode = savedStudio.mode;
+            if (savedStudio.presetId) currentPresetId = savedStudio.presetId;
+            if (savedStudio.btnPresetId) currentBtnPresetId = savedStudio.btnPresetId;
+            if (savedStudio.quotePresetId) currentQuotePresetId = savedStudio.quotePresetId;
+            if (savedStudio.suspense) currentSuspense = savedStudio.suspense;
+            if (savedStudio.theme) currentTheme = savedStudio.theme;
+        }
+
         Confetti.init($('confetti-canvas'));
 
         // Dynamic Web / Google Font Loader
@@ -991,6 +1077,63 @@
                 return `#${r}${g}${b}`.toLowerCase();
             }
             return '#8b5cf6';
+        }
+
+        function hexToRgba(hex, alpha = 1) {
+            hex = (hex || '').replace('#', '').trim();
+            if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+            if (hex.length !== 6) return 'rgba(15, 23, 42, 0.85)';
+            const r = parseInt(hex.substring(0, 2), 16) || 0;
+            const g = parseInt(hex.substring(2, 4), 16) || 0;
+            const b = parseInt(hex.substring(4, 6), 16) || 0;
+            return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)})`;
+        }
+
+        function getEffectiveBackground() {
+            const style = $('bg-style-select')?.value || 'glass';
+            if (style === 'custom') {
+                const hex = $('custom-bg-color')?.value || '#0f172a';
+                const opacity = Number($('custom-bg-opacity')?.value) / 100;
+                return hexToRgba(hex, isNaN(opacity) ? 0.85 : opacity);
+            }
+            return style;
+        }
+
+        function applyBackgroundStyle(bgVal) {
+            const root = $('display-stage');
+            if (!root) return;
+            const accent = root.style.getPropertyValue('--stage-accent') || '#8b5cf6';
+            const val = (bgVal || '').trim();
+
+            if (!val || val === 'glass') {
+                root.style.setProperty('--overlay-bg', 'rgba(15, 23, 42, 0.85)');
+                root.style.background = 'var(--overlay-bg)';
+                root.style.backdropFilter = 'blur(14px)';
+                root.style.webkitBackdropFilter = 'blur(14px)';
+                root.style.border = `2px solid color-mix(in srgb, ${accent} 60%, rgba(255,255,255,0.2))`;
+                root.style.boxShadow = '0 16px 50px rgba(0,0,0,0.6)';
+            } else if (val === 'dark') {
+                root.style.setProperty('--overlay-bg', '#0d1117');
+                root.style.background = '#0d1117';
+                root.style.backdropFilter = 'none';
+                root.style.webkitBackdropFilter = 'none';
+                root.style.border = `2px solid color-mix(in srgb, ${accent} 60%, #30363d)`;
+                root.style.boxShadow = '0 12px 40px rgba(0,0,0,0.7)';
+            } else if (val === 'transparent') {
+                root.style.setProperty('--overlay-bg', 'transparent');
+                root.style.background = 'transparent';
+                root.style.backdropFilter = 'none';
+                root.style.webkitBackdropFilter = 'none';
+                root.style.border = '2px solid transparent';
+                root.style.boxShadow = 'none';
+            } else {
+                root.style.setProperty('--overlay-bg', val);
+                root.style.background = val;
+                root.style.backdropFilter = 'blur(12px)';
+                root.style.webkitBackdropFilter = 'blur(12px)';
+                root.style.border = `2px solid color-mix(in srgb, ${accent} 60%, rgba(255,255,255,0.2))`;
+                root.style.boxShadow = '0 16px 50px rgba(0,0,0,0.6)';
+            }
         }
 
         // Initialize Font Dropdown Options
@@ -1103,7 +1246,7 @@
             applyTheme(currentTheme);
         }
 
-        function applyTheme(themeKey, skipInputSync = false) {
+        function applyTheme(themeKey, skipInputSync = false, bgOverride = null) {
             currentTheme = themeKey || 'system';
             const root = $('display-stage');
             if (!root) return;
@@ -1122,7 +1265,7 @@
                 text = $('ap-text')?.value.trim() || '#ffffff';
                 font = $('ap-font')?.value.trim() || '';
                 weight = $('ap-weight')?.value.trim() || '600';
-                bg = $('ap-bg')?.value.trim() || '';
+                bg = bgOverride || getEffectiveBackground();
                 outline = $('ap-outline')?.value.trim() || '';
             } else if (currentTheme === 'system') {
                 accent = t.accent_color || '#8b5cf6';
@@ -1133,7 +1276,7 @@
                 text = t.text_color || '#ffffff';
                 font = t.font_family || '';
                 weight = t.font_weight || '600';
-                bg = t.background_color || '';
+                bg = bgOverride || t.background_color || getEffectiveBackground();
                 outline = (t.text_outline === false ? 'none' : t.text_outline_color) || '';
                 fontImport = t.font_import;
             } else {
@@ -1145,12 +1288,11 @@
                 text = $('ap-text')?.value.trim() || t.text_color || '#ffffff';
                 font = $('ap-font')?.value.trim() || t.font_family || '';
                 weight = $('ap-weight')?.value.trim() || t.font_weight || '600';
-                bg = $('ap-bg')?.value.trim() || t.background_color || '';
+                bg = bgOverride || getEffectiveBackground();
                 outline = $('ap-outline')?.value.trim() || (t.text_outline === false ? 'none' : t.text_outline_color) || '';
             }
 
             currentThemeSlices = slices;
-
             ensureFontLoaded(font, fontImport);
 
             root.style.setProperty('--stage-accent', accent);
@@ -1168,7 +1310,7 @@
             if (font) root.style.fontFamily = `"${font}", -apple-system, system-ui, sans-serif`;
             if (weight) root.style.fontWeight = weight;
             if (text) root.style.color = text;
-            if (bg) root.style.background = bg;
+            applyBackgroundStyle(bg);
 
             const spinBtn = $('btn-spin');
             if (spinBtn) {
@@ -1194,7 +1336,6 @@
                     $('ap-font').value = font;
                 }
                 if ($('ap-weight')) $('ap-weight').value = weight;
-                if ($('ap-bg')) $('ap-bg').value = bg;
                 if ($('ap-outline')) $('ap-outline').value = outline;
                 if ($('ap-outline-picker')) {
                     const isNone = !outline || outline === 'none' || outline === 'transparent';
@@ -1219,6 +1360,7 @@
             if ($('theme-select')) $('theme-select').value = 'custom';
             applyTheme('custom');
             updateObsUrl();
+            saveStudioState();
         }
         document.querySelectorAll('.p-chip').forEach(c => {
             c.onclick = () => setAccentColor(c.dataset.color);
@@ -1255,8 +1397,9 @@
             const text = $('ap-text')?.value.trim();
             const font = $('ap-font')?.value.trim();
             const weight = $('ap-weight')?.value.trim();
-            const bg = $('ap-bg')?.value.trim();
+            const bg = getEffectiveBackground();
             const outline = $('ap-outline')?.value.trim();
+            const scale = $('overlay-scale')?.value || '1';
 
             let url = `${window.location.origin}/randomizer.html?mode=${encodeURIComponent(mode)}&preset=${encodeURIComponent(preset)}&suspense=${encodeURIComponent(suspense)}&autohide=${encodeURIComponent(autohide)}&duration=${encodeURIComponent(duration)}&button=${showButton}`;
 
@@ -1268,8 +1411,9 @@
             if (text) url += `&text=${encodeURIComponent(text)}`;
             if (font) url += `&font=${encodeURIComponent(font)}`;
             if (weight) url += `&weight=${encodeURIComponent(weight)}`;
-            if (bg) url += `&bg=${encodeURIComponent(bg)}`;
+            if (bg && bg !== 'glass') url += `&bg=${encodeURIComponent(bg)}`;
             if (outline) url += `&outline=${encodeURIComponent(outline)}`;
+            if (scale && parseFloat(scale) !== 1) url += `&scale=${encodeURIComponent(scale)}`;
 
             const btnPreset = currentBtnPresetId || 'chaos';
             if (btnPreset === 'static') {
@@ -1296,6 +1440,9 @@
                 let compUrl = `${window.location.origin}/api/randomizer/spin?preset=${encodeURIComponent(preset)}&mode=${encodeURIComponent(mode)}&suspense=${encodeURIComponent(suspense)}`;
                 if (theme && theme !== 'system' && theme !== 'custom') {
                     compUrl += `&theme=${encodeURIComponent(theme)}`;
+                }
+                if (bg && bg !== 'glass') {
+                    compUrl += `&bg=${encodeURIComponent(bg)}`;
                 }
                 $('companion-url-input').textContent = compUrl;
             }
@@ -1352,7 +1499,9 @@
                 div.textContent = list[pos] || '(empty)';
                 track.appendChild(div);
             }
-            track.style.transform = `translateY(${92 - 4 * 56}px)`;
+            const boxHeight = $('roller-view')?.clientHeight || 240;
+            const centerOffset = (boxHeight - 56) / 2;
+            track.style.transform = `translateY(${centerOffset - 4 * 56}px)`;
         }
 
         function drawWheel(rotationRad = 0, list) {
@@ -1494,7 +1643,9 @@
                     track.appendChild(div);
                 }
 
-                track.style.transform = 'translateY(92px)';
+                const boxHeight = rollerBox.clientHeight || 240;
+                const centerOffset = (boxHeight - 56) / 2;
+                track.style.transform = `translateY(${centerOffset}px)`;
                 const totalDistance = finalStepCount * 56;
                 const startAt = performance.now();
                 let lastTickIdx = 0;
@@ -1503,10 +1654,10 @@
                     const elapsed = now - startAt;
                     const progress = Math.min(1, elapsed / totalDurationMs);
                     const ease = 1 - Math.pow(1 - progress, 3.8);
-                    const currentTranslate = 92 - ease * totalDistance;
+                    const currentTranslate = centerOffset - ease * totalDistance;
                     track.style.transform = `translateY(${currentTranslate.toFixed(1)}px)`;
 
-                    const currentItem = Math.round((92 - currentTranslate) / 56);
+                    const currentItem = Math.round((centerOffset - currentTranslate) / 56);
                     if (currentItem !== lastTickIdx && currentItem >= 0 && currentItem < track.children.length) {
                         lastTickIdx = currentItem;
                         AudioFX.tick(Math.max(0.35, 1 - progress * 0.65));
@@ -1524,7 +1675,7 @@
                     if (progress < 1) {
                         requestAnimationFrame(stepRoll);
                     } else {
-                        track.style.transform = `translateY(${92 - totalDistance}px)`;
+                        track.style.transform = `translateY(${centerOffset - totalDistance}px)`;
                         currentRollerIndex = targetIdxInList;
 
                         if (isTricky) {
@@ -1534,8 +1685,8 @@
                                 function doNudge() {
                                     if (nudgeDone < nudgeSteps) {
                                         nudgeDone++;
-                                        const fromY = 92 - (finalStepCount + nudgeDone - 1) * 56;
-                                        const toY = 92 - (finalStepCount + nudgeDone) * 56;
+                                        const fromY = centerOffset - (finalStepCount + nudgeDone - 1) * 56;
+                                        const toY = centerOffset - (finalStepCount + nudgeDone) * 56;
                                         const nStart = performance.now();
                                         const nDuration = 220;
                                         AudioFX.tick(0.45);
@@ -1728,6 +1879,8 @@
             loadSelectedChoicesPreset();
         }
 
+        let isInitialLoad = true;
+
         function loadSelectedChoicesPreset() {
             const selVal = $('preset-select')?.value || currentPresetId;
             currentPresetId = selVal;
@@ -1737,7 +1890,9 @@
             if (matched) {
                 setChoices(matched.choices || []);
                 if ($('winner-header-input')) {
-                    $('winner-header-input').value = matched.winnerHeader || 'THE UNIVERSE HAS DECIDED';
+                    if (!isInitialLoad || !savedStudio?.winnerHeader) {
+                        $('winner-header-input').value = matched.winnerHeader || 'THE UNIVERSE HAS DECIDED';
+                    }
                 }
                 if (matched.buttonPreset) {
                     currentBtnPresetId = matched.buttonPreset;
@@ -1755,6 +1910,7 @@
                 loadVariables();
             }
             updateObsUrl();
+            if (!isInitialLoad) saveStudioState();
         }
 
         // 2. Button Phrase Presets
@@ -1810,6 +1966,7 @@
             }
             updateButtonLabel();
             updateObsUrl();
+            if (!isInitialLoad) saveStudioState();
         }
 
         // 3. Winner Quote Presets
@@ -1849,6 +2006,7 @@
                 if ($('quotes-count-pill')) $('quotes-count-pill').textContent = `${activeQuotesPool.length} quotes`;
             }
             updateObsUrl();
+            if (!isInitialLoad) saveStudioState();
         }
 
         async function loadChatters() {
@@ -1890,6 +2048,7 @@
                 btn.classList.add('active');
                 pane.classList.add('active');
             }
+            saveStudioState();
         }
         ['presets', 'theme', 'buttons', 'quotes', 'obs'].forEach(tabId => {
             const btn = $(`tab-btn-${tabId}`);
@@ -1903,15 +2062,87 @@
             $('preview-mode-wheel')?.classList.toggle('active', mode === 'wheel');
             renderInitialState();
             updateObsUrl();
+            saveStudioState();
         }
         $('preview-mode-roller').onclick = () => setStyleMode('roller');
         $('preview-mode-wheel').onclick = () => setStyleMode('wheel');
 
+        function applySavedStudioUI(s) {
+            if (!s) return;
+            if (s.mode) {
+                currentMode = s.mode;
+                $('preview-mode-roller')?.classList.toggle('active', s.mode === 'roller');
+                $('preview-mode-wheel')?.classList.toggle('active', s.mode === 'wheel');
+            }
+            if (s.theme && $('theme-select')) $('theme-select').value = s.theme;
+            if (s.bgStyle && $('bg-style-select')) {
+                $('bg-style-select').value = s.bgStyle;
+                if ($('custom-bg-row')) $('custom-bg-row').style.display = (s.bgStyle === 'custom') ? 'flex' : 'none';
+            }
+            if (s.customBgColor) {
+                if ($('custom-bg-color')) $('custom-bg-color').value = s.customBgColor;
+                if ($('custom-bg-color-picker')) $('custom-bg-color-picker').value = rgbToHex(s.customBgColor);
+            }
+            if (s.customBgOpacity !== undefined && $('custom-bg-opacity')) {
+                $('custom-bg-opacity').value = s.customBgOpacity;
+                if ($('custom-bg-opacity-label')) $('custom-bg-opacity-label').textContent = `${s.customBgOpacity}%`;
+            }
+            if (s.accentColor) {
+                if ($('ap-accent')) $('ap-accent').value = s.accentColor;
+                if ($('ap-accent-picker')) $('ap-accent-picker').value = rgbToHex(s.accentColor);
+                highlightActiveAccentChip(s.accentColor);
+            }
+            if (s.textColor) {
+                if ($('ap-text')) $('ap-text').value = s.textColor;
+                if ($('ap-text-picker')) $('ap-text-picker').value = rgbToHex(s.textColor);
+            }
+            if (s.fontFamily && $('ap-font')) {
+                if (!Array.from($('ap-font').options).some(o => o.value === s.fontFamily)) {
+                    const opt = document.createElement('option');
+                    opt.value = s.fontFamily;
+                    opt.textContent = s.fontFamily;
+                    $('ap-font').appendChild(opt);
+                }
+                $('ap-font').value = s.fontFamily;
+            }
+            if (s.fontWeight && $('ap-weight')) $('ap-weight').value = s.fontWeight;
+            if (s.textOutline) {
+                if ($('ap-outline')) $('ap-outline').value = s.textOutline;
+                if ($('ap-outline-picker')) {
+                    const isNone = !s.textOutline || s.textOutline === 'none' || s.textOutline === 'transparent';
+                    $('ap-outline-picker').value = isNone ? '#000000' : rgbToHex(s.textOutline);
+                }
+            }
+            if (s.winnerHeader && $('winner-header-input')) $('winner-header-input').value = s.winnerHeader;
+            if (s.suspense && $('suspense-select')) $('suspense-select').value = s.suspense;
+            if (s.duration && $('spin-duration')) $('spin-duration').value = s.duration;
+            if (s.autohide && $('autohide-select')) $('autohide-select').value = s.autohide;
+            if (s.scale && $('overlay-scale')) {
+                $('overlay-scale').value = s.scale;
+                if ($('scale-val-label')) $('scale-val-label').textContent = `${parseFloat(s.scale).toFixed(2)}x`;
+                $('display-stage')?.style.setProperty('--stage-scale', s.scale);
+            }
+            if (s.showButton !== undefined && $('overlay-button-enabled')) $('overlay-button-enabled').checked = s.showButton;
+            if (s.soundEnabled !== undefined) {
+                AudioFX.enabled = s.soundEnabled;
+                if ($('sound-status-label')) $('sound-status-label').textContent = AudioFX.enabled ? 'Sound On' : 'Sound Muted';
+                if ($('btn-quick-sound')) $('btn-quick-sound').style.opacity = AudioFX.enabled ? '1' : '0.6';
+            }
+            if (s.activeTab) {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+                $(`tab-btn-${s.activeTab}`)?.classList.add('active');
+                $(`tab-pane-${s.activeTab}`)?.classList.add('active');
+            }
+        }
+
         // Startup & Listeners
+        applySavedStudioUI(savedStudio);
         loadOverlayTheme();
         fetchChoicesPresets();
         fetchButtonPresets();
         fetchQuotePresets();
+        setTimeout(() => { isInitialLoad = false; }, 400);
 
         // 1. Choices Preset Actions
         $('preset-select').onchange = loadSelectedChoicesPreset;
@@ -2193,12 +2424,39 @@
         $('theme-select').onchange = () => {
             applyTheme($('theme-select').value);
             updateObsUrl();
+            saveStudioState();
+        };
+        $('bg-style-select').onchange = () => {
+            const val = $('bg-style-select').value;
+            if ($('custom-bg-row')) $('custom-bg-row').style.display = (val === 'custom') ? 'flex' : 'none';
+            applyBackgroundStyle(getEffectiveBackground());
+            updateObsUrl();
+            saveStudioState();
+        };
+        $('custom-bg-color').oninput = () => {
+            if ($('custom-bg-color-picker')) $('custom-bg-color-picker').value = rgbToHex($('custom-bg-color').value);
+            applyBackgroundStyle(getEffectiveBackground());
+            updateObsUrl();
+            saveStudioState();
+        };
+        $('custom-bg-color-picker').oninput = () => {
+            if ($('custom-bg-color')) $('custom-bg-color').value = $('custom-bg-color-picker').value;
+            applyBackgroundStyle(getEffectiveBackground());
+            updateObsUrl();
+            saveStudioState();
+        };
+        $('custom-bg-opacity').oninput = () => {
+            if ($('custom-bg-opacity-label')) $('custom-bg-opacity-label').textContent = `${$('custom-bg-opacity').value}%`;
+            applyBackgroundStyle(getEffectiveBackground());
+            updateObsUrl();
+            saveStudioState();
         };
         $('ap-accent').oninput = () => {
             highlightActiveAccentChip($('ap-accent').value.trim());
             if ($('theme-select')) $('theme-select').value = 'custom';
             applyTheme('custom', true);
             updateObsUrl();
+            saveStudioState();
         };
         $('ap-accent-picker').oninput = () => {
             $('ap-accent').value = $('ap-accent-picker').value;
@@ -2206,22 +2464,26 @@
             if ($('theme-select')) $('theme-select').value = 'custom';
             applyTheme('custom', true);
             updateObsUrl();
+            saveStudioState();
         };
         $('ap-text').oninput = () => {
             if ($('theme-select')) $('theme-select').value = 'custom';
             applyTheme('custom', true);
             updateObsUrl();
+            saveStudioState();
         };
         $('ap-text-picker').oninput = () => {
             $('ap-text').value = $('ap-text-picker').value;
             if ($('theme-select')) $('theme-select').value = 'custom';
             applyTheme('custom', true);
             updateObsUrl();
+            saveStudioState();
         };
         const onFontChange = () => {
             if ($('theme-select')) $('theme-select').value = 'custom';
             applyTheme('custom', true);
             updateObsUrl();
+            saveStudioState();
         };
         $('ap-font').onchange = onFontChange;
         $('ap-font').oninput = onFontChange;
@@ -2229,11 +2491,7 @@
             if ($('theme-select')) $('theme-select').value = 'custom';
             applyTheme('custom', true);
             updateObsUrl();
-        };
-        $('ap-bg').oninput = () => {
-            if ($('theme-select')) $('theme-select').value = 'custom';
-            applyTheme('custom', true);
-            updateObsUrl();
+            saveStudioState();
         };
         $('ap-outline').oninput = () => {
             if ($('theme-select')) $('theme-select').value = 'custom';
@@ -2243,17 +2501,20 @@
             }
             applyTheme('custom', true);
             updateObsUrl();
+            saveStudioState();
         };
         $('ap-outline-picker').oninput = () => {
             $('ap-outline').value = $('ap-outline-picker').value;
             if ($('theme-select')) $('theme-select').value = 'custom';
             applyTheme('custom', true);
             updateObsUrl();
+            saveStudioState();
         };
         $('btn-reset-overlay-theme').onclick = () => {
             if ($('theme-select')) $('theme-select').value = 'system';
             applyTheme('system');
             updateObsUrl();
+            saveStudioState();
             toast('Reset to StreamPulse shared theme');
         };
 
@@ -2264,6 +2525,7 @@
                 [list[i], list[j]] = [list[j], list[i]];
             }
             setChoices(list);
+            saveStudioState();
             toast('Choices shuffled');
         };
         $('btn-shuffle').onclick = doShuffle;
@@ -2273,41 +2535,97 @@
             AudioFX.enabled = !AudioFX.enabled;
             $('sound-status-label').textContent = AudioFX.enabled ? 'Sound On' : 'Sound Muted';
             $('btn-quick-sound').style.opacity = AudioFX.enabled ? '1' : '0.6';
+            saveStudioState();
             toast(AudioFX.enabled ? 'Audio effects enabled' : 'Audio effects muted');
         };
 
         $('suspense-select').onchange = () => {
             currentSuspense = $('suspense-select').value;
             updateObsUrl();
+            saveStudioState();
         };
-        $('spin-duration').oninput = updateObsUrl;
-        $('autohide-select').onchange = updateObsUrl;
-        $('overlay-button-enabled').onchange = updateObsUrl;
+        $('spin-duration').oninput = () => {
+            updateObsUrl();
+            saveStudioState();
+        };
+        $('autohide-select').onchange = () => {
+            updateObsUrl();
+            saveStudioState();
+        };
+        $('overlay-button-enabled').onchange = () => {
+            updateObsUrl();
+            saveStudioState();
+        };
+        $('overlay-scale').oninput = () => {
+            const val = $('overlay-scale').value;
+            if ($('scale-val-label')) $('scale-val-label').textContent = `${parseFloat(val).toFixed(2)}x`;
+            $('display-stage')?.style.setProperty('--stage-scale', val);
+            updateObsUrl();
+            saveStudioState();
+        };
+
+        $('btn-reset-studio').onclick = () => {
+            if (!confirm('Reset all Randomizer Studio settings to defaults?')) return;
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+            } catch {}
+            currentMode = 'roller';
+            currentPresetId = 'jackbox';
+            currentBtnPresetId = 'chaos';
+            currentQuotePresetId = 'multiverse';
+            currentSuspense = 'normal';
+            if ($('preview-mode-roller')) $('preview-mode-roller').classList.add('active');
+            if ($('preview-mode-wheel')) $('preview-mode-wheel').classList.remove('active');
+            if ($('bg-style-select')) $('bg-style-select').value = 'glass';
+            if ($('custom-bg-row')) $('custom-bg-row').style.display = 'none';
+            if ($('overlay-scale')) $('overlay-scale').value = '1';
+            if ($('scale-val-label')) $('scale-val-label').textContent = '1.0x';
+            $('display-stage')?.style.removeProperty('--stage-scale');
+            if ($('theme-select')) $('theme-select').value = 'system';
+            if ($('suspense-select')) $('suspense-select').value = 'normal';
+            if ($('spin-duration')) $('spin-duration').value = '6';
+            if ($('autohide-select')) $('autohide-select').value = '8';
+            if ($('overlay-button-enabled')) $('overlay-button-enabled').checked = false;
+            applyTheme('system');
+            loadSelectedChoicesPreset();
+            loadSelectedButtonPreset();
+            loadSelectedQuotePreset();
+            switchTab('presets');
+            updateObsUrl();
+            toast('Studio settings reset to defaults');
+        };
 
         $('btn-phrases-textarea').oninput = () => {
             const lines = $('btn-phrases-textarea').value.split('\n').map(s => s.trim()).filter(Boolean);
             if (lines.length) activeButtonPhrases = lines;
             if ($('btn-phrases-count-pill')) $('btn-phrases-count-pill').textContent = `${activeButtonPhrases.length} phrases`;
             updateButtonLabel();
+            saveStudioState();
         };
 
         $('quotes-textarea').oninput = () => {
             const lines = $('quotes-textarea').value.split('\n').map(s => s.trim()).filter(Boolean);
             if (lines.length) activeQuotesPool = lines;
             if ($('quotes-count-pill')) $('quotes-count-pill').textContent = `${activeQuotesPool.length} quotes`;
+            saveStudioState();
         };
 
         $('btn-text-static').oninput = () => {
             updateButtonLabel();
             updateObsUrl();
+            saveStudioState();
         };
 
-        $('winner-header-input').oninput = updateObsUrl;
+        $('winner-header-input').oninput = () => {
+            updateObsUrl();
+            saveStudioState();
+        };
 
         $('choices-textarea').oninput = () => {
             const list = getChoices();
             if ($('choices-count-pill')) $('choices-count-pill').textContent = `${list.length} choices`;
             renderInitialState();
+            saveStudioState();
         };
 
         $('btn-spin').onpointerenter = () => {
@@ -2359,6 +2677,8 @@
                         mode,
                         suspense,
                         theme,
+                        bg: getEffectiveBackground(),
+                        scale: $('overlay-scale')?.value || '1',
                         duration,
                         autohide,
                         buttonPhrases: activeButtonPhrases,
@@ -2407,6 +2727,8 @@
                             if (isSpinning) return;
                             AudioFX.init();
                             if (d.theme) applyTheme(d.theme, true);
+                            if (d.bg) applyBackgroundStyle(d.bg);
+                            if (d.scale) $('display-stage')?.style.setProperty('--stage-scale', d.scale);
                             if (d.mode && d.mode !== currentMode) setStyleMode(d.mode);
                             runSpin({
                                 choices: (Array.isArray(d.choices) && d.choices.length) ? d.choices : choices,
