@@ -69,7 +69,7 @@
             { label: 'Goals Cycle', href: '/goal.html?mode=cycle', target: '_blank' },
             { label: 'Game Plan', href: '/game-plan.html', target: '_blank' },
             { label: 'Milestones & Streaks', href: '/milestones.html', target: '_blank' },
-            { label: 'Choice Randomizer', href: '/randomizer.html?overlay=1', target: '_blank' },
+            { label: 'Choice Randomizer', href: '/randomizer.html', target: '_blank' },
             { heading: 'Music (Beta)' },
             { label: 'Full', href: '/music.html?mode=full', target: '_blank' },
             { label: 'Art Only', href: '/music.html?mode=art', target: '_blank' },
@@ -82,7 +82,8 @@
             { label: 'Timers', href: '/timer-url-wizard.html' },
             { label: 'Music', href: '/music-url-wizard.html' },
             { label: 'Game Plan', href: '/game-plan-url-wizard.html' },
-            { label: 'Milestones', href: '/milestone-url-wizard.html' }
+            { label: 'Milestones', href: '/milestone-url-wizard.html' },
+            { label: 'Choice Randomizer Studio', href: '/randomizer-editor.html' }
         ]},
         { label: 'Library ▾', children: [
             { label: 'Highlights', href: '/highlights.html' },
@@ -103,7 +104,7 @@
             { label: 'Alerts (Beta)', href: '/alerts.html' },
             { label: 'Chat Bot (Beta)', href: '/chatbot.html' },
             { label: 'Placeholders & Variables', href: '/placeholders.html' },
-            { label: 'Choice Randomizer', href: '/randomizer.html' },
+            { label: 'Choice Randomizer Studio', href: '/randomizer-editor.html' },
             { label: 'Music Settings (Beta)', href: '/music-editor.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html' },
             { heading: 'System' },
