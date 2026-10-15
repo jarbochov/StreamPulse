@@ -118,7 +118,7 @@ function createSystemRoutes({
                     active_subs_only: config.active_subs_only || false,
                     hashtags_enabled: config.hashtags_enabled !== false,
                     hashtag_max_length: Number(config.hashtag_max_length) || 50,
-                    chatbot_enabled: config.chatbot_enabled === true,
+                    chatbot_enabled: config.chatbot_enabled !== false,
                     chat_log_enabled: config.chat_log_enabled !== false,
                     broadcaster_name: broadcasterName,
                     connection: {

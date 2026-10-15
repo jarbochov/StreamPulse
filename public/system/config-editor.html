@@ -497,12 +497,9 @@
                 <input type="checkbox" id="cfg-hashtags-enabled" ${cfg.hashtags_enabled !== false ? 'checked' : ''}>
                 <label for="cfg-hashtags-enabled">Enable hashtag tracking</label>
             </div>
-            <div class="cfg-row" style="align-items:center;justify-content:space-between;padding:0.35rem 0;">
-                <div>
-                    <strong>Chat Bot <span class="beta-tag">BETA</span></strong>
-                    <div style="font-size:0.75rem;color:var(--border-strong);margin-top:0.2rem;">Live toggle, commands, quotes, and timed messages live in the Chat Bot tool.</div>
-                </div>
-                <a class="btn sm" href="/chatbot.html" style="text-decoration:none;">Open Chat Bot ↗</a>
+            <div class="cfg-toggle">
+                <input type="checkbox" id="cfg-chatbot-enabled" ${cfg.chatbot_enabled !== false ? 'checked' : ''}>
+                <label for="cfg-chatbot-enabled">Enable chat bot <span class="beta-tag">BETA</span></label>
             </div>
             <div class="cfg-toggle">
                 <input type="checkbox" id="cfg-chatlog-enabled" ${cfg.chat_log_enabled !== false ? 'checked' : ''}>
@@ -1114,6 +1111,7 @@
             days_filter: parseInt(document.getElementById('cfg-days-filter').value) || 30,
             active_subs_only: document.getElementById('cfg-active-subs').checked,
             hashtags_enabled: document.getElementById('cfg-hashtags-enabled').checked,
+            chatbot_enabled: document.getElementById('cfg-chatbot-enabled').checked,
             chat_log_enabled: document.getElementById('cfg-chatlog-enabled').checked,
             auto_backup_on_session_end: document.getElementById('cfg-auto-backup').checked,
             exclude_users: document.getElementById('cfg-exclude').value.split(',').map(s => s.trim()).filter(Boolean),

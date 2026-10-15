@@ -448,17 +448,25 @@ async function api(path, method = 'GET', body) {
 
 function renderBanner() {
     const msgs = [];
-    if (!state.enabled) msgs.push('The chat bot is currently <b>Off</b>.');
-    if (!state.ssnConfigured) msgs.push('Add your SocialStream session ID in <a href="/config-editor.html">Config</a> so the bot can reply.');
-    const toggleBtn = `<button class="btn small ${state.enabled ? '' : 'primary'}" id="btn-toggle-bot">${state.enabled ? 'Turn Off' : 'Turn On'}</button>`;
-    $('banner').innerHTML = `<div class="banner ${state.enabled && state.ssnConfigured ? '' : 'warn'}" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;"><div>${msgs.length ? msgs.join('<br>') : 'Chat bot is <b>On</b> and ready to respond.'}</div>${toggleBtn}</div>`;
+    const isModuleDisabled = state.moduleEnabled === false;
+    if (isModuleDisabled) {
+        msgs.push('Chat bot is <b>disabled</b> in <a href="/config-editor.html">Config Editor</a>.');
+    } else if (!state.enabled) {
+        msgs.push('The chat bot is currently <b>Off</b>.');
+    }
+    if (!state.ssnConfigured) {
+        msgs.push('Add your SocialStream session ID in <a href="/config-editor.html">Config</a> so the bot can reply.');
+    }
+    const toggleBtn = isModuleDisabled
+        ? `<a class="btn small" href="/config-editor.html" style="text-decoration:none;">Enable in Config ↗</a>`
+        : `<button class="btn small ${state.enabled ? '' : 'primary'}" id="btn-toggle-bot">${state.enabled ? 'Turn Off' : 'Turn On'}</button>`;
+    $('banner').innerHTML = `<div class="banner ${state.enabled && state.ssnConfigured && !isModuleDisabled ? '' : 'warn'}" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;"><div>${msgs.length ? msgs.join('<br>') : 'Chat bot is <b>On</b> and ready to respond.'}</div>${toggleBtn}</div>`;
     const btn = $('btn-toggle-bot');
     if (btn) {
         btn.onclick = async () => {
             try {
                 const res = await api('/api/chatbot/enabled', 'POST', { action: 'toggle' });
-                state.enabled = res.enabled;
-                renderBanner();
+                applyState(res);
                 toast(`Chat bot is now ${res.enabled ? 'ON' : 'OFF'}`);
             } catch (e) { toast(e.message); }
         };

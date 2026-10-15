@@ -275,7 +275,11 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         return String(getShared().expandVariables(text, await liveStatus(), {}, false) || '').replace(/\{\{[^}]*\}\}/g, '').trim();
     }
 
-    const enabled = () => data.settings.enabled === true;
+    const isModuleEnabled = () => {
+        const cfg = typeof getConfig === 'function' ? getConfig() : {};
+        return cfg?.chatbot_enabled !== false;
+    };
+    const enabled = () => isModuleEnabled() && data.settings.enabled === true;
     let seq = 0;
     const activity = [];
     const logUse = (kind, name, user) => { activity.push({ seq: ++seq, kind, name, user: user || '', at: Date.now() }); if (activity.length > 50) activity.shift(); try { onUse(kind, name); } catch { /* non-fatal */ } };
@@ -578,6 +582,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
     function snapshot() {
         return {
             enabled: enabled(),
+            moduleEnabled: isModuleEnabled(),
+            botActive: data.settings.enabled === true,
             ssnConfigured: !!sessionId() && !/YOUR_SSN/.test(sessionId()),
             broadcaster: getBroadcaster(),
             twitchMods: getTwitchModsDetails(),
@@ -621,11 +627,14 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 saveUsage();
                 return json(200, { usage: usageList() }), true;
             }
-            if (pathname === '/api/chatbot/activity' && req.method === 'GET') return json(200, { enabled: enabled(), seq, activity: activity.slice(-20) }), true;
+            if (pathname === '/api/chatbot/activity' && req.method === 'GET') return json(200, { enabled: enabled(), moduleEnabled: isModuleEnabled(), seq, activity: activity.slice(-20) }), true;
             if (pathname === '/api/chatbot/enabled' && req.method === 'POST') {
-                data.settings.enabled = body.action === 'toggle' ? !enabled() : body.enabled === true;
+                if (!isModuleEnabled()) {
+                    return json(400, { error: 'Chat bot is disabled in Config Editor. Enable it in Config first.', enabled: false, moduleEnabled: false }), true;
+                }
+                data.settings.enabled = body.action === 'toggle' ? !data.settings.enabled : body.enabled === true;
                 save();
-                return json(200, { enabled: enabled() }), true;
+                return json(200, snapshot()), true;
             }
             if (pathname === '/api/chatbot/export' && req.method === 'GET') {
                 return json(200, { format: 'streampulse-chatbot', version: 1, exportedAt: new Date().toISOString(), ...data, variables: variables ? variables.list() : [] }), true;
