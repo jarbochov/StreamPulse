@@ -377,51 +377,57 @@
         function updateNavStatus() {
             fetch('/api/status').then(r => r.json()).then(data => {
                 // Live status
+                const isLive = !!data.viewers?.live;
+                const viewers = data.viewers?.current || 0;
+                const hasTwitch = !!data.twitch?.hasToken;
+                const ssnConnected = !!data.ssn?.connected;
+                const ssnHasSession = !!data.ssn?.session;
+
+                // Health summary for tooltip
+                const healthParts = [
+                    isLive ? `Stream: LIVE (${viewers.toLocaleString()} viewers)` : 'Stream: Offline',
+                    hasTwitch ? 'Twitch: Connected' : 'Twitch: Not connected',
+                    ssnConnected ? `SocialStream: Connected (${(data.ssn?.messages || 0).toLocaleString()} msgs)` : (ssnHasSession ? 'SocialStream: Disconnected' : 'SocialStream: Not configured')
+                ];
+                const healthSummary = healthParts.join(' · ') + ' — Click for Dashboard';
+
+                // Live stream pill (always shown, defaults to online/offline)
                 const livePill = document.getElementById('nav-live-indicator');
                 if (livePill) {
-                    const isLive = !!data.viewers?.live;
-                    const viewers = data.viewers?.current || 0;
                     livePill.style.display = 'inline-flex';
                     if (isLive) {
                         livePill.className = 'nav-status-pill live';
                         livePill.querySelector('.label').textContent = `LIVE · ${viewers.toLocaleString()}`;
-                        livePill.title = `Stream is LIVE with ${viewers} viewers — Click to open Dashboard`;
                     } else {
                         livePill.className = 'nav-status-pill';
                         livePill.querySelector('.label').textContent = 'Offline';
-                        livePill.title = 'Stream is offline — Click to open Dashboard';
                     }
+                    livePill.title = healthSummary;
                 }
 
-                // Twitch status
+                // Twitch status pill: only show if disconnected/action needed
                 const twitchPill = document.getElementById('nav-twitch-indicator');
                 if (twitchPill) {
-                    twitchPill.style.display = 'inline-flex';
-                    const hasTwitch = !!data.twitch?.hasToken;
                     if (hasTwitch) {
-                        twitchPill.className = 'nav-status-pill twitch connected';
-                        twitchPill.title = `Twitch connected (${data.twitch?.broadcaster_id ? 'Broadcaster ID: ' + data.twitch.broadcaster_id : 'Authorized'}) — Click to configure`;
+                        twitchPill.style.display = 'none';
                     } else {
-                        twitchPill.className = 'nav-status-pill twitch';
-                        twitchPill.title = 'Twitch not connected — Click to connect';
+                        twitchPill.style.display = 'inline-flex';
+                        twitchPill.className = 'nav-status-pill warn';
+                        twitchPill.querySelector('.label').textContent = 'Twitch Offline';
+                        twitchPill.title = 'Twitch is not connected — Click to connect';
                     }
                 }
 
-                // SocialStream status
+                // SocialStream status pill: only show if disconnected/action needed
                 const ssnPill = document.getElementById('nav-ssn-indicator');
                 if (ssnPill) {
-                    ssnPill.style.display = 'inline-flex';
-                    const ssnConnected = !!data.ssn?.connected;
-                    const ssnHasSession = !!data.ssn?.session;
                     if (ssnConnected) {
-                        ssnPill.className = 'nav-status-pill connected';
-                        ssnPill.title = `SocialStream connected (${(data.ssn?.messages || 0).toLocaleString()} msgs) — Click to configure`;
-                    } else if (ssnHasSession) {
-                        ssnPill.className = 'nav-status-pill warn';
-                        ssnPill.title = 'SocialStream configured but disconnected — Click to configure';
+                        ssnPill.style.display = 'none';
                     } else {
-                        ssnPill.className = 'nav-status-pill';
-                        ssnPill.title = 'SocialStream not connected — Click to configure';
+                        ssnPill.style.display = 'inline-flex';
+                        ssnPill.className = 'nav-status-pill warn';
+                        ssnPill.querySelector('.label').textContent = ssnHasSession ? 'SocialStream Offline' : 'SocialStream Setup';
+                        ssnPill.title = ssnHasSession ? 'SocialStream disconnected — Click to configure' : 'SocialStream not configured — Click to configure';
                     }
                 }
             }).catch(() => {});

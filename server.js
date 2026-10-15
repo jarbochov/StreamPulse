@@ -4623,14 +4623,14 @@ function parseChatSearchTerms(queryText) {
 
 function normalizeChatSearchFilters(input = {}) {
     let queryText = String(input.q || '').trim();
-    let user = String(input.user || '').trim().toLowerCase();
+    let user = String(input.user || '').trim().replace(/^@/, '').toLowerCase();
     const type = String(input.type || '').trim();
 
     if (!user) {
-        const userMatches = [...queryText.matchAll(/(?:^|\s)(?:user|from):(\S+)/gi)];
+        const userMatches = [...queryText.matchAll(/(?:^|\s)(?:user|from):\s*(\S+)/gi)];
         if (userMatches.length > 0) {
-            user = (userMatches[userMatches.length - 1][1] || '').toLowerCase();
-            queryText = queryText.replace(/(?:^|\s)(?:user|from):(\S+)/gi, ' ').replace(/\s+/g, ' ').trim();
+            user = (userMatches[userMatches.length - 1][1] || '').replace(/^@/, '').toLowerCase();
+            queryText = queryText.replace(/(?:^|\s)(?:user|from):\s*(\S+)/gi, ' ').replace(/\s+/g, ' ').trim();
         }
     }
 

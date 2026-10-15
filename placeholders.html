@@ -116,9 +116,9 @@
                         </tr>
                         <tr style="border-bottom:1px solid var(--bg-raised);">
                             <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{arg.1}}">{{arg.1}}</code>, <code class="copyable" data-copy="{{arg.2}}">{{arg.2}}</code></td>
-                            <td style="padding:.4rem .6rem;">1st, 2nd, etc. space-separated parameter. Supports fallbacks like <code>{{arg.2:10}}</code> and Nightbot syntax <code>$(1)</code>, <code>$(2)</code></td>
-                            <td style="padding:.4rem .6rem;"><code>⚔️ {{user}} duels {{target}} for {{arg.2:10}} pts!</code></td>
-                            <td style="padding:.4rem .6rem;"><em>⚔️ Alice duels Bob for 50 pts!</em></td>
+                            <td style="padding:.4rem .6rem;">1st, 2nd, etc. space-separated word typed after the command. Supports default fallbacks like <code>{{arg.2:dogs}}</code> if omitted, and Nightbot syntax <code>$(1)</code>, <code>$(2)</code></td>
+                            <td style="padding:.4rem .6rem;"><code>🤔 {{user}} asks: {{arg.1:cats}} or {{arg.2:dogs}}?</code></td>
+                            <td style="padding:.4rem .6rem;"><em>🤔 Alice asks: tea or coffee?</em></td>
                         </tr>
                         <tr style="border-bottom:1px solid var(--bg-raised);">
                             <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{random 1 6}}">{{random min max}}</code></td>

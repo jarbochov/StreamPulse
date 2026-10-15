@@ -14,53 +14,97 @@
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
         .nav { display: flex; gap: 0.75rem; }
-        .container { max-width: 1000px; margin: 0 auto; padding: 1.5rem 2rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
-        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
-        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.75rem; display: flex; align-items: center; gap: .5rem; }
-        .beta { font-size: .65rem; padding: .1rem .4rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); letter-spacing: .05em; }
-        .muted { color: var(--text-muted); font-size: .82rem; line-height: 1.5; }
-        .banner { padding: .75rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-inset); font-size: .85rem; }
-        .banner.warn { border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .75rem; }
-        label.f { display: block; font-size: .75rem; color: var(--text-muted); }
-        label.f > input, label.f > textarea, label.f > select { display: block; width: 100%; margin-top: .25rem; padding: .5rem .65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; font-size: .85rem; }
-        input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-        .btn { padding: .5rem .9rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); font-size: .83rem; cursor: pointer; }
+        .container { max-width: 1040px; margin: 0 auto; padding: 1.25rem 2rem 2.5rem; display: flex; flex-direction: column; gap: 1rem; }
+        
+        /* Modern Cards */
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem 1.4rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .card h2 { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 0.6rem; display: flex; align-items: center; gap: .5rem; }
+        .beta { font-size: .65rem; padding: .1rem .4rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); letter-spacing: .05em; font-weight: 600; }
+        .muted { color: var(--text-muted); font-size: .83rem; line-height: 1.5; }
+        .banner { padding: .75rem 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-inset); font-size: .85rem; }
+        .banner.warn { border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: color-mix(in srgb, var(--danger) 6%, var(--bg-inset)); }
+        
+        /* Tabs */
+        .tabs { display: flex; gap: .35rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-page); z-index: 15; padding: .5rem 0; overflow-x: auto; scrollbar-width: none; }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tabs button { display: inline-flex; align-items: center; gap: .45rem; background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text-muted); padding: .45rem .85rem; font: inherit; font-size: .85rem; font-weight: 500; cursor: pointer; transition: all .15s; white-space: nowrap; }
+        .tabs button:hover { color: var(--text); background: var(--bg-card); }
+        .tabs button[aria-selected="true"] { color: var(--text); background: var(--bg-card); border-color: var(--border); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .tabs .count { background: var(--bg-inset); border: 1px solid var(--border); color: var(--text-muted); font-size: .7rem; font-weight: 600; padding: .1rem .45rem; border-radius: 999px; line-height: 1.2; }
+        .tabs button[aria-selected="true"] .count { background: var(--accent-bg); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+        .card[data-tab][hidden] { display: none; }
+        
+        /* Section Headers */
+        .tab-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .tab-header h2 { font-size: 1.15rem; font-weight: 700; color: var(--text); margin-bottom: .2rem; display: flex; align-items: center; gap: .5rem; }
+        .tab-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+        .search-input { padding: .42rem .7rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: .82rem; min-width: 180px; }
+        .search-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+        /* Form Controls */
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .75rem; }
+        label.f { display: flex; flex-direction: column; gap: .25rem; font-size: .76rem; font-weight: 500; color: var(--text-muted); }
+        label.f > input, label.f > textarea, label.f > select { width: 100%; padding: .5rem .65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; font-size: .85rem; box-sizing: border-box; }
+        input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+        .btn { padding: .5rem .9rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); font-size: .83rem; font-weight: 500; cursor: pointer; transition: all .15s; white-space: nowrap; }
         .btn:hover { border-color: var(--accent); background: var(--accent-bg); }
         .btn.primary { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; font-weight: 600; }
         .btn.danger:hover { border-color: var(--danger); background: var(--danger-soft-bg); }
         .btn.small { padding: .25rem .55rem; font-size: .75rem; }
         .row { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
         .row.end { justify-content: flex-end; }
-        .item { display: grid; gap: .6rem; padding: .85rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-inset); }
-        .item + .item { margin-top: .6rem; }
-        .item .top { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) 110px; gap: .6rem; }
-        .check { display: inline-flex; align-items: center; gap: .35rem; font-size: .8rem; color: var(--text); }
-        .preview { font-size: .78rem; color: var(--text-muted); min-height: 1.1em; }
-        .preview ul, .preview ol { margin: .25rem 0 0 1.2rem; }
-        .preview li { color: var(--text); }
-        .preview b { color: var(--text); font-weight: 500; }
+        .check { display: inline-flex; align-items: center; gap: .35rem; font-size: .8rem; color: var(--text); cursor: pointer; }
+
+        /* Items / Accordions */
+        .item { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); transition: all .15s; margin-bottom: .6rem; overflow: hidden; }
+        .item:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+        .item[open] { border-color: var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+        .item-summary { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 1rem; cursor: pointer; list-style: none; user-select: none; background: var(--bg-inset); transition: background .15s; }
+        .item-summary::-webkit-details-marker { display: none; }
+        .item[open] > .item-summary { background: var(--bg-card); border-bottom: 1px solid var(--border); }
+        .item-summary-left { display: flex; align-items: center; gap: .6rem; flex: 1; min-width: 0; }
+        .item-summary-right { display: flex; align-items: center; gap: .6rem; flex-shrink: 0; }
+        .cmd-badge { font-family: ui-monospace, Menlo, monospace; font-size: .83rem; font-weight: 700; color: var(--accent); background: var(--accent-bg); padding: .15rem .45rem; border-radius: 5px; border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+        .alias-tag { font-size: .75rem; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border); padding: .1rem .4rem; border-radius: 4px; }
+        .sum-text { font-size: .8rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .meta-pill { font-size: .72rem; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border); padding: .15rem .45rem; border-radius: 999px; }
+        .meta-pill.live-pill { color: #f85149; border-color: color-mix(in srgb, #f85149 40%, var(--border)); }
+        
+        .item-body { padding: 1rem; display: flex; flex-direction: column; gap: .75rem; background: var(--bg-card); }
+        .preview-box { font-size: .8rem; color: var(--text-muted); padding: .6rem .85rem; border-radius: 6px; background: var(--bg-inset); border: 1px solid var(--border); border-left: 3px solid var(--accent); min-height: 1.2em; }
+        .preview-box:empty { display: none; }
+        .preview-box ul, .preview-box ol { margin: .25rem 0 0 1.2rem; }
+        .preview-box li { color: var(--text); }
+        .preview-box b { color: var(--text); font-weight: 600; }
+        
+        /* Advanced Dropdown inside item */
+        .item-advanced { border: 1px dashed var(--border); border-radius: 6px; background: var(--bg-inset); margin-top: .2rem; }
+        .item-advanced > summary { padding: .45rem .75rem; font-size: .78rem; font-weight: 600; color: var(--text-muted); cursor: pointer; list-style: none; }
+        .item-advanced > summary::-webkit-details-marker { display: none; }
+        .item-advanced[open] > summary { border-bottom: 1px dashed var(--border); }
+        .item-advanced-body { padding: .75rem; display: flex; flex-direction: column; gap: .6rem; }
+        
+        /* Cheat sheet */
+        .cheat-sheet-card { margin-bottom: 1rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .cheat-sheet-card > summary { padding: .65rem .9rem; font-size: .85rem; font-weight: 600; color: var(--accent); cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+        .cheat-sheet-card > summary::-webkit-details-marker { display: none; }
+        .cheat-sheet-card[open] > summary { border-bottom: 1px solid var(--border); }
+        .cheat-sheet-content { padding: .85rem; }
+        .copy-tag { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: var(--bg-card); border: 1px solid var(--border); padding: .15rem .35rem; border-radius: 4px; cursor: pointer; }
+        .copy-tag:hover { border-color: var(--accent); color: var(--accent); }
+        
+        /* Settings sections */
+        .settings-section { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+        .settings-section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+
         .quote { display: grid; grid-template-columns: 3rem 1fr auto; gap: .6rem; align-items: center; padding: .55rem 0; border-bottom: 1px solid var(--bg-raised); font-size: .85rem; }
         .quote .num { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
         .quote .meta { font-size: .72rem; color: var(--text-muted); }
-        details.item > summary { display: flex; align-items: center; gap: .75rem; cursor: pointer; list-style: none; }
-        details.item > summary::-webkit-details-marker { display: none; }
-        details.item > summary::before { content: '\25B8'; color: var(--text-muted); }
-        details.item[open] > summary::before { content: '\25BE'; }
-        details.item > summary .sum { flex: 1; color: var(--text-muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        details.item[open] > summary { margin-bottom: .6rem; }
-        .tabs { display: flex; gap: .25rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-page); z-index: 5; padding-top: .25rem; }
-        .tabs button { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); padding: .6rem .9rem; font: inherit; font-size: .88rem; cursor: pointer; margin-bottom: -1px; }
-        .tabs button:hover { color: var(--text); }
-        .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
-        .tabs .count { color: var(--text-muted); font-size: .72rem; font-weight: 400; }
-        .tabs .count:not(:empty)::before { content: '('; } .tabs .count:not(:empty)::after { content: ')'; }
-        .card[data-tab][hidden] { display: none; }
-        .card h2 .muted { text-transform: none; letter-spacing: 0; }
-        .empty { text-align: center; color: var(--text-muted); padding: 1rem; font-size: .85rem; }
-        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--accent-strong); color: #fff; padding: .75rem 1.25rem; border-radius: 8px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+        
+        .empty { text-align: center; color: var(--text-muted); padding: 1.5rem; font-size: .85rem; }
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--accent-strong); color: #fff; padding: .75rem 1.25rem; border-radius: 8px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 9999; }
         .toast.show { opacity: 1; }
-        @media (max-width: 640px) { .item .top { grid-template-columns: 1fr; } .container { padding: 1rem; } }
+        @media (max-width: 680px) { .container { padding: 1rem; } .tab-header { flex-direction: column; align-items: stretch; } }
     </style>
 </head>
 <body>
@@ -69,153 +113,284 @@
         <div id="banner"></div>
         <nav class="tabs" id="tabs"><button type="button" data-t="commands">Commands <span class="count" data-c="commands"></span></button><button type="button" data-t="quotes">Quotes <span class="count" data-c="quotes"></span></button><button type="button" data-t="messages">Timed messages <span class="count" data-c="messages"></span></button><button type="button" data-t="triggers">Word triggers <span class="count" data-c="triggers"></span></button><button type="button" data-t="variables">Variables <span class="count" data-c="variables"></span></button><button type="button" data-t="usage">Usage <span class="count" data-c="usage"></span></button><button type="button" data-t="reference">Reference</button><button type="button" data-t="settings">Settings <span class="count" data-c="settings"></span></button></nav>
 
+        <!-- Viewer Reference Tab -->
         <div class="card" data-tab="reference">
-            <h2>Viewer reference</h2>
-            <p class="muted" style="margin-bottom:.75rem;">A read-only list of chat commands for viewers, generated live. No cooldowns or schedules. Copy it as Markdown for a web page. <a href="/commands.html" target="_blank">Open on its own</a>. Looking for placeholders? See the <a href="/placeholders.html" target="_blank">placeholder reference</a>.</p>
-            <iframe id="ref-frame" style="width:100%;height:70vh;border:1px solid var(--border);border-radius:6px;background:var(--bg-page)"></iframe>
+            <div class="tab-header">
+                <div>
+                    <h2>📖 Viewer Reference</h2>
+                    <p class="muted">Read-only list of public chat commands for viewers, generated live. <a href="/commands.html" target="_blank">Open viewer page ↗</a> · <a href="/placeholders.html" target="_blank">Placeholder dictionary ↗</a></p>
+                </div>
+            </div>
+            <iframe id="ref-frame" style="width:100%;height:70vh;border:1px solid var(--border);border-radius:8px;background:var(--bg-page)"></iframe>
         </div>
 
+        <!-- Settings Tab -->
         <div class="card" data-tab="settings">
-            <h2>Settings</h2>
-            <div class="row" style="margin-bottom:.75rem;"><button class="btn" id="export-all">Export all settings</button><button class="btn" id="import-all">Import all settings</button><input type="file" id="import-all-file" accept=".json,application/json" hidden><span class="hint">Backup, or move to another machine. Includes commands, quotes, timed messages, triggers, variables and settings. Import replaces what is here.</span></div>
-            <div class="grid">
-                <label class="f">Command prefix<input id="s-prefix" maxlength="3"></label>
-                <label class="f">Reply tag<input id="s-tag" maxlength="20" placeholder="[BOT]"></label>
-                <label class="f">Default cooldown (seconds)<input id="s-cooldown" type="number" min="0" max="3600"></label>
-                <label class="f">Default mod cooldown (seconds)<input id="s-modcooldown" type="number" min="0" max="3600" placeholder="same as above"></label>
+            <div class="tab-header">
+                <div>
+                    <h2>⚙️ Bot Settings</h2>
+                    <p class="muted">Configure bot behavior, cooldowns, moderation roles, and raid shoutouts.</p>
+                </div>
+                <div class="tab-actions">
+                    <button class="btn primary" id="save-settings">Save settings</button>
+                </div>
             </div>
-            <label class="f" style="margin-top:.75rem;">Moderator usernames (fallback)<input id="s-mods" placeholder="name1, name2"></label>
-            <p class="muted" style="margin-top:.5rem;">Replies are sent as your SocialStream account, starting with the tag. Messages that start with the tag are never treated as commands. Mods are detected from SocialStream chat data when it includes them; usernames listed here are always treated as mods.</p>
 
-            <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+            <div class="settings-section">
+                <h2>General &amp; Cooldowns</h2>
+                <div class="grid">
+                    <label class="f"><span>Command prefix</span><input id="s-prefix" maxlength="3" placeholder="!"></label>
+                    <label class="f"><span>Bot reply tag</span><input id="s-tag" maxlength="20" placeholder="[BOT]"></label>
+                    <label class="f"><span>Default cooldown (seconds)</span><input id="s-cooldown" type="number" min="0" max="3600" placeholder="5"></label>
+                    <label class="f"><span>Default mod cooldown (seconds)</span><input id="s-modcooldown" type="number" min="0" max="3600" placeholder="same as above"></label>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h2>Moderator Roles &amp; Permissions</h2>
+                <label class="f"><span>Moderator usernames (fallback comma-separated list)</span><input id="s-mods" placeholder="name1, name2"></label>
+                <p class="muted" style="margin-top:.4rem;">Replies are sent through your connected SocialStream account starting with the bot tag. Messages starting with the tag are never treated as commands. Moderators are auto-detected from SocialStream chat data; usernames listed here are always granted mod permissions.</p>
+            </div>
+
+            <div class="settings-section">
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
                     <div>
-                        <h2 style="margin:0;font-size:1.05rem;">Incoming Raid Auto-Shoutout</h2>
-                        <p class="muted" style="margin:.2rem 0 0;">Automatically welcome incoming raids and give the raider a shoutout in chat.</p>
+                        <h2>Incoming Raid Auto-Shoutout</h2>
+                        <p class="muted" style="margin:0;">Automatically welcome incoming raids and shout them out in chat.</p>
                     </div>
                     <label class="check" style="font-weight:600;"><input type="checkbox" id="s-shoutout-enabled"> Enable auto-shoutout</label>
                 </div>
                 <div class="grid" style="margin-top:.75rem;">
-                    <label class="f" style="grid-column:1/-1;">Shoutout message template<textarea id="s-shoutout-message" rows="2" maxlength="500" placeholder="Welcome raiders from @{{user}}! Show them some love: twitch.tv/{{user}}"></textarea></label>
-                    <label class="f">Minimum raid viewers (0 = all raids)<input id="s-shoutout-min" type="number" min="0" placeholder="0"></label>
+                    <label class="f" style="grid-column:1/-1;"><span>Shoutout message template</span><textarea id="s-shoutout-message" rows="2" maxlength="500" placeholder="Welcome raiders from @{{user}}! Show them some love: twitch.tv/{{user}}"></textarea></label>
+                    <label class="f"><span>Minimum raid viewers (0 = all raids)</span><input id="s-shoutout-min" type="number" min="0" placeholder="0"></label>
                 </div>
-                <p class="hint" style="margin-top:.4rem;">Supported tokens: <code>{{user}}</code> (raider username), <code>{{viewers}}</code> (viewer count), plus all standard placeholders like <code>{{game}}</code>.</p>
+                <p class="muted" style="margin-top:.4rem;">Supported tokens: <code>{{user}}</code> (raider username), <code>{{viewers}}</code> (viewer count), plus all standard placeholders.</p>
                 <div class="row" style="margin-top:.5rem;">
-                    <button class="btn small" id="test-shoutout" type="button">Send test shoutout</button>
+                    <button class="btn small" id="test-shoutout" type="button">💬 Send test shoutout</button>
                 </div>
             </div>
 
-            <h2 style="margin-top:1.25rem;">Troubleshooting</h2>
-            <div class="row"><button class="btn" id="show-recent">Check chat detection</button><span class="muted">Shows what SocialStream sent for recent chatters and whether they count as mod or subscriber.</span></div>
-            <div id="recent" style="margin-top:.5rem;"></div>
-            <div class="row end" style="margin-top:.75rem;"><button class="btn primary" id="save-settings">Save settings</button></div>
+            <div class="settings-section">
+                <h2>Backup &amp; Migration</h2>
+                <div class="row">
+                    <button class="btn" id="export-all">Export all settings (.json)</button>
+                    <button class="btn" id="import-all">Import settings (.json)</button>
+                    <input type="file" id="import-all-file" accept=".json,application/json" hidden>
+                    <span class="muted" style="font-size:.78rem;">Backup or transfer all commands, quotes, timers, triggers, variables, and settings.</span>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h2>Diagnostics &amp; Troubleshooting</h2>
+                <div class="row">
+                    <button class="btn" id="show-recent">Check recent chatters</button>
+                    <span class="muted" style="font-size:.78rem;">Inspect SocialStream metadata for recent chatters to verify moderator and subscriber status.</span>
+                </div>
+                <div id="recent" style="margin-top:.5rem;"></div>
+            </div>
+
+            <div class="row end" style="margin-top:1.25rem;">
+                <button class="btn primary" id="save-settings-bottom" onclick="$('save-settings').click()">Save settings</button>
+            </div>
         </div>
 
+        <!-- Commands Tab -->
         <div class="card" data-tab="commands">
-            <h2>Commands</h2>
-            <p class="muted" style="margin-bottom:.5rem;">Create custom chat bot commands that reply in your channel. Supports standard stream {{placeholders}} as well as chat-specific dynamic tokens. Use <code>\n</code> for a second reply message.</p>
-            <details class="item" style="margin-bottom:1rem;background:var(--bg-inset);padding:.5rem .75rem;border-radius:6px;border:1px solid var(--border);">
-                <summary style="cursor:pointer;font-weight:600;font-size:.85rem;color:var(--accent);">📖 How to use Chat Bot Tokens &amp; Arguments (Cheat sheet)</summary>
-                <div style="margin-top:.75rem;display:grid;gap:.5rem;font-size:.82rem;">
+            <div class="tab-header">
+                <div>
+                    <h2>Custom Commands <span class="tab-count" id="cmd-count"></span></h2>
+                    <p class="muted">Commands triggered by viewers using your command prefix (e.g. <code>!so</code>, <code>!discord</code>).</p>
+                </div>
+                <div class="tab-actions">
+                    <input type="text" id="cmd-filter" class="search-input" placeholder="🔍 Filter commands...">
+                    <button class="btn" id="add-command">+ Add command</button>
+                    <button class="btn primary" id="save-commands">Save commands</button>
+                </div>
+            </div>
+
+            <!-- Expandable Cheat Sheet -->
+            <details class="cheat-sheet-card">
+                <summary>
+                    <span>💡 <b>Chat Bot Tokens &amp; Dynamic Arguments Guide</b></span>
+                    <span class="meta-pill">Click to expand</span>
+                </summary>
+                <div class="cheat-sheet-content">
                     <div style="overflow-x:auto;">
-                        <table style="width:100%;border-collapse:collapse;font-size:.8rem;">
+                        <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
                             <thead>
                                 <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text-muted);">
-                                    <th style="padding:.3rem .5rem;">Token</th>
-                                    <th style="padding:.3rem .5rem;">What it does</th>
-                                    <th style="padding:.3rem .5rem;">Example in Command Response</th>
-                                    <th style="padding:.3rem .5rem;">Viewer types</th>
-                                    <th style="padding:.3rem .5rem;">Bot replies</th>
+                                    <th style="padding:.4rem .55rem;">Token</th>
+                                    <th style="padding:.4rem .55rem;">What it does</th>
+                                    <th style="padding:.4rem .55rem;">Example in Command Response</th>
+                                    <th style="padding:.4rem .55rem;">Viewer types</th>
+                                    <th style="padding:.4rem .55rem;">Bot replies</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr style="border-bottom:1px solid var(--border);">
-                                    <td style="padding:.35rem .5rem;"><code>{{user}}</code></td>
-                                    <td style="padding:.35rem .5rem;">Chatter name</td>
-                                    <td style="padding:.35rem .5rem;"><code>Welcome in, {{user}}!</code></td>
-                                    <td style="padding:.35rem .5rem;"><code>!hi</code></td>
-                                    <td style="padding:.35rem .5rem;"><em>Welcome in, Alice!</em></td>
+                                <tr style="border-bottom:1px solid var(--bg-inset);">
+                                    <td style="padding:.4rem .55rem;"><code class="copy-tag" data-copy="{{user}}">{{user}}</code></td>
+                                    <td style="padding:.4rem .55rem;">Chatter name who typed the command</td>
+                                    <td style="padding:.4rem .55rem;"><code>Hey {{user}}, welcome in!</code></td>
+                                    <td style="padding:.4rem .55rem;"><code>!hi</code></td>
+                                    <td style="padding:.4rem .55rem;"><em>Hey Alice, welcome in!</em></td>
                                 </tr>
-                                <tr style="border-bottom:1px solid var(--border);">
-                                    <td style="padding:.35rem .5rem;"><code>{{target}}</code></td>
-                                    <td style="padding:.35rem .5rem;">Target user from args (strips @; defaults to sender)</td>
-                                    <td style="padding:.35rem .5rem;"><code>🤗 {{user}} hugged {{target}}!</code></td>
-                                    <td style="padding:.35rem .5rem;"><code>!hug @Bob</code></td>
-                                    <td style="padding:.35rem .5rem;"><em>🤗 Alice hugged Bob!</em></td>
+                                <tr style="border-bottom:1px solid var(--bg-inset);">
+                                    <td style="padding:.4rem .55rem;"><code class="copy-tag" data-copy="{{target}}">{{target}}</code></td>
+                                    <td style="padding:.4rem .55rem;">Target user from args (strips @; defaults to sender or fallback)</td>
+                                    <td style="padding:.4rem .55rem;"><code>Shoutout to @{{target}}! Check out twitch.tv/{{target}}</code></td>
+                                    <td style="padding:.4rem .55rem;"><code>!so @Bob</code></td>
+                                    <td style="padding:.4rem .55rem;"><em>Shoutout to @Bob! Check out twitch.tv/Bob</em></td>
                                 </tr>
-                                <tr style="border-bottom:1px solid var(--border);">
-                                    <td style="padding:.35rem .5rem;"><code>{{args}}</code></td>
-                                    <td style="padding:.35rem .5rem;">Everything after command name</td>
-                                    <td style="padding:.35rem .5rem;"><code>{{user}} asked: "{{args}}"</code></td>
-                                    <td style="padding:.35rem .5rem;"><code>!ask will it rain?</code></td>
-                                    <td style="padding:.35rem .5rem;"><em>Alice asked: "will it rain?"</em></td>
+                                <tr style="border-bottom:1px solid var(--bg-inset);">
+                                    <td style="padding:.4rem .55rem;"><code class="copy-tag" data-copy="{{args}}">{{args}}</code></td>
+                                    <td style="padding:.4rem .55rem;">All text typed after the command name</td>
+                                    <td style="padding:.4rem .55rem;"><code>📌 Topic: {{args:Just chilling!}}</code></td>
+                                    <td style="padding:.4rem .55rem;"><code>!topic Coding session</code></td>
+                                    <td style="padding:.4rem .55rem;"><em>📌 Topic: Coding session</em></td>
                                 </tr>
-                                <tr style="border-bottom:1px solid var(--border);">
-                                    <td style="padding:.35rem .5rem;"><code>{{arg.1}}</code>, <code>{{arg.2}}</code></td>
-                                    <td style="padding:.35rem .5rem;">1st, 2nd parameter token (e.g. <code>{{arg.2:10}}</code> for default)</td>
-                                    <td style="padding:.35rem .5rem;"><code>⚔️ {{user}} duels {{target}} for {{arg.2:10}} coins!</code></td>
-                                    <td style="padding:.35rem .5rem;"><code>!duel @Bob 50</code></td>
-                                    <td style="padding:.35rem .5rem;"><em>⚔️ Alice duels Bob for 50 coins!</em></td>
+                                <tr style="border-bottom:1px solid var(--bg-inset);">
+                                    <td style="padding:.4rem .55rem;"><code class="copy-tag" data-copy="{{arg.1}}">{{arg.1}}</code>, <code class="copy-tag" data-copy="{{arg.2}}">{{arg.2}}</code></td>
+                                    <td style="padding:.4rem .55rem;">1st, 2nd, etc. space-separated word. Supports fallbacks like <code>{{arg.2:dogs}}</code></td>
+                                    <td style="padding:.4rem .55rem;"><code>🤔 {{user}} asks: {{arg.1:cats}} or {{arg.2:dogs}}?</code></td>
+                                    <td style="padding:.4rem .55rem;"><code>!compare tea coffee</code></td>
+                                    <td style="padding:.4rem .55rem;"><em>🤔 Alice asks: tea or coffee?</em></td>
                                 </tr>
-                                <tr style="border-bottom:1px solid var(--border);">
-                                    <td style="padding:.35rem .5rem;"><code>{{random min max}}</code></td>
-                                    <td style="padding:.35rem .5rem;">Random dice roll or integer</td>
-                                    <td style="padding:.35rem .5rem;"><code>🎲 {{user}} rolled a {{random 1 20}}!</code></td>
-                                    <td style="padding:.35rem .5rem;"><code>!roll</code></td>
-                                    <td style="padding:.35rem .5rem;"><em>🎲 Alice rolled a 17!</em></td>
+                                <tr style="border-bottom:1px solid var(--bg-inset);">
+                                    <td style="padding:.4rem .55rem;"><code class="copy-tag" data-copy="{{random 1 6}}">{{random min max}}</code></td>
+                                    <td style="padding:.4rem .55rem;">Random dice roll or integer between min and max</td>
+                                    <td style="padding:.4rem .55rem;"><code>🎲 {{user}} rolled a {{random 1 6}} on a 6-sided die!</code></td>
+                                    <td style="padding:.4rem .55rem;"><code>!roll</code></td>
+                                    <td style="padding:.4rem .55rem;"><em>🎲 Alice rolled a 4 on a 6-sided die!</em></td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:.35rem .5rem;"><code>{{choice A|B|C}}</code></td>
-                                    <td style="padding:.35rem .5rem;">Random pick from pipe-separated list</td>
-                                    <td style="padding:.35rem .5rem;"><code>🎱 8-Ball says: {{choice Yes!|No.|Ask again.}}</code></td>
-                                    <td style="padding:.35rem .5rem;"><code>!8ball</code></td>
-                                    <td style="padding:.35rem .5rem;"><em>🎱 8-Ball says: Yes!</em></td>
+                                    <td style="padding:.4rem .55rem;"><code class="copy-tag" data-copy="{{choice Yes|No|Maybe}}">{{choice A|B|C}}</code></td>
+                                    <td style="padding:.4rem .55rem;">Random pick from pipe-separated list</td>
+                                    <td style="padding:.4rem .55rem;"><code>🎱 8-Ball: {{choice Yes!|No.|Ask again later.}}</code></td>
+                                    <td style="padding:.4rem .55rem;"><code>!8ball</code></td>
+                                    <td style="padding:.4rem .55rem;"><em>🎱 8-Ball: Yes!</em></td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                    <p class="muted" style="margin:.3rem 0 0;">Tip: Click <b>"Insert placeholder"</b> on any command to insert any of these tokens directly with a single click.</p>
+                    <p class="muted" style="margin-top:.6rem;">💡 Tip: Click any tag above to copy it, or click <b>"➕ Insert placeholder"</b> on any command to browse and insert tokens with live previews.</p>
                 </div>
             </details>
+
             <div id="commands"></div>
-            <div class="row" style="margin-top:.75rem;"><button class="btn" id="add-command">Add command</button><button class="btn primary" id="save-commands">Save commands</button></div>
+            <div class="row" style="margin-top:.75rem;">
+                <button class="btn" id="add-command-bottom" onclick="$('add-command').click()">+ Add command</button>
+                <button class="btn primary" id="save-commands-bottom" onclick="$('save-commands').click()">Save commands</button>
+            </div>
         </div>
 
+        <!-- Quotes Tab -->
         <div class="card" data-tab="quotes">
-            <h2>Quotes <span id="quote-count" class="muted"></span></h2>
-            <p class="muted" style="margin-bottom:.75rem;">Chat: <code>!quote</code> random, <code>!quote 12</code> by number, <code>!quote word</code> search, add <code>details</code> (e.g. <code>!quote 12 details</code>) to also show game, author and date, <code>!quotes</code> count. Mods: <code>!addquote text</code> and <code>!delquote 12</code>.</p>
-            <details class="item" style="margin-bottom:1rem;"><summary><b>Quote commands</b><span class="sum">Who can use them and cooldowns</span></summary><div id="builtins" style="display:grid;gap:.5rem;"></div><div class="row end"><button class="btn" id="save-quote-settings">Save quote settings</button></div></details>
-            <div class="row" style="margin-bottom:.5rem;"><input id="new-quote" class="grow" style="flex:1;min-width:200px;padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);" maxlength="300" placeholder="Add a quote"><button class="btn primary" id="add-quote">Add</button></div>
-            <div class="row" style="margin:.75rem 0 .25rem;"><input id="quote-search" style="flex:1;min-width:180px;padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);" placeholder="Search quotes"><button class="btn" id="export-json">Export JSON</button><button class="btn" id="export-txt">Export text</button><button class="btn" id="import-quotes">Import</button><input type="file" id="import-file" accept=".json,.txt,.csv,text/plain,application/json" hidden></div>
-            <p class="muted" style="margin-bottom:.5rem;">Import accepts a JSON export or a text file with one quote per line. Duplicates are skipped.</p>
-            <div id="quotes" style="max-height:60vh;overflow:auto;"></div>
+            <div class="tab-header">
+                <div>
+                    <h2>Quotes Library <span class="tab-count" id="quote-count"></span></h2>
+                    <p class="muted">Memorable stream quotes. Viewers can run <code>!quote</code> (random) or <code>!quote 12</code> (by ID).</p>
+                </div>
+                <div class="tab-actions">
+                    <button class="btn" id="export-json">Export JSON</button>
+                    <button class="btn" id="export-txt">Export TXT</button>
+                    <button class="btn" id="import-quotes">Import</button>
+                    <input type="file" id="import-file" accept=".json,.txt,.csv,text/plain,application/json" hidden>
+                </div>
+            </div>
+
+            <details class="item" style="margin-bottom:1rem;">
+                <summary class="item-summary">
+                    <span class="cmd-badge">⚙️ Built-in Quote Commands</span>
+                    <span class="sum-text">Configure access roles and cooldowns for !quote, !quotes, !addquote, !delquote</span>
+                </summary>
+                <div class="item-body">
+                    <div id="builtins" style="display:grid;gap:.5rem;"></div>
+                    <div class="row end" style="margin-top:.5rem;"><button class="btn small" id="save-quote-settings">Save quote command roles</button></div>
+                </div>
+            </details>
+
+            <div class="row" style="margin-bottom:.6rem;">
+                <input id="new-quote" style="flex:1;min-width:220px;padding:.5rem .75rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);" maxlength="300" placeholder="Type a memorable quote to add...">
+                <button class="btn primary" id="add-quote">+ Add quote</button>
+            </div>
+            <div class="row" style="margin-bottom:.75rem;">
+                <input id="quote-search" style="flex:1;min-width:180px;padding:.42rem .7rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.83rem;" placeholder="🔍 Filter quotes by text or #ID...">
+            </div>
+            <div id="quotes" style="max-height:60vh;overflow-y:auto;"></div>
         </div>
 
+        <!-- Usage Tab -->
         <div class="card" data-tab="usage">
-            <h2>Usage</h2>
-            <p class="hint">Who has used commands and triggers that have a per-person limit. Set limits on each command or trigger.</p>
-            <div class="row"><select id="usage-cmd"></select><input id="usage-person" placeholder="Search person" style="flex:1;min-width:140px;padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"><button class="btn" data-reset-all>Reset shown</button></div>
+            <div class="tab-header">
+                <div>
+                    <h2>Command Usage Tracking</h2>
+                    <p class="muted">Track limits and cooldown usage for commands that have per-person restrictions.</p>
+                </div>
+                <div class="tab-actions">
+                    <button class="btn small" data-reset-all>Reset visible counts</button>
+                </div>
+            </div>
+            <div class="row" style="margin-bottom:.75rem;">
+                <select id="usage-cmd" style="padding:.45rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"></select>
+                <input id="usage-person" class="search-input" placeholder="🔍 Filter by username...">
+            </div>
             <div id="usage"></div>
         </div>
+
+        <!-- Variables & Counters Tab -->
         <div class="card" data-tab="variables">
-            <h2>Variables and counters <span id="var-count" class="muted"></span></h2>
-            <p class="muted" style="margin-bottom:.75rem;">Use <code>{{var.name}}</code> in chat replies and custom overlays. Set them here, via the API (<code>/api/variables</code>) or Companion. Counter endpoints: <code>POST /api/variables/NAME/increment</code>, <code>/decrement</code>, <code>/reset</code> (optional body <code>{"amount": 5}</code>).</p>
-            <div class="row" style="margin-bottom:.75rem;"><input id="var-name" placeholder="name (e.g. deaths)" style="padding:.5rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"><select id="var-type" style="padding:.5rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"><option value="counter">Counter</option><option value="text">Text</option><option value="list">List</option></select><button class="btn primary" id="var-add">Add</button></div>
+            <div class="tab-header">
+                <div>
+                    <h2>Custom Variables &amp; Counters <span class="tab-count" id="var-count"></span></h2>
+                    <p class="muted">Store counters, dynamic text, and lists accessible via <code>{{var.name}}</code> across overlays, chat bot, and Companion.</p>
+                </div>
+            </div>
+            <div class="row" style="margin-bottom:.75rem;">
+                <input id="var-name" placeholder="Variable name (e.g. deaths)" style="padding:.5rem .75rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);flex:1;min-width:160px;">
+                <select id="var-type" style="padding:.5rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"><option value="counter">Counter (number)</option><option value="text">Text (string)</option><option value="list">List (random/sequential)</option></select>
+                <button class="btn primary" id="var-add">+ Add variable</button>
+            </div>
             <div id="vars"></div>
         </div>
 
+        <!-- Timed Messages Tab -->
         <div class="card" data-tab="messages">
-            <h2>Timed messages <span id="msg-count" class="muted"></span></h2>
-            <p class="muted" style="margin-bottom:.75rem;">Send a message every N minutes, every hour at a minute past, or daily at a set time. "Only if chat active" skips the message unless at least that many chat messages arrived since it last ran, so the bot never talks to an empty room. Timers only run while the bot is on.</p>
+            <div class="tab-header">
+                <div>
+                    <h2>Timed Messages <span class="tab-count" id="msg-count"></span></h2>
+                    <p class="muted">Automated scheduled messages and reminders sent to chat on an interval or set time.</p>
+                </div>
+                <div class="tab-actions">
+                    <input type="text" id="msg-filter" class="search-input" placeholder="🔍 Filter messages...">
+                    <button class="btn" id="add-message">+ Add message</button>
+                    <button class="btn primary" id="save-messages">Save messages</button>
+                </div>
+            </div>
             <div id="messages"></div>
-            <div class="row" style="margin-top:.75rem;"><button class="btn" id="add-message">Add message</button><button class="btn primary" id="save-messages">Save messages</button></div>
+            <div class="row" style="margin-top:.75rem;">
+                <button class="btn" id="add-message-bottom" onclick="$('add-message').click()">+ Add message</button>
+                <button class="btn primary" id="save-messages-bottom" onclick="$('save-messages').click()">Save messages</button>
+            </div>
         </div>
 
+        <!-- Word Triggers Tab -->
         <div class="card" data-tab="triggers">
-            <h2>Word triggers <span id="trig-count" class="muted"></span></h2>
-            <p class="muted" style="margin-bottom:.75rem;">Reply when chat contains certain words. Use {{user}} for the chatter's name. Each trigger has its own cooldown; the first matching trigger wins.</p>
+            <div class="tab-header">
+                <div>
+                    <h2>Word Triggers <span class="tab-count" id="trig-count"></span></h2>
+                    <p class="muted">Auto-respond whenever a viewer's message contains specific words or phrases.</p>
+                </div>
+                <div class="tab-actions">
+                    <input type="text" id="trig-filter" class="search-input" placeholder="🔍 Filter triggers...">
+                    <button class="btn" id="add-trigger">+ Add trigger</button>
+                    <button class="btn primary" id="save-triggers">Save triggers</button>
+                </div>
+            </div>
             <div id="triggers"></div>
-            <div class="row" style="margin-top:.75rem;"><button class="btn" id="add-trigger">Add trigger</button><button class="btn primary" id="save-triggers">Save triggers</button></div>
+            <div class="row" style="margin-top:.75rem;">
+                <button class="btn" id="add-trigger-bottom" onclick="$('add-trigger').click()">+ Add trigger</button>
+                <button class="btn primary" id="save-triggers-bottom" onclick="$('save-triggers').click()">Save triggers</button>
+            </div>
         </div>
     </div>
     <div class="toast" id="toast"></div>
@@ -266,27 +441,67 @@ function renderSettings() {
 }
 
 function commandHtml(c, i) {
-    return `<details class="item" data-i="${i}" ${c._open ? 'open' : ''}><summary><b>${esc(c.name ? prefixOf() + c.name : 'New command')}</b><span class="sum">${esc(String(c.response || '').split('\\n')[0].slice(0, 70))}</span><label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-k="enabled" ${c.enabled !== false ? 'checked' : ''}> On</label></summary>
-        <div class="top">
-            <label class="f">Command<input data-k="name" value="${esc(c.name)}" placeholder="song"></label>
-            <label class="f">Also responds to<input data-k="aliases" value="${esc(Array.isArray(c.aliases) ? c.aliases.join(', ') : c.aliases || '')}" placeholder="np, track"></label>
-            <label class="f">Cooldown (s)<input data-k="cooldown" type="number" min="0" value="${c.cooldown ?? ''}" placeholder="default"></label>
+    const aliasesArr = Array.isArray(c.aliases) ? c.aliases : String(c.aliases || '').split(',').map(s => s.trim()).filter(Boolean);
+    const aliasesStr = aliasesArr.join(', ');
+    const preview = String(c.response || '').split('\\n')[0].slice(0, 60);
+    return `<details class="item" data-i="${i}" ${c._open ? 'open' : ''}>
+        <summary class="item-summary">
+            <div class="item-summary-left">
+                <span class="cmd-badge">${esc(c.name ? prefixOf() + c.name : 'New command')}</span>
+                ${aliasesStr ? `<span class="alias-tag">${esc(aliasesStr)}</span>` : ''}
+                <span class="sum-text">${esc(preview)}</span>
+            </div>
+            <div class="item-summary-right">
+                ${c.cooldown ? `<span class="meta-pill">${esc(c.cooldown)}s</span>` : ''}
+                ${c.access && c.access !== 'everyone' ? `<span class="meta-pill">${esc(c.access)}</span>` : ''}
+                <label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-k="enabled" ${c.enabled !== false ? 'checked' : ''}> On</label>
+            </div>
+        </summary>
+        <div class="item-body">
+            <div class="grid" style="grid-template-columns: minmax(130px, 1fr) minmax(130px, 1fr) 110px 140px;">
+                <label class="f"><span>Command name</span><input data-k="name" value="${esc(c.name)}" placeholder="song"></label>
+                <label class="f"><span>Aliases (comma-separated)</span><input data-k="aliases" value="${esc(aliasesStr)}" placeholder="np, track"></label>
+                <label class="f"><span>Cooldown (s)</span><input data-k="cooldown" type="number" min="0" value="${c.cooldown ?? ''}" placeholder="default"></label>
+                <label class="f"><span>Who can use</span><select data-k="access"><option value="everyone">Everyone</option><option value="subs" ${c.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${c.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label>
+            </div>
+            <label class="f" style="width:100%;">
+                <span style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.2rem;">
+                    <span>Command reply</span>
+                    <button type="button" class="btn small" data-act="placeholder">➕ Insert placeholder</button>
+                </span>
+                <textarea data-k="response" rows="2" maxlength="1000" placeholder="Now playing: {{track}} by {{artist}}">${esc(c.response)}</textarea>
+            </label>
+            <div class="preview-box" data-preview></div>
+            <details class="item-advanced">
+                <summary>⚙️ Advanced settings (limits, mod cooldown, counters)</summary>
+                <div class="item-advanced-body">
+                    <div class="row">
+                        <label class="check" title="Mod cooldown"><input data-k="modCooldown" type="number" min="0" style="width:4.5rem;" value="${c.modCooldown ?? ''}" placeholder="default"> Mod cooldown (s)</label>
+                        <label class="check" title="Limit per person"><input data-k="limit" type="number" min="1" style="width:4.5rem;" value="${c.limit ?? ''}" placeholder="none"> Limit per <select data-k="limitPer" style="padding:.2rem .4rem;">${[['session','session'],['day','day'],['forever','all time']].map(([v, l]) => `<option value="${v}" ${c.limitPer === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+                        <label class="check" title="One reply per line, random one picked"><input type="checkbox" data-k="random" ${c.random ? 'checked' : ''}> Random line</label>
+                    </div>
+                    <div style="margin-top:.4rem;padding-top:.4rem;border-top:1px dashed var(--border);">
+                        <label class="check" style="font-weight:600;"><input type="checkbox" data-k="useCounter" ${c.counter || c._counter ? 'checked' : ''}> Also update a counter or list</label>
+                        ${c.counter || c._counter ? `<div class="row" style="margin-top:.4rem;"><label class="f">Name<input data-k="counter" value="${esc(c.counter || '')}" placeholder="deaths"></label><label class="f">Action<select data-k="counterAction"><option value="increment" ${c.counterAction !== 'decrement' && c.counterAction !== 'reset' ? 'selected' : ''}>Add 1</option><option value="decrement" ${c.counterAction === 'decrement' ? 'selected' : ''}>Subtract 1</option><option value="roll" ${c.counterAction === 'roll' ? 'selected' : ''}>Pick next (list)</option><option value="reset" ${c.counterAction === 'reset' ? 'selected' : ''}>Reset</option></select></label><span class="muted" style="align-self:flex-end;padding-bottom:.4rem;">Include in reply with <code>{{var.name}}</code></span></div>` : ''}
+                    </div>
+                </div>
+            </details>
+            <div class="row" style="margin-top:.2rem;">
+                <button class="btn small" data-act="test" type="button">💬 Send test</button>
+                <span style="flex:1"></span>
+                <button class="btn small danger" data-act="remove" type="button">🗑️ Remove</button>
+            </div>
         </div>
-        <label class="check"><input type="checkbox" data-k="useCounter" ${c.counter || c._counter ? 'checked' : ''}> Also change a counter or list</label>
-        ${c.counter || c._counter ? `<div class="row"><label class="f">Counter or list name<input data-k="counter" value="${esc(c.counter || '')}" placeholder="deaths"></label><label class="f">When used<select data-k="counterAction"><option value="increment" ${c.counterAction !== 'decrement' && c.counterAction !== 'reset' ? 'selected' : ''}>Add 1</option><option value="decrement" ${c.counterAction === 'decrement' ? 'selected' : ''}>Subtract 1</option><option value="roll" ${c.counterAction === 'roll' ? 'selected' : ''}>Pick next (list)</option><option value="reset" ${c.counterAction === 'reset' ? 'selected' : ''}>Reset</option></select></label><span class="muted">Then reply with <code>{{var.deaths}}</code></span></div>` : ''}
-        <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Reply <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="response" rows="2" maxlength="1000" placeholder="Now playing: {{track}} by {{artist}}">${esc(c.response)}</textarea></label>
-        <div class="preview" data-preview></div>
-        <div class="row"><label class="check" title="Put one reply per line; each use sends a random one"><input type="checkbox" data-k="random" ${c.random ? 'checked' : ''}> Random line</label><label class="check" title="Cooldown for mods. Blank uses the default.">Mod cooldown (s) <input data-k="modCooldown" type="number" min="0" style="width:4.5rem" value="${c.modCooldown ?? ''}" placeholder="default"></label><label class="check" title="Max uses per person. Mods are exempt. Blank is unlimited.">Limit <input data-k="limit" type="number" min="1" style="width:4.5rem" value="${c.limit ?? ''}" placeholder="none"> per <select data-k="limitPer">${[['session','session'],['day','day'],['forever','all time']].map(([v, l]) => `<option value="${v}" ${c.limitPer === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label><label class="check">Who can use <select data-k="access"><option value="everyone">Everyone</option><option value="subs" ${c.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${c.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
     </details>`;
 }
 function renderCommands() {
-    $('commands').innerHTML = state.commands.length ? state.commands.map(commandHtml).join('') : '<div class="empty">No commands yet. Add one to get started.</div>';
+    $('commands').innerHTML = state.commands.length ? state.commands.map(commandHtml).join('') : '<div class="empty">No commands yet. Click "+ Add command" to create one.</div>';
 }
 function readCommands() {
     return [...document.querySelectorAll('#commands .item')].map(item => {
         const open = item.open;
         const get = k => item.querySelector(`[data-k="${k}"]`);
-        return { name: get('name').value, aliases: get('aliases').value, cooldown: get('cooldown').value, response: get('response').value, enabled: get('enabled').checked, access: get('access').value, limit: get('limit').value, modCooldown: get('modCooldown').value, limitPer: get('limitPer').value, random: get('random').checked, counter: get('useCounter').checked ? (get('counter')?.value || '') : '', _counter: get('useCounter').checked, counterAction: get('counterAction')?.value || 'increment', _open: open };
+        return { name: get('name')?.value || '', aliases: get('aliases')?.value || '', cooldown: get('cooldown')?.value || '', response: get('response')?.value || '', enabled: get('enabled')?.checked !== false, access: get('access')?.value || 'everyone', limit: get('limit')?.value || '', modCooldown: get('modCooldown')?.value || '', limitPer: get('limitPer')?.value || 'session', random: get('random')?.checked || false, counter: get('useCounter')?.checked ? (get('counter')?.value || '') : '', _counter: get('useCounter')?.checked || false, counterAction: get('counterAction')?.value || 'increment', _open: open };
     });
 }
 
@@ -301,7 +516,7 @@ function renderQuotes() {
 }
 
 const accessOpts = v => [['everyone', 'Everyone'], ['subs', 'Subscribers + mods'], ['mods', 'Mods only']].map(([k, n]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${n}</option>`).join('');
-const varyHtml = m => `<label class="check" style="align-self:flex-end;padding-bottom:.5rem" title="Pick a random wait each time"><input type="checkbox" data-k="vary" ${m.vary ? 'checked' : ''}> Vary</label>${m.vary ? `<label class="f">and (min)<input data-k="everyMax" type="number" min="1" max="1440" value="${m.everyMax ?? (m.every ?? 30) * 2}" style="width:6rem"></label>` : ''}`;
+const varyHtml = m => `<label class="check" style="align-self:flex-end;padding-bottom:.5rem" title="Pick a random wait each time"><input type="checkbox" data-k="vary" ${m.vary ? 'checked' : ''}> Vary</label>${m.vary ? `<label class="f"><span>and (min)</span><input data-k="everyMax" type="number" min="1" max="1440" value="${m.everyMax ?? (m.every ?? 30) * 2}" style="width:6rem"></label>` : ''}`;
 const prefixOf = () => state.settings?.prefix || '!';
 function schedText(m) {
     const k = m.kind || 'interval';
@@ -316,38 +531,95 @@ function schedText(m) {
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function messageHtml(m, i) {
     const k = m.kind || 'interval';
-    return `<details class="item" data-i="${i}" ${m._open ? 'open' : ''}><summary><b>${esc(m.name || 'New message')}</b><span class="sum">${esc(schedText(m))}</span><label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-k="enabled" ${m.enabled !== false ? 'checked' : ''}> On</label></summary>
-        <div class="top" style="grid-template-columns:minmax(120px,1fr) 200px 1fr;">
-            <label class="f">Name<input data-k="name" value="${esc(m.name)}" placeholder="Follow reminder"></label>
-            <label class="f">Schedule<select data-k="kind"><option value="interval" ${k === 'interval' ? 'selected' : ''}>Every N minutes</option><option value="hourly" ${k === 'hourly' ? 'selected' : ''}>Every hour</option><option value="daily" ${k === 'daily' ? 'selected' : ''}>Daily at a time</option><option value="datetime" ${k === 'datetime' ? 'selected' : ''}>Once, on a date and time</option><option value="dateinterval" ${k === 'dateinterval' ? 'selected' : ''}>Every year on a date, repeating</option></select></label>
-            <div class="row" style="align-items:flex-end;">
-                ${k === 'interval' ? `<label class="f">${m.vary ? 'Between (min)' : 'Every (min)'}<input data-k="every" type="number" min="1" max="1440" value="${m.every ?? 30}" style="width:6rem"></label>${varyHtml(m)}` : ''}
-                ${k === 'hourly' ? `<label class="f">Minutes past<input data-k="minute" type="number" min="0" max="59" value="${m.minute ?? 0}" style="width:6rem"></label>` : ''}
-                ${k === 'datetime' ? `<label class="f">Date<input data-k="date" type="date" value="${m.date || ''}"></label><label class="f">Time<input data-k="time" type="time" value="${m.time || '12:00'}"></label>` : ''}
-                ${k === 'dateinterval' ? `<label class="f">Month-day (MM-DD)<input data-k="md" value="${esc(m.md || '')}" placeholder="07-04" maxlength="5" style="width:6rem"></label><label class="f">${m.vary ? 'Between (min)' : 'Every (min)'}<input data-k="every" type="number" min="1" max="1440" value="${m.every ?? 30}" style="width:6rem"></label>${varyHtml(m)}<label class="f">From<input data-k="from" type="time" value="${m.from || '00:00'}"></label><label class="f">Until<input data-k="to" type="time" value="${m.to || '23:59'}"></label>` : ''}
-                ${k === 'daily' ? `<label class="f">Time<input data-k="time" type="time" value="${m.time || '12:00'}"></label>` : ''}
-                ${k !== 'datetime' && k !== 'dateinterval' ? `<label class="f">Only if chat active (msgs)<input data-k="minChat" type="number" min="0" value="${m.minChat ?? 5}" style="width:7rem"></label>` : ''}
-                <label class="check" style="align-self:flex-end;padding-bottom:.5rem" title="Only send this message when the stream is actively live"><input type="checkbox" data-k="liveOnly" ${m.liveOnly ? 'checked' : ''}> Only when live</label>
+    return `<details class="item" data-i="${i}" ${m._open ? 'open' : ''}>
+        <summary class="item-summary">
+            <div class="item-summary-left">
+                <span class="cmd-badge">⏰ ${esc(m.name || 'New message')}</span>
+                <span class="sum-text">${esc(schedText(m))}</span>
+            </div>
+            <div class="item-summary-right">
+                ${m.liveOnly ? `<span class="meta-pill live-pill">🔴 Live only</span>` : ''}
+                <label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-k="enabled" ${m.enabled !== false ? 'checked' : ''}> On</label>
+            </div>
+        </summary>
+        <div class="item-body">
+            <div class="grid" style="grid-template-columns: minmax(140px, 1fr) 180px 1fr;">
+                <label class="f"><span>Message name</span><input data-k="name" value="${esc(m.name)}" placeholder="Follow reminder"></label>
+                <label class="f"><span>Schedule type</span><select data-k="kind"><option value="interval" ${k === 'interval' ? 'selected' : ''}>Every N minutes</option><option value="hourly" ${k === 'hourly' ? 'selected' : ''}>Every hour</option><option value="daily" ${k === 'daily' ? 'selected' : ''}>Daily at a time</option><option value="datetime" ${k === 'datetime' ? 'selected' : ''}>Once, on a date and time</option><option value="dateinterval" ${k === 'dateinterval' ? 'selected' : ''}>Every year on a date, repeating</option></select></label>
+                <div class="row" style="align-items:flex-end;">
+                    ${k === 'interval' ? `<label class="f"><span>${m.vary ? 'Between (min)' : 'Every (min)'}</span><input data-k="every" type="number" min="1" max="1440" value="${m.every ?? 30}" style="width:6rem"></label>${varyHtml(m)}` : ''}
+                    ${k === 'hourly' ? `<label class="f"><span>Minutes past</span><input data-k="minute" type="number" min="0" max="59" value="${m.minute ?? 0}" style="width:6rem"></label>` : ''}
+                    ${k === 'datetime' ? `<label class="f"><span>Date</span><input data-k="date" type="date" value="${m.date || ''}"></label><label class="f"><span>Time</span><input data-k="time" type="time" value="${m.time || '12:00'}"></label>` : ''}
+                    ${k === 'dateinterval' ? `<label class="f"><span>MM-DD</span><input data-k="md" value="${esc(m.md || '')}" placeholder="07-04" maxlength="5" style="width:5rem"></label><label class="f"><span>Every (min)</span><input data-k="every" type="number" min="1" max="1440" value="${m.every ?? 30}" style="width:5.5rem"></label>${varyHtml(m)}<label class="f"><span>From</span><input data-k="from" type="time" value="${m.from || '00:00'}"></label><label class="f"><span>Until</span><input data-k="to" type="time" value="${m.to || '23:59'}"></label>` : ''}
+                    ${k === 'daily' ? `<label class="f"><span>Time</span><input data-k="time" type="time" value="${m.time || '12:00'}"></label>` : ''}
+                    ${k !== 'datetime' && k !== 'dateinterval' ? `<label class="f"><span>Active chat req (msgs)</span><input data-k="minChat" type="number" min="0" value="${m.minChat ?? 5}" style="width:6.5rem"></label>` : ''}
+                    <label class="check" style="align-self:flex-end;padding-bottom:.5rem;" title="Only send when live"><input type="checkbox" data-k="liveOnly" ${m.liveOnly ? 'checked' : ''}> Only when live</label>
+                </div>
+            </div>
+            ${['hourly', 'daily'].includes(k) ? `<div class="row" style="background:var(--bg-inset);padding:.5rem .75rem;border-radius:6px;border:1px solid var(--border);"><span class="muted" style="font-size:.78rem;">Active days:</span>${DAYS.map((d, n) => `<label class="check" style="font-size:.78rem;"><input type="checkbox" data-day="${n}" ${(m.days || []).includes(n) ? 'checked' : ''}> ${d}</label>`).join('')}</div>` : ''}
+            <label class="f" style="width:100%;">
+                <span style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.2rem;">
+                    <span>Message text</span>
+                    <button type="button" class="btn small" data-act="placeholder">➕ Insert placeholder</button>
+                </span>
+                <textarea data-k="text" rows="2" maxlength="1000" placeholder="Enjoying the stream? Hit follow!">${esc(m.text)}</textarea>
+            </label>
+            <div class="preview-box" data-preview></div>
+            <div class="row" style="margin-top:.2rem;">
+                <label class="check" title="One message per line; a random one is sent each time"><input type="checkbox" data-k="random" ${m.random ? 'checked' : ''}> Pick random line</label>
+                <button class="btn small" data-act="test" type="button">💬 Send test</button>
+                <span style="flex:1"></span>
+                <button class="btn small danger" data-act="remove" type="button">🗑️ Remove</button>
             </div>
         </div>
-        ${['hourly', 'daily'].includes(k) ? `<div class="row"><span class="muted">Days (none selected = every day)</span>${DAYS.map((d, n) => `<label class="check"><input type="checkbox" data-day="${n}" ${(m.days || []).includes(n) ? 'checked' : ''}> ${d}</label>`).join('')}</div>` : ''}
-        <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Message <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="text" rows="2" maxlength="1000" placeholder="Enjoying the stream? Hit follow!">${esc(m.text)}</textarea></label>
-        <div class="preview" data-preview></div>
-        <div class="row"><label class="check" title="One message per line; a random one is sent each time"><input type="checkbox" data-k="random" ${m.random ? 'checked' : ''}> Random line</label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
     </details>`;
 }
 function triggerHtml(t, i) {
     const wordsArr = Array.isArray(t.words) ? t.words : String(t.words || '').split(',').map(w => w.trim()).filter(Boolean);
     const wordsStr = wordsArr.join(', ');
-    return `<details class="item" data-i="${i}" ${t._open ? 'open' : ''}><summary><b>${esc(t.name || 'New trigger')}</b><span class="sum">${esc(wordsStr.slice(0, 70))}</span><label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-k="enabled" ${t.enabled !== false ? 'checked' : ''}> On</label></summary>
-        <div class="top" style="grid-template-columns:minmax(120px,1fr) 2fr 110px;">
-            <label class="f">Name<input data-k="name" value="${esc(t.name)}" placeholder="Greeting"></label>
-            <label class="f">Words or phrases (comma separated)<input data-k="words" value="${esc(wordsStr)}" placeholder="hello, hi there"></label>
-            <label class="f">Cooldown (s)<input data-k="cooldown" type="number" min="0" value="${t.cooldown ?? 60}"></label>
+    return `<details class="item" data-i="${i}" ${t._open ? 'open' : ''}>
+        <summary class="item-summary">
+            <div class="item-summary-left">
+                <span class="cmd-badge">🎯 ${esc(t.name || 'New trigger')}</span>
+                <span class="sum-text">${esc(wordsStr.slice(0, 50))}</span>
+            </div>
+            <div class="item-summary-right">
+                ${t.cooldown ? `<span class="meta-pill">${esc(t.cooldown)}s</span>` : ''}
+                <label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-k="enabled" ${t.enabled !== false ? 'checked' : ''}> On</label>
+            </div>
+        </summary>
+        <div class="item-body">
+            <div class="grid" style="grid-template-columns: minmax(130px, 1fr) 2fr 110px 140px;">
+                <label class="f"><span>Trigger name</span><input data-k="name" value="${esc(t.name)}" placeholder="Greeting"></label>
+                <label class="f"><span>Keywords or phrases (comma-separated)</span><input data-k="words" value="${esc(wordsStr)}" placeholder="hello, hi there"></label>
+                <label class="f"><span>Cooldown (s)</span><input data-k="cooldown" type="number" min="0" value="${t.cooldown ?? 60}"></label>
+                <label class="f"><span>Who can trigger</span><select data-k="access">${accessOpts(t.access || 'everyone')}</select></label>
+            </div>
+            <label class="f" style="width:100%;">
+                <span style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.2rem;">
+                    <span>Trigger reply</span>
+                    <button type="button" class="btn small" data-act="placeholder">➕ Insert placeholder</button>
+                </span>
+                <textarea data-k="text" rows="2" maxlength="1000" placeholder="Welcome in, {{user}}!">${esc(t.text)}</textarea>
+            </label>
+            <div class="preview-box" data-preview></div>
+            <details class="item-advanced">
+                <summary>⚙️ Advanced trigger options (limits, mod cooldown, whole words)</summary>
+                <div class="item-advanced-body">
+                    <div class="row">
+                        <label class="check"><input type="checkbox" data-k="wholeWord" ${t.wholeWord !== false ? 'checked' : ''}> Whole words only</label>
+                        <label class="check"><input type="checkbox" data-k="random" ${t.random ? 'checked' : ''}> Pick random line</label>
+                        <label class="check" title="Mod cooldown"><input data-k="modCooldown" type="number" min="0" style="width:4.5rem" value="${t.modCooldown ?? ''}" placeholder="default"> Mod cooldown (s)</label>
+                        <label class="check" title="Limit per person"><input data-k="limit" type="number" min="1" style="width:4.5rem" value="${t.limit ?? ''}" placeholder="none"> Limit per <select data-k="limitPer" style="padding:.2rem .4rem;">${[['session','session'],['day','day'],['forever','all time']].map(([v, l]) => `<option value="${v}" ${t.limitPer === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+                    </div>
+                </div>
+            </details>
+            <div class="row" style="margin-top:.2rem;">
+                <button class="btn small" data-act="test" type="button">💬 Send test</button>
+                <span style="flex:1"></span>
+                <button class="btn small danger" data-act="remove" type="button">🗑️ Remove</button>
+            </div>
         </div>
-        <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Reply <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="text" rows="2" maxlength="1000" placeholder="Welcome in, {{user}}!">${esc(t.text)}</textarea></label>
-        <div class="preview" data-preview></div>
-        <div class="row"><label class="check"><input type="checkbox" data-k="wholeWord" ${t.wholeWord !== false ? 'checked' : ''}> Whole words only</label><label class="check"><input type="checkbox" data-k="random" ${t.random ? 'checked' : ''}> Random line</label><label class="check" title="Cooldown for mods. Blank uses the default.">Mod cooldown (s) <input data-k="modCooldown" type="number" min="0" style="width:4.5rem" value="${t.modCooldown ?? ''}" placeholder="default"></label><label class="check" title="Max uses per person. Mods are exempt. Blank is unlimited.">Limit <input data-k="limit" type="number" min="1" style="width:4.5rem" value="${t.limit ?? ''}" placeholder="none"> per <select data-k="limitPer">${[['session','session'],['day','day'],['forever','all time']].map(([v, l]) => `<option value="${v}" ${t.limitPer === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label><label class="check">Who can trigger <select data-k="access">${accessOpts(t.access || 'everyone')}</select></label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
     </details>`;
 }
 const listCfg = {
@@ -367,7 +639,7 @@ function readList(name) {
 }
 function renderList(name) {
     const c = listCfg[name];
-    $(c.el).innerHTML = state[name].length ? state[name].map(c.html).join('') : `<div class="empty">None yet.</div>`;
+    $(c.el).innerHTML = state[name].length ? state[name].map(c.html).join('') : `<div class="empty">None yet. Click "+ Add ${name === 'messages' ? 'message' : 'trigger'}" to create one.</div>`;
     $(name === 'messages' ? 'msg-count' : 'trig-count').textContent = `(${state[name].length})`;
 }
 for (const name of Object.keys(listCfg)) {
@@ -627,6 +899,45 @@ $('quotes').addEventListener('click', async event => {
             applyState(await api(`/api/chatbot/quotes/${id}`, 'PUT', { text: v('text'), game: v('game'), by: v('by') })); toast('Quote saved');
         }
     } catch (e) { toast(e.message); }
+});
+
+// Quick filter listeners for commands, messages, and triggers
+$('cmd-filter')?.addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll('#commands .item').forEach(item => {
+        const name = item.querySelector('[data-k="name"]')?.value || '';
+        const aliases = item.querySelector('[data-k="aliases"]')?.value || '';
+        const response = item.querySelector('[data-k="response"]')?.value || '';
+        const match = !q || name.toLowerCase().includes(q) || aliases.toLowerCase().includes(q) || response.toLowerCase().includes(q);
+        item.style.display = match ? '' : 'none';
+    });
+});
+$('msg-filter')?.addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll('#messages .item').forEach(item => {
+        const name = item.querySelector('[data-k="name"]')?.value || '';
+        const text = item.querySelector('[data-k="text"]')?.value || '';
+        const match = !q || name.toLowerCase().includes(q) || text.toLowerCase().includes(q);
+        item.style.display = match ? '' : 'none';
+    });
+});
+$('trig-filter')?.addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll('#triggers .item').forEach(item => {
+        const name = item.querySelector('[data-k="name"]')?.value || '';
+        const words = item.querySelector('[data-k="words"]')?.value || '';
+        const text = item.querySelector('[data-k="text"]')?.value || '';
+        const match = !q || name.toLowerCase().includes(q) || words.toLowerCase().includes(q) || text.toLowerCase().includes(q);
+        item.style.display = match ? '' : 'none';
+    });
+});
+
+// Click-to-copy handler for cheat-sheet tags
+document.addEventListener('click', e => {
+    const tag = e.target.closest('.copy-tag');
+    if (tag && tag.dataset.copy) {
+        navigator.clipboard.writeText(tag.dataset.copy).then(() => toast(`Copied ${tag.dataset.copy}`)).catch(() => {});
+    }
 });
 
 showTab(location.hash.slice(1));

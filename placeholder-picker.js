@@ -73,9 +73,9 @@
         if (options.isChatbot) {
             table['user'] = 'Alice';
             table['target'] = 'Bob';
-            table['args'] = '@Bob 50';
-            table['arg.1'] = '@Bob';
-            table['arg.2'] = '50';
+            table['args'] = 'tea coffee';
+            table['arg.1'] = 'tea';
+            table['arg.2'] = 'coffee';
             table['random 1 6'] = '4';
             table['choice Option A|Option B'] = 'Option A';
             groups = [
@@ -85,8 +85,8 @@
                         ['user', 'Chatter name who typed command'],
                         ['target', 'Target user from args (@Bob -> Bob)'],
                         ['args', 'All arguments after command'],
-                        ['arg.1', 'First argument token'],
-                        ['arg.2', 'Second argument token'],
+                        ['arg.1', 'First argument word (e.g. tea)'],
+                        ['arg.2', 'Second argument word (e.g. coffee)'],
                         ['random 1 6', 'Random integer / dice roll (min max)'],
                         ['choice Option A|Option B', 'Pick one random choice (pipe-separated)']
                     ]
