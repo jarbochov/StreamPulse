@@ -10,7 +10,7 @@ const { promisify } = require('util');
 const WebSocket = require('ws');
 const { ZipArchive } = require('archiver');
 const AdmZip = require('adm-zip');
-const { DEFAULT_TIERS, normalizeGamePlan, gameKey, sanitizeOverlayId } = require('./server/game-plan');
+const { createGamePlanService, DEFAULT_TIERS, normalizeGamePlan, gameKey, sanitizeOverlayId } = require('./server/services/game-plan');
 const { createAlertEngine, TRIGGERS: ALERT_TRIGGERS, ANIM_IN: ALERT_ANIM_IN, ANIM_OUT: ALERT_ANIM_OUT } = require('./server/alerts');
 const { createStaticRouter } = require('./server/static-router');
 const { createWeatherService, normalizeWeatherConfig } = require('./server/services/weather');
@@ -61,6 +61,7 @@ const CHAT_LOG_PATH = path.join(DATA_DIR, 'chat-log.jsonl');
 const HIGHLIGHTS_PATH = path.join(DATA_DIR, 'highlights.jsonl');
 const CLIP_CANDIDATES_PATH = path.join(DATA_DIR, 'clip-candidates.json');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
+const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
 const EMOTE_CACHE_DIR = path.join(DATA_DIR, 'emote-cache');
 const TIMERS_PATH = path.join(DATA_DIR, 'timers.json');
 const CUSTOM_OVERLAYS_PATH = path.join(DATA_DIR, 'custom-overlays.json');
@@ -1440,19 +1441,11 @@ function creditsAssetUsers(name) {
 
 // Game plan items can use library images as custom artwork.
 function gamePlanAssetUsers(name) {
-    return loadGamePlan().items.filter(item => item.customCover && assetReferencedIn(item.customCover, name, null)).map(item => ({ id: `game:${item.id}`, name: `Game plan: ${item.name}` }));
+    return gamePlanService.gamePlanAssetUsers(name, assetReferencedIn);
 }
 
 function rewriteGamePlanReferences(oldName, newName) {
-    const plan = loadGamePlan();
-    let changed = false;
-    for (const item of plan.items) {
-        if (!item.customCover) continue;
-        const next = rewriteAssetReferences(item.customCover, oldName, newName, null, null);
-        if (next !== item.customCover) { item.customCover = next; changed = true; }
-    }
-    if (changed) safeWriteFileSync(GAME_PLAN_PATH, JSON.stringify(plan, null, 2));
-    return changed;
+    return gamePlanService.rewriteGamePlanReferences(oldName, newName, rewriteAssetReferences);
 }
 
 function rewriteCreditsReferences(oldName, newName) {
@@ -3415,118 +3408,29 @@ function publicGameInfo(name, igdbId = '') {
 // GAME PLAN (manual list of scheduled / backlog / played games)
 // ============================================================================
 
-const GAME_PLAN_PATH = path.join(DATA_DIR, 'game-plan.json');
-function loadGamePlan() {
-    try { return normalizeGamePlan(JSON.parse(fs.readFileSync(GAME_PLAN_PATH, 'utf8'))); } catch { return { lists: [], tiers: DEFAULT_TIERS, tierSets: {}, items: [], periods: [] }; }
-}
-
-
-// Looks up IGDB data for new names one at a time so a long list does not hit the rate limit.
-let gameWarmQueue = Promise.resolve();
-function warmGameInfo(games) {
-    for (const { name, igdbId, custom } of games) {
-        if (custom) continue;
-        const cached = gameInfoCache[infoKey(name, igdbId)];
-        if (cached && !cached.failed && cached.v === GAME_INFO_VERSION && !(cached.source === 'igdb' && !cached.igdbUrl && !cached.urlTried)) continue;
-        gameWarmQueue = gameWarmQueue.then(() => refreshGameInfo(name, igdbId)).then(() => new Promise(resolve => setTimeout(resolve, 300)));
-    }
-}
-
-// Minutes streamed per category across archived sessions plus the open one, keyed by normalized category name.
-let playTimeCache = { at: 0, totals: {} };
-function streamedMinutesByKey() {
-    if (Date.now() - playTimeCache.at > 60000) {
-        const totals = {};
-        for (const [name, minutes] of Object.entries(archivedCategoryMinutes())) totals[gameKey(name)] = (totals[gameKey(name)] || 0) + minutes;
-        playTimeCache = { at: Date.now(), totals };
-    }
-    const floor = Date.parse(normalizeViewerStats(chatData.viewerStats).streamStartedAt || '');
-    const merged = { ...playTimeCache.totals };
-    for (const [name, minutes] of Object.entries(categoryMinutesFor(chatData.streamInfo, Date.now(), floor))) merged[gameKey(name)] = (merged[gameKey(name)] || 0) + minutes;
-    return merged;
-}
-
-function buildGamePlanSnapshot() {
-    const plan = loadGamePlan();
-    const streamed = streamedMinutesByKey();
-    const category = chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category || '';
-    const current = gameKey(category);
-    warmGameInfo(plan.items);
-    return {
-        current: category,
-        playingNowId: plan.playingNowId || null,
-        lists: plan.lists,
-        periods: plan.periods,
-        tiers: plan.tiers,
-        tierSets: plan.tierSets,
-        items: plan.items.map(item => {
-            const game = item.custom ? { name: item.name } : publicGameInfo(item.name, item.igdbId);
-            const raw = item.custom ? null : gameInfoCache[infoKey(item.name, item.igdbId)];
-            const keys = [item.name, item.twitchCategory, raw?.igdbName].map(gameKey).filter(Boolean);
-            const isManualNow = !!plan.playingNowId && item.id === plan.playingNowId;
-            const isAutoNow = !plan.playingNowId && !item.custom && !!current && keys.includes(current);
-            return {
-                ...item,
-                minutesPlayed: Math.round([...new Set(keys)].reduce((sum, key) => sum + (streamed[key] || 0), 0)),
-                cover: item.customCover || game.cover || '',
-                releaseYear: game.releaseYear || '',
-                genres: game.genres || [],
-                platforms: game.platforms || [],
-                playingNow: isManualNow || isAutoNow
-            };
-        })
-    };
-}
-
-// Adds streamed games to the Game Plan as played, with the dates they were streamed.
-// Games already on any list keep their list and only gain dates. Twitch categories without an IGDB id
-// (Just Chatting, Special Events, Music, ...) are not games and are skipped.
-async function applyPlayedSpans(spans) {
-    const auto = { enabled: true, min_minutes: 15, skip: ['Just Chatting'], ...(config.game_plan_auto || {}) };
-    const skip = new Set((Array.isArray(auto.skip) ? auto.skip : String(auto.skip || '').split(',')).map(gameKey).filter(Boolean));
-    const plan = loadGamePlan();
-    const result = { added: [], updated: 0 };
-    for (const { name, minutes, dates } of spans) {
-        if (!name || name === '(No Category)' || minutes < Number(auto.min_minutes || 0) || skip.has(gameKey(name))) continue;
-        const key = gameKey(name);
-        let item = plan.items.find(entry => [entry.name, entry.twitchCategory, gameInfoCache[infoKey(entry.name, entry.igdbId)]?.igdbName].map(gameKey).includes(key));
-        if (!item) {
-            const info = await refreshGameInfo(name);
-            if (!info || info.failed || !info.igdbId) continue;
-            item = { id: `game-${Date.now().toString(36)}-${plan.items.length}`, name, status: 'played', period: '', note: '', twitchCategory: name, igdbId: String(info.igdbId), custom: false, customCover: '', rating: 0, tier: '', tags: [], finished: '', played: [], autoAdded: true };
-            plan.items.push(item);
-            result.added.push(name);
-        }
-        const before = (item.played || []).length;
-        item.played = [...new Set([...(item.played || []), ...dates])].sort().slice(-400);
-        if (item.played.length !== before && !result.added.includes(name)) result.updated++;
-    }
-    if (result.added.length || result.updated) safeWriteFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(plan), null, 2));
-    return result;
-}
-
-async function recordPlayedGames(streamInfo, endMs, startFloorMs) {
-    if ((config.game_plan_auto || {}).enabled === false) return;
-    const spent = categoryTimeFor(streamInfo, endMs, startFloorMs);
-    const result = await applyPlayedSpans(Object.entries(spent).map(([name, slot]) => ({ name, minutes: slot.minutes, dates: [...slot.dates] })));
-    for (const name of result.added) console.log(`[GamePlan] Added "${name}" as played`);
-}
-
-// Walks every archived session once so games streamed before auto-add existed are picked up too.
-async function backfillPlayedGames() {
-    const spans = [];
-    if (fs.existsSync(SESSIONS_DIR)) {
-        for (const file of fs.readdirSync(SESSIONS_DIR).filter(f => f.startsWith('chat-') && f.endsWith('.json')).sort()) {
-            try {
-                const data = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, file), 'utf8'));
-                const endMs = Date.parse(data.lastUpdated || data.startedAt);
-                const floor = Date.parse(data.viewerStats?.streamStartedAt || '');
-                for (const [name, slot] of Object.entries(categoryTimeFor(data.streamInfo, endMs, floor))) spans.push({ name, minutes: slot.minutes, dates: [...slot.dates] });
-            } catch { /* skip unreadable sessions */ }
-        }
-    }
-    return applyPlayedSpans(spans);
-}
+const gamePlanService = createGamePlanService({
+    dataDir: DATA_DIR,
+    safeWriteFileSync,
+    broadcastToOverlays: (type, data) => broadcastToOverlays(type, data),
+    getConfig: () => config,
+    getStreamInfo: () => chatData.streamInfo,
+    getViewerStats: () => chatData.viewerStats,
+    normalizeViewerStats,
+    archivedCategoryMinutes,
+    categoryMinutesFor,
+    categoryTimeFor,
+    publicGameInfo,
+    refreshGameInfo,
+    getGameInfoCached: (name, igdbId) => name ? gameInfoCache[infoKey(name, igdbId)] : null,
+    GAME_INFO_VERSION,
+    sessionsDir: SESSIONS_DIR
+});
+const GAME_PLAN_PATH = gamePlanService.filePath;
+const loadGamePlan = () => gamePlanService.loadGamePlan();
+const buildGamePlanSnapshot = () => gamePlanService.buildGamePlanSnapshot();
+const applyPlayedSpans = spans => gamePlanService.applyPlayedSpans(spans);
+const recordPlayedGames = (streamInfo, endMs, startFloorMs) => gamePlanService.recordPlayedGames(streamInfo, endMs, startFloorMs);
+const backfillPlayedGames = () => gamePlanService.backfillPlayedGames();
 
 // ============================================================================
 // WEATHER (Open-Meteo Service)
@@ -3617,7 +3521,6 @@ const MAX_IN_MEMORY_CHAT_MESSAGES = 2000;
 
 // Persistent stats — survives restarts, daily bucket tracking
 const STATS_PATH = path.join(DATA_DIR, 'stats.json');
-const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
 let statsData = {
     totalMessages: {},  // { "YYYY-MM-DD": count }
     chatters: {},       // { name: { chatimg, type, firstSeen, lastSeen, days: { "YYYY-MM-DD": count } } }
@@ -8135,12 +8038,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/game-plan/now' && req.method === 'POST') {
         try {
             const body = JSON.parse(await readRequestBody(req) || '{}');
-            const plan = loadGamePlan();
-            const id = typeof body.id === 'string' ? sanitizeOverlayId(body.id) : '';
-            plan.playingNowId = id;
-            safeWriteFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(plan), null, 2));
-            const snapshot = buildGamePlanSnapshot();
-            broadcastToOverlays('game-plan-update', snapshot);
+            const snapshot = gamePlanService.setPlayingNow(body.id);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(snapshot));
         } catch (err) {
@@ -8152,30 +8050,9 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/game-plan/advance' && req.method === 'POST') {
         try {
-            const plan = loadGamePlan();
-            const today = new Date().toISOString().slice(0, 10);
-            const currentItem = plan.items.find(i => i.id === plan.playingNowId) ||
-                plan.items.find(i => !i.custom && gameKey(i.name) === gameKey(chatData.streamInfo?.[chatData.streamInfo.length - 1]?.category));
-
-            if (currentItem && currentItem.status === 'scheduled') {
-                currentItem.status = 'played';
-                currentItem.finished = today;
-                if (!currentItem.played) currentItem.played = [];
-                if (!currentItem.played.includes(today)) currentItem.played.push(today);
-            }
-
-            const nextItem = plan.items.find(i => i.status === 'scheduled' && (!currentItem || i.id !== currentItem.id));
-            plan.playingNowId = nextItem ? nextItem.id : '';
-            safeWriteFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(plan), null, 2));
-            const snapshot = buildGamePlanSnapshot();
-            broadcastToOverlays('game-plan-update', snapshot);
+            const result = gamePlanService.advance();
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-                status: 'advanced',
-                previous: currentItem?.name || null,
-                current: nextItem?.name || null,
-                snapshot
-            }));
+            res.end(JSON.stringify(result));
         } catch (err) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: err.message }));
@@ -8187,7 +8064,7 @@ const server = http.createServer(async (req, res) => {
         if (req.method === 'PUT') {
             try {
                 const payload = JSON.parse(await readRequestBody(req) || '{}');
-                safeWriteFileSync(GAME_PLAN_PATH, JSON.stringify(normalizeGamePlan(payload), null, 2));
+                gamePlanService.updateGamePlan(payload);
             } catch (err) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: err.message }));
@@ -8195,7 +8072,7 @@ const server = http.createServer(async (req, res) => {
             }
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(buildGamePlanSnapshot()));
+        res.end(JSON.stringify(gamePlanService.buildGamePlanSnapshot()));
         return;
     }
 
