@@ -111,6 +111,8 @@ function createOverlayRoutes({
     getCustomOverlays = () => ({}),
     getAssetTags = () => ({}),
     getAssetCaptions = () => ({}),
+    saveAssetTags = () => {},
+    saveAssetCaptions = () => {},
     getOverlayPresets = () => [],
     setOverlayPresets = () => {},
     saveOverlayPresets = () => {},

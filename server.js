@@ -2420,6 +2420,7 @@ async function generatePdf(htmlContent) {
         const page = await browser.newPage();
         await page.setContent(htmlContent, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await page.evaluate(async () => {
+            /* global document */
             const images = Array.from(document.images || []);
             if (!images.length) return;
 
@@ -2524,6 +2525,8 @@ const handleOverlayRoutes = createOverlayRoutes({
     getCustomOverlays: () => customOverlays,
     getAssetTags: () => assetTags,
     getAssetCaptions: () => assetCaptions,
+    saveAssetTags,
+    saveAssetCaptions,
     getOverlayPresets: () => overlayPresets,
     setOverlayPresets: (val) => { overlayPresets = val; },
     saveOverlayPresets,
@@ -2652,8 +2655,7 @@ function buildStatusSnapshot() {
             .slice(0, 100)
             .map(c => ({ chatname: c.chatname, chatimg: c.chatimg || '', messageCount: c.messageCount || 0 })),
         recentChat: recentChatSummary(),
-        recentEvents: buildRecentEvents(12),
-        milestones: computeMilestones()
+        recentEvents: buildRecentEvents(12)
     };
 }
 
