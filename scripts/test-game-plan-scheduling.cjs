@@ -104,14 +104,30 @@ fs.writeFileSync(GAME_PLAN_PATH, JSON.stringify(initialPlan, null, 2), 'utf8');
 const mockTwitchService = {
     createdSegments: [],
     deletedSegments: [],
-    createScheduleSegment: async ({ startTime, durationMinutes, title }) => {
-        const seg = { id: `seg-${Date.now()}`, start_time: startTime, duration: String(durationMinutes), title };
+    updatedCategories: [],
+    createScheduleSegment: async ({ startTime, durationMinutes, title, categoryId, isRecurring }) => {
+        const seg = {
+            id: `seg-${Date.now()}-${mockTwitchService.createdSegments.length}`,
+            start_time: startTime,
+            duration: String(durationMinutes),
+            title,
+            category_id: categoryId,
+            is_recurring: Boolean(isRecurring)
+        };
         mockTwitchService.createdSegments.push(seg);
         return { ok: true, segment: seg };
     },
     deleteScheduleSegment: async (segmentId) => {
         mockTwitchService.deletedSegments.push(segmentId);
         return { ok: true };
+    },
+    getGameCategoryByName: async (name) => {
+        return { id: `cat-${String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '')}`, name };
+    },
+    updateChannelCategory: async (categoryName, gameId = null) => {
+        const id = gameId || `cat-${String(categoryName || '').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+        mockTwitchService.updatedCategories.push({ name: categoryName, id });
+        return { ok: true, gameId: id, categoryName };
     }
 };
 
@@ -188,6 +204,19 @@ async function run() {
         }
         console.log('✓ Item 1 has status=tonight and gameType=playthrough');
 
+        // Test POST /api/game-plan/now category update
+        console.log('Testing POST /api/game-plan/now and Twitch category update...');
+        const nowRes = await fetch(`http://localhost:${PORT}/api/game-plan/now`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: 'game-1' })
+        });
+        const nowData = await nowRes.json();
+        if (!nowData.twitchResult || !nowData.twitchResult.ok) {
+            throw new Error(`Expected twitchResult on nowData: ${JSON.stringify(nowData.twitchResult)}`);
+        }
+        console.log(`✓ POST /api/game-plan/now updated Twitch category to: "${nowData.twitchResult.categoryName}"`);
+
         // Test advance from playthrough
         console.log('Testing POST /api/game-plan/advance on playthrough...');
         const advRes1 = await fetch(`http://localhost:${PORT}/api/game-plan/advance`, { method: 'POST' });
@@ -196,6 +225,11 @@ async function run() {
         if (adv1.current !== 'Jackbox Party Pack 10') {
             throw new Error(`Expected Jackbox Party Pack 10 next, got: ${adv1.current}`);
         }
+        if (!adv1.twitchResult || !adv1.twitchResult.ok) {
+            throw new Error(`Expected twitchResult on adv1: ${JSON.stringify(adv1.twitchResult)}`);
+        }
+        console.log(`✓ Advance updated Twitch category to: "${adv1.twitchResult.categoryName}"`);
+
         // Verify playthrough was NOT marked 'played' but recorded session
         const planAfterAdv1 = await (await fetch(`http://localhost:${PORT}/api/game-plan`)).json();
         const sh2After = planAfterAdv1.items.find(i => i.id === 'game-1');
@@ -216,20 +250,34 @@ async function run() {
         }
         console.log('✓ One-off game was marked played and finished upon completion');
 
-        // Test Twitch Schedule endpoint
-        console.log('Testing POST /api/game-plan/twitch-schedule...');
+        // Test multi-day and recurring Twitch Schedule endpoint
+        console.log('Testing POST /api/game-plan/twitch-schedule with multi-date and recurring...');
+        // First add extra date and recurring flag to game-3
+        const planBeforeSchedule = await (await fetch(`http://localhost:${PORT}/api/game-plan`)).json();
+        const g3 = planBeforeSchedule.items.find(i => i.id === 'game-3');
+        g3.streamRecurring = true;
+        g3.streamDates = [{ date: '2026-10-22', time: '19:00' }];
+        await fetch(`http://localhost:${PORT}/api/game-plan`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: planBeforeSchedule.items })
+        });
+
         const twitchPushRes = await fetch(`http://localhost:${PORT}/api/game-plan/twitch-schedule`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ itemId: 'game-3' })
         });
         const twitchPushData = await twitchPushRes.json();
-        if (!twitchPushData.ok || !twitchPushData.segment?.id) {
-            throw new Error(`Failed to push Twitch schedule: ${JSON.stringify(twitchPushData)}`);
+        if (!twitchPushData.ok || !twitchPushData.segments || twitchPushData.segments.length !== 2) {
+            throw new Error(`Expected 2 schedule segments, got: ${JSON.stringify(twitchPushData)}`);
         }
-        console.log(`✓ Twitch schedule segment created: ${twitchPushData.segment.id}`);
+        if (!twitchPushData.segments[0].is_recurring) {
+            throw new Error(`Expected segment to be recurring, got: ${JSON.stringify(twitchPushData.segments[0])}`);
+        }
+        console.log(`✓ Twitch multi-day recurring schedule segments created: ${twitchPushData.segments.map(s => s.id).join(', ')}`);
 
-        // Test Twitch Schedule delete
+        // Test Twitch Schedule delete (should delete both segments)
         console.log('Testing DELETE /api/game-plan/twitch-schedule...');
         const twitchDelRes = await fetch(`http://localhost:${PORT}/api/game-plan/twitch-schedule`, {
             method: 'DELETE',
@@ -240,7 +288,7 @@ async function run() {
         if (!twitchDelData.ok) {
             throw new Error(`Failed to delete Twitch schedule: ${JSON.stringify(twitchDelData)}`);
         }
-        console.log('✓ Twitch schedule segment deleted successfully');
+        console.log('✓ All Twitch schedule segments deleted successfully');
 
         // --- 2. Test in Puppeteer ---
         console.log('Launching headless browser...');
@@ -286,6 +334,16 @@ async function run() {
         await page.waitForSelector('#dlg[open]');
         const playstyleVal = await page.$eval('#f-game-type', el => el.value);
         console.log(`✓ Dialog opened. Playstyle value: ${playstyleVal}`);
+
+        // Check recurring checkbox and multi-date section in dialog
+        const recurringCheck = await page.$('#f-stream-recurring');
+        if (!recurringCheck) throw new Error('Missing #f-stream-recurring checkbox in dialog');
+        console.log('✓ Recurring stream checkbox exists in dialog');
+
+        await page.click('#f-add-date');
+        const extraDateRows = await page.$$eval('#f-stream-dates-list [data-date-idx]', rows => rows.length);
+        if (extraDateRows < 1) throw new Error('Clicking + Add Date did not create a new date slot');
+        console.log('✓ Multi-day stream date controls working properly in dialog');
 
         // Close dialog
         await page.click('#f-done');

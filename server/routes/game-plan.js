@@ -30,7 +30,15 @@ function createGamePlanRoutes({
                 const body = JSON.parse(await readRequestBody(req) || '{}');
                 const targetId = body.clear ? '' : (body.id || '');
                 const snapshot = gamePlanService.setPlayingNow(targetId);
-                sendJson(res, snapshot);
+                let twitchResult = null;
+                if (targetId && twitchService && typeof twitchService.updateChannelCategory === 'function') {
+                    const plan = gamePlanService.loadGamePlan();
+                    const item = plan.items.find(i => i.id === targetId);
+                    if (item) {
+                        twitchResult = await twitchService.updateChannelCategory(item.twitchCategory || item.name);
+                    }
+                }
+                sendJson(res, { ...snapshot, twitchResult });
             } catch (err) {
                 sendError(res, err, 400);
             }
@@ -40,7 +48,16 @@ function createGamePlanRoutes({
         if (pathname === '/api/game-plan/advance' && req.method === 'POST') {
             try {
                 const result = gamePlanService.advance();
-                sendJson(res, result);
+                let twitchResult = null;
+                if (result.current && twitchService && typeof twitchService.updateChannelCategory === 'function') {
+                    const plan = gamePlanService.loadGamePlan();
+                    const nextId = result.snapshot?.playingNowId;
+                    const nextItem = nextId ? plan.items.find(i => i.id === nextId) : null;
+                    if (nextItem) {
+                        twitchResult = await twitchService.updateChannelCategory(nextItem.twitchCategory || nextItem.name);
+                    }
+                }
+                sendJson(res, { ...result, twitchResult });
             } catch (err) {
                 sendError(res, err, 500);
             }
@@ -66,33 +83,95 @@ function createGamePlanRoutes({
                         sendJson(res, { ok: false, error: 'Game item not found' }, 404);
                         return true;
                     }
-                    if (!item.streamDate) {
-                        sendJson(res, { ok: false, error: 'Game must have a Stream Date set' }, 400);
+                    if (!item.streamDate && (!Array.isArray(item.streamDates) || !item.streamDates.length)) {
+                        sendJson(res, { ok: false, error: 'Game must have at least one Stream Date set' }, 400);
                         return true;
                     }
 
-                    const timePart = item.streamTime || '19:00';
-                    const localIso = `${item.streamDate}T${timePart}:00`;
-                    const dateObj = new Date(localIso);
-                    const startTime = !isNaN(dateObj.getTime()) ? dateObj.toISOString() : `${item.streamDate}T19:00:00Z`;
+                    // Look up Twitch category ID if available
+                    let categoryId = '';
+                    if (typeof twitchService.getGameCategoryByName === 'function') {
+                        const cat = await twitchService.getGameCategoryByName(item.twitchCategory || item.name);
+                        if (cat?.id) categoryId = cat.id;
+                    }
+
+                    // Delete existing segments before re-syncing so we don't create duplicate segments on Twitch
+                    const existingIds = new Set([...(item.twitchSegmentIds || []), item.twitchSegmentId].filter(Boolean));
+                    for (const segId of existingIds) {
+                        try {
+                            await twitchService.deleteScheduleSegment(segId);
+                        } catch { /* ignore cleanup error */ }
+                    }
+
                     const durationMinutes = Math.min(1380, Math.max(30, Number(body.durationMinutes) || 180));
                     const title = String(body.title || item.name || 'Stream').slice(0, 140);
+                    const isRecurring = body.isRecurring !== undefined ? Boolean(body.isRecurring) : (item.streamRecurring === true);
 
-                    const scheduleResult = await twitchService.createScheduleSegment({
-                        startTime,
-                        durationMinutes,
-                        title
-                    });
+                    // Collect all date slots to schedule
+                    const slots = [];
+                    if (item.streamDate) {
+                        slots.push({ date: item.streamDate, time: item.streamTime || '19:00' });
+                    }
+                    if (Array.isArray(item.streamDates)) {
+                        for (const d of item.streamDates) {
+                            const dateStr = typeof d === 'string' ? d : d.date;
+                            const timeStr = typeof d === 'string' ? '' : d.time;
+                            if (dateStr && !slots.some(s => s.date === dateStr && s.time === (timeStr || item.streamTime || '19:00'))) {
+                                slots.push({ date: dateStr, time: timeStr || item.streamTime || '19:00' });
+                            }
+                        }
+                    }
 
-                    if (!scheduleResult.ok) {
-                        sendJson(res, { ok: false, error: scheduleResult.error }, 400);
+                    const createdSegments = [];
+                    const failedSlots = [];
+
+                    for (const slot of slots) {
+                        const timePart = slot.time || '19:00';
+                        const localIso = `${slot.date}T${timePart}:00`;
+                        const dateObj = new Date(localIso);
+                        const startTime = !isNaN(dateObj.getTime()) ? dateObj.toISOString() : `${slot.date}T19:00:00Z`;
+
+                        const scheduleResult = await twitchService.createScheduleSegment({
+                            startTime,
+                            durationMinutes,
+                            title,
+                            categoryId,
+                            isRecurring
+                        });
+
+                        if (scheduleResult.ok && scheduleResult.segment) {
+                            createdSegments.push(scheduleResult.segment);
+                        } else {
+                            failedSlots.push({ slot, error: scheduleResult.error });
+                        }
+                    }
+
+                    if (!createdSegments.length) {
+                        const firstErr = failedSlots[0]?.error || 'Failed to schedule any segments on Twitch';
+                        sendJson(res, { ok: false, error: firstErr, failedSlots }, 400);
                         return true;
                     }
 
-                    item.twitchSegmentId = scheduleResult.segment?.id || '';
+                    item.twitchSegmentId = createdSegments[0]?.id || '';
+                    item.twitchSegmentIds = createdSegments.map(s => s.id);
+                    if (Array.isArray(item.streamDates)) {
+                        item.streamDates.forEach((d, idx) => {
+                            if (createdSegments[idx + 1]) {
+                                d.segmentId = createdSegments[idx + 1].id;
+                            }
+                        });
+                    }
                     gamePlanService.saveGamePlan(plan);
                     const snapshot = gamePlanService.buildGamePlanSnapshot();
-                    sendJson(res, { ok: true, segment: scheduleResult.segment, item, snapshot });
+                    sendJson(res, {
+                        ok: true,
+                        segment: createdSegments[0],
+                        segments: createdSegments,
+                        item,
+                        snapshot,
+                        partial: failedSlots.length > 0,
+                        failedSlots
+                    });
                 } catch (err) {
                     sendError(res, err, 500);
                 }
@@ -113,11 +192,16 @@ function createGamePlanRoutes({
                         sendJson(res, { ok: false, error: 'Game item not found' }, 404);
                         return true;
                     }
-                    if (item.twitchSegmentId) {
-                        await twitchService.deleteScheduleSegment(item.twitchSegmentId);
-                        item.twitchSegmentId = '';
-                        gamePlanService.saveGamePlan(plan);
+                    const existingIds = new Set([...(item.twitchSegmentIds || []), item.twitchSegmentId].filter(Boolean));
+                    for (const segId of existingIds) {
+                        await twitchService.deleteScheduleSegment(segId);
                     }
+                    item.twitchSegmentId = '';
+                    item.twitchSegmentIds = [];
+                    if (Array.isArray(item.streamDates)) {
+                        item.streamDates.forEach(d => { d.segmentId = ''; });
+                    }
+                    gamePlanService.saveGamePlan(plan);
                     const snapshot = gamePlanService.buildGamePlanSnapshot();
                     sendJson(res, { ok: true, snapshot });
                 } catch (err) {

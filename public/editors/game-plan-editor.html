@@ -212,7 +212,21 @@
                     <div><span>Stream Date</span><input id="f-stream-date" type="date"></div>
                     <div><span>Stream Time</span><input id="f-stream-time" type="time"></div>
                 </div>
-                <div id="f-twitch-sync-row" class="field" style="margin-top:0.2rem;">
+                <div class="field" style="margin-top:-0.4rem;margin-bottom:0.4rem;">
+                    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;cursor:pointer;">
+                        <input type="checkbox" id="f-stream-recurring">
+                        <span>Repeat weekly on Twitch Schedule (recurring stream)</span>
+                    </label>
+                </div>
+                <div class="field" id="f-multi-dates-wrap" style="margin-top:0.2rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem;">
+                        <span style="font-size:0.8rem;font-weight:600;">Additional Stream Dates (multi-day playthrough)</span>
+                        <button class="btn ghost icon" type="button" id="f-add-date" style="padding:0.2rem 0.5rem;font-size:0.75rem;" title="Add another stream date">+ Add Date</button>
+                    </div>
+                    <div id="f-stream-dates-list" style="display:flex;flex-direction:column;gap:0.35rem;"></div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.25rem;">💡 Twitch supports scheduling across multiple days or as weekly recurring segments.</div>
+                </div>
+                <div id="f-twitch-sync-row" class="field" style="margin-top:0.4rem;">
                     <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
                         <button class="btn" type="button" id="f-push-twitch">🗓 Push to Twitch Schedule</button>
                         <button class="btn ghost danger" type="button" id="f-del-twitch" hidden>Remove from Twitch</button>
@@ -593,7 +607,7 @@
                 const response = await fetch('/api/game-plan', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lists: customLists, tiers, tierSets, periods: orderedPeriods(), items: items.map(({ id, name, status, gameType, streamDate, streamTime, twitchSegmentId, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists }) => ({ id, name, status, gameType, streamDate, streamTime, twitchSegmentId, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists })) })
+                    body: JSON.stringify({ lists: customLists, tiers, tierSets, periods: orderedPeriods(), items: items.map(({ id, name, status, gameType, streamDate, streamTime, streamRecurring, streamDates, twitchSegmentId, twitchSegmentIds, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists }) => ({ id, name, status, gameType, streamDate, streamTime, streamRecurring, streamDates, twitchSegmentId, twitchSegmentIds, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists })) })
                 });
                 if (!response.ok) throw new Error((await response.json()).error || response.statusText);
                 setStatus('Saved. Overlays update within a few seconds.');
@@ -621,7 +635,10 @@
                         gameType: fresh.gameType || item.gameType,
                         streamDate: fresh.streamDate || item.streamDate,
                         streamTime: fresh.streamTime || item.streamTime,
-                        twitchSegmentId: fresh.twitchSegmentId || item.twitchSegmentId
+                        streamRecurring: fresh.streamRecurring !== undefined ? fresh.streamRecurring : item.streamRecurring,
+                        streamDates: fresh.streamDates || item.streamDates,
+                        twitchSegmentId: fresh.twitchSegmentId || item.twitchSegmentId,
+                        twitchSegmentIds: fresh.twitchSegmentIds || item.twitchSegmentIds
                     });
                     if (!fresh.cover && !item.custom) missing = true;
                 }
@@ -733,12 +750,19 @@
                     items.forEach(g => { g.playingNow = (g.id === item.id); });
                     render();
                     try {
-                        await fetch('/api/game-plan/now', {
+                        const res = await fetch('/api/game-plan/now', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ id: item.id })
                         });
-                        setStatus(`Now playing on stream: ${item.name}`);
+                        const data = await res.json();
+                        if (data.twitchResult?.ok) {
+                            setStatus(`Now playing on stream: ${item.name} · ✓ Twitch category set to "${data.twitchResult.categoryName}"`);
+                        } else if (data.twitchResult && !data.twitchResult.ok) {
+                            setStatus(`Now playing on stream: ${item.name} · (Twitch: ${data.twitchResult.error})`);
+                        } else {
+                            setStatus(`Now playing on stream: ${item.name}`);
+                        }
                     } catch (e) { setStatus(`Failed to set playing: ${e.message}`); }
                     scheduleSave();
                     return;
@@ -771,7 +795,17 @@
                         const freshPlan = await planRes.json();
                         items = freshPlan.items;
                         render();
-                        setStatus(data.current ? `Advanced stream rundown! Now playing: ${data.current}` : `Stream rundown completed!`);
+                        if (data.current) {
+                            if (data.twitchResult?.ok) {
+                                setStatus(`Advanced stream rundown! Now playing: ${data.current} · ✓ Twitch category set to "${data.twitchResult.categoryName}"`);
+                            } else if (data.twitchResult && !data.twitchResult.ok) {
+                                setStatus(`Advanced stream rundown! Now playing: ${data.current} · (Twitch: ${data.twitchResult.error})`);
+                            } else {
+                                setStatus(`Advanced stream rundown! Now playing: ${data.current}`);
+                            }
+                        } else {
+                            setStatus(`Stream rundown completed!`);
+                        }
                     } catch (e) { setStatus(`Failed to advance: ${e.message}`); }
                     return;
                 }
@@ -801,11 +835,21 @@
                     moveTo(item, 'tonight');
                     items.forEach(g => { g.playingNow = (g.id === item.id); });
                     render();
-                    fetch('/api/game-plan/now', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: item.id })
-                    }).catch(() => {});
+                    try {
+                        const res = await fetch('/api/game-plan/now', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: item.id })
+                        });
+                        const data = await res.json();
+                        if (data.twitchResult?.ok) {
+                            setStatus(`Now playing on stream: ${item.name} · ✓ Twitch category set to "${data.twitchResult.categoryName}"`);
+                        } else if (data.twitchResult && !data.twitchResult.ok) {
+                            setStatus(`Now playing on stream: ${item.name} · (Twitch: ${data.twitchResult.error})`);
+                        } else {
+                            setStatus(`Now playing on stream: ${item.name}`);
+                        }
+                    } catch (e) { setStatus(`Failed to set playing: ${e.message}`); }
                     scheduleSave();
                     return;
                 }
@@ -870,8 +914,26 @@
             editing.extraLists = [...$('f-extra').querySelectorAll('input:checked')].map(box => box.dataset.extra);
             commit(true);
         });
+        function paintStreamDates() {
+            const list = $('f-stream-dates-list');
+            if (!editing || !list) return;
+            if (!Array.isArray(editing.streamDates)) editing.streamDates = [];
+            if (!editing.streamDates.length) {
+                list.innerHTML = '<span style="font-size:0.75rem;color:var(--text-muted);font-style:italic;">No additional dates added. Click "+ Add Date" to schedule another stream day.</span>';
+                return;
+            }
+            list.innerHTML = editing.streamDates.map((slot, idx) => `
+                <div style="display:flex;gap:0.4rem;align-items:center;" data-date-idx="${idx}">
+                    <input type="date" value="${esc(slot.date || '')}" style="flex:1;" data-extra-date>
+                    <input type="time" value="${esc(slot.time || '')}" style="width:110px;" data-extra-time>
+                    <button type="button" class="btn ghost danger" style="padding:0.2rem 0.5rem;" title="Remove this date" data-remove-date>✕</button>
+                </div>
+            `).join('');
+        }
         function openDialog(item) {
             editing = item;
+            if (!Array.isArray(editing.streamDates)) editing.streamDates = [];
+            if (!Array.isArray(editing.twitchSegmentIds)) editing.twitchSegmentIds = editing.twitchSegmentId ? [editing.twitchSegmentId] : [];
             $('f-name').value = item.name;
             $('f-tier').innerHTML = '<option value="">Unranked</option>' + tiersOf(item.status).map(tier => `<option value="${esc(tier.id)}">${esc(tier.label)}</option>`).join('');
             $('f-tier').value = item.tier || '';
@@ -881,10 +943,13 @@
             paintExtra();
             $('f-stream-date').value = item.streamDate || '';
             $('f-stream-time').value = item.streamTime || '';
-            const hasTwitch = Boolean(item.twitchSegmentId);
+            $('f-stream-recurring').checked = item.streamRecurring === true;
+            paintStreamDates();
+            const segCount = (editing.twitchSegmentIds?.length || (editing.twitchSegmentId ? 1 : 0));
+            const hasTwitch = segCount > 0;
             $('f-del-twitch').hidden = !hasTwitch;
             $('f-push-twitch').textContent = hasTwitch ? '🗓 Re-sync to Twitch' : '🗓 Push to Twitch Schedule';
-            $('f-twitch-status').textContent = hasTwitch ? '✓ Synced with Twitch Schedule' : (item.streamDate ? 'Ready to sync' : 'Set a Stream Date to sync');
+            $('f-twitch-status').textContent = hasTwitch ? `✓ Synced with Twitch Schedule (${segCount} slot${segCount === 1 ? '' : 's'})` : (item.streamDate ? 'Ready to sync' : 'Set a Stream Date to sync');
             $('f-period').value = item.period || '';
             $('f-finished').value = item.finished || '';
             $('f-tags').value = (item.tags || []).join(', ');
@@ -933,18 +998,60 @@
         $('f-stream-date').addEventListener('change', () => {
             if (editing) {
                 editing.streamDate = $('f-stream-date').value;
-                $('f-twitch-status').textContent = editing.twitchSegmentId ? '✓ Synced (re-sync needed)' : (editing.streamDate ? 'Ready to sync' : 'Set a Stream Date to sync');
+                const segCount = (editing.twitchSegmentIds?.length || (editing.twitchSegmentId ? 1 : 0));
+                $('f-twitch-status').textContent = segCount ? '✓ Synced (re-sync needed)' : (editing.streamDate ? 'Ready to sync' : 'Set a Stream Date to sync');
                 commit(true);
             }
         });
         $('f-stream-time').addEventListener('change', () => { if (editing) { editing.streamTime = $('f-stream-time').value; commit(true); } });
+        $('f-stream-recurring').addEventListener('change', () => {
+            if (editing) {
+                editing.streamRecurring = $('f-stream-recurring').checked;
+                commit(true);
+            }
+        });
+        $('f-add-date').addEventListener('click', () => {
+            if (!editing) return;
+            if (!Array.isArray(editing.streamDates)) editing.streamDates = [];
+            editing.streamDates.push({ date: '', time: editing.streamTime || '19:00', segmentId: '' });
+            paintStreamDates();
+            commit(true);
+        });
+        $('f-stream-dates-list').addEventListener('change', event => {
+            if (!editing) return;
+            const row = event.target.closest('[data-date-idx]');
+            if (!row) return;
+            const idx = parseInt(row.dataset.dateIdx, 10);
+            if (isNaN(idx) || !editing.streamDates[idx]) return;
+            if (event.target.matches('[data-extra-date]')) {
+                editing.streamDates[idx].date = event.target.value;
+                commit(true);
+            } else if (event.target.matches('[data-extra-time]')) {
+                editing.streamDates[idx].time = event.target.value;
+                commit(true);
+            }
+        });
+        $('f-stream-dates-list').addEventListener('click', event => {
+            if (!editing) return;
+            const btn = event.target.closest('[data-remove-date]');
+            if (!btn) return;
+            const row = btn.closest('[data-date-idx]');
+            if (!row) return;
+            const idx = parseInt(row.dataset.dateIdx, 10);
+            if (isNaN(idx) || !editing.streamDates[idx]) return;
+            editing.streamDates.splice(idx, 1);
+            paintStreamDates();
+            commit(true);
+        });
         $('f-push-twitch').addEventListener('click', async () => {
             if (!editing) return;
-            if (!editing.streamDate) {
-                $('f-twitch-status').textContent = '⚠️ Set a Stream Date first';
+            const hasMainDate = Boolean(editing.streamDate);
+            const hasExtraDates = Array.isArray(editing.streamDates) && editing.streamDates.some(d => Boolean(d.date));
+            if (!hasMainDate && !hasExtraDates) {
+                $('f-twitch-status').textContent = '⚠️ Set at least one Stream Date first';
                 return;
             }
-            $('f-twitch-status').textContent = 'Syncing to Twitch…';
+            $('f-twitch-status').textContent = 'Syncing to Twitch Schedule…';
             try {
                 const res = await fetch('/api/game-plan/twitch-schedule', {
                     method: 'POST',
@@ -954,9 +1061,12 @@
                 const data = await res.json();
                 if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to sync');
                 editing.twitchSegmentId = data.segment?.id || 'synced';
+                editing.twitchSegmentIds = (data.segments || []).map(s => s.id);
                 $('f-del-twitch').hidden = false;
                 $('f-push-twitch').textContent = '🗓 Re-sync to Twitch';
-                $('f-twitch-status').textContent = '✓ Successfully synced to Twitch!';
+                const count = (data.segments?.length || 1);
+                $('f-twitch-status').textContent = `✓ Successfully synced ${count} slot(s) to Twitch Schedule!`;
+                paintStreamDates();
                 commit(true);
             } catch (e) {
                 $('f-twitch-status').textContent = `⚠️ ${e.message}`;
@@ -974,9 +1084,14 @@
                 const data = await res.json();
                 if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to delete');
                 editing.twitchSegmentId = '';
+                editing.twitchSegmentIds = [];
+                if (Array.isArray(editing.streamDates)) {
+                    editing.streamDates.forEach(d => { d.segmentId = ''; });
+                }
                 $('f-del-twitch').hidden = true;
                 $('f-push-twitch').textContent = '🗓 Push to Twitch Schedule';
                 $('f-twitch-status').textContent = 'Removed from Twitch schedule.';
+                paintStreamDates();
                 commit(true);
             } catch (e) {
                 $('f-twitch-status').textContent = `⚠️ ${e.message}`;

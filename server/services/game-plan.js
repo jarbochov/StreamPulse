@@ -40,7 +40,21 @@ function normalizeGamePlan(input) {
         gameType: ['playthrough', 'one-off'].includes(item?.gameType) ? item.gameType : 'playthrough',
         streamDate: /^\d{4}-\d{2}-\d{2}$/.test(String(item?.streamDate || '')) ? item.streamDate : '',
         streamTime: /^\d{2}:\d{2}$/.test(String(item?.streamTime || '')) ? item.streamTime : '',
+        streamRecurring: item?.streamRecurring === true,
+        streamDates: Array.isArray(item?.streamDates)
+            ? item.streamDates.filter(d => d && /^\d{4}-\d{2}-\d{2}$/.test(String(typeof d === 'string' ? d : d.date))).map(d => {
+                if (typeof d === 'string') return { date: d, time: '', segmentId: '' };
+                return {
+                    date: String(d.date || ''),
+                    time: /^\d{2}:\d{2}$/.test(String(d.time || '')) ? d.time : '',
+                    segmentId: String(d.segmentId || '').trim().slice(0, 100)
+                };
+            }).slice(0, 30)
+            : [],
         twitchSegmentId: String(item?.twitchSegmentId || '').trim().slice(0, 100),
+        twitchSegmentIds: Array.isArray(item?.twitchSegmentIds)
+            ? item.twitchSegmentIds.map(s => String(s || '').trim()).filter(Boolean).slice(0, 30)
+            : (item?.twitchSegmentId ? [String(item.twitchSegmentId).trim()] : []),
         period: String(item?.period || '').trim().slice(0, 40),
         note: String(item?.note || '').trim().slice(0, 200),
         twitchCategory: String(item?.twitchCategory || '').trim().slice(0, 120),

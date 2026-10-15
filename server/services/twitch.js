@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const DEFAULT_TWITCH_CLIENT_ID = 'gbe0673k90le0942bfhw7f7ko6t865';
-const DEFAULT_TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips channel:read:polls channel:read:vips moderation:read channel:manage:schedule';
+const DEFAULT_TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips channel:read:polls channel:read:vips moderation:read channel:manage:schedule channel:manage:broadcast';
 
 function safeReturnPath(value) {
     const v = String(value || '');
@@ -312,7 +312,7 @@ function createTwitchService(options = {}) {
         return result;
     }
 
-    async function createScheduleSegment({ startTime, timezone = 'UTC', durationMinutes = 180, title = '', categoryId = '' } = {}) {
+    async function createScheduleSegment({ startTime, timezone = 'UTC', durationMinutes = 180, title = '', categoryId = '', isRecurring = false } = {}) {
         const broadcasterId = getBroadcasterId();
         if (!twitchAccessToken || !broadcasterId) {
             return { ok: false, error: 'Twitch is not connected or broadcaster ID is missing' };
@@ -320,7 +320,7 @@ function createTwitchService(options = {}) {
         const body = {
             start_time: startTime,
             timezone: timezone || 'UTC',
-            is_recurring: false,
+            is_recurring: isRecurring === true,
             duration: String(Math.min(1380, Math.max(30, Number(durationMinutes) || 180)))
         };
         if (title) body.title = String(title).slice(0, 140);
@@ -380,6 +380,81 @@ function createTwitchService(options = {}) {
             }
             return { ok: false, error: res.body?.message || `HTTP ${res.status}` };
         } catch (err) {
+            return { ok: false, error: err.message };
+        }
+    }
+
+    async function getGameCategoryByName(name) {
+        if (!name) return null;
+        const cleanName = String(name).trim();
+        if (!cleanName) return null;
+
+        // Try exact match first via /games?name=...
+        try {
+            const exact = await twitchHelixRequest('/games', {
+                method: 'GET',
+                params: { name: cleanName }
+            });
+            if (exact.status >= 200 && exact.status < 300 && Array.isArray(exact.body?.data) && exact.body.data.length > 0) {
+                return exact.body.data[0];
+            }
+        } catch (err) {
+            warn('[Twitch] /games lookup error:', err.message);
+        }
+
+        // Fall back to category search: /search/categories?query=...
+        try {
+            const search = await twitchHelixRequest('/search/categories', {
+                method: 'GET',
+                params: { query: cleanName }
+            });
+            if (search.status >= 200 && search.status < 300 && Array.isArray(search.body?.data) && search.body.data.length > 0) {
+                const lower = cleanName.toLowerCase();
+                const match = search.body.data.find(c => (c.name || '').toLowerCase() === lower) || search.body.data[0];
+                return match;
+            }
+        } catch (err) {
+            warn('[Twitch] /search/categories lookup error:', err.message);
+        }
+        return null;
+    }
+
+    async function updateChannelCategory(categoryName, gameId = null) {
+        const broadcasterId = getBroadcasterId();
+        if (!twitchAccessToken || !broadcasterId) {
+            return { ok: false, error: 'Twitch is not connected or broadcaster ID is missing' };
+        }
+
+        let resolvedGameId = gameId;
+        let resolvedName = categoryName;
+
+        if (!resolvedGameId && categoryName) {
+            const category = await getGameCategoryByName(categoryName);
+            if (category) {
+                resolvedGameId = category.id;
+                resolvedName = category.name;
+            }
+        }
+
+        if (!resolvedGameId && categoryName) {
+            return { ok: false, error: `Could not find Twitch category for "${categoryName}"` };
+        }
+
+        try {
+            const res = await twitchHelixRequest('/channels', {
+                method: 'PATCH',
+                params: { broadcaster_id: broadcasterId },
+                body: { game_id: resolvedGameId || '' }
+            });
+            if (res.status >= 200 && res.status < 300) {
+                log(`[Twitch] Updated channel category to "${resolvedName || 'None'}" (ID: ${resolvedGameId || 'none'})`);
+                return { ok: true, gameId: resolvedGameId || '', categoryName: resolvedName || '' };
+            }
+            const errMsg = res.body?.message || `Failed to update Twitch category (HTTP ${res.status})`;
+            warn('[Twitch] Update channel error:', errMsg);
+            return { ok: false, error: errMsg, status: res.status };
+        } catch (err) {
+            error('[Twitch] Update channel exception:', err.message);
             return { ok: false, error: err.message };
         }
     }
@@ -736,6 +811,8 @@ function createTwitchService(options = {}) {
         createScheduleSegment,
         deleteScheduleSegment,
         getSchedule,
+        getGameCategoryByName,
+        updateChannelCategory,
         twitchCreateClip,
         twitchCreateClipFromVod,
         getTwitchAuthenticatedUserId,
