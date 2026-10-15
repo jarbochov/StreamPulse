@@ -39,31 +39,33 @@
 
         /* Segmented Tabs */
         .tabs-nav {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
             background: var(--bg-inset);
-            padding: .3rem;
+            padding: 3px;
             border-radius: 9px;
-            gap: .25rem;
+            gap: 2px;
             margin-bottom: 1rem;
             border: 1px solid var(--border);
-            overflow-x: auto;
+            overflow: hidden;
         }
         .tab-btn {
-            flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: .35rem;
-            padding: .45rem .4rem;
+            gap: .3rem;
+            padding: .45rem .2rem;
             background: transparent;
             border: none;
             border-radius: 6px;
             color: var(--text-muted);
-            font-size: .76rem;
+            font-size: .74rem;
             font-weight: 600;
             cursor: pointer;
             transition: all .15s ease;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.03); }
         .tab-btn.active { background: var(--bg-card); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
@@ -169,8 +171,15 @@
             --stage-gradient: linear-gradient(135deg, var(--stage-accent) 0%, color-mix(in srgb, var(--stage-accent) 70%, #ec4899) 50%, color-mix(in srgb, var(--stage-accent) 50%, #f97316) 100%);
             --stage-glow: color-mix(in srgb, var(--stage-accent) 40%, transparent);
 
-            font-family: var(--overlay-font, inherit);
-            color: var(--overlay-text, var(--text));
+            --stage-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            --stage-weight: 600;
+            --stage-text: #ffffff;
+            --stage-outline: transparent;
+            --stage-outline-shadow: 0 2px 8px rgba(0,0,0,0.4);
+
+            font-family: var(--stage-font);
+            font-weight: var(--stage-weight);
+            color: var(--stage-text);
 
             display: flex;
             flex-direction: column;
@@ -257,7 +266,8 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            font-weight: 700;
+            font-family: var(--stage-font);
+            font-weight: var(--stage-weight);
             padding: 0 2.2rem;
             width: 100%;
             white-space: nowrap;
@@ -266,27 +276,25 @@
             transition: color 0.12s, transform 0.12s;
             user-select: none;
             font-size: 1.15rem;
-            color: rgba(255, 255, 255, 0.55);
+            color: color-mix(in srgb, var(--stage-text) 55%, transparent);
+            text-shadow: var(--stage-outline-shadow);
             transform: scale(0.94);
         }
         .roller-item.tertiary {
             font-size: .95rem;
-            color: rgba(255,255,255,0.25);
+            color: color-mix(in srgb, var(--stage-text) 28%, transparent);
             transform: scale(0.85);
         }
         .roller-item.secondary {
             font-size: 1.15rem;
-            color: rgba(255,255,255,0.6);
+            color: color-mix(in srgb, var(--stage-text) 65%, transparent);
             transform: scale(0.92);
         }
         .roller-item.active-winner {
             font-size: 1.6rem;
             font-weight: 800;
-            color: #fff;
-            background: linear-gradient(135deg, #fff 0%, #fed7aa 50%, var(--stage-indicator) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 24px var(--stage-glow);
+            color: var(--stage-text);
+            text-shadow: var(--stage-outline-shadow), 0 0 24px var(--stage-glow);
             transform: scale(1.06);
             z-index: 3;
         }
@@ -355,31 +363,33 @@
             100% { transform: scale(1) translateY(0); opacity: 1; }
         }
         .winner-header {
+            font-family: var(--stage-font);
             font-size: .82rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: .08em;
             color: var(--stage-indicator);
+            text-shadow: var(--stage-outline-shadow);
             margin-bottom: .35rem;
         }
         .winner-name {
+            font-family: var(--stage-font);
             font-size: 1.95rem;
-            font-weight: 900;
+            font-weight: 800;
             letter-spacing: -0.02em;
             line-height: 1.2;
-            color: #fff;
-            background: linear-gradient(135deg, #ffffff 0%, #fed7aa 40%, var(--stage-indicator) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 2px 14px var(--stage-glow));
+            color: var(--stage-text);
+            text-shadow: var(--stage-outline-shadow), 0 2px 14px var(--stage-glow);
             word-break: break-word;
             padding: 0 .5rem;
         }
         .winner-sub {
-            font-size: .8rem;
-            color: rgba(255,255,255,0.7);
+            font-family: var(--stage-font);
+            font-size: .85rem;
+            color: color-mix(in srgb, var(--stage-text) 75%, transparent);
             margin-top: .35rem;
             font-style: italic;
+            text-shadow: var(--stage-outline-shadow);
         }
 
         /* Confetti Canvas */
@@ -420,15 +430,15 @@
                             </button>
                             <button class="tab-btn" id="tab-btn-theme" type="button">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                                Overlay Theme
+                                Theme
                             </button>
                             <button class="tab-btn" id="tab-btn-buttons" type="button">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                                Button Presets
+                                Buttons
                             </button>
                             <button class="tab-btn" id="tab-btn-quotes" type="button">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                                Quote Presets
+                                Quotes
                             </button>
                             <button class="tab-btn" id="tab-btn-obs" type="button">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
@@ -976,9 +986,66 @@
             document.body.classList.add('overlay-mode');
             $('admin-ui')?.remove();
             document.body.appendChild(stageTpl.content.cloneNode(true));
-            $('display-stage').classList.add('hidden-stage');
+            const initialAutohide = params.get('autohide') !== null ? Number(params.get('autohide')) : 8;
+            if (initialAutohide !== 0 && !showOverlayButton) {
+                $('display-stage').classList.add('hidden-stage');
+            }
         } else {
             $('stage-wrapper').appendChild(stageTpl.content.cloneNode(true));
+        }
+
+        // Dynamic Web / Google Font Loader
+        const loadedFonts = new Set();
+        function ensureFontLoaded(family, importUrl = null) {
+            if (!family) return;
+            const cleanName = family.replace(/["']/g, '').trim();
+            if (!cleanName || loadedFonts.has(cleanName)) return;
+
+            if (importUrl) {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = importUrl;
+                document.head.appendChild(link);
+                loadedFonts.add(cleanName);
+            } else {
+                const isGoogle = (window.OverlayFonts && window.OverlayFonts.google && window.OverlayFonts.google.includes(cleanName)) ||
+                    cleanName === 'Jersey 20' || cleanName.includes(' ') || !['Arial', 'Helvetica', 'Georgia', 'Impact', 'Courier New', 'Trebuchet MS', 'sans-serif', 'serif', 'monospace'].includes(cleanName);
+
+                if (isGoogle) {
+                    const link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(cleanName).replace(/%20/g, '+')}:wght@300;400;500;600;700;800;900&display=swap`;
+                    document.head.appendChild(link);
+                    loadedFonts.add(cleanName);
+                }
+            }
+
+            if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(() => {
+                    renderInitialState();
+                }).catch(() => {});
+            }
+        }
+
+        // Color format sanitizer for HTML <input type="color">
+        function rgbToHex(col) {
+            if (!col) return '#ffffff';
+            col = String(col).trim();
+            if (/^#[0-9a-f]{6}$/i.test(col)) return col.toLowerCase();
+            if (/^#[0-9a-f]{3}$/i.test(col)) {
+                return `#${col[1]}${col[1]}${col[2]}${col[2]}${col[3]}${col[3]}`.toLowerCase();
+            }
+            if (/^#[0-9a-f]{8}$/i.test(col)) {
+                return col.slice(0, 7).toLowerCase();
+            }
+            const match = col.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+            if (match) {
+                const r = parseInt(match[1], 10).toString(16).padStart(2, '0');
+                const g = parseInt(match[2], 10).toString(16).padStart(2, '0');
+                const b = parseInt(match[3], 10).toString(16).padStart(2, '0');
+                return `#${r}${g}${b}`.toLowerCase();
+            }
+            return '#8b5cf6';
         }
 
         Confetti.init($('confetti-canvas'));
@@ -1089,6 +1156,7 @@
 
             const t = savedOverlayConfigTheme || {};
             let accent, indicator, gradient, glow, slices;
+            let text, font, weight, bg, outline, fontImport;
 
             if (currentTheme !== 'system' && currentTheme !== 'custom' && THEMES[currentTheme]) {
                 const preset = THEMES[currentTheme];
@@ -1097,8 +1165,35 @@
                 gradient = preset.gradient;
                 glow = preset.glow;
                 slices = [...preset.slices];
+                text = (isOverlay ? params.get('text') : $('ap-text')?.value.trim()) || '#ffffff';
+                font = (isOverlay ? params.get('font') : $('ap-font')?.value.trim()) || '';
+                weight = (isOverlay ? params.get('weight') : $('ap-weight')?.value.trim()) || '600';
+                bg = (isOverlay ? params.get('bg') : $('ap-bg')?.value.trim()) || '';
+                outline = (isOverlay ? params.get('outline') : $('ap-outline')?.value.trim()) || '';
+            } else if (currentTheme === 'system') {
+                // StreamPulse Shared Theme: pull straight from saved config theme
+                accent = (isOverlay ? params.get('accent') : null) || t.accent_color || '#8b5cf6';
+                indicator = `color-mix(in srgb, ${accent} 85%, #fff)`;
+                gradient = `linear-gradient(135deg, ${accent} 0%, color-mix(in srgb, ${accent} 70%, #ec4899) 50%, color-mix(in srgb, ${accent} 50%, #f97316) 100%)`;
+                glow = `color-mix(in srgb, ${accent} 40%, transparent)`;
+                slices = [
+                    accent,
+                    '#3b82f6',
+                    '#10b981',
+                    '#f59e0b',
+                    '#ec4899',
+                    '#06b6d4',
+                    '#f43f5e',
+                    '#eab308'
+                ];
+                text = (isOverlay ? params.get('text') : null) || t.text_color || '#ffffff';
+                font = (isOverlay ? params.get('font') : null) || t.font_family || '';
+                weight = (isOverlay ? params.get('weight') : null) || t.font_weight || '600';
+                bg = (isOverlay ? params.get('bg') : null) || t.background_color || '';
+                outline = (isOverlay ? params.get('outline') : null) || (t.text_outline === false ? 'none' : t.text_outline_color) || '';
+                fontImport = t.font_import;
             } else {
-                // System or Custom
+                // Custom Color / Appearance
                 accent = (isOverlay ? params.get('accent') : $('ap-accent')?.value.trim()) || t.accent_color || '#8b5cf6';
                 indicator = `color-mix(in srgb, ${accent} 85%, #fff)`;
                 gradient = `linear-gradient(135deg, ${accent} 0%, color-mix(in srgb, ${accent} 70%, #ec4899) 50%, color-mix(in srgb, ${accent} 50%, #f97316) 100%)`;
@@ -1113,21 +1208,31 @@
                     '#f43f5e',
                     '#eab308'
                 ];
+                text = (isOverlay ? params.get('text') : $('ap-text')?.value.trim()) || t.text_color || '#ffffff';
+                font = (isOverlay ? params.get('font') : $('ap-font')?.value.trim()) || t.font_family || '';
+                weight = (isOverlay ? params.get('weight') : $('ap-weight')?.value.trim()) || t.font_weight || '600';
+                bg = (isOverlay ? params.get('bg') : $('ap-bg')?.value.trim()) || t.background_color || '';
+                outline = (isOverlay ? params.get('outline') : $('ap-outline')?.value.trim()) || (t.text_outline === false ? 'none' : t.text_outline_color) || '';
             }
 
             currentThemeSlices = slices;
 
-            const text = (isOverlay ? params.get('text') : $('ap-text')?.value.trim()) || t.text_color || '#ffffff';
-            const font = (isOverlay ? params.get('font') : $('ap-font')?.value.trim()) || t.font_family || '';
-            const weight = (isOverlay ? params.get('weight') : $('ap-weight')?.value.trim()) || t.font_weight || '600';
-            const bg = (isOverlay ? params.get('bg') : $('ap-bg')?.value.trim()) || t.background_color || '';
-            const outline = (isOverlay ? params.get('outline') : $('ap-outline')?.value.trim()) || (t.text_outline === false ? 'none' : t.text_outline_color) || '';
+            // Load Google Font or web font
+            ensureFontLoaded(font, fontImport);
 
             // Update CSS variables on display stage
             root.style.setProperty('--stage-accent', accent);
             root.style.setProperty('--stage-indicator', indicator);
             root.style.setProperty('--stage-gradient', gradient);
             root.style.setProperty('--stage-glow', glow);
+            root.style.setProperty('--stage-font', font ? `"${font}", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif` : '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif');
+            root.style.setProperty('--stage-weight', weight || '600');
+            root.style.setProperty('--stage-text', text || '#ffffff');
+            root.style.setProperty('--stage-outline', (outline && outline !== 'none') ? outline : '');
+            root.style.setProperty('--stage-outline-shadow', (outline && outline !== 'none' && outline !== 'transparent')
+                ? `-1px -1px 0 ${outline}, 1px -1px 0 ${outline}, -1px 1px 0 ${outline}, 1px 1px 0 ${outline}, 0 2px 8px rgba(0,0,0,0.6)`
+                : '0 2px 8px rgba(0,0,0,0.4)');
+
             if (font) root.style.fontFamily = `"${font}", -apple-system, system-ui, sans-serif`;
             if (weight) root.style.fontWeight = weight;
             if (text) root.style.color = text;
@@ -1151,11 +1256,13 @@
             if (!isOverlay && !skipInputSync) {
                 if ($('theme-select')) $('theme-select').value = currentTheme;
                 if ($('ap-accent')) $('ap-accent').value = accent;
-                if ($('ap-accent-picker')) $('ap-accent-picker').value = accent.startsWith('#') && accent.length === 7 ? accent : '#8b5cf6';
-                if ($('ap-text') && !$('ap-text').value) $('ap-text').value = text;
-                if ($('ap-text-picker')) $('ap-text-picker').value = text.startsWith('#') && text.length === 7 ? text : '#ffffff';
-                if ($('ap-font') && !$('ap-font').value && font) $('ap-font').value = font;
-                if ($('ap-weight') && !$('ap-weight').value && weight) $('ap-weight').value = weight;
+                if ($('ap-accent-picker')) $('ap-accent-picker').value = rgbToHex(accent);
+                if ($('ap-text')) $('ap-text').value = text;
+                if ($('ap-text-picker')) $('ap-text-picker').value = rgbToHex(text);
+                if ($('ap-font')) $('ap-font').value = font;
+                if ($('ap-weight')) $('ap-weight').value = weight;
+                if ($('ap-bg')) $('ap-bg').value = bg;
+                if ($('ap-outline')) $('ap-outline').value = outline;
                 highlightActiveAccentChip(accent);
             }
 
@@ -1185,13 +1292,29 @@
         // Setup Overlay Spin Button Click & Hover
         const overlayBtnEl = $('overlay-spin-btn');
         if (overlayBtnEl) {
-            overlayBtnEl.onclick = () => {
+            overlayBtnEl.onclick = async () => {
                 if (!isSpinning) {
                     updateButtonLabel();
                     if (!isOverlay && $('btn-spin')) {
                         $('btn-spin').click();
                     } else {
-                        runSpin();
+                        try {
+                            const res = await fetch('/api/randomizer/spin', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    preset: currentPresetId,
+                                    choices,
+                                    mode: params.get('mode') || currentMode,
+                                    suspense: params.get('suspense') || currentSuspense,
+                                    theme: params.get('theme') || currentTheme,
+                                    autohide: params.get('autohide') !== null ? Number(params.get('autohide')) : 8
+                                })
+                            }).then(r => r.json());
+                            if (!res || !res.ok) runSpin();
+                        } catch {
+                            runSpin();
+                        }
                     }
                 }
             };
@@ -1354,7 +1477,8 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const accent = $('display-stage')?.style.getPropertyValue('--stage-accent') || '#8b5cf6';
+            const stage = $('display-stage');
+            const accent = stage?.style.getPropertyValue('--stage-accent') || '#8b5cf6';
             const colors = (currentThemeSlices && currentThemeSlices.length) ? currentThemeSlices : [
                 accent,
                 '#3b82f6',
@@ -1365,6 +1489,11 @@
                 '#f43f5e',
                 '#eab308'
             ];
+
+            const fontFam = stage?.style.getPropertyValue('--stage-font') || '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
+            const fontWeight = stage?.style.getPropertyValue('--stage-weight') || '700';
+            const textColor = stage?.style.getPropertyValue('--stage-text') || '#ffffff';
+            const textOutline = stage?.style.getPropertyValue('--stage-outline') || '';
 
             ctx.save();
             ctx.translate(cx, cy);
@@ -1386,12 +1515,24 @@
                 ctx.save();
                 ctx.rotate(start + sliceRad / 2);
                 ctx.textAlign = 'right';
-                ctx.fillStyle = '#fff';
-                ctx.font = `bold ${Math.max(12, Math.min(18, 380 / n))}px -apple-system, system-ui, sans-serif`;
+
+                const fontSize = Math.max(12, Math.min(18, 380 / n));
+                ctx.font = `${fontWeight} ${fontSize}px ${fontFam}`;
+
+                const label = list[i] || '';
+                const textX = radius - 18;
+                const textY = 5;
+
+                if (textOutline && textOutline !== 'none' && textOutline !== 'transparent') {
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = textOutline;
+                    ctx.strokeText(label.slice(0, 24), textX, textY);
+                }
+
+                ctx.fillStyle = textColor;
                 ctx.shadowColor = 'rgba(0,0,0,0.55)';
                 ctx.shadowBlur = 4;
-                const label = list[i] || '';
-                ctx.fillText(label.slice(0, 24), radius - 18, 5);
+                ctx.fillText(label.slice(0, 24), textX, textY);
                 ctx.restore();
             }
 
@@ -1407,7 +1548,8 @@
             mode = (isOverlay ? (params.get('mode') || currentMode) : $('style-select')?.value),
             suspense = (isOverlay ? (params.get('suspense') || currentSuspense) : $('suspense-select')?.value),
             theme = (isOverlay ? (params.get('theme') || currentTheme) : ($('theme-select')?.value || currentTheme)),
-            duration = (Number(isOverlay ? params.get('duration') : $('spin-duration')?.value) || 6)
+            duration = (Number(isOverlay ? params.get('duration') : $('spin-duration')?.value) || 6),
+            autohide = null
         } = {}) {
             if (isSpinning || !list.length) return;
             if (theme && theme !== currentTheme) {
@@ -1534,7 +1676,7 @@
                                                 } else {
                                                     rollerBox.classList.remove('tricky-suspense');
                                                     currentRollerIndex = winnerIdx;
-                                                    finishSpin(winner, winnerHeader, winnerSub);
+                                                    finishSpin(winner, winnerHeader, winnerSub, autohide);
                                                 }
                                             }
                                         }
@@ -1545,7 +1687,7 @@
                             }, 650);
                         } else {
                             currentRollerIndex = winnerIdx;
-                            finishSpin(winner, winnerHeader, winnerSub);
+                            finishSpin(winner, winnerHeader, winnerSub, autohide);
                         }
                     }
                 }
@@ -1615,14 +1757,14 @@
                                         if (curNudge < nudgeSteps) {
                                             setTimeout(doWheelNudge, 220);
                                         } else {
-                                            finishSpin(winner, winnerHeader, winnerSub);
+                                            finishSpin(winner, winnerHeader, winnerSub, autohide);
                                         }
                                     }
                                 }
                                 doWheelNudge();
                             }, 650);
                         } else {
-                            finishSpin(winner, winnerHeader, winnerSub);
+                            finishSpin(winner, winnerHeader, winnerSub, autohide);
                         }
                     }
                 }
@@ -1630,7 +1772,7 @@
             }
         }
 
-        function finishSpin(winner, customHeader = null, customSub = null) {
+        function finishSpin(winner, customHeader = null, customSub = null, autohideSec = null) {
             isSpinning = false;
             if ($('btn-spin')) $('btn-spin').disabled = false;
             if ($('overlay-spin-btn')) $('overlay-spin-btn').disabled = false;
@@ -1660,11 +1802,11 @@
             Confetti.burst();
 
             if (isOverlay) {
-                const autohideSec = Number(params.get('autohide') !== null ? params.get('autohide') : 8);
-                if (autohideSec > 0) {
+                const dismissSec = autohideSec !== null && autohideSec !== undefined ? Number(autohideSec) : Number(params.get('autohide') !== null ? params.get('autohide') : 8);
+                if (dismissSec > 0) {
                     autohideTimer = setTimeout(() => {
                         $('display-stage')?.classList.add('hidden-stage');
-                    }, autohideSec * 1000);
+                    }, dismissSec * 1000);
                 }
             }
         }
@@ -2209,34 +2351,30 @@
                 updateObsUrl();
             };
             $('ap-font').oninput = () => {
-                applyTheme(currentTheme, true);
+                if ($('theme-select')) $('theme-select').value = 'custom';
+                applyTheme('custom', true);
                 updateObsUrl();
             };
             $('ap-weight').onchange = () => {
-                applyTheme(currentTheme, true);
+                if ($('theme-select')) $('theme-select').value = 'custom';
+                applyTheme('custom', true);
                 updateObsUrl();
             };
             $('ap-bg').oninput = () => {
-                applyTheme(currentTheme, true);
+                if ($('theme-select')) $('theme-select').value = 'custom';
+                applyTheme('custom', true);
                 updateObsUrl();
             };
             $('ap-outline').oninput = () => {
-                applyTheme(currentTheme, true);
+                if ($('theme-select')) $('theme-select').value = 'custom';
+                applyTheme('custom', true);
                 updateObsUrl();
             };
             $('btn-reset-overlay-theme').onclick = () => {
                 if ($('theme-select')) $('theme-select').value = 'system';
-                if (savedOverlayConfigTheme) {
-                    $('ap-accent').value = savedOverlayConfigTheme.accent_color || '#8b5cf6';
-                    $('ap-text').value = savedOverlayConfigTheme.text_color || '#ffffff';
-                    $('ap-font').value = savedOverlayConfigTheme.font_family || '';
-                    $('ap-weight').value = savedOverlayConfigTheme.font_weight || '600';
-                    $('ap-bg').value = savedOverlayConfigTheme.background_color || '';
-                    $('ap-outline').value = (savedOverlayConfigTheme.text_outline === false ? 'none' : savedOverlayConfigTheme.text_outline_color) || '';
-                    applyTheme('system');
-                    updateObsUrl();
-                    toast('Reset to stream shared theme');
-                }
+                applyTheme('system');
+                updateObsUrl();
+                toast('Reset to stream shared theme');
             };
 
             const doShuffle = () => {
@@ -2326,15 +2464,17 @@
                     mode,
                     suspense,
                     theme,
-                    duration
+                    duration,
+                    autohide
                 });
 
                 // Broadcast to OBS overlay via API / WebSocket
                 try {
-                    await fetch('/api/randomizer/spin', {
+                    const res = await fetch('/api/randomizer/spin', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
+                            preset: currentPresetId,
                             choices: list,
                             winner,
                             winnerHeader: winHeader,
@@ -2344,10 +2484,20 @@
                             theme,
                             duration,
                             autohide,
-                            buttonPhrases: activeButtonPhrases
+                            buttonPhrases: activeButtonPhrases,
+                            accent: $('display-stage')?.style.getPropertyValue('--stage-accent') || '',
+                            font: $('ap-font')?.value.trim() || '',
+                            weight: $('ap-weight')?.value.trim() || '',
+                            text: $('ap-text')?.value.trim() || '',
+                            outline: $('ap-outline')?.value.trim() || ''
                         })
-                    });
-                } catch { /* offline preview */ }
+                    }).then(r => r.json());
+                    if (res && res.ok) {
+                        toast(`Spinning live on overlay: "${winner}"`);
+                    }
+                } catch {
+                    toast('Spun in preview (server broadcast offline)');
+                }
             };
 
             const doCopyObs = () => {
@@ -2419,22 +2569,34 @@
                             AudioFX.init();
                             if (d.theme) {
                                 applyTheme(d.theme, true);
-                            } else if (d.accent) {
-                                $('display-stage')?.style.setProperty('--stage-accent', d.accent);
+                            }
+                            if (d.accent) $('display-stage')?.style.setProperty('--stage-accent', d.accent);
+                            if (d.font) {
+                                ensureFontLoaded(d.font);
+                                $('display-stage')?.style.setProperty('--stage-font', `"${d.font}", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif`);
+                            }
+                            if (d.weight) $('display-stage')?.style.setProperty('--stage-weight', d.weight);
+                            if (d.text) $('display-stage')?.style.setProperty('--stage-text', d.text);
+                            if (d.outline) {
+                                $('display-stage')?.style.setProperty('--stage-outline', d.outline === 'none' ? '' : d.outline);
+                                $('display-stage')?.style.setProperty('--stage-outline-shadow', (d.outline && d.outline !== 'none')
+                                    ? `-1px -1px 0 ${d.outline}, 1px -1px 0 ${d.outline}, -1px 1px 0 ${d.outline}, 1px 1px 0 ${d.outline}, 0 2px 8px rgba(0,0,0,0.6)`
+                                    : '0 2px 8px rgba(0,0,0,0.4)');
                             }
                             if (Array.isArray(d.buttonPhrases) && d.buttonPhrases.length) {
                                 activeButtonPhrases = d.buttonPhrases;
                                 updateButtonLabel();
                             }
                             runSpin({
-                                choices: d.choices || choices,
+                                choices: (Array.isArray(d.choices) && d.choices.length) ? d.choices : choices,
                                 winner: d.winner,
                                 winnerHeader: d.winnerHeader,
                                 winnerSub: d.winnerSub,
-                                mode: isOverlay ? (params.get('mode') || d.mode) : d.mode,
+                                mode: d.mode || (isOverlay ? (params.get('mode') || currentMode) : currentMode),
                                 suspense: d.suspense || currentSuspense,
                                 theme: d.theme || currentTheme,
-                                duration: d.duration || 6
+                                duration: d.duration || 6,
+                                autohide: d.autohide
                             });
                         }
                     } catch {}

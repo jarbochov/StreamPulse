@@ -7209,6 +7209,7 @@ const server = http.createServer(async (req, res) => {
             const font = body.font || query.font || '';
 
             const payload = {
+                preset: presetId,
                 choices,
                 winner,
                 winnerHeader,
@@ -7220,6 +7221,10 @@ const server = http.createServer(async (req, res) => {
                 autohide,
                 accent,
                 font,
+                weight: body.weight || query.weight || '',
+                text: body.text || query.text || '',
+                outline: body.outline || query.outline || '',
+                bg: body.bg || query.bg || '',
                 buttonPhrases,
                 showButton: body.showButton !== undefined ? !!body.showButton : (query.button === '1'),
                 buttonText: body.buttonText || query.btnText || '',
