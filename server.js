@@ -54,6 +54,7 @@ const { createCrmService } = require('./server/services/crm');
 const { createCrmRoutes } = require('./server/routes/crm');
 const { createSystemRoutes } = require('./server/routes/system');
 const { createHighlightsRoutes } = require('./server/routes/highlights');
+const { createBackupRoutes } = require('./server/routes/backup');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -2718,6 +2719,62 @@ const handleHighlightsRoutes = createHighlightsRoutes({
     localDateTimeStr
 });
 
+function handleRestoreReload({ previousConfig }) {
+    try {
+        if (fs.existsSync(STATS_PATH)) {
+            statsData = JSON.parse(fs.readFileSync(STATS_PATH, 'utf8'));
+            console.log('[Restore] Reloaded stats data');
+        }
+    } catch (err) { console.warn('[Restore] Stats reload failed:', err.message); }
+
+    try {
+        if (fs.existsSync(BANNED_HASHTAGS_PATH)) {
+            bannedHashtags = new Set(JSON.parse(fs.readFileSync(BANNED_HASHTAGS_PATH, 'utf8')));
+            console.log('[Restore] Reloaded banned hashtags');
+        }
+    } catch { /* ignore */ }
+
+    let restartFields = [];
+    try {
+        if (fs.existsSync(CONFIG_PATH)) {
+            const restoredConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+            restartFields = getRestartRequiredConfigChanges(previousConfig, restoredConfig);
+            applyRuntimeConfig(restoredConfig);
+            console.log('[Restore] Reloaded config');
+        }
+    } catch { /* ignore */ }
+
+    loadHighlights();
+    loadClipCandidates();
+    loadTimers();
+    loadCustomOverlays();
+    loadCurrentSessionStateFromDisk();
+    broadcastToOverlays('update', chatData);
+    broadcastToOverlays('timers-snapshot', buildTimersSnapshot());
+
+    return { restartFields };
+}
+
+const handleBackupRoutes = createBackupRoutes({
+    rootDir: __dirname,
+    configPath: CONFIG_PATH,
+    backupsDir: BACKUPS_DIR,
+    sessionsDir: SESSIONS_DIR,
+    customOverlayAssetsDir: CUSTOM_OVERLAY_ASSETS_DIR,
+    customOverlayHistoryDir: CUSTOM_OVERLAY_HISTORY_DIR,
+    getBackupFileSpecs,
+    listShareItems,
+    buildShareZip,
+    openShareZip,
+    importShareZip,
+    onRestore: handleRestoreReload,
+    getConfig: () => config,
+    getCustomOverlays: () => customOverlays,
+    getOverlayPresets: () => overlayPresets,
+    sanitizeOverlayId,
+    shareSingles: SHARE_SINGLES
+});
+
 const server = http.createServer(async (req, res) => {
     try {
         const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -2783,251 +2840,7 @@ const server = http.createServer(async (req, res) => {
 
 
 
-    // ========================================================================
-    // BACKUP / RESTORE
-    // ========================================================================
-
-    // List auto-backups
-    if (pathname === '/api/backups' && req.method === 'GET') {
-        try {
-            if (!fs.existsSync(BACKUPS_DIR)) {
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ backups: [] }));
-                return;
-            }
-            const files = fs.readdirSync(BACKUPS_DIR)
-                .filter(f => f.endsWith('.zip'))
-                .sort().reverse();
-            const backups = files.map(f => {
-                const stat = fs.statSync(path.join(BACKUPS_DIR, f));
-                return { name: f, size: stat.size, created: stat.mtime.toISOString() };
-            });
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ backups }));
-        } catch (err) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
-
-    // Download a specific auto-backup
-    if (pathname.startsWith('/api/backups/') && req.method === 'GET') {
-        const filename = decodeURIComponent(pathname.slice('/api/backups/'.length));
-        if (!filename || filename.includes('..') || filename.includes('/')) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Invalid filename' }));
-            return;
-        }
-        const filePath = path.join(BACKUPS_DIR, filename);
-        if (!filePath.startsWith(BACKUPS_DIR) || !fs.existsSync(filePath)) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Backup not found' }));
-            return;
-        }
-        const stat = fs.statSync(filePath);
-        res.writeHead(200, {
-            'Content-Type': 'application/zip',
-            'Content-Disposition': `attachment; filename="${filename}"`,
-            'Content-Length': stat.size
-        });
-        fs.createReadStream(filePath).pipe(res);
-        return;
-    }
-
-    if (pathname === '/api/backup' && (req.method === 'GET' || req.method === 'HEAD')) {
-        const now = new Date();
-        const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-        const filename = `streampulse-backup-${dateStr}.zip`;
-
-        res.writeHead(200, {
-            'Content-Type': 'application/zip',
-            'Content-Disposition': `attachment; filename="${filename}"`
-        });
-
-        if (req.method === 'HEAD') {
-            res.end();
-            return;
-        }
-
-        const archive = new ZipArchive({ zlib: { level: 9 } });
-        archive.pipe(res);
-
-        for (const f of getBackupFileSpecs()) {
-            if (fs.existsSync(f.src)) {
-                archive.file(f.src, { name: f.dest });
-            }
-        }
-
-        if (fs.existsSync(SESSIONS_DIR)) {
-            archive.directory(SESSIONS_DIR, 'data/sessions');
-        }
-        if (fs.existsSync(CUSTOM_OVERLAY_ASSETS_DIR)) {
-            archive.directory(CUSTOM_OVERLAY_ASSETS_DIR, 'data/custom-overlay-assets');
-        }
-        if (fs.existsSync(CUSTOM_OVERLAY_HISTORY_DIR)) {
-            archive.directory(CUSTOM_OVERLAY_HISTORY_DIR, 'data/custom-overlay-history');
-        }
-
-        archive.finalize();
-        return;
-    }
-
-        if (pathname === '/api/share/items' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(listShareItems()));
-        return;
-    }
-
-    if (pathname === '/api/share/export' && req.method === 'POST') {
-        try {
-            const body = JSON.parse(await readRequestBody(req) || '{}');
-            const selection = (Array.isArray(body.items) ? body.items : []).map(entry => {
-                const [type, ...rest] = String(entry).split(':');
-                return { type, id: rest.join(':') };
-            });
-            const { buffer, count } = buildShareZip(selection, !!body.includeHistory);
-            if (!count) throw new Error('Nothing selected to export');
-            const stamp = new Date().toISOString().slice(0, 10);
-            res.writeHead(200, {
-                'Content-Type': 'application/zip',
-                'Content-Disposition': `attachment; filename="streampulse-share-${stamp}.zip"`,
-                'Content-Length': buffer.length
-            });
-            res.end(buffer);
-        } catch (err) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
-
-    if (pathname === '/api/share/inspect' && req.method === 'POST') {
-        try {
-            const { manifest } = openShareZip(await readBinaryBody(req));
-            const items = (manifest.items || []).map(item => ({
-                ...item,
-                exists: item.type === 'overlay' ? !!customOverlays[sanitizeOverlayId(item.id)]
-                    : item.type === 'preset' ? overlayPresets.some(p => p.id === item.id)
-                    : !!SHARE_SINGLES[item.type] && fs.existsSync(SHARE_SINGLES[item.type].path())
-            }));
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ items }));
-        } catch (err) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
-
-    if (pathname === '/api/share/import' && req.method === 'POST') {
-        try {
-            const selected = (url.searchParams.get('items') || '').split(',').filter(Boolean);
-            const conflict = ['replace', 'copy', 'skip'].includes(url.searchParams.get('conflict')) ? url.searchParams.get('conflict') : 'copy';
-            const results = importShareZip(await readBinaryBody(req), selected, conflict);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ results }));
-        } catch (err) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-    }
-
-if (pathname === '/api/restore' && req.method === 'POST') {
-        const chunks = [];
-        req.on('data', chunk => chunks.push(chunk));
-        req.on('end', () => {
-            try {
-                const previousConfig = cloneJson(config);
-                const buffer = Buffer.concat(chunks);
-                const zip = new AdmZip(buffer);
-                const entries = zip.getEntries();
-
-                // Validate: must have at least stats.json
-                const hasStats = entries.some(e => e.entryName === 'data/stats.json' || e.entryName === 'stats.json');
-                if (!hasStats) {
-                    res.writeHead(400, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: 'Invalid backup: missing stats.json' }));
-                    return;
-                }
-
-                let restored = [];
-                for (const entry of entries) {
-                    if (entry.isDirectory) continue;
-                    const name = entry.entryName;
-                    let destPath;
-
-                    if (name === 'config.json') {
-                        destPath = CONFIG_PATH;
-                    } else if (name.startsWith('data/')) {
-                        destPath = path.join(__dirname, name);
-                    } else {
-                        continue;
-                    }
-
-                    // Security check
-                    if (!destPath.startsWith(__dirname)) continue;
-
-                    const dir = path.dirname(destPath);
-                    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                    fs.writeFileSync(destPath, entry.getData());
-                    restored.push(name);
-                }
-
-                // Reload in-memory data
-                try {
-                    if (fs.existsSync(STATS_PATH)) {
-                        statsData = JSON.parse(fs.readFileSync(STATS_PATH, 'utf8'));
-                        console.log('[Restore] Reloaded stats data');
-                    }
-                } catch (err) { console.warn('[Restore] Stats reload failed:', err.message); }
-
-                try {
-                    if (fs.existsSync(BANNED_HASHTAGS_PATH)) {
-                        bannedHashtags = new Set(JSON.parse(fs.readFileSync(BANNED_HASHTAGS_PATH, 'utf8')));
-                        console.log('[Restore] Reloaded banned hashtags');
-                    }
-                } catch { /* ignore */ }
-
-                let restartFields = [];
-                try {
-                    if (fs.existsSync(CONFIG_PATH)) {
-                        const restoredConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-                        restartFields = getRestartRequiredConfigChanges(previousConfig, restoredConfig);
-                        applyRuntimeConfig(restoredConfig);
-                        console.log('[Restore] Reloaded config');
-                    }
-                } catch { /* ignore */ }
-
-                loadHighlights();
-                loadClipCandidates();
-                loadTimers();
-                loadCustomOverlays();
-                loadCurrentSessionStateFromDisk();
-                broadcastToOverlays('update', chatData);
-                broadcastToOverlays('timers-snapshot', buildTimersSnapshot());
-
-                console.log(`[Restore] Restored ${restored.length} files`);
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({
-                    status: 'restored',
-                    files: restored.length,
-                    restored,
-                    restartRequired: restartFields.length > 0,
-                    restartFields,
-                    message: restartFields.length > 0
-                        ? 'Restore completed. Restart StreamPulse to apply restored connection and startup settings.'
-                        : 'Restore completed and in-memory data reloaded.'
-                }));
-            } catch (err) {
-                console.error('[Restore] Error:', err.message);
-                res.writeHead(500, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: `Restore failed: ${err.message}` }));
-            }
-        });
-        return;
-    }
+    if (await handleBackupRoutes(req, res, url, pathname)) return;
 
     if (await handleHighlightsRoutes(req, res, url, pathname)) return;
 

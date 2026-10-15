@@ -46,8 +46,27 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
+async function readBinaryBody(req, limit = 600 * 1024 * 1024) {
+    return await new Promise((resolve, reject) => {
+        const chunks = [];
+        let size = 0;
+        req.on('data', chunk => {
+            size += chunk.length;
+            if (size > limit) {
+                req.destroy();
+                reject(new Error('Payload too large'));
+                return;
+            }
+            chunks.push(chunk);
+        });
+        req.on('end', () => resolve(Buffer.concat(chunks)));
+        req.on('error', reject);
+    });
+}
+
 module.exports = {
     readRequestBody,
+    readBinaryBody,
     sendJson,
     sendText,
     sendError,
