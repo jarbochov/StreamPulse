@@ -45,6 +45,7 @@ const { createOverlayWsServer } = require('./server/ws');
 const { createTimersRoutes } = require('./server/routes/timers');
 const { createGoalsRoutes } = require('./server/routes/goals');
 const { createMusicRoutes } = require('./server/routes/music');
+const { createWeatherRoutes } = require('./server/routes/weather');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -1831,6 +1832,10 @@ const weatherService = createWeatherService({
 const fetchWeather = () => weatherService.fetchWeather();
 const publicWeather = () => weatherService.publicWeather();
 const scheduleWeather = () => weatherService.scheduleWeather();
+const handleWeatherRoutes = createWeatherRoutes({
+    weatherService,
+    getConfig: () => config
+});
 
 // ============================================================================
 // MUSIC NOW-PLAYING
@@ -4637,19 +4642,7 @@ const server = http.createServer(async (req, res) => {
 
     if (await handleTimersRoutes(req, res, pathname)) return;
 
-    if (pathname === '/api/weather') {
-        if (url.searchParams.get('refresh') === '1' && normalizeWeatherConfig(config.weather).enabled) await fetchWeather();
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-        res.end(JSON.stringify(publicWeather()));
-        return;
-    }
-
-    if (pathname === '/api/weather/icon.svg') {
-        const icon = String(url.searchParams.get('e') || '🌡️').replace(/[<>&"']/g, '').slice(0, 8);
-        res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-store' });
-        res.end(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="50" font-size="80" text-anchor="middle" dominant-baseline="central">${icon}</text></svg>`);
-        return;
-    }
+    if (await handleWeatherRoutes(req, res, url, pathname)) return;
 
     if (pathname === '/api/game-plan/backfill' && req.method === 'POST') {
         try {
