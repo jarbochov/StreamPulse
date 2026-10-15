@@ -151,19 +151,32 @@ server.listen(PORT, async () => {
             console.log(`✓ ${mod} section has BETA badge in summary heading`);
         }
 
-        // Verify inputs
-        const chatbotEnabled = await page.$eval('#cfg-chatbot-enabled', el => el.checked);
-        const musicEnabled = await page.$eval('#cfg-music-enabled', el => el.checked);
-        const clipsEnabled = await page.$eval('#cfg-clips-enabled', el => el.checked);
-        console.log(`Current toggles in UI: chatbot = ${chatbotEnabled}, music = ${musicEnabled}, clips = ${clipsEnabled}`);
+        // Verify that setting checkbox labels DO NOT have duplicate beta tags
+        const checkboxLabelsHaveBeta = await page.evaluate(() => {
+            const labels = [
+                document.querySelector('label[for="cfg-chatbot-enabled"]'),
+                document.querySelector('label[for="cfg-music-enabled"]'),
+                document.querySelector('label[for="cfg-clips-enabled"]')
+            ];
+            return labels.some(l => !!l?.querySelector('.beta-tag'));
+        });
+        if (checkboxLabelsHaveBeta) throw new Error('Duplicate beta-tag found on setting checkbox labels! Only title should have it.');
+        console.log('✓ Setting checkbox labels have NO duplicate beta tags (only on title)');
 
-        // Verify Music Settings link is in the navbar even though music is DISABLED
-        const musicSettingsInNav = await page.evaluate(() => {
+        // Initial state: config has music.enabled = false, clips.enabled = false
+        const musicInNavWhenDisabled = await page.evaluate(() => {
             const links = [...document.querySelectorAll('#main-nav a')];
             return links.some(a => a.textContent.includes('Music Settings'));
         });
-        if (!musicSettingsInNav) throw new Error('Music Settings was hidden in navbar while music is disabled! Lockout bug reproduced.');
-        console.log('✓ Music Settings is VISIBLE in navbar even though music.enabled = false (No Lockout!)');
+        if (musicInNavWhenDisabled) throw new Error('Music Settings was STILL present in navbar while music is disabled! Modularity failed.');
+        console.log('✓ Music Settings is correctly HIDDEN from navbar when music is disabled');
+
+        const clipsInNavWhenDisabled = await page.evaluate(() => {
+            const links = [...document.querySelectorAll('#main-nav a')];
+            return links.some(a => a.textContent.includes('Clips'));
+        });
+        if (clipsInNavWhenDisabled) throw new Error('Clips was STILL present in navbar while clips is disabled! Modularity failed.');
+        console.log('✓ Clips is correctly HIDDEN from navbar when clips is disabled');
 
         // Open details to make Chat Bot, Music, and Clip Detection visible
         await page.evaluate(() => {
@@ -181,7 +194,7 @@ server.listen(PORT, async () => {
         await page.$eval('#cfg-clips-enabled', el => { el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); });
 
         // Save
-        console.log('Saving config in UI...');
+        console.log('Saving config in UI with all modules enabled...');
         await page.click('#top-save-config');
         await page.waitForSelector('.toast.show', { timeout: 3000 });
         console.log('✓ Saved successfully from UI!');
@@ -191,6 +204,34 @@ server.listen(PORT, async () => {
         if (config.music.enabled !== true) throw new Error('Music was not enabled in config!');
         if (config.clip_candidates.enabled !== true) throw new Error('Clip Detection was not enabled in config!');
         console.log('✓ Server config now has chatbot_enabled = true, music.enabled = true, clip_candidates.enabled = true');
+
+        // Verify Music Settings and Clips NOW appear in navbar
+        const musicInNavWhenEnabled = await page.evaluate(() => {
+            const links = [...document.querySelectorAll('#main-nav a')];
+            return links.some(a => a.textContent.includes('Music Settings'));
+        });
+        if (!musicInNavWhenEnabled) throw new Error('Music Settings did not appear in navbar after enabling!');
+        console.log('✓ Music Settings correctly APPEARS in navbar after enabling');
+
+        const clipsInNavWhenEnabled = await page.evaluate(() => {
+            const links = [...document.querySelectorAll('#main-nav a')];
+            return links.some(a => a.textContent.includes('Clips'));
+        });
+        if (!clipsInNavWhenEnabled) throw new Error('Clips did not appear in navbar after enabling!');
+        console.log('✓ Clips correctly APPEARS in navbar after enabling');
+
+        // Now toggle music back off in UI and save
+        console.log('Toggling music back off in UI and saving...');
+        await page.$eval('#cfg-music-enabled', el => { el.checked = false; el.dispatchEvent(new Event('change', { bubbles: true })); });
+        await page.click('#top-save-config');
+        await new Promise(r => setTimeout(r, 600));
+
+        const musicInNavAfterDisable = await page.evaluate(() => {
+            const links = [...document.querySelectorAll('#main-nav a')];
+            return links.some(a => a.textContent.includes('Music Settings'));
+        });
+        if (musicInNavAfterDisable) throw new Error('Music Settings remained in navbar after being disabled!');
+        console.log('✓ Music Settings correctly DISAPPEARS from navbar immediately when disabled!');
 
         // Scroll to Chat Bot section and screenshot
         await page.evaluate(() => {
