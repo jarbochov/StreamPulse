@@ -69,7 +69,7 @@
             .credits-order-badges { margin-left: 0; }
         }
 
-    .beta-tag { font-size: .65rem; padding: .05rem .4rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); letter-spacing: .05em; }
+    .beta-tag { font-size: .65rem; padding: .08rem .45rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); letter-spacing: .05em; font-weight: 600; vertical-align: middle; margin-left: 0.35rem; display: inline-block; line-height: 1.2; }
     </style>
 </head>
 <body>
@@ -500,10 +500,6 @@
                 <label for="cfg-hashtags-enabled">Enable hashtag tracking</label>
             </div>
             <div class="cfg-toggle">
-                <input type="checkbox" id="cfg-chatbot-enabled" ${cfg.chatbot_enabled !== false ? 'checked' : ''}>
-                <label for="cfg-chatbot-enabled">Enable chat bot <span class="beta-tag">BETA</span></label>
-            </div>
-            <div class="cfg-toggle">
                 <input type="checkbox" id="cfg-chatlog-enabled" ${cfg.chat_log_enabled !== false ? 'checked' : ''}>
                 <label for="cfg-chatlog-enabled">Enable chat log capture</label>
             </div>
@@ -675,6 +671,16 @@
             <p class="hint" style="margin:0 0 0.4rem;">Extra cities use their name in placeholders, e.g. <code>{{weather.tokyo.temp}}</code>. The placeholder picker lists them once weather is on.</p>
             <p class="hint" id="cfg-wx-status" style="margin:0 0 0.5rem;">Use the <code>{{weather.*}}</code> placeholders in the Custom Overlay Editor, or add the Weather card preset.</p>
 
+            <div class="cfg-section">Chat Bot</div>
+            <div class="cfg-toggle">
+                <input type="checkbox" id="cfg-chatbot-enabled" ${cfg.chatbot_enabled !== false ? 'checked' : ''}>
+                <label for="cfg-chatbot-enabled">Enable chat bot <span class="beta-tag">BETA</span></label>
+            </div>
+            <div class="cfg-row" style="align-items:center;margin-top:0.4rem;">
+                <span style="color:var(--text-muted);font-size:0.85rem;flex:1;">Automated chat replies, custom commands, quotes, and timed messages live in the Chat Bot tool.</span>
+                <a class="btn" href="/chatbot.html" style="width:auto;text-decoration:none;">Open Chat Bot →</a>
+            </div>
+
             <div class="cfg-section">Music</div>
             <div class="cfg-toggle">
                 <input type="checkbox" id="cfg-music-enabled" ${music.enabled === true ? 'checked' : ''}>
@@ -749,6 +755,7 @@
             <button class="btn wide" onclick="saveConfig()" style="margin-top: 0.5rem;">💾 Save Config</button>
         `;
 
+        const betaSections = new Set(['Chat Bot', 'Music', 'Clip Detection']);
         const detailsStorageKey = `streampulse:${editorSection === 'credits' ? 'credits' : 'config'}:open-sections`;
         const openDetails = JSON.parse(localStorage.getItem(detailsStorageKey) || '{}');
         el.querySelectorAll('.cfg-section').forEach(section => {
@@ -768,13 +775,16 @@
                 'Session Lifecycle': 'Auto start and end sessions from Twitch live status.',
                 'Viewer Tracking': 'How viewer counts are sampled and labelled.',
                 Weather: 'Current weather and temperatures via Open-Meteo.',
+                'Chat Bot': 'Automated chat responses, custom commands, quotes, and timers.',
                 Music: 'Now-playing song details, album art, and player overlay.',
                 'Clip Detection': 'Automatic clip candidates from chat spikes and stream events.',
                 Connection: 'Twitch, SocialStream and server details (read-only).',
                 'Connection Settings': 'SocialStream session and Twitch polling. Needs a restart.',
                 'Rate Limiting': 'Limit API reads and mutation requests.'
             };
-            summary.innerHTML = `${section.textContent.trim()}<small>${descriptions[section.textContent.trim()] || ''}</small>`;
+            const isBeta = betaSections.has(group);
+            const betaTag = isBeta ? ' <span class="beta-tag">BETA</span>' : '';
+            summary.innerHTML = `${group}${betaTag}<small>${descriptions[group] || ''}</small>`;
             details.appendChild(summary);
             details.addEventListener('toggle', () => {
                 openDetails[group] = details.open;
@@ -792,7 +802,7 @@
 
         const creditGroups = ['Credits Header', 'Fade Card Layout', 'Sections', 'Custom Credit Sections', 'Special Thanks Names', 'Closing', 'Social Links'];
         const hiddenGroups = editorSection === 'credits'
-            ? ['General', 'Session Lifecycle', 'Viewer Tracking', 'Weather', 'Music', 'Clip Detection', 'Connection', 'Connection Settings', 'Rate Limiting']
+            ? ['General', 'Session Lifecycle', 'Viewer Tracking', 'Weather', 'Chat Bot', 'Music', 'Clip Detection', 'Connection', 'Connection Settings', 'Rate Limiting']
             : creditGroups;
         el.querySelectorAll('.cfg-section').forEach(section => {
             const group = section.textContent.trim();

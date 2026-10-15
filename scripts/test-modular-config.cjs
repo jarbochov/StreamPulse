@@ -133,25 +133,29 @@ server.listen(PORT, async () => {
         // Wait for details sections
         await page.waitForSelector('#config-editor details');
 
-        // Check if Music section and Clip Detection section exist
-        const hasMusicSection = await page.evaluate(() => {
-            const headings = [...document.querySelectorAll('#config-editor .cfg-section')];
-            return headings.some(h => h.textContent.trim() === 'Music');
+        // Check if Chat Bot, Music section and Clip Detection section exist and have BETA tags
+        const betaSummaryTags = await page.evaluate(() => {
+            const results = {};
+            document.querySelectorAll('#config-editor details summary').forEach(s => {
+                const text = s.childNodes[0]?.textContent?.trim() || '';
+                const hasTag = !!s.querySelector('.beta-tag');
+                if (['Chat Bot', 'Music', 'Clip Detection'].includes(text)) {
+                    results[text] = hasTag;
+                }
+            });
+            return results;
         });
-        if (!hasMusicSection) throw new Error('Music section missing in config-editor.html');
-        console.log('✓ Music section exists in config-editor.html');
 
-        const hasClipsSection = await page.evaluate(() => {
-            const headings = [...document.querySelectorAll('#config-editor .cfg-section')];
-            return headings.some(h => h.textContent.trim() === 'Clip Detection');
-        });
-        if (!hasClipsSection) throw new Error('Clip Detection section missing in config-editor.html');
-        console.log('✓ Clip Detection section exists in config-editor.html');
+        for (const mod of ['Chat Bot', 'Music', 'Clip Detection']) {
+            if (!betaSummaryTags[mod]) throw new Error(`Summary for ${mod} is missing BETA tag! Got: ${JSON.stringify(betaSummaryTags)}`);
+            console.log(`✓ ${mod} section has BETA badge in summary heading`);
+        }
 
         // Verify inputs
+        const chatbotEnabled = await page.$eval('#cfg-chatbot-enabled', el => el.checked);
         const musicEnabled = await page.$eval('#cfg-music-enabled', el => el.checked);
         const clipsEnabled = await page.$eval('#cfg-clips-enabled', el => el.checked);
-        console.log(`Current toggles in UI: music.enabled = ${musicEnabled}, clips.enabled = ${clipsEnabled}`);
+        console.log(`Current toggles in UI: chatbot = ${chatbotEnabled}, music = ${musicEnabled}, clips = ${clipsEnabled}`);
 
         // Verify Music Settings link is in the navbar even though music is DISABLED
         const musicSettingsInNav = await page.evaluate(() => {
@@ -161,17 +165,18 @@ server.listen(PORT, async () => {
         if (!musicSettingsInNav) throw new Error('Music Settings was hidden in navbar while music is disabled! Lockout bug reproduced.');
         console.log('✓ Music Settings is VISIBLE in navbar even though music.enabled = false (No Lockout!)');
 
-        // Open details to make Music and Clip Detection visible
+        // Open details to make Chat Bot, Music, and Clip Detection visible
         await page.evaluate(() => {
             document.querySelectorAll('#config-editor details').forEach(d => {
                 const title = d.querySelector('summary')?.textContent || '';
-                if (title.includes('Music') || title.includes('Clip Detection')) {
+                if (title.includes('Chat Bot') || title.includes('Music') || title.includes('Clip Detection')) {
                     d.open = true;
                 }
             });
         });
 
-        // Toggle both on
+        // Toggle on
+        await page.$eval('#cfg-chatbot-enabled', el => { el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); });
         await page.$eval('#cfg-music-enabled', el => { el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); });
         await page.$eval('#cfg-clips-enabled', el => { el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); });
 
@@ -182,16 +187,16 @@ server.listen(PORT, async () => {
         console.log('✓ Saved successfully from UI!');
 
         // Verify server config was updated
+        if (config.chatbot_enabled !== true) throw new Error('Chat Bot was not enabled in config!');
         if (config.music.enabled !== true) throw new Error('Music was not enabled in config!');
         if (config.clip_candidates.enabled !== true) throw new Error('Clip Detection was not enabled in config!');
-        console.log('✓ Server config now has music.enabled = true and clip_candidates.enabled = true');
+        console.log('✓ Server config now has chatbot_enabled = true, music.enabled = true, clip_candidates.enabled = true');
 
-        // Scroll to Music section and screenshot
+        // Scroll to Chat Bot section and screenshot
         await page.evaluate(() => {
             document.querySelectorAll('#config-editor details').forEach(d => {
                 const title = d.querySelector('summary')?.textContent || '';
-                if (title.includes('Music') || title.includes('Clip Detection')) {
-                    d.open = true;
+                if (title.includes('Chat Bot')) {
                     d.scrollIntoView({ behavior: 'instant', block: 'start' });
                 }
             });
