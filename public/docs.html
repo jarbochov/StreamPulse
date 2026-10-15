@@ -147,6 +147,12 @@
             custom: true
         },
         {
+            id: 'directory-routing',
+            group: 'Getting Started',
+            title: 'Directory Layout & URLs',
+            custom: true
+        },
+        {
             id: 'url-params',
             group: 'Overlays & Features',
             title: 'URL Parameters',
@@ -286,6 +292,18 @@
             custom: true
         },
         {
+            id: 'chatbot',
+            group: 'Overlays & Features',
+            title: 'Chat Bot & Variables (Beta)',
+            custom: true
+        },
+        {
+            id: 'community-crm',
+            group: 'Overlays & Features',
+            title: 'Community CRM & Milestones',
+            custom: true
+        },
+        {
             id: 'config',
             group: 'Configuration & Data',
             title: 'config.json Reference',
@@ -341,6 +359,8 @@
                 {
                     name: 'Chat, Backups & Limits',
                     items: [
+                        { param: 'chatbot_enabled', type: 'boolean', default: 'true', desc: 'Master toggle for chat bot commands, quotes, and timed messages. When false, the bot stops listening and the feature is dynamically hidden from navigation.', hot: true },
+                        { param: 'clip_candidates.enabled', type: 'boolean', default: 'true', desc: 'Enable automated clip candidate detection from chat spikes and notable events.', hot: true },
                         { param: 'hashtags_enabled', type: 'boolean', default: 'true', desc: 'Track hashtags from chat.', hot: true },
                         { param: 'chat_log_enabled', type: 'boolean', default: 'true', desc: 'Keep the per-session chat log.', hot: true },
                         { param: 'banned_users', type: 'array', default: '[]', desc: 'Usernames completely hidden from everything.', hot: true },
@@ -1175,6 +1195,142 @@
                         </table>
                     </div>
                 </div>`;
+
+            case 'directory-routing': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Semantic Frontend Structure</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        Files in <code>public/</code> are organized into dedicated semantic directories:
+                        <br><br>
+                        • <strong><code>/overlays/</code></strong> — OBS browser sources (e.g. <code>credits.html</code>, <code>music.html</code>, <code>goal.html</code>, <code>viewers.html</code>, <code>countdown.html</code>, <code>stopwatch.html</code>, <code>hashtags.html</code>, <code>stats.html</code>, <code>game-plan.html</code>)<br>
+                        • <strong><code>/editors/</code></strong> — Interactive studio controllers and configuration editors (e.g. <code>credits-editor.html</code>, <code>theme-editor.html</code>, <code>randomizer-editor.html</code>, <code>timers-editor.html</code>, <code>goals-editor.html</code>, <code>game-plan-editor.html</code>, <code>music-editor.html</code>, <code>assets.html</code>)<br>
+                        • <strong><code>/wizards/</code></strong> — Parameterized URL builders for OBS browser sources (e.g. <code>overlay-url-wizard.html</code>, <code>timer-url-wizard.html</code>, <code>music-url-wizard.html</code>, <code>game-plan-url-wizard.html</code>, <code>milestone-url-wizard.html</code>)<br>
+                        • <strong><code>/tools/</code></strong> — Production, bot, and alert utilities (e.g. <code>chatbot.html</code>, <code>alerts.html</code>, <code>alert-queue.html</code>, <code>placeholders.html</code>, <code>manage-hashtags.html</code>, <code>commands.html</code>)<br>
+                        • <strong><code>/library/</code></strong> — Historical sessions, analytics, and content logs (e.g. <code>sessions.html</code>, <code>highlights.html</code>, <code>clips.html</code>, <code>categories.html</code>, <code>analytics.html</code>, <code>hashtag-stats.html</code>)<br>
+                        • <strong><code>/system/</code></strong> — Core system management (e.g. <code>config-editor.html</code>, <code>twitch-connect.html</code>, <code>backup.html</code>, <code>update.html</code>, <code>overlays.html</code>)<br>
+                        • <strong><code>/css/</code></strong> and <strong><code>/js/</code></strong> — Shared styles and scripts (e.g. <code>admin.css</code>, <code>nav.js</code>, <code>appearance.js</code>, <code>overlay-shared.js</code>)
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">100% Backward-Compatible URLs</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        The built-in cascading static router in <code>server/static-router.js</code> resolves both clean root paths and organized directory paths with zero redirects and zero latency overhead:
+                        <br><br>
+                        • <code>${BASE}/credits.html</code> and <code>${BASE}/overlays/credits.html</code> load identically<br>
+                        • <code>${BASE}/chatbot.html</code> and <code>${BASE}/tools/chatbot.html</code> load identically<br>
+                        • <code>${BASE}/config-editor.html</code> and <code>${BASE}/system/config-editor.html</code> load identically<br>
+                        <br>
+                        Existing OBS browser sources, Bitfocus Companion buttons, and browser bookmarks never break.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Modular Features Framework</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        StreamPulse allows streamers to disable features they do not use (such as Chat Bot, Hashtags, Clips, Weather, or Music) directly in the <a href="/config-editor.html" style="color:var(--accent);">Config Editor</a>.
+                        <br><br>
+                        When a module is disabled:
+                        <br>
+                        • The background services pause and reject commands or polling.<br>
+                        • Navigation links for the disabled module are dynamically removed from the top navigation bar.<br>
+                        • Quick jump search results in the Command Palette (<strong>⌘K</strong>) automatically hide the disabled tool.<br>
+                        • Changes take effect immediately across all open tabs when you hit <em>Save Config</em> without requiring a server restart or full page reload.
+                    </div>
+                </div>
+            </div>`;
+
+            case 'chatbot': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Chat Bot Overview</strong>
+                    <span class="badge hot">Beta</span>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        The integrated Chat Bot runs entirely locally and sends replies to your live stream via SocialStream Ninja. It supports custom commands, quotes, timed interval messages, word triggers, and custom counter/list variables.
+                        <br><br>
+                        Configure commands and quotes in the <a href="/chatbot.html" style="color:var(--accent);">Chat Bot Tool</a>, view a public viewer command reference at <a href="/commands.html" style="color:var(--accent);">Chat Commands Cheat Sheet</a>, and manage custom variables at <a href="/placeholders.html" style="color:var(--accent);">Placeholders &amp; Variables</a>.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Commands &amp; Permissions</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        Each command supports:
+                        <br>
+                        • <strong>Triggers &amp; Aliases:</strong> Prefix-based commands (e.g. <code>!discord</code>, <code>!specs</code>, <code>!lurk</code>) or alias words.<br>
+                        • <strong>Cooldowns:</strong> Global cooldown (seconds) and per-user cooldowns to prevent chat spam.<br>
+                        • <strong>Access Control:</strong> Everyone, Subscribers only, or Moderators/Broadcaster only.<br>
+                        • <strong>Positional Tokens:</strong> <code>{{user}}</code> (command caller), <code>{{target}}</code> (optional first argument username), <code>{{1}}</code>, <code>{{2}}</code>, <code>{{args}}</code> (full parameter text), and <code>$(touser)</code>.<br>
+                        • <strong>Dynamic Variables:</strong> Insert live values like <code>{{now|h:mm A}}</code>, <code>{{weather.temp}}</code>, or custom user variables like <code>{{var.death_counter}}</code>.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Quotes &amp; Timed Messages</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        • <strong>Quotes:</strong> Viewers or mods can trigger <code>!quote</code> for a random quote, <code>!quote 12</code> for a specific quote, or <code>!addquote "funny moment"</code> to add one on the fly. Quotes can also be imported or exported as JSON.<br>
+                        • <strong>Timed Messages:</strong> Automated chat messages posted on a recurring interval (e.g. every 15 minutes, or hourly) with optional chat line thresholds so bot messages don't post to quiet chats.<br>
+                        • <strong>Auto-Shoutout on Raids:</strong> Automatically sends a welcome shoutout and Twitch channel link when incoming raids arrive.
+                    </div>
+                </div>
+            </div>`;
+
+            case 'community-crm': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Community CRM &amp; Chatter Dossiers</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        StreamPulse aggregates your community history across all streamed sessions. Click any username in <a href="/sessions.html" style="color:var(--accent);">Sessions</a>, <a href="/highlights.html" style="color:var(--accent);">Highlights</a>, or the <a href="/analytics.html#crm" style="color:var(--accent);">Community CRM</a> to open their full dossier:
+                        <br><br>
+                        • <strong>Lifetime Activity:</strong> Total messages, stream attendance count, first seen and last seen dates.<br>
+                        • <strong>Twitch Support:</strong> Subscriber tenure, gifted subs given, bits cheered, and incoming raids led.<br>
+                        • <strong>Favorite Content:</strong> Top stream categories and games watched across your broadcasts.<br>
+                        • <strong>Streamer Notes &amp; Tags:</strong> Save private notes (e.g. real name, birthdays, stream preferences) and custom tags (e.g. VIP, Artist, Regular) saved locally in <code>data/chatter-notes.json</code>.
+                    </div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Stream Milestones &amp; Streaks</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        Track long-term broadcasting achievements in <a href="/analytics.html#milestones" style="color:var(--accent);">Analytics &amp; Community</a>:
+                        <br><br>
+                        • <strong>Lifetime Broadcasts:</strong> Total stream sessions count (e.g. <em>Stream #100</em>) and total broadcast hours.<br>
+                        • <strong>Streaks:</strong> Current and best daily and weekly streaming streaks.<br>
+                        • <strong>Community Reach:</strong> Unique chatters across all time and lifetime messages recorded.<br>
+                        • <strong>Overlay Integration:</strong> Display these live on stream using placeholders like <code>{{milestone.stream_number}}</code>, <code>{{milestone.total_hours}}</code>, and <code>{{milestone.streak_days}}</code> or via the <a href="/milestone-url-wizard.html" style="color:var(--accent);">Milestone URL Wizard</a>.
+                    </div>
+                </div>
+            </div>`;
 
             default: return '';
         }

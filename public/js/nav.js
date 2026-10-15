@@ -55,6 +55,23 @@
     `;
     document.head.appendChild(style);
 
+    const MODULE_STORAGE_KEY = 'streampulse:modules';
+    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true };
+    try {
+        const cached = localStorage.getItem(MODULE_STORAGE_KEY);
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && typeof parsed === 'object') {
+                moduleState = Object.assign(moduleState, parsed);
+            }
+        }
+    } catch (e) {}
+
+    function isModuleActive(mod) {
+        if (!mod) return true;
+        return moduleState[mod] !== false;
+    }
+
     const nav = [
         { label: 'Dashboard', href: '/dashboard.html' },
         { label: 'Overlays ▾', children: [
@@ -68,28 +85,28 @@
             { label: 'Timers Studio', href: '/timers-editor.html' },
             { label: 'Goals Manager', href: '/goals-editor.html' },
             { label: 'Game Plan Manager', href: '/game-plan-editor.html' },
-            { label: 'Music Settings', href: '/music-editor.html' },
+            { label: 'Music Settings', href: '/music-editor.html', module: 'music' },
             { label: 'Overlay Assets', href: '/assets.html' },
             { heading: 'URL Wizards' },
             { label: 'Credits, Goals & Stats', href: '/overlay-url-wizard.html' },
             { label: 'Timers', href: '/timer-url-wizard.html' },
-            { label: 'Music', href: '/music-url-wizard.html' },
+            { label: 'Music', href: '/music-url-wizard.html', module: 'music' },
             { label: 'Game Plan', href: '/game-plan-url-wizard.html' },
             { label: 'Milestones', href: '/milestone-url-wizard.html' }
         ]},
         { label: 'Tools ▾', children: [
-            { label: 'Chat Bot', href: '/chatbot.html' },
+            { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
             { label: 'Alerts & SFX', href: '/alerts.html' },
             { label: 'Placeholders & Variables', href: '/placeholders.html' },
-            { label: 'Hashtag Tools', href: '/manage-hashtags.html' }
+            { label: 'Hashtag Tools', href: '/manage-hashtags.html', module: 'hashtags' }
         ]},
         { label: 'Library ▾', children: [
             { label: 'Highlights', href: '/highlights.html' },
-            { label: 'Clips', href: '/clips.html' },
+            { label: 'Clips', href: '/clips.html', module: 'clips' },
             { label: 'Sessions', href: '/sessions.html?session=__current__' },
             { label: 'Categories', href: '/categories.html' },
             { label: 'Analytics & Community', href: '/analytics.html' },
-            { label: 'Hashtag Stats', href: '/hashtag-stats.html' }
+            { label: 'Hashtag Stats', href: '/hashtag-stats.html', module: 'hashtags' }
         ]},
         { label: 'System ▾', children: [
             { label: 'Config', href: '/config-editor.html' },
@@ -144,21 +161,21 @@
         list.push({ label: 'Timers Studio', href: '/timers-editor.html', group: 'Editors & Studios' });
         list.push({ label: 'Goals Manager', href: '/goals-editor.html', group: 'Editors & Studios' });
         list.push({ label: 'Game Plan Manager', href: '/game-plan-editor.html', group: 'Editors & Studios' });
-        list.push({ label: 'Music Settings', href: '/music-editor.html', group: 'Editors & Studios' });
+        list.push({ label: 'Music Settings', href: '/music-editor.html', group: 'Editors & Studios', module: 'music' });
         list.push({ label: 'Overlay Assets', href: '/assets.html', group: 'Editors & Studios' });
 
         // 3. Stream Tools & Automation
-        list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools' });
+        list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
         list.push({ label: 'Alerts & SFX', href: '/alerts.html', group: 'Stream Tools' });
         list.push({ label: 'Placeholders & Variables', href: '/placeholders.html', group: 'Stream Tools' });
-        list.push({ label: 'Hashtag Tools', href: '/manage-hashtags.html', group: 'Stream Tools' });
-        list.push({ label: 'Chat Commands Cheat Sheet', href: '/commands.html', group: 'Stream Tools' });
+        list.push({ label: 'Hashtag Tools', href: '/manage-hashtags.html', group: 'Stream Tools', module: 'hashtags' });
+        list.push({ label: 'Chat Commands Cheat Sheet', href: '/commands.html', group: 'Stream Tools', module: 'chatbot' });
         list.push({ label: 'Alert Queue Monitor', href: '/alert-queue.html', group: 'Stream Tools' });
 
         // 4. URL Wizards (OBS Parameterized Source Generators)
         list.push({ label: 'Credits, Goals & Stats Wizard', href: '/overlay-url-wizard.html', group: 'URL Wizards (OBS)' });
         list.push({ label: 'Timers Wizard', href: '/timer-url-wizard.html', group: 'URL Wizards (OBS)' });
-        list.push({ label: 'Music Wizard', href: '/music-url-wizard.html', group: 'URL Wizards (OBS)' });
+        list.push({ label: 'Music Wizard', href: '/music-url-wizard.html', group: 'URL Wizards (OBS)', module: 'music' });
         list.push({ label: 'Game Plan Wizard', href: '/game-plan-url-wizard.html', group: 'URL Wizards (OBS)' });
         list.push({ label: 'Milestones Wizard', href: '/milestone-url-wizard.html', group: 'URL Wizards (OBS)' });
 
@@ -180,9 +197,9 @@
         list.push({ label: 'Subscribers & Growth', href: '/analytics.html#growth', group: 'Library & Analytics' });
         list.push({ label: 'Sessions', href: '/sessions.html?session=__current__', group: 'Library & Analytics' });
         list.push({ label: 'Highlights', href: '/highlights.html', group: 'Library & Analytics' });
-        list.push({ label: 'Clips', href: '/clips.html', group: 'Library & Analytics' });
+        list.push({ label: 'Clips', href: '/clips.html', group: 'Library & Analytics', module: 'clips' });
         list.push({ label: 'Categories', href: '/categories.html', group: 'Library & Analytics' });
-        list.push({ label: 'Hashtag Stats', href: '/hashtag-stats.html', group: 'Library & Analytics' });
+        list.push({ label: 'Hashtag Stats', href: '/hashtag-stats.html', group: 'Library & Analytics', module: 'hashtags' });
 
         // 8. Documentation & API
         list.push({ label: 'Documentation', href: '/docs.html', group: 'Reference' });
@@ -295,12 +312,14 @@
     function renderPaletteResults(query) {
         if (!paletteResults) return;
 
+        const activeSearchItems = allSearchItems.filter(item => isModuleActive(item.module));
+
         let filtered = [];
         if (!query) {
-            filtered = allSearchItems;
+            filtered = activeSearchItems;
         } else {
             const scored = [];
-            for (const item of allSearchItems) {
+            for (const item of activeSearchItems) {
                 const s = scoreItem(item, query);
                 if (s > 0) {
                     scored.push({ item, score: s });
@@ -388,6 +407,62 @@
         }
     }
 
+    let lastStatusData = null;
+
+    function renderNavStatusPills() {
+        if (!lastStatusData) return;
+        const data = lastStatusData;
+        const isLive = !!data.viewers?.live;
+        const viewers = data.viewers?.current || 0;
+        const hasTwitch = !!data.twitch?.hasToken;
+        const ssnConnected = !!data.ssn?.connected;
+        const ssnHasSession = !!data.ssn?.session;
+
+        const healthParts = [
+            isLive ? `Stream: LIVE (${viewers.toLocaleString()} viewers)` : 'Stream: Offline',
+            hasTwitch ? 'Twitch: Connected' : 'Twitch: Not connected',
+            ssnConnected ? `SocialStream: Connected (${(data.ssn?.messages || 0).toLocaleString()} msgs)` : (ssnHasSession ? 'SocialStream: Disconnected' : 'SocialStream: Not configured')
+        ];
+        const healthSummary = healthParts.join(' · ') + ' — Click for Dashboard';
+
+        const livePill = document.getElementById('nav-live-indicator');
+        if (livePill) {
+            livePill.style.display = 'inline-flex';
+            if (isLive) {
+                livePill.className = 'nav-status-pill live';
+                livePill.querySelector('.label').textContent = `LIVE · ${viewers.toLocaleString()}`;
+            } else {
+                livePill.className = 'nav-status-pill';
+                livePill.querySelector('.label').textContent = 'Offline';
+            }
+            livePill.title = healthSummary;
+        }
+
+        const twitchPill = document.getElementById('nav-twitch-indicator');
+        if (twitchPill) {
+            if (hasTwitch) {
+                twitchPill.style.display = 'none';
+            } else {
+                twitchPill.style.display = 'inline-flex';
+                twitchPill.className = 'nav-status-pill warn';
+                twitchPill.querySelector('.label').textContent = 'Twitch Offline';
+                twitchPill.title = 'Twitch is not connected — Click to connect';
+            }
+        }
+
+        const ssnPill = document.getElementById('nav-ssn-indicator');
+        if (ssnPill) {
+            if (ssnConnected) {
+                ssnPill.style.display = 'none';
+            } else {
+                ssnPill.style.display = 'inline-flex';
+                ssnPill.className = 'nav-status-pill warn';
+                ssnPill.querySelector('.label').textContent = ssnHasSession ? 'SocialStream Offline' : 'SocialStream Setup';
+                ssnPill.title = ssnHasSession ? 'SocialStream disconnected — Click to configure' : 'SocialStream not configured — Click to configure';
+            }
+        }
+    }
+
     function buildNav() {
         const container = document.getElementById('main-nav');
         if (!container) return;
@@ -395,11 +470,33 @@
         let html = '';
         for (const item of nav) {
             if (item.children) {
-                const anyActive = item.children.some(c => !c.heading && isActive(c.href));
+                // Filter items by module active state
+                const visible = item.children.filter(c => c.heading || isModuleActive(c.module));
+
+                // Clean up orphan headings (headings that have no visible items before next heading or end)
+                const cleaned = [];
+                for (let i = 0; i < visible.length; i++) {
+                    const child = visible[i];
+                    if (child.heading) {
+                        let hasItem = false;
+                        for (let j = i + 1; j < visible.length; j++) {
+                            if (visible[j].heading) break;
+                            hasItem = true;
+                            break;
+                        }
+                        if (hasItem) cleaned.push(child);
+                    } else {
+                        cleaned.push(child);
+                    }
+                }
+
+                if (!cleaned.some(c => !c.heading)) continue;
+
+                const anyActive = cleaned.some(c => !c.heading && isActive(c.href));
                 html += `<div class="dropdown">`;
                 html += `<a href="#" class="dropdown-toggle${anyActive ? ' active' : ''}" role="button" aria-haspopup="true" aria-expanded="false">${item.label}</a>`;
                 html += `<div class="dropdown-menu">`;
-                for (const child of item.children) {
+                for (const child of cleaned) {
                     if (child.heading) { html += `<div class="menu-heading">${child.heading}</div>`; continue; }
                     const active = isActive(child.href) ? ' class="active"' : '';
                     const target = child.target ? ` target="${child.target}" rel="noopener"` : '';
@@ -408,6 +505,7 @@
                 }
                 html += `</div></div>`;
             } else {
+                if (!isModuleActive(item.module)) continue;
                 const active = isActive(item.href) ? ' class="active"' : '';
                 html += `<a href="${item.href}"${active}>${item.label}</a>`;
             }
@@ -446,93 +544,105 @@
             });
         });
 
-        // Close dropdowns on outside click
-        document.addEventListener('click', event => {
-            if (!event.target.closest('.nav .dropdown')) {
-                document.querySelectorAll('.nav .dropdown.open').forEach(d => {
-                    d.classList.remove('open');
-                    d.querySelector('.dropdown-toggle')?.setAttribute('aria-expanded', 'false');
-                });
-            }
-        });
-
         // Theme toggle logic
         const toggle = document.getElementById('nav-theme-toggle');
         const ap = window.StreamPulseAppearance;
         if (toggle && ap) {
             const paint = () => { toggle.textContent = document.documentElement.dataset.theme === 'light' ? '🌙' : '☀️'; };
             toggle.addEventListener('click', event => { event.preventDefault(); ap.save({ mode: document.documentElement.dataset.theme === 'light' ? 'dark' : 'light' }); paint(); });
-            window.addEventListener('streampulse:appearance', paint);
             paint();
         }
 
-        // Live stream & integration status indicators polling
-        function updateNavStatus() {
-            fetch('/api/status').then(r => r.json()).then(data => {
-                // Live status
-                const isLive = !!data.viewers?.live;
-                const viewers = data.viewers?.current || 0;
-                const hasTwitch = !!data.twitch?.hasToken;
-                const ssnConnected = !!data.ssn?.connected;
-                const ssnHasSession = !!data.ssn?.session;
-
-                // Health summary for tooltip
-                const healthParts = [
-                    isLive ? `Stream: LIVE (${viewers.toLocaleString()} viewers)` : 'Stream: Offline',
-                    hasTwitch ? 'Twitch: Connected' : 'Twitch: Not connected',
-                    ssnConnected ? `SocialStream: Connected (${(data.ssn?.messages || 0).toLocaleString()} msgs)` : (ssnHasSession ? 'SocialStream: Disconnected' : 'SocialStream: Not configured')
-                ];
-                const healthSummary = healthParts.join(' · ') + ' — Click for Dashboard';
-
-                // Live stream pill (always shown, defaults to online/offline)
-                const livePill = document.getElementById('nav-live-indicator');
-                if (livePill) {
-                    livePill.style.display = 'inline-flex';
-                    if (isLive) {
-                        livePill.className = 'nav-status-pill live';
-                        livePill.querySelector('.label').textContent = `LIVE · ${viewers.toLocaleString()}`;
-                    } else {
-                        livePill.className = 'nav-status-pill';
-                        livePill.querySelector('.label').textContent = 'Offline';
-                    }
-                    livePill.title = healthSummary;
-                }
-
-                // Twitch status pill: only show if disconnected/action needed
-                const twitchPill = document.getElementById('nav-twitch-indicator');
-                if (twitchPill) {
-                    if (hasTwitch) {
-                        twitchPill.style.display = 'none';
-                    } else {
-                        twitchPill.style.display = 'inline-flex';
-                        twitchPill.className = 'nav-status-pill warn';
-                        twitchPill.querySelector('.label').textContent = 'Twitch Offline';
-                        twitchPill.title = 'Twitch is not connected — Click to connect';
-                    }
-                }
-
-                // SocialStream status pill: only show if disconnected/action needed
-                const ssnPill = document.getElementById('nav-ssn-indicator');
-                if (ssnPill) {
-                    if (ssnConnected) {
-                        ssnPill.style.display = 'none';
-                    } else {
-                        ssnPill.style.display = 'inline-flex';
-                        ssnPill.className = 'nav-status-pill warn';
-                        ssnPill.querySelector('.label').textContent = ssnHasSession ? 'SocialStream Offline' : 'SocialStream Setup';
-                        ssnPill.title = ssnHasSession ? 'SocialStream disconnected — Click to configure' : 'SocialStream not configured — Click to configure';
-                    }
-                }
-            }).catch(() => {});
-        }
-        updateNavStatus();
-        setInterval(() => { if (!document.hidden) updateNavStatus(); }, 15000);
+        renderNavStatusPills();
     }
 
+    // Close dropdowns on outside click (registered once)
+    document.addEventListener('click', event => {
+        if (!event.target.closest('.nav .dropdown')) {
+            document.querySelectorAll('.nav .dropdown.open').forEach(d => {
+                d.classList.remove('open');
+                d.querySelector('.dropdown-toggle')?.setAttribute('aria-expanded', 'false');
+            });
+        }
+    });
+
+    // Theme appearance sync (registered once)
+    window.addEventListener('streampulse:appearance', () => {
+        const toggle = document.getElementById('nav-theme-toggle');
+        if (toggle) toggle.textContent = document.documentElement.dataset.theme === 'light' ? '🌙' : '☀️';
+    });
+
+    // Live stream & integration status indicators polling
+    function updateNavStatus() {
+        fetch('/api/status').then(r => r.json()).then(data => {
+            lastStatusData = data;
+            renderNavStatusPills();
+
+            if (data.modules && typeof data.modules === 'object') {
+                let changed = false;
+                for (const [k, v] of Object.entries(data.modules)) {
+                    if (moduleState[k] !== v) {
+                        moduleState[k] = v;
+                        changed = true;
+                    }
+                }
+                if (changed) {
+                    try { localStorage.setItem(MODULE_STORAGE_KEY, JSON.stringify(moduleState)); } catch (e) {}
+                    buildNav();
+                    if (paletteBackdrop?.classList.contains('open')) {
+                        renderPaletteResults(paletteInput ? paletteInput.value.trim().toLowerCase() : '');
+                    }
+                }
+            }
+        }).catch(() => {});
+    }
+
+    // Instant update when Config Editor saves without page reload
+    window.addEventListener('streampulse:config-saved', event => {
+        if (event.detail && typeof event.detail === 'object') {
+            let changed = false;
+            if (event.detail.chatbot_enabled !== undefined && moduleState.chatbot !== (event.detail.chatbot_enabled !== false)) {
+                moduleState.chatbot = event.detail.chatbot_enabled !== false;
+                changed = true;
+            }
+            if (event.detail.hashtags_enabled !== undefined && moduleState.hashtags !== (event.detail.hashtags_enabled !== false)) {
+                moduleState.hashtags = event.detail.hashtags_enabled !== false;
+                changed = true;
+            }
+            if (changed) {
+                try { localStorage.setItem(MODULE_STORAGE_KEY, JSON.stringify(moduleState)); } catch (err) {}
+                buildNav();
+                if (paletteBackdrop?.classList.contains('open')) {
+                    renderPaletteResults(paletteInput ? paletteInput.value.trim().toLowerCase() : '');
+                }
+            }
+        }
+        updateNavStatus();
+    });
+
+    // Multi-tab synchronization
+    window.addEventListener('storage', event => {
+        if (event.key === MODULE_STORAGE_KEY && event.newValue) {
+            try {
+                const parsed = JSON.parse(event.newValue);
+                if (parsed && typeof parsed === 'object') {
+                    moduleState = Object.assign(moduleState, parsed);
+                    buildNav();
+                    if (paletteBackdrop?.classList.contains('open')) {
+                        renderPaletteResults(paletteInput ? paletteInput.value.trim().toLowerCase() : '');
+                    }
+                }
+            } catch (err) {}
+        }
+    });
+
+    setInterval(() => { if (!document.hidden) updateNavStatus(); }, 15000);
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => { buildNav(); initCommandPalette(); });
+        document.addEventListener('DOMContentLoaded', () => { buildNav(); initCommandPalette(); updateNavStatus(); });
     } else {
         buildNav();
         initCommandPalette();
+        updateNavStatus();
     }
 })();

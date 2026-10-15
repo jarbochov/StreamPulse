@@ -1186,6 +1186,7 @@
             if (data.status === 'saved') {
                 isDirty = false;
                 if (data.restartRequired) showRestartNotice(); else showToast('Config saved and applied!');
+                window.dispatchEvent(new CustomEvent('streampulse:config-saved', { detail: cfg }));
                 setTimeout(showWeatherStatus, 3000);
             } else {
                 showToast(data.error || 'Save failed');

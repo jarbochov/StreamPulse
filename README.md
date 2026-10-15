@@ -439,46 +439,54 @@ A dedicated module with StreamPulse actions, feedbacks and variables is availabl
 
 Data is saved to disk every 5 seconds and on graceful shutdown (Ctrl+C).
 
-## File Structure
+## Project Architecture & Directory Structure
 
 ```
 streampulse/
-├── server.js              # Unified server (HTTP + WebSocket + SSN + Twitch)
-├── config.json            # Your config and credentials (git-ignored)
-├── config.example.json    # Template config
-├── credits.html/css/js    # Credits overlay (OBS browser source)
-├── stats.html             # Stats overlay (OBS browser source)
-├── hashtags.html          # Hashtag overlay (OBS browser source)
-├── goal.html              # Goal overlay (single or rotating cycle)
-├── music.html             # Music "Now Playing" overlay (OBS browser source)
-├── countdown.html         # Countdown overlay (OBS browser source)
-├── stopwatch.html         # Stopwatch overlay (OBS browser source)
-├── alerts.js              # Alert engine (rules, queue, gift batching)
-├── game-plan.js           # Game Plan normalizer and helpers (pure, no server state)
-├── admin.css              # Shared admin palette (dark/light)
-├── appearance.js          # Light/dark mode and accent color
-├── alerts.html            # Alerts manager
-├── alert-queue.html       # Event queue / replay (OBS dock)
-├── goals-editor.html      # Goals manager + viewer tracking settings
-├── game-plan-editor.html  # Game Plan lists (scheduled / backlog / played / custom)
-├── music-editor.html      # Music overlay customization
-├── music-url-wizard.html  # Music URL builder
-├── timers-editor.html     # Named timer manager
-├── timer-url-wizard.html  # Timer overlay URL builder
-├── dashboard.html         # Dashboard UI
-├── sessions.html          # Session history + chat logs
-├── highlights.html        # Highlights viewer
-├── clips.html             # Beta clip candidates and Twitch clip links
-├── categories.html        # Stream categories viewer
-├── config-editor.html     # Live config editor
-├── backup.html            # Backup & restore
-├── hashtag-stats.html     # Hashtag stats admin page
-├── manage-hashtags.html   # Hashtag moderation
-├── api.html               # API reference
-├── docs.html              # Documentation
-├── nav.js                 # Shared navigation
-├── rebuild-session.js     # Utility: rebuild session from JSONL
-└── data/                  # Generated data (git-ignored)
+├── server.js                  # Application entry point & service wiring
+├── config.json                # User configuration & credentials (git-ignored)
+├── config.example.json        # Template configuration
+├── server/
+│   ├── static-router.js       # Zero-redirect cascading static router
+│   ├── ws.js                  # Overlay WebSocket live push server
+│   ├── routes/                # Modular API route controllers
+│   │   ├── system.js          # Config, health, updates, rate limits
+│   │   ├── session.js         # Session lifecycle, chat logs, resets
+│   │   ├── overlays.js        # Custom overlays, assets, presets, sharing
+│   │   ├── twitch.js          # Twitch OAuth, device code, polls, clips
+│   │   ├── crm.js             # Community CRM & chatter dossiers
+│   │   ├── highlights.js      # Pinned highlights & exports (TXT/TSV/PDF)
+│   │   ├── timers.js          # Countdown & stopwatch HTTP control
+│   │   ├── goals.js           # Goal targets, cycling & toggle
+│   │   ├── game-plan.js       # Game Plan schedule & advance
+│   │   ├── music.js           # Music status, artwork, visibility
+│   │   ├── weather.js         # Open-Meteo forecast placeholders
+│   │   └── backup.js          # ZIP backup & restore
+│   └── services/              # Domain services
+│       ├── alerts.js          # Alert engine (queue, triggers, sounds)
+│       ├── chatbot.js         # Chat Bot (commands, quotes, timed msgs)
+│       ├── crm.js             # Community dossiers & private notes
+│       ├── game-plan.js       # IGDB catalog & stream schedule
+│       ├── goals.js           # Goal calculation & rotation
+│       ├── music.js           # Apple Music, Spotify & VLC poller
+│       ├── session.js         # Session archiving & JSONL logs
+│       ├── ssn.js             # SocialStream Ninja WebSocket client
+│       ├── timers.js          # Named timer persistence & actions
+│       ├── twitch.js          # Twitch API client & token refresh
+│       ├── variables.js       # Custom variables & counters
+│       ├── viewers.js         # Viewer sampling & tracking
+│       └── weather.js         # Weather fetcher & caching
+├── public/                    # Frontend assets & interfaces
+│   ├── overlays/              # OBS browser source displays
+│   ├── editors/               # Studio controllers & configuration editors
+│   ├── wizards/               # OBS URL generators with interactive options
+│   ├── tools/                 # Production tools (Chatbot, Alerts, Variables)
+│   ├── library/               # History, archives, and analytics
+│   ├── system/                # Settings, Twitch connect, backups, hub
+│   ├── css/                   # Shared stylesheets (admin.css)
+│   └── js/                    # Client scripts (nav.js, appearance.js)
+├── scripts/                   # CLI utilities and routing tests
+└── data/                      # Generated database & logs (git-ignored)
 ```
 
 ## Troubleshooting
@@ -527,6 +535,35 @@ Frontend files are organized into semantic directories under `public/`:
 
 ### Backward Compatibility & Cascading Routing
 All URLs are **100% backward-compatible**. Existing OBS browser sources, bookmarks, and Stream Deck integrations using flat root paths (e.g. `http://localhost:3000/music.html` or `http://localhost:3000/credits.html`) continue to resolve seamlessly with zero redirects and zero latency overhead. The built-in cascading static router in `server/static-router.js` automatically resolves both root paths and structured subfolder paths (`http://localhost:3000/overlays/music.html`).
+
+### Modular Features Framework
+StreamPulse supports granular modular toggles in the [Config Editor](http://localhost:3000/config-editor.html) for non-essential features:
+- **Chat Bot** (`chatbot_enabled`)
+- **Clip Candidates** (`clip_candidates.enabled`)
+- **Hashtag Tracking** (`hashtags_enabled`)
+- **Weather Placeholders** (`weather.enabled`)
+- **Music Now Playing** (`music.enabled`)
+
+When a feature is disabled in configuration:
+1. Associated background pollers, listeners, and mutation APIs pause operations.
+2. Navigation links are dynamically pruned from the shared top navigation bar.
+3. Quick Jump entries in the Command Palette (**⌘K**) are automatically filtered out.
+4. Updates synchronize instantly across all open browser tabs without full page reloads.
+
+## Developer Setup & Verification
+
+StreamPulse includes an automated test and linting suite to guarantee code quality and routing integrity:
+
+```bash
+# Run ESLint code quality checks and Node.js syntax checks across all server files
+npm test
+
+# Run ESLint directly
+npm run lint
+
+# Verify all root and categorized static routes against a running server
+node scripts/test-static-routes.cjs
+```
 
 ## Security
 

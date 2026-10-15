@@ -119,7 +119,7 @@
         <div class="intro">
             Base URL: <code id="base-url"></code>
             — All endpoints return JSON unless noted. Use these URLs directly in
-            <strong>Bitfocus Companion</strong> Generic HTTP module actions.
+            <strong>Bitfocus Companion</strong> Generic HTTP module actions. Pages support both clean root paths and categorized directory paths (<code>/overlays/</code>, <code>/editors/</code>, <code>/wizards/</code>, <code>/tools/</code>, <code>/library/</code>, <code>/system/</code>) with full backward compatibility.
         </div>
 
         <div class="layout">
@@ -148,9 +148,9 @@
             items: [
                 {
                     method: 'GET', path: '/api/status',
-                    desc: 'Server health, connections, session stats, hourly volume',
+                    desc: 'Server health, connections, session stats, hourly volume, and module states',
                     companion: true,
-                    details: 'Returns uptime, SSN connection state, Twitch token status, overlay client count, session counters, sessionActive flag, and hourly message volume data.'
+                    details: 'Returns uptime, SSN connection state, Twitch token status, overlay client count, session counters, sessionActive flag, hourly message volume data, and active feature modules (chatbot, clips, weather, music, hashtags).'
                 },
                 {
                     method: 'GET', path: '/api/start-session',
@@ -657,13 +657,68 @@
                 {
                     method: 'GET', path: '/api/chatbot',
                     desc: 'Get chat bot configuration, commands, and quotes',
-                    details: 'Returns { enabled, ssnConfigured, settings, commands, quotes, messages, triggers }.'
+                    details: 'Returns { enabled, moduleEnabled, botActive, ssnConfigured, settings, commands, quotes, messages, triggers }.'
                 },
                 {
                     method: 'PUT', path: '/api/chatbot',
                     desc: 'Update chat bot settings, commands, triggers, or messages',
                     details: 'Saves updated settings, custom commands, timed messages, and word triggers.',
                     body: '{ "settings": { "prefix": "!", "tag": "[BOT]", "cooldown": 5 }, "commands": [...] }'
+                },
+                {
+                    method: 'POST', path: '/api/chatbot/enabled',
+                    desc: 'Toggle or set bot active state',
+                    companion: true,
+                    details: 'Enables or disables live bot response to chat commands. Requires chatbot to be enabled in Config Editor (returns 400 if disabled in config).',
+                    body: '{ "action": "toggle" }'
+                },
+                {
+                    method: 'GET', path: '/api/chatbot/activity',
+                    desc: 'Get recent command executions and audit activity',
+                    details: 'Returns { enabled, moduleEnabled, seq, activity: [...] } with recent executions, chatter names, command kinds, and timestamps.'
+                },
+                {
+                    method: 'GET', path: '/api/chatbot/placeholders',
+                    desc: 'List supported placeholder tokens for bot messages',
+                    details: 'Returns reference map of available placeholders including user tokens ({{user}}, {{target}}), positional args ({{1}}, {{args}}), and system variables.'
+                },
+                {
+                    method: 'GET', path: '/api/chatbot/usage',
+                    desc: 'Get command execution and cooldown usage stats',
+                    details: 'Returns invocation counts and per-user timestamps for commands.'
+                },
+                {
+                    method: 'POST', path: '/api/chatbot/usage/reset',
+                    desc: 'Reset command usage or cooldowns',
+                    details: 'Clears cooldowns for all commands or a specific command/user. Body: {"key": "command_name", "user": "optional_username"}.',
+                    body: '{ "key": "shoutout" }'
+                },
+                {
+                    method: 'GET', path: '/api/chatbot/export',
+                    desc: 'Export bot configuration and quotes',
+                    details: 'Downloads full chatbot settings, commands, quotes, triggers, and timed messages as JSON.'
+                },
+                {
+                    method: 'POST', path: '/api/chatbot/import',
+                    desc: 'Import bot configuration and quotes',
+                    details: 'Restores chatbot configuration JSON (merges or overwrites settings, commands, quotes, and timed messages).'
+                },
+                {
+                    method: 'POST', path: '/api/chatbot/quotes',
+                    desc: 'Add a new quote',
+                    details: 'Adds a quote to data/quotes.json. Body: {"text": "Quote text", "user": "Quoted person", "date": "optional date"}.',
+                    body: '{ "text": "GG WP", "user": "Streamer" }'
+                },
+                {
+                    method: 'POST', path: '/api/chatbot/quotes/import',
+                    desc: 'Bulk import quotes',
+                    details: 'Imports a list of quotes. Body: {"quotes": [{"text": "...", "user": "..."}]}.'
+                },
+                {
+                    method: 'POST', path: '/api/chatbot/test-shoutout',
+                    desc: 'Preview and test auto-shoutout format',
+                    details: 'Tests shoutout template formatting for a specific user and viewer count without sending to chat. Body: {"user": "raider_name", "viewers": 15}.',
+                    body: '{ "user": "raider_name", "viewers": 15 }'
                 },
                 {
                     method: 'POST', path: '/api/chatbot/send',

@@ -2641,6 +2641,13 @@ function buildStatusSnapshot() {
             count: backupFiles.length,
             latest: backupFiles[0] || null
         },
+        modules: {
+            chatbot: config.chatbot_enabled !== false,
+            clips: config.clip_candidates?.enabled !== false,
+            weather: config.weather?.enabled !== false,
+            music: !!MUSIC_CONFIG.enabled,
+            hashtags: config.hashtags_enabled !== false
+        },
         overlayClients: overlayClients.size,
         sessionActive,
         lifecycle: getLifecycleStatus(),
