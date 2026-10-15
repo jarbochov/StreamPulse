@@ -5151,6 +5151,7 @@ function processChatMessage(msg) {
             if (CLIP_CANDIDATE_CONFIG.enabled && CLIP_CANDIDATE_CONFIG.include_raids && raidViewers >= CLIP_CANDIDATE_CONFIG.minimum_raid_viewers) {
                 addClipCandidate('raid', { user: chatname, viewers: raidViewers || null }, Date.now(), 0.8);
             }
+            chatbot.handleRaid({ user: chatname, viewers: raidViewers, avatar: msg.chatimg }).catch(() => {});
         }
     }
 
@@ -5945,6 +5946,9 @@ const server = http.createServer(async (req, res) => {
         try {
             const body = JSON.parse(await readRequestBody(req) || '{}');
             const payload = alertEngine.handleEvent({ ...body, user: body.user || 'TestViewer', dedupeMs: 0 }, { test: true });
+            if (body.type === 'raid' && body.triggerChatbot) {
+                chatbot.handleRaid({ user: body.user || 'TestViewer', viewers: body.amount || body.viewers || 10, isTest: true }).catch(() => {});
+            }
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: true, alert: payload }));
         } catch (err) {

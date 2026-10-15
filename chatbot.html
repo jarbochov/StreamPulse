@@ -86,6 +86,25 @@
             </div>
             <label class="f" style="margin-top:.75rem;">Moderator usernames (fallback)<input id="s-mods" placeholder="name1, name2"></label>
             <p class="muted" style="margin-top:.5rem;">Replies are sent as your SocialStream account, starting with the tag. Messages that start with the tag are never treated as commands. Mods are detected from SocialStream chat data when it includes them; usernames listed here are always treated as mods.</p>
+
+            <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
+                    <div>
+                        <h2 style="margin:0;font-size:1.05rem;">Incoming Raid Auto-Shoutout</h2>
+                        <p class="muted" style="margin:.2rem 0 0;">Automatically welcome incoming raids and give the raider a shoutout in chat.</p>
+                    </div>
+                    <label class="check" style="font-weight:600;"><input type="checkbox" id="s-shoutout-enabled"> Enable auto-shoutout</label>
+                </div>
+                <div class="grid" style="margin-top:.75rem;">
+                    <label class="f" style="grid-column:1/-1;">Shoutout message template<textarea id="s-shoutout-message" rows="2" maxlength="500" placeholder="Welcome raiders from @{{user}}! Show them some love: twitch.tv/{{user}}"></textarea></label>
+                    <label class="f">Minimum raid viewers (0 = all raids)<input id="s-shoutout-min" type="number" min="0" placeholder="0"></label>
+                </div>
+                <p class="hint" style="margin-top:.4rem;">Supported tokens: <code>{{user}}</code> (raider username), <code>{{viewers}}</code> (viewer count), plus all standard placeholders like <code>{{game}}</code>.</p>
+                <div class="row" style="margin-top:.5rem;">
+                    <button class="btn small" id="test-shoutout" type="button">Send test shoutout</button>
+                </div>
+            </div>
+
             <h2 style="margin-top:1.25rem;">Troubleshooting</h2>
             <div class="row"><button class="btn" id="show-recent">Check chat detection</button><span class="muted">Shows what SocialStream sent for recent chatters and whether they count as mod or subscriber.</span></div>
             <div id="recent" style="margin-top:.5rem;"></div>
@@ -94,7 +113,7 @@
 
         <div class="card" data-tab="commands">
             <h2>Commands</h2>
-            <p class="muted" style="margin-bottom:.75rem;">Responses use the same {{placeholders}} as overlays, for example <code>Now playing: {{track}} by {{artist}}</code>. Use {{user}} (or $(sender)) for the chatter's name and {{args}} for whatever follows the command. Use \n for a second message.</p>
+            <p class="muted" style="margin-bottom:.75rem;">Responses use the same {{placeholders}} as overlays (e.g. <code>Now playing: {{track}}</code>). Chatter: <code>{{user}}</code>. Target: <code>{{target}}</code> (or <code>$(touser)</code>). Arguments: <code>{{args}}</code>, <code>{{arg.1}}</code>, <code>{{arg.2}}</code>. RNG &amp; Dice: <code>{{random 1 6}}</code>. Choices: <code>{{choice Yes|No|Maybe}}</code>. Use \n for a second message.</p>
             <div id="commands"></div>
             <div class="row" style="margin-top:.75rem;"><button class="btn" id="add-command">Add command</button><button class="btn primary" id="save-commands">Save commands</button></div>
         </div>
@@ -177,6 +196,9 @@ function renderBanner() {
 function renderSettings() {
     const s = state.settings;
     $('s-prefix').value = s.prefix || '!'; $('s-tag').value = s.tag ?? ''; $('s-cooldown').value = s.cooldown ?? 5; $('s-modcooldown').value = s.modCooldown ?? ''; $('s-mods').value = (s.mods || []).join(', ');
+    $('s-shoutout-enabled').checked = s.autoShoutout?.enabled === true;
+    $('s-shoutout-message').value = s.autoShoutout?.message ?? 'Welcome raiders from @{{user}}! Show them some love: twitch.tv/{{user}}';
+    $('s-shoutout-min').value = s.autoShoutout?.minViewers ?? 0;
     $('builtins').innerHTML = ['quote', 'quotes', 'addquote', 'delquote'].map(n => { const b = (s.builtins || {})[n] || {}; return `<div class="row" data-b="${n}"><code style="min-width:7rem">${s.prefix || '!'}${n}</code><label class="check">Who can use <select data-bk="access"><option value="everyone" ${b.access === 'everyone' ? 'selected' : ''}>Everyone</option><option value="subs" ${b.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${b.access === 'mods' ? 'selected' : ''}>Mods only</option><option value="disabled" ${b.access === 'disabled' ? 'selected' : ''}>Disabled</option></select></label><label class="check">Cooldown (s)<input data-bk="cooldown" type="number" min="0" value="${b.cooldown ?? ''}" placeholder="default" style="width:6rem"></label></div>`; }).join('');
 }
 
@@ -220,11 +242,13 @@ const varyHtml = m => `<label class="check" style="align-self:flex-end;padding-b
 const prefixOf = () => state.settings?.prefix || '!';
 function schedText(m) {
     const k = m.kind || 'interval';
-    if (k === 'interval') return m.vary ? `Random ${m.every ?? 30}-${m.everyMax ?? (m.every ?? 30) * 2} min` : `Every ${m.every ?? 30} min`;
-    if (k === 'hourly') return `Hourly at :${String(m.minute ?? 0).padStart(2, '0')}`;
-    if (k === 'daily') return `Daily at ${m.time || '12:00'}`;
-    if (k === 'datetime') return `${m.date || 'no date'} at ${m.time || '12:00'}`;
-    return `Every year ${m.md || '??-??'}, ${m.vary ? `random ${m.every ?? 30}-${m.everyMax ?? (m.every ?? 30) * 2}` : `every ${m.every ?? 30}`} min`;
+    let base = '';
+    if (k === 'interval') base = m.vary ? `Random ${m.every ?? 30}-${m.everyMax ?? (m.every ?? 30) * 2} min` : `Every ${m.every ?? 30} min`;
+    else if (k === 'hourly') base = `Hourly at :${String(m.minute ?? 0).padStart(2, '0')}`;
+    else if (k === 'daily') base = `Daily at ${m.time || '12:00'}`;
+    else if (k === 'datetime') base = `${m.date || 'no date'} at ${m.time || '12:00'}`;
+    else base = `Every year ${m.md || '??-??'}, ${m.vary ? `random ${m.every ?? 30}-${m.everyMax ?? (m.every ?? 30) * 2}` : `every ${m.every ?? 30}`} min`;
+    return m.liveOnly ? `${base} · live only` : base;
 }
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function messageHtml(m, i) {
@@ -240,6 +264,7 @@ function messageHtml(m, i) {
                 ${k === 'dateinterval' ? `<label class="f">Month-day (MM-DD)<input data-k="md" value="${esc(m.md || '')}" placeholder="07-04" maxlength="5" style="width:6rem"></label><label class="f">${m.vary ? 'Between (min)' : 'Every (min)'}<input data-k="every" type="number" min="1" max="1440" value="${m.every ?? 30}" style="width:6rem"></label>${varyHtml(m)}<label class="f">From<input data-k="from" type="time" value="${m.from || '00:00'}"></label><label class="f">Until<input data-k="to" type="time" value="${m.to || '23:59'}"></label>` : ''}
                 ${k === 'daily' ? `<label class="f">Time<input data-k="time" type="time" value="${m.time || '12:00'}"></label>` : ''}
                 ${k !== 'datetime' && k !== 'dateinterval' ? `<label class="f">Only if chat active (msgs)<input data-k="minChat" type="number" min="0" value="${m.minChat ?? 5}" style="width:7rem"></label>` : ''}
+                <label class="check" style="align-self:flex-end;padding-bottom:.5rem" title="Only send this message when the stream is actively live"><input type="checkbox" data-k="liveOnly" ${m.liveOnly ? 'checked' : ''}> Only when live</label>
             </div>
         </div>
         ${['hourly', 'daily'].includes(k) ? `<div class="row"><span class="muted">Days (none selected = every day)</span>${DAYS.map((d, n) => `<label class="check"><input type="checkbox" data-day="${n}" ${(m.days || []).includes(n) ? 'checked' : ''}> ${d}</label>`).join('')}</div>` : ''}
@@ -263,7 +288,7 @@ function triggerHtml(t, i) {
     </details>`;
 }
 const listCfg = {
-    messages: { el: 'messages', html: messageHtml, blank: () => ({ _open: true, kind: 'interval', every: 30, minChat: 5, minute: 0, time: '12:00', days: [], enabled: true, text: '' }) },
+    messages: { el: 'messages', html: messageHtml, blank: () => ({ _open: true, kind: 'interval', every: 30, minChat: 5, minute: 0, time: '12:00', days: [], enabled: true, liveOnly: false, text: '' }) },
     triggers: { el: 'triggers', html: triggerHtml, blank: () => ({ _open: true, words: [], cooldown: 60, enabled: true, wholeWord: true, access: 'everyone', text: '' }) }
 };
 function readList(name) {
@@ -428,7 +453,35 @@ window.addEventListener('beforeunload', event => { if (dirty) { event.preventDef
 function applyState(data) { dirty = false; loadUsage().catch(() => {}); state = data; updateCounts(); renderBanner(); renderSettings(); renderCommands(); renderQuotes(); renderList('messages'); renderList('triggers'); }
 
 $('save-settings').onclick = async () => {
-    try { applyState(await api('/api/chatbot', 'PUT', { settings: { prefix: $('s-prefix').value, tag: $('s-tag').value, cooldown: $('s-cooldown').value, modCooldown: $('s-modcooldown').value, mods: $('s-mods').value, builtins: Object.fromEntries([...document.querySelectorAll('#builtins [data-b]')].map(r => [r.dataset.b, { access: r.querySelector('[data-bk=access]').value, cooldown: r.querySelector('[data-bk=cooldown]').value }])) } })); toast('Settings saved'); } catch (e) { toast(e.message); }
+    try {
+        applyState(await api('/api/chatbot', 'PUT', {
+            settings: {
+                prefix: $('s-prefix').value,
+                tag: $('s-tag').value,
+                cooldown: $('s-cooldown').value,
+                modCooldown: $('s-modcooldown').value,
+                mods: $('s-mods').value,
+                autoShoutout: {
+                    enabled: $('s-shoutout-enabled').checked,
+                    message: $('s-shoutout-message').value,
+                    minViewers: Number($('s-shoutout-min').value) || 0
+                },
+                builtins: Object.fromEntries([...document.querySelectorAll('#builtins [data-b]')].map(r => [r.dataset.b, { access: r.querySelector('[data-bk=access]').value, cooldown: r.querySelector('[data-bk=cooldown]').value }]))
+            }
+        }));
+        toast('Settings saved');
+    } catch (e) { toast(e.message); }
+};
+$('test-shoutout').onclick = async () => {
+    try {
+        const message = $('s-shoutout-message').value.trim();
+        await api('/api/chatbot/test-shoutout', 'POST', {
+            user: 'AwesomeStreamer',
+            viewers: 42,
+            message
+        });
+        toast('Test shoutout sent to chat');
+    } catch (e) { toast(e.message); }
 };
 $('add-command').onclick = () => { state.commands = readCommands(); state.commands.push({ _open: true, name: '', aliases: [], response: '', enabled: true, access: 'everyone', cooldown: null }); renderCommands(); document.querySelector('#commands .item:last-child [data-k="name"]').focus(); };
 $('save-commands').onclick = async () => {
@@ -449,17 +502,22 @@ $('commands').addEventListener('click', async event => {
     }
     if (act === 'remove') { state.commands = readCommands(); state.commands.splice(Number(item.dataset.i), 1); renderCommands(); }
     if (act === 'test') {
-        try { const text = item.querySelector('[data-k="response"]').value; const { text: out } = await api('/api/chatbot/preview', 'POST', { text: text.replace(/\{\{\s*args?\s*\}\}/g, 'example').replace(/\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi, 'viewer') }); await api('/api/chatbot/send', 'POST', { text: out || text }); toast('Test sent to chat'); } catch (e) { toast(e.message); }
+        try {
+            const text = item.querySelector('[data-k="response"]').value;
+            const { text: out } = await api('/api/chatbot/preview', 'POST', { text, user: 'viewer', arg: '@someone 100' });
+            await api('/api/chatbot/send', 'POST', { text: out || text });
+            toast('Test sent to chat');
+        } catch (e) { toast(e.message); }
     }
 });
-const subst = t => t.replace(/\{\{\s*args?\s*\}\}|\$\(args?\)/g, 'example').replace(/\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi, 'viewer');
+const subst = t => t.replace(/\{\{\s*args?\s*\}\}|\$\(args?\)/g, '@someone 100').replace(/\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi, 'viewer').replace(/\{\{\s*target(?::[^}]+)?\s*\}\}|\$\((?:target|touser)(?::[^)]+)?\)/gi, 'someone');
 async function renderPreview(item) {
     const field = item.querySelector('[data-k="response"], [data-k="text"]'), box = item.querySelector('[data-preview]');
     if (!field || !box) return;
     const lines = field.value.split(/\\n|\n/).map(l => l.trim()).filter(Boolean).slice(0, 12);
     if (!lines.length) { box.innerHTML = ''; return; }
     try {
-        const out = await Promise.all(lines.map(l => api('/api/chatbot/preview', 'POST', { text: subst(l) }).then(r => r.text || '(no value yet)')));
+        const out = await Promise.all(lines.map(l => api('/api/chatbot/preview', 'POST', { text: l, user: 'viewer', arg: '@someone 100' }).then(r => r.text || '(no value yet)')));
         const random = item.querySelector('[data-k="random"]')?.checked;
         box.innerHTML = random
             ? `Preview, one of these at random:<ul>${out.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`

@@ -4,7 +4,12 @@ const path = require('path');
 const vm = require('vm');
 const crypto = require('crypto');
 
-const DEFAULT_SETTINGS = { prefix: '!', tag: '[BOT]', cooldown: 5, mods: [] };
+const DEFAULT_AUTO_SHOUTOUT = {
+    enabled: false,
+    message: 'Welcome raiders from @{{user}}! Show them some love: twitch.tv/{{user}}',
+    minViewers: 0
+};
+const DEFAULT_SETTINGS = { prefix: '!', tag: '[BOT]', cooldown: 5, mods: [], autoShoutout: { ...DEFAULT_AUTO_SHOUTOUT } };
 const MAX_COMMANDS = 200;
 const MAX_QUOTES = 5000;
 const MAX_MESSAGES = 100;
@@ -12,6 +17,65 @@ const MAX_TRIGGERS = 100;
 const KINDS = ['interval', 'hourly', 'daily', 'datetime', 'dateinterval'];
 const USER_RE = /\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi;
 const NAME_RE = /^[a-z0-9_]{1,30}$/;
+
+function formatTokens(text, { user = '', arg = '', msg = {}, viewers = '' } = {}) {
+    if (!text) return '';
+    let out = String(text);
+
+    const tokens = String(arg || '').trim().split(/\s+/).filter(Boolean);
+
+    // 1. Target user: {{target}}, {{target:fallback}}, $(target), $(touser), etc.
+    out = out.replace(/\{\{\s*target(?::([^}]+))?\s*\}\}|\$\((?:target|touser)(?::([^)]+))?\)/gi, (m, fb1, fb2) => {
+        const fallback = (fb1 !== undefined ? fb1 : fb2 !== undefined ? fb2 : '').trim();
+        if (tokens[0]) return tokens[0].replace(/^@/, '');
+        if (fallback) return fallback;
+        return user ? String(user).replace(/^@/, '') : 'someone';
+    });
+
+    // 2. Positional arguments: {{arg.1}}, {{arg.2:fallback}}, {{1}}, $(1), $(arg.2), etc.
+    out = out.replace(/\{\{\s*(?:arg\.?|#)?(\d+)(?::([^}]+))?\s*\}\}|\$\((?:arg\.?|#)?(\d+)(?::([^)]+))?\)/gi, (m, n1, fb1, n2, fb2) => {
+        const n = parseInt(n1 || n2, 10);
+        const fallback = (fb1 !== undefined ? fb1 : fb2 !== undefined ? fb2 : '').trim();
+        if (n > 0 && tokens[n - 1] !== undefined) return tokens[n - 1];
+        return fallback;
+    });
+
+    // 3. Whole arguments: {{arg}}, {{args}}, $(arg), $(args)
+    out = out.replace(/\{\{\s*args?\s*\}\}|\$\(args?\)/gi, arg || '');
+
+    // 4. Chatter / sender: {{user}}, {{sender}}, $(user), $(sender)
+    out = out.replace(USER_RE, user || msg.chatname || '');
+
+    // 5. Raid viewers count (if provided): {{viewers}}, $(viewers)
+    if (viewers !== '' && viewers !== undefined) {
+        out = out.replace(/\{\{\s*viewers?\s*\}\}|\$\(viewers?\)/gi, String(viewers));
+    }
+
+    // 6. RNG dice rolls / random integers: {{random min max}}, {{random max}}, $(random min max)
+    out = out.replace(/\{\{\s*random\s+(\d+)(?:\s+(\d+))?\s*\}\}|\$\(random\s+(\d+)(?:\s+(\d+))?\)/gi, (m, a1, b1, a2, b2) => {
+        const a = a1 !== undefined ? a1 : a2;
+        const b = b1 !== undefined ? b1 : b2;
+        let min, max;
+        if (b !== undefined && b !== '') {
+            min = Math.min(Number(a), Number(b));
+            max = Math.max(Number(a), Number(b));
+        } else {
+            min = 1;
+            max = Math.max(1, Number(a));
+        }
+        return String(Math.floor(Math.random() * (max - min + 1)) + min);
+    });
+
+    // 7. Choices: {{choice A|B|C}}, {{pick A|B|C}}, $(choice A|B|C), $(pick A|B|C)
+    out = out.replace(/\{\{\s*(?:choice|pick)\s+([^{}]+)\s*\}\}|\$\((?:choice|pick)\s+([^()]+)\)/gi, (m, c1, c2) => {
+        const raw = c1 !== undefined ? c1 : c2;
+        const options = (raw || '').split('|').map(s => s.trim()).filter(Boolean);
+        if (!options.length) return '';
+        return options[Math.floor(Math.random() * options.length)];
+    });
+
+    return out;
+}
 
 module.exports = function createChatbot({ sessionKey = () => '', onUse = () => {}, dataDir, getConfig, port, variables }) {
     const file = path.join(dataDir, 'chatbot.json');
@@ -30,12 +94,18 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
 
     function normalizeSettings(input = {}) {
         const mods = Array.isArray(input.mods) ? input.mods : String(input.mods || '').split(/[\s,]+/);
+        const autoShoutout = input.autoShoutout || {};
         return {
             prefix: clean(input.prefix, 3) || DEFAULT_SETTINGS.prefix,
             tag: clean(input.tag, 20),
             cooldown: Math.max(0, Math.min(3600, Number(input.cooldown ?? DEFAULT_SETTINGS.cooldown) || 0)),
             modCooldown: input.modCooldown === '' || input.modCooldown === null || input.modCooldown === undefined ? null : Math.max(0, Math.min(3600, Number(input.modCooldown) || 0)),
             mods: [...new Set(mods.map(m => clean(m, 60).toLowerCase().replace(/^@/, '')).filter(Boolean))].slice(0, 200),
+            autoShoutout: {
+                enabled: autoShoutout.enabled === true,
+                message: clean(autoShoutout.message ?? DEFAULT_AUTO_SHOUTOUT.message, 1000),
+                minViewers: Math.max(0, Math.min(1000000, Number(autoShoutout.minViewers) || 0))
+            },
             builtins: Object.fromEntries(Object.entries(BUILTIN_DEFAULTS).map(([name, access]) => {
                 const b = (input.builtins || {})[name] || {};
                 return [name, {
@@ -105,6 +175,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             id: clean(input.id, 20) || newId(),
             name: clean(input.name, 60),
             enabled: input.enabled !== false,
+            liveOnly: input.liveOnly === true,
             kind: KINDS.includes(input.kind) ? input.kind : 'interval',
             every: num(input.every, 1, 1440, 30),
             vary: input.vary === true,
@@ -187,9 +258,14 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
 
     async function liveStatus() {
         if (Date.now() - statusCache.at < 2000 && statusCache.value) return statusCache.value;
-        const res = await fetch(`http://127.0.0.1:${port}/api/status`, { signal: AbortSignal.timeout(3000) });
-        statusCache = { at: Date.now(), value: await res.json() };
-        return statusCache.value;
+        try {
+            const res = await fetch(`http://127.0.0.1:${port}/api/status`, { signal: AbortSignal.timeout(3000) });
+            if (res.ok) {
+                statusCache = { at: Date.now(), value: await res.json() };
+                return statusCache.value;
+            }
+        } catch { /* fallback */ }
+        return statusCache.value || {};
     }
 
     async function expand(text) {
@@ -325,7 +401,12 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         if (builtin === 'quotes') return reply(key, `${data.quotes.length} quote${data.quotes.length === 1 ? '' : 's'} saved. Use ${prefix}quote or ${prefix}quote <number>.`);
         if (builtin === 'quote') return reply(key, quoteReply(arg, msg));
         if (custom.counter && variables) { try { if (custom.counterAction === 'roll') variables.roll(custom.counter); else variables.change(custom.counter, custom.counterAction, 1); statusCache.at = 0; } catch (err) { console.warn(`[Chatbot] ${err.message}`); } }
-        try { await reply(key, await expand(pick(custom.response, custom.random).replace(/\{\{\s*args?\s*\}\}|\$\(args?\)/g, arg).replace(USER_RE, msg.chatname || '')) || '(no value yet)'); } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
+        try {
+            const raw = pick(custom.response, custom.random);
+            const formatted = formatTokens(raw, { user: msg.chatname || '', arg, msg });
+            const replyText = await expand(formatted);
+            await reply(key, replyText || '(no value yet)');
+        } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
     }
 
     const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -339,7 +420,9 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             if (!hit) continue;
             if (limited(`t:${t.id}`, t, msg)) continue;
             logUse('trigger', t.name || t.id, msg.chatname);
-            const out = await expand(pick(t.text, t.random).replace(USER_RE, msg.chatname || ''));
+            const raw = pick(t.text, t.random);
+            const formatted = formatTokens(raw, { user: msg.chatname || '', arg: text, msg });
+            const out = await expand(formatted);
             if (out) await reply(`t:${t.id}`, out);
             return;
         }
@@ -374,13 +457,22 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             const due = messageDue(m, d);
             if (!due) continue;
             const prev = timerState.get(m.id) || { at: startedAt, count: chatCount };
+            if (m.liveOnly) {
+                const status = await liveStatus();
+                if (!status?.viewers?.live) {
+                    if (m.kind !== 'interval') timerState.set(m.id, { ...prev, slot: due });
+                    continue;
+                }
+            }
             if (m.minChat && !['datetime', 'dateinterval'].includes(m.kind) && chatCount - prev.count < m.minChat) {
                 if (m.kind !== 'interval') timerState.set(m.id, { ...prev, slot: due });
                 continue;
             }
             timerState.set(m.id, { at: Date.now(), count: chatCount, slot: due, wait: waitMs(m) });
             try {
-                const out = await expand(pick(m.text, m.random));
+                const raw = pick(m.text, m.random);
+                const formatted = formatTokens(raw, {});
+                const out = await expand(formatted);
                 if (out) { logUse('message', m.name || m.id, ''); await reply(`m:${m.id}`, out); }
             } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
             return;
@@ -482,7 +574,24 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 return json(200, snapshot()), true;
             }
             if (pathname === '/api/chatbot/recent' && req.method === 'GET') return json(200, { recent }), true;
-            if (pathname === '/api/chatbot/preview' && req.method === 'POST') return json(200, { text: await expand(clean(body.text, 1000)) }), true;
+            if (pathname === '/api/chatbot/preview' && req.method === 'POST') {
+                const raw = clean(body.text, 1000);
+                const formatted = formatTokens(raw, {
+                    user: clean(body.user || 'viewer', 60),
+                    arg: body.arg !== undefined ? clean(body.arg, 200) : 'example arg2',
+                    viewers: body.viewers || '25'
+                });
+                return json(200, { text: await expand(formatted) }), true;
+            }
+            if (pathname === '/api/chatbot/test-shoutout' && req.method === 'POST') {
+                const user = clean(body.user || 'AwesomeStreamer', 60);
+                const viewers = Number(body.viewers) || 42;
+                const raw = clean(body.message || data.settings.autoShoutout?.message || DEFAULT_AUTO_SHOUTOUT.message, 1000);
+                const formatted = formatTokens(raw, { user, arg: user, viewers });
+                const out = await expand(formatted);
+                if (out) await send(out);
+                return json(200, { sent: true, text: out }), true;
+            }
             if (pathname === '/api/chatbot/send' && req.method === 'POST') {
                 await send(clean(body.text, 400));
                 return json(200, { sent: true }), true;
@@ -493,7 +602,30 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         return json(404, { error: 'Unknown chatbot endpoint' }), true;
     }
 
+    async function handleRaid(raid = {}) {
+        if (!enabled()) return;
+        const cfg = data.settings.autoShoutout;
+        if (!cfg || !cfg.enabled) return;
+        const user = clean(raid.user, 60);
+        if (!user) return;
+        const viewers = Number(raid.viewers) || 0;
+        if (viewers < (cfg.minViewers || 0)) return;
+
+        const now = Date.now();
+        if (!raid.isTest && (now - (lastUsed.get('raid:shoutout') || 0) < 10000 || now - lastAny < 1000)) return;
+        lastUsed.set('raid:shoutout', now);
+        lastAny = now;
+
+        const raw = cfg.message || DEFAULT_AUTO_SHOUTOUT.message;
+        const formatted = formatTokens(raw, { user, arg: user, viewers });
+        const out = await expand(formatted);
+        if (out) {
+            logUse('shoutout', user, user);
+            try { await send(out); } catch (err) { console.warn(`[Chatbot] Raid shoutout error: ${err.message}`); }
+        }
+    }
+
     load();
     setInterval(() => tick().catch(() => {}), 15000).unref();
-    return { handle, handleApi };
+    return { handle, handleApi, handleRaid };
 };

@@ -79,7 +79,7 @@ function markdown() {
     const m = model(), cell = v => String(v ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
     const codes = v => String(v).split(' / ').map(n => '`' + cell(n) + '`').join('<br>');
     const who2 = x => x.who;
-    const nice = r => cell(r).replace(/\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi, '(name)');
+    const nice = r => cell(r).replace(/\{\{\s*(?:user|sender)\s*\}\}|\$\((?:user|sender)\)/gi, '(name)').replace(/\{\{\s*target(?::[^}]+)?\s*\}\}|\$\((?:target|touser)(?::[^)]+)?\)/gi, '@target').replace(/\{\{\s*args?\s*\}\}|\$\(args?\)/gi, '(args)');
     const rep = x => x.random ? '*Random, one of these:*<br>' + x.replies.map(nice).join('<br>') : x.replies.map(nice).join('<br>');
     let md = '# Chat commands\n\n## Built-in\n\n| Command | What it does | Who |\n|---|---|---|\n';
     md += m.builtin.map(c => `| \`${cell(c.cmd)}\` | ${cell(c.desc)} | ${who2(c)} |`).join('\n');
