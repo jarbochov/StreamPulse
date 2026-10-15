@@ -11,7 +11,7 @@ const WebSocket = require('ws');
 const { ZipArchive } = require('archiver');
 const AdmZip = require('adm-zip');
 const { createGamePlanService, DEFAULT_TIERS, normalizeGamePlan, gameKey, sanitizeOverlayId } = require('./server/services/game-plan');
-const { createAlertEngine, TRIGGERS: ALERT_TRIGGERS, ANIM_IN: ALERT_ANIM_IN, ANIM_OUT: ALERT_ANIM_OUT } = require('./server/alerts');
+const { createAlertEngine, TRIGGERS: ALERT_TRIGGERS, ANIM_IN: ALERT_ANIM_IN, ANIM_OUT: ALERT_ANIM_OUT } = require('./server/services/alerts');
 const { createStaticRouter } = require('./server/static-router');
 const { createWeatherService, normalizeWeatherConfig } = require('./server/services/weather');
 const { createMusicService } = require('./server/services/music');
@@ -74,7 +74,7 @@ if (!fs.existsSync(CONFIG_PATH)) {
 }
 
 let config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-const PORT = config.port || 3000;
+const PORT = Number(process.env.PORT) || config.port || 3000;
 const cleanConfigValue = v => { const t = String(v ?? '').trim(); return /^YOUR_/i.test(t) ? '' : t; };
 let BROADCASTER_ID = cleanConfigValue(config.broadcaster_id);
 let BROADCASTER_NAME = cleanConfigValue(config.broadcaster_name);
@@ -94,8 +94,8 @@ const VIEWER_TRACKING_CONFIG = config.viewer_tracking || { enabled: true, source
 
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = path.join(__dirname, 'data');
-const variablesStore = require('./server/variables')({ dataDir: DATA_DIR });
-const chatbot = require('./server/chatbot')({ dataDir: DATA_DIR, getConfig: () => config, port: Number(process.env.PORT) || Number(config.port) || 3000, variables: variablesStore, onUse: (kind, name) => takeoverPages('command', name), sessionKey: () => String(chatData.startedAt || '') });
+const variablesStore = require('./server/services/variables')({ dataDir: DATA_DIR });
+const chatbot = require('./server/services/chatbot')({ dataDir: DATA_DIR, getConfig: () => config, port: Number(process.env.PORT) || Number(config.port) || 3000, variables: variablesStore, onUse: (kind, name) => takeoverPages('command', name), sessionKey: () => String(chatData.startedAt || '') });
 const LIVE_CHAT_PATH = path.join(DATA_DIR, 'chat.json');
 const BANNED_HASHTAGS_PATH = path.join(DATA_DIR, '.banned-hashtags.json');
 const CHAT_LOG_PATH = path.join(DATA_DIR, 'chat-log.jsonl');
@@ -115,6 +115,8 @@ const CUSTOM_OVERLAY_HISTORY_LIMIT = 30;
 const RANDOMIZER_PRESETS_PATH = path.join(DATA_DIR, 'randomizer-presets.json');
 const RANDOMIZER_BUTTON_PRESETS_PATH = path.join(DATA_DIR, 'randomizer-button-presets.json');
 const RANDOMIZER_QUOTE_PRESETS_PATH = path.join(DATA_DIR, 'randomizer-quote-presets.json');
+const SUB_HISTORY_PATH = path.join(DATA_DIR, 'sub-history.json');
+const FOLLOWER_HISTORY_PATH = path.join(DATA_DIR, 'follower-history.json');
 
 const DEFAULT_RANDOMIZER_PRESETS = [
     {
@@ -2640,7 +2642,7 @@ function buildStatusSnapshot() {
         lifecycle: getLifecycleStatus(),
         sessionPhase: getSessionPhase(),
         streamStartedAt: normalizeViewerStats(chatData.viewerStats).streamStartedAt || null,
-        lastSessionEndedAt: lifecycleMemo.lastArchive?.endedAt ? new Date(lifecycleMemo.lastArchive.endedAt).toISOString() : null,
+        lastSessionEndedAt: sessionService.getLifecycleMemo?.()?.lastArchive?.endedAt ? new Date(sessionService.getLifecycleMemo().lastArchive.endedAt).toISOString() : null,
         startedAt: chatData.startedAt,
         hourlyMessages: chatData.hourlyMessages,
         streamInfo: chatData.streamInfo,
