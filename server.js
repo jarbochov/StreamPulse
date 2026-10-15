@@ -990,6 +990,7 @@ const recentChatSummary = () => ssnService.recentChatSummary();
 const saveChatData = () => ssnService.saveChatData();
 const saveStats = () => ssnService.saveStats();
 const loadStats = () => ssnService.loadStats();
+loadStats();
 const saveChatLog = () => ssnService.saveChatLog();
 const readChatLogFile = (filepath) => ssnService.readChatLogFile(filepath);
 const readChatLogTail = (filepath, limit) => ssnService.readChatLogTail(filepath, limit);

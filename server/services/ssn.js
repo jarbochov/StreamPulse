@@ -365,6 +365,7 @@ function createSsnService({
     let lastSavedChatData = null;
     let lastSavedStats = null;
     let statsBackupRotation = 1;
+    let statsLoaded = false;
 
     const emoteCache = new Map();
     const recentChatLog = [];
@@ -519,6 +520,9 @@ function createSsnService({
             if (fs.existsSync(statsPath)) {
                 Object.assign(statsData, JSON.parse(fs.readFileSync(statsPath, 'utf8')));
                 log(`[Stats] Loaded: ${Object.keys(statsData.chatters || {}).length} chatters, ${Object.keys(statsData.emotes || {}).length} emotes, ${Object.keys(statsData.hashtags || {}).length} hashtags`);
+                statsLoaded = true;
+            } else {
+                statsLoaded = true;
             }
         } catch (err) {
             warn(`[Stats] stats.json corrupt: ${err.message} — attempting backup restore`);
@@ -529,16 +533,22 @@ function createSsnService({
                     if (fs.existsSync(backupPath)) {
                         Object.assign(statsData, JSON.parse(fs.readFileSync(backupPath, 'utf8')));
                         log(`[Stats] Restored from backup ${i}`);
+                        statsLoaded = true;
                         saveStats();
                         return;
                     }
                 } catch { /* try next */ }
             }
             warn('[Stats] No valid backups found — starting fresh');
+            statsLoaded = true;
         }
     }
 
     function saveStats() {
+        if (!statsLoaded) {
+            warn('[Stats] Refusing to save stats before stats have been loaded');
+            return;
+        }
         const statsData = getStatsData();
         const data = JSON.stringify(statsData, null, 2);
         if (data === lastSavedStats) return;
