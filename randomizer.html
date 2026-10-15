@@ -410,6 +410,43 @@
                                 </label>
                             </div>
                         </div>
+                        <!-- Winner Announcement Customization -->
+                        <div style="background:var(--bg-inset);border:1px solid var(--border);border-radius:8px;padding:.75rem;margin-bottom:.75rem;">
+                            <div style="font-size:.78rem;font-weight:700;color:var(--text);margin-bottom:.5rem;display:flex;align-items:center;justify-content:space-between;">
+                                <span>🎉 Winner Announcement Text</span>
+                                <button class="btn small" id="btn-reset-winner-text" type="button" style="padding:.15rem .45rem;font-size:.7rem;" title="Reset banner and quotes to defaults">↺ Reset</button>
+                            </div>
+
+                            <label class="f" style="margin-bottom:.5rem;">
+                                <span>Header Banner Title</span>
+                                <input type="text" id="winner-header-input" value="🎉 The Universe Has Decided 🎉" placeholder="e.g. 🎉 The Universe Has Decided 🎉, 🏆 NEXT GAME SELECTED 🏆">
+                            </label>
+
+                            <div class="row" style="margin-bottom:.4rem;">
+                                <label class="f" style="flex:1;">
+                                    <span>Subtitle / Tagline Style</span>
+                                    <select id="winner-sub-mode">
+                                        <option value="random">🌀 Random Multiverse Quotes (Default)</option>
+                                        <option value="fixed">📌 Fixed Custom Subtitle</option>
+                                        <option value="custom">🎲 Custom Quotes Pool (Random per spin)</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <div id="winner-sub-fixed-row" style="display:none;margin-bottom:.3rem;">
+                                <label class="f">
+                                    <span>Fixed Subtitle Line</span>
+                                    <input type="text" id="winner-sub-fixed" value="Another universe, another glorious outcome." placeholder="e.g. Another universe, another glorious outcome.">
+                                </label>
+                            </div>
+
+                            <div id="winner-sub-custom-row" style="display:none;margin-bottom:.3rem;">
+                                <label class="f">
+                                    <span>Custom Quotes Pool (one per line)</span>
+                                    <textarea id="winner-sub-custom" rows="3" placeholder="Another universe, another glorious outcome.&#10;Quantum luck has spoken. No refunds!&#10;The timeline has shifted. Fate is sealed."></textarea>
+                                </label>
+                            </div>
+                        </div>
 
                         <!-- Overlay Toggles & Auto-Dismiss -->
                         <div class="row" style="margin-bottom:.75rem;">
@@ -498,7 +535,7 @@
 
             <!-- Winner Card -->
             <div id="winner-box" class="winner-card" style="display:none;">
-                <div class="winner-header">🎉 The Universe Has Decided 🎉</div>
+                <div class="winner-header" id="winner-header-text">🎉 The Universe Has Decided 🎉</div>
                 <div class="winner-name" id="winner-text">Trivia Murder Party 2</div>
                 <div class="winner-sub" id="winner-sub">The timeline has shifted. Fate is sealed.</div>
             </div>
@@ -812,6 +849,17 @@
                 if (text) url += `&btnText=${encodeURIComponent(text)}`;
             }
 
+            const winHeader = $('winner-header-input')?.value.trim();
+            if (winHeader && winHeader !== '🎉 The Universe Has Decided 🎉') {
+                url += `&winHeader=${encodeURIComponent(winHeader)}`;
+            }
+
+            const winSubMode = $('winner-sub-mode')?.value;
+            if (winSubMode === 'fixed') {
+                const winSub = $('winner-sub-fixed')?.value.trim();
+                if (winSub) url += `&winSub=${encodeURIComponent(winSub)}`;
+            }
+
             $('obs-url-input').value = url;
             if ($('btn-open-overlay')) $('btn-open-overlay').href = url;
         }
@@ -922,6 +970,8 @@
         async function runSpin({
             choices: list = getChoices(),
             winner = null,
+            winnerHeader = null,
+            winnerSub = null,
             mode = (isOverlay ? (params.get('mode') || currentMode) : $('style-select')?.value),
             suspense = (isOverlay ? (params.get('suspense') || currentSuspense) : $('suspense-select')?.value),
             theme = (isOverlay ? (params.get('theme') || currentTheme) : $('theme-select')?.value),
@@ -1013,13 +1063,13 @@
                                     } else {
                                         rollerBox.classList.remove('tricky-suspense');
                                         renderRoller(winnerIdx, list);
-                                        finishSpin(winner);
+                                        finishSpin(winner, winnerHeader, winnerSub);
                                     }
                                 }
                                 doNudge();
                             }, 650);
                         } else {
-                            finishSpin(winner);
+                            finishSpin(winner, winnerHeader, winnerSub);
                         }
                     }
                 }
@@ -1089,13 +1139,13 @@
                                         }
                                         setTimeout(doWheelNudge, 240);
                                     } else {
-                                        finishSpin(winner);
+                                        finishSpin(winner, winnerHeader, winnerSub);
                                     }
                                 }
                                 doWheelNudge();
                             }, 650);
                         } else {
-                            finishSpin(winner);
+                            finishSpin(winner, winnerHeader, winnerSub);
                         }
                     }
                 }
@@ -1103,15 +1153,38 @@
             }
         }
 
-        function finishSpin(winner) {
+        function finishSpin(winner, customHeader = null, customSub = null) {
             isSpinning = false;
             if ($('btn-spin')) $('btn-spin').disabled = false;
             if ($('overlay-spin-btn')) $('overlay-spin-btn').disabled = false;
             
+            // Header text
+            let headerText = customHeader || (isOverlay ? params.get('winHeader') : $('winner-header-input')?.value.trim()) || '🎉 The Universe Has Decided 🎉';
+
+            // Subtitle text
+            let subText = customSub;
+            if (!subText) {
+                if (isOverlay) {
+                    subText = params.get('winSub') || RESPIN_SUBS[Math.floor(Math.random() * RESPIN_SUBS.length)];
+                } else {
+                    const mode = $('winner-sub-mode')?.value || 'random';
+                    if (mode === 'fixed') {
+                        subText = $('winner-sub-fixed')?.value.trim() || 'Another universe, another glorious outcome.';
+                    } else if (mode === 'custom') {
+                        const lines = ($('winner-sub-custom')?.value || '').split('\n').map(s => s.trim()).filter(Boolean);
+                        subText = lines.length ? lines[Math.floor(Math.random() * lines.length)] : RESPIN_SUBS[Math.floor(Math.random() * RESPIN_SUBS.length)];
+                    } else {
+                        subText = RESPIN_SUBS[Math.floor(Math.random() * RESPIN_SUBS.length)];
+                    }
+                }
+            }
+
             // Show winner
             $('winner-box').style.display = 'block';
+            const headerEl = $('winner-header-text') || document.querySelector('.winner-header');
+            if (headerEl) headerEl.textContent = headerText;
             $('winner-text').textContent = winner;
-            $('winner-sub').textContent = RESPIN_SUBS[Math.floor(Math.random() * RESPIN_SUBS.length)];
+            $('winner-sub').textContent = subText;
 
             AudioFX.fanfare();
             Confetti.burst();
@@ -1188,6 +1261,21 @@
             const matched = presetsList.find(p => p.id === selVal);
             if (matched) {
                 setChoices(matched.choices || []);
+                if ($('winner-header-input')) {
+                    $('winner-header-input').value = matched.winnerHeader || '🎉 The Universe Has Decided 🎉';
+                }
+                if ($('winner-sub-fixed')) {
+                    if (matched.winnerSub) {
+                        $('winner-sub-mode').value = 'fixed';
+                        $('winner-sub-fixed').value = matched.winnerSub;
+                        $('winner-sub-fixed-row').style.display = 'block';
+                        $('winner-sub-custom-row').style.display = 'none';
+                    } else {
+                        $('winner-sub-mode').value = 'random';
+                        $('winner-sub-fixed-row').style.display = 'none';
+                        $('winner-sub-custom-row').style.display = 'none';
+                    }
+                }
             } else if (selVal === 'chatters') {
                 loadChatters();
             } else if (selVal === 'variables') {
@@ -1270,11 +1358,14 @@
                     if (!name) return;
                 }
 
+                const winHeader = $('winner-header-input')?.value.trim();
+                const winSub = $('winner-sub-mode')?.value === 'fixed' ? $('winner-sub-fixed')?.value.trim() : '';
+
                 try {
                     const res = await fetch('/api/randomizer/presets', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id, name, choices: currentChoices })
+                        body: JSON.stringify({ id, name, choices: currentChoices, winnerHeader: winHeader, winnerSub: winSub })
                     }).then(r => r.json());
                     if (res.ok) {
                         presetsList = res.presets;
@@ -1382,6 +1473,27 @@
                 updateButtonLabel();
             };
 
+            $('winner-header-input').oninput = updateObsUrl;
+
+            $('winner-sub-mode').onchange = () => {
+                const mode = $('winner-sub-mode').value;
+                $('winner-sub-fixed-row').style.display = mode === 'fixed' ? 'block' : 'none';
+                $('winner-sub-custom-row').style.display = mode === 'custom' ? 'block' : 'none';
+                updateObsUrl();
+            };
+
+            $('winner-sub-fixed').oninput = updateObsUrl;
+            $('winner-sub-custom').oninput = updateObsUrl;
+
+            $('btn-reset-winner-text').onclick = () => {
+                $('winner-header-input').value = '🎉 The Universe Has Decided 🎉';
+                $('winner-sub-mode').value = 'random';
+                $('winner-sub-fixed-row').style.display = 'none';
+                $('winner-sub-custom-row').style.display = 'none';
+                updateObsUrl();
+                toast('↺ Reset winner text to defaults!');
+            };
+
             $('choices-textarea').oninput = () => {
                 const list = getChoices();
                 if ($('choices-count-pill')) $('choices-count-pill').textContent = `${list.length} choices`;
@@ -1405,8 +1517,29 @@
                 const autohide = Number($('autohide-select').value);
                 const winner = list[Math.floor(Math.random() * list.length)];
 
+                const winHeader = $('winner-header-input')?.value.trim() || '🎉 The Universe Has Decided 🎉';
+                let winSub = '';
+                const subMode = $('winner-sub-mode')?.value || 'random';
+                if (subMode === 'fixed') {
+                    winSub = $('winner-sub-fixed')?.value.trim() || 'Another universe, another glorious outcome.';
+                } else if (subMode === 'custom') {
+                    const lines = ($('winner-sub-custom')?.value || '').split('\n').map(s => s.trim()).filter(Boolean);
+                    winSub = lines.length ? lines[Math.floor(Math.random() * lines.length)] : RESPIN_SUBS[Math.floor(Math.random() * RESPIN_SUBS.length)];
+                } else {
+                    winSub = RESPIN_SUBS[Math.floor(Math.random() * RESPIN_SUBS.length)];
+                }
+
                 // Trigger locally in preview
-                runSpin({ choices: list, winner, mode, suspense, theme, duration });
+                runSpin({
+                    choices: list,
+                    winner,
+                    winnerHeader: winHeader,
+                    winnerSub: winSub,
+                    mode,
+                    suspense,
+                    theme,
+                    duration
+                });
 
                 // Broadcast to OBS overlay via WebSocket / API
                 try {
@@ -1416,6 +1549,8 @@
                         body: JSON.stringify({
                             choices: list,
                             winner,
+                            winnerHeader: winHeader,
+                            winnerSub: winSub,
                             mode,
                             suspense,
                             theme,
@@ -1464,6 +1599,8 @@
                             runSpin({
                                 choices: d.choices || choices,
                                 winner: d.winner,
+                                winnerHeader: d.winnerHeader,
+                                winnerSub: d.winnerSub,
                                 mode: isOverlay ? (params.get('mode') || d.mode) : d.mode,
                                 suspense: d.suspense || currentSuspense,
                                 theme: d.theme || currentTheme,

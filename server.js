@@ -73,6 +73,8 @@ const DEFAULT_RANDOMIZER_PRESETS = [
     {
         id: 'jackbox',
         name: 'Jackbox Party Games (60 Games)',
+        winnerHeader: '🎮 NEXT GAME TO PLAY 🎮',
+        winnerSub: 'Booting up... prepare your phones!',
         choices: [
             "Bidiots", "Blather Round", "Bomb Corp", "Bracketeering", "Champ'd Up",
             "Civic Doodle", "Devils and the Details", "Dictionarium", "Dodo Re Mi",
@@ -93,6 +95,8 @@ const DEFAULT_RANDOMIZER_PRESETS = [
     {
         id: 'decision',
         name: 'Quick Decision (Yes / No / Maybe)',
+        winnerHeader: '🔮 The Oracle Has Spoken 🔮',
+        winnerSub: 'The timeline has shifted. Fate is sealed.',
         choices: [
             "Yes, absolutely!", "No way", "Ask chat", "Spin again",
             "Definitely yes", "Hard no", "Maybe later", "Roll a die"
@@ -101,6 +105,8 @@ const DEFAULT_RANDOMIZER_PRESETS = [
     {
         id: 'punishments',
         name: 'Stream Challenges & Punishments',
+        winnerHeader: '💀 PUNISHMENT CHOSEN 💀',
+        winnerSub: 'No mercy. Do not pass GO. Fate is sealed.',
         choices: [
             "10 Pushups / Situps", "Hydrate check (huge gulp)", "Chat picks next music track",
             "Play next round one-handed", "Give a VIP/Sub badge shoutout", "No talking for 3 minutes",
@@ -6742,17 +6748,33 @@ const server = http.createServer(async (req, res) => {
 
             const presets = loadRandomizerPresets();
             let presetId = body.id ? String(body.id).trim() : null;
+            const winnerHeader = body.winnerHeader !== undefined ? String(body.winnerHeader).trim() : undefined;
+            const winnerSub = body.winnerSub !== undefined ? String(body.winnerSub).trim() : undefined;
             let updatedPreset;
             if (presetId) {
                 const idx = presets.findIndex(p => p.id === presetId);
                 if (idx !== -1) {
-                    presets[idx] = { ...presets[idx], name, choices, updatedAt: Date.now() };
+                    presets[idx] = {
+                        ...presets[idx],
+                        name,
+                        choices,
+                        ...(winnerHeader !== undefined ? { winnerHeader } : {}),
+                        ...(winnerSub !== undefined ? { winnerSub } : {}),
+                        updatedAt: Date.now()
+                    };
                     updatedPreset = presets[idx];
                 }
             }
             if (!updatedPreset) {
                 presetId = presetId || 'preset_' + Date.now();
-                updatedPreset = { id: presetId, name, choices, createdAt: Date.now() };
+                updatedPreset = {
+                    id: presetId,
+                    name,
+                    choices,
+                    winnerHeader: winnerHeader || '',
+                    winnerSub: winnerSub || '',
+                    createdAt: Date.now()
+                };
                 presets.push(updatedPreset);
             }
             saveRandomizerPresets(presets);
@@ -6797,6 +6819,8 @@ const server = http.createServer(async (req, res) => {
             const payload = {
                 choices,
                 winner,
+                winnerHeader: body.winnerHeader || '',
+                winnerSub: body.winnerSub || '',
                 mode: body.mode || 'roller',
                 suspense: body.suspense || 'normal', // 'normal' | 'tricky'
                 theme: body.theme || 'purple',
