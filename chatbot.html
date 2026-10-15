@@ -472,7 +472,7 @@ function commandHtml(c, i) {
                 <textarea data-k="response" rows="2" maxlength="1000" placeholder="Now playing: {{track}} by {{artist}}">${esc(c.response)}</textarea>
             </label>
             <div class="preview-box" data-preview></div>
-            <details class="item-advanced">
+            <details class="item-advanced" ${c._advancedOpen ? 'open' : ''}>
                 <summary>⚙️ Advanced settings (limits, mod cooldown, counters)</summary>
                 <div class="item-advanced-body">
                     <div class="row">
@@ -482,7 +482,11 @@ function commandHtml(c, i) {
                     </div>
                     <div style="margin-top:.4rem;padding-top:.4rem;border-top:1px dashed var(--border);">
                         <label class="check" style="font-weight:600;"><input type="checkbox" data-k="useCounter" ${c.counter || c._counter ? 'checked' : ''}> Also update a counter or list</label>
-                        ${c.counter || c._counter ? `<div class="row" style="margin-top:.4rem;"><label class="f">Name<input data-k="counter" value="${esc(c.counter || '')}" placeholder="deaths"></label><label class="f">Action<select data-k="counterAction"><option value="increment" ${c.counterAction !== 'decrement' && c.counterAction !== 'reset' ? 'selected' : ''}>Add 1</option><option value="decrement" ${c.counterAction === 'decrement' ? 'selected' : ''}>Subtract 1</option><option value="roll" ${c.counterAction === 'roll' ? 'selected' : ''}>Pick next (list)</option><option value="reset" ${c.counterAction === 'reset' ? 'selected' : ''}>Reset</option></select></label><span class="muted" style="align-self:flex-end;padding-bottom:.4rem;">Include in reply with <code>{{var.name}}</code></span></div>` : ''}
+                        <div class="counter-fields row" style="margin-top:.4rem;display:${c.counter || c._counter ? 'flex' : 'none'};">
+                            <label class="f"><span>Counter or list name</span><input data-k="counter" value="${esc(c.counter || '')}" placeholder="deaths"></label>
+                            <label class="f"><span>Action</span><select data-k="counterAction"><option value="increment" ${c.counterAction !== 'decrement' && c.counterAction !== 'reset' && c.counterAction !== 'roll' ? 'selected' : ''}>Add 1</option><option value="decrement" ${c.counterAction === 'decrement' ? 'selected' : ''}>Subtract 1</option><option value="roll" ${c.counterAction === 'roll' ? 'selected' : ''}>Pick next (list)</option><option value="reset" ${c.counterAction === 'reset' ? 'selected' : ''}>Reset</option></select></label>
+                            <span class="muted" style="align-self:flex-end;padding-bottom:.4rem;">Include in reply with <code>{{var.name}}</code></span>
+                        </div>
                     </div>
                 </div>
             </details>
@@ -500,8 +504,9 @@ function renderCommands() {
 function readCommands() {
     return [...document.querySelectorAll('#commands .item')].map(item => {
         const open = item.open;
+        const advancedOpen = item.querySelector('.item-advanced')?.open || false;
         const get = k => item.querySelector(`[data-k="${k}"]`);
-        return { name: get('name')?.value || '', aliases: get('aliases')?.value || '', cooldown: get('cooldown')?.value || '', response: get('response')?.value || '', enabled: get('enabled')?.checked !== false, access: get('access')?.value || 'everyone', limit: get('limit')?.value || '', modCooldown: get('modCooldown')?.value || '', limitPer: get('limitPer')?.value || 'session', random: get('random')?.checked || false, counter: get('useCounter')?.checked ? (get('counter')?.value || '') : '', _counter: get('useCounter')?.checked || false, counterAction: get('counterAction')?.value || 'increment', _open: open };
+        return { name: get('name')?.value || '', aliases: get('aliases')?.value || '', cooldown: get('cooldown')?.value || '', response: get('response')?.value || '', enabled: get('enabled')?.checked !== false, access: get('access')?.value || 'everyone', limit: get('limit')?.value || '', modCooldown: get('modCooldown')?.value || '', limitPer: get('limitPer')?.value || 'session', random: get('random')?.checked || false, counter: get('useCounter')?.checked ? (get('counter')?.value || '') : '', _counter: get('useCounter')?.checked || false, counterAction: get('counterAction')?.value || 'increment', _open: open, _advancedOpen: advancedOpen };
     });
 }
 
@@ -826,7 +831,19 @@ $('save-commands').onclick = async () => {
         applyState(await api('/api/chatbot', 'PUT', { commands: list })); toast('Commands saved');
     } catch (e) { toast(e.message); }
 };
-$('commands').addEventListener('change', event => { if (event.target.dataset.k === 'useCounter') { state.commands = readCommands(); renderCommands(); } });
+$('commands').addEventListener('change', event => {
+    if (event.target.dataset.k === 'useCounter') {
+        const item = event.target.closest('.item');
+        const counterRow = item?.querySelector('.counter-fields');
+        if (counterRow) {
+            counterRow.style.display = event.target.checked ? 'flex' : 'none';
+            if (event.target.checked) {
+                const counterInput = counterRow.querySelector('[data-k="counter"]');
+                if (counterInput && !counterInput.value) counterInput.focus();
+            }
+        }
+    }
+});
 $('commands').addEventListener('click', async event => {
     const act = event.target.dataset.act, item = event.target.closest('.item');
     if (!act || !item) return;
