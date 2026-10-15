@@ -13,6 +13,7 @@ function createSystemRoutes({
     normalizeViewerTrackingConfig = (cfg) => cfg,
     normalizeWeatherConfig = (cfg) => cfg,
     normalizeGoalsConfig = (cfg) => cfg,
+    normalizeClipCandidateConfig = (cfg) => cfg,
     defaultGoalsConfig = {},
     getBroadcasterName = () => '',
     port = 3000,
@@ -87,12 +88,18 @@ function createSystemRoutes({
                     setInterval_('twitch_refresh_minutes', 1, 1440, 10);
                     setInterval_('twitch_stream_info_seconds', 10, 3600, 30);
 
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals', 'clip_candidates'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
-                            current[key] = key === 'hashtag_max_length'
-                                ? Math.max(10, Math.min(100, Math.round(Number(updates[key])) || 50))
-                                : updates[key];
+                            if (key === 'hashtag_max_length') {
+                                current[key] = Math.max(10, Math.min(100, Math.round(Number(updates[key])) || 50));
+                            } else if (key === 'clip_candidates') {
+                                current[key] = normalizeClipCandidateConfig({ ...(current.clip_candidates || {}), ...(updates[key] || {}) });
+                            } else if (key === 'music' && updates[key] && typeof updates[key] === 'object') {
+                                current[key] = { ...(current.music || {}), ...updates[key] };
+                            } else {
+                                current[key] = updates[key];
+                            }
                         }
                     }
 
@@ -144,7 +151,8 @@ function createSystemRoutes({
                     music: config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 },
                     viewer_tracking: normalizeViewerTrackingConfig(config.viewer_tracking),
                     weather: normalizeWeatherConfig(config.weather),
-                    goals: normalizeGoalsConfig(config.goals || defaultGoalsConfig)
+                    goals: normalizeGoalsConfig(config.goals || defaultGoalsConfig),
+                    clip_candidates: normalizeClipCandidateConfig(config.clip_candidates)
                 });
                 return true;
             }

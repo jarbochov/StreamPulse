@@ -615,6 +615,7 @@
             });
             if (res.ok) {
                 updateStatus(musicConfig.enabled);
+                window.dispatchEvent(new CustomEvent('streampulse:config-saved', { detail: { music: musicConfig } }));
                 // Refresh preview
                 const iframe = document.getElementById('preview-iframe');
                 iframe.src = iframe.src;

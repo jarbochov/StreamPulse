@@ -463,6 +463,8 @@
         const social = cfg.credits?.social || {};
         const vt = cfg.viewer_tracking || {};
         const wx = cfg.weather || {};
+        const music = cfg.music || {};
+        const clips = cfg.clip_candidates || {};
         const sl = cfg.session_lifecycle || {};
         const conn = cfg.connection || {};
         const st = {
@@ -647,7 +649,7 @@
             </div>
 
             <div class="cfg-section">Weather</div>
-            <div class="cfg-row" style="align-items:center;">
+            <div class="cfg-toggle">
                 <input type="checkbox" id="cfg-wx-enabled" ${wx.enabled === true ? 'checked' : ''}>
                 <label for="cfg-wx-enabled">Enable weather (free Open-Meteo data, no account needed)</label>
             </div>
@@ -673,8 +675,33 @@
             <p class="hint" style="margin:0 0 0.4rem;">Extra cities use their name in placeholders, e.g. <code>{{weather.tokyo.temp}}</code>. The placeholder picker lists them once weather is on.</p>
             <p class="hint" id="cfg-wx-status" style="margin:0 0 0.5rem;">Use the <code>{{weather.*}}</code> placeholders in the Custom Overlay Editor, or add the Weather card preset.</p>
 
+            <div class="cfg-section">Music</div>
+            <div class="cfg-toggle">
+                <input type="checkbox" id="cfg-music-enabled" ${music.enabled === true ? 'checked' : ''}>
+                <label for="cfg-music-enabled">Enable music now-playing overlay &amp; polling <span class="beta-tag">BETA</span></label>
+            </div>
+            <div class="cfg-row aligned">
+                <label>Source</label>
+                <select id="cfg-music-source">
+                    <option value="apple_music"${(music.source || 'apple_music') === 'apple_music' ? ' selected' : ''}>Apple Music (macOS)</option>
+                    <option value="vlc"${music.source === 'vlc' ? ' selected' : ''}>VLC Media Player</option>
+                </select>
+            </div>
+            <div class="cfg-row aligned">
+                <label>Poll every (seconds)</label>
+                <input type="number" id="cfg-music-poll" min="1" max="15" value="${music.poll_seconds || 5}">
+            </div>
+            <div class="cfg-row" style="align-items:center;margin-top:0.4rem;">
+                <span style="color:var(--text-muted);font-size:0.85rem;flex:1;">Configure VLC credentials, album art, fonts, themes, and OBS dimensions in Music Settings.</span>
+                <a class="btn" href="/music-editor.html" style="width:auto;text-decoration:none;">Open Music Settings →</a>
+            </div>
+
             <div class="cfg-section">Clip Detection</div>
-            <div class="cfg-row" style="align-items:center;">
+            <div class="cfg-toggle">
+                <input type="checkbox" id="cfg-clips-enabled" ${clips.enabled !== false ? 'checked' : ''}>
+                <label for="cfg-clips-enabled">Enable automated clip candidate detection <span class="beta-tag">BETA</span></label>
+            </div>
+            <div class="cfg-row" style="align-items:center;margin-top:0.4rem;">
                 <span style="color:var(--text-muted);font-size:0.85rem;flex:1;">Chat spikes, subs, bits, donations and raids can create clip candidates automatically.</span>
                 <a class="btn" href="/clips.html" style="width:auto;text-decoration:none;">Open Clip Settings →</a>
             </div>
@@ -740,7 +767,9 @@
                 'Social Links': 'Configure social handles shown at the end.',
                 'Session Lifecycle': 'Auto start and end sessions from Twitch live status.',
                 'Viewer Tracking': 'How viewer counts are sampled and labelled.',
-                'Clip Detection': 'Automatic clip candidates (configured on the Clips page).',
+                Weather: 'Current weather and temperatures via Open-Meteo.',
+                Music: 'Now-playing song details, album art, and player overlay.',
+                'Clip Detection': 'Automatic clip candidates from chat spikes and stream events.',
                 Connection: 'Twitch, SocialStream and server details (read-only).',
                 'Connection Settings': 'SocialStream session and Twitch polling. Needs a restart.',
                 'Rate Limiting': 'Limit API reads and mutation requests.'
@@ -763,7 +792,7 @@
 
         const creditGroups = ['Credits Header', 'Fade Card Layout', 'Sections', 'Custom Credit Sections', 'Special Thanks Names', 'Closing', 'Social Links'];
         const hiddenGroups = editorSection === 'credits'
-            ? ['General', 'Session Lifecycle', 'Viewer Tracking', 'Weather', 'Clip Detection', 'Connection', 'Connection Settings', 'Rate Limiting']
+            ? ['General', 'Session Lifecycle', 'Viewer Tracking', 'Weather', 'Music', 'Clip Detection', 'Connection', 'Connection Settings', 'Rate Limiting']
             : creditGroups;
         el.querySelectorAll('.cfg-section').forEach(section => {
             const group = section.textContent.trim();
@@ -1139,6 +1168,16 @@
                 units: document.getElementById('cfg-wx-units').value,
                 poll_minutes: Math.max(5, Math.min(180, parseInt(document.getElementById('cfg-wx-poll').value, 10) || 15))
             },
+            music: {
+                ...(loadedConfig?.music || {}),
+                enabled: document.getElementById('cfg-music-enabled').checked,
+                source: document.getElementById('cfg-music-source').value,
+                poll_seconds: Math.max(1, Math.min(15, parseInt(document.getElementById('cfg-music-poll').value, 10) || 5))
+            },
+            clip_candidates: {
+                ...(loadedConfig?.clip_candidates || {}),
+                enabled: document.getElementById('cfg-clips-enabled').checked
+            },
             rate_limit: {
                 enabled: document.getElementById('cfg-rl-enabled').checked,
                 requests_per_minute: parseInt(document.getElementById('cfg-rl-reads').value) || 120,
@@ -1185,6 +1224,7 @@
             const data = await res.json();
             if (data.status === 'saved') {
                 isDirty = false;
+                loadedConfig = { ...loadedConfig, ...cfg };
                 if (data.restartRequired) showRestartNotice(); else showToast('Config saved and applied!');
                 window.dispatchEvent(new CustomEvent('streampulse:config-saved', { detail: cfg }));
                 setTimeout(showWeatherStatus, 3000);

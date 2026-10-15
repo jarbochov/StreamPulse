@@ -321,6 +321,7 @@
             if (!res.ok) { showToast(data.error || 'Could not save settings'); return; }
             settings = data;
             updateWindowSummary();
+            window.dispatchEvent(new CustomEvent('streampulse:config-saved', { detail: { clip_candidates: settings } }));
             showToast('Clip detection settings saved');
         } catch (err) {
             showToast(`Could not save settings: ${err.message}`);

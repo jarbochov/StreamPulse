@@ -2644,7 +2644,7 @@ function buildStatusSnapshot() {
         modules: {
             chatbot: config.chatbot_enabled !== false,
             clips: config.clip_candidates?.enabled !== false,
-            weather: config.weather?.enabled !== false,
+            weather: config.weather?.enabled === true,
             music: !!MUSIC_CONFIG.enabled,
             hashtags: config.hashtags_enabled !== false
         },
@@ -2702,6 +2702,7 @@ const handleSystemRoutes = createSystemRoutes({
     normalizeViewerTrackingConfig,
     normalizeWeatherConfig,
     normalizeGoalsConfig,
+    normalizeClipCandidateConfig,
     defaultGoalsConfig: DEFAULT_GOALS_CONFIG,
     getBroadcasterName: () => BROADCASTER_NAME,
     port: PORT,

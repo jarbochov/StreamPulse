@@ -85,12 +85,12 @@
             { label: 'Timers Studio', href: '/timers-editor.html' },
             { label: 'Goals Manager', href: '/goals-editor.html' },
             { label: 'Game Plan Manager', href: '/game-plan-editor.html' },
-            { label: 'Music Settings', href: '/music-editor.html', module: 'music' },
+            { label: 'Music Settings', href: '/music-editor.html' },
             { label: 'Overlay Assets', href: '/assets.html' },
             { heading: 'URL Wizards' },
             { label: 'Credits, Goals & Stats', href: '/overlay-url-wizard.html' },
             { label: 'Timers', href: '/timer-url-wizard.html' },
-            { label: 'Music', href: '/music-url-wizard.html', module: 'music' },
+            { label: 'Music', href: '/music-url-wizard.html' },
             { label: 'Game Plan', href: '/game-plan-url-wizard.html' },
             { label: 'Milestones', href: '/milestone-url-wizard.html' }
         ]},
@@ -161,7 +161,7 @@
         list.push({ label: 'Timers Studio', href: '/timers-editor.html', group: 'Editors & Studios' });
         list.push({ label: 'Goals Manager', href: '/goals-editor.html', group: 'Editors & Studios' });
         list.push({ label: 'Game Plan Manager', href: '/game-plan-editor.html', group: 'Editors & Studios' });
-        list.push({ label: 'Music Settings', href: '/music-editor.html', group: 'Editors & Studios', module: 'music' });
+        list.push({ label: 'Music Settings', href: '/music-editor.html', group: 'Editors & Studios' });
         list.push({ label: 'Overlay Assets', href: '/assets.html', group: 'Editors & Studios' });
 
         // 3. Stream Tools & Automation
@@ -175,7 +175,7 @@
         // 4. URL Wizards (OBS Parameterized Source Generators)
         list.push({ label: 'Credits, Goals & Stats Wizard', href: '/overlay-url-wizard.html', group: 'URL Wizards (OBS)' });
         list.push({ label: 'Timers Wizard', href: '/timer-url-wizard.html', group: 'URL Wizards (OBS)' });
-        list.push({ label: 'Music Wizard', href: '/music-url-wizard.html', group: 'URL Wizards (OBS)', module: 'music' });
+        list.push({ label: 'Music Wizard', href: '/music-url-wizard.html', group: 'URL Wizards (OBS)' });
         list.push({ label: 'Game Plan Wizard', href: '/game-plan-url-wizard.html', group: 'URL Wizards (OBS)' });
         list.push({ label: 'Milestones Wizard', href: '/milestone-url-wizard.html', group: 'URL Wizards (OBS)' });
 
@@ -607,6 +607,18 @@
             }
             if (event.detail.hashtags_enabled !== undefined && moduleState.hashtags !== (event.detail.hashtags_enabled !== false)) {
                 moduleState.hashtags = event.detail.hashtags_enabled !== false;
+                changed = true;
+            }
+            if (event.detail.clip_candidates?.enabled !== undefined && moduleState.clips !== (event.detail.clip_candidates.enabled !== false)) {
+                moduleState.clips = event.detail.clip_candidates.enabled !== false;
+                changed = true;
+            }
+            if (event.detail.weather?.enabled !== undefined && moduleState.weather !== (event.detail.weather.enabled === true)) {
+                moduleState.weather = event.detail.weather.enabled === true;
+                changed = true;
+            }
+            if (event.detail.music?.enabled !== undefined && moduleState.music !== (event.detail.music.enabled === true)) {
+                moduleState.music = event.detail.music.enabled === true;
                 changed = true;
             }
             if (changed) {
