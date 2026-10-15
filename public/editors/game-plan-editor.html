@@ -505,7 +505,11 @@
                     ? '<span class="badge oneoff-badge" title="One-off session, party game, tournament, or variety segment">⚡ ONE-OFF</span>'
                     : '<span class="badge playthrough-badge" title="Campaign / multi-stream playthrough">🔁 PLAYTHROUGH</span>';
                 const twitchBadge = item.twitchSegmentId ? '<span class="badge twitch-badge" title="Synced to Twitch Schedule">🗓 TWITCH SYNCED</span>' : '';
-                const dateBadge = item.streamDate ? `<span class="date-badge" title="Scheduled Stream Date">📅 ${esc(item.streamDate)}${item.streamTime ? ` ${esc(item.streamTime)}` : ''}</span>` : '';
+                const extraDatesCount = Array.isArray(item.streamDates) ? item.streamDates.filter(d => Boolean(d && (d.date || (typeof d === 'string' && d)))).length : 0;
+                const recurringBadge = item.streamRecurring ? ' <span style="opacity:0.85">🔁 Weekly</span>' : '';
+                const dateBadge = item.streamDate
+                    ? `<span class="date-badge" title="Scheduled Stream Date">📅 ${esc(item.streamDate)}${item.streamTime ? ` ${esc(item.streamTime)}` : ''}${extraDatesCount > 0 ? ` (+${extraDatesCount} date${extraDatesCount === 1 ? '' : 's'})` : ''}${recurringBadge}</span>`
+                    : (extraDatesCount > 0 ? `<span class="date-badge" title="Scheduled Stream Dates">📅 ${extraDatesCount} date${extraDatesCount === 1 ? '' : 's'}${recurringBadge}</span>` : '');
 
                 return `
                 <div class="item${isPlaying ? ' now' : ''}" data-id="${esc(item.id)}">
@@ -602,12 +606,51 @@
         }
         window.addEventListener('beforeunload', () => { if (saveTimer) save(); });
 
+        function readExtraDatesFromDom() {
+            if (!editing) return [];
+            const list = $('f-stream-dates-list');
+            if (!list) return Array.isArray(editing.streamDates) ? editing.streamDates : [];
+            const rows = list.querySelectorAll('[data-date-idx]');
+            const out = [];
+            rows.forEach((row, idx) => {
+                const dateInput = row.querySelector('[data-extra-date]');
+                const timeInput = row.querySelector('[data-extra-time]');
+                const date = (dateInput?.value || '').trim();
+                const time = (timeInput?.value || '').trim();
+                const prev = (Array.isArray(editing.streamDates) && editing.streamDates[idx]) || {};
+                out.push({
+                    date,
+                    time: time || editing.streamTime || '19:00',
+                    segmentId: prev.segmentId || ''
+                });
+            });
+            return out;
+        }
+
+        function syncEditingFromDom() {
+            if (!editing) return;
+            const name = $('f-name')?.value.trim();
+            if (name) editing.name = name;
+            if ($('f-tier')) editing.tier = $('f-tier').value;
+            if ($('f-game-type')) editing.gameType = $('f-game-type').value;
+            if ($('f-status')) editing.status = $('f-status').value;
+            if ($('f-stream-date')) editing.streamDate = $('f-stream-date').value;
+            if ($('f-stream-time')) editing.streamTime = $('f-stream-time').value;
+            if ($('f-stream-recurring')) editing.streamRecurring = $('f-stream-recurring').checked;
+            if ($('f-period')) editing.period = $('f-period').value.trim();
+            if ($('f-finished')) editing.finished = $('f-finished').value;
+            if ($('f-note')) editing.note = $('f-note').value.trim();
+            if ($('f-system')) editing.system = $('f-system').value.trim().slice(0, 40);
+            editing.streamDates = readExtraDatesFromDom();
+        }
+
         async function save() {
             try {
+                syncEditingFromDom();
                 const response = await fetch('/api/game-plan', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lists: customLists, tiers, tierSets, periods: orderedPeriods(), items: items.map(({ id, name, status, gameType, streamDate, streamTime, streamRecurring, streamDates, twitchSegmentId, twitchSegmentIds, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists }) => ({ id, name, status, gameType, streamDate, streamTime, streamRecurring, streamDates, twitchSegmentId, twitchSegmentIds, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists })) })
+                    body: JSON.stringify({ lists: customLists, tiers, tierSets, periods: orderedPeriods(), items: items.map(({ id, name, status, gameType, streamDate, streamTime, streamRecurring, streamDates, twitchSegmentId, twitchSegmentIds, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists }) => ({ id, name, status, gameType, streamDate, streamTime, streamRecurring, streamDates: Array.isArray(streamDates) ? streamDates : [], twitchSegmentId, twitchSegmentIds, period, note, twitchCategory, igdbId, custom, customCover, rating, tier, tags, finished, played, autoAdded, system, extraLists })) })
                 });
                 if (!response.ok) throw new Error((await response.json()).error || response.statusText);
                 setStatus('Saved. Overlays update within a few seconds.');
@@ -624,6 +667,7 @@
                 for (const fresh of data.items) {
                     const item = items.find(entry => entry.id === fresh.id);
                     if (!item) continue;
+                    if (editing && item.id === editing.id && $('dlg').open) continue;
                     if (item.cover !== fresh.cover || item.playingNow !== fresh.playingNow || item.releaseYear !== fresh.releaseYear) changed = true;
                     Object.assign(item, {
                         cover: fresh.cover,
@@ -636,7 +680,7 @@
                         streamDate: fresh.streamDate || item.streamDate,
                         streamTime: fresh.streamTime || item.streamTime,
                         streamRecurring: fresh.streamRecurring !== undefined ? fresh.streamRecurring : item.streamRecurring,
-                        streamDates: fresh.streamDates || item.streamDates,
+                        streamDates: Array.isArray(fresh.streamDates) ? fresh.streamDates : (item.streamDates || []),
                         twitchSegmentId: fresh.twitchSegmentId || item.twitchSegmentId,
                         twitchSegmentIds: fresh.twitchSegmentIds || item.twitchSegmentIds
                     });
@@ -1012,25 +1056,21 @@
         });
         $('f-add-date').addEventListener('click', () => {
             if (!editing) return;
-            if (!Array.isArray(editing.streamDates)) editing.streamDates = [];
+            editing.streamDates = readExtraDatesFromDom();
             editing.streamDates.push({ date: '', time: editing.streamTime || '19:00', segmentId: '' });
             paintStreamDates();
-            commit(true);
+            scheduleSave();
+            const list = $('f-stream-dates-list');
+            const newInputs = list?.querySelectorAll('[data-extra-date]');
+            if (newInputs && newInputs.length) newInputs[newInputs.length - 1].focus();
         });
-        $('f-stream-dates-list').addEventListener('change', event => {
+        function onStreamDatesChange() {
             if (!editing) return;
-            const row = event.target.closest('[data-date-idx]');
-            if (!row) return;
-            const idx = parseInt(row.dataset.dateIdx, 10);
-            if (isNaN(idx) || !editing.streamDates[idx]) return;
-            if (event.target.matches('[data-extra-date]')) {
-                editing.streamDates[idx].date = event.target.value;
-                commit(true);
-            } else if (event.target.matches('[data-extra-time]')) {
-                editing.streamDates[idx].time = event.target.value;
-                commit(true);
-            }
-        });
+            editing.streamDates = readExtraDatesFromDom();
+            scheduleSave();
+        }
+        $('f-stream-dates-list').addEventListener('input', onStreamDatesChange);
+        $('f-stream-dates-list').addEventListener('change', onStreamDatesChange);
         $('f-stream-dates-list').addEventListener('click', event => {
             if (!editing) return;
             const btn = event.target.closest('[data-remove-date]');
@@ -1038,10 +1078,11 @@
             const row = btn.closest('[data-date-idx]');
             if (!row) return;
             const idx = parseInt(row.dataset.dateIdx, 10);
-            if (isNaN(idx) || !editing.streamDates[idx]) return;
+            if (isNaN(idx)) return;
+            editing.streamDates = readExtraDatesFromDom();
             editing.streamDates.splice(idx, 1);
             paintStreamDates();
-            commit(true);
+            scheduleSave();
         });
         $('f-push-twitch').addEventListener('click', async () => {
             if (!editing) return;
@@ -1146,8 +1187,19 @@
                 setStatus(`Added ${result.added.length} game${result.added.length === 1 ? '' : 's'}; updated dates on ${result.updated} more.`);
             } catch (error) { setStatus(`Could not import: ${error.message}`); }
         });
-        $('f-done').addEventListener('click', () => $('dlg').close());
-        $('dlg').addEventListener('close', () => { editing = null; render(); });
+        $('f-done').addEventListener('click', () => {
+            syncEditingFromDom();
+            save();
+            $('dlg').close();
+        });
+        $('dlg').addEventListener('close', () => {
+            if (editing) {
+                syncEditingFromDom();
+                save();
+            }
+            editing = null;
+            render();
+        });
 
         (async () => {
             try {

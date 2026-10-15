@@ -345,10 +345,48 @@ async function run() {
         if (extraDateRows < 1) throw new Error('Clicking + Add Date did not create a new date slot');
         console.log('✓ Multi-day stream date controls working properly in dialog');
 
-        // Close dialog
-        await page.click('#f-done');
+        // Set extra date and time simulating datepicker selection
+        await page.$eval('#f-stream-dates-list [data-extra-date]', el => {
+            el.value = '2026-10-25';
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await page.$eval('#f-stream-dates-list [data-extra-time]', el => {
+            el.value = '21:00';
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
 
-        // Check overlay view
+        // Close dialog with Done button (triggers save)
+        await page.click('#f-done');
+        await new Promise(r => setTimeout(r, 600));
+
+        // Verify backend persisted the extra date
+        const verifyPlan = await (await fetch(`http://localhost:${PORT}/api/game-plan`)).json();
+        const savedItem1 = verifyPlan.items.find(i => i.id === 'game-1');
+        if (!savedItem1.streamDates || !savedItem1.streamDates.some(d => d.date === '2026-10-25')) {
+            throw new Error(`Extra date was not saved to backend! streamDates: ${JSON.stringify(savedItem1.streamDates)}`);
+        }
+        console.log('✓ Additional stream date successfully saved to backend:', JSON.stringify(savedItem1.streamDates));
+
+        // Check date badge on game card shows extra date indicator
+        const item1DateBadge = await page.$eval('.item[data-id="game-1"] .date-badge', el => el.textContent.trim());
+        console.log('Item 1 Date Badge:', item1DateBadge);
+        if (!item1DateBadge.includes('+1 date')) {
+            throw new Error(`Expected date badge to reflect (+1 date), got: "${item1DateBadge}"`);
+        }
+        console.log('✓ Game card date badge reflects extra scheduled date');
+
+        // Re-open dialog and verify extra date row value is rendered
+        console.log('Re-opening dialog on item 1 to verify extra date persistence in UI...');
+        await page.click('.item[data-id="game-1"] [data-edit]');
+        await page.waitForSelector('#dlg[open]');
+        const reloadedExtraDate = await page.$eval('#f-stream-dates-list [data-extra-date]', el => el.value);
+        if (reloadedExtraDate !== '2026-10-25') {
+            throw new Error(`Expected reloaded extra date to be 2026-10-25, got: "${reloadedExtraDate}"`);
+        }
+        console.log('✓ Extra date row accurately preserved and rendered on dialog re-open:', reloadedExtraDate);
+        await page.click('#f-done');
         console.log('Checking Game Plan overlay view (/overlays/game-plan.html?list=tonight)...');
         await page.goto(`http://localhost:${PORT}/overlays/game-plan.html?list=tonight`, { waitUntil: 'networkidle0' });
         const overlayCards = await page.$$eval('.schedule-title', titles => titles.map(t => t.textContent.trim()));

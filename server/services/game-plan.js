@@ -42,14 +42,15 @@ function normalizeGamePlan(input) {
         streamTime: /^\d{2}:\d{2}$/.test(String(item?.streamTime || '')) ? item.streamTime : '',
         streamRecurring: item?.streamRecurring === true,
         streamDates: Array.isArray(item?.streamDates)
-            ? item.streamDates.filter(d => d && /^\d{4}-\d{2}-\d{2}$/.test(String(typeof d === 'string' ? d : d.date))).map(d => {
-                if (typeof d === 'string') return { date: d, time: '', segmentId: '' };
+            ? item.streamDates.map(d => {
+                if (typeof d === 'string') return { date: /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : '', time: '', segmentId: '' };
+                const dateStr = String(d?.date || '').trim();
                 return {
-                    date: String(d.date || ''),
-                    time: /^\d{2}:\d{2}$/.test(String(d.time || '')) ? d.time : '',
-                    segmentId: String(d.segmentId || '').trim().slice(0, 100)
+                    date: /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : '',
+                    time: /^\d{2}:\d{2}$/.test(String(d?.time || '')) ? d.time : '',
+                    segmentId: String(d?.segmentId || '').trim().slice(0, 100)
                 };
-            }).slice(0, 30)
+            }).filter(d => Boolean(d.date || d.time)).slice(0, 30)
             : [],
         twitchSegmentId: String(item?.twitchSegmentId || '').trim().slice(0, 100),
         twitchSegmentIds: Array.isArray(item?.twitchSegmentIds)
