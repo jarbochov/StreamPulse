@@ -208,12 +208,19 @@
         document.body.appendChild(measurer);
 
         const items = sorted.map(h => {
-            const fs = getFontSize(h.count);
+            let fs = getFontSize(h.count);
             const label = h.tag + (COUNTS ? ` (${h.count})` : '');
             measurer.style.fontSize = fs + 'px';
             measurer.textContent = label;
-            const w = measurer.offsetWidth + 28;  // padding
-            const ht = measurer.offsetHeight + 14;
+            let w = measurer.offsetWidth + 28;  // padding
+            let ht = measurer.offsetHeight + 14;
+            const maxW = Math.max(100, W - PAD * 2);
+            if (w > maxW) {
+                fs = Math.max(12, fs * (maxW / w));
+                measurer.style.fontSize = fs + 'px';
+                w = measurer.offsetWidth + 28;
+                ht = measurer.offsetHeight + 14;
+            }
             return { tag: h.tag, count: h.count, label, fontSize: fs, w, h: ht, x: 0, y: 0 };
         });
         document.body.removeChild(measurer);

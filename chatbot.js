@@ -24,7 +24,7 @@ module.exports = function createChatbot({ sessionKey = () => '', onUse = () => {
     let shared = null;
     let statusCache = { at: 0, value: null };
 
-    const ACCESS = ['everyone', 'subs', 'mods'];
+    const ACCESS = ['everyone', 'subs', 'mods', 'disabled'];
 const BUILTIN_DEFAULTS = { quote: 'everyone', quotes: 'everyone', addquote: 'mods', delquote: 'mods' };
 const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, max);
 
@@ -230,7 +230,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         return /subscriber|"sub"|member|founder|vip/.test(JSON.stringify(msg.chatbadges ?? msg.badges ?? '').toLowerCase());
     }
 
-    const allowed = (access, msg) => access === 'everyone' || isMod(msg) || (access === 'subs' && isSub(msg));
+    const allowed = (access, msg) => access !== 'disabled' && (access === 'everyone' || isMod(msg) || (access === 'subs' && isSub(msg)));
 
     const formatQuote = (q, details) => {
         if (!details) return `"${q.text}" (#${q.id})`;

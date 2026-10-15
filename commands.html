@@ -53,8 +53,7 @@ function model() {
         ['quote [number or word]', 'A random quote, a numbered quote, or one matching a word.', 'quote'],
         ['quotes', 'How many quotes are saved.', 'quotes'],
         ['addquote text', 'Add a quote.', 'addquote'],
-        ['delquote number', 'Remove a quote.', 'delquote']
-    ].map(([cmd, desc, k]) => ({ cmd: p + cmd, desc, who: who(b[k]?.access) }));
+    ].filter(([,, k]) => b[k]?.access !== 'disabled').map(([cmd, desc, k]) => ({ cmd: p + cmd, desc, who: who(b[k]?.access) }));
     const commands = state.commands.map(c => ({
         cmd: [c.name, ...(c.aliases || [])].map(n => p + n).join(' / '), enabled: c.enabled !== false, who: who(c.access),
         random: !!c.random, replies: c.random ? lines(c.response) : [String(c.response || '')]

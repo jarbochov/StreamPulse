@@ -157,15 +157,27 @@ async function api(path, method = 'GET', body) {
 
 function renderBanner() {
     const msgs = [];
-    if (!state.enabled) msgs.push('The chat bot is off. Turn it on in <a href="/config-editor.html">Config</a> (Enable chat bot).');
-    if (!state.ssnConfigured) msgs.push('Add your SocialStream session ID in Config so the bot can reply.');
-    $('banner').innerHTML = msgs.length ? `<div class="banner warn">${msgs.join('<br>')}</div>` : '<div class="banner">Chat bot is on.</div>';
+    if (!state.enabled) msgs.push('The chat bot is currently <b>Off</b>.');
+    if (!state.ssnConfigured) msgs.push('Add your SocialStream session ID in <a href="/config-editor.html">Config</a> so the bot can reply.');
+    const toggleBtn = `<button class="btn small ${state.enabled ? '' : 'primary'}" id="btn-toggle-bot">${state.enabled ? 'Turn Off' : 'Turn On'}</button>`;
+    $('banner').innerHTML = `<div class="banner ${state.enabled && state.ssnConfigured ? '' : 'warn'}" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;"><div>${msgs.length ? msgs.join('<br>') : 'Chat bot is <b>On</b> and ready to respond.'}</div>${toggleBtn}</div>`;
+    const btn = $('btn-toggle-bot');
+    if (btn) {
+        btn.onclick = async () => {
+            try {
+                const res = await api('/api/chatbot/enabled', 'POST', { action: 'toggle' });
+                state.enabled = res.enabled;
+                renderBanner();
+                toast(`Chat bot is now ${res.enabled ? 'ON' : 'OFF'}`);
+            } catch (e) { toast(e.message); }
+        };
+    }
 }
 
 function renderSettings() {
     const s = state.settings;
     $('s-prefix').value = s.prefix || '!'; $('s-tag').value = s.tag ?? ''; $('s-cooldown').value = s.cooldown ?? 5; $('s-modcooldown').value = s.modCooldown ?? ''; $('s-mods').value = (s.mods || []).join(', ');
-    $('builtins').innerHTML = ['quote', 'quotes', 'addquote', 'delquote'].map(n => { const b = (s.builtins || {})[n] || {}; return `<div class="row" data-b="${n}"><code style="min-width:7rem">${s.prefix || '!'}${n}</code><label class="check">Who can use <select data-bk="access"><option value="everyone" ${b.access === 'everyone' ? 'selected' : ''}>Everyone</option><option value="subs" ${b.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${b.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label><label class="check">Cooldown (s)<input data-bk="cooldown" type="number" min="0" value="${b.cooldown ?? ''}" placeholder="default" style="width:6rem"></label></div>`; }).join('');
+    $('builtins').innerHTML = ['quote', 'quotes', 'addquote', 'delquote'].map(n => { const b = (s.builtins || {})[n] || {}; return `<div class="row" data-b="${n}"><code style="min-width:7rem">${s.prefix || '!'}${n}</code><label class="check">Who can use <select data-bk="access"><option value="everyone" ${b.access === 'everyone' ? 'selected' : ''}>Everyone</option><option value="subs" ${b.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${b.access === 'mods' ? 'selected' : ''}>Mods only</option><option value="disabled" ${b.access === 'disabled' ? 'selected' : ''}>Disabled</option></select></label><label class="check">Cooldown (s)<input data-bk="cooldown" type="number" min="0" value="${b.cooldown ?? ''}" placeholder="default" style="width:6rem"></label></div>`; }).join('');
 }
 
 function commandHtml(c, i) {
@@ -237,15 +249,17 @@ function messageHtml(m, i) {
     </details>`;
 }
 function triggerHtml(t, i) {
-    return `<details class="item" data-i="${i}" ${t._open ? 'open' : ''}><summary><b>${esc(t.name || 'New trigger')}</b><span class="sum">${esc((t.words || []).join(', ').slice(0, 70))}</span><label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-k="enabled" ${t.enabled !== false ? 'checked' : ''}> On</label></summary>
+    const wordsArr = Array.isArray(t.words) ? t.words : String(t.words || '').split(',').map(w => w.trim()).filter(Boolean);
+    const wordsStr = wordsArr.join(', ');
+    return `<details class="item" data-i="${i}" ${t._open ? 'open' : ''}><summary><b>${esc(t.name || 'New trigger')}</b><span class="sum">${esc(wordsStr.slice(0, 70))}</span><label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-k="enabled" ${t.enabled !== false ? 'checked' : ''}> On</label></summary>
         <div class="top" style="grid-template-columns:minmax(120px,1fr) 2fr 110px;">
             <label class="f">Name<input data-k="name" value="${esc(t.name)}" placeholder="Greeting"></label>
-            <label class="f">Words or phrases (comma separated)<input data-k="words" value="${esc((t.words || []).join(', '))}" placeholder="hello, hi there"></label>
+            <label class="f">Words or phrases (comma separated)<input data-k="words" value="${esc(wordsStr)}" placeholder="hello, hi there"></label>
             <label class="f">Cooldown (s)<input data-k="cooldown" type="number" min="0" value="${t.cooldown ?? 60}"></label>
         </div>
         <label class="f"><span style="display:flex;justify-content:space-between;align-items:center;">Reply <button type="button" class="btn small" data-act="placeholder">Insert placeholder</button></span><textarea data-k="text" rows="2" maxlength="1000" placeholder="Welcome in, {{user}}!">${esc(t.text)}</textarea></label>
         <div class="preview" data-preview></div>
-        <div class="row"><label class="check"><input type="checkbox" data-k="wholeWord" ${t.wholeWord !== false ? 'checked' : ''}> Whole words only</label><label class="check"><input type="checkbox" data-k="random" ${t.random ? 'checked' : ''}> Random line</label><label class="check" title="Cooldown for mods. Blank uses the default.">Mod cooldown (s) <input data-k="modCooldown" type="number" min="0" style="width:4.5rem" value="${t.modCooldown ?? ''}" placeholder="default"></label><label class="check" title="Max uses per person. Mods are exempt. Blank is unlimited.">Limit <input data-k="limit" type="number" min="1" style="width:4.5rem" value="${t.limit ?? ''}" placeholder="none"> per <select data-k="limitPer">${[['session','session'],['day','day'],['forever','all time']].map(([v, l]) => `<option value="${v}" ${t.limitPer === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label><label class="check">Who can trigger <select data-k="access">${accessOpts(t.access || 'everyone')}</select></label><span style="flex:1"></span><button class="btn small danger" data-act="remove">Remove</button></div>
+        <div class="row"><label class="check"><input type="checkbox" data-k="wholeWord" ${t.wholeWord !== false ? 'checked' : ''}> Whole words only</label><label class="check"><input type="checkbox" data-k="random" ${t.random ? 'checked' : ''}> Random line</label><label class="check" title="Cooldown for mods. Blank uses the default.">Mod cooldown (s) <input data-k="modCooldown" type="number" min="0" style="width:4.5rem" value="${t.modCooldown ?? ''}" placeholder="default"></label><label class="check" title="Max uses per person. Mods are exempt. Blank is unlimited.">Limit <input data-k="limit" type="number" min="1" style="width:4.5rem" value="${t.limit ?? ''}" placeholder="none"> per <select data-k="limitPer">${[['session','session'],['day','day'],['forever','all time']].map(([v, l]) => `<option value="${v}" ${t.limitPer === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label><label class="check">Who can trigger <select data-k="access">${accessOpts(t.access || 'everyone')}</select></label><span style="flex:1"></span><button class="btn small" data-act="test">Send test</button><button class="btn small danger" data-act="remove">Remove</button></div>
     </details>`;
 }
 const listCfg = {
@@ -257,6 +271,9 @@ function readList(name) {
         const o = { _open: item.open };
         item.querySelectorAll('[data-k]').forEach(f => { o[f.dataset.k] = f.type === 'checkbox' ? f.checked : f.value; });
         if (name === 'messages') o.days = [...item.querySelectorAll('[data-day]:checked')].map(c => Number(c.dataset.day));
+        if (name === 'triggers') {
+            o.words = (Array.isArray(o.words) ? o.words : String(o.words || '').split(',')).map(w => w.trim()).filter(Boolean);
+        }
         return o;
     });
 }
@@ -267,11 +284,21 @@ function renderList(name) {
 }
 for (const name of Object.keys(listCfg)) {
     const c = listCfg[name];
-    $(`add-${name === 'messages' ? 'message' : 'trigger'}`).onclick = () => { state[name] = readList(name); state[name].push(c.blank()); renderList(name); };
+    $(`add-${name === 'messages' ? 'message' : 'trigger'}`).onclick = () => {
+        state[name] = readList(name);
+        state[name].push(c.blank());
+        renderList(name);
+        const last = document.querySelector(`#${c.el} .item:last-child`);
+        if (last) {
+            last.open = true;
+            const input = last.querySelector('input');
+            if (input) input.focus();
+        }
+    };
     $(`save-${name}`).onclick = async () => {
         try {
             const list = readList(name);
-            if (list.some(x => !String(x.text).trim() || (name === 'triggers' && !String(x.words).trim()))) throw new Error(name === 'triggers' ? 'Each trigger needs words and a reply' : 'Each message needs text');
+            if (list.some(x => !String(x.text).trim() || (name === 'triggers' && (!x.words || !x.words.length)))) throw new Error(name === 'triggers' ? 'Each trigger needs words and a reply' : 'Each message needs text');
             applyState(await api('/api/chatbot', 'PUT', { [name]: list })); toast('Saved');
         } catch (e) { toast(e.message); }
     };

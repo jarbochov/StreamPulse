@@ -109,7 +109,8 @@ html, body {
     border-radius: clamp(4px, 1vmin, 8px);
     background: rgba(255, 255, 255, 0.06);
     transition: transform 0.2s;
-    max-width: 90%;
+    max-width: none;
+    white-space: nowrap;
 }
 
 /* Grid view */
@@ -120,8 +121,8 @@ html, body {
 .grid-tile .tag { color: var(--accent-color); overflow: hidden; text-overflow: ellipsis; max-width: 80%; }
 .grid-tile .count { opacity: 0.55; font-size: 0.65em; }
 
-.grid-tag .tag { color: var(--accent-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%; }
-.grid-tag .count { opacity: 0.5; font-size: 0.65em; }
+.grid-tag .tag { color: var(--accent-color); white-space: nowrap; overflow: visible; text-overflow: clip; max-width: none; }
+.grid-tag .count { opacity: 0.5; font-size: 0.65em; flex-shrink: 0; }
 
 /* Filter info */
 .filter-info {
