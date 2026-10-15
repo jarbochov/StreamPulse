@@ -960,6 +960,8 @@
         let currentBtnPresetId = 'chaos';
         let currentQuotePresetId = 'multiverse';
         let currentSuspense = 'normal';
+        let currentTheme = 'system';
+        let currentThemeSlices = null;
         let choices = [...DEFAULT_FALLBACK_CHOICES];
         let presetsList = [];
         let buttonPresetsList = [];
@@ -1232,9 +1234,6 @@
             }
         };
 
-        let currentTheme = 'system';
-        let currentThemeSlices = null;
-
         // Apply Shared Overlay Theme (Matches overlay-theme.js)
         async function loadOverlayTheme() {
             try {
@@ -1276,7 +1275,7 @@
                 text = t.text_color || '#ffffff';
                 font = t.font_family || '';
                 weight = t.font_weight || '600';
-                bg = bgOverride || t.background_color || getEffectiveBackground();
+                bg = bgOverride || getEffectiveBackground();
                 outline = (t.text_outline === false ? 'none' : t.text_outline_color) || '';
                 fontImport = t.font_import;
             } else {
@@ -1886,8 +1885,10 @@
             currentPresetId = selVal;
             if ($('var-picker-row')) $('var-picker-row').style.display = selVal === 'variables' ? 'block' : 'none';
 
-            const matched = presetsList.find(p => p.id === selVal);
+            const matched = presetsList.find(p => p.id === selVal) || (presetsList.length ? presetsList[0] : null);
             if (matched) {
+                if (currentPresetId !== matched.id && $('preset-select')) $('preset-select').value = matched.id;
+                currentPresetId = matched.id;
                 setChoices(matched.choices || []);
                 if ($('winner-header-input')) {
                     if (!isInitialLoad || !savedStudio?.winnerHeader) {
@@ -1908,6 +1909,8 @@
                 loadChatters();
             } else if (selVal === 'variables') {
                 loadVariables();
+            } else {
+                setChoices(DEFAULT_FALLBACK_CHOICES);
             }
             updateObsUrl();
             if (!isInitialLoad) saveStudioState();
@@ -2129,14 +2132,17 @@
                 if ($('btn-quick-sound')) $('btn-quick-sound').style.opacity = AudioFX.enabled ? '1' : '0.6';
             }
             if (s.activeTab) {
+                const validTabs = ['presets', 'theme', 'buttons', 'quotes', 'obs'];
+                const tab = validTabs.includes(s.activeTab) ? s.activeTab : 'presets';
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-                $(`tab-btn-${s.activeTab}`)?.classList.add('active');
-                $(`tab-pane-${s.activeTab}`)?.classList.add('active');
+                $(`tab-btn-${tab}`)?.classList.add('active');
+                $(`tab-pane-${tab}`)?.classList.add('active');
             }
         }
 
         // Startup & Listeners
+        setChoices(DEFAULT_FALLBACK_CHOICES);
         applySavedStudioUI(savedStudio);
         loadOverlayTheme();
         fetchChoicesPresets();

@@ -618,7 +618,7 @@
                 text = params.get('text') || t.text_color || '#ffffff';
                 font = params.get('font') || t.font_family || '';
                 weight = params.get('weight') || t.font_weight || '600';
-                bg = bgOverride || params.get('bg') || t.background_color || 'glass';
+                bg = bgOverride || params.get('bg') || (t.background_color && t.background_color !== 'transparent' ? t.background_color : 'glass');
                 outline = params.get('outline') || (t.text_outline === false ? 'none' : t.text_outline_color) || '';
                 fontImport = t.font_import;
             } else {
