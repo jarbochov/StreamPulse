@@ -73,7 +73,68 @@
             <button class="b" id="md">Download .md</button>
         </div>
         <div class="card muted">
-            Use any placeholder as <code>{{name}}</code> in overlay text, embeds, QR codes, alert messages and chat bot replies. Dates, timers and lists accept a format: <code>{{name|format}}</code>. Lists also take <code>.random</code> in chat bot replies, for example <code>{{var.NAME.random}}</code>. Chat bot replies also support dynamic tokens like <code>{{target}}</code>, <code>{{arg.1}}</code>, <code>{{random min max}}</code>, and <code>{{choice A|B|C}}</code>. Generated live from your setup (timers, goals, variables, lists). Click any code tag to copy.
+            Use any placeholder as <code>{{name}}</code> in overlay text, embeds, QR codes, alert messages and chat bot replies. Dates, timers and lists accept a format: <code>{{name|format}}</code>. Lists also take <code>.random</code> in chat bot replies, for example <code>{{var.NAME.random}}</code>. Generated live from your setup (timers, goals, variables, lists). Click any code tag to copy.
+        </div>
+
+        <!-- Chat Bot Dynamic Tokens Card -->
+        <div class="card" style="margin-bottom:1rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;flex-wrap:wrap;gap:.5rem;">
+                <h2 style="font-size:1.05rem;margin:0;">Chat Bot Dynamic Tokens &amp; Actions</h2>
+                <a href="/chatbot.html#commands" style="font-size:.8rem;color:var(--accent);text-decoration:none;">Open in Chat Bot ↗</a>
+            </div>
+            <p class="muted" style="margin-bottom:.75rem;">
+                These special tokens are evaluated dynamically when a viewer runs a command or triggers a reply in chat. They resolve the caller, target user mentions, arguments, or roll random outcomes.
+            </p>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:.83rem;">
+                    <thead>
+                        <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text-muted);">
+                            <th style="padding:.4rem .6rem;">Token</th>
+                            <th style="padding:.4rem .6rem;">Description</th>
+                            <th style="padding:.4rem .6rem;">Example in Command Response</th>
+                            <th style="padding:.4rem .6rem;">Example Output</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom:1px solid var(--bg-raised);">
+                            <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{user}}">{{user}}</code></td>
+                            <td style="padding:.4rem .6rem;">Username of the chatter who ran the command (or <code>$(user)</code>)</td>
+                            <td style="padding:.4rem .6rem;"><code>Hey {{user}}, welcome in!</code></td>
+                            <td style="padding:.4rem .6rem;"><em>Hey Alice, welcome in!</em></td>
+                        </tr>
+                        <tr style="border-bottom:1px solid var(--bg-raised);">
+                            <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{target}}">{{target}}</code></td>
+                            <td style="padding:.4rem .6rem;">Target user from command args (strips <code>@</code>; falls back to sender or <code>{{target:someone}}</code>; also <code>$(touser)</code>)</td>
+                            <td style="padding:.4rem .6rem;"><code>Shoutout to @{{target}}! twitch.tv/{{target}}</code></td>
+                            <td style="padding:.4rem .6rem;"><em>Shoutout to @Bob! twitch.tv/Bob</em></td>
+                        </tr>
+                        <tr style="border-bottom:1px solid var(--bg-raised);">
+                            <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{args}}">{{args}}</code></td>
+                            <td style="padding:.4rem .6rem;">All arguments / text following the command name</td>
+                            <td style="padding:.4rem .6rem;"><code>{{user}} asked: "{{args}}"</code></td>
+                            <td style="padding:.4rem .6rem;"><em>Alice asked: "how are you?"</em></td>
+                        </tr>
+                        <tr style="border-bottom:1px solid var(--bg-raised);">
+                            <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{arg.1}}">{{arg.1}}</code>, <code class="copyable" data-copy="{{arg.2}}">{{arg.2}}</code></td>
+                            <td style="padding:.4rem .6rem;">1st, 2nd, etc. space-separated parameter. Supports fallbacks like <code>{{arg.2:10}}</code> and Nightbot syntax <code>$(1)</code>, <code>$(2)</code></td>
+                            <td style="padding:.4rem .6rem;"><code>⚔️ {{user}} duels {{target}} for {{arg.2:10}} pts!</code></td>
+                            <td style="padding:.4rem .6rem;"><em>⚔️ Alice duels Bob for 50 pts!</em></td>
+                        </tr>
+                        <tr style="border-bottom:1px solid var(--bg-raised);">
+                            <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{random 1 6}}">{{random min max}}</code></td>
+                            <td style="padding:.4rem .6rem;">Evaluates a random integer or dice roll between min and max (inclusive)</td>
+                            <td style="padding:.4rem .6rem;"><code>🎲 {{user}} rolled a {{random 1 20}}!</code></td>
+                            <td style="padding:.4rem .6rem;"><em>🎲 Alice rolled a 19!</em></td>
+                        </tr>
+                        <tr>
+                            <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{choice Yes|No|Maybe}}">{{choice A|B|C}}</code></td>
+                            <td style="padding:.4rem .6rem;">Randomly picks one pipe-separated item (also <code>{{pick A|B|C}}</code>)</td>
+                            <td style="padding:.4rem .6rem;"><code>🎱 8-Ball: {{choice Yes!|No.|Ask again later.}}</code></td>
+                            <td style="padding:.4rem .6rem;"><em>🎱 8-Ball: Yes!</em></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
         <div id="out"></div>
     </div>

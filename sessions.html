@@ -223,7 +223,7 @@
                     <button class="compare-btn" id="compare-toggle" onclick="toggleCompareMode()" style="background: var(--bg-raised); color: var(--text-muted); font-size: 0.75rem; padding: 0.3rem 0.6rem;">📊 Compare</button>
                 </div>
                 <div class="global-search">
-                    <input type="text" id="global-search-input" placeholder="🔍 Search all chats..." onkeydown="if(event.key==='Enter')globalSearch()">
+                    <input type="text" id="global-search-input" placeholder="🔍 Search all chats (* and ? wildcards)..." onkeydown="if(event.key==='Enter')globalSearch()">
                     <button onclick="globalSearch()">Search</button>
                 </div>
                 <details class="search-hints">
@@ -233,9 +233,11 @@
                         <code>pizza cheese</code><span>Contains both words (AND)</span>
                         <code>pizza OR tacos</code><span>Contains either word</span>
                         <code>"good game"</code><span>Exact phrase</span>
-                        <code>user:ChatFan42</code><span>Messages from a user</span>
-                        <code>user:ChatFan42 pizza</code><span>From user, containing "pizza"</span>
-                        <code>@ChatFan42</code><span>Shorthand for user filter</span>
+                        <code>win*</code><span>Words starting with "win" (wildcard)</span>
+                        <code>*ing</code><span>Words ending with "ing" (wildcard)</span>
+                        <code>d?g</code><span>Single-character wildcard (dog, dig)</span>
+                        <code>user:bot*</code><span>From users matching "bot*"</span>
+                        <code>@ChatFan*</code><span>Shorthand user wildcard</span>
                     </div>
                 </details>
                 <div style="display:flex;gap:0.35rem;margin-bottom:0.5rem;flex-wrap:wrap;">
@@ -690,7 +692,7 @@
                 <button class="export-btn" onclick="exportChatLog('pdf')">📕 Export PDF</button>
             </div>
             <div class="chat-search">
-                <input type="text" id="chatlog-filter" placeholder='Filter messages, @user, "phrase", or OR...' onkeydown="if(event.key==='Enter')applyChatLogFilter()">
+                <input type="text" id="chatlog-filter" placeholder='Filter messages (*, ? wildcards), @user, "phrase", OR...' onkeydown="if(event.key==='Enter')applyChatLogFilter()">
                 <button onclick="applyChatLogFilter()">Filter</button>
                 <button class="filter-toggle" id="links-toggle" onclick="toggleChatLogFilter('links', this)">🔗 Links</button>
                 <button class="filter-toggle" id="events-toggle" onclick="toggleChatLogFilter('events', this)">📢 Events</button>
@@ -1338,10 +1340,28 @@
         );
     }
 
+    function matchWildcardTerm(text, term) {
+        if (!/[*?]/.test(term)) {
+            return text.includes(term);
+        }
+        let pattern = term.replace(/([.+^${}()|[\]\\])/g, '\\$1');
+        pattern = pattern.replace(/\*/g, '.*').replace(/\?/g, '.');
+        const startWord = /^[a-z0-9_]/i.test(term) && !term.startsWith('*');
+        const endWord = /[a-z0-9_]$/i.test(term) && !term.endsWith('*');
+        let regexStr = pattern;
+        if (startWord) regexStr = '(?<=^|\\s|[.,!?;:\'"()\\[\\]{}])' + regexStr;
+        if (endWord) regexStr = regexStr + '(?=$|\\s|[.,!?;:\'"()\\[\\]{}])';
+        try {
+            return new RegExp(regexStr, 'i').test(text);
+        } catch {
+            return text.includes(term.replace(/[*?]/g, ''));
+        }
+    }
+
     function matchesSearchText(text, searchFilter) {
         if (!searchFilter || searchFilter.length === 0) return true;
         const lower = (text || '').toLowerCase();
-        return searchFilter.some(andTerms => andTerms.every(term => lower.includes(term)));
+        return searchFilter.some(andTerms => andTerms.every(term => matchWildcardTerm(lower, term)));
     }
 
     function filterChatLog() {
@@ -1359,7 +1379,17 @@
         }
 
         if (filters.user) {
-            messages = messages.filter(m => (m.user || '').toLowerCase() === filters.user);
+            if (/[*?]/.test(filters.user)) {
+                const userPat = '^' + filters.user.replace(/([.+^${}()|[\]\\])/g, '\\$1').replace(/\*/g, '.*').replace(/\?/g, '.') + '$';
+                try {
+                    const uRe = new RegExp(userPat, 'i');
+                    messages = messages.filter(m => uRe.test(m.user || ''));
+                } catch {
+                    messages = messages.filter(m => (m.user || '').toLowerCase() === filters.user);
+                }
+            } else {
+                messages = messages.filter(m => (m.user || '').toLowerCase() === filters.user);
+            }
         }
         if (filters.searchFilter) {
             messages = messages.filter(m => matchesSearchText(m.message || '', filters.searchFilter));

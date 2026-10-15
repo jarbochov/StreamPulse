@@ -113,7 +113,70 @@
 
         <div class="card" data-tab="commands">
             <h2>Commands</h2>
-            <p class="muted" style="margin-bottom:.75rem;">Responses use the same {{placeholders}} as overlays (e.g. <code>Now playing: {{track}}</code>). Chatter: <code>{{user}}</code>. Target: <code>{{target}}</code> (or <code>$(touser)</code>). Arguments: <code>{{args}}</code>, <code>{{arg.1}}</code>, <code>{{arg.2}}</code>. RNG &amp; Dice: <code>{{random 1 6}}</code>. Choices: <code>{{choice Yes|No|Maybe}}</code>. Use \n for a second message.</p>
+            <p class="muted" style="margin-bottom:.5rem;">Create custom chat bot commands that reply in your channel. Supports standard stream {{placeholders}} as well as chat-specific dynamic tokens. Use <code>\n</code> for a second reply message.</p>
+            <details class="item" style="margin-bottom:1rem;background:var(--bg-inset);padding:.5rem .75rem;border-radius:6px;border:1px solid var(--border);">
+                <summary style="cursor:pointer;font-weight:600;font-size:.85rem;color:var(--accent);">📖 How to use Chat Bot Tokens &amp; Arguments (Cheat sheet)</summary>
+                <div style="margin-top:.75rem;display:grid;gap:.5rem;font-size:.82rem;">
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%;border-collapse:collapse;font-size:.8rem;">
+                            <thead>
+                                <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text-muted);">
+                                    <th style="padding:.3rem .5rem;">Token</th>
+                                    <th style="padding:.3rem .5rem;">What it does</th>
+                                    <th style="padding:.3rem .5rem;">Example in Command Response</th>
+                                    <th style="padding:.3rem .5rem;">Viewer types</th>
+                                    <th style="padding:.3rem .5rem;">Bot replies</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr style="border-bottom:1px solid var(--border);">
+                                    <td style="padding:.35rem .5rem;"><code>{{user}}</code></td>
+                                    <td style="padding:.35rem .5rem;">Chatter name</td>
+                                    <td style="padding:.35rem .5rem;"><code>Welcome in, {{user}}!</code></td>
+                                    <td style="padding:.35rem .5rem;"><code>!hi</code></td>
+                                    <td style="padding:.35rem .5rem;"><em>Welcome in, Alice!</em></td>
+                                </tr>
+                                <tr style="border-bottom:1px solid var(--border);">
+                                    <td style="padding:.35rem .5rem;"><code>{{target}}</code></td>
+                                    <td style="padding:.35rem .5rem;">Target user from args (strips @; defaults to sender)</td>
+                                    <td style="padding:.35rem .5rem;"><code>🤗 {{user}} hugged {{target}}!</code></td>
+                                    <td style="padding:.35rem .5rem;"><code>!hug @Bob</code></td>
+                                    <td style="padding:.35rem .5rem;"><em>🤗 Alice hugged Bob!</em></td>
+                                </tr>
+                                <tr style="border-bottom:1px solid var(--border);">
+                                    <td style="padding:.35rem .5rem;"><code>{{args}}</code></td>
+                                    <td style="padding:.35rem .5rem;">Everything after command name</td>
+                                    <td style="padding:.35rem .5rem;"><code>{{user}} asked: "{{args}}"</code></td>
+                                    <td style="padding:.35rem .5rem;"><code>!ask will it rain?</code></td>
+                                    <td style="padding:.35rem .5rem;"><em>Alice asked: "will it rain?"</em></td>
+                                </tr>
+                                <tr style="border-bottom:1px solid var(--border);">
+                                    <td style="padding:.35rem .5rem;"><code>{{arg.1}}</code>, <code>{{arg.2}}</code></td>
+                                    <td style="padding:.35rem .5rem;">1st, 2nd parameter token (e.g. <code>{{arg.2:10}}</code> for default)</td>
+                                    <td style="padding:.35rem .5rem;"><code>⚔️ {{user}} duels {{target}} for {{arg.2:10}} coins!</code></td>
+                                    <td style="padding:.35rem .5rem;"><code>!duel @Bob 50</code></td>
+                                    <td style="padding:.35rem .5rem;"><em>⚔️ Alice duels Bob for 50 coins!</em></td>
+                                </tr>
+                                <tr style="border-bottom:1px solid var(--border);">
+                                    <td style="padding:.35rem .5rem;"><code>{{random min max}}</code></td>
+                                    <td style="padding:.35rem .5rem;">Random dice roll or integer</td>
+                                    <td style="padding:.35rem .5rem;"><code>🎲 {{user}} rolled a {{random 1 20}}!</code></td>
+                                    <td style="padding:.35rem .5rem;"><code>!roll</code></td>
+                                    <td style="padding:.35rem .5rem;"><em>🎲 Alice rolled a 17!</em></td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:.35rem .5rem;"><code>{{choice A|B|C}}</code></td>
+                                    <td style="padding:.35rem .5rem;">Random pick from pipe-separated list</td>
+                                    <td style="padding:.35rem .5rem;"><code>🎱 8-Ball says: {{choice Yes!|No.|Ask again.}}</code></td>
+                                    <td style="padding:.35rem .5rem;"><code>!8ball</code></td>
+                                    <td style="padding:.35rem .5rem;"><em>🎱 8-Ball says: Yes!</em></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="muted" style="margin:.3rem 0 0;">Tip: Click <b>"Insert placeholder"</b> on any command to insert any of these tokens directly with a single click.</p>
+                </div>
+            </details>
             <div id="commands"></div>
             <div class="row" style="margin-top:.75rem;"><button class="btn" id="add-command">Add command</button><button class="btn primary" id="save-commands">Save commands</button></div>
         </div>
@@ -332,7 +395,7 @@ for (const name of Object.keys(listCfg)) {
         const act = event.target.dataset.act, item = event.target.closest('.item');
         if (!act || !item) return;
         const field = item.querySelector('[data-k="text"]');
-        if (act === 'placeholder') PlaceholderPicker.open({ getStatus: () => liveStatus, onWarn: toast, onPick: token => PlaceholderPicker.insertInto(field, token) });
+        if (act === 'placeholder') PlaceholderPicker.open({ getStatus: () => liveStatus, isChatbot: true, onWarn: toast, onPick: token => PlaceholderPicker.insertInto(field, token) });
         if (act === 'remove') { state[name] = readList(name); state[name].splice(Number(item.dataset.i), 1); renderList(name); }
         if (act === 'test') {
             try { const { text } = await api('/api/chatbot/preview', 'POST', { text: field.value.split('\n')[0] }); await api('/api/chatbot/send', 'POST', { text: text || field.value }); toast('Test sent to chat'); } catch (e) { toast(e.message); }
@@ -495,11 +558,11 @@ $('commands').addEventListener('change', event => { if (event.target.dataset.k =
 $('commands').addEventListener('click', async event => {
     const act = event.target.dataset.act, item = event.target.closest('.item');
     if (!act || !item) return;
-    if (act === 'placeholder') {
-        const field = item.querySelector('[data-k="response"]');
-        PlaceholderPicker.open({ getStatus: () => liveStatus, onWarn: toast, onPick: token => PlaceholderPicker.insertInto(field, token) });
-        return;
-    }
+        if (act === 'placeholder') {
+            const field = item.querySelector('[data-k="response"]');
+            PlaceholderPicker.open({ getStatus: () => liveStatus, isChatbot: true, onWarn: toast, onPick: token => PlaceholderPicker.insertInto(field, token) });
+            return;
+        }
     if (act === 'remove') { state.commands = readCommands(); state.commands.splice(Number(item.dataset.i), 1); renderCommands(); }
     if (act === 'test') {
         try {

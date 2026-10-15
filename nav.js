@@ -20,11 +20,17 @@
         .nav .dropdown-menu a.active { color: var(--accent) !important; background: var(--bg-card); }
         
         /* Status pill */
-        .nav-status-pill { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 999px; text-decoration: none; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border); transition: all 0.2s; white-space: nowrap; }
+        .nav-status-pill { display: inline-flex; align-items: center; gap: 0.38rem; font-size: 0.72rem; font-weight: 600; padding: 0.22rem 0.55rem; border-radius: 999px; text-decoration: none; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border); transition: all 0.2s; white-space: nowrap; }
         .nav-status-pill:hover { border-color: var(--accent); color: var(--text); }
-        .nav-status-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
+        .nav-status-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
         .nav-status-pill.live { color: #fff; background: color-mix(in srgb, #f85149 18%, var(--bg-card)); border-color: #f85149; }
         .nav-status-pill.live .dot { background: #f85149; box-shadow: 0 0 6px #f85149; animation: nav-pulse 2s infinite; }
+        .nav-status-pill.connected { color: var(--text); border-color: color-mix(in srgb, #3fb950 40%, var(--border)); }
+        .nav-status-pill.connected .dot { background: #3fb950; box-shadow: 0 0 5px rgba(63,185,80,0.6); }
+        .nav-status-pill.warn { color: var(--text); border-color: color-mix(in srgb, #d29922 40%, var(--border)); }
+        .nav-status-pill.warn .dot { background: #d29922; box-shadow: 0 0 4px rgba(210,153,34,0.5); }
+        .nav-status-pill.twitch.connected { border-color: color-mix(in srgb, #9146ff 50%, var(--border)); }
+        .nav-status-pill.twitch.connected .dot { background: #9146ff; box-shadow: 0 0 5px rgba(145,70,255,0.7); }
         @keyframes nav-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.85); } }
 
         /* Command palette trigger */
@@ -314,8 +320,10 @@
             }
         }
 
-        // Live stream status indicator
+        // Live stream & integration status indicators
         html += `<a href="/dashboard.html" id="nav-live-indicator" class="nav-status-pill" title="Stream status" style="display:none;"><span class="dot"></span><span class="label"></span></a>`;
+        html += `<a href="/twitch-connect.html" id="nav-twitch-indicator" class="nav-status-pill twitch" title="Twitch connection status" style="display:none;"><span class="dot"></span><span class="label">Twitch</span></a>`;
+        html += `<a href="/config-editor.html" id="nav-ssn-indicator" class="nav-status-pill" title="SocialStream connection status" style="display:none;"><span class="dot"></span><span class="label">SocialStream</span></a>`;
 
         // Command palette button
         html += `<button type="button" id="nav-cmd-k" class="nav-cmd-btn" title="Quick Jump (Ctrl/⌘+K)" aria-label="Search pages"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> <kbd>⌘K</kbd></button>`;
@@ -365,27 +373,61 @@
             paint();
         }
 
-        // Live stream status polling
-        function updateLiveIndicator() {
+        // Live stream & integration status indicators polling
+        function updateNavStatus() {
             fetch('/api/status').then(r => r.json()).then(data => {
-                const pill = document.getElementById('nav-live-indicator');
-                if (!pill) return;
-                const isLive = !!data.viewers?.live;
-                const viewers = data.viewers?.current || 0;
-                pill.style.display = 'inline-flex';
-                if (isLive) {
-                    pill.className = 'nav-status-pill live';
-                    pill.querySelector('.label').textContent = `LIVE · ${viewers.toLocaleString()}`;
-                    pill.title = `Stream is LIVE with ${viewers} viewers — Click to open Dashboard`;
-                } else {
-                    pill.className = 'nav-status-pill';
-                    pill.querySelector('.label').textContent = 'Offline';
-                    pill.title = 'Stream is offline — Click to open Dashboard';
+                // Live status
+                const livePill = document.getElementById('nav-live-indicator');
+                if (livePill) {
+                    const isLive = !!data.viewers?.live;
+                    const viewers = data.viewers?.current || 0;
+                    livePill.style.display = 'inline-flex';
+                    if (isLive) {
+                        livePill.className = 'nav-status-pill live';
+                        livePill.querySelector('.label').textContent = `LIVE · ${viewers.toLocaleString()}`;
+                        livePill.title = `Stream is LIVE with ${viewers} viewers — Click to open Dashboard`;
+                    } else {
+                        livePill.className = 'nav-status-pill';
+                        livePill.querySelector('.label').textContent = 'Offline';
+                        livePill.title = 'Stream is offline — Click to open Dashboard';
+                    }
+                }
+
+                // Twitch status
+                const twitchPill = document.getElementById('nav-twitch-indicator');
+                if (twitchPill) {
+                    twitchPill.style.display = 'inline-flex';
+                    const hasTwitch = !!data.twitch?.hasToken;
+                    if (hasTwitch) {
+                        twitchPill.className = 'nav-status-pill twitch connected';
+                        twitchPill.title = `Twitch connected (${data.twitch?.broadcaster_id ? 'Broadcaster ID: ' + data.twitch.broadcaster_id : 'Authorized'}) — Click to configure`;
+                    } else {
+                        twitchPill.className = 'nav-status-pill twitch';
+                        twitchPill.title = 'Twitch not connected — Click to connect';
+                    }
+                }
+
+                // SocialStream status
+                const ssnPill = document.getElementById('nav-ssn-indicator');
+                if (ssnPill) {
+                    ssnPill.style.display = 'inline-flex';
+                    const ssnConnected = !!data.ssn?.connected;
+                    const ssnHasSession = !!data.ssn?.session;
+                    if (ssnConnected) {
+                        ssnPill.className = 'nav-status-pill connected';
+                        ssnPill.title = `SocialStream connected (${(data.ssn?.messages || 0).toLocaleString()} msgs) — Click to configure`;
+                    } else if (ssnHasSession) {
+                        ssnPill.className = 'nav-status-pill warn';
+                        ssnPill.title = 'SocialStream configured but disconnected — Click to configure';
+                    } else {
+                        ssnPill.className = 'nav-status-pill';
+                        ssnPill.title = 'SocialStream not connected — Click to configure';
+                    }
                 }
             }).catch(() => {});
         }
-        updateLiveIndicator();
-        setInterval(() => { if (!document.hidden) updateLiveIndicator(); }, 15000);
+        updateNavStatus();
+        setInterval(() => { if (!document.hidden) updateNavStatus(); }, 15000);
     }
 
     if (document.readyState === 'loading') {

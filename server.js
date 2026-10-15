@@ -4653,15 +4653,44 @@ function chatMessageHasLink(message) {
     );
 }
 
+function matchChatWildcardTerm(text, term) {
+    if (!/[*?]/.test(term)) {
+        return text.includes(term);
+    }
+    let pattern = term.replace(/([.+^${}()|[\]\\])/g, '\\$1');
+    pattern = pattern.replace(/\*/g, '.*').replace(/\?/g, '.');
+    const startWord = /^[a-z0-9_]/i.test(term) && !term.startsWith('*');
+    const endWord = /[a-z0-9_]$/i.test(term) && !term.endsWith('*');
+    let regexStr = pattern;
+    if (startWord) regexStr = '(?<=^|\\s|[.,!?;:\'"()\\[\\]{}])' + regexStr;
+    if (endWord) regexStr = regexStr + '(?=$|\\s|[.,!?;:\'"()\\[\\]{}])';
+    try {
+        return new RegExp(regexStr, 'i').test(text);
+    } catch {
+        return text.includes(term.replace(/[*?]/g, ''));
+    }
+}
+
 function matchesChatSearchText(text, searchFilter) {
     if (!searchFilter || searchFilter.length === 0) return true;
     const lower = String(text || '').toLowerCase();
-    return searchFilter.some(andTerms => andTerms.every(term => lower.includes(term)));
+    return searchFilter.some(andTerms => andTerms.every(term => matchChatWildcardTerm(lower, term)));
 }
 
 function matchesChatFilters(message, filters) {
     const user = (message.user || '').toLowerCase();
-    if (filters.user && user !== filters.user) return false;
+    if (filters.user) {
+        if (/[*?]/.test(filters.user)) {
+            const userPat = '^' + filters.user.replace(/([.+^${}()|[\]\\])/g, '\\$1').replace(/\*/g, '.*').replace(/\?/g, '.') + '$';
+            try {
+                if (!new RegExp(userPat, 'i').test(user)) return false;
+            } catch {
+                if (user !== filters.user) return false;
+            }
+        } else if (user !== filters.user) {
+            return false;
+        }
+    }
     if (!matchesChatSearchText(message.message || '', filters.searchFilter)) return false;
     if (filters.type === 'links' && !chatMessageHasLink(message)) return false;
     if (filters.type === 'events' && !message.event) return false;

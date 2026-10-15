@@ -69,7 +69,32 @@
         const query = dialog.querySelector('#sp-search').value.trim().toLowerCase();
         const format = dialog.querySelector('#sp-format').value.trim();
         dialog.querySelector('#sp-format-presets').innerHTML = [...shared.FORMAT_PRESETS, ...shared.LIST_FORMAT_PRESETS].map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('');
-        const html = shared.variableGroups(status).map(group => {
+        let groups = shared.variableGroups(status);
+        if (options.isChatbot) {
+            table['user'] = 'Alice';
+            table['target'] = 'Bob';
+            table['args'] = '@Bob 50';
+            table['arg.1'] = '@Bob';
+            table['arg.2'] = '50';
+            table['random 1 6'] = '4';
+            table['choice Option A|Option B'] = 'Option A';
+            groups = [
+                {
+                    label: 'Chat Bot Arguments & Helpers',
+                    items: [
+                        ['user', 'Chatter name who typed command'],
+                        ['target', 'Target user from args (@Bob -> Bob)'],
+                        ['args', 'All arguments after command'],
+                        ['arg.1', 'First argument token'],
+                        ['arg.2', 'Second argument token'],
+                        ['random 1 6', 'Random integer / dice roll (min max)'],
+                        ['choice Option A|Option B', 'Pick one random choice (pipe-separated)']
+                    ]
+                },
+                ...groups
+            ];
+        }
+        const html = groups.map(group => {
             const items = group.items.filter(([key, label]) => !query || `${group.label} ${key} ${label}`.toLowerCase().includes(query));
             if (!items.length) return '';
             return `<h4>${esc(group.label)}</h4>` + items.map(([key, label]) => {
