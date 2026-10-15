@@ -41,6 +41,7 @@ const {
     buildChatPdfHtml,
     MAX_IN_MEMORY_CHAT_MESSAGES
 } = require('./server/services/ssn');
+const { createOverlayWsServer } = require('./server/ws');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -909,6 +910,20 @@ let chatLog = [];
 let pendingChatLogEntries = [];
 const STATS_PATH = path.join(DATA_DIR, 'stats.json');
 let statsData = createEmptyStatsData();
+const wsService = createOverlayWsServer({
+    getChatData: () => chatData,
+    getMusicConfig: () => MUSIC_CONFIG,
+    getMusicState: () => musicService.getState(),
+    getViewerSummary: () => getViewerSummary(),
+    buildGoalsSnapshot: () => buildGoalsSnapshot(),
+    buildTimersSnapshot: () => buildTimersSnapshot(),
+    getLatestPoll: () => twitchService.getLatestPoll(),
+    listOverlayVisibility: () => listOverlayVisibility(),
+    log: console.log
+});
+const broadcastToOverlays = (type, payload) => wsService.broadcastToOverlays(type, payload);
+const slideshowStates = wsService.slideshowStates;
+const overlayClients = wsService.overlayClients;
 
 const ssnService = createSsnService({
     dataDir: DATA_DIR,
@@ -2165,10 +2180,7 @@ function restartServer() {
     };
 
     if (ssnSocket) ssnSocket.terminate();
-    if (overlayWss) {
-        for (const client of overlayWss.clients) client.terminate();
-        overlayWss.close();
-    }
+    wsService.closeAllConnections();
     if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
     server.close(launchReplacement);
     setTimeout(launchReplacement, 1500);
@@ -5992,60 +6004,7 @@ console.log('  StreamPulse Server');
 console.log('============================================');
 
 // WebSocket server for live overlay push
-const overlayWss = new WebSocket.Server({ server });
-const overlayClients = new Set();
-const slideshowStates = new Map();
-
-overlayWss.on('connection', (ws) => {
-    overlayClients.add(ws);
-    console.log(`[WS] Overlay client connected (${overlayClients.size} total)`);
-
-    // Send current data snapshot immediately
-    ws.send(JSON.stringify({ type: 'snapshot', data: chatData }));
-
-    // Send current music state if music is enabled
-    if (MUSIC_CONFIG.enabled && musicService.getState().state !== 'stopped') {
-        ws.send(JSON.stringify({ type: 'music', data: musicService.getState() }));
-    }
-
-    ws.send(JSON.stringify({ type: 'viewer-update', data: getViewerSummary() }));
-    ws.send(JSON.stringify({ type: 'goals-update', data: buildGoalsSnapshot() }));
-    ws.send(JSON.stringify({ type: 'timers-snapshot', data: buildTimersSnapshot() }));
-    const curPoll = twitchService.getLatestPoll();
-    if (curPoll) ws.send(JSON.stringify({ type: 'poll-update', data: curPoll }));
-
-    // Send current overlay visibility state
-    for (const entry of listOverlayVisibility().filter(o => !o.visible)) {
-        ws.send(JSON.stringify({ type: 'overlay-visibility', data: { key: entry.key, visible: false } }));
-    }
-
-    // Overlay pages report slideshow state so controllers can show play/pause and position
-    ws.on('message', (raw) => {
-        try {
-            const msg = JSON.parse(raw);
-            if (msg.type !== 'slideshow-state' || !msg.id || !msg.element) return;
-            const key = `${String(msg.id).slice(0, 80)}::${String(msg.element).slice(0, 80)}`;
-            slideshowStates.set(key, { paused: !!msg.paused, position: Number(msg.position) || 0, count: Number(msg.count) || 0, at: Date.now() });
-            ws.slideshowKeys = ws.slideshowKeys || new Set();
-            ws.slideshowKeys.add(key);
-        } catch { /* ignore malformed overlay messages */ }
-    });
-
-    ws.on('close', () => {
-        for (const key of ws.slideshowKeys || []) slideshowStates.delete(key);
-        overlayClients.delete(ws);
-        console.log(`[WS] Overlay client disconnected (${overlayClients.size} total)`);
-    });
-});
-
-function broadcastToOverlays(type, payload) {
-    const msg = JSON.stringify({ type, data: payload });
-    for (const client of overlayClients) {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(msg);
-        }
-    }
-}
+const overlayWss = wsService.attachServer(server);
 
 // Node's 5s default keep-alive closes sockets Safari still tries to reuse, which stalls requests until the browser is restarted.
 server.keepAliveTimeout = 65000;
