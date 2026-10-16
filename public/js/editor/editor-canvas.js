@@ -177,19 +177,16 @@ export function scheduleEditorCutoutMask() {
 export function applyNodeStyle(node, el, index) {
     const s = el.style || {}, b = boxOf(el);
     node.className = `canvas-element type-${el.type}${isLine(el) ? ' is-line' : ''}${state.selectedIds.has(el.id) ? ' selected' : ''}${el.locked ? ' locked' : ''}${el.visible === false ? ' hidden' : ''}${node._extra || ''}`;
-    let cutoutBorder = '0';
     let cutoutRadius = '0';
     if (el.type === 'cutout') {
         const sh = el.cutout?.shape || 'rectangle';
         if (sh === 'circle') cutoutRadius = '50%';
         else if (sh === 'pill') cutoutRadius = '999px';
         else cutoutRadius = `${s.borderRadius || 0}px`;
-        cutoutBorder = (s.borderWidth && Number(s.borderWidth) > 0) ? `${s.borderWidth}px solid ${s.borderColor || '#38bdf8'}` : '1.5px dashed rgba(56, 189, 248, 0.75)';
     }
     Object.assign(node.style, {
         left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px`, zIndex: index,
         opacity: s.opacity ?? 1, background: (el.type === 'alert' || el.type === 'cutout') ? 'transparent' : (s.background || 'transparent'),
-        border: el.type === 'alert' ? '0' : el.type === 'cutout' ? cutoutBorder : `${s.borderWidth || 0}px solid ${s.borderColor || 'transparent'}`,
         borderRadius: el.type === 'alert' ? '0' : el.type === 'cutout' ? cutoutRadius : `${s.borderRadius || 0}px`,
         padding: `${TEXT_TYPES.has(el.type) ? s.padding || 0 : 0}px`,
         fontFamily: s.fontFamily, fontSize: `${s.fontSize}px`, fontWeight: s.fontWeight, color: s.color, textAlign: s.textAlign,
@@ -198,12 +195,19 @@ export function applyNodeStyle(node, el, index) {
         alignItems: s.verticalAlign === 'middle' ? 'center' : s.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start',
         justifyContent: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'flex-end' : 'flex-start'
     });
-    if (el.type === 'cutout') {
-        node.style.boxShadow = s.shadow?.blur ? `0 0 ${s.shadow.blur}px ${s.shadow.color || 'rgba(0,0,0,0.5)'}` : 'none';
+    if (el.type === 'shape') {
+        if (s.shape === 'circle') node.style.borderRadius = '50%';
+        if (s.shape === 'pill') node.style.borderRadius = '999px';
+        if (s.shape === 'line') { node.style.height = `${Math.max(1, s.borderWidth || 4)}px`; node.style.border = '0'; }
     }
-    if (el.type !== 'alert' && el.type !== 'cutout') {
-        Object.assign(node.style, shared.decorationStyle ? shared.decorationStyle(s, el.type) : {});
-        if (shared.applyBorderGradient) shared.applyBorderGradient(node, s);
+    if (el.type !== 'alert') {
+        if (shared.decorationStyle && el.type !== 'cutout') Object.assign(node.style, shared.decorationStyle(s, el.type));
+        if (el.type === 'cutout' && !(s.borderWidth && Number(s.borderWidth) > 0)) {
+            node.style.border = '1.5px dashed rgba(56, 189, 248, 0.75)';
+            node.style.boxShadow = s.shadow?.blur ? `0 0 ${s.shadow.blur}px ${s.shadow.color || 'rgba(0,0,0,0.5)'}` : 'none';
+        } else if (shared.applyBorderEffects) {
+            shared.applyBorderEffects(node, s, el);
+        }
     }
     if (shared.textEffectStyle) Object.assign(node.style, shared.textEffectStyle(s, el.type));
     if (shared.shadowClipStyle) Object.assign(node.style, shared.shadowClipStyle(el));
@@ -215,11 +219,6 @@ export function applyNodeStyle(node, el, index) {
         node.classList.toggle('md-cols', !!cols);
         node.dataset.span = el.headingSpan ?? 6;
         if (cols) node.style.display = 'block';
-    }
-    if (el.type === 'shape') {
-        if (s.shape === 'circle') node.style.borderRadius = '50%';
-        if (s.shape === 'pill') node.style.borderRadius = '999px';
-        if (s.shape === 'line') node.style.border = '0';
     }
     if (el.type === 'random-text' && node._extra !== undefined) node.style.setProperty('--marquee-duration', `${Math.max(10, el.random?.marqueeSpeed || 60)}s`);
     if (shared.loadGoogleFont) shared.loadGoogleFont(s.fontFamily);
@@ -318,8 +317,12 @@ export function buildContent(node, el) {
         else if (shape === 'pill') node.style.borderRadius = '999px';
         else node.style.borderRadius = `${s.borderRadius || 0}px`;
         node.style.background = 'transparent';
-        node.style.border = (s.borderWidth && Number(s.borderWidth) > 0) ? `${s.borderWidth}px solid ${s.borderColor || '#38bdf8'}` : '1.5px dashed rgba(56, 189, 248, 0.75)';
-        node.style.boxShadow = s.shadow?.blur ? `0 0 ${s.shadow.blur}px ${s.shadow.color || 'rgba(0,0,0,0.5)'}` : 'none';
+        if (s.borderWidth && Number(s.borderWidth) > 0) {
+            if (shared.applyBorderEffects) shared.applyBorderEffects(node, s, el);
+        } else {
+            node.style.border = '1.5px dashed rgba(56, 189, 248, 0.75)';
+            node.style.boxShadow = s.shadow?.blur ? `0 0 ${s.shadow.blur}px ${s.shadow.color || 'rgba(0,0,0,0.5)'}` : 'none';
+        }
         node.innerHTML = `
             <div style="position:absolute;top:6px;left:8px;font-size:10px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(56,189,248,0.9);background:rgba(15,23,42,0.85);padding:2px 6px;border-radius:4px;pointer-events:none;border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;gap:4px;user-select:none;">
                 <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="2 2"/></svg>Cutout
@@ -364,7 +367,7 @@ export const sourceSignature = el => {
 export const contentSignature = (el, live) =>
     el.type === 'embed' ? JSON.stringify([el.type, expand(el.src)]) :
     el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) :
-    el.type === 'cutout' ? JSON.stringify([el.type, el.cutout, el.style?.borderRadius, el.style?.borderWidth, el.style?.borderColor, el.width, el.height]) :
+    el.type === 'cutout' ? JSON.stringify([el.type, el.cutout, el.style?.borderRadius, el.style?.borderWidth, el.style?.borderStyle, el.style?.borderColor, el.style?.borderGlow, el.style?.borderAnimation, el.width, el.height]) :
     el.type === 'alert' ? JSON.stringify([el.type, el.alert, el.style]) :
     el.type === 'video' ? JSON.stringify([el.type, expand(el.src), el.video, el.style.objectFit, el.style.focusX, el.style.focusY]) :
     JSON.stringify([
@@ -372,7 +375,9 @@ export const contentSignature = (el, live) =>
         el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList,
         el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke,
         el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee,
-        el.style.objectFit, el.style.focusX, el.style.focusY, live
+        el.style.objectFit, el.style.focusX, el.style.focusY,
+        el.style.borderWidth, el.style.borderStyle, el.style.borderColor, el.style.borderGlow, el.style.borderAnimation, el.style.borderGradient,
+        live
     ]);
 
 export function tickPlaceholders() {

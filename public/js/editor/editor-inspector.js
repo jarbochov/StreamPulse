@@ -42,6 +42,8 @@ export const RERENDER_PATHS = new Set([
     'cutout.shape', 'alert.showOnPreview', 'style.objectFit', 'mediaFilter.duotone.enabled',
     'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled',
     'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate',
+    'style.borderWidth', 'style.borderStyle', 'style.borderGlow.enabled', 'style.borderGlow.neon',
+    'style.borderGlow.inner', 'style.borderAnimation.type',
     'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'video.sound',
     'alert.layout', 'alert.hideText', 'slideshow.source', 'slideshow.advance', 'slideshow.transition',
     'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee',
@@ -52,7 +54,7 @@ export const RERENDER_PATHS = new Set([
 export const numberWasOn = new Map();
 
 export function numberCrossedZero(path, event) {
-    if (!/^style\.(textStroke\.width|textShadow\.blur)$/.test(path) || event?.target?.dataset?.kind !== 'number' || event.type !== 'input') return true;
+    if (!/^style\.(textStroke\.width|textShadow\.blur|borderWidth)$/.test(path) || event?.target?.dataset?.kind !== 'number' || event.type !== 'input') return true;
     const now = Number(getPath(selectedElements()[0], path)) > 0;
     const crossed = numberWasOn.get(path) !== now;
     numberWasOn.set(path, now);
@@ -221,12 +223,87 @@ export function boxEffectFields(el, multi) {
         <p class="hint">Backdrop blur frosts whatever is behind this box inside the overlay. Box shadow is drawn around the box edge, not the letters.</p>`;
 }
 
+export function borderControls(s = {}, shape = false, el = {}) {
+    const isLineShape = shape && s.shape === 'line';
+    const isCutout = el?.type === 'cutout';
+    const hasCutoutRadius = isCutout && (el.cutout?.shape === 'circle' || el.cutout?.shape === 'pill');
+    const hideRadius = isLineShape || (shape && ['circle', 'pill'].includes(s.shape)) || hasCutoutRadius;
+    const width = Number(s.borderWidth) || 0;
+
+    let html = `<div class="grid2">${F.number('style.borderWidth', isLineShape ? 'Thickness' : 'Border width', width, { min: 0, max: 40 })}${hideRadius ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius || 0, { min: 0, max: 200 })}</div>`;
+
+    if (isLineShape || width <= 0) return html;
+
+    html += F.select('style.borderStyle', 'Border style', s.borderStyle || 'solid', [
+        ['solid', 'Solid'],
+        ['dashed', 'Dashed'],
+        ['dotted', 'Dotted'],
+        ['double', 'Double'],
+        ['groove', '3D Groove'],
+        ['ridge', '3D Ridge'],
+        ['inset', '3D Inset'],
+        ['outset', '3D Outset']
+    ]);
+
+    html += fillControl(s, 'borderGradient', 'Border color', F.color('style.borderColor', 'Color', s.borderColor || (isCutout ? '#ffffff' : '#38bdf8'), { clear: true }));
+
+    const glow = s.borderGlow || {};
+    let glowContent = F.check('style.borderGlow.enabled', 'Enable border glow', glow.enabled);
+    if (glow.enabled) {
+        glowContent += `
+            <div class="grid2">
+                ${F.color('style.borderGlow.color', 'Glow color', glow.color || s.borderColor || '#38bdf8', { clear: true })}
+                ${F.range('style.borderGlow.blur', 'Glow blur', glow.blur ?? 16, { min: 0, max: 60, unit: 'px', editable: true })}
+            </div>
+            <div class="grid2">
+                ${F.range('style.borderGlow.spread', 'Glow spread', glow.spread ?? 2, { min: 0, max: 30, unit: 'px', editable: true })}
+                <div style="display:flex;flex-direction:column;gap:6px;padding-top:4px;">
+                    ${F.check('style.borderGlow.neon', 'Neon core', glow.neon)}
+                    ${F.check('style.borderGlow.inner', 'Inner glow', glow.inner)}
+                </div>
+            </div>`;
+    }
+
+    const anim = s.borderAnimation || {};
+    let animContent = F.select('style.borderAnimation.type', 'Border animation', anim.type || 'none', [
+        ['none', 'None (static)'],
+        ['rotating', 'Rotating beam (spotlight)'],
+        ['pulsing', 'Pulsing glow (breathing)'],
+        ['gradient', 'Gradient sweep (flowing)'],
+        ['rainbow', 'Rainbow cycle (RGB chroma)'],
+        ['marching', 'Marching ants (animated dashes)']
+    ]);
+    if (anim.type && anim.type !== 'none') {
+        animContent += F.range('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 20, step: 0.5, unit: 's', editable: true });
+        if (anim.type === 'rotating') {
+            animContent += `
+                <div class="grid2">
+                    ${F.color('style.borderAnimation.color2', 'Beam head color', anim.color2 || '#ffffff')}
+                    ${F.range('style.borderAnimation.size', 'Beam arc length', anim.size ?? 35, { min: 10, max: 100, unit: '%', editable: true })}
+                </div>`;
+        } else if (anim.type === 'gradient') {
+            animContent += F.color('style.borderAnimation.color2', 'Secondary gradient color', anim.color2 || '#8957e5');
+        }
+    }
+
+    html += `
+        <div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);">
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Border Effects &amp; Glow</div>
+            ${glowContent}
+        </div>
+        <div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);">
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Animated Border</div>
+            ${animContent}
+        </div>`;
+
+    return html;
+}
+
 export function appearanceBody(el, multi) {
     const s = el.style || {}, shape = el.type === 'shape';
     return `
         ${fillControl(s, 'gradient', shape ? 'Fill' : 'Background', F.color('style.background', 'Color', s.background, { clear: true }))}
-        <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${noRadius(s, shape) ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
-        ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : fillControl(s, 'borderGradient', 'Border color', F.color('style.borderColor', 'Color', s.borderColor, { clear: true }))}
+        ${borderControls(s, shape, el)}
         ${paddingField(el)}
         ${boxEffectFields(el, multi)}
         ${F.range('style.opacity', 'Opacity', s.opacity ?? 1, { min: 0, max: 100, scale: 0.01, unit: '%' })}
@@ -244,8 +321,7 @@ export function fillSection(el) {
         ${!shape && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) + focusField(el) : ''}
         ${shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
         ${fillControl(s, 'gradient', shape ? 'Fill' : 'Background', F.color('style.background', 'Color', s.background, { clear: true }))}
-        <div class="grid2">${F.number('style.borderWidth', shape && s.shape === 'line' ? 'Thickness' : 'Border width', s.borderWidth, { min: 0, max: 40 })}${noRadius(s, shape) ? '<span></span>' : F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 200 })}</div>
-        ${(shape && s.shape === 'line') || !(s.borderWidth > 0) ? '' : fillControl(s, 'borderGradient', 'Border color', F.color('style.borderColor', 'Color', s.borderColor, { clear: true }))}
+        ${borderControls(s, shape, el)}
         ${paddingField(el)}`);
 }
 
@@ -378,11 +454,8 @@ export function contentSection(el) {
             ['circle', 'Circle / Oval', circleIcon],
             ['pill', 'Pill / Stadium', pillIcon]
         ]);
-        if ((c.shape || 'rectangle') === 'rectangle') {
-            body += F.range('style.borderRadius', 'Corner radius', el.style?.borderRadius || 0, { min: 0, max: 200, unit: 'px', editable: true });
-        }
         body += F.range('cutout.feather', 'Edge softness (feather)', c.feather || 0, { min: 0, max: 50, unit: 'px', editable: true });
-        body += `<div class="grid2">${F.number('style.borderWidth', 'Border width', el.style?.borderWidth || 0, { min: 0, max: 40 })}${F.color('style.borderColor', 'Border color', el.style?.borderColor || '#ffffff')}</div>`;
+        body += borderControls(el.style || {}, false, el);
         body += `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
             <button type="button" class="btn" style="padding:4px 8px;font-size:11px;" data-cutout-aspect="16-9">16:9 Cam / Game</button>
             <button type="button" class="btn" style="padding:4px 8px;font-size:11px;" data-cutout-aspect="4-3">4:3 Cam</button>
@@ -976,7 +1049,7 @@ export function initInspectorEvents() {
 
         propEl.addEventListener('change', event => {
             const path = event.target.closest('[data-path]')?.dataset.path;
-            if (path === 'style.borderWidth' || path === 'style.shadow.blur') renderProperties();
+            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.shadow.blur') renderProperties();
         });
 
         propEl.addEventListener('change', event => {

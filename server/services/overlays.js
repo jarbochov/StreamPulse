@@ -153,6 +153,8 @@ const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
 const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout']);
 const PAGE_TRANSITIONS = ['none', 'fade', 'slide'];
 const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
+const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
+const BORDER_ANIM_TYPES = ['none', 'rotating', 'pulsing', 'gradient', 'rainbow', 'marching'];
 
 function normalizeGradient(g) {
     g = g || {};
@@ -166,6 +168,26 @@ function normalizeGradient(g) {
         position: ['center', 'top', 'bottom', 'left', 'right'].includes(g.position) ? g.position : 'center',
         animate: g.animate === true,
         speed: Math.max(1, Math.min(120, Number(g.speed) || 8))
+    };
+}
+
+function normalizeBorderGlow(g = {}) {
+    return {
+        enabled: g.enabled === true,
+        color: String(g.color || '').slice(0, 80),
+        blur: Math.max(0, Math.min(100, Math.round(Number(g.blur ?? 16)))),
+        spread: Math.max(0, Math.min(50, Math.round(Number(g.spread ?? 2)))),
+        neon: g.neon === true,
+        inner: g.inner === true
+    };
+}
+
+function normalizeBorderAnimation(a = {}) {
+    return {
+        type: BORDER_ANIM_TYPES.includes(a.type) ? a.type : 'none',
+        speed: Math.max(0.5, Math.min(60, Math.round((Number(a.speed) || 4) * 10) / 10)),
+        color2: String(a.color2 || '').slice(0, 80),
+        size: Math.max(10, Math.min(100, Math.round(Number(a.size) || 35)))
     };
 }
 
@@ -370,7 +392,10 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             background: String(element.style?.background || 'transparent').slice(0, 120),
             borderColor: String(element.style?.borderColor || 'transparent').slice(0, 80),
             borderWidth: Math.max(0, Math.min(40, Number(element.style?.borderWidth) || 0)),
+            borderStyle: BORDER_STYLES.includes(element.style?.borderStyle) ? element.style.borderStyle : 'solid',
             borderRadius: Math.max(0, Math.min(200, Number(element.style?.borderRadius) || 0)),
+            borderGlow: normalizeBorderGlow(element.style?.borderGlow),
+            borderAnimation: normalizeBorderAnimation(element.style?.borderAnimation),
             padding: TEXT_SOURCE_TYPES.has(type) ? Math.max(0, Math.min(200, Number(element.style?.padding) || 0)) : 0,
             opacity: Number.isFinite(Number(element.style?.opacity))
                 ? Math.max(0, Math.min(1, Number(element.style.opacity)))

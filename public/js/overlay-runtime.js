@@ -96,7 +96,6 @@
             zIndex: element.zIndex || 0,
             opacity: style.opacity ?? 1,
             background: style.background || 'transparent',
-            border: `${style.borderWidth || 0}px solid ${style.borderColor || 'transparent'}`,
             borderRadius: `${style.borderRadius || 0}px`,
             padding: `${style.padding || 0}px`,
             fontFamily: style.fontFamily || 'sans-serif',
@@ -113,7 +112,13 @@
         Object.assign(node.style, shared.decorationStyle(style, element.type));
         Object.assign(node.style, shared.textEffectStyle(style, element.type));
         Object.assign(node.style, shared.shadowClipStyle(element));
-        shared.applyBorderGradient(node, style);
+        if (element.type === 'shape' || element.type === 'cutout') {
+            const sh = element.type === 'cutout' ? (element.cutout?.shape || 'rectangle') : style.shape;
+            if (sh === 'circle') node.style.borderRadius = '50%';
+            if (sh === 'pill') node.style.borderRadius = '999px';
+            if (sh === 'line' && element.type === 'shape') { node.style.height = `${Math.max(1, style.borderWidth || 4)}px`; node.style.border = '0'; }
+        }
+        shared.applyBorderEffects(node, style, element);
         if (element.type === 'game-list' || element.type === 'slideshow') node.style.display = 'block';
         if (element.type === 'markdown') {
             node.style.setProperty('--hs', (element.headingScale ?? 100) / 100);
@@ -122,12 +127,6 @@
             node.classList.toggle('md-cols', !!cols);
             node.dataset.span = element.headingSpan ?? 6;
             if (cols) node.style.display = 'block';
-        }
-        if (element.type === 'shape' || element.type === 'cutout') {
-            const sh = element.type === 'cutout' ? (element.cutout?.shape || 'rectangle') : style.shape;
-            if (sh === 'circle') node.style.borderRadius = '50%';
-            if (sh === 'pill') node.style.borderRadius = '999px';
-            if (sh === 'line' && element.type === 'shape') { node.style.height = `${Math.max(1, style.borderWidth || 4)}px`; node.style.border = '0'; }
         }
         node.style.transform = style.rotate ? `rotate(${style.rotate}deg)` : '';
     }
@@ -566,16 +565,8 @@
             } else if (element.type === 'cutout') {
                 node.setAttribute('aria-hidden', 'true');
                 node.style.pointerEvents = 'none';
-                const s = element.style || {};
-                if (s.borderWidth && Number(s.borderWidth) > 0) {
-                    node.style.border = `${s.borderWidth}px solid ${s.borderColor || '#38bdf8'}`;
-                    node.style.background = 'transparent';
-                    node.style.boxShadow = s.shadow?.blur ? `0 0 ${s.shadow.blur}px ${s.shadow.color || 'rgba(0,0,0,0.5)'}` : 'none';
-                } else {
-                    node.style.border = 'none';
-                    node.style.background = 'transparent';
-                    node.style.boxShadow = 'none';
-                }
+                node.style.background = 'transparent';
+                shared.applyBorderEffects(node, element.style || {}, element);
                 node._isTopLayer = true;
             } else {
                 node.textContent = expandVariables(shared.elementContent(element) || '');
