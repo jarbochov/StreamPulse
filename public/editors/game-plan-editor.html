@@ -137,44 +137,41 @@
         [hidden] { display: none !important; }
 
         /* Full & Weekly Calendar View */
-        .cal-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+        .cal-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
         .cal-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); gap: 0.75rem; flex-wrap: wrap; }
         .cal-title { font-size: 0.96rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.45rem; }
         .cal-title .ico { width: 16px; height: 16px; color: var(--accent); }
         .cal-legend { display: flex; align-items: center; gap: 0.85rem; font-size: 0.72rem; color: var(--text-muted); flex-wrap: wrap; }
         .cal-legend span { display: inline-flex; align-items: center; gap: 0.32rem; }
         .cal-dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(130px, 1fr)); min-width: 910px; }
         .cal-dow { padding: 0.42rem 0.5rem; font-size: 0.69rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); text-align: center; background: var(--bg-inset); border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
         .cal-dow:nth-child(7n) { border-right: 0; }
-        .cal-cell { min-height: 104px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0.35rem 0.4rem; display: flex; flex-direction: column; gap: 0.25rem; background: var(--bg-card); transition: background 0.12s; }
+        .cal-cell { min-height: 108px; height: auto; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0.35rem 0.4rem; display: flex; flex-direction: column; gap: 0.25rem; background: var(--bg-card); transition: background 0.12s; }
         .cal-cell:nth-child(7n) { border-right: 0; }
         .cal-cell.other-month { background: color-mix(in srgb, var(--bg-inset) 65%, var(--bg-card)); opacity: 0.5; }
         .cal-cell.today { background: color-mix(in srgb, var(--accent) 6%, var(--bg-card)); }
-        .cal-cell.week-cell { min-height: 310px; padding: 0.5rem; gap: 0.4rem; }
+        .cal-cell.week-cell { min-height: 320px; padding: 0.55rem 0.5rem; gap: 0.45rem; }
         .cal-day-num { display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.1rem; }
         .cal-cell.today .cal-day-num > span { color: var(--accent); font-weight: 700; }
         .cal-add-btn { opacity: 0; background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; font-size: 0.78rem; width: 20px; height: 20px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
         .cal-cell:hover .cal-add-btn, .cal-cell.week-cell .cal-add-btn { opacity: 1; }
         .cal-add-btn:hover { border-color: var(--accent); color: var(--accent); }
-        .cal-event { position: relative; display: flex; flex-direction: column; gap: 0.18rem; padding: 0.28rem 0.38rem; border-radius: 5px; font-size: 0.72rem; line-height: 1.25; cursor: pointer; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--bg-raised); color: var(--text); text-align: left; width: 100%; min-width: 0; }
+        .cal-event { position: relative; display: flex; flex-direction: column; gap: 0.2rem; padding: 0.3rem 0.42rem; border-radius: 5px; font-size: 0.72rem; line-height: 1.25; cursor: pointer; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--bg-raised); color: var(--text); text-align: left; width: 100%; min-width: 0; overflow: visible; }
         .cal-event:hover { border-color: var(--accent); }
         .cal-ev-header { display: flex; align-items: center; justify-content: space-between; gap: 0.2rem; min-width: 0; line-height: 1; }
-        .cal-event .ev-time { font-size: 0.64rem; font-weight: 700; color: var(--text-muted); flex-shrink: 0; }
-        .cal-ev-content { display: flex; align-items: flex-start; gap: 0.32rem; min-width: 0; width: 100%; }
-        .cal-ev-content img { width: 15px; height: 20px; border-radius: 2px; object-fit: cover; flex-shrink: 0; margin-top: 1px; }
-        .cal-event .ev-name { font-size: 0.74rem; font-weight: 600; line-height: 1.25; color: var(--text); white-space: normal; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 1; min-width: 0; }
+        .cal-event .ev-time { font-size: 0.65rem; font-weight: 700; color: var(--text-muted); flex-shrink: 0; }
+        .cal-event .ev-name { font-size: 0.76rem; font-weight: 600; line-height: 1.25; color: var(--text); white-space: normal; word-break: normal; overflow-wrap: break-word; overflow: visible; width: 100%; }
         .cal-event .ev-menu-btn { opacity: 0; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); border-radius: 4px; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.72rem; cursor: pointer; flex-shrink: 0; padding: 0; line-height: 1; }
         .cal-event:hover .ev-menu-btn { opacity: 1; }
         .cal-event .ev-menu-btn:hover { color: var(--text); border-color: var(--accent); }
-        .cal-event.week-ev { gap: 0.3rem; padding: 0.45rem 0.52rem; }
+        .cal-event.week-ev { gap: 0.35rem; padding: 0.5rem 0.55rem; overflow: visible; }
         .cal-event.week-ev .week-ev-top { display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; min-width: 0; line-height: 1; }
-        .cal-event.week-ev .ev-time { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); }
-        .cal-event.week-ev .week-ev-body { display: flex; align-items: flex-start; gap: 0.45rem; min-width: 0; width: 100%; }
-        .cal-event.week-ev .week-ev-body img { width: 28px; height: 38px; border-radius: 3px; flex-shrink: 0; margin-top: 1px; object-fit: cover; }
-        .cal-event.week-ev .week-ev-info { display: flex; flex-direction: column; gap: 0.2rem; flex: 1; min-width: 0; }
-        .cal-event.week-ev .ev-name { font-size: 0.82rem; font-weight: 700; line-height: 1.25; color: var(--text); white-space: normal; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-        .cal-event.week-ev .week-ev-sub { font-size: 0.68rem; color: var(--text-muted); line-height: 1.22; word-break: break-word; }
+        .cal-event.week-ev .ev-time { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); }
+        .cal-event.week-ev .ev-name { font-size: 0.85rem; font-weight: 700; line-height: 1.3; color: var(--text); white-space: normal; word-break: normal; overflow-wrap: break-word; overflow: visible; width: 100%; }
+        .cal-event.week-ev .week-ev-bottom { display: flex; align-items: center; gap: 0.45rem; min-width: 0; margin-top: 0.1rem; }
+        .cal-event.week-ev .week-ev-bottom img { width: 24px; height: 32px; border-radius: 3px; flex-shrink: 0; object-fit: cover; }
+        .cal-event.week-ev .week-ev-sub { font-size: 0.68rem; color: var(--text-muted); line-height: 1.22; word-break: normal; overflow-wrap: break-word; }
         .cal-event.tonight-ev { border-left-color: var(--success); background: color-mix(in srgb, var(--success) 10%, var(--bg-raised)); }
         .cal-event.twitch-synced { border-left-color: #9146ff; background: color-mix(in srgb, #9146ff 10%, var(--bg-raised)); }
         .cal-event.played-ev { border-left-color: var(--text-faint); opacity: 0.72; }
@@ -815,7 +812,23 @@
                 if (!iso) return;
                 if (!eventsByDate.has(iso)) eventsByDate.set(iso, []);
                 const arr = eventsByDate.get(iso);
-                if (!arr.some(x => x.id === ev.id)) arr.push(ev);
+                const sameItemIdx = arr.findIndex(x => x.id === ev.id);
+                if (sameItemIdx >= 0) {
+                    const existing = arr[sameItemIdx];
+                    if (existing.time === 'Tonight' && ev.time && ev.time !== 'Tonight') {
+                        arr[sameItemIdx] = { ...ev, kind: existing.kind === 'tonight' ? 'tonight' : ev.kind };
+                        return;
+                    }
+                    if (ev.time === 'Tonight' && existing.time && existing.time !== 'Tonight') {
+                        if (ev.kind === 'tonight') existing.kind = 'tonight';
+                        return;
+                    }
+                    if (existing.time === ev.time) {
+                        if (ev.kind === 'tonight') existing.kind = 'tonight';
+                        return;
+                    }
+                }
+                arr.push(ev);
             };
 
             const filteredItems = items.filter(item => matchesSearch(item, viewState.search));
@@ -845,6 +858,52 @@
                 }
             }
 
+            function parseTimeToMinutes(t) {
+                if (!t) return 9999;
+                const str = String(t).trim();
+                if (str.toLowerCase() === 'played') return -1;
+                const m24 = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+                if (m24) return parseInt(m24[1], 10) * 60 + parseInt(m24[2], 10);
+                const m12 = str.match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*(am|pm)$/i);
+                if (m12) {
+                    let hrs = parseInt(m12[1], 10);
+                    const mins = m12[2] ? parseInt(m12[2], 10) : 0;
+                    const isPm = m12[3].toLowerCase() === 'pm';
+                    if (isPm && hrs < 12) hrs += 12;
+                    if (!isPm && hrs === 12) hrs = 0;
+                    return hrs * 60 + mins;
+                }
+                if (str.toLowerCase() === 'tonight') return 20 * 60; // default 8 PM
+                return 9999;
+            }
+
+            function formatEvTime(t) {
+                if (!t) return '';
+                const str = String(t).trim();
+                if (['tonight', 'played'].includes(str.toLowerCase())) return str;
+                const m24 = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+                if (m24) {
+                    let hrs = parseInt(m24[1], 10);
+                    const mins = m24[2];
+                    const ampm = hrs >= 12 ? 'PM' : 'AM';
+                    hrs = hrs % 12 || 12;
+                    return `${hrs}:${mins} ${ampm}`;
+                }
+                const m12 = str.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i);
+                if (m12) {
+                    let hrs = parseInt(m12[1], 10);
+                    const mins = m12[2] || '00';
+                    const ampm = m12[3].toUpperCase();
+                    return `${hrs}:${mins} ${ampm}`;
+                }
+                return str;
+            }
+
+            // Always sort events on every day chronologically by time
+            for (const arr of eventsByDate.values()) {
+                arr.sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time));
+            }
+
             let titleLabel = '';
             const cells = [];
 
@@ -871,16 +930,15 @@
                                 return `
                                 <div class="cal-event week-ev ${ev.kind === 'twitch' ? 'twitch-synced' : ev.kind === 'tonight' ? 'tonight-ev' : ev.kind === 'played' ? 'played-ev' : ''}" data-cal-item="${esc(ev.id)}" data-cal-ev-date="${iso}" data-cal-ev-kind="${ev.kind}" title="Click to edit · Right-click or click ⋯ for actions">
                                     <div class="week-ev-top">
-                                        <span class="ev-time">${esc(ev.time)}</span>
+                                        <span class="ev-time">${esc(formatEvTime(ev.time))}</span>
                                         <button type="button" class="ev-menu-btn" data-cal-menu="${esc(ev.id)}" data-cal-menu-date="${iso}" data-cal-menu-kind="${ev.kind}" title="Actions (Duplicate, Delete, Move…)">⋯</button>
                                     </div>
-                                    <div class="week-ev-body">
+                                    <div class="ev-name" title="${esc(ev.item.name)}">${esc(ev.item.name)}</div>
+                                    ${(ev.item.cover || subMeta) ? `
+                                    <div class="week-ev-bottom">
                                         ${ev.item.cover ? `<img src="${esc(ev.item.cover)}" alt="">` : ''}
-                                        <div class="week-ev-info">
-                                            <span class="ev-name" title="${esc(ev.item.name)}">${esc(ev.item.name)}</span>
-                                            ${subMeta ? `<div class="week-ev-sub">${esc(subMeta)}</div>` : ''}
-                                        </div>
-                                    </div>
+                                        ${subMeta ? `<span class="week-ev-sub">${esc(subMeta)}</span>` : ''}
+                                    </div>` : ''}
                                 </div>`;
                             }).join('') : `<div style="font-size:0.72rem;color:var(--text-muted);opacity:0.5;padding:0.4rem 0.2rem;">No streams</div>`}
                         </div>
@@ -908,13 +966,10 @@
                             ${dayEvents.map(ev => `
                                 <div class="cal-event ${ev.kind === 'twitch' ? 'twitch-synced' : ev.kind === 'tonight' ? 'tonight-ev' : ev.kind === 'played' ? 'played-ev' : ''}" data-cal-item="${esc(ev.id)}" data-cal-ev-date="${iso}" data-cal-ev-kind="${ev.kind}" title="${esc(ev.item.name)} (${esc(ev.time)}) — click to edit, right-click for actions">
                                     <div class="cal-ev-header">
-                                        <span class="ev-time">${esc(ev.time)}</span>
+                                        <span class="ev-time">${esc(formatEvTime(ev.time))}</span>
                                         <button type="button" class="ev-menu-btn" data-cal-menu="${esc(ev.id)}" data-cal-menu-date="${iso}" data-cal-menu-kind="${ev.kind}" title="Actions">⋯</button>
                                     </div>
-                                    <div class="cal-ev-content">
-                                        ${ev.item.cover ? `<img src="${esc(ev.item.cover)}" alt="">` : ''}
-                                        <span class="ev-name" title="${esc(ev.item.name)}">${esc(ev.item.name)}</span>
-                                    </div>
+                                    <div class="ev-name" title="${esc(ev.item.name)}">${esc(ev.item.name)}</div>
                                 </div>
                             `).join('')}
                         </div>
@@ -2289,7 +2344,12 @@
                 commit(true);
             }
         });
-        $('f-stream-time').addEventListener('change', () => { if (editing) { editing.streamTime = $('f-stream-time').value; commit(true); } });
+        ['change', 'input'].forEach(evt => $('f-stream-time').addEventListener(evt, () => {
+            if (editing) {
+                editing.streamTime = $('f-stream-time').value;
+                commit(true);
+            }
+        }));
         $('f-stream-duration').addEventListener('change', () => { if (editing) { editing.streamDuration = Number($('f-stream-duration').value) || 180; commit(false); } });
         $('f-stream-recurring').addEventListener('change', () => {
             if (editing) {
