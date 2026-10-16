@@ -787,6 +787,28 @@
                     details: 'Pushes the action live to every browser source of the overlay. Returns { ok, action, element, listeners } where listeners is the number of connected overlay clients. Manual-advance slideshows only change on next/prev. A control panel is at /overlay-control.html?id=<id>.'
                 },
                 {
+                    method: 'GET', path: '/api/videos',
+                    desc: 'List all video elements across overlays',
+                    details: 'Returns { videos: [{ overlayId, overlayName, elementId, name, src, loop, sound, volume }] }.'
+                },
+                {
+                    method: 'POST', path: '/api/custom-overlays/:id/video',
+                    desc: 'Control playback of video elements',
+                    body: '{ "action": "play" | "pause" | "toggle" | "restart" | "stop" | "mute" | "unmute" | "toggle-mute", "element": "optional element id (default: all videos)" }',
+                    details: 'Pushes playback commands to <video> and embedded YouTube players on live browser sources. Returns { ok, action, element, listeners }.'
+                },
+                {
+                    method: 'GET', path: '/api/cutouts',
+                    desc: 'List all cutout (alpha punchthrough) elements across overlays',
+                    details: 'Returns { cutouts: [{ overlayId, overlayName, elementId, name, shape, feather, x, y, width, height }] }.'
+                },
+                {
+                    method: 'POST', path: '/api/custom-overlays/:id/cutout',
+                    desc: 'Control cutout punchthrough holes live',
+                    body: '{ "action": "toggle" | "show" | "hide", "element": "optional element id (default: all cutouts)" }',
+                    details: 'Toggles OBS alpha punchthrough holes on or off live without needing to modify OBS scene sources. Returns { ok, action, element, listeners }.'
+                },
+                {
                     method: 'GET', path: '/api/asset-library',
                     desc: 'Assets by tag or name for slideshows',
                     details: 'Query: tags=a,b&mode=any|all&kinds=image|video|both, or names=<newline-separated>. Returns [{ name, kind, label, caption, url }].'

@@ -150,7 +150,7 @@ const DEFAULT_RANDOMIZER_QUOTE_PRESETS = [
 const TEXT_SOURCE_TYPES = new Set(['text', 'random-text', 'markdown']);
 const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
 const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert', 'slideshow', 'icon']);
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout']);
 const PAGE_TRANSITIONS = ['none', 'fade', 'slide'];
 const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
 
@@ -339,6 +339,10 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             sampleImage: String(element.alert?.sampleImage || '').slice(0, 2000),
             sampleEmoji: String(element.alert?.sampleEmoji || '').trim().slice(0, 40),
             triggers: Array.isArray(element.alert?.triggers) ? element.alert.triggers.filter(t => !alertTriggers || alertTriggers[t]).slice(0, 20) : []
+        },
+        cutout: {
+            shape: ['rectangle', 'circle', 'pill'].includes(element.cutout?.shape) ? element.cutout.shape : 'rectangle',
+            feather: Math.max(0, Math.min(100, Math.round(Number(element.cutout?.feather) || 0)))
         },
         random: {
             mode: ['random', 'order'].includes(element.random?.mode) ? element.random.mode : 'random',

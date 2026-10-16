@@ -529,7 +529,8 @@ function createOverlayRoutes({
         if (pathname === '/api/custom-overlays' && req.method === 'GET') {
             const customOverlays = getCustomOverlays();
             sendJson(res, Object.values(customOverlays).map(({ id, name, revision, updatedAt, createdAt, canvas, elements, pages }) => ({
-                id, name, revision, updatedAt, createdAt, canvas, elementCount: (elements || []).length, pageCount: pages?.enabled ? pages.items.length : 0
+                id, name, revision, updatedAt, createdAt, canvas, elementCount: (elements || []).length, pageCount: pages?.enabled ? pages.items.length : 0,
+                hasControls: !!(pages?.enabled || (elements || []).some(e => ['slideshow', 'video', 'cutout'].includes(e.type)))
             })));
             return true;
         }
@@ -651,6 +652,102 @@ function createOverlayRoutes({
                 }
                 const element = body.element ? String(body.element) : '';
                 broadcastToOverlays('custom-overlay-slideshow', { id: overlay.id, action, element });
+                sendJson(res, { ok: true, action, element: element || 'all', listeners: getOverlayClients().size });
+            } catch (err) {
+                sendError(res, err.message, 400);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/videos' && req.method === 'GET') {
+            const customOverlays = getCustomOverlays();
+            const videos = [];
+            for (const overlay of Object.values(customOverlays)) {
+                for (const element of overlay.elements || []) {
+                    if (element.type !== 'video') continue;
+                    videos.push({
+                        overlayId: overlay.id,
+                        overlayName: overlay.name,
+                        elementId: element.id,
+                        name: element.name || element.id,
+                        src: element.src || '',
+                        loop: element.video?.loop !== false,
+                        sound: element.video?.sound === true || element.video?.muted === false,
+                        volume: element.video?.volume ?? 100
+                    });
+                }
+            }
+            sendJson(res, { videos });
+            return true;
+        }
+
+        const videoControlMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/video$/);
+        if (videoControlMatch && req.method === 'POST') {
+            const customOverlays = getCustomOverlays();
+            const overlay = customOverlays[sanitizeOverlayId(decodeURIComponent(videoControlMatch[1]))];
+            if (!overlay) {
+                sendError(res, 'Overlay not found', 404);
+                return true;
+            }
+            try {
+                const body = JSON.parse(await readRequestBody(req) || '{}');
+                let action = String(body.action || '').toLowerCase();
+                if (action === 'toggle_mute') action = 'toggle-mute';
+                const allowed = ['play', 'pause', 'toggle', 'restart', 'stop', 'mute', 'unmute', 'toggle-mute'];
+                if (!allowed.includes(action)) {
+                    sendError(res, `action must be one of: ${allowed.join(', ')}`, 400);
+                    return true;
+                }
+                const element = body.element ? String(body.element) : '';
+                broadcastToOverlays('custom-overlay-video', { id: overlay.id, action, element });
+                sendJson(res, { ok: true, action, element: element || 'all', listeners: getOverlayClients().size });
+            } catch (err) {
+                sendError(res, err.message, 400);
+            }
+            return true;
+        }
+
+        if (pathname === '/api/cutouts' && req.method === 'GET') {
+            const customOverlays = getCustomOverlays();
+            const cutouts = [];
+            for (const overlay of Object.values(customOverlays)) {
+                for (const element of overlay.elements || []) {
+                    if (element.type !== 'cutout') continue;
+                    cutouts.push({
+                        overlayId: overlay.id,
+                        overlayName: overlay.name,
+                        elementId: element.id,
+                        name: element.name || element.id,
+                        shape: element.cutout?.shape || 'rectangle',
+                        feather: element.cutout?.feather || 0,
+                        x: element.x,
+                        y: element.y,
+                        width: element.width,
+                        height: element.height
+                    });
+                }
+            }
+            sendJson(res, { cutouts });
+            return true;
+        }
+
+        const cutoutControlMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/cutout$/);
+        if (cutoutControlMatch && req.method === 'POST') {
+            const customOverlays = getCustomOverlays();
+            const overlay = customOverlays[sanitizeOverlayId(decodeURIComponent(cutoutControlMatch[1]))];
+            if (!overlay) {
+                sendError(res, 'Overlay not found', 404);
+                return true;
+            }
+            try {
+                const body = JSON.parse(await readRequestBody(req) || '{}');
+                const action = String(body.action || '').toLowerCase();
+                if (!['toggle', 'show', 'hide'].includes(action)) {
+                    sendError(res, 'action must be toggle, show or hide', 400);
+                    return true;
+                }
+                const element = body.element ? String(body.element) : '';
+                broadcastToOverlays('custom-overlay-cutout', { id: overlay.id, action, element });
                 sendJson(res, { ok: true, action, element: element || 'all', listeners: getOverlayClients().size });
             } catch (err) {
                 sendError(res, err.message, 400);

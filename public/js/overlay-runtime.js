@@ -27,6 +27,7 @@
     // Slideshows survive live-data re-renders (a new song would otherwise restart them): the node is reused while its settings are unchanged.
     const slideshows = new Map();
     let slideshowsKept = new Set();
+    const cutoutStates = new Map();
     function stopSlideshows(ids) {
         for (const [id, entry] of [...slideshows]) if (!ids || ids.has(id)) { entry.handle.stop(); slideshows.delete(id); }
     }
@@ -122,10 +123,11 @@
             node.dataset.span = element.headingSpan ?? 6;
             if (cols) node.style.display = 'block';
         }
-        if (element.type === 'shape') {
-            if (style.shape === 'circle') node.style.borderRadius = '50%';
-            if (style.shape === 'pill') node.style.borderRadius = '999px';
-            if (style.shape === 'line') { node.style.height = `${Math.max(1, style.borderWidth || 4)}px`; node.style.border = '0'; }
+        if (element.type === 'shape' || element.type === 'cutout') {
+            const sh = element.type === 'cutout' ? (element.cutout?.shape || 'rectangle') : style.shape;
+            if (sh === 'circle') node.style.borderRadius = '50%';
+            if (sh === 'pill') node.style.borderRadius = '999px';
+            if (sh === 'line' && element.type === 'shape') { node.style.height = `${Math.max(1, style.borderWidth || 4)}px`; node.style.border = '0'; }
         }
         node.style.transform = style.rotate ? `rotate(${style.rotate}deg)` : '';
     }
@@ -243,6 +245,88 @@
         window.addEventListener(evt, unlockMediaAudio, { passive: true, capture: true });
     });
 
+    function ensureLayers() {
+        let masked = document.getElementById('overlay-masked-layer');
+        let top = document.getElementById('overlay-top-layer');
+        if (!masked) {
+            masked = document.createElement('div');
+            masked.id = 'overlay-masked-layer';
+            masked.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;';
+            root.appendChild(masked);
+        }
+        if (!top) {
+            top = document.createElement('div');
+            top.id = 'overlay-top-layer';
+            top.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
+            root.appendChild(top);
+        }
+        return { masked, top };
+    }
+
+    function updateCutoutMask() {
+        if (!currentOverlay) return;
+        const canW = Number(currentOverlay.canvas?.width) || 1920;
+        const canH = Number(currentOverlay.canvas?.height) || 1080;
+        const cutouts = pageElements(currentOverlay).filter(el => el.type === 'cutout' && (cutoutStates.has(el.id) ? cutoutStates.get(el.id) : el.visible !== false));
+        const { masked } = ensureLayers();
+        let svg = document.getElementById('overlay-cutout-svg');
+        if (!cutouts.length) {
+            masked.style.removeProperty('-webkit-mask');
+            masked.style.removeProperty('mask');
+            if (svg) svg.remove();
+            return;
+        }
+        if (!svg) {
+            svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.id = 'overlay-cutout-svg';
+            svg.setAttribute('width', '0');
+            svg.setAttribute('height', '0');
+            svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;';
+            svg.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(svg);
+        }
+        const filters = [];
+        const shapes = cutouts.map(el => {
+            const shape = el.cutout?.shape || 'rectangle';
+            const feather = Math.max(0, Math.min(100, Number(el.cutout?.feather) || 0));
+            let filterAttr = '';
+            if (feather > 0) {
+                const filterId = `cutout-feather-${el.id}`;
+                filters.push(`<filter id="${filterId}"><feGaussianBlur stdDeviation="${feather / 2}"/></filter>`);
+                filterAttr = `filter="url(#${filterId})"`;
+            }
+            const x = Number(el.x) || 0;
+            const y = Number(el.y) || 0;
+            const w = Number(el.width) || 0;
+            const h = Number(el.height) || 0;
+            if (shape === 'circle') {
+                const cx = x + w / 2;
+                const cy = y + h / 2;
+                const rx = w / 2;
+                const ry = h / 2;
+                return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="black" ${filterAttr}/>`;
+            }
+            if (shape === 'pill') {
+                const rx = Math.min(w, h) / 2;
+                return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" ry="${rx}" fill="black" ${filterAttr}/>`;
+            }
+            const rad = Math.max(0, Number(el.style?.borderRadius) || 0);
+            return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rad}" ry="${rad}" fill="black" ${filterAttr}/>`;
+        });
+
+        svg.innerHTML = `
+            <defs>
+                ${filters.join('')}
+                <mask id="overlay-cutout-mask" maskContentUnits="userSpaceOnUse" x="0" y="0" width="${canW}" height="${canH}">
+                    <rect x="0" y="0" width="${canW}" height="${canH}" fill="white"/>
+                    ${shapes.join('')}
+                </mask>
+            </defs>
+        `;
+        masked.style.setProperty('-webkit-mask', 'url(#overlay-cutout-mask)');
+        masked.style.setProperty('mask', 'url(#overlay-cutout-mask)');
+    }
+
     function render(overlay) {
         if (transitioning) { pendingRender = overlay; return; }
         fitNodes.length = 0;
@@ -256,28 +340,43 @@
         document.title = `StreamPulse — ${overlay.name}`;
         root.style.width = `${overlay.canvas.width}px`;
         root.style.height = `${overlay.canvas.height}px`;
-        root.style.background = overlay.canvas.background || 'transparent';
+        root.style.background = 'transparent';
         if (pagesOn(overlay) && !(overlay.pages.items || []).some(item => item.id === currentPage && item.enabled !== false)) currentPage = (overlay.pages.items.find(item => item.enabled !== false) || overlay.pages.items[0]).id;
+
+        const activeCutouts = pageElements(overlay).filter(el => el.type === 'cutout' && (cutoutStates.has(el.id) ? cutoutStates.get(el.id) : el.visible !== false));
+        const maxCutoutZ = activeCutouts.length ? Math.max(...activeCutouts.map(c => Number(c.zIndex) || 0)) : -Infinity;
+
         const built = pageElements(overlay).map(buildNode);
+        built.forEach(node => {
+            node._layer = (node._isTopLayer || Number(node.style.zIndex || 0) > maxCutoutZ) ? 'top' : 'masked';
+        });
+
         // Embeds on trigger pages stay loaded (hidden) so they already listen when the page takes over.
         if (pagesOn(overlay)) {
             const trig = new Set(overlay.pages.items.filter(item => item.trigger).map(item => item.id));
             for (const element of overlay.elements || []) {
                 if (element.type !== 'embed' || element.visible === false || !trig.has(element.page) || element.page === currentPage) continue;
                 const node = buildNode(element);
+                node._layer = (node._isTopLayer || Number(node.style.zIndex || 0) > maxCutoutZ) ? 'top' : 'masked';
                 node.style.visibility = 'hidden'; node.style.pointerEvents = 'none';
                 built.push(node);
             }
         }
-        // Moving or detaching an iframe reloads it, so kept embeds stay where they are and everything else is swapped around them.
-        [...root.children].forEach(child => { if (!built.includes(child)) child.remove(); });
-        built.forEach(node => { if (node.parentNode !== root) root.appendChild(node); });
+
+        const { masked, top } = ensureLayers();
+        masked.style.background = overlay.canvas.background || 'transparent';
+        [...masked.children, ...top.children].forEach(child => { if (!built.includes(child)) child.remove(); });
+        built.forEach(node => {
+            const parent = node._layer === 'top' ? top : masked;
+            if (node.parentNode !== parent) parent.appendChild(node);
+        });
         built.forEach(node => {
             const v = node.querySelector(':scope > video');
             if (v) playVideoElement(v);
         });
         stopSlideshows(new Set([...slideshows.keys()].filter(id => !slideshowsKept.has(id))));
         for (const id of [...embeds.keys()]) if (!embedsKept.has(id)) embeds.delete(id);
+        updateCutoutMask();
         refit();
         checkViewportFit(overlay);
     }
@@ -310,12 +409,24 @@
         {
             const node = document.createElement('div');
             node.dataset.pg = element.page || '';
+            node.dataset.elementId = element.id || '';
             node.className = `overlay-element overlay-${element.type}`;
             applyElementStyle(node, element);
-            if (element.type === 'image' || element.type === 'video') {
-                const media = document.createElement(element.type === 'image' ? 'img' : 'video');
-                media.src = expandVariables(element.src || '');
-                if (element.type === 'video') {
+            if (element.type === 'video') {
+                const yt = shared.parseYouTubeUrl(expandVariables(element.src || ''));
+                if (yt) {
+                    const frame = document.createElement('iframe');
+                    const v = element.video || {};
+                    const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
+                    frame.src = shared.embedUrl(expandVariables(element.src || ''), { autoplay: true, loop: v.loop !== false, sound: hasSound });
+                    frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                    frame.sandbox = 'allow-forms allow-popups allow-scripts allow-presentation allow-same-origin';
+                    frame.referrerPolicy = 'no-referrer';
+                    frame.style.cssText = 'width:100%;height:100%;border:0;';
+                    node.appendChild(frame);
+                } else {
+                    const media = document.createElement('video');
+                    media.src = expandVariables(element.src || '');
                     const v = element.video || {};
                     const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
                     const volume = Math.max(0, Math.min(1, (Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100) / 100));
@@ -326,7 +437,16 @@
                     media.dataset.targetVolume = String(volume);
                     media.muted = !hasSound;
                     if (hasSound) media.volume = volume;
+                    media.draggable = false;
+                    media.style.width = '100%';
+                    media.style.height = '100%';
+                    media.style.objectFit = element.style?.objectFit || 'cover';
+                    media.style.objectPosition = `${element.style?.focusX ?? 50}% ${element.style?.focusY ?? 50}%`;
+                    node.appendChild(media);
                 }
+            } else if (element.type === 'image') {
+                const media = document.createElement('img');
+                media.src = expandVariables(element.src || '');
                 media.draggable = false;
                 media.style.width = '100%';
                 media.style.height = '100%';
@@ -347,7 +467,8 @@
                 // Own widgets (timers, goals, music) need their origin to call the local API; external pages stay sandboxed.
                 let sameOrigin = false;
                 try { sameOrigin = new URL(frame.src, location.href).origin === location.origin; } catch { /* invalid URL stays sandboxed */ }
-                frame.sandbox = 'allow-forms allow-popups allow-scripts' + (sameOrigin ? ' allow-same-origin' : '');
+                frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                frame.sandbox = 'allow-forms allow-popups allow-scripts allow-presentation' + (sameOrigin ? ' allow-same-origin' : '');
                 frame.referrerPolicy = 'no-referrer';
                 frame.style.cssText = 'width:100%;height:100%;border:0;';
                 node.appendChild(frame);
@@ -373,6 +494,19 @@
                 }
             } else if (element.type === 'shape') {
                 node.setAttribute('aria-hidden', 'true');
+            } else if (element.type === 'cutout') {
+                node.setAttribute('aria-hidden', 'true');
+                node.style.pointerEvents = 'none';
+                const s = element.style || {};
+                if (s.borderWidth && Number(s.borderWidth) > 0) {
+                    node.style.background = 'transparent';
+                    node.style.boxShadow = s.shadow?.blur ? `0 0 ${s.shadow.blur}px ${s.shadow.color || 'rgba(0,0,0,0.5)'}` : 'none';
+                } else {
+                    node.style.border = 'none';
+                    node.style.background = 'transparent';
+                    node.style.boxShadow = 'none';
+                }
+                node._isTopLayer = true;
             } else {
                 node.textContent = expandVariables(shared.elementContent(element) || '');
             }
@@ -392,7 +526,12 @@
         const pages = currentOverlay.pages;
         const previous = currentPage;
         currentPage = nextId;
-        const outgoing = [...root.children].filter(node => node.dataset.pg && node.dataset.pg !== '*' && node.dataset.pg === previous);
+        const { masked, top } = ensureLayers();
+        const activeCutouts = pageElements(currentOverlay).filter(el => el.type === 'cutout' && (cutoutStates.has(el.id) ? cutoutStates.get(el.id) : el.visible !== false));
+        const maxCutoutZ = activeCutouts.length ? Math.max(...activeCutouts.map(c => Number(c.zIndex) || 0)) : -Infinity;
+
+        const allNodes = [...masked.children, ...top.children];
+        const outgoing = allNodes.filter(node => node.dataset.pg && node.dataset.pg !== '*' && node.dataset.pg === previous);
         const gone = new Set(outgoing);
         const prune = list => {
             for (let i = list.length - 1; i >= 0; i--) {
@@ -427,13 +566,16 @@
         // and decoding images do not stutter the first frames.
         const incoming = pageElements(currentOverlay).filter(element => element.page === currentPage).map(buildNode);
         incoming.forEach(node => {
+            node._layer = (node._isTopLayer || Number(node.style.zIndex || 0) > maxCutoutZ) ? 'top' : 'masked';
             if (ms) { node.style.visibility = 'hidden'; node.style.willChange = 'transform, opacity'; }
-            if (node.parentNode !== root) root.appendChild(node);
+            const parent = node._layer === 'top' ? top : masked;
+            if (node.parentNode !== parent) parent.appendChild(node);
             const v = node.querySelector(':scope > video');
             if (v) playVideoElement(v);
         });
         outgoing.forEach(node => { if (ms) node.style.willChange = 'transform, opacity'; });
         refit();
+        updateCutoutMask();
         const finish = () => {
             outgoing.forEach(node => {
                 if (prevTrigger && node.classList.contains('overlay-embed')) { node.style.animation = ''; node.style.willChange = ''; node.style.visibility = 'hidden'; node.style.pointerEvents = 'none'; }
@@ -495,6 +637,63 @@
         } catch {}
     }
 
+    function handleVideoControl(act, targetId) {
+        const videoNodes = root.querySelectorAll('.overlay-video');
+        videoNodes.forEach(node => {
+            if (targetId && targetId !== 'all' && node.dataset.elementId !== targetId) return;
+            const video = node.querySelector('video');
+            if (video) {
+                if (act === 'play') {
+                    video.play().catch(() => {});
+                } else if (act === 'pause') {
+                    video.pause();
+                } else if (act === 'toggle') {
+                    if (video.paused) video.play().catch(() => {});
+                    else video.pause();
+                } else if (act === 'restart') {
+                    video.currentTime = 0;
+                    video.play().catch(() => {});
+                } else if (act === 'stop') {
+                    video.pause();
+                    video.currentTime = 0;
+                } else if (act === 'mute') {
+                    video.muted = true;
+                } else if (act === 'unmute') {
+                    video.muted = false;
+                    delete video.dataset.audioPending;
+                } else if (act === 'toggle-mute') {
+                    video.muted = !video.muted;
+                    if (!video.muted) delete video.dataset.audioPending;
+                }
+                return;
+            }
+            const iframe = node.querySelector('iframe');
+            if (iframe && iframe.contentWindow) {
+                try {
+                    if (act === 'play') iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                    else if (act === 'pause') iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+                    else if (act === 'stop' || act === 'restart') {
+                        iframe.contentWindow.postMessage('{"event":"command","func":"seekTo","args":[0, true]}', '*');
+                        if (act === 'stop') iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+                    } else if (act === 'mute') iframe.contentWindow.postMessage('{"event":"command","func":"mute","args":""}', '*');
+                    else if (act === 'unmute') iframe.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', '*');
+                } catch {}
+            }
+        });
+    }
+
+    function handleCutoutControl(act, targetId) {
+        for (const element of currentOverlay?.elements || []) {
+            if (element.type !== 'cutout') continue;
+            if (targetId && targetId !== 'all' && element.id !== targetId) continue;
+            const cur = cutoutStates.has(element.id) ? cutoutStates.get(element.id) : (element.visible !== false);
+            if (act === 'toggle') cutoutStates.set(element.id, !cur);
+            else if (act === 'show') cutoutStates.set(element.id, true);
+            else if (act === 'hide') cutoutStates.set(element.id, false);
+        }
+        updateCutoutMask();
+    }
+
     let liveSocket = null;
     let closing = false;
     function reportSlideshow(elementId, state) {
@@ -524,6 +723,12 @@
                 }
                 else if (message.type === 'custom-overlay-slideshow' && message.data?.id === overlayId) {
                     for (const [id, entry] of slideshows) if (!message.data.element || message.data.element === id) entry.handle.control(message.data.action);
+                }
+                else if (message.type === 'custom-overlay-video' && message.data?.id === overlayId) {
+                    handleVideoControl(message.data.action, message.data.element);
+                }
+                else if (message.type === 'custom-overlay-cutout' && message.data?.id === overlayId) {
+                    handleCutoutControl(message.data.action, message.data.element);
                 }
                 else if (message.type === 'custom-overlay-update' && message.data?.id === overlayId) {
                     if (message.data.overlay) {

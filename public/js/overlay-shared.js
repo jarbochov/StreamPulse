@@ -651,9 +651,69 @@
         }
     }
 
-    // Embeds saved as http://localhost:PORT/... break when the overlay is opened from another device; point them at the current origin.
-    function embedUrl(url) {
+    function parseYouTubeUrl(urlStr) {
+        if (!urlStr || typeof urlStr !== 'string') return null;
+        const str = urlStr.trim();
         try {
+            const u = new URL(str, location.href);
+            const host = u.hostname.toLowerCase().replace(/^www\./, '').replace(/^m\./, '');
+            if (host === 'youtu.be') {
+                const id = u.pathname.slice(1).split('/')[0].split('?')[0];
+                if (id && /^[a-zA-Z0-9_-]{11}$/.test(id)) {
+                    return { type: 'video', id, list: u.searchParams.get('list') || null };
+                }
+            } else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+                if (u.pathname === '/watch') {
+                    const id = u.searchParams.get('v');
+                    if (id && /^[a-zA-Z0-9_-]{11}$/.test(id)) {
+                        return { type: 'video', id, list: u.searchParams.get('list') || null };
+                    }
+                } else if (u.pathname.startsWith('/shorts/') || u.pathname.startsWith('/live/') || u.pathname.startsWith('/embed/')) {
+                    const parts = u.pathname.split('/').filter(Boolean);
+                    const id = parts[1];
+                    if (id && /^[a-zA-Z0-9_-]{11}$/.test(id)) {
+                        return { type: 'video', id, list: u.searchParams.get('list') || null };
+                    }
+                } else if (u.pathname === '/playlist' && u.searchParams.get('list')) {
+                    return { type: 'playlist', list: u.searchParams.get('list') };
+                }
+            }
+        } catch { /* fallback to regex */ }
+
+        const match = str.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?v=|shorts\/|live\/|embed\/))([a-zA-Z0-9_-]{11})/i);
+        if (match) {
+            const listMatch = str.match(/[?&]list=([a-zA-Z0-9_-]+)/i);
+            return { type: 'video', id: match[1], list: listMatch ? listMatch[1] : null };
+        }
+        const plMatch = str.match(/[?&]list=([a-zA-Z0-9_-]+)/i);
+        if (plMatch && /youtube/i.test(str)) {
+            return { type: 'playlist', list: plMatch[1] };
+        }
+        return null;
+    }
+
+    // Embeds saved as http://localhost:PORT/... break when the overlay is opened from another device; point them at the current origin.
+    // YouTube links (watch, shorts, live, share) are converted to privacy-enhanced embed URLs.
+    function embedUrl(url, options = {}) {
+        if (!url) return '';
+        try {
+            const yt = parseYouTubeUrl(url);
+            if (yt) {
+                const params = new URLSearchParams();
+                if (options.autoplay !== false) params.set('autoplay', '1');
+                params.set('enablejsapi', '1');
+                if (options.loop !== false) {
+                    params.set('loop', '1');
+                    if (yt.id) params.set('playlist', yt.id);
+                }
+                if (options.controls === false) params.set('controls', '0');
+                if (options.sound === false || options.mute === true) params.set('mute', '1');
+                if (yt.list && yt.type !== 'playlist') params.set('list', yt.list);
+                return yt.type === 'playlist'
+                    ? `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(yt.list)}&${params.toString()}`
+                    : `https://www.youtube-nocookie.com/embed/${yt.id}?${params.toString()}`;
+            }
+
             const parsed = new URL(url, location.href);
             if (['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname) && parsed.host !== location.host) {
                 parsed.protocol = location.protocol;
@@ -2034,6 +2094,6 @@
         return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length, control };
     }
 
-    root.OverlayShared = { alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
+    root.OverlayShared = { alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
 })(window);
 

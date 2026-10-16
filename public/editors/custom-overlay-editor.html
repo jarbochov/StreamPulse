@@ -416,6 +416,7 @@
                         <button role="menuitem" data-add="qr"><span class="glyph">▦</span>QR code</button>
                         <button role="menuitem" data-add="embed"><span class="glyph">⊞</span>Webpage</button>
                         <button role="menuitem" data-add="shape"><span class="glyph">■</span>Shape</button>
+                        <button role="menuitem" data-add="cutout"><span class="glyph">◫</span>Cutout (Punchthrough)</button>
                         <button role="menuitem" data-add="progress"><span class="glyph">▰</span>Progress bar / ring</button>
                         <button role="menuitem" data-add="game-list"><span class="glyph">▤</span>Game list (from Game Plan)</button>
                         <button role="menuitem" data-add="alert"><span class="glyph">!</span>Alert box</button>
@@ -541,7 +542,7 @@
     const MIN_SIZE = 20;
     const TYPE_META = {
         text: { label: 'Text', icon: 'T' }, 'random-text': { label: 'Random Text', icon: '↻' }, markdown: { label: 'Markdown', icon: 'M↓' },
-        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, qr: { label: 'QR Code', icon: '▦' }, icon: { label: 'Icon', icon: '★' }, shape: { label: 'Shape', icon: '■' }, progress: { label: 'Progress', icon: '▰' }, 'game-list': { label: 'Game List', icon: '▤' }, alert: { label: 'Alert Box', icon: '!' }, slideshow: { label: 'Slideshow', icon: '⧉' }
+        image: { label: 'Image', icon: '▨' }, video: { label: 'Video', icon: '▶' }, embed: { label: 'Webpage', icon: '⊞' }, qr: { label: 'QR Code', icon: '▦' }, icon: { label: 'Icon', icon: '★' }, shape: { label: 'Shape', icon: '■' }, cutout: { label: 'Cutout', icon: '◫' }, progress: { label: 'Progress', icon: '▰' }, 'game-list': { label: 'Game List', icon: '▤' }, alert: { label: 'Alert Box', icon: '!' }, slideshow: { label: 'Slideshow', icon: '⧉' }
     };
     const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
     const FILL_TEXT_TYPES = new Set([...TEXT_TYPES, 'game-list']);
@@ -706,17 +707,17 @@
         next.canvas = Object.assign({ width: 1920, height: 1080, background: 'transparent' }, next.canvas);
         next.elements = (next.elements || []).map((item, index) => ({ index, item }))
             .sort((a, b) => (a.item.zIndex - b.item.zIndex) || (a.index - b.index)).map(entry => entry.item);
-        next.elements.forEach(item => { item.name = item.name || ''; item.locked = item.locked === true; item.items ||= []; item.textFit ||= 'none'; item.columns ||= 1; item.headingSpan ??= 6; item.headingScale ??= 100; item.source ||= { mode: 'inline', path: '', split: 'lines' }; item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 }; if (item.type === 'video') item.video = Object.assign({ loop: true, sound: false, volume: 100 }, item.video); if (item.type === 'alert') item.alert = Object.assign({ layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, triggers: [] }, item.alert); item.style ||= {}; });
+        next.elements.forEach(item => { item.name = item.name || ''; item.locked = item.locked === true; item.items ||= []; item.textFit ||= 'none'; item.columns ||= 1; item.headingSpan ??= 6; item.headingScale ??= 100; item.source ||= { mode: 'inline', path: '', split: 'lines' }; item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 }; if (item.type === 'video') item.video = Object.assign({ loop: true, sound: false, volume: 100 }, item.video); if (item.type === 'alert') item.alert = Object.assign({ layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, triggers: [] }, item.alert); if (item.type === 'cutout') item.cutout = Object.assign({ shape: 'rectangle', feather: 0 }, item.cutout); item.style ||= {}; });
         return next;
     }
 
     function createElementData(type, overrides = {}) {
-        const sizes = { text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270], video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: [480, 160], progress: [480, 48], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360] };
-        const [width, height] = sizes[type];
+        const sizes = { text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270], video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: [480, 160], cutout: [480, 270], progress: [480, 48], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360] };
+        const [width, height] = sizes[type] || [480, 270];
         const offset = (overlay.elements.length % 6) * 24;
         const data = {
             id: uid(type), name: '', locked: false, type,
-            content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', progress: '50', 'game-list': '', alert: '', slideshow: '' }[type],
+            content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', cutout: '', progress: '50', 'game-list': '', alert: '', slideshow: '' }[type],
             textFit: 'none',
             columns: 1,
             headingSpan: 6,
@@ -728,9 +729,10 @@
             slideshow: { source: 'tags', tags: [], tagMode: 'any', files: [], kinds: 'image', seconds: 5, order: 'sequential', fit: 'cover', transition: 'fade', direction: 'left', transitionMs: 800, caption: false, kenBurns: false },
             video: { loop: true, sound: false, volume: 100 },
             alert: { layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, triggers: [] },
+            cutout: { shape: 'rectangle', feather: 0 },
             progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
             page: pagesOn() ? curPage : overlay.pages.items[0].id, src: '', x: Math.round((overlay.canvas.width - width) / 2 + offset), y: Math.round((overlay.canvas.height - height) / 2 + offset), width, height, zIndex: overlay.elements.length, visible: true,
-            style: { fontFamily: 'sans-serif', fontSize: type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48, fontWeight: type === 'alert' ? '600' : '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#1f6feb' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent', borderColor: '#ffffff', borderWidth: 0, borderRadius: type === 'alert' ? 24 : 0, opacity: 1, objectFit: 'cover', shape: 'rectangle', fill: '#1f6feb', gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 }, blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' } }
+            style: { fontFamily: 'sans-serif', fontSize: type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48, fontWeight: type === 'alert' ? '600' : '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#1f6feb' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent', borderColor: '#ffffff', borderWidth: 0, borderRadius: type === 'alert' ? 24 : type === 'cutout' ? 16 : 0, opacity: 1, objectFit: 'cover', shape: 'rectangle', fill: '#1f6feb', gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 }, blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' } }
         };
         if (type === 'icon' || type === 'alert') Object.assign(data.style, { textAlign: 'center', verticalAlign: 'middle' });
         return Object.assign(data, overrides);
@@ -878,6 +880,17 @@
             const url = expand(el.src);
             if (!url) { node.appendChild(placeholder(`No ${el.type} yet — upload one or paste a URL`)); return; }
             if (/\{\{/.test(url)) { node.appendChild(placeholder(`${url} (shows when a value is available)`)); return; }
+            if (el.type === 'video' && shared.parseYouTubeUrl(url)) {
+                const embedSrc = shared.embedUrl(url, { autoplay: true, loop: el.video?.loop !== false });
+                const frame = document.createElement('iframe');
+                frame.src = embedSrc;
+                frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                frame.sandbox = 'allow-forms allow-popups allow-scripts allow-presentation allow-same-origin';
+                frame.referrerPolicy = 'no-referrer';
+                frame.style.cssText = 'width:100%;height:100%;border:0;';
+                node.appendChild(frame);
+                return;
+            }
             const media = document.createElement(el.type === 'image' ? 'img' : 'video');
             media.src = url; media.draggable = false; media.style.objectFit = el.style.objectFit || 'cover'; media.style.objectPosition = `${el.style.focusX ?? 50}% ${el.style.focusY ?? 50}%`;
             if (el.type === 'video') {
@@ -918,10 +931,27 @@
             if (!/^https?:\/\//i.test(url)) { node.appendChild(placeholder('Enter an http(s) webpage URL')); return; }
             const frame = document.createElement('iframe');
             frame.src = url;
+            frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
             let sameOrigin = false;
             try { sameOrigin = new URL(url, location.href).origin === location.origin; } catch { /* invalid URL stays sandboxed */ }
-            frame.sandbox = 'allow-forms allow-popups allow-scripts' + (sameOrigin ? ' allow-same-origin' : ''); frame.referrerPolicy = 'no-referrer';
+            frame.sandbox = 'allow-forms allow-popups allow-scripts allow-presentation' + (sameOrigin ? ' allow-same-origin' : ''); frame.referrerPolicy = 'no-referrer';
             node.appendChild(frame);
+        } else if (el.type === 'cutout') {
+            const shape = el.cutout?.shape || 'rectangle';
+            const s = el.style || {};
+            if (shape === 'circle') node.style.borderRadius = '50%';
+            else if (shape === 'pill') node.style.borderRadius = '999px';
+            else node.style.borderRadius = `${s.borderRadius || 0}px`;
+            node.style.background = 'rgba(15, 23, 42, 0.45)';
+            node.style.border = s.borderWidth ? `${s.borderWidth}px solid ${s.borderColor || '#38bdf8'}` : '2px dashed rgba(56, 189, 248, 0.85)';
+            node.style.boxShadow = 'inset 0 0 24px rgba(0,0,0,0.4)';
+            node.innerHTML = `
+                <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#38bdf8;user-select:none;pointer-events:none;text-align:center;padding:12px;">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="4"/></svg>
+                    <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#f0f6fc;">Cutout (Punchthrough)</span>
+                    <span style="font-size:10px;color:rgba(240,246,252,0.65);">${el.width} × ${el.height} · OBS Alpha Hole</span>
+                </div>
+            `;
         } else if (el.type === 'markdown') {
             node.innerHTML = shared.renderMarkdown(expand(shared.elementContent(el)), el);
         } else if (el.type === 'random-text') {
@@ -959,7 +989,7 @@
     }
     const ALERT_TRIGGER_LABELS = { follow: 'Follow', sub: 'New sub', resub: 'Resub', milestone: 'Sub milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Channel point redeem', timer: 'Timer finished', goal: 'Goal reached', chat_word: 'Chat word', chat_command: 'Chat bot command' };
     const sourceSignature = el => { const state = shared.textSourceState(el); return state ? [state.text, state.error] : null; };
-    const contentSignature = (el, live) => el.type === 'embed' ? JSON.stringify([el.type, expand(el.src)]) : el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) : el.type === 'alert' ? JSON.stringify([el.type, el.alert, el.style]) : el.type === 'video' ? JSON.stringify([el.type, expand(el.src), el.video, el.style.objectFit, el.style.focusX, el.style.focusY]) : JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke, el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, el.style.focusX, el.style.focusY, live]);
+    const contentSignature = (el, live) => el.type === 'embed' ? JSON.stringify([el.type, expand(el.src)]) : el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) : el.type === 'cutout' ? JSON.stringify([el.type, el.cutout, el.style?.borderRadius, el.style?.borderWidth, el.style?.borderColor, el.width, el.height]) : el.type === 'alert' ? JSON.stringify([el.type, el.alert, el.style]) : el.type === 'video' ? JSON.stringify([el.type, expand(el.src), el.video, el.style.objectFit, el.style.focusX, el.style.focusY]) : JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke, el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, el.style.focusX, el.style.focusY, live]);
 
     function tickPlaceholders() {
         if (!prefs.live) return;
@@ -1750,6 +1780,10 @@
             if (el.type === 'image' && el.src) body += `<img class="asset-preview" src="${esc(el.src)}" alt="Preview" onerror="this.style.display='none'">`;
         } else if (tab === 'url') {
             body += F.text('src', 'Image or video URL', el.src, 'placeholder="https://… or {{game.cover}}"');
+            const yt = shared.parseYouTubeUrl(el.src);
+            if (yt) {
+                body += `<div class="hint" style="color:var(--accent);display:flex;align-items:center;gap:6px;margin:4px 0 8px;"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg> YouTube video detected (plays via responsive embed player)</div>`;
+            }
             body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button><span class="hint">Use e.g. {{game.cover}} to show the current game's cover art.</span></div>`;
         } else {
             const accept = el.type === 'image' ? 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml' : 'video/mp4,video/webm,video/ogg';
@@ -1823,8 +1857,28 @@
             body += '<span class="hint">Keep strong contrast and a quiet zone so phones can scan it. Dark code on a light background scans best.</span>';
         }
         if (el.type === 'embed') {
-            body += F.text('src', 'Webpage URL', el.src, 'placeholder="https://example.com"');
+            body += F.text('src', 'Webpage or YouTube URL', el.src, 'placeholder="https://youtube.com/watch?v=... or https://example.com"');
+            const isYt = shared.parseYouTubeUrl(el.src);
+            if (isYt) {
+                body += `<div class="hint" style="color:var(--accent);display:flex;align-items:center;gap:6px;margin:4px 0 8px;"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg> YouTube video detected (privacy-enhanced looping embed)</div>`;
+            }
             body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button></div>`;
+        }
+        if (el.type === 'cutout') {
+            const c = el.cutout || {};
+            body += F.seg('cutout.shape', 'Punchthrough shape', c.shape || 'rectangle', [['rectangle', 'Rectangle'], ['circle', 'Circle / Oval'], ['pill', 'Pill / Stadium']]);
+            if ((c.shape || 'rectangle') === 'rectangle') {
+                body += F.range('style.borderRadius', 'Corner radius', el.style?.borderRadius || 0, { min: 0, max: 200, unit: 'px', editable: true });
+            }
+            body += F.range('cutout.feather', 'Edge softness (feather)', c.feather || 0, { min: 0, max: 50, unit: 'px', editable: true });
+            body += `<div class="grid2">${F.number('style.borderWidth', 'Border width', el.style?.borderWidth || 0, { min: 0, max: 40 })}${F.color('style.borderColor', 'Border color', el.style?.borderColor || '#ffffff')}</div>`;
+            body += `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+                <button type="button" class="btn" style="padding:4px 8px;font-size:11px;" data-cutout-aspect="16-9">16:9 Cam / Game</button>
+                <button type="button" class="btn" style="padding:4px 8px;font-size:11px;" data-cutout-aspect="4-3">4:3 Cam</button>
+                <button type="button" class="btn" style="padding:4px 8px;font-size:11px;" data-cutout-aspect="1-1">1:1 Square</button>
+                <button type="button" class="btn" style="padding:4px 8px;font-size:11px;" data-cutout-aspect="9-16">9:16 Vertical</button>
+            </div>`;
+            body += `<div class="hint" style="margin-top:10px;padding:8px 10px;border-radius:6px;background:rgba(56, 189, 248, 0.08);border:1px solid rgba(56, 189, 248, 0.2);color:var(--text);font-size:11px;line-height:1.4;"><strong style="color:var(--accent);">OBS Alpha Punchthrough:</strong> Place this overlay above your webcam or gameplay in OBS. This element cuts a 100% transparent hole through all background graphics and cards beneath it.</div>`;
         }
         if (media) body += mediaSourceBlock(el);
         return body ? F.section('content', 'Content', body) : '';
@@ -2125,7 +2179,7 @@
         } else {
             const el = items[0];
             const specific = { 'random-text': randomSection, progress: progressSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection }[el.type];
-            root.innerHTML = `${actionBar(items)}${sharedBlock(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${layoutSection(el)}${contentSection(el)}${el.type === 'icon' ? iconEffectsSection(el) : ''}${specific ? specific(el) : ''}${el.type !== 'embed' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${fillSection(el)}${effectsSection(el)}`;
+            root.innerHTML = `${actionBar(items)}${sharedBlock(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${layoutSection(el)}${contentSection(el)}${el.type === 'icon' ? iconEffectsSection(el) : ''}${specific ? specific(el) : ''}${!['embed', 'cutout'].includes(el.type) ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${el.type !== 'cutout' ? fillSection(el) : ''}${el.type !== 'cutout' ? effectsSection(el) : ''}`;
         }
         root.parentElement.scrollTop = scroll;
         lastTextField = null;
@@ -2143,7 +2197,7 @@
         }
     }
     // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
-    const RERENDER_PATHS = new Set(['style.objectFit', 'mediaFilter.duotone.enabled', 'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled', 'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'video.sound', 'alert.layout', 'alert.hideText', 'slideshow.source', 'slideshow.advance', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge', 'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
+    const RERENDER_PATHS = new Set(['cutout.shape', 'style.objectFit', 'mediaFilter.duotone.enabled', 'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled', 'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'video.sound', 'alert.layout', 'alert.hideText', 'slideshow.source', 'slideshow.advance', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge', 'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
     $('properties').addEventListener('change', event => {
         if (!event.target.matches('[data-period-pick]')) return;
         const field = event.target.closest('.field');
@@ -2215,6 +2269,33 @@
                 changed(true);
                 renderProperties();
                 toast(el.aspectLock ? 'Proportions locked' : 'Proportions unlocked', 'info', 1200);
+            }
+            return;
+        }
+        const aspectBtn = event.target.closest('[data-cutout-aspect]');
+        if (aspectBtn) {
+            const el = primary();
+            if (el && el.type === 'cutout') {
+                const ratio = aspectBtn.dataset.cutoutAspect;
+                let w = el.width || 480;
+                let h;
+                if (ratio === '16-9') h = Math.round(w * 9 / 16);
+                else if (ratio === '4-3') h = Math.round(w * 3 / 4);
+                else if (ratio === '1-1') h = w;
+                else if (ratio === '9-16') h = Math.round(w * 16 / 9);
+                if (h > (overlay.canvas?.height || 1080)) {
+                    h = Math.round((overlay.canvas?.height || 1080) * 0.7);
+                    if (ratio === '16-9') w = Math.round(h * 16 / 9);
+                    else if (ratio === '4-3') w = Math.round(h * 4 / 3);
+                    else if (ratio === '1-1') w = h;
+                    else if (ratio === '9-16') w = Math.round(h * 9 / 16);
+                }
+                el.width = clamp(w, 10, 3840);
+                el.height = clamp(h, 10, 2160);
+                renderCanvas();
+                renderSelectionUI();
+                renderProperties();
+                changed(true);
             }
             return;
         }
