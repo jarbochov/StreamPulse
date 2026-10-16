@@ -836,18 +836,20 @@
         node.className = `canvas-element type-${el.type}${isLine(el) ? ' is-line' : ''}${selectedIds.has(el.id) ? ' selected' : ''}${el.locked ? ' locked' : ''}${el.visible === false ? ' hidden' : ''}${node._extra || ''}`;
         Object.assign(node.style, {
             left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px`, zIndex: index,
-            opacity: s.opacity ?? 1, background: s.background || 'transparent',
-            border: `${s.borderWidth || 0}px solid ${s.borderColor || 'transparent'}`, borderRadius: `${s.borderRadius || 0}px`, padding: `${TEXT_TYPES.has(el.type) ? s.padding || 0 : 0}px`,
+            opacity: s.opacity ?? 1, background: el.type === 'alert' ? 'transparent' : (s.background || 'transparent'),
+            border: el.type === 'alert' ? '0' : `${s.borderWidth || 0}px solid ${s.borderColor || 'transparent'}`, borderRadius: el.type === 'alert' ? '0' : `${s.borderRadius || 0}px`, padding: `${TEXT_TYPES.has(el.type) ? s.padding || 0 : 0}px`,
             fontFamily: s.fontFamily, fontSize: `${s.fontSize}px`, fontWeight: s.fontWeight, color: s.color, textAlign: s.textAlign,
             lineHeight: s.lineHeight, letterSpacing: `${s.letterSpacing || 0}px`,
             display: s.verticalAlign === 'top' ? 'block' : 'flex',
             alignItems: s.verticalAlign === 'middle' ? 'center' : s.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start',
             justifyContent: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'flex-end' : 'flex-start'
         });
-        Object.assign(node.style, shared.decorationStyle(s, el.type));
+        if (el.type !== 'alert') {
+            Object.assign(node.style, shared.decorationStyle(s, el.type));
+            shared.applyBorderGradient(node, s);
+        }
         Object.assign(node.style, shared.textEffectStyle(s, el.type));
         Object.assign(node.style, shared.shadowClipStyle(el));
-        shared.applyBorderGradient(node, s);
         if (el.type === 'game-list' || el.type === 'slideshow') node.style.display = 'block';
         if (el.type === 'markdown') {
             node.style.setProperty('--hs', (el.headingScale ?? 100) / 100);
@@ -923,22 +925,19 @@
             node._progressKind = null;
             shared.renderProgress(node, el, expand);
         } else if (el.type === 'alert') {
+            shared.prepareAlertNode(node, el);
             if (node._alertHandle) node._alertHandle.stop();
             node._alertHandle = shared.playAlert(node, el, { ...alertSample(el), animIn: 'none', durationMs: 3600000 }, { sound: false });
         }
     }
-    const ALERT_SAMPLE_IMAGE = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#8957e5"/><path d="M50 22l8.5 18 19.5 2.4-14.5 13.4 3.9 19.3L50 65l-17.4 10 3.9-19.3L22 42.4 41.500 40z" fill="#ffd166"/></svg>')}`;
-    const ALERT_SAMPLE = { title: 'TestViewer just followed!', message: 'Thanks for the support', image: ALERT_SAMPLE_IMAGE, animOut: 'fade' };
-    // The preview can show your own image or emoji instead of the built-in star, so the box can be tuned against real media.
+    const ALERT_SAMPLE_IMAGE = shared.ALERT_SAMPLE_IMAGE;
+    const ALERT_SAMPLE = shared.ALERT_SAMPLE;
     function alertSample(el) {
-        const a = el.alert || {};
-        if (a.sampleImage) return { ...ALERT_SAMPLE, image: a.sampleImage };
-        if (a.sampleEmoji) return { ...ALERT_SAMPLE, image: '', emoji: a.sampleEmoji };
-        return ALERT_SAMPLE;
+        return shared.alertSample(el);
     }
     const ALERT_TRIGGER_LABELS = { follow: 'Follow', sub: 'New sub', resub: 'Resub', milestone: 'Sub milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Channel point redeem', timer: 'Timer finished', goal: 'Goal reached', chat_word: 'Chat word', chat_command: 'Chat bot command' };
     const sourceSignature = el => { const state = shared.textSourceState(el); return state ? [state.text, state.error] : null; };
-    const contentSignature = (el, live) => el.type === 'embed' ? JSON.stringify([el.type, expand(el.src)]) : el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) : JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke, el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, el.style.focusX, el.style.focusY, live]);
+    const contentSignature = (el, live) => el.type === 'embed' ? JSON.stringify([el.type, expand(el.src)]) : el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) : el.type === 'alert' ? JSON.stringify([el.type, el.alert, el.style]) : JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke, el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, el.style.focusX, el.style.focusY, live]);
 
     function tickPlaceholders() {
         if (!prefs.live) return;

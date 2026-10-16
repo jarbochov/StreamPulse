@@ -138,12 +138,28 @@
         for (const { node, element } of alertNodes) {
             const only = element.alert?.triggers || [];
             if (only.length && !only.includes(payload.trigger)) continue;
-            activeAlerts.push(shared.playAlert(node, element, payload));
+            if (node._alertPreviewHandle) {
+                node._alertPreviewHandle.stop();
+                node._alertPreviewHandle = null;
+            }
+            activeAlerts.push(shared.playAlert(node, element, payload, {
+                onEnd: () => {
+                    if (params.get('preview') === 'true' && !node._alertPreviewHandle) {
+                        node._alertPreviewHandle = shared.playAlert(node, element, { ...shared.alertSample(element), animIn: 'none', animOut: 'none', durationMs: 3600000 }, { sound: false });
+                    }
+                }
+            }));
         }
     }
 
     function stopAlerts() {
         activeAlerts.splice(0).forEach(handle => handle.stop());
+        for (const { node } of alertNodes) {
+            if (node._alertPreviewHandle) {
+                node._alertPreviewHandle.stop();
+                node._alertPreviewHandle = null;
+            }
+        }
     }
 
     function tickPlaceholders() {
@@ -265,8 +281,11 @@
             } else if (element.type === 'progress') {
                 shared.renderProgress(node, element, expandVariables);
             } else if (element.type === 'alert') {
-                shared.prepareAlertNode(node);
+                shared.prepareAlertNode(node, element);
                 alertNodes.push({ node, element });
+                if (params.get('preview') === 'true') {
+                    node._alertPreviewHandle = shared.playAlert(node, element, { ...shared.alertSample(element), animIn: 'none', animOut: 'none', durationMs: 3600000 }, { sound: false });
+                }
             } else if (element.type === 'shape') {
                 node.setAttribute('aria-hidden', 'true');
             } else {
@@ -290,7 +309,17 @@
         currentPage = nextId;
         const outgoing = [...root.children].filter(node => node.dataset.pg && node.dataset.pg !== '*' && node.dataset.pg === previous);
         const gone = new Set(outgoing);
-        const prune = list => { for (let i = list.length - 1; i >= 0; i--) if (gone.has(list[i].node)) list.splice(i, 1); };
+        const prune = list => {
+            for (let i = list.length - 1; i >= 0; i--) {
+                if (gone.has(list[i].node)) {
+                    if (list[i].node._alertPreviewHandle) {
+                        list[i].node._alertPreviewHandle.stop();
+                        list[i].node._alertPreviewHandle = null;
+                    }
+                    list.splice(i, 1);
+                }
+            }
+        };
         [fitNodes, tickingNodes, alertNodes].forEach(prune);
         const prevTrigger = !!currentOverlay.pages.items.find(item => item.id === previous)?.trigger;
         for (const element of currentOverlay.elements || []) if (element.page === previous && element.page !== '*' && !(prevTrigger && element.type === 'embed')) embeds.delete(element.id);
@@ -467,7 +496,7 @@
             root.style.boxShadow = '';
             document.body.style.justifyContent = 'flex-start';
             document.body.style.alignItems = 'flex-start';
-            if (toggleBtn) toggleBtn.textContent = '🔍 100% (Press F)';
+            if (toggleBtn) toggleBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:5px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>100% (Press F)';
             return;
         }
 
@@ -483,7 +512,8 @@
         document.body.style.alignItems = 'center';
 
         if (toggleBtn) {
-            toggleBtn.textContent = scale < 0.999 ? `🔍 Fit: ${Math.round(scale * 100)}% (Press F)` : '🔍 100%';
+            const label = scale < 0.999 ? `Fit: ${Math.round(scale * 100)}% (Press F)` : '100% (Press F)';
+            toggleBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:5px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>${label}`;
         }
     }
 

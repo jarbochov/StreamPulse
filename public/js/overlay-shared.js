@@ -1488,15 +1488,61 @@
         return `/api/qr?${params}`;
     }
 
+    const ALERT_SAMPLE_IMAGE = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#8957e5"/><path d="M50 22l8.5 18 19.5 2.4-14.5 13.4 3.9 19.3L50 65l-17.4 10 3.9-19.3L22 42.4 41.500 40z" fill="#ffd166"/></svg>')}`;
+    const ALERT_SAMPLE = { title: 'TestViewer just followed!', message: 'Thanks for the support', image: ALERT_SAMPLE_IMAGE, animOut: 'fade' };
+    function alertSample(el) {
+        const a = el?.alert || {};
+        if (a.sampleImage) return { ...ALERT_SAMPLE, image: a.sampleImage };
+        if (a.sampleEmoji) return { ...ALERT_SAMPLE, image: '', emoji: a.sampleEmoji };
+        return ALERT_SAMPLE;
+    }
+
     // Alert box: the element's fill/border/shadow move onto an inner card so they only show while an alert plays.
-    const ALERT_DECORATION = ['background', 'backgroundImage', 'backgroundSize', 'animation', 'border', 'borderRadius', 'boxShadow', 'backdropFilter', 'webkitBackdropFilter'];
-    function prepareAlertNode(node) {
+    const ALERT_DECORATION = [
+        'background', 'backgroundColor', 'backgroundImage', 'backgroundSize', 'backgroundPosition', 'backgroundRepeat',
+        'animation', 'border', 'borderColor', 'borderWidth', 'borderStyle', 'borderRadius', 'boxShadow', 'backdropFilter', 'webkitBackdropFilter'
+    ];
+    function prepareAlertNode(node, element) {
         const deco = {};
+        const style = element?.style || {};
+
+        if (style.background && style.background !== 'transparent') {
+            deco.background = style.background;
+            deco.backgroundColor = style.background;
+        }
+        if (style.borderWidth > 0 && style.borderColor && style.borderColor !== 'transparent') {
+            deco.border = `${style.borderWidth}px solid ${style.borderColor}`;
+            deco.borderColor = style.borderColor;
+            deco.borderWidth = `${style.borderWidth}px`;
+            deco.borderStyle = 'solid';
+        }
+        if (style.borderRadius) {
+            deco.borderRadius = `${style.borderRadius}px`;
+        }
+        if (style.padding) {
+            deco.padding = `${style.padding}px`;
+        }
+        if (style.blur > 0) {
+            deco.backdropFilter = `blur(${style.blur}px)`;
+            deco.webkitBackdropFilter = `blur(${style.blur}px)`;
+        }
+        if (style.shadow?.blur > 0) {
+            deco.boxShadow = `0 4px ${style.shadow.blur}px ${style.shadow.color || 'rgba(0,0,0,.5)'}`;
+        }
+        if (style.gradient?.enabled) {
+            Object.assign(deco, decorationStyle(style, 'alert'));
+        }
+
         for (const key of ALERT_DECORATION) {
             if (node.style[key]) deco[key] = node.style[key];
             node.style[key] = '';
         }
         node.style.border = '0';
+        node.style.background = 'transparent';
+        node.style.backgroundColor = 'transparent';
+        node.style.boxShadow = 'none';
+        node.style.backdropFilter = 'none';
+        node.style.webkitBackdropFilter = 'none';
         node.style.display = 'block';
         node._alertDeco = deco;
     }
@@ -1564,9 +1610,32 @@
         const layout = payload.image || payload.video || payload.emoji ? (cfg.layout || 'stack') : 'text';
         const card = document.createElement('div');
         card.className = `alert-card layout-${layout}`;
-        Object.assign(card.style, node._alertDeco || {});
+        
+        const deco = Object.assign({}, node._alertDeco || {});
+        if (!deco.background && !deco.backgroundColor && style.background && style.background !== 'transparent') {
+            deco.background = style.background;
+            deco.backgroundColor = style.background;
+        }
+        if (!deco.borderRadius && style.borderRadius) {
+            deco.borderRadius = `${style.borderRadius}px`;
+        }
+        if (!deco.border && style.borderWidth > 0 && style.borderColor && style.borderColor !== 'transparent') {
+            deco.border = `${style.borderWidth}px solid ${style.borderColor}`;
+        }
+        if (!deco.boxShadow && style.shadow?.blur > 0) {
+            deco.boxShadow = `0 4px ${style.shadow.blur}px ${style.shadow.color || 'rgba(0,0,0,.5)'}`;
+        }
+        if (!deco.backdropFilter && style.blur > 0) {
+            deco.backdropFilter = `blur(${style.blur}px)`;
+            deco.webkitBackdropFilter = `blur(${style.blur}px)`;
+        }
+        if (style.gradient?.enabled) {
+            Object.assign(deco, decorationStyle(style, 'alert'));
+        }
+
+        Object.assign(card.style, deco);
         card.style.gap = `${cfg.gap ?? 12}px`;
-        card.style.padding = '8px';
+        card.style.padding = `${style.padding || 8}px`;
         const hasMedia = layout !== 'text' && (payload.video || payload.image || payload.emoji);
         if (hasMedia) {
             const isEmoji = !payload.video && !payload.image;
@@ -1906,5 +1975,6 @@
         return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length, control };
     }
 
-    root.OverlayShared = { setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
+    root.OverlayShared = { alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
 })(window);
+
