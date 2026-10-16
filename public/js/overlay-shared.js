@@ -978,7 +978,7 @@
                 ring.dataset.borderRing = 'true';
             }
             if (ring.parentNode !== node) node.append(ring);
-            node.style.border = `${width}px solid transparent`;
+            node.style.border = '0';
             node.style.backgroundClip = 'padding-box';
 
             ensureGradientKeyframes();
@@ -987,7 +987,7 @@
             const animCss = g.animate
                 ? `${isVertical ? 'sp-gradient-shift-y' : 'sp-gradient-shift'} ${Math.max(1, g.speed || 8)}s ease-in-out infinite alternate`
                 : '';
-            ring.style.cssText = `position:absolute;inset:-${width}px;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:${gradCss};background-size:${g.animate ? '300% 300%' : 'cover'};animation:${animCss};z-index:2;`;
+            ring.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:${gradCss};background-size:${g.animate ? '300% 300%' : 'cover'};animation:${animCss};z-index:2;`;
             ring.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
             ring.style.setProperty('-webkit-mask-composite', 'xor');
             ring.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
@@ -1007,7 +1007,7 @@
                 fxRing.dataset.borderFxRing = 'true';
             }
             if (fxRing.parentNode !== node) node.append(fxRing);
-            node.style.border = `${width}px solid transparent`;
+            node.style.border = '0';
             node.style.backgroundClip = 'padding-box';
 
             if (anim.type === 'rotating') {
@@ -1016,7 +1016,7 @@
                 const arc = Math.round(360 * (size / 100));
                 const head = anim.color2 || '#ffffff';
                 const trail = borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8';
-                fxRing.style.cssText = `position:absolute;inset:-${width}px;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:conic-gradient(from var(--sp-angle), transparent 0deg, transparent ${360 - arc}deg, ${trail} ${360 - Math.round(arc / 2)}deg, ${head} 360deg);animation:sp-border-spin ${speed}s linear infinite;z-index:2;`;
+                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:conic-gradient(from var(--sp-angle), transparent 0deg, transparent ${360 - arc}deg, ${trail} ${360 - Math.round(arc / 2)}deg, ${head} 360deg);animation:sp-border-spin ${speed}s linear infinite;z-index:2;`;
                 fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
                 fxRing.style.setProperty('-webkit-mask-composite', 'xor');
                 fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
@@ -1025,7 +1025,7 @@
             } else if (anim.type === 'pulsing') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 2));
                 const c = borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8';
-                fxRing.style.cssText = `position:absolute;inset:-${width}px;box-sizing:border-box;border:${width}px ${borderStyle} ${c};border-radius:inherit;pointer-events:none;color:${c};box-shadow:0 0 16px ${c};animation:sp-border-pulse ${speed}s ease-in-out infinite;z-index:2;`;
+                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px ${borderStyle} ${c};border-radius:inherit;pointer-events:none;color:${c};box-shadow:0 0 16px ${c};animation:sp-border-pulse ${speed}s ease-in-out infinite;z-index:2;`;
                 fxRing.style.webkitMask = fxRing.style.mask = '';
                 fxRing.innerHTML = '';
             } else if (anim.type === 'gradient') {
@@ -1034,7 +1034,7 @@
                 const mid = anim.color3 || '';
                 const c2 = anim.color2 || '#8957e5';
                 const stops = [c1, mid, c2].filter(Boolean).join(', ');
-                fxRing.style.cssText = `position:absolute;inset:-${width}px;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg, ${stops});background-size:300% 300%;animation:sp-border-gradient-shift ${speed}s ease-in-out infinite alternate;z-index:2;`;
+                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg, ${stops});background-size:300% 300%;animation:sp-border-gradient-shift ${speed}s ease-in-out infinite alternate;z-index:2;`;
                 fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
                 fxRing.style.setProperty('-webkit-mask-composite', 'xor');
                 fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
@@ -1042,7 +1042,7 @@
                 fxRing.innerHTML = '';
             } else if (anim.type === 'rainbow') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
-                fxRing.style.cssText = `position:absolute;inset:-${width}px;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg, #ff0055, #ff9900, #ffee00, #00ff66, #00bbff, #8800ff, #ff0055);background-size:300% 300%;animation:sp-border-gradient-shift ${speed}s ease-in-out infinite alternate, sp-border-rainbow ${speed * 1.5}s linear infinite;z-index:2;`;
+                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg, #ff0055, #ff9900, #ffee00, #00ff66, #00bbff, #8800ff, #ff0055);background-size:300% 300%;animation:sp-border-gradient-shift ${speed}s ease-in-out infinite alternate, sp-border-rainbow ${speed * 1.5}s linear infinite;z-index:2;`;
                 fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
                 fxRing.style.setProperty('-webkit-mask-composite', 'xor');
                 fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
@@ -1052,9 +1052,9 @@
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 2));
                 const c = borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8';
                 const rad = node.style.borderRadius || '0px';
-                fxRing.style.cssText = `position:absolute;inset:-${width}px;width:calc(100% + ${width * 2}px);height:calc(100% + ${width * 2}px);pointer-events:none;overflow:visible;z-index:2;`;
+                fxRing.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:2;';
                 fxRing.style.webkitMask = fxRing.style.mask = '';
-                fxRing.innerHTML = `<svg data-border-fx="marching" style="width:100%;height:100%;overflow:visible;pointer-events:none;"><rect x="${width / 2}" y="${width / 2}" width="calc(100% - ${width}px)" height="calc(100% - ${width}px)" rx="${rad}" ry="${rad}" fill="none" stroke="${c}" stroke-width="${width}" stroke-dasharray="${Math.max(6, width * 2)} ${Math.max(4, width * 1.5)}" style="animation:sp-border-marching ${speed}s linear infinite;"></rect></svg>`;
+                fxRing.innerHTML = `<svg data-border-fx="marching" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;"><rect x="${width / 2}" y="${width / 2}" width="calc(100% - ${width}px)" height="calc(100% - ${width}px)" rx="${rad}" ry="${rad}" fill="none" stroke="${c}" stroke-width="${width}" stroke-dasharray="${Math.max(6, width * 2)} ${Math.max(4, width * 1.5)}" style="animation:sp-border-marching ${speed}s linear infinite;"></rect></svg>`;
             }
         } else if (node._borderFxRing) {
             node._borderFxRing.remove();

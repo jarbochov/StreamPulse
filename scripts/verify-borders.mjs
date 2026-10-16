@@ -260,7 +260,8 @@ async function run() {
             const el = document.querySelector('.canvas-element.selected');
             const fxRing = el?._borderFxRing;
             return {
-                borderWidth: el?.style.borderWidth,
+                nodeBorderWidth: el?.style.borderWidth,
+                ringBorderWidth: fxRing?.style.borderWidth,
                 boxShadow: el?.style.boxShadow,
                 hasRing: !!fxRing,
                 animation: fxRing?.style.animation,
@@ -268,7 +269,7 @@ async function run() {
             };
         });
         console.log('Canvas element state:', canvasFx);
-        if (canvasFx.borderWidth !== '6px' || !canvasFx.hasRing || !canvasFx.animation.includes('sp-border-spin')) {
+        if (canvasFx.ringBorderWidth !== '6px' || !canvasFx.hasRing || !canvasFx.animation.includes('sp-border-spin')) {
             throw new Error('Canvas element did not reflect border inspector changes: ' + JSON.stringify(canvasFx));
         }
 
