@@ -245,10 +245,10 @@ export function buildContent(node, el) {
             const v = el.video || {};
             const embedSrc = shared.embedUrl(url, { autoplay: v.autoplay !== false, loop: v.loop !== false, sound: false });
             const frame = document.createElement('iframe');
-            frame.src = embedSrc;
             frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
             frame.referrerPolicy = 'strict-origin-when-cross-origin';
             frame.style.cssText = 'width:100%;height:100%;border:0;';
+            frame.src = embedSrc;
             node.appendChild(frame);
             return;
         }
@@ -299,9 +299,7 @@ export function buildContent(node, el) {
         const url = shared.embedUrl ? shared.embedUrl(rawUrl, isYt ? { autoplay: v.autoplay !== false, loop: v.loop !== false, sound: false } : { sound: false }) : rawUrl;
         if (!/^https?:\/\//i.test(url)) { node.appendChild(placeholder('Enter an http(s) webpage URL or YouTube link')); return; }
         const frame = document.createElement('iframe');
-        frame.src = url;
         frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-        frame.style.cssText = 'width:100%;height:100%;border:0;';
         if (isYt) {
             frame.referrerPolicy = 'strict-origin-when-cross-origin';
         } else {
@@ -310,6 +308,8 @@ export function buildContent(node, el) {
             frame.sandbox = 'allow-forms allow-popups allow-scripts allow-presentation' + (sameOrigin ? ' allow-same-origin' : '');
             frame.referrerPolicy = 'no-referrer';
         }
+        frame.style.cssText = 'width:100%;height:100%;border:0;';
+        frame.src = url;
         node.appendChild(frame);
     } else if (el.type === 'cutout') {
         const shape = el.cutout?.shape || 'rectangle';

@@ -246,6 +246,14 @@
             delete video.dataset.audioPending;
             if (video.paused) video.play().catch(() => {});
         });
+        document.querySelectorAll('iframe[data-audio-pending="true"]').forEach(frame => {
+            delete frame.dataset.audioPending;
+            try {
+                const vol = Number(frame.dataset.targetVolume) || 100;
+                frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
+                frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [vol] }), '*');
+            } catch {}
+        });
     }
     ['click', 'touchstart', 'keydown'].forEach(evt => {
         window.addEventListener(evt, unlockMediaAudio, { passive: true, capture: true });
@@ -428,17 +436,24 @@
                     const v = element.video || {};
                     const auto = v.autoplay !== false;
                     const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
-                    frame.src = shared.embedUrl(expandVariables(element.src || ''), { autoplay: auto, loop: v.loop !== false, sound: hasSound });
                     frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
                     frame.referrerPolicy = 'strict-origin-when-cross-origin';
                     frame.style.cssText = 'width:100%;height:100%;border:0;';
+                    frame.src = shared.embedUrl(expandVariables(element.src || ''), { autoplay: auto, loop: v.loop !== false, sound: hasSound });
                     frame._ytPlaying = auto;
                     frame._ytMuted = !hasSound;
                     const volume = Math.max(0, Math.min(100, Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100));
+                    frame.dataset.hasSound = hasSound ? 'true' : 'false';
+                    frame.dataset.targetVolume = String(volume);
+                    const isObs = Boolean(window.obsstudio || (navigator.userAgent && navigator.userAgent.includes('OBS/')));
+                    if (hasSound && !isObs) {
+                        frame.dataset.audioPending = 'true';
+                        showAudioUnlockNotice();
+                    }
                     frame.addEventListener('load', () => {
                         try {
                             frame.contentWindow?.postMessage(JSON.stringify({ event: 'listening' }), '*');
-                            if (hasSound) {
+                            if (hasSound && isObs) {
                                 frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
                                 frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [volume] }), '*');
                             } else {
@@ -493,20 +508,23 @@
                 const v = element.video || {};
                 const auto = v.autoplay !== false;
                 const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
-                frame.src = shared.embedUrl(rawUrl, isYt ? { autoplay: auto, loop: v.loop !== false, sound: hasSound } : {}) || 'about:blank';
-                // Own widgets (timers, goals, music) need their origin to call the local API; external pages stay sandboxed.
-                let sameOrigin = false;
-                try { sameOrigin = new URL(frame.src, location.href).origin === location.origin; } catch { /* invalid URL stays sandboxed */ }
                 frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
                 if (isYt) {
                     frame.referrerPolicy = 'strict-origin-when-cross-origin';
                     frame._ytPlaying = auto;
                     frame._ytMuted = !hasSound;
                     const volume = Math.max(0, Math.min(100, Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100));
+                    frame.dataset.hasSound = hasSound ? 'true' : 'false';
+                    frame.dataset.targetVolume = String(volume);
+                    const isObs = Boolean(window.obsstudio || (navigator.userAgent && navigator.userAgent.includes('OBS/')));
+                    if (hasSound && !isObs) {
+                        frame.dataset.audioPending = 'true';
+                        showAudioUnlockNotice();
+                    }
                     frame.addEventListener('load', () => {
                         try {
                             frame.contentWindow?.postMessage(JSON.stringify({ event: 'listening' }), '*');
-                            if (hasSound) {
+                            if (hasSound && isObs) {
                                 frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
                                 frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [volume] }), '*');
                             } else {
@@ -515,10 +533,13 @@
                         } catch {}
                     });
                 } else {
+                    let sameOrigin = false;
+                    try { sameOrigin = new URL(rawUrl, location.href).origin === location.origin; } catch { /* invalid URL stays sandboxed */ }
                     frame.sandbox = 'allow-forms allow-popups allow-scripts allow-presentation' + (sameOrigin ? ' allow-same-origin' : '');
                     frame.referrerPolicy = 'no-referrer';
                 }
                 frame.style.cssText = 'width:100%;height:100%;border:0;';
+                frame.src = shared.embedUrl(rawUrl, isYt ? { autoplay: auto, loop: v.loop !== false, sound: hasSound } : {}) || 'about:blank';
                 node.appendChild(frame);
             } else if (element.type === 'markdown') {
                 node.innerHTML = renderMarkdown(shared.elementContent(element), element);

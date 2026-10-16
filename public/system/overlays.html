@@ -105,6 +105,7 @@
                         <div class="actions">
                             <button class="primary" data-copy="${esc(url)}">Copy URL</button>
                             <a class="btn" href="${esc(item.path)}" target="_blank" rel="noopener">Preview</a>
+                            ${item.control ? `<a class="btn" href="${esc(item.control)}" target="_blank" rel="noopener">Control</a>` : ''}
                             ${item.edit ? `<a class="btn" href="${esc(item.edit)}">Edit</a>` : ''}
                             ${item.customize ? `<a class="btn" href="${esc(item.customize[0])}">${esc(item.customize[1])}</a>` : ''}
                         </div>
@@ -126,8 +127,9 @@
             });
             groups.find(g => g.id === 'custom').items = customs.map(overlay => ({
                 name: overlay.name || overlay.id,
-                desc: `${overlay.canvas.width}×${overlay.canvas.height} · ${overlay.elements?.length || 0} elements`,
+                desc: `${overlay.canvas.width}×${overlay.canvas.height} · ${overlay.elementCount || overlay.elements?.length || 0} elements`,
                 path: `/custom-overlay.html?id=${encodeURIComponent(overlay.id)}`,
+                control: (overlay.pageCount > 0 || overlay.hasControls) ? `/overlay-control.html?id=${encodeURIComponent(overlay.id)}` : null,
                 edit: `/custom-overlay-editor.html?id=${encodeURIComponent(overlay.id)}`
             }));
             render();

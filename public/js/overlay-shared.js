@@ -726,7 +726,8 @@
                     if (yt.id) params.set('playlist', yt.id);
                 }
                 if (options.controls === false) params.set('controls', '0');
-                if (options.sound === false || options.mute === true) params.set('mute', '1');
+                if (options.sound === false || options.mute === true || options.autoplay !== false) params.set('mute', '1');
+                params.set('playsinline', '1');
                 if (yt.list && yt.type !== 'playlist') params.set('list', yt.list);
                 if (yt.start) params.set('start', String(yt.start));
                 try {

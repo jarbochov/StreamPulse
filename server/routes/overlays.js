@@ -530,7 +530,7 @@ function createOverlayRoutes({
             const customOverlays = getCustomOverlays();
             sendJson(res, Object.values(customOverlays).map(({ id, name, revision, updatedAt, createdAt, canvas, elements, pages }) => ({
                 id, name, revision, updatedAt, createdAt, canvas, elementCount: (elements || []).length, pageCount: pages?.enabled ? pages.items.length : 0,
-                hasControls: !!(pages?.enabled || (elements || []).some(e => ['slideshow', 'video', 'cutout'].includes(e.type)))
+                hasControls: !!(pages?.enabled || (elements || []).some(e => ['slideshow', 'video', 'cutout'].includes(e.type) || (e.type === 'embed' && /youtube\.com|youtu\.be/i.test(e.src || ''))))
             })));
             return true;
         }
