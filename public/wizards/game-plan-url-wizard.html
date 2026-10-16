@@ -135,16 +135,88 @@
                 <label>Max Items</label>
                 <input type="number" id="max-items" min="1" max="20" value="5" oninput="refreshWizard()">
             </div>
+            <div class="cfg-row">
+                <label>Order</label>
+                <select id="sort-order" onchange="refreshWizard()">
+                    <option value="plan" selected>Plan order (dragged order)</option>
+                    <option value="date-asc">Date: Earliest / Upcoming first</option>
+                    <option value="date-desc">Date: Latest first</option>
+                    <option value="group">Group / Collection A–Z</option>
+                    <option value="status">Status (Tonight, Scheduled, etc.)</option>
+                    <option value="name">Name A–Z</option>
+                    <option value="name-desc">Name Z–A</option>
+                    <option value="rating">Highest rating first</option>
+                </select>
+            </div>
 
             <div class="group-title">Styling &amp; Theme</div>
             <div class="cfg-row">
-                <label>Theme</label>
-                <select id="theme" onchange="refreshWizard()">
-                    <option value="glass">Glass (Frosted Glass Blur)</option>
-                    <option value="dark">Dark</option>
-                    <option value="transparent">Transparent (Borderless)</option>
-                    <option value="light">Light</option>
+                <label>Theme Preset</label>
+                <select id="theme" onchange="onThemePresetChange()">
+                    <option value="glass" selected>Frosted Glass (Default)</option>
+                    <option value="dark">Obsidian Dark</option>
+                    <option value="purple">Midnight Purple</option>
+                    <option value="emerald">Emerald Synth</option>
+                    <option value="sunset">Sunset Glow</option>
+                    <option value="cyberpunk">Cyberpunk Neon</option>
+                    <option value="light">Clean Light</option>
+                    <option value="transparent">Transparent Floating (HUD)</option>
+                    <option value="custom">Custom Color / Appearance</option>
                 </select>
+            </div>
+            <div class="cfg-row">
+                <label>Accent Color</label>
+                <div style="display:flex; flex-direction:column; gap:0.4rem; flex:1;">
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="color" id="accent-picker" value="#3b82f6" oninput="syncAccentFromPicker()">
+                        <input type="text" id="accent" value="#3b82f6" placeholder="#3b82f6" oninput="syncAccentFromText()">
+                    </div>
+                    <div class="palette-chips" id="accent-palette-chips">
+                        <span class="p-chip active" style="background:#3b82f6" data-color="#3b82f6" title="Electric Blue" onclick="setAccent('#3b82f6')"></span>
+                        <span class="p-chip" style="background:#8b5cf6" data-color="#8b5cf6" title="StreamPulse Violet" onclick="setAccent('#8b5cf6')"></span>
+                        <span class="p-chip" style="background:#10b981" data-color="#10b981" title="Emerald Mint" onclick="setAccent('#10b981')"></span>
+                        <span class="p-chip" style="background:#f59e0b" data-color="#f59e0b" title="Amber Orange" onclick="setAccent('#f59e0b')"></span>
+                        <span class="p-chip" style="background:#f43f5e" data-color="#f43f5e" title="Coral Sunset" onclick="setAccent('#f43f5e')"></span>
+                        <span class="p-chip" style="background:#06b6d4" data-color="#06b6d4" title="Cyan Glow" onclick="setAccent('#06b6d4')"></span>
+                        <span class="p-chip" style="background:#ec4899" data-color="#ec4899" title="Neon Pink" onclick="setAccent('#ec4899')"></span>
+                    </div>
+                    <span class="hint" style="font-size:0.72rem; line-height:1.4;">Tints highlight badges (Tonight, Up Next), card borders, and stream layout accents to match your stream brand.</span>
+                </div>
+            </div>
+            <div class="cfg-row">
+                <label>Card / Background</label>
+                <div style="display:flex; flex-direction:column; gap:0.4rem; flex:1;">
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="color" id="bg-picker" value="#0f172a" oninput="syncBgFromPicker()">
+                        <input type="text" id="wiz-bg" value="rgba(15, 23, 42, 0.72)" placeholder="e.g. rgba(15, 23, 42, 0.72) or #0d1117" oninput="onCustomStyleChange()">
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <span style="font-size:0.74rem; color:var(--text-muted); width:50px;">Opacity:</span>
+                        <input type="range" id="bg-opacity" min="0" max="100" value="72" oninput="syncBgOpacity()" style="flex:1;">
+                        <span id="bg-opacity-val" style="font-size:0.74rem; color:var(--text-muted); width:35px; text-align:right;">72%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="cfg-row">
+                <label>Border Color</label>
+                <div style="display:flex; gap:0.5rem; align-items:center; flex:1;">
+                    <input type="color" id="border-picker" value="#ffffff" oninput="syncBorderFromPicker()">
+                    <input type="text" id="wiz-border" value="rgba(255, 255, 255, 0.16)" placeholder="e.g. rgba(255, 255, 255, 0.16) or transparent" oninput="onCustomStyleChange()" style="flex:1;">
+                </div>
+            </div>
+            <div class="cfg-row">
+                <label>Text Color</label>
+                <div style="display:flex; gap:0.5rem; align-items:center; flex:1;">
+                    <input type="color" id="text-picker" value="#f0f6fc" oninput="syncTextFromPicker()">
+                    <input type="text" id="wiz-text" value="#f0f6fc" placeholder="#f0f6fc" oninput="onCustomStyleChange()" style="flex:1;">
+                </div>
+            </div>
+            <div class="cfg-row">
+                <label>Backdrop Blur</label>
+                <div style="display:flex; align-items:center; gap:0.5rem; flex:1;">
+                    <input type="range" id="wiz-blur" min="0" max="24" step="1" value="12" oninput="onBlurInput()" style="flex:1;">
+                    <span id="blur-val" style="font-size:0.8rem; width:45px; text-align:right;">12px</span>
+                </div>
             </div>
             <div class="cfg-row">
                 <label>Font Family</label>
@@ -163,22 +235,11 @@
                     <option value="900">Black (900)</option>
                 </select>
             </div>
-            <div class="cfg-row">
-                <label>Accent Color</label>
-                <div style="display:flex; flex-direction:column; gap:0.4rem; flex:1;">
-                    <div style="display:flex; gap:0.5rem; align-items:center;">
-                        <input type="color" id="accent-picker" value="#3b82f6" oninput="syncColor()">
-                        <input type="text" id="accent" value="#3b82f6" placeholder="#3b82f6" oninput="syncColorFromText()">
-                    </div>
-                    <div class="palette-chips">
-                        <span class="p-chip" style="background:#3b82f6" onclick="setAccent('#3b82f6')"></span>
-                        <span class="p-chip" style="background:#8b5cf6" onclick="setAccent('#8b5cf6')"></span>
-                        <span class="p-chip" style="background:#10b981" onclick="setAccent('#10b981')"></span>
-                        <span class="p-chip" style="background:#f59e0b" onclick="setAccent('#f59e0b')"></span>
-                        <span class="p-chip" style="background:#f43f5e" onclick="setAccent('#f43f5e')"></span>
-                        <span class="p-chip" style="background:#06b6d4" onclick="setAccent('#06b6d4')"></span>
-                    </div>
-                </div>
+            <div style="display:flex; justify-content:flex-end; margin-top:0.3rem;">
+                <button type="button" class="btn" style="font-size:0.75rem; padding:0.3rem 0.65rem;" onclick="resetToDefaultTheme()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px; margin-right:3px;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                    Reset Theme to Defaults
+                </button>
             </div>
             <div class="cfg-row">
                 <label>Font Scale <span style="font-size:0.7rem;color:var(--accent);">fontScale</span></label>
@@ -278,13 +339,18 @@
                         <tr><td><code>list</code></td><td><code>scheduled</code></td><td>Source list: <code>scheduled</code> (with tonight), <code>scheduled-only</code>, <code>tonight</code>, <code>up-next</code>, <code>backlog</code>, <code>played</code>, <code>all</code>, or custom collection ID</td></tr>
                         <tr><td><code>period</code></td><td><em>none</em></td><td>Filter by period name or smart tokens (comma-separated): <code>@today</code> (today/tonight), <code>@tomorrow</code> (next stream), <code>@this-week</code>, <code>@upcoming</code>, <code>@unscheduled</code>, or custom periods (e.g. <code>October,November</code>)</td></tr>
                         <tr><td><code>max</code></td><td><code>5</code></td><td>Maximum number of cards/items to render</td></tr>
-                        <tr><td><code>theme</code></td><td><code>glass</code></td><td>Theme: <code>glass</code>, <code>dark</code>, <code>transparent</code>, <code>light</code></td></tr>
+                        <tr><td><code>theme</code></td><td><code>glass</code></td><td>Theme preset: <code>glass</code>, <code>dark</code>, <code>purple</code>, <code>emerald</code>, <code>sunset</code>, <code>cyberpunk</code>, <code>light</code>, <code>transparent</code></td></tr>
+                        <tr><td><code>bg</code></td><td><em>theme default</em></td><td>Card / surface background color (hex, rgb, or rgba)</td></tr>
+                        <tr><td><code>border</code></td><td><em>theme default</em></td><td>Card border color (hex, rgba, or <code>transparent</code>)</td></tr>
+                        <tr><td><code>text</code></td><td><em>theme default</em></td><td>Text color (hex or rgb)</td></tr>
+                        <tr><td><code>blur</code></td><td><code>12</code></td><td>Backdrop blur in px (0 for sharp/solid, up to 24)</td></tr>
                         <tr><td><code>covers</code></td><td><code>1</code></td><td><code>1</code> to show cover images, <code>0</code> to hide</td></tr>
                         <tr><td><code>notes</code></td><td><code>1</code></td><td><code>1</code> to display notes, <code>0</code> to hide</td></tr>
                         <tr><td><code>status</code></td><td><code>1</code></td><td><code>1</code> to show status badges (Playing, Tonight, Scheduled), <code>0</code> to hide</td></tr>
                         <tr><td><code>groups</code></td><td><code>1</code></td><td><code>1</code> to show group and collection badges, <code>0</code> to hide</td></tr>
                         <tr><td><code>dates</code></td><td><code>1</code></td><td><code>1</code> to show scheduled dates, <code>0</code> to hide</td></tr>
-                        <tr><td><code>accent</code></td><td><code>#3b82f6</code></td><td>Custom accent color (hex)</td></tr>
+                        <tr><td><code>accent</code></td><td><code>#3b82f6</code></td><td>Custom accent color (hex) for Tonight/Up Next badges and highlights</td></tr>
+                        <tr><td><code>sort</code></td><td><code>plan</code></td><td>Sorting: <code>plan</code> (default), <code>date-asc</code> (earliest first), <code>date-desc</code>, <code>group</code>, <code>status</code>, <code>name</code>, <code>name-desc</code>, <code>rating</code></td></tr>
                     </tbody>
                 </table>
             </details>
@@ -490,23 +556,203 @@
         } catch {}
     }
 
+    const THEME_PRESETS = {
+        glass: {
+            name: 'Frosted Glass (Default)',
+            accent: '#3b82f6',
+            bg: 'rgba(15, 23, 42, 0.72)',
+            bgPicker: '#0f172a',
+            bgOpacity: 72,
+            border: 'rgba(255, 255, 255, 0.16)',
+            borderPicker: '#ffffff',
+            text: '#f0f6fc',
+            blur: 12
+        },
+        dark: {
+            name: 'Obsidian Dark',
+            accent: '#3b82f6',
+            bg: '#0d1117',
+            bgPicker: '#0d1117',
+            bgOpacity: 100,
+            border: '#30363d',
+            borderPicker: '#30363d',
+            text: '#f0f6fc',
+            blur: 0
+        },
+        purple: {
+            name: 'Midnight Purple',
+            accent: '#8b5cf6',
+            bg: '#130e24',
+            bgPicker: '#130e24',
+            bgOpacity: 100,
+            border: '#3b2a68',
+            borderPicker: '#3b2a68',
+            text: '#f5f3ff',
+            blur: 10
+        },
+        emerald: {
+            name: 'Emerald Synth',
+            accent: '#10b981',
+            bg: '#0a1813',
+            bgPicker: '#0a1813',
+            bgOpacity: 100,
+            border: '#164635',
+            borderPicker: '#164635',
+            text: '#ecfdf5',
+            blur: 10
+        },
+        sunset: {
+            name: 'Sunset Glow',
+            accent: '#f43f5e',
+            bg: '#1c0e18',
+            bgPicker: '#1c0e18',
+            bgOpacity: 100,
+            border: '#4d1d36',
+            borderPicker: '#4d1d36',
+            text: '#fff1f2',
+            blur: 10
+        },
+        cyberpunk: {
+            name: 'Cyberpunk Neon',
+            accent: '#06b6d4',
+            bg: '#080d1a',
+            bgPicker: '#080d1a',
+            bgOpacity: 100,
+            border: '#1a2a4e',
+            borderPicker: '#1a2a4e',
+            text: '#f0f9ff',
+            blur: 10
+        },
+        light: {
+            name: 'Clean Light',
+            accent: '#2563eb',
+            bg: '#ffffff',
+            bgPicker: '#ffffff',
+            bgOpacity: 100,
+            border: '#d0d7de',
+            borderPicker: '#d0d7de',
+            text: '#1f2328',
+            blur: 0
+        },
+        transparent: {
+            name: 'Transparent Floating (HUD)',
+            accent: '#3b82f6',
+            bg: 'transparent',
+            bgPicker: '#0d1117',
+            bgOpacity: 0,
+            border: 'transparent',
+            borderPicker: '#30363d',
+            text: '#f0f6fc',
+            blur: 0
+        }
+    };
+
+    function hexToRgba(hex, opacityPercent) {
+        if (!hex || hex === 'transparent') return hex;
+        const clean = hex.replace('#', '');
+        if (clean.length !== 6 && clean.length !== 3) return hex;
+        const r = parseInt(clean.length === 3 ? clean[0] + clean[0] : clean.substring(0, 2), 16);
+        const g = parseInt(clean.length === 3 ? clean[1] + clean[1] : clean.substring(2, 4), 16);
+        const b = parseInt(clean.length === 3 ? clean[2] + clean[2] : clean.substring(4, 6), 16);
+        if (opacityPercent >= 100) return hex;
+        const a = (opacityPercent / 100).toFixed(2);
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+
+    function onThemePresetChange() {
+        const val = document.getElementById('theme').value;
+        if (val === 'custom') return;
+        const p = THEME_PRESETS[val];
+        if (!p) return;
+        document.getElementById('accent').value = p.accent;
+        document.getElementById('accent-picker').value = p.accent;
+        document.getElementById('wiz-bg').value = p.bg;
+        document.getElementById('bg-picker').value = p.bgPicker || '#0f172a';
+        document.getElementById('bg-opacity').value = p.bgOpacity ?? 100;
+        document.getElementById('bg-opacity-val').textContent = `${p.bgOpacity ?? 100}%`;
+        document.getElementById('wiz-border').value = p.border;
+        document.getElementById('border-picker').value = p.borderPicker || '#ffffff';
+        document.getElementById('wiz-text').value = p.text;
+        document.getElementById('text-picker').value = p.text.startsWith('#') ? p.text : '#f0f6fc';
+        document.getElementById('wiz-blur').value = p.blur;
+        document.getElementById('blur-val').textContent = `${p.blur}px`;
+        highlightAccentChip(p.accent);
+        refreshWizard();
+    }
+
+    function syncBgFromPicker() {
+        const hex = document.getElementById('bg-picker').value;
+        const op = parseInt(document.getElementById('bg-opacity').value, 10);
+        document.getElementById('wiz-bg').value = hexToRgba(hex, op);
+        document.getElementById('theme').value = 'custom';
+        refreshWizard();
+    }
+
+    function syncBgOpacity() {
+        const op = parseInt(document.getElementById('bg-opacity').value, 10);
+        document.getElementById('bg-opacity-val').textContent = `${op}%`;
+        const hex = document.getElementById('bg-picker').value;
+        document.getElementById('wiz-bg').value = hexToRgba(hex, op);
+        document.getElementById('theme').value = 'custom';
+        refreshWizard();
+    }
+
+    function syncBorderFromPicker() {
+        document.getElementById('wiz-border').value = document.getElementById('border-picker').value;
+        document.getElementById('theme').value = 'custom';
+        refreshWizard();
+    }
+
+    function syncTextFromPicker() {
+        document.getElementById('wiz-text').value = document.getElementById('text-picker').value;
+        document.getElementById('theme').value = 'custom';
+        refreshWizard();
+    }
+
+    function onBlurInput() {
+        const val = document.getElementById('wiz-blur').value;
+        document.getElementById('blur-val').textContent = `${val}px`;
+        document.getElementById('theme').value = 'custom';
+        refreshWizard();
+    }
+
+    function onCustomStyleChange() {
+        document.getElementById('theme').value = 'custom';
+        refreshWizard();
+    }
+
+    function highlightAccentChip(color) {
+        const norm = (color || '').trim().toLowerCase();
+        document.querySelectorAll('#accent-palette-chips .p-chip').forEach(chip => {
+            chip.classList.toggle('active', (chip.dataset.color || '').toLowerCase() === norm);
+        });
+    }
+
     function setAccent(color) {
         document.getElementById('accent-picker').value = color;
         document.getElementById('accent').value = color;
+        highlightAccentChip(color);
         refreshWizard();
     }
 
-    function syncColor() {
+    function syncAccentFromPicker() {
         document.getElementById('accent').value = document.getElementById('accent-picker').value;
+        highlightAccentChip(document.getElementById('accent').value);
         refreshWizard();
     }
 
-    function syncColorFromText() {
+    function syncAccentFromText() {
         const val = document.getElementById('accent').value.trim();
         if (/^#[0-9a-fA-F]{6}$/.test(val)) {
             document.getElementById('accent-picker').value = val;
         }
+        highlightAccentChip(val);
         refreshWizard();
+    }
+
+    function resetToDefaultTheme() {
+        document.getElementById('theme').value = 'glass';
+        onThemePresetChange();
     }
 
     function refreshWizard() {
@@ -514,10 +760,15 @@
         const list = document.getElementById('list-id').value;
         const period = document.getElementById('period-filter').value.trim();
         const max = document.getElementById('max-items').value.trim();
+        const sort = document.getElementById('sort-order')?.value;
         const theme = document.getElementById('theme').value;
         const font = (document.getElementById('wiz-font').value || '').trim();
         const weight = document.getElementById('wiz-weight').value;
         const accent = document.getElementById('accent').value.trim();
+        const bg = (document.getElementById('wiz-bg')?.value || '').trim();
+        const border = (document.getElementById('wiz-border')?.value || '').trim();
+        const text = (document.getElementById('wiz-text')?.value || '').trim();
+        const blur = document.getElementById('wiz-blur')?.value;
         const scale = parseFloat(document.getElementById('scale').value || '1');
         const coverScale = parseFloat(document.getElementById('cover-scale').value || '1');
         const coverFit = document.getElementById('cover-fit').value;
@@ -536,10 +787,28 @@
         if (list !== 'scheduled') params.set('list', list);
         if (period) params.set('period', period);
         if (max && max !== '5') params.set('max', max);
-        if (theme !== 'glass') params.set('theme', theme);
+        if (sort && sort !== 'plan') params.set('sort', sort);
+        if (theme && theme !== 'glass' && theme !== 'custom') params.set('theme', theme);
         if (font) params.set('font', font);
         if (weight) params.set('weight', weight);
-        if (accent && accent !== '#3b82f6') params.set('accent', accent);
+
+        const currentPreset = THEME_PRESETS[theme];
+        if (accent && (theme === 'custom' || accent !== (currentPreset?.accent || '#3b82f6'))) {
+            params.set('accent', accent);
+        }
+        if (bg && (theme === 'custom' || bg !== currentPreset?.bg)) {
+            params.set('bg', bg);
+        }
+        if (border && (theme === 'custom' || border !== currentPreset?.border)) {
+            params.set('border', border);
+        }
+        if (text && (theme === 'custom' || text !== currentPreset?.text)) {
+            params.set('text', text);
+        }
+        if (blur !== undefined && blur !== '' && (theme === 'custom' || parseInt(blur, 10) !== currentPreset?.blur)) {
+            params.set('blur', blur);
+        }
+
         if (scale !== 1) params.set('fontScale', scale.toFixed(2));
         if (coverScale !== 1) params.set('coverScale', coverScale.toFixed(2));
         if (coverFit !== 'cover') params.set('coverFit', coverFit);
@@ -566,6 +835,7 @@
         }
         updateMatchBadge();
         updatePreviewSize();
+        saveWizardPrefs();
     }
 
     (async function fillFonts() {
@@ -607,13 +877,126 @@
         }
     }
 
+    const WIZ_STORAGE_KEY = 'streampulse.gamePlanWizard.v1';
+    function saveWizardPrefs() {
+        try {
+            const data = {
+                view: document.getElementById('view-mode').value,
+                list: document.getElementById('list-id').value,
+                period: document.getElementById('period-filter').value,
+                max: document.getElementById('max-items').value,
+                sort: document.getElementById('sort-order')?.value,
+                theme: document.getElementById('theme').value,
+                accent: document.getElementById('accent').value,
+                bg: document.getElementById('wiz-bg')?.value,
+                border: document.getElementById('wiz-border')?.value,
+                text: document.getElementById('wiz-text')?.value,
+                blur: document.getElementById('wiz-blur')?.value,
+                font: document.getElementById('wiz-font').value,
+                weight: document.getElementById('wiz-weight').value,
+                scale: document.getElementById('scale').value,
+                coverScale: document.getElementById('cover-scale').value,
+                coverFit: document.getElementById('cover-fit').value,
+                align: document.getElementById('align').value,
+                showCovers: document.getElementById('show-covers').checked,
+                showNotes: document.getElementById('show-notes').checked,
+                showStatus: document.getElementById('show-status').checked,
+                showGroups: document.getElementById('show-groups').checked,
+                showDates: document.getElementById('show-dates').checked,
+                width: currentWidth,
+                height: currentHeight
+            };
+            localStorage.setItem(WIZ_STORAGE_KEY, JSON.stringify(data));
+        } catch {}
+    }
+
+    function loadWizardPrefs() {
+        try {
+            const raw = localStorage.getItem(WIZ_STORAGE_KEY);
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (data.view) document.getElementById('view-mode').value = data.view;
+            if (data.list) document.getElementById('list-id').value = data.list;
+            if (data.period !== undefined) document.getElementById('period-filter').value = data.period;
+            if (data.max) document.getElementById('max-items').value = data.max;
+            if (data.sort && document.getElementById('sort-order')) document.getElementById('sort-order').value = data.sort;
+            if (data.theme) document.getElementById('theme').value = data.theme;
+            if (data.accent) {
+                document.getElementById('accent').value = data.accent;
+                document.getElementById('accent-picker').value = data.accent;
+                highlightAccentChip(data.accent);
+            }
+            if (data.bg) document.getElementById('wiz-bg').value = data.bg;
+            if (data.border) document.getElementById('wiz-border').value = data.border;
+            if (data.text) document.getElementById('wiz-text').value = data.text;
+            if (data.blur !== undefined) {
+                document.getElementById('wiz-blur').value = data.blur;
+                document.getElementById('blur-val').textContent = `${data.blur}px`;
+            }
+            if (data.font) document.getElementById('wiz-font').value = data.font;
+            if (data.weight) document.getElementById('wiz-weight').value = data.weight;
+            if (data.scale) document.getElementById('scale').value = data.scale;
+            if (data.coverScale) document.getElementById('cover-scale').value = data.coverScale;
+            if (data.coverFit) document.getElementById('cover-fit').value = data.coverFit;
+            if (data.align) document.getElementById('align').value = data.align;
+            if (data.showCovers !== undefined) document.getElementById('show-covers').checked = !!data.showCovers;
+            if (data.showNotes !== undefined) document.getElementById('show-notes').checked = !!data.showNotes;
+            if (data.showStatus !== undefined) document.getElementById('show-status').checked = !!data.showStatus;
+            if (data.showGroups !== undefined) document.getElementById('show-groups').checked = !!data.showGroups;
+            if (data.showDates !== undefined) document.getElementById('show-dates').checked = !!data.showDates;
+            if (data.width && data.height) {
+                currentWidth = data.width;
+                currentHeight = data.height;
+                document.getElementById('prev-w').value = data.width;
+                document.getElementById('prev-h').value = data.height;
+            }
+        } catch {}
+    }
+
     function initFromUrl() {
+        loadWizardPrefs();
         const p = new URLSearchParams(location.search);
         if (p.has('view')) document.getElementById('view-mode').value = p.get('view');
         if (p.has('list')) document.getElementById('list-id').value = p.get('list');
         if (p.has('period')) {
             document.getElementById('period-filter').value = p.get('period');
             syncChipsFromInput();
+        }
+        if (p.has('max')) document.getElementById('max-items').value = p.get('max');
+        if (p.has('sort') && document.getElementById('sort-order')) document.getElementById('sort-order').value = p.get('sort');
+        if (p.has('theme')) {
+            document.getElementById('theme').value = p.get('theme');
+            if (THEME_PRESETS[p.get('theme')]) onThemePresetChange();
+        }
+        if (p.has('accent')) {
+            const acc = p.get('accent');
+            const hex = acc.startsWith('#') ? acc : `#${acc}`;
+            document.getElementById('accent').value = hex;
+            document.getElementById('accent-picker').value = hex;
+            highlightAccentChip(hex);
+        }
+        if (p.has('bg')) {
+            document.getElementById('wiz-bg').value = p.get('bg');
+            document.getElementById('theme').value = 'custom';
+        }
+        if (p.has('border')) {
+            document.getElementById('wiz-border').value = p.get('border');
+            document.getElementById('theme').value = 'custom';
+        }
+        if (p.has('text')) {
+            document.getElementById('wiz-text').value = p.get('text');
+            document.getElementById('theme').value = 'custom';
+        }
+        if (p.has('blur')) {
+            document.getElementById('wiz-blur').value = p.get('blur');
+            document.getElementById('blur-val').textContent = `${p.get('blur')}px`;
+            document.getElementById('theme').value = 'custom';
+        }
+        if (p.has('font')) document.getElementById('wiz-font').value = p.get('font');
+        if (p.has('weight')) document.getElementById('wiz-weight').value = p.get('weight');
+        if (p.has('align')) document.getElementById('align').value = p.get('align');
+        if (p.has('scale') || p.has('fontscale') || p.has('fontScale')) {
+            document.getElementById('scale').value = parseFloat(p.get('fontScale') || p.get('fontscale') || p.get('scale') || '1');
         }
         if (p.has('covers')) document.getElementById('show-covers').checked = p.get('covers') !== '0';
         if (p.has('notes')) document.getElementById('show-notes').checked = p.get('notes') !== '0';

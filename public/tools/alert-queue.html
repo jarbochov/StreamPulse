@@ -62,7 +62,7 @@
 <script>
 (() => {
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const TYPES = { follow: 'Follow', sub: 'Sub', resub: 'Resub', milestone: 'Milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Redeem', chat_word: 'Chat word' };
+    const TYPES = { follow: 'Follow', sub: 'Sub', resub: 'Resub', milestone: 'Milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Redeem', chat_word: 'Chat word', chat_command: 'Chat command' };
     const REPLAY_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"></path><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>';
     const $ = id => document.getElementById(id);
     let queue = {};
@@ -106,7 +106,7 @@
 
             return `<div>
                 <span class="grow">
-                    <span class="event-title">${esc(TYPES[e.event.type] || e.event.type)}: ${esc(e.event.user || e.event.name || '')}${e.event.amount ? ' · ' + esc(e.event.amount) : ''}</span>
+                    <span class="event-title">${esc(TYPES[e.event.type] || e.event.type)}: ${esc(e.event.user || e.event.name || '')}${e.event.command ? ' (!' + esc(e.event.command) + ')' : ''}${e.event.amount ? ' · ' + esc(e.event.amount) : ''}</span>
                     <span class="sub">${statusBadge}<span>${new Date(e.at).toLocaleTimeString()}</span></span>
                 </span>
                 <button class="rp" data-event="${esc(e.id)}" title="Run through current rules again">${REPLAY_ICON}</button>

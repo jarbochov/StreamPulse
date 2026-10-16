@@ -285,9 +285,11 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             metaScale: Math.max(0, Math.min(400, Math.round(Number(element.gameList?.metaScale) || 0))),
             showCovers: element.gameList?.showCovers !== false,
             showTitles: element.gameList?.showTitles !== false,
-            meta: ['none', 'year', 'genres', 'note', 'rating', 'tags'].includes(element.gameList?.meta) ? element.gameList.meta : 'none',
+            showStatusBadge: Boolean(element.gameList?.showStatusBadge),
+            showGroupBadge: Boolean(element.gameList?.showGroupBadge),
+            meta: ['none', 'group', 'status', 'date', 'period', 'year', 'genres', 'note', 'rating', 'tags'].includes(element.gameList?.meta) ? element.gameList.meta : 'none',
             tierSource: element.gameList?.tierSource === 'tier' ? 'tier' : 'stars',
-            sort: ['plan', 'rating', 'name'].includes(element.gameList?.sort) ? element.gameList.sort : 'plan',
+            sort: ['plan', 'date', 'date-asc', 'date-desc', 'group', 'collection', 'status', 'name', 'name-desc', 'rating'].includes(element.gameList?.sort) ? element.gameList.sort : 'plan',
             headings: element.gameList?.headings !== false,
             highlightCurrent: element.gameList?.highlightCurrent !== false,
             accent: String(element.gameList?.accent || '#3fb950').slice(0, 80)

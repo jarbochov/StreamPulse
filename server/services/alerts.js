@@ -17,7 +17,8 @@ const TRIGGERS = {
     redeem: 'Channel point redeem',
     timer: 'Timer finished',
     goal: 'Goal reached',
-    chat_word: 'Chat word or hashtag'
+    chat_word: 'Chat word or hashtag',
+    chat_command: 'Chat bot command'
 };
 const ANIM_IN = ['none', 'fade', 'pop', 'zoom', 'bounce', 'flip', 'spin', 'slide-left', 'slide-right', 'slide-up', 'slide-down'];
 const ANIM_OUT = ['none', 'fade', 'pop', 'zoom', 'slide-left', 'slide-right', 'slide-up', 'slide-down'];
@@ -85,7 +86,9 @@ function normalizeRule(input = {}, index = 0) {
             goalId: str(c.goalId, 80),
             milestones: Array.isArray(c.milestones) ? [...new Set(c.milestones.map(Number).filter(n => Number.isFinite(n) && n > 0 && n <= 1200))].sort((x, y) => x - y).slice(0, 40) : [],
             everyMonths: clamp(c.everyMonths, 0, 120, 0),
-            cooldownSeconds: clamp(c.cooldownSeconds, 0, 86400, trigger === 'chat_word' ? 30 : 0)
+            command: str(c.command, 40).toLowerCase().replace(/^!+/, ''),
+            permission: ['everyone', 'subs', 'mods', 'streamer'].includes(c.permission) ? c.permission : (['everyone', 'subs', 'mods', 'streamer'].includes(c.access) ? c.access : 'everyone'),
+            cooldownSeconds: clamp(c.cooldownSeconds, 0, 86400, (trigger === 'chat_word' || trigger === 'chat_command') ? 30 : 0)
         },
         pick: ['random', 'weighted', 'sequential'].includes(input.pick) ? input.pick : 'random',
         variants,
@@ -123,7 +126,7 @@ function normalizeConfig(input = {}) {
 }
 
 function fill(template, tokens) {
-    return String(template || '').replace(/\{\{\s*alert\.([a-z_]+)\s*\}\}/gi, (_, key) => {
+    return String(template || '').replace(/\{\{\s*(?:alert\.)?([a-z_]+)\s*\}\}/gi, (_, key) => {
         const value = tokens[key.toLowerCase()];
         return value === undefined || value === null ? '' : String(value);
     });
@@ -189,6 +192,22 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             if (!hit) return false;
             ev.keyword = hit;
         }
+        if (rule.trigger === 'chat_command') {
+            const evCmd = String(ev.command || '').toLowerCase().replace(/^!+/, '');
+            const ruleCmd = String(c.command || '').toLowerCase().replace(/^!+/, '');
+            if (!ruleCmd || evCmd !== ruleCmd) return false;
+
+            if (!ev.isTest && !ev.test) {
+                const perm = c.permission || 'everyone';
+                if (perm === 'subs') {
+                    if (!ev.isSub && !ev.isMod && !ev.isBroadcaster) return false;
+                } else if (perm === 'mods') {
+                    if (!ev.isMod && !ev.isBroadcaster) return false;
+                } else if (perm === 'streamer') {
+                    if (!ev.isBroadcaster) return false;
+                }
+            }
+        }
         if (rule.trigger === 'milestone') {
             const months = Number(ev.months) || 0;
             if (!months) return false;
@@ -228,6 +247,7 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
     }
 
     function tokensFor(ev) {
+        const target = ev.target || (ev.args ? String(ev.args).split(/\s+/)[0]?.replace(/^@/, '') : '') || ev.user || 'Someone';
         return {
             user: ev.user || 'Someone',
             recipient: ev.recipient || '',
@@ -236,11 +256,14 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             months: ev.months ?? '',
             streak: ev.streak ?? '',
             tier: ev.tierLabel || '',
-            message: ev.message || '',
+            message: ev.message || ev.args || '',
             reward: ev.reward || '',
             viewers: ev.viewers ?? ev.amount ?? '',
             name: ev.name || '',
-            keyword: ev.keyword || ''
+            keyword: ev.keyword || '',
+            command: ev.command || '',
+            target,
+            args: ev.args || ''
         };
     }
 
@@ -321,10 +344,12 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
     // Returns the payload that was queued, or null when nothing matched / was blocked
     function handleEvent(ev, { test = false, runActionsForTest = false, replay = false } = {}) {
         if (!ev || !ev.type) return null;
-        if (!test && !config.settings.enabled) { recordEvent(ev, null, 'alerts off'); return null; }
+        const isTest = Boolean(test || ev.isTest || ev.test);
+        if (isTest) ev.isTest = true;
+        if (!isTest && !config.settings.enabled) { recordEvent(ev, null, 'alerts off'); return null; }
 
-        if (!test) {
-            const key = `${ev.type}|${ev.user}|${ev.amount ?? ''}|${ev.months ?? ''}|${ev.reward ?? ''}|${ev.name ?? ''}`;
+        if (!isTest) {
+            const key = `${ev.type}|${ev.user}|${ev.command ?? ''}|${ev.amount ?? ''}|${ev.months ?? ''}|${ev.reward ?? ''}|${ev.name ?? ''}`;
             const now = Date.now();
             if (recent.has(key) && now - recent.get(key) < (ev.dedupeMs ?? 8000)) return null;
             recent.set(key, now);
@@ -340,19 +365,19 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             if (milestoneRule) { rule = milestoneRule; effective = milestoneEvent; }
         }
         if (!rule) rule = chooseRule(ev);
-        if (!rule) { if (!test && ev.type !== 'chat_word') recordEvent(ev, null, 'no matching rule'); return null; }
+        if (!rule) { if (!isTest && ev.type !== 'chat_word' && ev.type !== 'chat_command') recordEvent(ev, null, 'no matching rule'); return null; }
 
         const cooldown = rule.conditions.cooldownSeconds * 1000;
         const now = Date.now();
-        if (!test && cooldown && now - (cooldowns.get(rule.id) || 0) < cooldown) { recordEvent(ev, null, 'cooldown'); return null; }
-        cooldowns.set(rule.id, now);
+        if (!isTest && cooldown && now - (cooldowns.get(rule.id) || 0) < cooldown) { recordEvent(ev, null, 'cooldown'); return null; }
+        if (!isTest) cooldowns.set(rule.id, now);
 
         const variant = chooseVariant(rule);
-        const payload = buildPayload(rule, variant, effective, test);
-        if (!test || runActionsForTest) runActions(rule, effective);
-        if (!test) recordEvent(effective, payload, 'shown');
+        const payload = buildPayload(rule, variant, effective, isTest);
+        if (!isTest || runActionsForTest) runActions(rule, effective);
+        if (!isTest) recordEvent(effective, payload, 'shown');
         enqueue(payload);
-        log(`[Alerts] ${test ? 'Test ' : ''}${rule.name}: ${payload.title || payload.message || effective.type}`);
+        log(`[Alerts] ${isTest ? 'Test ' : ''}${rule.name}: ${payload.title || payload.message || effective.type}`);
         return payload;
     }
 

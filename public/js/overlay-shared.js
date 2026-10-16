@@ -901,7 +901,7 @@
         if (document.getElementById('sp-gl-ticker')) return;
         const tag = document.createElement('style');
         tag.id = 'sp-gl-ticker';
-        tag.textContent = '@keyframes spGlTicker{from{transform:translateX(0)}to{transform:translateX(-50%)}}@keyframes spGlTickerR{from{transform:translateX(-50%)}to{transform:translateX(0)}}';
+        tag.textContent = '@keyframes spGlTicker{from{transform:translateX(0)}to{transform:translateX(-50%)}}@keyframes spGlTickerR{from{transform:translateX(-50%)}to{transform:translateX(0)}}.sp-fx-paused [data-gl-ticker-body]{animation-play-state:paused!important}';
         document.head.appendChild(tag);
     }
 
@@ -1025,10 +1025,62 @@
             const keep = [...new Set(items.map(item => item.period || ''))].sort((a, b) => rank({ period: a }) - rank({ period: b })).slice(0, config.maxPeriods);
             items = items.filter(item => keep.includes(item.period || ''));
         }
-        if (config.sort === 'rating') items = [...items].sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        else if (config.sort === 'name') items = [...items].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+        const listMap = new Map((plan?.lists || []).map(l => [l.id, l.name]));
+        const statusNames = { scheduled: 'Scheduled', backlog: 'Backlog', played: 'Played', tonight: 'Tonight' };
+        for (const entry of plan?.lists || []) statusNames[entry.id] = entry.name;
+
+        const dateVal = item => item.streamDate || item.finished || (Array.isArray(item.played) ? item.played[0] : '') || '';
+        const groupVal = item => listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean) || item.period || '';
+        const STATUS_PRIORITY = { tonight: 1, scheduled: 2, 'up-next': 3, backlog: 4, played: 5 };
+
+        const sortMode = config.sort || 'plan';
+        if (sortMode === 'date' || sortMode === 'date-asc') {
+            items = [...items].sort((a, b) => {
+                const dA = dateVal(a), dB = dateVal(b);
+                if (dA && dB) return dA.localeCompare(dB) || String(a.name).localeCompare(String(b.name));
+                if (dA && !dB) return -1;
+                if (!dA && dB) return 1;
+                return rank(a) - rank(b) || String(a.name).localeCompare(String(b.name));
+            });
+        } else if (sortMode === 'date-desc') {
+            items = [...items].sort((a, b) => {
+                const dA = dateVal(a), dB = dateVal(b);
+                if (dA && dB) return dB.localeCompare(dA) || String(a.name).localeCompare(String(b.name));
+                if (dA && !dB) return -1;
+                if (!dA && dB) return 1;
+                return rank(a) - rank(b) || String(a.name).localeCompare(String(b.name));
+            });
+        } else if (sortMode === 'group' || sortMode === 'collection') {
+            items = [...items].sort((a, b) => {
+                const gA = groupVal(a), gB = groupVal(b);
+                if (gA && gB && gA !== gB) return gA.localeCompare(gB);
+                if (gA && !gB) return -1;
+                if (!gA && gB) return 1;
+                const dA = dateVal(a), dB = dateVal(b);
+                return (dA && dB ? dA.localeCompare(dB) : 0) || String(a.name).localeCompare(String(b.name));
+            });
+        } else if (sortMode === 'status') {
+            items = [...items].sort((a, b) => {
+                const sA = STATUS_PRIORITY[a.status] || 50;
+                const sB = STATUS_PRIORITY[b.status] || 50;
+                if (sA !== sB) return sA - sB;
+                const dA = dateVal(a), dB = dateVal(b);
+                return (dA && dB ? dA.localeCompare(dB) : 0) || String(a.name).localeCompare(String(b.name));
+            });
+        } else if (sortMode === 'name' || sortMode === 'name-asc') {
+            items = [...items].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+        } else if (sortMode === 'name-desc') {
+            items = [...items].sort((a, b) => String(b.name).localeCompare(String(a.name)));
+        } else if (sortMode === 'rating') {
+            items = [...items].sort((a, b) => (b.rating || 0) - (a.rating || 0) || String(a.name).localeCompare(String(b.name)));
+        } else {
+            // 'plan' order (default)
+            items = items.map((item, at) => ({ item, at })).sort((a, b) => rank(a.item) - rank(b.item) || a.at - b.at).map(entry => entry.item);
+        }
+
         if (config.max > 0) items = items.slice(0, config.max);
-        if (config.filter === 'scheduled' || config.filter === 'scheduled-only' || config.filter === 'all' || config.sort === 'plan' || !config.sort) items = items.map((item, at) => ({ item, at })).sort((a, b) => rank(a.item) - rank(b.item) || a.at - b.at).map(entry => entry.item);
+
         const layout = config.layout || 'grid';
         if (layout === 'ticker') ensureTickerStyle();
         const gap = config.gap ?? 12;
@@ -1062,9 +1114,6 @@
         const TIERS = [[5, 'S', '#ff7f7f'], [4, 'A', '#ffbf7f'], [3, 'B', '#ffdf7f'], [2, 'C', '#bfff7f'], [1, 'D', '#7fbfff'], [0, '?', '#b0b0b0']];
         const TIER_LETTERS = [['S', '#ff7f7f'], ['A', '#ffbf7f'], ['B', '#ffdf7f'], ['C', '#bfff7f'], ['D', '#7fbfff'], ['F', '#bf9fff'], ['?', '#b0b0b0']];
         const autoColumns = layout === 'grid' && config.columns === 0;
-        const listMap = new Map((plan?.lists || []).map(l => [l.id, l.name]));
-        const statusNames = { scheduled: 'Scheduled', backlog: 'Backlog', played: 'Played', tonight: 'Tonight' };
-        for (const entry of plan?.lists || []) statusNames[entry.id] = entry.name;
         if (tiers) {
             if (config.tierSource === 'tier') {
                 const defs = (plan?.tierSets?.[config.filter] || (plan?.tiers?.length ? plan.tiers : TIER_LETTERS.slice(0, 6).map(([id, color]) => ({ id, label: id, color }))));
@@ -1130,7 +1179,8 @@
         };
         const statusPill = item => {
             if (!config.showStatusBadge) return null;
-            if (item.status === 'tonight') return makePill('Tonight', 'rgba(59,130,246,0.2)', '#60a5fa', 'rgba(59,130,246,0.4)');
+            if (item.status === 'tonight') return makePill('Tonight', `color-mix(in srgb, ${accent} 22%, transparent)`, `color-mix(in srgb, ${accent} 80%, #ffffff)`, `color-mix(in srgb, ${accent} 45%, transparent)`);
+            if (item.status === 'up-next') return makePill('Up Next', `color-mix(in srgb, ${accent} 15%, transparent)`, `color-mix(in srgb, ${accent} 70%, #ffffff)`, `color-mix(in srgb, ${accent} 35%, transparent)`);
             if (item.status === 'scheduled') return makePill('Scheduled', 'rgba(255,255,255,0.1)', '#e2e8f0', 'rgba(255,255,255,0.2)');
             if (item.status === 'played') return makePill('Done', 'rgba(34,197,94,0.2)', '#4ade80', 'rgba(34,197,94,0.4)');
             return null;
@@ -1170,7 +1220,11 @@
                 wrap.style.padding = '0';
                 wrap.appendChild(img);
             } else if (!hideName) wrap.textContent = item.name;
-            if (item.playingNow && config.highlightCurrent !== false) wrap.style.boxShadow = `0 0 0 3px ${accent}`;
+            if (item.playingNow && config.highlightCurrent !== false) {
+                wrap.style.boxShadow = `0 0 0 3px ${accent}`;
+            } else if (item.status === 'tonight' && config.highlightCurrent !== false) {
+                wrap.style.boxShadow = `0 0 0 2px color-mix(in srgb, ${accent} 50%, transparent)`;
+            }
             return wrap;
         };
 
@@ -1234,13 +1288,22 @@
                 const cols = ticker ? (config.columns || 5) : tiers ? (config.columns || 6) : (config.columns || 3);
                 body.style.cssText += strip
                     ? `display:flex;gap:${gap}px;justify-content:${just};`
-                    : ticker ? 'display:flex;width:max-content;'
+                    : ticker ? 'display:flex;width:max-content;align-items:center;min-height:100%;will-change:transform;'
                     : `display:flex;flex-wrap:wrap;gap:${gap}px;justify-content:${just};--cols:${cols};`;
                 if (!strip && !ticker) body.dataset.glGrid = '1';
-                const fill = target => { for (const item of section.items) {
+                if (ticker) body.dataset.glTickerBody = '1';
+                let tickerItems = section.items;
+                if (ticker && tickerItems.length > 0) {
+                    tickerItems = [...tickerItems];
+                    const minNeeded = Math.max(cols + 1, section.items.length * 2);
+                    while (tickerItems.length < minNeeded) {
+                        tickerItems = tickerItems.concat(section.items);
+                    }
+                }
+                const fill = target => { for (const item of (ticker ? tickerItems : section.items)) {
                     const card = document.createElement('div');
                     card.style.cssText = strip ? `flex:1 1 0;min-width:0;max-width:calc((100% - ${5 * gap}px) / 6);`
-                        : ticker ? `flex:0 0 calc((100cqw - ${(cols - 1) * gap}px) / ${cols});min-width:0;`
+                        : ticker ? `flex:0 0 calc((100cqw - ${(cols - 1) * gap}px) / ${cols});width:calc((100cqw - ${(cols - 1) * gap}px) / ${cols});min-width:0;`
                         : `flex:0 0 calc((100% - (var(--cols) - 1) * ${gap}px) / var(--cols) - .5px);min-width:0;`;
                     const face = cover(item, `width:${Math.min(100, scale * 100)}%;margin:${coverMargin};${config.coverFit === 'natural' && item.cover ? '' : `aspect-ratio:${config.coverRatio || '3/4'};`}`, onCover);
                     const extra = meta(item);
@@ -1320,11 +1383,14 @@
             if (ticker) {
                 const copies = [...inner.querySelectorAll('[data-gl-ticker-copy]')];
                 if (!copies.length) return;
-                // offsetWidth ignores CSS transforms, so this also works in the editor's zoomed canvas.
-                const scrolls = copies[0].offsetWidth > node.clientWidth + 1;
-                copies[1].style.display = scrolls ? 'flex' : 'none';
+                const scrolls = copies[0].children.length > 0;
+                if (copies[1]) copies[1].style.display = scrolls ? 'flex' : 'none';
                 const body = copies[0].parentElement;
-                body.style.animation = scrolls ? `${config.tickerDirection === 'right' ? 'spGlTickerR' : 'spGlTicker'} ${(copies[0].children.length * (config.tickerPace || 3)).toFixed(2)}s linear infinite` : 'none';
+                if (body) {
+                    body.style.animation = scrolls
+                        ? `${config.tickerDirection === 'right' ? 'spGlTickerR' : 'spGlTicker'} ${(copies[0].children.length * (config.tickerPace || 3)).toFixed(2)}s linear infinite`
+                        : 'none';
+                }
                 return;
             }
             inner.style.transform = '';

@@ -358,6 +358,7 @@
                         <button type="button" class="filter-chip" data-filter-trigger="raid">Raids</button>
                         <button type="button" class="filter-chip" data-filter-trigger="donation">Donations</button>
                         <button type="button" class="filter-chip" data-filter-trigger="redeem">Redeems</button>
+                        <button type="button" class="filter-chip" data-filter-trigger="chat_command,chat_word">Chat</button>
                     </div>
 
                     <div class="rule-list" id="rule-list"></div>
@@ -462,6 +463,10 @@
                                 <svg class="ico" style="color:#ec4899" viewBox="0 0 24 24"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
                                 <span>5 Gift Subs</span>
                             </button>
+                            <button type="button" class="preset-btn" data-sim-preset="chat-command">
+                                <svg class="ico" style="color:#0ea5e9" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                                <span>!hype Command</span>
+                            </button>
                         </div>
                     </div>
 
@@ -544,7 +549,8 @@
         tag: '<svg class="ico" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
         trophy: '<svg class="ico" viewBox="0 0 24 24"><path d="M6 9H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2"/><path d="M18 9h2a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>',
         message: '<svg class="ico" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-        sparkles: '<svg class="ico" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>'
+        sparkles: '<svg class="ico" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>',
+        command: '<svg class="ico" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>'
     };
 
     const TRIGGERS = {
@@ -559,7 +565,8 @@
         redeem: 'Channel point redeem',
         timer: 'Timer finished',
         goal: 'Goal reached',
-        chat_word: 'Chat word or hashtag'
+        chat_word: 'Chat word or hashtag',
+        chat_command: 'Chat bot command'
     };
 
     const TRIGGER_META = {
@@ -574,7 +581,8 @@
         redeem: { label: 'Channel Points', icon: ICONS.tag, color: '#8b5cf6' },
         timer: { label: 'Timer Finished', icon: ICONS.clock, color: '#38bdf8' },
         goal: { label: 'Goal Reached', icon: ICONS.trophy, color: '#fbbf24' },
-        chat_word: { label: 'Chat Word / #Tag', icon: ICONS.message, color: '#a3e635' }
+        chat_word: { label: 'Chat Word / #Tag', icon: ICONS.message, color: '#a3e635' },
+        chat_command: { label: 'Chat Command', icon: ICONS.command, color: '#0ea5e9' }
     };
 
     const ANIM_IN = ['pop', 'fade', 'zoom', 'bounce', 'flip', 'spin', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'none'];
@@ -583,13 +591,15 @@
     const TOKENS = {
         follow: ['user'], sub: ['user', 'tier'], resub: ['user', 'months', 'streak', 'tier', 'message'], milestone: ['user', 'months', 'streak', 'tier'],
         gift: ['user', 'count', 'recipient', 'tier'], bits: ['user', 'amount', 'message'], donation: ['user', 'amount', 'message'], raid: ['user', 'viewers'],
-        redeem: ['user', 'reward', 'amount'], timer: ['name'], goal: ['name', 'amount'], chat_word: ['user', 'keyword', 'message']
+        redeem: ['user', 'reward', 'amount'], timer: ['name'], goal: ['name', 'amount'], chat_word: ['user', 'keyword', 'message'],
+        chat_command: ['user', 'command', 'target', 'args', 'message']
     };
     const DEFAULT_TITLE = {
         follow: '{{alert.user}} just followed!', sub: '{{alert.user}} subscribed!', resub: '{{alert.user}} resubscribed for {{alert.months}} months!',
         milestone: '{{alert.user}} — {{alert.months}} months!', gift: '{{alert.user}} gifted {{alert.count}} subs!', bits: '{{alert.user}} cheered {{alert.amount}} bits!',
         donation: '{{alert.user}} donated {{alert.amount}}!', raid: '{{alert.user}} is raiding with {{alert.viewers}}!', redeem: '{{alert.user}} redeemed {{alert.reward}}',
-        timer: '{{alert.name}} is done!', goal: 'Goal reached: {{alert.name}}', chat_word: '{{alert.user}} said {{alert.keyword}}'
+        timer: '{{alert.name}} is done!', goal: 'Goal reached: {{alert.name}}', chat_word: '{{alert.user}} said {{alert.keyword}}',
+        chat_command: '!{{alert.command}} used by {{alert.user}}!'
     };
 
     let cfg = { settings: { enabled: true, gapSeconds: 2 }, rules: [] };
@@ -695,11 +705,20 @@
         if (t === 'timer') html += field('Timer Trigger', sel_('conditions.timerId', c.timerId, [['', 'Any timer'], ...timers.map(x => [x.id, x.label || x.id])]));
         if (t === 'goal') html += field('Goal Trigger', sel_('conditions.goalId', c.goalId, [['', 'Any goal'], ...goals.map(x => [x.id, x.title])]));
         if (t === 'chat_word') html += field('Words or #Hashtags', inp('conditions.keywords', c.keywords.join(', '), 'list', 'placeholder="hype, #clip, gg"'), 'Comma separated. Matches whole words, case-insensitive.');
+        if (t === 'chat_command') {
+            html += field('Command Name', inp('conditions.command', c.command || '', 'text', 'placeholder="e.g. hype, shoutout, hydrate"'), 'Command word without the prefix (e.g. "hype" triggers on !hype).');
+            html += field('Required Permission', sel_('conditions.permission', c.permission || 'everyone', [
+                ['everyone', 'Everyone (All Chatters)'],
+                ['subs', 'Subscribers & VIPs'],
+                ['mods', 'Moderators & Broadcaster'],
+                ['streamer', 'Broadcaster Only']
+            ]), 'Minimum role required to trigger this alert via chat.');
+        }
         if (t === 'milestone') {
             html += field('Milestone Months', inp('conditions.milestones', c.milestones.join(', '), 'numlist', 'placeholder="6, 12, 24, 36"'), 'Specific anniversary milestones (comma-separated).');
             html += field('…or Every N Months', inp('conditions.everyMonths', c.everyMonths, 'number', 'min="0" max="120"'), '12 = every yearly anniversary (0 = off).');
         }
-        html += field('Cooldown (s)', inp('conditions.cooldownSeconds', c.cooldownSeconds, 'number', 'min="0"'), t === 'chat_word' ? 'Prevents chat from spamming this alert repeatedly.' : '0 = no cooldown.');
+        html += field('Cooldown (s)', inp('conditions.cooldownSeconds', c.cooldownSeconds, 'number', 'min="0"'), (t === 'chat_word' || t === 'chat_command') ? 'Prevents chat from spamming this alert repeatedly.' : '0 = no cooldown.');
         return html;
     }
 
@@ -904,6 +923,7 @@
         else if (hasAmt && c.minAmount) when += ` of ${c.minAmount} or more`;
         if (r.trigger === 'redeem' && c.rewardName) when += ` for "${c.rewardName}"`;
         if (r.trigger === 'chat_word' && c.keywords.length) when += `: ${c.keywords.join(', ')}`;
+        if (r.trigger === 'chat_command' && c.command) when += ` "!${c.command}" (${c.permission || 'everyone'})`;
         const extras = [r.actions.timer.enabled ? 'trigger a timer' : '', r.actions.http.enabled ? 'send a webhook' : ''].filter(Boolean);
         return `${when}, display ${r.variants.length > 1 ? `one of ${r.variants.length} variants` : 'the alert'}${extras.length ? ' and ' + extras.join(' and ') : ''}.${r.enabled ? '' : ' (This rule is currently disabled.)'}`;
     }
@@ -1160,7 +1180,7 @@
             name: 'New alert',
             enabled: true,
             trigger,
-            conditions: { minAmount: 0, maxAmount: 0, tier: '', rewardName: '', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0 },
+            conditions: { minAmount: 0, maxAmount: 0, tier: '', rewardName: '', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0, command: '', permission: 'everyone' },
             pick: 'random',
             variants: [newVariant(trigger)],
             actions: { timer: { enabled: false, timerId: '', action: 'add_time', seconds: 30, perUnit: false }, http: { enabled: false, url: '', method: 'POST' } }
@@ -1258,7 +1278,13 @@
             const prev = Object.values(DEFAULT_TITLE);
             r.variants.forEach(v => { if (!v.title || prev.includes(v.title)) v.title = DEFAULT_TITLE[r.trigger] || ''; });
             if (r.name === 'New alert' || Object.values(TRIGGERS).includes(r.name)) r.name = TRIGGERS[r.trigger];
-            r.conditions.cooldownSeconds = r.trigger === 'chat_word' ? 30 : r.conditions.cooldownSeconds;
+            if (r.trigger === 'chat_word') {
+                r.conditions.cooldownSeconds = r.conditions.cooldownSeconds || 30;
+            } else if (r.trigger === 'chat_command') {
+                r.conditions.cooldownSeconds = r.conditions.cooldownSeconds || 30;
+                r.conditions.command = r.conditions.command || 'hype';
+                r.conditions.permission = r.conditions.permission || 'everyone';
+            }
             renderAll();
         } else if (el.dataset.f === 'pick' || ['actions.timer.enabled', 'actions.http.enabled', 'actions.timer.action'].includes(el.dataset.f)) {
             renderEditor();
@@ -1457,7 +1483,8 @@
         'bits-100': { type: 'bits', user: 'CheerMaster', amount: 100, text: 'cheer100 great gameplay!' },
         'bits-1000': { type: 'bits', user: 'BigSpender', amount: 1000, text: 'cheer1000 GG!' },
         'raid': { type: 'raid', user: 'RaidLeader', amount: 42, text: '' },
-        'gift': { type: 'gift', user: 'GenerousDonor', amount: 5, text: '' }
+        'gift': { type: 'gift', user: 'GenerousDonor', amount: 5, text: '' },
+        'chat-command': { type: 'chat_command', user: 'CoolChatter', amount: 0, text: '!hype let\'s go team!' }
     };
 
     document.addEventListener('click', e => {
@@ -1480,6 +1507,15 @@
         const tier = type === 'resub' && $('sim-user').value.toLowerCase().includes('prime') ? 'prime' : '1000';
         const body = { type, user: $('sim-user').value || 'TestViewer', amount, count: amount, months: amount, viewers: amount, tier, tierLabel: tier === 'prime' ? 'Prime' : 'Tier 1', message: text, reward: text, keyword: text, name: text };
         if (type === 'chat_word') body.message = text;
+        if (type === 'chat_command') {
+            const clean = text.replace(/^!+/, '').trim();
+            const parts = clean.split(/\s+/);
+            body.command = (parts[0] || '').toLowerCase();
+            body.args = parts.slice(1).join(' ').trim();
+            body.target = parts[1] ? parts[1].replace(/^@/, '') : ($('sim-user').value || 'CoolChatter');
+            body.message = body.args || text;
+            body.isTest = true;
+        }
         const data = await api('/api/alerts/test-event', { method: 'POST', body: JSON.stringify(body) });
         const resBox = $('sim-result-box');
         resBox.hidden = false;

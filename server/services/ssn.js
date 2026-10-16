@@ -1042,7 +1042,31 @@ function createSsnService({
                 amount: rewardMatch && rewardMatch[2] ? parseInt(rewardMatch[2].replace(/,/g, ''), 10) : 0
             });
         } else if (!msg.event && msg.chatmessage) {
-            resolveAlertEngine()?.handleEvent({ type: 'chat_word', user: chatname, avatar: msg.chatimg, message: String(msg.chatmessage).replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '').trim() });
+            const cleanMsg = String(msg.chatmessage).replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, '').trim();
+            resolveAlertEngine()?.handleEvent({ type: 'chat_word', user: chatname, avatar: msg.chatimg, message: cleanMsg });
+            if (cleanMsg.startsWith('!')) {
+                const parts = cleanMsg.slice(1).trim().split(/\s+/);
+                const command = (parts[0] || '').toLowerCase();
+                const args = parts.slice(1).join(' ').trim();
+                const target = parts[1] ? parts[1].replace(/^@/, '') : (chatname || '');
+
+                const isBroadcaster = Boolean([msg.broadcaster, msg.isBroadcaster, msg.host, msg.owner].some(v => v === true || v === 'true' || v === 1) || /broadcaster/i.test(JSON.stringify(msg.chatbadges ?? msg.badges ?? msg.membership ?? '').toLowerCase()));
+                const isMod = Boolean(isBroadcaster || [msg.mod, msg.moderator, msg.isMod, msg.isModerator, msg.is_mod, msg.admin].some(v => v === true || v === 'true' || v === 1) || /moderator|broadcaster|"mod"/.test(JSON.stringify(msg.chatbadges ?? msg.badges ?? msg.membership ?? '').toLowerCase()));
+                const isSub = Boolean(isMod || [msg.subscriber, msg.isSub, msg.isSubscriber, msg.is_subscriber, msg.member, msg.isMember, msg.hasMembership, msg.vip].some(v => v === true || v === 'true' || v === 1) || /subscriber|member|founder|vip/i.test(String(msg.membership || '')) || /subscriber|"sub"|member|founder|vip/.test(JSON.stringify(msg.chatbadges ?? msg.badges ?? '').toLowerCase()));
+
+                resolveAlertEngine()?.handleEvent({
+                    type: 'chat_command',
+                    user: chatname,
+                    avatar: msg.chatimg,
+                    command,
+                    args,
+                    target,
+                    raw: cleanMsg,
+                    isMod,
+                    isSub,
+                    isBroadcaster
+                });
+            }
         }
 
         if (msg.chatmessage) {

@@ -64,23 +64,29 @@
             --gp-bg: rgba(15, 23, 42, 0.72);
             --gp-border: rgba(255, 255, 255, 0.16);
         }
-        body.theme-glass .card, body.theme-glass .ticker-bar, body.theme-glass .schedule-card, body.theme-glass .checklist-item {
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
-        }
-        body.theme-transparent {
-            --gp-bg: transparent;
-            --gp-border: transparent;
-        }
-        body.theme-transparent .card, body.theme-transparent .ticker-bar, body.theme-transparent .schedule-card, body.theme-transparent .checklist-item {
-            background: transparent !important;
-            border-color: transparent !important;
-            box-shadow: none !important;
-        }
         body.theme-dark {
             --gp-bg: #0d1117;
             --gp-border: #30363d;
+        }
+        body.theme-purple {
+            --gp-bg: #130e24;
+            --gp-border: #3b2a68;
+            --gp-accent: #8b5cf6;
+        }
+        body.theme-emerald {
+            --gp-bg: #0a1813;
+            --gp-border: #164635;
+            --gp-accent: #10b981;
+        }
+        body.theme-sunset {
+            --gp-bg: #1c0e18;
+            --gp-border: #4d1d36;
+            --gp-accent: #f43f5e;
+        }
+        body.theme-cyberpunk {
+            --gp-bg: #080d1a;
+            --gp-border: #1a2a4e;
+            --gp-accent: #06b6d4;
         }
         body.theme-light {
             --gp-bg: #ffffff;
@@ -90,6 +96,23 @@
             --gp-now-bg: #dafbe1;
             --gp-now-border: #1a7f37;
             --gp-now-text: #1a7f37;
+        }
+        body.theme-transparent {
+            --gp-bg: transparent;
+            --gp-border: transparent;
+        }
+        body.theme-glass .card, body.theme-glass .ticker-bar, body.theme-glass .schedule-card, body.theme-glass .checklist-item,
+        body.has-blur .card, body.has-blur .ticker-bar, body.has-blur .schedule-card, body.has-blur .checklist-item {
+            backdrop-filter: blur(var(--gp-blur, 12px));
+            -webkit-backdrop-filter: blur(var(--gp-blur, 12px));
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+        }
+        body.theme-transparent .card, body.theme-transparent .ticker-bar, body.theme-transparent .schedule-card, body.theme-transparent .checklist-item {
+            background: transparent !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
         }
 
         /* Common Elements */
@@ -113,10 +136,10 @@
             color: var(--gp-now-text);
             animation: pulse-glow 2s infinite ease-in-out;
         }
-        .badge-next {
-            background: rgba(59, 130, 246, 0.2);
-            border: 1px solid rgba(59, 130, 246, 0.4);
-            color: #60a5fa;
+        .badge-next, .badge-tonight {
+            background: color-mix(in srgb, var(--gp-accent) 18%, transparent);
+            border: 1px solid color-mix(in srgb, var(--gp-accent) 45%, transparent);
+            color: color-mix(in srgb, var(--gp-accent) 75%, #ffffff);
         }
         .badge-done {
             background: rgba(139, 148, 158, 0.2);
@@ -228,6 +251,10 @@
             background: color-mix(in srgb, var(--gp-now-bg) 35%, var(--gp-bg));
             box-shadow: 0 0 16px rgba(35, 134, 54, 0.3);
         }
+        .schedule-card.tonight:not(.active) {
+            border-color: color-mix(in srgb, var(--gp-accent) 45%, var(--gp-border));
+            box-shadow: 0 4px 18px color-mix(in srgb, var(--gp-accent) 14%, transparent);
+        }
         .schedule-card.played {
             opacity: 0.65;
         }
@@ -280,13 +307,17 @@
             background: color-mix(in srgb, var(--gp-now-bg) 40%, var(--gp-bg));
             box-shadow: 0 0 14px rgba(35, 134, 54, 0.35);
         }
+        .checklist-item.tonight:not(.active) {
+            border-color: color-mix(in srgb, var(--gp-accent) 45%, var(--gp-border));
+            box-shadow: 0 2px 14px color-mix(in srgb, var(--gp-accent) 12%, transparent);
+        }
         .checklist-item.played {
             opacity: 0.6;
         }
         .checklist-idx {
             font-size: calc(clamp(0.75rem, max(2vmin, 8cqh, 8vh), 1.8rem) * var(--gp-font-scale));
             font-weight: 700;
-            color: var(--gp-muted);
+            color: color-mix(in srgb, var(--gp-accent) 70%, var(--gp-muted));
             min-width: 20px;
         }
         .checklist-info {
@@ -348,6 +379,7 @@
         const coverScaleParam = parseFloat(params.get('coverScale') || params.get('coverscale') || params.get('cscale') || '1');
         const coverFitParam = (params.get('coverFit') || params.get('coverfit') || '').toLowerCase();
         const align = (params.get('align') || 'center').toLowerCase();
+        const sortMode = (params.get('sort') || 'plan').toLowerCase();
 
         if (!isNaN(coverScaleParam) && coverScaleParam > 0) {
             document.documentElement.style.setProperty('--gp-cover-scale', coverScaleParam);
@@ -356,9 +388,31 @@
             document.documentElement.style.setProperty('--gp-cover-fit', coverFitParam);
         }
 
-        if (['glass', 'dark', 'light', 'transparent'].includes(theme)) {
+        if (['glass', 'dark', 'light', 'transparent', 'purple', 'emerald', 'sunset', 'cyberpunk'].includes(theme)) {
             document.body.className = `theme-${theme}`;
         }
+
+        const bgParam = params.get('bg');
+        if (bgParam) {
+            document.documentElement.style.setProperty('--gp-bg', decodeURIComponent(bgParam));
+        }
+        const borderParam = params.get('border');
+        if (borderParam) {
+            document.documentElement.style.setProperty('--gp-border', decodeURIComponent(borderParam));
+        }
+        const textParam = params.get('text');
+        if (textParam) {
+            document.documentElement.style.setProperty('--gp-text', decodeURIComponent(textParam));
+        }
+        const blurParam = params.get('blur');
+        if (blurParam !== null && blurParam !== '') {
+            const b = parseFloat(blurParam);
+            if (!isNaN(b)) {
+                document.documentElement.style.setProperty('--gp-blur', `${b}px`);
+                if (b > 0) document.body.classList.add('has-blur');
+            }
+        }
+
         if (align === 'left' || align === 'start') {
             container.style.justifyContent = 'flex-start';
         } else if (align === 'right' || align === 'end') {
@@ -477,14 +531,14 @@
                 const isOneOff = item.gameType === 'one-off';
                 const customListName = listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean) || '';
 
-                const statusBadge = !showStatus ? '' : isNow ? `<span class="badge badge-now">${ICONS.play} Playing</span>` : (isPlayed ? `<span class="badge badge-done">${ICONS.check} Done</span>` : (isTonight ? '<span class="badge" style="background:rgba(59,130,246,0.2);color:#60a5fa;border:1px solid rgba(59,130,246,0.4);">Tonight</span>' : '<span class="badge">Scheduled</span>'));
+                const statusBadge = !showStatus ? '' : isNow ? `<span class="badge badge-now">${ICONS.play} Playing</span>` : (isPlayed ? `<span class="badge badge-done">${ICONS.check} Done</span>` : (isTonight ? '<span class="badge badge-tonight">Tonight</span>' : '<span class="badge">Scheduled</span>'));
                 const groupBadge = showGroups && customListName ? `<span class="badge" style="background:rgba(139,92,246,0.2);color:#c084fc;border:1px solid rgba(139,92,246,0.4);">${ICONS.tag} ${esc(customListName)}</span>` : '';
                 const typeBadge = isOneOff ? `<span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);">${ICONS.bolt} One-Off</span>` : '';
                 const dateBadge = showDates && item.streamDate ? `<span class="badge">${ICONS.calendar} ${esc(item.streamDate)}</span>` : '';
                 const periodBadge = showGroups && item.period ? `<span class="badge">${esc(item.period)}</span>` : '';
 
                 html += `
-                    <div class="schedule-card${isNow ? ' active' : ''}${isPlayed ? ' played' : ''}">
+                    <div class="schedule-card${isNow ? ' active' : ''}${isTonight ? ' tonight' : ''}${isPlayed ? ' played' : ''}">
                         ${showCovers && item.cover ? `<img class="cover-img" src="${esc(item.cover)}" alt="">` : ''}
                         <div class="schedule-info">
                             <div class="schedule-meta">
@@ -520,13 +574,13 @@
                 const isOneOff = item.gameType === 'one-off';
                 const customListName = listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean) || '';
 
-                const statusBadge = !showStatus ? '' : isNow ? `<span class="badge badge-now">${ICONS.play} Now</span>` : (isPlayed ? `<span class="badge badge-done">${ICONS.check}</span>` : (isTonight ? '<span class="badge" style="background:rgba(59,130,246,0.2);color:#60a5fa;">Tonight</span>' : '<span class="badge">Next</span>'));
+                const statusBadge = !showStatus ? '' : isNow ? `<span class="badge badge-now">${ICONS.play} Now</span>` : (isPlayed ? `<span class="badge badge-done">${ICONS.check}</span>` : (isTonight ? '<span class="badge badge-tonight">Tonight</span>' : '<span class="badge">Next</span>'));
                 const groupBadge = showGroups && customListName ? `<span class="badge" style="background:rgba(139,92,246,0.2);color:#c084fc;">${ICONS.tag} ${esc(customListName)}</span>` : '';
                 const typeBadge = isOneOff ? `<span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);">${ICONS.bolt}</span>` : '';
                 const dateText = showDates && item.streamDate ? `${item.streamDate}` : '';
 
                 html += `
-                    <div class="checklist-item${isNow ? ' active' : ''}${isPlayed ? ' played' : ''}">
+                    <div class="checklist-item${isNow ? ' active' : ''}${isTonight ? ' tonight' : ''}${isPlayed ? ' played' : ''}">
                         <span class="checklist-idx">${idx + 1}</span>
                         ${showCovers && item.cover ? `<img class="cover-img small" src="${esc(item.cover)}" alt="">` : ''}
                         <div class="checklist-info">
@@ -640,6 +694,55 @@
             // Filter by period if specified
             if (periodFilter) {
                 items = items.filter(i => matchesPeriodFilter(i, periodFilter));
+            }
+
+            // Sort items if sort param is specified
+            const order = (currentPlan?.periods || []).map(name => String(name).toLowerCase());
+            const rank = item => { const at = order.indexOf(String(item.period || '').toLowerCase()); return at < 0 ? order.length : at; };
+            const listMap = new Map((currentPlan?.lists || []).map(l => [l.id, l.name]));
+            const dateVal = item => item.streamDate || item.finished || (Array.isArray(item.played) ? item.played[0] : '') || '';
+            const groupVal = item => listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean) || item.period || '';
+            const STATUS_PRIORITY = { tonight: 1, scheduled: 2, 'up-next': 3, backlog: 4, played: 5 };
+
+            if (sortMode === 'date' || sortMode === 'date-asc') {
+                items = [...items].sort((a, b) => {
+                    const dA = dateVal(a), dB = dateVal(b);
+                    if (dA && dB) return dA.localeCompare(dB) || String(a.name).localeCompare(String(b.name));
+                    if (dA && !dB) return -1;
+                    if (!dA && dB) return 1;
+                    return rank(a) - rank(b) || String(a.name).localeCompare(String(b.name));
+                });
+            } else if (sortMode === 'date-desc') {
+                items = [...items].sort((a, b) => {
+                    const dA = dateVal(a), dB = dateVal(b);
+                    if (dA && dB) return dB.localeCompare(dA) || String(a.name).localeCompare(String(b.name));
+                    if (dA && !dB) return -1;
+                    if (!dA && dB) return 1;
+                    return rank(a) - rank(b) || String(a.name).localeCompare(String(b.name));
+                });
+            } else if (sortMode === 'group' || sortMode === 'collection') {
+                items = [...items].sort((a, b) => {
+                    const gA = groupVal(a), gB = groupVal(b);
+                    if (gA && gB && gA !== gB) return gA.localeCompare(gB);
+                    if (gA && !gB) return -1;
+                    if (!gA && gB) return 1;
+                    const dA = dateVal(a), dB = dateVal(b);
+                    return (dA && dB ? dA.localeCompare(dB) : 0) || String(a.name).localeCompare(String(b.name));
+                });
+            } else if (sortMode === 'status') {
+                items = [...items].sort((a, b) => {
+                    const sA = STATUS_PRIORITY[a.status] || 50;
+                    const sB = STATUS_PRIORITY[b.status] || 50;
+                    if (sA !== sB) return sA - sB;
+                    const dA = dateVal(a), dB = dateVal(b);
+                    return (dA && dB ? dA.localeCompare(dB) : 0) || String(a.name).localeCompare(String(b.name));
+                });
+            } else if (sortMode === 'name' || sortMode === 'name-asc') {
+                items = [...items].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+            } else if (sortMode === 'name-desc') {
+                items = [...items].sort((a, b) => String(b.name).localeCompare(String(a.name)));
+            } else if (sortMode === 'rating') {
+                items = [...items].sort((a, b) => (b.rating || 0) - (a.rating || 0) || String(a.name).localeCompare(String(b.name)));
             }
 
             // Determine playing now game
