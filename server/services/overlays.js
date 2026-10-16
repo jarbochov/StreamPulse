@@ -336,6 +336,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             sound: element.alert?.sound !== false,
             videoSound: Boolean(element.alert?.videoSound),
             videoLoop: element.alert?.videoLoop !== false,
+            showOnPreview: Boolean(element.alert?.showOnPreview),
             sampleImage: String(element.alert?.sampleImage || '').slice(0, 2000),
             sampleEmoji: String(element.alert?.sampleEmoji || '').trim().slice(0, 40),
             triggers: Array.isArray(element.alert?.triggers) ? element.alert.triggers.filter(t => !alertTriggers || alertTriggers[t]).slice(0, 20) : []

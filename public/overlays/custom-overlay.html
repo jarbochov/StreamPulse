@@ -8,6 +8,18 @@
     <style>
         html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
         body { display: flex; align-items: flex-start; justify-content: flex-start; }
+        body.is-preview {
+            background-color: #0c1017;
+            background-image:
+                linear-gradient(45deg, #161f2e 25%, transparent 25%),
+                linear-gradient(-45deg, #161f2e 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #161f2e 75%),
+                linear-gradient(-45deg, transparent 75%, #161f2e 75%);
+            background-size: 24px 24px;
+            background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+        }
+        body.is-preview.bd-dark { background: #0b0f19; background-image: none; }
+        body.is-preview.bd-transparent { background: transparent; background-image: none; }
         #overlay-root { position: relative; flex: 0 0 auto; overflow: hidden; }
         @keyframes pg-fade-in { from { opacity: 0; } }
         @keyframes pg-fade-out { to { opacity: 0; } }

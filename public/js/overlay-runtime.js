@@ -135,6 +135,12 @@
     const tickingNodes = [];
     const alertNodes = [];
     const activeAlerts = [];
+    let alertPreviewManual = null;
+
+    function isAlertPreview(element) {
+        if (alertPreviewManual !== null) return alertPreviewManual;
+        return (params.get('preview') === 'true' && (params.get('alert') === 'true' || element.alert?.showOnPreview === true));
+    }
 
     function showAlert(payload) {
         for (const { node, element } of alertNodes) {
@@ -146,7 +152,7 @@
             }
             activeAlerts.push(shared.playAlert(node, element, payload, {
                 onEnd: () => {
-                    if (params.get('preview') === 'true' && !node._alertPreviewHandle) {
+                    if (isAlertPreview(element) && !node._alertPreviewHandle) {
                         node._alertPreviewHandle = shared.playAlert(node, element, { ...shared.alertSample(element), animIn: 'none', animOut: 'none', durationMs: 3600000 }, { sound: false });
                     }
                 }
@@ -269,21 +275,20 @@
         const canH = Number(currentOverlay.canvas?.height) || 1080;
         const cutouts = pageElements(currentOverlay).filter(el => el.type === 'cutout' && (cutoutStates.has(el.id) ? cutoutStates.get(el.id) : el.visible !== false));
         const { masked } = ensureLayers();
-        let svg = document.getElementById('overlay-cutout-svg');
+        const svg = document.getElementById('overlay-cutout-svg');
+        if (svg) svg.remove();
         if (!cutouts.length) {
+            masked.style.removeProperty('-webkit-mask-image');
+            masked.style.removeProperty('-webkit-mask-size');
+            masked.style.removeProperty('-webkit-mask-repeat');
+            masked.style.removeProperty('-webkit-mask-position');
             masked.style.removeProperty('-webkit-mask');
+            masked.style.removeProperty('mask-image');
+            masked.style.removeProperty('mask-size');
+            masked.style.removeProperty('mask-repeat');
+            masked.style.removeProperty('mask-position');
             masked.style.removeProperty('mask');
-            if (svg) svg.remove();
             return;
-        }
-        if (!svg) {
-            svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.id = 'overlay-cutout-svg';
-            svg.setAttribute('width', '0');
-            svg.setAttribute('height', '0');
-            svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;';
-            svg.setAttribute('aria-hidden', 'true');
-            document.body.appendChild(svg);
         }
         const filters = [];
         const shapes = cutouts.map(el => {
@@ -292,7 +297,7 @@
             let filterAttr = '';
             if (feather > 0) {
                 const filterId = `cutout-feather-${el.id}`;
-                filters.push(`<filter id="${filterId}"><feGaussianBlur stdDeviation="${feather / 2}"/></filter>`);
+                filters.push(`<filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${feather / 2}"/></filter>`);
                 filterAttr = `filter="url(#${filterId})"`;
             }
             const x = Number(el.x) || 0;
@@ -314,17 +319,20 @@
             return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rad}" ry="${rad}" fill="black" ${filterAttr}/>`;
         });
 
-        svg.innerHTML = `
-            <defs>
-                ${filters.join('')}
-                <mask id="overlay-cutout-mask" maskContentUnits="userSpaceOnUse" x="0" y="0" width="${canW}" height="${canH}">
-                    <rect x="0" y="0" width="${canW}" height="${canH}" fill="white"/>
-                    ${shapes.join('')}
-                </mask>
-            </defs>
-        `;
-        masked.style.setProperty('-webkit-mask', 'url(#overlay-cutout-mask)');
-        masked.style.setProperty('mask', 'url(#overlay-cutout-mask)');
+        // Use a self-contained SVG image data URI. WebKit (Safari) does not support SVG DOM fragment masks
+        // (url(#id)) on HTML elements, but has full hardware-accelerated support for SVG image data URIs in CSS mask-image.
+        const svgXml = `<svg xmlns="http://www.w3.org/2000/svg" width="${canW}" height="${canH}" viewBox="0 0 ${canW} ${canH}"><defs>${filters.join('')}<mask id="m"><rect width="100%" height="100%" fill="white"/>${shapes.join('')}</mask></defs><rect width="100%" height="100%" fill="white" mask="url(#m)"/></svg>`;
+        const maskDataUrl = `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgXml)}")`;
+        masked.style.removeProperty('-webkit-mask');
+        masked.style.removeProperty('mask');
+        masked.style.setProperty('-webkit-mask-image', maskDataUrl);
+        masked.style.setProperty('-webkit-mask-size', '100% 100%');
+        masked.style.setProperty('-webkit-mask-repeat', 'no-repeat');
+        masked.style.setProperty('-webkit-mask-position', '0 0');
+        masked.style.setProperty('mask-image', maskDataUrl);
+        masked.style.setProperty('mask-size', '100% 100%');
+        masked.style.setProperty('mask-repeat', 'no-repeat');
+        masked.style.setProperty('mask-position', '0 0');
     }
 
     function render(overlay) {
@@ -489,7 +497,7 @@
             } else if (element.type === 'alert') {
                 shared.prepareAlertNode(node, element);
                 alertNodes.push({ node, element });
-                if (params.get('preview') === 'true') {
+                if (isAlertPreview(element)) {
                     node._alertPreviewHandle = shared.playAlert(node, element, { ...shared.alertSample(element), animIn: 'none', animOut: 'none', durationMs: 3600000 }, { sound: false });
                 }
             } else if (element.type === 'shape') {
@@ -499,6 +507,7 @@
                 node.style.pointerEvents = 'none';
                 const s = element.style || {};
                 if (s.borderWidth && Number(s.borderWidth) > 0) {
+                    node.style.border = `${s.borderWidth}px solid ${s.borderColor || '#38bdf8'}`;
                     node.style.background = 'transparent';
                     node.style.boxShadow = s.shadow?.blur ? `0 0 ${s.shadow.blur}px ${s.shadow.color || 'rgba(0,0,0,0.5)'}` : 'none';
                 } else {
@@ -756,6 +765,42 @@
 
     let fitInitialized = false;
     let fitMode = false;
+    const BACKDROP_MODES = ['checker', 'dark', 'transparent'];
+    let backdropIndex = 0;
+
+    function toggleAlertPreview() {
+        if (!alertNodes.length) return;
+        const current = alertNodes.some(item => !!item.node._alertPreviewHandle);
+        alertPreviewManual = !current;
+        for (const { node, element } of alertNodes) {
+            if (alertPreviewManual) {
+                if (!node._alertPreviewHandle) {
+                    node._alertPreviewHandle = shared.playAlert(node, element, { ...shared.alertSample(element), animIn: 'none', animOut: 'none', durationMs: 3600000 }, { sound: false });
+                }
+            } else {
+                if (node._alertPreviewHandle) {
+                    node._alertPreviewHandle.stop();
+                    node._alertPreviewHandle = null;
+                }
+            }
+        }
+        updatePreviewToolbar();
+    }
+
+    function cycleBackdrop() {
+        backdropIndex = (backdropIndex + 1) % BACKDROP_MODES.length;
+        applyBackdropMode();
+    }
+
+    function applyBackdropMode() {
+        if (window.obsstudio) return;
+        const mode = BACKDROP_MODES[backdropIndex];
+        document.body.classList.remove('bd-dark', 'bd-transparent');
+        if (mode === 'dark') document.body.classList.add('bd-dark');
+        else if (mode === 'transparent') document.body.classList.add('bd-transparent');
+        updatePreviewToolbar();
+    }
+
     function checkViewportFit(overlay) {
         if (!overlay?.canvas) return;
         const isPreview = params.get('preview') === 'true' || params.get('fit') === '1' || params.get('scale') === 'fit';
@@ -764,15 +809,23 @@
         if (!fitInitialized) {
             fitInitialized = true;
             fitMode = true;
+            if (!window.obsstudio && params.get('preview') === 'true') {
+                document.body.classList.add('is-preview');
+            }
 
             window.addEventListener('resize', () => {
                 if (fitMode && currentOverlay) applyFit(currentOverlay);
             });
 
             window.addEventListener('keydown', (e) => {
-                if ((e.key === 'f' || e.key === 'F') && !e.target.closest('input, textarea')) {
+                if (e.target.closest('input, textarea')) return;
+                if (e.key === 'f' || e.key === 'F') {
                     fitMode = !fitMode;
                     if (currentOverlay) applyFit(currentOverlay);
+                } else if (e.key === 'a' || e.key === 'A') {
+                    toggleAlertPreview();
+                } else if (e.key === 'b' || e.key === 'B') {
+                    cycleBackdrop();
                 }
             });
         }
@@ -781,14 +834,13 @@
     }
 
     function applyFit(overlay) {
-        const toggleBtn = getOrCreateFitToggle();
         if (!fitMode) {
             root.style.transform = '';
             root.style.transformOrigin = '';
             root.style.boxShadow = '';
             document.body.style.justifyContent = 'flex-start';
             document.body.style.alignItems = 'flex-start';
-            if (toggleBtn) toggleBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:5px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>100% (Press F)';
+            updatePreviewToolbar();
             return;
         }
 
@@ -803,28 +855,77 @@
         document.body.style.justifyContent = 'center';
         document.body.style.alignItems = 'center';
 
-        if (toggleBtn) {
-            const label = scale < 0.999 ? `Fit: ${Math.round(scale * 100)}% (Press F)` : '100% (Press F)';
-            toggleBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:5px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>${label}`;
-        }
+        updatePreviewToolbar();
     }
 
-    function getOrCreateFitToggle() {
+    function getOrCreatePreviewToolbar() {
         if (window.obsstudio) return null; // Never display controls inside OBS
-        let btn = document.getElementById('preview-fit-pill');
-        if (!btn) {
-            btn = document.createElement('button');
-            btn.id = 'preview-fit-pill';
-            btn.style.cssText = 'position:fixed;bottom:14px;right:14px;z-index:999999;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#f0f6fc;border:1px solid rgba(255,255,255,0.2);border-radius:999px;padding:5px 14px;font:600 11px system-ui,-apple-system,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.5);opacity:0.75;transition:opacity 0.15s ease,transform 0.1s ease;';
-            btn.onmouseenter = () => { btn.style.opacity = '1'; btn.style.transform = 'scale(1.04)'; };
-            btn.onmouseleave = () => { btn.style.opacity = '0.75'; btn.style.transform = ''; };
-            btn.onclick = () => {
+        let bar = document.getElementById('preview-toolbar');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'preview-toolbar';
+            bar.style.cssText = 'position:fixed;bottom:14px;right:14px;z-index:999999;display:flex;align-items:center;gap:8px;user-select:none;';
+            document.body.appendChild(bar);
+        }
+        return bar;
+    }
+
+    function createPillButton(id) {
+        const btn = document.createElement('button');
+        btn.id = id;
+        btn.style.cssText = 'background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#f0f6fc;border:1px solid rgba(255,255,255,0.2);border-radius:999px;padding:5px 13px;font:600 11px system-ui,-apple-system,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.5);opacity:0.8;transition:opacity 0.15s ease,transform 0.1s ease;display:inline-flex;align-items:center;';
+        btn.onmouseenter = () => { btn.style.opacity = '1'; btn.style.transform = 'scale(1.04)'; };
+        btn.onmouseleave = () => { btn.style.opacity = '0.8'; btn.style.transform = ''; };
+        return btn;
+    }
+
+    function updatePreviewToolbar() {
+        if (window.obsstudio) return;
+        const bar = getOrCreatePreviewToolbar();
+        if (!bar) return;
+
+        let fitBtn = document.getElementById('preview-fit-pill');
+        if (!fitBtn) {
+            fitBtn = createPillButton('preview-fit-pill');
+            fitBtn.onclick = () => {
                 fitMode = !fitMode;
                 if (currentOverlay) applyFit(currentOverlay);
             };
-            document.body.appendChild(btn);
+            bar.appendChild(fitBtn);
         }
-        return btn;
+
+        const canW = Number(currentOverlay?.canvas?.width) || 1920;
+        const canH = Number(currentOverlay?.canvas?.height) || 1080;
+        const pad = 24;
+        const scale = Math.min(1, (window.innerWidth - pad) / canW, (window.innerHeight - pad) / canH);
+        const fitLabel = !fitMode ? '100% (Press F)' : (scale < 0.999 ? `Fit: ${Math.round(scale * 100)}% (Press F)` : '100% (Press F)');
+        fitBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:5px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>${fitLabel}`;
+        fitBtn.style.borderColor = fitMode ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.2)';
+
+        let alertBtn = document.getElementById('preview-alert-pill');
+        if (alertNodes.length > 0) {
+            if (!alertBtn) {
+                alertBtn = createPillButton('preview-alert-pill');
+                alertBtn.onclick = () => toggleAlertPreview();
+                bar.appendChild(alertBtn);
+            }
+            const anyActive = alertNodes.some(item => !!item.node._alertPreviewHandle);
+            alertBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:5px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>Alert: ${anyActive ? 'Shown' : 'Hidden'} (Press A)`;
+            alertBtn.style.borderColor = anyActive ? 'rgba(56,189,248,0.6)' : 'rgba(255,255,255,0.2)';
+            alertBtn.style.color = anyActive ? '#38bdf8' : '#f0f6fc';
+        } else if (alertBtn) {
+            alertBtn.remove();
+        }
+
+        let bdBtn = document.getElementById('preview-backdrop-pill');
+        if (!bdBtn) {
+            bdBtn = createPillButton('preview-backdrop-pill');
+            bdBtn.onclick = () => cycleBackdrop();
+            bar.appendChild(bdBtn);
+        }
+        const bdMode = BACKDROP_MODES[backdropIndex];
+        const bdLabel = bdMode === 'checker' ? 'Backdrop: Checker (Press B)' : bdMode === 'dark' ? 'Backdrop: Dark (Press B)' : 'Backdrop: Clear (Press B)';
+        bdBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:5px;"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>${bdLabel}`;
     }
 
     // Tear everything down on close so Safari doesn't unload live videos, iframes and timers all at once.
