@@ -13,87 +13,135 @@
         .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
-        .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
-        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.2rem; }
-        .hint { color: var(--text-muted); font-size: 0.78rem; line-height: 1.45; }
-        .add-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.6rem; }
-        .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-top: 0.5rem; }
+        .container { max-width: 1120px; margin: 0 auto; padding: 1.35rem 2rem; display: flex; flex-direction: column; gap: 0.85rem; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1.1rem; }
+        .hint { color: var(--text-muted); font-size: 0.76rem; line-height: 1.45; }
+        .add-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.55rem; }
+        .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-top: 0.45rem; }
         .card-foot .status { margin: 0; }
         .extra-lists { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.82rem; }
         .extra-lists label { display: inline-flex; align-items: center; gap: 0.3rem; cursor: pointer; }
-        .btn.ghost { background: none; border-color: transparent; color: var(--text-muted); padding: 0.2rem 0.5rem; font-size: 0.76rem; }
+        .btn.ghost { background: none; border-color: transparent; color: var(--text-muted); padding: 0.25rem 0.55rem; font-size: 0.76rem; }
         .btn.ghost:hover { color: var(--text); border-color: var(--border); }
-        .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap; margin: 0.1rem 0 0.2rem; }
+        .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
         .toolbar .view-toggle { margin: 0; }
-        .view-bar { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; font-size: 0.74rem; color: var(--text-muted); }
+        .view-bar { display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap; font-size: 0.74rem; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.8rem; }
         .view-bar label { display: inline-flex; align-items: center; gap: 0.35rem; }
         .view-bar input { padding: 0.2rem 0.4rem; font-size: 0.78rem; }
         .view-bar select { padding: 0.25rem 0.45rem; font-size: 0.78rem; }
         .view-bar #v-count { color: var(--text-faint); }
-        input, select, textarea { padding: 0.5rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; font-family: inherit; min-width: 0; }
+        input, select, textarea { padding: 0.48rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.84rem; font-family: inherit; min-width: 0; }
         input:focus, select:focus { outline: none; border-color: var(--accent); }
-        .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.82rem; cursor: pointer; }
+        .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 6px; padding: 0.42rem 0.78rem; font-size: 0.79rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; line-height: 1.2; text-decoration: none; white-space: nowrap; transition: border-color 0.12s, background 0.12s; }
         .btn:hover { border-color: var(--accent); }
+        .ico, .btn svg { width: 13px; height: 13px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; }
         .btn.primary { background: var(--success-strong); border-color: var(--success-strong); color: #fff; }
         .btn.danger:hover { border-color: #f85149; color: #f85149; }
-        .btn.icon { padding: 0.25rem 0.55rem; }
-        .status { color: var(--text-muted); font-size: 0.78rem; min-height: 1.2em; margin-top: 0.4rem; }
+        .btn.icon { padding: 0.32rem 0.5rem; }
+        .status { color: var(--text-muted); font-size: 0.76rem; min-height: 1.1em; }
 
-        .tabs { display: flex; flex-direction: column; gap: 0.7rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem 1.1rem; }
-        .tabs-group { display: flex; flex-direction: column; gap: 0.45rem; }
-        .tabs-group-header { display: flex; justify-content: space-between; align-items: center; }
-        .tabs-group-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: var(--text-muted); }
-        .tabs-group-items { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
-        .tabs-divider { height: 1px; background: var(--bg-raised); margin: 0.1rem 0; }
+        /* Single-row streamlined Tabs Bar */
+        .tabs { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 0.45rem 0.6rem; }
+        .tabs-sep { width: 1px; height: 20px; background: var(--border); margin: 0 0.2rem; }
+        .tab { border: 1px solid transparent; background: transparent; color: var(--text-muted); border-radius: 6px; padding: 0.36rem 0.75rem; font-size: 0.81rem; cursor: pointer; display: inline-flex; gap: 0.4rem; align-items: center; transition: all 0.12s; }
+        .tab:hover { color: var(--text); background: var(--bg-inset); }
+        .tab.active { background: color-mix(in srgb, var(--accent-strong) 18%, transparent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); font-weight: 600; }
+        .tab.drop { border-color: var(--success); background: color-mix(in srgb, var(--success) 22%, transparent); }
+        .tab .n { font-size: 0.68rem; padding: 0.05rem 0.42rem; border-radius: 999px; background: var(--bg-raised); color: var(--text-muted); font-weight: 500; }
+        .tab.active .n { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
+        .tab-new { border: 1px dashed var(--border); font-size: 0.76rem; padding: 0.3rem 0.65rem; }
+        .tab-input { border-radius: 6px; padding: 0.3rem 0.6rem; width: 160px; font-size: 0.8rem; }
+        .tab-tools { display: inline-flex; gap: 0.25rem; margin-left: auto; }
 
-        .tab { border: 1px solid var(--border); background: var(--bg-inset); color: var(--text-muted); border-radius: 6px; padding: 0.38rem 0.85rem; font-size: 0.82rem; cursor: pointer; display: inline-flex; gap: 0.45rem; align-items: center; transition: all 0.15s; }
-        .tab:hover { border-color: var(--accent); color: var(--text); }
-        .tab.active { background: color-mix(in srgb, var(--accent-strong) 22%, transparent); border-color: var(--accent); color: var(--accent); font-weight: 600; }
-        .tab.drop { border-color: var(--success); background: color-mix(in srgb, var(--success) 25%, transparent); }
-        .tab .n { font-size: 0.7rem; padding: 0.1rem 0.45rem; border-radius: 999px; background: var(--bg-card); color: var(--text-muted); font-weight: normal; }
-        .tab.active .n { background: var(--accent-bg); color: var(--accent); }
-        .tab-new { border-style: dashed; }
-        .tab-input { border-radius: 6px; padding: 0.35rem 0.7rem; width: 170px; }
-        .tab-tools { display: flex; gap: 0.3rem; }
-
-        .items { display: flex; flex-direction: column; gap: 0.5rem; min-height: 64px; }
+        /* Clean, low-density Item Rows */
+        .items { display: flex; flex-direction: column; gap: 0.42rem; min-height: 64px; }
         .items:empty::before { content: attr(data-empty); color: var(--text-faint); font-size: 0.82rem; border: 1px dashed var(--border); border-radius: 8px; padding: 1.4rem; text-align: center; }
-        .item { display: grid; grid-template-columns: auto 52px minmax(0, 1fr) auto; gap: 0.7rem; align-items: center; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.7rem; }
-        .item.now { border-color: var(--success); box-shadow: 0 0 0 1px color-mix(in srgb, var(--success) 40%, transparent); background: color-mix(in srgb, var(--success) 8%, var(--bg-card)); }
-        .grip { cursor: grab; color: var(--text-faint); user-select: none; padding: 0 0.15rem; }
-        .cover { width: 52px; height: 70px; border-radius: 5px; background: var(--bg-raised); object-fit: cover; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: var(--text-faint); cursor: pointer; }
-        .main { min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; }
-        .main .name { font-weight: 600; font-size: 0.92rem; line-height: 1.25; cursor: pointer; }
-        .main .sub { font-size: 0.74rem; color: var(--text-muted); }
-        .main .note { font-size: 0.76rem; color: var(--text-muted); font-style: italic; }
-        .row-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.15rem; }
-        .period-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0 0 0.6rem; font-size: 0.74rem; color: var(--text-muted); }
+        .item { display: grid; grid-template-columns: 28px 44px minmax(0, 1fr) auto; gap: 0.65rem; align-items: center; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.7rem; transition: border-color 0.12s; }
+        .item:hover { border-color: color-mix(in srgb, var(--border) 60%, var(--text-muted)); }
+        .item.now { border-color: var(--success); background: color-mix(in srgb, var(--success) 6%, var(--bg-card)); }
+        .grip, .order-num { cursor: grab; color: var(--text-faint); user-select: none; display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 600; width: 28px; }
+        .order-num { color: var(--text-muted); }
+        .cover { width: 44px; height: 58px; border-radius: 5px; background: var(--bg-raised); object-fit: cover; display: flex; align-items: center; justify-content: center; color: var(--text-faint); cursor: pointer; border: 1px solid rgba(255,255,255,0.04); }
+        .cover svg { width: 18px; height: 18px; opacity: 0.55; }
+        .main { min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+        .main-top { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; min-width: 0; }
+        .main .name { font-weight: 600; font-size: 0.9rem; line-height: 1.25; cursor: pointer; color: var(--text); }
+        .main .name:hover { color: var(--accent); }
+        .main-sub { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.74rem; color: var(--text-muted); line-height: 1.3; }
+        .sub-dot { opacity: 0.4; }
+        .note-inline { color: var(--text-muted); font-style: italic; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .period-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0 0 0.4rem; font-size: 0.74rem; color: var(--text-muted); }
         .period-bar .pchip { cursor: grab; border: 1px solid var(--border); border-radius: 999px; padding: 0.15rem 0.6rem; color: var(--text); background: var(--panel, transparent); }
         .period-bar .pchip .num { opacity: 0.55; margin-right: 0.35rem; }
-        .chip { font-size: 0.68rem; border: 1px solid var(--border); border-radius: 999px; padding: 0.05rem 0.5rem; color: var(--text-muted); }
-        .period-edit-wrap { display: inline-flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
-        .period { padding: 0.2rem 0.5rem; font-size: 0.74rem; width: 150px; }
-        .quick-periods { display: inline-flex; gap: 0.25rem; }
-        .qchip { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); border-radius: 4px; font-size: 0.68rem; padding: 0.15rem 0.4rem; cursor: pointer; }
-        .qchip:hover { border-color: var(--accent); color: var(--text); }
+        .chip { font-size: 0.66rem; border: 1px solid var(--border); border-radius: 999px; padding: 0.04rem 0.45rem; color: var(--text-muted); }
         .stars { display: inline-flex; gap: 1px; }
-        .stars button { background: none; border: 0; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 1px; color: var(--text-faint); }
+        .stars button { background: none; border: 0; cursor: pointer; font-size: 0.92rem; line-height: 1; padding: 0 1px; color: var(--text-faint); }
         .stars button.on { color: #f5b301; }
         .stars button.half { background: linear-gradient(90deg, #f5b301 50%, var(--text-faint) 50%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-        .stars button:hover { transform: scale(1.15); }
-        .item-actions { display: flex; gap: 0.4rem; align-items: center; }
-        .play-btn { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, transparent); }
-        .play-btn:hover { background: color-mix(in srgb, var(--success) 15%, transparent); }
-        .stop-btn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
-        .stop-btn:hover { background: color-mix(in srgb, var(--warn) 15%, transparent); }
-        .advance-btn { color: var(--accent); border-color: var(--accent); }
+        .stars button:hover { transform: scale(1.12); }
+
+        .item-actions { display: flex; gap: 0.35rem; align-items: center; }
+        .item-actions .btn { padding: 0.32rem 0.62rem; font-size: 0.75rem; }
+        .play-btn { color: var(--success); border-color: color-mix(in srgb, var(--success) 38%, transparent); }
+        .play-btn:hover { background: color-mix(in srgb, var(--success) 14%, transparent); border-color: var(--success); }
+        .stop-btn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 38%, transparent); }
+        .stop-btn:hover { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+        .advance-btn { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
         .advance-btn:hover { background: var(--accent-bg); }
-        .schedule-btn { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
-        .schedule-btn:hover { background: var(--accent-bg); }
-        .now-badge { background: var(--success); color: #000; font-weight: 800; }
-        .view-toggle { display: flex; gap: 0.35rem; align-items: center; margin: -0.2rem 0 0.2rem; font-size: 0.78rem; color: var(--text-muted); }
-        .view-toggle .tab { padding: 0.2rem 0.7rem; }
+        .schedule-btn { color: var(--text-muted); }
+        .schedule-btn:hover { color: var(--text); border-color: var(--accent); }
+
+        .badge { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.64rem; font-weight: 600; letter-spacing: 0.02em; border-radius: 999px; padding: 0.08rem 0.48rem; vertical-align: middle; border: 1px solid transparent; }
+        .badge svg { width: 10px; height: 10px; }
+        .now-badge { background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, transparent); font-weight: 700; }
+        .custom-badge { background: var(--bg-raised); color: var(--text-muted); border-color: var(--border); }
+        .playthrough-badge { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-color: rgba(56, 189, 248, 0.25); }
+        .oneoff-badge { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border-color: rgba(251, 191, 36, 0.25); }
+        .twitch-badge { background: rgba(168, 85, 247, 0.1); color: #c084fc; border-color: rgba(168, 85, 247, 0.28); }
+        .cat-badge { background: var(--bg-raised); color: var(--text-muted); border-color: var(--border); }
+        .list-pill { background: var(--bg-raised); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+        .date-badge { display: inline-flex; align-items: center; gap: 0.28rem; font-size: 0.71rem; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 5px; padding: 0.08rem 0.45rem; color: var(--text); cursor: pointer; }
+        .date-badge:hover { border-color: var(--accent); }
+        .date-badge svg { width: 11px; height: 11px; color: var(--accent); }
+        .date-badge .synced-dot { width: 6px; height: 6px; border-radius: 50%; background: #c084fc; display: inline-block; }
+
+        .tonight-banner { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 0.65rem 0.95rem; margin-bottom: 0.35rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+        .view-toggle { display: inline-flex; background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 0.15rem; gap: 0.15rem; }
+        .view-toggle .tab { padding: 0.26rem 0.68rem; font-size: 0.76rem; border-radius: 5px; border: 0; }
+        .view-toggle .tab.active { background: var(--bg-raised); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
         [hidden] { display: none !important; }
+
+        /* Full Calendar View */
+        .cal-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+        .cal-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); gap: 0.75rem; flex-wrap: wrap; }
+        .cal-title { font-size: 0.96rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.45rem; }
+        .cal-title .ico { width: 16px; height: 16px; color: var(--accent); }
+        .cal-legend { display: flex; align-items: center; gap: 0.85rem; font-size: 0.72rem; color: var(--text-muted); flex-wrap: wrap; }
+        .cal-legend span { display: inline-flex; align-items: center; gap: 0.32rem; }
+        .cal-dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+        .cal-dow { padding: 0.42rem 0.5rem; font-size: 0.69rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); text-align: center; background: var(--bg-inset); border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
+        .cal-dow:nth-child(7n) { border-right: 0; }
+        .cal-cell { min-height: 102px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0.35rem 0.4rem; display: flex; flex-direction: column; gap: 0.25rem; background: var(--bg-card); transition: background 0.12s; }
+        .cal-cell:nth-child(7n) { border-right: 0; }
+        .cal-cell.other-month { background: color-mix(in srgb, var(--bg-inset) 65%, var(--bg-card)); opacity: 0.5; }
+        .cal-cell.today { background: color-mix(in srgb, var(--accent) 6%, var(--bg-card)); }
+        .cal-day-num { display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.1rem; }
+        .cal-cell.today .cal-day-num > span { color: var(--accent); font-weight: 700; }
+        .cal-add-btn { opacity: 0; background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; font-size: 0.78rem; width: 20px; height: 20px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+        .cal-cell:hover .cal-add-btn { opacity: 1; }
+        .cal-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .cal-event { display: flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.38rem; border-radius: 5px; font-size: 0.69rem; line-height: 1.25; cursor: pointer; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--bg-raised); color: var(--text); text-align: left; width: 100%; overflow: hidden; }
+        .cal-event:hover { border-color: var(--accent); }
+        .cal-event img { width: 15px; height: 20px; border-radius: 2px; object-fit: cover; flex-shrink: 0; }
+        .cal-event .ev-time { font-size: 0.62rem; color: var(--text-muted); flex-shrink: 0; }
+        .cal-event .ev-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+        .cal-event.tonight-ev { border-left-color: var(--success); background: color-mix(in srgb, var(--success) 10%, var(--bg-raised)); }
+        .cal-event.twitch-synced { border-left-color: #9146ff; background: color-mix(in srgb, #9146ff 10%, var(--bg-raised)); }
+        .cal-event.played-ev { border-left-color: var(--text-faint); opacity: 0.72; }
+
+        /* Tier Board */
         .board { display: flex; flex-direction: column; gap: 0.45rem; }
         .trow { display: grid; grid-template-columns: 150px minmax(0, 1fr); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg-card); }
         .tlabel { display: flex; flex-direction: column; gap: 0.3rem; align-items: stretch; justify-content: center; padding: 0.5rem; color: #000; }
@@ -107,17 +155,6 @@
         .tile .cover { width: 64px; height: 86px; }
         .tile div.nm { margin-top: 0.15rem; line-height: 1.15; max-height: 2.4em; overflow: hidden; }
         .board-tools { display: flex; gap: 0.4rem; margin-top: 0.2rem; }
-        .badge { display: inline-block; background: var(--success); color: #000; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; border-radius: 999px; padding: 0.1rem 0.5rem; margin-left: 0.4rem; vertical-align: middle; }
-        .custom-badge { background: var(--bg-raised); color: var(--text-muted); }
-        .playthrough-badge { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); }
-        .oneoff-badge { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.35); }
-        .twitch-badge { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); }
-        .cat-badge { background: rgba(145, 70, 255, 0.14); color: #d8b4fe; border: 1px solid rgba(145, 70, 255, 0.3); }
-        .list-pill { background: var(--bg-raised); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); }
-        .date-badge { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.68rem; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem 0.4rem; color: var(--text-muted); }
-        .order-num { font-weight: 800; font-size: 0.82rem; color: var(--accent); min-width: 34px; text-align: center; cursor: grab; user-select: none; display: inline-flex; align-items: center; gap: 0.2rem; }
-        .order-num .grip-dots { color: var(--text-faint); font-weight: 400; }
-        .tonight-banner { background: color-mix(in srgb, var(--accent) 10%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); border-radius: 8px; padding: 0.7rem 1rem; margin-bottom: 0.8rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
         .sortable-ghost { opacity: 0.4; }
         .name-wrap { position: relative; }
         .name-wrap input { width: 100%; }
@@ -125,52 +162,54 @@
         .suggest-head { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); background: var(--bg-raised); padding: 0.35rem 0.65rem; border-bottom: 1px solid var(--border); }
         .suggest button { display: grid; grid-template-columns: 34px 1fr auto; gap: 0.6rem; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--bg-raised); color: var(--text); padding: 0.4rem 0.6rem; cursor: pointer; font: inherit; }
         .suggest button:hover, .suggest button.active { background: color-mix(in srgb, var(--accent-strong) 20%, transparent); }
-        .suggest img, .suggest .nocover { width: 34px; height: 45px; border-radius: 4px; object-fit: cover; background: var(--bg-raised); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; color: var(--text-faint); }
+        .suggest img, .suggest .nocover { width: 34px; height: 45px; border-radius: 4px; object-fit: cover; background: var(--bg-raised); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: var(--text-faint); }
         .suggest small { display: block; color: var(--text-muted); font-size: 0.72rem; }
         .suggest .plain { grid-template-columns: 1fr; color: var(--text-muted); font-size: 0.82rem; }
 
-        .search-wrap { position: relative; display: inline-flex; align-items: center; min-width: 230px; }
-        .search-wrap input { width: 100%; padding: 0.3rem 1.8rem 0.3rem 0.65rem; font-size: 0.8rem; border-radius: 6px; }
-        .search-clear { position: absolute; right: 0.35rem; background: none; border: 0; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; padding: 0.1rem 0.3rem; line-height: 1; }
+        .search-wrap { position: relative; display: inline-flex; align-items: center; min-width: 220px; }
+        .search-wrap svg { position: absolute; left: 0.55rem; width: 13px; height: 13px; color: var(--text-faint); pointer-events: none; }
+        .search-wrap input { width: 100%; padding: 0.32rem 1.7rem 0.32rem 1.75rem; font-size: 0.78rem; border-radius: 6px; background: var(--bg-card); }
+        .search-clear { position: absolute; right: 0.35rem; background: none; border: 0; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 0.1rem 0.3rem; line-height: 1; }
         .search-clear:hover { color: var(--text); }
-        .cross-search-box { margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 0.5rem; }
-        .cross-search-head { font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; display: flex; align-items: center; justify-content: space-between; }
+        .cross-search-box { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 0.42rem; }
+        .cross-search-head { font-size: 0.73rem; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; }
 
-        dialog { margin: auto; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; width: min(680px, 95vw); max-height: 92vh; overflow-y: auto; }
+        dialog { margin: auto; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; width: min(680px, 95vw); max-height: 92vh; overflow-y: auto; }
         dialog::backdrop { background: #000a; }
-        dialog h3 { font-size: 1.05rem; margin-bottom: 0.8rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-        .dlg-grid { display: grid; grid-template-columns: 130px 1fr; gap: 1.1rem; }
-        .dlg-cover { width: 130px; height: 174px; border-radius: 8px; background: var(--bg-raised); object-fit: cover; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: 2rem; border: 1px solid var(--border); overflow: hidden; }
-        .dlg-fields { display: flex; flex-direction: column; gap: 0.7rem; min-width: 0; }
-        .dlg-section { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.85rem; display: flex; flex-direction: column; gap: 0.55rem; }
-        .dlg-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; }
-        .field { display: flex; flex-direction: column; gap: 0.22rem; font-size: 0.74rem; color: var(--text-muted); }
+        dialog h3 { font-size: 1.02rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+        .dlg-grid { display: grid; grid-template-columns: 128px 1fr; gap: 1.05rem; }
+        .dlg-cover { width: 128px; height: 170px; border-radius: 8px; background: var(--bg-raised); object-fit: cover; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: 1.6rem; border: 1px solid var(--border); overflow: hidden; }
+        .dlg-cover svg { width: 32px; height: 32px; opacity: 0.45; }
+        .dlg-fields { display: flex; flex-direction: column; gap: 0.65rem; min-width: 0; }
+        .dlg-section { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; }
+        .dlg-section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; }
+        .field { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.73rem; color: var(--text-muted); }
         .field input, .field select { width: 100%; }
         .field.two { flex-direction: row; gap: 0.55rem; }
-        .field.two > div { flex: 1; display: flex; flex-direction: column; gap: 0.22rem; min-width: 0; }
+        .field.two > div { flex: 1; display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
         .field.three { flex-direction: row; gap: 0.5rem; }
-        .field.three > div { flex: 1; display: flex; flex-direction: column; gap: 0.22rem; min-width: 0; }
-        .cover-actions { display: flex; gap: 0.35rem; margin-top: 0.5rem; flex-wrap: wrap; }
-        .cover-actions .btn { padding: 0.3rem 0.55rem; font-size: 0.73rem; flex: 1; text-align: center; }
-        .dlg-foot { display: flex; justify-content: space-between; margin-top: 1rem; gap: 0.5rem; align-items: center; }
-        .dlg-stars .stars button { font-size: 1.35rem; }
+        .field.three > div { flex: 1; display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+        .cover-actions { display: flex; gap: 0.3rem; margin-top: 0.45rem; flex-wrap: wrap; }
+        .cover-actions .btn { padding: 0.28rem 0.5rem; font-size: 0.72rem; flex: 1; justify-content: center; }
+        .dlg-foot { display: flex; justify-content: space-between; margin-top: 0.9rem; gap: 0.5rem; align-items: center; }
+        .dlg-stars .stars button { font-size: 1.25rem; }
 
-        .cat-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.15rem; }
-        .cat-chip { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); border-radius: 999px; font-size: 0.68rem; padding: 0.15rem 0.55rem; cursor: pointer; transition: all 0.12s; }
+        .cat-chips { display: flex; flex-wrap: wrap; gap: 0.28rem; margin-top: 0.15rem; }
+        .cat-chip { background: var(--bg-raised); border: 1px solid var(--border); color: var(--text-muted); border-radius: 999px; font-size: 0.67rem; padding: 0.14rem 0.52rem; cursor: pointer; transition: all 0.12s; }
         .cat-chip:hover { border-color: var(--accent); color: var(--text); }
-        .cat-chip.active { background: color-mix(in srgb, var(--accent) 22%, transparent); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+        .cat-chip.active { background: color-mix(in srgb, var(--accent) 20%, transparent); border-color: var(--accent); color: var(--accent); font-weight: 600; }
 
-        .day-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.3rem; margin-top: 0.15rem; }
-        .day-pill { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.05rem; padding: 0.32rem 0.2rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); cursor: pointer; font-size: 0.68rem; line-height: 1.15; transition: all 0.12s; }
+        .day-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.28rem; margin-top: 0.12rem; }
+        .day-pill { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.05rem; padding: 0.3rem 0.2rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); cursor: pointer; font-size: 0.67rem; line-height: 1.15; transition: all 0.12s; }
         .day-pill:hover { border-color: var(--accent); color: var(--text); }
-        .day-pill .dow { font-weight: 700; font-size: 0.7rem; color: var(--text); }
-        .day-pill .md { font-size: 0.64rem; opacity: 0.8; }
-        .day-pill.active { background: color-mix(in srgb, var(--success) 22%, var(--bg-card)); border-color: var(--success); color: var(--text); box-shadow: 0 0 0 1px color-mix(in srgb, var(--success) 40%, transparent); }
+        .day-pill .dow { font-weight: 700; font-size: 0.69rem; color: var(--text); }
+        .day-pill .md { font-size: 0.63rem; opacity: 0.8; }
+        .day-pill.active { background: color-mix(in srgb, var(--success) 20%, var(--bg-card)); border-color: var(--success); color: var(--text); }
         .day-pill.active .dow { color: var(--success); }
 
-        .selected-dates-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
-        .sdate-chip { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.73rem; background: color-mix(in srgb, var(--accent) 14%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); color: var(--text); padding: 0.18rem 0.5rem; border-radius: 999px; }
-        .sdate-chip button { background: none; border: 0; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; padding: 0 0.1rem; line-height: 1; }
+        .selected-dates-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
+        .sdate-chip { display: inline-flex; align-items: center; gap: 0.28rem; font-size: 0.71rem; background: color-mix(in srgb, var(--accent) 14%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border)); color: var(--text); padding: 0.14rem 0.48rem; border-radius: 999px; }
+        .sdate-chip button { background: none; border: 0; color: var(--text-muted); cursor: pointer; font-size: 0.74rem; padding: 0 0.1rem; line-height: 1; }
         .sdate-chip button:hover { color: #f85149; }
 
         .asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 0.6rem; max-height: 360px; overflow-y: auto; padding: 0.25rem 0; }
@@ -179,7 +218,7 @@
         .asset-card img { width: 100%; height: 95px; object-fit: contain; background: var(--bg-raised); border-radius: 5px; }
         .asset-card .asset-name { font-size: 0.7rem; color: var(--text); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-        @media (max-width: 700px) { .add-row { grid-template-columns: 1fr; } .container { padding: 1rem; } .dlg-grid { grid-template-columns: 1fr; } .item { grid-template-columns: 52px minmax(0, 1fr) auto; } .grip { display: none; } .day-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+        @media (max-width: 760px) { .add-row { grid-template-columns: 1fr; } .container { padding: 1rem; } .dlg-grid { grid-template-columns: 1fr; } .item { grid-template-columns: 44px minmax(0, 1fr) auto; } .grip, .order-num { display: none; } .day-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); } .cal-cell { min-height: 76px; } }
     </style>
 </head>
 <body>
@@ -193,39 +232,51 @@
         <div class="card">
             <form class="add-row" id="add-form">
                 <div class="name-wrap"><input id="add-name" placeholder="Add or find a game — type a name (searches your plan &amp; IGDB)" maxlength="120" autocomplete="off" required><div id="suggest" class="suggest" hidden></div></div>
-                <button class="btn primary" type="submit">Add</button>
-                <button class="btn" type="button" id="add-custom" title="Add a non-game segment or custom item (Just Chatting, Special Event, Challenge, etc.) — you can pick artwork from your Asset Library">Add Custom / Segment</button>
+                <button class="btn primary" type="submit">Add Game</button>
+                <button class="btn" type="button" id="add-custom" title="Add a non-game segment or custom item (Just Chatting, Special Event, Challenge, etc.)">Add Custom / Segment</button>
             </form>
             <div class="card-foot">
                 <p class="status" id="status"></p>
-                <div style="display:flex;gap:0.6rem;align-items:center;">
-                    <a class="btn" href="/game-plan-url-wizard.html" style="text-decoration:none;">🎮 Overlay URL Wizard</a>
-                    <button class="btn ghost" type="button" id="backfill" title="Add games from past sessions that aren't on any list yet, and record the dates you streamed them">Import past games</button>
+                <div style="display:flex;gap:0.5rem;align-items:center;">
+                    <a class="btn ghost" href="/game-plan-url-wizard.html">Overlay URL Wizard</a>
+                    <button class="btn ghost" type="button" id="backfill" title="Add games from past live sessions that aren't on any list yet">Import past games</button>
                 </div>
             </div>
         </div>
 
         <div class="tabs" id="tabs"></div>
         <div class="toolbar">
-            <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-                <div class="view-toggle"><span>View:</span><button type="button" class="tab active" data-view="list">List</button><button type="button" class="tab" data-view="tiers">Tiers</button></div>
+            <div style="display:flex;align-items:center;gap:0.65rem;flex-wrap:wrap;">
+                <div class="view-toggle">
+                    <button type="button" class="tab active" data-view="list">List</button>
+                    <button type="button" class="tab" data-view="calendar">Calendar</button>
+                    <button type="button" class="tab" data-view="tiers">Tiers</button>
+                </div>
                 <div class="search-wrap">
-                    <input type="search" id="v-search" placeholder="🔍 Search games in plan…" autocomplete="off" aria-label="Search games in plan">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="search" id="v-search" placeholder="Search games across lists…" autocomplete="off" aria-label="Search games in plan">
                     <button type="button" class="search-clear" id="v-search-clear" title="Clear search" hidden>✕</button>
                 </div>
             </div>
-            <div class="view-bar" id="view-bar" hidden>
-                <label>Sort <select id="v-sort"><option value="manual">Manual order</option><option value="name">Name</option><option value="last">Last seen (newest)</option><option value="first">First seen (oldest)</option><option value="time">Most time streamed</option><option value="rating">Rating</option><option value="year">Release year</option><option value="system">System</option></select></label>
-                <label>Streamed <select id="v-when"><option value="">Any time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="month">This month</option><option value="year">This year</option><option value="never">Never streamed</option><option value="pick-month">Pick a month…</option><option value="range">Date range…</option></select></label>
-                <label>System <select id="v-system"><option value="">All</option></select></label>
-                <span id="v-month-wrap" hidden><select id="v-mon" aria-label="Month"></select> <select id="v-year" aria-label="Year"></select></span><span id="v-range" hidden><input type="date" id="v-from" aria-label="From"> to <input type="date" id="v-to" aria-label="To"></span>
-                <span id="v-count"></span>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+                <span id="v-count" style="font-size:0.74rem;color:var(--text-muted);"></span>
+                <button type="button" class="btn ghost" id="toggle-filters" title="Toggle Sort &amp; Filters">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
+                    <span>Sort &amp; Filter</span>
+                </button>
             </div>
         </div>
+        <div class="view-bar" id="view-bar" hidden>
+            <label>Sort <select id="v-sort"><option value="manual">Manual order</option><option value="name">Name</option><option value="last">Last seen (newest)</option><option value="first">First seen (oldest)</option><option value="time">Most time streamed</option><option value="rating">Rating</option><option value="year">Release year</option><option value="system">System</option></select></label>
+            <label>Streamed <select id="v-when"><option value="">Any time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="month">This month</option><option value="year">This year</option><option value="never">Never streamed</option><option value="pick-month">Pick a month…</option><option value="range">Date range…</option></select></label>
+            <label>System <select id="v-system"><option value="">All</option></select></label>
+            <span id="v-month-wrap" hidden><select id="v-mon" aria-label="Month"></select> <select id="v-year" aria-label="Year"></select></span><span id="v-range" hidden><input type="date" id="v-from" aria-label="From"> to <input type="date" id="v-to" aria-label="To"></span>
+        </div>
         <div class="period-bar" id="period-bar" hidden></div>
+        <div class="cal-wrap" id="cal-view" hidden></div>
         <div class="board" id="board" hidden></div>
         <div class="items" id="items"></div>
-        <p class="hint">Click a game's cover or name for rating, Twitch category, schedule dates, artwork and more. Drag <b>⋮⋮</b> to reorder, or drop a card onto another tab to move it. Show lists in overlays with the <b>Game list</b> element in the <a href="/custom-overlays.html" style="color:var(--accent)">custom overlay editor</a>.</p>
+        <p class="hint">Click a game to edit its schedule dates, Twitch category, rating, or artwork. Drag <b>⋮⋮</b> to reorder or drop onto another tab to move.</p>
     </div>
 
     <dialog id="dlg">
@@ -238,15 +289,15 @@
                 <div class="dlg-cover" id="dlg-cover"></div>
                 <div class="cover-actions">
                     <button class="btn" type="button" id="cover-upload" title="Upload an image file from your computer">Upload</button>
-                    <button class="btn" type="button" id="cover-library" title="Choose an image from your StreamPulse Asset Library">📁 Library…</button>
+                    <button class="btn" type="button" id="cover-library" title="Choose an image from your StreamPulse Asset Library">Library…</button>
                     <button class="btn" type="button" id="cover-clear" title="Reset to automatic IGDB cover">Reset</button>
                     <input type="file" id="cover-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" hidden>
                 </div>
-                <label class="field" style="margin-top:0.55rem;">
-                    <span>Artwork URL / Paste ⌘V</span>
+                <label class="field" style="margin-top:0.5rem;">
+                    <span>Artwork URL / Paste</span>
                     <input id="f-cover" placeholder="https://… or leave blank">
                 </label>
-                <div class="field dlg-stars" style="margin-top:0.55rem;">
+                <div class="field dlg-stars" style="margin-top:0.5rem;">
                     <span>Rating</span>
                     <span class="stars" id="f-rating"></span>
                 </div>
@@ -267,8 +318,8 @@
                         <div>
                             <span>Playstyle</span>
                             <select id="f-game-type">
-                                <option value="playthrough">🔁 Playthrough / Campaign</option>
-                                <option value="one-off">⚡ One-Off / Variety / Segment</option>
+                                <option value="playthrough">Playthrough / Campaign</option>
+                                <option value="one-off">One-Off / Variety / Segment</option>
                             </select>
                         </div>
                     </div>
@@ -283,14 +334,14 @@
                             <button type="button" class="cat-chip" data-cat="Special Events">Special Events</button>
                             <button type="button" class="cat-chip" data-cat="Art">Art</button>
                             <button type="button" class="cat-chip" data-cat="Music">Music</button>
-                            <button type="button" class="cat-chip" data-cat="__none__">🚫 Don't change</button>
+                            <button type="button" class="cat-chip" data-cat="__none__">Don't change</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="dlg-section">
                     <div class="dlg-section-title">
-                        <span>📅 Stream Schedule &amp; Twitch Sync</span>
+                        <span>Stream Schedule &amp; Twitch Sync</span>
                         <button type="button" class="btn ghost" id="f-clear-dates" style="padding:0.1rem 0.45rem;font-size:0.7rem;">Clear dates</button>
                     </div>
                     <div class="field">
@@ -314,40 +365,40 @@
                             </select>
                         </div>
                     </div>
-                    <div class="field" style="margin-top:-0.15rem;">
-                        <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;cursor:pointer;color:var(--text);">
+                    <div class="field" style="margin-top:-0.1rem;">
+                        <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.77rem;cursor:pointer;color:var(--text);">
                             <input type="checkbox" id="f-stream-recurring">
                             <span>Repeat weekly on Twitch Schedule (recurring weekly slot)</span>
                         </label>
                     </div>
                     <div class="field" id="f-multi-dates-wrap">
                         <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <span style="font-size:0.75rem;font-weight:600;">Additional Stream Dates (or per-day custom times)</span>
-                            <button class="btn ghost icon" type="button" id="f-add-date" style="padding:0.15rem 0.5rem;font-size:0.73rem;" title="Add another stream date">+ Add Date</button>
+                            <span style="font-size:0.74rem;font-weight:600;">Additional Stream Dates (or per-day custom times)</span>
+                            <button class="btn ghost icon" type="button" id="f-add-date" style="padding:0.15rem 0.5rem;font-size:0.72rem;" title="Add another stream date">+ Add Date</button>
                         </div>
                         <div id="f-stream-dates-list" style="display:flex;flex-direction:column;gap:0.35rem;margin-top:0.2rem;"></div>
                     </div>
                     <div id="f-twitch-sync-row" class="field" style="margin-top:0.2rem;padding-top:0.45rem;border-top:1px solid var(--border);">
                         <div style="display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;">
-                            <button class="btn primary" type="button" id="f-push-twitch" style="font-size:0.78rem;padding:0.4rem 0.8rem;">🗓 Save &amp; Sync to Twitch Schedule</button>
+                            <button class="btn primary" type="button" id="f-push-twitch" style="font-size:0.78rem;padding:0.4rem 0.8rem;">Save &amp; Sync to Twitch Schedule</button>
                             <button class="btn ghost danger" type="button" id="f-del-twitch" hidden>Remove from Twitch</button>
-                            <span id="f-twitch-status" style="font-size:0.74rem;color:var(--text-muted);"></span>
+                            <span id="f-twitch-status" style="font-size:0.73rem;color:var(--text-muted);"></span>
                         </div>
                     </div>
                 </div>
 
                 <div class="dlg-section">
-                    <div class="dlg-section-title"><span>Notes, Labels &amp; Metadata</span></div>
+                    <div class="dlg-section-title"><span>Notes &amp; Metadata</span></div>
                     <div class="field two">
-                        <div><span>Overlay Period Label</span><input id="f-period" list="periods" maxlength="40" placeholder="e.g. Tonight, Weekend"></div>
-                        <div><span>Finished Date</span><input id="f-finished" type="date"></div>
-                    </div>
-                    <div class="field two">
-                        <div><span>System / Platform Override</span><input id="f-system" maxlength="40" placeholder="e.g. Switch, PC, SNES"></div>
+                        <div><span>Note / Subtitle (shown on overlay)</span><input id="f-note" maxlength="200" placeholder="e.g. Co-op w/ friends, Blind playthrough"></div>
                         <div><span>Tags (comma separated)</span><input id="f-tags" maxlength="200" placeholder="co-op, horror"></div>
                     </div>
-                    <label class="field"><span>Note / Subtitle (shown on overlay cards)</span><input id="f-note" maxlength="200" placeholder="e.g. Co-op w/ friends, Blind playthrough"></label>
-                    <div class="field" id="f-extra-wrap" hidden><span>Also on (custom collections)</span><div class="extra-lists" id="f-extra"></div></div>
+                    <div class="field three">
+                        <div><span>System / Platform</span><input id="f-system" maxlength="40" placeholder="e.g. Switch, PC"></div>
+                        <div><span>Overlay Group Label</span><input id="f-period" list="periods" maxlength="40" placeholder="Optional"></div>
+                        <div><span>Finished Date</span><input id="f-finished" type="date"></div>
+                    </div>
+                    <div class="field" id="f-extra-wrap" hidden><span>Also include in collections</span><div class="extra-lists" id="f-extra"></div></div>
                 </div>
             </div>
         </div>
@@ -361,7 +412,7 @@
 
     <dialog id="asset-dlg" style="width:min(620px,94vw);">
         <h3>
-            <span>📁 Choose Artwork from Asset Library</span>
+            <span>Choose Artwork from Asset Library</span>
             <button type="button" class="btn icon" id="asset-dlg-close">✕</button>
         </h3>
         <div style="display:flex;gap:0.5rem;margin-bottom:0.65rem;flex-wrap:wrap;">
@@ -372,13 +423,39 @@
         <p class="hint" id="asset-status" style="margin-top:0.5rem;"></p>
     </dialog>
 
+    <dialog id="cal-pick-dlg" style="width:min(440px,92vw);">
+        <h3>
+            <span id="cal-pick-title">Schedule Game on Date</span>
+            <button type="button" class="btn icon" id="cal-pick-close">✕</button>
+        </h3>
+        <p class="hint" style="margin-bottom:0.55rem;">Pick a game from your plan to schedule on this date (or type a new one above):</p>
+        <input type="search" id="cal-pick-search" placeholder="Filter games in your plan…" style="width:100%;margin-bottom:0.5rem;">
+        <div id="cal-pick-list" style="display:flex;flex-direction:column;gap:0.3rem;max-height:300px;overflow-y:auto;"></div>
+    </dialog>
+
     <script src="/vendor/Sortable.min.js"></script>
     <script>
     (() => {
         const $ = id => document.getElementById(id);
+        const ICONS = {
+            play: '<svg class="ico" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 20 12 6 20 6 4"/></svg>',
+            stop: '<svg class="ico" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>',
+            next: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4" fill="currentColor"/><line x1="19" y1="5" x2="19" y2="19"/></svg>',
+            calendar: '<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+            clock: '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>',
+            star: '<svg class="ico" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+            edit: '<svg class="ico" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
+            sync: '<svg class="ico" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+            check: '<svg class="ico" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>',
+            game: '<svg class="ico" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="3"/><path d="M6 12h4m-2-2v4"/><circle cx="15" cy="11" r="1" fill="currentColor"/><circle cx="18" cy="13" r="1" fill="currentColor"/></svg>',
+            image: '<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+            tv: '<svg class="ico" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>',
+            search: '<svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+            undo: '<svg class="ico" viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>'
+        };
         const BUILTIN = [
-            { id: 'tonight', name: "Tonight's Lineup", empty: "No games on tonight's lineup. Drag games here or click 'Add to Tonight' from Schedule or Up Next!" },
-            { id: 'scheduled', name: 'Schedule', empty: "No upcoming games scheduled. Plan dates and games here, or push them to Twitch!" },
+            { id: 'tonight', name: "Tonight's Lineup", empty: "No games on tonight's lineup. Drag games here or click 'Tonight' from Schedule or Up Next." },
+            { id: 'scheduled', name: 'Schedule', empty: "No upcoming games scheduled. Plan dates and games here, or sync them to Twitch." },
             { id: 'up-next', name: 'Up Next', empty: "Games you are looking forward to playing soon." },
             { id: 'backlog', name: 'Backlog', empty: 'Games in your backlog, to play eventually.' },
             { id: 'played', name: 'Played', empty: 'Finished & streamed games archive.' }
@@ -386,11 +463,13 @@
         let customLists = [];
         let tiers = [];
         let tierSets = {};
-        // Each list has its own tier set; the first time one is edited it starts as a copy of the default set.
         const inList = (item, id) => item.status === id || (item.extraLists || []).includes(id);
         const tiersOf = listId => tierSets[listId] || tiers;
         const ownTiers = listId => (tierSets[listId] ||= tiers.map(entry => ({ ...entry })));
         let view = 'list';
+        let filtersOpen = false;
+        let calMonthOffset = 0;
+        let calPickDate = '';
         let boardSortables = [];
         let periodOrder = [];
         let periodSortable = null;
@@ -406,33 +485,30 @@
         const setStatus = text => { $('status').textContent = text; };
         const listName = id => allLists().find(list => list.id === id)?.name || id;
         const starsHtml = (value, attr) => [1, 2, 3, 4, 5].map(n => `<button type="button" ${attr}="${n}" class="${n <= value ? 'on' : value === n - 0.5 ? 'half' : ''}" aria-label="${n} stars (click the left half for ${n - 0.5})">★</button>`).join('');
-        // Clicking the left half of a star gives a half rating (3.5 stars = 7/10).
         const starValue = (event, star, attr) => { const n = Number(star.dataset[attr]); const box = star.getBoundingClientRect(); return event.clientX - box.left < box.width / 2 ? n - 0.5 : n; };
 
         function buildTabs(adding) {
-            const streamTabs = BUILTIN.map(list => `<button type="button" class="tab${list.id === active ? ' active' : ''}" data-tab="${esc(list.id)}">${esc(list.name)}<span class="n">${items.filter(item => inList(item, list.id)).length || ''}</span></button>`).join('');
-            const customTabs = customLists.map(list => `<button type="button" class="tab${list.id === active ? ' active' : ''}" data-tab="${esc(list.id)}">${esc(list.name)}<span class="n">${items.filter(item => inList(item, list.id)).length || ''}</span></button>`).join('');
+            const streamTabs = BUILTIN.map(list => {
+                const count = items.filter(item => inList(item, list.id)).length;
+                return `<button type="button" class="tab${list.id === active ? ' active' : ''}" data-tab="${esc(list.id)}">${esc(list.name)}${count ? `<span class="n">${count}</span>` : ''}</button>`;
+            }).join('');
+            const customTabs = customLists.map(list => {
+                const count = items.filter(item => inList(item, list.id)).length;
+                return `<button type="button" class="tab${list.id === active ? ' active' : ''}" data-tab="${esc(list.id)}">${esc(list.name)}${count ? `<span class="n">${count}</span>` : ''}</button>`;
+            }).join('');
             const isCustom = customLists.some(list => list.id === active);
             $('tabs').innerHTML = `
-                <div class="tabs-group">
-                    <span class="tabs-group-title">Schedule</span>
-                    <div class="tabs-group-items">${streamTabs}</div>
-                </div>
-                <div class="tabs-divider"></div>
-                <div class="tabs-group">
-                    <span class="tabs-group-title">Custom Collections</span>
-                    <div class="tabs-group-items">
-                        ${customTabs}
-                        ${adding ? '<input class="tab-input" id="new-list-name" placeholder="List name, then Enter" maxlength="40">' : '<button type="button" class="tab tab-new" id="new-list" title="Create your own collection, e.g. “Scariest horror games”">+ Collection</button>'}
-                        ${isCustom ? '<span class="tab-tools"><button class="btn icon" type="button" id="rename-list" title="Rename list">Rename</button><button class="btn icon danger" type="button" id="delete-list" title="Delete list (games only on it move to Backlog)">Delete</button></span>' : ''}
-                    </div>
-                </div>
+                ${streamTabs}
+                <span class="tabs-sep"></span>
+                ${customTabs}
+                ${adding ? '<input class="tab-input" id="new-list-name" placeholder="Collection name, Enter" maxlength="40">' : '<button type="button" class="tab tab-new" id="new-list" title="Create a custom collection">+ Collection</button>'}
+                ${isCustom ? '<span class="tab-tools"><button class="btn icon" type="button" id="rename-list" title="Rename collection">Rename</button><button class="btn icon danger" type="button" id="delete-list" title="Delete collection">Delete</button></span>' : ''}
             `;
             if (adding) $('new-list-name').focus();
         }
 
         function coverTag(item) {
-            return item.cover ? `<img class="cover" src="${esc(item.cover)}" alt="" loading="lazy" data-edit>` : `<div class="cover" data-edit>${item.custom ? '🖼' : ''}</div>`;
+            return item.cover ? `<img class="cover" src="${esc(item.cover)}" alt="" loading="lazy" data-edit>` : `<div class="cover" data-edit>${item.custom ? ICONS.image : ICONS.game}</div>`;
         }
 
         const prettyDate = value => new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -442,7 +518,7 @@
             const time = mins > 0 ? `${mins >= 60 ? `${Math.floor(mins / 60)}h ` : ''}${mins % 60 ? `${mins % 60}m ` : ''}streamed`.trim() : '';
             if (!dates.length) return time;
             const first = prettyDate(dates[0]), last = prettyDate(dates[dates.length - 1]);
-            return [first === last ? `Streamed ${first}` : `First seen ${first} · Last seen ${last}`, time].filter(Boolean).join(' · ');
+            return [first === last ? `Streamed ${first}` : `First ${first} · Last ${last}`, time].filter(Boolean).join(' · ');
         }
 
         const viewState = { sort: 'manual', when: '', system: '', month: '', from: '', to: '', search: '' };
@@ -488,7 +564,10 @@
             return by ? [...list].sort(by) : list;
         }
         function buildViewBar() {
-            $('view-bar').hidden = false;
+            const hasActiveFilter = viewState.sort !== 'manual' || Boolean(viewState.when || viewState.system);
+            $('toggle-filters').classList.toggle('primary', filtersOpen || hasActiveFilter);
+            $('view-bar').hidden = !filtersOpen && !hasActiveFilter;
+            if ($('view-bar').hidden) return;
             const systems = [...new Set(items.filter(item => inList(item, active)).flatMap(systemsOf))].sort();
             if (viewState.system && !systems.includes(viewState.system)) viewState.system = '';
             $('v-system').innerHTML = '<option value="">All</option>' + systems.map(name => `<option value="${esc(name)}"${name === viewState.system ? ' selected' : ''}>${esc(name)}</option>`).join('');
@@ -502,6 +581,10 @@
             const total = items.filter(item => inList(item, active)).length, shown = visibleItems().length;
             $('v-count').textContent = shown === total ? '' : `Showing ${shown} of ${total}`;
         }
+        $('toggle-filters').addEventListener('click', () => {
+            filtersOpen = !filtersOpen;
+            buildViewBar();
+        });
         for (const id of ['v-mon', 'v-year']) $(id).addEventListener('change', () => { viewState.month = `${$('v-year').value}-${$('v-mon').value}`; render(); });
         for (const [id, key] of [['v-sort', 'sort'], ['v-when', 'when'], ['v-system', 'system'], ['v-from', 'from'], ['v-to', 'to']]) $(id).addEventListener('change', () => { viewState[key] = $(id).value; if (key === 'when' && viewState.when === 'pick-month' && !viewState.month) { const now = new Date(); viewState.month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; } render(); });
         $('v-search').addEventListener('input', () => {
@@ -517,17 +600,22 @@
         });
 
         function subLine(item) {
+            const parts = [];
             if (item.custom) {
-                if (item.twitchCategory === '__none__') return 'Custom segment · No Twitch category change';
-                return `Custom segment · Twitch: ${item.twitchCategory || 'Just Chatting'}`;
+                parts.push(item.twitchCategory === '__none__' ? 'Custom · No category change' : `Custom · ${item.twitchCategory || 'Just Chatting'}`);
+            } else {
+                const meta = [item.releaseYear, (item.genres || []).slice(0, 2).join(', ')].filter(Boolean).join(' · ');
+                if (meta) parts.push(meta);
             }
-            return [item.releaseYear, (item.genres || []).slice(0, 2).join(' · ')].filter(Boolean).join(' · ') || 'Looking up…';
+            const seen = seenLine(item);
+            if (seen) parts.push(seen);
+            if (item.note) parts.push(`“${item.note}”`);
+            return parts.join('  ·  ');
         }
 
         const TIER_COLORS = ['#ff7f7f', '#ffbf7f', '#ffdf7f', '#bfff7f', '#7fbfff', '#bf9fff', '#ff9fd0', '#7fffd4'];
         const DEFAULT_TIERS = ['S', 'A', 'B', 'C', 'D', 'F'].map((id, index) => ({ id, label: id, color: TIER_COLORS[index] }));
 
-        // Tier view: every tier is a row; dragging a cover onto a row sets that game's tier.
         function renderBoard() {
             const board = $('board');
             const shown = items.filter(item => item.status === active && matchesSearch(item, viewState.search));
@@ -557,6 +645,102 @@
             }));
         }
 
+        function renderCalendar() {
+            const cal = $('cal-view');
+            const now = new Date();
+            const todayIso = localDay(now);
+            const firstOfMonth = new Date(now.getFullYear(), now.getMonth() + calMonthOffset, 1);
+            const year = firstOfMonth.getFullYear();
+            const month = firstOfMonth.getMonth();
+            const monthLabel = firstOfMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+            const startDow = firstOfMonth.getDay();
+            const startCell = new Date(year, month, 1 - startDow);
+
+            // Build event map by ISO date across all games/events
+            const eventsByDate = new Map();
+            const pushEvent = (iso, ev) => {
+                if (!iso) return;
+                if (!eventsByDate.has(iso)) eventsByDate.set(iso, []);
+                const arr = eventsByDate.get(iso);
+                if (!arr.some(x => x.id === ev.id)) arr.push(ev);
+            };
+
+            const filteredItems = items.filter(item => matchesSearch(item, viewState.search));
+            for (const item of filteredItems) {
+                if (item.status === 'tonight') {
+                    pushEvent(todayIso, { id: item.id, item, time: item.streamTime || 'Tonight', kind: 'tonight' });
+                }
+                if (item.streamDate) {
+                    pushEvent(item.streamDate, { id: item.id, item, time: item.streamTime || '19:00', kind: item.twitchSegmentId ? 'twitch' : 'scheduled' });
+                    if (item.streamRecurring) {
+                        const base = new Date(`${item.streamDate}T00:00:00`);
+                        if (!isNaN(base)) {
+                            for (let w = 1; w <= 8; w++) {
+                                const nextD = new Date(base.getFullYear(), base.getMonth(), base.getDate() + w * 7);
+                                pushEvent(localDay(nextD), { id: item.id, item, time: item.streamTime || '19:00', kind: item.twitchSegmentId ? 'twitch' : 'scheduled' });
+                            }
+                        }
+                    }
+                }
+                for (const slot of (item.streamDates || [])) {
+                    if (slot && slot.date) {
+                        pushEvent(slot.date, { id: item.id, item, time: slot.time || item.streamTime || '19:00', kind: (slot.segmentId || item.twitchSegmentId) ? 'twitch' : 'scheduled' });
+                    }
+                }
+                for (const playedDay of (item.played || [])) {
+                    pushEvent(playedDay, { id: item.id, item, time: 'Played', kind: 'played' });
+                }
+            }
+
+            const cells = [];
+            for (let i = 0; i < 42; i++) {
+                const d = new Date(startCell.getFullYear(), startCell.getMonth(), startCell.getDate() + i);
+                const iso = localDay(d);
+                const isOther = d.getMonth() !== month;
+                const isToday = iso === todayIso;
+                const dayEvents = eventsByDate.get(iso) || [];
+                cells.push(`
+                    <div class="cal-cell${isOther ? ' other-month' : ''}${isToday ? ' today' : ''}" data-cal-date="${iso}">
+                        <div class="cal-day-num">
+                            <span>${d.getDate()}${isToday ? ' · Today' : ''}</span>
+                            <button type="button" class="cal-add-btn" data-cal-add="${iso}" title="Schedule a game on ${iso}">+</button>
+                        </div>
+                        ${dayEvents.map(ev => `
+                            <div class="cal-event ${ev.kind === 'twitch' ? 'twitch-synced' : ev.kind === 'tonight' ? 'tonight-ev' : ev.kind === 'played' ? 'played-ev' : ''}" data-cal-item="${esc(ev.id)}" title="${esc(ev.item.name)} (${esc(ev.time)}) — click to edit">
+                                ${ev.item.cover ? `<img src="${esc(ev.item.cover)}" alt="">` : ''}
+                                <span class="ev-time">${esc(ev.time)}</span>
+                                <span class="ev-name">${esc(ev.item.name)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `);
+            }
+
+            cal.innerHTML = `
+                <div class="cal-bar">
+                    <div class="cal-title">
+                        ${ICONS.calendar}
+                        <span>${esc(monthLabel)}</span>
+                    </div>
+                    <div class="cal-legend">
+                        <span><i class="cal-dot" style="background:var(--accent)"></i>Scheduled</span>
+                        <span><i class="cal-dot" style="background:#9146ff"></i>Twitch Synced</span>
+                        <span><i class="cal-dot" style="background:var(--success)"></i>Tonight</span>
+                        <span><i class="cal-dot" style="background:var(--text-muted)"></i>Streamed</span>
+                    </div>
+                    <div style="display:flex;gap:0.35rem;">
+                        <button type="button" class="btn" id="cal-prev">‹ Prev</button>
+                        <button type="button" class="btn" id="cal-today">Today</button>
+                        <button type="button" class="btn" id="cal-next">Next ›</button>
+                    </div>
+                </div>
+                <div class="cal-grid">
+                    ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => `<div class="cal-dow">${d}</div>`).join('')}
+                    ${cells.join('')}
+                </div>
+            `;
+        }
+
         function renderItemRow(item, index, isCrossList = false) {
             const effectiveList = isCrossList ? item.status : active;
             const isTonight = !isCrossList && effectiveList === 'tonight';
@@ -570,109 +754,97 @@
             let scheduleActions = '';
             if (isCrossList) {
                 scheduleActions = `
-                    ${item.status !== 'tonight' ? '<button type="button" class="btn play-btn" data-action="add-to-tonight" title="Move to Tonight\'s lineup">🎮 Tonight</button>' : ''}
-                    ${item.status !== 'scheduled' ? '<button type="button" class="btn schedule-btn" data-action="move-to-schedule" title="Move to Schedule">📅 Schedule</button>' : ''}
-                    ${item.status !== 'up-next' ? '<button type="button" class="btn" data-action="move-up-next" title="Move to Up Next">⭐ Up Next</button>' : ''}
-                    <button type="button" class="btn play-btn" data-action="play-now" title="Play Now on stream">▶ Play Now</button>
+                    ${item.status !== 'tonight' ? `<button type="button" class="btn play-btn" data-action="add-to-tonight" title="Move to Tonight's lineup">${ICONS.play} Tonight</button>` : ''}
+                    ${item.status !== 'scheduled' ? `<button type="button" class="btn schedule-btn" data-action="move-to-schedule" title="Move to Schedule">${ICONS.calendar} Schedule</button>` : ''}
+                    ${item.status !== 'up-next' ? `<button type="button" class="btn" data-action="move-up-next" title="Move to Up Next">Up Next</button>` : ''}
                 `;
             } else if (isTonight) {
                 if (isPlaying) {
                     scheduleActions = `
-                        <button type="button" class="btn stop-btn" data-action="stop-now" title="Stop playing on stream">■ Stop</button>
-                        <button type="button" class="btn advance-btn" data-action="advance-item" title="Finish current session and advance to next game in rundown">⏭ Finish &amp; Next</button>
-                        <button type="button" class="btn schedule-btn" data-action="move-to-schedule" title="Stop playing and move back to Schedule">↩ Schedule</button>
-                        <button type="button" class="btn" data-action="move-up-next" title="Stop playing and move to Up Next">⭐ Up Next</button>
+                        <button type="button" class="btn stop-btn" data-action="stop-now" title="Stop playing on stream">${ICONS.stop} Stop</button>
+                        <button type="button" class="btn advance-btn" data-action="advance-item" title="Finish current session and advance to next game in rundown">${ICONS.next} Next</button>
+                        <button type="button" class="btn schedule-btn" data-action="move-to-schedule" title="Move back to Schedule">${ICONS.undo} Schedule</button>
                     `;
                 } else {
                     scheduleActions = `
-                        <button type="button" class="btn play-btn" data-action="play-now" title="Set as Currently Playing on stream">▶ Play Now</button>
-                        <button type="button" class="btn schedule-btn" data-action="move-to-schedule" title="Move back to Schedule">↩ Schedule</button>
-                        <button type="button" class="btn" data-action="move-up-next" title="Move to Up Next">⭐ Up Next</button>
+                        <button type="button" class="btn play-btn" data-action="play-now" title="Set as Currently Playing on stream">${ICONS.play} Play Now</button>
+                        <button type="button" class="btn schedule-btn" data-action="move-to-schedule" title="Move back to Schedule">${ICONS.undo} Schedule</button>
+                        <button type="button" class="btn" data-action="move-up-next" title="Move to Up Next">Up Next</button>
                     `;
                 }
             } else if (isScheduled) {
                 scheduleActions = `
-                    <button type="button" class="btn play-btn" data-action="add-to-tonight" title="Add to Tonight's stream lineup">🎮 Tonight</button>
-                    <button type="button" class="btn" data-action="play-now" title="Add to Tonight and Play Now">▶ Play Now</button>
-                    ${hasAnyDate ? `<button type="button" class="btn" data-action="push-twitch" title="${item.twitchSegmentId ? 'Twitch Schedule synced (click to re-sync)' : 'Push stream dates to Twitch Schedule'}">🗓 ${item.twitchSegmentId ? 'Synced' : 'Sync Twitch'}</button>` : `<button type="button" class="btn schedule-btn" data-edit title="Pick stream dates &amp; sync to Twitch">🗓 Pick Dates</button>`}
+                    <button type="button" class="btn play-btn" data-action="add-to-tonight" title="Add to Tonight's stream lineup">Tonight</button>
+                    <button type="button" class="btn" data-action="play-now" title="Add to Tonight and Play Now">${ICONS.play} Play</button>
+                    ${hasAnyDate ? `<button type="button" class="btn" data-action="push-twitch" title="${item.twitchSegmentId ? 'Twitch Schedule synced (click to re-sync)' : 'Push stream dates to Twitch Schedule'}">${ICONS.sync} ${item.twitchSegmentId ? 'Synced' : 'Sync'}</button>` : `<button type="button" class="btn schedule-btn" data-edit title="Pick stream dates">${ICONS.calendar} Dates</button>`}
                 `;
             } else if (isUpNext) {
                 scheduleActions = `
-                    <button type="button" class="btn play-btn" data-action="add-to-tonight" title="Add to Tonight's stream lineup">🎮 Tonight</button>
-                    <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">📅 Schedule</button>
-                    <button type="button" class="btn" data-action="play-now" title="Add to Tonight and Play Now">▶ Play Now</button>
+                    <button type="button" class="btn play-btn" data-action="add-to-tonight" title="Add to Tonight's stream lineup">Tonight</button>
+                    <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">${ICONS.calendar} Schedule</button>
+                    <button type="button" class="btn" data-action="play-now" title="Play Now">${ICONS.play} Play</button>
                 `;
             } else if (isBacklog) {
                 scheduleActions = `
-                    <button type="button" class="btn" data-action="move-up-next" title="Move to Up Next (Looking Forward To)">⭐ Up Next</button>
-                    <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">📅 Schedule</button>
-                    <button type="button" class="btn play-btn" data-action="play-backlog" title="Add to Tonight and Play Now">▶ Play Now</button>
+                    <button type="button" class="btn" data-action="move-up-next" title="Move to Up Next">Up Next</button>
+                    <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">${ICONS.calendar} Schedule</button>
+                    <button type="button" class="btn play-btn" data-action="play-backlog" title="Add to Tonight and Play Now">${ICONS.play} Play</button>
                 `;
             } else if (isPlayed) {
                 scheduleActions = `
-                    <button type="button" class="btn" data-action="add-to-tonight" title="Play again on Tonight's stream">🔄 Replay Tonight</button>
-                    <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">📅 Schedule</button>
+                    <button type="button" class="btn" data-action="add-to-tonight" title="Play again on Tonight's stream">Replay</button>
+                    <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">${ICONS.calendar} Schedule</button>
                 `;
             } else {
                 scheduleActions = `
-                    <button type="button" class="btn play-btn" data-action="add-to-tonight" title="Add to Tonight's stream lineup">🎮 Tonight</button>
-                    <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">📅 Schedule</button>
+                    <button type="button" class="btn play-btn" data-action="add-to-tonight" title="Add to Tonight's stream lineup">Tonight</button>
+                    <button type="button" class="btn schedule-btn" data-action="schedule-item" title="Move to Schedule">${ICONS.calendar} Schedule</button>
                 `;
             }
 
-            const quickPeriodsHtml = (!isCrossList && (isTonight || isScheduled)) ? `
-                <span class="period-edit-wrap">
-                    <input class="period" data-field="period" list="periods" value="${esc(item.period)}" placeholder="Period (e.g. Tonight)" maxlength="40">
-                    <span class="quick-periods">
-                        <button type="button" class="qchip${item.period === 'Tonight' ? ' active' : ''}" data-set-period="Tonight">Tonight</button>
-                        <button type="button" class="qchip${item.period === 'Next Stream' ? ' active' : ''}" data-set-period="Next Stream">Next</button>
-                        <button type="button" class="qchip${item.period === 'Weekend' ? ' active' : ''}" data-set-period="Weekend">Weekend</button>
-                    </span>
-                </span>
-            ` : '';
-
-            const isOneOff = item.gameType === 'one-off';
-            const playstyleBadge = isOneOff
-                ? '<span class="badge oneoff-badge" title="One-off session, party game, tournament, or variety segment">⚡ ONE-OFF</span>'
-                : '<span class="badge playthrough-badge" title="Campaign / multi-stream playthrough">🔁 PLAYTHROUGH</span>';
-            const twitchBadge = item.twitchSegmentId ? '<span class="badge twitch-badge" title="Synced to Twitch Schedule">🗓 TWITCH SYNCED</span>' : '';
-            const catBadge = (item.twitchCategory && item.twitchCategory !== item.name)
-                ? `<span class="badge cat-badge" title="Twitch Category override">${item.twitchCategory === '__none__' ? '🚫 No Twitch Cat' : `📺 ${esc(item.twitchCategory)}`}</span>`
+            // Only show One-Off badge when explicitly set (don't clutter every game with PLAYTHROUGH)
+            const playstyleBadge = item.gameType === 'one-off'
+                ? '<span class="badge oneoff-badge" title="One-off session or variety segment">One-off</span>'
                 : '';
-            const crossBadge = isCrossList ? `<span class="badge list-pill" title="Currently in ${esc(listName(item.status))}">📋 ${esc(listName(item.status))}</span>` : '';
+            const twitchBadge = item.twitchSegmentId ? `<span class="badge twitch-badge" title="Synced to Twitch Schedule">${ICONS.check} Synced</span>` : '';
+            const catBadge = (item.twitchCategory && item.twitchCategory !== item.name && item.twitchCategory !== 'Just Chatting')
+                ? `<span class="badge cat-badge" title="Twitch Category">${item.twitchCategory === '__none__' ? 'No Category' : esc(item.twitchCategory)}</span>`
+                : '';
+            const crossBadge = isCrossList ? `<span class="badge list-pill" title="Currently in ${esc(listName(item.status))}">${esc(listName(item.status))}</span>` : '';
             const extraDatesCount = Array.isArray(item.streamDates) ? item.streamDates.filter(d => Boolean(d && (d.date || (typeof d === 'string' && d)))).length : 0;
-            const recurringBadge = item.streamRecurring ? ' <span style="opacity:0.85">🔁 Weekly</span>' : '';
+            const recurringSuffix = item.streamRecurring ? ' · Weekly' : '';
             const dateBadge = item.streamDate
-                ? `<span class="date-badge" title="Scheduled Stream Date (click to edit)" data-edit style="cursor:pointer;">📅 ${esc(item.streamDate)}${item.streamTime ? ` ${esc(item.streamTime)}` : ''}${extraDatesCount > 0 ? ` (+${extraDatesCount} day${extraDatesCount === 1 ? '' : 's'})` : ''}${recurringBadge}</span>`
-                : (extraDatesCount > 0 ? `<span class="date-badge" title="Scheduled Stream Dates (click to edit)" data-edit style="cursor:pointer;">📅 ${extraDatesCount} day${extraDatesCount === 1 ? '' : 's'}${recurringBadge}</span>` : '');
+                ? `<span class="date-badge" title="Scheduled Stream Date (click to edit)" data-edit>${ICONS.calendar} ${esc(item.streamDate)}${item.streamTime ? ` ${esc(item.streamTime)}` : ''}${extraDatesCount > 0 ? ` +${extraDatesCount}d` : ''}${recurringSuffix}</span>`
+                : (extraDatesCount > 0 ? `<span class="date-badge" title="Scheduled Stream Dates (click to edit)" data-edit>${ICONS.calendar} ${extraDatesCount} day${extraDatesCount === 1 ? '' : 's'}${recurringSuffix}</span>` : '');
+
+            const showStars = isPlayed || (item.rating > 0);
+            const starsPart = showStars ? `<span class="stars" data-stars>${starsHtml(item.rating || 0, 'data-star')}</span>` : '';
+            const subText = subLine(item);
 
             return `
             <div class="item${isPlaying ? ' now' : ''}${isCrossList ? ' cross-item' : ''}" data-id="${esc(item.id)}">
-                ${isCrossList ? '<span class="grip" style="opacity:0.35">🔎</span>' : (isTonight ? `<span class="order-num" title="Drag to reorder or drop onto another tab to move"><span class="grip-dots">⋮⋮</span>${index + 1}.</span>` : '<span class="grip" title="Drag to reorder, or drop on a tab to move">⋮⋮</span>')}
+                ${isCrossList ? `<span class="grip" style="opacity:0.4">${ICONS.search}</span>` : (isTonight ? `<span class="order-num" title="Drag to reorder or drop onto another tab to move"><span class="grip-dots">⋮⋮</span>${index + 1}</span>` : '<span class="grip" title="Drag to reorder, or drop on a tab to move">⋮⋮</span>')}
                 ${coverTag(item)}
                 <div class="main">
-                    <div class="name" data-edit title="${esc(item.name)}">
-                        ${esc(item.name)}
+                    <div class="main-top">
+                        <span class="name" data-edit title="${esc(item.name)}">${esc(item.name)}</span>
                         ${crossBadge}
-                        ${isPlaying ? '<span class="badge now-badge">▶ PLAYING NOW</span>' : ''}
+                        ${isPlaying ? '<span class="badge now-badge">LIVE NOW</span>' : ''}
                         ${playstyleBadge}
-                        ${item.custom ? '<span class="badge custom-badge">CUSTOM</span>' : ''}
                         ${catBadge}
                         ${twitchBadge}
-                    </div>
-                    <div class="sub">${esc(subLine(item))}</div>
-                    ${seenLine(item) ? `<div class="sub" title="Dates you streamed this game (recorded automatically when a session ends)">${esc(seenLine(item))}</div>` : ''}
-                    <div class="row-meta">
-                        <span class="stars" data-stars>${starsHtml(item.rating || 0, 'data-star')}</span>
                         ${dateBadge}
-                        ${(item.tags || []).map(tag => `<span class="chip">${esc(tag)}</span>`).join('')}
-                        ${quickPeriodsHtml}
+                        ${(item.tags || []).slice(0, 3).map(tag => `<span class="chip">${esc(tag)}</span>`).join('')}
                     </div>
-                    ${item.note ? `<div class="note">${esc(item.note)}</div>` : ''}
+                    ${(subText || starsPart) ? `
+                    <div class="main-sub">
+                        ${subText ? `<span class="sub">${esc(subText)}</span>` : ''}
+                        ${starsPart}
+                    </div>` : ''}
                 </div>
                 <div class="item-actions">
                     ${scheduleActions}
-                    <button class="btn icon" data-edit title="Edit Details, Dates &amp; Artwork">✎</button>
+                    <button class="btn icon" data-edit title="Edit Details, Dates &amp; Artwork">${ICONS.edit}</button>
                 </div>
             </div>`;
         }
@@ -680,8 +852,11 @@
         function render() {
             document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === view));
             $('board').hidden = view !== 'tiers';
-            $('items').hidden = view === 'tiers';
+            $('cal-view').hidden = view !== 'calendar';
+            $('items').hidden = view !== 'list';
+            $('tabs').hidden = view === 'calendar';
             if (view === 'tiers') { buildTabs(); $('period-bar').hidden = true; $('view-bar').hidden = true; renderBoard(); return; }
+            if (view === 'calendar') { $('period-bar').hidden = true; $('view-bar').hidden = true; renderCalendar(); return; }
             buildTabs();
             const list = allLists().find(entry => entry.id === active) || BUILTIN[0];
             const holder = $('items');
@@ -694,16 +869,17 @@
                 bannerHtml = `
                     <div class="tonight-banner">
                         <div>
-                            <div style="font-weight:700;font-size:0.95rem;display:flex;align-items:center;gap:0.5rem;">
-                                🎮 Tonight's Stream Rundown
-                                <span class="badge" style="background:var(--accent);color:#fff;">${tonightItems.length} Games</span>
+                            <div style="font-weight:700;font-size:0.88rem;display:flex;align-items:center;gap:0.45rem;">
+                                ${ICONS.tv}
+                                <span>Tonight's Stream Rundown</span>
+                                <span class="badge" style="background:var(--accent);color:#fff;border:none;">${tonightItems.length}</span>
                             </div>
-                            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;">
-                                ${playingNow ? `▶ Currently Active: <b style="color:var(--success)">${esc(playingNow.name)}</b>` : 'No game currently active on stream. Click "Play Now" on any game below, or drag ⋮⋮ onto another tab to move.'}
+                            <div style="font-size:0.74rem;color:var(--text-muted);margin-top:0.15rem;">
+                                ${playingNow ? `Currently Active: <b style="color:var(--success)">${esc(playingNow.name)}</b>` : 'Click "Play Now" on a game when you switch categories, or drag ⋮⋮ onto another tab to move.'}
                             </div>
                         </div>
-                        <div style="display:flex;gap:0.5rem;align-items:center;">
-                            ${playingNow ? `<button type="button" class="btn advance-btn" data-action="advance-item" data-banner-id="${esc(playingNow.id)}" style="font-weight:600;">⏭ Finish &amp; Next Game</button>` : ''}
+                        <div style="display:flex;gap:0.4rem;align-items:center;">
+                            ${playingNow ? `<button type="button" class="btn advance-btn" data-action="advance-item" data-banner-id="${esc(playingNow.id)}" style="font-weight:600;">${ICONS.next} Finish &amp; Next</button>` : ''}
                         </div>
                     </div>
                 `;
@@ -719,7 +895,7 @@
                     crossListHtml = `
                         <div class="cross-search-box">
                             <div class="cross-search-head">
-                                <span>🔎 Found in Other Lists (${otherMatches.length})</span>
+                                <span>Found in Other Lists (${otherMatches.length})</span>
                                 <span style="font-weight:400;text-transform:none;">Click any action to move or edit</span>
                             </div>
                             ${otherMatches.map((item, idx) => renderItemRow(item, idx, true)).join('')}
@@ -767,7 +943,7 @@
             periodSortable?.destroy();
             periodSortable = null;
             if (bar.hidden) return;
-            bar.innerHTML = '<span>Period order (drag):</span>' + names.map((name, index) => `<span class="pchip" data-period="${esc(name)}"><span class="num">${index + 1}</span>${esc(name)}</span>`).join('');
+            bar.innerHTML = '<span>Overlay group order (drag):</span>' + names.map((name, index) => `<span class="pchip" data-period="${esc(name)}"><span class="num">${index + 1}</span>${esc(name)}</span>`).join('');
             periodSortable = new Sortable(bar, {
                 animation: 150, draggable: '.pchip',
                 onEnd() {
@@ -905,12 +1081,12 @@
             return `<div class="suggest-head">Already in Your Game Plan (click to move to ${esc(listName(active))} or edit)</div>` +
                 matches.map(item => `
                     <button type="button" data-existing-id="${esc(item.id)}">
-                        ${item.cover ? `<img src="${esc(item.cover)}" alt="">` : `<span class="nocover">${item.custom ? '🖼' : '🎮'}</span>`}
+                        ${item.cover ? `<img src="${esc(item.cover)}" alt="">` : `<span class="nocover">${item.custom ? ICONS.image : ICONS.game}</span>`}
                         <span>
                             ${esc(item.name)}
-                            <small>Currently in <b>${esc(listName(item.status))}</b>${item.streamDate ? ` · 📅 ${esc(item.streamDate)}` : ''}</small>
+                            <small>Currently in <b>${esc(listName(item.status))}</b>${item.streamDate ? ` · ${esc(item.streamDate)}` : ''}</small>
                         </span>
-                        <span class="badge list-pill" style="margin:0;">${item.status === active ? '✎ Edit' : `➔ ${esc(listName(active))}`}</span>
+                        <span class="badge list-pill" style="margin:0;">${item.status === active ? 'Edit' : `Move to ${esc(listName(active))}`}</span>
                     </button>
                 `).join('');
         }
@@ -932,7 +1108,7 @@
                     if (seq !== searchSeq) return;
                     const currentExisting = renderExistingSuggestions(query);
                     const igdbHtml = results.length
-                        ? `<div class="suggest-head">Add New from IGDB</div>` + results.map(game => `<button type="button" data-id="${esc(game.id)}" data-name="${esc(game.name)}">${game.cover ? `<img src="${esc(game.cover)}" alt="">` : '<span class="nocover">🎮</span>'}<span>${esc(game.name)}<small>${esc([game.year, (game.platforms || []).join(', ')].filter(Boolean).join(' · '))}</small></span><span></span></button>`).join('')
+                        ? `<div class="suggest-head">Add New from IGDB</div>` + results.map(game => `<button type="button" data-id="${esc(game.id)}" data-name="${esc(game.name)}">${game.cover ? `<img src="${esc(game.cover)}" alt="">` : `<span class="nocover">${ICONS.game}</span>`}<span>${esc(game.name)}<small>${esc([game.year, (game.platforms || []).join(', ')].filter(Boolean).join(' · '))}</small></span><span></span></button>`).join('')
                         : '';
                     const customFallback = `<button type="button" class="plain" data-id="" data-name="">Use “${esc(query)}” as typed (or click "Add Custom / Segment" for non-games)</button>`;
                     suggest.innerHTML = currentExisting + igdbHtml + customFallback;
@@ -1046,8 +1222,69 @@
         });
         $('tabs').addEventListener('focusout', event => { if (event.target.matches('#new-list-name') && !event.target.value.trim()) setTimeout(() => { if (document.getElementById('new-list-name')) buildTabs(); }, 100); });
 
+        // Calendar view click handlers (Prev/Today/Next month, clicking an event, or clicking '+' to schedule a game)
+        function renderCalPickList() {
+            const q = ($('cal-pick-search')?.value || '').trim().toLowerCase();
+            const candidates = items.filter(item => !q || (item.name || '').toLowerCase().includes(q));
+            const box = $('cal-pick-list');
+            if (!candidates.length) {
+                box.innerHTML = '<div style="font-size:0.78rem;color:var(--text-muted);padding:0.5rem;">No matching games in your plan. Add one using the search bar at the top first.</div>';
+                return;
+            }
+            box.innerHTML = candidates.map(item => `
+                <button type="button" class="btn" data-pick-game="${esc(item.id)}" style="justify-content:space-between;text-align:left;padding:0.4rem 0.65rem;">
+                    <span style="display:inline-flex;align-items:center;gap:0.45rem;min-width:0;">
+                        ${item.cover ? `<img src="${esc(item.cover)}" alt="" style="width:20px;height:26px;object-fit:cover;border-radius:3px;">` : ICONS.game}
+                        <b style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(item.name)}</b>
+                    </span>
+                    <span class="badge list-pill">${esc(listName(item.status))}</span>
+                </button>
+            `).join('');
+        }
+        $('cal-view').addEventListener('click', event => {
+            if (event.target.closest('#cal-prev')) { calMonthOffset--; renderCalendar(); return; }
+            if (event.target.closest('#cal-today')) { calMonthOffset = 0; renderCalendar(); return; }
+            if (event.target.closest('#cal-next')) { calMonthOffset++; renderCalendar(); return; }
+            const evEl = event.target.closest('[data-cal-item]');
+            if (evEl) {
+                const item = items.find(entry => entry.id === evEl.dataset.calItem);
+                if (item) openDialog(item);
+                return;
+            }
+            const addBtn = event.target.closest('[data-cal-add]');
+            if (addBtn) {
+                calPickDate = addBtn.dataset.calAdd;
+                $('cal-pick-title').textContent = `Schedule Game on ${calPickDate}`;
+                $('cal-pick-search').value = '';
+                renderCalPickList();
+                if (!$('cal-pick-dlg').open) $('cal-pick-dlg').showModal();
+            }
+        });
+        $('cal-pick-search').addEventListener('input', renderCalPickList);
+        $('cal-pick-close').addEventListener('click', () => $('cal-pick-dlg').close());
+        $('cal-pick-list').addEventListener('click', event => {
+            const btn = event.target.closest('[data-pick-game]');
+            if (!btn || !calPickDate) return;
+            const item = items.find(entry => entry.id === btn.dataset.pickGame);
+            if (!item) return;
+            if (!item.streamDate) {
+                item.streamDate = calPickDate;
+            } else if (item.streamDate !== calPickDate) {
+                if (!Array.isArray(item.streamDates)) item.streamDates = [];
+                if (!item.streamDates.some(d => d && d.date === calPickDate)) {
+                    item.streamDates.push({ date: calPickDate, time: item.streamTime || '19:00', segmentId: '' });
+                }
+            }
+            if (item.status === 'backlog' || item.status === 'up-next') {
+                item.status = 'scheduled';
+            }
+            $('cal-pick-dlg').close();
+            render();
+            scheduleSave();
+            setStatus(`Scheduled "${item.name}" on ${calPickDate}`);
+        });
+
         $('items').addEventListener('click', async event => {
-            // Support clicking "Finish & Next Game" inside the Tonight top banner
             const bannerBtn = event.target.closest('[data-banner-id]');
             const row = event.target.closest('.item');
             const itemId = bannerBtn ? bannerBtn.dataset.bannerId : row?.dataset.id;
@@ -1055,17 +1292,6 @@
             const item = items.find(entry => entry.id === itemId);
             if (!item) return;
 
-            // Quick period chip click
-            const periodBtn = event.target.closest('[data-set-period]');
-            if (periodBtn) {
-                const targetPeriod = periodBtn.dataset.setPeriod;
-                item.period = item.period === targetPeriod ? '' : targetPeriod;
-                render();
-                scheduleSave();
-                return;
-            }
-
-            // Quick action buttons
             const actionBtn = event.target.closest('[data-action]');
             if (actionBtn) {
                 const action = actionBtn.dataset.action;
@@ -1081,7 +1307,7 @@
                         });
                         const data = await res.json();
                         if (data.twitchResult?.ok) {
-                            setStatus(`Now playing on stream: ${item.name} · ✓ Twitch category set to "${data.twitchResult.categoryName}"`);
+                            setStatus(`Now playing on stream: ${item.name} · Twitch category set to "${data.twitchResult.categoryName}"`);
                         } else if (data.twitchResult?.skipped) {
                             setStatus(`Now playing on stream: ${item.name} (Twitch category unchanged)`);
                         } else if (data.twitchResult && !data.twitchResult.ok) {
@@ -1123,7 +1349,7 @@
                         render();
                         if (data.current) {
                             if (data.twitchResult?.ok) {
-                                setStatus(`Advanced stream rundown! Now playing: ${data.current} · ✓ Twitch category set to "${data.twitchResult.categoryName}"`);
+                                setStatus(`Advanced stream rundown! Now playing: ${data.current} · Twitch category set to "${data.twitchResult.categoryName}"`);
                             } else if (data.twitchResult && !data.twitchResult.ok) {
                                 setStatus(`Advanced stream rundown! Now playing: ${data.current} · (Twitch: ${data.twitchResult.error})`);
                             } else {
@@ -1169,7 +1395,7 @@
                         });
                         const data = await res.json();
                         if (data.twitchResult?.ok) {
-                            setStatus(`Now playing on stream: ${item.name} · ✓ Twitch category set to "${data.twitchResult.categoryName}"`);
+                            setStatus(`Now playing on stream: ${item.name} · Twitch category set to "${data.twitchResult.categoryName}"`);
                         } else if (data.twitchResult && !data.twitchResult.ok) {
                             setStatus(`Now playing on stream: ${item.name} · (Twitch: ${data.twitchResult.error})`);
                         } else {
@@ -1207,7 +1433,7 @@
                         item.twitchSegmentIds = (data.segments || []).map(s => s.id);
                         render();
                         scheduleSave();
-                        setStatus(`✓ Synced "${item.name}" (${data.segments?.length || 1} slot${(data.segments?.length || 1) === 1 ? '' : 's'}) with Twitch Schedule!`);
+                        setStatus(`Synced "${item.name}" (${data.segments?.length || 1} slot${(data.segments?.length || 1) === 1 ? '' : 's'}) with Twitch Schedule.`);
                     } catch (e) {
                         setStatus(`Failed to sync Twitch: ${e.message}`);
                     }
@@ -1225,13 +1451,6 @@
             }
             if (event.target.closest('[data-edit]')) openDialog(item);
         });
-        $('items').addEventListener('change', event => {
-            if (event.target.dataset.field !== 'period') return;
-            const item = items.find(entry => entry.id === event.target.closest('.item').dataset.id);
-            if (!item) return;
-            item.period = event.target.value.trim();
-            scheduleSave();
-        });
 
         // Details dialog: edits apply immediately and save on every change.
         function paintDialog() {
@@ -1239,10 +1458,10 @@
             if (!item) return;
             $('dlg-title').textContent = item.name;
             $('dlg-badges').innerHTML = `
-                ${item.custom ? '<span class="badge custom-badge">CUSTOM</span>' : '<span class="badge playthrough-badge">IGDB</span>'}
-                ${item.twitchSegmentId ? '<span class="badge twitch-badge">🗓 TWITCH SYNCED</span>' : ''}
+                ${item.custom ? '<span class="badge custom-badge">Custom</span>' : '<span class="badge playthrough-badge">IGDB</span>'}
+                ${item.twitchSegmentId ? '<span class="badge twitch-badge">Twitch Synced</span>' : ''}
             `;
-            $('dlg-cover').innerHTML = item.cover ? `<img src="${esc(item.cover)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:8px">` : (item.custom ? '🖼' : '🎮');
+            $('dlg-cover').innerHTML = item.cover ? `<img src="${esc(item.cover)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:8px">` : (item.custom ? ICONS.image : ICONS.game);
             $('f-rating').innerHTML = starsHtml(item.rating || 0, 'data-dstar');
             $('f-cover').value = item.customCover || '';
             paintCategoryChips();
@@ -1325,7 +1544,7 @@
                     allDates.map(d => {
                         const dt = new Date(`${d}T00:00:00`);
                         const nice = isNaN(dt) ? d : dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-                        return `<span class="sdate-chip">📅 ${esc(nice)} <button type="button" data-unpick-date="${esc(d)}" title="Remove ${esc(d)}">✕</button></span>`;
+                        return `<span class="sdate-chip">${ICONS.calendar} ${esc(nice)} <button type="button" data-unpick-date="${esc(d)}" title="Remove ${esc(d)}">✕</button></span>`;
                     }).join('');
             }
         }
@@ -1335,7 +1554,7 @@
             const allDates = getAllSelectedDates();
             const segCount = (editing.twitchSegmentIds?.length || (editing.twitchSegmentId ? 1 : 0));
             if (segCount > 0) {
-                $('f-twitch-status').textContent = `✓ Synced (${segCount} slot${segCount === 1 ? '' : 's'}) · Click Save & Sync to update`;
+                $('f-twitch-status').textContent = `Synced (${segCount} slot${segCount === 1 ? '' : 's'}) · Click Save & Sync to update`;
             } else if (allDates.length > 0) {
                 $('f-twitch-status').textContent = `${allDates.length} day${allDates.length === 1 ? '' : 's'} ready to sync to Twitch`;
             } else {
@@ -1381,7 +1600,7 @@
             const segCount = (editing.twitchSegmentIds?.length || (editing.twitchSegmentId ? 1 : 0));
             const hasTwitch = segCount > 0;
             $('f-del-twitch').hidden = !hasTwitch;
-            $('f-push-twitch').textContent = hasTwitch ? '🗓 Save & Re-sync Twitch' : '🗓 Save & Sync to Twitch Schedule';
+            $('f-push-twitch').textContent = hasTwitch ? 'Save & Re-sync Twitch' : 'Save & Sync to Twitch Schedule';
             updateTwitchStatusHint();
             $('f-period').value = item.period || '';
             $('f-finished').value = item.finished || '';
@@ -1544,7 +1763,7 @@
             const hasMainDate = Boolean(editing.streamDate);
             const hasExtraDates = Array.isArray(editing.streamDates) && editing.streamDates.some(d => Boolean(d.date));
             if (!hasMainDate && !hasExtraDates) {
-                $('f-twitch-status').textContent = '⚠️ Click at least one day in the calendar strip above first';
+                $('f-twitch-status').textContent = 'Click at least one day in the calendar strip above first';
                 return;
             }
             $('f-twitch-status').textContent = 'Saving & syncing to Twitch Schedule…';
@@ -1567,14 +1786,14 @@
                 editing.twitchSegmentId = data.segment?.id || 'synced';
                 editing.twitchSegmentIds = (data.segments || []).map(s => s.id);
                 $('f-del-twitch').hidden = false;
-                $('f-push-twitch').textContent = '🗓 Save & Re-sync Twitch';
+                $('f-push-twitch').textContent = 'Save & Re-sync Twitch';
                 const count = (data.segments?.length || 1);
-                $('f-twitch-status').textContent = `✓ Synced ${count} slot${count === 1 ? '' : 's'} to Twitch Schedule!`;
+                $('f-twitch-status').textContent = `Synced ${count} slot${count === 1 ? '' : 's'} to Twitch Schedule!`;
                 paintDialog();
                 paintStreamDates();
                 commit(true);
             } catch (e) {
-                $('f-twitch-status').textContent = `⚠️ ${e.message}`;
+                $('f-twitch-status').textContent = `Error: ${e.message}`;
             }
         });
         $('f-del-twitch').addEventListener('click', async () => {
@@ -1594,13 +1813,13 @@
                     editing.streamDates.forEach(d => { d.segmentId = ''; });
                 }
                 $('f-del-twitch').hidden = true;
-                $('f-push-twitch').textContent = '🗓 Save & Sync to Twitch Schedule';
+                $('f-push-twitch').textContent = 'Save & Sync to Twitch Schedule';
                 $('f-twitch-status').textContent = 'Removed from Twitch schedule.';
                 paintDialog();
                 paintStreamDates();
                 commit(true);
             } catch (e) {
-                $('f-twitch-status').textContent = `⚠️ ${e.message}`;
+                $('f-twitch-status').textContent = `Error: ${e.message}`;
             }
         });
         $('f-name').addEventListener('change', () => { const name = $('f-name').value.trim(); if (editing && name) { editing.name = name; paintDialog(); commit(true); } });

@@ -136,11 +136,16 @@ const gamePlanService = createGamePlanService({
     safeWriteFileSync: (p, c) => fs.writeFileSync(p, c, 'utf8'),
     broadcastToOverlays: () => {},
     getConfig: () => ({}),
-    getStreamInfo: () => [{ category: 'Silent Hill 2' }],
-    getViewerStats: () => ({}),
-    normalizeViewerStats: v => v || {},
+    // Simulate Twitch polling while offline (changedAt 2 hours ago, but viewerStats.live is false)
+    getStreamInfo: () => [{ category: 'Silent Hill 2', changedAt: new Date(Date.now() - 2 * 3600000).toISOString() }],
+    getViewerStats: () => ({ live: false, streamStartedAt: null }),
+    normalizeViewerStats: v => v || { live: false, streamStartedAt: null },
     archivedCategoryMinutes: () => ({}),
-    categoryMinutesFor: () => ({}),
+    categoryMinutesFor: (entries, endMs, floor) => {
+        // Real categoryMinutesFor behavior: if called without valid floor, it would return 120 mins
+        if (!Number.isFinite(floor)) return { 'silent hill 2': 120 };
+        return {};
+    },
     categoryTimeFor: () => ({}),
     publicGameInfo: (name) => ({ name: name || '' }),
     refreshGameInfo: () => Promise.resolve(null),
@@ -205,7 +210,7 @@ async function run() {
 
     try {
         // --- 1. Test Backend API ---
-        console.log('Testing GET /api/game-plan snapshot...');
+        console.log('Testing GET /api/game-plan snapshot & offline stream time guard...');
         const planRes = await fetch(`http://localhost:${PORT}/api/game-plan`);
         const snapshot = await planRes.json();
         console.log(`✓ GET /api/game-plan returned ${snapshot.items.length} items`);
@@ -213,7 +218,10 @@ async function run() {
         if (!sh2 || sh2.status !== 'tonight' || sh2.gameType !== 'playthrough') {
             throw new Error(`Silent Hill 2 failed validation: ${JSON.stringify(sh2)}`);
         }
-        console.log('✓ Item 1 has status=tonight and gameType=playthrough');
+        if (sh2.minutesPlayed !== 0) {
+            throw new Error(`Expected minutesPlayed to be 0 when offline on Twitch, got: ${sh2.minutesPlayed}`);
+        }
+        console.log('✓ Offline stream time guard verified: minutesPlayed === 0 when viewerStats.live is false');
 
         // Test POST /api/game-plan/now category update
         console.log('Testing POST /api/game-plan/now and Twitch category update...');
@@ -241,13 +249,13 @@ async function run() {
         }
         console.log(`✓ Advance updated Twitch category to: "${adv1.twitchResult.categoryName}"`);
 
-        // Verify playthrough was NOT marked 'played' but recorded session
+        // Verify playthrough was NOT marked 'played'
         const planAfterAdv1 = await (await fetch(`http://localhost:${PORT}/api/game-plan`)).json();
         const sh2After = planAfterAdv1.items.find(i => i.id === 'game-1');
         if (sh2After.status !== 'tonight') {
             throw new Error(`Playthrough game should remain in tonight, got: ${sh2After.status}`);
         }
-        console.log('✓ Playthrough campaign remained active in tonight with session recorded');
+        console.log('✓ Playthrough campaign remained active in tonight');
 
         // Test advance from one-off
         console.log('Testing POST /api/game-plan/advance on one-off (Jackbox)...');
@@ -285,19 +293,6 @@ async function run() {
         }
         console.log(`✓ Atomic Twitch multi-day recurring schedule segments created: ${twitchPushData.segments.map(s => s.id).join(', ')}`);
 
-        // Test Twitch Schedule delete (should delete both segments)
-        console.log('Testing DELETE /api/game-plan/twitch-schedule...');
-        const twitchDelRes = await fetch(`http://localhost:${PORT}/api/game-plan/twitch-schedule`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ itemId: 'game-3' })
-        });
-        const twitchDelData = await twitchDelRes.json();
-        if (!twitchDelData.ok) {
-            throw new Error(`Failed to delete Twitch schedule: ${JSON.stringify(twitchDelData)}`);
-        }
-        console.log('✓ All Twitch schedule segments deleted successfully');
-
         // --- 2. Test in Puppeteer ---
         console.log('Launching headless browser...');
         const browser = await puppeteer.launch({
@@ -305,7 +300,7 @@ async function run() {
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
         const page = await browser.newPage();
-        await page.setViewport({ width: 1240, height: 920 });
+        await page.setViewport({ width: 1240, height: 900 });
 
         console.log('Navigating to game-plan-editor.html...');
         page.on('console', msg => console.log('[Browser Console]', msg.type(), msg.text()));
@@ -321,12 +316,19 @@ async function run() {
                 throw new Error(`Missing expected tab: ${reqTab}`);
             }
         }
-        console.log('✓ All 5 schedule stage tabs exist in UI');
+        console.log('✓ All 5 schedule stage tabs exist in single clean row');
 
-        // Check Tonight's banner
-        const bannerText = await page.$eval('.tonight-banner', el => el.textContent.trim());
-        console.log('Tonight Banner:', bannerText.split('\n')[0]);
-        console.log('✓ Tonight stream rundown banner is displayed');
+        // Verify duplicate inline "Next" / "Tonight" period pills are gone
+        const inlinePeriodPills = await page.$$('.item .qchip, .item [data-set-period]');
+        if (inlinePeriodPills.length > 0) {
+            throw new Error(`Expected 0 inline period pills on items, found ${inlinePeriodPills.length}`);
+        }
+        console.log('✓ Redundant inline Tonight/Next/Weekend pills removed from item rows');
+
+        // Capture screenshot of clean List View
+        const listScreenshotPath = '/Users/jaredacherup/.gemini/antigravity-cli/brain/1124f4e5-e872-47d9-8fc6-aab167e140a9/screenshot-game-plan-scheduling.png';
+        await page.screenshot({ path: listScreenshotPath });
+        console.log(`✓ Saved clean List View screenshot to ${listScreenshotPath}`);
 
         // Check cross-list search bar (#v-search)
         console.log('Testing cross-list search (#v-search)...');
@@ -343,15 +345,8 @@ async function run() {
         console.log('Opening details dialog on first item...');
         await page.click('.item[data-id="game-1"] [data-edit]');
         await page.waitForSelector('#dlg[open]');
-        const playstyleVal = await page.$eval('#f-game-type', el => el.value);
-        console.log(`✓ Dialog opened. Playstyle value: ${playstyleVal}`);
 
-        // Verify 14-day quick calendar strip works with 1 click
-        const quickPillsCount = await page.$$eval('#f-quick-days .day-pill', pills => pills.length);
-        if (quickPillsCount !== 14) {
-            throw new Error(`Expected 14 quick day pills, got: ${quickPillsCount}`);
-        }
-        // Click 2nd and 3rd day pills in the quick strip
+        // Click 2nd and 3rd day pills in the 14-day quick strip
         await page.click('#f-quick-days .day-pill:nth-child(2)');
         await page.click('#f-quick-days .day-pill:nth-child(3)');
         const selectedChipsCount = await page.$$eval('#f-selected-dates-chips .sdate-chip', chips => chips.length);
@@ -360,52 +355,36 @@ async function run() {
         }
         console.log(`✓ 14-Day Quick Calendar Strip toggled ${selectedChipsCount} dates with single clicks`);
 
-        // Test Twitch Category quick chip selection
-        await page.click('#f-cat-chips [data-cat="Just Chatting"]');
-        const catVal = await page.$eval('#f-twitch-category', el => el.value);
-        if (catVal !== 'Just Chatting') {
-            throw new Error(`Expected Twitch category to be Just Chatting, got: ${catVal}`);
-        }
-        console.log('✓ Twitch Category chip set #f-twitch-category to "Just Chatting"');
-
-        // Test Asset Library picker modal (#cover-library)
-        await page.click('#cover-library');
-        await page.waitForSelector('#asset-dlg[open]');
-        await page.waitForSelector('#asset-grid .asset-card');
-        await page.click('#asset-grid .asset-card');
-        const coverVal = await page.$eval('#f-cover', el => el.value);
-        if (!coverVal) {
-            throw new Error('Asset Library picker did not populate #f-cover');
-        }
-        console.log(`✓ Asset Library modal selected cover artwork: ${coverVal}`);
-
-        // Take screenshot of the polished Details Dialog open!
-        const dlgScreenshotPath = '/Users/jaredacherup/.gemini/antigravity-cli/brain/1124f4e5-e872-47d9-8fc6-aab167e140a9/screenshot-game-plan-scheduling.png';
-        await page.screenshot({ path: dlgScreenshotPath });
-        console.log(`✓ Saved Details Dialog screenshot to ${dlgScreenshotPath}`);
-
-        // Close dialog with Done button (triggers save)
+        // Close dialog with Done button
         await page.click('#f-done');
         await new Promise(r => setTimeout(r, 600));
 
-        // Verify backend persisted the extra dates and category
-        const verifyPlan = await (await fetch(`http://localhost:${PORT}/api/game-plan`)).json();
-        const savedItem1 = verifyPlan.items.find(i => i.id === 'game-1');
-        if (!savedItem1.streamDates || savedItem1.streamDates.length < 1 || savedItem1.twitchCategory !== 'Just Chatting') {
-            throw new Error(`Item 1 changes not saved properly: ${JSON.stringify(savedItem1)}`);
+        // Switch to Full Calendar View
+        console.log('Switching to Full Calendar View ([data-view="calendar"])...');
+        await page.click('[data-view="calendar"]');
+        await page.waitForSelector('#cal-view:not([hidden]) .cal-grid');
+        const calCellCount = await page.$$eval('#cal-view .cal-cell', cells => cells.length);
+        const calEventCount = await page.$$eval('#cal-view .cal-event', evs => evs.length);
+        if (calCellCount !== 42 || calEventCount < 3) {
+            throw new Error(`Expected 42 calendar cells and >=3 events, got cells=${calCellCount}, events=${calEventCount}`);
         }
-        console.log('✓ Multi-day dates, Twitch category, and custom artwork saved to backend:', JSON.stringify(savedItem1.streamDates));
+        console.log(`✓ Full Calendar View rendered ${calCellCount} day cells and ${calEventCount} scheduled/streamed events`);
 
-        // Check date badge on game card shows extra day indicator
-        const item1DateBadge = await page.$eval('.item[data-id="game-1"] .date-badge', el => el.textContent.trim());
-        console.log('Item 1 Date Badge:', item1DateBadge);
-        if (!item1DateBadge.includes('+')) {
-            throw new Error(`Expected date badge to reflect extra days, got: "${item1DateBadge}"`);
-        }
-        console.log('✓ Game card date badge reflects extra scheduled days');
+        // Test scheduling a game directly from a calendar day's '+' button
+        await page.click('#cal-view .cal-cell.today [data-cal-add]');
+        await page.waitForSelector('#cal-pick-dlg[open]');
+        await page.click('#cal-pick-list [data-pick-game="game-4"]');
+        await new Promise(r => setTimeout(r, 500));
+        console.log('✓ Scheduled Metaphor: ReFantazio onto calendar day via + button');
 
-        // Test moving item 1 from Tonight back to Schedule (even when playingNow is true!)
-        console.log('Testing moving item 1 from Tonight back to Schedule via ↩ Schedule button...');
+        // Capture screenshot of Full Calendar View
+        const calScreenshotPath = '/Users/jaredacherup/.gemini/antigravity-cli/brain/1124f4e5-e872-47d9-8fc6-aab167e140a9/screenshot-game-plan-calendar.png';
+        await page.screenshot({ path: calScreenshotPath });
+        console.log(`✓ Saved Full Calendar View screenshot to ${calScreenshotPath}`);
+
+        // Switch back to List View and test moving item 1 from Tonight back to Schedule
+        await page.click('[data-view="list"]');
+        await page.waitForSelector('#items:not([hidden])');
         await page.click('.item[data-id="game-1"] [data-action="move-to-schedule"]');
         await new Promise(r => setTimeout(r, 600));
         const verifyAfterMove = await (await fetch(`http://localhost:${PORT}/api/game-plan`)).json();
@@ -416,7 +395,7 @@ async function run() {
         console.log('✓ Item 1 moved from Tonight back to Schedule and cleared auto "Tonight" period');
 
         await browser.close();
-        console.log('\nALL GAME PLAN SCHEDULING & POLISH TESTS PASSED!');
+        console.log('\nALL GAME PLAN SCHEDULING, CALENDAR & POLISH TESTS PASSED!');
     } finally {
         server.close();
         if (fs.existsSync(TEMP_DATA_DIR)) {

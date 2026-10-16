@@ -133,10 +133,14 @@ function createGamePlanService({
             }
             playTimeCache = { at: Date.now(), totals };
         }
-        const floor = Date.parse(normalizeViewerStats(getViewerStats()).streamStartedAt || '');
+        const vStats = normalizeViewerStats(getViewerStats());
+        const floor = Date.parse(vStats.streamStartedAt || '');
+        const activeEndMs = vStats.live ? Date.now() : Date.parse(vStats.streamEndedAt || '');
         const merged = { ...playTimeCache.totals };
-        for (const [name, minutes] of Object.entries(categoryMinutesFor(getStreamInfo(), Date.now(), floor))) {
-            merged[gameKey(name)] = (merged[gameKey(name)] || 0) + minutes;
+        if (Number.isFinite(floor) && Number.isFinite(activeEndMs) && activeEndMs > floor) {
+            for (const [name, minutes] of Object.entries(categoryMinutesFor(getStreamInfo(), activeEndMs, floor))) {
+                merged[gameKey(name)] = (merged[gameKey(name)] || 0) + minutes;
+            }
         }
         return merged;
     }
@@ -144,12 +148,15 @@ function createGamePlanService({
     function buildGamePlanSnapshot() {
         const plan = loadGamePlan();
         const streamed = streamedMinutesByKey();
+        const vStats = normalizeViewerStats(getViewerStats());
+        const isLive = Boolean(vStats.live);
         const streamInfo = getStreamInfo() || [];
         const category = streamInfo[streamInfo.length - 1]?.category || '';
         const current = gameKey(category);
         warmGameInfo(plan.items);
         return {
             current: category,
+            live: isLive,
             playingNowId: plan.playingNowId || null,
             lists: plan.lists,
             periods: plan.periods,
@@ -162,7 +169,7 @@ function createGamePlanService({
                 const includeCatKey = catKey && !GENERIC_TWITCH_CATEGORIES.has(catKey) && !item.custom;
                 const keys = [item.name, includeCatKey ? item.twitchCategory : '', raw?.igdbName].map(gameKey).filter(Boolean);
                 const isManualNow = !!plan.playingNowId && item.id === plan.playingNowId;
-                const isAutoNow = !plan.playingNowId && !item.custom && !!current && keys.includes(current);
+                const isAutoNow = !plan.playingNowId && isLive && !item.custom && !!current && keys.includes(current);
                 return {
                     ...item,
                     minutesPlayed: Math.round([...new Set(keys)].reduce((sum, key) => sum + (streamed[key] || 0), 0)),
@@ -220,6 +227,7 @@ function createGamePlanService({
     async function recordPlayedGames(streamInfo, endMs, startFloorMs) {
         const config = typeof getConfig === 'function' ? getConfig() : {};
         if ((config.game_plan_auto || {}).enabled === false) return;
+        if (!Number.isFinite(startFloorMs) || !Number.isFinite(endMs) || endMs <= startFloorMs) return;
         const spent = categoryTimeFor(streamInfo, endMs, startFloorMs);
         const result = await applyPlayedSpans(Object.entries(spent).map(([name, slot]) => ({ name, minutes: slot.minutes, dates: [...slot.dates] })));
         for (const name of result.added) console.log(`[GamePlan] Added "${name}" as played`);
@@ -231,8 +239,10 @@ function createGamePlanService({
             for (const file of fs.readdirSync(sessionsDir).filter(f => f.startsWith('chat-') && f.endsWith('.json')).sort()) {
                 try {
                     const data = JSON.parse(fs.readFileSync(path.join(sessionsDir, file), 'utf8'));
-                    const endMs = Date.parse(data.lastUpdated || data.startedAt);
                     const floor = Date.parse(data.viewerStats?.streamStartedAt || '');
+                    if (!Number.isFinite(floor)) continue;
+                    const endMs = Date.parse(data.viewerStats?.streamEndedAt || data.lastUpdated || data.startedAt);
+                    if (!Number.isFinite(endMs) || endMs <= floor) continue;
                     for (const [name, slot] of Object.entries(categoryTimeFor(data.streamInfo, endMs, floor))) {
                         spans.push({ name, minutes: slot.minutes, dates: [...slot.dates] });
                     }

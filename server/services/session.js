@@ -467,8 +467,10 @@ function createSessionService(options = {}) {
         for (const file of fs.readdirSync(sessionsDir).filter(f => f.startsWith('chat-') && f.endsWith('.json'))) {
             try {
                 const data = JSON.parse(fs.readFileSync(path.join(sessionsDir, file), 'utf8'));
-                const endMs = Date.parse(data.lastUpdated || data.startedAt);
                 const floor = Date.parse(data.viewerStats?.streamStartedAt || '');
+                if (!Number.isFinite(floor)) continue;
+                const endMs = Date.parse(data.viewerStats?.streamEndedAt || data.lastUpdated || data.startedAt);
+                if (!Number.isFinite(endMs) || endMs <= floor) continue;
                 for (const [name, minutes] of Object.entries(categoryMinutesFor(data.streamInfo, endMs, floor))) {
                     totals[name] = (totals[name] || 0) + minutes;
                 }
@@ -482,8 +484,12 @@ function createSessionService(options = {}) {
         const info = chatData?.streamInfo || [];
         const name = info.length ? (info[info.length - 1].category || '(No Category)') : '';
         if (!name) return { name: '', sessionMinutes: 0, totalMinutes: 0 };
-        const floor = Date.parse(normalizeViewerStats(chatData?.viewerStats).streamStartedAt || '');
-        const sessionMinutes = categoryMinutesFor(info, Date.now(), floor)[name] || 0;
+        const vStats = normalizeViewerStats(chatData?.viewerStats);
+        const floor = Date.parse(vStats.streamStartedAt || '');
+        const activeEndMs = vStats.live ? Date.now() : Date.parse(vStats.streamEndedAt || '');
+        const sessionMinutes = (Number.isFinite(floor) && Number.isFinite(activeEndMs) && activeEndMs > floor)
+            ? (categoryMinutesFor(info, activeEndMs, floor)[name] || 0)
+            : 0;
         return {
             name,
             sessionMinutes: Math.round(sessionMinutes),
