@@ -209,7 +209,8 @@ async function run() {
                 isBaseBorderTransparent: testNode.style.border.includes('transparent')
             };
 
-            // Test 4: Dedicated Inner Shadow (both with borderWidth: 0 and with border)
+            // Test 4: Dedicated Inner Shadow (under border element)
+            // 4A: Inner shadow with borderWidth: 0
             window.OverlayShared.applyBorderEffects(testNode, {
                 borderWidth: 0,
                 innerShadow: { blur: 18, spread: 3, x: 2, y: 4, color: 'rgba(0, 0, 0, 0.75)' }
@@ -217,7 +218,59 @@ async function run() {
             results.innerShadowZeroBorder = {
                 hasInnerRing: !!testNode._innerGlowRing,
                 boxShadow: testNode._innerGlowRing?.style.boxShadow || '',
-                hasInset: (testNode._innerGlowRing?.style.boxShadow || '').includes('inset') && (testNode._innerGlowRing?.style.boxShadow || '').includes('2px 4px 18px 3px')
+                hasInset: (testNode._innerGlowRing?.style.boxShadow || '').includes('inset') && (testNode._innerGlowRing?.style.boxShadow || '').includes('2px 4px 18px 3px'),
+                zIndex: testNode._innerGlowRing?.style.zIndex,
+                inset: testNode._innerGlowRing?.style.inset
+            };
+
+            // 4B: Inner shadow UNDER ring border (must have zIndex 1 and inset matching border width)
+            window.OverlayShared.applyBorderEffects(testNode, {
+                borderWidth: 10,
+                borderRadius: 16,
+                borderColor: '#00ffff',
+                borderAnimation: { type: 'radial', mode: 'two-tone', speed: 4, direction: 'ccw', color2: '#ff00aa' },
+                innerShadow: { blur: 20, spread: 4, x: 0, y: 0, color: 'rgba(0, 0, 0, 0.9)' }
+            });
+            const innerRingUnderRingBorder = testNode._innerGlowRing;
+            const fxRingOverInnerShadow = testNode._borderFxRing;
+            results.innerShadowUnderRingBorder = {
+                hasInnerRing: !!innerRingUnderRingBorder,
+                hasFxRing: !!fxRingOverInnerShadow,
+                innerZIndex: innerRingUnderRingBorder?.style.zIndex,
+                fxZIndex: fxRingOverInnerShadow?.style.zIndex,
+                innerUnderFx: Number(innerRingUnderRingBorder?.style.zIndex || 0) < Number(fxRingOverInnerShadow?.style.zIndex || 0),
+                innerInset: innerRingUnderRingBorder?.style.inset,
+                isInsetBorderWidth: innerRingUnderRingBorder?.style.inset === '10px',
+                radialMode: fxRingOverInnerShadow?.style.background.includes('rgb(255, 0, 170)') || fxRingOverInnerShadow?.style.background.includes('#ff00aa'),
+                radialCcwAnim: fxRingOverInnerShadow?.style.animation.includes('sp-border-radial-circuit-rev')
+            };
+
+            // 4C: Radial Alternate and Rainbow mode
+            window.OverlayShared.applyBorderEffects(testNode, {
+                borderWidth: 6,
+                borderAnimation: { type: 'radial', mode: 'rainbow', speed: 5, direction: 'alternate' }
+            });
+            const rainbowRadialRing = testNode._borderFxRing;
+            results.radialRainbowAlternate = {
+                hasRing: !!rainbowRadialRing,
+                isAlternate: rainbowRadialRing?.style.animation.includes('alternate'),
+                hasRainbowStops: rainbowRadialRing?.style.background.includes('rgb(255, 0, 85)') || rainbowRadialRing?.style.background.includes('#ff0055')
+            };
+
+            // 4D: Inner shadow UNDER static border (zIndex 1, inset 0 inside padding box)
+            window.OverlayShared.applyBorderEffects(testNode, {
+                borderWidth: 10,
+                borderRadius: 16,
+                borderStyle: 'solid',
+                borderColor: '#10b981',
+                innerShadow: { blur: 15, spread: 2, color: 'rgba(0, 0, 0, 0.8)' }
+            });
+            const innerRingStaticBorder = testNode._innerGlowRing;
+            results.innerShadowUnderStaticBorder = {
+                hasInnerRing: !!innerRingStaticBorder,
+                innerZIndex: innerRingStaticBorder?.style.zIndex,
+                innerInset: innerRingStaticBorder?.style.inset,
+                hasBorderOnNode: testNode.style.border.includes('10px')
             };
 
             // Test 5: Teardown

@@ -43,7 +43,7 @@ export const RERENDER_PATHS = new Set([
     'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled',
     'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate',
     'style.borderWidth', 'style.borderStyle', 'style.borderGlow.enabled', 'style.borderGlow.neon',
-    'style.borderGlow.inner', 'style.borderAnimation.type',
+    'style.borderGlow.inner', 'style.borderAnimation.type', 'style.borderAnimation.mode',
     'style.shadow.blur', 'style.innerShadow.blur', 'style.innerShadow.spread',
     'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'video.sound',
     'alert.layout', 'alert.hideText', 'slideshow.source', 'slideshow.advance', 'slideshow.transition',
@@ -286,12 +286,34 @@ export function borderControls(s = {}, shape = false, el = {}) {
                 </div>
                 ${F.color('style.borderAnimation.color2', 'Beam head color', anim.color2 || '#ffffff')}`;
         } else if (anim.type === 'radial') {
+            const mode = anim.mode || 'spotlight';
             html += `
+                <div class="grid2">
+                    ${F.select('style.borderAnimation.mode', 'Radial mode', mode, [
+                        ['spotlight', 'Spotlight (focused glow)'],
+                        ['two-tone', 'Two-tone (head & trail)'],
+                        ['fade-white', 'Fade to white'],
+                        ['fade-black', 'Fade to black'],
+                        ['rainbow', 'Rainbow cycle']
+                    ])}
+                    ${F.select('style.borderAnimation.direction', 'Direction', anim.direction || 'cw', [
+                        ['cw', 'Clockwise'],
+                        ['ccw', 'Counter-clockwise'],
+                        ['alternate', 'Alternate (back & forth)']
+                    ])}
+                </div>
                 <div class="grid2">
                     ${F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 })}
                     ${F.number('style.borderAnimation.size', 'Glow spread (%)', anim.size ?? 40, { min: 10, max: 100 })}
-                </div>
-                ${F.color('style.borderAnimation.color2', 'Highlight color', anim.color2 || '#ffffff')}`;
+                </div>`;
+            if (mode !== 'rainbow') {
+                const label = mode === 'two-tone' ? 'Accent color' : (mode === 'spotlight' ? 'Spotlight color' : 'Primary color');
+                html += `
+                    <div class="grid2">
+                        ${F.color('style.borderAnimation.color2', label, anim.color2 || (mode === 'spotlight' ? '#ffffff' : '#38bdf8'))}
+                        ${F.color('style.borderAnimation.color3', 'Middle color (optional)', anim.color3 || '', { clear: true })}
+                    </div>`;
+            }
         } else if (anim.type === 'gradient') {
             html += `
                 <div class="grid2">
@@ -335,9 +357,10 @@ export function fillSection(el) {
 
 export function effectsSection(el) {
     const s = el.style || {};
+    const hasActiveEffects = Boolean(s.blur > 0 || s.shadow?.blur > 0 || s.innerShadow?.blur > 0 || s.innerShadow?.spread > 0 || (s.opacity !== undefined && s.opacity < 1));
     return F.section('effects', 'Effects', `
         ${F.range('style.opacity', 'Opacity', s.opacity ?? 1, { min: 0, max: 100, scale: 0.01, unit: '%' })}
-        ${boxEffectFields(el, false)}`, false);
+        ${boxEffectFields(el, false)}`, hasActiveEffects);
 }
 
 export const localMediaPath = src => src && src.startsWith(LOCAL_MEDIA) ? decodeURIComponent(src.slice(LOCAL_MEDIA.length)) : '';
@@ -1057,7 +1080,7 @@ export function initInspectorEvents() {
 
         propEl.addEventListener('change', event => {
             const path = event.target.closest('[data-path]')?.dataset.path;
-            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread') renderProperties();
+            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread') renderProperties();
         });
 
         propEl.addEventListener('change', event => {

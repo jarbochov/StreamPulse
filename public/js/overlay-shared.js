@@ -894,6 +894,7 @@
             + '@keyframes sp-border-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } } '
             + '@keyframes sp-border-marching { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -32; } } '
             + '@keyframes sp-border-radial-circuit { 0% { background-position: 0% 0%; } 25% { background-position: 100% 0%; } 50% { background-position: 100% 100%; } 75% { background-position: 0% 100%; } 100% { background-position: 0% 0%; } } '
+            + '@keyframes sp-border-radial-circuit-rev { 0% { background-position: 0% 0%; } 25% { background-position: 0% 100%; } 50% { background-position: 100% 100%; } 75% { background-position: 100% 0%; } 100% { background-position: 0% 0%; } } '
             + '.sp-fx-paused [data-border-fx] { animation-play-state: paused !important; }';
         document.head.appendChild(tag);
     }
@@ -934,6 +935,9 @@
         const ish = style.innerShadow || {};
         const hasInnerGlow = glow.enabled && glow.inner;
         const hasInnerShadow = Number(ish.blur) > 0 || Number(ish.spread) > 0;
+        const hasBorderGradient = width > 0 && Boolean(g?.enabled);
+        const hasBorderAnim = width > 0 && !hasBorderGradient && Boolean(anim.type && anim.type !== 'none');
+        const hasRingBorder = hasBorderGradient || hasBorderAnim;
 
         node.style.boxShadow = computeBoxShadow(style, width);
 
@@ -946,7 +950,7 @@
             node._borderObserver.observe(node, { childList: true });
         }
 
-        // Inner shadow and inner glow are rendered via a dedicated top overlay so they stay visible over fills, images, videos, and cutouts.
+        // Inner shadow and inner glow are rendered via a dedicated overlay under borders so they stay visible over fills, images, videos, and cutouts without obscuring borders.
         if (hasInnerGlow || hasInnerShadow) {
             let innerRing = node._innerGlowRing;
             if (!innerRing) {
@@ -975,10 +979,15 @@
                     innerShadows.push(`inset 0 0 ${gb}px ${Math.max(1, gs)}px ${gc}`);
                 }
             }
-            const innerSig = innerShadows.join(', ');
+            const innerShadowCss = innerShadows.join(', ');
+            const radRaw = style.borderRadius ?? node.style.borderRadius ?? 0;
+            const radVal = typeof radRaw === 'number' ? `${radRaw}px` : (String(radRaw).trim() || '0px');
+            const insetCss = hasRingBorder ? `${width}px` : '0';
+            const radiusCss = width > 0 ? `max(0px, calc(${radVal} - ${width}px))` : radVal;
+            const innerSig = `${insetCss}|${radiusCss}|${innerShadowCss}`;
             if (innerRing._sig !== innerSig) {
                 innerRing._sig = innerSig;
-                innerRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border-radius:inherit;pointer-events:none;z-index:3;box-shadow:${innerSig};`;
+                innerRing.style.cssText = `position:absolute;inset:${insetCss};box-sizing:border-box;border-radius:${radiusCss};pointer-events:none;z-index:1;box-shadow:${innerShadowCss};`;
             }
         } else if (node._innerGlowRing) {
             node._innerGlowRing.remove();
@@ -996,9 +1005,6 @@
             node.style.backgroundClip = '';
             return;
         }
-
-        const hasBorderGradient = Boolean(g?.enabled);
-        const hasBorderAnim = Boolean(anim.type && anim.type !== 'none');
 
         // Case 1: Gradient Border (with from, optional mid, to, angle/radial, and sweeping animation)
         if (hasBorderGradient) {
@@ -1064,18 +1070,36 @@
             } else if (anim.type === 'radial') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
                 const size = Math.max(10, Math.min(100, Number(anim.size) || 40));
-                const head = anim.color2 || '#ffffff';
+                const mode = ['spotlight', 'two-tone', 'fade-white', 'fade-black', 'rainbow'].includes(anim.mode) ? anim.mode : 'spotlight';
+                const direction = ['cw', 'ccw', 'alternate'].includes(anim.direction) ? anim.direction : 'cw';
+                const head = anim.color2 || (mode === 'spotlight' ? '#ffffff' : '#38bdf8');
                 const trail = borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8';
                 const mid = anim.color3 || '';
-                const base = 'transparent';
-                const bgSize = Math.max(180, Math.min(300, Math.round(160 + (size * 1.0))));
-                const gradStops = mid
-                    ? `${head} 0%, ${mid} 25%, ${trail} 50%, ${base} 85%`
-                    : `${head} 0%, ${trail} 35%, ${base} 75%`;
-                const sig = `radial|${width}|${speed}|${size}|${head}|${mid}|${trail}|${base}|${bgSize}`;
+                const bgSize = Math.max(160, Math.min(320, Math.round(150 + (size * 1.5))));
+
+                let gradStops = '';
+                if (mode === 'rainbow') {
+                    gradStops = '#ff0055 0%, #ff9900 17%, #ffee00 33%, #00ff66 50%, #00bbff 67%, #8800ff 83%, #ff0055 100%';
+                } else if (mode === 'fade-white') {
+                    gradStops = mid ? `${head} 0%, ${mid} 45%, #ffffff 100%` : `${head} 0%, #ffffff 100%`;
+                } else if (mode === 'fade-black') {
+                    gradStops = mid ? `${head} 0%, ${mid} 45%, #000000 100%` : `${head} 0%, #000000 100%`;
+                } else if (mode === 'two-tone') {
+                    gradStops = mid ? `${head} 0%, ${mid} 45%, ${trail} 100%` : `${head} 0%, ${trail} 100%`;
+                } else {
+                    const base = 'transparent';
+                    const spreadRatio = Math.max(20, Math.min(80, size));
+                    gradStops = mid
+                        ? `${head} 0%, ${mid} ${Math.round(spreadRatio * 0.45)}%, ${trail} ${spreadRatio}%, ${base} ${Math.min(100, Math.round(spreadRatio * 1.5))}%`
+                        : `${head} 0%, ${trail} ${spreadRatio}%, ${base} ${Math.min(100, Math.round(spreadRatio * 1.5))}%`;
+                }
+
+                const animName = direction === 'ccw' ? 'sp-border-radial-circuit-rev' : 'sp-border-radial-circuit';
+                const animDir = direction === 'alternate' ? 'alternate' : 'normal';
+                const sig = `radial|${width}|${speed}|${size}|${mode}|${direction}|${head}|${mid}|${trail}|${bgSize}`;
                 if (fxRing._sig !== sig) {
                     fxRing._sig = sig;
-                    fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:radial-gradient(circle, ${gradStops});background-size:${bgSize}% ${bgSize}%;animation:sp-border-radial-circuit ${speed}s ease-in-out infinite;z-index:2;`;
+                    fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:radial-gradient(circle, ${gradStops});background-size:${bgSize}% ${bgSize}%;animation:${animName} ${speed}s ease-in-out infinite ${animDir};z-index:2;`;
                     fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
                     fxRing.style.setProperty('-webkit-mask-composite', 'xor');
                     fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
