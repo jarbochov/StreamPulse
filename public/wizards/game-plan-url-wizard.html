@@ -188,7 +188,7 @@
                 <div style="display:flex; flex-direction:column; gap:0.4rem; flex:1;">
                     <div style="display:flex; gap:0.5rem; align-items:center;">
                         <input type="color" id="bg-picker" value="#0f172a" oninput="syncBgFromPicker()">
-                        <input type="text" id="wiz-bg" value="rgba(15, 23, 42, 0.72)" placeholder="e.g. rgba(15, 23, 42, 0.72) or #0d1117" oninput="onCustomStyleChange()">
+                        <input type="text" id="wiz-bg" value="rgba(15, 23, 42, 0.72)" placeholder="e.g. rgba(15, 23, 42, 0.72) or #0d1117" oninput="onCustomBgInput()">
                     </div>
                     <div style="display:flex; align-items:center; gap:0.5rem;">
                         <span style="font-size:0.74rem; color:var(--text-muted); width:50px;">Opacity:</span>
@@ -201,14 +201,14 @@
                 <label>Border Color</label>
                 <div style="display:flex; gap:0.5rem; align-items:center; flex:1;">
                     <input type="color" id="border-picker" value="#ffffff" oninput="syncBorderFromPicker()">
-                    <input type="text" id="wiz-border" value="rgba(255, 255, 255, 0.16)" placeholder="e.g. rgba(255, 255, 255, 0.16) or transparent" oninput="onCustomStyleChange()" style="flex:1;">
+                    <input type="text" id="wiz-border" value="rgba(255, 255, 255, 0.16)" placeholder="e.g. rgba(255, 255, 255, 0.16) or transparent" oninput="onCustomBorderInput()" style="flex:1;">
                 </div>
             </div>
             <div class="cfg-row">
                 <label>Text Color</label>
                 <div style="display:flex; gap:0.5rem; align-items:center; flex:1;">
                     <input type="color" id="text-picker" value="#f0f6fc" oninput="syncTextFromPicker()">
-                    <input type="text" id="wiz-text" value="#f0f6fc" placeholder="#f0f6fc" oninput="onCustomStyleChange()" style="flex:1;">
+                    <input type="text" id="wiz-text" value="#f0f6fc" placeholder="#f0f6fc" oninput="onCustomTextInput()" style="flex:1;">
                 </div>
             </div>
             <div class="cfg-row">
@@ -716,7 +716,91 @@
         refreshWizard();
     }
 
+    function parseColor(val) {
+        if (!val) return null;
+        val = val.trim();
+        if (val.toLowerCase() === 'transparent') {
+            return { hex: '#000000', opacity: 0 };
+        }
+        if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+            return { hex: val.toLowerCase(), opacity: 100 };
+        }
+        if (/^#[0-9a-fA-F]{3}$/.test(val)) {
+            const h = '#' + val[1] + val[1] + val[2] + val[2] + val[3] + val[3];
+            return { hex: h.toLowerCase(), opacity: 100 };
+        }
+        const m = val.match(/^rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*[,/]\s*([0-9.]+)(%?))?\s*\)$/i);
+        if (m) {
+            const r = Math.min(255, Math.max(0, parseInt(m[1], 10))).toString(16).padStart(2, '0');
+            const g = Math.min(255, Math.max(0, parseInt(m[2], 10))).toString(16).padStart(2, '0');
+            const b = Math.min(255, Math.max(0, parseInt(m[3], 10))).toString(16).padStart(2, '0');
+            let alpha = 1;
+            if (m[4] !== undefined) {
+                alpha = parseFloat(m[4]);
+                if (m[5] === '%') alpha = alpha / 100;
+            }
+            const opacity = Math.round(Math.min(1, Math.max(0, alpha)) * 100);
+            return { hex: `#${r}${g}${b}`.toLowerCase(), opacity };
+        }
+        return null;
+    }
+
+    function syncPickersFromInputs() {
+        const bgVal = (document.getElementById('wiz-bg')?.value || '').trim();
+        const parsedBg = parseColor(bgVal);
+        if (parsedBg) {
+            document.getElementById('bg-picker').value = parsedBg.hex;
+            document.getElementById('bg-opacity').value = parsedBg.opacity;
+            document.getElementById('bg-opacity-val').textContent = `${parsedBg.opacity}%`;
+        }
+
+        const borderVal = (document.getElementById('wiz-border')?.value || '').trim();
+        const parsedBorder = parseColor(borderVal);
+        if (parsedBorder) {
+            document.getElementById('border-picker').value = parsedBorder.hex;
+        }
+
+        const textVal = (document.getElementById('wiz-text')?.value || '').trim();
+        const parsedText = parseColor(textVal);
+        if (parsedText) {
+            document.getElementById('text-picker').value = parsedText.hex;
+        }
+    }
+
+    function onCustomBgInput() {
+        const val = (document.getElementById('wiz-bg').value || '').trim();
+        const parsed = parseColor(val);
+        if (parsed) {
+            document.getElementById('bg-picker').value = parsed.hex;
+            document.getElementById('bg-opacity').value = parsed.opacity;
+            document.getElementById('bg-opacity-val').textContent = `${parsed.opacity}%`;
+        }
+        document.getElementById('theme').value = 'custom';
+        refreshWizard();
+    }
+
+    function onCustomBorderInput() {
+        const val = (document.getElementById('wiz-border').value || '').trim();
+        const parsed = parseColor(val);
+        if (parsed) {
+            document.getElementById('border-picker').value = parsed.hex;
+        }
+        document.getElementById('theme').value = 'custom';
+        refreshWizard();
+    }
+
+    function onCustomTextInput() {
+        const val = (document.getElementById('wiz-text').value || '').trim();
+        const parsed = parseColor(val);
+        if (parsed) {
+            document.getElementById('text-picker').value = parsed.hex;
+        }
+        document.getElementById('theme').value = 'custom';
+        refreshWizard();
+    }
+
     function onCustomStyleChange() {
+        syncPickersFromInputs();
         document.getElementById('theme').value = 'custom';
         refreshWizard();
     }
@@ -788,7 +872,7 @@
         if (period) params.set('period', period);
         if (max && max !== '5') params.set('max', max);
         if (sort && sort !== 'plan') params.set('sort', sort);
-        if (theme && theme !== 'glass' && theme !== 'custom') params.set('theme', theme);
+        if (theme && theme !== 'glass') params.set('theme', theme);
         if (font) params.set('font', font);
         if (weight) params.set('weight', weight);
 
@@ -833,6 +917,47 @@
         if (iframe.src !== absUrl) {
             iframe.src = relUrl;
         }
+
+        // Real-time iframe DOM style synchronization for immediate visual response
+        try {
+            const doc = iframe.contentDocument || iframe.contentWindow?.document;
+            if (doc && doc.body) {
+                if (bg) {
+                    doc.body.style.setProperty('--gp-bg', bg);
+                    doc.documentElement.style.setProperty('--gp-bg', bg);
+                    doc.body.classList.add('has-custom-bg');
+                }
+                if (border) {
+                    doc.body.style.setProperty('--gp-border', border);
+                    doc.documentElement.style.setProperty('--gp-border', border);
+                    doc.body.classList.add('has-custom-border');
+                }
+                if (text) {
+                    doc.body.style.setProperty('--gp-text', text);
+                    doc.documentElement.style.setProperty('--gp-text', text);
+                }
+                if (accent) {
+                    const acc = accent.startsWith('#') ? accent : `#${accent}`;
+                    doc.body.style.setProperty('--gp-accent', acc);
+                    doc.documentElement.style.setProperty('--gp-accent', acc);
+                }
+                if (blur !== undefined && blur !== '') {
+                    const b = parseFloat(blur);
+                    if (!isNaN(b)) {
+                        doc.body.style.setProperty('--gp-blur', `${b}px`);
+                        doc.documentElement.style.setProperty('--gp-blur', `${b}px`);
+                        if (b > 0) {
+                            doc.body.classList.add('has-blur');
+                            doc.body.classList.remove('no-blur');
+                        } else {
+                            doc.body.classList.remove('has-blur');
+                            doc.body.classList.add('no-blur');
+                        }
+                    }
+                }
+            }
+        } catch {}
+
         updateMatchBadge();
         updatePreviewSize();
         saveWizardPrefs();
@@ -950,6 +1075,7 @@
                 document.getElementById('prev-w').value = data.width;
                 document.getElementById('prev-h').value = data.height;
             }
+            syncPickersFromInputs();
         } catch {}
     }
 
@@ -1010,6 +1136,7 @@
         if (p.has('coverFit') || p.has('coverfit')) {
             document.getElementById('cover-fit').value = p.get('coverFit') || p.get('coverfit');
         }
+        syncPickersFromInputs();
     }
 
     window.addEventListener('resize', updatePreviewSize);

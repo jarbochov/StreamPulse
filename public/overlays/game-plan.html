@@ -101,18 +101,33 @@
             --gp-bg: transparent;
             --gp-border: transparent;
         }
-        body.theme-glass .card, body.theme-glass .ticker-bar, body.theme-glass .schedule-card, body.theme-glass .checklist-item,
+        body.theme-custom {
+            /* Inherits custom background, border, text and accent variables from inline styles */
+        }
+        body.theme-glass:not(.no-blur) .card, body.theme-glass:not(.no-blur) .ticker-bar, body.theme-glass:not(.no-blur) .schedule-card, body.theme-glass:not(.no-blur) .checklist-item,
         body.has-blur .card, body.has-blur .ticker-bar, body.has-blur .schedule-card, body.has-blur .checklist-item {
             backdrop-filter: blur(var(--gp-blur, 12px));
             -webkit-backdrop-filter: blur(var(--gp-blur, 12px));
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
         }
-        body.theme-transparent .card, body.theme-transparent .ticker-bar, body.theme-transparent .schedule-card, body.theme-transparent .checklist-item {
+        body.no-blur .card, body.no-blur .ticker-bar, body.no-blur .schedule-card, body.no-blur .checklist-item {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        body.theme-transparent:not(.has-custom-bg) .card, 
+        body.theme-transparent:not(.has-custom-bg) .ticker-bar, 
+        body.theme-transparent:not(.has-custom-bg) .schedule-card, 
+        body.theme-transparent:not(.has-custom-bg) .checklist-item {
             background: transparent !important;
-            border-color: transparent !important;
             box-shadow: none !important;
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
+        }
+        body.theme-transparent:not(.has-custom-border) .card, 
+        body.theme-transparent:not(.has-custom-border) .ticker-bar, 
+        body.theme-transparent:not(.has-custom-border) .schedule-card, 
+        body.theme-transparent:not(.has-custom-border) .checklist-item {
+            border-color: transparent !important;
         }
 
         /* Common Elements */
@@ -383,33 +398,51 @@
 
         if (!isNaN(coverScaleParam) && coverScaleParam > 0) {
             document.documentElement.style.setProperty('--gp-cover-scale', coverScaleParam);
+            document.body.style.setProperty('--gp-cover-scale', coverScaleParam);
         }
         if (['cover', 'contain', 'fill'].includes(coverFitParam)) {
             document.documentElement.style.setProperty('--gp-cover-fit', coverFitParam);
+            document.body.style.setProperty('--gp-cover-fit', coverFitParam);
         }
 
-        if (['glass', 'dark', 'light', 'transparent', 'purple', 'emerald', 'sunset', 'cyberpunk'].includes(theme)) {
+        if (['glass', 'dark', 'light', 'transparent', 'purple', 'emerald', 'sunset', 'cyberpunk', 'custom'].includes(theme)) {
             document.body.className = `theme-${theme}`;
         }
 
         const bgParam = params.get('bg');
         if (bgParam) {
-            document.documentElement.style.setProperty('--gp-bg', decodeURIComponent(bgParam));
+            const val = decodeURIComponent(bgParam);
+            document.documentElement.style.setProperty('--gp-bg', val);
+            document.body.style.setProperty('--gp-bg', val);
+            document.body.classList.add('has-custom-bg');
         }
         const borderParam = params.get('border');
         if (borderParam) {
-            document.documentElement.style.setProperty('--gp-border', decodeURIComponent(borderParam));
+            const val = decodeURIComponent(borderParam);
+            document.documentElement.style.setProperty('--gp-border', val);
+            document.body.style.setProperty('--gp-border', val);
+            document.body.classList.add('has-custom-border');
         }
         const textParam = params.get('text');
         if (textParam) {
-            document.documentElement.style.setProperty('--gp-text', decodeURIComponent(textParam));
+            const val = decodeURIComponent(textParam);
+            document.documentElement.style.setProperty('--gp-text', val);
+            document.body.style.setProperty('--gp-text', val);
+            document.body.classList.add('has-custom-text');
         }
         const blurParam = params.get('blur');
         if (blurParam !== null && blurParam !== '') {
             const b = parseFloat(blurParam);
             if (!isNaN(b)) {
                 document.documentElement.style.setProperty('--gp-blur', `${b}px`);
-                if (b > 0) document.body.classList.add('has-blur');
+                document.body.style.setProperty('--gp-blur', `${b}px`);
+                if (b > 0) {
+                    document.body.classList.add('has-blur');
+                    document.body.classList.remove('no-blur');
+                } else {
+                    document.body.classList.remove('has-blur');
+                    document.body.classList.add('no-blur');
+                }
             }
         }
 
@@ -419,10 +452,13 @@
             container.style.justifyContent = 'flex-end';
         }
         if (accent) {
-            document.documentElement.style.setProperty('--gp-accent', accent.startsWith('#') ? accent : `#${accent}`);
+            const val = accent.startsWith('#') ? accent : `#${accent}`;
+            document.documentElement.style.setProperty('--gp-accent', val);
+            document.body.style.setProperty('--gp-accent', val);
         }
         if (!isNaN(fontScaleParam) && fontScaleParam > 0) {
             document.documentElement.style.setProperty('--gp-font-scale', fontScaleParam);
+            document.body.style.setProperty('--gp-font-scale', fontScaleParam);
         }
 
         const fontParam = params.get('font');
@@ -450,7 +486,24 @@
                     scale: '--gp-font-scale'
                 }, { defaultFont: 'Segoe UI', fontFallback: 'system-ui, sans-serif' });
                 if (accent) {
-                    document.documentElement.style.setProperty('--gp-accent', accent.startsWith('#') ? accent : `#${accent}`);
+                    const val = accent.startsWith('#') ? accent : `#${accent}`;
+                    document.documentElement.style.setProperty('--gp-accent', val);
+                    document.body.style.setProperty('--gp-accent', val);
+                }
+                if (bgParam) {
+                    const val = decodeURIComponent(bgParam);
+                    document.documentElement.style.setProperty('--gp-bg', val);
+                    document.body.style.setProperty('--gp-bg', val);
+                }
+                if (borderParam) {
+                    const val = decodeURIComponent(borderParam);
+                    document.documentElement.style.setProperty('--gp-border', val);
+                    document.body.style.setProperty('--gp-border', val);
+                }
+                if (textParam) {
+                    const val = decodeURIComponent(textParam);
+                    document.documentElement.style.setProperty('--gp-text', val);
+                    document.body.style.setProperty('--gp-text', val);
                 }
             }
         }).catch(() => {});
