@@ -185,6 +185,64 @@
     // Embedded widgets (music, goals, timers) keep their iframe across re-renders so they do not reload and flash.
     const embeds = new Map();
     let embedsKept = new Set();
+
+    function playVideoElement(video) {
+        if (!video || video.tagName !== 'VIDEO') return;
+        const hasSound = video.dataset.hasSound === 'true';
+        const targetVol = Number(video.dataset.targetVolume);
+        const volume = Number.isFinite(targetVol) ? targetVol : 1;
+        if (hasSound) {
+            video.muted = false;
+            video.volume = volume;
+            const promise = video.play();
+            if (promise && promise.catch) {
+                promise.catch(() => {
+                    video.dataset.audioPending = 'true';
+                    video.muted = true;
+                    video.play().catch(() => {});
+                    showAudioUnlockNotice();
+                });
+            }
+        } else {
+            video.muted = true;
+            video.play().catch(() => {});
+        }
+    }
+
+    let audioNoticeEl = null;
+    function showAudioUnlockNotice() {
+        if (audioNoticeEl || window.obsstudio || navigator.userAgent.includes('OBS/')) return;
+        audioNoticeEl = document.createElement('div');
+        audioNoticeEl.id = 'audio-unlock-notice';
+        audioNoticeEl.setAttribute('role', 'button');
+        audioNoticeEl.setAttribute('aria-label', 'Click anywhere to enable audio');
+        audioNoticeEl.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;background:rgba(18,20,32,0.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:24px;padding:8px 14px;font:600 12px/1 sans-serif;display:flex;align-items:center;gap:8px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.45);transition:opacity 0.2s;pointer-events:auto;user-select:none;';
+        audioNoticeEl.innerHTML = '<svg style="width:14px;height:14px;flex:none;fill:currentColor" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg><span>Click to enable audio</span>';
+        document.body.appendChild(audioNoticeEl);
+    }
+
+    function removeAudioUnlockNotice() {
+        if (audioNoticeEl) {
+            audioNoticeEl.remove();
+            audioNoticeEl = null;
+        }
+    }
+
+    function unlockMediaAudio() {
+        removeAudioUnlockNotice();
+        document.querySelectorAll('video[data-has-sound="true"]').forEach(video => {
+            const targetVol = Number(video.dataset.targetVolume);
+            const volume = Number.isFinite(targetVol) ? targetVol : 1;
+            video.muted = false;
+            video.volume = volume;
+            delete video.dataset.audioPending;
+            if (video.paused) video.play().catch(() => {});
+        });
+    }
+    ['click', 'touchstart', 'keydown'].forEach(evt => {
+        window.addEventListener(evt, unlockMediaAudio, { passive: true, capture: true });
+    });
+
     function render(overlay) {
         if (transitioning) { pendingRender = overlay; return; }
         fitNodes.length = 0;
@@ -214,6 +272,10 @@
         // Moving or detaching an iframe reloads it, so kept embeds stay where they are and everything else is swapped around them.
         [...root.children].forEach(child => { if (!built.includes(child)) child.remove(); });
         built.forEach(node => { if (node.parentNode !== root) root.appendChild(node); });
+        built.forEach(node => {
+            const v = node.querySelector(':scope > video');
+            if (v) playVideoElement(v);
+        });
         stopSlideshows(new Set([...slideshows.keys()].filter(id => !slideshowsKept.has(id))));
         for (const id of [...embeds.keys()]) if (!embedsKept.has(id)) embeds.delete(id);
         refit();
@@ -228,7 +290,22 @@
         const embedSig = element.type === 'embed' || element.type === 'video' ? `${JSON.stringify(element)}|${expandVariables(element.src || '')}` : '';
         if (embedSig) {
             const existing = embeds.get(element.id);
-            if (existing && existing.sig === embedSig) { embedsKept.add(element.id); const v = existing.node.querySelector(':scope > video'); if (v && v.paused) v.play().catch(() => {}); return existing.node; }
+            if (existing && existing.sig === embedSig) {
+                embedsKept.add(element.id);
+                const v = existing.node.querySelector(':scope > video');
+                if (v) {
+                    const hasSound = Boolean(element.video?.sound === true || (element.video?.sound !== false && element.video?.muted === false));
+                    const volume = Math.max(0, Math.min(1, (Number.isFinite(Number(element.video?.volume)) ? Number(element.video?.volume) : 100) / 100));
+                    v.dataset.hasSound = hasSound ? 'true' : 'false';
+                    v.dataset.targetVolume = String(volume);
+                    if (hasSound && !v.dataset.audioPending) {
+                        v.muted = false;
+                        v.volume = volume;
+                    }
+                    if (v.paused) v.play().catch(() => {});
+                }
+                return existing.node;
+            }
         }
         {
             const node = document.createElement('div');
@@ -240,21 +317,15 @@
                 media.src = expandVariables(element.src || '');
                 if (element.type === 'video') {
                     const v = element.video || {};
-                    const hasSound = v.sound === true || v.muted === false;
+                    const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
+                    const volume = Math.max(0, Math.min(1, (Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100) / 100));
                     media.autoplay = true;
                     media.loop = v.loop !== false;
-                    media.muted = !hasSound;
-                    if (hasSound) {
-                        media.volume = Math.max(0, Math.min(1, (Number(v.volume) || 100) / 100));
-                        const playPromise = media.play();
-                        if (playPromise && playPromise.catch) {
-                            playPromise.catch(() => {
-                                media.muted = true;
-                                media.play().catch(() => {});
-                            });
-                        }
-                    }
                     media.playsInline = true;
+                    media.dataset.hasSound = hasSound ? 'true' : 'false';
+                    media.dataset.targetVolume = String(volume);
+                    media.muted = !hasSound;
+                    if (hasSound) media.volume = volume;
                 }
                 media.draggable = false;
                 media.style.width = '100%';
@@ -358,6 +429,8 @@
         incoming.forEach(node => {
             if (ms) { node.style.visibility = 'hidden'; node.style.willChange = 'transform, opacity'; }
             if (node.parentNode !== root) root.appendChild(node);
+            const v = node.querySelector(':scope > video');
+            if (v) playVideoElement(v);
         });
         outgoing.forEach(node => { if (ms) node.style.willChange = 'transform, opacity'; });
         refit();

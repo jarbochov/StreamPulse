@@ -882,10 +882,25 @@
             media.src = url; media.draggable = false; media.style.objectFit = el.style.objectFit || 'cover'; media.style.objectPosition = `${el.style.focusX ?? 50}% ${el.style.focusY ?? 50}%`;
             if (el.type === 'video') {
                 const v = el.video || {};
-                media.muted = true;
+                const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
+                const volume = Math.max(0, Math.min(1, (Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100) / 100));
                 media.loop = v.loop !== false;
                 media.autoplay = true;
                 media.playsInline = true;
+                media.dataset.hasSound = hasSound ? 'true' : 'false';
+                media.dataset.targetVolume = String(volume);
+                media.muted = !hasSound;
+                if (hasSound) {
+                    media.volume = volume;
+                    const p = media.play();
+                    if (p && p.catch) {
+                        p.catch(() => {
+                            media.dataset.audioPending = 'true';
+                            media.muted = true;
+                            media.play().catch(() => {});
+                        });
+                    }
+                }
             }
             media.addEventListener('error', () => { node.replaceChildren(placeholder(`Couldn't load this ${el.type}. Check the URL or upload it again.`)); });
             node.appendChild(media);
@@ -972,7 +987,32 @@
             if (!node) { node = document.createElement('div'); node.dataset.id = el.id; nodes.set(el.id, node); canvasEl.appendChild(node); }
             if (!node._sig || !only) {
                 const signature = contentSignature(el, live);
-                if (node._sig !== signature) { node._sig = signature; buildContent(node, el); }
+                if (node._sig !== signature) {
+                    const existingVid = el.type === 'video' ? node.querySelector(':scope > video') : null;
+                    const canReuseVid = existingVid && node._src === el.src && node._fit === el.style?.objectFit && node._fx === el.style?.focusX && node._fy === el.style?.focusY;
+                    if (canReuseVid) {
+                        node._sig = signature;
+                        const v = el.video || {};
+                        const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
+                        const vol = Math.max(0, Math.min(1, (Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100) / 100));
+                        existingVid.loop = v.loop !== false;
+                        existingVid.dataset.hasSound = hasSound ? 'true' : 'false';
+                        existingVid.dataset.targetVolume = String(vol);
+                        existingVid.muted = !hasSound;
+                        if (hasSound) {
+                            existingVid.volume = vol;
+                            delete existingVid.dataset.audioPending;
+                            if (existingVid.paused) existingVid.play().catch(() => {});
+                        }
+                    } else {
+                        node._sig = signature;
+                        node._src = el.src;
+                        node._fit = el.style?.objectFit;
+                        node._fx = el.style?.focusX;
+                        node._fy = el.style?.focusY;
+                        buildContent(node, el);
+                    }
+                }
             }
             applyNodeStyle(node, el, index);
             if (!inView(el)) { node.style.display = 'none'; return; }
@@ -986,6 +1026,20 @@
         $('empty-hint').classList.toggle('on', !visibleElements().length);
         renderSelectionUI();
     }
+
+    function unlockMediaAudio() {
+        document.querySelectorAll('video[data-has-sound="true"]').forEach(video => {
+            const targetVol = Number(video.dataset.targetVolume);
+            const volume = Number.isFinite(targetVol) ? targetVol : 1;
+            video.muted = false;
+            video.volume = volume;
+            delete video.dataset.audioPending;
+            if (video.paused) video.play().catch(() => {});
+        });
+    }
+    ['click', 'touchstart', 'keydown'].forEach(evt => {
+        window.addEventListener(evt, unlockMediaAudio, { passive: true, capture: true });
+    });
 
     // ---- selection UI -----------------------------------------------------------------
     const HANDLE_POS = { nw: [0, 0], n: [50, 0], ne: [100, 0], e: [100, 50], se: [100, 100], s: [50, 100], sw: [0, 100], w: [0, 50] };
@@ -1319,6 +1373,9 @@
             if (!targets.length) return;
             targets.forEach(target => {
                 setPath(target, input.dataset.path, value);
+                if (input.dataset.path === 'video.sound' && target.video) {
+                    delete target.video.muted;
+                }
                 if (target.aspectLock && target.width > 0 && target.height > 0) {
                     const ratio = target.aspectRatio || (target.width / target.height);
                     if (input.dataset.path === 'width' && event.type === 'change') {
