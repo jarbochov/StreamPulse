@@ -104,9 +104,8 @@ export function updateEditorCutoutMask() {
     const canW = Number(state.overlay.canvas?.width) || 1920;
     const canH = Number(state.overlay.canvas?.height) || 1080;
     const cutouts = state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e));
-    const svg = $('editor-cutout-svg');
-    if (svg) svg.remove();
     if (!cutouts.length) {
+        under._lastMaskUrl = '';
         under.style.removeProperty('-webkit-mask-image');
         under.style.removeProperty('-webkit-mask-size');
         under.style.removeProperty('-webkit-mask-repeat');
@@ -153,8 +152,8 @@ export function updateEditorCutoutMask() {
     // (url(#id)) on HTML elements, but has full hardware-accelerated support for SVG image data URIs in CSS mask-image.
     const svgXml = `<svg xmlns="http://www.w3.org/2000/svg" width="${canW}" height="${canH}" viewBox="0 0 ${canW} ${canH}"><defs>${filters.join('')}<mask id="m"><rect width="100%" height="100%" fill="white"/>${shapes.join('')}</mask></defs><rect width="100%" height="100%" fill="white" mask="url(#m)"/></svg>`;
     const maskDataUrl = `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgXml)}")`;
-    under.style.removeProperty('-webkit-mask');
-    under.style.removeProperty('mask');
+    if (under._lastMaskUrl === maskDataUrl) return;
+    under._lastMaskUrl = maskDataUrl;
     under.style.setProperty('-webkit-mask-image', maskDataUrl);
     under.style.setProperty('-webkit-mask-size', '100% 100%');
     under.style.setProperty('-webkit-mask-repeat', 'no-repeat');
@@ -294,7 +293,8 @@ export function buildContent(node, el) {
     } else if (el.type === 'embed') {
         const rawUrl = expand(el.src);
         const isYt = Boolean(shared.parseYouTubeUrl && shared.parseYouTubeUrl(rawUrl));
-        const url = shared.embedUrl ? shared.embedUrl(rawUrl, { sound: false }) : rawUrl;
+        const v = el.video || {};
+        const url = shared.embedUrl ? shared.embedUrl(rawUrl, isYt ? { autoplay: true, loop: v.loop !== false, sound: false } : { sound: false }) : rawUrl;
         if (!/^https?:\/\//i.test(url)) { node.appendChild(placeholder('Enter an http(s) webpage URL or YouTube link')); return; }
         const frame = document.createElement('iframe');
         frame.src = url;
@@ -460,7 +460,7 @@ export function renderCanvas(only) {
         }
     });
     if (only) {
-        if ([...only].some(id => byId(id)?.type === 'cutout')) updateEditorCutoutMask();
+        if ([...only].some(id => byId(id)?.type === 'cutout')) scheduleEditorCutoutMask();
         return;
     }
     for (const [id, node] of state.nodes) {
@@ -700,6 +700,7 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         if (done.type === 'move' && !done.moved && done.deferCollapse) setSelection([done.id]);
         if (done.type === 'marquee' && onRenderProperties) onRenderProperties();
         if ((done.type === 'move' || done.type === 'resize') && done.moved) {
+            if (state.overlay.elements.some(e => e.type === 'cutout')) updateEditorCutoutMask();
             renderSelectionUI();
             changed(true);
             if (onRenderProperties) onRenderProperties();

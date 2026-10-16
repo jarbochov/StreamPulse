@@ -44,7 +44,37 @@ This document provides project architecture context and mandatory UI/UX design r
 
 ---
 
-## 3. Git & Workflow Rules
+## 3. Custom Overlays, Media & Punchouts Architecture
+
+### Unified Video & YouTube Playback
+- YouTube embeds and standard HTML5 videos must share identical playback capabilities, controls, and schema:
+  - Looping: `video.loop` (passes `loop=1` and `playlist=<id>` for YouTube player repeat, with state-change replay fallback).
+  - Sound & Volume: `video.sound` toggle and `video.volume` percentage scaling (0–100), applied via YouTube player API (`setVolume`, `unMute`, `mute`).
+  - Unified Remote Control: All video commands (`play`, `pause`, `toggle`, `restart`, `stop`, `mute`, `unmute`, `toggle-mute`) must operate uniformly across both HTML5 `<video>` and YouTube `<iframe>` elements via postMessage.
+  - Both `video` and `embed` layer types with YouTube URLs must expose these controls in the inspector.
+
+### Embed Security & Referrer Specification
+- YouTube embeds must use `referrerPolicy = "strict-origin-when-cross-origin"` without iframe sandboxing (to prevent YouTube Error 153 domain authorization blocks and player SecurityErrors).
+- Untrusted third-party web pages must remain sandboxed with `referrerPolicy = "no-referrer"`.
+
+### Cross-Browser Punchouts & Flicker-Free Masking
+- Punchouts (cutout layers) must work seamlessly across both Chromium and WebKit (Safari).
+- Use self-contained SVG image data URIs in CSS mask properties (`-webkit-mask-image`, `mask-image`) on underlayer containers.
+- Never call `removeProperty` on mask styles during active drags or transforms. Cache previous mask signatures to avoid redundant string allocations, and coalesce mask rendering to `requestAnimationFrame` (`scheduleEditorCutoutMask`) to eliminate visual flashes and stutter.
+- Media filters (blur, brightness, contrast, grayscale, duotone SVGs, tints) must apply uniformly across images, HTML5 videos, slideshows, and iframes/embeds.
+
+### Editor Modularization Standards
+- Large editors must maintain strict separation of concerns:
+  - Stylesheets extracted to `public/css/custom-overlay-editor.css`.
+  - JavaScript decomposed into focused ES modules under `public/js/editor/`:
+    - `editor-state.js`: Core overlay model, selection tracking, preferences, undo history.
+    - `editor-canvas.js`: Stage viewport (zoom, pan, fit), grid, safe zones, transform handles, box marquee, cutout masking.
+    - `editor-inspector.js`: Form generators, section builders, layer properties.
+    - `editor-layers.js`: Layer hierarchy tree, reordering, page management.
+
+---
+
+## 4. Git & Workflow Rules
 
 - **Never create git tags** during commits or pushes.
 - Keep commits focused, descriptive, and atomic.

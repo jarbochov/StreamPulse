@@ -278,6 +278,7 @@
         const svg = document.getElementById('overlay-cutout-svg');
         if (svg) svg.remove();
         if (!cutouts.length) {
+            masked._lastMaskUrl = '';
             masked.style.removeProperty('-webkit-mask-image');
             masked.style.removeProperty('-webkit-mask-size');
             masked.style.removeProperty('-webkit-mask-repeat');
@@ -323,8 +324,8 @@
         // (url(#id)) on HTML elements, but has full hardware-accelerated support for SVG image data URIs in CSS mask-image.
         const svgXml = `<svg xmlns="http://www.w3.org/2000/svg" width="${canW}" height="${canH}" viewBox="0 0 ${canW} ${canH}"><defs>${filters.join('')}<mask id="m"><rect width="100%" height="100%" fill="white"/>${shapes.join('')}</mask></defs><rect width="100%" height="100%" fill="white" mask="url(#m)"/></svg>`;
         const maskDataUrl = `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgXml)}")`;
-        masked.style.removeProperty('-webkit-mask');
-        masked.style.removeProperty('mask');
+        if (masked._lastMaskUrl === maskDataUrl) return;
+        masked._lastMaskUrl = maskDataUrl;
         masked.style.setProperty('-webkit-mask-image', maskDataUrl);
         masked.style.setProperty('-webkit-mask-size', '100% 100%');
         masked.style.setProperty('-webkit-mask-repeat', 'no-repeat');
@@ -430,6 +431,19 @@
                     frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
                     frame.referrerPolicy = 'strict-origin-when-cross-origin';
                     frame.style.cssText = 'width:100%;height:100%;border:0;';
+                    frame._ytPlaying = true;
+                    frame._ytMuted = !hasSound;
+                    const volume = Math.max(0, Math.min(100, Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100));
+                    frame.addEventListener('load', () => {
+                        try {
+                            if (hasSound) {
+                                frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
+                                frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [volume] }), '*');
+                            } else {
+                                frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'mute', args: [] }), '*');
+                            }
+                        } catch {}
+                    });
                     node.appendChild(frame);
                 } else {
                     const media = document.createElement('video');
@@ -472,13 +486,28 @@
                 const frame = document.createElement('iframe');
                 const rawUrl = expandVariables(element.src || '');
                 const isYt = Boolean(shared.parseYouTubeUrl && shared.parseYouTubeUrl(rawUrl));
-                frame.src = shared.embedUrl(rawUrl) || 'about:blank';
+                const v = element.video || {};
+                const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
+                frame.src = shared.embedUrl(rawUrl, isYt ? { autoplay: true, loop: v.loop !== false, sound: hasSound } : {}) || 'about:blank';
                 // Own widgets (timers, goals, music) need their origin to call the local API; external pages stay sandboxed.
                 let sameOrigin = false;
                 try { sameOrigin = new URL(frame.src, location.href).origin === location.origin; } catch { /* invalid URL stays sandboxed */ }
                 frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
                 if (isYt) {
                     frame.referrerPolicy = 'strict-origin-when-cross-origin';
+                    frame._ytPlaying = true;
+                    frame._ytMuted = !hasSound;
+                    const volume = Math.max(0, Math.min(100, Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100));
+                    frame.addEventListener('load', () => {
+                        try {
+                            if (hasSound) {
+                                frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
+                                frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [volume] }), '*');
+                            } else {
+                                frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'mute', args: [] }), '*');
+                            }
+                        } catch {}
+                    });
                 } else {
                     frame.sandbox = 'allow-forms allow-popups allow-scripts allow-presentation' + (sameOrigin ? ' allow-same-origin' : '');
                     frame.referrerPolicy = 'no-referrer';
@@ -684,17 +713,64 @@
             const iframe = node.querySelector('iframe');
             if (iframe && iframe.contentWindow) {
                 try {
-                    if (act === 'play') iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
-                    else if (act === 'pause') iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
-                    else if (act === 'stop' || act === 'restart') {
+                    if (act === 'play') {
+                        iframe._ytPlaying = true;
+                        iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                    } else if (act === 'pause') {
+                        iframe._ytPlaying = false;
+                        iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+                    } else if (act === 'toggle') {
+                        const playing = iframe._ytPlaying !== false;
+                        iframe._ytPlaying = !playing;
+                        const cmd = playing ? 'pauseVideo' : 'playVideo';
+                        iframe.contentWindow.postMessage(`{"event":"command","func":"${cmd}","args":""}`, '*');
+                    } else if (act === 'stop' || act === 'restart') {
+                        iframe._ytPlaying = act === 'restart';
                         iframe.contentWindow.postMessage('{"event":"command","func":"seekTo","args":[0, true]}', '*');
                         if (act === 'stop') iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
-                    } else if (act === 'mute') iframe.contentWindow.postMessage('{"event":"command","func":"mute","args":""}', '*');
-                    else if (act === 'unmute') iframe.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', '*');
+                        else iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                    } else if (act === 'mute') {
+                        iframe._ytMuted = true;
+                        iframe.contentWindow.postMessage('{"event":"command","func":"mute","args":""}', '*');
+                    } else if (act === 'unmute') {
+                        iframe._ytMuted = false;
+                        iframe.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', '*');
+                    } else if (act === 'toggle-mute') {
+                        const muted = iframe._ytMuted !== false;
+                        iframe._ytMuted = !muted;
+                        const cmd = muted ? 'unMute' : 'mute';
+                        iframe.contentWindow.postMessage(`{"event":"command","func":"${cmd}","args":""}`, '*');
+                    }
                 } catch {}
             }
         });
     }
+
+    window.addEventListener('message', event => {
+        try {
+            const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+            if (data?.event === 'onStateChange' || data?.info?.playerState !== undefined) {
+                const state = data?.info?.playerState !== undefined ? data.info.playerState : data.info;
+                const iframes = root.querySelectorAll('.overlay-video iframe, .overlay-embed iframe');
+                for (const iframe of iframes) {
+                    if (iframe.contentWindow === event.source) {
+                        if (state === 1) iframe._ytPlaying = true;
+                        else if (state === 2) iframe._ytPlaying = false;
+                        else if (state === 0) {
+                            iframe._ytPlaying = false;
+                            const elId = iframe.closest('.overlay-element')?.dataset.elementId;
+                            const el = (currentOverlay?.elements || []).find(e => e.id === elId);
+                            if (el?.video?.loop !== false) {
+                                iframe.contentWindow?.postMessage('{"event":"command","func":"seekTo","args":[0, true]}', '*');
+                                iframe.contentWindow?.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                                iframe._ytPlaying = true;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch {}
+    });
 
     function handleCutoutControl(act, targetId) {
         for (const element of currentOverlay?.elements || []) {
