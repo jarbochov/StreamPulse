@@ -139,11 +139,20 @@
         /* Full & Weekly Calendar View */
         .cal-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
         .cal-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); gap: 0.75rem; flex-wrap: wrap; }
+        .cal-bar-left { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
         .cal-title { font-size: 0.96rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.45rem; }
         .cal-title .ico { width: 16px; height: 16px; color: var(--accent); }
         .cal-legend { display: flex; align-items: center; gap: 0.85rem; font-size: 0.72rem; color: var(--text-muted); flex-wrap: wrap; }
         .cal-legend span { display: inline-flex; align-items: center; gap: 0.32rem; }
         .cal-dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+        .cal-nav-wrap { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+        .cal-jump-group { display: inline-flex; align-items: center; gap: 0.32rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 7px; padding: 0.16rem 0.4rem; }
+        .cal-jump-label { font-size: 0.69rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+        .cal-jump-select { padding: 0.22rem 0.42rem; font-size: 0.75rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 5px; color: var(--text); cursor: pointer; }
+        .cal-jump-select:focus { border-color: var(--accent); outline: none; }
+        .cal-jump-date { padding: 0.18rem 0.38rem; font-size: 0.75rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 5px; color: var(--text); cursor: pointer; font-family: inherit; }
+        .cal-jump-date:focus { border-color: var(--accent); outline: none; }
+        .cal-nav-btns { display: inline-flex; gap: 0.25rem; }
         .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(130px, 1fr)); min-width: 910px; }
         .cal-dow { padding: 0.42rem 0.5rem; font-size: 0.69rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); text-align: center; background: var(--bg-inset); border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
         .cal-dow:nth-child(7n) { border-right: 0; }
@@ -905,6 +914,9 @@
             }
 
             let titleLabel = '';
+            let activeYear = now.getFullYear();
+            let activeMonth = now.getMonth(); // 0-11
+            let activeIso = todayIso;
             const cells = [];
 
             if (calMode === 'week') {
@@ -912,6 +924,10 @@
                 const endOfThisWeek = new Date(startOfThisWeek.getFullYear(), startOfThisWeek.getMonth(), startOfThisWeek.getDate() + 6);
                 const fmtShort = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                 titleLabel = `${fmtShort(startOfThisWeek)} – ${fmtShort(endOfThisWeek)}, ${endOfThisWeek.getFullYear()}`;
+                activeYear = startOfThisWeek.getFullYear();
+                activeMonth = startOfThisWeek.getMonth();
+                const nowInRange = now >= startOfThisWeek && now <= endOfThisWeek;
+                activeIso = nowInRange ? todayIso : localDay(startOfThisWeek);
                 const dowNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                 for (let i = 0; i < 7; i++) {
                     const d = new Date(startOfThisWeek.getFullYear(), startOfThisWeek.getMonth(), startOfThisWeek.getDate() + i);
@@ -949,6 +965,10 @@
                 const year = firstOfMonth.getFullYear();
                 const month = firstOfMonth.getMonth();
                 titleLabel = firstOfMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+                activeYear = year;
+                activeMonth = month;
+                const nowInMonth = now.getFullYear() === year && now.getMonth() === month;
+                activeIso = nowInMonth ? todayIso : `${year}-${String(month + 1).padStart(2, '0')}-01`;
                 const startDow = firstOfMonth.getDay();
                 const startCell = new Date(year, month, 1 - startDow);
                 for (let i = 0; i < 42; i++) {
@@ -977,9 +997,29 @@
                 }
             }
 
+            const currentYear = now.getFullYear();
+            const allStreamYears = items.flatMap(item => [
+                item.streamDate,
+                ...(item.streamDates || []).map(d => d && d.date),
+                ...(item.played || [])
+            ]).filter(Boolean).map(d => Number(String(d).slice(0, 4))).filter(n => Number.isFinite(n) && n > 2000 && n < 2100);
+            const minYear = Math.min(currentYear - 3, ...allStreamYears, activeYear);
+            const maxYear = Math.max(currentYear + 5, ...allStreamYears, activeYear);
+            const yearsList = [];
+            for (let y = minYear; y <= maxYear; y++) yearsList.push(y);
+
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+            if (viewState.search) {
+                const matchCount = filteredItems.length;
+                $('v-count').textContent = `${matchCount} game${matchCount === 1 ? '' : 's'} found`;
+            } else {
+                $('v-count').textContent = '';
+            }
+
             cal.innerHTML = `
                 <div class="cal-bar">
-                    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                    <div class="cal-bar-left">
                         <div class="cal-title">
                             ${ICONS.calendar}
                             <span>${esc(titleLabel)}</span>
@@ -996,10 +1036,22 @@
                         <span><i class="cal-dot" style="background:var(--text-muted)"></i>Streamed</span>
                         <span style="opacity:0.8;">· Right-click event for options</span>
                     </div>
-                    <div style="display:flex;gap:0.35rem;">
-                        <button type="button" class="btn" id="cal-prev">‹ Prev</button>
-                        <button type="button" class="btn" id="cal-today">Today</button>
-                        <button type="button" class="btn" id="cal-next">Next ›</button>
+                    <div class="cal-nav-wrap">
+                        <div class="cal-jump-group" title="Go to a specific month, year, or date">
+                            <span class="cal-jump-label">Go to</span>
+                            <select id="cal-jump-month" class="cal-jump-select" title="Go to month" aria-label="Go to month">
+                                ${monthNames.map((name, idx) => `<option value="${idx}"${idx === activeMonth ? ' selected' : ''}>${name}</option>`).join('')}
+                            </select>
+                            <select id="cal-jump-year" class="cal-jump-select" title="Go to year" aria-label="Go to year">
+                                ${yearsList.map(y => `<option value="${y}"${y === activeYear ? ' selected' : ''}>${y}</option>`).join('')}
+                            </select>
+                            <input type="date" id="cal-jump-date" class="cal-jump-date" value="${esc(activeIso)}" title="Go to specific date or week" aria-label="Go to specific date or week">
+                        </div>
+                        <div class="cal-nav-btns">
+                            <button type="button" class="btn" id="cal-prev" title="Previous ${calMode === 'week' ? 'week' : 'month'}">‹ Prev</button>
+                            <button type="button" class="btn" id="cal-today" title="Go to current ${calMode === 'week' ? 'week' : 'month'}">Today</button>
+                            <button type="button" class="btn" id="cal-next" title="Next ${calMode === 'week' ? 'week' : 'month'}">Next ›</button>
+                        </div>
                     </div>
                 </div>
                 <div class="cal-grid">
@@ -1133,6 +1185,7 @@
             $('cal-view').hidden = view !== 'calendar';
             $('items').hidden = view !== 'list';
             $('tabs').hidden = view === 'calendar';
+            if ($('toggle-filters')) $('toggle-filters').hidden = view !== 'list';
             if (view === 'tiers') { buildTabs(); $('period-bar').hidden = true; $('view-bar').hidden = true; renderBoard(); return; }
             if (view === 'calendar') { $('period-bar').hidden = true; $('view-bar').hidden = true; renderCalendar(); return; }
             buildTabs();
@@ -1818,9 +1871,27 @@
         $('cal-view').addEventListener('click', event => {
             const modeBtn = event.target.closest('[data-cal-mode]');
             if (modeBtn) {
-                calMode = modeBtn.dataset.calMode;
-                saveUiState();
-                renderCalendar();
+                const nextMode = modeBtn.dataset.calMode;
+                if (nextMode !== calMode) {
+                    const now = new Date();
+                    if (nextMode === 'week') {
+                        const targetMonth = new Date(now.getFullYear(), now.getMonth() + calMonthOffset, 1);
+                        const isThisMonth = targetMonth.getFullYear() === now.getFullYear() && targetMonth.getMonth() === now.getMonth();
+                        if (isThisMonth) {
+                            calWeekOffset = 0;
+                        } else {
+                            const nowSun = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+                            const targetSun = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), targetMonth.getDate() - targetMonth.getDay());
+                            calWeekOffset = Math.round((targetSun - nowSun) / (7 * 86400000));
+                        }
+                    } else if (nextMode === 'month') {
+                        const currentWeekSun = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + (calWeekOffset * 7));
+                        calMonthOffset = (currentWeekSun.getFullYear() - now.getFullYear()) * 12 + (currentWeekSun.getMonth() - now.getMonth());
+                    }
+                    calMode = nextMode;
+                    saveUiState();
+                    renderCalendar();
+                }
                 return;
             }
             if (event.target.closest('#cal-prev')) {
@@ -1830,8 +1901,8 @@
                 return;
             }
             if (event.target.closest('#cal-today')) {
-                if (calMode === 'week') calWeekOffset = 0;
-                else calMonthOffset = 0;
+                calWeekOffset = 0;
+                calMonthOffset = 0;
                 renderCalendar();
                 return;
             }
@@ -1871,6 +1942,42 @@
             const item = items.find(entry => entry.id === evEl.dataset.calItem);
             if (item) {
                 openCalCtxMenu(item, evEl.dataset.calEvDate, evEl.dataset.calEvKind, event.clientX, event.clientY);
+            }
+        });
+        $('cal-view').addEventListener('change', event => {
+            const now = new Date();
+            if (event.target.id === 'cal-jump-month' || event.target.id === 'cal-jump-year') {
+                const monthSel = document.getElementById('cal-jump-month');
+                const yearSel = document.getElementById('cal-jump-year');
+                if (!monthSel || !yearSel) return;
+                const newMonth = parseInt(monthSel.value, 10);
+                const newYear = parseInt(yearSel.value, 10);
+                if (calMode === 'month') {
+                    calMonthOffset = (newYear - now.getFullYear()) * 12 + (newMonth - now.getMonth());
+                } else {
+                    const targetDate = new Date(newYear, newMonth, 1);
+                    const nowSun = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+                    const targetSun = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate() - targetDate.getDay());
+                    calWeekOffset = Math.round((targetSun - nowSun) / (7 * 86400000));
+                }
+                renderCalendar();
+                return;
+            }
+            if (event.target.id === 'cal-jump-date') {
+                const val = event.target.value;
+                if (!val) return;
+                const [y, m, d] = val.split('-').map(Number);
+                const targetDate = new Date(y, m - 1, d);
+                if (isNaN(targetDate.getTime())) return;
+                if (calMode === 'week') {
+                    const nowSun = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+                    const targetSun = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate() - targetDate.getDay());
+                    calWeekOffset = Math.round((targetSun - nowSun) / (7 * 86400000));
+                } else {
+                    calMonthOffset = (y - now.getFullYear()) * 12 + ((m - 1) - now.getMonth());
+                }
+                renderCalendar();
+                return;
             }
         });
         $('cal-pick-search').addEventListener('input', renderCalPickList);
