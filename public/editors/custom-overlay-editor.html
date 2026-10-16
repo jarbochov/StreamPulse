@@ -1545,7 +1545,7 @@
         const single = items.length === 1 ? items[0] : null;
         const grouped = items.some(el => el.group);
         const label = single ? `<span class="badge">${esc(TYPE_META[single.type].label)}</span><span class="nm">${esc(displayName(single))}</span>` : `<span class="badge">${items.length} selected</span>`;
-        const link = (items.length > 1 ? `<button type="button" class="link-btn" data-act="group" title="Group (Ctrl/⌘+G)">⛓ Group</button>` : '') + (grouped ? `<button type="button" class="link-btn" data-act="ungroup" title="Ungroup (Ctrl/⌘+Shift+G)">Ungroup</button>` : '');
+        const link = (items.length > 1 ? `<button type="button" class="link-btn" data-act="group" title="Group (Ctrl/⌘+G)">Group</button>` : '') + (grouped ? `<button type="button" class="link-btn" data-act="ungroup" title="Ungroup (Ctrl/⌘+Shift+G)">Ungroup</button>` : '');
         const allLocked = items.every(el => el.locked), allHidden = items.every(el => el.visible === false);
         const btn = (act, icon, text, cls = '') => `<button type="button" class="icon ${cls}" data-act="${act}" title="${text}" aria-label="${text}">${icon}</button>`;
         return `<div class="action-bar"><div class="title">${label}<span class="spacer"></span>${link}</div>
@@ -1763,16 +1763,16 @@
         return F.section('layout', 'Position & size', `
             <div class="grid2">${F.number('x', 'X', el.x, { min: -7680, max: 7680 })}${F.number('y', 'Y', el.y, { min: -4320, max: 4320 })}</div>
             <div class="grid2">${F.number('width', 'Width', el.width, { min: LIMITS.elementW[0], max: LIMITS.elementW[1] })}${line ? '<span></span>' : F.number('height', 'Height', el.height, { min: LIMITS.elementH[0], max: LIMITS.elementH[1] })}</div>
-            ${line ? '' : `<div style="display:flex;justify-content:flex-end;margin:-.2rem 0 .45rem"><button type="button" id="toggle-aspect-lock" class="link-btn" style="font-size:11px;color:${locked ? 'var(--accent)' : 'var(--muted)'};display:inline-flex;align-items:center;gap:4px" title="${locked ? 'Unlock aspect ratio' : 'Lock aspect ratio when editing width/height'}">${locked ? '🔗 Proportions locked' : '🔓 Proportions unlocked'}</button></div>`}
+            ${line ? '' : `<div style="display:flex;justify-content:flex-end;margin:-.2rem 0 .45rem"><button type="button" id="toggle-aspect-lock" class="link-btn" style="font-size:11px;color:${locked ? 'var(--accent)' : 'var(--muted)'};display:inline-flex;align-items:center;gap:4px" title="${locked ? 'Unlock aspect ratio' : 'Lock aspect ratio when editing width/height'}">${locked ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:middle"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Proportions locked' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:middle"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg> Proportions unlocked'}</button></div>`}
             ${F.range('style.rotate', 'Rotation (°)', el.style?.rotate || 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset rotation to 0°' })}
             ${alignBody([el])}`);
     }
     const SMART_PERIOD_PRESETS = [
-        ['@today', '🎮 Tonight / Today (status or date is today)'],
-        ['@tomorrow', '⏭ Next Stream / Tomorrow'],
-        ['@this-week', '📅 This Week (current week dates)'],
-        ['@upcoming', '🚀 Upcoming Dates (future scheduled)'],
-        ['@unscheduled', '📦 No Period Set (undated)']
+        ['@today', 'Tonight / Today (status or date is today)'],
+        ['@tomorrow', 'Next Stream / Tomorrow'],
+        ['@this-week', 'This Week (current week dates)'],
+        ['@upcoming', 'Upcoming Dates (future scheduled)'],
+        ['@unscheduled', 'No Period Set (undated)']
     ];
     function periodPicker(g) {
         const known = liveStatus.gamePlan?.periods || [];
@@ -1908,14 +1908,14 @@
         const covers = g.showCovers !== false;
         const titles = g.showTitles !== false;
         const what = F.section('gamelist', 'Game list: what to show', `
-            ${F.select('gameList.filter', 'Show', g.filter || 'scheduled', [['tonight', "Tonight's lineup"], ['scheduled', 'Scheduled games'], ['up-next', 'Up Next / Horizon'], ['backlog', 'Backlog'], ['played', 'Played'], ...(liveStatus.gamePlan?.lists || []).map(list => [list.id, `List: ${list.name}`]), ['all', 'Everything']])}
+            ${F.select('gameList.filter', 'Show', g.filter || 'scheduled', [['tonight', "Tonight's lineup"], ['scheduled', 'Scheduled games (including Tonight)'], ['scheduled-only', 'Scheduled only (excluding Tonight)'], ['up-next', 'Up Next / Horizon'], ['backlog', 'Backlog'], ['played', 'Played'], ...(liveStatus.gamePlan?.lists || []).map(list => [list.id, `List: ${list.name}`]), ['all', 'Everything']])}
             ${periodPicker(g)}
             ${F.text('gameList.when', 'Played in (blank = any time)', g.when || '', 'placeholder="thisYear, lastMonth, 2026, 2026-10" maxlength="9" list="game-when-list"')}
             <datalist id="game-when-list"><option value="thisYear"><option value="lastYear"><option value="thisMonth"><option value="lastMonth"><option value="${new Date().getFullYear()}"><option value="${new Date().toISOString().slice(0, 7)}"></datalist>
-            ${F.select('gameList.groupBy', 'Group by', g.groupBy || 'period', [['period', 'Period (manual labels)'], ['month', 'Month played'], ['year', 'Year played']])}
+            ${F.select('gameList.groupBy', 'Group by', g.groupBy || 'period', [['period', 'Period (manual labels)'], ['collection', 'Collection / Custom group'], ['status', 'Status (Tonight / Scheduled / etc.)'], ['none', 'None (flat list)'], ['month', 'Month played'], ['year', 'Year played']])}
             <div class="grid2">${F.number('gameList.maxPeriods', 'Max periods (0 = all)', g.maxPeriods || 0, { min: 0, max: 20 })}${F.number('gameList.max', 'Max games (0 = all)', g.max || 0, { min: 0, max: 100 })}</div>
             ${F.select('gameList.sort', 'Order', g.sort || 'plan', [['plan', 'Plan order'], ['rating', 'Highest rating first'], ['name', 'Name A–Z']])}
-            ${['tiers', 'ticker'].includes(g.layout) ? '' : F.check('gameList.headings', 'Group by period with headings', g.headings !== false)}
+            ${['tiers', 'ticker'].includes(g.layout) ? '' : F.check('gameList.headings', 'Group with headings', g.headings !== false)}
             ${F.check('gameList.highlightCurrent', 'Highlight the game you are playing now', g.highlightCurrent !== false)}
             ${g.highlightCurrent === false ? '' : F.color('gameList.accent', 'Highlight color', g.accent || '#3fb950')}
             <p class="hint">Games come from the <a href="/game-plan-editor.html" target="_blank" style="color:var(--accent)">Game Plan</a>. “Playing now” follows your Twitch category.</p>`);
@@ -1942,13 +1942,15 @@
         const look = F.section('gamecovers', 'Game list: covers & titles', `
             ${F.check('gameList.showCovers', 'Show covers', covers)}
             ${F.check('gameList.showTitles', 'Show titles', titles)}
+            ${F.check('gameList.showStatusBadge', 'Show status badge (Tonight / Scheduled)', !!g.showStatusBadge)}
+            ${F.check('gameList.showGroupBadge', 'Show collection & group badge', !!g.showGroupBadge)}
             ${covers ? `${F.number('gameList.coverScale', 'Cover size (%)', g.coverScale || 100, { min: 25, max: 400 })}
             ${compact ? F.select('gameList.coverRatio', 'Cover shape', g.coverRatio || '3/4', [['3/4', 'Portrait (3:4)'], ['2/3', 'Tall portrait (2:3)'], ['1/1', 'Square'], ['4/3', 'Landscape (4:3)'], ['16/9', 'Wide (16:9)'], ['21/9', 'Banner (21:9)']]) : ''}
             ${F.select('gameList.coverFit', 'Cover fit', g.coverFit || 'cover', [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (whole cover, letterboxed)'], ['natural', 'Natural proportions (no crop)']])}
             <p class="hint">IGDB covers all share one shape, so Cover fit only shows on custom artwork. Grid and strip covers can only shrink below the cell width.</p>` : ''}
             ${titles && covers && compact ? F.select('gameList.titlePlacement', 'Title position', g.titlePlacement || 'below', [['below', 'Below the cover'], ['overlay', 'On the cover (bottom)']]) : ''}
             ${titles ? F.select('gameList.titleWrap', 'Long titles', g.titleWrap || 'ellipsis', [['ellipsis', 'Cut off with …'], ['wrap', 'Wrap onto more lines']]) : ''}
-            ${F.select('gameList.meta', 'Extra line', g.meta || 'none', [['none', 'None'], ['year', 'Release year'], ['genres', 'Genres'], ['note', 'Your note'], ['rating', 'Star rating'], ['tags', 'Tags']])}`);
+            ${F.select('gameList.meta', 'Extra line', g.meta || 'none', [['none', 'None'], ['group', 'Collection / Group'], ['status', 'Status pill'], ['date', 'Scheduled date'], ['period', 'Period name'], ['year', 'Release year'], ['genres', 'Genres'], ['note', 'Your note'], ['rating', 'Star rating'], ['tags', 'Tags']])}`);
         const text = F.section('gametext', 'Game list: text sizes', `
             <p class="hint">Percentages of this element's font size (Typography). Change that one to scale all the text; use these to tune the parts.</p>
             ${(g.headings === false && !tiers) || ticker ? '' : F.number('gameList.headingScale', tiers ? 'Tier label (%)' : 'Group heading (%)', g.headingScale || 100, { min: 10, max: 400 })}
@@ -1964,26 +1966,24 @@
             <div class="field">
                 <span>Simulate live event</span>
                 <div class="seg" style="display:flex;flex-wrap:wrap;gap:4px">
-                    <button type="button" data-sim-alert="follow">👤 Follow</button>
-                    <button type="button" data-sim-alert="sub">⭐ Sub</button>
-                    <button type="button" data-sim-alert="bits">💎 Bits</button>
-                    <button type="button" data-sim-alert="raid">🚀 Raid</button>
+                    <button type="button" data-sim-alert="follow">Follow</button>
+                    <button type="button" data-sim-alert="sub">Sub</button>
+                    <button type="button" data-sim-alert="bits">Bits</button>
+                    <button type="button" data-sim-alert="raid">Raid</button>
                 </div>
                 <span class="hint">Fires the full animation and layout directly on the canvas right now.</span>
             </div>
             <details class="sub-details"${a.sampleImage || a.sampleEmoji ? ' open' : ''}><summary>Preview media (editor only)</summary>
             <span class="hint">Only for this editor preview. Real alerts use the media set per alert.</span>
             <div class="field">
-                <span>Sample emoji or icon</span>
+                <span>Sample icon</span>
                 <span class="upload-row">
-                    <input data-path="alert.sampleEmoji" data-kind="text" value="${esc(a.sampleEmoji || '')}" placeholder="e.g. 🎉 or fa-solid fa-heart" maxlength="60">
+                    <input data-path="alert.sampleEmoji" data-kind="text" value="${esc(a.sampleEmoji || '')}" placeholder="e.g. fa-solid fa-bell or fa-solid fa-heart" maxlength="60">
                     <button type="button" id="pick-alert-icon">Icon…</button>
                 </span>
                 <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
-                    ${['🎉', '⭐', '💎', '🚀', '🔥', '💖', '👑', '🔔', 'fa-solid fa-heart', 'fa-solid fa-star', 'fa-brands fa-twitch'].map(item => {
-                        const isFa = item.startsWith('fa-');
-                        const display = isFa ? `<i class="${item}" style="font-size:12px;pointer-events:none"></i>` : item;
-                        return `<button type="button" class="btn sm" data-set-alert-emoji="${esc(item)}" style="padding:2px 6px;font-size:12px;min-width:28px" title="${esc(item)}">${display}</button>`;
+                    ${['fa-solid fa-heart', 'fa-solid fa-star', 'fa-solid fa-gem', 'fa-solid fa-bolt', 'fa-solid fa-fire', 'fa-solid fa-crown', 'fa-solid fa-bell', 'fa-brands fa-twitch'].map(item => {
+                        return `<button type="button" class="btn sm" data-set-alert-emoji="${esc(item)}" style="padding:4px 8px;font-size:12px;min-width:32px" title="${esc(item)}"><i class="${item}" style="font-size:12px;pointer-events:none"></i></button>`;
                     }).join('')}
                 </div>
             </div>
@@ -2060,7 +2060,7 @@
         }
     }
     // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
-    const RERENDER_PATHS = new Set(['style.objectFit', 'mediaFilter.duotone.enabled', 'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled', 'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'slideshow.source', 'slideshow.advance', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
+    const RERENDER_PATHS = new Set(['style.objectFit', 'mediaFilter.duotone.enabled', 'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled', 'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'slideshow.source', 'slideshow.advance', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge', 'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
     $('properties').addEventListener('change', event => {
         if (!event.target.matches('[data-period-pick]')) return;
         const field = event.target.closest('.field');
@@ -2114,10 +2114,10 @@
             const kind = simBtn?.dataset?.simAlert || 'follow';
             const sample = alertSample(el);
             const events = {
-                follow: { title: 'TwitchFan42 followed!', message: 'Thanks for the follow! 🎉', animIn: 'pop', durationMs: 4000 },
-                sub: { title: 'SubHero subscribed!', message: 'Tier 1 sub · 3 month streak ⭐', animIn: 'bounce', durationMs: 4500 },
-                bits: { title: 'BitMaster cheered 500 bits!', message: 'Hyped for the stream! 💎', animIn: 'slide', durationMs: 4500 },
-                raid: { title: 'CoolStreamer raided with 42 viewers!', message: 'Welcome raiders! 🚀', animIn: 'zoom', durationMs: 5000 }
+                follow: { title: 'TwitchFan42 followed!', message: 'Thanks for the follow!', animIn: 'pop', durationMs: 4000 },
+                sub: { title: 'SubHero subscribed!', message: 'Tier 1 sub · 3 month streak', animIn: 'bounce', durationMs: 4500 },
+                bits: { title: 'BitMaster cheered 500 bits!', message: 'Hyped for the stream!', animIn: 'slide', durationMs: 4500 },
+                raid: { title: 'CoolStreamer raided with 42 viewers!', message: 'Welcome raiders!', animIn: 'zoom', durationMs: 5000 }
             };
             if (node._alertHandle) node._alertHandle.stop();
             toast(`Simulating ${kind} alert…`, 'info', 1200);

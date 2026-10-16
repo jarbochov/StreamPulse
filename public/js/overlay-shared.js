@@ -987,7 +987,16 @@
     function renderGameList(node, element, plan) {
         const config = element.gameList || {};
         const style = element.style || {};
-        let items = (plan?.items || []).filter(item => config.filter === 'all' || inPlanList(item, config.filter || 'scheduled'));
+        let items = (plan?.items || []).filter(item => {
+            if (config.filter === 'all') return true;
+            if (config.filter === 'scheduled-only') {
+                return (item.status === 'scheduled' || (item.extraLists || []).includes('scheduled')) && item.status !== 'tonight';
+            }
+            if (config.filter === 'scheduled' || !config.filter) {
+                return item.status === 'scheduled' || item.status === 'tonight' || (item.extraLists || []).includes('scheduled');
+            }
+            return inPlanList(item, config.filter);
+        });
         const order = (plan?.periods || []).map(name => String(name).toLowerCase());
         const rank = item => { const at = order.indexOf(String(item.period || '').toLowerCase()); return at < 0 ? order.length : at; };
         const wanted = (Array.isArray(config.periods) && config.periods.length ? config.periods : config.period ? [config.period] : []);
@@ -1019,7 +1028,7 @@
         if (config.sort === 'rating') items = [...items].sort((a, b) => (b.rating || 0) - (a.rating || 0));
         else if (config.sort === 'name') items = [...items].sort((a, b) => String(a.name).localeCompare(String(b.name)));
         if (config.max > 0) items = items.slice(0, config.max);
-        if (config.filter === 'scheduled' || config.filter === 'all' || config.sort === 'plan' || !config.sort) items = items.map((item, at) => ({ item, at })).sort((a, b) => rank(a.item) - rank(b.item) || a.at - b.at).map(entry => entry.item);
+        if (config.filter === 'scheduled' || config.filter === 'scheduled-only' || config.filter === 'all' || config.sort === 'plan' || !config.sort) items = items.map((item, at) => ({ item, at })).sort((a, b) => rank(a.item) - rank(b.item) || a.at - b.at).map(entry => entry.item);
         const layout = config.layout || 'grid';
         if (layout === 'ticker') ensureTickerStyle();
         const gap = config.gap ?? 12;
@@ -1053,7 +1062,8 @@
         const TIERS = [[5, 'S', '#ff7f7f'], [4, 'A', '#ffbf7f'], [3, 'B', '#ffdf7f'], [2, 'C', '#bfff7f'], [1, 'D', '#7fbfff'], [0, '?', '#b0b0b0']];
         const TIER_LETTERS = [['S', '#ff7f7f'], ['A', '#ffbf7f'], ['B', '#ffdf7f'], ['C', '#bfff7f'], ['D', '#7fbfff'], ['F', '#bf9fff'], ['?', '#b0b0b0']];
         const autoColumns = layout === 'grid' && config.columns === 0;
-        const statusNames = { scheduled: 'Scheduled', backlog: 'Backlog', played: 'Played' };
+        const listMap = new Map((plan?.lists || []).map(l => [l.id, l.name]));
+        const statusNames = { scheduled: 'Scheduled', backlog: 'Backlog', played: 'Played', tonight: 'Tonight' };
         for (const entry of plan?.lists || []) statusNames[entry.id] = entry.name;
         if (tiers) {
             if (config.tierSource === 'tier') {
@@ -1071,15 +1081,21 @@
         } else if (kanban) {
             // One column per period, or per list when showing everything.
             for (const item of items) {
-                const label = config.filter === 'all' ? (statusNames[item.status] || item.status) : (item.period || 'No period');
+                const customList = listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean);
+                const label = config.groupBy === 'collection' ? (customList || item.period || 'General')
+                    : config.groupBy === 'status' ? (item.status === 'tonight' ? 'Tonight' : (item.status === 'scheduled' ? 'Scheduled' : (statusNames[item.status] || item.status || 'Other')))
+                    : config.filter === 'all' ? (statusNames[item.status] || item.status) : (item.period || 'No period');
                 let section = sections.find(entry => entry.label === label);
                 if (!section) { section = { label, items: [] }; sections.push(section); }
                 section.items.push(item);
             }
             inner.style.cssText += `display:flex;align-items:flex-start;gap:${groupGap}px;transform-origin:top left;`;
-        } else if (!ticker && config.headings !== false && config.filter !== 'backlog') {
+        } else if (!ticker && config.headings !== false && config.filter !== 'backlog' && config.groupBy !== 'none') {
             for (const item of items) {
-                const label = item.period || '';
+                const customList = listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean);
+                const label = config.groupBy === 'collection' ? (customList || item.period || 'General')
+                    : config.groupBy === 'status' ? (item.status === 'tonight' ? 'Tonight' : (item.status === 'scheduled' ? 'Scheduled' : (statusNames[item.status] || item.status || 'Other')))
+                    : (item.period || '');
                 let section = sections.find(entry => entry.label === label);
                 if (!section) { section = { label, items: [] }; sections.push(section); }
                 section.items.push(item);
@@ -1096,7 +1112,34 @@
                 return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(5 - full - half);
             }
             if (config.meta === 'tags') return (item.tags || []).slice(0, 3).join(' · ');
+            if (config.meta === 'group') {
+                return listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean) || item.period || '';
+            }
+            if (config.meta === 'status') {
+                return item.playingNow ? 'Playing' : (item.status === 'tonight' ? 'Tonight' : (item.status === 'scheduled' ? 'Scheduled' : (statusNames[item.status] || item.status || '')));
+            }
+            if (config.meta === 'date') return item.streamDate || '';
+            if (config.meta === 'period') return item.period || '';
             return '';
+        };
+        const makePill = (text, bg, fg, border) => {
+            const pill = document.createElement('span');
+            pill.textContent = text;
+            pill.style.cssText = `background:${bg};color:${fg};${border ? `border:1px solid ${border};` : ''}font-size:.55em;font-weight:700;letter-spacing:.04em;padding:.15em .5em;border-radius:999px;white-space:nowrap;display:inline-flex;align-items:center;line-height:1.2;`;
+            return pill;
+        };
+        const statusPill = item => {
+            if (!config.showStatusBadge) return null;
+            if (item.status === 'tonight') return makePill('Tonight', 'rgba(59,130,246,0.2)', '#60a5fa', 'rgba(59,130,246,0.4)');
+            if (item.status === 'scheduled') return makePill('Scheduled', 'rgba(255,255,255,0.1)', '#e2e8f0', 'rgba(255,255,255,0.2)');
+            if (item.status === 'played') return makePill('Done', 'rgba(34,197,94,0.2)', '#4ade80', 'rgba(34,197,94,0.4)');
+            return null;
+        };
+        const groupPill = item => {
+            if (!config.showGroupBadge) return null;
+            const grp = listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean) || item.period;
+            if (!grp) return null;
+            return makePill(grp, 'rgba(139,92,246,0.2)', '#c084fc', 'rgba(139,92,246,0.4)');
         };
         const scale = (config.coverScale || 100) / 100;
         const compact = layout === 'grid' || layout === 'strip' || tiers || ticker;
@@ -1172,12 +1215,14 @@
                     const text = document.createElement('div');
                     text.style.cssText = `min-width:0;flex:${hAlign === 'left' ? '1' : '0 1 auto'};text-align:${hAlign};`;
                     const title = document.createElement('div');
-                    title.style.cssText = `display:flex;align-items:center;gap:.5em;justify-content:${just};`;
+                    title.style.cssText = `display:flex;align-items:center;gap:.5em;justify-content:${just};flex-wrap:wrap;`;
                     const name = document.createElement('span');
                     name.textContent = item.name;
                     name.style.cssText = `font-weight:600;${titleFlow};font-size:${titleSize};`;
                     if (config.showTitles !== false || config.showCovers === false) title.appendChild(name);
                     if (item.playingNow && config.highlightCurrent !== false) title.appendChild(badge());
+                    const sp = statusPill(item); if (sp) title.appendChild(sp);
+                    const gp = groupPill(item); if (gp) title.appendChild(gp);
                     text.appendChild(title);
                     const extra = meta(item);
                     if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = `font-size:${metaSize};${dim(.65)}`; text.appendChild(line); }
@@ -1210,10 +1255,26 @@
                         if (extra) { const line = document.createElement('div'); line.textContent = extra; line.style.cssText = `font-size:${metaSize};opacity:.8;${titleFlow};`; bar.appendChild(line); }
                         face.appendChild(bar);
                         if (item.playingNow && config.highlightCurrent !== false) { const flag = badge(); flag.style.cssText += 'position:absolute;top:.4em;left:.4em;'; face.appendChild(flag); }
+                        const sp = statusPill(item), gp = groupPill(item);
+                        if (sp || gp) {
+                            const pillRow = document.createElement('div');
+                            pillRow.style.cssText = 'position:absolute;top:.4em;right:.4em;display:flex;gap:4px;flex-wrap:wrap;';
+                            if (sp) pillRow.appendChild(sp);
+                            if (gp) pillRow.appendChild(gp);
+                            face.appendChild(pillRow);
+                        }
                         card.appendChild(face);
                     } else {
                         card.appendChild(face);
-                        if (item.playingNow && config.highlightCurrent !== false) { const holder = document.createElement('div'); holder.style.cssText = `text-align:${hAlign};margin-top:.35em;`; holder.appendChild(badge()); card.appendChild(holder); }
+                        const sp = statusPill(item), gp = groupPill(item);
+                        if ((item.playingNow && config.highlightCurrent !== false) || sp || gp) {
+                            const holder = document.createElement('div');
+                            holder.style.cssText = `display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:${just};margin-top:.35em;`;
+                            if (item.playingNow && config.highlightCurrent !== false) holder.appendChild(badge());
+                            if (sp) holder.appendChild(sp);
+                            if (gp) holder.appendChild(gp);
+                            card.appendChild(holder);
+                        }
                         if (config.showTitles !== false) {
                             const name = document.createElement('div');
                             name.textContent = item.name;

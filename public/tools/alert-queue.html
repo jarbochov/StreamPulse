@@ -3,31 +3,49 @@
 <head>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>StreamPulse Alert Queue</title>
-<style>
-    * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg-inset); color: var(--text); font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    header { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1px solid var(--border); padding: .5rem .6rem; z-index: 2; }
-    .status { font-size: .78rem; color: var(--text-muted); margin-bottom: .4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .ctl { display: flex; gap: .35rem; flex-wrap: wrap; }
-    button { background: var(--bg-raised); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: .28rem .6rem; font: inherit; cursor: pointer; }
-    button:hover { border-color: var(--accent); }
-    button.rp { padding: .15rem .45rem; flex: none; }
-    h2 { margin: 0; padding: .6rem .6rem .25rem; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
-    .list > div { display: flex; align-items: center; gap: .5rem; padding: .3rem .6rem; border-bottom: 1px solid var(--bg-raised); }
-    .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-    .grow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sub { font-size: .68rem; color: var(--text-muted); }
-    .sub.shown { color: var(--success); }
-    .empty { padding: .4rem .6rem; color: var(--text-muted); font-size: .78rem; }
-    #toast { position: fixed; bottom: .5rem; left: .5rem; right: .5rem; background: var(--danger-bg); padding: .4rem .6rem; border-radius: 6px; display: none; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>StreamPulse Alert Queue</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg-inset, #0d1117); color: var(--text, #c9d1d9); font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        header { position: sticky; top: 0; background: var(--bg-card, #161b22); border-bottom: 1px solid var(--border, #30363d); padding: .6rem .8rem; z-index: 2; display: flex; flex-direction: column; gap: .5rem; }
+        .status-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+        .status { font-size: .8rem; color: var(--text-muted, #8b949e); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: .4rem; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #3fb950; display: inline-block; }
+        .status-dot.paused { background: #d29922; }
+        .ctl { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+        button { background: var(--bg-raised, #21262d); color: var(--text, #c9d1d9); border: 1px solid var(--border, #30363d); border-radius: 6px; padding: .32rem .65rem; font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s ease; display: inline-flex; align-items: center; gap: .35rem; }
+        button:hover { border-color: var(--accent, #58a6ff); color: #fff; background: var(--bg-card, #161b22); }
+        button.rp { padding: .25rem .45rem; flex: none; border-radius: 4px; }
+        button.rp svg { display: block; }
+        .filter-toggle { display: inline-flex; align-items: center; gap: .35rem; font-size: 12px; color: var(--text-muted, #8b949e); cursor: pointer; margin-left: auto; user-select: none; }
+        .filter-toggle input { cursor: pointer; accent-color: var(--accent, #58a6ff); margin: 0; }
+        h2 { margin: 0; padding: .75rem .8rem .35rem; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted, #8b949e); }
+        .list { display: flex; flex-direction: column; }
+        .list > div { display: flex; align-items: center; gap: .6rem; padding: .45rem .8rem; border-bottom: 1px solid var(--border, #21262d); transition: background .12s ease; }
+        .list > div:hover { background: rgba(255, 255, 255, 0.02); }
+        .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        .grow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .event-title { font-weight: 500; color: var(--text, #f0f6fc); display: flex; align-items: center; gap: .4rem; }
+        .sub { font-size: 11px; color: var(--text-muted, #8b949e); display: flex; align-items: center; gap: .4rem; }
+        .badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; text-transform: uppercase; letter-spacing: .03em; display: inline-flex; align-items: center; }
+        .badge-shown { background: rgba(63, 185, 80, 0.15); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.35); }
+        .badge-test { background: rgba(163, 113, 247, 0.15); color: #d2a8ff; border: 1px solid rgba(163, 113, 247, 0.35); }
+        .badge-nomatch { background: rgba(139, 148, 158, 0.12); color: #8b949e; border: 1px solid rgba(139, 148, 158, 0.25); }
+        .empty { padding: .75rem .8rem; color: var(--text-muted, #8b949e); font-size: 12px; font-style: italic; }
+        #toast { position: fixed; bottom: .75rem; left: .75rem; right: .75rem; background: var(--danger-bg, #b91c1c); color: #fff; padding: .5rem .75rem; border-radius: 6px; display: none; z-index: 10; font-size: 12px; }
+    </style>
 </head>
 <body>
 <header>
-    <div class="status" id="status">Loading…</div>
+    <div class="status-row">
+        <div class="status" id="status"><span class="status-dot"></span> Loading…</div>
+        <label class="filter-toggle" title="Filter out stream events that didn't trigger an alert">
+            <input type="checkbox" id="hide-unmatched">
+            <span>Hide unmatched</span>
+        </label>
+    </div>
     <div class="ctl">
         <button data-queue="skip">Skip</button>
         <button data-queue="clear" title="Drop alerts waiting to play">Clear waiting</button>
@@ -41,30 +59,78 @@
 <div class="list" id="history"></div>
 <div id="toast"></div>
 <script src="/poll.js"></script>
-    <script>
+<script>
 (() => {
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const TYPES = { follow: 'Follow', sub: 'Sub', resub: 'Resub', milestone: 'Milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Redeem', chat_word: 'Chat word' };
+    const REPLAY_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"></path><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>';
     const $ = id => document.getElementById(id);
     let queue = {};
-    function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; setTimeout(() => { t.style.display = 'none'; }, 3000); }
+    let hideUnmatched = localStorage.getItem('alerts.hideUnmatched') === '1';
+
+    $('hide-unmatched').checked = hideUnmatched;
+    $('hide-unmatched').addEventListener('change', e => {
+        hideUnmatched = e.target.checked;
+        localStorage.setItem('alerts.hideUnmatched', hideUnmatched ? '1' : '0');
+        render();
+    });
+
+    function toast(msg) {
+        const t = $('toast');
+        t.textContent = msg;
+        t.style.display = 'block';
+        setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
     async function post(url, body) {
         const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || 'Request failed');
     }
+
     function render() {
-        $('status').textContent = `${queue.current ? 'Showing: ' + (queue.current.title || queue.current.ruleName) : 'Idle'} · ${queue.pending || 0} waiting${queue.paused ? ' · paused' : ''}`;
-        $('pause').textContent = queue.paused ? 'Resume' : 'Pause';
-        $('pause').dataset.queue = queue.paused ? 'resume' : 'pause';
-        const ev = queue.events || [];
-        $('events').innerHTML = ev.length ? ev.map(e => `<div><span class="grow"><span>${esc(TYPES[e.event.type] || e.event.type)}: ${esc(e.event.user || e.event.name || '')}${e.event.amount ? ' · ' + esc(e.event.amount) : ''}</span><span class="sub ${e.status === 'shown' ? 'shown' : ''}">${esc(e.status)} · ${new Date(e.at).toLocaleTimeString()}</span></span><button class="rp" data-event="${esc(e.id)}" title="Run through current rules again">↻</button></div>`).join('') : '<div class="empty">No events yet. Real stream events appear here, including ones that matched no rule.</div>';
+        const isPaused = Boolean(queue.paused);
+        $('status').innerHTML = `<span class="status-dot ${isPaused ? 'paused' : ''}"></span> ${queue.current ? 'Showing: ' + esc(queue.current.title || queue.current.ruleName) : 'Idle'} · ${queue.pending || 0} waiting${isPaused ? ' · paused' : ''}`;
+        $('pause').textContent = isPaused ? 'Resume' : 'Pause';
+        $('pause').dataset.queue = isPaused ? 'resume' : 'pause';
+
+        const rawEvents = queue.events || [];
+        const ev = rawEvents.filter(e => !hideUnmatched || e.status !== 'no matching rule');
+        $('events').innerHTML = ev.length ? ev.map(e => {
+            const isShown = e.status === 'shown';
+            const statusBadge = isShown
+                ? '<span class="badge badge-shown">Shown</span>'
+                : e.status === 'no matching rule'
+                ? '<span class="badge badge-nomatch">No Match</span>'
+                : `<span class="badge">${esc(e.status)}</span>`;
+
+            return `<div>
+                <span class="grow">
+                    <span class="event-title">${esc(TYPES[e.event.type] || e.event.type)}: ${esc(e.event.user || e.event.name || '')}${e.event.amount ? ' · ' + esc(e.event.amount) : ''}</span>
+                    <span class="sub">${statusBadge}<span>${new Date(e.at).toLocaleTimeString()}</span></span>
+                </span>
+                <button class="rp" data-event="${esc(e.id)}" title="Run through current rules again">${REPLAY_ICON}</button>
+            </div>`;
+        }).join('') : `<div class="empty">${hideUnmatched && rawEvents.length ? 'All ' + rawEvents.length + ' events were unmatched and hidden. Uncheck "Hide unmatched" to view them.' : 'No events yet. Real stream events appear here, including ones that matched no rule.'}</div>`;
+
         const h = queue.history || [];
-        $('history').innerHTML = h.length ? h.map(a => `<div><span class="grow"><span>${a.test ? '🧪 ' : ''}${esc(a.title || a.message || a.ruleName)}</span><span class="sub">${new Date(a.shownAt || a.at).toLocaleTimeString()}</span></span><button class="rp" data-alert="${esc(a.id)}" title="Show this exact alert again">↻</button></div>`).join('') : '<div class="empty">Nothing yet this run.</div>';
+        $('history').innerHTML = h.length ? h.map(a => `<div>
+            <span class="grow">
+                <span class="event-title">${a.test ? '<span class="badge badge-test">Test</span>' : ''}${esc(a.title || a.message || a.ruleName)}</span>
+                <span class="sub">${new Date(a.shownAt || a.at).toLocaleTimeString()}</span>
+            </span>
+            <button class="rp" data-alert="${esc(a.id)}" title="Show this exact alert again">${REPLAY_ICON}</button>
+        </div>`).join('') : '<div class="empty">Nothing yet this run.</div>';
     }
+
     async function refresh() {
-        try { const res = await fetch('/api/alerts', { cache: 'no-store' }); queue = (await res.json()).queue || {}; render(); } catch { /* server restarting */ }
+        try {
+            const res = await fetch('/api/alerts', { cache: 'no-store' });
+            queue = (await res.json()).queue || {};
+            render();
+        } catch { /* server restarting */ }
     }
+
     document.addEventListener('click', async event => {
         const b = event.target.closest('button');
         if (!b) return;
@@ -76,6 +142,7 @@
             refresh();
         } catch (err) { toast(err.message); }
     });
+
     pollVisible(refresh, 2000);
     refresh();
 })();

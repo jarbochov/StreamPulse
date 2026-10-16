@@ -17,6 +17,21 @@
             --gp-now-border: #238636;
             --gp-now-text: #3fb950;
             --gp-font-scale: 1;
+            --gp-cover-scale: 1;
+            --gp-cover-fit: cover;
+        }
+
+        .ico {
+            width: 1em;
+            height: 1em;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            vertical-align: -0.15em;
+            flex-shrink: 0;
+            display: inline-block;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -115,17 +130,18 @@
         }
 
         .cover-img {
-            width: clamp(38px, max(6vmin, 55cqh, 55vh), 130px);
-            height: clamp(52px, max(8vmin, 75cqh, 75vh), 180px);
-            object-fit: cover;
+            width: calc(clamp(38px, max(6vmin, 55cqh, 55vh), 130px) * var(--gp-cover-scale, 1));
+            height: calc(clamp(52px, max(8vmin, 75cqh, 75vh), 180px) * var(--gp-cover-scale, 1));
+            object-fit: var(--gp-cover-fit, cover);
             border-radius: clamp(4px, 1vmin, 8px);
             flex-shrink: 0;
             background: #161b22;
             border: 1px solid var(--gp-border);
         }
         .cover-img.small {
-            width: clamp(26px, max(4.5vmin, 38cqh, 38vh), 90px);
-            height: clamp(34px, max(6vmin, 50cqh, 50vh), 120px);
+            width: calc(clamp(26px, max(4.5vmin, 38cqh, 38vh), 90px) * var(--gp-cover-scale, 1));
+            height: calc(clamp(34px, max(6vmin, 50cqh, 50vh), 120px) * var(--gp-cover-scale, 1));
+            object-fit: var(--gp-cover-fit, cover);
             border-radius: clamp(3px, 0.8vmin, 6px);
         }
 
@@ -323,10 +339,22 @@
         const maxItems = Math.max(1, parseInt(params.get('max') || '5', 10));
         const showCovers = params.get('covers') !== '0';
         const showNotes = params.get('notes') !== '0';
+        const showStatus = params.get('status') !== '0';
+        const showGroups = params.get('groups') !== '0';
+        const showDates = params.get('dates') !== '0';
         const theme = (params.get('theme') || 'glass').toLowerCase();
         const accent = params.get('accent') || '';
         const fontScaleParam = parseFloat(params.get('fontscale') || params.get('fontScale') || params.get('scale') || '1');
+        const coverScaleParam = parseFloat(params.get('coverScale') || params.get('coverscale') || params.get('cscale') || '1');
+        const coverFitParam = (params.get('coverFit') || params.get('coverfit') || '').toLowerCase();
         const align = (params.get('align') || 'center').toLowerCase();
+
+        if (!isNaN(coverScaleParam) && coverScaleParam > 0) {
+            document.documentElement.style.setProperty('--gp-cover-scale', coverScaleParam);
+        }
+        if (['cover', 'contain', 'fill'].includes(coverFitParam)) {
+            document.documentElement.style.setProperty('--gp-cover-fit', coverFitParam);
+        }
 
         if (['glass', 'dark', 'light', 'transparent'].includes(theme)) {
             document.body.className = `theme-${theme}`;
@@ -375,6 +403,15 @@
 
         let currentPlan = null;
 
+        const ICONS = {
+            play: '<svg class="ico" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+            skip: '<svg class="ico" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>',
+            bolt: '<svg class="ico" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+            calendar: '<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+            check: '<svg class="ico" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>',
+            tag: '<svg class="ico" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>'
+        };
+
         function esc(str) {
             return String(str || '').replace(/[&<>"']/g, ch => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -393,7 +430,7 @@
             if (playing) {
                 html += `
                     <div class="ticker-segment">
-                        <span class="badge badge-now">▶ Playing Now</span>
+                        <span class="badge badge-now">${ICONS.play} Playing Now</span>
                         ${showCovers && playing.cover ? `<img class="cover-img small" src="${esc(playing.cover)}" alt="">` : ''}
                         <div>
                             <div class="ticker-title">${esc(playing.name)}</div>
@@ -410,7 +447,7 @@
             if (upNext) {
                 html += `
                     <div class="ticker-segment">
-                        <span class="badge badge-next">⏭ Up Next</span>
+                        <span class="badge badge-next">${ICONS.skip} Up Next</span>
                         ${showCovers && upNext.cover ? `<img class="cover-img small" src="${esc(upNext.cover)}" alt="">` : ''}
                         <div>
                             <div class="ticker-title">${esc(upNext.name)}</div>
@@ -430,24 +467,32 @@
                 return;
             }
 
+            const listMap = new Map((currentPlan?.lists || []).map(l => [l.id, l.name]));
+
             let html = '<div class="view-schedule">';
             items.slice(0, maxItems).forEach(item => {
                 const isNow = Boolean(item.playingNow);
                 const isPlayed = item.status === 'played';
                 const isTonight = item.status === 'tonight';
                 const isOneOff = item.gameType === 'one-off';
-                const statusBadge = isNow ? '<span class="badge badge-now">▶ Playing</span>' : (isPlayed ? '<span class="badge badge-done">Done</span>' : (isTonight ? '<span class="badge" style="background:rgba(59,130,246,0.2);color:#60a5fa;border:1px solid rgba(59,130,246,0.4);">Tonight</span>' : '<span class="badge">Scheduled</span>'));
-                const typeBadge = isOneOff ? '<span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);">⚡ One-Off</span>' : '';
-                const dateBadge = item.streamDate ? `<span class="badge">📅 ${esc(item.streamDate)}</span>` : '';
+                const customListName = listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean) || '';
+
+                const statusBadge = !showStatus ? '' : isNow ? `<span class="badge badge-now">${ICONS.play} Playing</span>` : (isPlayed ? `<span class="badge badge-done">${ICONS.check} Done</span>` : (isTonight ? '<span class="badge" style="background:rgba(59,130,246,0.2);color:#60a5fa;border:1px solid rgba(59,130,246,0.4);">Tonight</span>' : '<span class="badge">Scheduled</span>'));
+                const groupBadge = showGroups && customListName ? `<span class="badge" style="background:rgba(139,92,246,0.2);color:#c084fc;border:1px solid rgba(139,92,246,0.4);">${ICONS.tag} ${esc(customListName)}</span>` : '';
+                const typeBadge = isOneOff ? `<span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);">${ICONS.bolt} One-Off</span>` : '';
+                const dateBadge = showDates && item.streamDate ? `<span class="badge">${ICONS.calendar} ${esc(item.streamDate)}</span>` : '';
+                const periodBadge = showGroups && item.period ? `<span class="badge">${esc(item.period)}</span>` : '';
+
                 html += `
                     <div class="schedule-card${isNow ? ' active' : ''}${isPlayed ? ' played' : ''}">
                         ${showCovers && item.cover ? `<img class="cover-img" src="${esc(item.cover)}" alt="">` : ''}
                         <div class="schedule-info">
                             <div class="schedule-meta">
                                 ${statusBadge}
+                                ${groupBadge}
                                 ${typeBadge}
                                 ${dateBadge}
-                                ${item.period ? `<span class="badge">${esc(item.period)}</span>` : ''}
+                                ${periodBadge}
                             </div>
                             <div class="schedule-title" title="${esc(item.name)}">${esc(item.name)}</div>
                             ${showNotes && item.note ? `<div class="checklist-note">${esc(item.note)}</div>` : ''}
@@ -465,21 +510,28 @@
                 return;
             }
 
+            const listMap = new Map((currentPlan?.lists || []).map(l => [l.id, l.name]));
+
             let html = '<div class="view-checklist">';
             items.slice(0, maxItems).forEach((item, idx) => {
                 const isNow = Boolean(item.playingNow);
                 const isPlayed = item.status === 'played';
                 const isTonight = item.status === 'tonight';
                 const isOneOff = item.gameType === 'one-off';
-                const statusBadge = isNow ? '<span class="badge badge-now">▶ Now</span>' : (isPlayed ? '<span class="badge badge-done">✓</span>' : (isTonight ? '<span class="badge" style="background:rgba(59,130,246,0.2);color:#60a5fa;">Tonight</span>' : '<span class="badge">Next</span>'));
-                const typeBadge = isOneOff ? '<span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);">⚡</span>' : '';
+                const customListName = listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean) || '';
+
+                const statusBadge = !showStatus ? '' : isNow ? `<span class="badge badge-now">${ICONS.play} Now</span>` : (isPlayed ? `<span class="badge badge-done">${ICONS.check}</span>` : (isTonight ? '<span class="badge" style="background:rgba(59,130,246,0.2);color:#60a5fa;">Tonight</span>' : '<span class="badge">Next</span>'));
+                const groupBadge = showGroups && customListName ? `<span class="badge" style="background:rgba(139,92,246,0.2);color:#c084fc;">${ICONS.tag} ${esc(customListName)}</span>` : '';
+                const typeBadge = isOneOff ? `<span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);">${ICONS.bolt}</span>` : '';
+                const dateText = showDates && item.streamDate ? `${item.streamDate}` : '';
+
                 html += `
                     <div class="checklist-item${isNow ? ' active' : ''}${isPlayed ? ' played' : ''}">
                         <span class="checklist-idx">${idx + 1}</span>
                         ${showCovers && item.cover ? `<img class="cover-img small" src="${esc(item.cover)}" alt="">` : ''}
                         <div class="checklist-info">
-                            <div class="checklist-title">${esc(item.name)} ${typeBadge}</div>
-                            ${showNotes && (item.note || item.period || item.streamDate) ? `<div class="checklist-note">${esc([item.streamDate ? `📅 ${item.streamDate}` : '', item.period, item.note].filter(Boolean).join(' · '))}</div>` : ''}
+                            <div class="checklist-title">${esc(item.name)} ${typeBadge} ${groupBadge}</div>
+                            ${showNotes && (item.note || item.period || dateText) ? `<div class="checklist-note">${esc([dateText, item.period, item.note].filter(Boolean).join(' · '))}</div>` : ''}
                         </div>
                         <div class="checklist-status">
                             ${statusBadge}
@@ -574,11 +626,13 @@
 
             let items = currentPlan.items;
 
-            // Filter by list (e.g. 'tonight', 'scheduled', 'up-next', 'backlog', or custom list id)
+            // Filter by list (e.g. 'tonight', 'scheduled', 'scheduled-only', 'up-next', 'backlog', 'all', or custom list id)
             if (listFilter) {
                 if (listFilter === 'scheduled') {
                     items = items.filter(i => i.status === 'scheduled' || i.status === 'tonight' || (i.extraLists || []).includes('scheduled'));
-                } else {
+                } else if (listFilter === 'scheduled-only') {
+                    items = items.filter(i => (i.status === 'scheduled' || (i.extraLists || []).includes('scheduled')) && i.status !== 'tonight');
+                } else if (listFilter !== 'all') {
                     items = items.filter(i => i.status === listFilter || (i.extraLists || []).includes(listFilter));
                 }
             }

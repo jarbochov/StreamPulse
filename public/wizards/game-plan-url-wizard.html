@@ -95,11 +95,13 @@
             <div class="cfg-row">
                 <label>Game List</label>
                 <select id="list-id" onchange="refreshWizard()">
-                    <option value="tonight">🎮 Tonight's Lineup (Stream Rundown)</option>
-                    <option value="scheduled" selected>📅 Scheduled (Upcoming Games)</option>
-                    <option value="up-next">⭐ Up Next (Horizon / Soon)</option>
-                    <option value="backlog">📦 Backlog</option>
-                    <option value="played">🏆 Played</option>
+                    <option value="scheduled" selected>Scheduled (Including Tonight)</option>
+                    <option value="scheduled-only">Scheduled Only (Excluding Tonight)</option>
+                    <option value="tonight">Tonight's Lineup (Stream Rundown)</option>
+                    <option value="up-next">Up Next (Horizon / Soon)</option>
+                    <option value="backlog">Backlog</option>
+                    <option value="played">Played</option>
+                    <option value="all">All Games</option>
                 </select>
             </div>
             <div class="cfg-row" style="align-items:flex-start;">
@@ -109,11 +111,11 @@
                         <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px;">Date-Aware Presets:</div>
                         <div class="preset-chips" id="period-presets" style="margin:0;">
                             <button type="button" class="preset-chip active" data-period-val="" onclick="selectPeriodPreset('', this)">All</button>
-                            <button type="button" class="preset-chip" data-period-val="@today" onclick="selectPeriodPreset('@today', this)" title="Tonight/Today status, or scheduled for today">🎮 Tonight / Today</button>
-                            <button type="button" class="preset-chip" data-period-val="@tomorrow" onclick="selectPeriodPreset('@tomorrow', this)" title="Next Stream or scheduled for tomorrow">⏭ Next Stream</button>
-                            <button type="button" class="preset-chip" data-period-val="@this-week" onclick="selectPeriodPreset('@this-week', this)" title="Scheduled within current week (Mon–Sun)">📅 This Week</button>
-                            <button type="button" class="preset-chip" data-period-val="@upcoming" onclick="selectPeriodPreset('@upcoming', this)" title="Any upcoming scheduled date or recurring">🚀 Upcoming</button>
-                            <button type="button" class="preset-chip" data-period-val="@unscheduled" onclick="selectPeriodPreset('@unscheduled', this)" title="Games with no period or dates set">📦 Unscheduled</button>
+                            <button type="button" class="preset-chip" data-period-val="@today" onclick="selectPeriodPreset('@today', this)" title="Tonight/Today status, or scheduled for today">Tonight / Today</button>
+                            <button type="button" class="preset-chip" data-period-val="@tomorrow" onclick="selectPeriodPreset('@tomorrow', this)" title="Next Stream or scheduled for tomorrow">Next Stream</button>
+                            <button type="button" class="preset-chip" data-period-val="@this-week" onclick="selectPeriodPreset('@this-week', this)" title="Scheduled within current week (Mon–Sun)">This Week</button>
+                            <button type="button" class="preset-chip" data-period-val="@upcoming" onclick="selectPeriodPreset('@upcoming', this)" title="Any upcoming scheduled date or recurring">Upcoming</button>
+                            <button type="button" class="preset-chip" data-period-val="@unscheduled" onclick="selectPeriodPreset('@unscheduled', this)" title="Games with no period or dates set">Unscheduled</button>
                         </div>
                     </div>
 
@@ -184,6 +186,19 @@
                 <span id="scale-val" style="font-size:0.8rem; width:45px; text-align:right">1.00x</span>
             </div>
             <div class="cfg-row">
+                <label>Cover Scale <span style="font-size:0.7rem;color:var(--accent);">coverScale</span></label>
+                <input type="range" id="cover-scale" min="0.5" max="2.5" step="0.05" value="1.0" oninput="refreshWizard()" style="flex:1">
+                <span id="cover-scale-val" style="font-size:0.8rem; width:45px; text-align:right">1.00x</span>
+            </div>
+            <div class="cfg-row">
+                <label>Cover Fit</label>
+                <select id="cover-fit" onchange="refreshWizard()">
+                    <option value="cover" selected>Cover (Crop to fill)</option>
+                    <option value="contain">Contain (Fit whole image)</option>
+                    <option value="fill">Fill (Stretch to fit)</option>
+                </select>
+            </div>
+            <div class="cfg-row">
                 <label>Alignment</label>
                 <select id="align" onchange="refreshWizard()">
                     <option value="center">Center</option>
@@ -196,6 +211,9 @@
             <div class="toggles">
                 <label class="toggle"><input type="checkbox" id="show-covers" checked onchange="refreshWizard()"><span>Show cover art</span></label>
                 <label class="toggle"><input type="checkbox" id="show-notes" checked onchange="refreshWizard()"><span>Show notes &amp; tags</span></label>
+                <label class="toggle"><input type="checkbox" id="show-status" checked onchange="refreshWizard()"><span>Show status pill</span></label>
+                <label class="toggle"><input type="checkbox" id="show-groups" checked onchange="refreshWizard()"><span>Show group &amp; collection</span></label>
+                <label class="toggle"><input type="checkbox" id="show-dates" checked onchange="refreshWizard()"><span>Show scheduled dates</span></label>
             </div>
 
             <div class="hint" style="margin-top:1rem;">
@@ -232,7 +250,8 @@
                 </div>
 
                 <div class="obs-hint" id="obs-dim-hint">
-                    ✨ <b>Fluid &amp; Responsive:</b> Game Plan fluidly adapts to <b id="obs-size-text">any size</b> in OBS. Set your browser source to whatever dimensions fit your stream layout best!
+                    <svg class="ico" style="color:var(--accent);width:13px;height:13px;vertical-align:-2px;" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <b>Fluid &amp; Responsive:</b> Game Plan fluidly adapts to <b id="obs-size-text">any size</b> in OBS. Set your browser source to whatever dimensions fit your stream layout best!
                 </div>
 
                 <div class="url-box" style="margin-top:0.75rem;">
@@ -253,13 +272,18 @@
                         <tr><td><code>font</code></td><td><em>theme</em></td><td>Font family name (supports system, Google, and uploaded fonts)</td></tr>
                         <tr><td><code>weight</code></td><td><em>default</em></td><td>Font weight: <code>300</code>, <code>400</code>, <code>500</code>, <code>600</code>, <code>700</code>, <code>900</code></td></tr>
                         <tr><td><code>fontScale</code> / <code>scale</code></td><td><code>1</code></td><td>Font size multiplier (0.5 to 4.0) with fluid clamp typography</td></tr>
+                        <tr><td><code>coverScale</code></td><td><code>1</code></td><td>Cover art size multiplier (0.5 to 2.5)</td></tr>
+                        <tr><td><code>coverFit</code></td><td><code>cover</code></td><td>Cover fit: <code>cover</code> (crop to fill), <code>contain</code> (letterbox), <code>fill</code></td></tr>
                         <tr><td><code>align</code></td><td><code>center</code></td><td>Horizontal alignment: <code>center</code>, <code>left</code>, <code>right</code></td></tr>
-                        <tr><td><code>list</code></td><td><code>scheduled</code></td><td>Source list: <code>scheduled</code>, <code>backlog</code>, <code>played</code>, or custom list ID</td></tr>
+                        <tr><td><code>list</code></td><td><code>scheduled</code></td><td>Source list: <code>scheduled</code> (with tonight), <code>scheduled-only</code>, <code>tonight</code>, <code>up-next</code>, <code>backlog</code>, <code>played</code>, <code>all</code>, or custom collection ID</td></tr>
                         <tr><td><code>period</code></td><td><em>none</em></td><td>Filter by period name or smart tokens (comma-separated): <code>@today</code> (today/tonight), <code>@tomorrow</code> (next stream), <code>@this-week</code>, <code>@upcoming</code>, <code>@unscheduled</code>, or custom periods (e.g. <code>October,November</code>)</td></tr>
                         <tr><td><code>max</code></td><td><code>5</code></td><td>Maximum number of cards/items to render</td></tr>
                         <tr><td><code>theme</code></td><td><code>glass</code></td><td>Theme: <code>glass</code>, <code>dark</code>, <code>transparent</code>, <code>light</code></td></tr>
-                        <tr><td><code>covers</code></td><td><code>1</code></td><td><code>1</code> to show IGDB/custom cover images, <code>0</code> to hide</td></tr>
-                        <tr><td><code>notes</code></td><td><code>1</code></td><td><code>1</code> to display notes and periods, <code>0</code> to hide</td></tr>
+                        <tr><td><code>covers</code></td><td><code>1</code></td><td><code>1</code> to show cover images, <code>0</code> to hide</td></tr>
+                        <tr><td><code>notes</code></td><td><code>1</code></td><td><code>1</code> to display notes, <code>0</code> to hide</td></tr>
+                        <tr><td><code>status</code></td><td><code>1</code></td><td><code>1</code> to show status badges (Playing, Tonight, Scheduled), <code>0</code> to hide</td></tr>
+                        <tr><td><code>groups</code></td><td><code>1</code></td><td><code>1</code> to show group and collection badges, <code>0</code> to hide</td></tr>
+                        <tr><td><code>dates</code></td><td><code>1</code></td><td><code>1</code> to show scheduled dates, <code>0</code> to hide</td></tr>
                         <tr><td><code>accent</code></td><td><code>#3b82f6</code></td><td>Custom accent color (hex)</td></tr>
                     </tbody>
                 </table>
@@ -445,7 +469,7 @@
             return;
         }
         const count = getFilteredItems().length;
-        badge.textContent = count === 1 ? '✨ 1 match' : `✨ ${count} matches`;
+        badge.textContent = count === 1 ? '1 match' : `${count} matches`;
         badge.style.opacity = count > 0 ? '1' : '0.6';
     }
 
@@ -495,11 +519,17 @@
         const weight = document.getElementById('wiz-weight').value;
         const accent = document.getElementById('accent').value.trim();
         const scale = parseFloat(document.getElementById('scale').value || '1');
+        const coverScale = parseFloat(document.getElementById('cover-scale').value || '1');
+        const coverFit = document.getElementById('cover-fit').value;
         const align = document.getElementById('align').value;
         const showCovers = document.getElementById('show-covers').checked;
         const showNotes = document.getElementById('show-notes').checked;
+        const showStatus = document.getElementById('show-status').checked;
+        const showGroups = document.getElementById('show-groups').checked;
+        const showDates = document.getElementById('show-dates').checked;
 
         document.getElementById('scale-val').textContent = `${scale.toFixed(2)}x`;
+        document.getElementById('cover-scale-val').textContent = `${coverScale.toFixed(2)}x`;
 
         const params = new URLSearchParams();
         if (view !== 'schedule') params.set('view', view);
@@ -511,9 +541,14 @@
         if (weight) params.set('weight', weight);
         if (accent && accent !== '#3b82f6') params.set('accent', accent);
         if (scale !== 1) params.set('fontScale', scale.toFixed(2));
+        if (coverScale !== 1) params.set('coverScale', coverScale.toFixed(2));
+        if (coverFit !== 'cover') params.set('coverFit', coverFit);
         if (align !== 'center') params.set('align', align);
         if (!showCovers) params.set('covers', '0');
         if (!showNotes) params.set('notes', '0');
+        if (!showStatus) params.set('status', '0');
+        if (!showGroups) params.set('groups', '0');
+        if (!showDates) params.set('dates', '0');
 
         const qs = params.toString();
         const relUrl = `/game-plan.html${qs ? `?${qs}` : ''}`;
@@ -580,6 +615,17 @@
             document.getElementById('period-filter').value = p.get('period');
             syncChipsFromInput();
         }
+        if (p.has('covers')) document.getElementById('show-covers').checked = p.get('covers') !== '0';
+        if (p.has('notes')) document.getElementById('show-notes').checked = p.get('notes') !== '0';
+        if (p.has('status')) document.getElementById('show-status').checked = p.get('status') !== '0';
+        if (p.has('groups')) document.getElementById('show-groups').checked = p.get('groups') !== '0';
+        if (p.has('dates')) document.getElementById('show-dates').checked = p.get('dates') !== '0';
+        if (p.has('coverScale') || p.has('coverscale')) {
+            const cs = parseFloat(p.get('coverScale') || p.get('coverscale'));
+            if (!isNaN(cs)) document.getElementById('cover-scale').value = cs;
+        }
+        if (p.has('coverFit') || p.has('coverfit')) {
+            document.getElementById('cover-fit').value = p.get('coverFit') || p.get('coverfit');
     }
 
     window.addEventListener('resize', updatePreviewSize);
