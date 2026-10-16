@@ -10,112 +10,224 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
-        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
-        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        
+        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0.85rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.25rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.5rem; }
         .header h1 span { color: var(--accent); }
-        .container { max-width: 1280px; margin: 0 auto; padding: 1rem 2rem; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 1.25rem; align-items: start; }
-        .stack { display: flex; flex-direction: column; gap: .7rem; }
-        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: .8rem 1rem; }
-        .card h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.6rem; display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
-        .card h3 { font-size: 0.78rem; color: var(--accent); margin: 1.1rem 0 0.6rem; padding-top: 0.7rem; border-top: 1px solid var(--bg-raised); }
-        .row { display: flex; align-items: center; gap: 0.5rem 0.7rem; margin-bottom: 0.4rem; flex-wrap: wrap; }
-        .row > label { min-width: 130px; font-size: 0.82rem; color: var(--text-muted); }
-        .row input, .row select, .row textarea { flex: 1; min-width: 0; padding: 0.32rem 0.55rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.82rem; font-family: inherit; }
-        .row input:focus, .row select:focus { outline: none; border-color: var(--accent); }
-        .row input[type="checkbox"] { flex: none; width: auto; accent-color: var(--accent); }
-        .row small { color: var(--text-muted); font-size: 0.72rem; flex-basis: 100%; margin: -.2rem 0 .1rem 0; }
-        .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-        .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 6px; padding: 0.48rem 0.85rem; font-size: 0.82rem; cursor: pointer; text-decoration: none; font-family: inherit; display: inline-flex; align-items: center; gap: .35rem; }
-        .btn:hover:not(:disabled) { border-color: var(--accent); }
-        .btn:disabled { opacity: .4; cursor: not-allowed; }
-        .btn.primary { background: var(--success-strong); border-color: var(--success-strong); color: #fff; }
-        .btn.danger { background: var(--danger-bg); border-color: var(--danger-bg); }
-        .btn.sm { padding: .22rem .5rem; font-size: .75rem; }
-        .rule-list { display: flex; flex-direction: column; gap: 0.5rem; }
-        .rule-item { border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.75rem; background: var(--bg-inset); cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: .6rem; }
-        .rule-item:hover { border-color: var(--border-strong); }
-        .rule-item.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-card)); }
-        .rule-item.off .name { opacity: .5; }
-        .rule-item .name { font-weight: 600; overflow-wrap: anywhere; font-size: .88rem; }
-        .rule-item .meta { color: var(--text-muted); font-size: .72rem; margin-top: .15rem; }
-        .pill { display: inline-flex; padding: 0.12rem 0.45rem; border-radius: 999px; font-size: 0.68rem; border: 1px solid var(--border); color: var(--text-muted); }
+
+        .ico { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; flex-shrink: 0; }
+        .ico.sm { width: 12px; height: 12px; }
+        .ico.lg { width: 16px; height: 16px; }
+
+        .container { max-width: 1360px; margin: 0 auto; padding: 1.2rem 1.8rem; display: flex; flex-direction: column; gap: 0.95rem; }
+        
+        /* Top Toolbar & Control Bar */
+        .alerts-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.85rem; flex-wrap: wrap; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.85rem; }
+        .nav-tabs-wrap { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .tabs-nav { display: inline-flex; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; }
+        .tab-btn { background: transparent; border: 0; color: var(--text-muted); padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none; transition: all 0.12s; }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { background: var(--bg-card); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.18); font-weight: 700; }
+        .tab-btn.external { color: var(--text-muted); }
+        .tab-btn.external:hover { color: var(--text); }
+        
+        .master-controls { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
+        .master-toggle { display: inline-flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.78rem; font-weight: 600; color: var(--text); user-select: none; }
+        .master-toggle input { display: none; }
+        .toggle-track { width: 34px; height: 18px; border-radius: 999px; background: var(--border-strong); position: relative; transition: background 0.15s; }
+        .toggle-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: transform 0.15s; }
+        .master-toggle input:checked + .toggle-track { background: var(--success); }
+        .master-toggle input:checked + .toggle-track .toggle-thumb { transform: translateX(16px); }
+
+        .gap-control { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.76rem; color: var(--text-muted); background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.22rem 0.5rem; }
+        .gap-control input { width: 44px; padding: 0.1rem 0.25rem; font-size: 0.78rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; color: var(--text); text-align: center; }
+
+        .status-box { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.76rem; color: var(--text-muted); background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.22rem 0.6rem; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex-shrink: 0; }
+        .status-dot.live { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .status-dot.paused { background: var(--warn); }
+        
+        .pill { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.12rem 0.5rem; border-radius: 999px; font-size: 0.69rem; font-weight: 600; border: 1px solid var(--border); color: var(--text-muted); }
         .pill.dirty { color: var(--warn); border-color: var(--warn-strong); background: var(--warn-soft-bg); }
-        .pill.ok { color: var(--success); border-color: var(--success-strong); }
-        .hint { color: var(--text-muted); font-size: 0.78rem; line-height: 1.45; }
-        .variant { border: 1px solid var(--border); border-radius: 8px; padding: 0; margin-bottom: .5rem; background: var(--bg-inset); }
-        .variant > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: .6rem; padding: .45rem .7rem; font-size: .82rem; }
+        .pill.ok { color: var(--success); border-color: var(--success-strong); background: color-mix(in srgb, var(--success) 12%, transparent); }
+        .pill:empty { display: none; }
+
+        .btn { border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); border-radius: 6px; padding: 0.42rem 0.78rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-decoration: none; font-family: inherit; display: inline-flex; align-items: center; gap: 0.38rem; transition: all 0.12s; white-space: nowrap; line-height: 1.2; }
+        .btn:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-bg); }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn.primary { background: var(--success-strong); border-color: var(--success-strong); color: #fff; }
+        .btn.primary:hover:not(:disabled) { background: var(--success-hover); border-color: var(--success-hover); }
+        .btn.danger { background: var(--danger-soft-bg); border-color: color-mix(in srgb, var(--danger) 40%, transparent); color: var(--danger); }
+        .btn.danger:hover:not(:disabled) { border-color: var(--danger); background: var(--danger-bg); color: #fff; }
+        .btn.ghost { background: transparent; border-color: transparent; color: var(--text-muted); }
+        .btn.ghost:hover:not(:disabled) { border-color: var(--border); color: var(--text); background: var(--bg-inset); }
+        .btn.sm { padding: 0.24rem 0.52rem; font-size: 0.74rem; border-radius: 5px; }
+        .btn.icon-btn { padding: 0.36rem 0.48rem; }
+
+        /* Guide Banner */
+        .guide-banner { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.55rem; }
+        .guide-head { display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; font-weight: 700; color: var(--text); }
+        .guide-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.65rem; }
+        .guide-step { display: flex; gap: 0.55rem; font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; }
+        .guide-num { width: 20px; height: 20px; border-radius: 50%; background: var(--bg-raised); border: 1px solid var(--border); color: var(--accent); font-weight: 700; font-size: 0.72rem; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .guide-step b { color: var(--text); }
+        .guide-step a { color: var(--accent); text-decoration: none; }
+        .guide-step a:hover { text-decoration: underline; }
+
+        /* Pane Layouts */
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+        .rules-layout { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 1.1rem; align-items: start; }
+        @media (max-width: 960px) { .rules-layout { grid-template-columns: 1fr; } }
+
+        /* Cards */
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 0.85rem 1.05rem; display: flex; flex-direction: column; gap: 0.65rem; }
+        .card h2 { font-size: 0.86rem; font-weight: 700; letter-spacing: 0.02em; color: var(--text); display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+        .card-head-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+        .hint { color: var(--text-muted); font-size: 0.75rem; line-height: 1.4; }
+        .badge { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.65rem; font-weight: 700; border-radius: 999px; padding: 0.06rem 0.45rem; background: var(--bg-raised); color: var(--text-muted); border: 1px solid var(--border); }
+        .badge.accent { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+
+        /* Rules Sidebar */
+        .sidebar-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+        .rules-search-wrap { position: relative; display: flex; align-items: center; width: 100%; }
+        .rules-search-wrap .ico { position: absolute; left: 0.6rem; color: var(--text-faint); pointer-events: none; }
+        .rules-search-wrap input { width: 100%; padding: 0.35rem 1.8rem 0.35rem 1.85rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.78rem; font-family: inherit; }
+        .rules-search-wrap input:focus { outline: none; border-color: var(--accent); }
+        .search-clear { position: absolute; right: 0.4rem; background: none; border: 0; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 0.1rem 0.25rem; }
+        .search-clear:hover { color: var(--text); }
+
+        .filter-chips { display: flex; gap: 0.28rem; flex-wrap: wrap; margin-top: 0.1rem; }
+        .filter-chip { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 999px; padding: 0.12rem 0.5rem; font-size: 0.68rem; color: var(--text-muted); cursor: pointer; font-weight: 500; transition: all 0.12s; user-select: none; }
+        .filter-chip:hover { border-color: var(--accent); color: var(--text); }
+        .filter-chip.active { background: color-mix(in srgb, var(--accent) 18%, transparent); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+
+        .rule-list { display: flex; flex-direction: column; gap: 0.42rem; max-height: 640px; overflow-y: auto; padding-right: 0.15rem; }
+        .rule-item { border: 1px solid var(--border); border-radius: 8px; padding: 0.55rem 0.7rem; background: var(--bg-inset); cursor: pointer; display: flex; align-items: center; gap: 0.65rem; transition: border-color 0.12s, background 0.12s; text-align: left; }
+        .rule-item:hover { border-color: var(--border-strong); background: var(--bg-raised); }
+        .rule-item.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-card)); box-shadow: 0 0 0 1px var(--accent); }
+        .rule-item.off { opacity: 0.58; }
+        .rule-item.off .rule-icon-box { filter: grayscale(0.8); opacity: 0.6; }
+        
+        .rule-icon-box { width: 32px; height: 32px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid var(--border); background: var(--bg-card); }
+        .rule-item-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.18rem; }
+        .rule-item-name { font-weight: 600; font-size: 0.83rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rule-item-meta { font-size: 0.69rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+        .rule-item-tag { font-size: 0.65rem; font-weight: 600; padding: 0.04rem 0.35rem; border-radius: 4px; background: var(--bg-raised); border: 1px solid var(--border); }
+        .rule-item-toggle { flex-shrink: 0; }
+
+        /* Editor Column */
+        .editor-col { display: flex; flex-direction: column; gap: 0.85rem; min-width: 0; }
+        .summary-banner { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 9px; padding: 0.65rem 0.95rem; display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap; }
+        .summary-left { display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex: 1; }
+        .summary-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--bg-inset); border: 1px solid var(--border); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .summary-text { font-size: 0.82rem; color: var(--text); line-height: 1.35; }
+        .summary-actions { display: inline-flex; align-items: center; gap: 0.4rem; }
+
+        /* Forms */
+        .cgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem 0.85rem; }
+        @media (max-width: 700px) { .cgrid { grid-template-columns: 1fr; } }
+        .row { display: flex; flex-direction: column; gap: 0.2rem; }
+        .row > label { font-size: 0.73rem; font-weight: 600; color: var(--text-muted); }
+        .row input, .row select, .row textarea { width: 100%; min-width: 0; padding: 0.38rem 0.6rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.81rem; font-family: inherit; }
+        .row input:focus, .row select:focus, .row textarea:focus { outline: none; border-color: var(--accent); }
+        .row small { color: var(--text-muted); font-size: 0.69rem; line-height: 1.35; margin-top: 0.05rem; }
+        .check-row { display: flex; align-items: center; gap: 0.45rem; font-size: 0.77rem; color: var(--text); cursor: pointer; user-select: none; }
+        .check-row input[type="checkbox"] { accent-color: var(--accent); }
+
+        /* Token Placeholders */
+        .tokens-bar { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.2rem; }
+        .token-chip { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 5px; padding: 0.12rem 0.45rem; font-size: 0.68rem; font-family: ui-monospace, SFMono-Regular, monospace; color: var(--accent); cursor: pointer; transition: all 0.12s; }
+        .token-chip:hover { border-color: var(--accent); background: var(--accent-bg); }
+
+        /* Variants */
+        .variant { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.45rem; background: var(--bg-inset); overflow: hidden; }
+        .variant > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.55rem 0.85rem; font-size: 0.82rem; font-weight: 600; background: var(--bg-card); transition: background 0.12s; user-select: none; }
         .variant > summary::-webkit-details-marker { display: none; }
-        .variant > summary::before { content: '▸'; color: var(--text-muted); }
-        .variant[open] > summary::before { content: '▾'; }
-        .variant > summary .vt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .variant > summary .vm { color: var(--text-muted); font-size: .72rem; flex: none; }
-        .variant-body { padding: .2rem .7rem .6rem; border-top: 1px solid var(--bg-raised); display: grid; gap: .45rem; }
-        .vgrid { display: grid; gap: .45rem .6rem; }
+        .variant > summary:hover { background: var(--bg-raised); }
+        .variant-summary-left { display: inline-flex; align-items: center; gap: 0.55rem; min-width: 0; flex: 1; }
+        .variant-num { font-size: 0.65rem; font-weight: 700; padding: 0.08rem 0.42rem; border-radius: 999px; background: var(--bg-raised); border: 1px solid var(--border); color: var(--accent); }
+        .variant-title-prev { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 0.81rem; }
+        .variant-meta-pill { font-size: 0.69rem; color: var(--text-muted); font-weight: 400; display: inline-flex; align-items: center; gap: 0.35rem; flex-shrink: 0; }
+        .variant-summary-right { display: inline-flex; align-items: center; gap: 0.45rem; }
+        .variant-body { padding: 0.75rem 0.85rem; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.65rem; background: var(--bg-inset); }
+
+        .vtabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); align-items: center; flex-wrap: wrap; padding-bottom: 0.2rem; }
+        .vtab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--text-muted); padding: 0.32rem 0.65rem; font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; margin-bottom: -1px; display: inline-flex; align-items: center; gap: 0.32rem; transition: all 0.12s; }
+        .vtab:hover { color: var(--text); }
+        .vtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .vtab-grow { flex: 1; }
+
+        .vgrid { display: grid; gap: 0.5rem 0.75rem; }
         .vgrid.c2 { grid-template-columns: 1fr 1fr; }
         .vgrid.c3 { grid-template-columns: repeat(3, 1fr); }
-        .vgrid.c5 { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
-        .fld { display: flex; flex-direction: column; gap: .15rem; min-width: 0; font-size: .7rem; color: var(--text-muted); }
-        .fld input, .fld select { width: 100%; min-width: 0; padding: .3rem .5rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: .8rem; font-family: inherit; }
+        @media (max-width: 650px) { .vgrid.c2, .vgrid.c3 { grid-template-columns: 1fr; } }
+        .fld { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
+        .fld input, .fld select { width: 100%; min-width: 0; padding: 0.36rem 0.55rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.81rem; font-family: inherit; }
         .fld input:focus, .fld select:focus { outline: none; border-color: var(--accent); }
-        .fld .hintline { font-size: .66rem; }
-        .summary-line { font-size: .85rem; color: var(--text-muted); padding: 0 .2rem; }
-        .summary-line b { color: var(--text); font-weight: 600; }
-        dialog.lib { margin: auto; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 0; width: min(760px, 92vw); max-height: 80vh; }
-        dialog.lib::backdrop { background: rgba(0,0,0,.6); }
-        .lib-head { display: flex; gap: .6rem; align-items: center; padding: .7rem .9rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-card); }
-        .lib-head input { flex: 1; padding: .4rem .6rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; }
-        .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: .6rem; padding: .9rem; overflow: auto; max-height: calc(80vh - 3.5rem); }
-        .lib-item { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: .4rem; cursor: pointer; display: flex; flex-direction: column; gap: .3rem; text-align: left; color: inherit; font: inherit; }
-        .lib-item:hover { border-color: var(--accent); }
-        .lib-item .th { height: 80px; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border-radius: 5px; overflow: hidden; font-size: 1.8rem; }
-        .lib-item .th img, .lib-item .th video { max-width: 100%; max-height: 100%; }
-        .lib-item .nm { font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .cgrid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem .9rem; }
-        .cgrid .row { flex-direction: column; align-items: stretch; gap: .15rem; margin: 0; }
-        .cgrid .row > label { min-width: 0; font-size: .72rem; }
-        .cgrid .row small { margin: 0; flex-basis: auto; }
-        .cgrid .row input, .cgrid .row select { flex: none; }
-        .onoff { display: inline-flex; align-items: center; gap: .3rem; font-size: .78rem; color: var(--text-muted); text-transform: none; letter-spacing: 0; font-weight: 400; margin-right: .4rem; }
-        .onoff input { accent-color: var(--accent); }
-        details.sim > summary { cursor: pointer; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
-        details.sim[open] > summary { margin-bottom: .6rem; }
-        .help { padding: .5rem 1rem; }
-        .help > summary { cursor: pointer; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; list-style: none; }
-        .help > summary::before { content: '▸ '; }
-        .help[open] > summary::before { content: '▾ '; }
-        .help[open] > summary { margin-bottom: .5rem; }
-        .pill:empty { display: none; }
-        .tabs { display: flex; gap: .3rem; border-bottom: 1px solid var(--border); }
-        .tab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--text-muted); padding: .5rem .9rem; font: inherit; font-size: .88rem; cursor: pointer; text-decoration: none; margin-bottom: -1px; }
-        .tab:hover { color: var(--text); }
-        .tab.active { color: var(--text); border-bottom-color: var(--accent); }
-        .history.tall { max-height: 65vh; }
-        .vtabs { display: flex; gap: .2rem; border-bottom: 1px solid var(--border); align-items: flex-end; }
-        .vtab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--text-muted); padding: .35rem .75rem; font: inherit; font-size: .82rem; cursor: pointer; margin-bottom: -1px; }
-        .vtab:hover { color: var(--text); }
-        .vtab.active { color: var(--text); border-bottom-color: var(--accent); }
-        .vtabs .grow { flex: 1; }
-        .seg-row { display: inline-flex; gap: .3rem; }
-        .vtab.pill { border: 1px solid var(--border); border-radius: 999px; padding: .2rem .8rem; margin: 0; }
-        .vtab.pill.active { border-color: var(--accent); background: var(--accent-bg); }
-        .vsect { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-top: .3rem; }
-        .tabs-note { font-size: .72rem; color: var(--text-muted); }
-                .media-row { display: flex; gap: .3rem; min-width: 0; }
+
+        .media-row { display: flex; gap: 0.35rem; min-width: 0; }
         .media-row input[type="text"], .media-row select { flex: 1; min-width: 0; }
-        .media-row input[type="file"] { display: none; }
-        .history { display: flex; flex-direction: column; gap: .3rem; max-height: 300px; overflow: auto; }
-        .history > div { font-size: .76rem; padding: .25rem .5rem; align-items: center; background: var(--bg-inset); border: 1px solid var(--bg-raised); border-radius: 6px; display: flex; justify-content: space-between; gap: .5rem; }
-        .history span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .history .t { color: var(--text-muted); flex: none; }
-        .history .st { font-size: .66rem; color: var(--text-muted); }
-        .history .st.shown { color: var(--success); }
-        .history .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .media-preview-box { width: 68px; height: 68px; border-radius: 6px; background: var(--bg-card); border: 1px solid var(--border); overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .media-preview-box img, .media-preview-box video { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+        .seg-pills { display: inline-flex; background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px; padding: 2px; gap: 2px; }
+        .seg-btn { background: transparent; border: 0; border-radius: 5px; padding: 0.22rem 0.65rem; font-size: 0.74rem; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all 0.12s; }
+        .seg-btn:hover { color: var(--text); }
+        .seg-btn.active { background: var(--bg-raised); color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+
+        /* Volume Slider Row */
+        .vol-wrap { display: flex; align-items: center; gap: 0.65rem; }
+        .vol-slider { flex: 1; height: 5px; accent-color: var(--accent); cursor: pointer; }
+        .vol-badge { font-size: 0.74rem; font-weight: 700; min-width: 38px; color: var(--accent); text-align: right; }
+
+        /* Queue & Events */
+        .queue-layout { display: flex; flex-direction: column; gap: 0.95rem; }
+        .queue-controls-card { padding: 0.75rem 1.05rem; }
+        .queue-status-head { display: flex; align-items: center; justify-content: space-between; gap: 0.85rem; flex-wrap: wrap; }
+        .queue-title-wrap { display: flex; align-items: center; gap: 0.6rem; }
+        .queue-action-btns { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+
+        .queue-history-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
+        @media (max-width: 900px) { .queue-history-grid { grid-template-columns: 1fr; } }
+        .history { display: flex; flex-direction: column; gap: 0.35rem; max-height: 520px; overflow-y: auto; padding-right: 0.2rem; }
+        .history > div { font-size: 0.76rem; padding: 0.42rem 0.65rem; align-items: center; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 7px; display: flex; justify-content: space-between; gap: 0.6rem; transition: border-color 0.12s; }
+        .history > div:hover { border-color: var(--border-strong); }
+        .history .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
         .history .grow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        code { background: var(--bg-raised); border-radius: 4px; padding: .05rem .3rem; font-size: .78rem; }
-        #toast { position: fixed; bottom: 1.2rem; right: 1.2rem; background: var(--success-strong); color: #fff; padding: .6rem .9rem; border-radius: 6px; font-size: .85rem; display: none; z-index: 9; }
-        #toast.err { background: var(--danger-bg); }
-        .empty { text-align: center; color: var(--text-muted); padding: 2.5rem 1rem; }
-        @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
+        .history .t { color: var(--text-muted); font-size: 0.71rem; flex-shrink: 0; }
+        .history .st { font-size: 0.68rem; color: var(--text-muted); font-weight: 500; }
+        .history .st.shown { color: var(--success); font-weight: 600; }
+
+        /* Simulator */
+        .sim-layout { max-width: 860px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 0.85rem; }
+        .sim-presets-wrap { display: flex; flex-direction: column; gap: 0.45rem; padding: 0.65rem 0.8rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; }
+        .sim-preset-chips { display: flex; gap: 0.38rem; flex-wrap: wrap; }
+        .preset-btn { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 0.26rem 0.65rem; font-size: 0.74rem; font-weight: 600; color: var(--text); cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; transition: all 0.12s; }
+        .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .sim-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.65rem; margin-top: 0.25rem; }
+        .sim-result-box { padding: 0.65rem 0.85rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+        .sim-result-box.matched { background: color-mix(in srgb, var(--success) 14%, var(--bg-inset)); border: 1px solid var(--success); color: var(--success); }
+        .sim-result-box.unmatched { background: color-mix(in srgb, var(--warn) 14%, var(--bg-inset)); border: 1px solid var(--warn); color: var(--warn); }
+
+        /* Dialogs */
+        dialog.lib { margin: auto; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 0; width: min(780px, 94vw); max-height: 82vh; box-shadow: 0 12px 36px rgba(0,0,0,0.5); }
+        dialog.lib::backdrop { background: rgba(0,0,0,0.65); backdrop-filter: blur(2px); }
+        .lib-head { display: flex; gap: 0.65rem; align-items: center; padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-card); z-index: 2; }
+        .lib-search-box { position: relative; flex: 1; display: flex; align-items: center; }
+        .lib-search-box .ico { position: absolute; left: 0.6rem; color: var(--text-faint); pointer-events: none; }
+        .lib-search-box input { width: 100%; padding: 0.42rem 0.7rem 0.42rem 1.85rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; font-size: 0.82rem; }
+        .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.65rem; padding: 1.1rem; overflow-y: auto; max-height: calc(82vh - 3.8rem); }
+        .lib-item { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem; cursor: pointer; display: flex; flex-direction: column; gap: 0.35rem; text-align: left; color: inherit; font: inherit; transition: all 0.12s; }
+        .lib-item:hover { border-color: var(--accent); background: var(--bg-raised); }
+        .lib-item .th { height: 86px; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border-radius: 5px; overflow: hidden; border: 1px solid rgba(255,255,255,0.04); }
+        .lib-item .th img, .lib-item .th video { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .lib-item .nm { font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-weight: 500; }
+
+        /* Toast */
+        #toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--success-strong); color: #fff; padding: 0.65rem 1.05rem; border-radius: 7px; font-size: 0.84rem; font-weight: 600; display: none; z-index: 99; box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
+        #toast.err { background: var(--danger); }
+        .empty-state { text-align: center; color: var(--text-muted); padding: 3rem 1.5rem; font-size: 0.84rem; display: flex; flex-direction: column; align-items: center; gap: 0.65rem; }
     </style>
 </head>
 <body>
@@ -125,80 +237,345 @@
         <script src="/nav.js"></script>
     </div>
 
-    <div class="container" style="padding-bottom:0;display:block">
-        <details class="card help" id="help">
-            <summary>How alerts work</summary>
-            <ol class="hint" style="padding-left:1.2rem;display:grid;gap:.25rem">
-                <li><b>Make a rule</b> on the left: pick what triggers it (a follow, 500 bits, a raid…).</li>
-                <li><b>Choose what to show</b>: text, an image/GIF/video and a sound. Add several variants to mix it up.</li>
-                <li><b>Save</b>, then press <b>▶ Test</b> on a variant. Tests play on any open overlay and in the overlay editor canvas.</li>
-                <li>Add an <b>Alert box</b> to a <a href="/custom-overlays.html" style="color:var(--accent)">custom overlay</a> and use it as an OBS browser source. Alerts only appear there.</li>
-            </ol>
-        </details>
-    </div>
-    <div class="container" style="padding-bottom:0;display:block"><div class="tabs">
-        <button class="tab active" data-tab="rules">Rules</button>
-        <button class="tab" data-tab="queue">Queue &amp; events <span class="pill" id="tab-count"></span></button>
-        <a class="tab" href="/alert-queue.html" target="_blank" title="Compact version for an OBS dock">OBS dock ↗</a>
-    </div></div>
-    <div class="container" id="pane-rules">
-        <div class="stack">
-            <div class="card">
-                <h2>Alerts <span id="save-state" class="pill ok">Saved</span></h2>
-                <div class="row"><label for="s-enabled">Turn alerts on</label><input type="checkbox" id="s-enabled"></div>
-                <div class="row"><label for="s-gap">Gap between alerts (s)</label><input type="number" id="s-gap" min="0" max="60" step="0.5"></div>
-                <div class="actions">
-                    <button class="btn primary" id="save">Save</button>
-                    <span class="hint" id="queue-line" style="margin:0 0 0 .3rem"></span>
+    <div class="container">
+        <!-- Top Toolbar & Global Controls -->
+        <div class="alerts-toolbar">
+            <div class="nav-tabs-wrap">
+                <div class="tabs-nav">
+                    <button type="button" class="tab-btn active" data-tab="rules" id="tab-btn-rules">
+                        <svg class="ico" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                        <span>Rules</span>
+                        <span class="badge" id="rule-count-pill">0</span>
+                    </button>
+                    <button type="button" class="tab-btn" data-tab="queue" id="tab-btn-queue">
+                        <svg class="ico" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                        <span>Queue &amp; Events</span>
+                        <span class="pill" id="tab-count"></span>
+                    </button>
+                    <button type="button" class="tab-btn" data-tab="sim" id="tab-btn-sim">
+                        <svg class="ico" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        <span>Simulator</span>
+                    </button>
+                    <a class="tab-btn external" href="/alert-queue.html" target="_blank" title="Open compact OBS dock for alerts">
+                        <svg class="ico" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        <span>OBS Dock</span>
+                    </a>
                 </div>
-                
             </div>
-            <div class="card">
-                <h2>Rules <button class="btn sm" id="add-rule">+ New rule</button></h2>
-                <div class="rule-list" id="rule-list"></div>
+
+            <div class="master-controls">
+                <label class="master-toggle" title="Turn all alerts on or off system-wide">
+                    <input type="checkbox" id="s-enabled">
+                    <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                    <span class="toggle-label">Alerts Enabled</span>
+                </label>
+
+                <div class="gap-control" title="Gap between alerts in seconds">
+                    <label for="s-gap">Gap:</label>
+                    <input type="number" id="s-gap" min="0" max="60" step="0.5" value="2">
+                    <span>s</span>
+                </div>
+
+                <div class="status-box" title="Current queue status">
+                    <span class="status-dot" id="queue-dot"></span>
+                    <span id="queue-line">Idle · 0 waiting</span>
+                    <span id="queue-line2" hidden></span>
+                </div>
+
+                <span id="save-state" class="pill ok">Saved</span>
+
+                <button type="button" class="btn primary" id="save" title="Save all alert rules and settings">
+                    <svg class="ico" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    <span>Save</span>
+                </button>
+
+                <button type="button" class="btn ghost icon-btn" id="help-toggle" title="Toggle quick guide">
+                    <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
             </div>
-            <details class="card sim">
-                <summary>Try a real-style event</summary>
-                <div class="row"><label>Event</label><select id="sim-type"></select></div>
-                <div class="row"><label>User</label><input id="sim-user" value="TestViewer"></div>
-                <div class="row"><label>Amount / count / months</label><input id="sim-amount" type="number" min="0" value="100"></div>
-                <div class="row"><label>Message / reward / word</label><input id="sim-text" value="hello there"></div>
-                <button class="btn" id="sim-go">Run through saved rules</button>
-                <p class="hint" style="margin-top:.5rem">Runs a pretend event through your saved rules, so you can check which rule wins. Timer and HTTP actions do not run.</p>
-            </details>
         </div>
 
-        <div class="stack" id="editor"></div>
-    </div>
-    <div class="container" id="pane-queue" style="display:none;grid-template-columns:1fr 1fr">
-        <div class="card" style="grid-column:1/-1">
-            <h2>Queue <span class="hint" style="text-transform:none" id="queue-line2"></span></h2>
-            <div class="actions">
-                <button class="btn" data-queue="skip">Skip current</button>
-                <button class="btn" data-queue="clear" title="Drop alerts waiting to play">Clear waiting</button>
-                <button class="btn pause-btn" data-queue="pause">Pause</button>
-                <button class="btn" data-queue="clear-log" title="Empty the event and alert lists">Clear lists</button>
+        <!-- Quick Guide Banner (Collapsible) -->
+        <div class="guide-banner" id="help-banner" hidden>
+            <div class="guide-head">
+                <span style="display:inline-flex;align-items:center;gap:0.45rem;">
+                    <svg class="ico" style="color:var(--accent)" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    <span>How StreamPulse Alerts Work</span>
+                </span>
+                <button type="button" class="btn ghost icon-btn sm" id="help-close" title="Close guide">
+                    <svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="guide-steps">
+                <div class="guide-step">
+                    <span class="guide-num">1</span>
+                    <div><b>Create a rule</b>: choose an event trigger (follow, subscription, bits, raid, redeem) and optional filters.</div>
+                </div>
+                <div class="guide-step">
+                    <span class="guide-num">2</span>
+                    <div><b>Style your alert</b>: customize text templates, pick animations, add artwork or GIFs, and assign sounds.</div>
+                </div>
+                <div class="guide-step">
+                    <span class="guide-num">3</span>
+                    <div><b>Test in real time</b>: click <b>▶ Test</b> to instantly preview on any open overlay and in the canvas.</div>
+                </div>
+                <div class="guide-step">
+                    <span class="guide-num">4</span>
+                    <div><b>Display in OBS</b>: add an <b>Alert Box</b> in a <a href="/custom-overlays.html">Custom Overlay</a> browser source.</div>
+                </div>
             </div>
         </div>
-        <div class="card">
-            <h2>Events <span class="hint" style="text-transform:none">latest 100 · ↻ re-runs through current rules</span> <label class="hint" style="text-transform:none;float:right;cursor:pointer"><input type="checkbox" id="hide-unmatched"> Hide unmatched</label></h2>
-            <div class="history tall" id="events"></div>
+        <details id="help" style="display:none;"><summary>legacy-help</summary></details>
+
+        <!-- Pane: Rules Studio -->
+        <div class="tab-pane active" id="pane-rules">
+            <div class="rules-layout">
+                <!-- Left Sidebar: Rules Explorer -->
+                <div class="card" style="padding:0.85rem;">
+                    <div class="sidebar-header">
+                        <h2>
+                            <span>Rules</span>
+                            <span class="badge accent" id="rule-badge-cnt">0</span>
+                        </h2>
+                        <button type="button" class="btn primary sm" id="add-rule" title="Create a new alert rule">
+                            <svg class="ico" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            <span>New Rule</span>
+                        </button>
+                    </div>
+
+                    <div class="rules-search-wrap">
+                        <svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="search" id="rule-search" placeholder="Search rules…" autocomplete="off" aria-label="Search alert rules">
+                        <button type="button" class="search-clear" id="rule-search-clear" hidden>✕</button>
+                    </div>
+
+                    <div class="filter-chips" id="trigger-filter-chips">
+                        <button type="button" class="filter-chip active" data-filter-trigger="">All</button>
+                        <button type="button" class="filter-chip" data-filter-trigger="follow">Follows</button>
+                        <button type="button" class="filter-chip" data-filter-trigger="sub,resub,milestone,gift">Subs</button>
+                        <button type="button" class="filter-chip" data-filter-trigger="bits">Bits</button>
+                        <button type="button" class="filter-chip" data-filter-trigger="raid">Raids</button>
+                        <button type="button" class="filter-chip" data-filter-trigger="donation">Donations</button>
+                        <button type="button" class="filter-chip" data-filter-trigger="redeem">Redeems</button>
+                    </div>
+
+                    <div class="rule-list" id="rule-list"></div>
+                </div>
+
+                <!-- Right Column: Alert Studio Editor -->
+                <div class="editor-col" id="editor"></div>
+            </div>
         </div>
-        <div class="card">
-            <h2>Alerts shown <span class="hint" style="text-transform:none">🧪 = test · ↻ shows it again</span></h2>
-            <div class="history tall" id="history"></div>
+
+        <!-- Pane: Queue & Events -->
+        <div class="tab-pane" id="pane-queue">
+            <div class="queue-layout">
+                <div class="card queue-controls-card">
+                    <div class="queue-status-head">
+                        <div class="queue-title-wrap">
+                            <span class="status-dot live" id="queue-dot2"></span>
+                            <h2 style="margin:0;">Alert Queue Monitor</h2>
+                        </div>
+                        <div class="queue-action-btns">
+                            <button type="button" class="btn sm" data-queue="skip">
+                                <svg class="ico" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+                                <span>Skip Current</span>
+                            </button>
+                            <button type="button" class="btn sm" data-queue="clear" title="Drop all alerts waiting to play">
+                                <svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                <span>Clear Waiting</span>
+                            </button>
+                            <button type="button" class="btn sm pause-btn" data-queue="pause">
+                                <svg class="ico" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                                <span>Pause</span>
+                            </button>
+                            <button type="button" class="btn sm danger" data-queue="clear-log" title="Empty the event and alert history logs">
+                                <svg class="ico" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                <span>Clear Lists</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="queue-history-grid">
+                    <div class="card">
+                        <div class="card-head-row">
+                            <h2>Stream Events <span class="hint">latest 100</span></h2>
+                            <label class="check-row" style="font-size:0.75rem;color:var(--text-muted);cursor:pointer">
+                                <input type="checkbox" id="hide-unmatched">
+                                <span>Hide unmatched</span>
+                            </label>
+                        </div>
+                        <div class="history tall" id="events"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-head-row">
+                            <h2>Alerts Shown <span class="hint">History of played alerts</span></h2>
+                        </div>
+                        <div class="history tall" id="history"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pane: Interactive Simulator -->
+        <div class="tab-pane" id="pane-sim">
+            <div class="sim-layout">
+                <div class="card">
+                    <div class="card-head-row">
+                        <div>
+                            <h2>Interactive Event Simulator</h2>
+                            <p class="hint">Test how your saved rules respond to live stream events. Click a quick preset or customize the payload.</p>
+                        </div>
+                    </div>
+
+                    <div class="sim-presets-wrap">
+                        <span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">Quick Event Presets</span>
+                        <div class="sim-preset-chips" id="sim-presets">
+                            <button type="button" class="preset-btn" data-sim-preset="follow">
+                                <svg class="ico" style="color:#f43f5e" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                                <span>Follow (Alex)</span>
+                            </button>
+                            <button type="button" class="preset-btn" data-sim-preset="sub">
+                                <svg class="ico" style="color:#a855f7" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                <span>Tier 1 Sub (Sam)</span>
+                            </button>
+                            <button type="button" class="preset-btn" data-sim-preset="resub-prime">
+                                <svg class="ico" style="color:#c084fc" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                                <span>Prime Resub (Jordan)</span>
+                            </button>
+                            <button type="button" class="preset-btn" data-sim-preset="bits-100">
+                                <svg class="ico" style="color:#06b6d4" viewBox="0 0 24 24"><polygon points="6 3 18 3 22 9 12 22 2 9"/></svg>
+                                <span>100 Bits</span>
+                            </button>
+                            <button type="button" class="preset-btn" data-sim-preset="bits-1000">
+                                <svg class="ico" style="color:#06b6d4" viewBox="0 0 24 24"><polygon points="6 3 18 3 22 9 12 22 2 9"/></svg>
+                                <span>1,000 Bits</span>
+                            </button>
+                            <button type="button" class="preset-btn" data-sim-preset="raid">
+                                <svg class="ico" style="color:#f97316" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                <span>Raid (42 Viewers)</span>
+                            </button>
+                            <button type="button" class="preset-btn" data-sim-preset="gift">
+                                <svg class="ico" style="color:#ec4899" viewBox="0 0 24 24"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+                                <span>5 Gift Subs</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="sim-form-grid">
+                        <div class="row"><label>Event Trigger</label><select id="sim-type"></select></div>
+                        <div class="row"><label>User Name</label><input id="sim-user" value="TestViewer"></div>
+                        <div class="row"><label>Amount / Months / Viewers</label><input id="sim-amount" type="number" min="0" value="100"></div>
+                        <div class="row"><label>Message / Reward / Word</label><input id="sim-text" value="hello there!"></div>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-top:0.4rem;">
+                        <button type="button" class="btn primary" id="sim-go">
+                            <svg class="ico" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            <span>Run Event Through Rules</span>
+                        </button>
+                        <span class="hint">Dispatches simulated event through priority sorting to test which rule matches.</span>
+                    </div>
+
+                    <div id="sim-result-box" class="sim-result-box" hidden></div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Asset Library Modal -->
+    <dialog class="lib" id="lib">
+        <div class="lib-head">
+            <div class="lib-search-box">
+                <svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input id="lib-q" placeholder="Search your asset library…">
+            </div>
+            <button type="button" class="btn sm" id="lib-close">
+                <svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                <span>Close</span>
+            </button>
+        </div>
+        <div class="lib-grid" id="lib-grid"></div>
+    </dialog>
+
     <div id="toast"></div>
 
-<dialog class="lib" id="lib"><div class="lib-head"><input id="lib-q" placeholder="Search your library…"><button class="btn sm" id="lib-close">Close</button></div><div class="lib-grid" id="lib-grid"></div></dialog>
-<script src="/overlay-shared.js"></script>
-<script src="/poll.js"></script>
+    <script src="/overlay-shared.js"></script>
+    <script src="/poll.js"></script>
     <script>
 (() => {
     const $ = id => document.getElementById(id);
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const TRIGGERS = { follow: 'Follow', sub: 'New subscriber', resub: 'Resub', milestone: 'Sub milestone / anniversary', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Channel point redeem', timer: 'Timer finished', goal: 'Goal reached', chat_word: 'Chat word or hashtag' };
+    
+    const ICONS = {
+        save: '<svg class="ico" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
+        plus: '<svg class="ico" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+        play: '<svg class="ico" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+        pause: '<svg class="ico" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>',
+        skip: '<svg class="ico" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>',
+        refresh: '<svg class="ico" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
+        trash: '<svg class="ico" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+        copy: '<svg class="ico" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+        search: '<svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+        check: '<svg class="ico" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>',
+        close: '<svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+        external: '<svg class="ico" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
+        sliders: '<svg class="ico" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>',
+        list: '<svg class="ico" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
+        zap: '<svg class="ico" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+        info: '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+        upload: '<svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+        folder: '<svg class="ico" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+        volume: '<svg class="ico" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>',
+        image: '<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+        video: '<svg class="ico" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>',
+        type: '<svg class="ico" viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>',
+        clock: '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+        smile: '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>',
+        heart: '<svg class="ico" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+        star: '<svg class="ico" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+        gift: '<svg class="ico" viewBox="0 0 24 24"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>',
+        diamond: '<svg class="ico" viewBox="0 0 24 24"><polygon points="6 3 18 3 22 9 12 22 2 9"/></svg>',
+        dollar: '<svg class="ico" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+        users: '<svg class="ico" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+        tag: '<svg class="ico" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
+        trophy: '<svg class="ico" viewBox="0 0 24 24"><path d="M6 9H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2"/><path d="M18 9h2a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>',
+        message: '<svg class="ico" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        sparkles: '<svg class="ico" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>'
+    };
+
+    const TRIGGERS = {
+        follow: 'Follow',
+        sub: 'New subscriber',
+        resub: 'Resub',
+        milestone: 'Sub milestone / anniversary',
+        gift: 'Gifted subs',
+        bits: 'Bits',
+        donation: 'Donation',
+        raid: 'Raid',
+        redeem: 'Channel point redeem',
+        timer: 'Timer finished',
+        goal: 'Goal reached',
+        chat_word: 'Chat word or hashtag'
+    };
+
+    const TRIGGER_META = {
+        follow: { label: 'Follow', icon: ICONS.heart, color: '#f43f5e' },
+        sub: { label: 'New Subscriber', icon: ICONS.star, color: '#a855f7' },
+        resub: { label: 'Resub', icon: ICONS.sparkles, color: '#c084fc' },
+        milestone: { label: 'Sub Anniversary', icon: ICONS.trophy, color: '#eab308' },
+        gift: { label: 'Gifted Subs', icon: ICONS.gift, color: '#ec4899' },
+        bits: { label: 'Cheer / Bits', icon: ICONS.diamond, color: '#06b6d4' },
+        donation: { label: 'Donation', icon: ICONS.dollar, color: '#10b981' },
+        raid: { label: 'Raid', icon: ICONS.users, color: '#f97316' },
+        redeem: { label: 'Channel Points', icon: ICONS.tag, color: '#8b5cf6' },
+        timer: { label: 'Timer Finished', icon: ICONS.clock, color: '#38bdf8' },
+        goal: { label: 'Goal Reached', icon: ICONS.trophy, color: '#fbbf24' },
+        chat_word: { label: 'Chat Word / #Tag', icon: ICONS.message, color: '#a3e635' }
+    };
+
     const ANIM_IN = ['pop', 'fade', 'zoom', 'bounce', 'flip', 'spin', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'none'];
     const ANIM_OUT = ['fade', 'pop', 'zoom', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'none'];
     const AMOUNT_LABEL = { bits: 'Bits', donation: 'Amount', raid: 'Viewers', redeem: 'Point cost', gift: 'Number of gifts', sub: 'Months', resub: 'Months' };
@@ -213,15 +590,18 @@
         donation: '{{alert.user}} donated {{alert.amount}}!', raid: '{{alert.user}} is raiding with {{alert.viewers}}!', redeem: '{{alert.user}} redeemed {{alert.reward}}',
         timer: '{{alert.name}} is done!', goal: 'Goal reached: {{alert.name}}', chat_word: '{{alert.user}} said {{alert.keyword}}'
     };
+
     let cfg = { settings: { enabled: true, gapSeconds: 2 }, rules: [] };
     const openVariants = new Set();
     let hideUnmatched = localStorage.getItem('alerts.hideUnmatched') === '1';
-    let sel = null, dirty = false, assets = [], timers = [], goals = [], queue = {}, paused = false;
+    let sel = null, dirty = false, assets = [], timers = [], goals = [], queue = {};
+    let ruleSearchQuery = '', activeTriggerFilter = '';
+    let lastFocusedInput = null;
 
     const toast = (message, err) => { const t = $('toast'); t.textContent = message; t.className = err ? 'err' : ''; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 2600); };
     const setDirty = value => { dirty = value; $('save-state').textContent = dirty ? 'Unsaved changes' : 'Saved'; $('save-state').className = `pill ${dirty ? 'dirty' : 'ok'}`; };
     const rule = () => cfg.rules.find(r => r.id === sel);
-    const newVariant = trigger => ({ id: `v${Date.now().toString(36)}`, title: DEFAULT_TITLE[trigger], message: '', image: '', video: '', emoji: '', emojiLadder: [], emojiEvery: 0, emojiMax: 8, sound: '', volume: 70, animIn: 'pop', animOut: 'fade', duration: 6, weight: 1 });
+    const newVariant = trigger => ({ id: `v${Date.now().toString(36)}`, title: DEFAULT_TITLE[trigger] || '', message: '', image: '', video: '', emoji: '', emojiLadder: [], emojiEvery: 0, emojiMax: 8, sound: '', volume: 70, animIn: 'pop', animOut: 'fade', duration: 6, weight: 1 });
     const setPath = (obj, path, value) => { const keys = path.split('.'); const last = keys.pop(); keys.reduce((o, k) => o[k], obj)[last] = value; };
 
     async function api(url, options) {
@@ -234,7 +614,7 @@
     async function loadAll() {
         const data = await api('/api/alerts', { cache: 'no-store' });
         cfg = { settings: data.settings, rules: data.rules };
-        queue = data.queue;
+        queue = data.queue || {};
         if (!sel || !rule()) sel = cfg.rules[0]?.id || null;
         try { timers = Object.values((await api('/api/timers')).timers || {}); } catch { timers = []; }
         try { goals = (await api('/api/goals')).items || []; } catch { goals = []; }
@@ -247,14 +627,56 @@
         $('s-enabled').checked = cfg.settings.enabled;
         $('s-gap').value = cfg.settings.gapSeconds;
     }
+
     function renderRules() {
-        $('rule-list').innerHTML = cfg.rules.length ? cfg.rules.map(r => `
-            <div class="rule-item${r.id === sel ? ' active' : ''}${r.enabled ? '' : ' off'}" data-rule="${esc(r.id)}">
-                <div><div class="name">${esc(r.name)}</div><div class="meta">${esc(TRIGGERS[r.trigger])} · ${r.variants.length} variant${r.variants.length === 1 ? '' : 's'}${r.conditions.minAmount && AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub' ? ` · ≥ ${r.conditions.minAmount}` : ''}</div></div>
-                <span class="pill ${r.enabled ? 'ok' : ''}">${r.enabled ? 'On' : 'Off'}</span>
-            </div>`).join('') : '<p class="hint">No rules yet. Add one to get started.</p>';
+        const q = ruleSearchQuery.toLowerCase().trim();
+        const allowedTriggers = activeTriggerFilter ? activeTriggerFilter.split(',') : null;
+        const filtered = cfg.rules.filter(r => {
+            if (q && !r.name.toLowerCase().includes(q) && !(TRIGGERS[r.trigger] || '').toLowerCase().includes(q)) return false;
+            if (allowedTriggers && !allowedTriggers.includes(r.trigger)) return false;
+            return true;
+        });
+
+        $('rule-count-pill').textContent = cfg.rules.length;
+        $('rule-badge-cnt').textContent = cfg.rules.length;
+
+        if (!cfg.rules.length) {
+            $('rule-list').innerHTML = `<div class="empty-state">${ICONS.sliders}<span>No alert rules yet. Click "New Rule" to create your first alert.</span></div>`;
+            return;
+        }
+
+        if (!filtered.length) {
+            $('rule-list').innerHTML = `<div class="empty-state" style="padding:1.5rem 0.5rem;"><span>No rules match "${esc(q || activeTriggerFilter)}".</span><button type="button" class="btn sm" id="clear-rule-filters">Reset filters</button></div>`;
+            return;
+        }
+
+        $('rule-list').innerHTML = filtered.map(r => {
+            const meta = TRIGGER_META[r.trigger] || { label: r.trigger, icon: ICONS.zap, color: '#3b82f6' };
+            const isSel = r.id === sel;
+            const amtCond = r.conditions.minAmount && AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub' ? `≥ ${r.conditions.minAmount}` : '';
+            return `
+            <div class="rule-item${isSel ? ' active' : ''}${r.enabled ? '' : ' off'}" data-rule="${esc(r.id)}" title="${esc(r.name)} (${meta.label})">
+                <div class="rule-icon-box" style="color:${meta.color};border-color:color-mix(in srgb, ${meta.color} 35%, var(--border));background:color-mix(in srgb, ${meta.color} 10%, var(--bg-card));">
+                    ${meta.icon}
+                </div>
+                <div class="rule-item-content">
+                    <div class="rule-item-name">${esc(r.name)}</div>
+                    <div class="rule-item-meta">
+                        <span class="rule-item-tag" style="color:${meta.color};">${esc(meta.label)}</span>
+                        <span>${r.variants.length} var</span>
+                        ${amtCond ? `<span class="rule-item-tag">${esc(amtCond)}</span>` : ''}
+                    </div>
+                </div>
+                <div class="rule-item-toggle">
+                    <span class="pill ${r.enabled ? 'ok' : ''}">${r.enabled ? 'On' : 'Off'}</span>
+                </div>
+            </div>`;
+        }).join('');
     }
-    function field(label, inner, hint = '') { return `<div class="row"><label>${label}</label>${inner}${hint ? `<small>${hint}</small>` : ''}</div>`; }
+
+    function field(label, inner, hint = '') {
+        return `<div class="row"><label>${label}</label>${inner}${hint ? `<small>${hint}</small>` : ''}</div>`;
+    }
     const inp = (path, value, type = 'text', extra = '') => `<input type="${type}" data-f="${path}" data-type="${type}" value="${esc(value)}" ${extra}>`;
     const sel_ = (path, value, options) => `<select data-f="${path}">${options.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(value) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
 
@@ -262,77 +684,217 @@
         const c = r.conditions, t = r.trigger;
         let html = '';
         if (AMOUNT_LABEL[t] && t !== 'sub') {
-            html += field(`Minimum ${AMOUNT_LABEL[t].toLowerCase()}`, inp('conditions.minAmount', c.minAmount, 'number', 'min="0"'), 'When several rules match, the one with the highest minimum wins, so you can stack tiers (100 bits, 1000 bits…).');
-            html += field(`Maximum ${AMOUNT_LABEL[t].toLowerCase()}`, inp('conditions.maxAmount', c.maxAmount, 'number', 'min="0"'), '0 means no maximum.');
+            html += field(`Minimum ${AMOUNT_LABEL[t]}`, inp('conditions.minAmount', c.minAmount, 'number', 'min="0"'), 'When several rules match, the highest minimum wins (e.g. 100 vs 1000 bits).');
+            html += field(`Maximum ${AMOUNT_LABEL[t]}`, inp('conditions.maxAmount', c.maxAmount, 'number', 'min="0"'), '0 means no maximum.');
         }
-        if (['sub', 'resub', 'milestone', 'gift'].includes(t)) html += field('Tier', sel_('conditions.tier', c.tier, [['', 'Any'], ['1000', 'Tier 1'], ['2000', 'Tier 2'], ['3000', 'Tier 3'], ['prime', 'Prime']]), 'Prime is separate from Tier 1. A rule with a specific tier beats an "Any" rule.');
-        if (t === 'redeem') html += field('Reward name contains', inp('conditions.rewardName', c.rewardName, 'text', 'placeholder="e.g. Hydrate (blank = any reward)"'));
-        if (t === 'timer') html += field('Timer', sel_('conditions.timerId', c.timerId, [['', 'Any timer'], ...timers.map(x => [x.id, x.label || x.id])]));
-        if (t === 'goal') html += field('Goal', sel_('conditions.goalId', c.goalId, [['', 'Any goal'], ...goals.map(x => [x.id, x.title])]));
-        if (t === 'chat_word') html += field('Words or #hashtags', inp('conditions.keywords', c.keywords.join(', '), 'list', 'placeholder="hype, #clip"'), 'Comma separated. Whole words only, case-insensitive.');
+        if (['sub', 'resub', 'milestone', 'gift'].includes(t)) {
+            html += field('Subscription Tier', sel_('conditions.tier', c.tier, [['', 'Any Tier'], ['1000', 'Tier 1'], ['2000', 'Tier 2'], ['3000', 'Tier 3'], ['prime', 'Prime']]), 'Specific tier rules take precedence over "Any".');
+        }
+        if (t === 'redeem') html += field('Reward Name Contains', inp('conditions.rewardName', c.rewardName, 'text', 'placeholder="e.g. Hydrate (blank = any reward)"'), 'Case-insensitive reward title match.');
+        if (t === 'timer') html += field('Timer Trigger', sel_('conditions.timerId', c.timerId, [['', 'Any timer'], ...timers.map(x => [x.id, x.label || x.id])]));
+        if (t === 'goal') html += field('Goal Trigger', sel_('conditions.goalId', c.goalId, [['', 'Any goal'], ...goals.map(x => [x.id, x.title])]));
+        if (t === 'chat_word') html += field('Words or #Hashtags', inp('conditions.keywords', c.keywords.join(', '), 'list', 'placeholder="hype, #clip, gg"'), 'Comma separated. Matches whole words, case-insensitive.');
         if (t === 'milestone') {
-            html += field('Milestone months', inp('conditions.milestones', c.milestones.join(', '), 'numlist', 'placeholder="6, 12, 24, 36"'), 'Only fires for resubs, so it never claims a wrong anniversary.');
-            html += field('…or every N months', inp('conditions.everyMonths', c.everyMonths, 'number', 'min="0" max="120"'), '12 = every yearly anniversary. 0 = off.');
+            html += field('Milestone Months', inp('conditions.milestones', c.milestones.join(', '), 'numlist', 'placeholder="6, 12, 24, 36"'), 'Specific anniversary milestones (comma-separated).');
+            html += field('…or Every N Months', inp('conditions.everyMonths', c.everyMonths, 'number', 'min="0" max="120"'), '12 = every yearly anniversary (0 = off).');
         }
-        html += field('Cooldown (s)', inp('conditions.cooldownSeconds', c.cooldownSeconds, 'number', 'min="0"'), t === 'chat_word' ? 'Stops chat from spamming this alert.' : '0 = no cooldown.');
+        html += field('Cooldown (s)', inp('conditions.cooldownSeconds', c.cooldownSeconds, 'number', 'min="0"'), t === 'chat_word' ? 'Prevents chat from spamming this alert repeatedly.' : '0 = no cooldown.');
         return html;
     }
+
     function mediaField(i, key, kinds, accept, label) {
         const v = rule().variants[i];
+        const val = v[key] || '';
         const list = assets.filter(a => kinds.includes(a.kind));
-        return `<div class="fld">${label}<span class="media-row">
-            <input type="text" data-v="${i}.${key}" placeholder="URL, or pick / upload" value="${esc(v[key])}">
-            <button class="btn sm" data-library="${i}.${key}" data-kinds="${kinds.join(',')}" ${list.length ? '' : 'disabled'}>Library (${list.length})</button>
-            <button class="btn sm" data-upload="${i}.${key}" data-accept="${accept}">Upload</button></span></div>`;
+        const isImg = kinds.includes('image');
+        const isVid = kinds.includes('video');
+        return `
+        <div class="fld">
+            <span style="display:flex;justify-content:space-between;align-items:center;">
+                <span>${label}</span>
+                ${val ? `<button type="button" class="btn ghost sm" data-clear-media="${i}.${key}" style="font-size:0.68rem;padding:0.05rem 0.35rem;">Clear</button>` : ''}
+            </span>
+            <div style="display:flex;gap:0.5rem;align-items:flex-start;">
+                ${val ? `
+                    <div class="media-preview-box" title="${esc(val)}">
+                        ${isImg ? `<img src="${esc(val)}" alt="" onerror="this.parentElement.style.display='none'">` : isVid ? `<video src="${esc(val)}" muted preload="metadata" onerror="this.parentElement.style.display='none'"></video>` : `<div style="font-size:1.4rem;">${ICONS.volume}</div>`}
+                    </div>
+                ` : ''}
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:0.35rem;">
+                    <div class="media-row">
+                        <input type="text" data-v="${i}.${key}" placeholder="Paste URL or choose below" value="${esc(val)}">
+                        <button type="button" class="btn sm" data-library="${i}.${key}" data-kinds="${kinds.join(',')}" ${list.length ? '' : 'disabled'}>
+                            ${ICONS.folder} <span>Library (${list.length})</span>
+                        </button>
+                        <button type="button" class="btn sm" data-upload="${i}.${key}" data-accept="${accept}">
+                            ${ICONS.upload} <span>Upload</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
     }
-    const vin = (i, key, label, value, attrs = '', type = 'number') => `<label class="fld">${label}<input type="${type}" data-v="${i}.${key}" value="${esc(value)}" ${attrs}></label>`;
-    const vsel = (i, key, label, value, options) => `<label class="fld">${label}<select data-v="${i}.${key}">${options.map(a => `<option${a === value ? ' selected' : ''}>${a}</option>`).join('')}</select></label>`;
+
+    const vin = (i, key, label, value, attrs = '', type = 'number') => `<label class="fld"><span>${label}</span><input type="${type}" data-v="${i}.${key}" value="${esc(value)}" ${attrs}></label>`;
+    const vsel = (i, key, label, value, options) => `<label class="fld"><span>${label}</span><select data-v="${i}.${key}">${options.map(a => `<option${a === value ? ' selected' : ''}>${a}</option>`).join('')}</select></label>`;
     const BUILTIN = OverlayShared.BUILTIN_SOUNDS;
     const builtinName = v => (String(v.sound || '').startsWith('builtin:') ? v.sound.slice(8) : '');
     let testAmount = 0;
+
     function soundHtml(v, i) {
         const name = builtinName(v);
-        const file = name ? '' : mediaField(i, 'sound', ['audio'], 'audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg', 'Sound file');
-        return `<div class="vgrid c2"><label class="fld">Sound<span class="media-row"><select data-sound-preset="${i}"><option value="">Custom file / none</option>${Object.entries(BUILTIN).map(([key, def]) => `<option value="${key}"${key === name ? ' selected' : ''}>Built-in: ${def.label}</option>`).join('')}</select>
-            <button class="btn sm" data-sound-preview="${i}" ${v.sound ? '' : 'disabled'}>▶ Preview</button></span></label>${file}</div>`;
+        const file = name ? '' : mediaField(i, 'sound', ['audio'], 'audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg', 'Custom Audio File');
+        return `
+        <div class="vgrid c2">
+            <label class="fld">
+                <span>Sound Effect</span>
+                <span class="media-row">
+                    <select data-sound-preset="${i}">
+                        <option value="">Custom file / None</option>
+                        ${Object.entries(BUILTIN).map(([key, def]) => `<option value="${key}"${key === name ? ' selected' : ''}>Built-in: ${def.label}</option>`).join('')}
+                    </select>
+                    <button type="button" class="btn sm" data-sound-preview="${i}" ${v.sound ? '' : 'disabled'}>${ICONS.play} Preview</button>
+                </span>
+            </label>
+            ${file}
+        </div>`;
     }
+
     function emojiHtml(v, i, r) {
         const amountLabel = AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub' ? AMOUNT_LABEL[r.trigger].toLowerCase() : '';
         const ladder = amountLabel ? `
-            <div class="fld">Emoji ladder (by ${amountLabel})<div style="display:grid;gap:.35rem">
-                ${v.emojiLadder.map((step, j) => `<span class="media-row"><span style="align-self:center;white-space:nowrap">from</span><input type="number" min="0" style="max-width:110px" data-lad="${i}.${j}.min" value="${esc(step.min)}"><input type="text" maxlength="40" placeholder="e.g. 💎 or 🔥🔥🔥" data-lad="${i}.${j}.emoji" value="${esc(step.emoji)}"><button class="btn sm danger" data-del-step="${i}.${j}" title="Remove step">✕</button></span>`).join('')}
-                <div><button class="btn sm" data-add-step="${i}" ${v.emojiLadder.length >= 12 ? 'disabled' : ''}>+ Add step</button></div>
-            </div><span class="tabs-note">The highest step at or below the ${amountLabel} wins; below the first step it falls back to the emoji above. A step can hold several emojis.</span></div>
-            <div class="vgrid c3">${vin(i, 'emojiEvery', `One emoji per N ${amountLabel} (0 = off)`, v.emojiEvery, 'min="0"')}${vin(i, 'emojiMax', 'Max emojis', v.emojiMax, 'min="1" max="20"')}
-                <label class="fld">Test ${amountLabel}<input type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}"></label></div>` : '';
-        return `<div class="vgrid c2">${vin(i, 'emoji', 'Emoji', v.emoji, 'maxlength="40" placeholder="e.g. 🎉"', 'text')}</div>${ladder}`;
+            <div class="fld" style="margin-top:0.35rem;">
+                <span>Emoji Ladder (escalates by ${amountLabel})</span>
+                <div style="display:grid;gap:0.35rem;margin-top:0.25rem;">
+                    ${v.emojiLadder.map((step, j) => `
+                        <div class="media-row" style="align-items:center;">
+                            <span style="font-size:0.73rem;color:var(--text-muted);white-space:nowrap;">from</span>
+                            <input type="number" min="0" style="max-width:110px;" data-lad="${i}.${j}.min" value="${esc(step.min)}">
+                            <input type="text" maxlength="40" placeholder="e.g. 💎 or 🔥🔥🔥" data-lad="${i}.${j}.emoji" value="${esc(step.emoji)}">
+                            <button type="button" class="btn sm danger icon-btn" data-del-step="${i}.${j}" title="Remove step">${ICONS.close}</button>
+                        </div>
+                    `).join('')}
+                    <div>
+                        <button type="button" class="btn sm" data-add-step="${i}" ${v.emojiLadder.length >= 12 ? 'disabled' : ''}>${ICONS.plus} Add Ladder Step</button>
+                    </div>
+                </div>
+                <span class="hint" style="font-size:0.69rem;margin-top:0.2rem;">Highest step at or below ${amountLabel} is shown; falls back to default emoji below first step.</span>
+            </div>
+            <div class="vgrid c3" style="margin-top:0.35rem;">
+                ${vin(i, 'emojiEvery', `One emoji per N ${amountLabel} (0 = off)`, v.emojiEvery, 'min="0"')}
+                ${vin(i, 'emojiMax', 'Max emojis', v.emojiMax, 'min="1" max="20"')}
+                <label class="fld">
+                    <span>Test ${amountLabel}</span>
+                    <input type="number" min="0" data-test-amount value="${testAmount || ''}" placeholder="${r.conditions.minAmount || 100}">
+                </label>
+            </div>` : '';
+        return `<div class="vgrid c2">${vin(i, 'emoji', 'Default Emoji', v.emoji, 'maxlength="40" placeholder="e.g. 🎉"', 'text')}</div>${ladder}`;
     }
+
     const variantTab = new Map(), variantMedia = new Map();
-    const VTABS = [['text', 'Text'], ['visual', 'Visual'], ['sound', 'Sound'], ['timing', 'Timing']];
+    const VTABS = [
+        ['text', 'Text', ICONS.type],
+        ['visual', 'Visuals', ICONS.image],
+        ['sound', 'Audio', ICONS.volume],
+        ['timing', 'Timing & FX', ICONS.clock]
+    ];
+
     function variantHtml(v, i, r) {
         const open = r.variants.length === 1 || openVariants.has(v.id);
         const weighted = r.pick === 'weighted';
         const tab = variantTab.get(v.id) || 'text';
         const media = variantMedia.get(v.id) || (v.video ? 'video' : v.image ? 'image' : (v.emoji || v.emojiLadder.length) ? 'emoji' : 'image');
+
         const panels = {
-            text: `<div class="vgrid c2">${vin(i, 'title', 'Title', v.title, '', 'text')}${vin(i, 'message', 'Message (optional)', v.message, '', 'text')}</div>`,
-            visual: `<div class="seg-row">${[['image', 'Image / GIF'], ['video', 'Video'], ['emoji', 'Emoji']].map(([key, label]) => `<button type="button" class="vtab pill${key === media ? ' active' : ''}" data-vmedia="${key}" data-vid-tab="${esc(v.id)}">${label}</button>`).join('')}</div>
-                ${media === 'image' ? mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Image / GIF') + (v.video ? '<span class="tabs-note">A video is also set and takes priority over the image.</span>' : '')
-                : media === 'video' ? mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Video (used instead of image)')
-                : emojiHtml(v, i, r) + (v.video || v.image ? '<span class="tabs-note">Emoji only show when there is no image or video. Clear those first.</span>' : '')}`,
-            sound: soundHtml(v, i) + `<div class="vgrid c3">${vin(i, 'volume', 'Volume %', v.volume, 'min="0" max="100"')}</div>`,
-            timing: `<div class="vgrid c3">${vin(i, 'duration', 'Show for (s)', v.duration, 'min="1" max="120" step="0.5"')}${vsel(i, 'animIn', 'Animation in', v.animIn, ANIM_IN)}${vsel(i, 'animOut', 'Animation out', v.animOut, ANIM_OUT)}</div>
-                ${weighted ? `<div class="vgrid c3">${vin(i, 'weight', 'Weight (odds)', v.weight, 'min="1" max="100"')}</div><span class="tabs-note">Weight: a variant with weight 3 shows three times as often as one with weight 1.</span>` : ''}`
+            text: `
+                <div class="vgrid c2">
+                    ${vin(i, 'title', 'Title Template', v.title, 'placeholder="e.g. {{alert.user}} just followed!"', 'text')}
+                    ${vin(i, 'message', 'Subtitle / Message (Optional)', v.message, 'placeholder="e.g. Thanks for the support!"', 'text')}
+                </div>
+            `,
+            visual: `
+                <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.2rem;">
+                    <span style="font-size:0.72rem;font-weight:600;color:var(--text-muted);">Media Mode:</span>
+                    <div class="seg-pills">
+                        ${[['image', 'Image / GIF', ICONS.image], ['video', 'Video', ICONS.video], ['emoji', 'Emoji', ICONS.smile]].map(([key, label, icon]) => `
+                            <button type="button" class="seg-btn${key === media ? ' active' : ''}" data-vmedia="${key}" data-vid-tab="${esc(v.id)}">
+                                ${icon} <span>${label}</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+                ${media === 'image' ? mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Alert Image / GIF') + (v.video ? '<span class="hint">Note: A video URL is also set and takes priority over the image.</span>' : '')
+                : media === 'video' ? mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Alert Video (WebM / MP4)')
+                : emojiHtml(v, i, r) + (v.video || v.image ? '<span class="hint">Emoji only display when image/video is blank.</span>' : '')}
+            `,
+            sound: `
+                ${soundHtml(v, i)}
+                <div class="fld" style="margin-top:0.4rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span>Audio Volume</span>
+                        <span class="vol-badge" id="vol-badge-${i}">${v.volume ?? 70}%</span>
+                    </div>
+                    <div class="vol-wrap">
+                        <svg class="ico sm" style="color:var(--text-muted);" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
+                        <input type="range" class="vol-slider" min="0" max="100" data-v="${i}.volume" data-vol-slider="${i}" value="${v.volume ?? 70}">
+                        <svg class="ico sm" style="color:var(--text);" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                    </div>
+                </div>
+            `,
+            timing: `
+                <div class="vgrid c3">
+                    ${vin(i, 'duration', 'Show Duration (s)', v.duration, 'min="1" max="120" step="0.5"')}
+                    ${vsel(i, 'animIn', 'Animation In', v.animIn, ANIM_IN)}
+                    ${vsel(i, 'animOut', 'Animation Out', v.animOut, ANIM_OUT)}
+                </div>
+                ${weighted ? `
+                    <div class="vgrid c3" style="margin-top:0.4rem;">
+                        ${vin(i, 'weight', 'Weight (Selection Odds)', v.weight, 'min="1" max="100"')}
+                    </div>
+                    <span class="hint">Higher weight variants trigger proportionally more often (e.g. weight 3 vs weight 1).</span>
+                ` : ''}
+            `
         };
-        return `<details class="variant" data-vid="${esc(v.id)}"${open ? ' open' : ''}>
-            <summary><span class="vt">${esc(v.title || v.message || '(empty)')}</span><span class="vm">${v.duration}s${weighted ? ` · weight ${v.weight}` : ''}${v.sound ? ' · 🔊' : ''}${v.emoji || v.emojiLadder.length ? ' · ' + esc(v.emoji || v.emojiLadder[0].emoji) : ''}${v.video ? ' · 🎞' : v.image ? ' · 🖼' : ''}</span>
-                <button class="btn sm" data-test="${i}">▶ Test</button></summary>
+
+        const mediaBadge = v.video ? `${ICONS.video} Video` : v.image ? `${ICONS.image} Image` : (v.emoji || v.emojiLadder.length) ? `${ICONS.smile} ${esc(v.emoji || v.emojiLadder[0].emoji)}` : '';
+        const soundBadge = v.sound ? `${ICONS.volume} Audio` : '';
+
+        return `
+        <details class="variant" data-vid="${esc(v.id)}"${open ? ' open' : ''}>
+            <summary>
+                <div class="variant-summary-left">
+                    <span class="variant-num">Variant ${i + 1}</span>
+                    <span class="variant-title-prev">${esc(v.title || v.message || '(Untitled Variant)')}</span>
+                    <span class="variant-meta-pill">
+                        <span>${v.duration}s</span>
+                        ${mediaBadge ? `<span>· ${mediaBadge}</span>` : ''}
+                        ${soundBadge ? `<span>· ${soundBadge}</span>` : ''}
+                        ${weighted ? `<span>· weight ${v.weight}</span>` : ''}
+                    </span>
+                </div>
+                <div class="variant-summary-right">
+                    <button type="button" class="btn sm primary" data-test="${i}" title="Preview this alert variant on overlays">
+                        ${ICONS.play} <span>Test</span>
+                    </button>
+                </div>
+            </summary>
             <div class="variant-body">
-                <div class="vtabs">${VTABS.map(([key, label]) => `<button type="button" class="vtab${key === tab ? ' active' : ''}" data-vtab="${key}" data-vid-tab="${esc(v.id)}">${label}</button>`).join('')}<span class="grow"></span>
-                    <button class="btn sm danger" data-del-variant="${i}" ${r.variants.length < 2 ? 'disabled' : ''} style="margin-bottom:.25rem">Remove variant</button></div>
+                <div class="vtabs">
+                    ${VTABS.map(([key, label, icon]) => `
+                        <button type="button" class="vtab${key === tab ? ' active' : ''}" data-vtab="${key}" data-vid-tab="${esc(v.id)}">
+                            ${icon} <span>${label}</span>
+                        </button>
+                    `).join('')}
+                    <span class="vtab-grow"></span>
+                    <button type="button" class="btn sm danger" data-del-variant="${i}" ${r.variants.length < 2 ? 'disabled' : ''} title="Delete this variant">
+                        ${ICONS.trash} <span>Remove Variant</span>
+                    </button>
+                </div>
                 ${panels[tab]}
-            </div></details>`;
+            </div>
+        </details>`;
     }
+
     function summary(r) {
         const c = r.conditions, t = TRIGGERS[r.trigger];
         const hasAmt = !!AMOUNT_LABEL[r.trigger] && r.trigger !== 'sub';
@@ -341,86 +903,310 @@
         else if (hasAmt && c.minAmount) when += ` of ${c.minAmount} or more`;
         if (r.trigger === 'redeem' && c.rewardName) when += ` for "${c.rewardName}"`;
         if (r.trigger === 'chat_word' && c.keywords.length) when += `: ${c.keywords.join(', ')}`;
-        const extras = [r.actions.timer.enabled ? 'change a timer' : '', r.actions.http.enabled ? 'send an HTTP request' : ''].filter(Boolean);
-        return `${when}, show ${r.variants.length > 1 ? `one of ${r.variants.length} variants` : 'the alert'}${extras.length ? ' and ' + extras.join(' and ') : ''}.${r.enabled ? '' : ' (This rule is off.)'}`;
+        const extras = [r.actions.timer.enabled ? 'trigger a timer' : '', r.actions.http.enabled ? 'send a webhook' : ''].filter(Boolean);
+        return `${when}, display ${r.variants.length > 1 ? `one of ${r.variants.length} variants` : 'the alert'}${extras.length ? ' and ' + extras.join(' and ') : ''}.${r.enabled ? '' : ' (This rule is currently disabled.)'}`;
     }
+
     function renderEditor() {
         const r = rule();
-        if (!r) { $('editor').innerHTML = '<div class="card empty">Select a rule on the left, or create a new one.</div>'; return; }
+        if (!r) {
+            $('editor').innerHTML = `
+                <div class="card empty-state">
+                    ${ICONS.sliders}
+                    <span>Select an alert rule on the left, or click "New Rule" to create one.</span>
+                </div>
+            `;
+            return;
+        }
         const a = r.actions;
-        const tokens = TOKENS[r.trigger].map(t => `<code>{{alert.${t}}}</code>`).join(' ');
+        const meta = TRIGGER_META[r.trigger] || { label: r.trigger, icon: ICONS.zap, color: '#3b82f6' };
+        const tokens = TOKENS[r.trigger] || [];
+
         $('editor').innerHTML = `
-            <div class="summary-line"><b>${esc(summary(r))}</b></div>
-            <div class="card"><h2>1 · When this happens <span class="actions"><label class="onoff"><input type="checkbox" data-f="enabled" data-type="check" ${r.enabled ? 'checked' : ''}> Enabled</label><button class="btn sm" id="dup-rule">Duplicate</button><button class="btn sm danger" id="del-rule">Delete</button></span></h2>
-                <div class="cgrid">
-                ${field('Name', inp('name', r.name, 'text', 'maxlength="80"'))}
-                ${field('When this happens', sel_('trigger', r.trigger, Object.entries(TRIGGERS)))}
-                ${conditionsHtml(r)}
+            <!-- Rule Summary Banner -->
+            <div class="summary-banner">
+                <div class="summary-left">
+                    <div class="summary-icon" style="color:${meta.color};border-color:color-mix(in srgb, ${meta.color} 35%, var(--border));">
+                        ${meta.icon}
+                    </div>
+                    <div class="summary-text">
+                        <b>${esc(summary(r))}</b>
+                    </div>
+                </div>
+                <div class="summary-actions">
+                    <label class="check-row" title="Enable or disable this specific rule">
+                        <input type="checkbox" data-f="enabled" data-type="check" ${r.enabled ? 'checked' : ''}>
+                        <span>Active</span>
+                    </label>
+                    <button type="button" class="btn sm" id="dup-rule" title="Duplicate rule">${ICONS.copy} Duplicate</button>
+                    <button type="button" class="btn sm danger" id="del-rule" title="Delete rule">${ICONS.trash} Delete</button>
+                    <button type="button" class="btn sm primary" data-test="0" title="Test this alert on overlays">${ICONS.play} Test</button>
                 </div>
             </div>
-            <div class="card"><h2>2 · What to show <button class="btn sm" id="add-variant">+ Add variant</button></h2>
-                <p class="hint" style="margin-bottom:.5rem">Placeholders for this trigger: ${tokens}</p>
-                ${r.variants.length > 1 ? field('When several variants', sel_('pick', r.pick, [['random', 'Random (never the same twice in a row)'], ['weighted', 'Random, weighted by each variant\'s weight'], ['sequential', 'In order, one after another']])) : ''}
-                ${r.variants.map((v, i) => variantHtml(v, i, r)).join('')}
+
+            <!-- Card 1: Trigger & Conditions -->
+            <div class="card">
+                <h2>
+                    <span style="display:inline-flex;align-items:center;gap:0.45rem;">
+                        ${ICONS.zap}
+                        <span>1 · Event Trigger &amp; Conditions</span>
+                    </span>
+                    <span class="badge accent">${meta.label}</span>
+                </h2>
+                <div class="cgrid">
+                    ${field('Rule Name', inp('name', r.name, 'text', 'maxlength="80" placeholder="e.g. Sub Tier 1"'))}
+                    ${field('Event Trigger', sel_('trigger', r.trigger, Object.entries(TRIGGERS)))}
+                    ${conditionsHtml(r)}
+                </div>
             </div>
-            <div class="card"><h2>3 · Also do (optional)</h2>
-                <div class="row"><label>Timer</label><input type="checkbox" data-f="actions.timer.enabled" data-type="check" ${a.timer.enabled ? 'checked' : ''}></div>
-                ${a.timer.enabled ? `
-                    ${field('Timer', sel_('actions.timer.timerId', a.timer.timerId, [['', 'Choose a timer…'], ...timers.map(x => [x.id, x.label || x.id])]))}
-                    ${field('Action', sel_('actions.timer.action', a.timer.action, [['start', 'Start'], ['pause', 'Pause'], ['resume', 'Resume'], ['reset', 'Reset'], ['add_time', 'Add time'], ['subtract_time', 'Subtract time']]))}
-                    ${['add_time', 'subtract_time'].includes(a.timer.action) ? field('Seconds', inp('actions.timer.seconds', a.timer.seconds, 'number', 'min="0"')) + `<div class="row"><label>Per unit</label><input type="checkbox" data-f="actions.timer.perUnit" data-type="check" ${a.timer.perUnit ? 'checked' : ''}><small>Multiply by the amount (e.g. 30 s per 100 bits, per gifted sub, per viewer).</small></div>` : ''}` : ''}
-                <div class="row"><label>HTTP request</label><input type="checkbox" data-f="actions.http.enabled" data-type="check" ${a.http.enabled ? 'checked' : ''}></div>
-                ${a.http.enabled ? `${field('URL', inp('actions.http.url', a.http.url, 'text', 'placeholder="http://localhost:…"'), 'Sends rule, trigger, user, amount and message as JSON (POST) or query string (GET).')}${field('Method', sel_('actions.http.method', a.http.method, [['POST', 'POST'], ['GET', 'GET']]))}` : ''}
-            </div>`;
+
+            <!-- Card 2: Alert Display & Variants -->
+            <div class="card">
+                <div class="card-head-row">
+                    <h2>
+                        <span style="display:inline-flex;align-items:center;gap:0.45rem;">
+                            ${ICONS.image}
+                            <span>2 · Alert Display &amp; Variants</span>
+                        </span>
+                        <span class="badge">${r.variants.length} variant${r.variants.length === 1 ? '' : 's'}</span>
+                    </h2>
+                    <button type="button" class="btn sm primary" id="add-variant" title="Add a new variation">
+                        ${ICONS.plus} <span>Add Variant</span>
+                    </button>
+                </div>
+
+                <!-- Clickable Token Chips -->
+                <div style="margin-top:0.1rem;">
+                    <div style="font-size:0.71rem;font-weight:600;color:var(--text-muted);margin-bottom:0.25rem;">
+                        Available Placeholders (click to insert into text):
+                    </div>
+                    <div class="tokens-bar">
+                        ${tokens.map(t => `<button type="button" class="token-chip" data-insert="{{alert.${t}}}" title="Click to insert {{alert.${t}}}">+ {{alert.${t}}}</button>`).join('')}
+                    </div>
+                </div>
+
+                ${r.variants.length > 1 ? field('Variant Selection Mode', sel_('pick', r.pick, [
+                    ['random', 'Random (never repeats back-to-back)'],
+                    ['weighted', 'Weighted Random (based on variant weight)'],
+                    ['sequential', 'Sequential (in order, one after another)']
+                ])) : ''}
+
+                <div style="display:flex;flex-direction:column;gap:0.35rem;margin-top:0.3rem;">
+                    ${r.variants.map((v, i) => variantHtml(v, i, r)).join('')}
+                </div>
+            </div>
+
+            <!-- Card 3: Additional Actions -->
+            <div class="card">
+                <h2>
+                    <span style="display:inline-flex;align-items:center;gap:0.45rem;">
+                        ${ICONS.clock}
+                        <span>3 · Additional Actions (Optional)</span>
+                    </span>
+                </h2>
+
+                <div class="cgrid">
+                    <!-- Timer Action -->
+                    <div style="display:flex;flex-direction:column;gap:0.4rem;background:var(--bg-inset);padding:0.65rem 0.8rem;border:1px solid var(--border);border-radius:8px;">
+                        <label class="check-row" style="font-weight:600;">
+                            <input type="checkbox" data-f="actions.timer.enabled" data-type="check" ${a.timer.enabled ? 'checked' : ''}>
+                            <span>Control a Timer</span>
+                        </label>
+                        ${a.timer.enabled ? `
+                            ${field('Target Timer', sel_('actions.timer.timerId', a.timer.timerId, [['', 'Choose timer…'], ...timers.map(x => [x.id, x.label || x.id])]))}
+                            ${field('Action', sel_('actions.timer.action', a.timer.action, [['start', 'Start'], ['pause', 'Pause'], ['resume', 'Resume'], ['reset', 'Reset'], ['add_time', 'Add Time'], ['subtract_time', 'Subtract Time']]))}
+                            ${['add_time', 'subtract_time'].includes(a.timer.action) ? `
+                                ${field('Seconds', inp('actions.timer.seconds', a.timer.seconds, 'number', 'min="0"'))}
+                                <label class="check-row" style="margin-top:0.2rem;">
+                                    <input type="checkbox" data-f="actions.timer.perUnit" data-type="check" ${a.timer.perUnit ? 'checked' : ''}>
+                                    <span>Multiply by amount (e.g. 30s per 100 bits / viewer)</span>
+                                </label>
+                            ` : ''}
+                        ` : '<span class="hint" style="font-size:0.71rem;">Start, pause, or adjust a timer when this alert fires.</span>'}
+                    </div>
+
+                    <!-- Webhook Action -->
+                    <div style="display:flex;flex-direction:column;gap:0.4rem;background:var(--bg-inset);padding:0.65rem 0.8rem;border:1px solid var(--border);border-radius:8px;">
+                        <label class="check-row" style="font-weight:600;">
+                            <input type="checkbox" data-f="actions.http.enabled" data-type="check" ${a.http.enabled ? 'checked' : ''}>
+                            <span>Send Webhook (HTTP Request)</span>
+                        </label>
+                        ${a.http.enabled ? `
+                            ${field('Endpoint URL', inp('actions.http.url', a.http.url, 'text', 'placeholder="https://localhost:..."'), 'Payload includes rule, trigger, viewer, amount, message.')}
+                            ${field('HTTP Method', sel_('actions.http.method', a.http.method, [['POST', 'POST (JSON body)'], ['GET', 'GET (Query parameters)']]))}
+                        ` : '<span class="hint" style="font-size:0.71rem;">Trigger external automation, Discord bot, or smart home light on alert.</span>'}
+                    </div>
+                </div>
+            </div>
+        `;
     }
-    document.addEventListener('change', e => {
-        if (e.target.id !== 'hide-unmatched') return;
-        hideUnmatched = e.target.checked; localStorage.setItem('alerts.hideUnmatched', hideUnmatched ? '1' : '0'); renderEvents();
-    });
+
     function renderEvents() {
         const list = (queue.events || []).filter(e => !hideUnmatched || e.status !== 'no matching rule');
         if (!$('events')) return;
         $('hide-unmatched').checked = hideUnmatched;
-        $('events').innerHTML = list.length ? list.map(e => `<div><span class="grow"><span>${esc(TRIGGERS[e.event.type] || e.event.type)}: ${esc(e.event.user || e.event.name || '')}${e.event.amount ? ' · ' + esc(e.event.amount) : ''}</span><span class="st ${e.status === 'shown' ? 'shown' : ''}">${esc(e.status)} · ${new Date(e.at).toLocaleTimeString()}</span></span><button class="btn sm" data-replay-event="${esc(e.id)}" title="Run this event through your current rules again">↻ Replay</button></div>`).join('') : '<p class="hint">Real stream events show up here, including ones that matched no rule.</p>';
+        $('events').innerHTML = list.length ? list.map(e => {
+            const meta = TRIGGER_META[e.event.type] || { label: e.event.type, icon: ICONS.zap, color: '#3b82f6' };
+            return `
+            <div>
+                <span class="grow">
+                    <span style="display:inline-flex;align-items:center;gap:0.35rem;">
+                        <span style="color:${meta.color}">${meta.icon}</span>
+                        <b>${esc(TRIGGERS[e.event.type] || e.event.type)}</b>: ${esc(e.event.user || e.event.name || 'Anonymous')}${e.event.amount ? ` · <b>${esc(e.event.amount)}</b>` : ''}
+                    </span>
+                    <span class="st ${e.status === 'shown' ? 'shown' : ''}">${esc(e.status)} · ${new Date(e.at).toLocaleTimeString()}</span>
+                </span>
+                <button type="button" class="btn sm" data-replay-event="${esc(e.id)}" title="Run this event through your current rules again">
+                    ${ICONS.refresh} Replay
+                </button>
+            </div>`;
+        }).join('') : '<p class="hint" style="padding:1rem;text-align:center;">Real stream events appear here as they occur in real time.</p>';
     }
+
     function renderQueue() {
         renderEvents();
-        $('queue-line').textContent = `${queue.current ? 'Showing: ' + (queue.current.title || queue.current.ruleName) + '. ' : 'Idle. '}${queue.pending || 0} waiting${queue.paused ? ' (paused)' : ''}.`;
-        document.querySelectorAll('.pause-btn').forEach(b => { b.textContent = queue.paused ? 'Resume' : 'Pause'; b.dataset.queue = queue.paused ? 'resume' : 'pause'; });
-        $('queue-line2').textContent = $('queue-line').textContent;
+        const hasQueue = Boolean(queue.current || queue.pending);
+        const statusDot = $('queue-dot');
+        const statusDot2 = $('queue-dot2');
+        if (statusDot) {
+            statusDot.className = 'status-dot' + (queue.paused ? ' paused' : queue.current ? ' live' : '');
+        }
+        if (statusDot2) {
+            statusDot2.className = 'status-dot' + (queue.paused ? ' paused' : queue.current ? ' live' : '');
+        }
+
+        const statusText = `${queue.current ? 'Playing: ' + (queue.current.title || queue.current.ruleName) + ' · ' : 'Idle · '}${queue.pending || 0} waiting${queue.paused ? ' (paused)' : ''}.`;
+        $('queue-line').textContent = statusText;
+        $('queue-line2').textContent = statusText;
+        document.querySelectorAll('.pause-btn').forEach(b => {
+            b.innerHTML = `${queue.paused ? ICONS.play : ICONS.pause} <span>${queue.paused ? 'Resume' : 'Pause'}</span>`;
+            b.dataset.queue = queue.paused ? 'resume' : 'pause';
+        });
         $('tab-count').textContent = (queue.pending || 0) ? queue.pending : '';
-        $('history').innerHTML = (queue.history || []).length ? queue.history.map(h => `<div><span class="grow"><span>${h.test ? '🧪 ' : ''}${esc(h.title || h.message || h.ruleName)}</span></span><span class="t">${new Date(h.shownAt || h.at).toLocaleTimeString()}</span><button class="btn sm" data-replay-alert="${esc(h.id)}" title="Show this exact alert again">↻</button></div>`).join('') : '<p class="hint">Nothing yet this run.</p>';
+
+        $('history').innerHTML = (queue.history || []).length ? queue.history.map(h => `
+            <div>
+                <span class="grow">
+                    <span style="display:inline-flex;align-items:center;gap:0.35rem;">
+                        ${h.test ? '<span class="badge accent">Test</span>' : ''}
+                        <span>${esc(h.title || h.message || h.ruleName)}</span>
+                    </span>
+                </span>
+                <span class="t">${new Date(h.shownAt || h.at).toLocaleTimeString()}</span>
+                <button type="button" class="btn sm icon-btn" data-replay-alert="${esc(h.id)}" title="Show this exact alert again">
+                    ${ICONS.refresh}
+                </button>
+            </div>
+        `).join('') : '<p class="hint" style="padding:1rem;text-align:center;">No alerts shown yet in this session.</p>';
     }
-    function renderSummary() { const b = document.querySelector('#editor .summary-line b'); if (b && rule()) b.textContent = summary(rule()); }
+
+    function renderSummary() {
+        const b = document.querySelector('#editor .summary-text b');
+        if (b && rule()) b.textContent = summary(rule());
+    }
+
     function renderAll() {
         $('sim-type').innerHTML = Object.entries(TRIGGERS).map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
-        renderSettings(); renderRules(); renderEditor(); renderQueue();
+        renderSettings();
+        renderRules();
+        renderEditor();
+        renderQueue();
     }
 
     async function save() {
         const saved = await api('/api/alerts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) });
         cfg = { settings: saved.settings, rules: saved.rules };
         if (!rule()) sel = cfg.rules[0]?.id || null;
-        setDirty(false); renderAll();
+        setDirty(false);
+        renderAll();
     }
     const guard = fn => async (...args) => { try { await fn(...args); } catch (err) { toast(err.message, true); } };
 
+    // Global Settings Listeners
     $('s-enabled').addEventListener('change', () => { cfg.settings.enabled = $('s-enabled').checked; setDirty(true); });
     $('s-gap').addEventListener('input', () => { cfg.settings.gapSeconds = Number($('s-gap').value) || 0; setDirty(true); });
-    $('save').addEventListener('click', guard(async () => { await save(); toast('Saved'); }));
+    $('save').addEventListener('click', guard(async () => { await save(); toast('Saved successfully'); }));
+
+    // Guide Toggle
+    const helpBanner = $('help-banner');
+    const isHelpOpen = localStorage.getItem('alerts-help') === 'open';
+    helpBanner.hidden = !isHelpOpen;
+    $('help-toggle').addEventListener('click', () => {
+        helpBanner.hidden = !helpBanner.hidden;
+        localStorage.setItem('alerts-help', helpBanner.hidden ? 'closed' : 'open');
+    });
+    $('help-close').addEventListener('click', () => {
+        helpBanner.hidden = true;
+        localStorage.setItem('alerts-help', 'closed');
+    });
+
+    // Add Rule
     $('add-rule').addEventListener('click', () => {
         const trigger = 'follow';
         const id = `rule-${Date.now().toString(36)}`;
-        cfg.rules.push({ id, name: 'New alert', enabled: true, trigger, conditions: { minAmount: 0, maxAmount: 0, tier: '', rewardName: '', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0 }, pick: 'random', variants: [newVariant(trigger)], actions: { timer: { enabled: false, timerId: '', action: 'add_time', seconds: 30, perUnit: false }, http: { enabled: false, url: '', method: 'POST' } } });
-        sel = id; setDirty(true); renderAll();
+        cfg.rules.push({
+            id,
+            name: 'New alert',
+            enabled: true,
+            trigger,
+            conditions: { minAmount: 0, maxAmount: 0, tier: '', rewardName: '', keywords: [], timerId: '', goalId: '', milestones: [], everyMonths: 0, cooldownSeconds: 0 },
+            pick: 'random',
+            variants: [newVariant(trigger)],
+            actions: { timer: { enabled: false, timerId: '', action: 'add_time', seconds: 30, perUnit: false }, http: { enabled: false, url: '', method: 'POST' } }
+        });
+        sel = id;
+        setDirty(true);
+        renderAll();
     });
+
+    // Rule selection & filtering
     $('rule-list').addEventListener('click', event => {
+        if (event.target.closest('#clear-rule-filters')) {
+            ruleSearchQuery = '';
+            $('rule-search').value = '';
+            $('rule-search-clear').hidden = true;
+            activeTriggerFilter = '';
+            document.querySelectorAll('[data-filter-trigger]').forEach(btn => btn.classList.toggle('active', btn.dataset.filterTrigger === ''));
+            renderRules();
+            return;
+        }
         const item = event.target.closest('[data-rule]');
         if (item) { sel = item.dataset.rule; renderRules(); renderEditor(); }
     });
 
+    $('rule-search').addEventListener('input', e => {
+        ruleSearchQuery = e.target.value;
+        $('rule-search-clear').hidden = !ruleSearchQuery;
+        renderRules();
+    });
+    $('rule-search-clear').addEventListener('click', () => {
+        ruleSearchQuery = '';
+        $('rule-search').value = '';
+        $('rule-search-clear').hidden = true;
+        renderRules();
+    });
+
+    $('trigger-filter-chips').addEventListener('click', e => {
+        const btn = e.target.closest('[data-filter-trigger]');
+        if (!btn) return;
+        activeTriggerFilter = btn.dataset.filterTrigger;
+        document.querySelectorAll('[data-filter-trigger]').forEach(b => b.classList.toggle('active', b === btn));
+        renderRules();
+    });
+
+    // Editor bindings
     const editor = $('editor');
-    editor.addEventListener('toggle', event => { const d = event.target; if (d.dataset?.vid) d.open ? openVariants.add(d.dataset.vid) : openVariants.delete(d.dataset.vid); }, true);
+    editor.addEventListener('toggle', event => {
+        const d = event.target;
+        if (d.dataset?.vid) d.open ? openVariants.add(d.dataset.vid) : openVariants.delete(d.dataset.vid);
+    }, true);
+
+    editor.addEventListener('focusin', event => {
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+            lastFocusedInput = event.target;
+        }
+    });
+
     editor.addEventListener('input', event => {
         const el = event.target, r = rule();
         if (!r) return;
@@ -433,7 +1219,7 @@
             else if (type === 'numlist') value = value.split(',').map(s => Number(s.trim())).filter(n => n > 0);
             setPath(r, el.dataset.f, value);
             setDirty(true);
-            if (el.dataset.f === 'name') renderRules();
+            if (el.dataset.f === 'name' || el.dataset.f === 'enabled') renderRules();
             renderSummary();
         } else if (el.dataset.lad) {
             const [i, j, key] = el.dataset.lad.split('.');
@@ -443,10 +1229,15 @@
             testAmount = Number(el.value) || 0;
         } else if (el.dataset.v) {
             const [i, key] = el.dataset.v.split('.');
-            r.variants[i][key] = el.type === 'number' ? Number(el.value) || 0 : el.value;
+            r.variants[i][key] = el.type === 'number' || el.type === 'range' ? Number(el.value) || 0 : el.value;
+            if (key === 'volume') {
+                const badge = $(`vol-badge-${i}`);
+                if (badge) badge.textContent = `${r.variants[i][key]}%`;
+            }
             setDirty(true);
         }
     });
+
     editor.addEventListener('change', event => {
         const el = event.target, r = rule();
         if (!r) return;
@@ -454,28 +1245,39 @@
             r.trigger = el.value;
             if (!AMOUNT_LABEL[r.trigger] || r.trigger === 'sub') r.conditions.minAmount = r.conditions.maxAmount = 0;
             const prev = Object.values(DEFAULT_TITLE);
-            r.variants.forEach(v => { if (!v.title || prev.includes(v.title)) v.title = DEFAULT_TITLE[r.trigger]; });
+            r.variants.forEach(v => { if (!v.title || prev.includes(v.title)) v.title = DEFAULT_TITLE[r.trigger] || ''; });
             if (r.name === 'New alert' || Object.values(TRIGGERS).includes(r.name)) r.name = TRIGGERS[r.trigger];
             r.conditions.cooldownSeconds = r.trigger === 'chat_word' ? 30 : r.conditions.cooldownSeconds;
             renderAll();
-        } else if (el.dataset.f === 'pick') renderEditor();
-        else if (['actions.timer.enabled', 'actions.http.enabled', 'actions.timer.action'].includes(el.dataset.f)) renderEditor();
-        else if (el.dataset.soundPreset !== undefined) {
+        } else if (el.dataset.f === 'pick' || ['actions.timer.enabled', 'actions.http.enabled', 'actions.timer.action'].includes(el.dataset.f)) {
+            renderEditor();
+        } else if (el.dataset.soundPreset !== undefined) {
             r.variants[el.dataset.soundPreset].sound = el.value ? `builtin:${el.value}` : '';
-            setDirty(true); renderEditor();
+            setDirty(true);
+            renderEditor();
         } else if (el.dataset.lad && el.dataset.lad.endsWith('.min')) {
             const [i] = el.dataset.lad.split('.');
-            r.variants[i].emojiLadder.sort((a, b) => a.min - b.min); renderEditor();
+            r.variants[i].emojiLadder.sort((a, b) => a.min - b.min);
+            renderEditor();
         } else if (el.dataset.pick) {
             const [i, key] = el.dataset.pick.split('.');
             if (el.value) { r.variants[i][key] = el.value; setDirty(true); renderEditor(); }
         }
     });
+
+    // Asset Library Modal
     let libTarget = null, libKinds = [];
     function renderLib() {
         const q = $('lib-q').value.toLowerCase();
         const list = assets.filter(a => libKinds.includes(a.kind) && (a.label || a.name).toLowerCase().includes(q));
-        $('lib-grid').innerHTML = list.length ? list.map(a => `<button class="lib-item" data-url="${esc(a.url)}" title="${esc(a.label || a.name)}"><div class="th">${a.kind === 'image' ? `<img loading="lazy" src="${esc(a.url)}">` : a.kind === 'video' ? `<video preload="metadata" muted src="${esc(a.url)}#t=0.1"></video>` : '🔊'}</div><span class="nm">${esc(a.label || a.name)}</span></button>`).join('') : '<p class="hint">No matches.</p>';
+        $('lib-grid').innerHTML = list.length ? list.map(a => `
+            <button type="button" class="lib-item" data-url="${esc(a.url)}" title="${esc(a.label || a.name)}">
+                <div class="th">
+                    ${a.kind === 'image' ? `<img loading="lazy" src="${esc(a.url)}" alt="">` : a.kind === 'video' ? `<video preload="metadata" muted src="${esc(a.url)}#t=0.1"></video>` : `<span style="font-size:1.6rem;">${ICONS.volume}</span>`}
+                </div>
+                <span class="nm">${esc(a.label || a.name)}</span>
+            </button>
+        `).join('') : '<p class="hint" style="grid-column:1/-1;text-align:center;padding:2rem;">No matching assets in library.</p>';
     }
     $('lib-q').addEventListener('input', renderLib);
     $('lib-close').addEventListener('click', () => $('lib').close());
@@ -483,14 +1285,58 @@
         const item = event.target.closest('.lib-item'), r = rule();
         if (!item || !r || !libTarget) return;
         const [i, key] = libTarget.split('.');
-        r.variants[i][key] = item.dataset.url; setDirty(true); $('lib').close(); renderEditor();
+        r.variants[i][key] = item.dataset.url;
+        setDirty(true);
+        $('lib').close();
+        renderEditor();
     });
+
+    function insertAtCursor(input, text) {
+        if (!input) return;
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? input.value.length;
+        const val = input.value;
+        input.value = val.substring(0, start) + text + val.substring(end);
+        input.selectionStart = input.selectionEnd = start + text.length;
+        input.focus();
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
     editor.addEventListener('click', guard(async event => {
         const r = rule(), btn = event.target.closest('button');
         if (!r || !btn) return;
+
+        // Token chip insertion
+        if (btn.dataset.insert) {
+            const token = btn.dataset.insert;
+            const targetInput = lastFocusedInput && document.contains(lastFocusedInput)
+                ? lastFocusedInput
+                : document.querySelector('input[data-v$=".title"]') || document.querySelector('input[data-v$=".message"]');
+            if (targetInput) {
+                insertAtCursor(targetInput, token);
+                toast(`Inserted ${token}`);
+            } else {
+                navigator.clipboard?.writeText(token);
+                toast(`Copied ${token} to clipboard`);
+            }
+            return;
+        }
+
+        if (btn.dataset.clearMedia) {
+            const [i, key] = btn.dataset.clearMedia.split('.');
+            r.variants[i][key] = '';
+            setDirty(true);
+            renderEditor();
+            return;
+        }
+
         if (btn.dataset.library) {
-            libTarget = btn.dataset.library; libKinds = btn.dataset.kinds.split(',');
-            $('lib-q').value = ''; renderLib(); $('lib').showModal(); $('lib-q').focus();
+            libTarget = btn.dataset.library;
+            libKinds = btn.dataset.kinds.split(',');
+            $('lib-q').value = '';
+            renderLib();
+            $('lib').showModal();
+            $('lib-q').focus();
             return;
         }
         if (btn.dataset.test !== undefined) event.preventDefault();
@@ -499,77 +1345,169 @@
         if (btn.id === 'add-variant') { const nv = newVariant(r.trigger); r.variants.push(nv); openVariants.add(nv.id); setDirty(true); renderEditor(); }
         else if (btn.dataset.addStep !== undefined) {
             const v = r.variants[btn.dataset.addStep], last = v.emojiLadder[v.emojiLadder.length - 1];
-            v.emojiLadder.push({ min: last ? last.min * 10 || 100 : 100, emoji: '' }); setDirty(true); renderEditor();
+            v.emojiLadder.push({ min: last ? last.min * 10 || 100 : 100, emoji: '' });
+            setDirty(true);
+            renderEditor();
         } else if (btn.dataset.delStep !== undefined) {
-            const [i, j] = btn.dataset.delStep.split('.'); r.variants[i].emojiLadder.splice(Number(j), 1); setDirty(true); renderEditor();
+            const [i, j] = btn.dataset.delStep.split('.');
+            r.variants[i].emojiLadder.splice(Number(j), 1);
+            setDirty(true);
+            renderEditor();
         } else if (btn.dataset.soundPreview !== undefined) {
             const v = r.variants[btn.dataset.soundPreview], name = builtinName(v);
-            if (name) OverlayShared.playBuiltinSound(name, (v.volume || 70) / 100);
-            else if (v.sound) { const audio = new Audio(v.sound); audio.volume = (v.volume || 70) / 100; audio.play().catch(() => toast('Could not play that file')); }
-        }
-        else if (btn.dataset.delVariant !== undefined) { r.variants.splice(Number(btn.dataset.delVariant), 1); setDirty(true); renderEditor(); }
-        else if (btn.id === 'del-rule') { if (!await StreamPulse.confirm('Delete Rule', `Delete "${r.name}"?`, { danger: true, confirmText: 'Delete' })) return; cfg.rules = cfg.rules.filter(x => x !== r); sel = cfg.rules[0]?.id || null; setDirty(true); renderAll(); }
-        else if (btn.id === 'dup-rule') { const copy = JSON.parse(JSON.stringify(r)); copy.id = `rule-${Date.now().toString(36)}`; copy.name = `${r.name} copy`; cfg.rules.push(copy); sel = copy.id; setDirty(true); renderAll(); }
-        else if (btn.dataset.test !== undefined) {
+            if (name) OverlayShared.playBuiltinSound(name, (v.volume ?? 70) / 100);
+            else if (v.sound) {
+                const audio = new Audio(v.sound);
+                audio.volume = (v.volume ?? 70) / 100;
+                audio.play().catch(() => toast('Could not play that audio file'));
+            }
+        } else if (btn.dataset.delVariant !== undefined) {
+            r.variants.splice(Number(btn.dataset.delVariant), 1);
+            setDirty(true);
+            renderEditor();
+        } else if (btn.id === 'del-rule') {
+            if (!await StreamPulse.confirm('Delete Rule', `Delete "${r.name}"?`, { danger: true, confirmText: 'Delete' })) return;
+            cfg.rules = cfg.rules.filter(x => x !== r);
+            sel = cfg.rules[0]?.id || null;
+            setDirty(true);
+            renderAll();
+        } else if (btn.id === 'dup-rule') {
+            const copy = JSON.parse(JSON.stringify(r));
+            copy.id = `rule-${Date.now().toString(36)}`;
+            copy.name = `${r.name} copy`;
+            cfg.rules.push(copy);
+            sel = copy.id;
+            setDirty(true);
+            renderAll();
+        } else if (btn.dataset.test !== undefined) {
             await save();
-            await api('/api/alerts/test', { method: 'POST', body: JSON.stringify({ ruleId: sel, variantId: rule().variants[Number(btn.dataset.test)].id, ...(testAmount ? { amount: testAmount } : {}) }) });
-            toast('Test alert queued'); refreshQueue();
+            const variantIdx = Number(btn.dataset.test);
+            const targetVariant = r.variants[variantIdx] || r.variants[0];
+            await api('/api/alerts/test', {
+                method: 'POST',
+                body: JSON.stringify({ ruleId: sel, variantId: targetVariant.id, ...(testAmount ? { amount: testAmount } : {}) })
+            });
+            toast('Test alert queued');
+            refreshQueue();
         } else if (btn.dataset.upload) {
             const [i, key] = btn.dataset.upload.split('.');
             const picker = document.createElement('input');
-            picker.type = 'file'; picker.accept = btn.dataset.accept;
+            picker.type = 'file';
+            picker.accept = btn.dataset.accept;
             picker.onchange = guard(async () => {
                 const file = picker.files[0];
                 if (!file) return;
-                if (file.size > 100 * 1024 * 1024) throw new Error('That file is larger than the 100 MB limit.');
+                if (file.size > 100 * 1024 * 1024) throw new Error('File exceeds the 100 MB limit.');
                 const ext = (file.name.split('.').pop() || '').toLowerCase();
                 const types = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', ogg: key === 'sound' ? 'audio/ogg' : 'video/ogg' };
                 const type = types[ext] || file.type;
                 const data = await api('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': type, 'X-Asset-Name': file.name.replace(/[^\x20-\x7e]+/g, '-') }, body: file });
-                r.variants[i][key] = data.url; setDirty(true);
-                await loadAssets(); renderEditor(); toast('Uploaded');
+                r.variants[i][key] = data.url;
+                setDirty(true);
+                await loadAssets();
+                renderEditor();
+                toast('File uploaded to library');
             });
             picker.click();
         }
     }));
 
+    // Queue action buttons
     document.addEventListener('click', guard(async event => {
         const btn = event.target.closest('[data-queue]');
         if (!btn) return;
         const data = await api('/api/alerts/queue', { method: 'POST', body: JSON.stringify({ action: btn.dataset.queue }) });
-        queue = data.queue; renderQueue();
+        queue = data.queue;
+        renderQueue();
     }));
-    const help = $('help'); help.open = localStorage.getItem('alerts-help') === 'open';
-    help.addEventListener('toggle', () => localStorage.setItem('alerts-help', help.open ? 'open' : 'closed'));
+
+    // Unmatched toggle
+    document.addEventListener('change', e => {
+        if (e.target.id !== 'hide-unmatched') return;
+        hideUnmatched = e.target.checked;
+        localStorage.setItem('alerts.hideUnmatched', hideUnmatched ? '1' : '0');
+        renderEvents();
+    });
+
+    // Top Tabs Navigation
     document.querySelectorAll('[data-tab]').forEach(t => t.addEventListener('click', () => {
         document.querySelectorAll('[data-tab]').forEach(x => x.classList.toggle('active', x === t));
-        $('pane-rules').style.display = t.dataset.tab === 'rules' ? '' : 'none';
-        $('pane-queue').style.display = t.dataset.tab === 'queue' ? 'grid' : 'none';
+        $('pane-rules').classList.toggle('active', t.dataset.tab === 'rules');
+        $('pane-queue').classList.toggle('active', t.dataset.tab === 'queue');
+        $('pane-sim').classList.toggle('active', t.dataset.tab === 'sim');
         if (t.dataset.tab === 'queue') refreshQueue();
     }));
+
+    // Simulator presets
+    const SIM_PRESETS = {
+        'follow': { type: 'follow', user: 'AlexStreams', amount: 0, text: '' },
+        'sub': { type: 'sub', user: 'SamGamer', amount: 1, text: 'Hype stream!' },
+        'resub-prime': { type: 'resub', user: 'JordanPrime', amount: 6, text: '6 months strong with Prime!' },
+        'bits-100': { type: 'bits', user: 'CheerMaster', amount: 100, text: 'cheer100 great gameplay!' },
+        'bits-1000': { type: 'bits', user: 'BigSpender', amount: 1000, text: 'cheer1000 GG!' },
+        'raid': { type: 'raid', user: 'RaidLeader', amount: 42, text: '' },
+        'gift': { type: 'gift', user: 'GenerousDonor', amount: 5, text: '' }
+    };
+
+    document.addEventListener('click', e => {
+        const btn = e.target.closest('[data-sim-preset]');
+        if (!btn) return;
+        const preset = SIM_PRESETS[btn.dataset.simPreset];
+        if (preset) {
+            $('sim-type').value = preset.type;
+            $('sim-user').value = preset.user;
+            $('sim-amount').value = preset.amount;
+            $('sim-text').value = preset.text;
+            $('sim-go').click();
+        }
+    });
+
+    // Run Simulator
     $('sim-go').addEventListener('click', guard(async () => {
         if (dirty) await save();
         const type = $('sim-type').value, amount = Number($('sim-amount').value) || 0, text = $('sim-text').value;
-        const body = { type, user: $('sim-user').value || 'TestViewer', amount, count: amount, months: amount, viewers: amount, tierLabel: 'Tier 1', message: text, reward: text, keyword: text, name: text };
+        const tier = type === 'resub' && $('sim-user').value.toLowerCase().includes('prime') ? 'prime' : '1000';
+        const body = { type, user: $('sim-user').value || 'TestViewer', amount, count: amount, months: amount, viewers: amount, tier, tierLabel: tier === 'prime' ? 'Prime' : 'Tier 1', message: text, reward: text, keyword: text, name: text };
         if (type === 'chat_word') body.message = text;
         const data = await api('/api/alerts/test-event', { method: 'POST', body: JSON.stringify(body) });
-        toast(data.alert ? 'Queued an alert' : 'No enabled rule matched that event', !data.alert);
+        const resBox = $('sim-result-box');
+        resBox.hidden = false;
+        if (data.alert) {
+            resBox.className = 'sim-result-box matched';
+            resBox.innerHTML = `${ICONS.check} <span>Dispatched alert: <b>"${esc(data.alert.title || data.alert.ruleName)}"</b></span>`;
+            toast('Simulated alert dispatched');
+        } else {
+            resBox.className = 'sim-result-box unmatched';
+            resBox.innerHTML = `${ICONS.info} <span>No active rule matched this event. Check your triggers, tiers, or minimum amounts.</span>`;
+            toast('No enabled rule matched that event', true);
+        }
         refreshQueue();
     }));
 
+    // Replay event and alert
     document.addEventListener('click', guard(async event => {
         const btn = event.target.closest('[data-replay-event],[data-replay-alert]');
         if (!btn) return;
-        await api('/api/alerts/replay', { method: 'POST', body: JSON.stringify(btn.dataset.replayEvent ? { eventId: btn.dataset.replayEvent } : { alertId: btn.dataset.replayAlert }) });
-        toast('Replaying'); refreshQueue();
+        await api('/api/alerts/replay', {
+            method: 'POST',
+            body: JSON.stringify(btn.dataset.replayEvent ? { eventId: btn.dataset.replayEvent } : { alertId: btn.dataset.replayAlert })
+        });
+        toast('Replaying alert');
+        refreshQueue();
     }));
+
     async function refreshQueue() {
-        try { queue = (await api('/api/alerts', { cache: 'no-store' })).queue; renderQueue(); } catch { /* server restarting */ }
+        try {
+            const data = await api('/api/alerts', { cache: 'no-store' });
+            queue = data.queue || {};
+            renderQueue();
+        } catch { /* server restarting */ }
     }
+
     window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
     pollVisible(refreshQueue, 3000);
     loadAll().catch(err => toast(err.message, true));
 })();
-</script>
+    </script>
 </body>
 </html>
