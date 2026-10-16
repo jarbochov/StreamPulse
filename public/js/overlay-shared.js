@@ -877,8 +877,9 @@
         if (document.getElementById('sp-border-keyframes')) return;
         const tag = document.createElement('style');
         tag.id = 'sp-border-keyframes';
-        tag.textContent = '@keyframes sp-border-spin { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } } '
-            + '@keyframes sp-border-pulse { 0%, 100% { opacity: 0.35; filter: brightness(0.85); } 50% { opacity: 1; filter: brightness(1.35) drop-shadow(0 0 10px currentColor); } } '
+        tag.textContent = '@property --sp-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; } '
+            + '@keyframes sp-border-spin { from { --sp-angle: 0deg; } to { --sp-angle: 360deg; } } '
+            + '@keyframes sp-border-pulse { 0%, 100% { opacity: 0.3; filter: brightness(0.85); } 50% { opacity: 1; filter: brightness(1.35) drop-shadow(0 0 10px currentColor); } } '
             + '@keyframes sp-border-gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } } '
             + '@keyframes sp-border-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } } '
             + '@keyframes sp-border-marching { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -32; } } '
@@ -893,7 +894,7 @@
         }
         const glow = style.borderGlow;
         if (glow?.enabled && width > 0) {
-            const gc = glow.color || style.borderColor || '#38bdf8';
+            const gc = glow.color && glow.color !== 'transparent' ? glow.color : (style.borderColor && style.borderColor !== 'transparent' ? style.borderColor : '#38bdf8');
             const gb = Math.max(0, Number(glow.blur ?? 16));
             const gs = Math.max(0, Number(glow.spread ?? 2));
             if (glow.neon) {
@@ -903,14 +904,8 @@
                     `0 0 ${gb}px ${gs}px ${gc}`,
                     `0 0 ${Math.round(gb * 1.6)}px ${Math.round(gs * 1.5)}px ${gc}`
                 );
-                if (glow.inner) {
-                    shadows.push('inset 0 0 3px #ffffff', `inset 0 0 ${gb}px ${gc}`);
-                }
             } else {
                 shadows.push(`0 0 ${gb}px ${gs}px ${gc}`);
-                if (glow.inner) {
-                    shadows.push(`inset 0 0 ${gb}px ${gc}`);
-                }
             }
         }
         return shadows.length ? shadows.join(', ') : 'none';
@@ -924,25 +919,17 @@
         const borderColor = style.borderColor || 'transparent';
         const g = style.borderGradient;
         const anim = style.borderAnimation || {};
+        const glow = style.borderGlow || {};
 
         node.style.boxShadow = computeBoxShadow(style, width);
 
         if (width <= 0) {
-            if (node._borderRing) {
-                node._borderRing.remove();
-                node._borderRing = null;
-            }
-            if (node._borderFxRing) {
-                node._borderFxRing.remove();
-                node._borderFxRing = null;
-            }
-            if (node._borderObserver) {
-                node._borderObserver.disconnect();
-                node._borderObserver = null;
-            }
-            if (element.type !== 'cutout') {
-                node.style.border = '0';
-            }
+            if (node._borderRing) { node._borderRing.remove(); node._borderRing = null; }
+            if (node._borderFxRing) { node._borderFxRing.remove(); node._borderFxRing = null; }
+            if (node._innerGlowRing) { node._innerGlowRing.remove(); node._innerGlowRing = null; }
+            if (node._borderObserver) { node._borderObserver.disconnect(); node._borderObserver = null; }
+            if (element.type !== 'cutout') node.style.border = '0';
+            node.style.backgroundClip = '';
             return;
         }
 
@@ -950,91 +937,134 @@
             node._borderObserver = new MutationObserver(() => {
                 if (node._borderRing && node._borderRing.parentNode !== node) node.append(node._borderRing);
                 if (node._borderFxRing && node._borderFxRing.parentNode !== node) node.append(node._borderFxRing);
+                if (node._innerGlowRing && node._innerGlowRing.parentNode !== node) node.append(node._innerGlowRing);
             });
             node._borderObserver.observe(node, { childList: true });
         }
 
-        if (g?.enabled) {
+        // Inner glow is rendered via a dedicated top overlay so it stays visible over fills, images, videos, and cutouts.
+        if (glow.enabled && glow.inner) {
+            let innerRing = node._innerGlowRing;
+            if (!innerRing) {
+                innerRing = node._innerGlowRing = document.createElement('div');
+                innerRing.setAttribute('aria-hidden', 'true');
+                innerRing.dataset.innerGlow = 'true';
+            }
+            if (innerRing.parentNode !== node) node.append(innerRing);
+            const gc = glow.color && glow.color !== 'transparent' ? glow.color : (borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8');
+            const gb = Math.max(0, Number(glow.blur ?? 16));
+            const gs = Math.max(0, Number(glow.spread ?? 2));
+            const innerShadows = [];
+            if (glow.neon) {
+                innerShadows.push('inset 0 0 3px #ffffff', `inset 0 0 ${gb}px ${Math.max(2, gs)}px ${gc}`);
+            } else {
+                innerShadows.push(`inset 0 0 ${gb}px ${Math.max(1, gs)}px ${gc}`);
+            }
+            innerRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border-radius:inherit;pointer-events:none;z-index:3;box-shadow:${innerShadows.join(', ')};`;
+        } else if (node._innerGlowRing) {
+            node._innerGlowRing.remove();
+            node._innerGlowRing = null;
+        }
+
+        const hasBorderGradient = Boolean(g?.enabled);
+        const hasBorderAnim = Boolean(anim.type && anim.type !== 'none');
+
+        // Case 1: Gradient Border (with from, optional mid, to, angle/radial, and sweeping animation)
+        if (hasBorderGradient) {
             let ring = node._borderRing;
             if (!ring) {
                 ring = node._borderRing = document.createElement('div');
                 ring.setAttribute('aria-hidden', 'true');
+                ring.dataset.borderRing = 'true';
             }
             if (ring.parentNode !== node) node.append(ring);
             node.style.border = `${width}px solid transparent`;
-            Object.assign(ring.style, gradientStyle(g), {
-                position: 'absolute', inset: '0', boxSizing: 'border-box', border: `${width}px solid transparent`,
-                borderRadius: 'inherit', pointerEvents: 'none', backgroundOrigin: 'border-box', backgroundClip: 'border-box'
-            });
-            ring.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)');
+            node.style.backgroundClip = 'padding-box';
+
+            ensureGradientKeyframes();
+            const gradCss = gradientCss(g);
+            const isVertical = slidesVertically(g);
+            const animCss = g.animate
+                ? `${isVertical ? 'sp-gradient-shift-y' : 'sp-gradient-shift'} ${Math.max(1, g.speed || 8)}s ease-in-out infinite alternate`
+                : '';
+            ring.style.cssText = `position:absolute;inset:-${width}px;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:${gradCss};background-size:${g.animate ? '300% 300%' : 'cover'};animation:${animCss};z-index:2;`;
+            ring.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
             ring.style.setProperty('-webkit-mask-composite', 'xor');
+            ring.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
             ring.style.setProperty('mask-composite', 'exclude');
         } else if (node._borderRing) {
             node._borderRing.remove();
             node._borderRing = null;
         }
 
-        if (!g?.enabled) {
-            if (anim.type === 'marching') {
-                node.style.border = `${width}px solid transparent`;
-            } else {
-                node.style.border = `${width}px ${borderStyle} ${borderColor}`;
-            }
-        }
-
-        const hasAnim = anim.type && anim.type !== 'none';
-        if (hasAnim) {
+        // Case 2: Animated Border (Rotating beam, Pulsing, Sweeping gradient with middle color, Rainbow, Marching ants)
+        if (!hasBorderGradient && hasBorderAnim) {
             ensureBorderKeyframes();
             let fxRing = node._borderFxRing;
             if (!fxRing) {
                 fxRing = node._borderFxRing = document.createElement('div');
                 fxRing.setAttribute('aria-hidden', 'true');
+                fxRing.dataset.borderFxRing = 'true';
             }
             if (fxRing.parentNode !== node) node.append(fxRing);
-
-            const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
+            node.style.border = `${width}px solid transparent`;
+            node.style.backgroundClip = 'padding-box';
 
             if (anim.type === 'rotating') {
+                const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
                 const size = Math.max(10, Math.min(100, Number(anim.size) || 35));
                 const arc = Math.round(360 * (size / 100));
-                const headColor = anim.color2 || '#ffffff';
-                const trailColor = borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8';
-                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border-radius:inherit;pointer-events:none;overflow:hidden;z-index:2;border:${width}px solid transparent;`;
-                fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)');
+                const head = anim.color2 || '#ffffff';
+                const trail = borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8';
+                fxRing.style.cssText = `position:absolute;inset:-${width}px;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:conic-gradient(from var(--sp-angle), transparent 0deg, transparent ${360 - arc}deg, ${trail} ${360 - Math.round(arc / 2)}deg, ${head} 360deg);animation:sp-border-spin ${speed}s linear infinite;z-index:2;`;
+                fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
                 fxRing.style.setProperty('-webkit-mask-composite', 'xor');
+                fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
                 fxRing.style.setProperty('mask-composite', 'exclude');
-                fxRing.innerHTML = `<div data-border-fx="rotating" style="position:absolute;width:300%;height:300%;left:50%;top:50%;border-radius:50%;transform:translate(-50%,-50%);background:conic-gradient(from 0deg, transparent 0deg, transparent ${360 - arc}deg, ${trailColor} ${360 - Math.round(arc / 2)}deg, ${headColor} 360deg);animation:sp-border-spin ${speed}s linear infinite;will-change:transform;"></div>`;
+                fxRing.innerHTML = '';
             } else if (anim.type === 'pulsing') {
-                const pulseColor = borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8';
-                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border-radius:inherit;pointer-events:none;overflow:hidden;z-index:2;border:${width}px solid transparent;`;
-                fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)');
-                fxRing.style.setProperty('-webkit-mask-composite', 'xor');
-                fxRing.style.setProperty('mask-composite', 'exclude');
-                fxRing.innerHTML = `<div data-border-fx="pulsing" style="position:absolute;inset:0;background:${pulseColor};animation:sp-border-pulse ${speed}s ease-in-out infinite;"></div>`;
-            } else if (anim.type === 'gradient') {
-                const c1 = borderColor && borderColor !== 'transparent' ? borderColor : '#1f6feb';
-                const c2 = anim.color2 || '#8957e5';
-                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border-radius:inherit;pointer-events:none;overflow:hidden;z-index:2;border:${width}px solid transparent;`;
-                fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)');
-                fxRing.style.setProperty('-webkit-mask-composite', 'xor');
-                fxRing.style.setProperty('mask-composite', 'exclude');
-                fxRing.innerHTML = `<div data-border-fx="gradient" style="position:absolute;inset:0;background:linear-gradient(135deg, ${c1}, ${c2}, ${c1});background-size:300% 300%;animation:sp-border-gradient-shift ${speed}s ease infinite;"></div>`;
-            } else if (anim.type === 'rainbow') {
-                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border-radius:inherit;pointer-events:none;overflow:hidden;z-index:2;border:${width}px solid transparent;`;
-                fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)');
-                fxRing.style.setProperty('-webkit-mask-composite', 'xor');
-                fxRing.style.setProperty('mask-composite', 'exclude');
-                fxRing.innerHTML = `<div data-border-fx="rainbow" style="position:absolute;inset:0;background:linear-gradient(135deg, #ff0055, #ff9900, #ffee00, #00ff66, #00bbff, #8800ff, #ff0055);background-size:200% 200%;animation:sp-border-rainbow ${speed}s linear infinite, sp-border-gradient-shift ${speed * 1.5}s ease infinite;"></div>`;
-            } else if (anim.type === 'marching') {
+                const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 2));
                 const c = borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8';
-                fxRing.style.cssText = 'position:absolute;inset:0;box-sizing:border-box;border-radius:inherit;pointer-events:none;overflow:visible;z-index:2;';
+                fxRing.style.cssText = `position:absolute;inset:-${width}px;box-sizing:border-box;border:${width}px ${borderStyle} ${c};border-radius:inherit;pointer-events:none;color:${c};box-shadow:0 0 16px ${c};animation:sp-border-pulse ${speed}s ease-in-out infinite;z-index:2;`;
                 fxRing.style.webkitMask = fxRing.style.mask = '';
+                fxRing.innerHTML = '';
+            } else if (anim.type === 'gradient') {
+                const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
+                const c1 = borderColor && borderColor !== 'transparent' ? borderColor : '#1f6feb';
+                const mid = anim.color3 || '';
+                const c2 = anim.color2 || '#8957e5';
+                const stops = [c1, mid, c2].filter(Boolean).join(', ');
+                fxRing.style.cssText = `position:absolute;inset:-${width}px;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg, ${stops});background-size:300% 300%;animation:sp-border-gradient-shift ${speed}s ease-in-out infinite alternate;z-index:2;`;
+                fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                fxRing.style.setProperty('-webkit-mask-composite', 'xor');
+                fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                fxRing.style.setProperty('mask-composite', 'exclude');
+                fxRing.innerHTML = '';
+            } else if (anim.type === 'rainbow') {
+                const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
+                fxRing.style.cssText = `position:absolute;inset:-${width}px;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg, #ff0055, #ff9900, #ffee00, #00ff66, #00bbff, #8800ff, #ff0055);background-size:300% 300%;animation:sp-border-gradient-shift ${speed}s ease-in-out infinite alternate, sp-border-rainbow ${speed * 1.5}s linear infinite;z-index:2;`;
+                fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                fxRing.style.setProperty('-webkit-mask-composite', 'xor');
+                fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                fxRing.style.setProperty('mask-composite', 'exclude');
+                fxRing.innerHTML = '';
+            } else if (anim.type === 'marching') {
+                const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 2));
+                const c = borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8';
                 const rad = node.style.borderRadius || '0px';
-                fxRing.innerHTML = `<svg data-border-fx="marching" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;"><rect x="${width / 2}" y="${width / 2}" width="calc(100% - ${width}px)" height="calc(100% - ${width}px)" rx="${rad}" ry="${rad}" fill="none" stroke="${c}" stroke-width="${width}" stroke-dasharray="${Math.max(6, width * 2)} ${Math.max(4, width * 1.5)}" style="animation:sp-border-marching ${speed}s linear infinite;"></rect></svg>`;
+                fxRing.style.cssText = `position:absolute;inset:-${width}px;width:calc(100% + ${width * 2}px);height:calc(100% + ${width * 2}px);pointer-events:none;overflow:visible;z-index:2;`;
+                fxRing.style.webkitMask = fxRing.style.mask = '';
+                fxRing.innerHTML = `<svg data-border-fx="marching" style="width:100%;height:100%;overflow:visible;pointer-events:none;"><rect x="${width / 2}" y="${width / 2}" width="calc(100% - ${width}px)" height="calc(100% - ${width}px)" rx="${rad}" ry="${rad}" fill="none" stroke="${c}" stroke-width="${width}" stroke-dasharray="${Math.max(6, width * 2)} ${Math.max(4, width * 1.5)}" style="animation:sp-border-marching ${speed}s linear infinite;"></rect></svg>`;
             }
         } else if (node._borderFxRing) {
             node._borderFxRing.remove();
             node._borderFxRing = null;
+        }
+
+        // Case 3: Static solid/dashed/groove border
+        if (!hasBorderGradient && !hasBorderAnim) {
+            node.style.border = `${width}px ${borderStyle} ${borderColor}`;
+            node.style.backgroundClip = '';
         }
     }
 

@@ -56,7 +56,7 @@ async function run() {
                 };
             }
 
-            // Test 2: Border Glow & Neon
+            // Test 2: Border Glow & Neon Core + Inner Glow Overlay
             window.OverlayShared.applyBorderEffects(testNode, {
                 borderWidth: 4,
                 borderStyle: 'solid',
@@ -66,12 +66,15 @@ async function run() {
             results.neonGlow = {
                 boxShadow: testNode.style.boxShadow,
                 hasWhiteCore: testNode.style.boxShadow.includes('rgb(255, 255, 255)') || testNode.style.boxShadow.includes('#ffffff'),
-                hasInset: testNode.style.boxShadow.includes('inset'),
-                hasColor: testNode.style.boxShadow.includes('rgb(0, 255, 255)') || testNode.style.boxShadow.includes('#00ffff')
+                hasColor: testNode.style.boxShadow.includes('rgb(0, 255, 255)') || testNode.style.boxShadow.includes('#00ffff'),
+                hasInnerRing: !!testNode._innerGlowRing,
+                innerShadow: testNode._innerGlowRing?.style.boxShadow || '',
+                hasInnerWhiteCore: (testNode._innerGlowRing?.style.boxShadow || '').includes('#ffffff') || (testNode._innerGlowRing?.style.boxShadow || '').includes('rgb(255, 255, 255)'),
+                hasInnerInset: (testNode._innerGlowRing?.style.boxShadow || '').includes('inset')
             };
 
             // Test 3: Animated Borders
-            // 3A: Rotating beam
+            // 3A: Rotating beam (conic spotlight)
             window.OverlayShared.applyBorderEffects(testNode, {
                 borderWidth: 4,
                 borderStyle: 'solid',
@@ -81,12 +84,12 @@ async function run() {
             const rotatingRing = testNode._borderFxRing;
             results.rotating = {
                 hasRing: !!rotatingRing,
-                hasRotatingEl: !!rotatingRing?.querySelector('[data-border-fx="rotating"]'),
+                animation: rotatingRing?.style.animation,
                 hasMask: rotatingRing?.style.webkitMask?.includes('content-box') || rotatingRing?.style.mask?.includes('content-box'),
-                animation: rotatingRing?.querySelector('[data-border-fx="rotating"]')?.style.animation
+                isBaseBorderTransparent: testNode.style.border.includes('transparent')
             };
 
-            // 3B: Pulsing glow
+            // 3B: Pulsing glow (breathing)
             window.OverlayShared.applyBorderEffects(testNode, {
                 borderWidth: 4,
                 borderStyle: 'solid',
@@ -96,25 +99,38 @@ async function run() {
             const pulseRing = testNode._borderFxRing;
             results.pulsing = {
                 hasRing: !!pulseRing,
-                hasPulseEl: !!pulseRing?.querySelector('[data-border-fx="pulsing"]'),
-                animation: pulseRing?.querySelector('[data-border-fx="pulsing"]')?.style.animation
+                animation: pulseRing?.style.animation,
+                isBaseBorderTransparent: testNode.style.border.includes('transparent')
             };
 
-            // 3C: Gradient sweep
+            // 3C: Gradient sweep with middle color
             window.OverlayShared.applyBorderEffects(testNode, {
                 borderWidth: 4,
                 borderStyle: 'solid',
                 borderColor: '#10b981',
-                borderAnimation: { type: 'gradient', speed: 4, color2: '#6366f1' }
+                borderAnimation: { type: 'gradient', speed: 4, color2: '#6366f1', color3: '#f59e0b' }
             });
             const gradRing = testNode._borderFxRing;
             results.gradient = {
                 hasRing: !!gradRing,
-                hasGradEl: !!gradRing?.querySelector('[data-border-fx="gradient"]'),
-                animation: gradRing?.querySelector('[data-border-fx="gradient"]')?.style.animation
+                animation: gradRing?.style.animation,
+                hasMidColor: gradRing?.style.background.includes('245, 158, 11') || gradRing?.style.background.includes('#f59e0b') || gradRing?.style.background.includes('rgb(245, 158, 11)'),
+                isBaseBorderTransparent: testNode.style.border.includes('transparent')
             };
 
-            // 3D: Rainbow cycle
+            // 3D: Sweeping gradient via borderGradient with middle color
+            window.OverlayShared.applyBorderEffects(testNode, {
+                borderWidth: 4,
+                borderGradient: { enabled: true, from: '#ff0055', mid: '#ffee00', to: '#00bbff', animate: true, speed: 5 }
+            });
+            const borderGradRing = testNode._borderRing;
+            results.borderGradientMid = {
+                hasRing: !!borderGradRing,
+                animation: borderGradRing?.style.animation,
+                hasMidColor: borderGradRing?.style.background.includes('255, 238, 0') || borderGradRing?.style.background.includes('#ffee00') || borderGradRing?.style.background.includes('rgb(255, 238, 0)')
+            };
+
+            // 3E: Rainbow cycle
             window.OverlayShared.applyBorderEffects(testNode, {
                 borderWidth: 4,
                 borderStyle: 'solid',
@@ -124,11 +140,11 @@ async function run() {
             const rainbowRing = testNode._borderFxRing;
             results.rainbow = {
                 hasRing: !!rainbowRing,
-                hasRainbowEl: !!rainbowRing?.querySelector('[data-border-fx="rainbow"]'),
-                animation: rainbowRing?.querySelector('[data-border-fx="rainbow"]')?.style.animation
+                animation: rainbowRing?.style.animation,
+                isBaseBorderTransparent: testNode.style.border.includes('transparent')
             };
 
-            // 3E: Marching ants
+            // 3F: Marching ants
             window.OverlayShared.applyBorderEffects(testNode, {
                 borderWidth: 3,
                 borderStyle: 'dashed',
@@ -136,12 +152,13 @@ async function run() {
                 borderAnimation: { type: 'marching', speed: 2 }
             });
             const marchingRing = testNode._borderFxRing;
-            const svgRect = marchingRing?.querySelector('svg rect[data-border-fx="marching"], svg[data-border-fx="marching"] rect, svg rect');
+            const svgRect = marchingRing?.querySelector('svg rect');
             results.marching = {
                 hasRing: !!marchingRing,
                 hasSvg: !!marchingRing?.querySelector('svg'),
                 hasRect: !!svgRect,
-                animation: svgRect?.style?.animation || svgRect?.getAttribute('style')
+                animation: svgRect?.style?.animation || svgRect?.getAttribute('style'),
+                isBaseBorderTransparent: testNode.style.border.includes('transparent')
             };
 
             // Test 4: Teardown
@@ -150,6 +167,8 @@ async function run() {
             });
             results.teardown = {
                 noRing: !testNode._borderFxRing,
+                noInnerRing: !testNode._innerGlowRing,
+                noBorderGradRing: !testNode._borderRing,
                 noBorder: testNode.style.border === '0px' || testNode.style.border === 'none' || testNode.style.border === '',
                 noShadow: testNode.style.boxShadow === 'none' || testNode.style.boxShadow === ''
             };
@@ -164,26 +183,29 @@ async function run() {
         for (const [st, val] of Object.entries(testResults.borderStyles)) {
             if (val.borderStyle !== st) throw new Error(`Border style ${st} failed to apply, got ${val.borderStyle}`);
         }
-        if (!testResults.neonGlow.hasWhiteCore || !testResults.neonGlow.hasInset) {
-            throw new Error('Neon glow failed assertions: ' + JSON.stringify(testResults.neonGlow));
+        if (!testResults.neonGlow.hasWhiteCore || !testResults.neonGlow.hasInnerRing || !testResults.neonGlow.hasInnerInset) {
+            throw new Error('Neon glow / inner glow failed assertions: ' + JSON.stringify(testResults.neonGlow));
         }
-        if (!testResults.rotating.hasRotatingEl || !testResults.rotating.animation.includes('sp-border-spin')) {
+        if (!testResults.rotating.hasRing || !testResults.rotating.animation.includes('sp-border-spin')) {
             throw new Error('Rotating border animation failed: ' + JSON.stringify(testResults.rotating));
         }
-        if (!testResults.pulsing.hasPulseEl || !testResults.pulsing.animation.includes('sp-border-pulse')) {
+        if (!testResults.pulsing.hasRing || !testResults.pulsing.animation.includes('sp-border-pulse')) {
             throw new Error('Pulsing border animation failed: ' + JSON.stringify(testResults.pulsing));
         }
-        if (!testResults.gradient.hasGradEl || !testResults.gradient.animation.includes('sp-border-gradient-shift')) {
-            throw new Error('Gradient border animation failed: ' + JSON.stringify(testResults.gradient));
+        if (!testResults.gradient.hasRing || !testResults.gradient.animation.includes('sp-border-gradient-shift') || !testResults.gradient.hasMidColor) {
+            throw new Error('Gradient border animation with middle color failed: ' + JSON.stringify(testResults.gradient));
         }
-        if (!testResults.rainbow.hasRainbowEl || !testResults.rainbow.animation.includes('sp-border-rainbow')) {
+        if (!testResults.borderGradientMid.hasRing || !testResults.borderGradientMid.hasMidColor) {
+            throw new Error('Sweeping borderGradient with middle color failed: ' + JSON.stringify(testResults.borderGradientMid));
+        }
+        if (!testResults.rainbow.hasRing || !testResults.rainbow.animation.includes('sp-border-rainbow')) {
             throw new Error('Rainbow border animation failed: ' + JSON.stringify(testResults.rainbow));
         }
-        if (!testResults.marching.hasSvg || !testResults.marching.hasRect) {
+        if (!testResults.marching.hasRect || !testResults.marching.animation.includes('sp-border-marching')) {
             throw new Error('Marching border animation failed: ' + JSON.stringify(testResults.marching));
         }
-        if (!testResults.teardown.noRing) {
-            throw new Error('Teardown failed: ring remained');
+        if (!testResults.teardown.noRing || !testResults.teardown.noInnerRing || !testResults.teardown.noBorderGradRing) {
+            throw new Error('Teardown failed: ' + JSON.stringify(testResults.teardown));
         }
 
         console.log('Testing Editor Inspector UI interactions...');
@@ -236,15 +258,17 @@ async function run() {
         // Verify canvas element got border effects and beam
         const canvasFx = await page.evaluate(() => {
             const el = document.querySelector('.canvas-element.selected');
+            const fxRing = el?._borderFxRing;
             return {
-                borderStyle: el?.style.borderStyle,
                 borderWidth: el?.style.borderWidth,
                 boxShadow: el?.style.boxShadow,
-                hasBeam: !!el?.querySelector('[data-border-fx="rotating"]')
+                hasRing: !!fxRing,
+                animation: fxRing?.style.animation,
+                hasInnerRing: !!el?._innerGlowRing
             };
         });
         console.log('Canvas element state:', canvasFx);
-        if (canvasFx.borderWidth !== '6px' || canvasFx.borderStyle !== 'dashed' || !canvasFx.hasBeam) {
+        if (canvasFx.borderWidth !== '6px' || !canvasFx.hasRing || !canvasFx.animation.includes('sp-border-spin')) {
             throw new Error('Canvas element did not reflect border inspector changes: ' + JSON.stringify(canvasFx));
         }
 

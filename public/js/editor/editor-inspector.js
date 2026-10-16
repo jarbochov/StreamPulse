@@ -245,27 +245,24 @@ export function borderControls(s = {}, shape = false, el = {}) {
         ['outset', '3D Outset']
     ]);
 
-    html += fillControl(s, 'borderGradient', 'Border color', F.color('style.borderColor', 'Color', s.borderColor || (isCutout ? '#ffffff' : '#38bdf8'), { clear: true }));
+    html += fillControl(s, 'borderGradient', 'Border fill', F.color('style.borderColor', 'Border color', s.borderColor || (isCutout ? '#ffffff' : '#38bdf8'), { clear: true }));
 
     const glow = s.borderGlow || {};
-    let glowContent = F.check('style.borderGlow.enabled', 'Enable border glow', glow.enabled);
+    html += F.check('style.borderGlow.enabled', 'Border glow', glow.enabled);
     if (glow.enabled) {
-        glowContent += `
+        html += `
             <div class="grid2">
                 ${F.color('style.borderGlow.color', 'Glow color', glow.color || s.borderColor || '#38bdf8', { clear: true })}
-                ${F.range('style.borderGlow.blur', 'Glow blur', glow.blur ?? 16, { min: 0, max: 60, unit: 'px', editable: true })}
+                ${F.number('style.borderGlow.blur', 'Glow blur (px)', glow.blur ?? 16, { min: 0, max: 100 })}
             </div>
             <div class="grid2">
-                ${F.range('style.borderGlow.spread', 'Glow spread', glow.spread ?? 2, { min: 0, max: 30, unit: 'px', editable: true })}
-                <div style="display:flex;flex-direction:column;gap:6px;padding-top:4px;">
-                    ${F.check('style.borderGlow.neon', 'Neon core', glow.neon)}
-                    ${F.check('style.borderGlow.inner', 'Inner glow', glow.inner)}
-                </div>
+                ${F.check('style.borderGlow.neon', 'Neon core mode', glow.neon)}
+                ${F.check('style.borderGlow.inner', 'Inner glow', glow.inner)}
             </div>`;
     }
 
     const anim = s.borderAnimation || {};
-    let animContent = F.select('style.borderAnimation.type', 'Border animation', anim.type || 'none', [
+    html += F.select('style.borderAnimation.type', 'Border animation', anim.type || 'none', [
         ['none', 'None (static)'],
         ['rotating', 'Rotating beam (spotlight)'],
         ['pulsing', 'Pulsing glow (breathing)'],
@@ -274,27 +271,24 @@ export function borderControls(s = {}, shape = false, el = {}) {
         ['marching', 'Marching ants (animated dashes)']
     ]);
     if (anim.type && anim.type !== 'none') {
-        animContent += F.range('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 20, step: 0.5, unit: 's', editable: true });
         if (anim.type === 'rotating') {
-            animContent += `
+            html += `
                 <div class="grid2">
-                    ${F.color('style.borderAnimation.color2', 'Beam head color', anim.color2 || '#ffffff')}
-                    ${F.range('style.borderAnimation.size', 'Beam arc length', anim.size ?? 35, { min: 10, max: 100, unit: '%', editable: true })}
-                </div>`;
+                    ${F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 })}
+                    ${F.number('style.borderAnimation.size', 'Beam arc (%)', anim.size ?? 35, { min: 10, max: 100 })}
+                </div>
+                ${F.color('style.borderAnimation.color2', 'Beam head color', anim.color2 || '#ffffff')}`;
         } else if (anim.type === 'gradient') {
-            animContent += F.color('style.borderAnimation.color2', 'Secondary gradient color', anim.color2 || '#8957e5');
+            html += `
+                <div class="grid2">
+                    ${F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 })}
+                    ${F.color('style.borderAnimation.color2', 'End color', anim.color2 || '#8957e5')}
+                </div>
+                ${F.color('style.borderAnimation.color3', 'Middle color (optional)', anim.color3 || '', { clear: true })}`;
+        } else {
+            html += F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 });
         }
     }
-
-    html += `
-        <div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);">
-            <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Border Effects &amp; Glow</div>
-            ${glowContent}
-        </div>
-        <div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);">
-            <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Animated Border</div>
-            ${animContent}
-        </div>`;
 
     return html;
 }

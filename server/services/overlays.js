@@ -187,6 +187,7 @@ function normalizeBorderAnimation(a = {}) {
         type: BORDER_ANIM_TYPES.includes(a.type) ? a.type : 'none',
         speed: Math.max(0.5, Math.min(60, Math.round((Number(a.speed) || 4) * 10) / 10)),
         color2: String(a.color2 || '').slice(0, 80),
+        color3: String(a.color3 || '').slice(0, 80),
         size: Math.max(10, Math.min(100, Math.round(Number(a.size) || 35)))
     };
 }
