@@ -243,12 +243,12 @@ export function buildContent(node, el) {
         if (!url) { node.appendChild(placeholder(`No ${el.type} yet — upload one or paste a URL`)); return; }
         if (/\{\{/.test(url)) { node.appendChild(placeholder(`${url} (shows when a value is available)`)); return; }
         if (el.type === 'video' && shared.parseYouTubeUrl && shared.parseYouTubeUrl(url)) {
-            const embedSrc = shared.embedUrl(url, { autoplay: true, loop: el.video?.loop !== false });
+            const v = el.video || {};
+            const embedSrc = shared.embedUrl(url, { autoplay: true, loop: v.loop !== false, sound: false });
             const frame = document.createElement('iframe');
             frame.src = embedSrc;
-            frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-            frame.sandbox = 'allow-forms allow-popups allow-scripts allow-presentation allow-same-origin';
-            frame.referrerPolicy = 'no-referrer';
+            frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+            frame.referrerPolicy = 'strict-origin-when-cross-origin';
             frame.style.cssText = 'width:100%;height:100%;border:0;';
             node.appendChild(frame);
             return;
@@ -292,15 +292,22 @@ export function buildContent(node, el) {
         media.addEventListener('error', () => { node.replaceChildren(placeholder("Couldn't build this QR code. Try shorter text.")); });
         node.appendChild(media);
     } else if (el.type === 'embed') {
-        const url = shared.embedUrl ? shared.embedUrl(expand(el.src)) : expand(el.src);
-        if (!/^https?:\/\//i.test(url)) { node.appendChild(placeholder('Enter an http(s) webpage URL')); return; }
+        const rawUrl = expand(el.src);
+        const isYt = Boolean(shared.parseYouTubeUrl && shared.parseYouTubeUrl(rawUrl));
+        const url = shared.embedUrl ? shared.embedUrl(rawUrl, { sound: false }) : rawUrl;
+        if (!/^https?:\/\//i.test(url)) { node.appendChild(placeholder('Enter an http(s) webpage URL or YouTube link')); return; }
         const frame = document.createElement('iframe');
         frame.src = url;
-        frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-        let sameOrigin = false;
-        try { sameOrigin = new URL(url, location.href).origin === location.origin; } catch { /* invalid URL stays sandboxed */ }
-        frame.sandbox = 'allow-forms allow-popups allow-scripts allow-presentation' + (sameOrigin ? ' allow-same-origin' : '');
-        frame.referrerPolicy = 'no-referrer';
+        frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+        frame.style.cssText = 'width:100%;height:100%;border:0;';
+        if (isYt) {
+            frame.referrerPolicy = 'strict-origin-when-cross-origin';
+        } else {
+            let sameOrigin = false;
+            try { sameOrigin = new URL(url, location.href).origin === location.origin; } catch { /* invalid URL stays sandboxed */ }
+            frame.sandbox = 'allow-forms allow-popups allow-scripts allow-presentation' + (sameOrigin ? ' allow-same-origin' : '');
+            frame.referrerPolicy = 'no-referrer';
+        }
         node.appendChild(frame);
     } else if (el.type === 'cutout') {
         const shape = el.cutout?.shape || 'rectangle';

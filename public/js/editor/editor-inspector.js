@@ -443,9 +443,22 @@ export function filterSection(el) {
     const duo = { ...(defaultFilter.duotone || {}), ...(f.duotone || {}) };
     const grain = { ...(defaultFilter.grain || {}), ...(f.grain || {}) };
     const presets = shared.MEDIA_FILTER_PRESETS || [];
-    const media = ['image', 'video', 'slideshow'].includes(el.type);
+    const media = ['image', 'video', 'slideshow', 'embed'].includes(el.type);
+    const matchingPreset = presets.find(([id, name, pFilter]) => {
+        if (!el.mediaFilter && id === 'none') return true;
+        if (!el.mediaFilter) return false;
+        const pf = { ...defaultFilter, ...pFilter };
+        return f.blur === pf.blur &&
+               f.brightness === pf.brightness &&
+               f.contrast === pf.contrast &&
+               f.saturate === pf.saturate &&
+               f.grayscale === pf.grayscale &&
+               (f.duotone?.enabled || false) === (pf.duotone?.enabled || false) &&
+               (!f.duotone?.enabled || (f.duotone?.dark === pf.duotone?.dark && f.duotone?.light === pf.duotone?.light));
+    });
+    const currentPresetId = matchingPreset ? matchingPreset[0] : '';
     const body = `
-        <label class="field"><span>Preset</span><select data-fx-preset><option value="">Choose a preset…</option>${presets.map(([id, name]) => `<option value="${id}">${name}</option>`).join('')}</select></label>
+        <label class="field"><span>Preset</span><select data-fx-preset><option value=""${!currentPresetId ? ' selected' : ''}>Choose a preset…</option>${presets.map(([id, name]) => `<option value="${id}"${id === currentPresetId ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
         ${F.range('mediaFilter.blur', 'Blur', f.blur, { min: 0, max: 60, unit: 'px' })}
         ${F.range('mediaFilter.brightness', 'Brightness', f.brightness, { min: 0, max: 200, unit: '%' })}
         ${F.range('mediaFilter.contrast', 'Contrast', f.contrast, { min: 0, max: 200, unit: '%' })}
@@ -695,7 +708,7 @@ export function renderProperties() {
     } else {
         const el = items[0];
         const specific = { 'random-text': randomSection, progress: progressSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection }[el.type];
-        root.innerHTML = `${actionBar(items)}${sharedBlock(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${layoutSection(el)}${contentSection(el)}${el.type === 'icon' ? iconEffectsSection(el) : ''}${specific ? specific(el) : ''}${!['embed', 'cutout'].includes(el.type) ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${el.type !== 'cutout' ? fillSection(el) : ''}${el.type !== 'cutout' ? effectsSection(el) : ''}`;
+        root.innerHTML = `${actionBar(items)}${sharedBlock(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${layoutSection(el)}${contentSection(el)}${el.type === 'icon' ? iconEffectsSection(el) : ''}${specific ? specific(el) : ''}${el.type !== 'cutout' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${el.type !== 'cutout' ? fillSection(el) : ''}${el.type !== 'cutout' ? effectsSection(el) : ''}`;
     }
     if (root.parentElement) root.parentElement.scrollTop = scroll;
     state.lastTextField = null;
@@ -964,6 +977,17 @@ export function initInspectorEvents() {
             }
             renderProperties();
             renderCanvas();
+            changed(true);
+        });
+
+        propEl.addEventListener('change', event => {
+            const select = event.target.closest('[data-fx-preset]');
+            if (!select || !select.value) return;
+            const preset = (shared.MEDIA_FILTER_PRESETS || []).find(item => item[0] === select.value);
+            if (!preset) return;
+            selectedElements().forEach(el => { el.mediaFilter = JSON.parse(JSON.stringify(preset[2])); });
+            renderCanvas();
+            renderProperties();
             changed(true);
         });
 

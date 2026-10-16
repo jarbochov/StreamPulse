@@ -427,9 +427,8 @@
                     const v = element.video || {};
                     const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
                     frame.src = shared.embedUrl(expandVariables(element.src || ''), { autoplay: true, loop: v.loop !== false, sound: hasSound });
-                    frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-                    frame.sandbox = 'allow-forms allow-popups allow-scripts allow-presentation allow-same-origin';
-                    frame.referrerPolicy = 'no-referrer';
+                    frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+                    frame.referrerPolicy = 'strict-origin-when-cross-origin';
                     frame.style.cssText = 'width:100%;height:100%;border:0;';
                     node.appendChild(frame);
                 } else {
@@ -471,13 +470,19 @@
                 node.appendChild(img);
             } else if (element.type === 'embed') {
                 const frame = document.createElement('iframe');
-                frame.src = shared.embedUrl(expandVariables(element.src || '')) || 'about:blank';
+                const rawUrl = expandVariables(element.src || '');
+                const isYt = Boolean(shared.parseYouTubeUrl && shared.parseYouTubeUrl(rawUrl));
+                frame.src = shared.embedUrl(rawUrl) || 'about:blank';
                 // Own widgets (timers, goals, music) need their origin to call the local API; external pages stay sandboxed.
                 let sameOrigin = false;
                 try { sameOrigin = new URL(frame.src, location.href).origin === location.origin; } catch { /* invalid URL stays sandboxed */ }
-                frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-                frame.sandbox = 'allow-forms allow-popups allow-scripts allow-presentation' + (sameOrigin ? ' allow-same-origin' : '');
-                frame.referrerPolicy = 'no-referrer';
+                frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+                if (isYt) {
+                    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+                } else {
+                    frame.sandbox = 'allow-forms allow-popups allow-scripts allow-presentation' + (sameOrigin ? ' allow-same-origin' : '');
+                    frame.referrerPolicy = 'no-referrer';
+                }
                 frame.style.cssText = 'width:100%;height:100%;border:0;';
                 node.appendChild(frame);
             } else if (element.type === 'markdown') {
@@ -647,7 +652,7 @@
     }
 
     function handleVideoControl(act, targetId) {
-        const videoNodes = root.querySelectorAll('.overlay-video');
+        const videoNodes = root.querySelectorAll('.overlay-video, .overlay-embed');
         videoNodes.forEach(node => {
             if (targetId && targetId !== 'all' && node.dataset.elementId !== targetId) return;
             const video = node.querySelector('video');

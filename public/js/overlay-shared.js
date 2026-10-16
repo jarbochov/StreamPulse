@@ -569,8 +569,8 @@
         document.head.append(style);
     }
     const grainImage = `url("data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>")}")`;
-    const MEDIA_TYPES = new Set(['image', 'video', 'slideshow']);
-    const FILTERABLE = element => element.type !== 'embed';
+    const MEDIA_TYPES = new Set(['image', 'video', 'slideshow', 'embed']);
+    const FILTERABLE = element => element.type !== 'cutout';
 
     // Call after every style pass. Media layers filter the media itself (so a tint can sit on top); other layers filter the whole layer.
     function applyMediaFilter(node, element) {
@@ -580,7 +580,7 @@
         f.duotone = { ...defaults.duotone, ...(f.duotone || {}) };
         f.grain = { ...defaults.grain, ...(f.grain || {}) };
         const media = MEDIA_TYPES.has(element.type);
-        const target = !media ? node : element.type === 'slideshow' ? node.firstElementChild : node.querySelector(':scope > video, :scope > img');
+        const target = !media ? node : element.type === 'slideshow' ? node.firstElementChild : node.querySelector(':scope > video, :scope > img, :scope > iframe');
         if (!target) { node._fxSig = ''; return; }
         const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.duotone.enabled);
         const signature = JSON.stringify([f, media, element.id, Number(element.width), Number(element.height)]);
@@ -655,24 +655,33 @@
         if (!urlStr || typeof urlStr !== 'string') return null;
         const str = urlStr.trim();
         try {
-            const u = new URL(str, location.href);
+            const u = new URL(str, typeof location !== 'undefined' ? location.href : 'http://localhost:3000/');
             const host = u.hostname.toLowerCase().replace(/^www\./, '').replace(/^m\./, '');
+            const timeParam = u.searchParams.get('t') || u.searchParams.get('start');
+            let start = 0;
+            if (timeParam) {
+                const secMatch = timeParam.match(/^(?:(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?|(\d+))$/);
+                if (secMatch) {
+                    if (secMatch[4]) start = Number(secMatch[4]);
+                    else start = (Number(secMatch[1] || 0) * 3600) + (Number(secMatch[2] || 0) * 60) + Number(secMatch[3] || 0);
+                }
+            }
             if (host === 'youtu.be') {
                 const id = u.pathname.slice(1).split('/')[0].split('?')[0];
                 if (id && /^[a-zA-Z0-9_-]{11}$/.test(id)) {
-                    return { type: 'video', id, list: u.searchParams.get('list') || null };
+                    return { type: 'video', id, list: u.searchParams.get('list') || null, start };
                 }
-            } else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+            } else if (host === 'youtube.com' || host === 'youtube-nocookie.com' || host.endsWith('.youtube.com')) {
                 if (u.pathname === '/watch') {
                     const id = u.searchParams.get('v');
                     if (id && /^[a-zA-Z0-9_-]{11}$/.test(id)) {
-                        return { type: 'video', id, list: u.searchParams.get('list') || null };
+                        return { type: 'video', id, list: u.searchParams.get('list') || null, start };
                     }
                 } else if (u.pathname.startsWith('/shorts/') || u.pathname.startsWith('/live/') || u.pathname.startsWith('/embed/')) {
                     const parts = u.pathname.split('/').filter(Boolean);
                     const id = parts[1];
                     if (id && /^[a-zA-Z0-9_-]{11}$/.test(id)) {
-                        return { type: 'video', id, list: u.searchParams.get('list') || null };
+                        return { type: 'video', id, list: u.searchParams.get('list') || null, start };
                     }
                 } else if (u.pathname === '/playlist' && u.searchParams.get('list')) {
                     return { type: 'playlist', list: u.searchParams.get('list') };
@@ -683,7 +692,16 @@
         const match = str.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?v=|shorts\/|live\/|embed\/))([a-zA-Z0-9_-]{11})/i);
         if (match) {
             const listMatch = str.match(/[?&]list=([a-zA-Z0-9_-]+)/i);
-            return { type: 'video', id: match[1], list: listMatch ? listMatch[1] : null };
+            const timeMatch = str.match(/[?&](?:t|start)=([0-9hms]+)/i);
+            let start = 0;
+            if (timeMatch) {
+                const m = timeMatch[1].match(/^(?:(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?|(\d+))$/);
+                if (m) {
+                    if (m[4]) start = Number(m[4]);
+                    else start = (Number(m[1] || 0) * 3600) + (Number(m[2] || 0) * 60) + Number(m[3] || 0);
+                }
+            }
+            return { type: 'video', id: match[1], list: listMatch ? listMatch[1] : null, start };
         }
         const plMatch = str.match(/[?&]list=([a-zA-Z0-9_-]+)/i);
         if (plMatch && /youtube/i.test(str)) {
@@ -709,6 +727,12 @@
                 if (options.controls === false) params.set('controls', '0');
                 if (options.sound === false || options.mute === true) params.set('mute', '1');
                 if (yt.list && yt.type !== 'playlist') params.set('list', yt.list);
+                if (yt.start) params.set('start', String(yt.start));
+                try {
+                    if (typeof location !== 'undefined' && location.origin && location.origin !== 'null') {
+                        params.set('origin', location.origin);
+                    }
+                } catch {}
                 return yt.type === 'playlist'
                     ? `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(yt.list)}&${params.toString()}`
                     : `https://www.youtube-nocookie.com/embed/${yt.id}?${params.toString()}`;

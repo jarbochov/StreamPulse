@@ -154,7 +154,7 @@
             const o = await (await fetch(`/api/custom-overlays/${encodeURIComponent(id)}`, { cache: 'no-store' })).json();
             const list = o.overlay || o;
             slides = (list.elements || []).filter(e => e.type === 'slideshow').map((e, i) => ({ id: e.id, name: e.name || `Slideshow ${i + 1}` }));
-            videos = (list.elements || []).filter(e => e.type === 'video').map((e, i) => ({ id: e.id, name: e.name || `Video ${i + 1}`, src: e.src || '' }));
+            videos = (list.elements || []).filter(e => e.type === 'video' || (e.type === 'embed' && /youtube\.com|youtu\.be/i.test(e.src || ''))).map((e, i) => ({ id: e.id, name: e.name || (e.type === 'video' ? `Video ${i + 1}` : `YouTube Embed ${i + 1}`), src: e.src || '' }));
             cutouts = (list.elements || []).filter(e => e.type === 'cutout').map((e, i) => ({ id: e.id, name: e.name || `Cutout ${i + 1}`, shape: e.cutout?.shape || 'rectangle' }));
         } catch { slides = []; videos = []; cutouts = []; }
         draw();
