@@ -49,9 +49,12 @@ This document provides project architecture context and mandatory UI/UX design r
 ### Unified Video & YouTube Playback
 - YouTube embeds and standard HTML5 videos must share identical playback capabilities, controls, and schema:
   - Autoplay on load: `video.autoplay` (defaults to `true`, passes `autoplay=1` or `autoplay=0` on YouTube, and sets `media.autoplay` / `media.preload` on HTML5 `<video>`).
+  - WebKit/Safari Autoplay Resilience: Always set `frame.allow`, `frame.referrerPolicy`, and `frame.style` *before* assigning `frame.src`. Embed parameters must include `playsinline=1` and `mute=1` to prevent browser autoplay policy blocks.
   - Looping: `video.loop` (passes `loop=1` and `playlist=<id>` for YouTube player repeat, with state-change replay fallback).
   - Sound & Volume: `video.sound` toggle and `video.volume` percentage scaling (0–100), applied via YouTube player API (`setVolume`, `unMute`, `mute`).
+  - Production vs Preview Audio UI: The interactive audio unlock prompt ("Click to enable audio") is strictly restricted to preview mode (`preview=true`). Live production overlay URLs must remain 100% clean and free of on-screen floating UI buttons or prompts for broadcast capture.
   - Unified Remote Control: All video commands (`play`, `pause`, `toggle`, `restart`, `stop`, `mute`, `unmute`, `toggle-mute`) must operate uniformly across both HTML5 `<video>` and YouTube `<iframe>` elements via postMessage.
+  - Companion & Controller Discovery: The `/api/videos` endpoint must list all controllable `<video>` and YouTube embed elements so Bitfocus Companion and the overlay controller can dynamically control playback.
   - Both `video` and `embed` layer types with YouTube URLs must expose these controls in the inspector.
 
 ### Embed Security & Referrer Specification
