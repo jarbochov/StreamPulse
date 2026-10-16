@@ -2,10 +2,10 @@
 .alert-card.layout-stack { flex-direction: column; }
 .alert-card.layout-side { flex-direction: row; text-align: left; }
 .alert-card .alert-media { flex: 0 0 auto; min-width: 0; min-height: 0; display: block; }
-.alert-card .alert-text { min-width: 0; max-width: 100%; display: flex; flex-direction: column; gap: .15em; }
-.alert-card .alert-title { font-weight: 800; line-height: 1.1; overflow-wrap: anywhere; }
-.alert-card .alert-message { line-height: 1.2; overflow-wrap: anywhere; }
-.alert-card.layout-media .alert-text { position: absolute; left: 0; right: 0; bottom: 6%; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+.alert-card .alert-text { min-width: 0; max-width: 100%; display: flex; flex-direction: column; gap: .15em; box-sizing: border-box; }
+.alert-card .alert-title { font-weight: 800; line-height: 1.1; overflow-wrap: anywhere; width: 100%; box-sizing: border-box; }
+.alert-card .alert-message { line-height: 1.2; overflow-wrap: anywhere; width: 100%; box-sizing: border-box; }
+.alert-card.layout-media .alert-text { position: absolute; left: 0; right: 0; bottom: 6%; text-shadow: 0 2px 8px rgba(0,0,0,.8); box-sizing: border-box; }
 .alert-in-fade { animation: alert-fade-in .5s ease both; }
 .alert-in-pop { animation: alert-pop-in .55s cubic-bezier(.2,1.4,.4,1) both; }
 .alert-in-zoom { animation: alert-zoom-in .5s ease-out both; }

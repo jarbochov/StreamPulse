@@ -706,7 +706,7 @@
         next.canvas = Object.assign({ width: 1920, height: 1080, background: 'transparent' }, next.canvas);
         next.elements = (next.elements || []).map((item, index) => ({ index, item }))
             .sort((a, b) => (a.item.zIndex - b.item.zIndex) || (a.index - b.index)).map(entry => entry.item);
-        next.elements.forEach(item => { item.name = item.name || ''; item.locked = item.locked === true; item.items ||= []; item.textFit ||= 'none'; item.columns ||= 1; item.headingSpan ??= 6; item.headingScale ??= 100; item.source ||= { mode: 'inline', path: '', split: 'lines' }; item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 }; item.style ||= {}; });
+        next.elements.forEach(item => { item.name = item.name || ''; item.locked = item.locked === true; item.items ||= []; item.textFit ||= 'none'; item.columns ||= 1; item.headingSpan ??= 6; item.headingScale ??= 100; item.source ||= { mode: 'inline', path: '', split: 'lines' }; item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 }; if (item.type === 'video') item.video = Object.assign({ loop: true, sound: false, volume: 100 }, item.video); if (item.type === 'alert') item.alert = Object.assign({ layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, triggers: [] }, item.alert); item.style ||= {}; });
         return next;
     }
 
@@ -726,7 +726,8 @@
             random: { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 },
             group: '', qr: { fg: '#000000', bg: '#ffffff', margin: 2, ecc: 'M' }, gameList: { filter: 'scheduled', period: '', layout: 'grid', coverFit: 'cover', fit: 'none', coverScale: 100, headingSize: 0, titleSize: 0, titleWrap: 'ellipsis', columns: 3, gap: 12, max: 0, showCovers: true, showTitles: true, meta: 'none', headings: true, highlightCurrent: true, accent: '#3fb950' },
             slideshow: { source: 'tags', tags: [], tagMode: 'any', files: [], kinds: 'image', seconds: 5, order: 'sequential', fit: 'cover', transition: 'fade', direction: 'left', transitionMs: 800, caption: false, kenBurns: false },
-            alert: { layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, triggers: [] },
+            video: { loop: true, sound: false, volume: 100 },
+            alert: { layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, triggers: [] },
             progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
             page: pagesOn() ? curPage : overlay.pages.items[0].id, src: '', x: Math.round((overlay.canvas.width - width) / 2 + offset), y: Math.round((overlay.canvas.height - height) / 2 + offset), width, height, zIndex: overlay.elements.length, visible: true,
             style: { fontFamily: 'sans-serif', fontSize: type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48, fontWeight: type === 'alert' ? '600' : '400', color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0, background: type === 'shape' ? '#1f6feb' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent', borderColor: '#ffffff', borderWidth: 0, borderRadius: type === 'alert' ? 24 : 0, opacity: 1, objectFit: 'cover', shape: 'rectangle', fill: '#1f6feb', gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 }, blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' } }
@@ -879,7 +880,13 @@
             if (/\{\{/.test(url)) { node.appendChild(placeholder(`${url} (shows when a value is available)`)); return; }
             const media = document.createElement(el.type === 'image' ? 'img' : 'video');
             media.src = url; media.draggable = false; media.style.objectFit = el.style.objectFit || 'cover'; media.style.objectPosition = `${el.style.focusX ?? 50}% ${el.style.focusY ?? 50}%`;
-            if (el.type === 'video') { media.muted = true; media.loop = true; media.autoplay = true; media.playsInline = true; }
+            if (el.type === 'video') {
+                const v = el.video || {};
+                media.muted = true;
+                media.loop = v.loop !== false;
+                media.autoplay = true;
+                media.playsInline = true;
+            }
             media.addEventListener('error', () => { node.replaceChildren(placeholder(`Couldn't load this ${el.type}. Check the URL or upload it again.`)); });
             node.appendChild(media);
         } else if (el.type === 'icon') {
@@ -937,7 +944,7 @@
     }
     const ALERT_TRIGGER_LABELS = { follow: 'Follow', sub: 'New sub', resub: 'Resub', milestone: 'Sub milestone', gift: 'Gifted subs', bits: 'Bits', donation: 'Donation', raid: 'Raid', redeem: 'Channel point redeem', timer: 'Timer finished', goal: 'Goal reached', chat_word: 'Chat word', chat_command: 'Chat bot command' };
     const sourceSignature = el => { const state = shared.textSourceState(el); return state ? [state.text, state.error] : null; };
-    const contentSignature = (el, live) => el.type === 'embed' ? JSON.stringify([el.type, expand(el.src)]) : el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) : el.type === 'alert' ? JSON.stringify([el.type, el.alert, el.style]) : JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke, el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, el.style.focusX, el.style.focusY, live]);
+    const contentSignature = (el, live) => el.type === 'embed' ? JSON.stringify([el.type, expand(el.src)]) : el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) : el.type === 'alert' ? JSON.stringify([el.type, el.alert, el.style]) : el.type === 'video' ? JSON.stringify([el.type, expand(el.src), el.video, el.style.objectFit, el.style.focusX, el.style.focusY]) : JSON.stringify([el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList, el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke, el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.style.objectFit, el.style.focusX, el.style.focusY, live]);
 
     function tickPlaceholders() {
         if (!prefs.live) return;
@@ -1689,7 +1696,14 @@
             const accept = el.type === 'image' ? 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml' : 'video/mp4,video/webm,video/ogg';
             body += `<div class="field"><span>${el.type === 'video' ? 'Video' : 'Image'} file</span><span class="upload-row"><input readonly value="${esc(friendlyAssetName(el.src))}" placeholder="Nothing chosen"><button type="button" id="open-assets">Library…</button></span></div>`;
             body += `<div class="field"><span>Upload new</span><input id="prop-upload" type="file" accept="${accept}"><span class="hint">Saved to the StreamPulse overlay asset folder (100 MB max). You can also drop files onto the canvas.</span></div>`;
-            if (el.type === 'image' && el.src) body += `<img class="asset-preview" src="${esc(expand(el.src))}" alt="Asset preview" onerror="this.style.display='none'">`;
+        }
+        if (el.type === 'video') {
+            const v = el.video || {};
+            const hasSound = v.sound === true || v.muted === false;
+            body += `<div class="grid2">${F.check('video.loop', 'Loop playback', v.loop !== false)}${F.check('video.sound', 'Enable sound in overlay', hasSound)}</div>`;
+            if (hasSound) {
+                body += F.number('video.volume', 'Video volume (%)', v.volume ?? 100, { min: 0, max: 100, step: 5 });
+            }
         }
         return body;
     }
@@ -1999,11 +2013,13 @@
             <div class="field"><span>Sample image</span><span class="upload-row"><input data-path="alert.sampleImage" data-kind="text" value="${esc(a.sampleImage || '')}" placeholder="Pick from library, or paste a URL" spellcheck="false"><button type="button" id="open-assets">Library…</button></span></div>
             </details>
             ${F.select('alert.layout', 'Layout', a.layout || 'stack', [['stack', 'Media above text'], ['side', 'Media beside text'], ['text', 'Text only'], ['media', 'Media only (text over it)']])}
+            ${a.layout === 'media' ? F.check('alert.hideText', 'Hide text overlay (pure media only)', a.hideText === true) : ''}
             ${a.layout === 'text' ? '' : `<div class="grid2">${F.number('alert.mediaScale', 'Media size (%)', a.mediaScale || 60, { min: 10, max: 100 })}${F.select('alert.mediaFit', 'Media fit', a.mediaFit || 'contain', [['contain', 'Contain'], ['cover', 'Fill (crop)']])}</div>`}
-            <div class="grid2">${F.number('alert.titleSize', 'Title size (px)', a.titleSize || 44, { min: 8, max: 300 })}${F.number('alert.messageSize', 'Message size (px)', a.messageSize || 28, { min: 8, max: 300 })}</div>
+            ${a.layout !== 'text' ? `<div class="grid2">${F.check('alert.videoSound', 'Play alert video audio', a.videoSound === true)}${F.check('alert.videoLoop', 'Loop alert video', a.videoLoop !== false)}</div>` : ''}
+            ${a.hideText && a.layout === 'media' ? '' : `<div class="grid2">${F.number('alert.titleSize', 'Title size (px)', a.titleSize || 44, { min: 8, max: 300 })}${F.number('alert.messageSize', 'Message size (px)', a.messageSize || 28, { min: 8, max: 300 })}</div>
             ${F.color('alert.titleColor', 'Title color', a.titleColor || '#ffd166')}
-            ${['stack', 'side', undefined].includes(a.layout) ? F.number('alert.gap', 'Gap between media and text (px)', a.gap ?? 12, { min: 0, max: 100 }) : ''}
-            ${F.check('alert.sound', 'Play alert sounds from this box', a.sound !== false)}
+            ${['stack', 'side', undefined].includes(a.layout) ? F.number('alert.gap', 'Gap between media and text (px)', a.gap ?? 12, { min: 0, max: 100 }) : ''}`}
+            ${F.check('alert.sound', 'Play alert sound effects', a.sound !== false)}
             <details class="sub-details"${only.length ? ' open' : ''}><summary>Only show certain alerts (${only.length ? only.length + ' selected' : 'all'})</summary>
             <div class="trigger-list">${Object.entries(ALERT_TRIGGER_LABELS).map(([key, label]) => `<label class="check"><input type="checkbox" data-alert-trigger="${key}" ${only.includes(key) ? 'checked' : ''}> ${label}</label>`).join('')}</div>
             <span class="hint">Leave all unchecked to show every alert. Use this to send, say, raids to a different box.</span></details>`);
@@ -2069,7 +2085,7 @@
         }
     }
     // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
-    const RERENDER_PATHS = new Set(['style.objectFit', 'mediaFilter.duotone.enabled', 'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled', 'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'alert.layout', 'slideshow.source', 'slideshow.advance', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge', 'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
+    const RERENDER_PATHS = new Set(['style.objectFit', 'mediaFilter.duotone.enabled', 'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled', 'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate', 'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'video.sound', 'alert.layout', 'alert.hideText', 'slideshow.source', 'slideshow.advance', 'slideshow.transition', 'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee', 'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge', 'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta']);
     $('properties').addEventListener('change', event => {
         if (!event.target.matches('[data-period-pick]')) return;
         const field = event.target.closest('.field');

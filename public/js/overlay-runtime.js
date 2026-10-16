@@ -238,10 +238,24 @@
             if (element.type === 'image' || element.type === 'video') {
                 const media = document.createElement(element.type === 'image' ? 'img' : 'video');
                 media.src = expandVariables(element.src || '');
-                media.autoplay = element.type === 'video';
-                media.loop = element.type === 'video';
-                media.muted = element.type === 'video';
-                media.playsInline = true;
+                if (element.type === 'video') {
+                    const v = element.video || {};
+                    const hasSound = v.sound === true || v.muted === false;
+                    media.autoplay = true;
+                    media.loop = v.loop !== false;
+                    media.muted = !hasSound;
+                    if (hasSound) {
+                        media.volume = Math.max(0, Math.min(1, (Number(v.volume) || 100) / 100));
+                        const playPromise = media.play();
+                        if (playPromise && playPromise.catch) {
+                            playPromise.catch(() => {
+                                media.muted = true;
+                                media.play().catch(() => {});
+                            });
+                        }
+                    }
+                    media.playsInline = true;
+                }
                 media.draggable = false;
                 media.style.width = '100%';
                 media.style.height = '100%';

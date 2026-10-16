@@ -1663,7 +1663,23 @@
                 media.style.whiteSpace = 'nowrap';
             } else {
                 media.src = payload.video || payload.image;
-                if (payload.video) { media.autoplay = true; media.loop = true; media.muted = true; media.playsInline = true; }
+                if (payload.video) {
+                    const videoHasAudio = (cfg.videoSound === true || payload.videoSound === true) && sound;
+                    media.autoplay = true;
+                    media.loop = (cfg.videoLoop !== false && payload.videoLoop !== false);
+                    media.muted = !videoHasAudio;
+                    if (videoHasAudio) {
+                        media.volume = Math.max(0, Math.min(1, (Number(cfg.videoVolume ?? payload.volume ?? 100)) / 100));
+                        const playPromise = media.play();
+                        if (playPromise && playPromise.catch) {
+                            playPromise.catch(() => {
+                                media.muted = true;
+                                media.play().catch(() => {});
+                            });
+                        }
+                    }
+                    media.playsInline = true;
+                }
                 media.draggable = false;
                 media.style.objectFit = cfg.mediaFit || 'contain';
             }
@@ -1677,17 +1693,53 @@
             }
             card.appendChild(media);
         }
-        if (layout !== 'media' || payload.title || payload.message) {
+        const hideText = cfg.hideText === true;
+        if (!hideText && (layout !== 'media' || payload.title || payload.message)) {
             const text = document.createElement('div');
             text.className = 'alert-text';
             text.style.color = style.color || '#fff';
             text.style.fontFamily = style.fontFamily || 'sans-serif';
+            
+            const textAlign = style.textAlign || (layout === 'side' ? 'left' : 'center');
+            text.style.textAlign = textAlign;
+            text.style.alignItems = textAlign === 'left' ? 'flex-start' : textAlign === 'right' ? 'flex-end' : 'center';
+
+            if (layout === 'media') {
+                const vAlign = style.verticalAlign || 'bottom';
+                const pad = style.padding || 16;
+                text.style.paddingLeft = `${Math.max(16, pad)}px`;
+                text.style.paddingRight = `${Math.max(16, pad)}px`;
+                if (vAlign === 'top') {
+                    text.style.top = `${pad}px`;
+                    text.style.bottom = 'auto';
+                    text.style.transform = 'none';
+                } else if (vAlign === 'middle') {
+                    text.style.top = '50%';
+                    text.style.bottom = 'auto';
+                    text.style.transform = 'translateY(-50%)';
+                } else {
+                    text.style.bottom = `${pad}px`;
+                    text.style.top = 'auto';
+                    text.style.transform = 'none';
+                }
+            } else if (layout === 'stack' || layout === 'text') {
+                const vAlign = style.verticalAlign || 'middle';
+                card.style.justifyContent = vAlign === 'top' ? 'flex-start' : vAlign === 'bottom' ? 'flex-end' : 'center';
+                if (textAlign === 'left') card.style.alignItems = 'flex-start';
+                else if (textAlign === 'right') card.style.alignItems = 'flex-end';
+                else card.style.alignItems = 'center';
+            } else if (layout === 'side') {
+                const vAlign = style.verticalAlign || 'middle';
+                card.style.alignItems = vAlign === 'top' ? 'flex-start' : vAlign === 'bottom' ? 'flex-end' : 'center';
+            }
+
             if (payload.title) {
                 const title = document.createElement('div');
                 title.className = 'alert-title';
                 title.textContent = payload.title;
                 title.style.fontSize = `${cfg.titleSize || 44}px`;
                 title.style.color = cfg.titleColor || '#ffd166';
+                title.style.textAlign = textAlign;
                 text.appendChild(title);
             }
             if (payload.message) {
@@ -1696,6 +1748,7 @@
                 message.textContent = payload.message;
                 message.style.fontSize = `${cfg.messageSize || 28}px`;
                 message.style.fontWeight = style.fontWeight || '400';
+                message.style.textAlign = textAlign;
                 text.appendChild(message);
             }
             card.appendChild(text);
@@ -1720,6 +1773,8 @@
             finished = true;
             clearTimeout(outTimer); clearTimeout(endTimer);
             if (audio) audio.pause();
+            const vid = card.querySelector('video');
+            if (vid) { try { vid.pause(); } catch {} }
             if (card.parentNode === node) node.replaceChildren();
             if (onEnd) onEnd();
         };
