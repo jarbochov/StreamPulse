@@ -219,12 +219,12 @@
 
     let audioNoticeEl = null;
     function showAudioUnlockNotice() {
-        if (audioNoticeEl || window.obsstudio || navigator.userAgent.includes('OBS/')) return;
+        if (audioNoticeEl || window.obsstudio || navigator.userAgent.includes('OBS/') || params.get('preview') !== 'true') return;
         audioNoticeEl = document.createElement('div');
         audioNoticeEl.id = 'audio-unlock-notice';
         audioNoticeEl.setAttribute('role', 'button');
         audioNoticeEl.setAttribute('aria-label', 'Click anywhere to enable audio');
-        audioNoticeEl.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;background:rgba(18,20,32,0.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:24px;padding:8px 14px;font:600 12px/1 sans-serif;display:flex;align-items:center;gap:8px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.45);transition:opacity 0.2s;pointer-events:auto;user-select:none;';
+        audioNoticeEl.style.cssText = 'position:fixed;bottom:14px;left:14px;z-index:99999;background:rgba(18,20,32,0.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:24px;padding:8px 14px;font:600 12px/1 sans-serif;display:flex;align-items:center;gap:8px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.45);transition:opacity 0.2s;pointer-events:auto;user-select:none;';
         audioNoticeEl.innerHTML = '<svg style="width:14px;height:14px;flex:none;fill:currentColor" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg><span>Click to enable audio</span>';
         document.body.appendChild(audioNoticeEl);
     }
