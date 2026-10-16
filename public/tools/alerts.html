@@ -62,10 +62,10 @@
         .btn.ghost { background: transparent; border-color: transparent; color: var(--text-muted); }
         .btn.ghost:hover:not(:disabled) { border-color: var(--border); color: var(--text); background: var(--bg-inset); }
         .btn.sm { padding: 0.24rem 0.52rem; font-size: 0.74rem; border-radius: 5px; }
-        .btn.icon-btn { padding: 0.36rem 0.48rem; }
-
-        /* Guide Banner */
+        /* Hidden Utility & Guide Banner */
+        [hidden] { display: none !important; }
         .guide-banner { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.55rem; }
+        .guide-banner[hidden] { display: none !important; }
         .guide-head { display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; font-weight: 700; color: var(--text); }
         .guide-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.65rem; }
         .guide-step { display: flex; gap: 0.55rem; font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; }
@@ -289,7 +289,7 @@
                     <span>Save</span>
                 </button>
 
-                <button type="button" class="btn ghost icon-btn" id="help-toggle" title="Toggle quick guide">
+                <button type="button" class="btn ghost icon-btn" id="help-toggle" title="Toggle quick guide" aria-label="Toggle quick guide">
                     <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 </button>
             </div>
@@ -302,7 +302,8 @@
                     <svg class="ico" style="color:var(--accent)" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                     <span>How StreamPulse Alerts Work</span>
                 </span>
-                <button type="button" class="btn ghost icon-btn sm" id="help-close" title="Close guide">
+                <button type="button" class="btn ghost sm" id="help-close" title="Dismiss quick guide" style="display:inline-flex;align-items:center;gap:4px;">
+                    <span>Dismiss</span>
                     <svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
@@ -317,7 +318,7 @@
                 </div>
                 <div class="guide-step">
                     <span class="guide-num">3</span>
-                    <div><b>Test in real time</b>: click <b>▶ Test</b> to instantly preview on any open overlay and in the canvas.</div>
+                    <div><b>Test in real time</b>: click <b>Test</b> to instantly preview on any open overlay and in the canvas.</div>
                 </div>
                 <div class="guide-step">
                     <span class="guide-num">4</span>
@@ -1129,15 +1130,25 @@
 
     // Guide Toggle
     const helpBanner = $('help-banner');
+    const helpToggle = $('help-toggle');
+    const setHelpOpen = open => {
+        helpBanner.hidden = !open;
+        helpBanner.style.display = open ? 'flex' : 'none';
+        if (helpToggle) {
+            helpToggle.classList.toggle('active', open);
+            helpToggle.setAttribute('aria-expanded', String(open));
+        }
+        localStorage.setItem('alerts-help', open ? 'open' : 'closed');
+    };
     const isHelpOpen = localStorage.getItem('alerts-help') === 'open';
-    helpBanner.hidden = !isHelpOpen;
-    $('help-toggle').addEventListener('click', () => {
-        helpBanner.hidden = !helpBanner.hidden;
-        localStorage.setItem('alerts-help', helpBanner.hidden ? 'closed' : 'open');
+    setHelpOpen(isHelpOpen);
+
+    helpToggle?.addEventListener('click', () => {
+        const currentlyOpen = !helpBanner.hidden && helpBanner.style.display !== 'none';
+        setHelpOpen(!currentlyOpen);
     });
-    $('help-close').addEventListener('click', () => {
-        helpBanner.hidden = true;
-        localStorage.setItem('alerts-help', 'closed');
+    $('help-close')?.addEventListener('click', () => {
+        setHelpOpen(false);
     });
 
     // Add Rule
