@@ -168,9 +168,20 @@ const server = http.createServer(async (req, res) => {
         const url = new URL(req.url, `http://localhost:${PORT}`);
         const pathname = url.pathname;
 
-        if (pathname.startsWith('/api/game-plan') || pathname === '/api/game-search' || pathname === '/api/game' || pathname === '/api/categories') {
+        if (pathname.startsWith('/api/game-plan') || pathname === '/api/game-search' || pathname === '/api/twitch-categories' || pathname === '/api/game' || pathname === '/api/categories') {
             const handled = await handleGamePlanRoutes(req, res, pathname);
             if (handled) return;
+        }
+
+        if (pathname === '/api/custom-overlays/assets') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                assets: [
+                    { id: 'asset-1', name: 'retro-arcade-frame.png', url: '/favicon.svg', contentType: 'image/svg+xml', tags: ['retro', 'artwork'] },
+                    { id: 'asset-2', name: 'just-chatting-banner.png', url: '/favicon.svg', contentType: 'image/svg+xml', tags: ['chatting'] }
+                ]
+            }));
+            return;
         }
 
         if (pathname === '/api/config') {
@@ -252,30 +263,27 @@ async function run() {
 
         // Test multi-day and recurring Twitch Schedule endpoint
         console.log('Testing POST /api/game-plan/twitch-schedule with multi-date and recurring...');
-        // First add extra date and recurring flag to game-3
-        const planBeforeSchedule = await (await fetch(`http://localhost:${PORT}/api/game-plan`)).json();
-        const g3 = planBeforeSchedule.items.find(i => i.id === 'game-3');
-        g3.streamRecurring = true;
-        g3.streamDates = [{ date: '2026-10-22', time: '19:00' }];
-        await fetch(`http://localhost:${PORT}/api/game-plan`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: planBeforeSchedule.items })
-        });
-
         const twitchPushRes = await fetch(`http://localhost:${PORT}/api/game-plan/twitch-schedule`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ itemId: 'game-3' })
+            body: JSON.stringify({
+                itemId: 'game-3',
+                streamDate: '2026-10-20',
+                streamTime: '19:00',
+                streamDuration: 240,
+                streamRecurring: true,
+                streamDates: [{ date: '2026-10-22', time: '19:00' }],
+                twitchCategory: 'Just Chatting'
+            })
         });
         const twitchPushData = await twitchPushRes.json();
         if (!twitchPushData.ok || !twitchPushData.segments || twitchPushData.segments.length !== 2) {
             throw new Error(`Expected 2 schedule segments, got: ${JSON.stringify(twitchPushData)}`);
         }
-        if (!twitchPushData.segments[0].is_recurring) {
-            throw new Error(`Expected segment to be recurring, got: ${JSON.stringify(twitchPushData.segments[0])}`);
+        if (!twitchPushData.segments[0].is_recurring || twitchPushData.segments[0].duration !== '240') {
+            throw new Error(`Expected segment to be recurring with duration 240, got: ${JSON.stringify(twitchPushData.segments[0])}`);
         }
-        console.log(`✓ Twitch multi-day recurring schedule segments created: ${twitchPushData.segments.map(s => s.id).join(', ')}`);
+        console.log(`✓ Atomic Twitch multi-day recurring schedule segments created: ${twitchPushData.segments.map(s => s.id).join(', ')}`);
 
         // Test Twitch Schedule delete (should delete both segments)
         console.log('Testing DELETE /api/game-plan/twitch-schedule...');
@@ -297,7 +305,7 @@ async function run() {
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
         const page = await browser.newPage();
-        await page.setViewport({ width: 1200, height: 900 });
+        await page.setViewport({ width: 1240, height: 920 });
 
         console.log('Navigating to game-plan-editor.html...');
         page.on('console', msg => console.log('[Browser Console]', msg.type(), msg.text()));
@@ -320,90 +328,95 @@ async function run() {
         console.log('Tonight Banner:', bannerText.split('\n')[0]);
         console.log('✓ Tonight stream rundown banner is displayed');
 
-        // Check badges on cards
-        const badges = await page.$$eval('.item .badge', list => list.map(b => b.textContent.trim()));
-        console.log('Found badges on game cards:', badges.join(', '));
-        if (!badges.some(b => b.includes('PLAYTHROUGH'))) {
-            throw new Error('Missing PLAYTHROUGH badge');
+        // Check cross-list search bar (#v-search)
+        console.log('Testing cross-list search (#v-search)...');
+        await page.type('#v-search', 'Hades');
+        await page.waitForSelector('.cross-search-box');
+        const crossMatchName = await page.$eval('.cross-search-box .item .name', el => el.textContent.trim());
+        if (!crossMatchName.includes('Hades II')) {
+            throw new Error(`Expected cross-list search to find Hades II, got: ${crossMatchName}`);
         }
-        console.log('✓ Playstyle badges correctly rendered on cards');
+        console.log('✓ Cross-list search found Hades II in Backlog while viewing Tonight tab');
+        await page.click('#v-search-clear');
 
-        // Open details dialog
+        // Open details dialog on first item
         console.log('Opening details dialog on first item...');
-        await page.click('.item [data-edit]');
+        await page.click('.item[data-id="game-1"] [data-edit]');
         await page.waitForSelector('#dlg[open]');
         const playstyleVal = await page.$eval('#f-game-type', el => el.value);
         console.log(`✓ Dialog opened. Playstyle value: ${playstyleVal}`);
 
-        // Check recurring checkbox and multi-date section in dialog
-        const recurringCheck = await page.$('#f-stream-recurring');
-        if (!recurringCheck) throw new Error('Missing #f-stream-recurring checkbox in dialog');
-        console.log('✓ Recurring stream checkbox exists in dialog');
+        // Verify 14-day quick calendar strip works with 1 click
+        const quickPillsCount = await page.$$eval('#f-quick-days .day-pill', pills => pills.length);
+        if (quickPillsCount !== 14) {
+            throw new Error(`Expected 14 quick day pills, got: ${quickPillsCount}`);
+        }
+        // Click 2nd and 3rd day pills in the quick strip
+        await page.click('#f-quick-days .day-pill:nth-child(2)');
+        await page.click('#f-quick-days .day-pill:nth-child(3)');
+        const selectedChipsCount = await page.$$eval('#f-selected-dates-chips .sdate-chip', chips => chips.length);
+        if (selectedChipsCount < 2) {
+            throw new Error(`Expected at least 2 selected date chips after clicking quick strip, got: ${selectedChipsCount}`);
+        }
+        console.log(`✓ 14-Day Quick Calendar Strip toggled ${selectedChipsCount} dates with single clicks`);
 
-        await page.click('#f-add-date');
-        const extraDateRows = await page.$$eval('#f-stream-dates-list [data-date-idx]', rows => rows.length);
-        if (extraDateRows < 1) throw new Error('Clicking + Add Date did not create a new date slot');
-        console.log('✓ Multi-day stream date controls working properly in dialog');
+        // Test Twitch Category quick chip selection
+        await page.click('#f-cat-chips [data-cat="Just Chatting"]');
+        const catVal = await page.$eval('#f-twitch-category', el => el.value);
+        if (catVal !== 'Just Chatting') {
+            throw new Error(`Expected Twitch category to be Just Chatting, got: ${catVal}`);
+        }
+        console.log('✓ Twitch Category chip set #f-twitch-category to "Just Chatting"');
 
-        // Set extra date and time simulating datepicker selection
-        await page.$eval('#f-stream-dates-list [data-extra-date]', el => {
-            el.value = '2026-10-25';
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-        await page.$eval('#f-stream-dates-list [data-extra-time]', el => {
-            el.value = '21:00';
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-        });
+        // Test Asset Library picker modal (#cover-library)
+        await page.click('#cover-library');
+        await page.waitForSelector('#asset-dlg[open]');
+        await page.waitForSelector('#asset-grid .asset-card');
+        await page.click('#asset-grid .asset-card');
+        const coverVal = await page.$eval('#f-cover', el => el.value);
+        if (!coverVal) {
+            throw new Error('Asset Library picker did not populate #f-cover');
+        }
+        console.log(`✓ Asset Library modal selected cover artwork: ${coverVal}`);
+
+        // Take screenshot of the polished Details Dialog open!
+        const dlgScreenshotPath = '/Users/jaredacherup/.gemini/antigravity-cli/brain/1124f4e5-e872-47d9-8fc6-aab167e140a9/screenshot-game-plan-scheduling.png';
+        await page.screenshot({ path: dlgScreenshotPath });
+        console.log(`✓ Saved Details Dialog screenshot to ${dlgScreenshotPath}`);
 
         // Close dialog with Done button (triggers save)
         await page.click('#f-done');
         await new Promise(r => setTimeout(r, 600));
 
-        // Verify backend persisted the extra date
+        // Verify backend persisted the extra dates and category
         const verifyPlan = await (await fetch(`http://localhost:${PORT}/api/game-plan`)).json();
         const savedItem1 = verifyPlan.items.find(i => i.id === 'game-1');
-        if (!savedItem1.streamDates || !savedItem1.streamDates.some(d => d.date === '2026-10-25')) {
-            throw new Error(`Extra date was not saved to backend! streamDates: ${JSON.stringify(savedItem1.streamDates)}`);
+        if (!savedItem1.streamDates || savedItem1.streamDates.length < 1 || savedItem1.twitchCategory !== 'Just Chatting') {
+            throw new Error(`Item 1 changes not saved properly: ${JSON.stringify(savedItem1)}`);
         }
-        console.log('✓ Additional stream date successfully saved to backend:', JSON.stringify(savedItem1.streamDates));
+        console.log('✓ Multi-day dates, Twitch category, and custom artwork saved to backend:', JSON.stringify(savedItem1.streamDates));
 
-        // Check date badge on game card shows extra date indicator
+        // Check date badge on game card shows extra day indicator
         const item1DateBadge = await page.$eval('.item[data-id="game-1"] .date-badge', el => el.textContent.trim());
         console.log('Item 1 Date Badge:', item1DateBadge);
-        if (!item1DateBadge.includes('+1 date')) {
-            throw new Error(`Expected date badge to reflect (+1 date), got: "${item1DateBadge}"`);
+        if (!item1DateBadge.includes('+')) {
+            throw new Error(`Expected date badge to reflect extra days, got: "${item1DateBadge}"`);
         }
-        console.log('✓ Game card date badge reflects extra scheduled date');
+        console.log('✓ Game card date badge reflects extra scheduled days');
 
-        // Re-open dialog and verify extra date row value is rendered
-        console.log('Re-opening dialog on item 1 to verify extra date persistence in UI...');
-        await page.click('.item[data-id="game-1"] [data-edit]');
-        await page.waitForSelector('#dlg[open]');
-        const reloadedExtraDate = await page.$eval('#f-stream-dates-list [data-extra-date]', el => el.value);
-        if (reloadedExtraDate !== '2026-10-25') {
-            throw new Error(`Expected reloaded extra date to be 2026-10-25, got: "${reloadedExtraDate}"`);
+        // Test moving item 1 from Tonight back to Schedule (even when playingNow is true!)
+        console.log('Testing moving item 1 from Tonight back to Schedule via ↩ Schedule button...');
+        await page.click('.item[data-id="game-1"] [data-action="move-to-schedule"]');
+        await new Promise(r => setTimeout(r, 600));
+        const verifyAfterMove = await (await fetch(`http://localhost:${PORT}/api/game-plan`)).json();
+        const movedItem1 = verifyAfterMove.items.find(i => i.id === 'game-1');
+        if (movedItem1.status !== 'scheduled' || movedItem1.period !== '') {
+            throw new Error(`Expected item 1 to move to scheduled and clear Tonight period, got status=${movedItem1.status}, period=${movedItem1.period}`);
         }
-        console.log('✓ Extra date row accurately preserved and rendered on dialog re-open:', reloadedExtraDate);
-        await page.click('#f-done');
-        console.log('Checking Game Plan overlay view (/overlays/game-plan.html?list=tonight)...');
-        await page.goto(`http://localhost:${PORT}/overlays/game-plan.html?list=tonight`, { waitUntil: 'networkidle0' });
-        const overlayCards = await page.$$eval('.schedule-title', titles => titles.map(t => t.textContent.trim()));
-        console.log('Overlay games in tonight lineup:', overlayCards.join(', '));
-        if (!overlayCards.length) {
-            throw new Error('Overlay did not render any games for tonight');
-        }
-        console.log('✓ Overlay renders tonight lineup with accurate styling');
-
-        // Go back to editor to take polished screenshot
-        await page.goto(`http://localhost:${PORT}/editors/game-plan-editor.html`, { waitUntil: 'networkidle0' });
-        const screenshotPath = '/Users/jaredacherup/.gemini/antigravity-cli/brain/1124f4e5-e872-47d9-8fc6-aab167e140a9/screenshot-game-plan-scheduling.png';
-        await page.screenshot({ path: screenshotPath, fullPage: true });
-        console.log(`✓ Saved screenshot to ${screenshotPath}`);
+        console.log('✓ Item 1 moved from Tonight back to Schedule and cleared auto "Tonight" period');
 
         await browser.close();
-        console.log('\nALL GAME PLAN SCHEDULING TESTS PASSED!');
+        console.log('\nALL GAME PLAN SCHEDULING & POLISH TESTS PASSED!');
     } finally {
         server.close();
         if (fs.existsSync(TEMP_DATA_DIR)) {

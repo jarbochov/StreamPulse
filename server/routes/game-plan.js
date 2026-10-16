@@ -25,6 +25,14 @@ function createGamePlanRoutes({
             return true;
         }
 
+        function resolveTwitchCategoryName(item) {
+            const raw = String(item?.twitchCategory || '').trim();
+            if (raw === '__none__' || raw.toLowerCase() === 'none') return '';
+            if (raw) return raw;
+            if (item?.custom) return 'Just Chatting';
+            return item?.name || '';
+        }
+
         if (pathname === '/api/game-plan/now' && req.method === 'POST') {
             try {
                 const body = JSON.parse(await readRequestBody(req) || '{}');
@@ -35,7 +43,12 @@ function createGamePlanRoutes({
                     const plan = gamePlanService.loadGamePlan();
                     const item = plan.items.find(i => i.id === targetId);
                     if (item) {
-                        twitchResult = await twitchService.updateChannelCategory(item.twitchCategory || item.name);
+                        const catName = resolveTwitchCategoryName(item);
+                        if (catName) {
+                            twitchResult = await twitchService.updateChannelCategory(catName);
+                        } else {
+                            twitchResult = { ok: true, skipped: true, categoryName: '' };
+                        }
                     }
                 }
                 sendJson(res, { ...snapshot, twitchResult });
@@ -54,7 +67,12 @@ function createGamePlanRoutes({
                     const nextId = result.snapshot?.playingNowId;
                     const nextItem = nextId ? plan.items.find(i => i.id === nextId) : null;
                     if (nextItem) {
-                        twitchResult = await twitchService.updateChannelCategory(nextItem.twitchCategory || nextItem.name);
+                        const catName = resolveTwitchCategoryName(nextItem);
+                        if (catName) {
+                            twitchResult = await twitchService.updateChannelCategory(catName);
+                        } else {
+                            twitchResult = { ok: true, skipped: true, categoryName: '' };
+                        }
                     }
                 }
                 sendJson(res, { ...result, twitchResult });
@@ -83,15 +101,26 @@ function createGamePlanRoutes({
                         sendJson(res, { ok: false, error: 'Game item not found' }, 404);
                         return true;
                     }
+
+                    // Apply inline updates from dialog if provided so save+sync is atomic
+                    if (body.streamDate !== undefined) item.streamDate = String(body.streamDate || '').trim();
+                    if (body.streamTime !== undefined) item.streamTime = String(body.streamTime || '').trim();
+                    if (body.streamDuration !== undefined) item.streamDuration = Math.min(1380, Math.max(30, Number(body.streamDuration) || 180));
+                    if (body.streamRecurring !== undefined) item.streamRecurring = Boolean(body.streamRecurring);
+                    if (Array.isArray(body.streamDates)) item.streamDates = body.streamDates;
+                    if (body.twitchCategory !== undefined) item.twitchCategory = String(body.twitchCategory || '').trim();
+                    if (item.status === 'backlog' || item.status === 'up-next') item.status = 'scheduled';
+
                     if (!item.streamDate && (!Array.isArray(item.streamDates) || !item.streamDates.length)) {
-                        sendJson(res, { ok: false, error: 'Game must have at least one Stream Date set' }, 400);
+                        sendJson(res, { ok: false, error: 'Choose at least one stream date first' }, 400);
                         return true;
                     }
 
                     // Look up Twitch category ID if available
                     let categoryId = '';
-                    if (typeof twitchService.getGameCategoryByName === 'function') {
-                        const cat = await twitchService.getGameCategoryByName(item.twitchCategory || item.name);
+                    const catName = resolveTwitchCategoryName(item);
+                    if (catName && typeof twitchService.getGameCategoryByName === 'function') {
+                        const cat = await twitchService.getGameCategoryByName(catName);
                         if (cat?.id) categoryId = cat.id;
                     }
 
@@ -103,7 +132,7 @@ function createGamePlanRoutes({
                         } catch { /* ignore cleanup error */ }
                     }
 
-                    const durationMinutes = Math.min(1380, Math.max(30, Number(body.durationMinutes) || 180));
+                    const durationMinutes = Math.min(1380, Math.max(30, Number(body.durationMinutes || item.streamDuration) || 180));
                     const title = String(body.title || item.name || 'Stream').slice(0, 140);
                     const isRecurring = body.isRecurring !== undefined ? Boolean(body.isRecurring) : (item.streamRecurring === true);
 
@@ -249,6 +278,48 @@ function createGamePlanRoutes({
                     cover: game.cover?.image_id ? `https://images.igdb.com/igdb/image/upload/t_cover_small/${game.cover.image_id}.jpg` : ''
                 }));
                 sendJson(res, { results });
+            } catch (err) {
+                sendJson(res, { results: [], error: err.message });
+            }
+            return true;
+        }
+
+        if (pathname === '/api/twitch-categories') {
+            const query = (new URL(req.url, 'http://localhost').searchParams.get('q') || '').trim().slice(0, 100);
+            const BUILTIN_CATS = [
+                'Just Chatting',
+                'Retro',
+                'Games + Demos',
+                'Special Events',
+                'Art',
+                'Music',
+                'Talk Shows & Podcasts',
+                'Makers & Crafting',
+                'Science & Technology'
+            ];
+            if (query.length < 2) {
+                sendJson(res, { results: BUILTIN_CATS.map(name => ({ name, boxArt: '' })) });
+                return true;
+            }
+            try {
+                if (twitchService && typeof twitchService.twitchHelixRequest === 'function') {
+                    const search = await twitchService.twitchHelixRequest('/search/categories', {
+                        method: 'GET',
+                        params: { query, first: 10 }
+                    });
+                    if (search.status >= 200 && search.status < 300 && Array.isArray(search.body?.data)) {
+                        const results = search.body.data.map(cat => ({
+                            id: String(cat.id || ''),
+                            name: cat.name || '',
+                            boxArt: (cat.box_art_url || '').replace('52x72', '90x120').replace('{width}x{height}', '90x120')
+                        })).filter(c => c.name);
+                        sendJson(res, { results });
+                        return true;
+                    }
+                }
+                const lower = query.toLowerCase();
+                const matched = BUILTIN_CATS.filter(name => name.toLowerCase().includes(lower)).map(name => ({ name, boxArt: '' }));
+                sendJson(res, { results: matched });
             } catch (err) {
                 sendJson(res, { results: [], error: err.message });
             }

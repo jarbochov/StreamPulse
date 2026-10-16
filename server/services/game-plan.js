@@ -40,6 +40,7 @@ function normalizeGamePlan(input) {
         gameType: ['playthrough', 'one-off'].includes(item?.gameType) ? item.gameType : 'playthrough',
         streamDate: /^\d{4}-\d{2}-\d{2}$/.test(String(item?.streamDate || '')) ? item.streamDate : '',
         streamTime: /^\d{2}:\d{2}$/.test(String(item?.streamTime || '')) ? item.streamTime : '',
+        streamDuration: Number.isFinite(Number(item?.streamDuration)) && Number(item?.streamDuration) >= 30 ? Math.min(1380, Math.round(Number(item.streamDuration))) : 180,
         streamRecurring: item?.streamRecurring === true,
         streamDates: Array.isArray(item?.streamDates)
             ? item.streamDates.map(d => {
@@ -80,6 +81,7 @@ function normalizeGamePlan(input) {
 }
 
 const gameKey = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+const GENERIC_TWITCH_CATEGORIES = new Set(['justchatting', 'specialevents', 'gamesdemos', 'retro', 'art', 'music', 'talkshowspodcasts', 'makerscrafting', 'none']);
 
 function createGamePlanService({
     dataDir,
@@ -156,7 +158,9 @@ function createGamePlanService({
             items: plan.items.map(item => {
                 const game = item.custom ? { name: item.name } : publicGameInfo(item.name, item.igdbId);
                 const raw = item.custom ? null : getGameInfoCached(item.name, item.igdbId);
-                const keys = [item.name, item.twitchCategory, raw?.igdbName].map(gameKey).filter(Boolean);
+                const catKey = gameKey(item.twitchCategory);
+                const includeCatKey = catKey && !GENERIC_TWITCH_CATEGORIES.has(catKey) && !item.custom;
+                const keys = [item.name, includeCatKey ? item.twitchCategory : '', raw?.igdbName].map(gameKey).filter(Boolean);
                 const isManualNow = !!plan.playingNowId && item.id === plan.playingNowId;
                 const isAutoNow = !plan.playingNowId && !item.custom && !!current && keys.includes(current);
                 return {
