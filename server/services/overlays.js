@@ -319,8 +319,14 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
         },
         items: Array.isArray(element.items) ? element.items.map(item => String(item).slice(0, 2000)).filter(Boolean).slice(0, 2000) : [],
         src: String(element.src || '').slice(0, 2000),
+        video: {
+            loop: element.video?.loop !== false,
+            sound: element.video?.sound === true || element.video?.muted === false,
+            volume: Math.max(0, Math.min(100, Math.round(Number(element.video?.volume ?? 100))))
+        },
         alert: {
             layout: ['stack', 'side', 'text', 'media'].includes(element.alert?.layout) ? element.alert.layout : 'stack',
+            hideText: Boolean(element.alert?.hideText),
             mediaFit: element.alert?.mediaFit === 'cover' ? 'cover' : 'contain',
             mediaScale: Math.max(10, Math.min(100, Number(element.alert?.mediaScale) || 60)),
             titleSize: Math.max(8, Math.min(300, Number(element.alert?.titleSize) || 44)),
@@ -328,6 +334,8 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             titleColor: String(element.alert?.titleColor || '#ffd166').slice(0, 80),
             gap: Math.max(0, Math.min(100, Number(element.alert?.gap) || 12)),
             sound: element.alert?.sound !== false,
+            videoSound: Boolean(element.alert?.videoSound),
+            videoLoop: element.alert?.videoLoop !== false,
             sampleImage: String(element.alert?.sampleImage || '').slice(0, 2000),
             sampleEmoji: String(element.alert?.sampleEmoji || '').trim().slice(0, 40),
             triggers: Array.isArray(element.alert?.triggers) ? element.alert.triggers.filter(t => !alertTriggers || alertTriggers[t]).slice(0, 20) : []

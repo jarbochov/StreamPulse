@@ -46,6 +46,8 @@ function normalizeVariant(input = {}, index = 0) {
         message: str(input.message, 500),
         image: str(input.image, 2000),
         video: str(input.video, 2000),
+        videoSound: Boolean(input.videoSound),
+        videoLoop: input.videoLoop !== false,
         emoji: str(input.emoji, 40),
         emojiLadder: Array.isArray(input.emojiLadder)
             ? input.emojiLadder.slice(0, 12).map(step => ({ min: clamp(step?.min, 0, 1e9, 0), emoji: str(step?.emoji, 40) })).filter(step => step.emoji).sort((a, b) => a.min - b.min)
@@ -289,6 +291,8 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
             message: fill(variant.message, tokens),
             image: variant.image,
             video: variant.video,
+            videoSound: Boolean(variant.videoSound),
+            videoLoop: variant.videoLoop !== false,
             emoji: pickEmoji(variant, eventAmount(ev)),
             sound: variant.sound,
             volume: variant.volume,

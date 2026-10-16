@@ -612,7 +612,7 @@
     const toast = (message, err) => { const t = $('toast'); t.textContent = message; t.className = err ? 'err' : ''; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 2600); };
     const setDirty = value => { dirty = value; $('save-state').textContent = dirty ? 'Unsaved changes' : 'Saved'; $('save-state').className = `pill ${dirty ? 'dirty' : 'ok'}`; };
     const rule = () => cfg.rules.find(r => r.id === sel);
-    const newVariant = trigger => ({ id: `v${Date.now().toString(36)}`, title: DEFAULT_TITLE[trigger] || '', message: '', image: '', video: '', emoji: '', emojiLadder: [], emojiEvery: 0, emojiMax: 8, sound: '', volume: 70, animIn: 'pop', animOut: 'fade', duration: 6, weight: 1 });
+    const newVariant = trigger => ({ id: `v${Date.now().toString(36)}`, title: DEFAULT_TITLE[trigger] || '', message: '', image: '', video: '', videoSound: false, videoLoop: true, emoji: '', emojiLadder: [], emojiEvery: 0, emojiMax: 8, sound: '', volume: 70, animIn: 'pop', animOut: 'fade', duration: 6, weight: 1 });
     const setPath = (obj, path, value) => { const keys = path.split('.'); const last = keys.pop(); keys.reduce((o, k) => o[k], obj)[last] = value; };
 
     async function api(url, options) {
@@ -844,7 +844,18 @@
                     </div>
                 </div>
                 ${media === 'image' ? mediaField(i, 'image', ['image'], 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml', 'Alert Image / GIF') + (v.video ? '<span class="hint">Note: A video URL is also set and takes priority over the image.</span>' : '')
-                : media === 'video' ? mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Alert Video (WebM / MP4)')
+                : media === 'video' ? mediaField(i, 'video', ['video'], 'video/mp4,video/webm', 'Alert Video (WebM / MP4)') + `
+                    <div style="display:flex;gap:1.2rem;align-items:center;margin-top:0.35rem;padding:0.4rem 0.6rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;">
+                        <label class="check-row">
+                            <input type="checkbox" data-v="${i}.videoSound" ${v.videoSound ? 'checked' : ''}>
+                            <span>Play video audio</span>
+                        </label>
+                        <label class="check-row">
+                            <input type="checkbox" data-v="${i}.videoLoop" ${v.videoLoop !== false ? 'checked' : ''}>
+                            <span>Loop video</span>
+                        </label>
+                    </div>
+                `
                 : emojiHtml(v, i, r) + (v.video || v.image ? '<span class="hint">Emoji only display when image/video is blank.</span>' : '')}
             `,
             sound: `
@@ -1260,7 +1271,7 @@
             testAmount = Number(el.value) || 0;
         } else if (el.dataset.v) {
             const [i, key] = el.dataset.v.split('.');
-            r.variants[i][key] = el.type === 'number' || el.type === 'range' ? Number(el.value) || 0 : el.value;
+            r.variants[i][key] = el.type === 'number' || el.type === 'range' ? Number(el.value) || 0 : (el.type === 'checkbox' ? el.checked : el.value);
             if (key === 'volume') {
                 const badge = $(`vol-badge-${i}`);
                 if (badge) badge.textContent = `${r.variants[i][key]}%`;
@@ -1299,6 +1310,10 @@
         } else if (el.dataset.pick) {
             const [i, key] = el.dataset.pick.split('.');
             if (el.value) { r.variants[i][key] = el.value; setDirty(true); renderEditor(); }
+        } else if (el.dataset.v && el.type === 'checkbox') {
+            const [i, key] = el.dataset.v.split('.');
+            r.variants[i][key] = el.checked;
+            setDirty(true);
         }
     });
 

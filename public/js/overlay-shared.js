@@ -1699,6 +1699,9 @@
             text.className = 'alert-text';
             text.style.color = style.color || '#fff';
             text.style.fontFamily = style.fontFamily || 'sans-serif';
+            if (style.lineHeight) text.style.lineHeight = style.lineHeight;
+            if (style.letterSpacing !== undefined && style.letterSpacing !== '') text.style.letterSpacing = `${style.letterSpacing}px`;
+            Object.assign(text.style, textEffectStyle(style, 'alert'));
             
             const textAlign = style.textAlign || (layout === 'side' ? 'left' : 'center');
             text.style.textAlign = textAlign;
@@ -1731,6 +1734,7 @@
             } else if (layout === 'side') {
                 const vAlign = style.verticalAlign || 'middle';
                 card.style.alignItems = vAlign === 'top' ? 'flex-start' : vAlign === 'bottom' ? 'flex-end' : 'center';
+                card.style.justifyContent = textAlign === 'left' ? 'flex-start' : textAlign === 'right' ? 'flex-end' : 'center';
             }
 
             if (payload.title) {
