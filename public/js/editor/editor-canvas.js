@@ -243,7 +243,7 @@ export function buildContent(node, el) {
         if (/\{\{/.test(url)) { node.appendChild(placeholder(`${url} (shows when a value is available)`)); return; }
         if (el.type === 'video' && shared.parseYouTubeUrl && shared.parseYouTubeUrl(url)) {
             const v = el.video || {};
-            const embedSrc = shared.embedUrl(url, { autoplay: true, loop: v.loop !== false, sound: false });
+            const embedSrc = shared.embedUrl(url, { autoplay: v.autoplay !== false, loop: v.loop !== false, sound: false });
             const frame = document.createElement('iframe');
             frame.src = embedSrc;
             frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
@@ -261,13 +261,15 @@ export function buildContent(node, el) {
             const v = el.video || {};
             const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
             const volume = Math.max(0, Math.min(1, (Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100) / 100));
+            const auto = v.autoplay !== false;
             media.loop = v.loop !== false;
-            media.autoplay = true;
+            media.autoplay = auto;
+            if (!auto) media.preload = 'auto';
             media.playsInline = true;
             media.dataset.hasSound = hasSound ? 'true' : 'false';
             media.dataset.targetVolume = String(volume);
             media.muted = !hasSound;
-            if (hasSound) {
+            if (hasSound && auto) {
                 media.volume = volume;
                 const p = media.play();
                 if (p && p.catch) {
@@ -294,7 +296,7 @@ export function buildContent(node, el) {
         const rawUrl = expand(el.src);
         const isYt = Boolean(shared.parseYouTubeUrl && shared.parseYouTubeUrl(rawUrl));
         const v = el.video || {};
-        const url = shared.embedUrl ? shared.embedUrl(rawUrl, isYt ? { autoplay: true, loop: v.loop !== false, sound: false } : { sound: false }) : rawUrl;
+        const url = shared.embedUrl ? shared.embedUrl(rawUrl, isYt ? { autoplay: v.autoplay !== false, loop: v.loop !== false, sound: false } : { sound: false }) : rawUrl;
         if (!/^https?:\/\//i.test(url)) { node.appendChild(placeholder('Enter an http(s) webpage URL or YouTube link')); return; }
         const frame = document.createElement('iframe');
         frame.src = url;

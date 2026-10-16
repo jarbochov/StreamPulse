@@ -788,8 +788,8 @@
                 },
                 {
                     method: 'GET', path: '/api/videos',
-                    desc: 'List all video elements across overlays',
-                    details: 'Returns { videos: [{ overlayId, overlayName, elementId, name, src, loop, sound, volume }] }.'
+                    desc: 'List all video and YouTube elements across overlays',
+                    details: 'Returns { videos: [{ overlayId, overlayName, elementId, name, kind, src, autoplay, loop, sound, volume }] }. Lists native <video> elements and embedded YouTube players for Companion and remote controls.'
                 },
                 {
                     method: 'POST', path: '/api/custom-overlays/:id/video',

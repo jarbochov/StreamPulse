@@ -662,15 +662,20 @@ function createOverlayRoutes({
         if (pathname === '/api/videos' && req.method === 'GET') {
             const customOverlays = getCustomOverlays();
             const videos = [];
+            const isYtUrl = str => Boolean(str && (/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?v=|shorts\/|live\/|embed\/))([a-zA-Z0-9_-]{11})/i.test(str) || (/[?&]list=([a-zA-Z0-9_-]+)/i.test(str) && /youtube/i.test(str))));
             for (const overlay of Object.values(customOverlays)) {
                 for (const element of overlay.elements || []) {
-                    if (element.type !== 'video') continue;
+                    const isVideo = element.type === 'video';
+                    const isYtEmbed = element.type === 'embed' && isYtUrl(element.src);
+                    if (!isVideo && !isYtEmbed) continue;
                     videos.push({
                         overlayId: overlay.id,
                         overlayName: overlay.name,
                         elementId: element.id,
-                        name: element.name || element.id,
+                        name: element.name || (isYtEmbed ? `YouTube (${element.id})` : element.id),
+                        kind: isYtEmbed ? 'youtube' : 'video',
                         src: element.src || '',
+                        autoplay: element.video?.autoplay !== false,
                         loop: element.video?.loop !== false,
                         sound: element.video?.sound === true || element.video?.muted === false,
                         volume: element.video?.volume ?? 100

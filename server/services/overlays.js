@@ -320,6 +320,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
         items: Array.isArray(element.items) ? element.items.map(item => String(item).slice(0, 2000)).filter(Boolean).slice(0, 2000) : [],
         src: String(element.src || '').slice(0, 2000),
         video: {
+            autoplay: element.video?.autoplay !== false,
             loop: element.video?.loop !== false,
             sound: element.video?.sound === true || element.video?.muted === false,
             volume: Math.max(0, Math.min(100, Math.round(Number(element.video?.volume ?? 100))))

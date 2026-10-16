@@ -362,7 +362,7 @@ export function normalizeLoaded(data) {
         item.headingScale ??= 100;
         item.source ||= { mode: 'inline', path: '', split: 'lines' };
         item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 };
-        if (item.type === 'video') item.video = Object.assign({ loop: true, sound: false, volume: 100 }, item.video);
+        if (item.type === 'video') item.video = Object.assign({ autoplay: true, loop: true, sound: false, volume: 100 }, item.video);
         if (item.type === 'alert') item.alert = Object.assign({ layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, triggers: [] }, item.alert);
         if (item.type === 'cutout') item.cutout = Object.assign({ shape: 'rectangle', feather: 0 }, item.cutout);
         item.style ||= {};

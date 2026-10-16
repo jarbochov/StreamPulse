@@ -719,6 +719,7 @@
             if (yt) {
                 const params = new URLSearchParams();
                 if (options.autoplay !== false) params.set('autoplay', '1');
+                else params.set('autoplay', '0');
                 params.set('enablejsapi', '1');
                 if (options.loop !== false) {
                     params.set('loop', '1');

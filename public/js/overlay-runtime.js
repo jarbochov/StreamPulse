@@ -410,7 +410,7 @@
                         v.muted = false;
                         v.volume = volume;
                     }
-                    if (v.paused) v.play().catch(() => {});
+                    if (v.paused && element.video?.autoplay !== false) v.play().catch(() => {});
                 }
                 return existing.node;
             }
@@ -426,16 +426,18 @@
                 if (yt) {
                     const frame = document.createElement('iframe');
                     const v = element.video || {};
+                    const auto = v.autoplay !== false;
                     const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
-                    frame.src = shared.embedUrl(expandVariables(element.src || ''), { autoplay: true, loop: v.loop !== false, sound: hasSound });
+                    frame.src = shared.embedUrl(expandVariables(element.src || ''), { autoplay: auto, loop: v.loop !== false, sound: hasSound });
                     frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
                     frame.referrerPolicy = 'strict-origin-when-cross-origin';
                     frame.style.cssText = 'width:100%;height:100%;border:0;';
-                    frame._ytPlaying = true;
+                    frame._ytPlaying = auto;
                     frame._ytMuted = !hasSound;
                     const volume = Math.max(0, Math.min(100, Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100));
                     frame.addEventListener('load', () => {
                         try {
+                            frame.contentWindow?.postMessage(JSON.stringify({ event: 'listening' }), '*');
                             if (hasSound) {
                                 frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
                                 frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [volume] }), '*');
@@ -449,9 +451,11 @@
                     const media = document.createElement('video');
                     media.src = expandVariables(element.src || '');
                     const v = element.video || {};
+                    const auto = v.autoplay !== false;
                     const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
                     const volume = Math.max(0, Math.min(1, (Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100) / 100));
-                    media.autoplay = true;
+                    media.autoplay = auto;
+                    if (!auto) media.preload = 'auto';
                     media.loop = v.loop !== false;
                     media.playsInline = true;
                     media.dataset.hasSound = hasSound ? 'true' : 'false';
@@ -487,19 +491,21 @@
                 const rawUrl = expandVariables(element.src || '');
                 const isYt = Boolean(shared.parseYouTubeUrl && shared.parseYouTubeUrl(rawUrl));
                 const v = element.video || {};
+                const auto = v.autoplay !== false;
                 const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
-                frame.src = shared.embedUrl(rawUrl, isYt ? { autoplay: true, loop: v.loop !== false, sound: hasSound } : {}) || 'about:blank';
+                frame.src = shared.embedUrl(rawUrl, isYt ? { autoplay: auto, loop: v.loop !== false, sound: hasSound } : {}) || 'about:blank';
                 // Own widgets (timers, goals, music) need their origin to call the local API; external pages stay sandboxed.
                 let sameOrigin = false;
                 try { sameOrigin = new URL(frame.src, location.href).origin === location.origin; } catch { /* invalid URL stays sandboxed */ }
                 frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
                 if (isYt) {
                     frame.referrerPolicy = 'strict-origin-when-cross-origin';
-                    frame._ytPlaying = true;
+                    frame._ytPlaying = auto;
                     frame._ytMuted = !hasSound;
                     const volume = Math.max(0, Math.min(100, Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100));
                     frame.addEventListener('load', () => {
                         try {
+                            frame.contentWindow?.postMessage(JSON.stringify({ event: 'listening' }), '*');
                             if (hasSound) {
                                 frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
                                 frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [volume] }), '*');
@@ -713,33 +719,34 @@
             const iframe = node.querySelector('iframe');
             if (iframe && iframe.contentWindow) {
                 try {
+                    const postCmd = (func, args = []) => {
+                        iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
+                    };
                     if (act === 'play') {
                         iframe._ytPlaying = true;
-                        iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                        postCmd('playVideo');
                     } else if (act === 'pause') {
                         iframe._ytPlaying = false;
-                        iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+                        postCmd('pauseVideo');
                     } else if (act === 'toggle') {
                         const playing = iframe._ytPlaying !== false;
                         iframe._ytPlaying = !playing;
-                        const cmd = playing ? 'pauseVideo' : 'playVideo';
-                        iframe.contentWindow.postMessage(`{"event":"command","func":"${cmd}","args":""}`, '*');
+                        postCmd(playing ? 'pauseVideo' : 'playVideo');
                     } else if (act === 'stop' || act === 'restart') {
                         iframe._ytPlaying = act === 'restart';
-                        iframe.contentWindow.postMessage('{"event":"command","func":"seekTo","args":[0, true]}', '*');
-                        if (act === 'stop') iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
-                        else iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                        postCmd('seekTo', [0, true]);
+                        if (act === 'stop') postCmd('pauseVideo');
+                        else postCmd('playVideo');
                     } else if (act === 'mute') {
                         iframe._ytMuted = true;
-                        iframe.contentWindow.postMessage('{"event":"command","func":"mute","args":""}', '*');
+                        postCmd('mute');
                     } else if (act === 'unmute') {
                         iframe._ytMuted = false;
-                        iframe.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', '*');
+                        postCmd('unMute');
                     } else if (act === 'toggle-mute') {
                         const muted = iframe._ytMuted !== false;
                         iframe._ytMuted = !muted;
-                        const cmd = muted ? 'unMute' : 'mute';
-                        iframe.contentWindow.postMessage(`{"event":"command","func":"${cmd}","args":""}`, '*');
+                        postCmd(muted ? 'unMute' : 'mute');
                     }
                 } catch {}
             }
@@ -761,8 +768,8 @@
                             const elId = iframe.closest('.overlay-element')?.dataset.elementId;
                             const el = (currentOverlay?.elements || []).find(e => e.id === elId);
                             if (el?.video?.loop !== false) {
-                                iframe.contentWindow?.postMessage('{"event":"command","func":"seekTo","args":[0, true]}', '*');
-                                iframe.contentWindow?.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                                iframe.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [0, true] }), '*');
+                                iframe.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
                                 iframe._ytPlaying = true;
                             }
                         }
