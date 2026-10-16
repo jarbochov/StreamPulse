@@ -44,6 +44,7 @@ export const RERENDER_PATHS = new Set([
     'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate',
     'style.borderWidth', 'style.borderStyle', 'style.borderGlow.enabled', 'style.borderGlow.neon',
     'style.borderGlow.inner', 'style.borderAnimation.type',
+    'style.shadow.blur', 'style.innerShadow.blur', 'style.innerShadow.spread',
     'style.textStroke.width', 'style.textShadow.blur', 'style.background', 'video.sound',
     'alert.layout', 'alert.hideText', 'slideshow.source', 'slideshow.advance', 'slideshow.transition',
     'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee',
@@ -54,7 +55,7 @@ export const RERENDER_PATHS = new Set([
 export const numberWasOn = new Map();
 
 export function numberCrossedZero(path, event) {
-    if (!/^style\.(textStroke\.width|textShadow\.blur|borderWidth)$/.test(path) || event?.target?.dataset?.kind !== 'number' || event.type !== 'input') return true;
+    if (!/^style\.(textStroke\.width|textShadow\.blur|borderWidth|shadow\.blur|innerShadow\.blur|innerShadow\.spread)$/.test(path) || event?.target?.dataset?.kind !== 'number' || event.type !== 'input') return true;
     const now = Number(getPath(selectedElements()[0], path)) > 0;
     const crossed = numberWasOn.get(path) !== now;
     numberWasOn.set(path, now);
@@ -213,14 +214,19 @@ export function focusField(el) {
     return `<div class="field focus-field"><span>Focus point</span><div class="focus-pick" data-focus-pick>${thumb}<i class="focus-dot" style="left:${x}%;top:${y}%"></i></div><small class="hint">Drag to choose which part stays in view when cropped.</small></div>`;
 }
 
-export const boxEffectsRelevant = (el, multi) => multi || !TEXT_TYPES.has(el.type) || hasBox(el.style) || el.style?.blur > 0 || el.style?.shadow?.blur > 0;
+export const boxEffectsRelevant = (el, multi) => multi || !TEXT_TYPES.has(el.type) || hasBox(el.style) || el.style?.blur > 0 || el.style?.shadow?.blur > 0 || el.style?.innerShadow?.blur > 0 || el.style?.innerShadow?.spread > 0;
 
 export function boxEffectFields(el, multi) {
     const s = el.style || {};
+    const ish = s.innerShadow || {};
     if (!boxEffectsRelevant(el, multi)) return '<p class="hint">Backdrop blur and box shadow appear once this text has a background, gradient or border. For a shadow on the letters, use Text effects.</p>';
-    return `<div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Box shadow (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
-        ${s.shadow?.blur > 0 ? F.color('style.shadow.color', 'Box shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)') : ''}
-        <p class="hint">Backdrop blur frosts whatever is behind this box inside the overlay. Box shadow is drawn around the box edge, not the letters.</p>`;
+    return `<div class="grid2">${F.number('style.blur', 'Backdrop blur (px)', s.blur || 0, { min: 0, max: 60 })}${F.number('style.shadow.blur', 'Outer shadow (px)', s.shadow?.blur || 0, { min: 0, max: 100 })}</div>
+        ${s.shadow?.blur > 0 ? F.color('style.shadow.color', 'Outer shadow color', s.shadow?.color || 'rgba(0,0,0,0.5)') : ''}
+        <div class="grid2">${F.number('style.innerShadow.blur', 'Inner shadow blur (px)', ish.blur || 0, { min: 0, max: 100 })}${F.number('style.innerShadow.spread', 'Inner spread (px)', ish.spread || 0, { min: 0, max: 50 })}</div>
+        ${(ish.blur > 0 || ish.spread > 0) ? `
+            <div class="grid2">${F.number('style.innerShadow.x', 'Offset X (px)', ish.x || 0, { min: -50, max: 50 })}${F.number('style.innerShadow.y', 'Offset Y (px)', ish.y || 0, { min: -50, max: 50 })}</div>
+            ${F.color('style.innerShadow.color', 'Inner shadow color', ish.color || 'rgba(0,0,0,0.5)')}` : ''}
+        <p class="hint">Backdrop blur frosts whatever is behind this box. Outer and inner shadows add dimensional depth around and inside the box edges.</p>`;
 }
 
 export function borderControls(s = {}, shape = false, el = {}) {
@@ -265,6 +271,7 @@ export function borderControls(s = {}, shape = false, el = {}) {
     html += F.select('style.borderAnimation.type', 'Border animation', anim.type || 'none', [
         ['none', 'None (static)'],
         ['rotating', 'Rotating beam (spotlight)'],
+        ['radial', 'Radial rotating (sweeping glow)'],
         ['pulsing', 'Pulsing glow (breathing)'],
         ['gradient', 'Gradient sweep (flowing)'],
         ['rainbow', 'Rainbow cycle (RGB chroma)'],
@@ -278,6 +285,13 @@ export function borderControls(s = {}, shape = false, el = {}) {
                     ${F.number('style.borderAnimation.size', 'Beam arc (%)', anim.size ?? 35, { min: 10, max: 100 })}
                 </div>
                 ${F.color('style.borderAnimation.color2', 'Beam head color', anim.color2 || '#ffffff')}`;
+        } else if (anim.type === 'radial') {
+            html += `
+                <div class="grid2">
+                    ${F.number('style.borderAnimation.speed', 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 })}
+                    ${F.number('style.borderAnimation.size', 'Glow spread (%)', anim.size ?? 40, { min: 10, max: 100 })}
+                </div>
+                ${F.color('style.borderAnimation.color2', 'Highlight color', anim.color2 || '#ffffff')}`;
         } else if (anim.type === 'gradient') {
             html += `
                 <div class="grid2">
@@ -1043,7 +1057,7 @@ export function initInspectorEvents() {
 
         propEl.addEventListener('change', event => {
             const path = event.target.closest('[data-path]')?.dataset.path;
-            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.shadow.blur') renderProperties();
+            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread') renderProperties();
         });
 
         propEl.addEventListener('change', event => {

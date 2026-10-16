@@ -871,9 +871,19 @@
     }
 
     const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
-    const BORDER_ANIM_TYPES = ['none', 'rotating', 'pulsing', 'gradient', 'rainbow', 'marching'];
+    const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 'rainbow', 'marching'];
 
     function ensureBorderKeyframes() {
+        if (window.CSS && typeof window.CSS.registerProperty === 'function') {
+            try {
+                window.CSS.registerProperty({
+                    name: '--sp-angle',
+                    syntax: '<angle>',
+                    inherits: false,
+                    initialValue: '0deg'
+                });
+            } catch {}
+        }
         if (document.getElementById('sp-border-keyframes')) return;
         const tag = document.createElement('style');
         tag.id = 'sp-border-keyframes';
@@ -883,6 +893,7 @@
             + '@keyframes sp-border-gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } } '
             + '@keyframes sp-border-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } } '
             + '@keyframes sp-border-marching { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -32; } } '
+            + '@keyframes sp-border-radial-circuit { 0% { background-position: 0% 0%; } 25% { background-position: 100% 0%; } 50% { background-position: 100% 100%; } 75% { background-position: 0% 100%; } 100% { background-position: 0% 0%; } } '
             + '.sp-fx-paused [data-border-fx] { animation-play-state: paused !important; }';
         document.head.appendChild(tag);
     }
@@ -920,18 +931,11 @@
         const g = style.borderGradient;
         const anim = style.borderAnimation || {};
         const glow = style.borderGlow || {};
+        const ish = style.innerShadow || {};
+        const hasInnerGlow = glow.enabled && glow.inner;
+        const hasInnerShadow = Number(ish.blur) > 0 || Number(ish.spread) > 0;
 
         node.style.boxShadow = computeBoxShadow(style, width);
-
-        if (width <= 0) {
-            if (node._borderRing) { node._borderRing.remove(); node._borderRing = null; }
-            if (node._borderFxRing) { node._borderFxRing.remove(); node._borderFxRing = null; }
-            if (node._innerGlowRing) { node._innerGlowRing.remove(); node._innerGlowRing = null; }
-            if (node._borderObserver) { node._borderObserver.disconnect(); node._borderObserver = null; }
-            if (element.type !== 'cutout') node.style.border = '0';
-            node.style.backgroundClip = '';
-            return;
-        }
 
         if (!node._borderObserver) {
             node._borderObserver = new MutationObserver(() => {
@@ -942,8 +946,8 @@
             node._borderObserver.observe(node, { childList: true });
         }
 
-        // Inner glow is rendered via a dedicated top overlay so it stays visible over fills, images, videos, and cutouts.
-        if (glow.enabled && glow.inner) {
+        // Inner shadow and inner glow are rendered via a dedicated top overlay so they stay visible over fills, images, videos, and cutouts.
+        if (hasInnerGlow || hasInnerShadow) {
             let innerRing = node._innerGlowRing;
             if (!innerRing) {
                 innerRing = node._innerGlowRing = document.createElement('div');
@@ -951,19 +955,46 @@
                 innerRing.dataset.innerGlow = 'true';
             }
             if (innerRing.parentNode !== node) node.append(innerRing);
-            const gc = glow.color && glow.color !== 'transparent' ? glow.color : (borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8');
-            const gb = Math.max(0, Number(glow.blur ?? 16));
-            const gs = Math.max(0, Number(glow.spread ?? 2));
+
             const innerShadows = [];
-            if (glow.neon) {
-                innerShadows.push('inset 0 0 3px #ffffff', `inset 0 0 ${gb}px ${Math.max(2, gs)}px ${gc}`);
-            } else {
-                innerShadows.push(`inset 0 0 ${gb}px ${Math.max(1, gs)}px ${gc}`);
+            if (hasInnerShadow) {
+                const isx = Number(ish.x) || 0;
+                const isy = Number(ish.y) || 0;
+                const isb = Math.max(0, Number(ish.blur) || 0);
+                const iss = Math.max(0, Number(ish.spread) || 0);
+                const isc = ish.color || 'rgba(0,0,0,0.5)';
+                innerShadows.push(`inset ${isx}px ${isy}px ${isb}px ${iss}px ${isc}`);
             }
-            innerRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border-radius:inherit;pointer-events:none;z-index:3;box-shadow:${innerShadows.join(', ')};`;
+            if (hasInnerGlow) {
+                const gc = glow.color && glow.color !== 'transparent' ? glow.color : (borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8');
+                const gb = Math.max(0, Number(glow.blur ?? 16));
+                const gs = Math.max(0, Number(glow.spread ?? 2));
+                if (glow.neon) {
+                    innerShadows.push('inset 0 0 3px #ffffff', `inset 0 0 ${gb}px ${Math.max(2, gs)}px ${gc}`);
+                } else {
+                    innerShadows.push(`inset 0 0 ${gb}px ${Math.max(1, gs)}px ${gc}`);
+                }
+            }
+            const innerSig = innerShadows.join(', ');
+            if (innerRing._sig !== innerSig) {
+                innerRing._sig = innerSig;
+                innerRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border-radius:inherit;pointer-events:none;z-index:3;box-shadow:${innerSig};`;
+            }
         } else if (node._innerGlowRing) {
             node._innerGlowRing.remove();
             node._innerGlowRing = null;
+        }
+
+        if (width <= 0) {
+            if (node._borderRing) { node._borderRing.remove(); node._borderRing = null; }
+            if (node._borderFxRing) { node._borderFxRing.remove(); node._borderFxRing = null; }
+            if (!hasInnerGlow && !hasInnerShadow && node._borderObserver) {
+                node._borderObserver.disconnect();
+                node._borderObserver = null;
+            }
+            if (element.type !== 'cutout') node.style.border = '0';
+            node.style.backgroundClip = '';
+            return;
         }
 
         const hasBorderGradient = Boolean(g?.enabled);
@@ -987,17 +1018,21 @@
             const animCss = g.animate
                 ? `${isVertical ? 'sp-gradient-shift-y' : 'sp-gradient-shift'} ${Math.max(1, g.speed || 8)}s ease-in-out infinite alternate`
                 : '';
-            ring.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:${gradCss};background-size:${g.animate ? '300% 300%' : 'cover'};animation:${animCss};z-index:2;`;
-            ring.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
-            ring.style.setProperty('-webkit-mask-composite', 'xor');
-            ring.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
-            ring.style.setProperty('mask-composite', 'exclude');
+            const ringSig = `${width}|${gradCss}|${g.animate}|${g.speed}`;
+            if (ring._sig !== ringSig) {
+                ring._sig = ringSig;
+                ring.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:${gradCss};background-size:${g.animate ? '300% 300%' : 'cover'};animation:${animCss};z-index:2;`;
+                ring.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                ring.style.setProperty('-webkit-mask-composite', 'xor');
+                ring.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                ring.style.setProperty('mask-composite', 'exclude');
+            }
         } else if (node._borderRing) {
             node._borderRing.remove();
             node._borderRing = null;
         }
 
-        // Case 2: Animated Border (Rotating beam, Pulsing, Sweeping gradient with middle color, Rainbow, Marching ants)
+        // Case 2: Animated Border (Rotating beam, Radial rotating, Pulsing, Sweeping gradient with middle color, Rainbow, Marching ants)
         if (!hasBorderGradient && hasBorderAnim) {
             ensureBorderKeyframes();
             let fxRing = node._borderFxRing;
@@ -1016,45 +1051,98 @@
                 const arc = Math.round(360 * (size / 100));
                 const head = anim.color2 || '#ffffff';
                 const trail = borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8';
-                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:conic-gradient(from var(--sp-angle), transparent 0deg, transparent ${360 - arc}deg, ${trail} ${360 - Math.round(arc / 2)}deg, ${head} 360deg);animation:sp-border-spin ${speed}s linear infinite;z-index:2;`;
-                fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
-                fxRing.style.setProperty('-webkit-mask-composite', 'xor');
-                fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
-                fxRing.style.setProperty('mask-composite', 'exclude');
-                fxRing.innerHTML = '';
+                const sig = `rotating|${width}|${speed}|${size}|${head}|${trail}`;
+                if (fxRing._sig !== sig) {
+                    fxRing._sig = sig;
+                    fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:conic-gradient(from var(--sp-angle), transparent 0deg, transparent ${360 - arc}deg, ${trail} ${360 - Math.round(arc / 2)}deg, ${head} 360deg);animation:sp-border-spin ${speed}s linear infinite;z-index:2;`;
+                    fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                    fxRing.style.setProperty('-webkit-mask-composite', 'xor');
+                    fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                    fxRing.style.setProperty('mask-composite', 'exclude');
+                    fxRing.innerHTML = '';
+                }
+            } else if (anim.type === 'radial') {
+                const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
+                const size = Math.max(10, Math.min(100, Number(anim.size) || 40));
+                const head = anim.color2 || '#ffffff';
+                const trail = borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8';
+                const mid = anim.color3 || '';
+                const base = 'transparent';
+                const bgSize = Math.max(180, Math.min(300, Math.round(160 + (size * 1.0))));
+                const gradStops = mid
+                    ? `${head} 0%, ${mid} 25%, ${trail} 50%, ${base} 85%`
+                    : `${head} 0%, ${trail} 35%, ${base} 75%`;
+                const sig = `radial|${width}|${speed}|${size}|${head}|${mid}|${trail}|${base}|${bgSize}`;
+                if (fxRing._sig !== sig) {
+                    fxRing._sig = sig;
+                    fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:radial-gradient(circle, ${gradStops});background-size:${bgSize}% ${bgSize}%;animation:sp-border-radial-circuit ${speed}s ease-in-out infinite;z-index:2;`;
+                    fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                    fxRing.style.setProperty('-webkit-mask-composite', 'xor');
+                    fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                    fxRing.style.setProperty('mask-composite', 'exclude');
+                    fxRing.innerHTML = '';
+                }
             } else if (anim.type === 'pulsing') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 2));
                 const c = borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8';
-                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px ${borderStyle} ${c};border-radius:inherit;pointer-events:none;color:${c};box-shadow:0 0 16px ${c};animation:sp-border-pulse ${speed}s ease-in-out infinite;z-index:2;`;
-                fxRing.style.webkitMask = fxRing.style.mask = '';
-                fxRing.innerHTML = '';
+                const sig = `pulsing|${width}|${borderStyle}|${c}|${speed}`;
+                if (fxRing._sig !== sig) {
+                    fxRing._sig = sig;
+                    fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px ${borderStyle} ${c};border-radius:inherit;pointer-events:none;color:${c};box-shadow:0 0 16px ${c};animation:sp-border-pulse ${speed}s ease-in-out infinite;z-index:2;`;
+                    fxRing.style.webkitMask = fxRing.style.mask = '';
+                    fxRing.innerHTML = '';
+                }
             } else if (anim.type === 'gradient') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
                 const c1 = borderColor && borderColor !== 'transparent' ? borderColor : '#1f6feb';
                 const mid = anim.color3 || '';
                 const c2 = anim.color2 || '#8957e5';
                 const stops = [c1, mid, c2].filter(Boolean).join(', ');
-                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg, ${stops});background-size:300% 300%;animation:sp-border-gradient-shift ${speed}s ease-in-out infinite alternate;z-index:2;`;
-                fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
-                fxRing.style.setProperty('-webkit-mask-composite', 'xor');
-                fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
-                fxRing.style.setProperty('mask-composite', 'exclude');
-                fxRing.innerHTML = '';
+                const sig = `gradient|${width}|${speed}|${stops}`;
+                if (fxRing._sig !== sig) {
+                    fxRing._sig = sig;
+                    fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg, ${stops});background-size:300% 300%;animation:sp-border-gradient-shift ${speed}s ease-in-out infinite alternate;z-index:2;`;
+                    fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                    fxRing.style.setProperty('-webkit-mask-composite', 'xor');
+                    fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
+                    fxRing.style.setProperty('mask-composite', 'exclude');
+                    fxRing.innerHTML = '';
+                }
             } else if (anim.type === 'rainbow') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
-                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg, #ff0055, #ff9900, #ffee00, #00ff66, #00bbff, #8800ff, #ff0055);background-size:300% 300%;animation:sp-border-gradient-shift ${speed}s ease-in-out infinite alternate, sp-border-rainbow ${speed * 1.5}s linear infinite;z-index:2;`;
-                fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
-                fxRing.style.setProperty('-webkit-mask-composite', 'xor');
-                fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
-                fxRing.style.setProperty('mask-composite', 'exclude');
-                fxRing.innerHTML = '';
+                const radRaw = style.borderRadius ?? node.style.borderRadius ?? 0;
+                const radNum = Math.max(0, parseFloat(radRaw) || 0);
+                if (radNum <= 0) {
+                    const sig = `rainbow|rect|${width}|${speed}`;
+                    if (fxRing._sig !== sig) {
+                        fxRing._sig = sig;
+                        fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-image:linear-gradient(135deg, #ff0055, #ff9900, #ffee00, #00ff66, #00bbff, #8800ff, #ff0055) 1;pointer-events:none;animation:sp-border-rainbow ${speed}s linear infinite;z-index:2;`;
+                        fxRing.style.webkitMask = fxRing.style.mask = '';
+                        fxRing.innerHTML = '';
+                    }
+                } else {
+                    const gradId = `sp-rb-${(element.id || node.id || node.dataset?.id || 'fx').replace(/[^a-zA-Z0-9_-]/g, '')}`;
+                    const sig = `rainbow|svg|${width}|${speed}|${radNum}|${gradId}`;
+                    if (fxRing._sig !== sig) {
+                        fxRing._sig = sig;
+                        fxRing.style.cssText = `position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:2;animation:sp-border-rainbow ${speed}s linear infinite;`;
+                        fxRing.style.webkitMask = fxRing.style.mask = '';
+                        fxRing.style.border = '0';
+                        fxRing.style.borderImage = 'none';
+                        fxRing.innerHTML = `<svg data-border-fx="rainbow" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;"><defs><linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff0055"/><stop offset="17%" stop-color="#ff9900"/><stop offset="33%" stop-color="#ffee00"/><stop offset="50%" stop-color="#00ff66"/><stop offset="67%" stop-color="#00bbff"/><stop offset="83%" stop-color="#8800ff"/><stop offset="100%" stop-color="#ff0055"/></linearGradient></defs><rect x="${width / 2}" y="${width / 2}" width="calc(100% - ${width}px)" height="calc(100% - ${width}px)" rx="${radNum}" ry="${radNum}" fill="none" stroke="url(#${gradId})" stroke-width="${width}"></rect></svg>`;
+                    }
+                }
             } else if (anim.type === 'marching') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 2));
                 const c = borderColor && borderColor !== 'transparent' ? borderColor : '#38bdf8';
                 const rad = node.style.borderRadius || '0px';
-                fxRing.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:2;';
-                fxRing.style.webkitMask = fxRing.style.mask = '';
-                fxRing.innerHTML = `<svg data-border-fx="marching" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;"><rect x="${width / 2}" y="${width / 2}" width="calc(100% - ${width}px)" height="calc(100% - ${width}px)" rx="${rad}" ry="${rad}" fill="none" stroke="${c}" stroke-width="${width}" stroke-dasharray="${Math.max(6, width * 2)} ${Math.max(4, width * 1.5)}" style="animation:sp-border-marching ${speed}s linear infinite;"></rect></svg>`;
+                const sig = `marching|${width}|${speed}|${c}|${rad}`;
+                if (fxRing._sig !== sig) {
+                    fxRing._sig = sig;
+                    fxRing.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:2;';
+                    fxRing.style.webkitMask = fxRing.style.mask = '';
+                    fxRing.innerHTML = `<svg data-border-fx="marching" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;"><rect x="${width / 2}" y="${width / 2}" width="calc(100% - ${width}px)" height="calc(100% - ${width}px)" rx="${rad}" ry="${rad}" fill="none" stroke="${c}" stroke-width="${width}" stroke-dasharray="${Math.max(6, width * 2)} ${Math.max(4, width * 1.5)}" style="animation:sp-border-marching ${speed}s linear infinite;"></rect></svg>`;
+                }
             }
         } else if (node._borderFxRing) {
             node._borderFxRing.remove();

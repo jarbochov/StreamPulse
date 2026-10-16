@@ -130,10 +130,11 @@ async function run() {
                 hasMidColor: borderGradRing?.style.background.includes('255, 238, 0') || borderGradRing?.style.background.includes('#ffee00') || borderGradRing?.style.background.includes('rgb(255, 238, 0)')
             };
 
-            // 3E: Rainbow cycle
+            // 3E: Rainbow cycle (clean linear gradient border-image for sharp rect, SVG stroke for rounded)
             window.OverlayShared.applyBorderEffects(testNode, {
                 borderWidth: 4,
                 borderStyle: 'solid',
+                borderRadius: 0,
                 borderColor: '#ff0000',
                 borderAnimation: { type: 'rainbow', speed: 5 }
             });
@@ -141,10 +142,57 @@ async function run() {
             results.rainbow = {
                 hasRing: !!rainbowRing,
                 animation: rainbowRing?.style.animation,
+                isLinear: (rainbowRing?.style.borderImage || rainbowRing?.style.background || '').includes('linear-gradient'),
                 isBaseBorderTransparent: testNode.style.border.includes('transparent')
             };
 
-            // 3F: Marching ants
+            // 3E2: Rainbow cycle rounded (SVG vector stroke)
+            window.OverlayShared.applyBorderEffects(testNode, {
+                borderWidth: 4,
+                borderStyle: 'solid',
+                borderRadius: 16,
+                borderColor: '#ff0000',
+                borderAnimation: { type: 'rainbow', speed: 5 }
+            });
+            const rainbowRoundRing = testNode._borderFxRing;
+            results.rainbowRound = {
+                hasRing: !!rainbowRoundRing,
+                animation: rainbowRoundRing?.style.animation,
+                hasSvg: !!rainbowRoundRing?.querySelector('svg'),
+                hasLinearGrad: !!rainbowRoundRing?.querySelector('linearGradient'),
+                hasRect: !!rainbowRoundRing?.querySelector('rect')
+            };
+
+            // 3F: Radial rotating (radial gradient in center that rotates and is masked for border)
+            window.OverlayShared.applyBorderEffects(testNode, {
+                borderWidth: 4,
+                borderStyle: 'solid',
+                borderColor: '#38bdf8',
+                borderAnimation: { type: 'radial', speed: 3, color2: '#ffffff', size: 50 }
+            });
+            const radialRing = testNode._borderFxRing;
+            results.radial = {
+                hasRing: !!radialRing,
+                animation: radialRing?.style.animation,
+                isRadial: radialRing?.style.background.includes('radial-gradient'),
+                hasHighlight: radialRing?.style.background.includes('#ffffff') || radialRing?.style.background.includes('rgb(255, 255, 255)')
+            };
+
+            // 3G: Cycle Stability test (repeated applyBorderEffects does NOT reset or replace fxRing)
+            const ringBefore = testNode._borderFxRing;
+            window.OverlayShared.applyBorderEffects(testNode, {
+                borderWidth: 4,
+                borderStyle: 'solid',
+                borderColor: '#38bdf8',
+                borderAnimation: { type: 'radial', speed: 3, color2: '#ffffff', size: 50 }
+            });
+            const ringAfter = testNode._borderFxRing;
+            results.cycleStability = {
+                sameInstance: ringBefore === ringAfter,
+                sigPreserved: ringBefore?._sig === ringAfter?._sig
+            };
+
+            // 3H: Marching ants
             window.OverlayShared.applyBorderEffects(testNode, {
                 borderWidth: 3,
                 borderStyle: 'dashed',
@@ -161,9 +209,21 @@ async function run() {
                 isBaseBorderTransparent: testNode.style.border.includes('transparent')
             };
 
-            // Test 4: Teardown
+            // Test 4: Dedicated Inner Shadow (both with borderWidth: 0 and with border)
             window.OverlayShared.applyBorderEffects(testNode, {
-                borderWidth: 0
+                borderWidth: 0,
+                innerShadow: { blur: 18, spread: 3, x: 2, y: 4, color: 'rgba(0, 0, 0, 0.75)' }
+            });
+            results.innerShadowZeroBorder = {
+                hasInnerRing: !!testNode._innerGlowRing,
+                boxShadow: testNode._innerGlowRing?.style.boxShadow || '',
+                hasInset: (testNode._innerGlowRing?.style.boxShadow || '').includes('inset') && (testNode._innerGlowRing?.style.boxShadow || '').includes('2px 4px 18px 3px')
+            };
+
+            // Test 5: Teardown
+            window.OverlayShared.applyBorderEffects(testNode, {
+                borderWidth: 0,
+                innerShadow: { blur: 0 }
             });
             results.teardown = {
                 noRing: !testNode._borderFxRing,
@@ -189,6 +249,12 @@ async function run() {
         if (!testResults.rotating.hasRing || !testResults.rotating.animation.includes('sp-border-spin')) {
             throw new Error('Rotating border animation failed: ' + JSON.stringify(testResults.rotating));
         }
+        if (!testResults.radial.hasRing || !testResults.radial.animation.includes('sp-border-radial-circuit') || !testResults.radial.isRadial || !testResults.radial.hasHighlight) {
+            throw new Error('Radial rotating animation failed: ' + JSON.stringify(testResults.radial));
+        }
+        if (!testResults.cycleStability.sameInstance) {
+            throw new Error('Cycle stability failed (ring was recreated/reset): ' + JSON.stringify(testResults.cycleStability));
+        }
         if (!testResults.pulsing.hasRing || !testResults.pulsing.animation.includes('sp-border-pulse')) {
             throw new Error('Pulsing border animation failed: ' + JSON.stringify(testResults.pulsing));
         }
@@ -198,11 +264,17 @@ async function run() {
         if (!testResults.borderGradientMid.hasRing || !testResults.borderGradientMid.hasMidColor) {
             throw new Error('Sweeping borderGradient with middle color failed: ' + JSON.stringify(testResults.borderGradientMid));
         }
-        if (!testResults.rainbow.hasRing || !testResults.rainbow.animation.includes('sp-border-rainbow')) {
+        if (!testResults.rainbow.hasRing || !testResults.rainbow.animation.includes('sp-border-rainbow') || !testResults.rainbow.isLinear) {
             throw new Error('Rainbow border animation failed: ' + JSON.stringify(testResults.rainbow));
+        }
+        if (!testResults.rainbowRound.hasSvg || !testResults.rainbowRound.hasLinearGrad || !testResults.rainbowRound.hasRect) {
+            throw new Error('Rainbow rounded border SVG failed: ' + JSON.stringify(testResults.rainbowRound));
         }
         if (!testResults.marching.hasRect || !testResults.marching.animation.includes('sp-border-marching')) {
             throw new Error('Marching border animation failed: ' + JSON.stringify(testResults.marching));
+        }
+        if (!testResults.innerShadowZeroBorder.hasInnerRing || !testResults.innerShadowZeroBorder.hasInset) {
+            throw new Error('Inner shadow with zero border failed: ' + JSON.stringify(testResults.innerShadowZeroBorder));
         }
         if (!testResults.teardown.noRing || !testResults.teardown.noInnerRing || !testResults.teardown.noBorderGradRing) {
             throw new Error('Teardown failed: ' + JSON.stringify(testResults.teardown));

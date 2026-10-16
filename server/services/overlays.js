@@ -154,7 +154,7 @@ const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown',
 const PAGE_TRANSITIONS = ['none', 'fade', 'slide'];
 const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
 const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
-const BORDER_ANIM_TYPES = ['none', 'rotating', 'pulsing', 'gradient', 'rainbow', 'marching'];
+const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 'rainbow', 'marching'];
 
 function normalizeGradient(g) {
     g = g || {};
@@ -179,6 +179,16 @@ function normalizeBorderGlow(g = {}) {
         spread: Math.max(0, Math.min(50, Math.round(Number(g.spread ?? 2)))),
         neon: g.neon === true,
         inner: g.inner === true
+    };
+}
+
+function normalizeInnerShadow(s = {}) {
+    return {
+        blur: Math.max(0, Math.min(100, Math.round(Number(s.blur) || 0))),
+        spread: Math.max(0, Math.min(50, Math.round(Number(s.spread) || 0))),
+        x: Math.max(-50, Math.min(50, Math.round(Number(s.x) || 0))),
+        y: Math.max(-50, Math.min(50, Math.round(Number(s.y) || 0))),
+        color: String(s.color || 'rgba(0,0,0,0.5)').slice(0, 80)
     };
 }
 
@@ -414,6 +424,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
                 blur: Math.max(0, Math.min(100, Number(element.style?.shadow?.blur) || 0)),
                 color: String(element.style?.shadow?.color || 'rgba(0,0,0,0.5)').slice(0, 80)
             },
+            innerShadow: normalizeInnerShadow(element.style?.innerShadow),
             textStroke: {
                 width: Math.max(0, Math.min(20, Number(element.style?.textStroke?.width) || 0)),
                 color: String(element.style?.textStroke?.color || '#000000').slice(0, 80)
