@@ -24,7 +24,8 @@ export const TYPE_META = {
     progress: { label: 'Progress', icon: '▰' },
     'game-list': { label: 'Game List', icon: '▤' },
     alert: { label: 'Alert Box', icon: '!' },
-    slideshow: { label: 'Slideshow', icon: '⧉' }
+    slideshow: { label: 'Slideshow', icon: '⧉' },
+    pattern: { label: 'Pattern Tile', icon: '❖' }
 };
 
 export const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
@@ -365,6 +366,7 @@ export function normalizeLoaded(data) {
         if (item.type === 'video') item.video = Object.assign({ autoplay: true, loop: true, sound: false, volume: 100 }, item.video);
         if (item.type === 'alert') item.alert = Object.assign({ layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, triggers: [] }, item.alert);
         if (item.type === 'cutout') item.cutout = Object.assign({ shape: 'rectangle', feather: 0 }, item.cutout);
+        if (item.type === 'pattern') item.pattern = Object.assign({ layout: 'brick', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25 }, item.pattern);
         item.style ||= {};
     });
     return next;
@@ -374,13 +376,13 @@ export function createElementData(type, overrides = {}) {
     const sizes = {
         text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270],
         video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: [480, 160],
-        cutout: [480, 270], progress: [480, 48], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360]
+        cutout: [480, 270], progress: [480, 48], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360], pattern: [640, 360]
     };
     const [width, height] = sizes[type] || [480, 270];
     const offset = (state.overlay.elements.length % 6) * 24;
     const data = {
         id: uid(type), name: '', locked: false, type,
-        content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', cutout: '', progress: '50', 'game-list': '', alert: '', slideshow: '' }[type],
+        content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', cutout: '', progress: '50', 'game-list': '', alert: '', slideshow: '', pattern: '' }[type],
         textFit: 'none',
         columns: 1,
         headingSpan: 6,
@@ -391,6 +393,7 @@ export function createElementData(type, overrides = {}) {
         group: '', qr: { fg: '#000000', bg: '#ffffff', margin: 2, ecc: 'M' },
         gameList: { filter: 'scheduled', period: '', layout: 'grid', coverFit: 'cover', fit: 'none', coverScale: 100, headingSize: 0, titleSize: 0, titleWrap: 'ellipsis', columns: 3, gap: 12, max: 0, showCovers: true, showTitles: true, meta: 'none', headings: true, highlightCurrent: true, accent: '#3fb950' },
         slideshow: { source: 'tags', tags: [], tagMode: 'any', files: [], kinds: 'image', seconds: 5, order: 'sequential', fit: 'cover', transition: 'fade', direction: 'left', transitionMs: 800, caption: false, kenBurns: false },
+        pattern: { layout: 'brick', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25 },
         video: { loop: true, sound: false, volume: 100 },
         alert: { layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, triggers: [] },
         cutout: { shape: 'rectangle', feather: 0 },
@@ -407,7 +410,7 @@ export function createElementData(type, overrides = {}) {
             color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0,
             background: type === 'shape' ? '#1f6feb' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent',
             borderColor: '#ffffff', borderWidth: 0, borderRadius: type === 'alert' ? 24 : type === 'cutout' ? 16 : 0,
-            opacity: 1, objectFit: 'cover', shape: 'rectangle', fill: '#1f6feb',
+            opacity: 1, objectFit: type === 'pattern' ? 'contain' : 'cover', shape: 'rectangle', fill: '#1f6feb',
             gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 },
             blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' }
         }

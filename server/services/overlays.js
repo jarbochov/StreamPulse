@@ -150,11 +150,41 @@ const DEFAULT_RANDOMIZER_QUOTE_PRESETS = [
 const TEXT_SOURCE_TYPES = new Set(['text', 'random-text', 'markdown']);
 const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
 const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout']);
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout', 'pattern']);
 const PAGE_TRANSITIONS = ['none', 'fade', 'slide'];
 const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
 const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
 const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 'rainbow', 'marching'];
+const PATTERN_LAYOUTS = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'];
+const PATTERN_MOTIONS = ['none', 'scroll', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'];
+const PATTERN_FLIPS = ['none', 'tilt', 'h', 'v', 'both'];
+const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'soft-light', 'plus-lighter'];
+
+function normalizePattern(p = {}) {
+    const num = (value, min, max, fallback) => (Number.isFinite(Number(value)) && value !== '' && value !== null ? Math.max(min, Math.min(max, Number(value))) : fallback);
+    return {
+        layout: PATTERN_LAYOUTS.includes(p.layout) ? p.layout : 'brick',
+        tileSize: Math.round(num(p.tileSize, 16, 1024, 96)),
+        gap: Math.round(num(p.gap, 0, 256, 16)),
+        offsetX: Math.round(num(p.offsetX, 0, 100, 50)),
+        offsetY: Math.round(num(p.offsetY, 0, 100, 0)),
+        angle: Math.round(num(p.angle, -180, 180, -15)),
+        tileAngle: Math.round(num(p.tileAngle, -180, 180, 0)),
+        alternateFlip: PATTERN_FLIPS.includes(p.alternateFlip) ? p.alternateFlip : 'tilt',
+        tileOpacity: Math.round(num(p.tileOpacity, 0.05, 1, 1) * 100) / 100,
+        altOpacity: Math.round(num(p.altOpacity, 0, 1, 0.4) * 100) / 100,
+        altScale: Math.round(num(p.altScale, 10, 200, 100)),
+        blendMode: PATTERN_BLENDS.includes(p.blendMode) ? p.blendMode : 'normal',
+        wedges: Math.round(num(p.wedges, 4, 16, 6) / 2) * 2,
+        feather: Math.round(num(p.feather, 0, 100, 0)),
+        motion: PATTERN_MOTIONS.includes(p.motion) ? p.motion : 'scroll',
+        scrollAngle: Math.round(num(p.scrollAngle, 0, 360, 315)),
+        speed: Math.round(num(p.speed, 0.5, 120, 12) * 10) / 10,
+        spinSpeed: Math.round(num(p.spinSpeed, 0.5, 120, 8) * 10) / 10,
+        spinDirection: ['cw', 'ccw', 'alternate'].includes(p.spinDirection) ? p.spinDirection : 'cw',
+        waveAmount: Math.round(num(p.waveAmount, 5, 100, 25))
+    };
+}
 
 function normalizeGradient(g) {
     g = g || {};
@@ -272,6 +302,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
         page: element.page === '*' ? '*' : sanitizeOverlayId(element.page).slice(0, 40),
         type,
         mediaFilter: normalizeMediaFilter(element.mediaFilter),
+        pattern: normalizePattern(element.pattern),
         slideshow: {
             source: element.slideshow?.source === 'manual' ? 'manual' : 'tags',
             tags: normalizeAssetTagList(element.slideshow?.tags).slice(0, 20),

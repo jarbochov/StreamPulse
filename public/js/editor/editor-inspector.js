@@ -49,7 +49,8 @@ export const RERENDER_PATHS = new Set([
     'alert.layout', 'alert.hideText', 'slideshow.source', 'slideshow.advance', 'slideshow.transition',
     'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee',
     'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge',
-    'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta'
+    'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
+    'pattern.layout', 'pattern.motion', 'pattern.alternateFlip'
 ]);
 
 export const numberWasOn = new Map();
@@ -210,7 +211,7 @@ export function typographySection(el) {
 export function focusField(el) {
     if ((el.style.objectFit || 'cover') !== 'cover' || !el.src || /\{\{/.test(el.src)) return '';
     const x = el.style.focusX ?? 50, y = el.style.focusY ?? 50;
-    const thumb = el.type === 'image' ? `<img src="${esc(el.src)}" draggable="false">` : `<video src="${esc(el.src)}" muted preload="metadata"></video>`;
+    const thumb = (el.type === 'image' || el.type === 'pattern') ? `<img src="${esc(el.src)}" draggable="false">` : `<video src="${esc(el.src)}" muted preload="metadata"></video>`;
     return `<div class="field focus-field"><span>Focus point</span><div class="focus-pick" data-focus-pick>${thumb}<i class="focus-dot" style="left:${x}%;top:${y}%"></i></div><small class="hint">Drag to choose which part stays in view when cropped.</small></div>`;
 }
 
@@ -372,19 +373,19 @@ export function mediaSourceBlock(el) {
     const tab = currentMediaTab(el);
     let body = tabBar('Source', 'data-media-tab', tab, [['library', 'Library & upload'], ['file', 'File on computer'], ['url', 'Web URL']]);
     if (tab === 'file') {
-        body += `<div class="field"><span>File path</span><span class="upload-row"><input id="media-path" value="${esc(localMediaPath(el.src))}" placeholder="/Users/you/Pictures/logo.png" spellcheck="false"><button type="button" id="media-browse">Browse…</button></span><span class="hint">Uses the ${el.type} in place, with nothing uploaded. If you move or delete it, the overlay shows nothing.</span></div>`;
-        if (el.type === 'image' && el.src) body += `<img class="asset-preview" src="${esc(el.src)}" alt="Preview" onerror="this.style.display='none'">`;
+        body += `<div class="field"><span>File path</span><span class="upload-row"><input id="media-path" value="${esc(localMediaPath(el.src))}" placeholder="/Users/you/Pictures/logo.png" spellcheck="false"><button type="button" id="media-browse">Browse…</button></span><span class="hint">Uses the ${el.type === 'pattern' ? 'image' : el.type} in place, with nothing uploaded. If you move or delete it, the overlay shows nothing.</span></div>`;
+        if ((el.type === 'image' || el.type === 'pattern') && el.src) body += `<img class="asset-preview" src="${esc(el.src)}" alt="Preview" onerror="this.style.display='none'">`;
     } else if (tab === 'url') {
-        body += F.text('src', 'Image or video URL', el.src, 'placeholder="https://… or {{game.cover}}"');
-        const yt = shared.parseYouTubeUrl ? shared.parseYouTubeUrl(el.src) : null;
+        body += F.text('src', el.type === 'pattern' ? 'Tile image URL' : 'Image or video URL', el.src, 'placeholder="https://… or {{game.cover}}"');
+        const yt = el.type === 'video' && shared.parseYouTubeUrl ? shared.parseYouTubeUrl(el.src) : null;
         if (yt) {
             body += `<div class="hint" style="color:var(--accent);display:flex;align-items:center;gap:6px;margin:4px 0 8px;"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg> YouTube video detected (plays via responsive embed player)</div>`;
         }
         body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button><span class="hint">Use e.g. {{game.cover}} to show the current game's cover art.</span></div>`;
     } else {
-        const accept = el.type === 'image' ? 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml' : 'video/mp4,video/webm,video/ogg';
-        body += `<div class="field"><span>${el.type === 'video' ? 'Video' : 'Image'} file</span><span class="upload-row"><input readonly value="${esc(friendlyAssetName(el.src))}" placeholder="Nothing chosen"><button type="button" id="open-assets">Library…</button></span></div>`;
-        body += `<div class="field"><span>Upload new</span><input id="prop-upload" type="file" accept="${accept}"><span class="hint">Saved to the StreamPulse overlay asset folder (100 MB max). You can also drop files onto the canvas.</span></div>`;
+        const accept = (el.type === 'image' || el.type === 'pattern') ? 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml' : 'video/mp4,video/webm,video/ogg';
+        body += `<div class="field"><span>${el.type === 'video' ? 'Video' : el.type === 'pattern' ? 'Tile image' : 'Image'} file</span><span class="upload-row"><input readonly value="${esc(friendlyAssetName(el.src))}" placeholder="Nothing chosen"><button type="button" id="open-assets">Library…</button></span></div>`;
+        body += `<div class="field"><span>Upload new</span><input id="prop-upload" type="file" accept="${accept}"><span class="hint">Saved to the StreamPulse overlay asset folder (100 MB max). Transparent PNGs and SVGs work great over a background fill or shape.</span></div>`;
     }
     if (el.type === 'video') {
         const v = el.video || {};
@@ -437,7 +438,7 @@ export function textSourceBlock(el) {
 
 export function contentSection(el) {
     const textual = TEXT_TYPES.has(el.type);
-    const media = el.type === 'image' || el.type === 'video';
+    const media = el.type === 'image' || el.type === 'video' || el.type === 'pattern';
     let body = '';
     if (textual) body += textSourceBlock(el);
     if (el.type === 'progress') {
@@ -555,7 +556,7 @@ export function filterSection(el) {
     const duo = { ...(defaultFilter.duotone || {}), ...(f.duotone || {}) };
     const grain = { ...(defaultFilter.grain || {}), ...(f.grain || {}) };
     const presets = shared.MEDIA_FILTER_PRESETS || [];
-    const media = ['image', 'video', 'slideshow', 'embed'].includes(el.type);
+    const media = ['image', 'video', 'slideshow', 'embed', 'pattern'].includes(el.type);
     const matchingPreset = presets.find(([id, name, pFilter]) => {
         if (!el.mediaFilter && id === 'none') return true;
         if (!el.mediaFilter) return false;
@@ -794,6 +795,144 @@ export function randomSection(el) {
         <p class="hint">The canvas shows the first phrase; the runtime cycles through the pool.</p>`);
 }
 
+export function patternSection(el) {
+    const p = el.pattern || {};
+    const layout = p.layout || 'brick';
+    const motion = p.motion || 'scroll';
+    const altFlip = p.alternateFlip || 'tilt';
+    const isAltOrChecker = layout === 'alternating' || layout === 'checkerboard';
+
+    let layoutExtra = '';
+    if (layout === 'alternating') {
+        layoutExtra += F.select('pattern.alternateFlip', 'Alternating variation', altFlip, [
+            ['tilt', 'Opposite tilt (+ / −)'],
+            ['h', 'Mirror horizontally'],
+            ['v', 'Mirror vertically'],
+            ['both', 'Mirror both axes'],
+            ['none', 'Scale / opacity only']
+        ]);
+    }
+    if (isAltOrChecker) {
+        layoutExtra += `<div class="grid2">
+            ${F.range('pattern.altOpacity', 'Secondary tile opacity', p.altOpacity ?? 0.4, { min: 0, max: 100, scale: 0.01, unit: '%', editable: true })}
+            ${F.range('pattern.altScale', 'Secondary tile scale', p.altScale ?? 100, { min: 10, max: 200, unit: '%', editable: true })}
+        </div>`;
+    }
+    if (layout === 'kaleidoscope-radial') {
+        layoutExtra += F.select('pattern.wedges', 'Mirror wedges', String(p.wedges || 6), [
+            ['4', '4 wedges (quad)'],
+            ['6', '6 wedges (hexagonal)'],
+            ['8', '8 wedges (octagonal)'],
+            ['10', '10 wedges'],
+            ['12', '12 wedges'],
+            ['16', '16 wedges (mandala)']
+        ]);
+    }
+
+    let motionControls = '';
+    if (motion === 'scroll') {
+        motionControls = `
+            ${F.range('pattern.scrollAngle', 'Scroll direction (°)', p.scrollAngle ?? 315, { min: 0, max: 360, step: 5, unit: '°', editable: true, reset: 315 })}
+            ${F.number('pattern.speed', 'Scroll cycle speed (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}`;
+    } else if (motion === 'scroll-spin') {
+        motionControls = `
+            ${F.range('pattern.scrollAngle', 'Scroll direction (°)', p.scrollAngle ?? 315, { min: 0, max: 360, step: 5, unit: '°', editable: true, reset: 315 })}
+            <div class="grid2">
+                ${F.number('pattern.speed', 'Scroll speed (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}
+                ${F.number('pattern.spinSpeed', 'Tile spin speed (sec)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
+            </div>
+            ${F.select('pattern.spinDirection', 'Tile spin direction', p.spinDirection || 'cw', [
+                ['cw', 'Clockwise'],
+                ['ccw', 'Counter-clockwise'],
+                ['alternate', 'Alternating tiles (CW / CCW)']
+            ])}`;
+    } else if (motion === 'spin') {
+        motionControls = `
+            <div class="grid2">
+                ${F.number('pattern.spinSpeed', 'Spin speed (sec/turn)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
+                ${F.select('pattern.spinDirection', 'Spin direction', p.spinDirection || 'cw', [
+                    ['cw', 'Clockwise'],
+                    ['ccw', 'Counter-clockwise'],
+                    ['alternate', 'Alternating tiles (CW / CCW)']
+                ])}
+            </div>`;
+    } else if (motion === 'sway') {
+        motionControls = `
+            <div class="grid2">
+                ${F.number('pattern.speed', 'Drift cycle (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}
+                ${F.number('pattern.spinSpeed', 'Rocking cycle (sec)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
+            </div>
+            <div class="grid2">
+                ${F.range('pattern.waveAmount', 'Sway amplitude', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}
+                ${F.select('pattern.spinDirection', 'Rocking phase', p.spinDirection || 'cw', [
+                    ['cw', 'Uniform'],
+                    ['alternate', 'Alternating tiles']
+                ])}
+            </div>`;
+    } else if (motion === 'wave') {
+        motionControls = `
+            <div class="grid2">
+                ${F.number('pattern.spinSpeed', 'Wave cycle (sec)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
+                ${F.range('pattern.waveAmount', 'Wave pulse intensity', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}
+            </div>`;
+    } else if (motion === 'kaleidoscope') {
+        motionControls = `
+            <div class="grid2">
+                ${F.number('pattern.spinSpeed', 'Morph cycle (sec)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
+                ${F.select('pattern.spinDirection', 'Morph direction', p.spinDirection || 'cw', [
+                    ['cw', 'Clockwise'],
+                    ['ccw', 'Counter-clockwise']
+                ])}
+            </div>
+            ${F.range('pattern.waveAmount', 'Internal drift depth', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true })}`;
+    }
+
+    return F.section('patternLayout', 'Pattern grid & layout', `
+        ${F.select('pattern.layout', 'Grid configuration', layout, [
+            ['grid', 'Standard Grid'],
+            ['brick', 'Brick (Row Offset)'],
+            ['stagger', 'Staggered (Column Offset)'],
+            ['alternating', 'Alternating Tilt / Mirror'],
+            ['checkerboard', 'Checkerboard (Primary / Secondary)'],
+            ['kaleidoscope-quad', 'Kaleidoscope — 4-Way Quad Mirror'],
+            ['kaleidoscope-radial', 'Kaleidoscope — Radial Mandala']
+        ])}
+        <div class="grid2">
+            ${F.range('pattern.tileSize', 'Tile size', p.tileSize ?? 96, { min: 16, max: 512, step: 2, unit: 'px', editable: true })}
+            ${F.range('pattern.gap', 'Tile gap', p.gap ?? 16, { min: 0, max: 160, step: 1, unit: 'px', editable: true })}
+        </div>
+        <div class="grid2">
+            ${F.range('pattern.offsetX', 'Row offset', p.offsetX ?? 50, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset row offset to 0%' })}
+            ${F.range('pattern.offsetY', 'Column offset', p.offsetY ?? 0, { min: 0, max: 100, step: 1, unit: '%', editable: true, reset: 0, resetTitle: 'Reset column offset to 0%' })}
+        </div>
+        <div class="grid2">
+            ${F.range('pattern.angle', 'Grid tilt', p.angle ?? -15, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset grid tilt to 0°' })}
+            ${F.range('pattern.tileAngle', 'Tile tilt', p.tileAngle ?? 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset tile tilt to 0°' })}
+        </div>
+        ${layoutExtra}
+        <div class="grid2">
+            ${F.select('style.objectFit', 'Tile image fit', el.style?.objectFit || 'contain', [['contain', 'Contain (full graphic)'], ['cover', 'Cover (crop square)'], ['fill', 'Stretch to square']])}
+            ${F.select('pattern.blendMode', 'Blend mode', p.blendMode || 'normal', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['soft-light', 'Soft light'], ['plus-lighter', 'Additive (Plus lighter)']])}
+        </div>
+        ${focusField(el)}
+        <div class="grid2">
+            ${F.range('pattern.tileOpacity', 'Tile opacity', p.tileOpacity ?? 1, { min: 5, max: 100, scale: 0.01, unit: '%', editable: true })}
+            ${F.range('pattern.feather', 'Edge vignette fade', p.feather ?? 0, { min: 0, max: 100, unit: '%', editable: true })}
+        </div>`)
+        + F.section('patternMotion', 'Motion graphics animation', `
+        ${F.select('pattern.motion', 'Animation style', motion, [
+            ['none', 'None (Static)'],
+            ['scroll', 'Continuous Linear Scroll'],
+            ['sway', 'Pendulum Sway & Drift'],
+            ['spin', 'Tile Spin in Place'],
+            ['scroll-spin', 'Scroll + Tile Spin'],
+            ['wave', 'Traveling Scale Wave'],
+            ['kaleidoscope', 'Kaleidoscope Internal Morph']
+        ])}
+        ${motionControls}
+        ${motion !== 'none' ? '<p class="hint">Animates continuously in the live overlay and editor. Use the Effects toggle in the top toolbar to pause animations while editing.</p>' : ''}`);
+}
+
 export function sharedBlock(items) {
     const pagesEnabled = state.overlay.pages?.enabled === true;
     if (!pagesEnabled) return '';
@@ -819,7 +958,7 @@ export function renderProperties() {
         root.innerHTML = `${actionBar(items)}${sharedBlock(items)}${scaleSection(items)}${alignSection(items)}${appearanceSection(items[0], true)}${textual ? typographySection(items.find(hasText) || items[0]) : ''}`;
     } else {
         const el = items[0];
-        const specific = { 'random-text': randomSection, progress: progressSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection }[el.type];
+        const specific = { 'random-text': randomSection, progress: progressSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection }[el.type];
         root.innerHTML = `${actionBar(items)}${sharedBlock(items)}<div style="padding:.7rem .85rem 0">${F.text('name', 'Layer name', el.name, `placeholder="${esc(displayName(el))}" maxlength="80"`)}</div>${layoutSection(el)}${contentSection(el)}${el.type === 'icon' ? iconEffectsSection(el) : ''}${specific ? specific(el) : ''}${el.type !== 'cutout' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${el.type !== 'cutout' ? fillSection(el) : ''}${el.type !== 'cutout' ? effectsSection(el) : ''}`;
     }
     if (root.parentElement) root.parentElement.scrollTop = scroll;
@@ -851,7 +990,7 @@ export async function useTextSource(el, mode, path) {
 export async function useLocalMedia(el, filePath) {
     const hadSource = !!el.src;
     el.src = `${LOCAL_MEDIA}${encodeURIComponent(filePath.trim())}`;
-    if (!hadSource) await fitToMediaHandler(el, el.src, el.type);
+    if (!hadSource && el.type !== 'pattern') await fitToMediaHandler(el, el.src, el.type);
     renderCanvas();
     renderProperties();
     changed(true);
@@ -902,7 +1041,7 @@ export function updatePlaceholderAC() {
     const match = textBefore.match(/\{\{([a-zA-Z0-9_.-]*)$/);
     if (!match) { hidePlaceholderAC(); return; }
 
-    const pacQuery = match[1].toLowerCase();
+    const pacQuery = match[1].LowerCase ? match[1].toLowerCase() : String(match[1]).toLowerCase();
     pacMatchStart = match.index;
 
     const all = getAvailableTokens();
@@ -1047,6 +1186,13 @@ export function initInspectorEvents() {
             for (const el of selectedElements()) {
                 el.width = clamp(el.width, 1, 3840);
                 el.height = clamp(el.height, 1, 2160);
+                if (path === 'pattern.layout' && el.pattern) {
+                    if (el.pattern.layout === 'brick') { el.pattern.offsetX = 50; el.pattern.offsetY = 0; }
+                    else if (el.pattern.layout === 'stagger') { el.pattern.offsetX = 0; el.pattern.offsetY = 50; }
+                    else if (el.pattern.layout === 'grid') { el.pattern.offsetX = 0; el.pattern.offsetY = 0; }
+                    else if (el.pattern.layout === 'alternating' && !el.pattern.tileAngle && (el.pattern.alternateFlip || 'tilt') === 'tilt') { el.pattern.tileAngle = 15; }
+                    else if (el.pattern.layout === 'kaleidoscope-quad' || el.pattern.layout === 'kaleidoscope-radial') { el.pattern.offsetX = 0; el.pattern.offsetY = 0; }
+                }
             }
             if (path === 'cutout.feather') {
                 if (event?.type === 'input') scheduleEditorCutoutMask();
@@ -1154,7 +1300,7 @@ export function initInspectorEvents() {
                 const url = await uploadAssetHandler(file);
                 const hadSource = !!el.src;
                 el.src = url;
-                if (!hadSource) await fitToMediaHandler(el, url, el.type);
+                if (!hadSource && el.type !== 'pattern') await fitToMediaHandler(el, url, el.type);
                 renderCanvas();
                 renderProperties();
                 changed(true);

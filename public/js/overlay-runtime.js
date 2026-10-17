@@ -119,7 +119,7 @@
             if (sh === 'line' && element.type === 'shape') { node.style.height = `${Math.max(1, style.borderWidth || 4)}px`; node.style.border = '0'; }
         }
         shared.applyBorderEffects(node, style, element);
-        if (element.type === 'game-list' || element.type === 'slideshow') node.style.display = 'block';
+        if (element.type === 'game-list' || element.type === 'slideshow' || element.type === 'pattern') node.style.display = 'block';
         if (element.type === 'markdown') {
             node.style.setProperty('--hs', (element.headingScale ?? 100) / 100);
             node.classList.toggle('md-right', style.textAlign === 'right');
@@ -427,9 +427,10 @@
     }
 
     function buildNode(element) {
-        if (element.type === 'slideshow') {
+        if (element.type === 'slideshow' || element.type === 'pattern') {
+            const sig = element.type === 'pattern' ? `${JSON.stringify(element)}|${expandVariables(element.src || '')}` : JSON.stringify(element);
             const existing = slideshows.get(element.id);
-            if (existing && existing.sig === JSON.stringify(element)) { slideshowsKept.add(element.id); existing.node.dataset.pg = element.page || ''; return existing.node; }
+            if (existing && existing.sig === sig) { slideshowsKept.add(element.id); existing.node.dataset.pg = element.page || ''; return existing.node; }
         }
         const embedSig = element.type === 'embed' || element.type === 'video' ? `${JSON.stringify(element)}|${expandVariables(element.src || '')}` : '';
         if (embedSig) {
@@ -578,6 +579,11 @@
             } else if (element.type === 'slideshow') {
                 slideshows.get(element.id)?.handle.stop();
                 slideshows.set(element.id, { sig: JSON.stringify(element), node, handle: shared.mountSlideshow(node, element, { onState: state => reportSlideshow(element.id, state) }) });
+                slideshowsKept.add(element.id);
+            } else if (element.type === 'pattern') {
+                slideshows.get(element.id)?.handle.stop();
+                const sig = `${JSON.stringify(element)}|${expandVariables(element.src || '')}`;
+                slideshows.set(element.id, { sig, node, handle: shared.mountPattern(node, element, { preview: params.get('preview') === 'true', expand: expandVariables }) });
                 slideshowsKept.add(element.id);
             } else if (element.type === 'game-list') {
                 shared.renderGameList(node, element, liveStatus.gamePlan);

@@ -354,7 +354,7 @@ export function renderAssetGrid() {
 
 export async function openAssetPicker(targetId) {
     const el = targetId ? byId(targetId) : primary();
-    if (!el || !['image', 'video', 'alert', ...TEXT_TYPES].includes(el.type)) return;
+    if (!el || !['image', 'video', 'pattern', 'alert', ...TEXT_TYPES].includes(el.type)) return;
     pickerTarget = el.id;
     const titleEl = $('asset-title');
     if (titleEl) titleEl.textContent = TEXT_TYPES.has(el.type) ? 'Choose a text or Markdown file' : `Choose ${el.type === 'video' ? 'a video' : 'an image'}`;
@@ -881,7 +881,7 @@ function initEventListeners() {
             const hadSource = !!el.src;
             el.src = url;
             assetDialog?.close();
-            if (!hadSource) await fitToMedia(el, url, el.type);
+            if (!hadSource && el.type !== 'pattern') await fitToMedia(el, url, el.type);
             renderCanvas(); renderProperties(); changed(true);
         } catch (error) {
             toast(error.message, 'error', 5000);
@@ -907,7 +907,7 @@ function initEventListeners() {
         const hadSource = !!el.src;
         el.src = tile.dataset.url;
         assetDialog?.close();
-        if (!hadSource) await fitToMedia(el, el.src, el.type);
+        if (!hadSource && el.type !== 'pattern') await fitToMedia(el, el.src, el.type);
         renderCanvas(); renderProperties(); changed(true);
     });
 

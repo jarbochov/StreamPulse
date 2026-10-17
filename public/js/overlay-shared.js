@@ -544,9 +544,13 @@
 
     let fxCounter = 0;
     const fxAnimated = new Set();
+    const patternRunners = new Set();
     let fxRaf = 0;
     let fxPaused = false;
-    function fxResume() { if (!fxRaf && fxAnimated.size && !fxPaused && !document.hidden) fxRaf = requestAnimationFrame(fxLoop); }
+    function fxResume() {
+        if (!fxRaf && fxAnimated.size && !fxPaused && !document.hidden) fxRaf = requestAnimationFrame(fxLoop);
+        if (!fxPaused && !document.hidden) for (const wake of patternRunners) wake();
+    }
     function setEffectsPaused(paused) {
         fxPaused = !!paused;
         document.documentElement.classList.toggle('sp-fx-paused', fxPaused);
@@ -571,7 +575,7 @@
         document.head.append(style);
     }
     const grainImage = `url("data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>")}")`;
-    const MEDIA_TYPES = new Set(['image', 'video', 'slideshow', 'embed']);
+    const MEDIA_TYPES = new Set(['image', 'video', 'slideshow', 'embed', 'pattern']);
     const FILTERABLE = element => element.type !== 'cutout';
 
     // Call after every style pass. Media layers filter the media itself (so a tint can sit on top); other layers filter the whole layer.
@@ -582,7 +586,7 @@
         f.duotone = { ...defaults.duotone, ...(f.duotone || {}) };
         f.grain = { ...defaults.grain, ...(f.grain || {}) };
         const media = MEDIA_TYPES.has(element.type);
-        const target = !media ? node : element.type === 'slideshow' ? node.firstElementChild : node.querySelector(':scope > video, :scope > img, :scope > iframe');
+        const target = !media ? node : (element.type === 'slideshow' || element.type === 'pattern') ? node.firstElementChild : node.querySelector(':scope > video, :scope > img, :scope > iframe');
         if (!target) { node._fxSig = ''; node._fxAnim = null; fxAnimated.delete(node); return; }
         const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.duotone.enabled);
         const signature = JSON.stringify([f, media, element.id, Number(element.width), Number(element.height)]);
@@ -1229,7 +1233,7 @@
         if (element.type === 'icon') return { overflow: 'visible', overflowClipMargin: '' };
         const style = element.style || {};
         const blur = Number(style.textShadow?.blur) || 0;
-        const textual = !['image', 'video', 'slideshow', 'embed', 'qr', 'icon', 'shape', 'progress', 'game-list'].includes(element.type);
+        const textual = !['image', 'video', 'slideshow', 'embed', 'qr', 'icon', 'shape', 'progress', 'game-list', 'pattern'].includes(element.type);
         if (!(blur > 0) || !textual || element.random?.marquee) return { overflow: '', overflowClipMargin: '' };
         if (window.CSS?.supports?.('overflow-clip-margin', '4px')) return { overflow: 'clip', overflowClipMargin: `${Math.ceil(blur * 2 + 4)}px` };
         return { overflow: 'visible', overflowClipMargin: '' };
@@ -2200,11 +2204,17 @@
         const unloadFrame = f => {
             try { f.src = 'about:blank'; } catch {}
         };
+        const unloadCanvas = c => {
+            try { c.width = 0; c.height = 0; } catch {}
+        };
         if (rootNode.tagName === 'VIDEO') unloadVideo(rootNode);
         else if (rootNode.tagName === 'IFRAME') unloadFrame(rootNode);
+        else if (rootNode.tagName === 'CANVAS') unloadCanvas(rootNode);
+        if (rootNode._patternHandle?.stop) { try { rootNode._patternHandle.stop(); } catch {} rootNode._patternHandle = null; }
         if (typeof rootNode.querySelectorAll === 'function') {
             rootNode.querySelectorAll('video').forEach(unloadVideo);
             rootNode.querySelectorAll('iframe').forEach(unloadFrame);
+            rootNode.querySelectorAll('canvas.sp-pattern-canvas').forEach(unloadCanvas);
         }
     }
 
@@ -2214,6 +2224,8 @@
         if (node._borderObserver) { node._borderObserver.disconnect(); node._borderObserver = null; }
         if (node._fitObserver) { node._fitObserver.disconnect(); node._fitObserver = null; }
         if (node._slideshow?.stop) { try { node._slideshow.stop(); } catch {} node._slideshow = null; }
+        if (node._slideHandle?.stop) { try { node._slideHandle.stop(); } catch {} node._slideHandle = null; }
+        if (node._patternHandle?.stop) { try { node._patternHandle.stop(); } catch {} node._patternHandle = null; }
         if (node._alertPlay?.stop) { try { node._alertPlay.stop(); } catch {} node._alertPlay = null; }
         node._fxAnim = null;
         fxAnimated.delete(node);
@@ -2475,6 +2487,374 @@
         return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); cleanupMedia(stage); }, count: () => items.length, control };
     }
 
-    root.OverlayShared = { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
+    // ---- pattern tile (repeating mosaic & kaleidoscope motion graphics) ------------------------
+    function drawSamplePatternStamp(ctx, S) {
+        ctx.clearRect(0, 0, S, S);
+        ctx.save();
+        ctx.translate(S / 2, S / 2);
+        const r = S * 0.42;
+        const grad = ctx.createLinearGradient(-r, -r, r, r);
+        grad.addColorStop(0, 'rgba(88, 166, 255, 0.92)');
+        grad.addColorStop(0.5, 'rgba(163, 113, 247, 0.92)');
+        grad.addColorStop(1, 'rgba(247, 120, 186, 0.92)');
+        // Outer 4-point star / diamond motif
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+            const ang = (i * Math.PI) / 4 - Math.PI / 2;
+            const rad = i % 2 === 0 ? r : r * 0.36;
+            const x = Math.cos(ang) * rad;
+            const y = Math.sin(ang) * rad;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.lineWidth = Math.max(1.5, S * 0.025);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.stroke();
+        // Asymmetric corner accent so rotation/flip/kaleidoscope are clearly visible
+        ctx.beginPath();
+        ctx.arc(r * 0.45, -r * 0.45, r * 0.14, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.95)';
+        ctx.fill();
+        // Inner ring
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.18, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function mountPattern(node, element, options = {}) {
+        if (node._patternHandle?.stop) {
+            try { node._patternHandle.stop(); } catch {}
+            node._patternHandle = null;
+        }
+        const config = element.pattern || {};
+        const layout = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'].includes(config.layout) ? config.layout : 'brick';
+        const tileSize = Math.max(16, Math.min(1024, Number(config.tileSize) || 96));
+        const gap = Math.max(0, Math.min(256, Number(config.gap ?? 16)));
+        const offsetX = Math.max(0, Math.min(100, Number(config.offsetX ?? (layout === 'brick' ? 50 : 0))));
+        const offsetY = Math.max(0, Math.min(100, Number(config.offsetY ?? (layout === 'stagger' ? 50 : 0))));
+        const gridAngleRad = ((Number(config.angle) ?? -15) * Math.PI) / 180;
+        const tileAngleDeg = Number(config.tileAngle) ?? 0;
+        const tileAngleRad = (tileAngleDeg * Math.PI) / 180;
+        const alternateFlip = ['none', 'tilt', 'h', 'v', 'both'].includes(config.alternateFlip) ? config.alternateFlip : 'tilt';
+        const tileOpacity = Math.max(0.05, Math.min(1, Number(config.tileOpacity ?? 1)));
+        const altOpacity = Math.max(0, Math.min(1, Number(config.altOpacity ?? 0.4)));
+        const altScale = Math.max(10, Math.min(200, Number(config.altScale ?? 100))) / 100;
+        const blendMode = ['normal', 'multiply', 'screen', 'overlay', 'soft-light', 'plus-lighter'].includes(config.blendMode) ? config.blendMode : 'normal';
+        const wedges = Math.max(4, Math.min(16, Math.round((Number(config.wedges) || 6) / 2) * 2));
+        const feather = Math.max(0, Math.min(100, Number(config.feather) || 0));
+        const motion = options.animate === false ? 'none' : (['none', 'scroll', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'].includes(config.motion) ? config.motion : 'scroll');
+        const scrollAngleRad = ((Number(config.scrollAngle) ?? 315) * Math.PI) / 180;
+        const speed = Math.max(0.5, Math.min(120, Number(config.speed) || 12));
+        const spinSpeed = Math.max(0.5, Math.min(120, Number(config.spinSpeed) || 8));
+        const spinDirection = ['cw', 'ccw', 'alternate'].includes(config.spinDirection) ? config.spinDirection : 'cw';
+        const waveAmount = Math.max(5, Math.min(100, Number(config.waveAmount) || 25)) / 100;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'sp-pattern-wrap';
+        wrap.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit;';
+        if (blendMode !== 'normal') wrap.style.mixBlendMode = blendMode;
+        if (feather > 0) {
+            const stop = Math.max(0, 100 - feather);
+            const mask = `radial-gradient(ellipse at center, #000 ${stop}%, transparent 100%)`;
+            wrap.style.webkitMaskImage = mask;
+            wrap.style.maskImage = mask;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.className = 'sp-pattern-canvas';
+        canvas.style.cssText = 'width:100%;height:100%;display:block;';
+        wrap.appendChild(canvas);
+
+        const note = document.createElement('div');
+        note.style.cssText = 'position:absolute;left:10px;right:10px;bottom:8px;padding:4px 10px;border-radius:6px;background:rgba(13,17,23,0.78);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.82);font:500 11px/1.35 system-ui,sans-serif;text-align:center;pointer-events:none;display:none;';
+        node.replaceChildren(wrap, note);
+
+        let stopped = false;
+        let rafId = 0;
+        let readyToDraw = false;
+        const startTime = performance.now();
+
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const stampSize = Math.min(512, Math.max(32, Math.round(tileSize * dpr)));
+        const stampCanvas = document.createElement('canvas');
+        stampCanvas.width = stampSize;
+        stampCanvas.height = stampSize;
+        const stampCtx = stampCanvas.getContext('2d');
+
+        const isKaleido = layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial' || motion === 'kaleidoscope';
+        const cellCanvas = isKaleido ? document.createElement('canvas') : null;
+        if (cellCanvas) {
+            cellCanvas.width = stampSize;
+            cellCanvas.height = stampSize;
+        }
+        const cellCtx = cellCanvas ? cellCanvas.getContext('2d') : null;
+
+        function buildStampFromImage(img) {
+            const iw = img.naturalWidth || img.width || stampSize;
+            const ih = img.naturalHeight || img.height || stampSize;
+            stampCtx.clearRect(0, 0, stampSize, stampSize);
+            const fit = element.style?.objectFit || 'contain';
+            const fx = (element.style?.focusX ?? 50) / 100;
+            const fy = (element.style?.focusY ?? 50) / 100;
+            if (fit === 'fill') {
+                stampCtx.drawImage(img, 0, 0, stampSize, stampSize);
+            } else {
+                const scale = fit === 'cover' ? Math.max(stampSize / iw, stampSize / ih) : Math.min(stampSize / iw, stampSize / ih);
+                const dw = iw * scale;
+                const dh = ih * scale;
+                const dx = (stampSize - dw) * fx;
+                const dy = (stampSize - dh) * fy;
+                stampCtx.drawImage(img, dx, dy, dw, dh);
+            }
+        }
+
+        function updateKaleidoCell(t) {
+            if (!cellCtx) return;
+            const S = stampSize;
+            const half = S / 2;
+            cellCtx.clearRect(0, 0, S, S);
+            const dir = spinDirection === 'ccw' ? -1 : 1;
+            const kPhase = motion === 'kaleidoscope' ? (t / spinSpeed) * Math.PI * 2 * dir : 0;
+            const drift = motion === 'kaleidoscope' ? Math.sin(kPhase * 0.5) * S * 0.14 * waveAmount : 0;
+
+            if (layout === 'kaleidoscope-radial') {
+                const wedgeAngle = (Math.PI * 2) / wedges;
+                const r = S * 0.72;
+                for (let i = 0; i < wedges; i++) {
+                    cellCtx.save();
+                    cellCtx.translate(half, half);
+                    cellCtx.rotate(i * wedgeAngle);
+                    if (i & 1) cellCtx.scale(1, -1);
+                    cellCtx.beginPath();
+                    cellCtx.moveTo(0, 0);
+                    cellCtx.arc(0, 0, r, -wedgeAngle / 2 - 0.012, wedgeAngle / 2 + 0.012);
+                    cellCtx.closePath();
+                    cellCtx.clip();
+                    cellCtx.translate(drift, 0);
+                    cellCtx.rotate(kPhase + tileAngleRad);
+                    cellCtx.drawImage(stampCanvas, -half, -half, S, S);
+                    cellCtx.restore();
+                }
+            } else if (layout === 'kaleidoscope-quad') {
+                const quads = [[1, 1], [-1, 1], [1, -1], [-1, -1]];
+                for (const [qx, qy] of quads) {
+                    cellCtx.save();
+                    cellCtx.translate(half, half);
+                    cellCtx.scale(qx, qy);
+                    cellCtx.beginPath();
+                    cellCtx.rect(0, 0, half + 0.5, half + 0.5);
+                    cellCtx.clip();
+                    cellCtx.translate(half * 0.5 + drift, half * 0.5 + drift * 0.5);
+                    cellCtx.rotate(kPhase + tileAngleRad);
+                    cellCtx.drawImage(stampCanvas, -half * 0.65, -half * 0.65, S * 0.65, S * 0.65);
+                    cellCtx.restore();
+                }
+            } else {
+                // motion === 'kaleidoscope' on standard grid layouts
+                cellCtx.save();
+                cellCtx.translate(half, half);
+                cellCtx.rotate(kPhase);
+                cellCtx.drawImage(stampCanvas, -half, -half, S, S);
+                cellCtx.scale(-1, 1);
+                cellCtx.globalAlpha = 0.65;
+                cellCtx.rotate(-kPhase * 2);
+                cellCtx.drawImage(stampCanvas, -half * 0.85, -half * 0.85, S * 0.85, S * 0.85);
+                cellCtx.restore();
+            }
+        }
+
+        function drawFrame(now) {
+            rafId = 0;
+            if (stopped || !readyToDraw || !node.isConnected) return;
+            const logicalW = Math.max(1, Number(element.width) || node.clientWidth || 300);
+            const logicalH = Math.max(1, Number(element.height) || node.clientHeight || 200);
+            const scaleCap = Math.min(dpr, 2048 / Math.max(logicalW, logicalH, 1));
+            const cw = Math.max(1, Math.round(logicalW * scaleCap));
+            const ch = Math.max(1, Math.round(logicalH * scaleCap));
+            if (canvas.width !== cw || canvas.height !== ch) {
+                canvas.width = cw;
+                canvas.height = ch;
+            }
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            ctx.save();
+            ctx.setTransform(scaleCap, 0, 0, scaleCap, 0, 0);
+            ctx.clearRect(0, 0, logicalW, logicalH);
+
+            const t = Math.max(0, ((now || performance.now()) - startTime) / 1000);
+            if (isKaleido) updateKaleidoCell(t);
+            const sourceBitmap = isKaleido ? cellCanvas : stampCanvas;
+
+            const stepX = Math.max(8, tileSize + gap);
+            const stepY = Math.max(8, tileSize + gap);
+
+            let dx = 0, dy = 0;
+            if (motion === 'scroll' || motion === 'scroll-spin') {
+                const cycleDist = Math.hypot(stepX, stepY) * 2;
+                const dist = (t / speed) * cycleDist;
+                dx = Math.cos(scrollAngleRad) * dist;
+                dy = Math.sin(scrollAngleRad) * dist;
+            } else if (motion === 'sway') {
+                const phase = (t / speed) * Math.PI * 2;
+                dx = Math.sin(phase) * stepX * waveAmount * 1.4;
+                dy = Math.cos(phase * 0.5) * stepY * waveAmount * 0.8;
+            }
+
+            // Preserve odd/even row & column parity while wrapping infinite scroll
+            const rawColShift = Math.floor(dx / stepX);
+            const baseCol = rawColShift - (rawColShift & 1);
+            const remX = dx - baseCol * stepX;
+
+            const rawRowShift = Math.floor(dy / stepY);
+            const baseRow = rawRowShift - (rawRowShift & 1);
+            const remY = dy - baseRow * stepY;
+
+            const diag = Math.hypot(logicalW, logicalH) / 2 + Math.max(stepX, stepY) * 2;
+            const cols = Math.min(64, Math.ceil(diag / stepX) + 2);
+            const rows = Math.min(64, Math.ceil(diag / stepY) + 2);
+
+            ctx.translate(logicalW / 2, logicalH / 2);
+            if (gridAngleRad !== 0) ctx.rotate(gridAngleRad);
+
+            const halfTile = tileSize / 2;
+            const altDefaultTilt = (15 * Math.PI) / 180;
+
+            for (let r = -rows; r <= rows; r++) {
+                const row = r - baseRow;
+                const oddRow = (row & 1) !== 0;
+                const rowShiftX = oddRow ? (offsetX / 100) * stepX : 0;
+                const baseY = r * stepY + remY;
+                if (Math.abs(baseY) > diag + stepY) continue;
+
+                for (let c = -cols; c <= cols; c++) {
+                    const col = c - baseCol;
+                    const oddCol = (col & 1) !== 0;
+                    const oddCell = ((row + col) & 1) !== 0;
+
+                    const cx = c * stepX + remX + rowShiftX;
+                    let cy = baseY + (oddCol ? (offsetY / 100) * stepY : 0);
+                    if (Math.abs(cx) > diag || Math.abs(cy) > diag) continue;
+
+                    let alpha = tileOpacity;
+                    let scale = 1;
+                    let sx = 1, sy = 1;
+                    let rot = (layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial') ? 0 : tileAngleRad;
+
+                    if (layout === 'checkerboard') {
+                        if (oddCell) {
+                            alpha *= altOpacity;
+                            scale *= altScale;
+                        }
+                    } else if (layout === 'alternating') {
+                        if (alternateFlip === 'tilt' && tileAngleDeg === 0) {
+                            rot = oddCell ? -altDefaultTilt : altDefaultTilt;
+                        } else if (oddCell) {
+                            if (alternateFlip === 'tilt') rot = -rot;
+                            else if (alternateFlip === 'h') sx = -1;
+                            else if (alternateFlip === 'v') sy = -1;
+                            else if (alternateFlip === 'both') { sx = -1; sy = -1; }
+                        }
+                        if (oddCell) {
+                            alpha *= altOpacity;
+                            scale *= altScale;
+                        }
+                    }
+
+                    if (alpha < 0.01 || scale < 0.02) continue;
+
+                    if (motion === 'spin' || motion === 'scroll-spin') {
+                        const dir = spinDirection === 'ccw' ? -1 : spinDirection === 'alternate' ? (oddCell ? -1 : 1) : 1;
+                        rot += dir * (t / spinSpeed) * Math.PI * 2;
+                    } else if (motion === 'sway') {
+                        const dir = spinDirection === 'alternate' ? (oddCell ? -1 : 1) : 1;
+                        rot += dir * Math.sin((t / spinSpeed) * Math.PI * 2 + (row + col) * 0.4) * (waveAmount * 0.65);
+                    } else if (motion === 'wave') {
+                        const wavePhase = (t / spinSpeed) * Math.PI * 2 - (col * 0.45 + row * 0.45);
+                        scale *= Math.max(0.1, 1 + Math.sin(wavePhase) * waveAmount * 0.45);
+                        cy += Math.cos(wavePhase) * tileSize * waveAmount * 0.16;
+                    }
+
+                    ctx.save();
+                    ctx.translate(cx, cy);
+                    if (rot !== 0) ctx.rotate(rot);
+                    if (sx !== 1 || sy !== 1 || scale !== 1) ctx.scale(sx * scale, sy * scale);
+                    ctx.globalAlpha = alpha;
+                    ctx.drawImage(sourceBitmap, -halfTile, -halfTile, tileSize, tileSize);
+                    ctx.restore();
+                }
+            }
+            ctx.restore();
+
+            if (motion !== 'none' && !fxPaused && !document.hidden) {
+                rafId = requestAnimationFrame(drawFrame);
+            }
+        }
+
+        function wake() {
+            if (stopped || !readyToDraw) return;
+            if (motion === 'none') {
+                drawFrame(performance.now());
+            } else if (!rafId && !fxPaused && !document.hidden) {
+                rafId = requestAnimationFrame(drawFrame);
+            }
+        }
+
+        if (motion !== 'none') patternRunners.add(wake);
+
+        const rawSrc = options.expand ? options.expand(element.src || '') : String(element.src || '');
+        if (!rawSrc || /\{\{/.test(rawSrc)) {
+            if (options.preview) {
+                drawSamplePatternStamp(stampCtx, stampSize);
+                note.textContent = rawSrc ? `${rawSrc} (sample tile shown until live value is available)` : 'Sample pattern tile — upload or choose an image in Content';
+                note.style.display = 'block';
+                readyToDraw = true;
+                wake();
+            }
+        } else {
+            const img = new Image();
+            img.decoding = 'async';
+            img.onload = () => {
+                if (stopped) return;
+                buildStampFromImage(img);
+                readyToDraw = true;
+                wake();
+            };
+            img.onerror = () => {
+                if (stopped) return;
+                if (options.preview) {
+                    drawSamplePatternStamp(stampCtx, stampSize);
+                    note.textContent = "Couldn't load tile image — showing sample pattern";
+                    note.style.display = 'block';
+                    readyToDraw = true;
+                    wake();
+                }
+            };
+            img.src = rawSrc;
+        }
+
+        const handle = {
+            stop() {
+                stopped = true;
+                patternRunners.delete(wake);
+                if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+                try {
+                    canvas.width = 0; canvas.height = 0;
+                    stampCanvas.width = 0; stampCanvas.height = 0;
+                    if (cellCanvas) { cellCanvas.width = 0; cellCanvas.height = 0; }
+                } catch {}
+            },
+            redraw: () => { if (!stopped && readyToDraw) drawFrame(performance.now()); }
+        };
+        node._patternHandle = handle;
+        return handle;
+    }
+
+    root.OverlayShared = { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
 })(window);
 
