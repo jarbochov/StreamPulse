@@ -436,8 +436,19 @@
     }
 
     function buildNode(element) {
-        if (element.type === 'slideshow' || element.type === 'pattern') {
-            const sig = element.type === 'pattern' ? `${JSON.stringify(element)}|${expandVariables(element.src || '')}` : JSON.stringify(element);
+        if (element.type === 'pattern') {
+            const existing = slideshows.get(element.id);
+            if (existing) {
+                slideshowsKept.add(element.id);
+                existing.node.dataset.pg = element.page || '';
+                applyElementStyle(existing.node, element);
+                existing.handle?.update?.(element, { preview: params.get('preview') === 'true', expand: expandVariables });
+                shared.applyMediaFilter(existing.node, element);
+                return existing.node;
+            }
+        }
+        if (element.type === 'slideshow') {
+            const sig = JSON.stringify(element);
             const existing = slideshows.get(element.id);
             if (existing && existing.sig === sig) { slideshowsKept.add(element.id); existing.node.dataset.pg = element.page || ''; return existing.node; }
         }

@@ -2547,90 +2547,62 @@
         ctx.restore();
     }
 
+    const faGlyphCache = new Map();
+
     function mountPattern(node, element, options = {}) {
+        if (node._patternHandle?.update && node.querySelector(':scope > .sp-pattern-wrap')) {
+            node._patternHandle.update(element, options);
+            return node._patternHandle;
+        }
         if (node._patternHandle?.stop) {
             try { node._patternHandle.stop(); } catch {}
             node._patternHandle = null;
         }
-        const config = element.pattern || {};
-        const layout = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'].includes(config.layout) ? config.layout : 'brick';
-        const tileSize = Math.max(16, Math.min(1024, Number(config.tileSize) || 96));
-        const gap = Math.max(0, Math.min(256, Number(config.gap ?? 16)));
-        const offsetX = Math.max(0, Math.min(100, Number(config.offsetX ?? (layout === 'brick' ? 50 : 0))));
-        const offsetY = Math.max(0, Math.min(100, Number(config.offsetY ?? (layout === 'stagger' ? 50 : 0))));
-        const gridAngleRad = ((Number(config.angle) ?? -15) * Math.PI) / 180;
-        const tileAngleDeg = Number(config.tileAngle) ?? 0;
-        const tileAngleRad = (tileAngleDeg * Math.PI) / 180;
-        const alternateFlip = ['none', 'tilt', 'h', 'v', 'both'].includes(config.alternateFlip) ? config.alternateFlip : 'tilt';
-        const tileOpacity = Math.max(0.05, Math.min(1, Number(config.tileOpacity ?? 1)));
-        const altOpacity = Math.max(0, Math.min(1, Number(config.altOpacity ?? 0.4)));
-        const altScale = Math.max(10, Math.min(200, Number(config.altScale ?? 100))) / 100;
-        const blendMode = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'luminosity', 'plus-lighter'].includes(config.blendMode) ? config.blendMode : 'normal';
-        const sourceType = config.sourceType === 'icon' ? 'icon' : 'image';
-        const wedges = Math.max(4, Math.min(16, Math.round((Number(config.wedges) || 6) / 2) * 2));
-        const feather = Math.max(0, Math.min(100, Number(config.feather) || 0));
-        const motion = options.animate === false ? 'none' : (['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'].includes(config.motion) ? config.motion : 'scroll');
-        const defaultTrack = (motion === 'alt-rows' || motion === 'alt-cols') ? 'opposite' : 'uniform';
-        const trackMode = ['uniform', 'opposite', 'stagger', 'sine', 'alternate-stop', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'].includes(config.trackMode) ? config.trackMode : defaultTrack;
-        const scrollAngleRad = ((Number(config.scrollAngle) ?? 315) * Math.PI) / 180;
-        const speed = Math.max(0.5, Math.min(120, Number(config.speed) || 12));
-        const spinSpeed = Math.max(0.5, Math.min(120, Number(config.spinSpeed) || 8));
-        const spinDirection = ['cw', 'ccw', 'alternate'].includes(config.spinDirection) ? config.spinDirection : 'cw';
-        const waveAmount = Math.max(5, Math.min(100, Number(config.waveAmount) || 25)) / 100;
 
         const wrap = document.createElement('div');
         wrap.className = 'sp-pattern-wrap';
-        wrap.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit;';
-        const hasFill = hasBoxFill(element.style || {});
-        if (hasFill && blendMode !== 'normal') {
-            wrap.style.mixBlendMode = blendMode;
-            node.style.mixBlendMode = '';
-        } else {
-            wrap.style.mixBlendMode = '';
-            node.style.mixBlendMode = blendMode !== 'normal' ? blendMode : '';
-        }
-        if (feather > 0) {
-            const stop = Math.max(0, 100 - feather);
-            const mask = `radial-gradient(ellipse at center, #000 ${stop}%, transparent 100%)`;
-            wrap.style.webkitMaskImage = mask;
-            wrap.style.maskImage = mask;
-        }
+        wrap.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit;contain:strict;';
         const canvas = document.createElement('canvas');
         canvas.className = 'sp-pattern-canvas';
-        canvas.style.cssText = 'width:100%;height:100%;display:block;';
+        canvas.style.cssText = 'width:100%;height:100%;display:block;will-change:contents;';
         wrap.appendChild(canvas);
 
         const note = document.createElement('div');
         note.style.cssText = 'position:absolute;left:10px;right:10px;bottom:8px;padding:4px 10px;border-radius:6px;background:rgba(13,17,23,0.78);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.82);font:500 11px/1.35 system-ui,sans-serif;text-align:center;pointer-events:none;display:none;';
         node.replaceChildren(wrap, note);
 
+        const ctx = canvas.getContext('2d', { alpha: true });
+        const stampCanvas = document.createElement('canvas');
+        const stampCtx = stampCanvas.getContext('2d');
+        let cellCanvas = null;
+        let cellCtx = null;
+
         let stopped = false;
         let rafId = 0;
         let readyToDraw = false;
-        const startTime = performance.now();
+        let startTime = 0;
 
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        const stampSize = Math.min(512, Math.max(32, Math.round(tileSize * dpr)));
-        const stampCanvas = document.createElement('canvas');
-        stampCanvas.width = stampSize;
-        stampCanvas.height = stampSize;
-        const stampCtx = stampCanvas.getContext('2d');
-
-        const isKaleido = layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial' || motion === 'kaleidoscope';
-        const cellCanvas = isKaleido ? document.createElement('canvas') : null;
-        if (cellCanvas) {
-            cellCanvas.width = stampSize;
-            cellCanvas.height = stampSize;
-        }
-        const cellCtx = cellCanvas ? cellCanvas.getContext('2d') : null;
+        let curElement = element;
+        let curOptions = options;
+        let layout = 'brick', tileSize = 96, gap = 16, offsetX = 50, offsetY = 0;
+        let gridAngleRad = 0, cosG = 1, sinG = 0, tileAngleDeg = 0, tileAngleRad = 0;
+        let alternateFlip = 'tilt', tileOpacity = 1, altOpacity = 0.4, altScale = 1;
+        let blendMode = 'normal', sourceType = 'image', wedges = 6, feather = 0;
+        let motion = 'scroll', trackMode = 'uniform', scrollAngleRad = 0;
+        let speed = 12, spinSpeed = 8, spinDirection = 'cw', waveAmount = 0.25;
+        let dpr = 1, stampSize = 96, isKaleido = false;
+        let lastStampKey = '';
+        let lastImgSrc = '';
+        let cachedImg = null;
+        let lastFeather = -1;
 
         function buildStampFromImage(img) {
             const iw = img.naturalWidth || img.width || stampSize;
             const ih = img.naturalHeight || img.height || stampSize;
             stampCtx.clearRect(0, 0, stampSize, stampSize);
-            const fit = element.style?.objectFit || 'contain';
-            const fx = (element.style?.focusX ?? 50) / 100;
-            const fy = (element.style?.focusY ?? 50) / 100;
+            const fit = curElement.style?.objectFit || 'contain';
+            const fx = (curElement.style?.focusX ?? 50) / 100;
+            const fy = (curElement.style?.focusY ?? 50) / 100;
             if (fit === 'fill') {
                 stampCtx.drawImage(img, 0, 0, stampSize, stampSize);
             } else {
@@ -2650,26 +2622,32 @@
             let fontWeight = '400';
 
             if (isFa) {
-                const probe = document.createElement('i');
-                probe.className = cls;
-                probe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none;';
-                document.body.appendChild(probe);
-                const beforeStyle = getComputedStyle(probe, '::before');
-                const elemStyle = getComputedStyle(probe);
-                const rawContent = beforeStyle.content;
-                fontFamily = beforeStyle.fontFamily || elemStyle.fontFamily || '"Font Awesome 6 Free", "Font Awesome 6 Brands", sans-serif';
-                fontWeight = beforeStyle.fontWeight || elemStyle.fontWeight || (cls.includes('fa-brands') ? '400' : '900');
-                probe.remove();
+                const cached = faGlyphCache.get(cls);
+                if (cached) {
+                    ({ glyph, fontFamily, fontWeight } = cached);
+                } else {
+                    const probe = document.createElement('i');
+                    probe.className = cls;
+                    probe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none;';
+                    document.body.appendChild(probe);
+                    const beforeStyle = getComputedStyle(probe, '::before');
+                    const elemStyle = getComputedStyle(probe);
+                    const rawContent = beforeStyle.content;
+                    fontFamily = beforeStyle.fontFamily || elemStyle.fontFamily || '"Font Awesome 6 Free", "Font Awesome 6 Brands", sans-serif';
+                    fontWeight = beforeStyle.fontWeight || elemStyle.fontWeight || (cls.includes('fa-brands') ? '400' : '900');
+                    probe.remove();
 
-                if (rawContent && rawContent !== 'none' && rawContent !== 'normal') {
-                    glyph = rawContent.replace(/^["']|["']$/g, '');
+                    if (rawContent && rawContent !== 'none' && rawContent !== 'normal') {
+                        glyph = rawContent.replace(/^["']|["']$/g, '');
+                    }
+                    if (glyph) faGlyphCache.set(cls, { glyph, fontFamily, fontWeight });
                 }
             } else if (cls) {
                 glyph = extractGraphemes(cls, 4);
             }
             if (!glyph) return { glyph: '', fontFamily, fontWeight, isFa };
 
-            const s = element.style || {};
+            const s = curElement.style || {};
             const strokeW = Number(s.textStroke?.width) || 0;
             const shadowBlur = Number(s.textShadow?.blur) || 0;
             const padRatio = (strokeW > 0 || shadowBlur > 0) ? 0.68 : 0.78;
@@ -2746,7 +2724,6 @@
                     cellCtx.restore();
                 }
             } else {
-                // motion === 'kaleidoscope' on standard grid layouts
                 cellCtx.save();
                 cellCtx.translate(half, half);
                 cellCtx.rotate(kPhase);
@@ -2761,23 +2738,29 @@
 
         function drawFrame(now) {
             rafId = 0;
-            if (stopped || !readyToDraw || !node.isConnected) return;
-            const logicalW = Math.max(1, Number(element.width) || node.clientWidth || 300);
-            const logicalH = Math.max(1, Number(element.height) || node.clientHeight || 200);
-            const scaleCap = Math.min(dpr, 2048 / Math.max(logicalW, logicalH, 1));
+            if (stopped || !readyToDraw || !node.isConnected || !ctx) return;
+            const ts = now || performance.now();
+            if (!startTime) startTime = ts;
+
+            const logicalW = Math.max(1, Number(curElement.width) || node.clientWidth || 300);
+            const logicalH = Math.max(1, Number(curElement.height) || node.clientHeight || 200);
+            // Match OBS 1080p 1:1 on large layers to avoid 4K Retina fill-rate bottlenecks
+            const maxDpr = (logicalW * logicalH > 600000) ? 1 : Math.min(dpr, 1.5);
+            const scaleCap = Math.min(maxDpr, 1920 / Math.max(logicalW, logicalH, 1));
             const cw = Math.max(1, Math.round(logicalW * scaleCap));
             const ch = Math.max(1, Math.round(logicalH * scaleCap));
             if (canvas.width !== cw || canvas.height !== ch) {
                 canvas.width = cw;
                 canvas.height = ch;
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'medium';
             }
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-            ctx.save();
-            ctx.setTransform(scaleCap, 0, 0, scaleCap, 0, 0);
-            ctx.clearRect(0, 0, logicalW, logicalH);
 
-            const t = Math.max(0, ((now || performance.now()) - startTime) / 1000);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.globalAlpha = 1;
+            ctx.clearRect(0, 0, cw, ch);
+
+            const t = Math.max(0, (ts - startTime) / 1000);
             if (isKaleido) updateKaleidoCell(t);
             const sourceBitmap = isKaleido ? cellCanvas : stampCanvas;
 
@@ -2867,7 +2850,6 @@
                 }
             }
 
-            // Preserve odd/even row & column parity while wrapping per-track infinite scroll
             const wrapAxis = (val, step) => {
                 const raw = Math.floor(val / step);
                 const base = raw - (raw & 1);
@@ -2878,52 +2860,72 @@
             const evenColW = wrapAxis(evenColY, stepY);
             const oddColW = wrapAxis(oddColY, stepY);
 
-            const diag = Math.hypot(logicalW, logicalH) / 2 + Math.max(stepX, stepY) * 2;
-            const cols = Math.min(64, Math.ceil(diag / stepX) + 2);
-            const rows = Math.min(64, Math.ceil(diag / stepY) + 2);
-
-            ctx.translate(logicalW / 2, logicalH / 2);
-            if (gridAngleRad !== 0) ctx.rotate(gridAngleRad);
+            const halfW = logicalW / 2;
+            const halfH = logicalH / 2;
+            const extentX = halfW * Math.abs(cosG) + halfH * Math.abs(sinG) + tileSize * 1.5;
+            const extentY = halfW * Math.abs(sinG) + halfH * Math.abs(cosG) + tileSize * 1.5;
+            const cols = Math.min(64, Math.ceil(extentX / stepX) + 1);
+            const rows = Math.min(64, Math.ceil(extentY / stepY) + 1);
 
             const halfTile = tileSize / 2;
             const altDefaultTilt = (15 * Math.PI) / 180;
+            const baseRot = (layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial') ? 0 : tileAngleRad;
+            const spinPhase = (motion === 'spin' || motion === 'scroll-spin' || motion === 'sway' || motion === 'wave') ? (t / spinSpeed) * Math.PI * 2 : 0;
+
+            // Precompute trig for even/odd cells when rotation is not position-dependent ('sway')
+            const isSway = motion === 'sway';
+            let evenRot = baseRot, oddRot = baseRot;
+            if (layout === 'alternating') {
+                if (alternateFlip === 'tilt' && tileAngleDeg === 0) {
+                    evenRot = altDefaultTilt;
+                    oddRot = -altDefaultTilt;
+                } else if (alternateFlip === 'tilt') {
+                    oddRot = -baseRot;
+                }
+            }
+            if (motion === 'spin' || motion === 'scroll-spin') {
+                const evenDir = spinDirection === 'ccw' ? -1 : 1;
+                const oddDir = spinDirection === 'ccw' ? -1 : spinDirection === 'alternate' ? -1 : 1;
+                evenRot += evenDir * spinPhase;
+                oddRot += oddDir * spinPhase;
+            }
+            const cosEven = Math.cos(gridAngleRad + evenRot), sinEven = Math.sin(gridAngleRad + evenRot);
+            const cosOdd = Math.cos(gridAngleRad + oddRot), sinOdd = Math.sin(gridAngleRad + oddRot);
+
+            let lastAlpha = 1;
+            const staticRowShift = (offsetX / 100) * stepX;
+            const staticColShift = (offsetY / 100) * stepY;
 
             for (let r = -rows; r <= rows; r++) {
                 const oddRow = (r & 1) !== 0;
                 const rw = oddRow ? oddRowW : evenRowW;
-                const rowShiftX = oddRow ? (offsetX / 100) * stepX : 0;
+                const rowShiftX = oddRow ? staticRowShift : 0;
 
                 for (let c = -cols; c <= cols; c++) {
                     const oddCol = (c & 1) !== 0;
                     const cwWrap = oddCol ? oddColW : evenColW;
+
+                    const cx = c * stepX + rw.rem + rowShiftX;
+                    if (cx < -extentX || cx > extentX) continue;
+                    let cy = r * stepY + cwWrap.rem + (oddCol ? staticColShift : 0);
+                    if (cy < -extentY || cy > extentY) continue;
+
                     const row = r - cwWrap.base;
                     const col = c - rw.base;
                     const oddCell = ((row + col) & 1) !== 0;
 
-                    const cx = c * stepX + rw.rem + rowShiftX;
-                    let cy = r * stepY + cwWrap.rem + (oddCol ? (offsetY / 100) * stepY : 0);
-                    if (Math.abs(cx) > diag || Math.abs(cy) > diag) continue;
-
                     let alpha = tileOpacity;
                     let scale = 1;
                     let sx = 1, sy = 1;
-                    let rot = (layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial') ? 0 : tileAngleRad;
 
-                    if (layout === 'checkerboard') {
-                        if (oddCell) {
+                    if (oddCell) {
+                        if (layout === 'checkerboard') {
                             alpha *= altOpacity;
                             scale *= altScale;
-                        }
-                    } else if (layout === 'alternating') {
-                        if (alternateFlip === 'tilt' && tileAngleDeg === 0) {
-                            rot = oddCell ? -altDefaultTilt : altDefaultTilt;
-                        } else if (oddCell) {
-                            if (alternateFlip === 'tilt') rot = -rot;
-                            else if (alternateFlip === 'h') sx = -1;
+                        } else if (layout === 'alternating') {
+                            if (alternateFlip === 'h') sx = -1;
                             else if (alternateFlip === 'v') sy = -1;
                             else if (alternateFlip === 'both') { sx = -1; sy = -1; }
-                        }
-                        if (oddCell) {
                             alpha *= altOpacity;
                             scale *= altScale;
                         }
@@ -2931,28 +2933,33 @@
 
                     if (alpha < 0.01 || scale < 0.02) continue;
 
-                    if (motion === 'spin' || motion === 'scroll-spin') {
-                        const dir = spinDirection === 'ccw' ? -1 : spinDirection === 'alternate' ? (oddCell ? -1 : 1) : 1;
-                        rot += dir * (t / spinSpeed) * Math.PI * 2;
-                    } else if (motion === 'sway') {
-                        const dir = spinDirection === 'alternate' ? (oddCell ? -1 : 1) : 1;
-                        rot += dir * Math.sin((t / spinSpeed) * Math.PI * 2 + (row + col) * 0.4) * (waveAmount * 0.65);
+                    let cosT = oddCell ? cosOdd : cosEven;
+                    let sinT = oddCell ? sinOdd : sinEven;
+
+                    if (isSway) {
+                        const swayDir = spinDirection === 'alternate' ? (oddCell ? -1 : 1) : 1;
+                        const rot = (oddCell ? oddRot : evenRot) + swayDir * Math.sin(spinPhase + (row + col) * 0.4) * (waveAmount * 0.65);
+                        cosT = Math.cos(gridAngleRad + rot);
+                        sinT = Math.sin(gridAngleRad + rot);
                     } else if (motion === 'wave') {
-                        const wavePhase = (t / spinSpeed) * Math.PI * 2 - (col * 0.45 + row * 0.45);
+                        const wavePhase = spinPhase - (col * 0.45 + row * 0.45);
                         scale *= Math.max(0.1, 1 + Math.sin(wavePhase) * waveAmount * 0.45);
                         cy += Math.cos(wavePhase) * tileSize * waveAmount * 0.16;
                     }
 
-                    ctx.save();
-                    ctx.translate(cx, cy);
-                    if (rot !== 0) ctx.rotate(rot);
-                    if (sx !== 1 || sy !== 1 || scale !== 1) ctx.scale(sx * scale, sy * scale);
-                    ctx.globalAlpha = alpha;
+                    const tx = (halfW + cx * cosG - cy * sinG) * scaleCap;
+                    const ty = (halfH + cx * sinG + cy * cosG) * scaleCap;
+                    const sX = sx * scale * scaleCap;
+                    const sY = sy * scale * scaleCap;
+
+                    if (lastAlpha !== alpha) {
+                        ctx.globalAlpha = alpha;
+                        lastAlpha = alpha;
+                    }
+                    ctx.setTransform(cosT * sX, sinT * sX, -sinT * sY, cosT * sY, tx, ty);
                     ctx.drawImage(sourceBitmap, -halfTile, -halfTile, tileSize, tileSize);
-                    ctx.restore();
                 }
             }
-            ctx.restore();
 
             if (motion !== 'none' && !fxPaused && !document.hidden) {
                 rafId = requestAnimationFrame(drawFrame);
@@ -2962,98 +2969,191 @@
         function wake() {
             if (stopped || !readyToDraw) return;
             if (motion === 'none') {
+                if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
                 drawFrame(performance.now());
             } else if (!rafId && !fxPaused && !document.hidden) {
                 rafId = requestAnimationFrame(drawFrame);
             }
         }
 
-        if (motion !== 'none') patternRunners.add(wake);
+        function syncConfig(nextEl, nextOpts = {}) {
+            curElement = nextEl || curElement;
+            curOptions = nextOpts || curOptions;
+            const config = curElement.pattern || {};
+            layout = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'].includes(config.layout) ? config.layout : 'brick';
+            tileSize = Math.max(16, Math.min(1024, Number(config.tileSize) || 96));
+            gap = Math.max(0, Math.min(256, Number(config.gap ?? 16)));
+            offsetX = Math.max(0, Math.min(100, Number(config.offsetX ?? (layout === 'brick' ? 50 : 0))));
+            offsetY = Math.max(0, Math.min(100, Number(config.offsetY ?? (layout === 'stagger' ? 50 : 0))));
+            gridAngleRad = ((Number(config.angle) ?? -15) * Math.PI) / 180;
+            cosG = Math.cos(gridAngleRad);
+            sinG = Math.sin(gridAngleRad);
+            tileAngleDeg = Number(config.tileAngle) ?? 0;
+            tileAngleRad = (tileAngleDeg * Math.PI) / 180;
+            alternateFlip = ['none', 'tilt', 'h', 'v', 'both'].includes(config.alternateFlip) ? config.alternateFlip : 'tilt';
+            tileOpacity = Math.max(0.05, Math.min(1, Number(config.tileOpacity ?? 1)));
+            altOpacity = Math.max(0, Math.min(1, Number(config.altOpacity ?? 0.4)));
+            altScale = Math.max(10, Math.min(200, Number(config.altScale ?? 100))) / 100;
+            blendMode = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'luminosity', 'plus-lighter'].includes(config.blendMode) ? config.blendMode : 'normal';
+            sourceType = config.sourceType === 'icon' ? 'icon' : 'image';
+            wedges = Math.max(4, Math.min(16, Math.round((Number(config.wedges) || 6) / 2) * 2));
+            feather = Math.max(0, Math.min(100, Number(config.feather) || 0));
+            motion = curOptions.animate === false ? 'none' : (['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'].includes(config.motion) ? config.motion : 'scroll');
+            const defaultTrack = (motion === 'alt-rows' || motion === 'alt-cols') ? 'opposite' : 'uniform';
+            trackMode = ['uniform', 'opposite', 'stagger', 'sine', 'alternate-stop', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'].includes(config.trackMode) ? config.trackMode : defaultTrack;
+            scrollAngleRad = ((Number(config.scrollAngle) ?? 315) * Math.PI) / 180;
+            speed = Math.max(0.5, Math.min(120, Number(config.speed) || 12));
+            spinSpeed = Math.max(0.5, Math.min(120, Number(config.spinSpeed) || 8));
+            spinDirection = ['cw', 'ccw', 'alternate'].includes(config.spinDirection) ? config.spinDirection : 'cw';
+            waveAmount = Math.max(5, Math.min(100, Number(config.waveAmount) || 25)) / 100;
 
-        if (sourceType === 'icon') {
-            const cls = String(element.content || 'fa-brands fa-twitch').trim().replace(/^fab\b/, 'fa-brands').replace(/^fas\b/, 'fa-solid').replace(/^far\b/, 'fa-regular');
-            const refreshIconStamp = () => {
-                if (stopped) return;
-                const { glyph, fontFamily, fontWeight } = buildStampFromIcon(cls);
-                if (glyph) {
-                    note.style.display = 'none';
-                    readyToDraw = true;
-                    wake();
-                    if (document.fonts?.load) {
-                        document.fonts.load(`${fontWeight} 32px ${fontFamily}`, glyph).then(() => {
-                            if (stopped) return;
-                            buildStampFromIcon(cls);
-                            wake();
-                        }).catch(() => {});
-                    }
-                } else if (options.preview) {
-                    drawSamplePatternStamp(stampCtx, stampSize);
-                    note.textContent = 'Choose a valid Font Awesome icon in Content';
-                    note.style.display = 'block';
-                    readyToDraw = true;
-                    wake();
-                }
-            };
-            let faLink = document.querySelector('link[data-fa]');
-            if (!faLink) {
-                faLink = document.createElement('link');
-                faLink.rel = 'stylesheet';
-                faLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css';
-                faLink.dataset.fa = '1';
-                faLink.addEventListener('load', refreshIconStamp, { once: true });
-                document.head.appendChild(faLink);
-            }
-            refreshIconStamp();
-            if (document.fonts?.ready) {
-                document.fonts.ready.then(() => {
-                    if (!stopped) refreshIconStamp();
-                }).catch(() => {});
-            }
-        } else {
-            const rawSrc = options.expand ? options.expand(element.src || '') : String(element.src || '');
-            if (!rawSrc || /\{\{/.test(rawSrc)) {
-                if (options.preview) {
-                    drawSamplePatternStamp(stampCtx, stampSize);
-                    note.textContent = rawSrc ? `${rawSrc} (sample tile shown until live value is available)` : 'Sample pattern tile — upload an image or switch to Icon in Content';
-                    note.style.display = 'block';
-                    readyToDraw = true;
-                    wake();
-                }
+            const hasFill = hasBoxFill(curElement.style || {});
+            if (hasFill && blendMode !== 'normal') {
+                wrap.style.mixBlendMode = blendMode;
+                node.style.mixBlendMode = '';
             } else {
-                const img = new Image();
-                img.decoding = 'async';
-                img.onload = () => {
+                wrap.style.mixBlendMode = '';
+                node.style.mixBlendMode = blendMode !== 'normal' ? blendMode : '';
+            }
+
+            if (feather !== lastFeather) {
+                lastFeather = feather;
+                if (feather > 0) {
+                    const stop = Math.max(0, 100 - feather);
+                    const mask = `radial-gradient(ellipse at center, #000 ${stop}%, transparent 100%)`;
+                    wrap.style.webkitMaskImage = mask;
+                    wrap.style.maskImage = mask;
+                } else {
+                    wrap.style.webkitMaskImage = '';
+                    wrap.style.maskImage = '';
+                }
+            }
+
+            if (motion !== 'none') patternRunners.add(wake);
+            else patternRunners.delete(wake);
+
+            dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+            const nextStampSize = Math.min(384, Math.max(32, Math.round(tileSize * dpr)));
+            isKaleido = layout === 'kaleidoscope-quad' || layout === 'kaleidoscope-radial' || motion === 'kaleidoscope';
+            if (isKaleido) {
+                if (!cellCanvas) {
+                    cellCanvas = document.createElement('canvas');
+                    cellCtx = cellCanvas.getContext('2d');
+                }
+                if (cellCanvas.width !== nextStampSize) {
+                    cellCanvas.width = nextStampSize;
+                    cellCanvas.height = nextStampSize;
+                }
+            }
+
+            const rawSrc = curOptions.expand ? curOptions.expand(curElement.src || '') : String(curElement.src || '');
+            const nextStampKey = sourceType === 'icon'
+                ? JSON.stringify(['icon', curElement.content, nextStampSize, curElement.style?.color, curElement.style?.textStroke, curElement.style?.textShadow])
+                : JSON.stringify(['image', rawSrc, nextStampSize, curElement.style?.objectFit, curElement.style?.focusX, curElement.style?.focusY]);
+
+            if (nextStampKey === lastStampKey && readyToDraw) {
+                wake();
+                return;
+            }
+            lastStampKey = nextStampKey;
+            stampSize = nextStampSize;
+            if (stampCanvas.width !== stampSize || stampCanvas.height !== stampSize) {
+                stampCanvas.width = stampSize;
+                stampCanvas.height = stampSize;
+            }
+
+            if (sourceType === 'icon') {
+                const cls = String(curElement.content || 'fa-brands fa-twitch').trim().replace(/^fab\b/, 'fa-brands').replace(/^fas\b/, 'fa-solid').replace(/^far\b/, 'fa-regular');
+                const refreshIconStamp = () => {
                     if (stopped) return;
-                    buildStampFromImage(img);
-                    readyToDraw = true;
-                    wake();
-                };
-                img.onerror = () => {
-                    if (stopped) return;
-                    if (options.preview) {
+                    const { glyph, fontFamily, fontWeight, isFa } = buildStampFromIcon(cls);
+                    if (glyph) {
+                        note.style.display = 'none';
+                        readyToDraw = true;
+                        wake();
+                        if (isFa && document.fonts?.load) {
+                            document.fonts.load(`${fontWeight} 32px ${fontFamily}`, glyph).then(() => {
+                                if (stopped) return;
+                                buildStampFromIcon(cls);
+                                wake();
+                            }).catch(() => {});
+                        }
+                    } else if (curOptions.preview) {
                         drawSamplePatternStamp(stampCtx, stampSize);
-                        note.textContent = "Couldn't load tile image — showing sample pattern";
+                        note.textContent = 'Choose a valid Font Awesome icon or paste an emoji in Content';
                         note.style.display = 'block';
                         readyToDraw = true;
                         wake();
                     }
                 };
-                img.src = rawSrc;
+                let faLink = document.querySelector('link[data-fa]');
+                if (!faLink) {
+                    faLink = document.createElement('link');
+                    faLink.rel = 'stylesheet';
+                    faLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css';
+                    faLink.dataset.fa = '1';
+                    faLink.addEventListener('load', () => { faGlyphCache.clear(); refreshIconStamp(); }, { once: true });
+                    document.head.appendChild(faLink);
+                }
+                refreshIconStamp();
+            } else {
+                if (!rawSrc || /\{\{/.test(rawSrc)) {
+                    if (curOptions.preview) {
+                        drawSamplePatternStamp(stampCtx, stampSize);
+                        note.textContent = rawSrc ? `${rawSrc} (sample tile shown until live value is available)` : 'Sample pattern tile — upload an image or switch to Icon / Emoji in Content';
+                        note.style.display = 'block';
+                        readyToDraw = true;
+                        wake();
+                    }
+                } else if (cachedImg && lastImgSrc === rawSrc && cachedImg.complete && cachedImg.naturalWidth > 0) {
+                    note.style.display = 'none';
+                    buildStampFromImage(cachedImg);
+                    readyToDraw = true;
+                    wake();
+                } else {
+                    lastImgSrc = rawSrc;
+                    const img = new Image();
+                    img.decoding = 'async';
+                    img.onload = () => {
+                        if (stopped || lastImgSrc !== rawSrc) return;
+                        cachedImg = img;
+                        note.style.display = 'none';
+                        buildStampFromImage(img);
+                        readyToDraw = true;
+                        wake();
+                    };
+                    img.onerror = () => {
+                        if (stopped || lastImgSrc !== rawSrc) return;
+                        cachedImg = null;
+                        if (curOptions.preview) {
+                            drawSamplePatternStamp(stampCtx, stampSize);
+                            note.textContent = "Couldn't load tile image — showing sample pattern";
+                            note.style.display = 'block';
+                            readyToDraw = true;
+                            wake();
+                        }
+                    };
+                    img.src = rawSrc;
+                }
             }
         }
+
+        syncConfig(element, options);
 
         const handle = {
             stop() {
                 stopped = true;
                 patternRunners.delete(wake);
                 if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+                cachedImg = null;
                 try {
                     canvas.width = 0; canvas.height = 0;
                     stampCanvas.width = 0; stampCanvas.height = 0;
                     if (cellCanvas) { cellCanvas.width = 0; cellCanvas.height = 0; }
                 } catch {}
             },
-            redraw: () => { if (!stopped && readyToDraw) drawFrame(performance.now()); }
+            update: (nextEl, nextOpts) => { if (!stopped) syncConfig(nextEl, nextOpts); },
+            redraw: () => { if (!stopped) wake(); }
         };
         node._patternHandle = handle;
         return handle;
