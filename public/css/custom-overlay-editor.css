@@ -221,7 +221,7 @@ kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; background: var
 #backdrop.bd-dark { background: var(--bg-raised); }
 #backdrop.bd-light { background: #f0f2f5; }
 #backdrop.bd-green { background: #00b140; }
-#canvas { overflow: hidden; z-index: 0; }
+#canvas { overflow: hidden; }
 #canvas-underlayer, #canvas-toplayer { position: absolute; inset: 0; width: 100%; height: 100%; }
 #canvas-toplayer { pointer-events: none; }
 #canvas-toplayer > * { pointer-events: auto; }

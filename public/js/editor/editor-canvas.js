@@ -248,7 +248,16 @@ export function applyNodeStyle(node, el, index) {
     if (shared.textEffectStyle) Object.assign(node.style, shared.textEffectStyle(s, el.type));
     if (shared.shadowClipStyle) Object.assign(node.style, shared.shadowClipStyle(el));
     if (el.type === 'game-list' || el.type === 'slideshow' || el.type === 'pattern') node.style.display = 'block';
-    if (el.type === 'pattern' && node._patternHandle?.redraw) node._patternHandle.redraw();
+    if (el.type === 'pattern') {
+        const blend = el.pattern?.blendMode || 'normal';
+        const hasFill = shared.hasBoxFill ? shared.hasBoxFill(s) : false;
+        node.style.mixBlendMode = (!hasFill && blend !== 'normal') ? blend : '';
+        const wrap = node.querySelector(':scope > .sp-pattern-wrap');
+        if (wrap) wrap.style.mixBlendMode = (hasFill && blend !== 'normal') ? blend : '';
+        if (node._patternHandle?.redraw) node._patternHandle.redraw();
+    } else {
+        node.style.mixBlendMode = '';
+    }
     if (el.type === 'markdown') {
         node.style.setProperty('--hs', (el.headingScale ?? 100) / 100);
         node.classList.toggle('md-right', s.textAlign === 'right');
@@ -400,7 +409,7 @@ const usesLivePlaceholders = el => /\{\{/.test(`${el.content || ''} ${el.src || 
 export const contentSignature = (el, live) =>
     el.type === 'embed' ? JSON.stringify([el.type, expand(el.src), el.video]) :
     el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) :
-    el.type === 'pattern' ? JSON.stringify([el.type, expand(el.src), el.pattern, el.style?.objectFit, el.style?.focusX, el.style?.focusY]) :
+    el.type === 'pattern' ? JSON.stringify([el.type, expand(el.src), el.content, el.pattern, el.style?.objectFit, el.style?.focusX, el.style?.focusY, el.style?.color, el.style?.textStroke, el.style?.textShadow]) :
     el.type === 'cutout' ? JSON.stringify([el.type]) :
     el.type === 'shape' ? JSON.stringify([el.type]) :
     el.type === 'alert' ? JSON.stringify([

@@ -120,6 +120,15 @@
         }
         shared.applyBorderEffects(node, style, element);
         if (element.type === 'game-list' || element.type === 'slideshow' || element.type === 'pattern') node.style.display = 'block';
+        if (element.type === 'pattern') {
+            const blend = element.pattern?.blendMode || 'normal';
+            const hasFill = shared.hasBoxFill ? shared.hasBoxFill(style) : false;
+            node.style.mixBlendMode = (!hasFill && blend !== 'normal') ? blend : '';
+            const wrap = node.querySelector(':scope > .sp-pattern-wrap');
+            if (wrap) wrap.style.mixBlendMode = (hasFill && blend !== 'normal') ? blend : '';
+        } else {
+            node.style.mixBlendMode = '';
+        }
         if (element.type === 'markdown') {
             node.style.setProperty('--hs', (element.headingScale ?? 100) / 100);
             node.classList.toggle('md-right', style.textAlign === 'right');

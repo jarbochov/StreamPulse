@@ -158,11 +158,12 @@ const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 
 const PATTERN_LAYOUTS = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'];
 const PATTERN_MOTIONS = ['none', 'scroll', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'];
 const PATTERN_FLIPS = ['none', 'tilt', 'h', 'v', 'both'];
-const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'soft-light', 'plus-lighter'];
+const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'luminosity', 'plus-lighter'];
 
 function normalizePattern(p = {}) {
     const num = (value, min, max, fallback) => (Number.isFinite(Number(value)) && value !== '' && value !== null ? Math.max(min, Math.min(max, Number(value))) : fallback);
     return {
+        sourceType: p.sourceType === 'icon' ? 'icon' : 'image',
         layout: PATTERN_LAYOUTS.includes(p.layout) ? p.layout : 'brick',
         tileSize: Math.round(num(p.tileSize, 16, 1024, 96)),
         gap: Math.round(num(p.gap, 0, 256, 16)),

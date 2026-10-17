@@ -2546,7 +2546,8 @@
         const tileOpacity = Math.max(0.05, Math.min(1, Number(config.tileOpacity ?? 1)));
         const altOpacity = Math.max(0, Math.min(1, Number(config.altOpacity ?? 0.4)));
         const altScale = Math.max(10, Math.min(200, Number(config.altScale ?? 100))) / 100;
-        const blendMode = ['normal', 'multiply', 'screen', 'overlay', 'soft-light', 'plus-lighter'].includes(config.blendMode) ? config.blendMode : 'normal';
+        const blendMode = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'luminosity', 'plus-lighter'].includes(config.blendMode) ? config.blendMode : 'normal';
+        const sourceType = config.sourceType === 'icon' ? 'icon' : 'image';
         const wedges = Math.max(4, Math.min(16, Math.round((Number(config.wedges) || 6) / 2) * 2));
         const feather = Math.max(0, Math.min(100, Number(config.feather) || 0));
         const motion = options.animate === false ? 'none' : (['none', 'scroll', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'].includes(config.motion) ? config.motion : 'scroll');
@@ -2559,7 +2560,14 @@
         const wrap = document.createElement('div');
         wrap.className = 'sp-pattern-wrap';
         wrap.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit;';
-        if (blendMode !== 'normal') wrap.style.mixBlendMode = blendMode;
+        const hasFill = hasBoxFill(element.style || {});
+        if (hasFill && blendMode !== 'normal') {
+            wrap.style.mixBlendMode = blendMode;
+            node.style.mixBlendMode = '';
+        } else {
+            wrap.style.mixBlendMode = '';
+            node.style.mixBlendMode = blendMode !== 'normal' ? blendMode : '';
+        }
         if (feather > 0) {
             const stop = Math.max(0, 100 - feather);
             const mask = `radial-gradient(ellipse at center, #000 ${stop}%, transparent 100%)`;
@@ -2612,6 +2620,59 @@
                 const dy = (stampSize - dh) * fy;
                 stampCtx.drawImage(img, dx, dy, dw, dh);
             }
+        }
+
+        function buildStampFromIcon(cls) {
+            const probe = document.createElement('i');
+            probe.className = cls;
+            probe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none;';
+            document.body.appendChild(probe);
+            const beforeStyle = getComputedStyle(probe, '::before');
+            const elemStyle = getComputedStyle(probe);
+            const rawContent = beforeStyle.content;
+            const fontFamily = beforeStyle.fontFamily || elemStyle.fontFamily || '"Font Awesome 6 Free", "Font Awesome 6 Brands", sans-serif';
+            const fontWeight = beforeStyle.fontWeight || elemStyle.fontWeight || (cls.includes('fa-brands') ? '400' : '900');
+            probe.remove();
+
+            let glyph = '';
+            if (rawContent && rawContent !== 'none' && rawContent !== 'normal') {
+                glyph = rawContent.replace(/^["']|["']$/g, '');
+            }
+            if (!glyph) return { glyph: '', fontFamily, fontWeight };
+
+            const s = element.style || {};
+            const strokeW = Number(s.textStroke?.width) || 0;
+            const shadowBlur = Number(s.textShadow?.blur) || 0;
+            const padRatio = (strokeW > 0 || shadowBlur > 0) ? 0.68 : 0.78;
+            const fontPx = Math.max(12, Math.round(stampSize * padRatio));
+
+            stampCtx.clearRect(0, 0, stampSize, stampSize);
+            stampCtx.save();
+            stampCtx.font = `${fontWeight} ${fontPx}px ${fontFamily}`;
+            stampCtx.textAlign = 'center';
+            stampCtx.textBaseline = 'middle';
+
+            const cx = stampSize / 2;
+            const cy = stampSize / 2;
+
+            if (shadowBlur > 0) {
+                stampCtx.shadowBlur = shadowBlur * dpr;
+                stampCtx.shadowColor = s.textShadow?.color || 'rgba(0,0,0,0.7)';
+                stampCtx.shadowOffsetX = 0;
+                stampCtx.shadowOffsetY = 2 * dpr;
+            }
+            if (strokeW > 0) {
+                stampCtx.lineWidth = strokeW * 2 * dpr;
+                stampCtx.lineJoin = 'round';
+                stampCtx.strokeStyle = s.textStroke?.color || '#000000';
+                stampCtx.strokeText(glyph, cx, cy);
+                stampCtx.shadowBlur = 0;
+                stampCtx.shadowOffsetY = 0;
+            }
+            stampCtx.fillStyle = s.color || '#ffffff';
+            stampCtx.fillText(glyph, cx, cy);
+            stampCtx.restore();
+            return { glyph, fontFamily, fontWeight };
         }
 
         function updateKaleidoCell(t) {
@@ -2807,35 +2868,76 @@
 
         if (motion !== 'none') patternRunners.add(wake);
 
-        const rawSrc = options.expand ? options.expand(element.src || '') : String(element.src || '');
-        if (!rawSrc || /\{\{/.test(rawSrc)) {
-            if (options.preview) {
-                drawSamplePatternStamp(stampCtx, stampSize);
-                note.textContent = rawSrc ? `${rawSrc} (sample tile shown until live value is available)` : 'Sample pattern tile — upload or choose an image in Content';
-                note.style.display = 'block';
-                readyToDraw = true;
-                wake();
-            }
-        } else {
-            const img = new Image();
-            img.decoding = 'async';
-            img.onload = () => {
+        if (sourceType === 'icon') {
+            const cls = String(element.content || 'fa-brands fa-twitch').trim().replace(/^fab\b/, 'fa-brands').replace(/^fas\b/, 'fa-solid').replace(/^far\b/, 'fa-regular');
+            const refreshIconStamp = () => {
                 if (stopped) return;
-                buildStampFromImage(img);
-                readyToDraw = true;
-                wake();
-            };
-            img.onerror = () => {
-                if (stopped) return;
-                if (options.preview) {
+                const { glyph, fontFamily, fontWeight } = buildStampFromIcon(cls);
+                if (glyph) {
+                    note.style.display = 'none';
+                    readyToDraw = true;
+                    wake();
+                    if (document.fonts?.load) {
+                        document.fonts.load(`${fontWeight} 32px ${fontFamily}`, glyph).then(() => {
+                            if (stopped) return;
+                            buildStampFromIcon(cls);
+                            wake();
+                        }).catch(() => {});
+                    }
+                } else if (options.preview) {
                     drawSamplePatternStamp(stampCtx, stampSize);
-                    note.textContent = "Couldn't load tile image — showing sample pattern";
+                    note.textContent = 'Choose a valid Font Awesome icon in Content';
                     note.style.display = 'block';
                     readyToDraw = true;
                     wake();
                 }
             };
-            img.src = rawSrc;
+            let faLink = document.querySelector('link[data-fa]');
+            if (!faLink) {
+                faLink = document.createElement('link');
+                faLink.rel = 'stylesheet';
+                faLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css';
+                faLink.dataset.fa = '1';
+                faLink.addEventListener('load', refreshIconStamp, { once: true });
+                document.head.appendChild(faLink);
+            }
+            refreshIconStamp();
+            if (document.fonts?.ready) {
+                document.fonts.ready.then(() => {
+                    if (!stopped) refreshIconStamp();
+                }).catch(() => {});
+            }
+        } else {
+            const rawSrc = options.expand ? options.expand(element.src || '') : String(element.src || '');
+            if (!rawSrc || /\{\{/.test(rawSrc)) {
+                if (options.preview) {
+                    drawSamplePatternStamp(stampCtx, stampSize);
+                    note.textContent = rawSrc ? `${rawSrc} (sample tile shown until live value is available)` : 'Sample pattern tile — upload an image or switch to Icon in Content';
+                    note.style.display = 'block';
+                    readyToDraw = true;
+                    wake();
+                }
+            } else {
+                const img = new Image();
+                img.decoding = 'async';
+                img.onload = () => {
+                    if (stopped) return;
+                    buildStampFromImage(img);
+                    readyToDraw = true;
+                    wake();
+                };
+                img.onerror = () => {
+                    if (stopped) return;
+                    if (options.preview) {
+                        drawSamplePatternStamp(stampCtx, stampSize);
+                        note.textContent = "Couldn't load tile image — showing sample pattern";
+                        note.style.display = 'block';
+                        readyToDraw = true;
+                        wake();
+                    }
+                };
+                img.src = rawSrc;
+            }
         }
 
         const handle = {

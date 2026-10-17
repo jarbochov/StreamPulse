@@ -50,7 +50,7 @@ export const RERENDER_PATHS = new Set([
     'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee',
     'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
-    'pattern.layout', 'pattern.motion', 'pattern.alternateFlip'
+    'pattern.sourceType', 'pattern.layout', 'pattern.motion', 'pattern.alternateFlip'
 ]);
 
 export const numberWasOn = new Map();
@@ -438,7 +438,7 @@ export function textSourceBlock(el) {
 
 export function contentSection(el) {
     const textual = TEXT_TYPES.has(el.type);
-    const media = el.type === 'image' || el.type === 'video' || el.type === 'pattern';
+    const media = el.type === 'image' || el.type === 'video';
     let body = '';
     if (textual) body += textSourceBlock(el);
     if (el.type === 'progress') {
@@ -452,6 +452,25 @@ export function contentSection(el) {
         body += `<div class="grid2">${F.seg('style.textAlign', 'Horizontal', el.style.textAlign, [['left', 'Align left', ICON.textLeft], ['center', 'Center horizontally', ICON.textCenter], ['right', 'Align right', ICON.textRight]])}${F.seg('style.verticalAlign', 'Vertical', el.style.verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>`;
         body += `<div class="field"><span>Box</span><button type="button" id="fit-icon">Fit box to icon</button></div>`;
         body += '<span class="hint">The icon is as tall as its box. Change the height to resize it; the width only adds space for alignment.</span>';
+    }
+    if (el.type === 'pattern') {
+        const sourceType = el.pattern?.sourceType === 'icon' ? 'icon' : 'image';
+        const imgIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Image';
+        const faIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Icon';
+        body += F.seg('pattern.sourceType', 'Tile graphic', sourceType, [
+            ['image', 'Image tile', imgIcon],
+            ['icon', 'Font Awesome icon tile', faIcon]
+        ]);
+        if (sourceType === 'icon') {
+            const s = el.style || {};
+            body += F.text('content', 'Font Awesome icon', el.content || 'fa-brands fa-twitch', 'placeholder="fa-brands fa-twitch" spellcheck="false"');
+            body += `<div class="field"><span>Icon</span><button type="button" id="pick-icon">Choose icon…</button></div>`;
+            body += F.color('style.color', 'Icon color', s.color || '#ffffff');
+            body += `<div class="grid2">${F.number('style.textStroke.width', 'Outline (px)', s.textStroke?.width || 0, { min: 0, max: 20, step: 0.5 })}${s.textStroke?.width > 0 ? F.color('style.textStroke.color', 'Outline color', s.textStroke?.color || '#000000') : '<span></span>'}</div>`;
+            body += `<div class="grid2">${F.number('style.textShadow.blur', 'Shadow / glow (px)', s.textShadow?.blur || 0, { min: 0, max: 60 })}${s.textShadow?.blur > 0 ? F.color('style.textShadow.color', 'Shadow color', s.textShadow?.color || 'rgba(0,0,0,0.7)') : '<span></span>'}</div>`;
+        } else {
+            body += mediaSourceBlock(el);
+        }
     }
     if (el.type === 'qr') {
         const q = el.qr || {};
@@ -910,11 +929,13 @@ export function patternSection(el) {
             ${F.range('pattern.tileAngle', 'Tile tilt', p.tileAngle ?? 0, { min: -180, max: 180, step: 1, unit: '°', editable: true, reset: 0, resetTitle: 'Reset tile tilt to 0°' })}
         </div>
         ${layoutExtra}
-        <div class="grid2">
-            ${F.select('style.objectFit', 'Tile image fit', el.style?.objectFit || 'contain', [['contain', 'Contain (full graphic)'], ['cover', 'Cover (crop square)'], ['fill', 'Stretch to square']])}
-            ${F.select('pattern.blendMode', 'Blend mode', p.blendMode || 'normal', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['soft-light', 'Soft light'], ['plus-lighter', 'Additive (Plus lighter)']])}
-        </div>
-        ${focusField(el)}
+        ${(p.sourceType || 'image') === 'icon'
+            ? F.select('pattern.blendMode', 'Blend mode', p.blendMode || 'normal', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['soft-light', 'Soft light'], ['hard-light', 'Hard light'], ['color-dodge', 'Color dodge'], ['color-burn', 'Color burn'], ['darken', 'Darken'], ['lighten', 'Lighten'], ['difference', 'Difference'], ['exclusion', 'Exclusion'], ['luminosity', 'Luminosity'], ['plus-lighter', 'Additive (Plus lighter)']])
+            : `<div class="grid2">
+                ${F.select('style.objectFit', 'Tile image fit', el.style?.objectFit || 'contain', [['contain', 'Contain (full graphic)'], ['cover', 'Cover (crop square)'], ['fill', 'Stretch to square']])}
+                ${F.select('pattern.blendMode', 'Blend mode', p.blendMode || 'normal', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['soft-light', 'Soft light'], ['hard-light', 'Hard light'], ['color-dodge', 'Color dodge'], ['color-burn', 'Color burn'], ['darken', 'Darken'], ['lighten', 'Lighten'], ['difference', 'Difference'], ['exclusion', 'Exclusion'], ['luminosity', 'Luminosity'], ['plus-lighter', 'Additive (Plus lighter)']])}
+            </div>
+            ${focusField(el)}`}
         <div class="grid2">
             ${F.range('pattern.tileOpacity', 'Tile opacity', p.tileOpacity ?? 1, { min: 5, max: 100, scale: 0.01, unit: '%', editable: true })}
             ${F.range('pattern.feather', 'Edge vignette fade', p.feather ?? 0, { min: 0, max: 100, unit: '%', editable: true })}
