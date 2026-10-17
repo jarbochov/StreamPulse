@@ -5,6 +5,12 @@
 (function (root) {
     'use strict';
 
+    // Numeric option with a real fallback (Number(x) ?? d never falls back because Number() yields NaN).
+    const numOr = (value, fallback) => {
+        const n = parseFloat(value);
+        return Number.isFinite(n) ? n : fallback;
+    };
+
     // ---- Filter Defaults & Presets ----
     const defaultHalftone = () => ({
         mode: 'none', size: 8, angle: 45, threshold: 50, softness: 12,
@@ -466,14 +472,44 @@
         }
     }
 
+    /**
+     * Bakes the CSS-style brightness / contrast / saturate / grayscale controls into RGBA source pixels
+     * (same order and math as the CSS filter chain). Runs before dithering so the adjustments change which
+     * pixels turn to ink instead of being lost under the opaque dither canvas.
+     */
+    function bakeAdjustments(px, f) {
+        const br = (f.brightness ?? 100) / 100;
+        const co = (f.contrast ?? 100) / 100;
+        const sa = (f.saturate ?? 100) / 100;
+        const gr = Math.max(0, Math.min(1, (f.grayscale ?? 0) / 100));
+        if (br === 1 && co === 1 && sa === 1 && gr === 0) return;
+        const a = 1 - gr;
+        const s0 = 0.213 + 0.787 * sa, s1 = 0.715 - 0.715 * sa, s2 = 0.072 - 0.072 * sa;
+        const s3 = 0.213 - 0.213 * sa, s4 = 0.715 + 0.285 * sa, s5 = 0.072 - 0.072 * sa;
+        const s6 = 0.213 - 0.213 * sa, s7 = 0.715 - 0.715 * sa, s8 = 0.072 + 0.928 * sa;
+        const g0 = 0.2126 + 0.7874 * a, g1 = 0.7152 - 0.7152 * a, g2 = 0.0722 - 0.0722 * a;
+        const g3 = 0.2126 - 0.2126 * a, g4 = 0.7152 + 0.2848 * a, g5 = 0.0722 - 0.0722 * a;
+        const g6 = 0.2126 - 0.2126 * a, g7 = 0.7152 - 0.7152 * a, g8 = 0.0722 + 0.9278 * a;
+        const off = 127.5 * (1 - co);
+        for (let i = 0; i < px.length; i += 4) {
+            if (px[i + 3] === 0) continue;
+            let r = px[i] * br * co + off, g = px[i + 1] * br * co + off, b = px[i + 2] * br * co + off;
+            r = r < 0 ? 0 : r > 255 ? 255 : r; g = g < 0 ? 0 : g > 255 ? 255 : g; b = b < 0 ? 0 : b > 255 ? 255 : b;
+            const sr = r * s0 + g * s1 + b * s2, sg = r * s3 + g * s4 + b * s5, sb = r * s6 + g * s7 + b * s8;
+            px[i] = sr * g0 + sg * g1 + sb * g2;
+            px[i + 1] = sr * g3 + sg * g4 + sb * g5;
+            px[i + 2] = sr * g6 + sg * g7 + sb * g8;
+        }
+    }
+
     function buildCssFadeGradient(ht, forMask) {
         const mode = ht.fadeMode || 'none';
         if (mode === 'none') return '';
-        const angle = Math.round(Number(ht.fadeAngle) ?? 135);
-        const s0 = Math.max(0, Math.min(99, Number(ht.fadeStart) ?? 15));
-        const s1 = Math.max(s0 + 1, Math.min(100, Number(ht.fadeEnd) ?? 85));
-        const cx = Math.max(0, Math.min(100, Number(ht.fadeCenterX) ?? 50));
-        const cy = Math.max(0, Math.min(100, Number(ht.fadeCenterY) ?? 50));
+        const angle = Math.round(numOr(ht.fadeAngle, 135));
+        const s0 = Math.max(0, Math.min(99, numOr(ht.fadeStart, 15)));
+        const s1 = Math.max(s0 + 1, Math.min(100, numOr(ht.fadeEnd, 85)));
+        const cx = Math.max(0, Math.min(100, numOr(ht.fadeCenterX, 50)));
+        const cy = Math.max(0, Math.min(100, numOr(ht.fadeCenterY, 50)));
         const inv = Boolean(ht.fadeInvert);
 
         let c0, c1;
@@ -533,7 +569,7 @@
         }
 
         const isPixelated = isDither || isPix || effScale > 1.25;
-        const softVal = Math.max(0, Math.min(100, Number(ht.softness) ?? 12));
+        const softVal = Math.max(0, Math.min(100, numOr(ht.softness, 12)));
         canvas.style.cssText = `position:absolute;inset:0;width:100%;height:100%;pointer-events:none;border-radius:inherit;${isPixelated ? 'image-rendering:pixelated;' : ''}`;
 
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -554,17 +590,20 @@
         const mediaEl = isImage ? node.querySelector(':scope > img, img') : (isVideo ? node.querySelector(':scope > video, video') : null);
 
         const fit = s.objectFit || 'cover';
-        const fx = (Number(s.focusX) ?? 50) / 100;
-        const fy = (Number(s.focusY) ?? 50) / 100;
+        const fx = (numOr(s.focusX, 50)) / 100;
+        const fy = (numOr(s.focusY, 50)) / 100;
+
+        const mf = element.mediaFilter || {};
+        const bake = MEDIA_TYPES.has(element.type);
+        const adjSig = bake ? `${mf.brightness ?? 100},${mf.contrast ?? 100},${mf.saturate ?? 100},${mf.grayscale ?? 0}` : '';
 
         const srcSig = mediaEl
-            ? `${mediaEl.currentSrc || mediaEl.src}|${fit}|${fx}|${fy}|${pw}|${ph}`
+            ? `${mediaEl.currentSrc || mediaEl.src}|${fit}|${fx}|${fy}|${pw}|${ph}|${adjSig}`
             : (element.type === 'shape'
                 ? `${s.background}|${s.fill}|${JSON.stringify(s.gradient)}|${pw}|${ph}`
-                : `${pw}|${ph}`);
+                : `${pw}|${ph}|${adjSig}`);
 
         if (canvas._srcSig !== srcSig) {
-            canvas._srcSig = srcSig;
             if (mediaEl) {
                 const isLoaded = isImage
                     ? (mediaEl.complete && mediaEl.naturalWidth > 0)
@@ -575,10 +614,14 @@
                     const readback = ctx.getImageData(0, 0, pw, ph);
                     srcPixels.set(readback.data);
                 } else {
+                    // Not decoded yet: leave _srcSig unset so the retry after load re-samples, and keep the
+                    // media visible meanwhile. Re-run the whole filter pass so canvas/media styling matches.
                     const evt = isImage ? 'load' : 'loadeddata';
                     mediaEl.addEventListener(evt, () => {
-                        if (node._fxCanvas === canvas) renderDitherHalftone(canvas, element, node, ht, target);
+                        if (node._fxCanvas === canvas) applyMediaFilter(node, element);
                     }, { once: true });
+                    node._fxSig = '';
+                    canvas._mode = '';
                     return;
                 }
             } else if (element.type === 'shape') {
@@ -601,6 +644,8 @@
                 const readback = ctx.getImageData(0, 0, pw, ph);
                 srcPixels.set(readback.data);
             }
+            if (bake) bakeAdjustments(srcPixels, mf);
+            canvas._srcSig = srcSig;
         }
 
         // Copy source pixels into destination buffer
@@ -612,22 +657,22 @@
         const inkRgb = num(ht.inkColor || '#0f172a');
         const paperRgb = num(ht.paperColor || '#ffffff');
         const invert = Boolean(ht.invert);
-        const threshVal = Math.max(1, Math.min(99, Number(ht.threshold) ?? 50)) / 100;
-        const levels = Math.max(2, Math.min(16, Number(ht.levels) ?? 4));
+        const threshVal = Math.max(1, Math.min(99, numOr(ht.threshold, 50))) / 100;
+        const levels = Math.max(2, Math.min(16, numOr(ht.levels, 4)));
 
         // Fade calculation
         const fadeMode = ht.fadeMode || 'none';
         const fadeStyle = (fadeMode !== 'none' && (ht.fadeStyle === 'blend' || isPix)) ? 'blend' : 'dots';
         const hasTaper = fadeMode !== 'none' && fadeStyle === 'dots';
 
-        const fAngle = (Math.round(Number(ht.fadeAngle) ?? 135) * Math.PI) / 180;
+        const fAngle = (Math.round(numOr(ht.fadeAngle, 135)) * Math.PI) / 180;
         const cosFA = Math.cos(fAngle), sinFA = Math.sin(fAngle);
         const fDiag = Math.abs(pw * cosFA) + Math.abs(ph * sinFA) || 1;
-        const fCenterX = ((Math.max(0, Math.min(100, Number(ht.fadeCenterX) ?? 50)) / 100) * pw);
-        const fCenterY = ((Math.max(0, Math.min(100, Number(ht.fadeCenterY) ?? 50)) / 100) * ph);
+        const fCenterX = ((Math.max(0, Math.min(100, numOr(ht.fadeCenterX, 50))) / 100) * pw);
+        const fCenterY = ((Math.max(0, Math.min(100, numOr(ht.fadeCenterY, 50))) / 100) * ph);
         const fMaxR = Math.hypot(Math.max(fCenterX, pw - fCenterX), Math.max(fCenterY, ph - fCenterY)) || 1;
-        const fS0 = Math.max(0, Math.min(99, Number(ht.fadeStart) ?? 15)) / 100;
-        const fS1 = Math.max(fS0 + 0.01, Math.min(100, Number(ht.fadeEnd) ?? 85)) / 100;
+        const fS0 = Math.max(0, Math.min(99, numOr(ht.fadeStart, 15))) / 100;
+        const fS1 = Math.max(fS0 + 0.01, Math.min(100, numOr(ht.fadeEnd, 85))) / 100;
         const fInv = Boolean(ht.fadeInvert);
 
         const isLinearFade = fadeMode === 'linear';
@@ -649,7 +694,7 @@
         if (isScreen) {
             // Mathematical Halftone Screentone (Dots, Lines, Crosshatch) with precomputed Cosine LUT
             const cell = Math.max(2, (Number(ht.size) || 8) / effScale);
-            const rad = ((Number(ht.angle) ?? 45) * Math.PI) / 180;
+            const rad = ((numOr(ht.angle, 45)) * Math.PI) / 180;
             const cosA = Math.cos(rad) / cell, sinA = Math.sin(rad) / cell;
             const sf = Math.max(0.005, (softVal / 100) * 0.5);
             const k = 1 / sf;
@@ -803,16 +848,21 @@
         }
 
         if (colorMode === 'ink-only') {
+            canvas._mode = 'ink';
             canvas.style.mixBlendMode = 'multiply';
             if (mediaEl) mediaEl.style.opacity = '1';
         } else {
             canvas.style.mixBlendMode = 'normal';
             if (fadeMode !== 'none' && fadeStyle === 'blend') {
+                canvas._mode = 'blend';
                 if (mediaEl) mediaEl.style.opacity = '1';
             } else {
+                canvas._mode = 'replace';
                 if (mediaEl) mediaEl.style.opacity = '0';
             }
         }
+        canvas.style.filter = canvas._fxFilter || '';
+        canvas.style.transform = canvas._fxTransform || '';
     }
 
     // ---- SVG Definitions & Grain Tile Engine ----
@@ -908,17 +958,13 @@
         return defs;
     }
 
+    // Builds the per-node SVG duotone (gradient map) filter. It only maps luminance to the dark/light pair,
+    // so it composes with any renderer; applyMediaFilter decides which element (media or dither canvas) wears it.
     function syncLightweightSvgFilter(node, element, f) {
         if (typeof document === 'undefined') return false;
-        const ht = f.halftone || {};
-        const htMode = ht.mode || 'none';
-        const hasHt = htMode !== 'none';
         const hasDuo = !!f.duotone?.enabled;
-        const colorMode = ht.colorMode || 'manga';
 
-        const needsSvg = hasDuo;
-
-        if (!needsSvg) {
+        if (!hasDuo) {
             if (node._fxId) {
                 document.getElementById(node._fxId)?.remove();
             }
@@ -942,26 +988,12 @@
 
         const rgb = hex => [1, 3, 5].map(i => (parseInt(String(hex || '#000000').slice(i, i + 2), 16) / 255).toFixed(4));
         const mode = f.duotone.animate;
-        const blend = hasDuo && (mode === 'blend' || mode === 'both');
-        const hue = hasDuo && (mode === 'hue' || mode === 'both');
+        const blend = mode === 'blend' || mode === 'both';
+        const hue = mode === 'hue' || mode === 'both';
 
-        let inner = '';
-        if (hasHt && htMode !== 'pixelate' && colorMode === 'ink-only') {
-            const inkHex = hasDuo ? f.duotone.dark : (ht.inkColor || '#0f172a');
-            const [ir, ig, ib] = rgb(inkHex);
-            const alphaSign = ht.invert ? '1 0 0 0 0' : '-1 0 0 0 1';
-            inner = `<feColorMatrix type="matrix" values="0 0 0 0 ${ir}  0 0 0 0 ${ig}  0 0 0 0 ${ib}  ${alphaSign}"/>${hue ? '<feColorMatrix class="sp-hue" type="hueRotate" values="0"/>' : ''}`;
-        } else if (hasHt && htMode !== 'pixelate' && colorMode === 'manga') {
-            const cDark = hasDuo ? f.duotone.dark : (ht.inkColor || '#0f172a');
-            const cLight = hasDuo ? f.duotone.light : (ht.paperColor || '#ffffff');
-            const [dr, dg, db] = rgb(cDark);
-            const [lr, lg, lb] = rgb(cLight);
-            inner = `<feComponentTransfer color-interpolation-filters="sRGB"><feFuncR type="table" tableValues="${dr} ${lr}"/><feFuncG type="table" tableValues="${dg} ${lg}"/><feFuncB type="table" tableValues="${db} ${lb}"/></feComponentTransfer>${hue ? '<feColorMatrix class="sp-hue" type="hueRotate" values="0"/>' : ''}`;
-        } else if (hasDuo) {
-            const [dr, dg, db] = rgb(f.duotone.dark);
-            const [lr, lg, lb] = rgb(f.duotone.light);
-            inner = `<feColorMatrix type="matrix" values="0.299 0.587 0.114 0 0  0.299 0.587 0.114 0 0  0.299 0.587 0.114 0 0  0 0 0 1 0"/><feComponentTransfer color-interpolation-filters="sRGB"><feFuncR class="sp-r" type="table" tableValues="${dr} ${lr}"/><feFuncG class="sp-g" type="table" tableValues="${dg} ${lg}"/><feFuncB class="sp-b" type="table" tableValues="${db} ${lb}"/></feComponentTransfer>${hue ? '<feColorMatrix class="sp-hue" type="hueRotate" values="0"/>' : ''}`;
-        }
+        const [dr, dg, db] = rgb(f.duotone.dark);
+        const [lr, lg, lb] = rgb(f.duotone.light);
+        const inner = `<feColorMatrix type="matrix" values="0.299 0.587 0.114 0 0  0.299 0.587 0.114 0 0  0.299 0.587 0.114 0 0  0 0 0 1 0"/><feComponentTransfer color-interpolation-filters="sRGB"><feFuncR class="sp-r" type="table" tableValues="${dr} ${lr}"/><feFuncG class="sp-g" type="table" tableValues="${dg} ${lg}"/><feFuncB class="sp-b" type="table" tableValues="${db} ${lb}"/></feComponentTransfer>${hue ? '<feColorMatrix class="sp-hue" type="hueRotate" values="0"/>' : ''}`;
 
         if (filterEl.dataset.sig !== inner) {
             filterEl.innerHTML = inner;
@@ -1091,14 +1123,27 @@
         const hasSvgFilter = active ? syncLightweightSvgFilter(node, element, f) : (node._fxId && (document.getElementById(node._fxId)?.remove(), node._fxId = ''), node._fxAnim = null, fxAnimated.delete(node), false);
         if (node._fxGrain && node._fxGrain.parentNode !== node) node.append(node._fxGrain);
 
+        const cv = active && hasHt ? node._fxCanvas : null;
+        // 'replace': the opaque canvas covers the media, so it must wear the duotone/blur; brightness, contrast,
+        // saturate and grayscale were already baked into the sampled pixels. 'blend': media and canvas are both
+        // visible, so duotone goes on both. 'ink': only the media is recoloured (the canvas is just ink dots).
+        const replaced = !!(cv && media && cv._mode === 'replace');
+        const svgRef = hasSvgFilter ? `url(#${node._fxId})` : '';
+
         const parts = [];
+        const canvasParts = [];
         if (active) {
-            if (f.blur > 0) parts.push(`blur(${f.blur}px)`);
-            if (f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
-            if (f.contrast !== 100) parts.push(`contrast(${f.contrast}%)`);
-            if (f.saturate !== 100) parts.push(`saturate(${f.saturate}%)`);
-            if (f.grayscale > 0) parts.push(`grayscale(${f.grayscale}%)`);
-            if (hasSvgFilter) parts.push(`url(#${node._fxId})`);
+            if (f.blur > 0) (replaced ? canvasParts : parts).push(`blur(${f.blur}px)`);
+            if (!replaced) {
+                if (f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
+                if (f.contrast !== 100) parts.push(`contrast(${f.contrast}%)`);
+                if (f.saturate !== 100) parts.push(`saturate(${f.saturate}%)`);
+                if (f.grayscale > 0) parts.push(`grayscale(${f.grayscale}%)`);
+            }
+            if (svgRef) {
+                (replaced ? canvasParts : parts).push(svgRef);
+                if (cv && media && cv._mode === 'blend') canvasParts.push(svgRef);
+            }
         }
         const nextFilter = parts.join(' ');
         if (target.style.filter !== nextFilter) target.style.filter = nextFilter;
@@ -1108,7 +1153,16 @@
             // Blur fades the edges, so enlarge the media slightly and let the element crop it.
             const size = Math.max(1, Math.min(Number(element.width) || 100, Number(element.height) || 100));
             const nextScale = active && f.blur > 0 ? `scale(${(1 + (f.blur * 2.2) / size).toFixed(3)})` : '';
-            if (target.style.transform !== nextScale) target.style.transform = nextScale;
+            const mediaScale = replaced ? '' : nextScale;
+            if (target.style.transform !== mediaScale) target.style.transform = mediaScale;
+            if (node._fxCanvas) {
+                const canvasFilter = canvasParts.join(' ');
+                const canvasScale = replaced ? nextScale : '';
+                node._fxCanvas._fxFilter = canvasFilter;
+                node._fxCanvas._fxTransform = canvasScale;
+                if (node._fxCanvas.style.filter !== canvasFilter) node._fxCanvas.style.filter = canvasFilter;
+                if (node._fxCanvas.style.transform !== canvasScale) node._fxCanvas.style.transform = canvasScale;
+            }
             if (active && node.style.overflow !== 'hidden') node.style.overflow = 'hidden';
         }
     }

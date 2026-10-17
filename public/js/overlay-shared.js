@@ -524,45 +524,9 @@
         return holder.innerHTML;
     }
 
-    // ---- media filters (images, videos, slideshows, shapes, patterns, text) ----
-    const defaultHalftone = () => ({
-        mode: 'none', size: 8, angle: 45, threshold: 50, softness: 12,
-        pixelSize: 1, levels: 4, colorMode: 'manga',
-        inkColor: '#0f172a', paperColor: '#ffffff', invert: false,
-        fadeMode: 'none', fadeAngle: 135, fadeCenterX: 50, fadeCenterY: 50,
-        fadeStart: 15, fadeEnd: 85, fadeInvert: false, fadeStyle: 'dots'
-    });
-    const defaultMediaFilter = () => ({
-        blur: 0, brightness: 100, contrast: 100, saturate: 100, grayscale: 0,
-        tint: { enabled: false, color: '#000000', opacity: 0.4 },
-        duotone: { enabled: false, dark: '#1b1464', light: '#ff9de2', animate: 'none', dark2: '#0b3d2e', light2: '#7dffb2', speed: 6 },
-        grain: { enabled: false, amount: 0.25, size: 1, animate: true },
-        halftone: defaultHalftone()
-    });
-    const MEDIA_FILTER_PRESETS = [
-        ['none', 'None', defaultMediaFilter()],
-        ['dark', 'Dark background', { ...defaultMediaFilter(), brightness: 45 }],
-        ['soft', 'Soft blur', { ...defaultMediaFilter(), blur: 12, brightness: 80 }],
-        ['dim-blur', 'Dim and blur', { ...defaultMediaFilter(), blur: 10, brightness: 55, saturate: 80 }],
-        ['noir', 'Noir', { ...defaultMediaFilter(), grayscale: 100, contrast: 125, brightness: 80 }],
-        ['dusk', 'Duotone dusk', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#1b1464', light: '#ff9de2' } }],
-        ['mono-green', 'Duotone green', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#031a0f', light: '#7dffb2' } }],
-        ['sepia', 'Duotone sepia', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#2b1a0c', light: '#f3d9a6' } }],
-        ['manga-tone', 'Manga screentone', { ...defaultMediaFilter(), contrast: 115, halftone: { ...defaultHalftone(), mode: 'dots', size: 7, angle: 45, threshold: 50, softness: 8, colorMode: 'manga', inkColor: '#0f172a', paperColor: '#ffffff' } }],
-        ['pop-halftone', 'Pop art halftone', { ...defaultMediaFilter(), contrast: 120, saturate: 135, halftone: { ...defaultHalftone(), mode: 'dots', size: 9, angle: 30, threshold: 52, softness: 10, colorMode: 'color', levels: 2 } }],
-        ['comic-fade', 'Comic corner fade (ink only)', { ...defaultMediaFilter(), halftone: { ...defaultHalftone(), mode: 'dots', size: 10, angle: 45, threshold: 55, softness: 8, colorMode: 'ink-only', inkColor: '#00f5d4', fadeMode: 'linear', fadeAngle: 135, fadeStart: 10, fadeEnd: 85, fadeStyle: 'dots' } }],
-        ['bayer-retro', 'Retro Bayer dither', { ...defaultMediaFilter(), contrast: 110, halftone: { ...defaultHalftone(), mode: 'bayer', size: 3, threshold: 50, colorMode: 'color', levels: 4 } }],
-        ['mac-atkinson', 'Macintosh 1-bit Atkinson', { ...defaultMediaFilter(), contrast: 115, halftone: { ...defaultHalftone(), mode: 'atkinson', size: 2, threshold: 50, colorMode: 'manga', inkColor: '#111827', paperColor: '#f8fafc' } }],
-        ['pixel-16bit', '16-bit pixel art', { ...defaultMediaFilter(), saturate: 115, halftone: { ...defaultHalftone(), mode: 'pixelate', size: 6, levels: 6 } }]
-    ];
-
-    function mediaFilterActive(f) {
-        if (!f) return false;
-        const htMode = f.halftone?.mode;
-        return f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.tint?.enabled || f.duotone?.enabled || f.grain?.enabled || (!!htMode && htMode !== 'none');
-    }
-
-    // Genuine Dithering, Halftone Screentones, and Media Filters are modularized in /js/overlay-filters.js
+    // ---- media filters ----
+    // Defaults, presets, dithering, halftone screentones and the filter pipeline live in /js/overlay-filters.js.
+    // That module attaches defaultMediaFilter, mediaFilterActive and MEDIA_FILTER_PRESETS to OverlayShared when it loads.
     const patternRunners = new Set();
     let fxPaused = false;
     function fxResume() {
@@ -3138,6 +3102,6 @@
         return handle;
     }
 
-    root.OverlayShared = { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
+    root.OverlayShared = { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle };
 })(window);
 
