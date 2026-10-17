@@ -84,6 +84,20 @@ export function syncColorPair(input) {
 }
 
 export function bindFields(container, getTargets, onApply) {
+    let pendingRaf = null;
+    let pendingPath = null;
+    let pendingEvent = null;
+
+    const flushOnApply = () => {
+        if (!pendingPath) return;
+        const p = pendingPath;
+        const ev = pendingEvent;
+        pendingPath = null;
+        pendingEvent = null;
+        pendingRaf = null;
+        onApply(p, ev);
+    };
+
     const apply = (input, event) => {
         const value = readField(input, event);
         if (value === undefined) return;
@@ -118,7 +132,21 @@ export function bindFields(container, getTargets, onApply) {
             const output = rangeWrap.querySelector('output');
             if (output) output.textContent = `${fmt(value, Number(input.dataset.scale) || 1)}${rangeWrap.dataset.unit || ''}`;
         }
-        onApply(input.dataset.path, event);
+        if (event?.type === 'input') {
+            pendingPath = input.dataset.path;
+            pendingEvent = event;
+            if (!pendingRaf) {
+                pendingRaf = requestAnimationFrame(flushOnApply);
+            }
+        } else {
+            if (pendingRaf) {
+                cancelAnimationFrame(pendingRaf);
+                pendingRaf = null;
+                pendingPath = null;
+                pendingEvent = null;
+            }
+            onApply(input.dataset.path, event);
+        }
     };
 
     container.addEventListener('input', event => {

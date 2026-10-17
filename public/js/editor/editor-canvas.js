@@ -566,54 +566,140 @@ export function addHandles(dirs, bounds) {
 
 export function renderSelectionUI(chipText) {
     if (!uiEl) return;
-    uiEl.replaceChildren();
     const items = selectedElements().filter(el => el.visible !== false);
-    if (!items.length) return;
-    for (const el of items) {
-        const b = boxOf(el), outline = document.createElement('div');
-        outline.className = `sel-outline${el.locked ? ' locked' : ''}`;
-        Object.assign(outline.style, { left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px` });
-        if (el.style?.rotate) outline.style.transform = `rotate(${el.style.rotate}deg)`;
-        uiEl.appendChild(outline);
+    if (!items.length) {
+        if (uiEl.firstChild) uiEl.replaceChildren();
+        uiEl._sig = '';
+        uiEl._cache = null;
+        return;
     }
+    const isMulti = items.length > 1;
+    const single = !isMulti ? items[0] : null;
+    const singleLine = single && isLine(single);
+    const hasHandles = isMulti ? items.some(el => !el.locked) : !single.locked;
+    const dirs = hasHandles ? (singleLine ? ['w', 'e'] : Object.keys(HANDLE_POS)) : [];
+    const sig = `${items.map(el => `${el.id}:${el.locked ? 1 : 0}`).join(',')}|${isMulti ? 'M' : 'S'}|${dirs.join(',')}`;
+
+    let cache = uiEl._cache;
+    if (uiEl._sig !== sig || !cache) {
+        uiEl.replaceChildren();
+        uiEl._sig = sig;
+        cache = uiEl._cache = { outlines: new Map(), group: null, handles: new Map(), chip: null };
+        for (const el of items) {
+            const outline = document.createElement('div');
+            outline.className = `sel-outline${el.locked ? ' locked' : ''}`;
+            uiEl.appendChild(outline);
+            cache.outlines.set(el.id, outline);
+        }
+        if (isMulti) {
+            const group = document.createElement('div');
+            group.className = 'sel-group';
+            uiEl.appendChild(group);
+            cache.group = group;
+        }
+        for (const dir of dirs) {
+            const handle = document.createElement('div');
+            handle.className = 'handle';
+            handle.dataset.dir = dir;
+            uiEl.appendChild(handle);
+            cache.handles.set(dir, handle);
+        }
+        const chip = document.createElement('div');
+        chip.className = 'dim-chip';
+        chip.style.display = 'none';
+        uiEl.appendChild(chip);
+        cache.chip = chip;
+    }
+
+    for (const el of items) {
+        const outline = cache.outlines.get(el.id);
+        if (!outline) continue;
+        const b = boxOf(el);
+        outline.style.left = `${b.x}px`;
+        outline.style.top = `${b.y}px`;
+        outline.style.width = `${b.w}px`;
+        outline.style.height = `${b.h}px`;
+        const rot = el.style?.rotate ? `rotate(${el.style.rotate}deg)` : '';
+        if (outline.style.transform !== rot) outline.style.transform = rot;
+    }
+
     const bounds = boundsOf(items);
-    if (items.length > 1) {
-        const group = document.createElement('div');
-        group.className = 'sel-group';
-        Object.assign(group.style, { left: `${bounds.x}px`, top: `${bounds.y}px`, width: `${bounds.w}px`, height: `${bounds.h}px` });
-        uiEl.appendChild(group);
-        if (items.some(el => !el.locked)) addHandles(Object.keys(HANDLE_POS), bounds);
-    } else if (!items[0].locked) {
-        const single = items[0], b = boxOf(single);
-        const dirs = isLine(single) ? ['w', 'e'] : Object.keys(HANDLE_POS);
+    if (isMulti) {
+        if (cache.group) {
+            cache.group.style.left = `${bounds.x}px`;
+            cache.group.style.top = `${bounds.y}px`;
+            cache.group.style.width = `${bounds.w}px`;
+            cache.group.style.height = `${bounds.h}px`;
+        }
+        for (const dir of dirs) {
+            const handle = cache.handles.get(dir);
+            if (!handle) continue;
+            handle.style.left = `${bounds.x + bounds.w * HANDLE_POS[dir][0] / 100}px`;
+            handle.style.top = `${bounds.y + bounds.h * HANDLE_POS[dir][1] / 100}px`;
+            if (handle.style.transform) handle.style.transform = '';
+        }
+    } else if (single && hasHandles) {
+        const b = boxOf(single);
         const rot = ((single.style?.rotate || 0) * Math.PI) / 180;
         const cos = Math.cos(rot), sin = Math.sin(rot);
         const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        const hTransform = single.style?.rotate ? `translate(-50%, -50%) rotate(${single.style.rotate}deg)` : '';
         for (const dir of dirs) {
-            const handle = document.createElement('div');
-            handle.className = 'handle'; handle.dataset.dir = dir;
+            const handle = cache.handles.get(dir);
+            if (!handle) continue;
             const lx = -b.w / 2 + b.w * HANDLE_POS[dir][0] / 100;
             const ly = -b.h / 2 + b.h * HANDLE_POS[dir][1] / 100;
             handle.style.left = `${Math.round(cx + lx * cos - ly * sin)}px`;
             handle.style.top = `${Math.round(cy + lx * sin + ly * cos)}px`;
-            if (single.style?.rotate) handle.style.transform = `translate(-50%, -50%) rotate(${single.style.rotate}deg)`;
-            uiEl.appendChild(handle);
+            if (handle.style.transform !== hTransform) handle.style.transform = hTransform;
         }
     }
-    if (chipText) {
-        const chip = document.createElement('div');
-        chip.className = 'dim-chip'; chip.textContent = chipText;
-        chip.style.left = `${bounds.x + bounds.w / 2}px`;
-        chip.style.top = `calc(${bounds.y + bounds.h}px + var(--inv, 1) * 10px)`;
-        uiEl.appendChild(chip);
+
+    if (cache.chip) {
+        if (chipText) {
+            cache.chip.textContent = chipText;
+            cache.chip.style.left = `${bounds.x + bounds.w / 2}px`;
+            cache.chip.style.top = `calc(${bounds.y + bounds.h}px + var(--inv, 1) * 10px)`;
+            cache.chip.style.display = 'block';
+        } else {
+            cache.chip.style.display = 'none';
+        }
     }
 }
 
 export function showGuides(xs = [], ys = []) {
     if (!guidesEl) return;
-    guidesEl.replaceChildren();
-    for (const x of xs) { const line = document.createElement('div'); line.className = 'guide v'; line.style.left = `${x}px`; guidesEl.appendChild(line); }
-    for (const y of ys) { const line = document.createElement('div'); line.className = 'guide h'; line.style.top = `${y}px`; guidesEl.appendChild(line); }
+    if (!xs.length && !ys.length) {
+        if (guidesEl.firstChild) guidesEl.replaceChildren();
+        return;
+    }
+    let idx = 0;
+    const children = guidesEl.children;
+    for (const x of xs) {
+        let line = children[idx];
+        if (!line) {
+            line = document.createElement('div');
+            guidesEl.appendChild(line);
+        }
+        if (line.className !== 'guide v') line.className = 'guide v';
+        line.style.left = `${x}px`;
+        line.style.top = '';
+        idx++;
+    }
+    for (const y of ys) {
+        let line = children[idx];
+        if (!line) {
+            line = document.createElement('div');
+            guidesEl.appendChild(line);
+        }
+        if (line.className !== 'guide h') line.className = 'guide h';
+        line.style.top = `${y}px`;
+        line.style.left = '';
+        idx++;
+    }
+    while (children.length > idx) {
+        guidesEl.lastElementChild.remove();
+    }
 }
 
 export function snapTargets(excludeIds) {
@@ -657,7 +743,7 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         if (event.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
         let guideX = [], guideY = [];
         if (prefs.snap && !event.altKey) {
-            const targets = snapTargets(new Set(gesture.items.map(item => item.el.id)));
+            const targets = gesture.targets || (gesture.targets = snapTargets(new Set(gesture.items.map(item => item.el.id))));
             const b = gesture.bounds;
             const sx = snapAxis([b.x + dx, b.x + dx + b.w / 2, b.x + dx + b.w], targets.xs);
             const sy = snapAxis([b.y + dy, b.y + dy + b.h / 2, b.y + dy + b.h], targets.ys);
@@ -675,7 +761,7 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         const gesture = state.gesture;
         const { dir, orig, snaps } = gesture;
         const right = orig.x + orig.w, bottom = orig.y + orig.h;
-        const targets = prefs.snap && !event.altKey ? snapTargets(gesture.ids) : null;
+        const targets = prefs.snap && !event.altKey ? (gesture.targets || (gesture.targets = snapTargets(gesture.ids))) : null;
         const guides = { xs: [], ys: [] };
         const edge = (value, list, key) => { if (!targets) return value; const s = snapAxis([value], targets[list]); guides[key] = s.lines; return value + s.delta; };
         let w = orig.w, h = orig.h;
@@ -701,7 +787,7 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         if (gesture.multi) return multiResizeGesture(event, dx, dy);
         const { dir, orig, el } = gesture;
         const right = orig.x + orig.w, bottom = orig.y + orig.h;
-        const targets = prefs.snap && !event.altKey ? snapTargets(new Set([el.id])) : null;
+        const targets = prefs.snap && !event.altKey ? (gesture.targets || (gesture.targets = snapTargets(new Set([el.id])))) : null;
         const guides = { xs: [], ys: [] };
         const edge = (value, list, key) => { if (!targets) return value; const s = snapAxis([value], targets[list]); guides[key] = s.lines; return value + s.delta; };
         let x = orig.x, y = orig.y, w = orig.w, h = orig.h;
