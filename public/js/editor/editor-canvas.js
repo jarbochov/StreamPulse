@@ -100,12 +100,10 @@ export function syncCanvasUI() {
 // ---- Cutout Underlayer Masking ----------------------------------------------------
 export function updateEditorCutoutMask() {
     const under = $('canvas-underlayer');
-    const top = $('canvas-toplayer');
     if (!under) return;
     const canW = Number(state.overlay.canvas?.width) || 1920;
     const canH = Number(state.overlay.canvas?.height) || 1080;
     const cutouts = state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e));
-    if (top) top.style.display = cutouts.length ? '' : 'none';
     if (!cutouts.length) {
         if (!under._lastMaskUrl) return;
         under._lastMaskUrl = '';
