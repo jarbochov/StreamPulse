@@ -20,7 +20,7 @@
         signals: {
             vhs: { name: 'VHS Tape', jitter: 25, glitch: 20, chromatic: 20, noise: 15, headNoise: 25 },
             ntsc: { name: 'NTSC Composite', bleed: 30, ghosting: 25, noise: 12, hue: 0 },
-            static: { name: 'TV Static & Snow', noise: 55, scale: 2.0, pure: false, color: false, glitch: 40, roll: 15 }
+            static: { name: 'TV Static & Snow', noise: 55, scale: 2.0, speed: 16, pure: false, color: false, glitch: 40, roll: 15 }
         },
         display: {
             none: { name: 'None (Flat)' },
@@ -36,7 +36,7 @@
         ['shadow-mask', 'Vintage PC CRT (Dot Triad)', { display: 'crt', crtScanlines: 50, crtScanlineScale: 1.0, crtCurvature: 12, crtBloom: 30, crtVignette: 20, crtMask: 'dot', crtMaskScale: 1.0, crtMaskStrength: 45, crtInterlace: 10 }],
         ['vhs-rental', 'Worn VHS Rental Tape', { display: 'crt', vhs: true, vhsJitter: 35, vhsGlitch: 28, vhsChroma: 25, vhsNoise: 20, vhsHeadNoise: 35, crtScanlines: 30, crtScanlineScale: 1.0, crtCurvature: 10 }],
         ['rabbit-ears', 'Rabbit-Ears TV Broadcast', { display: 'crt', ntsc: true, ntscBleed: 45, ntscGhost: 35, ntscNoise: 20, ntscHue: 5, crtScanlines: 35, crtScanlineScale: 1.0, crtCurvature: 12 }],
-        ['untuned-snow', 'Untuned TV Snow (Static)', { static: true, staticNoise: 75, staticScale: 3.0, staticPure: true, staticColor: false, staticGlitch: 50, staticRoll: 25 }],
+        ['untuned-snow', 'Untuned TV Snow (Static)', { static: true, staticNoise: 75, staticScale: 3.0, staticSpeed: 16, staticPure: true, staticColor: false, staticGlitch: 50, staticRoll: 25 }],
         ['gb-dmg', 'Game Boy DMG-01 (Pea-Soup)', { display: 'lcd', lcdGrid: 45, lcdPalette: 'dmg-green', lcdGhosting: 25 }],
         ['gb-pocket', 'Game Boy Pocket (Silver)', { display: 'lcd', lcdGrid: 35, lcdPalette: 'pocket', lcdGhosting: 15 }],
         ['gb-color', 'Game Boy Color (Reflective)', { display: 'lcd', lcdGrid: 40, lcdPalette: 'gameboy-color', lcdGhosting: 20 }],
@@ -162,6 +162,7 @@
             // TV Static & White Noise
             staticNoise: (retro.staticNoise ?? retro.noise ?? 55) / 100,
             staticScale,
+            staticSpeed: Math.max(2, Math.min(60, Number(retro.staticSpeed ?? retro.noiseSpeed ?? 16))),
             staticPure: Boolean(retro.staticPure),
             staticColor: Boolean(retro.staticColor),
             staticGlitch: (retro.staticGlitch ?? retro.glitch ?? 40) / 100,
@@ -231,6 +232,7 @@
         uniform int u_staticEnabled;
         uniform float u_staticNoise;
         uniform float u_staticScale;
+        uniform float u_staticSpeed;
         uniform int u_staticPure;
         uniform int u_staticColor;
         uniform float u_staticGlitch;
@@ -389,11 +391,13 @@
                 col.rgb = mix(col.rgb, vec3(gray), u_grayscale);
             }
 
-            // 8. TV White Noise & Analog Signal Noise with Scalable Dot Size
+            // 8. TV White Noise & Analog Signal Noise with Scalable Dot Size & Old-School Cadence
             if (u_staticEnabled == 1 && (u_staticNoise > 0.001 || u_staticPure == 1)) {
                 float nScale = max(1.0, u_staticScale);
                 vec2 noiseCoord = floor(gl_FragCoord.xy / nScale);
-                vec2 timeSeed = vec2(fract(u_time * 29.83), fract(u_time * 53.71));
+                float sSpeed = max(2.0, u_staticSpeed);
+                float tStatic = floor(u_time * sSpeed);
+                vec2 timeSeed = vec2(fract(tStatic * 0.1983), fract(tStatic * 0.3571));
                 float whiteNoise = hash21(noiseCoord + timeSeed * 1000.0);
 
                 vec3 snowColor;
@@ -662,7 +666,7 @@
             'u_lcdGrid', 'u_lcdPalette', 'u_lcdGhosting',
             'u_vhsEnabled', 'u_vhsJitter', 'u_vhsGlitch', 'u_vhsChroma', 'u_vhsNoise', 'u_vhsHeadNoise',
             'u_ntscEnabled', 'u_ntscBleed', 'u_ntscGhost', 'u_ntscNoise', 'u_ntscHue',
-            'u_staticEnabled', 'u_staticNoise', 'u_staticScale', 'u_staticPure', 'u_staticColor', 'u_staticGlitch', 'u_staticRoll',
+            'u_staticEnabled', 'u_staticNoise', 'u_staticScale', 'u_staticSpeed', 'u_staticPure', 'u_staticColor', 'u_staticGlitch', 'u_staticRoll',
             'u_grain', 'u_duoEnabled', 'u_duoDark', 'u_duoLight', 'u_tintEnabled', 'u_tintColor', 'u_tintOpacity'
         ];
         for (const name of uniformNames) {
@@ -836,6 +840,7 @@
         gl.uniform1i(u.u_staticEnabled, retro.static ? 1 : 0);
         gl.uniform1f(u.u_staticNoise, retro.staticNoise);
         gl.uniform1f(u.u_staticScale, retro.staticScale);
+        gl.uniform1f(u.u_staticSpeed, retro.staticSpeed);
         gl.uniform1i(u.u_staticPure, retro.staticPure ? 1 : 0);
         gl.uniform1i(u.u_staticColor, retro.staticColor ? 1 : 0);
         gl.uniform1f(u.u_staticGlitch, retro.staticGlitch);

@@ -769,6 +769,7 @@ export function filterSection(el) {
             <div class="sub-head" style="margin-top:10px;">TV Static &amp; White Noise</div>
             ${F.range('mediaFilter.retro.staticNoise', 'White noise / TV snow', (retro.staticNoise ?? retro.noise ?? 55), { min: 0, max: 100, unit: '%' })}
             ${F.range('mediaFilter.retro.staticScale', 'Noise dot scale', (retro.staticScale ?? 2.0), { min: 1.0, max: 8.0, step: 0.5, unit: '×' })}
+            ${F.range('mediaFilter.retro.staticSpeed', 'Snow refresh speed', (retro.staticSpeed ?? 16), { min: 4, max: 30, step: 1, unit: 'fps' })}
             <div style="display:flex;gap:12px;flex-wrap:wrap;margin:4px 0 6px;">
                 ${F.check('mediaFilter.retro.staticPure', 'Pure snow screen (no signal)', retroNorm.staticPure)}
                 ${F.check('mediaFilter.retro.staticColor', 'Color static', retroNorm.staticColor)}

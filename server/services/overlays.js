@@ -313,6 +313,7 @@ function normalizeRetro(retro = {}) {
         // TV Static & White Noise
         staticNoise: num(retro.staticNoise ?? retro.noise, 0, 100, 55),
         staticScale: num(retro.staticScale ?? retro.noiseScale, 1.0, 10.0, 2.0),
+        staticSpeed: num(retro.staticSpeed ?? retro.noiseSpeed, 2, 60, 16),
         staticPure: bool(retro.staticPure),
         staticColor: bool(retro.staticColor),
         staticGlitch: num(retro.staticGlitch ?? retro.glitch, 0, 100, 40),

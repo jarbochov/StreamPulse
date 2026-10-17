@@ -56,6 +56,7 @@
         // TV Static & White Noise
         staticNoise: 55,
         staticScale: 2.0,
+        staticSpeed: 16,
         staticPure: false,
         staticColor: false,
         staticGlitch: 40,
