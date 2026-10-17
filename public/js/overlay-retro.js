@@ -18,16 +18,30 @@
     // ---- Profile Definitions & Presets ----
     const PROFILES = {
         signals: {
-            vhs: { name: 'VHS Tape', jitter: 25, glitch: 20, chromatic: 20, noise: 15 },
-            ntsc: { name: 'NTSC Composite', bleed: 30, ghosting: 25, noise: 12 },
+            vhs: { name: 'VHS Tape', jitter: 25, glitch: 20, chromatic: 20, noise: 15, headNoise: 25 },
+            ntsc: { name: 'NTSC Composite', bleed: 30, ghosting: 25, noise: 12, hue: 0 },
             static: { name: 'TV Static & Snow', noise: 55, scale: 2.0, pure: false, color: false, glitch: 40, roll: 15 }
         },
         display: {
             none: { name: 'None (Flat)' },
-            crt: { name: 'CRT Monitor', scanlines: 45, scanlineScale: 1.0, curvature: 12, bloom: 25, vignette: 20, mask: 'aperture', maskScale: 1.0, maskStrength: 35 },
-            lcd: { name: 'LCD Matrix', grid: 35, palette: 'default' }
+            crt: { name: 'CRT Monitor', scanlines: 45, scanlineScale: 1.0, curvature: 12, bloom: 25, vignette: 20, mask: 'aperture', maskScale: 1.0, maskStrength: 35, interlace: 0 },
+            lcd: { name: 'LCD Matrix', grid: 35, palette: 'default', ghosting: 0 }
         }
     };
+
+    const RETRO_PRESETS = [
+        ['custom', 'Custom'],
+        ['trinitron-90s', '90s Trinitron CRT (RGB Stripes)', { display: 'crt', crtScanlines: 55, crtScanlineScale: 1.0, crtCurvature: 8, crtBloom: 35, crtVignette: 15, crtMask: 'aperture', crtMaskScale: 1.0, crtMaskStrength: 45, crtInterlace: 15 }],
+        ['arcade-80s', '80s Arcade Monitor (Slot Mask)', { display: 'crt', crtScanlines: 65, crtScanlineScale: 1.2, crtCurvature: 18, crtBloom: 40, crtVignette: 25, crtMask: 'slot', crtMaskScale: 1.0, crtMaskStrength: 40 }],
+        ['shadow-mask', 'Vintage PC CRT (Dot Triad)', { display: 'crt', crtScanlines: 50, crtScanlineScale: 1.0, crtCurvature: 12, crtBloom: 30, crtVignette: 20, crtMask: 'dot', crtMaskScale: 1.0, crtMaskStrength: 45, crtInterlace: 10 }],
+        ['vhs-rental', 'Worn VHS Rental Tape', { display: 'crt', vhs: true, vhsJitter: 35, vhsGlitch: 28, vhsChroma: 25, vhsNoise: 20, vhsHeadNoise: 35, crtScanlines: 30, crtScanlineScale: 1.0, crtCurvature: 10 }],
+        ['rabbit-ears', 'Rabbit-Ears TV Broadcast', { display: 'crt', ntsc: true, ntscBleed: 45, ntscGhost: 35, ntscNoise: 20, ntscHue: 5, crtScanlines: 35, crtScanlineScale: 1.0, crtCurvature: 12 }],
+        ['untuned-snow', 'Untuned TV Snow (Static)', { static: true, staticNoise: 75, staticScale: 3.0, staticPure: true, staticColor: false, staticGlitch: 50, staticRoll: 25 }],
+        ['gb-dmg', 'Game Boy DMG-01 (Pea-Soup)', { display: 'lcd', lcdGrid: 45, lcdPalette: 'dmg-green', lcdGhosting: 25 }],
+        ['gb-pocket', 'Game Boy Pocket (Silver)', { display: 'lcd', lcdGrid: 35, lcdPalette: 'pocket', lcdGhosting: 15 }],
+        ['gb-color', 'Game Boy Color (Reflective)', { display: 'lcd', lcdGrid: 40, lcdPalette: 'gameboy-color', lcdGhosting: 20 }],
+        ['cyber-amber', 'Cyberpunk Amber Terminal', { display: 'crt', crtScanlines: 60, crtScanlineScale: 1.0, crtCurvature: 14, crtBloom: 55, crtMask: 'dot', crtMaskScale: 1.0, crtMaskStrength: 30 }]
+    ];
 
     const PALETTES = {
         'dmg-green': [
@@ -53,6 +67,18 @@
             [0.40, 0.18, 0.00],
             [0.78, 0.42, 0.00],
             [1.00, 0.70, 0.10]
+        ],
+        'gameboy-color': [
+            [0.08, 0.12, 0.10],
+            [0.25, 0.42, 0.38],
+            [0.55, 0.68, 0.52],
+            [0.88, 0.92, 0.82]
+        ],
+        'virtual-boy': [
+            [0.00, 0.00, 0.00],
+            [0.35, 0.00, 0.00],
+            [0.70, 0.02, 0.02],
+            [1.00, 0.05, 0.05]
         ]
     };
 
@@ -75,7 +101,7 @@
         if (retro.viewOnCrt && display === 'none') display = 'crt';
 
         const mask = retro.crtMask || retro.mask || 'aperture';
-        const maskVal = mask === 'aperture' ? 1 : (mask === 'slot' || mask === 'slot-mask' || mask === 'shadow-mask' ? 2 : 0);
+        const maskVal = mask === 'aperture' ? 1 : (mask === 'slot' || mask === 'slot-mask' ? 2 : (mask === 'dot' || mask === 'shadow-mask' ? 3 : 0));
 
         // Resolve scanline scale with backwards compatibility
         let scanlineScale = 1.0;
@@ -113,21 +139,25 @@
             crtMaskScale: maskScale,
             crtMaskSize: maskScale * 2.0, // preserved for legacy consumers
             crtMaskStrength: (retro.crtMaskStrength ?? 35) / 100,
+            crtInterlace: (retro.crtInterlace ?? 0) / 100,
 
             // LCD Screen
             lcdGrid: (retro.lcdGrid ?? retro.grid ?? 35) / 100,
             lcdPalette: retro.lcdPalette || retro.palette || 'default',
+            lcdGhosting: (retro.lcdGhosting ?? 0) / 100,
 
             // VHS Signal
             vhsJitter: (retro.vhsJitter ?? retro.jitter ?? 25) / 100,
             vhsGlitch: (retro.vhsGlitch ?? retro.glitch ?? 20) / 100,
             vhsChroma: (retro.vhsChroma ?? retro.chromatic ?? 20) / 100,
             vhsNoise: (retro.vhsNoise ?? retro.noise ?? 15) / 100,
+            vhsHeadNoise: (retro.vhsHeadNoise ?? 25) / 100,
 
             // NTSC Signal
             ntscBleed: (retro.ntscBleed ?? retro.bleed ?? 30) / 100,
             ntscGhost: (retro.ntscGhost ?? retro.ghosting ?? 25) / 100,
             ntscNoise: (retro.ntscNoise ?? retro.noise ?? 12) / 100,
+            ntscHue: Number(retro.ntscHue ?? 0),
 
             // TV Static & White Noise
             staticNoise: (retro.staticNoise ?? retro.noise ?? 55) / 100,
@@ -174,13 +204,15 @@
         uniform float u_crtCurvature;
         uniform float u_crtBloom;
         uniform float u_crtVignette;
-        uniform int u_crtMask; // 0=None, 1=Aperture Grille, 2=Slot Mask
+        uniform int u_crtMask; // 0=None, 1=Aperture Grille, 2=Slot Mask, 3=Dot Mask
         uniform float u_crtMaskScale;
         uniform float u_crtMaskStrength;
+        uniform float u_crtInterlace;
 
         // LCD Matrix Uniforms
         uniform float u_lcdGrid;
-        uniform int u_lcdPalette; // 0=default/color, 1=dmg, 2=pocket, 3=blue, 4=amber
+        uniform int u_lcdPalette; // 0=default, 1=dmg, 2=pocket, 3=blue, 4=amber, 5=gbc, 6=vb
+        uniform float u_lcdGhosting;
 
         // Combinable Signals
         uniform int u_vhsEnabled;
@@ -188,11 +220,13 @@
         uniform float u_vhsGlitch;
         uniform float u_vhsChroma;
         uniform float u_vhsNoise;
+        uniform float u_vhsHeadNoise;
 
         uniform int u_ntscEnabled;
         uniform float u_ntscBleed;
         uniform float u_ntscGhost;
         uniform float u_ntscNoise;
+        uniform float u_ntscHue;
 
         uniform int u_staticEnabled;
         uniform float u_staticNoise;
@@ -278,8 +312,8 @@
                     uv.x += slice;
                 }
                 // VHS Head switching noise at bottom 2.5% of picture
-                if (uv.y > 0.975) {
-                    float headNoise = (hash21(vec2(uv.x * 20.0, floor(u_time * 60.0))) - 0.5) * 0.08;
+                if (uv.y > 0.975 && u_vhsHeadNoise > 0.001) {
+                    float headNoise = (hash21(vec2(uv.x * 20.0, floor(u_time * 60.0))) - 0.5) * (u_vhsHeadNoise * 0.28);
                     uv.x += headNoise;
                 }
             }
@@ -338,6 +372,11 @@
             }
 
             // 7. Base Color & Tone Adjustments
+            if (u_ntscEnabled == 1 && abs(u_ntscHue) > 0.001) {
+                vec3 hsv = rgb2hsv(col.rgb);
+                hsv.x = fract(hsv.x + u_ntscHue / 360.0);
+                col.rgb = hsv2rgb(hsv);
+            }
             if (u_brightness != 1.0) col.rgb *= u_brightness;
             if (u_contrast != 1.0) col.rgb = (col.rgb - 0.5) * u_contrast + 0.5;
             if (u_saturate != 1.0) {
@@ -400,7 +439,16 @@
                     col.rgb *= mix(1.0, beam, u_crtScanlines * 0.9);
                 }
 
-                // Phosphor Mask (Trinitron Aperture Grille or Slot Mask) with customizable stripe scale
+                // CRT Interlace 60Hz Alternating Scanline Parity Jitter
+                if (u_crtInterlace > 0.001) {
+                    float linePitch = max(1.5, 4.0 * u_crtScanlineScale);
+                    float frameParity = step(0.5, fract(u_time * 30.0));
+                    float lineParity = mod(floor(gl_FragCoord.y / linePitch), 2.0);
+                    float interlaceFactor = (lineParity == frameParity) ? 1.0 + (u_crtInterlace * 0.10) : 1.0 - (u_crtInterlace * 0.10);
+                    col.rgb *= interlaceFactor;
+                }
+
+                // Phosphor Mask (Trinitron Aperture Grille, Slot Mask, or Dot Mask Triads)
                 if (u_crtMask > 0 && u_crtMaskStrength > 0.001) {
                     float stripeWidth = max(1.0, floor(2.0 * u_crtMaskScale + 0.1));
                     float colIdx = mod(floor(gl_FragCoord.x / stripeWidth), 3.0);
@@ -415,6 +463,14 @@
                         if (slotCol < 0.5) triad = vec3(1.35, 0.5, 0.5);
                         else if (slotCol < 1.5) triad = vec3(0.5, 1.35, 0.5);
                         else triad = vec3(0.5, 0.5, 1.35);
+                    } else if (u_crtMask == 3) { // Dot Mask (vintage PC / arcade hexagonal shadow mask triads)
+                        float rowIdx = mod(floor(gl_FragCoord.y / stripeWidth), 2.0);
+                        float dotCol = mod(floor(gl_FragCoord.x / stripeWidth) + rowIdx * 1.5, 3.0);
+                        if (dotCol < 0.5) triad = vec3(1.4, 0.45, 0.45);
+                        else if (dotCol < 1.5) triad = vec3(0.45, 1.4, 0.45);
+                        else triad = vec3(0.45, 0.45, 1.4);
+                        vec2 dotFrac = fract(gl_FragCoord.xy / stripeWidth) - 0.5;
+                        triad *= smoothstep(0.55, 0.22, length(dotFrac)) * 0.65 + 0.35;
                     }
                     col.rgb = mix(col.rgb, col.rgb * triad, u_crtMaskStrength);
                 }
@@ -466,6 +522,16 @@
                         else if (shade < 2.0) col.rgb = vec3(0.40, 0.18, 0.00);
                         else if (shade < 3.0) col.rgb = vec3(0.78, 0.42, 0.00);
                         else col.rgb = vec3(1.00, 0.70, 0.10);
+                    } else if (u_lcdPalette == 5) { // Game Boy Color
+                        if (shade < 1.0) col.rgb = vec3(0.08, 0.12, 0.10);
+                        else if (shade < 2.0) col.rgb = vec3(0.25, 0.42, 0.38);
+                        else if (shade < 3.0) col.rgb = vec3(0.55, 0.68, 0.52);
+                        else col.rgb = vec3(0.88, 0.92, 0.82);
+                    } else if (u_lcdPalette == 6) { // Virtual Boy (Red LED)
+                        if (shade < 1.0) col.rgb = vec3(0.00, 0.00, 0.00);
+                        else if (shade < 2.0) col.rgb = vec3(0.35, 0.00, 0.00);
+                        else if (shade < 3.0) col.rgb = vec3(0.70, 0.02, 0.02);
+                        else col.rgb = vec3(1.00, 0.05, 0.05);
                     }
                 }
             }
@@ -592,10 +658,10 @@
             'u_brightness', 'u_contrast', 'u_saturate', 'u_grayscale',
             'u_displayMode',
             'u_crtScanlines', 'u_crtScanlineScale', 'u_crtCurvature', 'u_crtBloom', 'u_crtVignette',
-            'u_crtMask', 'u_crtMaskScale', 'u_crtMaskStrength',
-            'u_lcdGrid', 'u_lcdPalette',
-            'u_vhsEnabled', 'u_vhsJitter', 'u_vhsGlitch', 'u_vhsChroma', 'u_vhsNoise',
-            'u_ntscEnabled', 'u_ntscBleed', 'u_ntscGhost', 'u_ntscNoise',
+            'u_crtMask', 'u_crtMaskScale', 'u_crtMaskStrength', 'u_crtInterlace',
+            'u_lcdGrid', 'u_lcdPalette', 'u_lcdGhosting',
+            'u_vhsEnabled', 'u_vhsJitter', 'u_vhsGlitch', 'u_vhsChroma', 'u_vhsNoise', 'u_vhsHeadNoise',
+            'u_ntscEnabled', 'u_ntscBleed', 'u_ntscGhost', 'u_ntscNoise', 'u_ntscHue',
             'u_staticEnabled', 'u_staticNoise', 'u_staticScale', 'u_staticPure', 'u_staticColor', 'u_staticGlitch', 'u_staticRoll',
             'u_grain', 'u_duoEnabled', 'u_duoDark', 'u_duoLight', 'u_tintEnabled', 'u_tintColor', 'u_tintOpacity'
         ];
@@ -739,11 +805,18 @@
         gl.uniform1i(u.u_crtMask, retro.crtMask);
         gl.uniform1f(u.u_crtMaskScale, retro.crtMaskScale);
         gl.uniform1f(u.u_crtMaskStrength, retro.crtMaskStrength);
+        gl.uniform1f(u.u_crtInterlace, retro.crtInterlace);
 
         // LCD uniforms
         gl.uniform1f(u.u_lcdGrid, retro.lcdGrid);
+        gl.uniform1f(u.u_lcdGhosting, retro.lcdGhosting);
         const palId = retro.lcdPalette;
-        const palIndex = palId === 'dmg-green' ? 1 : palId === 'pocket' ? 2 : palId === 'cyber-blue' ? 3 : palId === 'amber' ? 4 : 0;
+        const palIndex = palId === 'dmg-green' ? 1 :
+            palId === 'pocket' ? 2 :
+            palId === 'cyber-blue' ? 3 :
+            palId === 'amber' ? 4 :
+            palId === 'gameboy-color' ? 5 :
+            palId === 'virtual-boy' ? 6 : 0;
         gl.uniform1i(u.u_lcdPalette, palIndex);
 
         // Combinable Signals
@@ -752,11 +825,13 @@
         gl.uniform1f(u.u_vhsGlitch, retro.vhsGlitch);
         gl.uniform1f(u.u_vhsChroma, retro.vhsChroma);
         gl.uniform1f(u.u_vhsNoise, retro.vhsNoise);
+        gl.uniform1f(u.u_vhsHeadNoise, retro.vhsHeadNoise);
 
         gl.uniform1i(u.u_ntscEnabled, retro.ntsc ? 1 : 0);
         gl.uniform1f(u.u_ntscBleed, retro.ntscBleed);
         gl.uniform1f(u.u_ntscGhost, retro.ntscGhost);
         gl.uniform1f(u.u_ntscNoise, retro.ntscNoise);
+        gl.uniform1f(u.u_ntscHue, retro.ntscHue);
 
         gl.uniform1i(u.u_staticEnabled, retro.static ? 1 : 0);
         gl.uniform1f(u.u_staticNoise, retro.staticNoise);
@@ -904,7 +979,8 @@
         node._retroRecord = { canvas, source, filter: f };
 
         // Determine if this effect truly needs continuous 60 FPS animation
-        const hasAnimSignal = retro.vhs || retro.ntsc || retro.static;
+        const hasAnimCrt = retro.display === 'crt' && retro.crtInterlace > 0;
+        const hasAnimSignal = retro.vhs || retro.ntsc || retro.static || hasAnimCrt;
         const hasAnimGrain = !!(f.grain?.enabled && f.grain?.animate);
         const hasAnimVideo = element.type === 'video' || (source && source.tagName === 'VIDEO');
         const isAnimated = hasAnimSignal || hasAnimGrain || hasAnimVideo;
@@ -946,6 +1022,7 @@
     const OverlayRetro = {
         PROFILES,
         PALETTES,
+        RETRO_PRESETS,
         normalizeRetro,
         applyRetroFilter,
         renderRetroShader,

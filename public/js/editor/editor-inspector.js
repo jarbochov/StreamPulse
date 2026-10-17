@@ -711,15 +711,17 @@ export function filterSection(el) {
             ${F.range('mediaFilter.retro.crtScanlineScale', 'Scanline scale', (retro.crtScanlineScale ?? (retro.crtScanlineSize ? retro.crtScanlineSize / 4 : 1.0)), { min: 0.5, max: 3.0, step: 0.1, unit: '×' })}
             ${F.range('mediaFilter.retro.crtCurvature', 'Tube curvature', (retro.crtCurvature ?? retro.curvature ?? 12), { min: 0, max: 60, unit: '%' })}
             ${F.range('mediaFilter.retro.crtBloom', 'Phosphor glow', (retro.crtBloom ?? retro.bloom ?? 25), { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.crtInterlace', 'Interlace 60Hz jitter', (retro.crtInterlace ?? 0), { min: 0, max: 100, unit: '%' })}
             <details class="sub-details" ${(prefs.sections['fx-crt-mask'] ?? true) ? 'open' : ''} data-sect="fx-crt-mask">
                 <summary>Phosphor Mask &amp; Vignette</summary>
                 ${F.select('mediaFilter.retro.crtMask', 'Phosphor mask', retro.crtMask || retro.mask || 'aperture', [
                     ['none', 'None (Clean scanlines)'],
                     ['aperture', 'Aperture grille (Trinitron RGB)'],
-                    ['slot', 'Slot mask (Staggered dot triad)']
+                    ['slot', 'Slot mask (Staggered dot triad)'],
+                    ['dot', 'Dot mask / Shadow mask (Hex triad)']
                 ])}
                 ${(retro.crtMask || retro.mask || 'aperture') !== 'none' ? `
-                    ${F.range('mediaFilter.retro.crtMaskScale', 'Aperture grille scale', (retro.crtMaskScale ?? (retro.crtMaskSize ? retro.crtMaskSize / 2 : 1.0)), { min: 0.5, max: 3.0, step: 0.1, unit: '×' })}
+                    ${F.range('mediaFilter.retro.crtMaskScale', 'Mask & grille scale', (retro.crtMaskScale ?? (retro.crtMaskSize ? retro.crtMaskSize / 2 : 1.0)), { min: 0.5, max: 3.0, step: 0.1, unit: '×' })}
                     ${F.range('mediaFilter.retro.crtMaskStrength', 'Mask intensity', (retro.crtMaskStrength ?? 35), { min: 0, max: 100, unit: '%' })}
                 ` : ''}
                 ${F.range('mediaFilter.retro.crtVignette', 'Corner vignette', (retro.crtVignette ?? retro.vignette ?? 20), { min: 0, max: 100, unit: '%' })}
@@ -729,10 +731,13 @@ export function filterSection(el) {
         displayControls = `
             <div class="sub-head" style="margin-top:8px;">LCD Matrix Screen</div>
             ${F.range('mediaFilter.retro.lcdGrid', 'Sub-pixel grid spacing', (retro.lcdGrid ?? retro.grid ?? 35), { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.lcdGhosting', 'Pixel ghosting & persistence', (retro.lcdGhosting ?? 0), { min: 0, max: 100, unit: '%' })}
             ${F.select('mediaFilter.retro.lcdPalette', 'LCD palette', retro.lcdPalette || retro.palette || 'default', [
                 ['default', 'Full color matrix'],
                 ['dmg-green', 'Game Boy DMG (Pea-soup green)'],
                 ['pocket', 'Game Boy Pocket (Silver gray)'],
+                ['gameboy-color', 'Game Boy Color (Reflective TFT)'],
+                ['virtual-boy', 'Virtual Boy (Monochrome red)'],
                 ['cyber-blue', 'Cyber terminal (Phosphor blue)'],
                 ['amber', 'Amber terminal (Monochrome orange)']
             ])}
@@ -747,6 +752,7 @@ export function filterSection(el) {
             ${F.range('mediaFilter.retro.vhsGlitch', 'Glitch bar', (retro.vhsGlitch ?? retro.glitch ?? 20), { min: 0, max: 100, unit: '%' })}
             ${F.range('mediaFilter.retro.vhsChroma', 'Chroma delay', (retro.vhsChroma ?? retro.chromatic ?? 20), { min: 0, max: 100, unit: '%' })}
             ${F.range('mediaFilter.retro.vhsNoise', 'Head noise', (retro.vhsNoise ?? retro.noise ?? 15), { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.vhsHeadNoise', 'Head switching noise', (retro.vhsHeadNoise ?? 25), { min: 0, max: 100, unit: '%' })}
         `;
     }
     if (retroNorm.ntsc) {
@@ -755,13 +761,14 @@ export function filterSection(el) {
             ${F.range('mediaFilter.retro.ntscBleed', 'Chroma bleed & flutter', (retro.ntscBleed ?? retro.bleed ?? 30), { min: 0, max: 100, unit: '%' })}
             ${F.range('mediaFilter.retro.ntscGhost', 'RF multipath ghosting', (retro.ntscGhost ?? retro.ghosting ?? 25), { min: 0, max: 100, unit: '%' })}
             ${F.range('mediaFilter.retro.ntscNoise', 'RF signal noise', (retro.ntscNoise ?? retro.noise ?? 12), { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.ntscHue', 'Color tint / hue', (retro.ntscHue ?? 0), { min: -30, max: 30, step: 1, unit: '°' })}
         `;
     }
     if (retroNorm.static) {
         signalDetails += `
             <div class="sub-head" style="margin-top:10px;">TV Static &amp; White Noise</div>
             ${F.range('mediaFilter.retro.staticNoise', 'White noise / TV snow', (retro.staticNoise ?? retro.noise ?? 55), { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.staticScale', 'Noise dot scale', (retro.staticScale ?? 2.0), { min: 1.0, max: 6.0, step: 0.5, unit: '×' })}
+            ${F.range('mediaFilter.retro.staticScale', 'Noise dot scale', (retro.staticScale ?? 2.0), { min: 1.0, max: 8.0, step: 0.5, unit: '×' })}
             <div style="display:flex;gap:12px;flex-wrap:wrap;margin:4px 0 6px;">
                 ${F.check('mediaFilter.retro.staticPure', 'Pure snow screen (no signal)', retroNorm.staticPure)}
                 ${F.check('mediaFilter.retro.staticColor', 'Color static', retroNorm.staticColor)}
@@ -833,9 +840,26 @@ export function filterSection(el) {
         </details>
     `;
 
+    const retroPresets = (typeof window !== 'undefined' && window.OverlayRetro?.RETRO_PRESETS)
+        ? window.OverlayRetro.RETRO_PRESETS
+        : (shared.OverlayRetro?.RETRO_PRESETS || []);
+
+    const matchingRetroPreset = retroPresets.find(([id, name, pObj]) => {
+        if (!pObj) return false;
+        if (pObj.display && retroNorm.display !== pObj.display) return false;
+        if (pObj.vhs != null && retroNorm.vhs !== Boolean(pObj.vhs)) return false;
+        if (pObj.ntsc != null && retroNorm.ntsc !== Boolean(pObj.ntsc)) return false;
+        if (pObj.static != null && retroNorm.static !== Boolean(pObj.static)) return false;
+        if (pObj.crtMask && (retro.crtMask || retro.mask || 'aperture') !== pObj.crtMask) return false;
+        if (pObj.lcdPalette && (retro.lcdPalette || retro.palette || 'default') !== pObj.lcdPalette) return false;
+        return true;
+    });
+    const currentRetroPresetId = matchingRetroPreset ? matchingRetroPreset[0] : '';
+
     const cardRetro = `
         <details class="sub-details" ${(prefs.sections['fx-retro'] ?? hasRetro) ? 'open' : ''} data-sect="fx-retro">
             <summary><span>Retro Screen &amp; Signal</span><span class="spacer"></span>${retroBadge}</summary>
+            <label class="field"><span>Retro preset</span><select data-retro-preset><option value=""${!currentRetroPresetId ? ' selected' : ''}>Custom / Manual</option>${retroPresets.filter(([id]) => id !== 'custom').map(([id, name]) => `<option value="${id}"${id === currentRetroPresetId ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
             ${F.select('mediaFilter.retro.display', 'Display Screen', retroNorm.display, [
                 ['none', 'None (Flat screen)'],
                 ['crt', 'CRT Monitor (Tube)'],
@@ -1630,6 +1654,38 @@ export function initInspectorEvents() {
             renderProperties();
             changed(true);
         });
+
+        propEl.addEventListener('change', event => {
+            const select = event.target.closest('[data-retro-preset]');
+            if (!select || !select.value) return;
+            const presets = window.OverlayRetro?.RETRO_PRESETS || shared.OverlayRetro?.RETRO_PRESETS || [];
+            const preset = presets.find(item => item[0] === select.value);
+            if (!preset || !preset[2]) return;
+            selectedElements().forEach(el => {
+                const mf = el.mediaFilter || (shared.defaultMediaFilter ? shared.defaultMediaFilter() : {});
+                const defRetro = shared.defaultRetro ? shared.defaultRetro() : {};
+                el.mediaFilter = {
+                    ...mf,
+                    retro: {
+                        ...defRetro,
+                        ...preset[2]
+                    }
+                };
+            });
+            renderCanvas();
+            renderProperties();
+            changed(true);
+        });
+
+        propEl.addEventListener('toggle', event => {
+            const details = event.target.closest('details[data-sect]');
+            if (!details) return;
+            const sect = details.dataset.sect;
+            if (!sect) return;
+            if (!prefs.sections) prefs.sections = {};
+            prefs.sections[sect] = details.open;
+            savePrefs();
+        }, true);
 
         propEl.addEventListener('change', event => {
             if (event.target.id === 'scale-text') {

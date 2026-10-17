@@ -239,6 +239,87 @@ function normalizeBorderAnimation(a = {}) {
     };
 }
 
+function normalizeRetro(retro = {}) {
+    const num = (value, min, max, fallback) => (Number.isFinite(Number(value)) && value !== '' && value !== null ? Math.max(min, Math.min(max, Number(value))) : fallback);
+    const bool = value => value === true || value === 'true' || value === 1;
+
+    let display = ['none', 'crt', 'lcd'].includes(retro.display) ? retro.display : 'none';
+    if (retro.type === 'crt' && display === 'none') display = 'crt';
+    if (retro.type === 'lcd' && display === 'none') display = 'lcd';
+
+    const vhs = bool(retro.vhs) || retro.signal === 'vhs' || retro.type === 'vhs';
+    const ntsc = bool(retro.ntsc) || retro.signal === 'ntsc' || retro.type === 'ntsc';
+    const staticSignal = bool(retro.static) || retro.signal === 'static' || retro.type === 'static';
+
+    let scanlineScale = 1.0;
+    if (retro.crtScanlineScale != null) {
+        scanlineScale = num(retro.crtScanlineScale, 0.2, 6.0, 1.0);
+    } else if (retro.crtScanlineSize != null || retro.scanlineSize != null) {
+        scanlineScale = num(Number(retro.crtScanlineSize ?? retro.scanlineSize) / 4.0, 0.2, 6.0, 1.0);
+    }
+
+    let maskScale = 1.0;
+    if (retro.crtMaskScale != null) {
+        maskScale = num(retro.crtMaskScale, 0.2, 6.0, 1.0);
+    } else if (retro.crtMaskSize != null || retro.maskSize != null) {
+        maskScale = num(Number(retro.crtMaskSize ?? retro.maskSize) / 2.0, 0.2, 6.0, 1.0);
+    }
+
+    const mask = ['none', 'aperture', 'slot', 'dot', 'slot-mask', 'shadow-mask'].includes(retro.crtMask || retro.mask)
+        ? (retro.crtMask || retro.mask)
+        : 'aperture';
+
+    const lcdPalette = ['default', 'dmg-green', 'pocket', 'cyber-blue', 'amber', 'gameboy-color', 'virtual-boy'].includes(retro.lcdPalette || retro.palette)
+        ? (retro.lcdPalette || retro.palette)
+        : 'default';
+
+    return {
+        display,
+        vhs,
+        ntsc,
+        static: staticSignal,
+
+        // CRT Screen
+        crtScanlines: num(retro.crtScanlines ?? retro.scanlines, 0, 100, 45),
+        crtScanlineScale: scanlineScale,
+        crtScanlineSize: scanlineScale * 4.0,
+        crtCurvature: num(retro.crtCurvature ?? retro.curvature, 0, 60, 12),
+        crtBloom: num(retro.crtBloom ?? retro.bloom, 0, 100, 25),
+        crtVignette: num(retro.crtVignette ?? retro.vignette, 0, 100, 20),
+        crtMask: mask,
+        crtMaskScale: maskScale,
+        crtMaskSize: maskScale * 2.0,
+        crtMaskStrength: num(retro.crtMaskStrength, 0, 100, 35),
+        crtInterlace: num(retro.crtInterlace, 0, 100, 0),
+
+        // LCD Screen
+        lcdGrid: num(retro.lcdGrid ?? retro.grid, 0, 100, 35),
+        lcdPalette,
+        lcdGhosting: num(retro.lcdGhosting, 0, 100, 0),
+
+        // VHS Signal
+        vhsJitter: num(retro.vhsJitter ?? retro.jitter, 0, 100, 25),
+        vhsGlitch: num(retro.vhsGlitch ?? retro.glitch, 0, 100, 20),
+        vhsChroma: num(retro.vhsChroma ?? retro.chromatic, 0, 100, 20),
+        vhsNoise: num(retro.vhsNoise ?? retro.noise, 0, 100, 15),
+        vhsHeadNoise: num(retro.vhsHeadNoise, 0, 100, 25),
+
+        // NTSC Signal
+        ntscBleed: num(retro.ntscBleed ?? retro.bleed, 0, 100, 30),
+        ntscGhost: num(retro.ntscGhost ?? retro.ghosting, 0, 100, 25),
+        ntscNoise: num(retro.ntscNoise ?? retro.noise, 0, 100, 12),
+        ntscHue: num(retro.ntscHue, -30, 30, 0),
+
+        // TV Static & White Noise
+        staticNoise: num(retro.staticNoise ?? retro.noise, 0, 100, 55),
+        staticScale: num(retro.staticScale ?? retro.noiseScale, 1.0, 10.0, 2.0),
+        staticPure: bool(retro.staticPure),
+        staticColor: bool(retro.staticColor),
+        staticGlitch: num(retro.staticGlitch ?? retro.glitch, 0, 100, 40),
+        staticRoll: num(retro.staticRoll ?? retro.roll, 0, 100, 15)
+    };
+}
+
 function normalizeMediaFilter(f = {}) {
     const hex = (value, fallback) => (/^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value).toLowerCase() : fallback);
     const num = (value, min, max, fallback) => (Number.isFinite(Number(value)) && value !== '' && value !== null ? Math.max(min, Math.min(max, Number(value))) : fallback);
@@ -257,7 +338,13 @@ function normalizeMediaFilter(f = {}) {
         },
         grain: { enabled: f.grain?.enabled === true, amount: num(f.grain?.amount, 0, 1, 0.25), size: num(f.grain?.size, 0.5, 4, 1), animate: f.grain?.animate !== false },
         halftone: {
-            mode: ['none', 'dots', 'lines', 'crosshatch', 'bayer', 'atkinson', 'pixelate'].includes(ht.mode) ? ht.mode : 'none',
+            mode: [
+                'none', 'dots', 'lines', 'crosshatch',
+                'bayer', 'bayer-2', 'bayer-4', 'bayer-8', 'bayer-16',
+                'cluster-4', 'cluster-8', 'lines-h', 'blue-noise', 'custom',
+                'floyd-steinberg', 'atkinson', 'sierra-lite', 'sierra', 'burkes', 'jarvis',
+                'pixelate'
+            ].includes(ht.mode) ? ht.mode : 'none',
             size: Math.round(num(ht.size, 1, 48, 8)),
             angle: Math.round(num(ht.angle, -180, 180, 45)),
             threshold: Math.round(num(ht.threshold, 5, 95, 50)),
@@ -265,6 +352,7 @@ function normalizeMediaFilter(f = {}) {
             pixelSize: Math.round(num(ht.pixelSize, 1, 32, 1)),
             levels: Math.round(num(ht.levels, 2, 16, 4)),
             colorMode: ['manga', 'ink-only', 'color'].includes(ht.colorMode) ? ht.colorMode : 'manga',
+            customMatrix: String(ht.customMatrix || '').slice(0, 500),
             inkColor: hex(ht.inkColor, '#0f172a'),
             paperColor: hex(ht.paperColor, '#ffffff'),
             invert: ht.invert === true,
@@ -276,7 +364,8 @@ function normalizeMediaFilter(f = {}) {
             fadeEnd: Math.round(num(ht.fadeEnd, 0, 100, 85)),
             fadeInvert: ht.fadeInvert === true,
             fadeStyle: ['dots', 'blend'].includes(ht.fadeStyle) ? ht.fadeStyle : 'dots'
-        }
+        },
+        retro: normalizeRetro(f.retro || {})
     };
 }
 
@@ -941,6 +1030,7 @@ function createOverlayService({
         normalizePages,
         normalizeGradient,
         normalizeMediaFilter,
+        normalizeRetro,
         readOverlayHistory,
         recordOverlayRevision,
         pageSnapshot,
@@ -993,6 +1083,7 @@ module.exports = {
     createOverlayService,
     normalizeGradient,
     normalizeMediaFilter,
+    normalizeRetro,
     normalizeAssetTagList,
     normalizeOverlayElement,
     normalizePages,

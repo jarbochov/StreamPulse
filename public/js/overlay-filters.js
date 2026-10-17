@@ -37,18 +37,22 @@
         crtMaskScale: 1.0,
         crtMaskSize: 2,
         crtMaskStrength: 35,
+        crtInterlace: 0,
         // LCD Display
         lcdGrid: 35,
         lcdPalette: 'default',
+        lcdGhosting: 0,
         // VHS Signal
         vhsJitter: 25,
         vhsGlitch: 20,
         vhsChroma: 20,
         vhsNoise: 15,
+        vhsHeadNoise: 25,
         // NTSC Signal
         ntscBleed: 30,
         ntscGhost: 25,
         ntscNoise: 12,
+        ntscHue: 0,
         // TV Static & White Noise
         staticNoise: 55,
         staticScale: 2.0,
