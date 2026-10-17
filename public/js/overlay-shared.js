@@ -738,7 +738,9 @@
                 let style = document.getElementById('asset-font-faces');
                 if (!style) { style = document.createElement('style'); style.id = 'asset-font-faces'; document.head.appendChild(style); }
                 style.textContent = fonts.map(font => `@font-face { font-family: '${font.family.replace(/'/g, '')}'; src: url('${font.url}'); font-display: swap; }`).join('\n');
-                await Promise.all(fonts.map(font => document.fonts.load(`16px '${font.family}'`).catch(() => null)));
+                if (document.fonts?.load) {
+                    fonts.forEach(font => document.fonts.load(`16px '${font.family}'`).catch(() => null));
+                }
             }
         } catch { /* fonts are optional */ }
         return assetFonts;

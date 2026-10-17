@@ -331,38 +331,66 @@
             masked.style.removeProperty('mask');
             return;
         }
-        const filters = [];
-        const shapes = cutouts.map(el => {
-            const shape = el.cutout?.shape || 'rectangle';
-            const feather = Math.max(0, Math.min(100, Number(el.cutout?.feather) || 0));
-            let filterAttr = '';
-            if (feather > 0) {
-                const filterId = `cutout-feather-${el.id}`;
-                filters.push(`<filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${feather / 2}"/></filter>`);
-                filterAttr = `filter="url(#${filterId})"`;
-            }
-            const x = Number(el.x) || 0;
-            const y = Number(el.y) || 0;
-            const w = Number(el.width) || 0;
-            const h = Number(el.height) || 0;
-            if (shape === 'circle') {
-                const cx = x + w / 2;
-                const cy = y + h / 2;
-                const rx = w / 2;
-                const ry = h / 2;
-                return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="black" ${filterAttr}/>`;
-            }
-            if (shape === 'pill') {
-                const rx = Math.min(w, h) / 2;
-                return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" ry="${rx}" fill="black" ${filterAttr}/>`;
-            }
-            const rad = Math.max(0, Number(el.style?.borderRadius) || 0);
-            return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rad}" ry="${rad}" fill="black" ${filterAttr}/>`;
-        });
+        const hasFeather = cutouts.some(el => Number(el.cutout?.feather) > 0);
+        let svgXml = '';
 
-        // Use a self-contained SVG image data URI. WebKit (Safari) does not support SVG DOM fragment masks
-        // (url(#id)) on HTML elements, but has full hardware-accelerated support for SVG image data URIs in CSS mask-image.
-        const svgXml = `<svg xmlns="http://www.w3.org/2000/svg" width="${canW}" height="${canH}" viewBox="0 0 ${canW} ${canH}"><defs>${filters.join('')}<mask id="m"><rect width="100%" height="100%" fill="white"/>${shapes.join('')}</mask></defs><rect width="100%" height="100%" fill="white" mask="url(#m)"/></svg>`;
+        if (!hasFeather) {
+            // Fast single-pass vector path with fill-rule="evenodd".
+            // Renders in a single hardware-accelerated pass without requiring offscreen mask buffers.
+            const holePaths = cutouts.map(el => {
+                const shape = el.cutout?.shape || 'rectangle';
+                const x = Math.round(Number(el.x) || 0);
+                const y = Math.round(Number(el.y) || 0);
+                const w = Math.round(Number(el.width) || 0);
+                const h = Math.round(Number(el.height) || 0);
+                if (shape === 'circle') {
+                    const cx = Math.round(x + w / 2);
+                    const cy = Math.round(y + h / 2);
+                    const rx = Math.round(w / 2);
+                    const ry = Math.round(h / 2);
+                    return `M ${cx - rx} ${cy} A ${rx} ${ry} 0 1 1 ${cx + rx} ${cy} A ${rx} ${ry} 0 1 1 ${cx - rx} ${cy} Z`;
+                }
+                const rad = Math.round(Math.max(0, Number(el.style?.borderRadius) || 0));
+                const r = Math.max(0, Math.min(Math.min(w, h) / 2, shape === 'pill' ? Math.min(w, h) / 2 : rad));
+                if (r <= 0) {
+                    return `M ${x} ${y} H ${x + w} V ${y + h} H ${x} Z`;
+                }
+                return `M ${x + r} ${y} H ${x + w - r} A ${r} ${r} 0 0 1 ${x + w} ${y + r} V ${y + h - r} A ${r} ${r} 0 0 1 ${x + w - r} ${y + h} H ${x + r} A ${r} ${r} 0 0 1 ${x} ${y + h - r} V ${y + r} A ${r} ${r} 0 0 1 ${x + r} ${y} Z`;
+            }).join(' ');
+
+            svgXml = `<svg xmlns="http://www.w3.org/2000/svg" width="${canW}" height="${canH}" viewBox="0 0 ${canW} ${canH}"><path fill="white" fill-rule="evenodd" d="M 0 0 H ${canW} V ${canH} H 0 Z ${holePaths}"/></svg>`;
+        } else {
+            const filters = [];
+            const shapes = cutouts.map(el => {
+                const shape = el.cutout?.shape || 'rectangle';
+                const feather = Math.round(Math.max(0, Math.min(100, Number(el.cutout?.feather) || 0)));
+                let filterAttr = '';
+                if (feather > 0) {
+                    const filterId = `cutout-feather-${el.id}`;
+                    filters.push(`<filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${feather / 2}"/></filter>`);
+                    filterAttr = `filter="url(#${filterId})"`;
+                }
+                const x = Math.round(Number(el.x) || 0);
+                const y = Math.round(Number(el.y) || 0);
+                const w = Math.round(Number(el.width) || 0);
+                const h = Math.round(Number(el.height) || 0);
+                if (shape === 'circle') {
+                    const cx = Math.round(x + w / 2);
+                    const cy = Math.round(y + h / 2);
+                    const rx = Math.round(w / 2);
+                    const ry = Math.round(h / 2);
+                    return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="black" ${filterAttr}/>`;
+                }
+                if (shape === 'pill') {
+                    const rx = Math.round(Math.min(w, h) / 2);
+                    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" ry="${rx}" fill="black" ${filterAttr}/>`;
+                }
+                const rad = Math.round(Math.max(0, Number(el.style?.borderRadius) || 0));
+                return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rad}" ry="${rad}" fill="black" ${filterAttr}/>`;
+            });
+            svgXml = `<svg xmlns="http://www.w3.org/2000/svg" width="${canW}" height="${canH}" viewBox="0 0 ${canW} ${canH}"><defs>${filters.join('')}<mask id="m"><rect width="100%" height="100%" fill="white"/>${shapes.join('')}</mask></defs><rect width="100%" height="100%" fill="white" mask="url(#m)"/></svg>`;
+        }
+
         const maskDataUrl = `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgXml)}")`;
         if (masked._lastMaskUrl === maskDataUrl) return;
         masked._lastMaskUrl = maskDataUrl;
@@ -392,6 +420,10 @@
         root.style.background = 'transparent';
         if (pagesOn(overlay) && !(overlay.pages.items || []).some(item => item.id === currentPage && item.enabled !== false)) currentPage = (overlay.pages.items.find(item => item.enabled !== false) || overlay.pages.items[0]).id;
 
+        const { masked, top } = ensureLayers();
+        masked.style.background = overlay.canvas.background || 'transparent';
+        updateCutoutMask();
+
         const activeCutouts = pageElements(overlay).filter(el => el.type === 'cutout' && (cutoutStates.has(el.id) ? cutoutStates.get(el.id) : el.visible !== false));
         const maxCutoutZ = activeCutouts.length ? Math.max(...activeCutouts.map(c => Number(c.zIndex) || 0)) : -Infinity;
 
@@ -412,8 +444,6 @@
             }
         }
 
-        const { masked, top } = ensureLayers();
-        masked.style.background = overlay.canvas.background || 'transparent';
         [...masked.children, ...top.children].forEach(child => {
             if (!built.includes(child)) {
                 shared.cleanupNode(child);
@@ -719,25 +749,39 @@
         if (!response.ok) throw new Error('Overlay not found');
         const overlay = await response.json();
         liveStatus.overlayName = overlay.name;
-        await shared.loadAssetFonts();
-        try {
-            const statusResponse = await fetch('/api/status', { cache: 'no-store' });
-            if (statusResponse.ok) liveStatus = { ...liveStatus, ...(await statusResponse.json()) };
-        } catch {}
-        await shared.loadLiveExtras(liveStatus, overlay.elements);
-        await shared.refreshTextSources(overlay.elements);
         currentOverlay = overlay;
+
         if (pagesOn(overlay)) {
-            currentPage = resolvePage(overlay, pageParam);
-            if (!currentPage) {
+            currentPage = resolvePage(overlay, pageParam) || (overlay.pages.items.find(item => item.enabled !== false) || overlay.pages.items[0])?.id;
+        }
+
+        // Render immediately on initial frame so cutouts, media, and layout display with zero latency.
+        render(overlay);
+
+        // Concurrently fetch assets, fonts, status, and live extras in the background.
+        (async () => {
+            shared.loadAssetFonts?.().catch(() => null);
+            try {
+                const statusResponse = await fetch('/api/status', { cache: 'no-store' });
+                if (statusResponse.ok) liveStatus = { ...liveStatus, ...(await statusResponse.json()) };
+            } catch {}
+            await shared.loadLiveExtras(liveStatus, overlay.elements);
+            await shared.refreshTextSources(overlay.elements);
+            if (pagesOn(overlay) && !pageParam) {
                 try {
                     const state = await (await fetch(`/api/custom-overlays/${encodeURIComponent(overlayId)}/page`, { cache: 'no-store' })).json();
-                    currentPage = resolvePage(overlay, state.page);
+                    const activePage = resolvePage(overlay, state.page);
+                    if (activePage && activePage !== currentPage) {
+                        switchPage(activePage);
+                        return;
+                    }
                 } catch {}
             }
-            if (!currentPage) currentPage = (overlay.pages.items.find(item => item.enabled !== false) || overlay.pages.items[0]).id;
-        }
-        render(overlay);
+            if (currentOverlay === overlay) {
+                render(overlay);
+            }
+        })().catch(() => null);
+
         return overlay;
     }
 

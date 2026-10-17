@@ -1218,7 +1218,7 @@ export async function load() {
     initEventListeners();
     syncToggles();
 
-    if (shared.loadAssetFonts) await shared.loadAssetFonts();
+    if (shared.loadAssetFonts) shared.loadAssetFonts().catch(() => null);
 
     if (!state.isNew) {
         const response = await fetch(`/api/custom-overlays/${encodeURIComponent(initialId)}`).catch(() => null);
@@ -1231,7 +1231,11 @@ export async function load() {
     }
     ensureCurPage();
 
-    if (shared.refreshTextSources) await shared.refreshTextSources(state.overlay.elements);
+    if (shared.refreshTextSources) {
+        shared.refreshTextSources(state.overlay.elements).then(() => {
+            if (state.overlay.elements.some(e => e.source && e.source.mode !== 'inline')) renderCanvas();
+        }).catch(() => null);
+    }
 
     state.savedSnapshot = state.isNew ? '' : snapshot();
     state.hist.stack = [];
