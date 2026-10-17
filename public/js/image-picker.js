@@ -51,7 +51,14 @@
         const status = backdrop.querySelector('.mp-status');
         let assets = [];
 
-        const close = () => { backdrop.remove(); document.removeEventListener('keydown', onKey, true); };
+        let drawTimer = null;
+        const close = () => {
+            clearTimeout(drawTimer);
+            grid.innerHTML = '';
+            assets = [];
+            backdrop.remove();
+            document.removeEventListener('keydown', onKey, true);
+        };
         const pick = url => { close(); onPick && onPick(url); };
         function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
 
@@ -64,7 +71,7 @@
                 b.type = 'button';
                 b.setAttribute('role', 'option');
                 if (a.url === value) b.classList.add('on');
-                b.innerHTML = `<div class="mp-thumb"><img src="${esc(a.url)}" alt="" loading="lazy"></div><div class="mp-cap" title="${esc(a.label || a.name)}">${esc(a.label || a.name)}</div>`;
+                b.innerHTML = `<div class="mp-thumb"><img src="${esc(a.url)}" alt="" loading="lazy" decoding="async"></div><div class="mp-cap" title="${esc(a.label || a.name)}">${esc(a.label || a.name)}</div>`;
                 b.onclick = () => pick(a.url);
                 grid.appendChild(b);
             });
@@ -93,7 +100,7 @@
             }
         });
 
-        input.addEventListener('input', draw);
+        input.addEventListener('input', () => { clearTimeout(drawTimer); drawTimer = setTimeout(draw, 120); });
         backdrop.querySelector('[data-clear]').onclick = () => pick('');
         backdrop.querySelector('[data-close]').onclick = close;
         backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) close(); });

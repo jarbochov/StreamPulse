@@ -169,11 +169,35 @@
         }
     }
 
+    function setNodeText(node, text) {
+        if (!node.firstElementChild) {
+            if (node.textContent !== text) node.textContent = text;
+            return;
+        }
+        let tn = node._textNode;
+        if (!tn || tn.parentNode !== node) {
+            tn = [...node.childNodes].find(c => c.nodeType === 3);
+            if (!tn) {
+                tn = document.createTextNode('');
+                node.insertBefore(tn, node.firstChild);
+            }
+            node._textNode = tn;
+        }
+        if (tn.nodeValue !== text) tn.nodeValue = text;
+    }
+
     function tickPlaceholders() {
         for (const { node, element } of tickingNodes) {
             if (element.type === 'progress') shared.renderProgress(node, element, expandVariables);
-            else if (element.type === 'markdown') node.innerHTML = renderMarkdown(shared.elementContent(element), element);
-            else node.textContent = expandVariables(shared.elementContent(element) || '');
+            else if (element.type === 'markdown') {
+                const nextHtml = renderMarkdown(shared.elementContent(element), element);
+                if (node._mdHtml !== nextHtml) {
+                    node._mdHtml = nextHtml;
+                    node.innerHTML = nextHtml;
+                    shared.applyMediaFilter(node, element);
+                }
+            }
+            else setNodeText(node, expandVariables(shared.elementContent(element) || ''));
             if (element.textFit && element.textFit !== 'none') shared.fitText(node, element);
         }
     }
@@ -381,7 +405,12 @@
 
         const { masked, top } = ensureLayers();
         masked.style.background = overlay.canvas.background || 'transparent';
-        [...masked.children, ...top.children].forEach(child => { if (!built.includes(child)) child.remove(); });
+        [...masked.children, ...top.children].forEach(child => {
+            if (!built.includes(child)) {
+                shared.cleanupNode(child);
+                child.remove();
+            }
+        });
         built.forEach(node => {
             const parent = node._layer === 'top' ? top : masked;
             if (node.parentNode !== parent) parent.appendChild(node);
@@ -569,7 +598,7 @@
                 shared.applyBorderEffects(node, element.style || {}, element);
                 node._isTopLayer = true;
             } else {
-                node.textContent = expandVariables(shared.elementContent(element) || '');
+                setNodeText(node, expandVariables(shared.elementContent(element) || ''));
             }
             const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : shared.elementContent(element);
             if (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource)) tickingNodes.push({ node, element });
@@ -640,7 +669,7 @@
         const finish = () => {
             outgoing.forEach(node => {
                 if (prevTrigger && node.classList.contains('overlay-embed')) { node.style.animation = ''; node.style.willChange = ''; node.style.visibility = 'hidden'; node.style.pointerEvents = 'none'; }
-                else node.remove();
+                else { shared.cleanupNode(node); node.remove(); }
             });
             incoming.forEach(node => { node.style.animation = ''; node.style.willChange = ''; node.style.visibility = ''; node.style.pointerEvents = ''; });
             transitioning = false;
@@ -669,7 +698,7 @@
             const statusResponse = await fetch('/api/status', { cache: 'no-store' });
             if (statusResponse.ok) liveStatus = { ...liveStatus, ...(await statusResponse.json()) };
         } catch {}
-        await shared.loadLiveExtras(liveStatus);
+        await shared.loadLiveExtras(liveStatus, overlay.elements);
         await shared.refreshTextSources(overlay.elements);
         currentOverlay = overlay;
         if (pagesOn(overlay)) {
@@ -692,7 +721,7 @@
             if (!response.ok) return;
             const before = shared.variableSnapshot(liveStatus, variableContext());
             liveStatus = { ...liveStatus, ...(await response.json()) };
-            await shared.loadLiveExtras(liveStatus);
+            await shared.loadLiveExtras(liveStatus, currentOverlay?.elements);
             // Re-rendering restarts typewriters, videos and embeds, so only do it when a placeholder value changed.
             if (currentOverlay && shared.variableSnapshot(liveStatus, variableContext()) !== before) render(currentOverlay);
         } catch {}
@@ -820,6 +849,7 @@
         });
         socket.addEventListener('message', event => {
             try {
+                if (typeof event.data === 'string' && (event.data.startsWith('{"type":"update"') || event.data.startsWith('{"type":"snapshot"'))) return;
                 const message = JSON.parse(event.data);
                 if (message.type === 'alert') showAlert(message.data);
                 else if (message.type === 'alert-skip' || message.type === 'alert-clear') stopAlerts();

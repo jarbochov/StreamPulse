@@ -1120,9 +1120,31 @@ function createSsnService({
             }
         }
 
-        broadcastToOverlays('update', chatData);
+        scheduleChatUpdateBroadcast();
         if (shouldUpdateGoals) {
             broadcastToOverlays('goals-update', buildGoalsSnapshot());
+        }
+    }
+
+    let chatBroadcastTimer = null;
+    let lastChatBroadcastAt = 0;
+    function scheduleChatUpdateBroadcast() {
+        const now = Date.now();
+        const elapsed = now - lastChatBroadcastAt;
+        if (elapsed >= 1500) {
+            if (chatBroadcastTimer) {
+                clearTimeout(chatBroadcastTimer);
+                chatBroadcastTimer = null;
+            }
+            lastChatBroadcastAt = now;
+            broadcastToOverlays('update', getChatData());
+        } else if (!chatBroadcastTimer) {
+            chatBroadcastTimer = setTimeout(() => {
+                chatBroadcastTimer = null;
+                lastChatBroadcastAt = Date.now();
+                broadcastToOverlays('update', getChatData());
+            }, 1500 - elapsed);
+            if (typeof chatBroadcastTimer.unref === 'function') chatBroadcastTimer.unref();
         }
     }
 

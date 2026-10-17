@@ -84,7 +84,7 @@
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const urlParams = new URLSearchParams(location.search);
-    const prefs = Object.assign({ previews: true, view: 'grid', sort: 'updated', size: 300 }, JSON.parse(localStorage.getItem('customOverlaysPrefs') || '{}'));
+    const prefs = Object.assign({ previews: false, view: 'grid', sort: 'updated', size: 300 }, JSON.parse(localStorage.getItem('customOverlaysPrefs') || '{}'));
     if (urlParams.has('view')) prefs.view = urlParams.get('view');
     if (urlParams.has('sort')) prefs.sort = urlParams.get('sort');
     const savePrefs = () => {
@@ -163,6 +163,9 @@
         const shown = overlays.filter(o => !query || `${o.name} ${o.id}`.toLowerCase().includes(query)).sort(SORTS[prefs.sort] || SORTS.updated);
         $('summary').textContent = overlays.length ? `${shown.length} of ${overlays.length} overlays` : '';
         const list = $('overlay-list');
+        previewObserver?.disconnect();
+        visiblePreviews.clear();
+        list.querySelectorAll('iframe').forEach(f => { try { f.src = 'about:blank'; } catch {} });
         list.className = prefs.view === 'list' ? 'grid list' : 'grid';
         $('toggle-preview').classList.toggle('active', prefs.previews);
         $('toggle-view').textContent = prefs.view === 'list' ? 'Grid view' : 'List view';
@@ -241,12 +244,19 @@
         } catch (error) { StreamPulse.toast(error.message, 'error'); button.disabled = false; }
     });
 
-    $('search').addEventListener('input', render);
+    let searchTimer = null;
+    $('search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(render, 150); });
     $('sort').value = prefs.sort;
     $('sort').addEventListener('change', () => { prefs.sort = $('sort').value; savePrefs(); render(); });
     const applySize = () => { $('overlay-list').style.setProperty('--card', `${prefs.size}px`); fitPreviews(); };
     $('card-size').value = prefs.size;
-    $('card-size').addEventListener('input', () => { prefs.size = Number($('card-size').value); savePrefs(); applySize(); });
+    let cardSizeTimer = null;
+    $('card-size').addEventListener('input', () => {
+        prefs.size = Number($('card-size').value);
+        applySize();
+        clearTimeout(cardSizeTimer);
+        cardSizeTimer = setTimeout(savePrefs, 200);
+    });
     $('overlay-list').style.setProperty('--card', `${prefs.size}px`);
     $('toggle-preview').addEventListener('click', () => { prefs.previews = !prefs.previews; savePrefs(); render(); });
     $('toggle-view').addEventListener('click', () => { prefs.view = prefs.view === 'list' ? 'grid' : 'list'; savePrefs(); render(); });

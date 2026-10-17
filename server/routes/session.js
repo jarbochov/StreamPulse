@@ -146,10 +146,13 @@ function createSessionRoutes({
                 Object.keys(data.chatters || {}).forEach(name => uniqueChatters.add(name.trim().toLowerCase()));
                 const viewers = data.viewerStats || {};
                 const isCurrent = data.file === '__current__';
-                const chatEntries = isCurrent
-                    ? ssnService.getCurrentChatLogEntries()
-                    : ssnService.readChatLogFile(path.join(sessionsDir, data.file.replace('chat-', 'chatlog-').replace('.json', '.jsonl')));
-                const streamTimes = getSessionStreamTimes(data, chatEntries);
+                let streamTimes = getSessionStreamTimes(data);
+                if (!streamTimes.streamStopAt && streamTimes.streamStartAt) {
+                    const chatEntries = isCurrent
+                        ? ssnService.getCurrentChatLogEntries()
+                        : ssnService.readChatLogFile(path.join(sessionsDir, data.file.replace('chat-', 'chatlog-').replace('.json', '.jsonl')));
+                    streamTimes = getSessionStreamTimes(data, chatEntries);
+                }
                 const categories = getSessionCategorySegments(data, streamTimes.streamStartAt, streamTimes.streamStopAt, isCurrent);
                 const streamStartMs = streamTimes.streamStartAt ? Date.parse(streamTimes.streamStartAt) : NaN;
                 const streamStopMs = streamTimes.streamStopAt ? Date.parse(streamTimes.streamStopAt) : NaN;
@@ -367,8 +370,11 @@ function createSessionRoutes({
                         try {
                             const raw = fs.readFileSync(path.join(sessionsDir, f), 'utf8');
                             const d = JSON.parse(raw);
-                            const logName = f.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
-                            const streamTimes = getSessionStreamTimes(d, ssnService.readChatLogFile(path.join(sessionsDir, logName)));
+                            let streamTimes = getSessionStreamTimes(d);
+                            if (!streamTimes.streamStopAt && streamTimes.streamStartAt) {
+                                const logName = f.replace('chat-', 'chatlog-').replace('.json', '.jsonl');
+                                streamTimes = getSessionStreamTimes(d, ssnService.readChatLogFile(path.join(sessionsDir, logName)));
+                            }
                             if (d.streamInfo && d.streamInfo.length > 0) {
                                 entry.title = d.streamInfo[0].title;
                                 entry.category = d.streamInfo[0].category;

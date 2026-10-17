@@ -214,7 +214,7 @@ kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; background: var
 #stage.space, #stage.panning { cursor: grab; }
 #stage.panning { cursor: grabbing; }
 #stage.drop-target::after { content: 'Drop image or video to add'; position: absolute; inset: 14px; display: grid; place-items: center; border: 2px dashed var(--accent); border-radius: 12px; background: color-mix(in srgb, var(--accent-strong) 10%, transparent); color: var(--accent); font-weight: 600; font-size: 16px; z-index: 30; pointer-events: none; }
-#world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+#world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 #world > div { position: absolute; left: 0; top: 0; }
 #backdrop { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent), 0 12px 40px #000c; }
 #backdrop.bd-checker { background-color: var(--border); background-image: conic-gradient(var(--border-strong) 25%, transparent 0 50%, var(--border-strong) 0 75%, transparent 0); background-size: 24px 24px; }

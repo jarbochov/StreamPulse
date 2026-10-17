@@ -232,8 +232,8 @@
     };
 
     function thumbHtml(asset) {
-        if (asset.kind === 'image') return `<img src="${esc(asset.url)}" alt="" loading="lazy">`;
-        if (asset.kind === 'video') return `<video src="${esc(asset.url)}" muted preload="metadata" loop onmouseenter="this.play()" onmouseleave="this.pause()"></video>`;
+        if (asset.kind === 'image') return `<img src="${esc(asset.url)}" alt="" loading="lazy" decoding="async">`;
+        if (asset.kind === 'video') return `<video src="${esc(asset.url)}" muted preload="none" loop onmouseenter="this.play().catch(()=>{})" onmouseleave="this.pause()"></video>`;
         if (asset.kind === 'font') return `<div class="sample" style="font-family:'${esc(asset.family)}', sans-serif">The quick brown fox 123</div>`;
         if (asset.kind === 'audio') return `<div class="icon">♪</div><audio controls preload="none" src="${esc(asset.url)}"></audio>`;
         if (asset.kind === 'text') return `<div class="icon">${ICONS.text}</div>`;
@@ -301,6 +301,19 @@
         const extra = names.length > 2 ? `<span class="badge used more-count" title="${esc(names.join(', '))}">+${names.length - 2}</span>` : '';
         return names.slice(0, 2).map((name, i) => `<span class="badge used" title="${esc(asset.usedBy[i].id)}">${esc(name)}</span>`).join('') + extra;
     }
+    function syncSelectionUI() {
+        document.body.classList.toggle('has-selection', selected.size > 0);
+        $('tag-selected').hidden = $('untag-selected').hidden = !selected.size;
+        $('tag-selected').textContent = `Tag ${selected.size} selected…`;
+        $('untag-selected').textContent = 'Untag…';
+        $('delete-selected').hidden = !selected.size;
+        $('delete-selected').textContent = `Delete ${selected.size} selected`;
+    }
+    function cleanupItemsMedia(container) {
+        container.querySelectorAll('video, audio').forEach(m => {
+            try { m.pause(); m.removeAttribute('src'); m.load(); } catch {}
+        });
+    }
     function render() {
         renderTagBar();
         const query = $('search').value.trim().toLowerCase();
@@ -316,16 +329,12 @@
         $('summary').textContent = `${shown.length} of ${assets.length} assets · ${formatSize(total)} total · ${unused.length} unused`;
         $('purge').hidden = !unused.length;
         $('purge').textContent = `Delete ${unused.length} unused`;
-        document.body.classList.toggle('has-selection', selected.size > 0);
-        $('tag-selected').hidden = $('untag-selected').hidden = !selected.size;
-        $('tag-selected').textContent = `Tag ${selected.size} selected…`;
-        $('untag-selected').textContent = 'Untag…';
-        $('delete-selected').hidden = !selected.size;
-        $('delete-selected').textContent = `Delete ${selected.size} selected`;
+        syncSelectionUI();
         $('view-grid').classList.toggle('active', prefs.view === 'grid');
         $('view-list').classList.toggle('active', prefs.view === 'list');
 
         const items = $('items');
+        cleanupItemsMedia(items);
         items.className = prefs.view === 'list' ? 'list' : 'grid';
         items.style.setProperty('--thumb', `${prefs.size}px`);
         items.innerHTML = shown.length ? shown.map((asset, index) => `
@@ -371,7 +380,8 @@
         if (pick) {
             const asset = shown[Number(pick.dataset.pick)];
             if (pick.checked) selected.add(asset.name); else selected.delete(asset.name);
-            render();
+            pick.closest('.asset')?.classList.toggle('selected', pick.checked);
+            syncSelectionUI();
             return;
         }
         const untag = event.target.closest('[data-untag]');
@@ -415,7 +425,13 @@
     $('select-all').addEventListener('click', () => {
         const allSelected = shown.length && shown.every(asset => selected.has(asset.name));
         shown.forEach(asset => allSelected ? selected.delete(asset.name) : selected.add(asset.name));
-        render();
+        $('items').querySelectorAll('[data-pick]').forEach(cb => {
+            const a = shown[Number(cb.dataset.pick)];
+            const isSel = Boolean(a && selected.has(a.name));
+            cb.checked = isSel;
+            cb.closest('.asset')?.classList.toggle('selected', isSel);
+        });
+        syncSelectionUI();
     });
     $('tag-selected').addEventListener('click', async () => {
         const input = await StreamPulse.prompt('Add Tags', `Add tags to ${selected.size} selected (comma separated):`, '');
@@ -430,7 +446,8 @@
     $('delete-selected').addEventListener('click', () => removeAssets(assets.filter(asset => selected.has(asset.name))));
     $('purge').addEventListener('click', () => removeAssets(assets.filter(asset => !asset.usedBy.length)));
 
-    $('search').addEventListener('input', render);
+    let searchTimer = null;
+    $('search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(render, 150); });
     for (const [id, key] of [['kind', 'kind'], ['usage', 'usage'], ['sort', 'sort']]) {
         $(id).value = prefs[key];
         $(id).addEventListener('change', () => { prefs[key] = $(id).value; savePrefs(); render(); });
@@ -442,7 +459,13 @@
     $('show-edit').checked = prefs.edit !== false;
     $('show-edit').addEventListener('change', () => { prefs.edit = $('show-edit').checked; savePrefs(); render(); });
     $('thumb-size').value = prefs.size;
-    $('thumb-size').addEventListener('input', () => { prefs.size = Number($('thumb-size').value); savePrefs(); $('items').style.setProperty('--thumb', `${prefs.size}px`); });
+    let sizeTimer = null;
+    $('thumb-size').addEventListener('input', () => {
+        prefs.size = Number($('thumb-size').value);
+        $('items').style.setProperty('--thumb', `${prefs.size}px`);
+        clearTimeout(sizeTimer);
+        sizeTimer = setTimeout(savePrefs, 200);
+    });
     $('upload').addEventListener('change', () => { const files = [...$('upload').files]; $('upload').value = ''; if (files.length) uploadFiles(files); });
     const drop = $('drop');
     ['dragenter', 'dragover'].forEach(name => drop.addEventListener(name, event => { event.preventDefault(); drop.classList.add('over'); }));

@@ -443,7 +443,9 @@
 
     function variableSnapshot(status, context) {
         const table = variableTable(status, context);
-        for (const key of Object.keys(table)) if (isTicking(key) && !key.startsWith('timer.')) delete table[key];
+        for (const key of Object.keys(table)) {
+            if ((isTicking(key) && !key.startsWith('timer.')) || key === 'chatter.random' || /\.random$/i.test(key)) delete table[key];
+        }
         // Timer clocks tick on their own, so only structural timer values count as changes.
         for (const key of Object.keys(table)) if (key.startsWith('timer.') && !/\.(label|state)$/.test(key)) delete table[key];
         table.__plan = (status.gamePlan?.items || []).map(item => [item.name, item.status, item.period, item.cover, item.playingNow, item.note, item.finished, (item.played || []).join(','), (item.extraLists || []).join(',')]);
@@ -581,7 +583,7 @@
         f.grain = { ...defaults.grain, ...(f.grain || {}) };
         const media = MEDIA_TYPES.has(element.type);
         const target = !media ? node : element.type === 'slideshow' ? node.firstElementChild : node.querySelector(':scope > video, :scope > img, :scope > iframe');
-        if (!target) { node._fxSig = ''; return; }
+        if (!target) { node._fxSig = ''; node._fxAnim = null; fxAnimated.delete(node); return; }
         const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.duotone.enabled);
         const signature = JSON.stringify([f, media, element.id, Number(element.width), Number(element.height)]);
         const base = media ? '' : node.style.filter;
@@ -591,6 +593,7 @@
             node._fxId = `sp-duo-${String(element.id || 'x').replace(/[^a-z0-9_-]/gi, '')}-${++fxCounter}`;
             node.querySelectorAll(':scope > .sp-fx').forEach(n => n.remove());
             node._fxAnim = null; node._fxGrain = null;
+            fxAnimated.delete(node);
             if (active && f.duotone.enabled) {
                 const rgb = hex => [1, 3, 5].map(i => (parseInt(hex.slice(i, i + 2), 16) / 255).toFixed(4));
                 const [dr, dg, db] = rgb(f.duotone.dark), [lr, lg, lb] = rgb(f.duotone.light);
@@ -698,7 +701,7 @@
                 const m = timeMatch[1].match(/^(?:(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?|(\d+))$/);
                 if (m) {
                     if (m[4]) start = Number(m[4]);
-                    else start = (Number(m[1] || 0) * 3600) + (Number(m[2] || 0) * 60) + Number(m[3] || 0);
+                    else start = (Number(m[1] || 0) * 3600) + (Number(m[2] || 0) * 60) + Number(secMatch?.[3] || m[3] || 0);
                 }
             }
             return { type: 'video', id: match[1], list: listMatch ? listMatch[1] : null, start };
@@ -764,27 +767,43 @@
 
     // Uploaded font files are registered with @font-face so they work in browsers that hide installed fonts (Safari).
     const assetFonts = [];
-    async function loadAssetFonts() {
+    let assetFontsFetchedAt = 0;
+    let assetFontsSig = '';
+    async function loadAssetFonts(force = false) {
+        if (!force && assetFontsFetchedAt && Date.now() - assetFontsFetchedAt < 10000) return assetFonts;
         try {
             const response = await fetch('/api/custom-overlays/assets', { cache: 'no-store' });
             if (!response.ok) return assetFonts;
+            assetFontsFetchedAt = Date.now();
             const fonts = (await response.json()).filter(asset => asset.kind === 'font');
             assetFonts.splice(0, assetFonts.length, ...fonts);
-            let style = document.getElementById('asset-font-faces');
-            if (!style) { style = document.createElement('style'); style.id = 'asset-font-faces'; document.head.appendChild(style); }
-            style.textContent = fonts.map(font => `@font-face { font-family: '${font.family.replace(/'/g, '')}'; src: url('${font.url}'); font-display: swap; }`).join('\n');
-            await Promise.all(fonts.map(font => document.fonts.load(`16px '${font.family}'`).catch(() => null)));
+            const nextSig = fonts.map(f => `${f.family}|${f.url}`).join('\n');
+            if (nextSig !== assetFontsSig) {
+                assetFontsSig = nextSig;
+                let style = document.getElementById('asset-font-faces');
+                if (!style) { style = document.createElement('style'); style.id = 'asset-font-faces'; document.head.appendChild(style); }
+                style.textContent = fonts.map(font => `@font-face { font-family: '${font.family.replace(/'/g, '')}'; src: url('${font.url}'); font-display: swap; }`).join('\n');
+                await Promise.all(fonts.map(font => document.fonts.load(`16px '${font.family}'`).catch(() => null)));
+            }
         } catch { /* fonts are optional */ }
         return assetFonts;
     }
 
-    async function loadLiveExtras(status) {
+    async function loadLiveExtras(status, elements = null) {
         try {
+            let needTimers = true, needGoals = true, needPlan = true, needWeather = true;
+            if (Array.isArray(elements)) {
+                const raw = elements.map(el => `${el.type || ''} ${el.content || ''} ${el.progress?.label || ''} ${(el.items || []).join(' ')}`).join(' ');
+                needTimers = /\btimer\./i.test(raw);
+                needGoals = /\bgoal\./i.test(raw);
+                needPlan = elements.some(el => el.type === 'game-list') || /\bplan\./i.test(raw);
+                needWeather = /\bweather\./i.test(raw);
+            }
             const [timers, goals, plan, weather] = await Promise.all([
-                fetch('/api/timers', { cache: 'no-store' }).then(r => r.ok ? r.json() : null),
-                fetch('/api/goals', { cache: 'no-store' }).then(r => r.ok ? r.json() : null),
-                fetch('/api/game-plan', { cache: 'no-store' }).then(r => r.ok ? r.json() : null),
-                fetch('/api/weather', { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
+                needTimers ? fetch('/api/timers', { cache: 'no-store' }).then(r => r.ok ? r.json() : null) : null,
+                needGoals ? fetch('/api/goals', { cache: 'no-store' }).then(r => r.ok ? r.json() : null) : null,
+                needPlan ? fetch('/api/game-plan', { cache: 'no-store' }).then(r => r.ok ? r.json() : null) : null,
+                needWeather ? fetch('/api/weather', { cache: 'no-store' }).then(r => r.ok ? r.json() : null) : null
             ]);
             if (weather) status.weather = weather;
             if (plan) status.gamePlan = plan;
@@ -813,7 +832,7 @@
         ensureGradientKeyframes();
         // One background list: the text gradient is clipped to the letters, the box gradient or color fills the box behind it.
         const layers = [], sizes = [], clips = [];
-        const add = (css, g, clip) => { layers.push(css); sizes.push(g?.animate ? '300% 300%' : '100% 100%'); clips.push(clip); };
+        const add = (css, g, clip) => { layers.push(css); sizes.push(g?.animate ? '200% 200%' : '100% 100%'); clips.push(clip); };
         if (text) add(gradientCss(text), text, 'text');
         if (box) add(gradientCss(box), box, 'border-box');
         else if (text && style.background && style.background !== 'transparent') add(`linear-gradient(${style.background}, ${style.background})`, null, 'border-box');
@@ -855,7 +874,7 @@
     function gradientStyle(g) {
         ensureGradientKeyframes();
         return g.animate
-            ? { background: gradientCss(g), backgroundSize: '300% 300%', animation: `${slidesVertically(g) ? 'sp-gradient-shift-y' : 'sp-gradient-shift'} ${Math.max(1, g.speed || 8)}s ease-in-out infinite alternate` }
+            ? { background: gradientCss(g), backgroundSize: '200% 200%', animation: `${slidesVertically(g) ? 'sp-gradient-shift-y' : 'sp-gradient-shift'} ${Math.max(1, g.speed || 8)}s ease-in-out infinite alternate` }
             : { background: gradientCss(g), backgroundSize: '', animation: '' };
     }
 
@@ -866,7 +885,8 @@
         // Registered properties let text and box gradients animate on separate timers.
         tag.textContent = '@property --sp-t { syntax: "<percentage>"; inherits: false; initial-value: 0%; } @property --sp-b { syntax: "<percentage>"; inherits: false; initial-value: 0%; } '
             + '@keyframes sp-gradient-shift { from { background-position: 0% 50%; } to { background-position: 100% 50%; } } @keyframes sp-gradient-shift-y { from { background-position: 50% 0%; } to { background-position: 50% 100%; } } '
-            + '@keyframes sp-shift-t { from { --sp-t: 0%; } to { --sp-t: 100%; } } @keyframes sp-shift-b { from { --sp-b: 0%; } to { --sp-b: 100%; } }';
+            + '@keyframes sp-shift-t { from { --sp-t: 0%; } to { --sp-t: 100%; } } @keyframes sp-shift-b { from { --sp-b: 0%; } to { --sp-b: 100%; } } '
+            + '.sp-fx-paused *, .sp-fx-paused { animation-play-state: paused !important; }';
         document.head.appendChild(tag);
     }
 
@@ -895,7 +915,7 @@
             + '@keyframes sp-border-marching { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -32; } } '
             + '@keyframes sp-border-radial-circuit { 0% { background-position: 0% 0%; } 25% { background-position: 100% 0%; } 50% { background-position: 100% 100%; } 75% { background-position: 0% 100%; } 100% { background-position: 0% 0%; } } '
             + '@keyframes sp-border-radial-circuit-rev { 0% { background-position: 0% 0%; } 25% { background-position: 0% 100%; } 50% { background-position: 100% 100%; } 75% { background-position: 100% 0%; } 100% { background-position: 0% 0%; } } '
-            + '.sp-fx-paused [data-border-fx] { animation-play-state: paused !important; }';
+            + '.sp-fx-paused [data-border-fx], .sp-fx-paused [data-border-ring], .sp-fx-paused [data-border-fx-ring] { animation-play-state: paused !important; }';
         document.head.appendChild(tag);
     }
 
@@ -941,13 +961,18 @@
 
         node.style.boxShadow = computeBoxShadow(style, width);
 
-        if (!node._borderObserver) {
-            node._borderObserver = new MutationObserver(() => {
-                if (node._borderRing && node._borderRing.parentNode !== node) node.append(node._borderRing);
-                if (node._borderFxRing && node._borderFxRing.parentNode !== node) node.append(node._borderFxRing);
-                if (node._innerGlowRing && node._innerGlowRing.parentNode !== node) node.append(node._innerGlowRing);
-            });
-            node._borderObserver.observe(node, { childList: true });
+        if (hasInnerGlow || hasInnerShadow || hasRingBorder) {
+            if (!node._borderObserver) {
+                node._borderObserver = new MutationObserver(() => {
+                    if (node._borderRing && node._borderRing.parentNode !== node) node.append(node._borderRing);
+                    if (node._borderFxRing && node._borderFxRing.parentNode !== node) node.append(node._borderFxRing);
+                    if (node._innerGlowRing && node._innerGlowRing.parentNode !== node) node.append(node._innerGlowRing);
+                });
+                node._borderObserver.observe(node, { childList: true });
+            }
+        } else if (node._borderObserver) {
+            node._borderObserver.disconnect();
+            node._borderObserver = null;
         }
 
         // Inner shadow and inner glow are rendered via a dedicated overlay under borders so they stay visible over fills, images, videos, and cutouts without obscuring borders.
@@ -1027,7 +1052,7 @@
             const ringSig = `${width}|${gradCss}|${g.animate}|${g.speed}`;
             if (ring._sig !== ringSig) {
                 ring._sig = ringSig;
-                ring.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:${gradCss};background-size:${g.animate ? '300% 300%' : 'cover'};animation:${animCss};z-index:2;`;
+                ring.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:${gradCss};background-size:${g.animate ? '200% 200%' : 'cover'};animation:${animCss};z-index:2;`;
                 ring.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
                 ring.style.setProperty('-webkit-mask-composite', 'xor');
                 ring.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
@@ -1125,7 +1150,7 @@
                 const sig = `gradient|${width}|${speed}|${stops}`;
                 if (fxRing._sig !== sig) {
                     fxRing._sig = sig;
-                    fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg, ${stops});background-size:300% 300%;animation:sp-border-gradient-shift ${speed}s ease-in-out infinite alternate;z-index:2;`;
+                    fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border:${width}px solid transparent;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg, ${stops});background-size:200% 200%;animation:sp-border-gradient-shift ${speed}s ease-in-out infinite alternate;z-index:2;`;
                     fxRing.style.setProperty('-webkit-mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
                     fxRing.style.setProperty('-webkit-mask-composite', 'xor');
                     fxRing.style.setProperty('mask', 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) border-box');
@@ -1586,6 +1611,7 @@
             wrap.style.cssText = `background:rgba(255,255,255,.08);border-radius:${Math.min(12, style.borderRadius || 8)}px;overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;font-size:.6em;padding:.3em;box-sizing:border-box;${extra}`;
             if (item.cover) {
                 const img = document.createElement('img');
+                img.decoding = 'async';
                 img.src = item.cover; img.alt = '';
                 img.style.cssText = config.coverFit === 'natural' ? 'width:100%;height:auto;display:block;' : `position:absolute;inset:0;width:100%;height:100%;object-fit:${config.coverFit === 'contain' ? 'contain' : 'cover'};display:block;`;
                 if (config.coverFit !== 'natural') wrap.style.position = 'relative';
@@ -2150,8 +2176,7 @@
             finished = true;
             clearTimeout(outTimer); clearTimeout(endTimer);
             if (audio) audio.pause();
-            const vid = card.querySelector('video');
-            if (vid) { try { vid.pause(); } catch {} }
+            cleanupNode(card);
             if (card.parentNode === node) node.replaceChildren();
             if (onEnd) onEnd();
         };
@@ -2161,6 +2186,42 @@
         }, Math.max(0, (payload.durationMs || 6000) - fadeMs));
         const endTimer = setTimeout(finish, payload.durationMs || 6000);
         return { stop: finish };
+    }
+
+    function cleanupMedia(rootNode) {
+        if (!rootNode) return;
+        const unloadVideo = v => {
+            try {
+                v.pause();
+                v.removeAttribute('src');
+                v.load();
+            } catch {}
+        };
+        const unloadFrame = f => {
+            try { f.src = 'about:blank'; } catch {}
+        };
+        if (rootNode.tagName === 'VIDEO') unloadVideo(rootNode);
+        else if (rootNode.tagName === 'IFRAME') unloadFrame(rootNode);
+        if (typeof rootNode.querySelectorAll === 'function') {
+            rootNode.querySelectorAll('video').forEach(unloadVideo);
+            rootNode.querySelectorAll('iframe').forEach(unloadFrame);
+        }
+    }
+
+    function cleanupNode(node) {
+        if (!node) return;
+        cleanupMedia(node);
+        if (node._borderObserver) { node._borderObserver.disconnect(); node._borderObserver = null; }
+        if (node._fitObserver) { node._fitObserver.disconnect(); node._fitObserver = null; }
+        if (node._slideshow?.stop) { try { node._slideshow.stop(); } catch {} node._slideshow = null; }
+        if (node._alertPlay?.stop) { try { node._alertPlay.stop(); } catch {} node._alertPlay = null; }
+        node._fxAnim = null;
+        fxAnimated.delete(node);
+        if (typeof node.querySelectorAll === 'function') {
+            node.querySelectorAll('.alert-card').forEach(c => {
+                if (c._borderObserver) { c._borderObserver.disconnect(); c._borderObserver = null; }
+            });
+        }
     }
 
 
@@ -2270,6 +2331,7 @@
         const frozen = options.preview && !options.animate;
         let paused = config.advance === 'manual';
         let items = [], order = [], position = -1, timer = null, refreshTimer = null, stopped = false, current = null, token = 0;
+        cleanupMedia(node);
         node.replaceChildren();
         node.style.position = node.style.position || 'absolute';
         node.style.overflow = 'hidden';
@@ -2294,10 +2356,11 @@
 
         function makeSlide(item) {
             const layer = document.createElement('div');
-            layer.style.cssText = 'position:absolute;inset:0;overflow:hidden;will-change:transform,opacity;';
+            layer.style.cssText = 'position:absolute;inset:0;overflow:hidden;';
             const media = document.createElement(item.kind === 'video' ? 'video' : 'img');
             media.style.cssText = `position:absolute;inset:0;width:100%;height:100%;object-fit:${config.fit === 'contain' ? 'contain' : 'cover'};`;
             if (item.kind === 'video') { media.muted = true; media.playsInline = true; media.autoplay = true; }
+            else media.decoding = 'async';
             media.src = item.url;
             media.alt = '';
             layer.appendChild(media);
@@ -2336,8 +2399,12 @@
                 item = items[nextIndex()];
                 const candidate = makeSlide(item);
                 if (await ready(candidate.media)) { slide = candidate; break; }
+                cleanupMedia(candidate.layer);
             }
-            if (!slide || stopped || mine !== token) return schedule(config.seconds * 1000);
+            if (!slide || stopped || mine !== token) {
+                if (slide) cleanupMedia(slide.layer);
+                return schedule(config.seconds * 1000);
+            }
             const old = current;
             current = slide;
             emitState();
@@ -2355,7 +2422,7 @@
                 const grow = Math.random() < 0.5;
                 slide.media.animate([{ transform: `scale(${grow ? 1 : 1.08})` }, { transform: `scale(${grow ? 1.08 : 1})` }], { duration: config.seconds * 1000 + ms, easing: 'linear', fill: 'both' });
             }
-            if (old) setTimeout(() => old.layer.remove(), ms + 60);
+            if (old) setTimeout(() => { cleanupMedia(old.layer); old.layer.remove(); }, ms + 60);
             note.textContent = '';
             if (frozen) return;
             if (item.kind === 'video' && items.length < 2) slide.media.loop = true;
@@ -2386,6 +2453,7 @@
             position = -1;
             if (!items.length) {
                 clearTimeout(timer);
+                cleanupMedia(stage);
                 stage.replaceChildren(); current = null;
                 note.textContent = options.preview ? (config.source === 'manual' ? 'Slideshow: choose images in the properties panel' : (config.tags || []).length ? `Slideshow: no images tagged ${config.tags.join(', ')}` : 'Slideshow: choose tags or pick images') : '';
                 return;
@@ -2404,9 +2472,9 @@
             else if (action === 'pause') { paused = true; clearTimeout(timer); timer = null; emitState(); }
             else if (action === 'play') { paused = false; if (!timer) schedule(config.seconds * 1000); emitState(); }
         };
-        return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); }, count: () => items.length, control };
+        return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); cleanupMedia(stage); }, count: () => items.length, control };
     }
 
-    root.OverlayShared = { alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
+    root.OverlayShared = { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle, defaultMediaFilter, mediaFilterActive, MEDIA_FILTER_PRESETS };
 })(window);
 

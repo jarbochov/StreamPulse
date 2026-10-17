@@ -88,15 +88,20 @@
         if (!res.ok) throw new Error(data.error || 'Request failed');
     }
 
+    let _lastStatusHtml = '', _lastEventsHtml = '', _lastHistoryHtml = '';
     function render() {
         const isPaused = Boolean(queue.paused);
-        $('status').innerHTML = `<span class="status-dot ${isPaused ? 'paused' : ''}"></span> ${queue.current ? 'Showing: ' + esc(queue.current.title || queue.current.ruleName) : 'Idle'} · ${queue.pending || 0} waiting${isPaused ? ' · paused' : ''}`;
+        const statusHtml = `<span class="status-dot ${isPaused ? 'paused' : ''}"></span> ${queue.current ? 'Showing: ' + esc(queue.current.title || queue.current.ruleName) : 'Idle'} · ${queue.pending || 0} waiting${isPaused ? ' · paused' : ''}`;
+        if (statusHtml !== _lastStatusHtml) {
+            _lastStatusHtml = statusHtml;
+            $('status').innerHTML = statusHtml;
+        }
         $('pause').textContent = isPaused ? 'Resume' : 'Pause';
         $('pause').dataset.queue = isPaused ? 'resume' : 'pause';
 
         const rawEvents = queue.events || [];
         const ev = rawEvents.filter(e => !hideUnmatched || e.status !== 'no matching rule');
-        $('events').innerHTML = ev.length ? ev.map(e => {
+        const eventsHtml = ev.length ? ev.map(e => {
             const isShown = e.status === 'shown';
             const statusBadge = isShown
                 ? '<span class="badge badge-shown">Shown</span>'
@@ -112,15 +117,23 @@
                 <button class="rp" data-event="${esc(e.id)}" title="Run through current rules again">${REPLAY_ICON}</button>
             </div>`;
         }).join('') : `<div class="empty">${hideUnmatched && rawEvents.length ? 'All ' + rawEvents.length + ' events were unmatched and hidden. Uncheck "Hide unmatched" to view them.' : 'No events yet. Real stream events appear here, including ones that matched no rule.'}</div>`;
+        if (eventsHtml !== _lastEventsHtml) {
+            _lastEventsHtml = eventsHtml;
+            $('events').innerHTML = eventsHtml;
+        }
 
         const h = queue.history || [];
-        $('history').innerHTML = h.length ? h.map(a => `<div>
+        const historyHtml = h.length ? h.map(a => `<div>
             <span class="grow">
                 <span class="event-title">${a.test ? '<span class="badge badge-test">Test</span>' : ''}${esc(a.title || a.message || a.ruleName)}</span>
                 <span class="sub">${new Date(a.shownAt || a.at).toLocaleTimeString()}</span>
             </span>
             <button class="rp" data-alert="${esc(a.id)}" title="Show this exact alert again">${REPLAY_ICON}</button>
         </div>`).join('') : '<div class="empty">Nothing yet this run.</div>';
+        if (historyHtml !== _lastHistoryHtml) {
+            _lastHistoryHtml = historyHtml;
+            $('history').innerHTML = historyHtml;
+        }
     }
 
     async function refresh() {

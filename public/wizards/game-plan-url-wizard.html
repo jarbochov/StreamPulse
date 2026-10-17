@@ -915,7 +915,10 @@
 
         const iframe = document.getElementById('preview-iframe');
         if (iframe.src !== absUrl) {
-            iframe.src = relUrl;
+            clearTimeout(window._gpIframeTimer);
+            window._gpIframeTimer = setTimeout(() => {
+                if (iframe.src !== absUrl) iframe.src = relUrl;
+            }, 150);
         }
 
         // Real-time iframe DOM style synchronization for immediate visual response

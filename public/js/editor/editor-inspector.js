@@ -1054,7 +1054,10 @@ export function initInspectorEvents() {
                 changed(false);
                 return;
             }
-            renderCanvas();
+            renderCanvas(state.selectedIds.size ? new Set(state.selectedIds) : undefined);
+            if (selectedElements().some(el => el.type === 'cutout') && (path === 'cutout.shape' || path === 'style.borderRadius' || path === 'x' || path === 'y' || path === 'width' || path === 'height')) {
+                scheduleEditorCutoutMask();
+            }
             renderSelectionUI();
             updateStatusBarHandler();
             if (path === 'name') renderLayers();
@@ -1417,6 +1420,7 @@ export function initInspectorEvents() {
     });
 
     setInterval(async () => {
+        if (document.hidden) return;
         if (shared.refreshTextSources) {
             if (!(await shared.refreshTextSources(state.overlay.elements))) return;
             renderCanvas();

@@ -100,11 +100,14 @@ export function syncCanvasUI() {
 // ---- Cutout Underlayer Masking ----------------------------------------------------
 export function updateEditorCutoutMask() {
     const under = $('canvas-underlayer');
+    const top = $('canvas-toplayer');
     if (!under) return;
     const canW = Number(state.overlay.canvas?.width) || 1920;
     const canH = Number(state.overlay.canvas?.height) || 1080;
     const cutouts = state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e));
+    if (top) top.style.display = cutouts.length ? '' : 'none';
     if (!cutouts.length) {
+        if (!under._lastMaskUrl) return;
         under._lastMaskUrl = '';
         under.style.removeProperty('-webkit-mask-image');
         under.style.removeProperty('-webkit-mask-size');
@@ -121,7 +124,7 @@ export function updateEditorCutoutMask() {
     const filters = [];
     const shapes = cutouts.map(el => {
         const shape = el.cutout?.shape || 'rectangle';
-        const feather = Math.max(0, Math.min(100, Number(el.cutout?.feather) || 0));
+        const feather = Math.round(Math.max(0, Math.min(100, Number(el.cutout?.feather) || 0)));
         let filterAttr = '';
         if (feather > 0) {
             const filterId = `editor-cutout-feather-${el.id}`;
@@ -129,22 +132,22 @@ export function updateEditorCutoutMask() {
             filterAttr = `filter="url(#${filterId})"`;
         }
         const b = boxOf(el);
-        const x = Number(b.x) || 0;
-        const y = Number(b.y) || 0;
-        const w = Number(b.w) || 0;
-        const h = Number(b.h) || 0;
+        const x = Math.round(Number(b.x) || 0);
+        const y = Math.round(Number(b.y) || 0);
+        const w = Math.round(Number(b.w) || 0);
+        const h = Math.round(Number(b.h) || 0);
         if (shape === 'circle') {
-            const cx = x + w / 2;
-            const cy = y + h / 2;
-            const rx = w / 2;
-            const ry = h / 2;
+            const cx = Math.round(x + w / 2);
+            const cy = Math.round(y + h / 2);
+            const rx = Math.round(w / 2);
+            const ry = Math.round(h / 2);
             return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="black" ${filterAttr}/>`;
         }
         if (shape === 'pill') {
-            const rx = Math.min(w, h) / 2;
+            const rx = Math.round(Math.min(w, h) / 2);
             return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" ry="${rx}" fill="black" ${filterAttr}/>`;
         }
-        const rad = Math.max(0, Number(el.style?.borderRadius) || 0);
+        const rad = Math.round(Math.max(0, Number(el.style?.borderRadius) || 0));
         return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rad}" ry="${rad}" fill="black" ${filterAttr}/>`;
     });
 
@@ -171,6 +174,23 @@ export function scheduleEditorCutoutMask() {
         editorCutoutMaskRaf = null;
         updateEditorCutoutMask();
     });
+}
+
+function setNodeText(node, text) {
+    if (!node.firstElementChild) {
+        if (node.textContent !== text) node.textContent = text;
+        return;
+    }
+    let tn = node._textNode;
+    if (!tn || tn.parentNode !== node) {
+        tn = [...node.childNodes].find(c => c.nodeType === 3);
+        if (!tn) {
+            tn = document.createTextNode('');
+            node.insertBefore(tn, node.firstChild);
+        }
+        node._textNode = tn;
+    }
+    if (tn.nodeValue !== text) tn.nodeValue = text;
 }
 
 // ---- Content and Styling ----------------------------------------------------------
@@ -203,10 +223,28 @@ export function applyNodeStyle(node, el, index) {
     if (el.type !== 'alert') {
         if (shared.decorationStyle && el.type !== 'cutout') Object.assign(node.style, shared.decorationStyle(s, el.type));
         if (el.type === 'cutout' && !(s.borderWidth && Number(s.borderWidth) > 0)) {
+            if (shared.applyBorderEffects) shared.applyBorderEffects(node, { ...s, borderWidth: 0 }, el);
             node.style.border = '1.5px dashed rgba(56, 189, 248, 0.75)';
             node.style.boxShadow = s.shadow?.blur ? `0 0 ${s.shadow.blur}px ${s.shadow.color || 'rgba(0,0,0,0.5)'}` : 'none';
         } else if (shared.applyBorderEffects) {
             shared.applyBorderEffects(node, s, el);
+        }
+    } else {
+        const card = node.querySelector(':scope > .alert-card');
+        if (card) {
+            card.style.background = s.background && s.background !== 'transparent' ? s.background : '';
+            card.style.backgroundColor = s.background && s.background !== 'transparent' ? s.background : '';
+            card.style.borderRadius = `${s.borderRadius || 0}px`;
+            card.style.padding = `${s.padding || 8}px`;
+            card.style.backdropFilter = s.blur > 0 ? `blur(${s.blur}px)` : '';
+            card.style.webkitBackdropFilter = s.blur > 0 ? `blur(${s.blur}px)` : '';
+            if (s.gradient?.enabled && shared.decorationStyle) {
+                Object.assign(card.style, shared.decorationStyle(s, 'alert'));
+            } else {
+                card.style.backgroundImage = '';
+                card.style.animation = '';
+            }
+            if (shared.applyBorderEffects) shared.applyBorderEffects(card, s, el);
         }
     }
     if (shared.textEffectStyle) Object.assign(node.style, shared.textEffectStyle(s, el.type));
@@ -234,7 +272,9 @@ export const placeholder = text => {
 };
 
 export function buildContent(node, el) {
+    if (shared.cleanupMedia) shared.cleanupMedia(node);
     node.replaceChildren();
+    node._textNode = null;
     node._extra = '';
     if (el.type === 'image' || el.type === 'video') {
         const url = expand(el.src);
@@ -252,6 +292,7 @@ export function buildContent(node, el) {
             return;
         }
         const media = document.createElement(el.type === 'image' ? 'img' : 'video');
+        if (el.type === 'image') media.decoding = 'async';
         media.src = url;
         media.draggable = false;
         media.style.objectFit = el.style.objectFit || 'cover';
@@ -311,18 +352,6 @@ export function buildContent(node, el) {
         frame.src = url;
         node.appendChild(frame);
     } else if (el.type === 'cutout') {
-        const shape = el.cutout?.shape || 'rectangle';
-        const s = el.style || {};
-        if (shape === 'circle') node.style.borderRadius = '50%';
-        else if (shape === 'pill') node.style.borderRadius = '999px';
-        else node.style.borderRadius = `${s.borderRadius || 0}px`;
-        node.style.background = 'transparent';
-        if (s.borderWidth && Number(s.borderWidth) > 0) {
-            if (shared.applyBorderEffects) shared.applyBorderEffects(node, s, el);
-        } else {
-            node.style.border = '1.5px dashed rgba(56, 189, 248, 0.75)';
-            node.style.boxShadow = s.shadow?.blur ? `0 0 ${s.shadow.blur}px ${s.shadow.color || 'rgba(0,0,0,0.5)'}` : 'none';
-        }
         node.innerHTML = `
             <div style="position:absolute;top:6px;left:8px;font-size:10px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(56,189,248,0.9);background:rgba(15,23,42,0.85);padding:2px 6px;border-radius:4px;pointer-events:none;border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;gap:4px;user-select:none;">
                 <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="2 2"/></svg>Cutout
@@ -337,13 +366,13 @@ export function buildContent(node, el) {
             caret.className = 'overlay-caret'; caret.textContent = expand(first);
             node.replaceChildren(caret);
             node._extra += ' overlay-typewriter';
-        } else node.textContent = expand(first);
+        } else setNodeText(node, expand(first));
         if (el.random?.marquee) {
             node._extra += ' overlay-marquee';
             if (shared.wrapMarquee) shared.wrapMarquee(node);
         }
     } else if (el.type === 'text') {
-        node.textContent = expand(shared.elementContent ? shared.elementContent(el) : el.content);
+        setNodeText(node, expand(shared.elementContent ? shared.elementContent(el) : el.content));
     } else if (el.type === 'slideshow') {
         node._slideHandle?.stop();
         if (shared.mountSlideshow) node._slideHandle = shared.mountSlideshow(node, el, { preview: true, animate: true });
@@ -364,24 +393,32 @@ export const sourceSignature = el => {
     return stateVal ? [stateVal.text, stateVal.error] : null;
 };
 
+const usesLivePlaceholders = el => /\{\{/.test(`${el.content || ''} ${el.src || ''} ${el.progress?.label || ''} ${(el.items || []).join(' ')}`);
+
 export const contentSignature = (el, live) =>
-    el.type === 'embed' ? JSON.stringify([el.type, expand(el.src)]) :
+    el.type === 'embed' ? JSON.stringify([el.type, expand(el.src), el.video]) :
     el.type === 'slideshow' ? JSON.stringify([el.type, el.slideshow]) :
-    el.type === 'cutout' ? JSON.stringify([el.type, el.cutout, el.style?.borderRadius, el.style?.borderWidth, el.style?.borderStyle, el.style?.borderColor, el.style?.borderGlow, el.style?.borderAnimation, el.width, el.height]) :
-    el.type === 'alert' ? JSON.stringify([el.type, el.alert, el.style]) :
+    el.type === 'cutout' ? JSON.stringify([el.type]) :
+    el.type === 'shape' ? JSON.stringify([el.type]) :
+    el.type === 'alert' ? JSON.stringify([
+        el.type, el.alert,
+        el.style?.color, el.style?.fontFamily, el.style?.fontWeight, el.style?.lineHeight,
+        el.style?.letterSpacing, el.style?.textAlign, el.style?.verticalAlign,
+        el.style?.textStroke, el.style?.textShadow, el.style?.textTransform, el.style?.textDecoration
+    ]) :
     el.type === 'video' ? JSON.stringify([el.type, expand(el.src), el.video, el.style.objectFit, el.style.focusX, el.style.focusY]) :
+    el.type === 'game-list' ? JSON.stringify([el.type, el.gameList, el.style?.borderRadius, el.style?.textGradient?.enabled, state.liveStatus?.gamePlan]) :
     JSON.stringify([
         el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns,
-        el.headingSpan, el.headingScale, sourceSignature(el), el.progress, el.gameList,
-        el.alert, el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke,
+        el.headingSpan, el.headingScale, sourceSignature(el), el.progress,
+        el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke,
         el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee,
         el.style.objectFit, el.style.focusX, el.style.focusY,
-        el.style.borderWidth, el.style.borderStyle, el.style.borderColor, el.style.borderGlow, el.style.borderAnimation, el.style.borderGradient,
-        live
+        usesLivePlaceholders(el) || Boolean(el.source && el.source.mode !== 'inline') ? live : ''
     ]);
 
 export function tickPlaceholders() {
-    if (!prefs.live) return;
+    if (!prefs.live || document.hidden) return;
     for (const el of state.overlay.elements) {
         const node = state.nodes.get(el.id);
         if (!node || !['text', 'markdown', 'progress'].includes(el.type) || !shared.hasTicking) continue;
@@ -390,9 +427,14 @@ export function tickPlaceholders() {
         if (el.type === 'progress') {
             if (shared.renderProgress) shared.renderProgress(node, el, expand);
         } else if (el.type === 'markdown') {
-            node.innerHTML = shared.renderMarkdown ? shared.renderMarkdown(expand(shared.elementContent(el)), el) : expand(el.content);
+            const nextHtml = shared.renderMarkdown ? shared.renderMarkdown(expand(shared.elementContent(el)), el) : expand(el.content);
+            if (node._mdHtml !== nextHtml) {
+                node._mdHtml = nextHtml;
+                node.innerHTML = nextHtml;
+                if (shared.applyMediaFilter) shared.applyMediaFilter(node, el);
+            }
         } else {
-            node.textContent = expand(shared.elementContent ? shared.elementContent(el) : el.content);
+            setNodeText(node, expand(shared.elementContent ? shared.elementContent(el) : el.content));
         }
         if (el.textFit && el.textFit !== 'none' && shared.fitText) shared.fitText(node, el);
     }
@@ -430,33 +472,31 @@ export function renderCanvas(only) {
         if (node.parentNode !== targetParent) {
             targetParent.appendChild(node);
         }
-        if (!node._sig || !only) {
-            const signature = contentSignature(el, live);
-            if (node._sig !== signature) {
-                const existingVid = el.type === 'video' ? node.querySelector(':scope > video') : null;
-                const canReuseVid = existingVid && node._src === el.src && node._fit === el.style?.objectFit && node._fx === el.style?.focusX && node._fy === el.style?.focusY;
-                if (canReuseVid) {
-                    node._sig = signature;
-                    const v = el.video || {};
-                    const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
-                    const vol = Math.max(0, Math.min(1, (Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100) / 100));
-                    existingVid.loop = v.loop !== false;
-                    existingVid.dataset.hasSound = hasSound ? 'true' : 'false';
-                    existingVid.dataset.targetVolume = String(vol);
-                    existingVid.muted = !hasSound;
-                    if (hasSound) {
-                        existingVid.volume = vol;
-                        delete existingVid.dataset.audioPending;
-                        if (existingVid.paused) existingVid.play().catch(() => {});
-                    }
-                } else {
-                    node._sig = signature;
-                    node._src = el.src;
-                    node._fit = el.style?.objectFit;
-                    node._fx = el.style?.focusX;
-                    node._fy = el.style?.focusY;
-                    buildContent(node, el);
+        const signature = contentSignature(el, live);
+        if (node._sig !== signature) {
+            const existingVid = el.type === 'video' ? node.querySelector(':scope > video') : null;
+            const canReuseVid = existingVid && node._src === el.src && node._fit === el.style?.objectFit && node._fx === el.style?.focusX && node._fy === el.style?.focusY;
+            if (canReuseVid) {
+                node._sig = signature;
+                const v = el.video || {};
+                const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
+                const vol = Math.max(0, Math.min(1, (Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100) / 100));
+                existingVid.loop = v.loop !== false;
+                existingVid.dataset.hasSound = hasSound ? 'true' : 'false';
+                existingVid.dataset.targetVolume = String(vol);
+                existingVid.muted = !hasSound;
+                if (hasSound) {
+                    existingVid.volume = vol;
+                    delete existingVid.dataset.audioPending;
+                    if (existingVid.paused) existingVid.play().catch(() => {});
                 }
+            } else {
+                node._sig = signature;
+                node._src = el.src;
+                node._fit = el.style?.objectFit;
+                node._fx = el.style?.focusX;
+                node._fy = el.style?.focusY;
+                buildContent(node, el);
             }
         }
         applyNodeStyle(node, el, index);
@@ -473,6 +513,7 @@ export function renderCanvas(only) {
     for (const [id, node] of state.nodes) {
         if (!seen.has(id)) {
             node._slideHandle?.stop();
+            if (shared.cleanupNode) shared.cleanupNode(node);
             node.remove();
             state.nodes.delete(id);
         }

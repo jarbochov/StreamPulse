@@ -264,7 +264,13 @@
         document.getElementById('browser-source-url').href = full;
         const openBtn = document.getElementById('open-btn');
         if (openBtn) openBtn.href = full;
-        document.getElementById('preview').src = relative;
+        const previewEl = document.getElementById('preview');
+        if (previewEl.src !== full) {
+            clearTimeout(window._tmIframeTimer);
+            window._tmIframeTimer = setTimeout(() => {
+                if (previewEl.src !== full) previewEl.src = relative;
+            }, 150);
+        }
         renderActionRows(id, timer);
         renderFieldRows(id);
     }

@@ -279,9 +279,7 @@
     let liveRefreshTimer = null;
 
     function escapeHtml(str) {
-        const div = document.createElement('div');
-        div.textContent = str || '';
-        return div.innerHTML;
+        return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     // Deterministic username → HSL color (readable on dark backgrounds)
@@ -307,6 +305,8 @@
                 Array.from(el.attributes).forEach(attr => el.removeAttribute(attr.name));
                 if (src) el.setAttribute('src', src);
                 if (alt) el.setAttribute('alt', alt);
+                el.setAttribute('loading', 'lazy');
+                el.setAttribute('decoding', 'async');
             } else {
                 // Unwrap: replace element with its children (preserves nested <img>)
                 el.replaceWith(...el.childNodes);
@@ -393,7 +393,7 @@
     }
 
     function scheduleCurrentSessionRefresh() {
-        if (activeSessionFile !== '__current__' || liveRefreshTimer) return;
+        if (activeSessionFile !== '__current__' || liveRefreshTimer || document.hidden) return;
         liveRefreshTimer = setTimeout(() => {
             liveRefreshTimer = null;
             refreshCurrentSession();
@@ -401,29 +401,19 @@
     }
 
     async function refreshCurrentSession() {
-        if (activeSessionFile !== '__current__') return;
+        if (activeSessionFile !== '__current__' || document.hidden) return;
         const activePane = document.querySelector('#detail-panel .tab-pane.active')?.id || '';
         try {
             const res = await fetch('/api/chat');
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             activeSession = await res.json();
             const paneId = activePane.replace(/^pane-/, '');
+            updateDetailSummary(activeSession);
             if (paneId === 'chatlog' && chatLogCache.__current__) {
-                updateDetailSummary(activeSession);
                 await loadChatLog('__current__', true);
                 return;
             }
-            renderDetail(activeSession, '__current__');
-            const toolControl = document.querySelector(`#detail-panel .detail-header-actions button[onclick*="'${paneId}'"]`);
-            const tabControl = document.querySelector(`#detail-panel .tab[onclick*="'${paneId}'"]`);
-            if (toolControl) {
-                switchTool(paneId, toolControl);
-                if (paneId === 'chatlog') {
-                    await loadChatLog('__current__', true);
-                }
-            } else if (tabControl) {
-                switchTab(paneId, tabControl);
-            }
+            renderActiveSessionPane(activeSession, '__current__', paneId || 'chatters');
         } catch (err) {
             console.warn('[Sessions] Current session refresh failed:', err.message);
         }
@@ -434,6 +424,7 @@
         liveSessionSocket = new WebSocket(`${protocol}//${window.location.host}`);
         liveSessionSocket.onmessage = event => {
             try {
+                if (typeof event.data === 'string' && !event.data.includes('"type":"update"')) return;
                 const message = JSON.parse(event.data);
                 if (message.type === 'update') scheduleCurrentSessionRefresh();
             } catch (err) {
@@ -449,6 +440,103 @@
         document.querySelectorAll('#detail-panel .detail-stat .value').forEach((element, index) => {
             if (values[index] !== undefined) element.textContent = values[index];
         });
+    }
+
+    function renderActiveSessionPane(data, filename, paneId) {
+        const isLive = filename === '__current__';
+        const viewerStats = data.viewerStats || {};
+        const el = document.getElementById(`pane-${paneId}`);
+        if (!el) return;
+        if (paneId === 'chatters') {
+            const chatterEntries = Object.values(data.chatters || {}).sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0));
+            el.innerHTML = chatterEntries.length
+                ? chatterEntries.map(c => `<div class="entry">
+                    ${c.chatimg ? `<img src="${c.chatimg}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}
+                    <span class="name dossier-clickable" data-chatter="${escapeHtml(c.chatname)}" title="View Chatter Dossier">${escapeHtml(c.chatname)}</span>
+                    <span class="count">${c.messageCount || 0} msgs</span>
+                </div>`).join('')
+                : '<div class="empty">No chatters</div>';
+        } else if (paneId === 'timeline') {
+            const samples = Array.isArray(viewerStats.samples) ? viewerStats.samples : [];
+            if (!el.children.length) el.innerHTML = '<div class="chat-log-loading">Loading activity timeline...</div>';
+            const timelineFile = isLive ? '__current__.json' : filename;
+            fetch(`/api/sessions/${encodeURIComponent(timelineFile)}/timeline`).then(r => r.json()).then(timeline => {
+                renderActivityTimeline(samples, timeline);
+            }).catch(() => { el.innerHTML = '<div class="empty">Timeline unavailable</div>'; });
+        } else if (paneId === 'emotes') {
+            const emoteEntries = Object.entries(data.emotes || {}).sort((a, b) => (b[1].count || 0) - (a[1].count || 0));
+            el.innerHTML = emoteEntries.length
+                ? emoteEntries.map(([name, e]) => `<div class="entry">
+                    ${e.imageUrl ? `<img src="${e.imageUrl}" alt="${escapeHtml(name)}" loading="lazy" decoding="async" style="width:22px;height:22px;">` : ''}
+                    <span class="name">${escapeHtml(name)}</span>
+                    <span class="count">×${e.count || 0}</span>
+                </div>`).join('')
+                : '<div class="empty">No emotes</div>';
+        } else if (paneId === 'hashtags') {
+            const hashEntries = Object.entries(data.hashtags || {}).sort((a, b) => (b[1].count || 0) - (a[1].count || 0));
+            el.innerHTML = hashEntries.length
+                ? hashEntries.map(([tag, h]) => `<div class="entry">
+                    <span class="name">${escapeHtml(tag)}</span>
+                    <span class="count">×${h.count || 0}</span>
+                </div>`).join('')
+                : '<div class="empty">No hashtags</div>';
+        } else if (paneId === 'subs') {
+            const subEntries = data.subscribers || [];
+            el.innerHTML = subEntries.length
+                ? subEntries.map(s => `<div class="entry">
+                    ${s.chatimg ? `<img src="${s.chatimg}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}
+                    <span class="name dossier-clickable" data-chatter="${escapeHtml(s.chatname)}" title="View Chatter Dossier">${escapeHtml(s.chatname)}</span>
+                    ${s.membership ? `<span class="count">${escapeHtml(s.membership)}</span>` : ''}
+                </div>`).join('')
+                : '<div class="empty">No subscribers</div>';
+        } else if (paneId === 'giftsubs') {
+            const giftSubEntries = data.giftSubs || [];
+            el.innerHTML = giftSubEntries.length
+                ? giftSubEntries.map(g => {
+                    const gifter = g.gifter || g.chatname;
+                    const label = g.recipient ? `${gifter} → ${g.recipient}` : gifter;
+                    return `<div class="entry">
+                        ${g.chatimg ? `<img src="${g.chatimg}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}
+                        <span class="name dossier-clickable" data-chatter="${escapeHtml(gifter)}" title="View Chatter Dossier">${escapeHtml(label)}</span>
+                    </div>`;
+                }).join('')
+                : '<div class="empty">No gift subs</div>';
+        } else if (paneId === 'followers') {
+            const followerEntries = data.followers || [];
+            el.innerHTML = followerEntries.length
+                ? followerEntries.map(f => `<div class="entry">
+                    ${f.chatimg ? `<img src="${f.chatimg}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}
+                    <span class="name">${escapeHtml(f.chatname)}</span>
+                </div>`).join('')
+                : '<div class="empty">No followers</div>';
+        } else if (paneId === 'donations') {
+            const donationEntries = data.donations || [];
+            el.innerHTML = donationEntries.length
+                ? donationEntries.map(d => `<div class="entry">
+                    ${d.chatimg ? `<img src="${d.chatimg}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}
+                    <span class="name">${escapeHtml(d.chatname)}</span>
+                    ${d.amount ? `<span class="count">${escapeHtml(d.amount)}</span>` : ''}
+                </div>`).join('')
+                : '<div class="empty">No donations</div>';
+        } else if (paneId === 'cheerers') {
+            const bitEntries = data.bits || [];
+            el.innerHTML = bitEntries.length
+                ? bitEntries.map(b => `<div class="entry">
+                    ${b.chatimg ? `<img src="${b.chatimg}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}
+                    <span class="name">${escapeHtml(b.chatname)}</span>
+                    ${b.amount ? `<span class="count">${escapeHtml(b.amount)}</span>` : ''}
+                </div>`).join('')
+                : '<div class="empty">No cheerers</div>';
+        } else if (paneId === 'raids') {
+            const raidEntries = data.raids || [];
+            el.innerHTML = raidEntries.length
+                ? raidEntries.map(r => `<div class="entry">
+                    ${r.chatimg ? `<img src="${r.chatimg}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}
+                    <span class="name">${escapeHtml(r.chatname)}</span>
+                    ${r.viewers ? `<span class="count">${r.viewers} viewers</span>` : ''}
+                </div>`).join('')
+                : '<div class="empty">No raids</div>';
+        }
     }
 
     function formatStreamTime(value) {
@@ -585,103 +673,9 @@
             </div>
         `;
 
-        // Chatters
-        const chatterEntries = Object.values(data.chatters || {}).sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0));
-        document.getElementById('pane-chatters').innerHTML = chatterEntries.length
-            ? chatterEntries.map(c => `<div class="entry">
-                ${c.chatimg ? `<img src="${c.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
-                <span class="name dossier-clickable" data-chatter="${escapeHtml(c.chatname)}" title="View Chatter Dossier">${escapeHtml(c.chatname)}</span>
-                <span class="count">${c.messageCount || 0} msgs</span>
-            </div>`).join('')
-            : '<div class="empty">No chatters</div>';
-
-        const samples = Array.isArray(viewerStats.samples) ? viewerStats.samples : [];
-        document.getElementById('pane-timeline').innerHTML = '<div class="chat-log-loading">Loading activity timeline...</div>';
-        const timelineFile = isLive ? '__current__.json' : filename;
-        fetch(`/api/sessions/${encodeURIComponent(timelineFile)}/timeline`).then(r => r.json()).then(timeline => {
-            renderActivityTimeline(samples, timeline);
-        }).catch(() => { document.getElementById('pane-timeline').innerHTML = '<div class="empty">Timeline unavailable</div>'; });
-
-        // Emotes
-        const emoteEntries = Object.entries(data.emotes || {}).sort((a, b) => (b[1].count || 0) - (a[1].count || 0));
-        document.getElementById('pane-emotes').innerHTML = emoteEntries.length
-            ? emoteEntries.map(([name, e]) => `<div class="entry">
-                ${e.imageUrl ? `<img src="${e.imageUrl}" alt="${escapeHtml(name)}" style="width:22px;height:22px;">` : ''}
-                <span class="name">${escapeHtml(name)}</span>
-                <span class="count">×${e.count || 0}</span>
-            </div>`).join('')
-            : '<div class="empty">No emotes</div>';
-
-        // Hashtags
-        const hashEntries = Object.entries(data.hashtags || {}).sort((a, b) => (b[1].count || 0) - (a[1].count || 0));
-        document.getElementById('pane-hashtags').innerHTML = hashEntries.length
-            ? hashEntries.map(([tag, h]) => `<div class="entry">
-                <span class="name">${escapeHtml(tag)}</span>
-                <span class="count">×${h.count || 0}</span>
-            </div>`).join('')
-            : '<div class="empty">No hashtags</div>';
-
-        // Subs
-        const subEntries = data.subscribers || [];
-        document.getElementById('pane-subs').innerHTML = subEntries.length
-            ? subEntries.map(s => `<div class="entry">
-                ${s.chatimg ? `<img src="${s.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
-                <span class="name dossier-clickable" data-chatter="${escapeHtml(s.chatname)}" title="View Chatter Dossier">${escapeHtml(s.chatname)}</span>
-                ${s.membership ? `<span class="count">${escapeHtml(s.membership)}</span>` : ''}
-            </div>`).join('')
-            : '<div class="empty">No subscribers</div>';
-
-        // Gift Subs
-        const giftSubEntries = data.giftSubs || [];
-        document.getElementById('pane-giftsubs').innerHTML = giftSubEntries.length
-            ? giftSubEntries.map(g => {
-                const gifter = g.gifter || g.chatname;
-                const label = g.recipient ? `${gifter} → ${g.recipient}` : gifter;
-                return `<div class="entry">
-                    ${g.chatimg ? `<img src="${g.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
-                    <span class="name dossier-clickable" data-chatter="${escapeHtml(gifter)}" title="View Chatter Dossier">${escapeHtml(label)}</span>
-                </div>`;
-            }).join('')
-            : '<div class="empty">No gift subs</div>';
-
-        // Followers
-        const followerEntries = data.followers || [];
-        document.getElementById('pane-followers').innerHTML = followerEntries.length
-            ? followerEntries.map(f => `<div class="entry">
-                ${f.chatimg ? `<img src="${f.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
-                <span class="name">${escapeHtml(f.chatname)}</span>
-            </div>`).join('')
-            : '<div class="empty">No followers</div>';
-
-        // Donations
-        const donationEntries = data.donations || [];
-        document.getElementById('pane-donations').innerHTML = donationEntries.length
-            ? donationEntries.map(d => `<div class="entry">
-                ${d.chatimg ? `<img src="${d.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
-                <span class="name">${escapeHtml(d.chatname)}</span>
-                ${d.amount ? `<span class="count">${escapeHtml(d.amount)}</span>` : ''}
-            </div>`).join('')
-            : '<div class="empty">No donations</div>';
-
-        // Cheerers (bits)
-        const bitEntries = data.bits || [];
-        document.getElementById('pane-cheerers').innerHTML = bitEntries.length
-            ? bitEntries.map(b => `<div class="entry">
-                ${b.chatimg ? `<img src="${b.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
-                <span class="name">${escapeHtml(b.chatname)}</span>
-                ${b.amount ? `<span class="count">${escapeHtml(b.amount)}</span>` : ''}
-            </div>`).join('')
-            : '<div class="empty">No cheerers</div>';
-
-        // Raids
-        const raidEntries = data.raids || [];
-        document.getElementById('pane-raids').innerHTML = raidEntries.length
-            ? raidEntries.map(r => `<div class="entry">
-                ${r.chatimg ? `<img src="${r.chatimg}" alt="" onerror="this.style.display='none'">` : ''}
-                <span class="name">${escapeHtml(r.chatname)}</span>
-                ${r.viewers ? `<span class="count">${r.viewers} viewers</span>` : ''}
-            </div>`).join('')
-            : '<div class="empty">No raids</div>';
+        ['chatters', 'timeline', 'emotes', 'hashtags', 'subs', 'giftsubs', 'followers', 'donations', 'cheerers', 'raids'].forEach(pid => {
+            renderActiveSessionPane(data, filename, pid);
+        });
 
         // Chat Log — lazy loaded when tab is clicked
         const exportSession = isLive ? 'current' : encodeURIComponent(filename);
@@ -880,6 +874,9 @@
         document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
         el.classList.add('active');
         document.getElementById(`pane-${id}`).classList.add('active');
+        if (activeSessionFile === '__current__' && activeSession) {
+            renderActiveSessionPane(activeSession, '__current__', id);
+        }
     }
 
     function switchTool(id, btn) {

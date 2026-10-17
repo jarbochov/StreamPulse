@@ -976,33 +976,37 @@
 
         const STORAGE_KEY = 'streampulse_randomizer_studio';
 
+        let _saveStudioTimer = null;
         function saveStudioState() {
-            try {
-                const state = {
-                    presetId: currentPresetId,
-                    mode: currentMode,
-                    theme: $('theme-select')?.value || currentTheme,
-                    bgStyle: $('bg-style-select')?.value || 'glass',
-                    customBgColor: $('custom-bg-color')?.value || '#0f172a',
-                    customBgOpacity: Number($('custom-bg-opacity')?.value) || 85,
-                    accentColor: $('ap-accent')?.value || '#8b5cf6',
-                    textColor: $('ap-text')?.value || '#ffffff',
-                    fontFamily: $('ap-font')?.value || '',
-                    fontWeight: $('ap-weight')?.value || '600',
-                    textOutline: $('ap-outline')?.value || '',
-                    btnPresetId: currentBtnPresetId,
-                    quotePresetId: currentQuotePresetId,
-                    winnerHeader: $('winner-header-input')?.value || 'THE UNIVERSE HAS DECIDED',
-                    suspense: $('suspense-select')?.value || 'normal',
-                    duration: $('spin-duration')?.value || '6',
-                    autohide: $('autohide-select')?.value || '8',
-                    scale: $('overlay-scale')?.value || '1',
-                    showButton: $('overlay-button-enabled')?.checked || false,
-                    soundEnabled: AudioFX.enabled,
-                    activeTab: document.querySelector('.tab-btn.active')?.id?.replace('tab-btn-', '') || 'presets'
-                };
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            } catch (e) {}
+            clearTimeout(_saveStudioTimer);
+            _saveStudioTimer = setTimeout(() => {
+                try {
+                    const state = {
+                        presetId: currentPresetId,
+                        mode: currentMode,
+                        theme: $('theme-select')?.value || currentTheme,
+                        bgStyle: $('bg-style-select')?.value || 'glass',
+                        customBgColor: $('custom-bg-color')?.value || '#0f172a',
+                        customBgOpacity: Number($('custom-bg-opacity')?.value) || 85,
+                        accentColor: $('ap-accent')?.value || '#8b5cf6',
+                        textColor: $('ap-text')?.value || '#ffffff',
+                        fontFamily: $('ap-font')?.value || '',
+                        fontWeight: $('ap-weight')?.value || '600',
+                        textOutline: $('ap-outline')?.value || '',
+                        btnPresetId: currentBtnPresetId,
+                        quotePresetId: currentQuotePresetId,
+                        winnerHeader: $('winner-header-input')?.value || 'THE UNIVERSE HAS DECIDED',
+                        suspense: $('suspense-select')?.value || 'normal',
+                        duration: $('spin-duration')?.value || '6',
+                        autohide: $('autohide-select')?.value || '8',
+                        scale: $('overlay-scale')?.value || '1',
+                        showButton: $('overlay-button-enabled')?.checked || false,
+                        soundEnabled: AudioFX.enabled,
+                        activeTab: document.querySelector('.tab-btn.active')?.id?.replace('tab-btn-', '') || 'presets'
+                    };
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                } catch (e) {}
+            }, 200);
         }
 
         function loadStudioState() {
@@ -2727,6 +2731,7 @@
                 const ws = new WebSocket(`${proto}//${location.host}`);
                 ws.onmessage = event => {
                     try {
+                        if (typeof event.data === 'string' && !event.data.includes('"randomizer-spin"')) return;
                         const msg = JSON.parse(event.data);
                         if (msg.type === 'randomizer-spin' && msg.data) {
                             const d = msg.data;

@@ -80,6 +80,7 @@ This document provides project architecture context and mandatory UI/UX design r
 
 ## 4. Git & Workflow Rules
 
+- **Always commit and push all changes** (`git commit` and `git push`) automatically after completing and verifying a task.
 - **Never create git tags** during commits or pushes.
 - Keep commits focused, descriptive, and atomic.
 - Verify changes with existing test suites (`npm test`) before pushing.

@@ -693,14 +693,31 @@
         $('lifecycle-hint').style.display = text ? 'block' : 'none';
     }
 
+    let _lastChatterOrderSig = '';
     function renderChatters(chatters, total) {
         setText('chatter-count', total ? `(${total})` : '');
-        setHtml('chatters-list', chatters.length ? chatters.map(c => `
+        const listEl = $('chatters-list');
+        if (!chatters.length) {
+            _lastChatterOrderSig = '';
+            setHtml('chatters-list', '<div class="empty">No chatters yet</div>');
+            return;
+        }
+        const orderSig = chatters.map(c => `${c.chatname}\0${c.chatimg || ''}`).join('\n');
+        if (orderSig === _lastChatterOrderSig && listEl.children.length === chatters.length) {
+            chatters.forEach((c, idx) => {
+                const countEl = listEl.children[idx]?.querySelector('.count');
+                const nextText = `${fmt(c.messageCount)} msgs`;
+                if (countEl && countEl.textContent !== nextText) countEl.textContent = nextText;
+            });
+            return;
+        }
+        _lastChatterOrderSig = orderSig;
+        setHtml('chatters-list', chatters.map(c => `
             <div class="chatter">
-                ${c.chatimg ? `<img src="${escapeHtml(c.chatimg)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : '<div class="avatar"></div>'}
+                ${c.chatimg ? `<img src="${escapeHtml(c.chatimg)}" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">` : '<div class="avatar"></div>'}
                 <span class="name">${escapeHtml(c.chatname)}</span>
                 <span class="count">${fmt(c.messageCount)} msgs</span>
-            </div>`).join('') : '<div class="empty">No chatters yet</div>');
+            </div>`).join(''));
     }
 
     function renderEvents(events) {
@@ -811,7 +828,7 @@
     refresh();
     loadCustomOverlayCount();
     refreshInterval = setInterval(refresh, 3000);
-    setInterval(loadCustomOverlayCount, 60000);
+    setInterval(() => { if (!document.hidden) loadCustomOverlayCount(); }, 60000);
     </script>
 </body>
 </html>

@@ -416,7 +416,13 @@
 
         document.getElementById('url-output').textContent = fullUrl;
         document.getElementById('open-btn').href = fullUrl;
-        document.getElementById('preview-iframe').src = fullUrl;
+        const iframe = document.getElementById('preview-iframe');
+        if (iframe.src !== fullUrl) {
+            clearTimeout(window._msIframeTimer);
+            window._msIframeTimer = setTimeout(() => {
+                if (iframe.src !== fullUrl) iframe.src = fullUrl;
+            }, 150);
+        }
         updatePreviewSize();
     }
 

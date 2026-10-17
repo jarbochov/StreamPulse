@@ -273,7 +273,15 @@ export async function uploadAsset(file) {
 export function fitToMedia(el, url, type) {
     return new Promise(resolve => {
         const probe = document.createElement(type === 'video' ? 'video' : 'img');
-        const done = () => resolve();
+        let settled = false;
+        const done = () => {
+            if (settled) return;
+            settled = true;
+            if (type === 'video') {
+                try { probe.pause(); probe.removeAttribute('src'); probe.load(); } catch {}
+            }
+            resolve();
+        };
         probe.onerror = done;
         const onSize = (w, h) => {
             if (!w || !h) return done();
@@ -333,13 +341,14 @@ function renderTagChips(container, assets, active, query) {
 export function renderAssetGrid() {
     const el = state.overlay.elements.find(item => item.id === pickerTarget);
     if (!el || !assetGrid) return;
+    if (shared.cleanupMedia) shared.cleanupMedia(assetGrid);
     const query = assetSearch ? assetSearch.value.trim().toLowerCase() : '';
     const wanted = TEXT_TYPES.has(el.type) ? 'text' : el.type === 'video' ? 'video' : 'image';
     const current = TEXT_TYPES.has(el.type) ? el.source?.path : el.type === 'alert' ? el.alert?.sampleImage : el.src;
     const matches = libraryAssets.filter(asset => asset.kind === wanted && asset.label.toLowerCase().includes(query) && tagFilterMatch(asset, assetTagFilter));
     renderTagChips($('asset-tags'), libraryAssets.filter(asset => asset.kind === wanted), assetTagFilter, $('asset-tag-q')?.value || '');
     assetGrid.innerHTML = matches.length
-        ? matches.map(asset => `<button type="button" class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === current ? 'aria-current="true"' : ''} title="${esc(asset.label)}"><span class="thumb">${asset.kind === 'text' ? '<span style="font-size:2rem">¶</span>' : asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="">`}</span><span class="cap">${esc(asset.label)}</span></button>`).join('')
+        ? matches.map(asset => `<button type="button" class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === current ? 'aria-current="true"' : ''} title="${esc(asset.label)}"><span class="thumb">${asset.kind === 'text' ? '<span style="font-size:2rem">¶</span>' : asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="none"></video>` : `<img src="${esc(asset.url)}" loading="lazy" decoding="async" alt="">`}</span><span class="cap">${esc(asset.label)}</span></button>`).join('')
         : `<p class="hint">No ${wanted} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
 }
 
@@ -352,7 +361,10 @@ export async function openAssetPicker(targetId) {
     if (assetSearch) assetSearch.value = '';
     if ($('asset-tag-q')) $('asset-tag-q').value = '';
     assetTagFilter = '';
-    if (assetGrid) assetGrid.innerHTML = '<p class="hint">Loading…</p>';
+    if (assetGrid) {
+        if (shared.cleanupMedia) shared.cleanupMedia(assetGrid);
+        assetGrid.innerHTML = '<p class="hint">Loading…</p>';
+    }
     if (assetDialog) assetDialog.showModal();
     try {
         const response = await fetch('/api/custom-overlays/assets', { cache: 'no-store' });
@@ -371,13 +383,14 @@ let slideTagFilter = '', slidePicked = new Set(), slideShown = [];
 export function renderSlideGrid() {
     const el = state.overlay.elements.find(item => item.id === pickerTarget);
     if (!el || !slideGrid) return;
+    if (shared.cleanupMedia) shared.cleanupMedia(slideGrid);
     const kinds = el.slideshow?.kinds || 'image';
     const pool = libraryAssets.filter(asset => kinds === 'both' ? ['image', 'video'].includes(asset.kind) : asset.kind === (kinds === 'video' ? 'video' : 'image'));
     const query = $('slide-search')?.value.trim().toLowerCase() || '';
     slideShown = pool.filter(asset => asset.label.toLowerCase().includes(query) && tagFilterMatch(asset, slideTagFilter));
     renderTagChips($('slide-tags'), pool, slideTagFilter, $('slide-tag-q')?.value || '');
     slideGrid.innerHTML = slideShown.length
-        ? slideShown.map(asset => `<button type="button" class="asset-tile" data-name="${esc(asset.name)}" aria-pressed="${slidePicked.has(asset.name)}" title="${esc(asset.label)}"><span class="thumb">${asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="metadata"></video>` : `<img src="${esc(asset.url)}" alt="">`}</span><span class="cap">${esc(asset.label)}</span></button>`).join('')
+        ? slideShown.map(asset => `<button type="button" class="asset-tile" data-name="${esc(asset.name)}" aria-pressed="${slidePicked.has(asset.name)}" title="${esc(asset.label)}"><span class="thumb">${asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="none"></video>` : `<img src="${esc(asset.url)}" loading="lazy" decoding="async" alt="">`}</span><span class="cap">${esc(asset.label)}</span></button>`).join('')
         : '<p class="hint">Nothing here. Upload in the Asset Library, or change the filter.</p>';
     if ($('slide-picked')) $('slide-picked').textContent = `${slidePicked.size} selected`;
 }
@@ -390,7 +403,10 @@ export async function openSlidePicker() {
     slideTagFilter = '';
     if ($('slide-search')) $('slide-search').value = '';
     if ($('slide-tag-q')) $('slide-tag-q').value = '';
-    if (slideGrid) slideGrid.innerHTML = '<p class="hint">Loading…</p>';
+    if (slideGrid) {
+        if (shared.cleanupMedia) shared.cleanupMedia(slideGrid);
+        slideGrid.innerHTML = '<p class="hint">Loading…</p>';
+    }
     if (slideDialog) slideDialog.showModal();
     await loadAssetTags();
     renderSlideGrid();
@@ -640,7 +656,7 @@ export async function refreshLiveStatus() {
         if (!response.ok) return;
         const before = liveSignature();
         state.liveStatus = await response.json();
-        if (shared.loadLiveExtras) await shared.loadLiveExtras(state.liveStatus);
+        if (shared.loadLiveExtras) await shared.loadLiveExtras(state.liveStatus, state.overlay.elements);
         if (prefs.live && liveSignature() !== before) renderCanvas();
     } catch {}
 }
@@ -648,6 +664,7 @@ export async function refreshLiveStatus() {
 export function connectAlertPreview() {
     const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
     socket.addEventListener('message', event => {
+        if (typeof event.data === 'string' && !event.data.includes('"alert')) return;
         let message; try { message = JSON.parse(event.data); } catch { return; }
         if (message.type === 'alert-skip' || message.type === 'alert-clear') {
             for (const node of state.nodes.values()) if (node._alertHandle) node._alertHandle.stop();
@@ -834,6 +851,12 @@ function initEventListeners() {
     assetSearch?.addEventListener('input', renderAssetGrid);
     $('asset-tag-q')?.addEventListener('input', renderAssetGrid);
     $('asset-close')?.addEventListener('click', () => assetDialog?.close());
+    assetDialog?.addEventListener('close', () => {
+        if (assetGrid) {
+            if (shared.cleanupMedia) shared.cleanupMedia(assetGrid);
+            assetGrid.innerHTML = '';
+        }
+    });
     $('asset-upload')?.addEventListener('change', async event => {
         const file = event.target.files[0];
         const el = state.overlay.elements.find(item => item.id === pickerTarget);
@@ -913,6 +936,12 @@ function initEventListeners() {
         renderCanvas(); renderProperties(); changed(false);
     });
     $('slide-close')?.addEventListener('click', () => slideDialog?.close());
+    slideDialog?.addEventListener('close', () => {
+        if (slideGrid) {
+            if (shared.cleanupMedia) shared.cleanupMedia(slideGrid);
+            slideGrid.innerHTML = '';
+        }
+    });
 
     // Canvas Drag and Drop & Paste
     if (stage) {

@@ -1073,11 +1073,12 @@
         `;
     }
 
+    let _lastAlertsEventsHtml = '', _lastAlertsHistoryHtml = '';
     function renderEvents() {
         const list = (queue.events || []).filter(e => !hideUnmatched || e.status !== 'no matching rule');
         if (!$('events')) return;
         $('hide-unmatched').checked = hideUnmatched;
-        $('events').innerHTML = list.length ? list.map(e => {
+        const eventsHtml = list.length ? list.map(e => {
             const meta = TRIGGER_META[e.event.type] || { label: e.event.type, icon: ICONS.zap, color: '#3b82f6' };
             return `
             <div>
@@ -1093,6 +1094,10 @@
                 </button>
             </div>`;
         }).join('') : '<p class="hint" style="padding:1rem;text-align:center;">Real stream events appear here as they occur in real time.</p>';
+        if (eventsHtml !== _lastAlertsEventsHtml) {
+            _lastAlertsEventsHtml = eventsHtml;
+            $('events').innerHTML = eventsHtml;
+        }
     }
 
     function renderQueue() {
@@ -1116,7 +1121,7 @@
         });
         $('tab-count').textContent = (queue.pending || 0) ? queue.pending : '';
 
-        $('history').innerHTML = (queue.history || []).length ? queue.history.map(h => `
+        const historyHtml = (queue.history || []).length ? queue.history.map(h => `
             <div>
                 <span class="grow">
                     <span style="display:inline-flex;align-items:center;gap:0.35rem;">
@@ -1130,6 +1135,10 @@
                 </button>
             </div>
         `).join('') : '<p class="hint" style="padding:1rem;text-align:center;">No alerts shown yet in this session.</p>';
+        if (historyHtml !== _lastAlertsHistoryHtml) {
+            _lastAlertsHistoryHtml = historyHtml;
+            $('history').innerHTML = historyHtml;
+        }
     }
 
     function renderSummary() {
@@ -1319,13 +1328,25 @@
 
     // Asset Library Modal
     let libTarget = null, libKinds = [];
+    function cleanupLibMedia() {
+        const grid = $('lib-grid');
+        if (!grid) return;
+        if (window.OverlayShared?.cleanupMedia) {
+            window.OverlayShared.cleanupMedia(grid);
+        } else {
+            grid.querySelectorAll('video, audio').forEach(m => {
+                try { m.pause(); m.removeAttribute('src'); m.load(); } catch {}
+            });
+        }
+    }
     function renderLib() {
         const q = $('lib-q').value.toLowerCase();
         const list = assets.filter(a => libKinds.includes(a.kind) && (a.label || a.name).toLowerCase().includes(q));
+        cleanupLibMedia();
         $('lib-grid').innerHTML = list.length ? list.map(a => `
             <button type="button" class="lib-item" data-url="${esc(a.url)}" title="${esc(a.label || a.name)}">
                 <div class="th">
-                    ${a.kind === 'image' ? `<img loading="lazy" src="${esc(a.url)}" alt="">` : a.kind === 'video' ? `<video preload="metadata" muted src="${esc(a.url)}#t=0.1"></video>` : `<span style="font-size:1.6rem;">${ICONS.volume}</span>`}
+                    ${a.kind === 'image' ? `<img loading="lazy" decoding="async" src="${esc(a.url)}" alt="">` : a.kind === 'video' ? `<video preload="none" muted playsinline src="${esc(a.url)}#t=0.1"></video>` : `<span style="font-size:1.6rem;">${ICONS.volume}</span>`}
                 </div>
                 <span class="nm">${esc(a.label || a.name)}</span>
             </button>
@@ -1333,6 +1354,10 @@
     }
     $('lib-q').addEventListener('input', renderLib);
     $('lib-close').addEventListener('click', () => $('lib').close());
+    $('lib').addEventListener('close', () => {
+        cleanupLibMedia();
+        $('lib-grid').innerHTML = '';
+    });
     $('lib-grid').addEventListener('click', event => {
         const item = event.target.closest('.lib-item'), r = rule();
         if (!item || !r || !libTarget) return;

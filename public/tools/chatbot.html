@@ -433,11 +433,18 @@
 <script src="/poll.js"></script>
     <script>
 let liveStatus = {};
-const refreshStatus = () => fetch('/api/status', { cache: 'no-store' }).then(r => r.json()).then(async s => { liveStatus = s; try { await OverlayShared.loadLiveExtras(s); } catch {} }).catch(() => {});
+let _extrasLoaded = false;
+const refreshStatus = () => fetch('/api/status', { cache: 'no-store' }).then(r => r.json()).then(async s => {
+    liveStatus = s;
+    if (!_extrasLoaded) {
+        _extrasLoaded = true;
+        try { await OverlayShared.loadLiveExtras(s); } catch {}
+    }
+}).catch(() => {});
 refreshStatus(); pollVisible(refreshStatus, 5000);
 let state = { settings: {}, commands: [], quotes: [], messages: [], triggers: [] };
 const $ = id => document.getElementById(id);
-const esc = v => { const d = document.createElement('div'); d.textContent = v ?? ''; return d.innerHTML; };
+const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
 async function api(path, method = 'GET', body) {
     const res = await fetch(path, { method, headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined });
