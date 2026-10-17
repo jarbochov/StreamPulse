@@ -446,7 +446,7 @@ export function contentSection(el) {
         body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button></div>`;
     }
     if (el.type === 'icon') {
-        body += F.text('content', 'Font Awesome icon', el.content, 'placeholder="fa-brands fa-twitch" spellcheck="false"');
+        body += F.text('content', 'Font Awesome icon or emoji', el.content, 'placeholder="fa-brands fa-twitch or paste an emoji" spellcheck="false"');
         body += `<div class="field"><span>Icon</span><button type="button" id="pick-icon">Choose icon…</button></div>`;
         body += F.color('style.color', 'Icon color', el.style.color);
         body += `<div class="grid2">${F.seg('style.textAlign', 'Horizontal', el.style.textAlign, [['left', 'Align left', ICON.textLeft], ['center', 'Center horizontally', ICON.textCenter], ['right', 'Align right', ICON.textRight]])}${F.seg('style.verticalAlign', 'Vertical', el.style.verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>`;
@@ -456,15 +456,15 @@ export function contentSection(el) {
     if (el.type === 'pattern') {
         const sourceType = el.pattern?.sourceType === 'icon' ? 'icon' : 'image';
         const imgIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Image';
-        const faIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Icon';
+        const faIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Icon / Emoji';
         body += F.seg('pattern.sourceType', 'Tile graphic', sourceType, [
             ['image', 'Image tile', imgIcon],
-            ['icon', 'Font Awesome icon tile', faIcon]
+            ['icon', 'Font Awesome icon or emoji tile', faIcon]
         ]);
         if (sourceType === 'icon') {
             const s = el.style || {};
-            body += F.text('content', 'Font Awesome icon', el.content || 'fa-brands fa-twitch', 'placeholder="fa-brands fa-twitch" spellcheck="false"');
-            body += `<div class="field"><span>Icon</span><button type="button" id="pick-icon">Choose icon…</button></div>`;
+            body += F.text('content', 'Font Awesome icon or emoji', el.content || 'fa-brands fa-twitch', 'placeholder="fa-brands fa-twitch or paste an emoji" spellcheck="false"');
+            body += `<div class="field"><span>Icon</span><button type="button" id="pick-icon">Choose icon…</button><span class="hint">Pick a Font Awesome icon above, or paste any emoji / symbol directly into the text box.</span></div>`;
             body += F.color('style.color', 'Icon color', s.color || '#ffffff');
             body += `<div class="grid2">${F.number('style.textStroke.width', 'Outline (px)', s.textStroke?.width || 0, { min: 0, max: 20, step: 0.5 })}${s.textStroke?.width > 0 ? F.color('style.textStroke.color', 'Outline color', s.textStroke?.color || '#000000') : '<span></span>'}</div>`;
             body += `<div class="grid2">${F.number('style.textShadow.blur', 'Shadow / glow (px)', s.textShadow?.blur || 0, { min: 0, max: 60 })}${s.textShadow?.blur > 0 ? F.color('style.textShadow.color', 'Shadow color', s.textShadow?.color || 'rgba(0,0,0,0.7)') : '<span></span>'}</div>`;

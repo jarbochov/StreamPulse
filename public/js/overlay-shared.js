@@ -1854,20 +1854,39 @@
 
     // QR codes are rendered by the server as SVG, so the overlay only needs an image URL.
     // Font Awesome icon. The class list is restricted to safe characters, and the stylesheet loads on first use.
+    function extractGraphemes(str, max = 4) {
+        const s = String(str || '').trim();
+        if (!s) return '';
+        if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+            const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+            const out = [];
+            for (const part of seg.segment(s)) {
+                out.push(part.segment);
+                if (out.length >= max) break;
+            }
+            return out.join('');
+        }
+        return Array.from(s).slice(0, max).join('');
+    }
+
     function renderIcon(node, value, style = {}) {
         node.replaceChildren();
         const cls = String(value || '').trim().replace(/^fab\b/, 'fa-brands').replace(/^fas\b/, 'fa-solid').replace(/^far\b/, 'fa-regular');
         if (!cls) return;
-        if (!document.querySelector('link[data-fa]')) {
+        const isFa = /^[a-z0-9 -]+$/i.test(cls) && /\bfa-[a-z0-9-]+/i.test(cls);
+        if (isFa && !document.querySelector('link[data-fa]')) {
             const link = document.createElement('link');
             link.rel = 'stylesheet'; link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'; link.dataset.fa = '1';
             document.head.appendChild(link);
         }
-        if (!/^[a-z0-9 -]+$/i.test(cls)) { node.textContent = cls.slice(0, 4); return; }
-        const icon = document.createElement('i');
-        icon.className = cls;
-        // Sized to the box height; width follows the glyph, and alignment places it in the box.
-        icon.style.cssText = 'font-size:100cqh;line-height:1;display:block;flex:none;';
+        const icon = document.createElement(isFa ? 'i' : 'span');
+        if (isFa) {
+            icon.className = cls;
+            icon.style.cssText = 'font-size:100cqh;line-height:1;display:block;flex:none;';
+        } else {
+            icon.textContent = extractGraphemes(cls, 4);
+            icon.style.cssText = 'font-size:88cqh;line-height:1;display:block;flex:none;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;';
+        }
         if (style.textStroke?.width > 0) {
             icon.style.webkitTextStroke = `${style.textStroke.width}px ${style.textStroke.color || '#000000'}`;
             icon.style.paintOrder = 'stroke fill';
@@ -2625,22 +2644,30 @@
         }
 
         function buildStampFromIcon(cls) {
-            const probe = document.createElement('i');
-            probe.className = cls;
-            probe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none;';
-            document.body.appendChild(probe);
-            const beforeStyle = getComputedStyle(probe, '::before');
-            const elemStyle = getComputedStyle(probe);
-            const rawContent = beforeStyle.content;
-            const fontFamily = beforeStyle.fontFamily || elemStyle.fontFamily || '"Font Awesome 6 Free", "Font Awesome 6 Brands", sans-serif';
-            const fontWeight = beforeStyle.fontWeight || elemStyle.fontWeight || (cls.includes('fa-brands') ? '400' : '900');
-            probe.remove();
-
+            const isFa = /^[a-z0-9 -]+$/i.test(cls) && /\bfa-[a-z0-9-]+/i.test(cls);
             let glyph = '';
-            if (rawContent && rawContent !== 'none' && rawContent !== 'normal') {
-                glyph = rawContent.replace(/^["']|["']$/g, '');
+            let fontFamily = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif';
+            let fontWeight = '400';
+
+            if (isFa) {
+                const probe = document.createElement('i');
+                probe.className = cls;
+                probe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none;';
+                document.body.appendChild(probe);
+                const beforeStyle = getComputedStyle(probe, '::before');
+                const elemStyle = getComputedStyle(probe);
+                const rawContent = beforeStyle.content;
+                fontFamily = beforeStyle.fontFamily || elemStyle.fontFamily || '"Font Awesome 6 Free", "Font Awesome 6 Brands", sans-serif';
+                fontWeight = beforeStyle.fontWeight || elemStyle.fontWeight || (cls.includes('fa-brands') ? '400' : '900');
+                probe.remove();
+
+                if (rawContent && rawContent !== 'none' && rawContent !== 'normal') {
+                    glyph = rawContent.replace(/^["']|["']$/g, '');
+                }
+            } else if (cls) {
+                glyph = extractGraphemes(cls, 4);
             }
-            if (!glyph) return { glyph: '', fontFamily, fontWeight };
+            if (!glyph) return { glyph: '', fontFamily, fontWeight, isFa };
 
             const s = element.style || {};
             const strokeW = Number(s.textStroke?.width) || 0;
@@ -2674,7 +2701,7 @@
             stampCtx.fillStyle = s.color || '#ffffff';
             stampCtx.fillText(glyph, cx, cy);
             stampCtx.restore();
-            return { glyph, fontFamily, fontWeight };
+            return { glyph, fontFamily, fontWeight, isFa };
         }
 
         function updateKaleidoCell(t) {
