@@ -515,6 +515,17 @@ export function renderCanvas(only) {
             state.nodes.set(el.id, node);
         }
         node.dataset.type = el.type;
+        if (!node._dblHandler) {
+            node._dblHandler = e => {
+                const item = byId(node.dataset.id);
+                if (item && TEXT_TYPES.has(item.type)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openCanvasInlineEditor(item, node);
+                }
+            };
+            node.addEventListener('dblclick', node._dblHandler);
+        }
         if (node.parentNode !== targetParent) {
             targetParent.appendChild(node);
         }
@@ -964,9 +975,10 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         if (existing) existing.remove();
 
         const s = el.style || {};
+        const originalContent = el.content || '';
         const textarea = document.createElement('textarea');
         textarea.className = 'canvas-inline-editor';
-        textarea.value = el.content || '';
+        textarea.value = originalContent;
 
         Object.assign(textarea.style, {
             left: `${el.x}px`,
@@ -982,13 +994,20 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
             textAlign: s.textAlign || 'left'
         });
 
-        node.style.opacity = '0';
+        if (node) node.style.opacity = '0';
 
-        const finish = () => {
-            textarea.removeEventListener('blur', finish);
+        let finished = false;
+        const finish = (commit = true) => {
+            if (finished) return;
+            finished = true;
+            textarea.removeEventListener('blur', onBlur);
             textarea.removeEventListener('keydown', onKey);
-            el.content = textarea.value;
-            node.style.opacity = '';
+            if (commit) {
+                el.content = textarea.value;
+            } else {
+                el.content = originalContent;
+            }
+            if (node) node.style.opacity = '';
             textarea.remove();
             renderCanvas(new Set([el.id]));
             renderSelectionUI();
@@ -996,10 +1015,19 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
             changed(true);
         };
 
+        const onBlur = () => finish(true);
+
         const onKey = e => {
-            if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) {
+            if (e.key === 'Escape') {
                 e.preventDefault();
-                finish();
+                e.stopPropagation();
+                finish(false);
+            } else if (e.key === 'Enter') {
+                if (e.metaKey || e.ctrlKey || (!e.shiftKey && el.type === 'text')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    finish(true);
+                }
             }
         };
 
@@ -1009,19 +1037,45 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
             if (propArea) propArea.value = textarea.value;
         });
 
-        textarea.addEventListener('blur', finish);
+        // Prevent clicks and typing inside the inline editor from bubbling to stage pointerdown/gesture listeners
+        const stopProp = e => e.stopPropagation();
+        textarea.addEventListener('pointerdown', stopProp);
+        textarea.addEventListener('mousedown', stopProp);
+        textarea.addEventListener('click', stopProp);
+        textarea.addEventListener('dblclick', stopProp);
         textarea.addEventListener('keydown', onKey);
 
         canvasEl.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
+
+        // Delayed blur registration prevents immediate dismissal during click release cycle
+        setTimeout(() => {
+            if (!finished) textarea.addEventListener('blur', onBlur);
+        }, 100);
+
+        requestAnimationFrame(() => {
+            textarea.focus();
+            textarea.select();
+        });
     }
 
     stage.addEventListener('dblclick', event => {
-        const node = event.target.closest('.canvas-element');
+        let node = event.target.closest('.canvas-element');
+        if (!node) {
+            const hit = document.elementsFromPoint(event.clientX, event.clientY);
+            node = hit.find(el => el.classList?.contains('canvas-element'));
+        }
+        if (!node && state.selectedIds.size === 1) {
+            const selEl = primary();
+            if (selEl && TEXT_TYPES.has(selEl.type)) {
+                node = state.nodes.get(selEl.id);
+            }
+        }
         if (!node) return;
-        const el = visibleElements().find(item => item.id === node.dataset.id);
+        const id = node.dataset?.id || [...state.nodes.entries()].find(([, n]) => n === node)?.[0];
+        const el = id ? byId(id) : null;
         if (el && TEXT_TYPES.has(el.type)) {
+            event.preventDefault();
+            event.stopPropagation();
             openCanvasInlineEditor(el, node);
             return;
         }

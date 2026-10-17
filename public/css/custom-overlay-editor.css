@@ -423,7 +423,11 @@ body.is-scrubbing, body.is-scrubbing * {
 /* Direct Canvas In-Place Text Editor */
 .canvas-inline-editor {
     position: absolute;
-    z-index: 60;
+    z-index: 100;
+    user-select: text;
+    -webkit-user-select: text;
+    pointer-events: auto;
+    touch-action: auto;
     background: color-mix(in srgb, var(--panel) 92%, #000);
     border: 2px solid var(--accent);
     border-radius: 6px;
