@@ -606,20 +606,20 @@
         return out;
     })();
 
-    function getPixelateSeedTile(p) {
+    function getPixelateGridTile(p) {
         const size = Math.max(2, Math.min(48, Math.round(p)));
-        return cachedTile(`pix:${size}`, () => {
+        return cachedTile(`pixgrid:${size}`, () => {
             const c = getFxScratch(size, size);
             const ctx = c.getContext('2d');
-            ctx.clearRect(0, 0, size, size);
-            ctx.fillStyle = '#ffffff';
-            if (size === 2) {
-                ctx.fillRect(0, 0, 1, 1);
-            } else {
-                const seed = size % 2 === 0 ? 2 : 1;
-                const pos = Math.floor((size - 1) / 2);
-                ctx.fillRect(pos, pos, seed, seed);
-            }
+            ctx.fillStyle = 'rgb(128,128,128)';
+            ctx.fillRect(0, 0, size, size);
+            // Subtle pixel bevel / grid edge so pixel blocks read crisply without CPU feMorphology
+            ctx.fillStyle = 'rgb(142,142,142)';
+            ctx.fillRect(0, 0, size - 1, 1);
+            ctx.fillRect(0, 0, 1, size - 1);
+            ctx.fillStyle = 'rgb(110,110,110)';
+            ctx.fillRect(0, size - 1, size, 1);
+            ctx.fillRect(size - 1, 0, 1, size);
             return { url: c.toDataURL('image/png'), w: size, h: size };
         });
     }
@@ -640,7 +640,7 @@
                         ctx.fillRect(x * scale, y * scale, scale, scale);
                     }
                 }
-                return { url: c.toDataURL('image/png'), w, h, snapPixel: scale };
+                return { url: c.toDataURL('image/png'), w, h, pixelated: true };
             }
             if (mode === 'atkinson') {
                 const scale = Math.max(1, Math.min(16, size));
@@ -654,7 +654,7 @@
                         ctx.fillRect(x * scale, y * scale, scale, scale);
                     }
                 }
-                return { url: c.toDataURL('image/png'), w, h, snapPixel: scale };
+                return { url: c.toDataURL('image/png'), w, h, pixelated: true };
             }
 
             // Continuous screen patterns: 'dots', 'lines', 'crosshatch'
@@ -671,7 +671,7 @@
                 nx = cos >= 0 ? 1 : -1;
                 ny = sin >= 0 ? 1 : -1;
             } else {
-                T = 128;
+                T = 96;
                 nx = Math.round((T / cell) * cos);
                 ny = Math.round((T / cell) * sin);
                 if (nx === 0 && ny === 0) nx = 1;
@@ -694,7 +694,6 @@
                         const l2 = 0.5 - 0.5 * Math.cos(pu);
                         val = Math.min(l1 * 0.68, 0.32 + l2 * 0.68);
                     } else {
-                        // Euclidean spot function for crisp circular halftone dots
                         val = 0.5 - 0.25 * (Math.cos(pu) + Math.cos(pv));
                     }
                     const byte = Math.max(0, Math.min(255, Math.round(val * 255)));
@@ -706,60 +705,32 @@
                 }
             }
             ctx.putImageData(img, 0, 0);
-            return { url: c.toDataURL('image/png'), w: T, h: T, snapPixel: 1 };
+            return { url: c.toDataURL('image/png'), w: T, h: T, pixelated: false };
         });
     }
 
-    function getFadeMapTile(ht) {
+    function buildCssFadeGradient(ht, forMask) {
         const mode = ht.fadeMode || 'none';
+        if (mode === 'none') return '';
         const angle = Math.round(Number(ht.fadeAngle) ?? 135);
-        const cxPct = Math.max(0, Math.min(100, Number(ht.fadeCenterX) ?? 50));
-        const cyPct = Math.max(0, Math.min(100, Number(ht.fadeCenterY) ?? 50));
-        const s0 = Math.max(0, Math.min(99, Number(ht.fadeStart) ?? 15)) / 100;
-        const s1 = Math.max(s0 + 0.01, Math.min(100, Number(ht.fadeEnd) ?? 85)) / 100;
+        const cx = Math.max(0, Math.min(100, Number(ht.fadeCenterX) ?? 50));
+        const cy = Math.max(0, Math.min(100, Number(ht.fadeCenterY) ?? 50));
+        const s0 = Math.max(0, Math.min(99, Number(ht.fadeStart) ?? 15));
+        const s1 = Math.max(s0 + 1, Math.min(100, Number(ht.fadeEnd) ?? 85));
         const inv = ht.fadeInvert === true;
-        const style = ht.fadeStyle === 'blend' || ht.mode === 'pixelate' ? 'blend' : 'dots';
-        return cachedTile(`fade:${mode}:${angle}:${cxPct}:${cyPct}:${s0}:${s1}:${inv}:${style}`, () => {
-            const N = 128;
-            const c = getFxScratch(N, N);
-            const ctx = c.getContext('2d');
-            ctx.clearRect(0, 0, N, N);
-            let grad;
-            if (mode === 'radial') {
-                const cx = (cxPct / 100) * N;
-                const cy = (cyPct / 100) * N;
-                const maxR = Math.hypot(Math.max(cx, N - cx), Math.max(cy, N - cy)) || 90;
-                grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
-            } else {
-                const rad = ((angle - 90) * Math.PI) / 180;
-                const half = (N / 2) * (Math.abs(Math.cos(rad)) + Math.abs(Math.sin(rad)));
-                const cx = N / 2, cy = N / 2;
-                grad = ctx.createLinearGradient(
-                    cx - Math.cos(rad) * half, cy - Math.sin(rad) * half,
-                    cx + Math.cos(rad) * half, cy + Math.sin(rad) * half
-                );
-            }
-            if (style === 'dots') {
-                // RGB 0 = full halftone effect; RGB 255 = bias luminance to 1.0 so dots taper to zero
-                const cStart = inv ? 'rgb(255,255,255)' : 'rgb(0,0,0)';
-                const cEnd = inv ? 'rgb(0,0,0)' : 'rgb(255,255,255)';
-                grad.addColorStop(0, cStart);
-                grad.addColorStop(s0, cStart);
-                grad.addColorStop(s1, cEnd);
-                grad.addColorStop(1, cEnd);
-            } else {
-                // Alpha 1 = full filtered output; Alpha 0 = original unfiltered element (or transparent)
-                const aStart = inv ? 'rgba(255,255,255,0)' : 'rgba(255,255,255,1)';
-                const aEnd = inv ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0)';
-                grad.addColorStop(0, aStart);
-                grad.addColorStop(s0, aStart);
-                grad.addColorStop(s1, aEnd);
-                grad.addColorStop(1, aEnd);
-            }
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, N, N);
-            return c.toDataURL('image/png');
-        });
+        let c0, c1;
+        if (forMask) {
+            c0 = inv ? 'transparent' : '#000';
+            c1 = inv ? '#000' : 'transparent';
+        } else {
+            // Bias luminance toward paper (white, or black if inverted) so dots shrink to zero
+            const biasRgb = ht.invert ? '0,0,0' : '255,255,255';
+            c0 = inv ? `rgba(${biasRgb},1)` : `rgba(${biasRgb},0)`;
+            c1 = inv ? `rgba(${biasRgb},0)` : `rgba(${biasRgb},1)`;
+        }
+        return mode === 'radial'
+            ? `radial-gradient(circle at ${cx}% ${cy}%, ${c0} ${s0}%, ${c1} ${s1}%)`
+            : `linear-gradient(${angle}deg, ${c0} ${s0}%, ${c1} ${s1}%)`;
     }
 
     let fxCounter = 0;
@@ -794,159 +765,115 @@
         style.textContent = '@keyframes sp-grain{0%{background-position:0 0}10%{background-position:-37px 21px}20%{background-position:19px -43px}30%{background-position:-52px -14px}40%{background-position:41px 33px}50%{background-position:-9px 58px}60%{background-position:63px -27px}70%{background-position:-28px 47px}80%{background-position:34px -56px}90%{background-position:-61px 12px}100%{background-position:0 0}}.sp-fx-paused .sp-grain{animation-play-state:paused!important}';
         document.head.append(style);
     }
-    const grainImage = `url("data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>")}")`;
+    // Cached 128x128 PNG noise tile avoids WebKit's CPU software fallback for SVG <feTurbulence>
+    let cachedGrainCssUrl = '';
+    function getGrainCssUrl() {
+        if (cachedGrainCssUrl) return cachedGrainCssUrl;
+        const S = 128;
+        const c = getFxScratch(S, S);
+        const ctx = c.getContext('2d');
+        const img = ctx.createImageData(S, S);
+        const d = img.data;
+        let seed = 0x12345678;
+        for (let i = 0; i < d.length; i += 4) {
+            seed = (seed * 1664525 + 1013904223) >>> 0;
+            const v = (seed >>> 24) & 0xff;
+            d[i] = v; d[i + 1] = v; d[i + 2] = v; d[i + 3] = 255;
+        }
+        ctx.putImageData(img, 0, 0);
+        cachedGrainCssUrl = `url("${c.toDataURL('image/png')}")`;
+        return cachedGrainCssUrl;
+    }
     const MEDIA_TYPES = new Set(['image', 'video', 'slideshow', 'embed', 'pattern']);
     const FILTERABLE = element => element.type !== 'cutout';
 
-    function buildSvgFilterPrimitives(f, elW, elH) {
+    // Lightweight 1-primitive SVG color/alpha transfer (no <feTile>, <feImage>, or <feMorphology>).
+    // Reuses a single stable <filter id> per DOM node to prevent WebKit CoreImage filter cache bloat.
+    function syncLightweightSvgFilter(node, element, f) {
         const ht = f.halftone || {};
         const htMode = ht.mode || 'none';
         const hasHt = htMode !== 'none';
         const hasDuo = !!f.duotone?.enabled;
+        const colorMode = ht.colorMode || 'manga';
+        const levels = Math.max(2, Math.min(16, Math.round(Number(ht.levels) || 4)));
+
+        const needsSvg = hasDuo ||
+            (hasHt && htMode !== 'pixelate' && (colorMode === 'manga' || colorMode === 'ink-only' || (colorMode === 'color' && levels < 16))) ||
+            (htMode === 'pixelate' && levels < 16);
+
+        if (!needsSvg) {
+            if (node._fxSvg) { node._fxSvg.remove(); node._fxSvg = null; }
+            node._fxAnim = null;
+            fxAnimated.delete(node);
+            return false;
+        }
+
+        if (!node._fxId) {
+            node._fxId = `sp-duo-${String(element.id || 'x').replace(/[^a-z0-9_-]/gi, '')}-${++fxCounter}`;
+        }
+        let svg = node._fxSvg;
+        if (!svg || svg.parentNode !== node) {
+            svg = node._fxSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('class', 'sp-fx sp-fx-svg');
+            svg.setAttribute('width', '0');
+            svg.setAttribute('height', '0');
+            svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;';
+            node.appendChild(svg);
+        }
+
         const rgb = hex => [1, 3, 5].map(i => (parseInt(String(hex || '#000000').slice(i, i + 2), 16) / 255).toFixed(4));
-        const nodes = [];
-        let cur = 'SourceGraphic';
+        const mode = f.duotone.animate;
+        const blend = hasDuo && (mode === 'blend' || mode === 'both');
+        const hue = hasDuo && (mode === 'hue' || mode === 'both');
 
-        // 1. Optional Pixelation Pass (standalone 'pixelate' mode, manual pixelSize > 1, or automatic dither block snap)
-        const ditherSnap = (htMode === 'bayer' || htMode === 'atkinson') ? Math.max(1, Math.min(16, Math.round(Number(ht.size) || 2))) : 1;
-        const pixSize = htMode === 'pixelate'
-            ? Math.max(2, Math.min(48, Math.round(Number(ht.size) || 8)))
-            : hasHt ? Math.max(ditherSnap, Math.min(32, Math.round(Number(ht.pixelSize) || 1))) : 1;
-
-        if (pixSize > 1) {
-            const pTile = getPixelateSeedTile(pixSize);
-            nodes.push(`<feImage href="${pTile.url}" x="0" y="0" width="${pTile.w}" height="${pTile.h}" result="spPixSeed"/>`);
-            nodes.push(`<feTile in="spPixSeed" result="spPixGrid"/>`);
-            nodes.push(`<feComposite in="${cur}" in2="spPixGrid" operator="in" result="spPixSamp"/>`);
-            if (pixSize === 2) {
-                nodes.push(`<feOffset in="spPixSamp" dx="1" dy="0" result="spPx1"/>`);
-                nodes.push(`<feComposite in="spPixSamp" in2="spPx1" operator="over" result="spPxRow"/>`);
-                nodes.push(`<feOffset in="spPxRow" dx="0" dy="1" result="spPx2"/>`);
-                nodes.push(`<feComposite in="spPxRow" in2="spPx2" operator="over" result="spPixOut"/>`);
-            } else {
-                const rad = Math.floor((pixSize - 1) / 2);
-                nodes.push(`<feMorphology in="spPixSamp" operator="dilate" radius="${rad}" result="spPixOut"/>`);
-            }
-            cur = 'spPixOut';
-        }
-
-        // 2. Halftone / Manga / Ordered Dither / Posterize Pass
-        const fadeMode = hasHt ? (ht.fadeMode || 'none') : 'none';
-        const fadeStyle = (fadeMode !== 'none' && (ht.fadeStyle === 'blend' || htMode === 'pixelate')) ? 'blend' : 'dots';
-
-        if (htMode === 'pixelate') {
-            const levels = Math.max(2, Math.min(16, Math.round(Number(ht.levels) || 8)));
-            if (levels < 16) {
-                const steps = Array.from({ length: levels }, (_, i) => (i / (levels - 1)).toFixed(4)).join(' ');
-                nodes.push(`<feComponentTransfer in="${cur}" result="spQuant"><feFuncR type="discrete" tableValues="${steps}"/><feFuncG type="discrete" tableValues="${steps}"/><feFuncB type="discrete" tableValues="${steps}"/></feComponentTransfer>`);
-                cur = 'spQuant';
-            }
-        } else if (hasHt) {
-            const tile = getHalftoneTile(htMode, ht.size, ht.angle);
-            nodes.push(`<feImage href="${tile.url}" x="0" y="0" width="${tile.w}" height="${tile.h}" result="spHtSeed"/>`);
-            nodes.push(`<feTile in="spHtSeed" result="spHtGrid"/>`);
-
-            const colorMode = ht.colorMode || 'manga';
-            const thresh = Math.max(0.05, Math.min(0.95, (Number(ht.threshold) ?? 50) / 100));
-            const isDither = htMode === 'bayer' || htMode === 'atkinson';
-            const softPct = isDither ? Math.min(40, Number(ht.softness) || 0) : Math.max(0, Math.min(100, Number(ht.softness) ?? 12));
-            const slope = Math.max(2.5, 65 - (softPct * 0.6));
-            const intercept = (0.5 - slope * thresh).toFixed(4);
-
-            if (colorMode === 'color') {
-                let srcForColor = cur;
-                if (fadeMode !== 'none' && fadeStyle === 'dots') {
-                    const fadeUrl = getFadeMapTile({ ...ht, fadeStyle: 'dots' });
-                    nodes.push(`<feImage href="${fadeUrl}" x="0" y="0" width="${elW}" height="${elH}" preserveAspectRatio="none" result="spFadeDots"/>`);
-                    nodes.push(`<feComposite in="${cur}" in2="spFadeDots" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="spColorBiased"/>`);
-                    srcForColor = 'spColorBiased';
-                }
-                const levels = Math.max(2, Math.min(16, Math.round(Number(ht.levels) || 2)));
-                if (levels > 2) {
-                    const spread = ((1.05 - softPct / 140) / Math.max(1.4, levels - 1)).toFixed(4);
-                    const bias = (-0.5 * Number(spread) + (0.5 - thresh) * 0.45).toFixed(4);
-                    const steps = Array.from({ length: levels }, (_, i) => (i / (levels - 1)).toFixed(4)).join(' ');
-                    nodes.push(`<feComposite in="${srcForColor}" in2="spHtGrid" operator="arithmetic" k1="0" k2="1" k3="${spread}" k4="${bias}" result="spHtMix"/>`);
-                    nodes.push(`<feComponentTransfer in="spHtMix" result="spHtColor"><feFuncR type="discrete" tableValues="${steps}"/><feFuncG type="discrete" tableValues="${steps}"/><feFuncB type="discrete" tableValues="${steps}"/></feComponentTransfer>`);
-                } else {
-                    nodes.push(`<feComposite in="${srcForColor}" in2="spHtGrid" operator="arithmetic" k1="0" k2="0.5" k3="0.5" k4="0" result="spHtMix"/>`);
-                    nodes.push(`<feComponentTransfer in="spHtMix" result="spHtColor"><feFuncR type="linear" slope="${slope.toFixed(2)}" intercept="${intercept}"/><feFuncG type="linear" slope="${slope.toFixed(2)}" intercept="${intercept}"/><feFuncB type="linear" slope="${slope.toFixed(2)}" intercept="${intercept}"/></feComponentTransfer>`);
-                }
-                cur = 'spHtColor';
-            } else {
-                // 'manga' (Ink & Paper) or 'ink-only' (Ink on Transparent)
-                const inv = ht.invert === true;
-                const lumMat = inv
-                    ? '-0.2126 -0.7152 -0.0722 0 1 -0.2126 -0.7152 -0.0722 0 1 -0.2126 -0.7152 -0.0722 0 1 0 0 0 0 1'
-                    : '0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 0 1';
-                nodes.push(`<feColorMatrix in="${cur}" type="matrix" values="${lumMat}" result="spLumRaw"/>`);
-                let lumIn = 'spLumRaw';
-                if (fadeMode !== 'none' && fadeStyle === 'dots') {
-                    const fadeUrl = getFadeMapTile({ ...ht, fadeStyle: 'dots' });
-                    nodes.push(`<feImage href="${fadeUrl}" x="0" y="0" width="${elW}" height="${elH}" preserveAspectRatio="none" result="spFadeDots"/>`);
-                    nodes.push(`<feComposite in="spLumRaw" in2="spFadeDots" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="spLumBiased"/>`);
-                    lumIn = 'spLumBiased';
-                }
-                nodes.push(`<feComposite in="${lumIn}" in2="spHtGrid" operator="arithmetic" k1="0" k2="0.5" k3="0.5" k4="0" result="spHtMix"/>`);
-                nodes.push(`<feComponentTransfer in="spHtMix" result="spBwMask"><feFuncR type="linear" slope="${slope.toFixed(2)}" intercept="${intercept}"/><feFuncG type="linear" slope="${slope.toFixed(2)}" intercept="${intercept}"/><feFuncB type="linear" slope="${slope.toFixed(2)}" intercept="${intercept}"/></feComponentTransfer>`);
-
-                const [ir, ig, ib] = rgb(hasDuo ? f.duotone.dark : (ht.inkColor || '#0f172a'));
-                const [pr, pg, pb] = rgb(hasDuo ? f.duotone.light : (ht.paperColor || '#ffffff'));
-                if (colorMode === 'ink-only') {
-                    // Map bwMask (0=Ink, 1=Paper) to Ink color with Alpha=(1 - R)
-                    nodes.push(`<feColorMatrix in="spBwMask" type="matrix" values="0 0 0 0 ${ir}  0 0 0 0 ${ig}  0 0 0 0 ${ib}  -1 0 0 0 1" result="spInkOnly"/>`);
-                    if (hasDuo && (f.duotone.animate === 'hue' || f.duotone.animate === 'both')) {
-                        nodes.push(`<feColorMatrix in="spInkOnly" class="sp-hue" type="hueRotate" values="0" result="spInkHue"/>`);
-                        cur = 'spInkHue';
-                    } else {
-                        cur = 'spInkOnly';
-                    }
-                } else {
-                    const duoClass = hasDuo ? ' class="sp-duo-xfer"' : '';
-                    nodes.push(`<feComponentTransfer in="spBwMask"${duoClass} result="spMangaTone"><feFuncR type="table" tableValues="${ir} ${pr}"/><feFuncG type="table" tableValues="${ig} ${pg}"/><feFuncB type="table" tableValues="${ib} ${pb}"/></feComponentTransfer>`);
-                    cur = 'spMangaTone';
-                    if (hasDuo && (f.duotone.animate === 'hue' || f.duotone.animate === 'both')) {
-                        nodes.push(`<feColorMatrix in="${cur}" class="sp-hue" type="hueRotate" values="0" result="spMangaHue"/>`);
-                        cur = 'spMangaHue';
-                    }
-                }
-            }
-        }
-
-        // 3. Duotone Pass (when standalone or when Halftone is in 'color' / 'pixelate' mode)
-        if (hasDuo && (!hasHt || htMode === 'pixelate' || ht.colorMode === 'color')) {
+        let inner = '';
+        if (hasHt && htMode !== 'pixelate' && colorMode === 'ink-only') {
+            const inkHex = hasDuo ? f.duotone.dark : (ht.inkColor || '#0f172a');
+            const [ir, ig, ib] = rgb(inkHex);
+            const alphaSign = ht.invert ? '1 0 0 0 0' : '-1 0 0 0 1';
+            inner = `<feColorMatrix type="matrix" values="0 0 0 0 ${ir}  0 0 0 0 ${ig}  0 0 0 0 ${ib}  ${alphaSign}"/>${hue ? '<feColorMatrix class="sp-hue" type="hueRotate" values="0"/>' : ''}`;
+        } else if (hasHt && htMode !== 'pixelate' && colorMode === 'manga') {
+            const cDark = hasDuo ? f.duotone.dark : (ht.inkColor || '#0f172a');
+            const cLight = hasDuo ? f.duotone.light : (ht.paperColor || '#ffffff');
+            const [c0r, c0g, c0b] = rgb(ht.invert ? cLight : cDark);
+            const [c1r, c1g, c1b] = rgb(ht.invert ? cDark : cLight);
+            inner = `<feComponentTransfer class="sp-duo-xfer"><feFuncR type="table" tableValues="${c0r} ${c1r}"/><feFuncG type="table" tableValues="${c0g} ${c1g}"/><feFuncB type="table" tableValues="${c0b} ${c1b}"/></feComponentTransfer>${hue ? '<feColorMatrix class="sp-hue" type="hueRotate" values="0"/>' : ''}`;
+        } else if (hasDuo) {
             const [dr, dg, db] = rgb(f.duotone.dark), [lr, lg, lb] = rgb(f.duotone.light);
-            const mode = f.duotone.animate, hue = mode === 'hue' || mode === 'both';
-            nodes.push(`<feColorMatrix in="${cur}" type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0" result="spDuoLum"/>`);
-            nodes.push(`<feComponentTransfer in="spDuoLum" class="sp-duo-xfer" result="spDuoOut"><feFuncR type="table" tableValues="${dr} ${lr}"/><feFuncG type="table" tableValues="${dg} ${lg}"/><feFuncB type="table" tableValues="${db} ${lb}"/></feComponentTransfer>`);
-            cur = 'spDuoOut';
-            if (hue) {
-                nodes.push(`<feColorMatrix in="${cur}" class="sp-hue" type="hueRotate" values="0" result="spDuoHue"/>`);
-                cur = 'spDuoHue';
-            }
+            inner = `<feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0"/><feComponentTransfer class="sp-duo-xfer"><feFuncR type="table" tableValues="${dr} ${lr}"/><feFuncG type="table" tableValues="${dg} ${lg}"/><feFuncB type="table" tableValues="${db} ${lb}"/></feComponentTransfer>${hue ? '<feColorMatrix class="sp-hue" type="hueRotate" values="0"/>' : ''}`;
+        } else {
+            const steps = Array.from({ length: levels }, (_, i) => (i / (levels - 1)).toFixed(4)).join(' ');
+            inner = `<feComponentTransfer><feFuncR type="discrete" tableValues="${steps}"/><feFuncG type="discrete" tableValues="${steps}"/><feFuncB type="discrete" tableValues="${steps}"/></feComponentTransfer>`;
         }
 
-        // 4. Re-apply original SourceAlpha so shapes, icons, text, and transparent PNGs keep exact alpha masks
-        if (hasHt) {
-            nodes.push(`<feComposite in="${cur}" in2="SourceAlpha" operator="in" result="spClipped"/>`);
-            cur = 'spClipped';
+        const filterMarkup = `<filter id="${node._fxId}" color-interpolation-filters="sRGB">${inner}</filter>`;
+        if (svg._markup !== filterMarkup) {
+            svg._markup = filterMarkup;
+            svg.innerHTML = filterMarkup;
         }
 
-        // 5. Optional Blend Fade (crossfades filtered output back to original SourceGraphic or transparency)
-        if (fadeMode !== 'none' && fadeStyle === 'blend') {
-            const fadeUrl = getFadeMapTile({ ...ht, fadeStyle: 'blend' });
-            nodes.push(`<feImage href="${fadeUrl}" x="0" y="0" width="${elW}" height="${elH}" preserveAspectRatio="none" result="spFadeMask"/>`);
-            nodes.push(`<feComposite in="${cur}" in2="spFadeMask" operator="in" result="spFxMasked"/>`);
-            if (ht.colorMode === 'ink-only' && htMode !== 'pixelate') {
-                cur = 'spFxMasked';
-            } else {
-                nodes.push(`<feComposite in="SourceGraphic" in2="spFadeMask" operator="out" result="spBgMasked"/>`);
-                nodes.push(`<feComposite in="spFxMasked" in2="spBgMasked" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="spBlended"/>`);
-                cur = 'spBlended';
-            }
+        if (blend || hue) {
+            const num = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+            const c1 = [num(f.duotone.dark), num(f.duotone.light)], c2 = [num(f.duotone.dark2), num(f.duotone.light2)];
+            const xfer = svg.querySelector('.sp-duo-xfer');
+            const fns = xfer ? ['R', 'G', 'B'].map(c => xfer.querySelector(`feFunc${c}`)) : [];
+            const hueNode = svg.querySelector('.sp-hue');
+            const period = Math.max(1, Number(f.duotone.speed) || 6);
+            node._fxAnim = { last: 0, step(now) {
+                const s = now / 1000 / period;
+                if (blend && fns.length === 3 && fns[0]) {
+                    const t = (1 - Math.cos(s * 2 * Math.PI)) / 2, mix = (a, b) => (a + (b - a) * t).toFixed(4);
+                    fns.forEach((fn, i) => fn.setAttribute('tableValues', `${mix(c1[0][i], c2[0][i])} ${mix(c1[1][i], c2[1][i])}`));
+                }
+                if (hue && hueNode) hueNode.setAttribute('values', String(Math.round((s * 360) % 360)));
+            } };
+            fxAnimated.add(node);
+            fxResume();
+        } else {
+            node._fxAnim = null;
+            fxAnimated.delete(node);
         }
-
-        return nodes.join('');
+        return true;
     }
 
     // Call after every style pass. Media layers filter the media itself (so a tint can sit on top); other layers filter the whole layer.
@@ -957,49 +884,49 @@
         f.duotone = { ...defaults.duotone, ...(f.duotone || {}) };
         f.grain = { ...defaults.grain, ...(f.grain || {}) };
         f.halftone = { ...defaults.halftone, ...(f.halftone || {}) };
-        const hasHt = !!f.halftone.mode && f.halftone.mode !== 'none';
-        const hasSvgFilter = f.duotone.enabled || hasHt;
+        const ht = f.halftone;
+        const htMode = ht.mode || 'none';
+        const hasHt = htMode !== 'none';
         const media = MEDIA_TYPES.has(element.type);
         const target = !media ? node : (element.type === 'slideshow' || element.type === 'pattern') ? node.firstElementChild : node.querySelector(':scope > video, :scope > img, :scope > iframe');
         if (!target) { node._fxSig = ''; node._fxAnim = null; fxAnimated.delete(node); return; }
-        const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || hasSvgFilter);
-        const elW = Math.max(1, Math.round(Number(element.width) || 400));
-        const elH = Math.max(1, Math.round(Number(element.height) || 300));
-        const signature = JSON.stringify([f, media, element.id, elW, elH]);
-        const base = media ? '' : node.style.filter;
-        // A fresh id per change makes browsers re-evaluate the filter; the same url() string would keep the old colors.
+
+        const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.duotone.enabled || hasHt);
+        const signature = JSON.stringify([f, media, element.id]);
+
         if (node._fxSig !== signature || node._fxTarget !== target) {
-            node._fxSig = signature; node._fxTarget = target;
-            node._fxId = `sp-duo-${String(element.id || 'x').replace(/[^a-z0-9_-]/gi, '')}-${++fxCounter}`;
-            node.querySelectorAll(':scope > .sp-fx').forEach(n => n.remove());
-            node._fxAnim = null; node._fxGrain = null;
-            fxAnimated.delete(node);
-            if (active && hasSvgFilter) {
-                const mode = f.duotone.animate, blend = f.duotone.enabled && (mode === 'blend' || mode === 'both'), hue = f.duotone.enabled && (mode === 'hue' || mode === 'both');
-                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.setAttribute('class', 'sp-fx');
-                svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
-                svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;';
-                const body = buildSvgFilterPrimitives(f, elW, elH);
-                svg.innerHTML = `<filter id="${node._fxId}" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">${body}</filter>`;
-                node.appendChild(svg);
-                if (blend || hue) {
-                    const num = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
-                    const c1 = [num(f.duotone.dark), num(f.duotone.light)], c2 = [num(f.duotone.dark2), num(f.duotone.light2)];
-                    const xfer = svg.querySelector('.sp-duo-xfer');
-                    const fns = xfer ? ['R', 'G', 'B'].map(c => xfer.querySelector(`feFunc${c}`)) : [];
-                    const hueNode = svg.querySelector('.sp-hue');
-                    const period = Math.max(1, Number(f.duotone.speed) || 6);
-                    node._fxAnim = { last: 0, step(now) {
-                        const s = now / 1000 / period;
-                        if (blend && fns.length === 3 && fns[0]) {
-                            const t = (1 - Math.cos(s * 2 * Math.PI)) / 2, mix = (a, b) => (a + (b - a) * t).toFixed(4);
-                            fns.forEach((fn, i) => fn.setAttribute('tableValues', `${mix(c1[0][i], c2[0][i])} ${mix(c1[1][i], c2[1][i])}`));
-                        }
-                        if (hue && hueNode) hueNode.setAttribute('values', String(Math.round((s * 360) % 360)));
-                    } };
+            node._fxSig = signature;
+            node._fxTarget = target;
+            node.querySelectorAll(':scope > .sp-fx:not(.sp-fx-svg)').forEach(n => n.remove());
+            node._fxGrain = null;
+
+            // 1. Halftone / Manga / Dither / Pixelate GPU CSS Overlay
+            if (active && hasHt) {
+                const htWrap = document.createElement('div');
+                htWrap.className = 'sp-fx sp-ht-wrap';
+                const fadeMode = ht.fadeMode || 'none';
+                const fadeStyle = (fadeMode !== 'none' && (ht.fadeStyle === 'blend' || htMode === 'pixelate')) ? 'blend' : 'dots';
+                const maskCss = (fadeMode !== 'none' && fadeStyle === 'blend') ? buildCssFadeGradient(ht, true) : '';
+                htWrap.style.cssText = `position:absolute;inset:0;pointer-events:none;border-radius:inherit;overflow:hidden;${maskCss ? `-webkit-mask-image:${maskCss};mask-image:${maskCss};` : ''}`;
+
+                if (fadeMode !== 'none' && fadeStyle === 'dots' && htMode !== 'pixelate') {
+                    const fadeDiv = document.createElement('div');
+                    fadeDiv.style.cssText = `position:absolute;inset:0;pointer-events:none;background:${buildCssFadeGradient(ht, false)};`;
+                    htWrap.appendChild(fadeDiv);
                 }
+
+                const tile = htMode === 'pixelate'
+                    ? getPixelateGridTile(ht.size || 6)
+                    : getHalftoneTile(htMode, ht.size, ht.angle);
+                const tileDiv = document.createElement('div');
+                const isPixel = htMode === 'bayer' || htMode === 'atkinson' || htMode === 'pixelate';
+                const tileOpacity = htMode === 'pixelate' ? 0.35 : (ht.colorMode === 'color' && (Number(ht.levels) || 4) > 2 ? 0.36 : 0.5);
+                const tileBlend = htMode === 'pixelate' ? 'mix-blend-mode:overlay;' : '';
+                tileDiv.style.cssText = `position:absolute;inset:0;pointer-events:none;background-image:url("${tile.url}");background-repeat:repeat;background-size:${tile.w}px ${tile.h}px;opacity:${tileOpacity};${tileBlend}${isPixel ? 'image-rendering:pixelated;' : ''}`;
+                htWrap.appendChild(tileDiv);
+                node.appendChild(htWrap);
             }
+
             if (media && active && f.tint.enabled && f.tint.opacity > 0) {
                 const tint = document.createElement('div');
                 tint.className = 'sp-fx';
@@ -1011,27 +938,56 @@
                 const grain = node._fxGrain = document.createElement('div');
                 grain.className = 'sp-fx sp-grain';
                 const size = Math.max(0.5, Math.min(4, Number(f.grain.size) || 1));
-                grain.style.cssText = `position:absolute;inset:0;pointer-events:none;border-radius:inherit;mix-blend-mode:overlay;background-image:${grainImage};background-size:${Math.round(200 * size)}px;opacity:${f.grain.amount};${f.grain.animate ? 'animation:sp-grain .6s steps(1) infinite;' : ''}`;
+                grain.style.cssText = `position:absolute;inset:0;pointer-events:none;border-radius:inherit;mix-blend-mode:overlay;background-image:${getGrainCssUrl()};background-size:${Math.round(160 * size)}px;opacity:${f.grain.amount};${f.grain.animate ? 'animation:sp-grain .6s steps(1) infinite;' : ''}`;
                 node.appendChild(grain);
             }
         }
+
+        const hasSvgFilter = active ? syncLightweightSvgFilter(node, element, f) : (node._fxSvg && (node._fxSvg.remove(), node._fxSvg = null), node._fxAnim = null, fxAnimated.delete(node), false);
         if (node._fxGrain && node._fxGrain.parentNode !== node) node.append(node._fxGrain);
-        if (node._fxAnim) { fxAnimated.add(node); fxResume(); }
-        const parts = base ? [base] : [];
+
+        const parts = [];
         if (active) {
             if (f.blur > 0) parts.push(`blur(${f.blur}px)`);
             if (f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
             if (f.contrast !== 100) parts.push(`contrast(${f.contrast}%)`);
             if (f.saturate !== 100) parts.push(`saturate(${f.saturate}%)`);
             if (f.grayscale > 0) parts.push(`grayscale(${f.grayscale}%)`);
-            if (hasSvgFilter) parts.push(`url(#${node._fxId})`);
+
+            if (hasHt && htMode !== 'pixelate' && !media) {
+                const isDither = htMode === 'bayer' || htMode === 'atkinson';
+                const softPct = isDither ? 0 : Math.max(0, Math.min(100, Number(ht.softness) ?? 12));
+                const thresh = Math.max(0.15, Math.min(0.85, (Number(ht.threshold) ?? 50) / 100));
+                const htBright = Math.round((0.5 / thresh) * 100);
+                const htContrast = Math.round(1400 - softPct * 11);
+                if (ht.colorMode !== 'color') parts.push('grayscale(100%)');
+                parts.push(`brightness(${htBright}%)`, `contrast(${htContrast}%)`);
+            }
+            if (hasSvgFilter && (!hasHt || !media || htMode === 'pixelate')) {
+                parts.push(`url(#${node._fxId})`);
+            }
         }
         target.style.filter = parts.join(' ');
+
         if (media) {
+            const nodeParts = [];
+            if (active && hasHt && htMode !== 'pixelate') {
+                const isDither = htMode === 'bayer' || htMode === 'atkinson';
+                const softPct = isDither ? 0 : Math.max(0, Math.min(100, Number(ht.softness) ?? 12));
+                const thresh = Math.max(0.15, Math.min(0.85, (Number(ht.threshold) ?? 50) / 100));
+                const htBright = Math.round((0.5 / thresh) * 100);
+                const htContrast = Math.round(1400 - softPct * 11);
+                if (ht.colorMode !== 'color') nodeParts.push('grayscale(100%)');
+                nodeParts.push(`brightness(${htBright}%)`, `contrast(${htContrast}%)`);
+                if (hasSvgFilter) nodeParts.push(`url(#${node._fxId})`);
+            }
+            node.style.filter = nodeParts.join(' ');
             // Blur fades the edges, so enlarge the media slightly and let the element crop it.
             const size = Math.max(1, Math.min(Number(element.width) || 100, Number(element.height) || 100));
             target.style.transform = active && f.blur > 0 ? `scale(${(1 + (f.blur * 2.2) / size).toFixed(3)})` : '';
             if (active) node.style.overflow = 'hidden';
+        } else {
+            node.style.filter = parts.join(' ');
         }
     }
 
@@ -3115,7 +3071,7 @@
 
         function drawFrame(now) {
             rafId = 0;
-            if (stopped || !readyToDraw || !node.isConnected || !ctx) return;
+            if (stopped || !readyToDraw || !node.isConnected || !ctx || curElement.visible === false || node.classList.contains('hidden')) return;
             const ts = now || performance.now();
             if (!startTime) startTime = ts;
 
@@ -3344,7 +3300,7 @@
         }
 
         function wake() {
-            if (stopped || !readyToDraw) return;
+            if (stopped || !readyToDraw || curElement.visible === false || node.classList.contains('hidden')) return;
             if (motion === 'none') {
                 if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
                 drawFrame(performance.now());
@@ -3356,6 +3312,12 @@
         function syncConfig(nextEl, nextOpts = {}) {
             curElement = nextEl || curElement;
             curOptions = nextOpts || curOptions;
+            if (curElement.visible === false || node.classList.contains('hidden')) {
+                if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+                canvas.width = 1; canvas.height = 1;
+                patternRunners.delete(wake);
+                return;
+            }
             const config = curElement.pattern || {};
             layout = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'].includes(config.layout) ? config.layout : 'brick';
             tileSize = Math.max(16, Math.min(1024, Number(config.tileSize) || 96));
