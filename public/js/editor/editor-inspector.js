@@ -42,6 +42,7 @@ export const RERENDER_PATHS = new Set([
     'cutout.shape', 'alert.showOnPreview', 'style.objectFit', 'mediaFilter.duotone.enabled',
     'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled',
     'mediaFilter.halftone.mode', 'mediaFilter.halftone.colorMode', 'mediaFilter.halftone.fadeMode',
+    'mediaFilter.retro.type', 'mediaFilter.retro.mode', 'mediaFilter.retro.palette', 'mediaFilter.retro.viewOnCrt',
     'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate',
     'style.borderWidth', 'style.borderStyle', 'style.borderGlow.enabled', 'style.borderGlow.neon',
     'style.borderGlow.inner', 'style.borderAnimation.type', 'style.borderAnimation.mode',
@@ -576,6 +577,7 @@ export function filterSection(el) {
     const duo = { ...(defaultFilter.duotone || {}), ...(f.duotone || {}) };
     const grain = { ...(defaultFilter.grain || {}), ...(f.grain || {}) };
     const ht = { ...(defaultFilter.halftone || {}), ...(f.halftone || {}) };
+    const retro = { ...(defaultFilter.retro || {}), ...(f.retro || {}) };
     let htMode = ht.mode || 'none';
     if (htMode === 'bayer') htMode = 'bayer-8';
     const hasHt = htMode !== 'none';
@@ -587,6 +589,9 @@ export function filterSection(el) {
     const colorMode = ht.colorMode || (isPix ? 'color' : 'manga');
     const fadeMode = ht.fadeMode || 'none';
 
+    const retroType = retro.type || retro.mode || 'none';
+    const hasRetro = retroType !== 'none';
+
     const presets = shared.MEDIA_FILTER_PRESETS || [];
     const media = ['image', 'video', 'slideshow', 'embed', 'pattern'].includes(el.type);
     const matchingPreset = presets.find(([id, name, pFilter]) => {
@@ -594,6 +599,7 @@ export function filterSection(el) {
         if (!el.mediaFilter) return false;
         const pf = { ...defaultFilter, ...pFilter };
         const pHt = { ...(defaultFilter.halftone || {}), ...(pf.halftone || {}) };
+        const pRetro = { ...(defaultFilter.retro || {}), ...(pf.retro || {}) };
         return f.blur === pf.blur &&
                f.brightness === pf.brightness &&
                f.contrast === pf.contrast &&
@@ -601,10 +607,36 @@ export function filterSection(el) {
                f.grayscale === pf.grayscale &&
                (f.duotone?.enabled || false) === (pf.duotone?.enabled || false) &&
                (!f.duotone?.enabled || (f.duotone?.dark === pf.duotone?.dark && f.duotone?.light === pf.duotone?.light)) &&
-               htMode === (pHt.mode || 'none');
+               htMode === (pHt.mode || 'none') &&
+               retroType === (pRetro.type || 'none');
     });
     const currentPresetId = matchingPreset ? matchingPreset[0] : '';
 
+    // Badges calculation
+    const hasExposure = f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0;
+    const exposureBadge = hasExposure ? '<span class="badge-pill">Adjusted</span>' : '<span class="badge-pill is-muted">Clean</span>';
+
+    const ditherBadge = hasHt
+        ? `<span class="badge-pill">${esc(isPix ? `Pixel ${ht.size || 6}px` : (htMode.startsWith('bayer') ? 'Bayer' : isScreen ? 'Halftone' : 'Dither'))}</span>`
+        : '<span class="badge-pill is-muted">Off</span>';
+
+    const retroNames = { crt: 'CRT', vhs: 'VHS', ntsc: 'NTSC', lcd: 'LCD', static: 'Static' };
+    const retroBadge = hasRetro
+        ? `<span class="badge-pill">${retroNames[retroType] || 'Retro'}</span>`
+        : '<span class="badge-pill is-muted">Off</span>';
+
+    const hasTreatment = duo.enabled || tint.enabled || grain.enabled;
+    const treatmentLabel = duo.enabled ? 'Duotone' : (grain.enabled ? 'Grain' : (tint.enabled ? 'Tint' : 'Off'));
+    const treatmentBadge = hasTreatment ? `<span class="badge-pill">${treatmentLabel}</span>` : '<span class="badge-pill is-muted">Off</span>';
+
+    const activeList = [];
+    if (hasRetro) activeList.push(retroNames[retroType] || 'Retro');
+    if (hasHt) activeList.push(isPix ? 'Pixel' : 'Dither');
+    if (duo.enabled) activeList.push('Duotone');
+    if (!hasRetro && !hasHt && !duo.enabled && hasExposure) activeList.push('Color');
+    const masterBadge = activeList.length ? `<span class="badge-pill">${activeList.join(' + ')}</span>` : '<span class="badge-pill is-muted">None</span>';
+
+    // 1. Pixel & Dither controls
     let htControls = '';
     if (isPix) {
         htControls = `
@@ -649,68 +681,162 @@ export function filterSection(el) {
         ${fadeMode === 'radial' ? F.check('mediaFilter.halftone.fadeInvert', 'Fade from center outward', !!ht.fadeInvert) : ''}
     ` : '';
 
+    // 2. Retro Display controls
+    let retroControls = '';
+    if (retroType === 'crt') {
+        retroControls = `
+            ${F.range('mediaFilter.retro.scanlines', 'Scanlines', retro.scanlines ?? 45, { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.curvature', 'Tube curvature', retro.curvature ?? 12, { min: 0, max: 60, unit: '%' })}
+            ${F.range('mediaFilter.retro.bloom', 'Phosphor glow', retro.bloom ?? 25, { min: 0, max: 100, unit: '%' })}
+            <details class="sub-details">
+                <summary>Advanced CRT Tuning</summary>
+                ${F.range('mediaFilter.retro.vignette', 'Vignette falloff', retro.vignette ?? 20, { min: 0, max: 100, unit: '%' })}
+                ${F.select('mediaFilter.retro.mask', 'Phosphor mask', retro.mask || 'aperture', [
+                    ['aperture', 'Aperture grille (Trinitron)'],
+                    ['shadow-mask', 'Shadow mask (Dot triad)'],
+                    ['slot-mask', 'Slot mask']
+                ])}
+            </details>
+        `;
+    } else if (retroType === 'vhs') {
+        retroControls = `
+            ${F.range('mediaFilter.retro.jitter', 'Tracking jitter', retro.jitter ?? 25, { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.glitch', 'Tape glitch bar', retro.glitch ?? 20, { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.chromatic', 'Chroma delay', retro.chromatic ?? 20, { min: 0, max: 100, unit: '%' })}
+            ${F.check('mediaFilter.retro.viewOnCrt', 'View on CRT monitor (scanlines & curve)', !!retro.viewOnCrt)}
+            <details class="sub-details">
+                <summary>Advanced VHS Tuning</summary>
+                ${F.range('mediaFilter.retro.noise', 'Tape head noise', retro.noise ?? 15, { min: 0, max: 100, unit: '%' })}
+            </details>
+        `;
+    } else if (retroType === 'ntsc') {
+        retroControls = `
+            ${F.range('mediaFilter.retro.bleed', 'Chroma bleed & smear', retro.bleed ?? 30, { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.ghosting', 'RF multipath ghosting', retro.ghosting ?? 25, { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.noise', 'Signal noise', retro.noise ?? 12, { min: 0, max: 100, unit: '%' })}
+            ${F.check('mediaFilter.retro.viewOnCrt', 'View on CRT monitor (scanlines & curve)', !!retro.viewOnCrt)}
+        `;
+    } else if (retroType === 'lcd') {
+        retroControls = `
+            ${F.range('mediaFilter.retro.grid', 'Sub-pixel grid spacing', retro.grid ?? 35, { min: 0, max: 100, unit: '%' })}
+            ${F.select('mediaFilter.retro.palette', 'LCD palette', retro.palette || 'default', [
+                ['default', 'Full color matrix'],
+                ['dmg-green', 'Game Boy DMG (Pea-soup green)'],
+                ['pocket', 'Game Boy Pocket (Silver gray)'],
+                ['cyber-blue', 'Cyber terminal (Phosphor blue)'],
+                ['amber', 'Amber CRT / LCD']
+            ])}
+        `;
+    } else if (retroType === 'static') {
+        retroControls = `
+            ${F.range('mediaFilter.retro.noise', 'Noise density', retro.noise ?? 55, { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.glitch', 'Glitch tear slices', retro.glitch ?? 40, { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.roll', 'VSYNC roll speed', retro.roll ?? 15, { min: 0, max: 100, unit: '%' })}
+        `;
+    }
+
+    const cardExposure = `
+        <details class="sub-details" ${(prefs.sections['fx-exposure'] ?? false) ? 'open' : ''} data-sect="fx-exposure">
+            <summary><span>Color &amp; Exposure</span><span class="spacer"></span>${exposureBadge}</summary>
+            ${F.range('mediaFilter.brightness', 'Brightness', f.brightness, { min: 0, max: 200, unit: '%' })}
+            ${F.range('mediaFilter.contrast', 'Contrast', f.contrast, { min: 0, max: 200, unit: '%' })}
+            ${F.range('mediaFilter.saturate', 'Saturation', f.saturate, { min: 0, max: 300, unit: '%' })}
+            ${F.range('mediaFilter.grayscale', 'Grayscale', f.grayscale, { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.blur', 'Blur', f.blur, { min: 0, max: 60, unit: 'px' })}
+            ${f.blur > 20 && el.type === 'video' ? '<p class="hint">Heavy blur on video can be slow in the editor.</p>' : ''}
+        </details>
+    `;
+
+    const cardPixel = `
+        <details class="sub-details" ${(prefs.sections['fx-pixel'] ?? hasHt) ? 'open' : ''} data-sect="fx-pixel">
+            <summary><span>Pixel &amp; Dither</span><span class="spacer"></span>${ditherBadge}</summary>
+            ${F.select('mediaFilter.halftone.mode', 'Engine Mode', htMode, [
+                ['none', 'None (Off)'],
+                {
+                    group: 'Halftone Screentones',
+                    options: [
+                        ['dots', 'Halftone dots'],
+                        ['lines', 'Manga lines'],
+                        ['crosshatch', 'Manga crosshatch']
+                    ]
+                },
+                {
+                    group: 'Ordered Dithering',
+                    options: [
+                        ['bayer-2', 'Bayer 2×2'],
+                        ['bayer-4', 'Bayer 4×4'],
+                        ['bayer-8', 'Bayer 8×8'],
+                        ['bayer-16', 'Bayer 16×16'],
+                        ['cluster-4', 'Clustered dot 4×4'],
+                        ['cluster-8', 'Clustered dot 8×8'],
+                        ['lines-h', 'Horizontal lines'],
+                        ['blue-noise', 'Blue noise'],
+                        ['custom', 'Custom matrix']
+                    ]
+                },
+                {
+                    group: 'Error Diffusion',
+                    options: [
+                        ['floyd-steinberg', 'Floyd–Steinberg'],
+                        ['atkinson', 'Atkinson'],
+                        ['sierra-lite', 'Sierra Lite'],
+                        ['sierra', 'Sierra (3-row)'],
+                        ['burkes', 'Burkes'],
+                        ['jarvis', 'Jarvis–Judice–Ninke']
+                    ]
+                },
+                {
+                    group: 'Pixel FX',
+                    options: [
+                        ['pixelate', 'Pixelate & posterize']
+                    ]
+                }
+            ])}
+            ${htControls}
+            ${fadeControls}
+        </details>
+    `;
+
+    const cardRetro = `
+        <details class="sub-details" ${(prefs.sections['fx-retro'] ?? hasRetro) ? 'open' : ''} data-sect="fx-retro">
+            <summary><span>Retro Display</span><span class="spacer"></span>${retroBadge}</summary>
+            ${F.select('mediaFilter.retro.type', 'Display Profile', retroType, [
+                ['none', 'None (Off)'],
+                ['crt', 'CRT Monitor (Arcade / Trinitron)'],
+                ['vhs', 'VHS Tape (Tracking / Glitch)'],
+                ['ntsc', 'NTSC Composite (Broadcast RF)'],
+                ['lcd', 'LCD Matrix (Handheld / Grid)'],
+                ['static', 'Broken Static (Analog Snow)']
+            ])}
+            ${retroControls}
+        </details>
+    `;
+
+    const cardTreatment = `
+        <details class="sub-details" ${(prefs.sections['fx-treatment'] ?? hasTreatment) ? 'open' : ''} data-sect="fx-treatment">
+            <summary><span>Color Treatment &amp; Texture</span><span class="spacer"></span>${treatmentBadge}</summary>
+            ${F.check('mediaFilter.duotone.enabled', 'Duotone gradient map', duo.enabled)}
+            ${duo.enabled ? `<div class="grid2">${F.color('mediaFilter.duotone.dark', 'Shadows', duo.dark)}${F.color('mediaFilter.duotone.light', 'Highlights', duo.light)}</div>` : ''}
+            ${duo.enabled ? F.select('mediaFilter.duotone.animate', 'Duotone animation', duo.animate, [['none', 'Still'], ['blend', 'Blend to second colors'], ['hue', 'Hue cycle'], ['both', 'Blend and hue cycle']]) + (duo.animate !== 'none' ? '<p class="hint">Animates in the live overlay. Use the Effects toggle in the toolbar to pause it while editing.</p>' : '') : ''}
+            ${duo.enabled && (duo.animate === 'blend' || duo.animate === 'both') ? `<div class="grid2">${F.color('mediaFilter.duotone.dark2', 'Shadows 2', duo.dark2)}${F.color('mediaFilter.duotone.light2', 'Highlights 2', duo.light2)}</div>` : ''}
+            ${duo.enabled && duo.animate !== 'none' ? F.range('mediaFilter.duotone.speed', 'Cycle length', duo.speed, { min: 1, max: 60, unit: 's' }) : ''}
+            ${media ? F.check('mediaFilter.tint.enabled', 'Color tint', tint.enabled) : ''}
+            ${media && tint.enabled ? `${F.color('mediaFilter.tint.color', 'Tint color', tint.color)}${F.range('mediaFilter.tint.opacity', 'Tint strength', tint.opacity, { min: 0, max: 100, scale: 0.01, unit: '%' })}` : ''}
+            ${F.check('mediaFilter.grain.enabled', 'Film grain', grain.enabled)}
+            ${grain.enabled ? `${F.range('mediaFilter.grain.amount', 'Grain strength', grain.amount, { min: 0, max: 100, scale: 0.01, unit: '%' })}${F.range('mediaFilter.grain.size', 'Grain size', grain.size, { min: 50, max: 400, scale: 0.01, unit: '%' })}${F.check('mediaFilter.grain.animate', 'Animate grain', grain.animate)}<p class="hint">Grain sits over the element. Keep strength low (10-30%) for a film look.</p>` : ''}
+        </details>
+    `;
+
     const body = `
         <label class="field"><span>Preset</span><select data-fx-preset><option value=""${!currentPresetId ? ' selected' : ''}>Choose a preset…</option>${presets.map(([id, name]) => `<option value="${id}"${id === currentPresetId ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
-        ${F.range('mediaFilter.blur', 'Blur', f.blur, { min: 0, max: 60, unit: 'px' })}
-        ${F.range('mediaFilter.brightness', 'Brightness', f.brightness, { min: 0, max: 200, unit: '%' })}
-        ${F.range('mediaFilter.contrast', 'Contrast', f.contrast, { min: 0, max: 200, unit: '%' })}
-        ${F.range('mediaFilter.saturate', 'Saturation', f.saturate, { min: 0, max: 300, unit: '%' })}
-        ${F.range('mediaFilter.grayscale', 'Grayscale', f.grayscale, { min: 0, max: 100, unit: '%' })}
-        ${F.select('mediaFilter.halftone.mode', 'Screen / Pixel FX', htMode, [
-            ['none', 'None'],
-            {
-                group: 'Halftone Screentones',
-                options: [
-                    ['dots', 'Halftone dots'],
-                    ['lines', 'Manga lines'],
-                    ['crosshatch', 'Manga crosshatch']
-                ]
-            },
-            {
-                group: 'Ordered Dithering',
-                options: [
-                    ['bayer-2', 'Bayer 2×2'],
-                    ['bayer-4', 'Bayer 4×4'],
-                    ['bayer-8', 'Bayer 8×8'],
-                    ['bayer-16', 'Bayer 16×16'],
-                    ['cluster-4', 'Clustered dot 4×4'],
-                    ['cluster-8', 'Clustered dot 8×8'],
-                    ['lines-h', 'Horizontal lines'],
-                    ['blue-noise', 'Blue noise'],
-                    ['custom', 'Custom matrix']
-                ]
-            },
-            {
-                group: 'Error Diffusion',
-                options: [
-                    ['floyd-steinberg', 'Floyd–Steinberg'],
-                    ['atkinson', 'Atkinson'],
-                    ['sierra-lite', 'Sierra Lite'],
-                    ['sierra', 'Sierra (3-row)'],
-                    ['burkes', 'Burkes'],
-                    ['jarvis', 'Jarvis–Judice–Ninke']
-                ]
-            },
-            {
-                group: 'Pixel FX',
-                options: [
-                    ['pixelate', 'Pixelate & posterize']
-                ]
-            }
-        ])}
-        ${htControls}
-        ${fadeControls}
-        ${F.check('mediaFilter.duotone.enabled', 'Duotone', duo.enabled)}
-        ${duo.enabled ? `<div class="grid2">${F.color('mediaFilter.duotone.dark', 'Shadows', duo.dark)}${F.color('mediaFilter.duotone.light', 'Highlights', duo.light)}</div>` : ''}
-        ${duo.enabled ? F.select('mediaFilter.duotone.animate', 'Duotone animation', duo.animate, [['none', 'Still'], ['blend', 'Blend to second colors'], ['hue', 'Hue cycle'], ['both', 'Blend and hue cycle']]) + (duo.animate !== 'none' ? '<p class="hint">Animates in the live overlay. Use the Effects toggle in the toolbar to pause it while editing.</p>' : '') : ''}
-        ${duo.enabled && (duo.animate === 'blend' || duo.animate === 'both') ? `<div class="grid2">${F.color('mediaFilter.duotone.dark2', 'Shadows 2', duo.dark2)}${F.color('mediaFilter.duotone.light2', 'Highlights 2', duo.light2)}</div>` : ''}
-        ${duo.enabled && duo.animate !== 'none' ? F.range('mediaFilter.duotone.speed', 'Cycle length', duo.speed, { min: 1, max: 60, unit: 's' }) : ''}
-        ${media ? F.check('mediaFilter.tint.enabled', 'Color tint', tint.enabled) : ''}
-        ${media && tint.enabled ? `${F.color('mediaFilter.tint.color', 'Tint color', tint.color)}${F.range('mediaFilter.tint.opacity', 'Tint strength', tint.opacity, { min: 0, max: 100, scale: 0.01, unit: '%' })}` : ''}
-        ${F.check('mediaFilter.grain.enabled', 'Film grain', grain.enabled)}
-        ${grain.enabled ? `${F.range('mediaFilter.grain.amount', 'Grain strength', grain.amount, { min: 0, max: 100, scale: 0.01, unit: '%' })}${F.range('mediaFilter.grain.size', 'Grain size', grain.size, { min: 50, max: 400, scale: 0.01, unit: '%' })}${F.check('mediaFilter.grain.animate', 'Animate grain', grain.animate)}<p class="hint">Grain sits over the element. Keep strength low (10-30%) for a film look.</p>` : ''}
-        ${f.blur > 20 && el.type === 'video' ? '<p class="hint">Heavy blur on video can be slow in the editor.</p>' : ''}`;
-    return F.section('media-filter', 'Filters', body, false);
+        ${cardExposure}
+        ${cardPixel}
+        ${cardRetro}
+        ${cardTreatment}
+    `;
+
+    const summaryTitle = `<span>Filters</span><span class="spacer"></span>${masterBadge}`;
+    return F.section('media-filter', summaryTitle, body, false);
 }
 
 export function slideshowSection(el) {

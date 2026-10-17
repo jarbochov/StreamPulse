@@ -21,12 +21,32 @@
         customMatrix: '0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5'
     });
 
+    const defaultRetro = () => ({
+        type: 'none',
+        scanlines: 45,
+        curvature: 12,
+        bloom: 25,
+        vignette: 20,
+        mask: 'aperture',
+        jitter: 25,
+        glitch: 20,
+        chromatic: 20,
+        noise: 15,
+        bleed: 30,
+        ghosting: 25,
+        grid: 35,
+        palette: 'default',
+        roll: 15,
+        viewOnCrt: false
+    });
+
     const defaultMediaFilter = () => ({
         blur: 0, brightness: 100, contrast: 100, saturate: 100, grayscale: 0,
         tint: { enabled: false, color: '#000000', opacity: 0.4 },
         duotone: { enabled: false, dark: '#1b1464', light: '#ff9de2', animate: 'none', dark2: '#0b3d2e', light2: '#7dffb2', speed: 6 },
         grain: { enabled: false, amount: 0.25, size: 1, animate: true },
-        halftone: defaultHalftone()
+        halftone: defaultHalftone(),
+        retro: defaultRetro()
     });
 
     const MEDIA_FILTER_PRESETS = [
@@ -38,9 +58,15 @@
         ['dusk', 'Duotone dusk', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#1b1464', light: '#ff9de2' } }],
         ['mono-green', 'Duotone green', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#031a0f', light: '#7dffb2' } }],
         ['sepia', 'Duotone sepia', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#2b1a0c', light: '#f3d9a6' } }],
+        ['arcade-crt', 'Arcade CRT', { ...defaultMediaFilter(), contrast: 115, retro: { ...defaultRetro(), type: 'crt', scanlines: 55, curvature: 18, bloom: 35, vignette: 25 } }],
+        ['vhs-tape', '80s VHS tape', { ...defaultMediaFilter(), saturate: 115, retro: { ...defaultRetro(), type: 'vhs', jitter: 35, glitch: 25, chromatic: 35, noise: 20, viewOnCrt: true } }],
+        ['ntsc-broadcast', 'Broadcast TV', { ...defaultMediaFilter(), contrast: 110, retro: { ...defaultRetro(), type: 'ntsc', bleed: 45, ghosting: 35, noise: 15, viewOnCrt: true } }],
+        ['gameboy-dmg', 'Game Boy DMG', { ...defaultMediaFilter(), contrast: 125, halftone: { ...defaultHalftone(), mode: 'bayer-4', size: 3, levels: 4 }, retro: { ...defaultRetro(), type: 'lcd', grid: 45, palette: 'dmg-green' } }],
+        ['cyber-terminal', 'Cyberpunk terminal', { ...defaultMediaFilter(), contrast: 130, retro: { ...defaultRetro(), type: 'crt', scanlines: 65, curvature: 10, bloom: 50 }, duotone: { enabled: true, dark: '#020b14', light: '#00f5d4' } }],
+        ['broken-static', 'Broken static', { ...defaultMediaFilter(), contrast: 120, retro: { ...defaultRetro(), type: 'static', noise: 60, glitch: 45, roll: 20 } }],
         ['manga-tone', 'Manga screentone', { ...defaultMediaFilter(), contrast: 115, halftone: { ...defaultHalftone(), mode: 'dots', size: 7, angle: 45, threshold: 50, softness: 8, colorMode: 'manga', inkColor: '#0f172a', paperColor: '#ffffff' } }],
         ['pop-halftone', 'Pop art halftone', { ...defaultMediaFilter(), contrast: 120, saturate: 135, halftone: { ...defaultHalftone(), mode: 'dots', size: 9, angle: 30, threshold: 52, softness: 10, colorMode: 'color', levels: 2 } }],
-        ['comic-fade', 'Comic corner fade (ink only)', { ...defaultMediaFilter(), halftone: { ...defaultHalftone(), mode: 'dots', size: 10, angle: 45, threshold: 55, softness: 8, colorMode: 'ink-only', inkColor: '#00f5d4', fadeMode: 'linear', fadeAngle: 135, fadeStart: 10, fadeEnd: 85, fadeStyle: 'dots' } }],
+        ['comic-fade', 'Comic corner fade', { ...defaultMediaFilter(), halftone: { ...defaultHalftone(), mode: 'dots', size: 10, angle: 45, threshold: 55, softness: 8, colorMode: 'ink-only', inkColor: '#00f5d4', fadeMode: 'linear', fadeAngle: 135, fadeStart: 10, fadeEnd: 85, fadeStyle: 'dots' } }],
         ['bayer-retro', 'Retro Bayer dither', { ...defaultMediaFilter(), contrast: 110, halftone: { ...defaultHalftone(), mode: 'bayer-8', size: 3, threshold: 50, colorMode: 'color', levels: 4 } }],
         ['mac-atkinson', 'Macintosh 1-bit Atkinson', { ...defaultMediaFilter(), contrast: 115, halftone: { ...defaultHalftone(), mode: 'atkinson', size: 2, threshold: 50, colorMode: 'manga', inkColor: '#111827', paperColor: '#f8fafc' } }],
         ['pixel-16bit', '16-bit pixel art', { ...defaultMediaFilter(), saturate: 115, halftone: { ...defaultHalftone(), mode: 'pixelate', size: 6, levels: 6 } }]
@@ -49,7 +75,9 @@
     function mediaFilterActive(f) {
         if (!f) return false;
         const htMode = f.halftone?.mode;
-        return f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.tint?.enabled || f.duotone?.enabled || f.grain?.enabled || (!!htMode && htMode !== 'none');
+        const retroType = f.retro?.type || f.retro?.mode;
+        const hasRetro = !!retroType && retroType !== 'none';
+        return f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.tint?.enabled || f.duotone?.enabled || f.grain?.enabled || (!!htMode && htMode !== 'none') || hasRetro;
     }
 
     // ---- Ordered Matrices Suite ----
@@ -1050,14 +1078,18 @@
         f.grain = { ...defaults.grain, ...(f.grain || {}) };
         f.tint = { ...defaults.tint, ...(f.tint || {}) };
         f.halftone = { ...defaults.halftone, ...(f.halftone || {}) };
+        f.retro = { ...defaults.retro, ...(f.retro || {}) };
         const ht = f.halftone;
         const htMode = ht.mode || 'none';
         const hasHt = htMode !== 'none';
+        const retro = f.retro;
+        const retroType = retro.type || retro.mode || 'none';
+        const hasRetro = retroType !== 'none';
         const media = MEDIA_TYPES.has(element.type);
         const target = !media ? node : (element.type === 'slideshow' || element.type === 'pattern') ? node.firstElementChild : node.querySelector(':scope > video, :scope > img, :scope > iframe');
         if (!target) { node._fxSig = ''; node._fxAnim = null; fxAnimated.delete(node); return; }
 
-        const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.duotone.enabled || hasHt);
+        const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.duotone.enabled || hasHt || hasRetro);
         const signature = JSON.stringify([
             f, media, element.id, element.width, element.height,
             element.style?.objectFit, element.style?.focusX, element.style?.focusY,
@@ -1087,6 +1119,13 @@
             if (node._htWrap) {
                 node._htWrap.remove();
                 node._htWrap = null;
+            }
+
+            // 2. Retro Display WebGL Engine (CRT, VHS, NTSC, LCD, Static)
+            if (active && hasRetro && root.OverlayRetro?.applyRetroFilter) {
+                root.OverlayRetro.applyRetroFilter(node, element);
+            } else if (root.OverlayRetro?.cleanup) {
+                root.OverlayRetro.cleanup(node);
             }
 
             // 2. Tint Overlay (managed in-place)
@@ -1163,6 +1202,12 @@
                 if (node._fxCanvas.style.filter !== canvasFilter) node._fxCanvas.style.filter = canvasFilter;
                 if (node._fxCanvas.style.transform !== canvasScale) node._fxCanvas.style.transform = canvasScale;
             }
+            if (node._retroCanvas) {
+                const retroFilter = canvasParts.join(' ');
+                const retroScale = nextScale;
+                if (node._retroCanvas.style.filter !== retroFilter) node._retroCanvas.style.filter = retroFilter;
+                if (node._retroCanvas.style.transform !== retroScale) node._retroCanvas.style.transform = retroScale;
+            }
             if (active && node.style.overflow !== 'hidden') node.style.overflow = 'hidden';
         }
     }
@@ -1191,6 +1236,9 @@
             }
             node._fxId = null;
         }
+        if (root.OverlayRetro?.cleanup) {
+            root.OverlayRetro.cleanup(node);
+        }
         node._fxAnim = null;
         fxAnimated.delete(node);
         const img = node.querySelector(':scope > img, :scope > video');
@@ -1204,6 +1252,7 @@
         renderDitherHalftone,
         drawMediaWithFit,
         defaultHalftone,
+        defaultRetro,
         defaultMediaFilter,
         mediaFilterActive,
         MEDIA_FILTER_PRESETS,
@@ -1219,6 +1268,7 @@
     if (root.OverlayShared) {
         root.OverlayShared.applyMediaFilter = applyMediaFilter;
         root.OverlayShared.defaultMediaFilter = defaultMediaFilter;
+        root.OverlayShared.defaultRetro = defaultRetro;
         root.OverlayShared.mediaFilterActive = mediaFilterActive;
         root.OverlayShared.MEDIA_FILTER_PRESETS = MEDIA_FILTER_PRESETS;
     }

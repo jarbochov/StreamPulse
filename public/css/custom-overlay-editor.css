@@ -53,9 +53,15 @@ details.sect > summary { list-style: none; cursor: pointer; padding: .6rem .85re
 details.sect > summary::-webkit-details-marker { display: none; }
 details.sect > summary::before { content: ''; width: 6px; height: 6px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(-45deg); transition: transform .12s; margin-right: .1rem; }
 details.sect[open] > summary::before { transform: rotate(45deg); }
-details.sub-details { grid-column: 1 / -1; border: 1px solid var(--border-soft); border-radius: 6px; padding: 0 .6rem; }
-details.sub-details > summary { cursor: pointer; padding: .45rem 0; font-size: 12px; color: var(--muted); }
-details.sub-details[open] { padding-bottom: .6rem; display: grid; gap: .65rem; }
+details.sub-details { grid-column: 1 / -1; border: 1px solid var(--border-soft); border-radius: 7px; padding: 0 .65rem; background: color-mix(in srgb, var(--panel) 40%, var(--field)); transition: border-color .15s ease; }
+details.sub-details:hover { border-color: var(--border); }
+details.sub-details[open] { padding-bottom: .75rem; display: grid; gap: .65rem; border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); }
+details.sub-details > summary { list-style: none; cursor: pointer; padding: .5rem 0; font-size: 11.5px; font-weight: 600; letter-spacing: .02em; color: var(--text); display: flex; align-items: center; gap: .45rem; user-select: none; }
+details.sub-details > summary::-webkit-details-marker { display: none; }
+details.sub-details > summary::before { content: ''; width: 5px; height: 5px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(-45deg); transition: transform .12s; margin-right: .15rem; flex: none; }
+details.sub-details[open] > summary::before { transform: rotate(45deg); }
+.badge-pill { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); background: color-mix(in srgb, var(--accent-strong) 14%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); border-radius: 999px; padding: .08rem .45rem; line-height: 1.2; flex: none; }
+.badge-pill.is-muted { color: var(--muted); background: color-mix(in srgb, var(--border) 45%, transparent); border-color: transparent; }
 .trigger-list { display: grid; grid-template-columns: 1fr 1fr; gap: .3rem .6rem; }
 details.sect > summary:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
 .sect-body { padding: .1rem .85rem .85rem; display: grid; gap: .65rem; }
