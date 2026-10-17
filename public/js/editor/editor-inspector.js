@@ -42,7 +42,8 @@ export const RERENDER_PATHS = new Set([
     'cutout.shape', 'alert.showOnPreview', 'style.objectFit', 'mediaFilter.duotone.enabled',
     'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled',
     'mediaFilter.halftone.mode', 'mediaFilter.halftone.colorMode', 'mediaFilter.halftone.fadeMode',
-    'mediaFilter.retro.type', 'mediaFilter.retro.mode', 'mediaFilter.retro.palette', 'mediaFilter.retro.viewOnCrt',
+    'mediaFilter.retro.signal', 'mediaFilter.retro.display', 'mediaFilter.retro.crtMask',
+    'mediaFilter.retro.type', 'mediaFilter.retro.mode', 'mediaFilter.retro.palette', 'mediaFilter.retro.lcdPalette', 'mediaFilter.retro.viewOnCrt',
     'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate',
     'style.borderWidth', 'style.borderStyle', 'style.borderGlow.enabled', 'style.borderGlow.neon',
     'style.borderGlow.inner', 'style.borderAnimation.type', 'style.borderAnimation.mode',
@@ -589,8 +590,16 @@ export function filterSection(el) {
     const colorMode = ht.colorMode || (isPix ? 'color' : 'manga');
     const fadeMode = ht.fadeMode || 'none';
 
-    const retroType = retro.type || retro.mode || 'none';
-    const hasRetro = retroType !== 'none';
+    const retroNorm = (typeof window !== 'undefined' && window.OverlayRetro?.normalizeRetro)
+        ? window.OverlayRetro.normalizeRetro(retro)
+        : (shared.OverlayRetro?.normalizeRetro ? shared.OverlayRetro.normalizeRetro(retro) : {
+            signal: retro.signal || (retro.type === 'vhs' || retro.type === 'ntsc' || retro.type === 'static' ? retro.type : 'none'),
+            display: retro.display || (retro.type === 'crt' || retro.type === 'lcd' ? retro.type : (retro.viewOnCrt ? 'crt' : 'none'))
+        });
+
+    const retroSignal = retroNorm.signal || 'none';
+    const retroDisplay = retroNorm.display || 'none';
+    const hasRetro = retroSignal !== 'none' || retroDisplay !== 'none';
 
     const presets = shared.MEDIA_FILTER_PRESETS || [];
     const media = ['image', 'video', 'slideshow', 'embed', 'pattern'].includes(el.type);
@@ -599,7 +608,9 @@ export function filterSection(el) {
         if (!el.mediaFilter) return false;
         const pf = { ...defaultFilter, ...pFilter };
         const pHt = { ...(defaultFilter.halftone || {}), ...(pf.halftone || {}) };
-        const pRetro = { ...(defaultFilter.retro || {}), ...(pf.retro || {}) };
+        const normP = (typeof window !== 'undefined' && window.OverlayRetro?.normalizeRetro)
+            ? window.OverlayRetro.normalizeRetro(pf.retro || {})
+            : (shared.OverlayRetro?.normalizeRetro ? shared.OverlayRetro.normalizeRetro(pf.retro || {}) : pf.retro || {});
         return f.blur === pf.blur &&
                f.brightness === pf.brightness &&
                f.contrast === pf.contrast &&
@@ -608,7 +619,8 @@ export function filterSection(el) {
                (f.duotone?.enabled || false) === (pf.duotone?.enabled || false) &&
                (!f.duotone?.enabled || (f.duotone?.dark === pf.duotone?.dark && f.duotone?.light === pf.duotone?.light)) &&
                htMode === (pHt.mode || 'none') &&
-               retroType === (pRetro.type || 'none');
+               retroSignal === (normP.signal || 'none') &&
+               retroDisplay === (normP.display || 'none');
     });
     const currentPresetId = matchingPreset ? matchingPreset[0] : '';
 
@@ -620,9 +632,18 @@ export function filterSection(el) {
         ? `<span class="badge-pill">${esc(isPix ? `Pixel ${ht.size || 6}px` : (htMode.startsWith('bayer') ? 'Bayer' : isScreen ? 'Halftone' : 'Dither'))}</span>`
         : '<span class="badge-pill is-muted">Off</span>';
 
-    const retroNames = { crt: 'CRT', vhs: 'VHS', ntsc: 'NTSC', lcd: 'LCD', static: 'Static' };
+    const signalNames = { vhs: 'VHS', ntsc: 'NTSC', static: 'Static' };
+    const displayNames = { crt: 'CRT', lcd: 'LCD' };
+    let retroBadgeText = '';
+    if (retroSignal !== 'none' && retroDisplay !== 'none') {
+        retroBadgeText = `${signalNames[retroSignal] || 'Signal'} + ${displayNames[retroDisplay] || 'Display'}`;
+    } else if (retroSignal !== 'none') {
+        retroBadgeText = signalNames[retroSignal] || 'Signal';
+    } else if (retroDisplay !== 'none') {
+        retroBadgeText = displayNames[retroDisplay] || 'Display';
+    }
     const retroBadge = hasRetro
-        ? `<span class="badge-pill">${retroNames[retroType] || 'Retro'}</span>`
+        ? `<span class="badge-pill">${esc(retroBadgeText)}</span>`
         : '<span class="badge-pill is-muted">Off</span>';
 
     const hasTreatment = duo.enabled || tint.enabled || grain.enabled;
@@ -630,7 +651,7 @@ export function filterSection(el) {
     const treatmentBadge = hasTreatment ? `<span class="badge-pill">${treatmentLabel}</span>` : '<span class="badge-pill is-muted">Off</span>';
 
     const activeList = [];
-    if (hasRetro) activeList.push(retroNames[retroType] || 'Retro');
+    if (hasRetro) activeList.push(retroBadgeText);
     if (hasHt) activeList.push(isPix ? 'Pixel' : 'Dither');
     if (duo.enabled) activeList.push('Duotone');
     if (!hasRetro && !hasHt && !duo.enabled && hasExposure) activeList.push('Color');
@@ -681,57 +702,59 @@ export function filterSection(el) {
         ${fadeMode === 'radial' ? F.check('mediaFilter.halftone.fadeInvert', 'Fade from center outward', !!ht.fadeInvert) : ''}
     ` : '';
 
-    // 2. Retro Display controls
-    let retroControls = '';
-    if (retroType === 'crt') {
-        retroControls = `
-            ${F.range('mediaFilter.retro.scanlines', 'Scanlines', retro.scanlines ?? 45, { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.curvature', 'Tube curvature', retro.curvature ?? 12, { min: 0, max: 60, unit: '%' })}
-            ${F.range('mediaFilter.retro.bloom', 'Phosphor glow', retro.bloom ?? 25, { min: 0, max: 100, unit: '%' })}
-            <details class="sub-details">
-                <summary>Advanced CRT Tuning</summary>
-                ${F.range('mediaFilter.retro.vignette', 'Vignette falloff', retro.vignette ?? 20, { min: 0, max: 100, unit: '%' })}
-                ${F.select('mediaFilter.retro.mask', 'Phosphor mask', retro.mask || 'aperture', [
-                    ['aperture', 'Aperture grille (Trinitron)'],
-                    ['shadow-mask', 'Shadow mask (Dot triad)'],
-                    ['slot-mask', 'Slot mask']
-                ])}
-            </details>
-        `;
-    } else if (retroType === 'vhs') {
-        retroControls = `
-            ${F.range('mediaFilter.retro.jitter', 'Tracking jitter', retro.jitter ?? 25, { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.glitch', 'Tape glitch bar', retro.glitch ?? 20, { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.chromatic', 'Chroma delay', retro.chromatic ?? 20, { min: 0, max: 100, unit: '%' })}
-            ${F.check('mediaFilter.retro.viewOnCrt', 'View on CRT monitor (scanlines & curve)', !!retro.viewOnCrt)}
+    // 2. Retro Screen & Signal controls
+    let signalControls = '';
+    if (retroSignal === 'vhs') {
+        signalControls = `
+            ${F.range('mediaFilter.retro.vhsJitter', 'Tracking jitter', (retro.vhsJitter ?? retro.jitter ?? 25), { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.vhsGlitch', 'Glitch slice bar', (retro.vhsGlitch ?? retro.glitch ?? 20), { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.vhsChroma', 'Chroma delay', (retro.vhsChroma ?? retro.chromatic ?? 20), { min: 0, max: 100, unit: '%' })}
             <details class="sub-details">
                 <summary>Advanced VHS Tuning</summary>
-                ${F.range('mediaFilter.retro.noise', 'Tape head noise', retro.noise ?? 15, { min: 0, max: 100, unit: '%' })}
+                ${F.range('mediaFilter.retro.vhsNoise', 'Tape head noise', (retro.vhsNoise ?? retro.noise ?? 15), { min: 0, max: 100, unit: '%' })}
             </details>
         `;
-    } else if (retroType === 'ntsc') {
-        retroControls = `
-            ${F.range('mediaFilter.retro.bleed', 'Chroma bleed & smear', retro.bleed ?? 30, { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.ghosting', 'RF multipath ghosting', retro.ghosting ?? 25, { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.noise', 'Signal noise', retro.noise ?? 12, { min: 0, max: 100, unit: '%' })}
-            ${F.check('mediaFilter.retro.viewOnCrt', 'View on CRT monitor (scanlines & curve)', !!retro.viewOnCrt)}
+    } else if (retroSignal === 'ntsc') {
+        signalControls = `
+            ${F.range('mediaFilter.retro.ntscBleed', 'Chroma bleed & smear', (retro.ntscBleed ?? retro.bleed ?? 30), { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.ntscGhost', 'RF multipath ghosting', (retro.ntscGhost ?? retro.ghosting ?? 25), { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.ntscNoise', 'RF signal noise', (retro.ntscNoise ?? retro.noise ?? 12), { min: 0, max: 100, unit: '%' })}
         `;
-    } else if (retroType === 'lcd') {
-        retroControls = `
-            ${F.range('mediaFilter.retro.grid', 'Sub-pixel grid spacing', retro.grid ?? 35, { min: 0, max: 100, unit: '%' })}
-            ${F.select('mediaFilter.retro.palette', 'LCD palette', retro.palette || 'default', [
+    } else if (retroSignal === 'static') {
+        signalControls = `
+            ${F.range('mediaFilter.retro.staticNoise', 'Noise density', (retro.staticNoise ?? retro.noise ?? 55), { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.staticGlitch', 'Glitch tear slices', (retro.staticGlitch ?? retro.glitch ?? 40), { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.staticRoll', 'VSYNC roll speed', (retro.staticRoll ?? retro.roll ?? 15), { min: 0, max: 100, unit: '%' })}
+        `;
+    }
+
+    let displayControls = '';
+    if (retroDisplay === 'crt') {
+        displayControls = `
+            ${F.range('mediaFilter.retro.crtScanlines', 'Scanlines', (retro.crtScanlines ?? retro.scanlines ?? 45), { min: 0, max: 100, unit: '%' })}
+            ${F.range('mediaFilter.retro.crtCurvature', 'Tube curvature', (retro.crtCurvature ?? retro.curvature ?? 12), { min: 0, max: 60, unit: '%' })}
+            ${F.range('mediaFilter.retro.crtBloom', 'Phosphor glow', (retro.crtBloom ?? retro.bloom ?? 25), { min: 0, max: 100, unit: '%' })}
+            <details class="sub-details">
+                <summary>Advanced CRT Tuning</summary>
+                ${F.select('mediaFilter.retro.crtMask', 'Phosphor mask', retro.crtMask || retro.mask || 'aperture', [
+                    ['none', 'None (Clean scanlines)'],
+                    ['aperture', 'Aperture grille (Trinitron RGB)'],
+                    ['slot', 'Slot mask (Staggered dot triad)']
+                ])}
+                ${(retro.crtMask || retro.mask || 'aperture') !== 'none' ? F.range('mediaFilter.retro.crtMaskStrength', 'Mask strength', (retro.crtMaskStrength ?? 35), { min: 0, max: 100, unit: '%' }) : ''}
+                ${F.range('mediaFilter.retro.crtVignette', 'Corner vignette', (retro.crtVignette ?? retro.vignette ?? 20), { min: 0, max: 100, unit: '%' })}
+            </details>
+        `;
+    } else if (retroDisplay === 'lcd') {
+        displayControls = `
+            ${F.range('mediaFilter.retro.lcdGrid', 'Sub-pixel grid spacing', (retro.lcdGrid ?? retro.grid ?? 35), { min: 0, max: 100, unit: '%' })}
+            ${F.select('mediaFilter.retro.lcdPalette', 'LCD palette', retro.lcdPalette || retro.palette || 'default', [
                 ['default', 'Full color matrix'],
                 ['dmg-green', 'Game Boy DMG (Pea-soup green)'],
                 ['pocket', 'Game Boy Pocket (Silver gray)'],
                 ['cyber-blue', 'Cyber terminal (Phosphor blue)'],
-                ['amber', 'Amber CRT / LCD']
+                ['amber', 'Amber terminal (Monochrome orange)']
             ])}
-        `;
-    } else if (retroType === 'static') {
-        retroControls = `
-            ${F.range('mediaFilter.retro.noise', 'Noise density', retro.noise ?? 55, { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.glitch', 'Glitch tear slices', retro.glitch ?? 40, { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.roll', 'VSYNC roll speed', retro.roll ?? 15, { min: 0, max: 100, unit: '%' })}
         `;
     }
 
@@ -799,16 +822,23 @@ export function filterSection(el) {
 
     const cardRetro = `
         <details class="sub-details" ${(prefs.sections['fx-retro'] ?? hasRetro) ? 'open' : ''} data-sect="fx-retro">
-            <summary><span>Retro Display</span><span class="spacer"></span>${retroBadge}</summary>
-            ${F.select('mediaFilter.retro.type', 'Display Profile', retroType, [
-                ['none', 'None (Off)'],
-                ['crt', 'CRT Monitor (Arcade / Trinitron)'],
-                ['vhs', 'VHS Tape (Tracking / Glitch)'],
-                ['ntsc', 'NTSC Composite (Broadcast RF)'],
-                ['lcd', 'LCD Matrix (Handheld / Grid)'],
-                ['static', 'Broken Static (Analog Snow)']
-            ])}
-            ${retroControls}
+            <summary><span>Retro Screen &amp; Signal</span><span class="spacer"></span>${retroBadge}</summary>
+            <div class="grid2">
+                ${F.select('mediaFilter.retro.signal', 'Signal Emulation', retroSignal, [
+                    ['none', 'None (Clean)'],
+                    ['vhs', 'VHS Tape (Cassette)'],
+                    ['ntsc', 'NTSC Composite (RF)'],
+                    ['static', 'Broken Static (Snow)']
+                ])}
+                ${F.select('mediaFilter.retro.display', 'Display Screen', retroDisplay, [
+                    ['none', 'None (Flat screen)'],
+                    ['crt', 'CRT Monitor (Tube)'],
+                    ['lcd', 'LCD Matrix (Handheld)']
+                ])}
+            </div>
+            ${signalControls}
+            ${displayControls}
+            ${!hasRetro ? '<p class="hint">Select a Signal (VHS, NTSC, Static) or Display (CRT, LCD) to enable authentic retro hardware emulation.</p>' : ''}
         </details>
     `;
 
