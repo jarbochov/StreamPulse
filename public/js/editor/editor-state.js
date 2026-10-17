@@ -120,7 +120,10 @@ export const ICON = {
     textRight: svg('<path d="M2 3.5h12M6 7h8M2 10.5h12M6 14h8"/>'),
     vTop: svg('<path d="M2 2.5h12M5 5.5h6v6H5z"/>'),
     vMiddle: svg('<path d="M2 8h12M5 4.5h6v7H5z"/>'),
-    vBottom: svg('<path d="M2 13.5h12M5 4.5h6v6H5z"/>')
+    vBottom: svg('<path d="M2 13.5h12M5 4.5h6v6H5z"/>'),
+    paint: svg('<path d="M12 2.5a2.5 2.5 0 012.5 2.5c0 1.2-.6 2.3-1.6 2.7l-4.2 2-2 4.2c-.4 1-1.5 1.6-2.7 1.6A2.5 2.5 0 011.5 13c0-1.2.6-2.3 1.6-2.7l4.2-2 2-4.2c.4-1 1.5-1.6 2.7-1.6z"/>'),
+    clipboard: svg('<path d="M6 2.5h4v2H6zM4.5 4.5v9h7v-9H10v1H6v-1H4.5z"/>'),
+    eyedrop: svg('<path d="M13.4.6a1.2 1.2 0 00-1.7 0L8.5 3.8l-.6-.6a.5.5 0 10-.7.7L8.3 5 1.1 12.1a.5.5 0 00-.1.4v2a.5.5 0 00.5.5h2a.5.5 0 00.4-.1L11 7.7l1.1 1.1a.5.5 0 00.8-.7L12.2 7.5 15.3 4.3a1.2 1.2 0 000-1.7l-1.9-2zM2 13.3l6.5-6.5L9.7 8 3.2 14.5H2v-1.2z"/>')
 };
 
 export const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -137,6 +140,35 @@ export function setPath(target, path, value) {
     for (const key of keys) cursor = cursor[key] ??= {};
     cursor[last] = value;
 }
+
+export let styleClipboard = null;
+export function setStyleClipboard(data) { styleClipboard = data; }
+export function getStyleClipboard() { return styleClipboard; }
+
+/**
+ * Pluggable Host Adapter
+ * Decouples the editor from StreamPulse-specific routes, enabling seamless porting to NodeCG replicants or other backends.
+ */
+export const OverlayAdapter = {
+    fetchOverlay: async (id) => {
+        const res = await fetch(`/api/custom-overlays/${encodeURIComponent(id)}`);
+        return res.ok ? res.json() : null;
+    },
+    saveOverlay: async (id, data) => {
+        const res = await fetch(`/api/custom-overlays/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        return res.ok ? res.json() : null;
+    },
+    uploadAsset: async (file) => {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch('/api/custom-overlay-assets', { method: 'POST', body: fd });
+        return res.ok ? res.json() : null;
+    }
+};
 
 export function toast(message, kind = 'info', ms = 3200) {
     const container = $('toasts');

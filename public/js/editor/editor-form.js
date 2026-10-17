@@ -9,9 +9,11 @@ import {
 
 export function renderSwatches(path) {
     const docColors = getDocumentColors();
-    if (!docColors.length) return '';
+    const recents = (prefs.recentColors || []).filter(c => !docColors.includes(c));
+    const all = [...docColors, ...recents].slice(0, 14);
+    if (!all.length) return '';
     return `<div class="color-swatches" data-swatch-path="${path}">` +
-        docColors.map(c => `<button type="button" class="swatch-btn" data-color="${esc(c)}" title="${esc(c)}" style="background-color:${esc(c)}" aria-label="Use color ${esc(c)}"></button>`).join('') +
+        all.map(c => `<button type="button" class="swatch-btn" data-color="${esc(c)}" title="${esc(c)}" style="background-color:${esc(c)}" aria-label="Use color ${esc(c)}"></button>`).join('') +
         `</div>`;
 }
 
@@ -50,7 +52,10 @@ export const F = {
 
     color: (path, label, value, { clear = false } = {}) => {
         const hex = /^#[0-9a-f]{6}$/i.test(value) ? value : /^#[0-9a-f]{3}$/i.test(value) ? `#${[...value.slice(1)].map(c => c + c).join('')}` : '#000000';
-        return `<div class="field"><span>${label}</span><span class="color-field"><input type="color" data-path="${path}" data-kind="text" value="${hex}" aria-label="${label} picker"><input class="color-text" data-path="${path}" data-kind="text" value="${esc(value)}" placeholder="#rrggbb or rgba()" spellcheck="false" aria-label="${label} value">${clear ? `<button type="button" data-clear="${path}" title="Make transparent">None</button>` : '<span></span>'}</span>${renderSwatches(path)}</div>`;
+        const eyedropBtn = (typeof window !== 'undefined' && window.EyeDropper)
+            ? `<button type="button" class="eyedrop-btn" data-eyedrop="${path}" title="Sample color from screen" aria-label="Sample color from screen">${ICON.eyedrop}</button>`
+            : '';
+        return `<div class="field"><span>${label}</span><span class="color-field"><input type="color" data-path="${path}" data-kind="text" value="${hex}" aria-label="${label} picker"><input class="color-text" data-path="${path}" data-kind="text" value="${esc(value)}" placeholder="#rrggbb or rgba()" spellcheck="false" aria-label="${label} value">${eyedropBtn}${clear ? `<button type="button" data-clear="${path}" title="Make transparent">None</button>` : '<span></span>'}</span>${renderSwatches(path)}</div>`;
     },
 
     seg: (path, label, value, options) =>
@@ -180,6 +185,58 @@ export function bindFields(container, getTargets, onApply) {
     });
 
     container.addEventListener('pointerdown', event => {
+        const labelSpan = event.target.closest('.field > span:first-child');
+        if (labelSpan) {
+            const field = labelSpan.closest('.field');
+            const numInput = field?.querySelector('input[data-kind="number"]');
+            if (numInput) {
+                event.preventDefault();
+                const startX = event.clientX;
+                const startVal = Number(numInput.value) || 0;
+                const step = Number(numInput.step) || 1;
+                const min = numInput.dataset.min !== undefined ? Number(numInput.dataset.min) : -Infinity;
+                const max = numInput.dataset.max !== undefined ? Number(numInput.dataset.max) : Infinity;
+                let isScrubbing = false;
+
+                document.body.classList.add('is-scrubbing');
+                labelSpan.classList.add('scrubbing');
+
+                const move = e => {
+                    const dx = e.clientX - startX;
+                    if (Math.abs(dx) > 2) isScrubbing = true;
+                    if (!isScrubbing) return;
+                    const multiplier = e.shiftKey ? 10 : (e.altKey ? 0.1 : 1);
+                    const delta = dx * multiplier * (step >= 1 ? 1 : step);
+                    let newVal = startVal + delta;
+                    newVal = Math.max(min, Math.min(max, newVal));
+                    if (step >= 1) newVal = Math.round(newVal);
+                    else {
+                        const dec = String(step).split('.')[1]?.length || 1;
+                        newVal = Number(newVal.toFixed(dec));
+                    }
+                    numInput.value = String(newVal);
+                    apply(numInput, new Event('input', { bubbles: true }));
+                };
+
+                const up = () => {
+                    removeEventListener('pointermove', move);
+                    removeEventListener('pointerup', up);
+                    document.body.classList.remove('is-scrubbing');
+                    labelSpan.classList.remove('scrubbing');
+                    if (isScrubbing) {
+                        apply(numInput, new Event('change', { bubbles: true }));
+                    } else {
+                        numInput.focus();
+                        if (numInput.select) numInput.select();
+                    }
+                };
+
+                addEventListener('pointermove', move);
+                addEventListener('pointerup', up);
+                return;
+            }
+        }
+
         const pick = event.target.closest('[data-focus-pick]');
         if (!pick) return;
         event.preventDefault();
@@ -203,6 +260,28 @@ export function bindFields(container, getTargets, onApply) {
     });
 
     container.addEventListener('click', event => {
+        const eyedrop = event.target.closest('[data-eyedrop]');
+        if (eyedrop && window.EyeDropper) {
+            const path = eyedrop.dataset.eyedrop;
+            new window.EyeDropper().open().then(result => {
+                if (!result?.sRGBHex) return;
+                const color = result.sRGBHex.toLowerCase();
+                getTargets().forEach(target => setPath(target, path, color));
+                const colorField = eyedrop.closest('.color-field');
+                if (colorField) {
+                    const hexInput = colorField.querySelector('input[type="color"]');
+                    const textInput = colorField.querySelector('.color-text');
+                    if (hexInput) hexInput.value = color;
+                    if (textInput) textInput.value = color;
+                }
+                addRecentColor(color);
+                onApply(path, event);
+                state.dirty = true;
+                toast(`Sampled ${color}`, 'ok', 1000);
+            }).catch(() => {});
+            return;
+        }
+
         const seg = event.target.closest('[data-seg-value]');
         if (seg) {
             const wrap = seg.closest('[data-seg-path]');

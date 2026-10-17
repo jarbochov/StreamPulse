@@ -10,7 +10,7 @@ import {
     visualBoxOf, scaleSnapshot, applyScale, uid, createElementData, toast,
     changed, registerRenderAll, registerFitView, registerSelectionChange,
     registerStatusBar, params, initialId, LIMITS, MIN_SIZE, ICON, TEXT_TYPES,
-    liveSignature, displayName
+    liveSignature, displayName, setStyleClipboard, getStyleClipboard
 } from './editor-state.js';
 
 import {
@@ -159,11 +159,44 @@ export function reorder(direction) {
     changed(true);
 }
 
+export function copySelectionStyle() {
+    const items = selectedElements();
+    const primaryEl = items[0];
+    if (!primaryEl) return;
+    setStyleClipboard({
+        style: JSON.parse(JSON.stringify(primaryEl.style || {})),
+        mediaFilter: primaryEl.mediaFilter ? JSON.parse(JSON.stringify(primaryEl.mediaFilter)) : null
+    });
+    toast('Style copied (borders, filters, gradients & shadows)', 'info', 1200);
+}
+
+export function pasteSelectionStyle() {
+    const clip = getStyleClipboard();
+    if (!clip) {
+        toast('No style copied yet (use Copy Style first)', 'warn', 1500);
+        return;
+    }
+    const items = selectedElements().filter(el => !el.locked);
+    if (!items.length) return;
+    items.forEach(el => {
+        el.style = { ...el.style, ...JSON.parse(JSON.stringify(clip.style)) };
+        if (clip.mediaFilter) {
+            el.mediaFilter = JSON.parse(JSON.stringify(clip.mediaFilter));
+        }
+    });
+    renderCanvas();
+    renderProperties();
+    changed(true);
+    toast(`Style pasted to ${items.length} element${items.length > 1 ? 's' : ''}`, 'ok', 1200);
+}
+
 export function runAction(act) {
     const items = selectedElements();
     if (!items.length) return;
     if (act === 'delete') deleteSelection();
     else if (act === 'duplicate') duplicateSelection();
+    else if (act === 'copy-style') copySelectionStyle();
+    else if (act === 'paste-style') pasteSelectionStyle();
     else if (act === 'preset') openSavePreset();
     else if (act === 'group') groupSelection();
     else if (act === 'ungroup') ungroupSelection();
@@ -1003,6 +1036,8 @@ function initEventListeners() {
         const allLocked = hasSelection && items.every(el => el.locked);
         const hasGroup = hasSelection && items.some(el => el.group);
         const modKey = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl+';
+        const altKey = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌥' : 'Alt+';
+        const hasStyleClip = Boolean(getStyleClipboard());
 
         let menuHtml = '';
         if (hasSelection) {
@@ -1010,6 +1045,10 @@ function initEventListeners() {
             menuHtml += `<button type="button" class="ctx-item" data-ctx-act="copy"><span>Copy</span><kbd>${modKey}C</kbd></button>`;
             if (hasClipboard) {
                 menuHtml += `<button type="button" class="ctx-item" data-ctx-act="paste"><span>Paste</span><kbd>${modKey}V</kbd></button>`;
+            }
+            menuHtml += `<button type="button" class="ctx-item" data-ctx-act="copy-style"><span>Copy Style</span><kbd>${modKey}${altKey}C</kbd></button>`;
+            if (hasStyleClip) {
+                menuHtml += `<button type="button" class="ctx-item" data-ctx-act="paste-style"><span>Paste Style</span><kbd>${modKey}${altKey}V</kbd></button>`;
             }
             menuHtml += `<div class="ctx-divider"></div>`;
             menuHtml += `<button type="button" class="ctx-item" data-ctx-act="front"><span>Bring to Front</span><kbd>${modKey}⇧]</kbd></button>`;
@@ -1054,6 +1093,8 @@ function initEventListeners() {
         hideContextMenu();
         if (act === 'duplicate') duplicateSelection();
         else if (act === 'copy') copySelection();
+        else if (act === 'copy-style') copySelectionStyle();
+        else if (act === 'paste-style') pasteSelectionStyle();
         else if (act === 'paste') pasteClipboard();
         else if (['front', 'forward', 'backward', 'back'].includes(act)) reorder(act);
         else if (act === 'group') groupSelection();
@@ -1108,6 +1149,8 @@ function initEventListeners() {
         if (mod && key === 'z') { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
         if (mod && key === 'y') { event.preventDefault(); redo(); return; }
         if (mod && key === 'a') { event.preventDefault(); setSelection(visibleElements().filter(el => el.visible !== false).map(el => el.id)); return; }
+        if (mod && event.altKey && key === 'c') { event.preventDefault(); copySelectionStyle(); return; }
+        if (mod && event.altKey && key === 'v') { event.preventDefault(); pasteSelectionStyle(); return; }
         if (mod && key === 'c') { copySelection(); return; }
         if (mod && key === 'v') return;
         if (mod && key === 'g') { event.preventDefault(); event.shiftKey ? ungroupSelection() : groupSelection(); return; }

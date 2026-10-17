@@ -87,8 +87,20 @@ details.sect > summary:hover { background: color-mix(in srgb, var(--text) 4%, tr
 .seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent-strong) 20%, transparent); color: var(--accent); }
 .sub-head { grid-column: 1 / -1; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-top: .35rem; border-top: 1px solid var(--border-soft); padding-top: .55rem; }
 .hint { color: var(--muted); font-size: 11px; line-height: 1.45; margin: 0; }
-.action-bar { display: flex; flex-wrap: wrap; gap: .25rem; padding: .6rem .85rem; border-bottom: 1px solid var(--border-soft); align-items: center; }
-.action-bar { gap: .4rem; }
+.action-bar {
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    background: var(--panel);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    padding: .6rem .85rem;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+}
 .action-bar .title { flex-basis: 100%; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: .5rem; margin-bottom: .1rem; min-width: 0; }
 .action-bar .title .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .action-bar .title .spacer { flex: 1; }
@@ -366,3 +378,61 @@ dialog h3 { margin: 0 0 .4rem; }
 .safe-action .safe-label { top: 4px; left: 8px; color: #f59e0b; background: #000c; }
 .safe-title .safe-label { top: 4px; left: 8px; color: #06b6d4; background: #000c; }
 .safe-twitch-bar .safe-label { bottom: 6px; right: 8px; transform-origin: 100% 100%; color: #c084fc; background: #000c; }
+
+/* Scrubbable Number Labels (Photoshop / Figma style) */
+.field > span:first-child:has(~ * input[data-kind="number"]),
+.field > span:first-child:has(~ input[data-kind="number"]) {
+    cursor: ew-resize;
+    user-select: none;
+    transition: color 0.15s ease;
+}
+.field > span:first-child:hover:has(~ * input[data-kind="number"]),
+.field > span:first-child:hover:has(~ input[data-kind="number"]) {
+    color: var(--accent);
+}
+.field > span:first-child.scrubbing {
+    color: var(--accent);
+}
+body.is-scrubbing, body.is-scrubbing * {
+    cursor: ew-resize !important;
+    user-select: none !important;
+}
+
+/* Eyedropper Sampling Tool */
+.eyedrop-btn {
+    padding: 0;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--field);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--muted);
+    cursor: pointer;
+    flex: none;
+    transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+.eyedrop-btn:hover {
+    border-color: var(--accent);
+    color: var(--text);
+    background: var(--panel-2);
+}
+
+/* Direct Canvas In-Place Text Editor */
+.canvas-inline-editor {
+    position: absolute;
+    z-index: 60;
+    background: color-mix(in srgb, var(--panel) 92%, #000);
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    padding: 6px 8px;
+    color: inherit;
+    font: inherit;
+    resize: none;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    outline: none;
+    line-height: inherit;
+    overflow: hidden;
+}

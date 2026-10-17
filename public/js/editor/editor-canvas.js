@@ -958,9 +958,73 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
     stage.addEventListener('pointerup', endGesture);
     stage.addEventListener('pointercancel', endGesture);
 
+    function openCanvasInlineEditor(el, node) {
+        if (!el || !TEXT_TYPES.has(el.type) || !canvasEl) return;
+        const existing = canvasEl.querySelector('.canvas-inline-editor');
+        if (existing) existing.remove();
+
+        const s = el.style || {};
+        const textarea = document.createElement('textarea');
+        textarea.className = 'canvas-inline-editor';
+        textarea.value = el.content || '';
+
+        Object.assign(textarea.style, {
+            left: `${el.x}px`,
+            top: `${el.y}px`,
+            width: `${Math.max(60, el.width)}px`,
+            minHeight: `${Math.max(36, el.height || 36)}px`,
+            fontFamily: s.fontFamily || 'sans-serif',
+            fontSize: `${s.fontSize || 32}px`,
+            fontWeight: s.fontWeight || 'normal',
+            lineHeight: s.lineHeight || 1.3,
+            letterSpacing: s.letterSpacing ? `${s.letterSpacing}px` : 'normal',
+            color: s.color || '#ffffff',
+            textAlign: s.textAlign || 'left'
+        });
+
+        node.style.opacity = '0';
+
+        const finish = () => {
+            textarea.removeEventListener('blur', finish);
+            textarea.removeEventListener('keydown', onKey);
+            el.content = textarea.value;
+            node.style.opacity = '';
+            textarea.remove();
+            renderCanvas(new Set([el.id]));
+            renderSelectionUI();
+            if (onRenderProperties) onRenderProperties();
+            changed(true);
+        };
+
+        const onKey = e => {
+            if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) {
+                e.preventDefault();
+                finish();
+            }
+        };
+
+        textarea.addEventListener('input', () => {
+            el.content = textarea.value;
+            const propArea = $('prop-content');
+            if (propArea) propArea.value = textarea.value;
+        });
+
+        textarea.addEventListener('blur', finish);
+        textarea.addEventListener('keydown', onKey);
+
+        canvasEl.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+    }
+
     stage.addEventListener('dblclick', event => {
         const node = event.target.closest('.canvas-element');
         if (!node) return;
+        const el = visibleElements().find(item => item.id === node.dataset.id);
+        if (el && TEXT_TYPES.has(el.type)) {
+            openCanvasInlineEditor(el, node);
+            return;
+        }
         const field = $('prop-content');
         if (field) { field.focus(); field.select(); }
     });
