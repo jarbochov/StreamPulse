@@ -7,7 +7,8 @@
  * - Singleton WebGL Processor (exactly 1 context for entire page, zero context exhaustion in Safari/Chrome).
  * - Per-node texture caching: textures are uploaded once and reused; zero CPU->GPU bus bandwidth while idle.
  * - Reactive animation loop: completely sleeps (0% CPU) when effects are static or elements are hidden.
- * - Decoupled Signal Emulation (VHS, NTSC, Static) and Physical Screen Emulation (CRT, LCD).
+ * - Combinable Analog Signals: VHS Tape, NTSC Composite, and TV Static / White Noise can overlap freely.
+ * - Physical Screen Emulation: CRT Monitor with customizable scanline & aperture grille sizing; LCD Matrix with 4-shade palettes.
  * - Standalone and portable: zero external dependencies, clean UMD export.
  */
 
@@ -16,15 +17,14 @@
 
     // ---- Profile Definitions & Presets ----
     const PROFILES = {
-        signal: {
-            none: { name: 'None (Clean)' },
+        signals: {
             vhs: { name: 'VHS Tape', jitter: 25, glitch: 20, chromatic: 20, noise: 15 },
             ntsc: { name: 'NTSC Composite', bleed: 30, ghosting: 25, noise: 12 },
-            static: { name: 'Broken Static', noise: 55, glitch: 40, roll: 15 }
+            static: { name: 'TV Static & Snow', noise: 55, pure: false, color: false, glitch: 40, roll: 15 }
         },
         display: {
             none: { name: 'None (Flat)' },
-            crt: { name: 'CRT Monitor', scanlines: 45, curvature: 12, bloom: 25, vignette: 20, mask: 'aperture', maskStrength: 35 },
+            crt: { name: 'CRT Monitor', scanlines: 45, scanlineSize: 4, curvature: 12, bloom: 25, vignette: 20, mask: 'aperture', maskSize: 2, maskStrength: 35 },
             lcd: { name: 'LCD Matrix', grid: 35, palette: 'default' }
         }
     };
@@ -57,57 +57,61 @@
     };
 
     /**
-     * Normalizes retro options, ensuring 100% backwards compatibility with legacy retro.type/retro.mode.
+     * Normalizes retro options, ensuring 100% backwards compatibility with legacy schemas.
      */
     function normalizeRetro(retro = {}) {
-        let signal = retro.signal || 'none';
         let display = retro.display || 'none';
+        let vhs = Boolean(retro.vhs);
+        let ntsc = Boolean(retro.ntsc);
+        let staticSignal = Boolean(retro.static);
 
-        // Backwards compatibility for legacy presets/layers
-        const legacyType = retro.type || retro.mode;
-        if (legacyType && legacyType !== 'none') {
-            if (legacyType === 'crt' && display === 'none') {
-                display = 'crt';
-            } else if (legacyType === 'lcd' && display === 'none') {
-                display = 'lcd';
-            } else if (legacyType === 'vhs' && signal === 'none') {
-                signal = 'vhs';
-                if (retro.viewOnCrt && display === 'none') display = 'crt';
-            } else if (legacyType === 'ntsc' && signal === 'none') {
-                signal = 'ntsc';
-                if (retro.viewOnCrt && display === 'none') display = 'crt';
-            } else if (legacyType === 'static' && signal === 'none') {
-                signal = 'static';
-            }
-        }
+        // Support legacy preset / saved schema
+        if (retro.signal === 'vhs' || retro.type === 'vhs') vhs = true;
+        if (retro.signal === 'ntsc' || retro.type === 'ntsc') ntsc = true;
+        if (retro.signal === 'static' || retro.type === 'static') staticSignal = true;
+
+        if (retro.type === 'crt' && display === 'none') display = 'crt';
+        if (retro.type === 'lcd' && display === 'none') display = 'lcd';
+        if (retro.viewOnCrt && display === 'none') display = 'crt';
 
         const mask = retro.crtMask || retro.mask || 'aperture';
         const maskVal = mask === 'aperture' ? 1 : (mask === 'slot' || mask === 'slot-mask' || mask === 'shadow-mask' ? 2 : 0);
 
         return {
-            signal,
             display,
-            // CRT
+            vhs,
+            ntsc,
+            static: staticSignal,
+
+            // CRT Screen
             crtScanlines: (retro.crtScanlines ?? retro.scanlines ?? 45) / 100,
+            crtScanlineSize: Math.max(1, Math.min(24, Number(retro.crtScanlineSize ?? retro.scanlineSize ?? 4))),
             crtCurvature: (retro.crtCurvature ?? retro.curvature ?? 12) / 100,
             crtBloom: (retro.crtBloom ?? retro.bloom ?? 25) / 100,
             crtVignette: (retro.crtVignette ?? retro.vignette ?? 20) / 100,
             crtMask: maskVal,
+            crtMaskSize: Math.max(1, Math.min(10, Number(retro.crtMaskSize ?? retro.maskSize ?? 2))),
             crtMaskStrength: (retro.crtMaskStrength ?? 35) / 100,
-            // LCD
+
+            // LCD Screen
             lcdGrid: (retro.lcdGrid ?? retro.grid ?? 35) / 100,
             lcdPalette: retro.lcdPalette || retro.palette || 'default',
-            // VHS
+
+            // VHS Signal
             vhsJitter: (retro.vhsJitter ?? retro.jitter ?? 25) / 100,
             vhsGlitch: (retro.vhsGlitch ?? retro.glitch ?? 20) / 100,
             vhsChroma: (retro.vhsChroma ?? retro.chromatic ?? 20) / 100,
             vhsNoise: (retro.vhsNoise ?? retro.noise ?? 15) / 100,
-            // NTSC
+
+            // NTSC Signal
             ntscBleed: (retro.ntscBleed ?? retro.bleed ?? 30) / 100,
             ntscGhost: (retro.ntscGhost ?? retro.ghosting ?? 25) / 100,
             ntscNoise: (retro.ntscNoise ?? retro.noise ?? 12) / 100,
-            // Static
+
+            // TV Static & White Noise
             staticNoise: (retro.staticNoise ?? retro.noise ?? 55) / 100,
+            staticPure: Boolean(retro.staticPure),
+            staticColor: Boolean(retro.staticColor),
             staticGlitch: (retro.staticGlitch ?? retro.glitch ?? 40) / 100,
             staticRoll: (retro.staticRoll ?? retro.roll ?? 15) / 100
         };
@@ -139,36 +143,39 @@
         uniform float u_saturate;
         uniform float u_grayscale;
 
-        // Decoupled Signal Mode (0=None, 1=VHS, 2=NTSC, 3=Static)
-        uniform int u_signalMode;
-        // Decoupled Display Mode (0=None, 1=CRT, 2=LCD)
+        // Display Mode (0=None, 1=CRT, 2=LCD)
         uniform int u_displayMode;
 
         // CRT Screen Uniforms
         uniform float u_crtScanlines;
+        uniform float u_crtScanlineSize;
         uniform float u_crtCurvature;
         uniform float u_crtBloom;
         uniform float u_crtVignette;
         uniform int u_crtMask; // 0=None, 1=Aperture Grille, 2=Slot Mask
+        uniform float u_crtMaskSize;
         uniform float u_crtMaskStrength;
 
         // LCD Matrix Uniforms
         uniform float u_lcdGrid;
         uniform int u_lcdPalette; // 0=default/color, 1=dmg, 2=pocket, 3=blue, 4=amber
 
-        // VHS Signal Uniforms
+        // Combinable Signals
+        uniform int u_vhsEnabled;
         uniform float u_vhsJitter;
         uniform float u_vhsGlitch;
         uniform float u_vhsChroma;
         uniform float u_vhsNoise;
 
-        // NTSC Signal Uniforms
+        uniform int u_ntscEnabled;
         uniform float u_ntscBleed;
         uniform float u_ntscGhost;
         uniform float u_ntscNoise;
 
-        // Static Signal Uniforms
+        uniform int u_staticEnabled;
         uniform float u_staticNoise;
+        uniform int u_staticPure;
+        uniform int u_staticColor;
         uniform float u_staticGlitch;
         uniform float u_staticRoll;
 
@@ -221,7 +228,7 @@
             vec2 uv = v_uv;
 
             // 1. Static VSYNC roll
-            if (u_signalMode == 3 && u_staticRoll > 0.001) {
+            if (u_staticEnabled == 1 && u_staticRoll > 0.001) {
                 uv.y = fract(uv.y + u_time * (u_staticRoll * 0.4));
             }
 
@@ -235,7 +242,7 @@
             }
 
             // 3. VHS Horizontal Tracking Wave & Glitch Slices
-            if (u_signalMode == 1) {
+            if (u_vhsEnabled == 1) {
                 if (u_vhsJitter > 0.001) {
                     float jWave = sin(uv.y * 35.0 + u_time * 5.0) * (u_vhsJitter * 0.004);
                     float jNoise = (hash21(vec2(floor(uv.y * 120.0), floor(u_time * 30.0))) - 0.5) * (u_vhsJitter * 0.003);
@@ -255,26 +262,26 @@
             }
 
             // 4. Static / Broken TV Glitch Slices
-            if (u_signalMode == 3 && u_staticGlitch > 0.001) {
+            if (u_staticEnabled == 1 && u_staticGlitch > 0.001) {
                 float sliceY = floor(uv.y * 24.0);
                 float isGlitchLine = step(0.85 - u_staticGlitch * 0.3, hash21(vec2(sliceY, floor(u_time * 15.0))));
                 float disp = (hash21(vec2(sliceY, floor(u_time * 30.0))) - 0.5) * (u_staticGlitch * 0.08);
                 uv.x += disp * isGlitchLine;
             }
 
-            // 5. Sampling & Chromatic Delay / Bleed
-            vec4 col;
+            // 5. Sampling & Chromatic Delay / Bleed (VHS + NTSC + CRT Bloom)
             float chromaOffset = 0.0;
-            if (u_signalMode == 1 && u_vhsChroma > 0.001) {
+            if (u_vhsEnabled == 1 && u_vhsChroma > 0.001) {
                 chromaOffset += u_vhsChroma * 0.008;
             }
-            if (u_signalMode == 2 && u_ntscBleed > 0.001) {
-                chromaOffset += u_ntscBleed * 0.006;
+            if (u_ntscEnabled == 1 && u_ntscBleed > 0.001) {
+                chromaOffset += u_ntscBleed * 0.007;
             }
             if (u_displayMode == 1 && u_crtBloom > 0.001) {
                 chromaOffset += u_crtBloom * 0.0025;
             }
 
+            vec4 col;
             if (chromaOffset > 0.0001) {
                 float r = sampleMedia(vec2(uv.x + chromaOffset, uv.y)).r;
                 vec4 center = sampleMedia(uv);
@@ -285,7 +292,7 @@
             }
 
             // 6. NTSC Multipath RF Ghosting
-            if (u_signalMode == 2 && u_ntscGhost > 0.001) {
+            if (u_ntscEnabled == 1 && u_ntscGhost > 0.001) {
                 float ghostOffset = 0.015 + u_ntscGhost * 0.025;
                 vec4 ghost = sampleMedia(vec2(uv.x + ghostOffset, uv.y));
                 col.rgb = mix(col.rgb, col.rgb + ghost.rgb * 0.45, u_ntscGhost);
@@ -304,27 +311,66 @@
                 col.rgb = mix(col.rgb, vec3(gray), u_grayscale);
             }
 
-            // 8. CRT Screen Layer: Scanlines, Aperture Grille, Bloom & Vignette
+            // 8. TV White Noise & Analog Signal Noise
+            if (u_staticEnabled == 1 && (u_staticNoise > 0.001 || u_staticPure == 1)) {
+                vec2 noiseCoord = floor(gl_FragCoord.xy);
+                vec2 timeSeed = vec2(fract(u_time * 29.83), fract(u_time * 53.71));
+                float whiteNoise = hash21(noiseCoord + timeSeed * 1000.0);
+
+                vec3 snowColor;
+                if (u_staticColor == 1) {
+                    float r = whiteNoise;
+                    float g = hash21(noiseCoord + timeSeed * 1000.0 + vec2(13.1, 7.3));
+                    float b = hash21(noiseCoord + timeSeed * 1000.0 + vec2(37.9, 19.4));
+                    snowColor = vec3(r, g, b);
+                } else {
+                    // Authentic monochrome television salt-and-pepper snow
+                    snowColor = vec3(whiteNoise);
+                }
+
+                if (u_staticPure == 1) {
+                    // Full untuned TV snow screen (No Signal)
+                    col.rgb = snowColor;
+                } else {
+                    // Broadcast snow blended over image
+                    col.rgb = mix(col.rgb, snowColor, u_staticNoise);
+                }
+            }
+
+            // Tape / RF Grain
+            float fineNoise = 0.0;
+            if (u_vhsEnabled == 1 && u_vhsNoise > 0.001) {
+                fineNoise += (hash21(gl_FragCoord.xy * 0.8 + fract(u_time * 19.3) * 500.0) - 0.5) * (u_vhsNoise * 0.4);
+            }
+            if (u_ntscEnabled == 1 && u_ntscNoise > 0.001) {
+                fineNoise += (hash21(gl_FragCoord.xy * 0.5 + fract(u_time * 31.7) * 400.0) - 0.5) * (u_ntscNoise * 0.35);
+            }
+            if (abs(fineNoise) > 0.0001) {
+                col.rgb += fineNoise;
+            }
+
+            // 9. CRT Screen Layer: Scanlines, Aperture Grille, Bloom & Vignette
             if (u_displayMode == 1) {
-                // Electron Beam Scanlines (exponential falloff with sharp line spacing)
+                // Electron Beam Scanlines with customizable pitch/spacing
                 if (u_crtScanlines > 0.001) {
-                    float lines = max(120.0, min(540.0, u_res.y * 0.45));
-                    float linePos = fract(uv.y * lines);
+                    float linePitch = max(2.0, u_crtScanlineSize);
+                    float linePos = fract(gl_FragCoord.y / linePitch);
                     float dist = abs(linePos - 0.5);
                     float beam = exp(-dist * dist * (4.0 + u_crtScanlines * 14.0));
                     col.rgb *= mix(1.0, beam, u_crtScanlines * 0.9);
                 }
 
-                // Phosphor Mask (Trinitron Aperture Grille or Slot Mask)
+                // Phosphor Mask (Trinitron Aperture Grille or Slot Mask) with customizable stripe width
                 if (u_crtMask > 0 && u_crtMaskStrength > 0.001) {
-                    float colIdx = mod(floor(gl_FragCoord.x), 3.0);
+                    float stripeWidth = max(1.0, floor(u_crtMaskSize));
+                    float colIdx = mod(floor(gl_FragCoord.x / stripeWidth), 3.0);
                     vec3 triad = vec3(0.5);
                     if (u_crtMask == 1) { // Aperture Grille (vertical RGB Trinitron stripes)
                         if (colIdx < 0.5) triad = vec3(1.4, 0.45, 0.45);
                         else if (colIdx < 1.5) triad = vec3(0.45, 1.4, 0.45);
                         else triad = vec3(0.45, 0.45, 1.4);
                     } else if (u_crtMask == 2) { // Slot Mask (staggered dot triads)
-                        float rowIdx = mod(floor(gl_FragCoord.y * 0.5), 2.0);
+                        float rowIdx = mod(floor(gl_FragCoord.y / (stripeWidth * 2.0)), 2.0);
                         float slotCol = mod(colIdx + rowIdx, 3.0);
                         if (slotCol < 0.5) triad = vec3(1.35, 0.5, 0.5);
                         else if (slotCol < 1.5) triad = vec3(0.5, 1.35, 0.5);
@@ -348,7 +394,7 @@
                 }
             }
 
-            // 9. LCD Display Layer: Sub-pixel Grid & 4-Shade Palettes
+            // 10. LCD Display Layer: Sub-pixel Grid & 4-Shade Palettes
             if (u_displayMode == 2) {
                 if (u_lcdGrid > 0.001) {
                     float pitch = mix(3.0, 16.0, u_lcdGrid);
@@ -382,21 +428,6 @@
                         else col.rgb = vec3(1.00, 0.70, 0.10);
                     }
                 }
-            }
-
-            // 10. Analog Noise & Static Snow
-            float effectiveNoise = 0.0;
-            if (u_signalMode == 3) {
-                effectiveNoise = u_staticNoise;
-            } else if (u_signalMode == 1) {
-                effectiveNoise = u_vhsNoise;
-            } else if (u_signalMode == 2) {
-                effectiveNoise = u_ntscNoise;
-            }
-
-            if (effectiveNoise > 0.001) {
-                float snow = (hash21(uv * 800.0 + fract(u_time * 2.3)) - 0.5) * (effectiveNoise * 0.7);
-                col.rgb += snow;
             }
 
             // 11. Film Grain
@@ -519,12 +550,13 @@
         const uniformNames = [
             'u_tex', 'u_res', 'u_time', 'u_uvScale', 'u_uvOffset',
             'u_brightness', 'u_contrast', 'u_saturate', 'u_grayscale',
-            'u_signalMode', 'u_displayMode',
-            'u_crtScanlines', 'u_crtCurvature', 'u_crtBloom', 'u_crtVignette', 'u_crtMask', 'u_crtMaskStrength',
+            'u_displayMode',
+            'u_crtScanlines', 'u_crtScanlineSize', 'u_crtCurvature', 'u_crtBloom', 'u_crtVignette',
+            'u_crtMask', 'u_crtMaskSize', 'u_crtMaskStrength',
             'u_lcdGrid', 'u_lcdPalette',
-            'u_vhsJitter', 'u_vhsGlitch', 'u_vhsChroma', 'u_vhsNoise',
-            'u_ntscBleed', 'u_ntscGhost', 'u_ntscNoise',
-            'u_staticNoise', 'u_staticGlitch', 'u_staticRoll',
+            'u_vhsEnabled', 'u_vhsJitter', 'u_vhsGlitch', 'u_vhsChroma', 'u_vhsNoise',
+            'u_ntscEnabled', 'u_ntscBleed', 'u_ntscGhost', 'u_ntscNoise',
+            'u_staticEnabled', 'u_staticNoise', 'u_staticPure', 'u_staticColor', 'u_staticGlitch', 'u_staticRoll',
             'u_grain', 'u_duoEnabled', 'u_duoDark', 'u_duoLight', 'u_tintEnabled', 'u_tintColor', 'u_tintOpacity'
         ];
         for (const name of uniformNames) {
@@ -654,21 +686,18 @@
 
         const retro = normalizeRetro(f.retro || {});
 
-        const signalCode = retro.signal === 'vhs' ? 1 :
-            retro.signal === 'ntsc' ? 2 :
-            retro.signal === 'static' ? 3 : 0;
-        gl.uniform1i(u.u_signalMode, signalCode);
-
         const displayCode = retro.display === 'crt' ? 1 :
             retro.display === 'lcd' ? 2 : 0;
         gl.uniform1i(u.u_displayMode, displayCode);
 
         // CRT uniforms
         gl.uniform1f(u.u_crtScanlines, retro.crtScanlines);
+        gl.uniform1f(u.u_crtScanlineSize, retro.crtScanlineSize);
         gl.uniform1f(u.u_crtCurvature, retro.crtCurvature);
         gl.uniform1f(u.u_crtBloom, retro.crtBloom);
         gl.uniform1f(u.u_crtVignette, retro.crtVignette);
         gl.uniform1i(u.u_crtMask, retro.crtMask);
+        gl.uniform1f(u.u_crtMaskSize, retro.crtMaskSize);
         gl.uniform1f(u.u_crtMaskStrength, retro.crtMaskStrength);
 
         // LCD uniforms
@@ -677,19 +706,22 @@
         const palIndex = palId === 'dmg-green' ? 1 : palId === 'pocket' ? 2 : palId === 'cyber-blue' ? 3 : palId === 'amber' ? 4 : 0;
         gl.uniform1i(u.u_lcdPalette, palIndex);
 
-        // VHS uniforms
+        // Combinable Signals
+        gl.uniform1i(u.u_vhsEnabled, retro.vhs ? 1 : 0);
         gl.uniform1f(u.u_vhsJitter, retro.vhsJitter);
         gl.uniform1f(u.u_vhsGlitch, retro.vhsGlitch);
         gl.uniform1f(u.u_vhsChroma, retro.vhsChroma);
         gl.uniform1f(u.u_vhsNoise, retro.vhsNoise);
 
-        // NTSC uniforms
+        gl.uniform1i(u.u_ntscEnabled, retro.ntsc ? 1 : 0);
         gl.uniform1f(u.u_ntscBleed, retro.ntscBleed);
         gl.uniform1f(u.u_ntscGhost, retro.ntscGhost);
         gl.uniform1f(u.u_ntscNoise, retro.ntscNoise);
 
-        // Static uniforms
+        gl.uniform1i(u.u_staticEnabled, retro.static ? 1 : 0);
         gl.uniform1f(u.u_staticNoise, retro.staticNoise);
+        gl.uniform1i(u.u_staticPure, retro.staticPure ? 1 : 0);
+        gl.uniform1i(u.u_staticColor, retro.staticColor ? 1 : 0);
         gl.uniform1f(u.u_staticGlitch, retro.staticGlitch);
         gl.uniform1f(u.u_staticRoll, retro.staticRoll);
 
@@ -779,7 +811,7 @@
         if (!node || !element) return false;
         const f = element.mediaFilter || {};
         const retro = normalizeRetro(f.retro || {});
-        const isRetroActive = retro.signal !== 'none' || retro.display !== 'none';
+        const isRetroActive = retro.display !== 'none' || retro.vhs || retro.ntsc || retro.static;
 
         if (!isRetroActive) {
             cleanup(node);
@@ -831,7 +863,7 @@
         node._retroRecord = { canvas, source, filter: f };
 
         // Determine if this effect truly needs continuous 60 FPS animation
-        const hasAnimSignal = retro.signal === 'vhs' || retro.signal === 'static' || (retro.signal === 'ntsc' && retro.ntscNoise > 0.001);
+        const hasAnimSignal = retro.vhs || retro.ntsc || retro.static;
         const hasAnimGrain = !!(f.grain?.enabled && f.grain?.animate);
         const hasAnimVideo = element.type === 'video' || (source && source.tagName === 'VIDEO');
         const isAnimated = hasAnimSignal || hasAnimGrain || hasAnimVideo;

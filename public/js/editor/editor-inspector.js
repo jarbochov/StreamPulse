@@ -42,8 +42,9 @@ export const RERENDER_PATHS = new Set([
     'cutout.shape', 'alert.showOnPreview', 'style.objectFit', 'mediaFilter.duotone.enabled',
     'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled',
     'mediaFilter.halftone.mode', 'mediaFilter.halftone.colorMode', 'mediaFilter.halftone.fadeMode',
-    'mediaFilter.retro.signal', 'mediaFilter.retro.display', 'mediaFilter.retro.crtMask',
-    'mediaFilter.retro.type', 'mediaFilter.retro.mode', 'mediaFilter.retro.palette', 'mediaFilter.retro.lcdPalette', 'mediaFilter.retro.viewOnCrt',
+    'mediaFilter.retro.display', 'mediaFilter.retro.vhs', 'mediaFilter.retro.ntsc', 'mediaFilter.retro.static',
+    'mediaFilter.retro.staticPure', 'mediaFilter.retro.staticColor', 'mediaFilter.retro.crtMask',
+    'mediaFilter.retro.signal', 'mediaFilter.retro.type', 'mediaFilter.retro.mode', 'mediaFilter.retro.palette', 'mediaFilter.retro.lcdPalette', 'mediaFilter.retro.viewOnCrt',
     'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate',
     'style.borderWidth', 'style.borderStyle', 'style.borderGlow.enabled', 'style.borderGlow.neon',
     'style.borderGlow.inner', 'style.borderAnimation.type', 'style.borderAnimation.mode',
@@ -593,13 +594,13 @@ export function filterSection(el) {
     const retroNorm = (typeof window !== 'undefined' && window.OverlayRetro?.normalizeRetro)
         ? window.OverlayRetro.normalizeRetro(retro)
         : (shared.OverlayRetro?.normalizeRetro ? shared.OverlayRetro.normalizeRetro(retro) : {
-            signal: retro.signal || (retro.type === 'vhs' || retro.type === 'ntsc' || retro.type === 'static' ? retro.type : 'none'),
-            display: retro.display || (retro.type === 'crt' || retro.type === 'lcd' ? retro.type : (retro.viewOnCrt ? 'crt' : 'none'))
+            display: retro.display || 'none',
+            vhs: Boolean(retro.vhs || retro.signal === 'vhs' || retro.type === 'vhs'),
+            ntsc: Boolean(retro.ntsc || retro.signal === 'ntsc' || retro.type === 'ntsc'),
+            static: Boolean(retro.static || retro.signal === 'static' || retro.type === 'static')
         });
 
-    const retroSignal = retroNorm.signal || 'none';
-    const retroDisplay = retroNorm.display || 'none';
-    const hasRetro = retroSignal !== 'none' || retroDisplay !== 'none';
+    const hasRetro = retroNorm.display !== 'none' || retroNorm.vhs || retroNorm.ntsc || retroNorm.static;
 
     const presets = shared.MEDIA_FILTER_PRESETS || [];
     const media = ['image', 'video', 'slideshow', 'embed', 'pattern'].includes(el.type);
@@ -619,8 +620,10 @@ export function filterSection(el) {
                (f.duotone?.enabled || false) === (pf.duotone?.enabled || false) &&
                (!f.duotone?.enabled || (f.duotone?.dark === pf.duotone?.dark && f.duotone?.light === pf.duotone?.light)) &&
                htMode === (pHt.mode || 'none') &&
-               retroSignal === (normP.signal || 'none') &&
-               retroDisplay === (normP.display || 'none');
+               retroNorm.display === (normP.display || 'none') &&
+               retroNorm.vhs === Boolean(normP.vhs) &&
+               retroNorm.ntsc === Boolean(normP.ntsc) &&
+               retroNorm.static === Boolean(normP.static);
     });
     const currentPresetId = matchingPreset ? matchingPreset[0] : '';
 
@@ -632,16 +635,13 @@ export function filterSection(el) {
         ? `<span class="badge-pill">${esc(isPix ? `Pixel ${ht.size || 6}px` : (htMode.startsWith('bayer') ? 'Bayer' : isScreen ? 'Halftone' : 'Dither'))}</span>`
         : '<span class="badge-pill is-muted">Off</span>';
 
-    const signalNames = { vhs: 'VHS', ntsc: 'NTSC', static: 'Static' };
-    const displayNames = { crt: 'CRT', lcd: 'LCD' };
-    let retroBadgeText = '';
-    if (retroSignal !== 'none' && retroDisplay !== 'none') {
-        retroBadgeText = `${signalNames[retroSignal] || 'Signal'} + ${displayNames[retroDisplay] || 'Display'}`;
-    } else if (retroSignal !== 'none') {
-        retroBadgeText = signalNames[retroSignal] || 'Signal';
-    } else if (retroDisplay !== 'none') {
-        retroBadgeText = displayNames[retroDisplay] || 'Display';
-    }
+    const activeRetroLabels = [];
+    if (retroNorm.vhs) activeRetroLabels.push('VHS');
+    if (retroNorm.ntsc) activeRetroLabels.push('NTSC');
+    if (retroNorm.static) activeRetroLabels.push('Static');
+    if (retroNorm.display !== 'none') activeRetroLabels.push(retroNorm.display.toUpperCase());
+
+    const retroBadgeText = activeRetroLabels.join(' + ');
     const retroBadge = hasRetro
         ? `<span class="badge-pill">${esc(retroBadgeText)}</span>`
         : '<span class="badge-pill is-muted">Off</span>';
@@ -703,50 +703,36 @@ export function filterSection(el) {
     ` : '';
 
     // 2. Retro Screen & Signal controls
-    let signalControls = '';
-    if (retroSignal === 'vhs') {
-        signalControls = `
-            ${F.range('mediaFilter.retro.vhsJitter', 'Tracking jitter', (retro.vhsJitter ?? retro.jitter ?? 25), { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.vhsGlitch', 'Glitch slice bar', (retro.vhsGlitch ?? retro.glitch ?? 20), { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.vhsChroma', 'Chroma delay', (retro.vhsChroma ?? retro.chromatic ?? 20), { min: 0, max: 100, unit: '%' })}
-            <details class="sub-details">
-                <summary>Advanced VHS Tuning</summary>
-                ${F.range('mediaFilter.retro.vhsNoise', 'Tape head noise', (retro.vhsNoise ?? retro.noise ?? 15), { min: 0, max: 100, unit: '%' })}
-            </details>
-        `;
-    } else if (retroSignal === 'ntsc') {
-        signalControls = `
-            ${F.range('mediaFilter.retro.ntscBleed', 'Chroma bleed & smear', (retro.ntscBleed ?? retro.bleed ?? 30), { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.ntscGhost', 'RF multipath ghosting', (retro.ntscGhost ?? retro.ghosting ?? 25), { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.ntscNoise', 'RF signal noise', (retro.ntscNoise ?? retro.noise ?? 12), { min: 0, max: 100, unit: '%' })}
-        `;
-    } else if (retroSignal === 'static') {
-        signalControls = `
-            ${F.range('mediaFilter.retro.staticNoise', 'Noise density', (retro.staticNoise ?? retro.noise ?? 55), { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.staticGlitch', 'Glitch tear slices', (retro.staticGlitch ?? retro.glitch ?? 40), { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.staticRoll', 'VSYNC roll speed', (retro.staticRoll ?? retro.roll ?? 15), { min: 0, max: 100, unit: '%' })}
-        `;
-    }
-
     let displayControls = '';
-    if (retroDisplay === 'crt') {
+    if (retroNorm.display === 'crt') {
         displayControls = `
-            ${F.range('mediaFilter.retro.crtScanlines', 'Scanlines', (retro.crtScanlines ?? retro.scanlines ?? 45), { min: 0, max: 100, unit: '%' })}
-            ${F.range('mediaFilter.retro.crtCurvature', 'Tube curvature', (retro.crtCurvature ?? retro.curvature ?? 12), { min: 0, max: 60, unit: '%' })}
-            ${F.range('mediaFilter.retro.crtBloom', 'Phosphor glow', (retro.crtBloom ?? retro.bloom ?? 25), { min: 0, max: 100, unit: '%' })}
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 2px;">CRT Monitor Screen</div>
+            <div class="grid2">
+                ${F.range('mediaFilter.retro.crtScanlines', 'Scanlines', (retro.crtScanlines ?? retro.scanlines ?? 45), { min: 0, max: 100, unit: '%' })}
+                ${F.range('mediaFilter.retro.crtScanlineSize', 'Line spacing', (retro.crtScanlineSize ?? retro.scanlineSize ?? 4), { min: 2, max: 16, unit: 'px' })}
+            </div>
+            <div class="grid2">
+                ${F.range('mediaFilter.retro.crtCurvature', 'Tube curvature', (retro.crtCurvature ?? retro.curvature ?? 12), { min: 0, max: 60, unit: '%' })}
+                ${F.range('mediaFilter.retro.crtBloom', 'Phosphor glow', (retro.crtBloom ?? retro.bloom ?? 25), { min: 0, max: 100, unit: '%' })}
+            </div>
             <details class="sub-details">
-                <summary>Advanced CRT Tuning</summary>
+                <summary>Phosphor Mask &amp; Vignette</summary>
                 ${F.select('mediaFilter.retro.crtMask', 'Phosphor mask', retro.crtMask || retro.mask || 'aperture', [
                     ['none', 'None (Clean scanlines)'],
                     ['aperture', 'Aperture grille (Trinitron RGB)'],
                     ['slot', 'Slot mask (Staggered dot triad)']
                 ])}
-                ${(retro.crtMask || retro.mask || 'aperture') !== 'none' ? F.range('mediaFilter.retro.crtMaskStrength', 'Mask strength', (retro.crtMaskStrength ?? 35), { min: 0, max: 100, unit: '%' }) : ''}
+                ${(retro.crtMask || retro.mask || 'aperture') !== 'none' ? `
+                    <div class="grid2">
+                        ${F.range('mediaFilter.retro.crtMaskSize', 'Stripe width', (retro.crtMaskSize ?? retro.maskSize ?? 2), { min: 1, max: 8, unit: 'px' })}
+                        ${F.range('mediaFilter.retro.crtMaskStrength', 'Mask intensity', (retro.crtMaskStrength ?? 35), { min: 0, max: 100, unit: '%' })}
+                    </div>` : ''}
                 ${F.range('mediaFilter.retro.crtVignette', 'Corner vignette', (retro.crtVignette ?? retro.vignette ?? 20), { min: 0, max: 100, unit: '%' })}
             </details>
         `;
-    } else if (retroDisplay === 'lcd') {
+    } else if (retroNorm.display === 'lcd') {
         displayControls = `
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 2px;">LCD Matrix Screen</div>
             ${F.range('mediaFilter.retro.lcdGrid', 'Sub-pixel grid spacing', (retro.lcdGrid ?? retro.grid ?? 35), { min: 0, max: 100, unit: '%' })}
             ${F.select('mediaFilter.retro.lcdPalette', 'LCD palette', retro.lcdPalette || retro.palette || 'default', [
                 ['default', 'Full color matrix'],
@@ -755,6 +741,45 @@ export function filterSection(el) {
                 ['cyber-blue', 'Cyber terminal (Phosphor blue)'],
                 ['amber', 'Amber terminal (Monochrome orange)']
             ])}
+        `;
+    }
+
+    let signalDetails = '';
+    if (retroNorm.vhs) {
+        signalDetails += `
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 2px;">VHS Tape Artifacts</div>
+            <div class="grid2">
+                ${F.range('mediaFilter.retro.vhsJitter', 'Tracking jitter', (retro.vhsJitter ?? retro.jitter ?? 25), { min: 0, max: 100, unit: '%' })}
+                ${F.range('mediaFilter.retro.vhsGlitch', 'Glitch bar', (retro.vhsGlitch ?? retro.glitch ?? 20), { min: 0, max: 100, unit: '%' })}
+            </div>
+            <div class="grid2">
+                ${F.range('mediaFilter.retro.vhsChroma', 'Chroma delay', (retro.vhsChroma ?? retro.chromatic ?? 20), { min: 0, max: 100, unit: '%' })}
+                ${F.range('mediaFilter.retro.vhsNoise', 'Head noise', (retro.vhsNoise ?? retro.noise ?? 15), { min: 0, max: 100, unit: '%' })}
+            </div>
+        `;
+    }
+    if (retroNorm.ntsc) {
+        signalDetails += `
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 2px;">NTSC Composite Artifacts</div>
+            <div class="grid2">
+                ${F.range('mediaFilter.retro.ntscBleed', 'Chroma bleed', (retro.ntscBleed ?? retro.bleed ?? 30), { min: 0, max: 100, unit: '%' })}
+                ${F.range('mediaFilter.retro.ntscGhost', 'RF ghosting', (retro.ntscGhost ?? retro.ghosting ?? 25), { min: 0, max: 100, unit: '%' })}
+            </div>
+            ${F.range('mediaFilter.retro.ntscNoise', 'RF signal noise', (retro.ntscNoise ?? retro.noise ?? 12), { min: 0, max: 100, unit: '%' })}
+        `;
+    }
+    if (retroNorm.static) {
+        signalDetails += `
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 2px;">TV Static &amp; White Noise</div>
+            ${F.range('mediaFilter.retro.staticNoise', 'White noise / TV snow', (retro.staticNoise ?? retro.noise ?? 55), { min: 0, max: 100, unit: '%' })}
+            <div class="grid2">
+                ${F.check('mediaFilter.retro.staticPure', 'Pure snow screen (no signal)', retroNorm.staticPure)}
+                ${F.check('mediaFilter.retro.staticColor', 'Color static', retroNorm.staticColor)}
+            </div>
+            <div class="grid2">
+                ${F.range('mediaFilter.retro.staticGlitch', 'Glitch tear slices', (retro.staticGlitch ?? retro.glitch ?? 40), { min: 0, max: 100, unit: '%' })}
+                ${F.range('mediaFilter.retro.staticRoll', 'VSYNC roll speed', (retro.staticRoll ?? retro.roll ?? 15), { min: 0, max: 100, unit: '%' })}
+            </div>
         `;
     }
 
@@ -823,22 +848,20 @@ export function filterSection(el) {
     const cardRetro = `
         <details class="sub-details" ${(prefs.sections['fx-retro'] ?? hasRetro) ? 'open' : ''} data-sect="fx-retro">
             <summary><span>Retro Screen &amp; Signal</span><span class="spacer"></span>${retroBadge}</summary>
-            <div class="grid2">
-                ${F.select('mediaFilter.retro.signal', 'Signal Emulation', retroSignal, [
-                    ['none', 'None (Clean)'],
-                    ['vhs', 'VHS Tape (Cassette)'],
-                    ['ntsc', 'NTSC Composite (RF)'],
-                    ['static', 'Broken Static (Snow)']
-                ])}
-                ${F.select('mediaFilter.retro.display', 'Display Screen', retroDisplay, [
-                    ['none', 'None (Flat screen)'],
-                    ['crt', 'CRT Monitor (Tube)'],
-                    ['lcd', 'LCD Matrix (Handheld)']
-                ])}
-            </div>
-            ${signalControls}
+            ${F.select('mediaFilter.retro.display', 'Display Screen', retroNorm.display, [
+                ['none', 'None (Flat screen)'],
+                ['crt', 'CRT Monitor (Tube)'],
+                ['lcd', 'LCD Matrix (Handheld)']
+            ])}
             ${displayControls}
-            ${!hasRetro ? '<p class="hint">Select a Signal (VHS, NTSC, Static) or Display (CRT, LCD) to enable authentic retro hardware emulation.</p>' : ''}
+            <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 4px;">Signal Emulation (Combinable)</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px;">
+                ${F.check('mediaFilter.retro.vhs', 'VHS Tape', retroNorm.vhs)}
+                ${F.check('mediaFilter.retro.ntsc', 'NTSC Composite', retroNorm.ntsc)}
+                ${F.check('mediaFilter.retro.static', 'TV Static & Snow', retroNorm.static)}
+            </div>
+            ${signalDetails}
+            ${!hasRetro ? '<p class="hint">Enable a Display Screen (CRT, LCD) or any combination of Analog Signals (VHS, NTSC, Static Snow) to apply retro effects.</p>' : ''}
         </details>
     `;
 

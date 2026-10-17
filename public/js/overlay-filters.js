@@ -22,14 +22,18 @@
     });
 
     const defaultRetro = () => ({
-        signal: 'none',
         display: 'none',
+        vhs: false,
+        ntsc: false,
+        static: false,
         // CRT Display
         crtScanlines: 45,
+        crtScanlineSize: 4,
         crtCurvature: 12,
         crtBloom: 25,
         crtVignette: 20,
         crtMask: 'aperture',
+        crtMaskSize: 2,
         crtMaskStrength: 35,
         // LCD Display
         lcdGrid: 35,
@@ -43,8 +47,10 @@
         ntscBleed: 30,
         ntscGhost: 25,
         ntscNoise: 12,
-        // Static Signal
+        // TV Static & White Noise
         staticNoise: 55,
+        staticPure: false,
+        staticColor: false,
         staticGlitch: 40,
         staticRoll: 15
     });
@@ -67,12 +73,12 @@
         ['dusk', 'Duotone dusk', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#1b1464', light: '#ff9de2' } }],
         ['mono-green', 'Duotone green', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#031a0f', light: '#7dffb2' } }],
         ['sepia', 'Duotone sepia', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#2b1a0c', light: '#f3d9a6' } }],
-        ['arcade-crt', 'Arcade CRT', { ...defaultMediaFilter(), contrast: 115, retro: { ...defaultRetro(), display: 'crt', signal: 'none', crtScanlines: 55, crtCurvature: 16, crtBloom: 35, crtVignette: 25, crtMask: 'aperture', crtMaskStrength: 40 } }],
-        ['vhs-tape', '80s VHS tape', { ...defaultMediaFilter(), saturate: 115, retro: { ...defaultRetro(), signal: 'vhs', display: 'crt', vhsJitter: 35, vhsGlitch: 25, vhsChroma: 30, vhsNoise: 20, crtScanlines: 35, crtCurvature: 10 } }],
-        ['ntsc-broadcast', 'Broadcast TV', { ...defaultMediaFilter(), contrast: 110, retro: { ...defaultRetro(), signal: 'ntsc', display: 'crt', ntscBleed: 40, ntscGhost: 30, ntscNoise: 15, crtScanlines: 30, crtCurvature: 8 } }],
-        ['gameboy-dmg', 'Game Boy DMG', { ...defaultMediaFilter(), contrast: 125, halftone: { ...defaultHalftone(), mode: 'bayer-4', size: 3, levels: 4 }, retro: { ...defaultRetro(), signal: 'none', display: 'lcd', lcdGrid: 45, lcdPalette: 'dmg-green' } }],
-        ['cyber-terminal', 'Cyberpunk terminal', { ...defaultMediaFilter(), contrast: 130, retro: { ...defaultRetro(), signal: 'none', display: 'crt', crtScanlines: 65, crtCurvature: 10, crtBloom: 50 }, duotone: { enabled: true, dark: '#020b14', light: '#00f5d4' } }],
-        ['broken-static', 'Broken static', { ...defaultMediaFilter(), contrast: 120, retro: { ...defaultRetro(), signal: 'static', display: 'crt', staticNoise: 60, staticGlitch: 45, staticRoll: 20, crtCurvature: 15 } }],
+        ['arcade-crt', 'Arcade CRT', { ...defaultMediaFilter(), contrast: 115, retro: { ...defaultRetro(), display: 'crt', crtScanlines: 55, crtScanlineSize: 4, crtCurvature: 16, crtBloom: 35, crtVignette: 25, crtMask: 'aperture', crtMaskSize: 2, crtMaskStrength: 40 } }],
+        ['vhs-tape', '80s VHS tape', { ...defaultMediaFilter(), saturate: 115, retro: { ...defaultRetro(), display: 'crt', vhs: true, vhsJitter: 35, vhsGlitch: 25, vhsChroma: 30, vhsNoise: 20, crtScanlines: 35, crtScanlineSize: 4, crtCurvature: 10 } }],
+        ['ntsc-broadcast', 'Broadcast TV', { ...defaultMediaFilter(), contrast: 110, retro: { ...defaultRetro(), display: 'crt', ntsc: true, ntscBleed: 40, ntscGhost: 30, ntscNoise: 15, crtScanlines: 30, crtScanlineSize: 4, crtCurvature: 8 } }],
+        ['gameboy-dmg', 'Game Boy DMG', { ...defaultMediaFilter(), contrast: 125, halftone: { ...defaultHalftone(), mode: 'bayer-4', size: 3, levels: 4 }, retro: { ...defaultRetro(), display: 'lcd', lcdGrid: 45, lcdPalette: 'dmg-green' } }],
+        ['cyber-terminal', 'Cyberpunk terminal', { ...defaultMediaFilter(), contrast: 130, retro: { ...defaultRetro(), display: 'crt', crtScanlines: 65, crtScanlineSize: 4, crtCurvature: 10, crtBloom: 50 }, duotone: { enabled: true, dark: '#020b14', light: '#00f5d4' } }],
+        ['broken-static', 'Broken static', { ...defaultMediaFilter(), contrast: 120, retro: { ...defaultRetro(), display: 'crt', static: true, staticNoise: 65, staticGlitch: 45, staticRoll: 20, crtCurvature: 15 } }],
         ['manga-tone', 'Manga screentone', { ...defaultMediaFilter(), contrast: 115, halftone: { ...defaultHalftone(), mode: 'dots', size: 7, angle: 45, threshold: 50, softness: 8, colorMode: 'manga', inkColor: '#0f172a', paperColor: '#ffffff' } }],
         ['pop-halftone', 'Pop art halftone', { ...defaultMediaFilter(), contrast: 120, saturate: 135, halftone: { ...defaultHalftone(), mode: 'dots', size: 9, angle: 30, threshold: 52, softness: 10, colorMode: 'color', levels: 2 } }],
         ['comic-fade', 'Comic corner fade', { ...defaultMediaFilter(), halftone: { ...defaultHalftone(), mode: 'dots', size: 10, angle: 45, threshold: 55, softness: 8, colorMode: 'ink-only', inkColor: '#00f5d4', fadeMode: 'linear', fadeAngle: 135, fadeStart: 10, fadeEnd: 85, fadeStyle: 'dots' } }],
@@ -87,8 +93,8 @@
         const retro = f.retro || {};
         const norm = root.OverlayRetro?.normalizeRetro ? root.OverlayRetro.normalizeRetro(retro) : null;
         const hasRetro = norm
-            ? (norm.signal !== 'none' || norm.display !== 'none')
-            : ((retro.signal && retro.signal !== 'none') || (retro.display && retro.display !== 'none') || (retro.type && retro.type !== 'none') || (retro.mode && retro.mode !== 'none'));
+            ? (norm.display !== 'none' || norm.vhs || norm.ntsc || norm.static)
+            : ((retro.display && retro.display !== 'none') || retro.vhs || retro.ntsc || retro.static || (retro.type && retro.type !== 'none') || (retro.mode && retro.mode !== 'none') || (retro.signal && retro.signal !== 'none'));
         return f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.tint?.enabled || f.duotone?.enabled || f.grain?.enabled || (!!htMode && htMode !== 'none') || hasRetro;
     }
 
@@ -1098,8 +1104,8 @@
         const retro = f.retro || {};
         const normRetro = root.OverlayRetro?.normalizeRetro ? root.OverlayRetro.normalizeRetro(retro) : null;
         const hasRetro = normRetro
-            ? (normRetro.signal !== 'none' || normRetro.display !== 'none')
-            : ((retro.signal && retro.signal !== 'none') || (retro.display && retro.display !== 'none') || (retro.type && retro.type !== 'none') || (retro.mode && retro.mode !== 'none'));
+            ? (normRetro.display !== 'none' || normRetro.vhs || normRetro.ntsc || normRetro.static)
+            : ((retro.display && retro.display !== 'none') || retro.vhs || retro.ntsc || retro.static || (retro.type && retro.type !== 'none') || (retro.mode && retro.mode !== 'none') || (retro.signal && retro.signal !== 'none'));
         const media = MEDIA_TYPES.has(element.type);
         const target = !media ? node : (element.type === 'slideshow' || element.type === 'pattern') ? node.firstElementChild : node.querySelector(':scope > video, :scope > img, :scope > iframe');
         if (!target) { node._fxSig = ''; node._fxAnim = null; fxAnimated.delete(node); return; }
