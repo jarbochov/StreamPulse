@@ -524,8 +524,21 @@
         return holder.innerHTML;
     }
 
-    // ---- media filters (images, videos, slideshows) ----
-    const defaultMediaFilter = () => ({ blur: 0, brightness: 100, contrast: 100, saturate: 100, grayscale: 0, tint: { enabled: false, color: '#000000', opacity: 0.4 }, duotone: { enabled: false, dark: '#1b1464', light: '#ff9de2', animate: 'none', dark2: '#0b3d2e', light2: '#7dffb2', speed: 6 }, grain: { enabled: false, amount: 0.25, size: 1, animate: true } });
+    // ---- media filters (images, videos, slideshows, shapes, patterns, text) ----
+    const defaultHalftone = () => ({
+        mode: 'none', size: 8, angle: 45, threshold: 50, softness: 12,
+        pixelSize: 1, levels: 4, colorMode: 'manga',
+        inkColor: '#0f172a', paperColor: '#ffffff', invert: false,
+        fadeMode: 'none', fadeAngle: 135, fadeCenterX: 50, fadeCenterY: 50,
+        fadeStart: 15, fadeEnd: 85, fadeInvert: false, fadeStyle: 'dots'
+    });
+    const defaultMediaFilter = () => ({
+        blur: 0, brightness: 100, contrast: 100, saturate: 100, grayscale: 0,
+        tint: { enabled: false, color: '#000000', opacity: 0.4 },
+        duotone: { enabled: false, dark: '#1b1464', light: '#ff9de2', animate: 'none', dark2: '#0b3d2e', light2: '#7dffb2', speed: 6 },
+        grain: { enabled: false, amount: 0.25, size: 1, animate: true },
+        halftone: defaultHalftone()
+    });
     const MEDIA_FILTER_PRESETS = [
         ['none', 'None', defaultMediaFilter()],
         ['dark', 'Dark background', { ...defaultMediaFilter(), brightness: 45 }],
@@ -534,12 +547,219 @@
         ['noir', 'Noir', { ...defaultMediaFilter(), grayscale: 100, contrast: 125, brightness: 80 }],
         ['dusk', 'Duotone dusk', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#1b1464', light: '#ff9de2' } }],
         ['mono-green', 'Duotone green', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#031a0f', light: '#7dffb2' } }],
-        ['sepia', 'Duotone sepia', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#2b1a0c', light: '#f3d9a6' } }]
+        ['sepia', 'Duotone sepia', { ...defaultMediaFilter(), duotone: { enabled: true, dark: '#2b1a0c', light: '#f3d9a6' } }],
+        ['manga-tone', 'Manga screentone', { ...defaultMediaFilter(), contrast: 115, halftone: { ...defaultHalftone(), mode: 'dots', size: 7, angle: 45, threshold: 50, softness: 8, colorMode: 'manga', inkColor: '#0f172a', paperColor: '#ffffff' } }],
+        ['pop-halftone', 'Pop art halftone', { ...defaultMediaFilter(), contrast: 120, saturate: 135, halftone: { ...defaultHalftone(), mode: 'dots', size: 9, angle: 30, threshold: 52, softness: 10, colorMode: 'color', levels: 2 } }],
+        ['comic-fade', 'Comic corner fade (ink only)', { ...defaultMediaFilter(), halftone: { ...defaultHalftone(), mode: 'dots', size: 10, angle: 45, threshold: 55, softness: 8, colorMode: 'ink-only', inkColor: '#00f5d4', fadeMode: 'linear', fadeAngle: 135, fadeStart: 10, fadeEnd: 85, fadeStyle: 'dots' } }],
+        ['bayer-retro', 'Retro Bayer dither', { ...defaultMediaFilter(), contrast: 110, halftone: { ...defaultHalftone(), mode: 'bayer', size: 3, threshold: 50, colorMode: 'color', levels: 4 } }],
+        ['mac-atkinson', 'Macintosh 1-bit Atkinson', { ...defaultMediaFilter(), contrast: 115, halftone: { ...defaultHalftone(), mode: 'atkinson', size: 2, threshold: 50, colorMode: 'manga', inkColor: '#111827', paperColor: '#f8fafc' } }],
+        ['pixel-16bit', '16-bit pixel art', { ...defaultMediaFilter(), saturate: 115, halftone: { ...defaultHalftone(), mode: 'pixelate', size: 6, levels: 6 } }]
     ];
 
     function mediaFilterActive(f) {
         if (!f) return false;
-        return f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.tint?.enabled || f.duotone?.enabled || f.grain?.enabled;
+        const htMode = f.halftone?.mode;
+        return f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.tint?.enabled || f.duotone?.enabled || f.grain?.enabled || (!!htMode && htMode !== 'none');
+    }
+
+    // Bounded cache + single offscreen scratch canvas for procedural SVG filter tiles
+    const fxTileCache = new Map();
+    let fxScratchCanvas = null;
+    function getFxScratch(w, h) {
+        if (!fxScratchCanvas) fxScratchCanvas = document.createElement('canvas');
+        fxScratchCanvas.width = w;
+        fxScratchCanvas.height = h;
+        return fxScratchCanvas;
+    }
+    function cachedTile(key, build) {
+        if (fxTileCache.has(key)) return fxTileCache.get(key);
+        const val = build();
+        if (fxTileCache.size >= 64) fxTileCache.delete(fxTileCache.keys().next().value);
+        fxTileCache.set(key, val);
+        return val;
+    }
+
+    const BAYER_8 = [
+         0, 32,  8, 40,  2, 34, 10, 42,
+        48, 16, 56, 24, 50, 18, 58, 26,
+        12, 44,  4, 36, 14, 46,  6, 38,
+        60, 28, 52, 20, 62, 30, 54, 22,
+         3, 35, 11, 43,  1, 33,  9, 41,
+        51, 19, 59, 27, 49, 17, 57, 25,
+        15, 47,  7, 39, 13, 45,  5, 37,
+        63, 31, 55, 23, 61, 29, 53, 21
+    ];
+
+    // 16x16 serpentine / blue-noise stipple rank table for GPU Atkinson-style dithering
+    const ATKINSON_16 = (() => {
+        const out = new Float32Array(256);
+        for (let y = 0; y < 16; y++) {
+            for (let x = 0; x < 16; x++) {
+                const bx = BAYER_8[(y & 7) * 8 + (x & 7)] / 64;
+                // Interleave golden-ratio directional phase to break rigid crosshatches into organic stipple clusters
+                const h = (((x * 73 + y * 151 + ((x ^ y) * 37)) & 255) / 255);
+                const rank = 0.62 * bx + 0.38 * h;
+                // Atkinson propagates 6/8 (75%) of error: clip extremes cleanly and concentrate stipples in [0.13, 0.87]
+                out[y * 16 + x] = 0.13 + rank * 0.74;
+            }
+        }
+        return out;
+    })();
+
+    function getPixelateSeedTile(p) {
+        const size = Math.max(2, Math.min(48, Math.round(p)));
+        return cachedTile(`pix:${size}`, () => {
+            const c = getFxScratch(size, size);
+            const ctx = c.getContext('2d');
+            ctx.clearRect(0, 0, size, size);
+            ctx.fillStyle = '#ffffff';
+            if (size === 2) {
+                ctx.fillRect(0, 0, 1, 1);
+            } else {
+                const seed = size % 2 === 0 ? 2 : 1;
+                const pos = Math.floor((size - 1) / 2);
+                ctx.fillRect(pos, pos, seed, seed);
+            }
+            return { url: c.toDataURL('image/png'), w: size, h: size };
+        });
+    }
+
+    function getHalftoneTile(mode, rawSize, rawAngle) {
+        const size = Math.max(1, Math.min(48, Math.round(Number(rawSize) || 8)));
+        const angle = Math.round(Number(rawAngle) ?? 45);
+        return cachedTile(`ht:${mode}:${size}:${angle}`, () => {
+            if (mode === 'bayer') {
+                const scale = Math.max(1, Math.min(16, size));
+                const w = 8 * scale, h = 8 * scale;
+                const c = getFxScratch(w, h);
+                const ctx = c.getContext('2d');
+                for (let y = 0; y < 8; y++) {
+                    for (let x = 0; x < 8; x++) {
+                        const v = Math.round(((BAYER_8[y * 8 + x] + 0.5) / 64) * 255);
+                        ctx.fillStyle = `rgb(${v},${v},${v})`;
+                        ctx.fillRect(x * scale, y * scale, scale, scale);
+                    }
+                }
+                return { url: c.toDataURL('image/png'), w, h, snapPixel: scale };
+            }
+            if (mode === 'atkinson') {
+                const scale = Math.max(1, Math.min(16, size));
+                const w = 16 * scale, h = 16 * scale;
+                const c = getFxScratch(w, h);
+                const ctx = c.getContext('2d');
+                for (let y = 0; y < 16; y++) {
+                    for (let x = 0; x < 16; x++) {
+                        const v = Math.round(ATKINSON_16[y * 16 + x] * 255);
+                        ctx.fillStyle = `rgb(${v},${v},${v})`;
+                        ctx.fillRect(x * scale, y * scale, scale, scale);
+                    }
+                }
+                return { url: c.toDataURL('image/png'), w, h, snapPixel: scale };
+            }
+
+            // Continuous screen patterns: 'dots', 'lines', 'crosshatch'
+            const cell = Math.max(3, size);
+            const rad = (angle * Math.PI) / 180;
+            const cos = Math.cos(rad), sin = Math.sin(rad);
+            let T, nx, ny;
+            if (Math.abs(sin) < 1e-3 || Math.abs(cos) < 1e-3) {
+                T = Math.max(3, Math.round(cell));
+                nx = Math.round(cos);
+                ny = Math.round(sin);
+            } else if (Math.abs(Math.abs(sin) - Math.SQRT1_2) < 0.02 && Math.abs(Math.abs(cos) - Math.SQRT1_2) < 0.02) {
+                T = Math.max(4, Math.round(cell * Math.SQRT2));
+                nx = cos >= 0 ? 1 : -1;
+                ny = sin >= 0 ? 1 : -1;
+            } else {
+                T = 128;
+                nx = Math.round((T / cell) * cos);
+                ny = Math.round((T / cell) * sin);
+                if (nx === 0 && ny === 0) nx = 1;
+            }
+            const c = getFxScratch(T, T);
+            const ctx = c.getContext('2d');
+            const img = ctx.createImageData(T, T);
+            const data = img.data;
+            const twoPiOverT = (2 * Math.PI) / T;
+            let p = 0;
+            for (let y = 0; y < T; y++) {
+                for (let x = 0; x < T; x++) {
+                    const pu = (nx * x + ny * y) * twoPiOverT;
+                    const pv = (-ny * x + nx * y) * twoPiOverT;
+                    let val;
+                    if (mode === 'lines') {
+                        val = 0.5 - 0.5 * Math.cos(pv);
+                    } else if (mode === 'crosshatch') {
+                        const l1 = 0.5 - 0.5 * Math.cos(pv);
+                        const l2 = 0.5 - 0.5 * Math.cos(pu);
+                        val = Math.min(l1 * 0.68, 0.32 + l2 * 0.68);
+                    } else {
+                        // Euclidean spot function for crisp circular halftone dots
+                        val = 0.5 - 0.25 * (Math.cos(pu) + Math.cos(pv));
+                    }
+                    const byte = Math.max(0, Math.min(255, Math.round(val * 255)));
+                    data[p] = byte;
+                    data[p + 1] = byte;
+                    data[p + 2] = byte;
+                    data[p + 3] = 255;
+                    p += 4;
+                }
+            }
+            ctx.putImageData(img, 0, 0);
+            return { url: c.toDataURL('image/png'), w: T, h: T, snapPixel: 1 };
+        });
+    }
+
+    function getFadeMapTile(ht) {
+        const mode = ht.fadeMode || 'none';
+        const angle = Math.round(Number(ht.fadeAngle) ?? 135);
+        const cxPct = Math.max(0, Math.min(100, Number(ht.fadeCenterX) ?? 50));
+        const cyPct = Math.max(0, Math.min(100, Number(ht.fadeCenterY) ?? 50));
+        const s0 = Math.max(0, Math.min(99, Number(ht.fadeStart) ?? 15)) / 100;
+        const s1 = Math.max(s0 + 0.01, Math.min(100, Number(ht.fadeEnd) ?? 85)) / 100;
+        const inv = ht.fadeInvert === true;
+        const style = ht.fadeStyle === 'blend' || ht.mode === 'pixelate' ? 'blend' : 'dots';
+        return cachedTile(`fade:${mode}:${angle}:${cxPct}:${cyPct}:${s0}:${s1}:${inv}:${style}`, () => {
+            const N = 128;
+            const c = getFxScratch(N, N);
+            const ctx = c.getContext('2d');
+            ctx.clearRect(0, 0, N, N);
+            let grad;
+            if (mode === 'radial') {
+                const cx = (cxPct / 100) * N;
+                const cy = (cyPct / 100) * N;
+                const maxR = Math.hypot(Math.max(cx, N - cx), Math.max(cy, N - cy)) || 90;
+                grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+            } else {
+                const rad = ((angle - 90) * Math.PI) / 180;
+                const half = (N / 2) * (Math.abs(Math.cos(rad)) + Math.abs(Math.sin(rad)));
+                const cx = N / 2, cy = N / 2;
+                grad = ctx.createLinearGradient(
+                    cx - Math.cos(rad) * half, cy - Math.sin(rad) * half,
+                    cx + Math.cos(rad) * half, cy + Math.sin(rad) * half
+                );
+            }
+            if (style === 'dots') {
+                // RGB 0 = full halftone effect; RGB 255 = bias luminance to 1.0 so dots taper to zero
+                const cStart = inv ? 'rgb(255,255,255)' : 'rgb(0,0,0)';
+                const cEnd = inv ? 'rgb(0,0,0)' : 'rgb(255,255,255)';
+                grad.addColorStop(0, cStart);
+                grad.addColorStop(s0, cStart);
+                grad.addColorStop(s1, cEnd);
+                grad.addColorStop(1, cEnd);
+            } else {
+                // Alpha 1 = full filtered output; Alpha 0 = original unfiltered element (or transparent)
+                const aStart = inv ? 'rgba(255,255,255,0)' : 'rgba(255,255,255,1)';
+                const aEnd = inv ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0)';
+                grad.addColorStop(0, aStart);
+                grad.addColorStop(s0, aStart);
+                grad.addColorStop(s1, aEnd);
+                grad.addColorStop(1, aEnd);
+            }
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, N, N);
+            return c.toDataURL('image/png');
+        });
     }
 
     let fxCounter = 0;
@@ -578,6 +798,157 @@
     const MEDIA_TYPES = new Set(['image', 'video', 'slideshow', 'embed', 'pattern']);
     const FILTERABLE = element => element.type !== 'cutout';
 
+    function buildSvgFilterPrimitives(f, elW, elH) {
+        const ht = f.halftone || {};
+        const htMode = ht.mode || 'none';
+        const hasHt = htMode !== 'none';
+        const hasDuo = !!f.duotone?.enabled;
+        const rgb = hex => [1, 3, 5].map(i => (parseInt(String(hex || '#000000').slice(i, i + 2), 16) / 255).toFixed(4));
+        const nodes = [];
+        let cur = 'SourceGraphic';
+
+        // 1. Optional Pixelation Pass (standalone 'pixelate' mode, manual pixelSize > 1, or automatic dither block snap)
+        const ditherSnap = (htMode === 'bayer' || htMode === 'atkinson') ? Math.max(1, Math.min(16, Math.round(Number(ht.size) || 2))) : 1;
+        const pixSize = htMode === 'pixelate'
+            ? Math.max(2, Math.min(48, Math.round(Number(ht.size) || 8)))
+            : hasHt ? Math.max(ditherSnap, Math.min(32, Math.round(Number(ht.pixelSize) || 1))) : 1;
+
+        if (pixSize > 1) {
+            const pTile = getPixelateSeedTile(pixSize);
+            nodes.push(`<feImage href="${pTile.url}" x="0" y="0" width="${pTile.w}" height="${pTile.h}" result="spPixSeed"/>`);
+            nodes.push(`<feTile in="spPixSeed" result="spPixGrid"/>`);
+            nodes.push(`<feComposite in="${cur}" in2="spPixGrid" operator="in" result="spPixSamp"/>`);
+            if (pixSize === 2) {
+                nodes.push(`<feOffset in="spPixSamp" dx="1" dy="0" result="spPx1"/>`);
+                nodes.push(`<feComposite in="spPixSamp" in2="spPx1" operator="over" result="spPxRow"/>`);
+                nodes.push(`<feOffset in="spPxRow" dx="0" dy="1" result="spPx2"/>`);
+                nodes.push(`<feComposite in="spPxRow" in2="spPx2" operator="over" result="spPixOut"/>`);
+            } else {
+                const rad = Math.floor((pixSize - 1) / 2);
+                nodes.push(`<feMorphology in="spPixSamp" operator="dilate" radius="${rad}" result="spPixOut"/>`);
+            }
+            cur = 'spPixOut';
+        }
+
+        // 2. Halftone / Manga / Ordered Dither / Posterize Pass
+        const fadeMode = hasHt ? (ht.fadeMode || 'none') : 'none';
+        const fadeStyle = (fadeMode !== 'none' && (ht.fadeStyle === 'blend' || htMode === 'pixelate')) ? 'blend' : 'dots';
+
+        if (htMode === 'pixelate') {
+            const levels = Math.max(2, Math.min(16, Math.round(Number(ht.levels) || 8)));
+            if (levels < 16) {
+                const steps = Array.from({ length: levels }, (_, i) => (i / (levels - 1)).toFixed(4)).join(' ');
+                nodes.push(`<feComponentTransfer in="${cur}" result="spQuant"><feFuncR type="discrete" tableValues="${steps}"/><feFuncG type="discrete" tableValues="${steps}"/><feFuncB type="discrete" tableValues="${steps}"/></feComponentTransfer>`);
+                cur = 'spQuant';
+            }
+        } else if (hasHt) {
+            const tile = getHalftoneTile(htMode, ht.size, ht.angle);
+            nodes.push(`<feImage href="${tile.url}" x="0" y="0" width="${tile.w}" height="${tile.h}" result="spHtSeed"/>`);
+            nodes.push(`<feTile in="spHtSeed" result="spHtGrid"/>`);
+
+            const colorMode = ht.colorMode || 'manga';
+            const thresh = Math.max(0.05, Math.min(0.95, (Number(ht.threshold) ?? 50) / 100));
+            const isDither = htMode === 'bayer' || htMode === 'atkinson';
+            const softPct = isDither ? Math.min(40, Number(ht.softness) || 0) : Math.max(0, Math.min(100, Number(ht.softness) ?? 12));
+            const slope = Math.max(2.5, 65 - (softPct * 0.6));
+            const intercept = (0.5 - slope * thresh).toFixed(4);
+
+            if (colorMode === 'color') {
+                let srcForColor = cur;
+                if (fadeMode !== 'none' && fadeStyle === 'dots') {
+                    const fadeUrl = getFadeMapTile({ ...ht, fadeStyle: 'dots' });
+                    nodes.push(`<feImage href="${fadeUrl}" x="0" y="0" width="${elW}" height="${elH}" preserveAspectRatio="none" result="spFadeDots"/>`);
+                    nodes.push(`<feComposite in="${cur}" in2="spFadeDots" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="spColorBiased"/>`);
+                    srcForColor = 'spColorBiased';
+                }
+                const levels = Math.max(2, Math.min(16, Math.round(Number(ht.levels) || 2)));
+                if (levels > 2) {
+                    const spread = ((1.05 - softPct / 140) / Math.max(1.4, levels - 1)).toFixed(4);
+                    const bias = (-0.5 * Number(spread) + (0.5 - thresh) * 0.45).toFixed(4);
+                    const steps = Array.from({ length: levels }, (_, i) => (i / (levels - 1)).toFixed(4)).join(' ');
+                    nodes.push(`<feComposite in="${srcForColor}" in2="spHtGrid" operator="arithmetic" k1="0" k2="1" k3="${spread}" k4="${bias}" result="spHtMix"/>`);
+                    nodes.push(`<feComponentTransfer in="spHtMix" result="spHtColor"><feFuncR type="discrete" tableValues="${steps}"/><feFuncG type="discrete" tableValues="${steps}"/><feFuncB type="discrete" tableValues="${steps}"/></feComponentTransfer>`);
+                } else {
+                    nodes.push(`<feComposite in="${srcForColor}" in2="spHtGrid" operator="arithmetic" k1="0" k2="0.5" k3="0.5" k4="0" result="spHtMix"/>`);
+                    nodes.push(`<feComponentTransfer in="spHtMix" result="spHtColor"><feFuncR type="linear" slope="${slope.toFixed(2)}" intercept="${intercept}"/><feFuncG type="linear" slope="${slope.toFixed(2)}" intercept="${intercept}"/><feFuncB type="linear" slope="${slope.toFixed(2)}" intercept="${intercept}"/></feComponentTransfer>`);
+                }
+                cur = 'spHtColor';
+            } else {
+                // 'manga' (Ink & Paper) or 'ink-only' (Ink on Transparent)
+                const inv = ht.invert === true;
+                const lumMat = inv
+                    ? '-0.2126 -0.7152 -0.0722 0 1 -0.2126 -0.7152 -0.0722 0 1 -0.2126 -0.7152 -0.0722 0 1 0 0 0 0 1'
+                    : '0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 0 1';
+                nodes.push(`<feColorMatrix in="${cur}" type="matrix" values="${lumMat}" result="spLumRaw"/>`);
+                let lumIn = 'spLumRaw';
+                if (fadeMode !== 'none' && fadeStyle === 'dots') {
+                    const fadeUrl = getFadeMapTile({ ...ht, fadeStyle: 'dots' });
+                    nodes.push(`<feImage href="${fadeUrl}" x="0" y="0" width="${elW}" height="${elH}" preserveAspectRatio="none" result="spFadeDots"/>`);
+                    nodes.push(`<feComposite in="spLumRaw" in2="spFadeDots" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="spLumBiased"/>`);
+                    lumIn = 'spLumBiased';
+                }
+                nodes.push(`<feComposite in="${lumIn}" in2="spHtGrid" operator="arithmetic" k1="0" k2="0.5" k3="0.5" k4="0" result="spHtMix"/>`);
+                nodes.push(`<feComponentTransfer in="spHtMix" result="spBwMask"><feFuncR type="linear" slope="${slope.toFixed(2)}" intercept="${intercept}"/><feFuncG type="linear" slope="${slope.toFixed(2)}" intercept="${intercept}"/><feFuncB type="linear" slope="${slope.toFixed(2)}" intercept="${intercept}"/></feComponentTransfer>`);
+
+                const [ir, ig, ib] = rgb(hasDuo ? f.duotone.dark : (ht.inkColor || '#0f172a'));
+                const [pr, pg, pb] = rgb(hasDuo ? f.duotone.light : (ht.paperColor || '#ffffff'));
+                if (colorMode === 'ink-only') {
+                    // Map bwMask (0=Ink, 1=Paper) to Ink color with Alpha=(1 - R)
+                    nodes.push(`<feColorMatrix in="spBwMask" type="matrix" values="0 0 0 0 ${ir}  0 0 0 0 ${ig}  0 0 0 0 ${ib}  -1 0 0 0 1" result="spInkOnly"/>`);
+                    if (hasDuo && (f.duotone.animate === 'hue' || f.duotone.animate === 'both')) {
+                        nodes.push(`<feColorMatrix in="spInkOnly" class="sp-hue" type="hueRotate" values="0" result="spInkHue"/>`);
+                        cur = 'spInkHue';
+                    } else {
+                        cur = 'spInkOnly';
+                    }
+                } else {
+                    const duoClass = hasDuo ? ' class="sp-duo-xfer"' : '';
+                    nodes.push(`<feComponentTransfer in="spBwMask"${duoClass} result="spMangaTone"><feFuncR type="table" tableValues="${ir} ${pr}"/><feFuncG type="table" tableValues="${ig} ${pg}"/><feFuncB type="table" tableValues="${ib} ${pb}"/></feComponentTransfer>`);
+                    cur = 'spMangaTone';
+                    if (hasDuo && (f.duotone.animate === 'hue' || f.duotone.animate === 'both')) {
+                        nodes.push(`<feColorMatrix in="${cur}" class="sp-hue" type="hueRotate" values="0" result="spMangaHue"/>`);
+                        cur = 'spMangaHue';
+                    }
+                }
+            }
+        }
+
+        // 3. Duotone Pass (when standalone or when Halftone is in 'color' / 'pixelate' mode)
+        if (hasDuo && (!hasHt || htMode === 'pixelate' || ht.colorMode === 'color')) {
+            const [dr, dg, db] = rgb(f.duotone.dark), [lr, lg, lb] = rgb(f.duotone.light);
+            const mode = f.duotone.animate, hue = mode === 'hue' || mode === 'both';
+            nodes.push(`<feColorMatrix in="${cur}" type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0" result="spDuoLum"/>`);
+            nodes.push(`<feComponentTransfer in="spDuoLum" class="sp-duo-xfer" result="spDuoOut"><feFuncR type="table" tableValues="${dr} ${lr}"/><feFuncG type="table" tableValues="${dg} ${lg}"/><feFuncB type="table" tableValues="${db} ${lb}"/></feComponentTransfer>`);
+            cur = 'spDuoOut';
+            if (hue) {
+                nodes.push(`<feColorMatrix in="${cur}" class="sp-hue" type="hueRotate" values="0" result="spDuoHue"/>`);
+                cur = 'spDuoHue';
+            }
+        }
+
+        // 4. Re-apply original SourceAlpha so shapes, icons, text, and transparent PNGs keep exact alpha masks
+        if (hasHt) {
+            nodes.push(`<feComposite in="${cur}" in2="SourceAlpha" operator="in" result="spClipped"/>`);
+            cur = 'spClipped';
+        }
+
+        // 5. Optional Blend Fade (crossfades filtered output back to original SourceGraphic or transparency)
+        if (fadeMode !== 'none' && fadeStyle === 'blend') {
+            const fadeUrl = getFadeMapTile({ ...ht, fadeStyle: 'blend' });
+            nodes.push(`<feImage href="${fadeUrl}" x="0" y="0" width="${elW}" height="${elH}" preserveAspectRatio="none" result="spFadeMask"/>`);
+            nodes.push(`<feComposite in="${cur}" in2="spFadeMask" operator="in" result="spFxMasked"/>`);
+            if (ht.colorMode === 'ink-only' && htMode !== 'pixelate') {
+                cur = 'spFxMasked';
+            } else {
+                nodes.push(`<feComposite in="SourceGraphic" in2="spFadeMask" operator="out" result="spBgMasked"/>`);
+                nodes.push(`<feComposite in="spFxMasked" in2="spBgMasked" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="spBlended"/>`);
+                cur = 'spBlended';
+            }
+        }
+
+        return nodes.join('');
+    }
+
     // Call after every style pass. Media layers filter the media itself (so a tint can sit on top); other layers filter the whole layer.
     function applyMediaFilter(node, element) {
         if (!FILTERABLE(element)) return;
@@ -585,11 +956,16 @@
         const f = { ...defaults, ...(element.mediaFilter || {}) };
         f.duotone = { ...defaults.duotone, ...(f.duotone || {}) };
         f.grain = { ...defaults.grain, ...(f.grain || {}) };
+        f.halftone = { ...defaults.halftone, ...(f.halftone || {}) };
+        const hasHt = !!f.halftone.mode && f.halftone.mode !== 'none';
+        const hasSvgFilter = f.duotone.enabled || hasHt;
         const media = MEDIA_TYPES.has(element.type);
         const target = !media ? node : (element.type === 'slideshow' || element.type === 'pattern') ? node.firstElementChild : node.querySelector(':scope > video, :scope > img, :scope > iframe');
         if (!target) { node._fxSig = ''; node._fxAnim = null; fxAnimated.delete(node); return; }
-        const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.duotone.enabled);
-        const signature = JSON.stringify([f, media, element.id, Number(element.width), Number(element.height)]);
+        const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || hasSvgFilter);
+        const elW = Math.max(1, Math.round(Number(element.width) || 400));
+        const elH = Math.max(1, Math.round(Number(element.height) || 300));
+        const signature = JSON.stringify([f, media, element.id, elW, elH]);
         const base = media ? '' : node.style.filter;
         // A fresh id per change makes browsers re-evaluate the filter; the same url() string would keep the old colors.
         if (node._fxSig !== signature || node._fxTarget !== target) {
@@ -598,28 +974,29 @@
             node.querySelectorAll(':scope > .sp-fx').forEach(n => n.remove());
             node._fxAnim = null; node._fxGrain = null;
             fxAnimated.delete(node);
-            if (active && f.duotone.enabled) {
-                const rgb = hex => [1, 3, 5].map(i => (parseInt(hex.slice(i, i + 2), 16) / 255).toFixed(4));
-                const [dr, dg, db] = rgb(f.duotone.dark), [lr, lg, lb] = rgb(f.duotone.light);
-                const mode = f.duotone.animate, blend = mode === 'blend' || mode === 'both', hue = mode === 'hue' || mode === 'both';
+            if (active && hasSvgFilter) {
+                const mode = f.duotone.animate, blend = f.duotone.enabled && (mode === 'blend' || mode === 'both'), hue = f.duotone.enabled && (mode === 'hue' || mode === 'both');
                 const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                 svg.setAttribute('class', 'sp-fx');
                 svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
                 svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;';
-                svg.innerHTML = `<filter id="${node._fxId}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0"/><feComponentTransfer><feFuncR type="table" tableValues="${dr} ${lr}"/><feFuncG type="table" tableValues="${dg} ${lg}"/><feFuncB type="table" tableValues="${db} ${lb}"/></feComponentTransfer>${hue ? '<feColorMatrix class="sp-hue" type="hueRotate" values="0"/>' : ''}</filter>`;
+                const body = buildSvgFilterPrimitives(f, elW, elH);
+                svg.innerHTML = `<filter id="${node._fxId}" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">${body}</filter>`;
                 node.appendChild(svg);
                 if (blend || hue) {
                     const num = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
                     const c1 = [num(f.duotone.dark), num(f.duotone.light)], c2 = [num(f.duotone.dark2), num(f.duotone.light2)];
-                    const fns = ['R', 'G', 'B'].map(c => svg.querySelector(`feFunc${c}`)), hueNode = svg.querySelector('.sp-hue');
+                    const xfer = svg.querySelector('.sp-duo-xfer');
+                    const fns = xfer ? ['R', 'G', 'B'].map(c => xfer.querySelector(`feFunc${c}`)) : [];
+                    const hueNode = svg.querySelector('.sp-hue');
                     const period = Math.max(1, Number(f.duotone.speed) || 6);
                     node._fxAnim = { last: 0, step(now) {
                         const s = now / 1000 / period;
-                        if (blend) {
+                        if (blend && fns.length === 3 && fns[0]) {
                             const t = (1 - Math.cos(s * 2 * Math.PI)) / 2, mix = (a, b) => (a + (b - a) * t).toFixed(4);
                             fns.forEach((fn, i) => fn.setAttribute('tableValues', `${mix(c1[0][i], c2[0][i])} ${mix(c1[1][i], c2[1][i])}`));
                         }
-                        if (hue) hueNode.setAttribute('values', String(Math.round((s * 360) % 360)));
+                        if (hue && hueNode) hueNode.setAttribute('values', String(Math.round((s * 360) % 360)));
                     } };
                 }
             }
@@ -642,12 +1019,12 @@
         if (node._fxAnim) { fxAnimated.add(node); fxResume(); }
         const parts = base ? [base] : [];
         if (active) {
-            if (f.duotone.enabled) parts.push(`url(#${node._fxId})`);
             if (f.blur > 0) parts.push(`blur(${f.blur}px)`);
             if (f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
             if (f.contrast !== 100) parts.push(`contrast(${f.contrast}%)`);
             if (f.saturate !== 100) parts.push(`saturate(${f.saturate}%)`);
             if (f.grayscale > 0) parts.push(`grayscale(${f.grayscale}%)`);
+            if (hasSvgFilter) parts.push(`url(#${node._fxId})`);
         }
         target.style.filter = parts.join(' ');
         if (media) {

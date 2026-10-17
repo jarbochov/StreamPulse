@@ -41,6 +41,7 @@ export function registerInspectorCallbacks(callbacks) {
 export const RERENDER_PATHS = new Set([
     'cutout.shape', 'alert.showOnPreview', 'style.objectFit', 'mediaFilter.duotone.enabled',
     'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled',
+    'mediaFilter.halftone.mode', 'mediaFilter.halftone.colorMode', 'mediaFilter.halftone.fadeMode',
     'style.gradient.enabled', 'style.gradient.type', 'style.gradient.animate',
     'style.borderWidth', 'style.borderStyle', 'style.borderGlow.enabled', 'style.borderGlow.neon',
     'style.borderGlow.inner', 'style.borderAnimation.type', 'style.borderAnimation.mode',
@@ -574,21 +575,76 @@ export function filterSection(el) {
     const tint = f.tint || {};
     const duo = { ...(defaultFilter.duotone || {}), ...(f.duotone || {}) };
     const grain = { ...(defaultFilter.grain || {}), ...(f.grain || {}) };
+    const ht = { ...(defaultFilter.halftone || {}), ...(f.halftone || {}) };
+    const htMode = ht.mode || 'none';
+    const hasHt = htMode !== 'none';
+    const isScreen = htMode === 'dots' || htMode === 'lines' || htMode === 'crosshatch';
+    const isDither = htMode === 'bayer' || htMode === 'atkinson';
+    const isPix = htMode === 'pixelate';
+    const colorMode = ht.colorMode || 'manga';
+    const fadeMode = ht.fadeMode || 'none';
+
     const presets = shared.MEDIA_FILTER_PRESETS || [];
     const media = ['image', 'video', 'slideshow', 'embed', 'pattern'].includes(el.type);
     const matchingPreset = presets.find(([id, name, pFilter]) => {
         if (!el.mediaFilter && id === 'none') return true;
         if (!el.mediaFilter) return false;
         const pf = { ...defaultFilter, ...pFilter };
+        const pHt = { ...(defaultFilter.halftone || {}), ...(pf.halftone || {}) };
         return f.blur === pf.blur &&
                f.brightness === pf.brightness &&
                f.contrast === pf.contrast &&
                f.saturate === pf.saturate &&
                f.grayscale === pf.grayscale &&
                (f.duotone?.enabled || false) === (pf.duotone?.enabled || false) &&
-               (!f.duotone?.enabled || (f.duotone?.dark === pf.duotone?.dark && f.duotone?.light === pf.duotone?.light));
+               (!f.duotone?.enabled || (f.duotone?.dark === pf.duotone?.dark && f.duotone?.light === pf.duotone?.light)) &&
+               htMode === (pHt.mode || 'none');
     });
     const currentPresetId = matchingPreset ? matchingPreset[0] : '';
+
+    let htControls = '';
+    if (isPix) {
+        htControls = `
+            ${F.range('mediaFilter.halftone.size', 'Pixel size', ht.size ?? 6, { min: 2, max: 48, unit: 'px' })}
+            ${F.range('mediaFilter.halftone.levels', 'Color levels', ht.levels ?? 6, { min: 2, max: 16 })}
+        `;
+    } else if (hasHt) {
+        htControls = `
+            ${isDither
+                ? F.range('mediaFilter.halftone.size', 'Dither pixel scale', ht.size ?? 3, { min: 1, max: 12, unit: '×' })
+                : F.range('mediaFilter.halftone.size', 'Screen density', ht.size ?? 8, { min: 3, max: 40, unit: 'px' })}
+            ${isScreen ? F.range('mediaFilter.halftone.angle', 'Screen angle', ht.angle ?? 45, { min: -90, max: 90, step: 5, unit: '°' }) : ''}
+            ${F.range('mediaFilter.halftone.threshold', 'Ink weight', ht.threshold ?? 50, { min: 5, max: 95, unit: '%' })}
+            ${isScreen ? F.range('mediaFilter.halftone.softness', 'Edge softness', ht.softness ?? 12, { min: 0, max: 100, unit: '%' }) : ''}
+            ${F.seg('mediaFilter.halftone.colorMode', 'Palette mode', colorMode, [
+                ['manga', 'Ink & paper', 'Ink + Paper'],
+                ['ink-only', 'Ink on transparent background', 'Ink Only'],
+                ['color', 'Preserve element colors', 'Color']
+            ])}
+            ${colorMode === 'manga' && !duo.enabled ? `<div class="grid2">${F.color('mediaFilter.halftone.inkColor', 'Ink', ht.inkColor || '#0f172a')}${F.color('mediaFilter.halftone.paperColor', 'Paper', ht.paperColor || '#ffffff')}</div>` : ''}
+            ${colorMode === 'ink-only' && !duo.enabled ? F.color('mediaFilter.halftone.inkColor', 'Ink color', ht.inkColor || '#0f172a') : ''}
+            ${colorMode !== 'color' ? F.check('mediaFilter.halftone.invert', 'Invert dark & light tones', !!ht.invert) : ''}
+            ${colorMode === 'color' ? F.range('mediaFilter.halftone.levels', 'Color levels', ht.levels ?? 4, { min: 2, max: 16 }) : ''}
+            ${isScreen ? F.range('mediaFilter.halftone.pixelSize', 'Pixelate pre-pass', ht.pixelSize ?? 1, { min: 1, max: 24, unit: 'px' }) : ''}
+        `;
+    }
+
+    const fadeControls = hasHt ? `
+        ${F.select('mediaFilter.halftone.fadeMode', 'Effect fade', fadeMode, [
+            ['none', 'No fade'],
+            ['linear', 'Linear angle fade'],
+            ['radial', 'Radial center fade']
+        ])}
+        ${fadeMode === 'linear' ? F.range('mediaFilter.halftone.fadeAngle', 'Fade angle', ht.fadeAngle ?? 135, { min: 0, max: 360, step: 5, unit: '°' }) : ''}
+        ${fadeMode === 'radial' ? `<div class="grid2">${F.number('mediaFilter.halftone.fadeCenterX', 'Center X %', ht.fadeCenterX ?? 50, { min: 0, max: 100, step: 5 })}${F.number('mediaFilter.halftone.fadeCenterY', 'Center Y %', ht.fadeCenterY ?? 50, { min: 0, max: 100, step: 5 })}</div>` : ''}
+        ${fadeMode !== 'none' ? `<div class="grid2">${F.number('mediaFilter.halftone.fadeStart', 'Fade start %', ht.fadeStart ?? 15, { min: 0, max: 95, step: 5 })}${F.number('mediaFilter.halftone.fadeEnd', 'Fade end %', ht.fadeEnd ?? 85, { min: 5, max: 100, step: 5 })}</div>` : ''}
+        ${fadeMode !== 'none' && !isPix ? F.seg('mediaFilter.halftone.fadeStyle', 'Fade behavior', ht.fadeStyle || 'dots', [
+            ['dots', 'Shrink halftone dots to zero', 'Taper Dots'],
+            ['blend', 'Crossfade to original', 'Blend']
+        ]) : ''}
+        ${fadeMode === 'radial' ? F.check('mediaFilter.halftone.fadeInvert', 'Fade from center outward', !!ht.fadeInvert) : ''}
+    ` : '';
+
     const body = `
         <label class="field"><span>Preset</span><select data-fx-preset><option value=""${!currentPresetId ? ' selected' : ''}>Choose a preset…</option>${presets.map(([id, name]) => `<option value="${id}"${id === currentPresetId ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
         ${F.range('mediaFilter.blur', 'Blur', f.blur, { min: 0, max: 60, unit: 'px' })}
@@ -596,6 +652,17 @@ export function filterSection(el) {
         ${F.range('mediaFilter.contrast', 'Contrast', f.contrast, { min: 0, max: 200, unit: '%' })}
         ${F.range('mediaFilter.saturate', 'Saturation', f.saturate, { min: 0, max: 300, unit: '%' })}
         ${F.range('mediaFilter.grayscale', 'Grayscale', f.grayscale, { min: 0, max: 100, unit: '%' })}
+        ${F.select('mediaFilter.halftone.mode', 'Screen / Pixel FX', htMode, [
+            ['none', 'None'],
+            ['dots', 'Halftone dots'],
+            ['lines', 'Manga lines'],
+            ['crosshatch', 'Manga crosshatch'],
+            ['bayer', 'Bayer ordered dither'],
+            ['atkinson', 'Atkinson stipple dither'],
+            ['pixelate', 'Pixelate & posterize']
+        ])}
+        ${htControls}
+        ${fadeControls}
         ${F.check('mediaFilter.duotone.enabled', 'Duotone', duo.enabled)}
         ${duo.enabled ? `<div class="grid2">${F.color('mediaFilter.duotone.dark', 'Shadows', duo.dark)}${F.color('mediaFilter.duotone.light', 'Highlights', duo.light)}</div>` : ''}
         ${duo.enabled ? F.select('mediaFilter.duotone.animate', 'Duotone animation', duo.animate, [['none', 'Still'], ['blend', 'Blend to second colors'], ['hue', 'Hue cycle'], ['both', 'Blend and hue cycle']]) + (duo.animate !== 'none' ? '<p class="hint">Animates in the live overlay. Use the Effects toggle in the toolbar to pause it while editing.</p>' : '') : ''}
@@ -1268,6 +1335,16 @@ export function initInspectorEvents() {
                     else if (el.pattern.layout === 'grid') { el.pattern.offsetX = 0; el.pattern.offsetY = 0; }
                     else if (el.pattern.layout === 'alternating' && !el.pattern.tileAngle && (el.pattern.alternateFlip || 'tilt') === 'tilt') { el.pattern.tileAngle = 15; }
                     else if (el.pattern.layout === 'kaleidoscope-quad' || el.pattern.layout === 'kaleidoscope-radial') { el.pattern.offsetX = 0; el.pattern.offsetY = 0; }
+                }
+                if (path === 'mediaFilter.halftone.mode' && el.mediaFilter?.halftone) {
+                    const hm = el.mediaFilter.halftone.mode;
+                    if ((hm === 'bayer' || hm === 'atkinson') && (el.mediaFilter.halftone.size || 8) > 6) {
+                        el.mediaFilter.halftone.size = 3;
+                    } else if ((hm === 'dots' || hm === 'lines' || hm === 'crosshatch') && (el.mediaFilter.halftone.size || 8) < 5) {
+                        el.mediaFilter.halftone.size = 8;
+                    } else if (hm === 'pixelate' && (el.mediaFilter.halftone.size || 6) < 4) {
+                        el.mediaFilter.halftone.size = 6;
+                    }
                 }
             }
             if (path === 'cutout.feather') {

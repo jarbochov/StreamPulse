@@ -242,6 +242,7 @@ function normalizeBorderAnimation(a = {}) {
 function normalizeMediaFilter(f = {}) {
     const hex = (value, fallback) => (/^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value).toLowerCase() : fallback);
     const num = (value, min, max, fallback) => (Number.isFinite(Number(value)) && value !== '' && value !== null ? Math.max(min, Math.min(max, Number(value))) : fallback);
+    const ht = f.halftone || {};
     return {
         blur: num(f.blur, 0, 60, 0),
         brightness: num(f.brightness, 0, 200, 100),
@@ -254,7 +255,28 @@ function normalizeMediaFilter(f = {}) {
             animate: ['none', 'blend', 'hue', 'both'].includes(f.duotone?.animate) ? f.duotone.animate : 'none',
             dark2: hex(f.duotone?.dark2, '#0b3d2e'), light2: hex(f.duotone?.light2, '#7dffb2'), speed: num(f.duotone?.speed, 1, 60, 6)
         },
-        grain: { enabled: f.grain?.enabled === true, amount: num(f.grain?.amount, 0, 1, 0.25), size: num(f.grain?.size, 0.5, 4, 1), animate: f.grain?.animate !== false }
+        grain: { enabled: f.grain?.enabled === true, amount: num(f.grain?.amount, 0, 1, 0.25), size: num(f.grain?.size, 0.5, 4, 1), animate: f.grain?.animate !== false },
+        halftone: {
+            mode: ['none', 'dots', 'lines', 'crosshatch', 'bayer', 'atkinson', 'pixelate'].includes(ht.mode) ? ht.mode : 'none',
+            size: Math.round(num(ht.size, 1, 48, 8)),
+            angle: Math.round(num(ht.angle, -180, 180, 45)),
+            threshold: Math.round(num(ht.threshold, 5, 95, 50)),
+            softness: Math.round(num(ht.softness, 0, 100, 12)),
+            pixelSize: Math.round(num(ht.pixelSize, 1, 32, 1)),
+            levels: Math.round(num(ht.levels, 2, 16, 4)),
+            colorMode: ['manga', 'ink-only', 'color'].includes(ht.colorMode) ? ht.colorMode : 'manga',
+            inkColor: hex(ht.inkColor, '#0f172a'),
+            paperColor: hex(ht.paperColor, '#ffffff'),
+            invert: ht.invert === true,
+            fadeMode: ['none', 'linear', 'radial'].includes(ht.fadeMode) ? ht.fadeMode : 'none',
+            fadeAngle: Math.round(num(ht.fadeAngle, 0, 360, 135)),
+            fadeCenterX: Math.round(num(ht.fadeCenterX, 0, 100, 50)),
+            fadeCenterY: Math.round(num(ht.fadeCenterY, 0, 100, 50)),
+            fadeStart: Math.round(num(ht.fadeStart, 0, 100, 15)),
+            fadeEnd: Math.round(num(ht.fadeEnd, 0, 100, 85)),
+            fadeInvert: ht.fadeInvert === true,
+            fadeStyle: ['dots', 'blend'].includes(ht.fadeStyle) ? ht.fadeStyle : 'dots'
+        }
     };
 }
 
