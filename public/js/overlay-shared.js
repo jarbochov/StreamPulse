@@ -540,6 +540,7 @@
             document.documentElement.classList.toggle('sp-fx-paused', fxPaused);
         }
         if (root.OverlayFilters?.setEffectsPaused) root.OverlayFilters.setEffectsPaused(paused);
+        if (root.OverlayRetro?.setEffectsPaused) root.OverlayRetro.setEffectsPaused(paused);
         fxResume();
     }
     if (typeof document !== 'undefined') {
@@ -563,10 +564,17 @@
                     });
                 };
                 loadRetro().then(() => {
-                    if (root.OverlayFilters) return resolve(root.OverlayFilters);
+                    if (root.OverlayRetro?.setEffectsPaused) root.OverlayRetro.setEffectsPaused(fxPaused);
+                    if (root.OverlayFilters) {
+                        if (root.OverlayFilters.setEffectsPaused) root.OverlayFilters.setEffectsPaused(fxPaused);
+                        return resolve(root.OverlayFilters);
+                    }
                     const script = document.createElement('script');
                     script.src = '/overlay-filters.js';
-                    script.onload = () => resolve(root.OverlayFilters);
+                    script.onload = () => {
+                        if (root.OverlayFilters?.setEffectsPaused) root.OverlayFilters.setEffectsPaused(fxPaused);
+                        resolve(root.OverlayFilters);
+                    };
                     script.onerror = () => resolve(null);
                     document.head.appendChild(script);
                 });

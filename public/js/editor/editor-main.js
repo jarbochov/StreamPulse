@@ -727,6 +727,8 @@ export function syncToggles() {
     $('toggle-fx')?.setAttribute('aria-pressed', String(prefs.fx));
     $('safe-zones')?.classList.toggle('on', !!prefs.safeZones);
     if (shared.setEffectsPaused) shared.setEffectsPaused(!prefs.fx);
+    if (window.OverlayFilters?.setEffectsPaused) window.OverlayFilters.setEffectsPaused(!prefs.fx);
+    if (window.OverlayRetro?.setEffectsPaused) window.OverlayRetro.setEffectsPaused(!prefs.fx);
 }
 
 // ---- Global Event Listeners Setup -------------------------------------------------

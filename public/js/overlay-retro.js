@@ -907,7 +907,7 @@
             renderRetroShader(record.canvas, record.source, record.filter, tSec);
         }
 
-        animRaf = activeNodes.size ? requestAnimationFrame(animLoop) : 0;
+        animRaf = (activeNodes.size && !isPaused) ? requestAnimationFrame(animLoop) : 0;
     }
 
     function resumeLoop() {
@@ -918,7 +918,24 @@
 
     function setEffectsPaused(paused) {
         isPaused = Boolean(paused);
-        resumeLoop();
+        if (isPaused) {
+            if (animRaf) {
+                cancelAnimationFrame(animRaf);
+                animRaf = 0;
+            }
+            for (const node of activeNodes) {
+                if (!node.isConnected) {
+                    activeNodes.delete(node);
+                    continue;
+                }
+                const record = node._retroRecord;
+                if (record && record.canvas) {
+                    renderRetroShader(record.canvas, record.source, record.filter, 0.0);
+                }
+            }
+        } else {
+            resumeLoop();
+        }
     }
 
     if (typeof document !== 'undefined') {
@@ -990,11 +1007,14 @@
         const hasAnimVideo = element.type === 'video' || (source && source.tagName === 'VIDEO');
         const isAnimated = hasAnimSignal || hasAnimGrain || hasAnimVideo;
 
-        renderRetroShader(canvas, source, f, performance.now() * 0.001);
+        const initialTime = isPaused ? 0.0 : performance.now() * 0.001;
+        renderRetroShader(canvas, source, f, initialTime);
 
         if (isAnimated) {
             activeNodes.add(node);
-            resumeLoop();
+            if (!isPaused) {
+                resumeLoop();
+            }
         } else {
             activeNodes.delete(node);
         }

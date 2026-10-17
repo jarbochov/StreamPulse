@@ -945,6 +945,11 @@
         if (typeof document !== 'undefined') {
             document.documentElement.classList.toggle('sp-fx-paused', fxPaused);
         }
+        if (fxPaused && fxRaf) {
+            cancelAnimationFrame(fxRaf);
+            fxRaf = 0;
+        }
+        if (root.OverlayRetro?.setEffectsPaused) root.OverlayRetro.setEffectsPaused(paused);
         fxResume();
     }
 
