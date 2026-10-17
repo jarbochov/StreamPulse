@@ -254,7 +254,10 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const sandbox = { document: { addEventListener() {}, documentElement: { classList: { toggle() {} } }, getElementById: () => null }, location: { href: 'http://localhost/' }, navigator: {} };
         sandbox.window = sandbox;
         vm.createContext(sandbox);
-        vm.runInContext(fs.readFileSync(path.join(__dirname, 'overlay-shared.js'), 'utf8'), sandbox);
+        const sharedPath = fs.existsSync(path.join(__dirname, 'overlay-shared.js'))
+            ? path.join(__dirname, 'overlay-shared.js')
+            : path.join(__dirname, '..', '..', 'public', 'js', 'overlay-shared.js');
+        vm.runInContext(fs.readFileSync(sharedPath, 'utf8'), sandbox);
         shared = sandbox.OverlayShared;
         return shared;
     }
