@@ -78,7 +78,7 @@ export function renderLayers() {
         return `
         <div class="layer${state.selectedIds.has(el.id) ? ' selected' : ''}${el.visible === false ? ' is-hidden' : ''}${inGroup}" data-id="${esc(el.id)}">
             <span class="layer-grip" title="Drag to reorder">${ICON.grip}</span>
-            <span class="layer-icon">${esc(TYPE_META[el.type]?.icon || '•')}</span>
+            <span class="layer-icon">${TYPE_META[el.type]?.icon || '•'}</span>
             <span class="layer-name" title="Double-click to rename">${pagesOn() && el.page === '*' ? '◈ ' : ''}${esc(displayName(el))}</span>
             <span class="layer-actions">
                 <button data-layer-action="lock" class="${el.locked ? 'on' : ''}" title="${el.locked ? 'Unlock' : 'Lock'}" aria-label="${el.locked ? 'Unlock' : 'Lock'} layer">${el.locked ? ICON.lock : ICON.unlock}</button>

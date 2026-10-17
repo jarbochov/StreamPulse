@@ -10,22 +10,24 @@ export const initialId = params.get('id') || 'new-overlay';
 export const LIMITS = { canvasW: [1, 3840], canvasH: [1, 2160], elementW: [10, 3840], elementH: [10, 2160] };
 export const MIN_SIZE = 20;
 
+const svg = path => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+
 export const TYPE_META = {
-    text: { label: 'Text', icon: 'T' },
-    'random-text': { label: 'Random Text', icon: '↻' },
-    markdown: { label: 'Markdown', icon: 'M↓' },
-    image: { label: 'Image', icon: '▨' },
-    video: { label: 'Video', icon: '▶' },
-    embed: { label: 'Webpage', icon: '⊞' },
-    qr: { label: 'QR Code', icon: '▦' },
-    icon: { label: 'Icon', icon: '★' },
-    shape: { label: 'Shape', icon: '■' },
-    cutout: { label: 'Cutout', icon: '◫' },
-    progress: { label: 'Progress', icon: '▰' },
-    'game-list': { label: 'Game List', icon: '▤' },
-    alert: { label: 'Alert Box', icon: '!' },
-    slideshow: { label: 'Slideshow', icon: '⧉' },
-    pattern: { label: 'Pattern Tile', icon: '❖' }
+    text: { label: 'Text', icon: svg('<path d="M2.5 4h11M8 4v9M5.5 13h5"/>') },
+    'random-text': { label: 'Random Text', icon: svg('<path d="M2.5 7.5A5.5 5.5 0 0112.5 4M13.5 8.5A5.5 5.5 0 013.5 12"/><path d="M10 4h2.5V1.5M6 12H3.5v2.5"/><path d="M6.5 7h3M8 7v4"/>') },
+    markdown: { label: 'Markdown', icon: svg('<rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M4.5 9.5V6.5l1.5 2 1.5-2v3M10 6.5v3M8.7 8.2l1.3 1.3 1.3-1.3"/>') },
+    image: { label: 'Image', icon: svg('<rect x="2" y="2.5" width="12" height="11" rx="1.5"/><circle cx="5.5" cy="5.5" r="1.2" fill="currentColor"/><path d="M14 11l-3.5-3.5-5 5M8.5 8.5l1.5-1.5 3 3"/>') },
+    video: { label: 'Video', icon: svg('<rect x="2" y="3" width="12" height="10" rx="1.5"/><polygon points="6.5 5.5 10.5 8 6.5 10.5" fill="currentColor"/>') },
+    embed: { label: 'Webpage', icon: svg('<rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6h12M4.5 4.25h.01M6.5 4.25h.01"/>') },
+    qr: { label: 'QR Code', icon: svg('<rect x="2.5" y="2.5" width="4.5" height="4.5" rx=".5"/><rect x="9" y="2.5" width="4.5" height="4.5" rx=".5"/><rect x="2.5" y="9" width="4.5" height="4.5" rx=".5"/><rect x="9.5" y="9.5" width="1.5" height="1.5" fill="currentColor"/><rect x="12" y="12" width="1.5" height="1.5" fill="currentColor"/><rect x="12" y="9.5" width="1.5" height="1.5" fill="currentColor"/>') },
+    icon: { label: 'Icon', icon: svg('<polygon points="8 2 9.8 5.8 14 6.4 11 9.3 11.7 13.5 8 11.5 4.3 13.5 5 9.3 2 6.4 6.2 5.8"/>') },
+    shape: { label: 'Shape', icon: svg('<rect x="2" y="5.5" width="7" height="7" rx="1"/><circle cx="10" cy="6" r="3.5"/>') },
+    cutout: { label: 'Cutout', icon: svg('<rect x="2" y="2" width="12" height="12" rx="2"/><rect x="5" y="5" width="6" height="6" rx="1" stroke-dasharray="2 1.5"/>') },
+    progress: { label: 'Progress', icon: svg('<rect x="2" y="6" width="12" height="4" rx="2"/><path d="M2 8h6" stroke-width="2.5"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/>') },
+    'game-list': { label: 'Game List', icon: svg('<path d="M4 5h8a3 3 0 013 3v3a2 2 0 01-2 2h-1l-2-2H6l-2 2H3a2 2 0 01-2-2V8a3 3 0 013-3z"/><path d="M4 8.5h3M5.5 7v3"/><circle cx="11.5" cy="8" r=".7" fill="currentColor"/><circle cx="13" cy="9.5" r=".7" fill="currentColor"/>') },
+    alert: { label: 'Alert Box', icon: svg('<path d="M8 2a3 3 0 00-3 3v2.5L3.5 10v1h9v-1L11 7.5V5a3 3 0 00-3-3zM6.5 12.5a1.5 1.5 0 003 0"/>') },
+    slideshow: { label: 'Slideshow', icon: svg('<rect x="4.5" y="2" width="9.5" height="9.5" rx="1.5"/><path d="M2 5.5v7A1.5 1.5 0 003.5 14h7"/><path d="M7 7.5l2 2 1.5-1.5 2 2"/>') },
+    pattern: { label: 'Pattern Tile', icon: svg('<rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/>') }
 };
 
 export const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
@@ -86,8 +88,6 @@ export const UPLOAD_TYPES = {
     ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2',
     txt: 'text/plain', md: 'text/markdown', markdown: 'text/markdown'
 };
-
-const svg = path => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
 
 export const ICON = {
     eye: svg('<path d="M1.5 8s2.3-4.5 6.5-4.5S14.5 8 14.5 8 12.2 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>'),

@@ -47,23 +47,138 @@
                 <div class="add-menu" id="add-menu">
                     <button id="add-element" class="primary" aria-haspopup="true" aria-expanded="false">+ Add element</button>
                     <div class="menu-panel" role="menu">
-                        <button role="menuitem" data-add="text"><span class="glyph">T</span>Text</button>
-                        <button role="menuitem" data-add="random-text"><span class="glyph">↻</span>Random Text</button>
-                        <button role="menuitem" data-add="markdown"><span class="glyph">M↓</span>Markdown</button>
-                        <button role="menuitem" data-add="image"><span class="glyph">▨</span>Image</button>
-                        <button role="menuitem" data-add="video"><span class="glyph">▶</span>Video</button>
-                        <button role="menuitem" data-add="icon"><span class="glyph"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>Icon</button>
-                        <button role="menuitem" data-add="qr"><span class="glyph">▦</span>QR code</button>
-                        <button role="menuitem" data-add="embed"><span class="glyph">⊞</span>Webpage</button>
-                        <button role="menuitem" data-add="shape"><span class="glyph">■</span>Shape</button>
-                        <button role="menuitem" data-add="cutout"><span class="glyph">◫</span>Cutout (Punchthrough)</button>
-                        <button role="menuitem" data-add="progress"><span class="glyph">▰</span>Progress bar / ring</button>
-                        <button role="menuitem" data-add="game-list"><span class="glyph">▤</span>Game list (from Game Plan)</button>
-                        <button role="menuitem" data-add="alert"><span class="glyph">!</span>Alert box</button>
-                        <button role="menuitem" data-add="slideshow"><span class="glyph">⧉</span>Slideshow (from Asset Library)</button>
-                        <button role="menuitem" data-add="pattern"><span class="glyph"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></span>Pattern tile (mosaic)</button>
-                        <hr style="border:0;border-top:1px solid var(--border);margin:.3rem 0">
-                        <button role="menuitem" id="open-presets"><span class="glyph"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg></span>Presets…</button>
+                        <div class="menu-panel-body">
+                            <div class="menu-panel-col">
+                                <div class="menu-section">
+                                    <div class="menu-section-title">Text &amp; Copy</div>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="text">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M8 4v9M5.5 13h5"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Text</span>
+                                            <span class="menu-item-desc">Static or dynamic {{data}} copy</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="random-text">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 7.5A5.5 5.5 0 0112.5 4M13.5 8.5A5.5 5.5 0 013.5 12"/><path d="M10 4h2.5V1.5M6 12H3.5v2.5"/><path d="M6.5 7h3M8 7v4"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Random Text</span>
+                                            <span class="menu-item-desc">Rotates lines on interval</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="markdown">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M4.5 9.5V6.5l1.5 2 1.5-2v3M10 6.5v3M8.7 8.2l1.3 1.3 1.3-1.3"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Markdown</span>
+                                            <span class="menu-item-desc">Rich formatted text &amp; lists</span>
+                                        </span>
+                                    </button>
+                                </div>
+                                <div class="menu-section">
+                                    <div class="menu-section-title">Media &amp; Visuals</div>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="image">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><circle cx="5.5" cy="5.5" r="1.2" fill="currentColor"/><path d="M14 11l-3.5-3.5-5 5M8.5 8.5l1.5-1.5 3 3"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Image</span>
+                                            <span class="menu-item-desc">PNG, JPG, SVG, or WebP</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="video">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1.5"/><polygon points="6.5 5.5 10.5 8 6.5 10.5" fill="currentColor"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Video</span>
+                                            <span class="menu-item-desc">MP4, WebM, or YouTube</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="slideshow">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="2" width="9.5" height="9.5" rx="1.5"/><path d="M2 5.5v7A1.5 1.5 0 003.5 14h7"/><path d="M7 7.5l2 2 1.5-1.5 2 2"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Slideshow</span>
+                                            <span class="menu-item-desc">Rotating gallery from assets</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="pattern">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Pattern Tile</span>
+                                            <span class="menu-item-desc">Seamless repeating mosaic</span>
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="menu-panel-col">
+                                <div class="menu-section">
+                                    <div class="menu-section-title">Shapes &amp; Graphics</div>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="shape">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5.5" width="7" height="7" rx="1"/><circle cx="10" cy="6" r="3.5"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Shape</span>
+                                            <span class="menu-item-desc">Box, circle, pill, or divider</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="icon">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="8 2 9.8 5.8 14 6.4 11 9.3 11.7 13.5 8 11.5 4.3 13.5 5 9.3 2 6.4 6.2 5.8"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Icon</span>
+                                            <span class="menu-item-desc">Vector icon from library</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="cutout">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="2"/><rect x="5" y="5" width="6" height="6" rx="1" stroke-dasharray="2 1.5"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Cutout (Punchthrough)</span>
+                                            <span class="menu-item-desc">OBS webcam &amp; window aperture</span>
+                                        </span>
+                                    </button>
+                                </div>
+                                <div class="menu-section">
+                                    <div class="menu-section-title">Stream Widgets</div>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="alert">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2a3 3 0 00-3 3v2.5L3.5 10v1h9v-1L11 7.5V5a3 3 0 00-3-3zM6.5 12.5a1.5 1.5 0 003 0"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Alert Box</span>
+                                            <span class="menu-item-desc">Follows, subs, cheers, &amp; raids</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="game-list">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h8a3 3 0 013 3v3a2 2 0 01-2 2h-1l-2-2H6l-2 2H3a2 2 0 01-2-2V8a3 3 0 013-3z"/><path d="M4 8.5h3M5.5 7v3"/><circle cx="11.5" cy="8" r=".7" fill="currentColor"/><circle cx="13" cy="9.5" r=".7" fill="currentColor"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Game Plan</span>
+                                            <span class="menu-item-desc">Schedule, tonight, &amp; backlog</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="progress">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="12" height="4" rx="2"/><path d="M2 8h6" stroke-width="2.5"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Progress Bar / Ring</span>
+                                            <span class="menu-item-desc">Goal meters &amp; timer bars</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="qr">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx=".5"/><rect x="9" y="2.5" width="4.5" height="4.5" rx=".5"/><rect x="2.5" y="9" width="4.5" height="4.5" rx=".5"/><rect x="9.5" y="9.5" width="1.5" height="1.5" fill="currentColor"/><rect x="12" y="12" width="1.5" height="1.5" fill="currentColor"/><rect x="12" y="9.5" width="1.5" height="1.5" fill="currentColor"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">QR Code</span>
+                                            <span class="menu-item-desc">Link to tips, socials, or Discord</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="menu-item-btn" role="menuitem" data-add="embed">
+                                        <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6h12M4.5 4.25h.01M6.5 4.25h.01"/></svg></span>
+                                        <span class="menu-item-text">
+                                            <span class="menu-item-title">Webpage Embed</span>
+                                            <span class="menu-item-desc">Live web widget or iframe</span>
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="menu-panel-footer">
+                            <button type="button" class="menu-preset-btn" role="menuitem" id="open-presets">
+                                <span class="menu-item-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 13.5l7-7M9 3l.8 1.7L11.5 5.5l-1.7.8L9 8l-.8-1.7-1.7-.8 1.7-.8L9 3zM13 10l.5 1 1 .5-1 .5-.5 1-.5-1-1-.5 1-.5.5-1z"/></svg></span>
+                                <span class="menu-item-text">
+                                    <span class="menu-item-title">Browse Element Presets &amp; Templates…</span>
+                                    <span class="menu-item-desc">Pre-designed frames, alerts, widgets, and badges</span>
+                                </span>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <span class="divider"></span>
