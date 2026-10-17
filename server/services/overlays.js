@@ -156,12 +156,15 @@ const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
 const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
 const BORDER_ANIM_TYPES = ['none', 'rotating', 'radial', 'pulsing', 'gradient', 'rainbow', 'marching'];
 const PATTERN_LAYOUTS = ['grid', 'brick', 'stagger', 'alternating', 'checkerboard', 'kaleidoscope-quad', 'kaleidoscope-radial'];
-const PATTERN_MOTIONS = ['none', 'scroll', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'];
+const PATTERN_MOTIONS = ['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'];
+const PATTERN_TRACK_MODES = ['uniform', 'opposite', 'stagger', 'sine', 'alternate-stop', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'];
 const PATTERN_FLIPS = ['none', 'tilt', 'h', 'v', 'both'];
 const PATTERN_BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'luminosity', 'plus-lighter'];
 
 function normalizePattern(p = {}) {
     const num = (value, min, max, fallback) => (Number.isFinite(Number(value)) && value !== '' && value !== null ? Math.max(min, Math.min(max, Number(value))) : fallback);
+    const motion = PATTERN_MOTIONS.includes(p.motion) ? p.motion : 'scroll';
+    const defaultTrack = (motion === 'alt-rows' || motion === 'alt-cols') ? 'opposite' : 'uniform';
     return {
         sourceType: p.sourceType === 'icon' ? 'icon' : 'image',
         layout: PATTERN_LAYOUTS.includes(p.layout) ? p.layout : 'brick',
@@ -178,7 +181,8 @@ function normalizePattern(p = {}) {
         blendMode: PATTERN_BLENDS.includes(p.blendMode) ? p.blendMode : 'normal',
         wedges: Math.round(num(p.wedges, 4, 16, 6) / 2) * 2,
         feather: Math.round(num(p.feather, 0, 100, 0)),
-        motion: PATTERN_MOTIONS.includes(p.motion) ? p.motion : 'scroll',
+        motion,
+        trackMode: PATTERN_TRACK_MODES.includes(p.trackMode) ? p.trackMode : defaultTrack,
         scrollAngle: Math.round(num(p.scrollAngle, 0, 360, 315)),
         speed: Math.round(num(p.speed, 0.5, 120, 12) * 10) / 10,
         spinSpeed: Math.round(num(p.spinSpeed, 0.5, 120, 8) * 10) / 10,

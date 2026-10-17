@@ -50,7 +50,7 @@ export const RERENDER_PATHS = new Set([
     'slideshow.kinds', 'textFit', 'columns', 'random.typewriter', 'random.marquee',
     'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
-    'pattern.sourceType', 'pattern.layout', 'pattern.motion', 'pattern.alternateFlip'
+    'pattern.sourceType', 'pattern.layout', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip'
 ]);
 
 export const numberWasOn = new Map();
@@ -850,21 +850,73 @@ export function patternSection(el) {
 
     let motionControls = '';
     if (motion === 'scroll') {
+        const tm = ['uniform', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'].includes(p.trackMode) ? p.trackMode : 'uniform';
         motionControls = `
             ${F.range('pattern.scrollAngle', 'Scroll direction (°)', p.scrollAngle ?? 315, { min: 0, max: 360, step: 5, unit: '°', editable: true, reset: 315 })}
-            ${F.number('pattern.speed', 'Scroll cycle speed (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}`;
+            <div class="grid2">
+                ${F.number('pattern.speed', 'Scroll cycle speed (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}
+                ${F.select('pattern.trackMode', 'Row / column offset', tm, [
+                    ['uniform', 'Uniform (all together)'],
+                    ['alt-rows', 'Counter-scrolling rows'],
+                    ['stagger-rows', 'Offset speed rows'],
+                    ['alt-cols', 'Counter-scrolling columns'],
+                    ['stagger-cols', 'Offset speed columns']
+                ])}
+            </div>`;
+    } else if (motion === 'alt-rows' || motion === 'alt-cols') {
+        const isRow = motion === 'alt-rows';
+        const tm = ['opposite', 'stagger', 'sine', 'alternate-stop'].includes(p.trackMode) ? p.trackMode : 'opposite';
+        motionControls = `
+            ${F.select('pattern.trackMode', isRow ? 'Row motion behavior' : 'Column motion behavior', tm, [
+                ['opposite', isRow ? 'Opposite directions (Odd ← / Even →)' : 'Opposite directions (Odd ↑ / Even ↓)'],
+                ['stagger', isRow ? 'Offset speeds (2× / 1× parallax rows)' : 'Offset speeds (2× / 1× parallax columns)'],
+                ['sine', isRow ? 'Alternating sine slide (back & forth)' : 'Alternating sine slide (up & down)'],
+                ['alternate-stop', isRow ? 'Every other row (Even slides / Odd static)' : 'Every other column (Even slides / Odd static)']
+            ])}
+            <div class="grid2">
+                ${F.number('pattern.speed', 'Cycle speed (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}
+                ${F.select('pattern.spinDirection', 'Direction', p.spinDirection === 'ccw' ? 'ccw' : 'cw', [
+                    ['cw', isRow ? 'Forward (Even →)' : 'Forward (Even ↓)'],
+                    ['ccw', isRow ? 'Reverse (Even ←)' : 'Reverse (Even ↑)']
+                ])}
+            </div>
+            ${tm === 'sine' ? F.range('pattern.waveAmount', 'Slide distance', p.waveAmount ?? 25, { min: 5, max: 100, unit: '%', editable: true }) : ''}`;
+    } else if (motion === 'weave') {
+        const tm = ['opposite', 'alternate-stop'].includes(p.trackMode) ? p.trackMode : 'opposite';
+        motionControls = `
+            <div class="grid2">
+                ${F.number('pattern.speed', 'Weave cycle (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}
+                ${F.select('pattern.spinDirection', 'Direction', p.spinDirection === 'ccw' ? 'ccw' : 'cw', [
+                    ['cw', 'Forward step'],
+                    ['ccw', 'Reverse step']
+                ])}
+            </div>
+            ${F.select('pattern.trackMode', 'Weave style', tm, [
+                ['opposite', 'Counter-sliding rows then columns'],
+                ['alternate-stop', 'Single-track step (Even rows then Odd columns)']
+            ])}`;
     } else if (motion === 'scroll-spin') {
+        const tm = ['uniform', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'].includes(p.trackMode) ? p.trackMode : 'uniform';
         motionControls = `
             ${F.range('pattern.scrollAngle', 'Scroll direction (°)', p.scrollAngle ?? 315, { min: 0, max: 360, step: 5, unit: '°', editable: true, reset: 315 })}
             <div class="grid2">
                 ${F.number('pattern.speed', 'Scroll speed (sec)', p.speed ?? 12, { min: 0.5, max: 120, step: 0.5 })}
                 ${F.number('pattern.spinSpeed', 'Tile spin speed (sec)', p.spinSpeed ?? 8, { min: 0.5, max: 120, step: 0.5 })}
             </div>
-            ${F.select('pattern.spinDirection', 'Tile spin direction', p.spinDirection || 'cw', [
-                ['cw', 'Clockwise'],
-                ['ccw', 'Counter-clockwise'],
-                ['alternate', 'Alternating tiles (CW / CCW)']
-            ])}`;
+            <div class="grid2">
+                ${F.select('pattern.trackMode', 'Row / column offset', tm, [
+                    ['uniform', 'Uniform (all together)'],
+                    ['alt-rows', 'Counter-scrolling rows'],
+                    ['stagger-rows', 'Offset speed rows'],
+                    ['alt-cols', 'Counter-scrolling columns'],
+                    ['stagger-cols', 'Offset speed columns']
+                ])}
+                ${F.select('pattern.spinDirection', 'Tile spin direction', p.spinDirection || 'cw', [
+                    ['cw', 'Clockwise'],
+                    ['ccw', 'Counter-clockwise'],
+                    ['alternate', 'Alternating tiles (CW / CCW)']
+                ])}
+            </div>`;
     } else if (motion === 'spin') {
         motionControls = `
             <div class="grid2">
@@ -944,6 +996,9 @@ export function patternSection(el) {
         ${F.select('pattern.motion', 'Animation style', motion, [
             ['none', 'None (Static)'],
             ['scroll', 'Continuous Linear Scroll'],
+            ['alt-rows', 'Alternating Rows (Row Offset Scroll)'],
+            ['alt-cols', 'Alternating Columns (Column Offset Scroll)'],
+            ['weave', 'Row & Column Step Weave'],
             ['sway', 'Pendulum Sway & Drift'],
             ['spin', 'Tile Spin in Place'],
             ['scroll-spin', 'Scroll + Tile Spin'],

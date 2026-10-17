@@ -2550,7 +2550,9 @@
         const sourceType = config.sourceType === 'icon' ? 'icon' : 'image';
         const wedges = Math.max(4, Math.min(16, Math.round((Number(config.wedges) || 6) / 2) * 2));
         const feather = Math.max(0, Math.min(100, Number(config.feather) || 0));
-        const motion = options.animate === false ? 'none' : (['none', 'scroll', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'].includes(config.motion) ? config.motion : 'scroll');
+        const motion = options.animate === false ? 'none' : (['none', 'scroll', 'alt-rows', 'alt-cols', 'weave', 'sway', 'spin', 'scroll-spin', 'wave', 'kaleidoscope'].includes(config.motion) ? config.motion : 'scroll');
+        const defaultTrack = (motion === 'alt-rows' || motion === 'alt-cols') ? 'opposite' : 'uniform';
+        const trackMode = ['uniform', 'opposite', 'stagger', 'sine', 'alternate-stop', 'alt-rows', 'stagger-rows', 'alt-cols', 'stagger-cols'].includes(config.trackMode) ? config.trackMode : defaultTrack;
         const scrollAngleRad = ((Number(config.scrollAngle) ?? 315) * Math.PI) / 180;
         const speed = Math.max(0.5, Math.min(120, Number(config.speed) || 12));
         const spinSpeed = Math.max(0.5, Math.min(120, Number(config.spinSpeed) || 8));
@@ -2754,27 +2756,100 @@
 
             const stepX = Math.max(8, tileSize + gap);
             const stepY = Math.max(8, tileSize + gap);
+            const rowCycle = stepX * 2;
+            const colCycle = stepY * 2;
+            const u = t / speed;
+            const dir = spinDirection === 'ccw' ? -1 : 1;
 
             let dx = 0, dy = 0;
             if (motion === 'scroll' || motion === 'scroll-spin') {
                 const cycleDist = Math.hypot(stepX, stepY) * 2;
-                const dist = (t / speed) * cycleDist;
+                const dist = u * cycleDist;
                 dx = Math.cos(scrollAngleRad) * dist;
                 dy = Math.sin(scrollAngleRad) * dist;
             } else if (motion === 'sway') {
-                const phase = (t / speed) * Math.PI * 2;
+                const phase = u * Math.PI * 2;
                 dx = Math.sin(phase) * stepX * waveAmount * 1.4;
                 dy = Math.cos(phase * 0.5) * stepY * waveAmount * 0.8;
             }
 
-            // Preserve odd/even row & column parity while wrapping infinite scroll
-            const rawColShift = Math.floor(dx / stepX);
-            const baseCol = rawColShift - (rawColShift & 1);
-            const remX = dx - baseCol * stepX;
+            let evenRowX = dx, oddRowX = dx;
+            let evenColY = dy, oddColY = dy;
 
-            const rawRowShift = Math.floor(dy / stepY);
-            const baseRow = rawRowShift - (rawRowShift & 1);
-            const remY = dy - baseRow * stepY;
+            if (motion === 'alt-rows') {
+                if (trackMode === 'sine') {
+                    const s = Math.sin(u * Math.PI * 2) * stepX * (waveAmount * 2) * dir;
+                    evenRowX += s;
+                    oddRowX -= s;
+                } else if (trackMode === 'stagger') {
+                    evenRowX += dir * u * rowCycle * 2;
+                    oddRowX += dir * u * rowCycle;
+                } else if (trackMode === 'alternate-stop') {
+                    evenRowX += dir * u * rowCycle;
+                } else {
+                    evenRowX += dir * u * rowCycle;
+                    oddRowX -= dir * u * rowCycle;
+                }
+            } else if (motion === 'alt-cols') {
+                if (trackMode === 'sine') {
+                    const s = Math.sin(u * Math.PI * 2) * stepY * (waveAmount * 2) * dir;
+                    evenColY += s;
+                    oddColY -= s;
+                } else if (trackMode === 'stagger') {
+                    evenColY += dir * u * colCycle * 2;
+                    oddColY += dir * u * colCycle;
+                } else if (trackMode === 'alternate-stop') {
+                    evenColY += dir * u * colCycle;
+                } else {
+                    evenColY += dir * u * colCycle;
+                    oddColY -= dir * u * colCycle;
+                }
+            } else if (motion === 'weave') {
+                const phase = u % 1;
+                const easeCubic = p => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+                if (phase < 0.5) {
+                    const e = easeCubic(phase * 2) * rowCycle * dir;
+                    evenRowX += e;
+                    if (trackMode !== 'alternate-stop' && trackMode !== 'stagger') oddRowX -= e;
+                } else {
+                    const e = easeCubic((phase - 0.5) * 2) * colCycle * dir;
+                    if (trackMode === 'alternate-stop' || trackMode === 'stagger') {
+                        oddColY += e;
+                    } else {
+                        evenColY += e;
+                        oddColY -= e;
+                    }
+                }
+            } else if ((motion === 'scroll' || motion === 'scroll-spin') && trackMode !== 'uniform') {
+                if (trackMode === 'alt-rows') {
+                    const fallbackX = Math.abs(dx) < 0.5 ? dir * u * rowCycle : dx;
+                    evenRowX = fallbackX;
+                    oddRowX = -fallbackX;
+                } else if (trackMode === 'stagger-rows') {
+                    const fallbackX = Math.abs(dx) < 0.5 ? dir * u * rowCycle : dx;
+                    evenRowX = fallbackX * 1.5;
+                    oddRowX = fallbackX * 0.75;
+                } else if (trackMode === 'alt-cols') {
+                    const fallbackY = Math.abs(dy) < 0.5 ? dir * u * colCycle : dy;
+                    evenColY = fallbackY;
+                    oddColY = -fallbackY;
+                } else if (trackMode === 'stagger-cols') {
+                    const fallbackY = Math.abs(dy) < 0.5 ? dir * u * colCycle : dy;
+                    evenColY = fallbackY * 1.5;
+                    oddColY = fallbackY * 0.75;
+                }
+            }
+
+            // Preserve odd/even row & column parity while wrapping per-track infinite scroll
+            const wrapAxis = (val, step) => {
+                const raw = Math.floor(val / step);
+                const base = raw - (raw & 1);
+                return { base, rem: val - base * step };
+            };
+            const evenRowW = wrapAxis(evenRowX, stepX);
+            const oddRowW = wrapAxis(oddRowX, stepX);
+            const evenColW = wrapAxis(evenColY, stepY);
+            const oddColW = wrapAxis(oddColY, stepY);
 
             const diag = Math.hypot(logicalW, logicalH) / 2 + Math.max(stepX, stepY) * 2;
             const cols = Math.min(64, Math.ceil(diag / stepX) + 2);
@@ -2787,19 +2862,19 @@
             const altDefaultTilt = (15 * Math.PI) / 180;
 
             for (let r = -rows; r <= rows; r++) {
-                const row = r - baseRow;
-                const oddRow = (row & 1) !== 0;
+                const oddRow = (r & 1) !== 0;
+                const rw = oddRow ? oddRowW : evenRowW;
                 const rowShiftX = oddRow ? (offsetX / 100) * stepX : 0;
-                const baseY = r * stepY + remY;
-                if (Math.abs(baseY) > diag + stepY) continue;
 
                 for (let c = -cols; c <= cols; c++) {
-                    const col = c - baseCol;
-                    const oddCol = (col & 1) !== 0;
+                    const oddCol = (c & 1) !== 0;
+                    const cwWrap = oddCol ? oddColW : evenColW;
+                    const row = r - cwWrap.base;
+                    const col = c - rw.base;
                     const oddCell = ((row + col) & 1) !== 0;
 
-                    const cx = c * stepX + remX + rowShiftX;
-                    let cy = baseY + (oddCol ? (offsetY / 100) * stepY : 0);
+                    const cx = c * stepX + rw.rem + rowShiftX;
+                    let cy = r * stepY + cwWrap.rem + (oddCol ? (offsetY / 100) * stepY : 0);
                     if (Math.abs(cx) > diag || Math.abs(cy) > diag) continue;
 
                     let alpha = tileOpacity;
