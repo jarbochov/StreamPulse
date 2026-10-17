@@ -37,8 +37,16 @@ export const F = {
     check: (path, label, value) =>
         `<label class="check"><input type="checkbox" data-path="${path}" data-kind="check" ${value ? 'checked' : ''}> ${label}</label>`,
 
-    select: (path, label, value, options) =>
-        `<label class="field"><span>${label}</span><select data-path="${path}" data-kind="text">${options.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(value) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`,
+    select: (path, label, value, options) => {
+        const renderOpts = (opts) => opts.map(item => {
+            if (item && item.group) {
+                return `<optgroup label="${esc(item.group)}">${renderOpts(item.options || [])}</optgroup>`;
+            }
+            const [v, l] = item;
+            return `<option value="${esc(v)}"${String(v) === String(value) ? ' selected' : ''}>${esc(l)}</option>`;
+        }).join('');
+        return `<label class="field"><span>${label}</span><select data-path="${path}" data-kind="text">${renderOpts(options)}</select></label>`;
+    },
 
     color: (path, label, value, { clear = false } = {}) => {
         const hex = /^#[0-9a-f]{6}$/i.test(value) ? value : /^#[0-9a-f]{3}$/i.test(value) ? `#${[...value.slice(1)].map(c => c + c).join('')}` : '#000000';

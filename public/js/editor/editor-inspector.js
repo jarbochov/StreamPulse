@@ -576,12 +576,15 @@ export function filterSection(el) {
     const duo = { ...(defaultFilter.duotone || {}), ...(f.duotone || {}) };
     const grain = { ...(defaultFilter.grain || {}), ...(f.grain || {}) };
     const ht = { ...(defaultFilter.halftone || {}), ...(f.halftone || {}) };
-    const htMode = ht.mode || 'none';
+    let htMode = ht.mode || 'none';
+    if (htMode === 'bayer') htMode = 'bayer-8';
     const hasHt = htMode !== 'none';
+    const isOrdered = htMode.startsWith('bayer') || htMode.startsWith('cluster') || htMode === 'lines-h' || htMode === 'blue-noise' || htMode === 'custom';
+    const isErrorDiff = htMode === 'floyd-steinberg' || htMode === 'atkinson' || htMode.startsWith('sierra') || htMode === 'burkes' || htMode === 'jarvis';
+    const isDither = isOrdered || isErrorDiff;
     const isScreen = htMode === 'dots' || htMode === 'lines' || htMode === 'crosshatch';
-    const isDither = htMode === 'bayer' || htMode === 'atkinson';
     const isPix = htMode === 'pixelate';
-    const colorMode = ht.colorMode || 'manga';
+    const colorMode = ht.colorMode || (isPix ? 'color' : 'manga');
     const fadeMode = ht.fadeMode || 'none';
 
     const presets = shared.MEDIA_FILTER_PRESETS || [];
@@ -614,8 +617,9 @@ export function filterSection(el) {
                 ? F.range('mediaFilter.halftone.size', 'Dither pixel scale', ht.size ?? 3, { min: 1, max: 12, unit: '×' })
                 : F.range('mediaFilter.halftone.size', 'Screen density', ht.size ?? 8, { min: 3, max: 40, unit: 'px' })}
             ${isScreen ? F.range('mediaFilter.halftone.angle', 'Screen angle', ht.angle ?? 45, { min: -90, max: 90, step: 5, unit: '°' }) : ''}
-            ${F.range('mediaFilter.halftone.threshold', 'Ink weight', ht.threshold ?? 50, { min: 5, max: 95, unit: '%' })}
+            ${F.range('mediaFilter.halftone.threshold', isDither ? 'Dither bias' : 'Ink weight', ht.threshold ?? 50, { min: 5, max: 95, unit: '%' })}
             ${isScreen ? F.range('mediaFilter.halftone.softness', 'Edge softness', ht.softness ?? 12, { min: 0, max: 100, unit: '%' }) : ''}
+            ${htMode === 'custom' ? F.text('mediaFilter.halftone.customMatrix', 'Matrix (comma-separated)', ht.customMatrix || '0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5') : ''}
             ${F.seg('mediaFilter.halftone.colorMode', 'Palette mode', colorMode, [
                 ['manga', 'Ink & paper', 'Ink + Paper'],
                 ['ink-only', 'Ink on transparent background', 'Ink Only'],
@@ -639,8 +643,8 @@ export function filterSection(el) {
         ${fadeMode === 'radial' ? `<div class="grid2">${F.number('mediaFilter.halftone.fadeCenterX', 'Center X %', ht.fadeCenterX ?? 50, { min: 0, max: 100, step: 5 })}${F.number('mediaFilter.halftone.fadeCenterY', 'Center Y %', ht.fadeCenterY ?? 50, { min: 0, max: 100, step: 5 })}</div>` : ''}
         ${fadeMode !== 'none' ? `<div class="grid2">${F.number('mediaFilter.halftone.fadeStart', 'Fade start %', ht.fadeStart ?? 15, { min: 0, max: 95, step: 5 })}${F.number('mediaFilter.halftone.fadeEnd', 'Fade end %', ht.fadeEnd ?? 85, { min: 5, max: 100, step: 5 })}</div>` : ''}
         ${fadeMode !== 'none' && !isPix ? F.seg('mediaFilter.halftone.fadeStyle', 'Fade behavior', ht.fadeStyle || 'dots', [
-            ['dots', 'Shrink halftone dots to zero', 'Taper Dots'],
-            ['blend', 'Crossfade to original', 'Blend']
+            ['dots', 'Shrink dither / dots to zero', 'Taper Dots'],
+            ['blend', 'Crossfade to original element', 'Blend']
         ]) : ''}
         ${fadeMode === 'radial' ? F.check('mediaFilter.halftone.fadeInvert', 'Fade from center outward', !!ht.fadeInvert) : ''}
     ` : '';
@@ -654,12 +658,45 @@ export function filterSection(el) {
         ${F.range('mediaFilter.grayscale', 'Grayscale', f.grayscale, { min: 0, max: 100, unit: '%' })}
         ${F.select('mediaFilter.halftone.mode', 'Screen / Pixel FX', htMode, [
             ['none', 'None'],
-            ['dots', 'Halftone dots'],
-            ['lines', 'Manga lines'],
-            ['crosshatch', 'Manga crosshatch'],
-            ['bayer', 'Bayer ordered dither'],
-            ['atkinson', 'Atkinson stipple dither'],
-            ['pixelate', 'Pixelate & posterize']
+            {
+                group: 'Halftone Screentones',
+                options: [
+                    ['dots', 'Halftone dots'],
+                    ['lines', 'Manga lines'],
+                    ['crosshatch', 'Manga crosshatch']
+                ]
+            },
+            {
+                group: 'Ordered Dithering',
+                options: [
+                    ['bayer-2', 'Bayer 2×2'],
+                    ['bayer-4', 'Bayer 4×4'],
+                    ['bayer-8', 'Bayer 8×8'],
+                    ['bayer-16', 'Bayer 16×16'],
+                    ['cluster-4', 'Clustered dot 4×4'],
+                    ['cluster-8', 'Clustered dot 8×8'],
+                    ['lines-h', 'Horizontal lines'],
+                    ['blue-noise', 'Blue noise'],
+                    ['custom', 'Custom matrix']
+                ]
+            },
+            {
+                group: 'Error Diffusion',
+                options: [
+                    ['floyd-steinberg', 'Floyd–Steinberg'],
+                    ['atkinson', 'Atkinson'],
+                    ['sierra-lite', 'Sierra Lite'],
+                    ['sierra', 'Sierra (3-row)'],
+                    ['burkes', 'Burkes'],
+                    ['jarvis', 'Jarvis–Judice–Ninke']
+                ]
+            },
+            {
+                group: 'Pixel FX',
+                options: [
+                    ['pixelate', 'Pixelate & posterize']
+                ]
+            }
         ])}
         ${htControls}
         ${fadeControls}
@@ -1317,6 +1354,16 @@ export function initInspectorEvents() {
         });
     }
 
+    let filterRaf = 0;
+    function scheduleFilterRender(only) {
+        if (filterRaf) return;
+        filterRaf = requestAnimationFrame(() => {
+            filterRaf = 0;
+            renderCanvas(only);
+            renderSelectionUI();
+        });
+    }
+
     const propEl = $('properties');
     if (propEl) {
         propEl.addEventListener('focusin', event => {
@@ -1338,7 +1385,10 @@ export function initInspectorEvents() {
                 }
                 if (path === 'mediaFilter.halftone.mode' && el.mediaFilter?.halftone) {
                     const hm = el.mediaFilter.halftone.mode;
-                    if ((hm === 'bayer' || hm === 'atkinson') && (el.mediaFilter.halftone.size || 8) > 6) {
+                    const isOrd = hm.startsWith('bayer') || hm.startsWith('cluster') || hm === 'lines-h' || hm === 'blue-noise' || hm === 'custom';
+                    const isErr = hm === 'floyd-steinberg' || hm === 'atkinson' || hm.startsWith('sierra') || hm === 'burkes' || hm === 'jarvis';
+                    const isDit = isOrd || isErr;
+                    if (isDit && (el.mediaFilter.halftone.size || 8) > 6) {
                         el.mediaFilter.halftone.size = 3;
                     } else if ((hm === 'dots' || hm === 'lines' || hm === 'crosshatch') && (el.mediaFilter.halftone.size || 8) < 5) {
                         el.mediaFilter.halftone.size = 8;
@@ -1353,7 +1403,12 @@ export function initInspectorEvents() {
                 changed(false);
                 return;
             }
-            renderCanvas(state.selectedIds.size ? new Set(state.selectedIds) : undefined);
+            if (path.startsWith('mediaFilter.') && event?.type === 'input') {
+                scheduleFilterRender(state.selectedIds.size ? new Set(state.selectedIds) : undefined);
+            } else {
+                if (filterRaf) { cancelAnimationFrame(filterRaf); filterRaf = 0; }
+                renderCanvas(state.selectedIds.size ? new Set(state.selectedIds) : undefined);
+            }
             if (selectedElements().some(el => el.type === 'cutout') && (path === 'cutout.shape' || path === 'style.borderRadius' || path === 'x' || path === 'y' || path === 'width' || path === 'height')) {
                 scheduleEditorCutoutMask();
             }

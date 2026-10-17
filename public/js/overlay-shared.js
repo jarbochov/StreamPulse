@@ -562,162 +562,648 @@
         return f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.tint?.enabled || f.duotone?.enabled || f.grain?.enabled || (!!htMode && htMode !== 'none');
     }
 
-    // Bounded cache + single offscreen scratch canvas for procedural SVG filter tiles
-    const fxTileCache = new Map();
-    let fxScratchCanvas = null;
-    function getFxScratch(w, h) {
-        if (!fxScratchCanvas) fxScratchCanvas = document.createElement('canvas');
-        fxScratchCanvas.width = w;
-        fxScratchCanvas.height = h;
-        return fxScratchCanvas;
-    }
-    function cachedTile(key, build) {
-        if (fxTileCache.has(key)) return fxTileCache.get(key);
-        const val = build();
-        if (fxTileCache.size >= 64) fxTileCache.delete(fxTileCache.keys().next().value);
-        fxTileCache.set(key, val);
-        return val;
-    }
-
-    const BAYER_8 = [
-         0, 32,  8, 40,  2, 34, 10, 42,
-        48, 16, 56, 24, 50, 18, 58, 26,
-        12, 44,  4, 36, 14, 46,  6, 38,
-        60, 28, 52, 20, 62, 30, 54, 22,
-         3, 35, 11, 43,  1, 33,  9, 41,
-        51, 19, 59, 27, 49, 17, 57, 25,
-        15, 47,  7, 39, 13, 45,  5, 37,
-        63, 31, 55, 23, 61, 29, 53, 21
-    ];
-
-    // 16x16 serpentine / blue-noise stipple rank table for GPU Atkinson-style dithering
-    const ATKINSON_16 = (() => {
-        const out = new Float32Array(256);
+    // Genuine Dithering & Halftone Engine: Ordered Matrices, Error Diffusion, and Halftone Screentones
+    const BAYER_2 = new Uint8Array([0, 2, 3, 1]);
+    const BAYER_4 = new Uint8Array([
+        0,  8,  2, 10,
+       12,  4, 14,  6,
+        3, 11,  1,  9,
+       15,  7, 13,  5
+    ]);
+    const BAYER_8 = new Uint8Array([
+        0, 32,  8, 40,  2, 34, 10, 42,
+       48, 16, 56, 24, 50, 18, 58, 26,
+       12, 44,  4, 36, 14, 46,  6, 38,
+       60, 28, 52, 20, 62, 30, 54, 22,
+        3, 35, 11, 43,  1, 33,  9, 41,
+       51, 19, 59, 27, 49, 17, 57, 25,
+       15, 47,  7, 39, 13, 45,  5, 37,
+       63, 31, 55, 23, 61, 29, 53, 21
+    ]);
+    const BAYER_16 = (() => {
+        const out = new Uint8Array(256);
         for (let y = 0; y < 16; y++) {
             for (let x = 0; x < 16; x++) {
-                const bx = BAYER_8[(y & 7) * 8 + (x & 7)] / 64;
-                // Interleave golden-ratio directional phase to break rigid crosshatches into organic stipple clusters
-                const h = (((x * 73 + y * 151 + ((x ^ y) * 37)) & 255) / 255);
-                const rank = 0.62 * bx + 0.38 * h;
-                // Atkinson propagates 6/8 (75%) of error: clip extremes cleanly and concentrate stipples in [0.13, 0.87]
-                out[y * 16 + x] = 0.13 + rank * 0.74;
+                const qx = x >= 8 ? 1 : 0, qy = y >= 8 ? 1 : 0;
+                const sub = BAYER_8[(y % 8) * 8 + (x % 8)];
+                const offset = qy === 0 ? (qx === 0 ? 0 : 2) : (qx === 0 ? 3 : 1);
+                out[y * 16 + x] = (sub << 2) + offset;
             }
         }
         return out;
     })();
+    const CLUSTER_4 = new Uint8Array([
+       12,  5,  6, 13,
+        4,  0,  1,  7,
+       11,  3,  2,  8,
+       15, 10,  9, 14
+    ]);
+    const CLUSTER_8 = new Uint8Array([
+       24, 10, 12, 26, 35, 47, 49, 37,
+        8,  0,  2, 14, 45, 59, 61, 51,
+       22,  6,  4, 16, 43, 57, 63, 53,
+       30, 20, 18, 28, 33, 41, 55, 39,
+       34, 46, 48, 36, 25, 11, 13, 27,
+       44, 58, 60, 50,  9,  1,  3, 15,
+       42, 56, 62, 52, 23,  7,  5, 17,
+       32, 40, 54, 38, 31, 21, 19, 29
+    ]);
+    const LINES_H = new Uint8Array([
+        0,  4,  0,  4,
+        8, 12,  8, 12,
+        2,  6,  2,  6,
+       10, 14, 10, 14
+    ]);
+    const BLUE_NOISE_16 = new Uint8Array([
+       160, 48, 80,192, 16,144, 96,208, 32,176, 64,224,  0,128,112,240,
+        64,224,  0,128,112,240, 48,160, 80,192, 16,144, 96,208, 32,176,
+       112,240, 32,176, 64,224,  0,128,160, 48, 80,192, 16,144, 96,208,
+        16,144, 96,208, 80,192, 48,160, 32,176, 64,224,  0,128,112,240,
+       176, 32, 64,224,  0,128,112,240, 16,144, 96,208, 80,192, 48,160,
+        96,208, 16,144,160, 48, 80,192,112,240, 32,176, 64,224,  0,128,
+         0,128,112,240, 32,176, 64,224, 80,192, 48,160, 16,144, 96,208,
+        80,192, 48,160, 96,208, 16,144,  0,128,112,240, 32,176, 64,224,
+       144, 16, 96,208, 32,176, 64,224,160, 48, 80,192,  0,128,112,240,
+        48,160, 80,192,  0,128,112,240, 16,144, 96,208, 32,176, 64,224,
+       208, 96, 16,144,112,240, 32,176, 64,224,  0,128,160, 48, 80,192,
+         0,128,112,240, 80,192, 48,160, 16,144, 96,208, 32,176, 64,224,
+        32,176, 64,224,  0,128,112,240,160, 48, 80,192, 16,144, 96,208,
+       112,240, 16,144, 96,208, 32,176, 64,224,  0,128, 80,192, 48,160,
+        80,192, 48,160,  0,128,112,240, 16,144, 96,208, 32,176, 64,224,
+        16,144, 96,208, 32,176, 64,224,  0,128,112,240,160, 48, 80,192
+    ]);
 
-    function getPixelateGridTile(p) {
-        const size = Math.max(2, Math.min(48, Math.round(p)));
-        return cachedTile(`pixgrid:${size}`, () => {
-            const c = getFxScratch(size, size);
-            const ctx = c.getContext('2d');
-            ctx.fillStyle = 'rgb(128,128,128)';
-            ctx.fillRect(0, 0, size, size);
-            // Subtle pixel bevel / grid edge so pixel blocks read crisply without CPU feMorphology
-            ctx.fillStyle = 'rgb(142,142,142)';
-            ctx.fillRect(0, 0, size - 1, 1);
-            ctx.fillRect(0, 0, 1, size - 1);
-            ctx.fillStyle = 'rgb(110,110,110)';
-            ctx.fillRect(0, size - 1, size, 1);
-            ctx.fillRect(size - 1, 0, 1, size);
-            return { url: c.toDataURL('image/png'), w: size, h: size };
-        });
+    const COS_LUT = new Float32Array(2048);
+    for (let i = 0; i < 2048; i++) COS_LUT[i] = Math.cos((i / 2048) * 2 * Math.PI);
+
+    let ERR_BUF_0 = null, ERR_BUF_1 = null, ERR_BUF_2 = null;
+    function getErrorBuffers(len) {
+        if (!ERR_BUF_0 || ERR_BUF_0.length < len) {
+            ERR_BUF_0 = new Float32Array(len);
+            ERR_BUF_1 = new Float32Array(len);
+            ERR_BUF_2 = new Float32Array(len);
+        } else {
+            ERR_BUF_0.fill(0, 0, len);
+            ERR_BUF_1.fill(0, 0, len);
+            ERR_BUF_2.fill(0, 0, len);
+        }
+        return [ERR_BUF_0, ERR_BUF_1, ERR_BUF_2];
     }
 
-    function getHalftoneTile(mode, rawSize, rawAngle, rawThreshold = 50, rawSoftness = 12) {
-        const size = Math.max(1, Math.min(48, Math.round(Number(rawSize) || 8)));
-        const angle = Math.round(Number(rawAngle) ?? 45);
-        const thresh = Math.max(1, Math.min(99, Math.round(Number(rawThreshold) ?? 50)));
-        const soft = Math.max(0, Math.min(100, Math.round(Number(rawSoftness) ?? 12)));
-        const key = `ht:${mode}:${size}:${angle}:${thresh}:${soft}`;
-        return cachedTile(key, () => {
-            if (mode === 'bayer') {
-                const scale = Math.max(1, Math.min(16, size));
-                const w = 8 * scale, h = 8 * scale;
-                const c = getFxScratch(w, h);
-                const ctx = c.getContext('2d');
-                const th = thresh / 100;
-                for (let y = 0; y < 8; y++) {
-                    for (let x = 0; x < 8; x++) {
-                        const rank = (BAYER_8[y * 8 + x] + 0.5) / 64;
-                        const v = Math.round(Math.max(0, Math.min(1, rank * (0.5 / Math.max(0.05, th)))) * 255);
-                        ctx.fillStyle = `rgb(${v},${v},${v})`;
-                        ctx.fillRect(x * scale, y * scale, scale, scale);
-                    }
-                }
-                return { url: c.toDataURL('image/png'), w, h, pixelated: true };
+    function getOrderedMatrix(mode, customStr) {
+        if (mode === 'bayer-2') return { mat: BAYER_2, size: 2, denom: 4 };
+        if (mode === 'bayer-4') return { mat: BAYER_4, size: 4, denom: 16 };
+        if (mode === 'bayer-16') return { mat: BAYER_16, size: 16, denom: 256 };
+        if (mode === 'cluster-4') return { mat: CLUSTER_4, size: 4, denom: 16 };
+        if (mode === 'cluster-8') return { mat: CLUSTER_8, size: 8, denom: 64 };
+        if (mode === 'lines-h') return { mat: LINES_H, size: 4, denom: 16 };
+        if (mode === 'blue-noise') return { mat: BLUE_NOISE_16, size: 16, denom: 256 };
+        if (mode === 'custom' && customStr) {
+            const nums = customStr.split(/[\s,]+/).map(Number).filter(n => Number.isFinite(n));
+            if (nums.length >= 4) {
+                const side = Math.floor(Math.sqrt(nums.length));
+                const total = side * side;
+                const mat = new Uint8Array(total);
+                for (let i = 0; i < total; i++) mat[i] = nums[i] || 0;
+                const maxVal = Math.max(...mat, total - 1);
+                return { mat, size: side, denom: maxVal + 1 };
             }
-            if (mode === 'atkinson') {
-                const scale = Math.max(1, Math.min(16, size));
-                const w = 16 * scale, h = 16 * scale;
-                const c = getFxScratch(w, h);
-                const ctx = c.getContext('2d');
-                const th = thresh / 100;
-                for (let y = 0; y < 16; y++) {
-                    for (let x = 0; x < 16; x++) {
-                        const rank = ATKINSON_16[y * 16 + x];
-                        const v = Math.round(Math.max(0, Math.min(1, rank * (0.5 / Math.max(0.05, th)))) * 255);
-                        ctx.fillStyle = `rgb(${v},${v},${v})`;
-                        ctx.fillRect(x * scale, y * scale, scale, scale);
-                    }
-                }
-                return { url: c.toDataURL('image/png'), w, h, pixelated: true };
-            }
+        }
+        return { mat: BAYER_8, size: 8, denom: 64 }; // default bayer-8
+    }
 
-            // Continuous screen patterns: 'dots', 'lines', 'crosshatch'
-            const cell = Math.max(3, size);
-            const rad = (angle * Math.PI) / 180;
-            const cos = Math.cos(rad), sin = Math.sin(rad);
-            let T, nx, ny;
-            if (Math.abs(sin) < 1e-3 || Math.abs(cos) < 1e-3) {
-                T = Math.max(3, Math.round(cell));
-                nx = Math.round(cos);
-                ny = Math.round(sin);
-            } else if (Math.abs(Math.abs(sin) - Math.SQRT1_2) < 0.02 && Math.abs(Math.abs(cos) - Math.SQRT1_2) < 0.02) {
-                T = Math.max(4, Math.round(cell * Math.SQRT2));
-                nx = cos >= 0 ? 1 : -1;
-                ny = sin >= 0 ? 1 : -1;
-            } else {
-                T = 96;
-                nx = Math.round((T / cell) * cos);
-                ny = Math.round((T / cell) * sin);
-                if (nx === 0 && ny === 0) nx = 1;
-            }
-            const c = getFxScratch(T, T);
-            const ctx = c.getContext('2d');
-            const img = ctx.createImageData(T, T);
-            const data = img.data;
-            const twoPiOverT = (2 * Math.PI) / T;
-            const th = thresh / 100;
-            const sf = Math.max(0.01, (soft / 100) * 0.55);
-            const k = 1 / sf;
-            let p = 0;
-            for (let y = 0; y < T; y++) {
-                for (let x = 0; x < T; x++) {
-                    const pu = (nx * x + ny * y) * twoPiOverT;
-                    const pv = (-ny * x + nx * y) * twoPiOverT;
-                    let wave;
-                    if (mode === 'lines') {
-                        wave = 0.5 - 0.5 * Math.cos(pv);
-                    } else if (mode === 'crosshatch') {
-                        const l1 = 0.5 - 0.5 * Math.cos(pv);
-                        const l2 = 0.5 - 0.5 * Math.cos(pu);
-                        wave = Math.min(l1 * 0.68, 0.32 + l2 * 0.68);
-                    } else {
-                        wave = 0.5 - 0.25 * (Math.cos(pu) + Math.cos(pv));
+    function getErrorKernel(mode) {
+        if (mode === 'atkinson') {
+            return {
+                kernel: [
+                    [1, 0, 1], [2, 0, 1],
+                    [-1, 1, 1], [0, 1, 1], [1, 1, 1],
+                    [0, 2, 1]
+                ],
+                denom: 8,
+                discard: 0.25
+            };
+        }
+        if (mode === 'sierra-lite') {
+            return {
+                kernel: [
+                    [1, 0, 2],
+                    [-1, 1, 1], [0, 1, 1]
+                ],
+                denom: 4,
+                discard: 0
+            };
+        }
+        if (mode === 'sierra') {
+            return {
+                kernel: [
+                    [1, 0, 5], [2, 0, 3],
+                    [-2, 1, 2], [-1, 1, 4], [0, 1, 5], [1, 1, 4], [2, 1, 2],
+                    [-1, 2, 2], [0, 2, 3], [1, 2, 2]
+                ],
+                denom: 32,
+                discard: 0
+            };
+        }
+        if (mode === 'burkes') {
+            return {
+                kernel: [
+                    [1, 0, 8], [2, 0, 4],
+                    [-2, 1, 2], [-1, 1, 4], [0, 1, 8], [1, 1, 4], [2, 1, 2]
+                ],
+                denom: 32,
+                discard: 0
+            };
+        }
+        if (mode === 'jarvis') {
+            return {
+                kernel: [
+                    [1, 0, 7], [2, 0, 5],
+                    [-2, 1, 3], [-1, 1, 5], [0, 1, 7], [1, 1, 5], [2, 1, 3],
+                    [-2, 2, 1], [-1, 2, 3], [0, 2, 5], [1, 2, 3], [2, 2, 1]
+                ],
+                denom: 48,
+                discard: 0
+            };
+        }
+        return {
+            kernel: [
+                [1, 0, 7],
+                [-1, 1, 3], [0, 1, 5], [1, 1, 1]
+            ],
+            denom: 16,
+            discard: 0
+        };
+    }
+
+    function runErrorDiffusionAlgorithm(pw, ph, data, kernel, denom, discard, threshVal, colorMode, levels, inkRgb, paperRgb, invert, fadeOpts) {
+        const invDenom = (1 - discard) / denom;
+        const cutoff = threshVal * 255;
+        const isColor = colorMode === 'color';
+        const numChannels = isColor ? 3 : 1;
+        const [r0, r1, r2] = getErrorBuffers((pw + 4) * numChannels);
+
+        const hasTaper = Boolean(fadeOpts);
+        const isLinear = fadeOpts?.isLinear;
+        const fS0 = fadeOpts?.fS0 || 0, fS1 = fadeOpts?.fS1 || 1, invSpan = fadeOpts?.invSpan || 1;
+        const fStepX = fadeOpts?.fStepX || 0, invDiag = fadeOpts?.invDiag || 1, sinFA = fadeOpts?.sinFA || 0;
+        const fCenterX = fadeOpts?.fCenterX || 0, fCenterY = fadeOpts?.fCenterY || 0, invMaxR = fadeOpts?.invMaxR || 1, fInv = Boolean(fadeOpts?.fInv);
+
+        for (let y = 0; y < ph; y++) {
+            const rowOffset = y * pw * 4;
+            let fadeD = isLinear ? (y * sinFA * invDiag) : 0;
+            const dy = y - fCenterY;
+            const dy2 = dy * dy;
+
+            for (let x = 0; x < pw; x++, fadeD += fStepX) {
+                const idx = rowOffset + (x << 2);
+                let fade = 1;
+                if (hasTaper) {
+                    const d = isLinear ? fadeD : Math.sqrt((x - fCenterX) * (x - fCenterX) + dy2) * invMaxR;
+                    const rawT = d < fS0 ? 0 : (d > fS1 ? 1 : (d - fS0) * invSpan);
+                    fade = fInv ? 1 - rawT : rawT;
+                }
+
+                if (isColor) {
+                    const step = 255 / (levels - 1);
+                    for (let c = 0; c < 3; c++) {
+                        const curVal = data[idx + c] + r0[(x + 2) * 3 + c] * fade;
+                        const q = Math.max(0, Math.min(255, Math.round(curVal / step) * step));
+                        const finalVal = Math.round(data[idx + c] * (1 - fade) + q * fade);
+                        data[idx + c] = finalVal;
+                        const err = (curVal - q) * invDenom * fade;
+                        for (let k = 0; k < kernel.length; k++) {
+                            const [dx, dyK, w] = kernel[k];
+                            const ex = (x + 2 + dx) * 3 + c;
+                            const eVal = err * w;
+                            if (dyK === 0) r0[ex] += eVal;
+                            else if (dyK === 1) r1[ex] += eVal;
+                            else if (dyK === 2) r2[ex] += eVal;
+                        }
                     }
-                    const val = Math.max(0, Math.min(1, 0.5 + (wave - (1 - th)) * k));
-                    const byte = Math.max(0, Math.min(255, Math.round(val * 255)));
-                    data[p] = byte;
-                    data[p + 1] = byte;
-                    data[p + 2] = byte;
-                    data[p + 3] = 255;
-                    p += 4;
+                    data[idx + 3] = 255;
+                } else {
+                    let lum = (data[idx] * 54 + data[idx + 1] * 183 + data[idx + 2] * 19) >> 8;
+                    if (invert) lum = 255 - lum;
+                    if (hasTaper) {
+                        lum = lum + (1 - fade) * (255 - lum);
+                    }
+                    const curLum = lum + r0[x + 2];
+                    const isInk = curLum < cutoff;
+                    const outLum = isInk ? 0 : 255;
+                    const err = (curLum - outLum) * invDenom;
+
+                    if (colorMode === 'manga') {
+                        const c = isInk ? inkRgb : paperRgb;
+                        data[idx] = c[0]; data[idx + 1] = c[1]; data[idx + 2] = c[2]; data[idx + 3] = 255;
+                    } else {
+                        data[idx] = inkRgb[0]; data[idx + 1] = inkRgb[1]; data[idx + 2] = inkRgb[2];
+                        data[idx + 3] = isInk ? 255 : 0;
+                    }
+
+                    for (let k = 0; k < kernel.length; k++) {
+                        const [dx, dyK, w] = kernel[k];
+                        const ex = x + 2 + dx;
+                        const eVal = err * w;
+                        if (dyK === 0) r0[ex] += eVal;
+                        else if (dyK === 1) r1[ex] += eVal;
+                        else if (dyK === 2) r2[ex] += eVal;
+                    }
                 }
             }
-            ctx.putImageData(img, 0, 0);
-            return { url: c.toDataURL('image/png'), w: T, h: T, pixelated: false };
-        });
+            r0.set(r1);
+            r1.set(r2);
+            r2.fill(0);
+        }
+    }
+
+    function fillSolidPixels(buf, w, h, colStr) {
+        const hex = /^#[0-9a-f]{6}$/i.test(colStr) ? colStr : /^#[0-9a-f]{3}$/i.test(colStr) ? `#${[...colStr.slice(1)].map(c => c + c).join('')}` : '#ffffff';
+        const r = parseInt(hex.slice(1, 3), 16) || 0;
+        const g = parseInt(hex.slice(3, 5), 16) || 0;
+        const b = parseInt(hex.slice(5, 7), 16) || 0;
+        for (let i = 0; i < buf.length; i += 4) {
+            buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = 255;
+        }
+    }
+
+    function fillGradientPixels(buf, w, h, g) {
+        const parseCol = (c, def) => {
+            const hex = /^#[0-9a-f]{6}$/i.test(c) ? c : /^#[0-9a-f]{3}$/i.test(c) ? `#${[...c.slice(1)].map(x => x + x).join('')}` : def;
+            return [parseInt(hex.slice(1, 3), 16) || 0, parseInt(hex.slice(3, 5), 16) || 0, parseInt(hex.slice(5, 7), 16) || 0];
+        };
+        const c0 = parseCol(g.from, '#1f6feb');
+        const c1 = parseCol(g.to, '#8957e5');
+        const hasMid = Boolean(g.mid);
+        const cm = hasMid ? parseCol(g.mid, '#5b63f6') : null;
+
+        const isRadial = g.type === 'radial';
+        if (isRadial) {
+            const cx = w * 0.5, cy = h * 0.5;
+            const maxR = Math.hypot(cx, cy) || 1;
+            for (let y = 0; y < h; y++) {
+                const row = y * w * 4;
+                const dy = y - cy;
+                for (let x = 0; x < w; x++) {
+                    const d = Math.hypot(x - cx, dy) / maxR;
+                    const t = Math.max(0, Math.min(1, d));
+                    const idx = row + (x << 2);
+                    let r, gVal, b;
+                    if (hasMid) {
+                        if (t < 0.5) {
+                            const sub = t * 2;
+                            r = c0[0] + (cm[0] - c0[0]) * sub;
+                            gVal = c0[1] + (cm[1] - c0[1]) * sub;
+                            b = c0[2] + (cm[2] - c0[2]) * sub;
+                        } else {
+                            const sub = (t - 0.5) * 2;
+                            r = cm[0] + (c1[0] - cm[0]) * sub;
+                            gVal = cm[1] + (c1[1] - cm[1]) * sub;
+                            b = cm[2] + (c1[2] - cm[2]) * sub;
+                        }
+                    } else {
+                        r = c0[0] + (c1[0] - c0[0]) * t;
+                        gVal = c0[1] + (c1[1] - c0[1]) * t;
+                        b = c0[2] + (c1[2] - c0[2]) * t;
+                    }
+                    buf[idx] = r | 0; buf[idx + 1] = gVal | 0; buf[idx + 2] = b | 0; buf[idx + 3] = 255;
+                }
+            }
+            return;
+        }
+
+        const deg = Number(g.angle ?? 135);
+        const rad = (deg * Math.PI) / 180;
+        const sin = Math.sin(rad), cos = Math.cos(rad);
+        const len = Math.abs(w * sin) + Math.abs(h * cos) || 1;
+        const cx = w * 0.5, cy = h * 0.5;
+        const invLen = 1 / len;
+        const x0 = cx - sin * len * 0.5;
+        const y0 = cy - (-cos * len * 0.5);
+        const dirX = sin, dirY = -cos;
+        const stepX = dirX * invLen;
+
+        for (let y = 0; y < h; y++) {
+            const row = y * w * 4;
+            const dy = (y - y0) * dirY;
+            let t = (-x0 * dirX + dy) * invLen;
+            for (let x = 0; x < w; x++, t += stepX) {
+                const cl = t < 0 ? 0 : (t > 1 ? 1 : t);
+                const idx = row + (x << 2);
+                let r, gVal, b;
+                if (hasMid) {
+                    if (cl < 0.5) {
+                        const sub = cl * 2;
+                        r = c0[0] + (cm[0] - c0[0]) * sub;
+                        gVal = c0[1] + (cm[1] - c0[1]) * sub;
+                        b = c0[2] + (cm[2] - c0[2]) * sub;
+                    } else {
+                        const sub = (cl - 0.5) * 2;
+                        r = cm[0] + (c1[0] - cm[0]) * sub;
+                        gVal = cm[1] + (c1[1] - cm[1]) * sub;
+                        b = cm[2] + (c1[2] - cm[2]) * sub;
+                    }
+                } else {
+                    r = c0[0] + (c1[0] - c0[0]) * cl;
+                    gVal = c0[1] + (c1[1] - c0[1]) * cl;
+                    b = c0[2] + (c1[2] - c0[2]) * cl;
+                }
+                buf[idx] = r | 0; buf[idx + 1] = gVal | 0; buf[idx + 2] = b | 0; buf[idx + 3] = 255;
+            }
+        }
+    }
+
+    function renderDitherHalftone(canvas, element, node, ht, target) {
+        const rawMode = ht.mode || 'none';
+        const htMode = rawMode === 'bayer' ? 'bayer-8' : (rawMode === 'atkinson' ? 'atkinson' : rawMode);
+        if (htMode === 'none') return;
+
+        const isOrdered = htMode.startsWith('bayer') || htMode.startsWith('cluster') || htMode === 'lines-h' || htMode === 'blue-noise' || htMode === 'custom';
+        const isErrorDiff = htMode === 'floyd-steinberg' || htMode === 'atkinson' || htMode.startsWith('sierra') || htMode === 'burkes' || htMode === 'jarvis';
+        const isDither = isOrdered || isErrorDiff;
+        const isPix = htMode === 'pixelate';
+        const isScreen = htMode === 'dots' || htMode === 'lines' || htMode === 'crosshatch';
+
+        const elW = Math.max(1, Math.round(Number(element.width) || node.offsetWidth || 100));
+        const elH = Math.max(1, Math.round(Number(element.height) || node.offsetHeight || 100));
+
+        let scale = 1;
+        if (isDither) {
+            scale = Math.max(1, Math.min(32, Math.round(Number(ht.size) || 3)));
+        } else if (isPix) {
+            scale = Math.max(2, Math.min(48, Math.round(Number(ht.size) || 6)));
+        } else if (isScreen) {
+            scale = Math.max(1, Math.min(16, Math.round(Number(ht.pixelSize) || 1)));
+        }
+
+        const maxProcessingDim = 960;
+        const curMax = Math.max(elW / scale, elH / scale);
+        let effScale = scale;
+        if (curMax > maxProcessingDim) {
+            effScale = scale * (curMax / maxProcessingDim);
+        }
+
+        const pw = Math.max(1, Math.round(elW / effScale));
+        const ph = Math.max(1, Math.round(elH / effScale));
+
+        if (canvas.width !== pw || canvas.height !== ph) {
+            canvas.width = pw;
+            canvas.height = ph;
+        }
+
+        const isPixelated = isDither || isPix || effScale > 1.25;
+        const softVal = Math.max(0, Math.min(100, Number(ht.softness) ?? 12));
+        canvas.style.cssText = `position:absolute;inset:0;width:100%;height:100%;pointer-events:none;border-radius:inherit;${isPixelated ? 'image-rendering:pixelated;' : ''}`;
+
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return;
+
+        if (!canvas._imgData || canvas._imgData.width !== pw || canvas._imgData.height !== ph) {
+            canvas._imgData = ctx.createImageData(pw, ph);
+            canvas._srcPixels = new Uint8ClampedArray(pw * ph * 4);
+            canvas._srcSig = '';
+        }
+        const imgData = canvas._imgData;
+        const data = imgData.data;
+        const srcPixels = canvas._srcPixels;
+
+        const s = element.style || {};
+        const media = MEDIA_TYPES.has(element.type);
+        const img = media && element.type === 'image' ? node.querySelector(':scope > img, img') : null;
+
+        const srcSig = img ? `${img.currentSrc || img.src}|${element.style?.objectFit}|${pw}|${ph}` : (element.type === 'shape' ? `${element.style?.background}|${element.style?.fill}|${JSON.stringify(element.style?.gradient)}|${pw}|${ph}` : `${pw}|${ph}`);
+        if (canvas._srcSig !== srcSig) {
+            canvas._srcSig = srcSig;
+            if (img) {
+                if (img.complete && img.naturalWidth > 0) {
+                    ctx.drawImage(img, 0, 0, pw, ph);
+                    const readback = ctx.getImageData(0, 0, pw, ph);
+                    srcPixels.set(readback.data);
+                } else {
+                    img.addEventListener('load', () => {
+                        if (node._fxCanvas === canvas) renderDitherHalftone(canvas, element, node, ht, target);
+                    }, { once: true });
+                    return;
+                }
+            } else if (element.type === 'shape') {
+                if (s.gradient?.enabled) {
+                    fillGradientPixels(srcPixels, pw, ph, s.gradient);
+                } else {
+                    fillSolidPixels(srcPixels, pw, ph, s.fill || s.background || '#ffffff');
+                }
+            } else {
+                const subCanvas = node.querySelector('canvas.sp-pattern-canvas');
+                if (subCanvas && subCanvas !== canvas) {
+                    ctx.drawImage(subCanvas, 0, 0, pw, ph);
+                } else if (s.background && s.background !== 'transparent') {
+                    ctx.fillStyle = s.background;
+                    ctx.fillRect(0, 0, pw, ph);
+                } else {
+                    ctx.fillStyle = '#808080';
+                    ctx.fillRect(0, 0, pw, ph);
+                }
+                const readback = ctx.getImageData(0, 0, pw, ph);
+                srcPixels.set(readback.data);
+            }
+        }
+
+        // Copy source pixels into destination buffer
+        data.set(srcPixels);
+
+        // Palette setup
+        const colorMode = ht.colorMode || (isPix ? 'color' : 'manga');
+        const num = hex => [1, 3, 5].map(i => parseInt(String(hex || '#000000').slice(i, i + 2), 16) || 0);
+        const inkRgb = num(ht.inkColor || '#0f172a');
+        const paperRgb = num(ht.paperColor || '#ffffff');
+        const invert = Boolean(ht.invert);
+        const threshVal = Math.max(1, Math.min(99, Number(ht.threshold) ?? 50)) / 100;
+        const levels = Math.max(2, Math.min(16, Number(ht.levels) ?? 4));
+
+        // Fade calculation
+        const fadeMode = ht.fadeMode || 'none';
+        const fadeStyle = (fadeMode !== 'none' && (ht.fadeStyle === 'blend' || isPix)) ? 'blend' : 'dots';
+        const hasTaper = fadeMode !== 'none' && fadeStyle === 'dots';
+
+        const fAngle = (Math.round(Number(ht.fadeAngle) ?? 135) * Math.PI) / 180;
+        const cosFA = Math.cos(fAngle), sinFA = Math.sin(fAngle);
+        const fDiag = Math.abs(pw * cosFA) + Math.abs(ph * sinFA) || 1;
+        const fCenterX = ((Math.max(0, Math.min(100, Number(ht.fadeCenterX) ?? 50)) / 100) * pw);
+        const fCenterY = ((Math.max(0, Math.min(100, Number(ht.fadeCenterY) ?? 50)) / 100) * ph);
+        const fMaxR = Math.hypot(Math.max(fCenterX, pw - fCenterX), Math.max(fCenterY, ph - fCenterY)) || 1;
+        const fS0 = Math.max(0, Math.min(99, Number(ht.fadeStart) ?? 15)) / 100;
+        const fS1 = Math.max(fS0 + 0.01, Math.min(100, Number(ht.fadeEnd) ?? 85)) / 100;
+        const fInv = Boolean(ht.fadeInvert);
+
+        const isLinearFade = fadeMode === 'linear';
+        const invDiag = 1 / fDiag;
+        const fStepX = cosFA * invDiag;
+        const invSpan = 1 / (fS1 - fS0);
+        const invMaxR = 1 / fMaxR;
+
+        const fadeOpts = hasTaper ? {
+            isLinear: isLinearFade,
+            fStepX, invDiag, fS0, fS1, invSpan,
+            fCenterX, fCenterY, invMaxR, fInv, sinFA
+        } : null;
+
+        const pR = paperRgb[0], pG = paperRgb[1], pB = paperRgb[2];
+        const iR = inkRgb[0], iG = inkRgb[1], iB = inkRgb[2];
+        const dR = iR - pR, dG = iG - pG, dB = iB - pB;
+
+        if (isScreen) {
+            // Mathematical Halftone Screentone (Dots, Lines, Crosshatch) with precomputed Cosine LUT
+            const cell = Math.max(2, (Number(ht.size) || 8) / effScale);
+            const rad = ((Number(ht.angle) ?? 45) * Math.PI) / 180;
+            const cosA = Math.cos(rad) / cell, sinA = Math.sin(rad) / cell;
+            const sf = Math.max(0.005, (softVal / 100) * 0.5);
+            const k = 1 / sf;
+
+            for (let y = 0; y < ph; y++) {
+                const row = y * pw * 4;
+                let u = -y * sinA;
+                let v = y * cosA;
+                let fadeD = isLinearFade ? (y * sinFA * invDiag) : 0;
+                const dy = y - fCenterY;
+                const dy2 = dy * dy;
+
+                for (let x = 0; x < pw; x++, u += cosA, v += sinA, fadeD += fStepX) {
+                    const idx = row + (x << 2);
+                    let lum = (data[idx] * 54 + data[idx + 1] * 183 + data[idx + 2] * 19) / 65280;
+                    if (invert) lum = 1 - lum;
+
+                    if (hasTaper) {
+                        const d = isLinearFade ? fadeD : Math.sqrt((x - fCenterX) * (x - fCenterX) + dy2) * invMaxR;
+                        const rawT = d < fS0 ? 0 : (d > fS1 ? 1 : (d - fS0) * invSpan);
+                        const fade = fInv ? 1 - rawT : rawT;
+                        lum = lum + (1 - fade) * (1 - lum);
+                    }
+
+                    let wave;
+                    if (htMode === 'lines') {
+                        const cv = COS_LUT[((v * 2048) | 0) & 2047];
+                        wave = 0.5 - 0.5 * cv;
+                    } else if (htMode === 'crosshatch') {
+                        const cv = COS_LUT[((v * 2048) | 0) & 2047];
+                        const cu = COS_LUT[((u * 2048) | 0) & 2047];
+                        wave = Math.min(0.5 - 0.5 * cv, 0.5 - 0.5 * cu);
+                    } else {
+                        const cu = COS_LUT[((u * 2048) | 0) & 2047];
+                        const cv = COS_LUT[((v * 2048) | 0) & 2047];
+                        wave = 0.5 - 0.25 * (cu + cv);
+                    }
+
+                    const inkFactor = Math.max(0, Math.min(1, 0.5 + (wave - (lum + threshVal - 0.5)) * k));
+
+                    if (colorMode === 'manga') {
+                        data[idx] = (pR + dR * inkFactor) | 0;
+                        data[idx + 1] = (pG + dG * inkFactor) | 0;
+                        data[idx + 2] = (pB + dB * inkFactor) | 0;
+                        data[idx + 3] = 255;
+                    } else if (colorMode === 'ink-only') {
+                        data[idx] = iR;
+                        data[idx + 1] = iG;
+                        data[idx + 2] = iB;
+                        data[idx + 3] = (inkFactor * 255) | 0;
+                    } else {
+                        const factor = 1 - inkFactor * 0.75;
+                        data[idx] = (data[idx] * factor) | 0;
+                        data[idx + 1] = (data[idx + 1] * factor) | 0;
+                        data[idx + 2] = (data[idx + 2] * factor) | 0;
+                    }
+                }
+            }
+        } else if (isOrdered) {
+            // Ordered Dither Matrices (Bayer 2x2, 4x4, 8x8, 16x16, Clustered 4x4, 8x8, Lines H, Blue noise, Custom)
+            const { mat, size: mSize, denom } = getOrderedMatrix(htMode, ht.customMatrix);
+            const mMask = (mSize & (mSize - 1)) === 0 ? mSize - 1 : 0;
+
+            for (let y = 0; y < ph; y++) {
+                const row = y * pw * 4;
+                const mRow = mMask ? (y & mMask) * mSize : (y % mSize) * mSize;
+                let fadeD = isLinearFade ? (y * sinFA * invDiag) : 0;
+                const dy = y - fCenterY;
+                const dy2 = dy * dy;
+
+                for (let x = 0; x < pw; x++, fadeD += fStepX) {
+                    const idx = row + (x << 2);
+                    const col = mMask ? (x & mMask) : (x % mSize);
+                    let mVal = (mat[mRow + col] + 0.5) / denom;
+                    mVal = Math.max(0, Math.min(1, mVal + (threshVal - 0.5)));
+
+                    let fade = 1;
+                    if (hasTaper) {
+                        const d = isLinearFade ? fadeD : Math.sqrt((x - fCenterX) * (x - fCenterX) + dy2) * invMaxR;
+                        const rawT = d < fS0 ? 0 : (d > fS1 ? 1 : (d - fS0) * invSpan);
+                        fade = fInv ? 1 - rawT : rawT;
+                    }
+
+                    if (colorMode === 'color') {
+                        const step = 255 / (levels - 1);
+                        const bias = (mVal - 0.5) * step * fade;
+                        const qR = Math.max(0, Math.min(255, Math.round(Math.round((data[idx] + bias) / step) * step)));
+                        const qG = Math.max(0, Math.min(255, Math.round(Math.round((data[idx + 1] + bias) / step) * step)));
+                        const qB = Math.max(0, Math.min(255, Math.round(Math.round((data[idx + 2] + bias) / step) * step)));
+                        data[idx] = (data[idx] * (1 - fade) + qR * fade) | 0;
+                        data[idx + 1] = (data[idx + 1] * (1 - fade) + qG * fade) | 0;
+                        data[idx + 2] = (data[idx + 2] * (1 - fade) + qB * fade) | 0;
+                        data[idx + 3] = 255;
+                    } else {
+                        let lum = (data[idx] * 54 + data[idx + 1] * 183 + data[idx + 2] * 19) / 65280;
+                        if (invert) lum = 1 - lum;
+                        if (hasTaper) {
+                            lum = lum + (1 - fade) * (1 - lum);
+                        }
+                        const isInk = lum < mVal;
+                        if (colorMode === 'manga') {
+                            data[idx] = isInk ? iR : pR;
+                            data[idx + 1] = isInk ? iG : pG;
+                            data[idx + 2] = isInk ? iB : pB;
+                            data[idx + 3] = 255;
+                        } else {
+                            data[idx] = iR;
+                            data[idx + 1] = iG;
+                            data[idx + 2] = iB;
+                            data[idx + 3] = isInk ? 255 : 0;
+                        }
+                    }
+                }
+            }
+        } else if (isErrorDiff) {
+            // Error Diffusion (Floyd-Steinberg, Atkinson, Sierra Lite, Sierra, Burkes, Jarvis-Judice-Ninke)
+            const { kernel, denom, discard } = getErrorKernel(htMode);
+            runErrorDiffusionAlgorithm(pw, ph, data, kernel, denom, discard, threshVal, colorMode, levels, inkRgb, paperRgb, invert, fadeOpts);
+        } else if (isPix) {
+            // Pixelate & posterize
+            const step = 255 / (levels - 1);
+            for (let i = 0; i < data.length; i += 4) {
+                data[i] = Math.round(Math.round(data[i] / step) * step);
+                data[i + 1] = Math.round(Math.round(data[i + 1] / step) * step);
+                data[i + 2] = Math.round(Math.round(data[i + 2] / step) * step);
+            }
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+
+        if (fadeMode !== 'none' && fadeStyle === 'blend') {
+            const maskCss = buildCssFadeGradient(ht, true);
+            canvas.style.webkitMaskImage = maskCss;
+            canvas.style.maskImage = maskCss;
+        } else {
+            canvas.style.webkitMaskImage = '';
+            canvas.style.maskImage = '';
+        }
+
+        if (colorMode === 'ink-only') {
+            canvas.style.mixBlendMode = 'multiply';
+            if (img) img.style.opacity = '1';
+        } else {
+            canvas.style.mixBlendMode = 'normal';
+            if (fadeMode !== 'none' && fadeStyle === 'blend') {
+                if (img) img.style.opacity = '1';
+            } else {
+                if (img) img.style.opacity = '0';
+            }
+        }
     }
 
     function buildCssFadeGradient(ht, forMask) {
@@ -825,7 +1311,7 @@
         const hasDuo = !!f.duotone?.enabled;
         const colorMode = ht.colorMode || 'manga';
 
-        const needsSvg = hasDuo || (hasHt && htMode !== 'pixelate' && (colorMode === 'manga' || colorMode === 'ink-only'));
+        const needsSvg = hasDuo;
 
         if (!needsSvg) {
             if (node._fxId) {
@@ -915,43 +1401,28 @@
         if (!target) { node._fxSig = ''; node._fxAnim = null; fxAnimated.delete(node); return; }
 
         const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.duotone.enabled || hasHt);
-        const signature = JSON.stringify([f, media, element.id]);
+        const signature = JSON.stringify([f, media, element.id, element.width, element.height, element.style?.background, element.style?.fill, element.style?.gradient]);
 
         if (node._fxSig !== signature || node._fxTarget !== target) {
             node._fxSig = signature;
             node._fxTarget = target;
 
-            // 1. Halftone / Manga / Dither / Pixelate GPU CSS Overlay (managed in-place)
+            // 1. Genuine Dither & Halftone Canvas Engine (atomic, zero-flash)
             if (active && hasHt) {
-                let htWrap = node._htWrap;
-                if (!htWrap || htWrap.parentNode !== node) {
-                    htWrap = node._htWrap = document.createElement('div');
-                    htWrap.className = 'sp-fx sp-ht-wrap';
-                    node.appendChild(htWrap);
+                let canvas = node._fxCanvas;
+                if (!canvas || canvas.parentNode !== node) {
+                    canvas = node._fxCanvas = document.createElement('canvas');
+                    canvas.className = 'sp-fx sp-fx-canvas';
+                    node.appendChild(canvas);
                 }
-                const fadeMode = ht.fadeMode || 'none';
-                const maskCss = fadeMode !== 'none' ? buildCssFadeGradient(ht, true) : '';
-                htWrap.style.cssText = `position:absolute;inset:0;pointer-events:none;border-radius:inherit;overflow:hidden;${maskCss ? `-webkit-mask-image:${maskCss};mask-image:${maskCss};` : ''}`;
-
-                if (htWrap._fadeDiv) {
-                    htWrap._fadeDiv.remove();
-                    htWrap._fadeDiv = null;
-                }
-
-                const tile = htMode === 'pixelate'
-                    ? getPixelateGridTile(ht.size || 6)
-                    : getHalftoneTile(htMode, ht.size, ht.angle, ht.threshold, ht.softness);
-                let tileDiv = htWrap._tileDiv;
-                if (!tileDiv) {
-                    tileDiv = htWrap._tileDiv = document.createElement('div');
-                    htWrap.appendChild(tileDiv);
-                }
-                const isPixel = htMode === 'bayer' || htMode === 'atkinson' || htMode === 'pixelate';
-                const isManga = ht.colorMode === 'manga';
-                const tileOpacity = htMode === 'pixelate' ? 0.35 : (isManga ? 0.85 : 0.6);
-                const tileBlend = (isManga || ht.colorMode === 'ink-only') ? 'multiply' : (htMode === 'pixelate' || htMode === 'bayer' || htMode === 'atkinson') ? 'overlay' : 'hard-light';
-                tileDiv.style.cssText = `position:absolute;inset:0;pointer-events:none;background-image:url("${tile.url}");background-repeat:repeat;background-size:${tile.w}px ${tile.h}px;opacity:${tileOpacity};mix-blend-mode:${tileBlend};${isPixel ? 'image-rendering:pixelated;' : ''}`;
-            } else if (node._htWrap) {
+                renderDitherHalftone(canvas, element, node, ht, target);
+            } else if (node._fxCanvas) {
+                node._fxCanvas.remove();
+                node._fxCanvas = null;
+                const img = node.querySelector(':scope > img, :scope > video');
+                if (img) img.style.opacity = '';
+            }
+            if (node._htWrap) {
                 node._htWrap.remove();
                 node._htWrap = null;
             }
@@ -996,7 +1467,7 @@
             if (f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
             if (f.contrast !== 100) parts.push(`contrast(${f.contrast}%)`);
             if (f.saturate !== 100) parts.push(`saturate(${f.saturate}%)`);
-            if (f.grayscale > 0 || (hasHt && ht.colorMode === 'manga')) parts.push(`grayscale(${Math.max(f.grayscale || 0, (hasHt && ht.colorMode === 'manga') ? 100 : 0)}%)`);
+            if (f.grayscale > 0) parts.push(`grayscale(${f.grayscale}%)`);
             if (hasSvgFilter) parts.push(`url(#${node._fxId})`);
         }
         const nextFilter = parts.join(' ');
@@ -2599,7 +3070,14 @@
         if (node._slideshow?.stop) { try { node._slideshow.stop(); } catch {} node._slideshow = null; }
         if (node._slideHandle?.stop) { try { node._slideHandle.stop(); } catch {} node._slideHandle = null; }
         if (node._patternHandle?.stop) { try { node._patternHandle.stop(); } catch {} node._patternHandle = null; }
-        if (node._alertPlay?.stop) { try { node._alertPlay.stop(); } catch {} node._alertPlay = null; }
+        if (node._fxCanvas) {
+            node._fxCanvas.remove();
+            node._fxCanvas = null;
+        }
+        if (node._htWrap) {
+            node._htWrap.remove();
+            node._htWrap = null;
+        }
         if (node._fxId) {
             document.getElementById(node._fxId)?.remove();
             node._fxId = null;
@@ -2610,6 +3088,8 @@
             node.querySelectorAll('.alert-card').forEach(c => {
                 if (c._borderObserver) { c._borderObserver.disconnect(); c._borderObserver = null; }
             });
+            node.querySelectorAll('.sp-fx-canvas').forEach(c => c.remove());
+            node.querySelectorAll('.sp-ht-wrap').forEach(w => w.remove());
             node.querySelectorAll('[data-element-id]').forEach(el => {
                 if (el._fxId) {
                     document.getElementById(el._fxId)?.remove();
