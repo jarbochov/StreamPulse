@@ -20,11 +20,11 @@
         signals: {
             vhs: { name: 'VHS Tape', jitter: 25, glitch: 20, chromatic: 20, noise: 15 },
             ntsc: { name: 'NTSC Composite', bleed: 30, ghosting: 25, noise: 12 },
-            static: { name: 'TV Static & Snow', noise: 55, pure: false, color: false, glitch: 40, roll: 15 }
+            static: { name: 'TV Static & Snow', noise: 55, scale: 2.0, pure: false, color: false, glitch: 40, roll: 15 }
         },
         display: {
             none: { name: 'None (Flat)' },
-            crt: { name: 'CRT Monitor', scanlines: 45, scanlineSize: 4, curvature: 12, bloom: 25, vignette: 20, mask: 'aperture', maskSize: 2, maskStrength: 35 },
+            crt: { name: 'CRT Monitor', scanlines: 45, scanlineScale: 1.0, curvature: 12, bloom: 25, vignette: 20, mask: 'aperture', maskScale: 1.0, maskStrength: 35 },
             lcd: { name: 'LCD Matrix', grid: 35, palette: 'default' }
         }
     };
@@ -77,6 +77,25 @@
         const mask = retro.crtMask || retro.mask || 'aperture';
         const maskVal = mask === 'aperture' ? 1 : (mask === 'slot' || mask === 'slot-mask' || mask === 'shadow-mask' ? 2 : 0);
 
+        // Resolve scanline scale with backwards compatibility
+        let scanlineScale = 1.0;
+        if (retro.crtScanlineScale != null) {
+            scanlineScale = Math.max(0.2, Math.min(6.0, Number(retro.crtScanlineScale)));
+        } else if (retro.crtScanlineSize != null || retro.scanlineSize != null) {
+            scanlineScale = Math.max(0.2, Math.min(6.0, Number(retro.crtScanlineSize ?? retro.scanlineSize) / 4.0));
+        }
+
+        // Resolve phosphor mask scale with backwards compatibility
+        let maskScale = 1.0;
+        if (retro.crtMaskScale != null) {
+            maskScale = Math.max(0.2, Math.min(6.0, Number(retro.crtMaskScale)));
+        } else if (retro.crtMaskSize != null || retro.maskSize != null) {
+            maskScale = Math.max(0.2, Math.min(6.0, Number(retro.crtMaskSize ?? retro.maskSize) / 2.0));
+        }
+
+        // Resolve static noise scale
+        const staticScale = Math.max(1.0, Math.min(10.0, Number(retro.staticScale ?? retro.noiseScale ?? 2.0)));
+
         return {
             display,
             vhs,
@@ -85,12 +104,14 @@
 
             // CRT Screen
             crtScanlines: (retro.crtScanlines ?? retro.scanlines ?? 45) / 100,
-            crtScanlineSize: Math.max(1, Math.min(24, Number(retro.crtScanlineSize ?? retro.scanlineSize ?? 4))),
+            crtScanlineScale: scanlineScale,
+            crtScanlineSize: scanlineScale * 4.0, // preserved for legacy consumers
             crtCurvature: (retro.crtCurvature ?? retro.curvature ?? 12) / 100,
             crtBloom: (retro.crtBloom ?? retro.bloom ?? 25) / 100,
             crtVignette: (retro.crtVignette ?? retro.vignette ?? 20) / 100,
             crtMask: maskVal,
-            crtMaskSize: Math.max(1, Math.min(10, Number(retro.crtMaskSize ?? retro.maskSize ?? 2))),
+            crtMaskScale: maskScale,
+            crtMaskSize: maskScale * 2.0, // preserved for legacy consumers
             crtMaskStrength: (retro.crtMaskStrength ?? 35) / 100,
 
             // LCD Screen
@@ -110,6 +131,7 @@
 
             // TV Static & White Noise
             staticNoise: (retro.staticNoise ?? retro.noise ?? 55) / 100,
+            staticScale,
             staticPure: Boolean(retro.staticPure),
             staticColor: Boolean(retro.staticColor),
             staticGlitch: (retro.staticGlitch ?? retro.glitch ?? 40) / 100,
@@ -148,12 +170,12 @@
 
         // CRT Screen Uniforms
         uniform float u_crtScanlines;
-        uniform float u_crtScanlineSize;
+        uniform float u_crtScanlineScale;
         uniform float u_crtCurvature;
         uniform float u_crtBloom;
         uniform float u_crtVignette;
         uniform int u_crtMask; // 0=None, 1=Aperture Grille, 2=Slot Mask
-        uniform float u_crtMaskSize;
+        uniform float u_crtMaskScale;
         uniform float u_crtMaskStrength;
 
         // LCD Matrix Uniforms
@@ -174,6 +196,7 @@
 
         uniform int u_staticEnabled;
         uniform float u_staticNoise;
+        uniform float u_staticScale;
         uniform int u_staticPure;
         uniform int u_staticColor;
         uniform float u_staticGlitch;
@@ -275,14 +298,17 @@
                 chromaOffset += u_vhsChroma * 0.008;
             }
             if (u_ntscEnabled == 1 && u_ntscBleed > 0.001) {
-                chromaOffset += u_ntscBleed * 0.007;
+                // Subcarrier 3.58MHz phase drift & line jitter over time
+                float phaseFlutter = sin(uv.y * 60.0 + u_time * 8.0) * (u_ntscBleed * 0.0025)
+                                   + sin(u_time * 3.5) * (u_ntscBleed * 0.0015);
+                chromaOffset += u_ntscBleed * 0.007 + phaseFlutter;
             }
             if (u_displayMode == 1 && u_crtBloom > 0.001) {
                 chromaOffset += u_crtBloom * 0.0025;
             }
 
             vec4 col;
-            if (chromaOffset > 0.0001) {
+            if (abs(chromaOffset) > 0.0001) {
                 float r = sampleMedia(vec2(uv.x + chromaOffset, uv.y)).r;
                 vec4 center = sampleMedia(uv);
                 float b = sampleMedia(vec2(uv.x - chromaOffset, uv.y)).b;
@@ -291,11 +317,24 @@
                 col = sampleMedia(uv);
             }
 
-            // 6. NTSC Multipath RF Ghosting
-            if (u_ntscEnabled == 1 && u_ntscGhost > 0.001) {
-                float ghostOffset = 0.015 + u_ntscGhost * 0.025;
-                vec4 ghost = sampleMedia(vec2(uv.x + ghostOffset, uv.y));
-                col.rgb = mix(col.rgb, col.rgb + ghost.rgb * 0.45, u_ntscGhost);
+            // 6. NTSC Multipath RF Ghosting, Hum Crawl & Dot Crawl
+            if (u_ntscEnabled == 1) {
+                if (u_ntscGhost > 0.001) {
+                    // Antenna multipath bounce flutter
+                    float ghostFlutter = sin(u_time * 3.0 + uv.y * 10.0) * 0.0025;
+                    float ghostOffset = 0.015 + u_ntscGhost * 0.025 + ghostFlutter;
+                    vec4 ghost = sampleMedia(vec2(uv.x + ghostOffset, uv.y));
+                    float ghostGain = 0.35 + sin(u_time * 4.5) * 0.08;
+                    col.rgb = mix(col.rgb, col.rgb + ghost.rgb * ghostGain, u_ntscGhost);
+                }
+                if (u_ntscBleed > 0.001) {
+                    // 60Hz AC power line hum bar rolling down raster
+                    float hum = sin(uv.y * 6.283 - u_time * 1.5) * (u_ntscBleed * 0.02);
+                    col.rgb += hum;
+                    // High-frequency subcarrier dot crawl interference across chroma
+                    float crawl = sin(gl_FragCoord.x * 0.75 + gl_FragCoord.y * 0.75 + u_time * 20.0) * (u_ntscBleed * 0.018);
+                    col.rgb += crawl;
+                }
             }
 
             // 7. Base Color & Tone Adjustments
@@ -311,9 +350,10 @@
                 col.rgb = mix(col.rgb, vec3(gray), u_grayscale);
             }
 
-            // 8. TV White Noise & Analog Signal Noise
+            // 8. TV White Noise & Analog Signal Noise with Scalable Dot Size
             if (u_staticEnabled == 1 && (u_staticNoise > 0.001 || u_staticPure == 1)) {
-                vec2 noiseCoord = floor(gl_FragCoord.xy);
+                float nScale = max(1.0, u_staticScale);
+                vec2 noiseCoord = floor(gl_FragCoord.xy / nScale);
                 vec2 timeSeed = vec2(fract(u_time * 29.83), fract(u_time * 53.71));
                 float whiteNoise = hash21(noiseCoord + timeSeed * 1000.0);
 
@@ -351,18 +391,18 @@
 
             // 9. CRT Screen Layer: Scanlines, Aperture Grille, Bloom & Vignette
             if (u_displayMode == 1) {
-                // Electron Beam Scanlines with customizable pitch/spacing
+                // Electron Beam Scanlines with customizable pitch/spacing scale
                 if (u_crtScanlines > 0.001) {
-                    float linePitch = max(2.0, u_crtScanlineSize);
+                    float linePitch = max(1.5, 4.0 * u_crtScanlineScale);
                     float linePos = fract(gl_FragCoord.y / linePitch);
                     float dist = abs(linePos - 0.5);
                     float beam = exp(-dist * dist * (4.0 + u_crtScanlines * 14.0));
                     col.rgb *= mix(1.0, beam, u_crtScanlines * 0.9);
                 }
 
-                // Phosphor Mask (Trinitron Aperture Grille or Slot Mask) with customizable stripe width
+                // Phosphor Mask (Trinitron Aperture Grille or Slot Mask) with customizable stripe scale
                 if (u_crtMask > 0 && u_crtMaskStrength > 0.001) {
-                    float stripeWidth = max(1.0, floor(u_crtMaskSize));
+                    float stripeWidth = max(1.0, floor(2.0 * u_crtMaskScale + 0.1));
                     float colIdx = mod(floor(gl_FragCoord.x / stripeWidth), 3.0);
                     vec3 triad = vec3(0.5);
                     if (u_crtMask == 1) { // Aperture Grille (vertical RGB Trinitron stripes)
@@ -551,12 +591,12 @@
             'u_tex', 'u_res', 'u_time', 'u_uvScale', 'u_uvOffset',
             'u_brightness', 'u_contrast', 'u_saturate', 'u_grayscale',
             'u_displayMode',
-            'u_crtScanlines', 'u_crtScanlineSize', 'u_crtCurvature', 'u_crtBloom', 'u_crtVignette',
-            'u_crtMask', 'u_crtMaskSize', 'u_crtMaskStrength',
+            'u_crtScanlines', 'u_crtScanlineScale', 'u_crtCurvature', 'u_crtBloom', 'u_crtVignette',
+            'u_crtMask', 'u_crtMaskScale', 'u_crtMaskStrength',
             'u_lcdGrid', 'u_lcdPalette',
             'u_vhsEnabled', 'u_vhsJitter', 'u_vhsGlitch', 'u_vhsChroma', 'u_vhsNoise',
             'u_ntscEnabled', 'u_ntscBleed', 'u_ntscGhost', 'u_ntscNoise',
-            'u_staticEnabled', 'u_staticNoise', 'u_staticPure', 'u_staticColor', 'u_staticGlitch', 'u_staticRoll',
+            'u_staticEnabled', 'u_staticNoise', 'u_staticScale', 'u_staticPure', 'u_staticColor', 'u_staticGlitch', 'u_staticRoll',
             'u_grain', 'u_duoEnabled', 'u_duoDark', 'u_duoLight', 'u_tintEnabled', 'u_tintColor', 'u_tintOpacity'
         ];
         for (const name of uniformNames) {
@@ -692,12 +732,12 @@
 
         // CRT uniforms
         gl.uniform1f(u.u_crtScanlines, retro.crtScanlines);
-        gl.uniform1f(u.u_crtScanlineSize, retro.crtScanlineSize);
+        gl.uniform1f(u.u_crtScanlineScale, retro.crtScanlineScale);
         gl.uniform1f(u.u_crtCurvature, retro.crtCurvature);
         gl.uniform1f(u.u_crtBloom, retro.crtBloom);
         gl.uniform1f(u.u_crtVignette, retro.crtVignette);
         gl.uniform1i(u.u_crtMask, retro.crtMask);
-        gl.uniform1f(u.u_crtMaskSize, retro.crtMaskSize);
+        gl.uniform1f(u.u_crtMaskScale, retro.crtMaskScale);
         gl.uniform1f(u.u_crtMaskStrength, retro.crtMaskStrength);
 
         // LCD uniforms
@@ -720,6 +760,7 @@
 
         gl.uniform1i(u.u_staticEnabled, retro.static ? 1 : 0);
         gl.uniform1f(u.u_staticNoise, retro.staticNoise);
+        gl.uniform1f(u.u_staticScale, retro.staticScale);
         gl.uniform1i(u.u_staticPure, retro.staticPure ? 1 : 0);
         gl.uniform1i(u.u_staticColor, retro.staticColor ? 1 : 0);
         gl.uniform1f(u.u_staticGlitch, retro.staticGlitch);
