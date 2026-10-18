@@ -660,6 +660,223 @@ function normalizeOverlayPresets(list, alertTriggers = {}) {
     }).filter(Boolean);
 }
 
+function escapeXml(unsafe) {
+    if (unsafe == null) return '';
+    return String(unsafe)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
+function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '' } = {}) {
+    if (!overlay || !overlay.canvas) {
+        return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080"><rect width="100%" height="100%" fill="#0b0f17"/></svg>';
+    }
+
+    const width = Math.max(10, Math.round(Number(overlay.canvas.width) || 1920));
+    const height = Math.max(10, Math.round(Number(overlay.canvas.height) || 1080));
+    const bg = overlay.canvas.background || 'transparent';
+    const canvasGrad = overlay.canvas.gradient;
+
+    const defs = [];
+    const elementsSvg = [];
+
+    // Background gradient or color
+    if (canvasGrad && canvasGrad.enabled) {
+        const gradId = 'canvas-bg-grad';
+        const from = canvasGrad.from || '#1f6feb';
+        const to = canvasGrad.to || '#8957e5';
+        const mid = canvasGrad.mid ? `<stop offset="50%" stop-color="${escapeXml(canvasGrad.mid)}" />` : '';
+        defs.push(`<linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="${escapeXml(from)}" />
+            ${mid}
+            <stop offset="100%" stop-color="${escapeXml(to)}" />
+        </linearGradient>`);
+        elementsSvg.push(`<rect width="100%" height="100%" fill="url(#${gradId})" />`);
+    } else if (bg && bg !== 'transparent') {
+        elementsSvg.push(`<rect width="100%" height="100%" fill="${escapeXml(bg)}" />`);
+    }
+
+    const elements = Array.isArray(overlay.elements) ? [...overlay.elements] : [];
+    elements.sort((a, b) => (Number(a.zIndex) || 0) - (Number(b.zIndex) || 0));
+
+    elements.forEach((el, idx) => {
+        if (el.visible === false) return;
+        const x = Number(el.x) || 0;
+        const y = Number(el.y) || 0;
+        const w = Math.max(1, Number(el.width) || 100);
+        const h = Math.max(1, Number(el.height) || 100);
+        const style = el.style || {};
+        const opacity = style.opacity != null ? Number(style.opacity) : 1;
+        const rx = Number(style.borderRadius) || 0;
+
+        let transform = '';
+        if (el.rotation) {
+            transform = ` transform="rotate(${Number(el.rotation)}, ${x + w / 2}, ${y + h / 2})"`;
+        }
+        const opacityAttr = (opacity >= 0 && opacity < 1) ? ` opacity="${opacity}"` : '';
+
+        // Gradient support for element fill
+        let bgFill = style.background && style.background !== 'transparent' ? style.background : 'none';
+        if (style.gradient && style.gradient.enabled) {
+            const gradId = `el-grad-${escapeXml(el.id || idx)}`;
+            const from = style.gradient.from || '#1f6feb';
+            const to = style.gradient.to || '#8957e5';
+            const mid = style.gradient.mid ? `<stop offset="50%" stop-color="${escapeXml(style.gradient.mid)}" />` : '';
+            defs.push(`<linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="${escapeXml(from)}" />
+                ${mid}
+                <stop offset="100%" stop-color="${escapeXml(to)}" />
+            </linearGradient>`);
+            bgFill = `url(#${gradId})`;
+        }
+
+        const borderWidth = Number(style.borderWidth) || 0;
+        const borderColor = style.borderColor || 'none';
+        const strokeAttr = borderWidth > 0 && borderColor !== 'none' ? ` stroke="${escapeXml(borderColor)}" stroke-width="${borderWidth}"` : '';
+
+        if (el.type === 'shape') {
+            const shape = style.shape || 'rectangle';
+            const shapeFill = style.fill || bgFill;
+            if (shape === 'circle' || shape === 'ellipse') {
+                elementsSvg.push(`<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}" fill="${escapeXml(shapeFill)}"${strokeAttr}${opacityAttr}${transform} />`);
+            } else if (shape === 'triangle') {
+                const points = `${x + w / 2},${y} ${x + w},${y + h} ${x},${y + h}`;
+                elementsSvg.push(`<polygon points="${points}" fill="${escapeXml(shapeFill)}"${strokeAttr}${opacityAttr}${transform} />`);
+            } else if (shape === 'line') {
+                const strokeColor = style.borderColor || style.color || '#fff';
+                elementsSvg.push(`<line x1="${x}" y1="${y + h / 2}" x2="${x + w}" y2="${y + h / 2}" stroke="${escapeXml(strokeColor)}" stroke-width="${Math.max(2, borderWidth)}"${opacityAttr}${transform} />`);
+            } else {
+                elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(shapeFill)}"${strokeAttr}${opacityAttr}${transform} />`);
+            }
+        } else if (el.type === 'cutout') {
+            elementsSvg.push(`<g${opacityAttr}${transform}>
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(239, 68, 68, 0.08)" stroke="#ef4444" stroke-width="2" stroke-dasharray="6,4" />
+                <rect x="${x + 6}" y="${y + 6}" width="64" height="20" rx="3" fill="#ef4444" />
+                <text x="${x + 38}" y="${y + 20}" fill="#ffffff" font-family="-apple-system, system-ui, sans-serif" font-size="10" font-weight="700" text-anchor="middle" letter-spacing="0.05em">CUTOUT</text>
+            </g>`);
+        } else if (el.type === 'image') {
+            let href = el.src || '';
+            if (customOverlayAssetsDir && href.startsWith('/custom-overlay-assets/')) {
+                const filename = href.replace('/custom-overlay-assets/', '');
+                const filePath = path.join(customOverlayAssetsDir, filename);
+                try {
+                    const stats = fs.statSync(filePath);
+                    if (stats.size > 0 && stats.size <= 2 * 1024 * 1024) {
+                        const ext = path.extname(filename).toLowerCase().replace('.', '');
+                        const mime = ext === 'svg' ? 'image/svg+xml' : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/png';
+                        const b64 = fs.readFileSync(filePath).toString('base64');
+                        href = `data:${mime};base64,${b64}`;
+                    }
+                } catch {}
+            }
+            if (bgFill !== 'none' || borderWidth > 0) {
+                elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(bgFill)}"${strokeAttr}${opacityAttr}${transform} />`);
+            }
+            if (href) {
+                elementsSvg.push(`<image href="${escapeXml(href)}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice"${opacityAttr}${transform} />`);
+            } else {
+                elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.15)" stroke-width="1"${opacityAttr}${transform} />`);
+            }
+        } else if (['text', 'random-text', 'markdown'].includes(el.type)) {
+            if (bgFill !== 'none' || borderWidth > 0) {
+                elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(bgFill)}"${strokeAttr}${opacityAttr}${transform} />`);
+            }
+            const rawContent = el.content || (el.items && el.items.length ? el.items[0] : '') || el.name || '';
+            if (rawContent) {
+                const fontSize = Math.max(10, Math.min(180, Number(style.fontSize) || 24));
+                const fontFamily = style.fontFamily ? style.fontFamily.replace(/['"]/g, '') : '-apple-system, system-ui, sans-serif';
+                const textColor = style.color || '#ffffff';
+                const textAlign = style.textAlign || 'left';
+                const fontWeight = style.fontWeight || '400';
+
+                let textAnchor = 'start';
+                let tx = x + 12;
+                if (textAlign === 'center') {
+                    textAnchor = 'middle';
+                    tx = x + w / 2;
+                } else if (textAlign === 'right') {
+                    textAnchor = 'end';
+                    tx = x + w - 12;
+                }
+
+                const lines = String(rawContent).split('\n').slice(0, 8);
+                const lineHeight = fontSize * 1.25;
+                const totalTextH = lines.length * lineHeight;
+                let ty = y + (h - totalTextH) / 2 + fontSize * 0.88;
+                if (style.verticalAlign === 'top') {
+                    ty = y + fontSize * 0.9 + 8;
+                } else if (style.verticalAlign === 'bottom') {
+                    ty = y + h - totalTextH + fontSize * 0.9 - 8;
+                }
+
+                const tspans = lines.map((line, i) => `<tspan x="${tx}" dy="${i === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`).join('');
+                elementsSvg.push(`<text x="${tx}" y="${ty}" fill="${escapeXml(textColor)}" font-family="${escapeXml(fontFamily)}" font-size="${fontSize}" font-weight="${escapeXml(fontWeight)}" text-anchor="${textAnchor}"${opacityAttr}${transform}>${tspans}</text>`);
+            }
+        } else if (['video', 'embed'].includes(el.type)) {
+            elementsSvg.push(`<g${opacityAttr}${transform}>
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : '#0f172a'}" stroke="${borderWidth > 0 ? escapeXml(borderColor) : 'rgba(255,255,255,0.15)'}" stroke-width="${Math.max(1, borderWidth)}" />
+                <circle cx="${x + w / 2}" cy="${y + h / 2}" r="${Math.min(32, w / 4, h / 4)}" fill="rgba(255,255,255,0.12)" />
+                <polygon points="${x + w / 2 - 8},${y + h / 2 - 12} ${x + w / 2 + 14},${y + h / 2} ${x + w / 2 - 8},${y + h / 2 + 12}" fill="#ffffff" />
+                <text x="${x + w / 2}" y="${y + h / 2 + Math.min(32, w / 4, h / 4) + 20}" fill="rgba(255,255,255,0.7)" font-family="-apple-system, system-ui, sans-serif" font-size="12" font-weight="600" text-anchor="middle">${escapeXml(el.name || (el.type === 'embed' ? 'Web Embed' : 'Video Player'))}</text>
+            </g>`);
+        } else if (el.type === 'alert') {
+            elementsSvg.push(`<g${opacityAttr}${transform}>
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(30, 41, 59, 0.9)'}" stroke="${borderWidth > 0 ? escapeXml(borderColor) : 'rgba(250, 204, 21, 0.4)'}" stroke-width="${Math.max(1, borderWidth)}" />
+                <circle cx="${x + 36}" cy="${y + h / 2}" r="16" fill="rgba(250, 204, 21, 0.2)" />
+                <path d="M ${x + 36} ${y + h / 2 - 8} A 6 6 0 0 1 ${x + 42} ${y + h / 2 - 2} L ${x + 44} ${y + h / 2 + 4} L ${x + 28} ${y + h / 2 + 4} L ${x + 30} ${y + h / 2 - 2} A 6 6 0 0 1 ${x + 36} ${y + h / 2 - 8} Z" fill="#facc15" />
+                <text x="${x + 64}" y="${y + h / 2 - 4}" fill="#facc15" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="700">NEW FOLLOWER!</text>
+                <text x="${x + 64}" y="${y + h / 2 + 14}" fill="#ffffff" font-family="-apple-system, system-ui, sans-serif" font-size="12">StreamerFan123</text>
+            </g>`);
+        } else if (el.type === 'pattern') {
+            elementsSvg.push(`<g${opacityAttr}${transform}>
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : '#1e1b4b'}" stroke="${borderWidth > 0 ? escapeXml(borderColor) : 'rgba(167, 139, 250, 0.3)'}" stroke-width="${Math.max(1, borderWidth)}" />
+                <text x="${x + w / 2}" y="${y + h / 2 + 4}" fill="#c4b5fd" font-family="-apple-system, system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle">Pattern (${escapeXml(el.pattern?.layout || 'Grid')})</text>
+            </g>`);
+        } else if (el.type === 'game-list') {
+            elementsSvg.push(`<g${opacityAttr}${transform}>
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(15, 23, 42, 0.8)'}" stroke="${borderWidth > 0 ? escapeXml(borderColor) : '#3fb950'}" stroke-width="${Math.max(1, borderWidth)}" />
+                <text x="${x + 16}" y="${y + 28}" fill="#3fb950" font-family="-apple-system, system-ui, sans-serif" font-size="13" font-weight="700">GAME PLAN</text>
+                <rect x="${x + 16}" y="${y + 40}" width="${Math.min(60, w / 4)}" height="${Math.min(80, h - 50)}" rx="4" fill="rgba(255,255,255,0.1)" />
+                <rect x="${x + 16 + Math.min(60, w / 4) + 12}" y="${y + 40}" width="${Math.min(60, w / 4)}" height="${Math.min(80, h - 50)}" rx="4" fill="rgba(255,255,255,0.1)" />
+            </g>`);
+        } else if (el.type === 'progress') {
+            elementsSvg.push(`<g${opacityAttr}${transform}>
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(15, 23, 42, 0.6)'}" stroke="${borderWidth > 0 ? escapeXml(borderColor) : 'rgba(255,255,255,0.15)'}" stroke-width="${Math.max(1, borderWidth)}" />
+                <rect x="${x + 8}" y="${y + h / 2 - 4}" width="${w - 16}" height="8" rx="4" fill="rgba(255,255,255,0.18)" />
+                <rect x="${x + 8}" y="${y + h / 2 - 4}" width="${(w - 16) * 0.65}" height="8" rx="4" fill="#3fb950" />
+                <text x="${x + w / 2}" y="${y + h / 2 - 10}" fill="#ffffff" font-family="-apple-system, system-ui, sans-serif" font-size="11" font-weight="600" text-anchor="middle">65%</text>
+            </g>`);
+        } else if (el.type === 'qr') {
+            elementsSvg.push(`<g${opacityAttr}${transform}>
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="#ffffff" stroke="${borderWidth > 0 ? escapeXml(borderColor) : 'none'}" stroke-width="${borderWidth}" />
+                <rect x="${x + 8}" y="${y + 8}" width="${w / 3}" height="${h / 3}" fill="#000000" />
+                <rect x="${x + w - 8 - w / 3}" y="${y + 8}" width="${w / 3}" height="${h / 3}" fill="#000000" />
+                <rect x="${x + 8}" y="${y + h - 8 - h / 3}" width="${w / 3}" height="${h / 3}" fill="#000000" />
+            </g>`);
+        } else {
+            if (bgFill !== 'none' || borderWidth > 0) {
+                elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(bgFill)}"${strokeAttr}${opacityAttr}${transform} />`);
+            } else {
+                elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.15)" stroke-width="1"${opacityAttr}${transform} />`);
+            }
+            if (el.name) {
+                elementsSvg.push(`<text x="${x + w / 2}" y="${y + h / 2 + 4}" fill="rgba(255,255,255,0.7)" font-family="-apple-system, system-ui, sans-serif" font-size="12" font-weight="500" text-anchor="middle"${opacityAttr}${transform}>${escapeXml(el.name)}</text>`);
+            }
+        }
+    });
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
+    <defs>
+        ${defs.join('\n        ')}
+    </defs>
+    ${elementsSvg.join('\n    ')}
+</svg>`;
+}
+
 function createOverlayService({
     dataDir,
     safeWriteFileSync = defaultSafeWrite,
@@ -675,6 +892,76 @@ function createOverlayService({
     const customOverlayAssetsDir = path.join(dataDir, 'custom-overlay-assets');
     const customOverlayHistoryDir = path.join(dataDir, 'custom-overlay-history');
     const customOverlayHistoryLimit = 30;
+    const customOverlayThumbnailsDir = path.join(dataDir, 'custom-overlay-thumbnails');
+
+    try {
+        if (!fs.existsSync(customOverlayThumbnailsDir)) {
+            fs.mkdirSync(customOverlayThumbnailsDir, { recursive: true });
+        }
+    } catch {}
+
+    function getOverlayThumbnailPath(id) {
+        const cleanId = sanitizeOverlayId(id);
+        if (!cleanId) return null;
+        const webp = path.join(customOverlayThumbnailsDir, `${cleanId}.webp`);
+        if (fs.existsSync(webp)) return { path: webp, mime: 'image/webp' };
+        const png = path.join(customOverlayThumbnailsDir, `${cleanId}.png`);
+        if (fs.existsSync(png)) return { path: png, mime: 'image/png' };
+        const svg = path.join(customOverlayThumbnailsDir, `${cleanId}.svg`);
+        if (fs.existsSync(svg)) return { path: svg, mime: 'image/svg+xml; charset=utf-8' };
+        return null;
+    }
+
+    function deleteOverlayThumbnail(id) {
+        const cleanId = sanitizeOverlayId(id);
+        if (!cleanId) return;
+        for (const ext of ['.webp', '.png', '.svg', '.jpg', '.jpeg']) {
+            try {
+                const p = path.join(customOverlayThumbnailsDir, `${cleanId}${ext}`);
+                if (fs.existsSync(p)) fs.unlinkSync(p);
+            } catch {}
+        }
+    }
+
+    function renameOverlayThumbnail(oldId, newId) {
+        const cleanOld = sanitizeOverlayId(oldId);
+        const cleanNew = sanitizeOverlayId(newId);
+        if (!cleanOld || !cleanNew) return;
+        for (const ext of ['.webp', '.png', '.svg', '.jpg', '.jpeg']) {
+            try {
+                const oldPath = path.join(customOverlayThumbnailsDir, `${cleanOld}${ext}`);
+                const newPath = path.join(customOverlayThumbnailsDir, `${cleanNew}${ext}`);
+                if (fs.existsSync(oldPath)) fs.renameSync(oldPath, newPath);
+            } catch {}
+        }
+    }
+
+    function saveOverlayThumbnail(id, dataUrlOrBuffer) {
+        const cleanId = sanitizeOverlayId(id);
+        if (!cleanId || !dataUrlOrBuffer) return false;
+        try {
+            fs.mkdirSync(customOverlayThumbnailsDir, { recursive: true });
+            if (typeof dataUrlOrBuffer === 'string') {
+                const match = dataUrlOrBuffer.match(/^data:image\/(webp|png|jpeg|svg\+xml);base64,(.+)$/);
+                if (match) {
+                    const ext = match[1] === 'svg+xml' ? '.svg' : match[1] === 'jpeg' ? '.jpg' : `.${match[1]}`;
+                    const buf = Buffer.from(match[2], 'base64');
+                    fs.writeFileSync(path.join(customOverlayThumbnailsDir, `${cleanId}${ext}`), buf);
+                    return true;
+                }
+                if (dataUrlOrBuffer.trim().startsWith('<svg')) {
+                    fs.writeFileSync(path.join(customOverlayThumbnailsDir, `${cleanId}.svg`), dataUrlOrBuffer, 'utf8');
+                    return true;
+                }
+            } else if (Buffer.isBuffer(dataUrlOrBuffer)) {
+                fs.writeFileSync(path.join(customOverlayThumbnailsDir, `${cleanId}.webp`), dataUrlOrBuffer);
+                return true;
+            }
+        } catch (err) {
+            warn('[Overlays] Could not save overlay thumbnail:', err.message);
+        }
+        return false;
+    }
 
     const randomizerPresetsPath = path.join(dataDir, 'randomizer-presets.json');
     const randomizerButtonPresetsPath = path.join(dataDir, 'randomizer-button-presets.json');
@@ -1059,6 +1346,13 @@ function createOverlayService({
         saveRandomizerButtonPresets,
         loadRandomizerQuotePresets,
         saveRandomizerQuotePresets,
+        // Thumbnail helpers
+        generateSvgThumbnail: (overlay) => generateSvgThumbnail(overlay, { customOverlayAssetsDir }),
+        getOverlayThumbnailPath,
+        saveOverlayThumbnail,
+        deleteOverlayThumbnail,
+        renameOverlayThumbnail,
+        customOverlayThumbnailsDir,
         // Paths & directories
         customOverlaysPath,
         overlayPresetsPath,
@@ -1082,6 +1376,7 @@ function createOverlayService({
 
 module.exports = {
     createOverlayService,
+    generateSvgThumbnail,
     normalizeGradient,
     normalizeMediaFilter,
     normalizeRetro,

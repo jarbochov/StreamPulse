@@ -139,6 +139,11 @@ function createOverlayRoutes({
     movePage = overlayService ? overlayService.movePage : () => {},
     broadcastPage = overlayService ? overlayService.broadcastPage : () => {},
     pageSnapshot = overlayService ? overlayService.pageSnapshot : () => ({}),
+    getOverlayThumbnailPath = overlayService ? overlayService.getOverlayThumbnailPath : () => null,
+    generateSvgThumbnail = overlayService ? overlayService.generateSvgThumbnail : () => '<svg></svg>',
+    saveOverlayThumbnail = overlayService ? overlayService.saveOverlayThumbnail : () => false,
+    deleteOverlayThumbnail = overlayService ? overlayService.deleteOverlayThumbnail : () => {},
+    renameOverlayThumbnail = overlayService ? overlayService.renameOverlayThumbnail : () => {},
     broadcastToOverlays = () => {},
     loadRandomizerPresets = overlayService ? overlayService.loadRandomizerPresets : () => [],
     saveRandomizerPresets = overlayService ? overlayService.saveRandomizerPresets : () => true,
@@ -792,12 +797,83 @@ function createOverlayRoutes({
                     const newHist = historyFile(customOverlayHistoryDir, newId);
                     if (fs.existsSync(oldHist)) fs.renameSync(oldHist, newHist);
                 } catch {}
+                renameOverlayThumbnail(oldId, newId);
                 broadcastToOverlays('custom-overlay-update', { id: oldId, overlay: null });
                 broadcastToOverlays('custom-overlay-update', { id: newId, overlay });
                 sendJson(res, overlay);
             } catch (err) {
                 sendError(res, err.message, 400);
             }
+            return true;
+        }
+
+        const overlayThumbnailMatch = pathname.match(/^\/api\/custom-overlays\/([^/]+)\/thumbnail$/);
+        if (overlayThumbnailMatch) {
+            const id = sanitizeOverlayId(decodeURIComponent(overlayThumbnailMatch[1]));
+            const customOverlays = getCustomOverlays();
+            const overlay = customOverlays[id];
+            if (!overlay) {
+                sendError(res, 'Overlay not found', 404);
+                return true;
+            }
+
+            if (req.method === 'GET') {
+                const wantsSvg = url.searchParams.get('format') === 'svg';
+                const cached = getOverlayThumbnailPath(id);
+
+                if (cached && !wantsSvg && cached.mime !== 'image/svg+xml; charset=utf-8') {
+                    try {
+                        const data = fs.readFileSync(cached.path);
+                        res.writeHead(200, {
+                            'Content-Type': cached.mime,
+                            'Cache-Control': 'public, max-age=60',
+                            'ETag': `"${overlay.revision || 1}-${id}"`
+                        });
+                        res.end(data);
+                        return true;
+                    } catch {}
+                }
+
+                const svg = generateSvgThumbnail(overlay);
+                try {
+                    saveOverlayThumbnail(id, svg);
+                } catch {}
+
+                res.writeHead(200, {
+                    'Content-Type': 'image/svg+xml; charset=utf-8',
+                    'Cache-Control': 'public, max-age=30',
+                    'ETag': `"${overlay.revision || 1}-${id}"`
+                });
+                res.end(svg);
+                return true;
+            }
+
+            if (req.method === 'PUT') {
+                try {
+                    const raw = await readRequestBody(req) || '';
+                    let saved = false;
+                    try {
+                        const parsed = JSON.parse(raw);
+                        if (parsed.thumbnail) {
+                            saved = saveOverlayThumbnail(id, parsed.thumbnail);
+                        }
+                    } catch {
+                        if (raw.trim().startsWith('<svg')) {
+                            saved = saveOverlayThumbnail(id, raw);
+                        }
+                    }
+                    if (!saved) {
+                        sendError(res, 'Invalid thumbnail payload. Expected data URL or SVG.', 400);
+                        return true;
+                    }
+                    sendJson(res, { ok: true, id });
+                } catch (err) {
+                    sendError(res, err.message, 400);
+                }
+                return true;
+            }
+
+            sendError(res, 'Method not allowed', 405);
             return true;
         }
 
@@ -833,6 +909,7 @@ function createOverlayRoutes({
                     const previous = customOverlays[id];
                     customOverlays[id] = overlay;
                     saveCustomOverlays();
+                    deleteOverlayThumbnail(id);
                     syncOverlayPages(overlay, previous);
                     broadcastToOverlays('custom-overlay-update', { id, overlay });
                     broadcastPage(overlay);
@@ -851,6 +928,7 @@ function createOverlayRoutes({
                 delete customOverlays[id];
                 dropOverlayPages(id);
                 saveCustomOverlays();
+                deleteOverlayThumbnail(id);
                 try {
                     fs.unlinkSync(historyFile(customOverlayHistoryDir, id));
                 } catch {}

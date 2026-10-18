@@ -31,9 +31,14 @@
         .size input { padding: 0; width: 120px; accent-color: var(--accent); }
         .overlay { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); overflow: hidden; display: flex; flex-direction: column; }
         .overlay:hover { border-color: var(--border-strong); }
-        .preview { position: relative; height: calc(var(--card, 300px) * 0.57); overflow: hidden; background: conic-gradient(var(--bg-raised) 25%, var(--bg-card) 0 50%, var(--bg-raised) 0 75%, var(--bg-card) 0) 0 0 / 16px 16px; border-bottom: 1px solid var(--border); }
+        .preview { position: relative; height: calc(var(--card, 300px) * 0.57); overflow: hidden; background: conic-gradient(var(--bg-raised) 25%, var(--bg-card) 0 50%, var(--bg-raised) 0 75%, var(--bg-card) 0) 0 0 / 16px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
         .preview.off { display: none; }
-        .preview iframe { position: absolute; top: 50%; left: 50%; border: 0; background: transparent; transform-origin: 0 0; pointer-events: none; }
+        .preview-thumb { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; user-select: none; }
+        .preview-live-btn { position: absolute; top: 6px; right: 6px; z-index: 2; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.48rem; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem; opacity: 0; transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease, background 0.15s ease; }
+        .preview:hover .preview-live-btn, .preview:focus-within .preview-live-btn, .preview-live-btn.active { opacity: 1; }
+        .preview-live-btn:hover { color: var(--text); border-color: var(--accent); background: var(--bg-raised); }
+        .preview-live-btn.active { color: #fff; background: var(--accent); border-color: var(--accent); }
+        .preview iframe { position: absolute; top: 50%; left: 50%; border: 0; background: transparent; transform-origin: 0 0; pointer-events: auto; }
         .body { padding: 0.7rem 0.85rem 0.8rem; display: grid; gap: 0.35rem; flex: 1; grid-template-rows: auto auto 1fr; }
         .title { font-weight: 600; font-size: 0.98rem; overflow-wrap: anywhere; }
         .meta { color: var(--text-muted); font-size: 0.76rem; line-height: 1.5; }
@@ -84,7 +89,7 @@
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const urlParams = new URLSearchParams(location.search);
-    const prefs = Object.assign({ previews: false, view: 'grid', sort: 'updated', size: 300 }, JSON.parse(localStorage.getItem('customOverlaysPrefs') || '{}'));
+    const prefs = Object.assign({ previews: true, view: 'grid', sort: 'updated', size: 300 }, JSON.parse(localStorage.getItem('customOverlaysPrefs') || '{}'));
     if (urlParams.has('view')) prefs.view = urlParams.get('view');
     if (urlParams.has('sort')) prefs.sort = urlParams.get('sort');
     const savePrefs = () => {
@@ -129,32 +134,60 @@
         elements: (a, b) => b.elementCount - a.elementCount
     };
 
-    // Each preview is a full running overlay (socket, timers, media). Only keep the ones on screen alive, and none while the tab is hidden.
-    const visiblePreviews = new Set();
-    const previewObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
-        for (const entry of entries) { entry.isIntersecting ? visiblePreviews.add(entry.target) : visiblePreviews.delete(entry.target); syncPreview(entry.target); }
-    }, { rootMargin: '150px' }) : null;
-    function syncPreview(frame) {
-        const wanted = !document.hidden && (!previewObserver || visiblePreviews.has(frame));
-        const target = wanted ? frame.dataset.src : 'about:blank';
-        if (frame.getAttribute('src') !== target) frame.setAttribute('src', target);
-    }
-    function watchPreviews() {
-        visiblePreviews.clear();
-        previewObserver?.disconnect();
-        for (const frame of document.querySelectorAll('.preview iframe')) { if (previewObserver) previewObserver.observe(frame); else syncPreview(frame); }
-    }
-    document.addEventListener('visibilitychange', () => document.querySelectorAll('.preview iframe').forEach(syncPreview));
-
-    function fitPreviews() {
-        for (const box of document.querySelectorAll('.preview:not(.off)')) {
-            const frame = box.firstElementChild;
-            if (!frame) continue;
-            const width = Number(frame.dataset.w), height = Number(frame.dataset.h);
+    function fitActiveLiveFrames() {
+        for (const frame of document.querySelectorAll('.preview iframe')) {
+            const box = frame.parentElement;
+            if (!box) continue;
+            const width = Number(frame.dataset.w) || 1920, height = Number(frame.dataset.h) || 1080;
             const scale = Math.min(box.clientWidth / width, box.clientHeight / height) * 0.96;
             frame.style.width = `${width}px`;
             frame.style.height = `${height}px`;
             frame.style.transform = `scale(${scale}) translate(-50%, -50%)`;
+        }
+    }
+
+    function toggleLivePreview(liveBtn) {
+        const box = liveBtn.closest('.preview');
+        if (!box) return;
+        const id = liveBtn.dataset.liveId;
+        const existing = box.querySelector('iframe');
+        if (existing) {
+            try { existing.src = 'about:blank'; } catch {}
+            existing.remove();
+            liveBtn.classList.remove('active');
+            liveBtn.title = 'Mount live preview frame';
+            liveBtn.innerHTML = `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><polygon points="6 4 19 12 6 20 6 4"/></svg><span>Live</span>`;
+            const thumb = box.querySelector('.preview-thumb');
+            if (thumb) thumb.style.display = '';
+        } else {
+            const width = Number(box.dataset.w) || 1920;
+            const height = Number(box.dataset.h) || 1080;
+            const frame = document.createElement('iframe');
+            frame.tabIndex = -1;
+            frame.dataset.w = String(width);
+            frame.dataset.h = String(height);
+            frame.title = `Live preview of ${id}`;
+            frame.src = `/custom-overlay.html?id=${encodeURIComponent(id)}&preview=true`;
+            frame.style.position = 'absolute';
+            frame.style.top = '50%';
+            frame.style.left = '50%';
+            frame.style.border = '0';
+            frame.style.background = 'transparent';
+            frame.style.transformOrigin = '0 0';
+            frame.style.pointerEvents = 'auto';
+
+            const scale = Math.min(box.clientWidth / width, box.clientHeight / height) * 0.96;
+            frame.style.width = `${width}px`;
+            frame.style.height = `${height}px`;
+            frame.style.transform = `scale(${scale}) translate(-50%, -50%)`;
+
+            const thumb = box.querySelector('.preview-thumb');
+            if (thumb) thumb.style.display = 'none';
+
+            box.appendChild(frame);
+            liveBtn.classList.add('active');
+            liveBtn.title = 'Unmount live frame and return to static thumbnail';
+            liveBtn.innerHTML = `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg><span>Static</span>`;
         }
     }
 
@@ -163,15 +196,21 @@
         const shown = overlays.filter(o => !query || `${o.name} ${o.id}`.toLowerCase().includes(query)).sort(SORTS[prefs.sort] || SORTS.updated);
         $('summary').textContent = overlays.length ? `${shown.length} of ${overlays.length} overlays` : '';
         const list = $('overlay-list');
-        previewObserver?.disconnect();
-        visiblePreviews.clear();
         list.querySelectorAll('iframe').forEach(f => { try { f.src = 'about:blank'; } catch {} });
         list.className = prefs.view === 'list' ? 'grid list' : 'grid';
         $('toggle-preview').classList.toggle('active', prefs.previews);
         $('toggle-view').textContent = prefs.view === 'list' ? 'Grid view' : 'List view';
         list.innerHTML = shown.length ? shown.map(o => `
             <article class="overlay">
-                <div class="preview${prefs.previews ? '' : ' off'}">${prefs.previews ? `<iframe tabindex="-1" data-w="${o.canvas.width}" data-h="${o.canvas.height}" data-src="/custom-overlay.html?id=${encodeURIComponent(o.id)}" title="Preview of ${esc(o.name)}"></iframe>` : ''}</div>
+                <div class="preview${prefs.previews ? '' : ' off'}" data-id="${esc(o.id)}" data-w="${o.canvas.width}" data-h="${o.canvas.height}">
+                    ${prefs.previews ? `
+                        <img class="preview-thumb" src="/api/custom-overlays/${encodeURIComponent(o.id)}/thumbnail?v=${encodeURIComponent(o.updatedAt || o.revision)}" alt="Thumbnail of ${esc(o.name)}" loading="lazy">
+                        <button type="button" class="preview-live-btn" data-live-id="${esc(o.id)}" title="Mount live preview frame">
+                            <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><polygon points="6 4 19 12 6 20 6 4"/></svg>
+                            <span>Live</span>
+                        </button>
+                    ` : ''}
+                </div>
                 <div class="body">
                     <div class="title">${esc(o.name)}</div>
                     <div class="meta">${esc(o.id)} · ${o.canvas.width}×${o.canvas.height} · ${o.elementCount} element${o.elementCount === 1 ? '' : 's'}${o.pageCount ? ` · ${o.pageCount} pages` : ''}<br>Edited ${ago(o.updatedAt)} · revision ${o.revision}</div>
@@ -189,8 +228,7 @@
                     </div>
                 </div>
             </article>`).join('') : `<div class="empty">${overlays.length ? 'No overlays match your search.' : 'No custom overlays yet. Create your first one.'}</div>`;
-        watchPreviews();
-        requestAnimationFrame(fitPreviews);
+        requestAnimationFrame(fitActiveLiveFrames);
     }
 
     async function load() {
@@ -218,6 +256,14 @@
     }
 
     $('overlay-list').addEventListener('click', async event => {
+        const liveBtn = event.target.closest('.preview-live-btn');
+        if (liveBtn) {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleLivePreview(liveBtn);
+            return;
+        }
+
         const button = event.target.closest('[data-act]');
         if (!button) return;
         const id = button.dataset.id;
@@ -248,7 +294,7 @@
     $('search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(render, 150); });
     $('sort').value = prefs.sort;
     $('sort').addEventListener('change', () => { prefs.sort = $('sort').value; savePrefs(); render(); });
-    const applySize = () => { $('overlay-list').style.setProperty('--card', `${prefs.size}px`); fitPreviews(); };
+    const applySize = () => { $('overlay-list').style.setProperty('--card', `${prefs.size}px`); fitActiveLiveFrames(); };
     $('card-size').value = prefs.size;
     let cardSizeTimer = null;
     $('card-size').addEventListener('input', () => {
@@ -260,7 +306,7 @@
     $('overlay-list').style.setProperty('--card', `${prefs.size}px`);
     $('toggle-preview').addEventListener('click', () => { prefs.previews = !prefs.previews; savePrefs(); render(); });
     $('toggle-view').addEventListener('click', () => { prefs.view = prefs.view === 'list' ? 'grid' : 'list'; savePrefs(); render(); });
-    window.addEventListener('resize', fitPreviews);
+    window.addEventListener('resize', fitActiveLiveFrames);
 
     load().catch(error => { $('overlay-list').innerHTML = `<div class="empty">${esc(error.message)}</div>`; });
     </script>
