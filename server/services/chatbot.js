@@ -77,7 +77,7 @@ function formatTokens(text, { user = '', arg = '', msg = {}, viewers = '' } = {}
     return out;
 }
 
-module.exports = function createChatbot({ sessionKey = () => '', onUse = () => {}, dataDir, getConfig, port, variables }) {
+module.exports = function createChatbot({ sessionKey = () => '', onUse = () => {}, dataDir, getConfig, port = Number(process.env.PORT) || 3000, variables }) {
     const file = path.join(dataDir, 'chatbot.json');
     let data = { settings: { ...DEFAULT_SETTINGS }, commands: [], quotes: [], nextQuoteId: 1, messages: [], triggers: [] };
     const startedAt = Date.now();
@@ -119,15 +119,33 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         };
     }
 
+    function normalizeHttpAction(input) {
+        if (!input || typeof input !== 'object') return null;
+        const enabled = input.enabled === true;
+        const url = clean(input.url, 1000);
+        if (!url && !enabled) return null;
+        const method = ['GET', 'POST', 'PUT', 'DELETE'].includes(String(input.method || '').toUpperCase())
+            ? String(input.method).toUpperCase()
+            : 'GET';
+        const body = typeof input.body === 'string' ? clean(input.body, 2000) : '';
+        const headers = (input.headers && typeof input.headers === 'object') ? input.headers : {};
+        return { enabled, method, url, body, headers };
+    }
+
     function normalizeCommand(input = {}) {
         const name = clean(input.name, 30).toLowerCase().replace(/^[^a-z0-9_]+/, '');
         if (!NAME_RE.test(name)) return null;
         const aliases = (Array.isArray(input.aliases) ? input.aliases : String(input.aliases || '').split(/[\s,]+/))
             .map(a => clean(a, 30).toLowerCase().replace(/^[^a-z0-9_]+/, '')).filter(a => NAME_RE.test(a) && a !== name);
+        const httpAction = normalizeHttpAction(input.httpAction);
+        const rawResponse = clean(input.response, 1000);
+        const silent = input.silent === true || (Boolean(httpAction && httpAction.enabled && httpAction.url) && !rawResponse);
         return {
             name,
             aliases: [...new Set(aliases)].slice(0, 5),
-            response: clean(input.response, 1000),
+            response: rawResponse,
+            silent,
+            httpAction,
             random: input.random === true,
             counter: clean(input.counter, 40).toLowerCase().replace(/[^a-z0-9_]/g, '_'),
             counterAction: ['increment', 'decrement', 'reset', 'roll'].includes(input.counterAction) ? input.counterAction : 'increment',
@@ -199,7 +217,9 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
     function normalizeTrigger(input = {}) {
         const words = (Array.isArray(input.words) ? input.words : String(input.words || '').split(/[\n,]+/)).map(w => clean(w, 60).toLowerCase()).filter(Boolean);
         const text = clean(input.text, 1000);
-        if (!words.length || !text) return null;
+        const httpAction = normalizeHttpAction(input.httpAction);
+        if (!words.length || (!text && (!httpAction || !httpAction.enabled || !httpAction.url))) return null;
+        const silent = input.silent === true || (Boolean(httpAction && httpAction.enabled && httpAction.url) && !text);
         return {
             id: clean(input.id, 20) || newId(),
             name: clean(input.name, 60),
@@ -212,6 +232,8 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             limitPer: ['session', 'day', 'forever'].includes(input.limitPer) ? input.limitPer : 'session',
             cooldown: num(input.cooldown, 0, 86400, 60),
             random: input.random === true,
+            silent,
+            httpAction,
             text
         };
     }
@@ -285,7 +307,40 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
     const enabled = () => isModuleEnabled() && data.settings.enabled === true;
     let seq = 0;
     const activity = [];
-    const logUse = (kind, name, user) => { activity.push({ seq: ++seq, kind, name, user: user || '', at: Date.now() }); if (activity.length > 50) activity.shift(); try { onUse(kind, name); } catch { /* non-fatal */ } };
+    const logUse = (kind, name, user, meta = {}) => {
+        activity.push({ seq: ++seq, kind, name, user: user || '', at: Date.now(), ...meta });
+        if (activity.length > 50) activity.shift();
+        try { onUse(kind, name); } catch { /* non-fatal */ }
+    };
+
+    async function executeHttpAction(action, { user = '', arg = '', msg = {} } = {}) {
+        if (!action || !action.enabled || !action.url) return null;
+        try {
+            const formattedUrl = formatTokens(action.url, { user, arg, msg });
+            let finalUrl = await expand(formattedUrl);
+            if (!finalUrl) return null;
+            if (finalUrl.startsWith('/')) {
+                finalUrl = `http://127.0.0.1:${port}${finalUrl}`;
+            }
+            const method = (action.method || 'GET').toUpperCase();
+            const opts = {
+                method,
+                signal: AbortSignal.timeout(5000)
+            };
+            if (method !== 'GET' && method !== 'HEAD') {
+                const formattedBody = formatTokens(action.body || '', { user, arg, msg });
+                const expandedBody = await expand(formattedBody);
+                opts.headers = { 'Content-Type': 'application/json', ...(action.headers || {}) };
+                opts.body = expandedBody;
+            }
+            const res = await fetch(finalUrl, opts);
+            const text = await res.text().catch(() => '');
+            return { ok: res.ok, status: res.status, statusText: res.statusText, text: text.slice(0, 500) };
+        } catch (err) {
+            console.warn(`[Chatbot HTTP] Action failed (${action.url}): ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    }
     const sessionId = () => getConfig().ssn?.session_id;
     const baseUrl = () => String(getConfig().ssn?.chat_base || getConfig().ssn?.server || 'https://io.socialstream.ninja').replace(/^wss:/, 'https:').replace(/^ws:/, 'http:').replace(/\/+$/, '');
 
@@ -451,10 +506,84 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         recent.length = Math.min(recent.length, 15);
     }
 
+    async function executeCommand(name, arg = '', msg = {}, { bypassCooldown = false } = {}) {
+        const custom = data.commands.find(c => c.enabled && (c.name === name || c.aliases.includes(name)));
+        const builtin = ['quote', 'quotes', 'addquote', 'delquote'].includes(name) ? name : null;
+        if (!custom && !builtin) return null;
+        const key = custom ? custom.name : builtin === 'quotes' ? 'quote' : builtin;
+        const cfg = custom || data.settings.builtins?.[key] || { access: BUILTIN_DEFAULTS[key], cooldown: null };
+        if (!allowed(cfg.access, msg)) return { ok: false, error: 'Access denied' };
+        const now = Date.now();
+        if (!bypassCooldown) {
+            const base = cfg.cooldown !== null && cfg.cooldown !== undefined ? cfg.cooldown : data.settings.cooldown;
+            const wait = (isMod(msg) ? (cfg.modCooldown ?? data.settings.modCooldown ?? base) : base) * 1000;
+            if (now - (lastUsed.get(key) || 0) < wait || now - lastAny < 1000) return { ok: false, error: 'Cooldown active' };
+            if (custom && limited(key, custom, msg)) return { ok: false, error: 'Usage limit reached' };
+        }
+
+        logUse('command', key, msg.chatname, { silent: Boolean(custom?.silent), http: Boolean(custom?.httpAction?.enabled) });
+
+        if (builtin === 'addquote' || builtin === 'delquote') {
+            if (builtin === 'addquote') {
+                const quote = addQuote(arg, msg.chatname);
+                const replyText = quote ? `Quote #${quote.id} added.` : 'Usage: addquote <text>';
+                await reply(key, replyText);
+                return { ok: true, name: key, reply: replyText };
+            }
+            const replyText = deleteQuote(arg) ? `Quote #${arg} removed.` : 'Usage: delquote <number>';
+            await reply(key, replyText);
+            return { ok: true, name: key, reply: replyText };
+        }
+        if (builtin === 'quotes') {
+            const replyText = `${data.quotes.length} quote${data.quotes.length === 1 ? '' : 's'} saved. Use ${prefixOf()}quote or ${prefixOf()}quote <number>.`;
+            await reply(key, replyText);
+            return { ok: true, name: key, reply: replyText };
+        }
+        if (builtin === 'quote') {
+            const replyText = quoteReply(arg, msg);
+            await reply(key, replyText);
+            return { ok: true, name: key, reply: replyText };
+        }
+
+        if (custom.counter && variables) {
+            try {
+                if (custom.counterAction === 'roll') variables.roll(custom.counter);
+                else variables.change(custom.counter, custom.counterAction, 1);
+                statusCache.at = 0;
+            } catch (err) {
+                console.warn(`[Chatbot] ${err.message}`);
+            }
+        }
+
+        let httpResult = null;
+        if (custom.httpAction && custom.httpAction.enabled) {
+            httpResult = await executeHttpAction(custom.httpAction, { user: msg.chatname || '', arg, msg });
+        }
+
+        if (custom.silent) {
+            return { ok: true, name: key, silent: true, http: httpResult };
+        }
+
+        const raw = pick(custom.response, custom.random);
+        if (!raw && custom.httpAction?.enabled) {
+            return { ok: true, name: key, silent: true, http: httpResult };
+        }
+
+        try {
+            const formatted = formatTokens(raw, { user: msg.chatname || '', arg, msg });
+            const replyText = await expand(formatted);
+            await reply(key, replyText || '(no value yet)');
+            return { ok: true, name: key, silent: false, reply: replyText, http: httpResult };
+        } catch (err) {
+            console.warn(`[Chatbot] ${err.message}`);
+            return { ok: false, name: key, error: err.message, http: httpResult };
+        }
+    }
+
     async function handle(msg) {
         if (!msg || msg.event || msg.hasDonation) { /* events carry no chatter flags worth logging */ } else if (!/^\[BOT\]/.test(String(msg.chatmessage || ''))) capture(msg);
         if (!enabled()) return;
-        const { prefix, tag, cooldown } = data.settings;
+        const { prefix, tag } = data.settings;
         const text = String(msg.chatmessage || '').replace(/<[^>]+>/g, '').replace(/&#?\w+;/g, ' ').trim();
         // Never react to our own tagged replies or to events.
         if (!text || (tag && text.startsWith(tag)) || msg.event || msg.hasDonation) return;
@@ -463,35 +592,11 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         const [first, ...rest] = text.slice(prefix.length).trim().split(/\s+/);
         const name = String(first || '').toLowerCase();
         const arg = rest.join(' ').trim();
-        const now = Date.now();
-        const custom = data.commands.find(c => c.enabled && (c.name === name || c.aliases.includes(name)));
-        const builtin = ['quote', 'quotes', 'addquote', 'delquote'].includes(name) ? name : null;
-        if (!custom && !builtin) return;
-        const key = custom ? custom.name : builtin === 'quotes' ? 'quote' : builtin;
-        const cfg = custom || data.settings.builtins?.[key] || { access: BUILTIN_DEFAULTS[key], cooldown: null };
-        if (!allowed(cfg.access, msg)) return;
-        const base = cfg.cooldown !== null && cfg.cooldown !== undefined ? cfg.cooldown : cooldown;
-        const wait = (isMod(msg) ? (cfg.modCooldown ?? data.settings.modCooldown ?? base) : base) * 1000;
-        if (now - (lastUsed.get(key) || 0) < wait || now - lastAny < 1000) return;
-
-        if (custom && limited(key, custom, msg)) return;
-        logUse('command', key, msg.chatname);
-        if (builtin === 'addquote' || builtin === 'delquote') {
-            if (builtin === 'addquote') {
-                const quote = addQuote(arg, msg.chatname);
-                return reply(key, quote ? `Quote #${quote.id} added.` : 'Usage: addquote <text>');
-            }
-            return reply(key, deleteQuote(arg) ? `Quote #${arg} removed.` : 'Usage: delquote <number>');
-        }
-        if (builtin === 'quotes') return reply(key, `${data.quotes.length} quote${data.quotes.length === 1 ? '' : 's'} saved. Use ${prefix}quote or ${prefix}quote <number>.`);
-        if (builtin === 'quote') return reply(key, quoteReply(arg, msg));
-        if (custom.counter && variables) { try { if (custom.counterAction === 'roll') variables.roll(custom.counter); else variables.change(custom.counter, custom.counterAction, 1); statusCache.at = 0; } catch (err) { console.warn(`[Chatbot] ${err.message}`); } }
         try {
-            const raw = pick(custom.response, custom.random);
-            const formatted = formatTokens(raw, { user: msg.chatname || '', arg, msg });
-            const replyText = await expand(formatted);
-            await reply(key, replyText || '(no value yet)');
-        } catch (err) { console.warn(`[Chatbot] ${err.message}`); }
+            await executeCommand(name, arg, msg, { bypassCooldown: false });
+        } catch (err) {
+            console.warn(`[Chatbot] ${err.message}`);
+        }
     }
 
     const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -504,8 +609,13 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             const hit = t.words.some(w => new RegExp(t.wholeWord ? `(^|[^\\p{L}\\p{N}_])${escapeRe(w)}($|[^\\p{L}\\p{N}_])` : escapeRe(w), 'iu').test(text));
             if (!hit) continue;
             if (limited(`t:${t.id}`, t, msg)) continue;
-            logUse('trigger', t.name || t.id, msg.chatname);
+            logUse('trigger', t.name || t.id, msg.chatname, { silent: Boolean(t.silent), http: Boolean(t.httpAction?.enabled) });
+            if (t.httpAction && t.httpAction.enabled) {
+                executeHttpAction(t.httpAction, { user: msg.chatname || '', arg: text, msg }).catch(() => {});
+            }
+            if (t.silent) return;
             const raw = pick(t.text, t.random);
+            if (!raw && t.httpAction?.enabled) return;
             const formatted = formatTokens(raw, { user: msg.chatname || '', arg: text, msg });
             const out = await expand(formatted);
             if (out) await reply(`t:${t.id}`, out);
@@ -695,6 +805,24 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 const out = await expand(formatted);
                 if (out) await send(out);
                 return json(200, { sent: true, text: out }), true;
+            }
+            if (pathname === '/api/chatbot/run' && req.method === 'POST') {
+                const cmdName = clean(body.command || body.name, 30).toLowerCase().replace(/^[^a-z0-9_]+/, '');
+                const arg = clean(body.arg || body.args, 500);
+                const user = clean(body.user || 'Companion', 60);
+                const msg = { chatname: user, broadcaster: true, mod: true, isBroadcaster: true, isMod: true };
+                const result = await executeCommand(cmdName, arg, msg, { bypassCooldown: body.bypassCooldown !== false });
+                if (!result) return json(404, { error: `Command "${cmdName}" not found or disabled` }), true;
+                return json(200, result), true;
+            }
+            if (pathname === '/api/chatbot/test-http' && req.method === 'POST') {
+                const action = normalizeHttpAction(body.action || body);
+                if (!action || !action.url) return json(400, { error: 'URL is required' }), true;
+                action.enabled = true;
+                const user = clean(body.user || 'Viewer', 60);
+                const arg = clean(body.arg || '', 500);
+                const res = await executeHttpAction(action, { user, arg, msg: { chatname: user } });
+                return json(200, res || { ok: false, error: 'No response' }), true;
             }
             if (pathname === '/api/chatbot/send' && req.method === 'POST') {
                 await send(clean(body.text, 400));

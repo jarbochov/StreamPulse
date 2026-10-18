@@ -95,6 +95,11 @@
         .copy-tag { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: var(--bg-card); border: 1px solid var(--border); padding: .15rem .35rem; border-radius: 4px; cursor: pointer; }
         .copy-tag:hover { border-color: var(--accent); color: var(--accent); }
         
+        .ico { vertical-align: -2px; display: inline-block; flex-shrink: 0; }
+        .meta-pill.silent-pill { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: var(--accent-bg); font-weight: 600; }
+        .meta-pill.api-pill { color: #38bdf8; border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.08); font-weight: 600; }
+        .action-preset-box { border: 1px solid var(--border); border-radius: 6px; background: var(--bg-inset); padding: .75rem; display: flex; flex-direction: column; gap: .6rem; }
+        
         /* Settings sections */
         .settings-section { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
         .settings-section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
@@ -119,16 +124,31 @@
             <button type="button" data-t="messages">Timed messages <span class="count" data-c="messages"></span></button>
             <button type="button" data-t="triggers">Word triggers <span class="count" data-c="triggers"></span></button>
             <button type="button" data-t="variables">Variables <span class="count" data-c="variables"></span></button>
+            <button type="button" data-t="activity">Activity <span class="count" data-c="activity"></span></button>
             <button type="button" data-t="usage">Usage</button>
             <button type="button" data-t="reference">Reference</button>
             <button type="button" data-t="settings">Settings</button>
         </nav>
 
-        <!-- Viewer Reference Tab -->
-        <div class="card" data-tab="reference">
+        <!-- Activity Tab -->
+        <div class="card" data-tab="activity" hidden>
             <div class="tab-header">
                 <div>
-                    <h2>📖 Viewer Reference</h2>
+                    <h2>Recent Bot &amp; Companion Activity</h2>
+                    <p class="muted">Live execution feed of chat commands, triggers, and Companion button calls.</p>
+                </div>
+                <div class="tab-actions">
+                    <button class="btn small" id="refresh-activity" type="button">Refresh activity</button>
+                </div>
+            </div>
+            <div id="activity-list"></div>
+        </div>
+
+        <!-- Viewer Reference Tab -->
+        <div class="card" data-tab="reference" hidden>
+            <div class="tab-header">
+                <div>
+                    <h2>Viewer Reference</h2>
                     <p class="muted">Read-only list of public chat commands for viewers, generated live. <a href="/commands.html" target="_blank">Open viewer page ↗</a> · <a href="/placeholders.html" target="_blank">Placeholder dictionary ↗</a></p>
                 </div>
             </div>
@@ -136,10 +156,10 @@
         </div>
 
         <!-- Settings Tab -->
-        <div class="card" data-tab="settings">
+        <div class="card" data-tab="settings" hidden>
             <div class="tab-header">
                 <div>
-                    <h2>⚙️ Bot Settings</h2>
+                    <h2>Bot Settings</h2>
                     <p class="muted">Configure bot behavior, cooldowns, moderation roles, and raid shoutouts.</p>
                 </div>
                 <div class="tab-actions">
@@ -164,7 +184,7 @@
                         <h2>Moderator Roles &amp; Permissions</h2>
                         <p class="muted" style="margin:0;">Controls who can run mod-only commands, manage quotes, and bypass user cooldowns.</p>
                     </div>
-                    <button class="btn small" id="sync-twitch-mods" type="button" title="Fetch latest moderators and VIPs from Twitch">🔄 Sync Twitch Mods</button>
+                    <button class="btn small" id="sync-twitch-mods" type="button" title="Fetch latest moderators and VIPs from Twitch">Sync Twitch Mods</button>
                 </div>
 
                 <div id="twitch-mods-box" style="margin:.75rem 0;padding:.75rem;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;">
@@ -200,7 +220,7 @@
                 </div>
                 <p class="muted" style="margin-top:.4rem;">Supported tokens: <code>{{user}}</code> (raider username), <code>{{viewers}}</code> (viewer count), plus all standard placeholders.</p>
                 <div class="row" style="margin-top:.5rem;">
-                    <button class="btn small" id="test-shoutout" type="button">💬 Send test shoutout</button>
+                    <button class="btn small" id="test-shoutout" type="button">Send test shoutout</button>
                 </div>
             </div>
 
@@ -236,7 +256,7 @@
                     <p class="muted">Commands triggered by viewers using your command prefix (e.g. <code>!so</code>, <code>!discord</code>).</p>
                 </div>
                 <div class="tab-actions">
-                    <input type="text" id="cmd-filter" class="search-input" placeholder="🔍 Filter commands...">
+                    <input type="text" id="cmd-filter" class="search-input" placeholder="Filter commands...">
                     <button class="btn" id="add-command">+ Add command</button>
                     <button class="btn primary" id="save-commands">Save commands</button>
                 </div>
@@ -245,7 +265,7 @@
             <!-- Expandable Cheat Sheet -->
             <details class="cheat-sheet-card">
                 <summary>
-                    <span>💡 <b>Chat Bot Tokens &amp; Dynamic Arguments Guide</b></span>
+                    <span><b>Chat Bot Tokens &amp; Dynamic Arguments Guide</b></span>
                     <span class="meta-pill">Click to expand</span>
                 </summary>
                 <div class="cheat-sheet-content">
@@ -278,35 +298,35 @@
                                 <tr style="border-bottom:1px solid var(--bg-inset);">
                                     <td style="padding:.4rem .55rem;"><code class="copy-tag" data-copy="{{args}}">{{args}}</code></td>
                                     <td style="padding:.4rem .55rem;">All text typed after the command name</td>
-                                    <td style="padding:.4rem .55rem;"><code>📌 Topic: {{args:Just chilling!}}</code></td>
+                                    <td style="padding:.4rem .55rem;"><code>Topic: {{args:Just chilling!}}</code></td>
                                     <td style="padding:.4rem .55rem;"><code>!topic Coding session</code></td>
-                                    <td style="padding:.4rem .55rem;"><em>📌 Topic: Coding session</em></td>
+                                    <td style="padding:.4rem .55rem;"><em>Topic: Coding session</em></td>
                                 </tr>
                                 <tr style="border-bottom:1px solid var(--bg-inset);">
                                     <td style="padding:.4rem .55rem;"><code class="copy-tag" data-copy="{{arg.1}}">{{arg.1}}</code>, <code class="copy-tag" data-copy="{{arg.2}}">{{arg.2}}</code></td>
                                     <td style="padding:.4rem .55rem;">1st, 2nd, etc. space-separated word. Supports fallbacks like <code>{{arg.2:dogs}}</code></td>
-                                    <td style="padding:.4rem .55rem;"><code>🤔 {{user}} asks: {{arg.1:cats}} or {{arg.2:dogs}}?</code></td>
+                                    <td style="padding:.4rem .55rem;"><code>{{user}} asks: {{arg.1:cats}} or {{arg.2:dogs}}?</code></td>
                                     <td style="padding:.4rem .55rem;"><code>!compare tea coffee</code></td>
-                                    <td style="padding:.4rem .55rem;"><em>🤔 Alice asks: tea or coffee?</em></td>
+                                    <td style="padding:.4rem .55rem;"><em>Alice asks: tea or coffee?</em></td>
                                 </tr>
                                 <tr style="border-bottom:1px solid var(--bg-inset);">
                                     <td style="padding:.4rem .55rem;"><code class="copy-tag" data-copy="{{random 1 6}}">{{random min max}}</code></td>
                                     <td style="padding:.4rem .55rem;">Random dice roll or integer between min and max</td>
-                                    <td style="padding:.4rem .55rem;"><code>🎲 {{user}} rolled a {{random 1 6}} on a 6-sided die!</code></td>
+                                    <td style="padding:.4rem .55rem;"><code>{{user}} rolled a {{random 1 6}} on a 6-sided die!</code></td>
                                     <td style="padding:.4rem .55rem;"><code>!roll</code></td>
-                                    <td style="padding:.4rem .55rem;"><em>🎲 Alice rolled a 4 on a 6-sided die!</em></td>
+                                    <td style="padding:.4rem .55rem;"><em>Alice rolled a 4 on a 6-sided die!</em></td>
                                 </tr>
                                 <tr>
                                     <td style="padding:.4rem .55rem;"><code class="copy-tag" data-copy="{{choice Yes|No|Maybe}}">{{choice A|B|C}}</code></td>
                                     <td style="padding:.4rem .55rem;">Random pick from pipe-separated list</td>
-                                    <td style="padding:.4rem .55rem;"><code>🎱 8-Ball: {{choice Yes!|No.|Ask again later.}}</code></td>
+                                    <td style="padding:.4rem .55rem;"><code>8-Ball: {{choice Yes!|No.|Ask again later.}}</code></td>
                                     <td style="padding:.4rem .55rem;"><code>!8ball</code></td>
-                                    <td style="padding:.4rem .55rem;"><em>🎱 8-Ball: Yes!</em></td>
+                                    <td style="padding:.4rem .55rem;"><em>8-Ball: Yes!</em></td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                    <p class="muted" style="margin-top:.6rem;">💡 Tip: Click any tag above to copy it, or click <b>"➕ Insert placeholder"</b> on any command to browse and insert tokens with live previews.</p>
+                    <p class="muted" style="margin-top:.6rem;">Tip: Click any tag above to copy it, or click <b>"Insert placeholder"</b> on any command to browse and insert tokens with live previews.</p>
                 </div>
             </details>
 
@@ -334,7 +354,7 @@
 
             <details class="item" style="margin-bottom:1rem;">
                 <summary class="item-summary">
-                    <span class="cmd-badge">⚙️ Built-in Quote Commands</span>
+                    <span class="cmd-badge">Built-in Quote Commands</span>
                     <span class="sum-text">Configure access roles and cooldowns for !quote, !quotes, !addquote, !delquote</span>
                 </summary>
                 <div class="item-body">
@@ -348,7 +368,7 @@
                 <button class="btn primary" id="add-quote">+ Add quote</button>
             </div>
             <div class="row" style="margin-bottom:.75rem;">
-                <input id="quote-search" style="flex:1;min-width:180px;padding:.42rem .7rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.83rem;" placeholder="🔍 Filter quotes by text or #ID...">
+                <input id="quote-search" style="flex:1;min-width:180px;padding:.42rem .7rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.83rem;" placeholder="Filter quotes by text or #ID...">
             </div>
             <div id="quotes" style="max-height:60vh;overflow-y:auto;"></div>
         </div>
@@ -366,7 +386,7 @@
             </div>
             <div class="row" style="margin-bottom:.75rem;">
                 <select id="usage-cmd" style="padding:.45rem .65rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);"></select>
-                <input id="usage-person" class="search-input" placeholder="🔍 Filter by username...">
+                <input id="usage-person" class="search-input" placeholder="Filter by username...">
             </div>
             <div id="usage"></div>
         </div>
@@ -395,7 +415,7 @@
                     <p class="muted">Automated scheduled messages and reminders sent to chat on an interval or set time.</p>
                 </div>
                 <div class="tab-actions">
-                    <input type="text" id="msg-filter" class="search-input" placeholder="🔍 Filter messages...">
+                    <input type="text" id="msg-filter" class="search-input" placeholder="Filter messages...">
                     <button class="btn" id="add-message">+ Add message</button>
                     <button class="btn primary" id="save-messages">Save messages</button>
                 </div>
@@ -415,7 +435,7 @@
                     <p class="muted">Auto-respond whenever a viewer's message contains specific words or phrases.</p>
                 </div>
                 <div class="tab-actions">
-                    <input type="text" id="trig-filter" class="search-input" placeholder="🔍 Filter triggers...">
+                    <input type="text" id="trig-filter" class="search-input" placeholder="Filter triggers...">
                     <button class="btn" id="add-trigger">+ Add trigger</button>
                     <button class="btn primary" id="save-triggers">Save triggers</button>
                 </div>
@@ -442,6 +462,28 @@ const refreshStatus = () => fetch('/api/status', { cache: 'no-store' }).then(r =
     }
 }).catch(() => {});
 refreshStatus(); pollVisible(refreshStatus, 5000);
+function svgIcon(name, extraClass = '') {
+    const icons = {
+        gear: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`,
+        book: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`,
+        sync: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>`,
+        send: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`,
+        chat: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`,
+        clock: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`,
+        target: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>`,
+        shield: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`,
+        crown: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14v2H5v-2z"></path></svg>`,
+        search: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`,
+        trash: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`,
+        plus: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`,
+        bulb: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><line x1="9" y1="18" x2="15" y2="18"></line><line x1="10" y1="22" x2="14" y2="22"></line><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.76.76 1.23 1.52 1.41 2.5h6.18z"></path></svg>`,
+        link: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`,
+        volumeX: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>`,
+        activity: `<svg class="ico ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>`
+    };
+    return icons[name] || '';
+}
+
 let state = { settings: {}, commands: [], quotes: [], messages: [], triggers: [] };
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -496,10 +538,10 @@ function renderTwitchMods() {
 
         let chipsHtml = '';
         if (broadcaster) {
-            chipsHtml += `<span class="meta-pill" style="color:#f59e0b;border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.08);font-weight:600;">👑 ${esc(broadcaster)} (Broadcaster)</span>`;
+            chipsHtml += `<span class="meta-pill" style="color:#f59e0b;border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.08);font-weight:600;">${svgIcon('crown')} ${esc(broadcaster)} (Broadcaster)</span>`;
         }
         for (const m of mods) {
-            chipsHtml += `<span class="meta-pill" style="color:#a970ff;border-color:rgba(169,112,255,0.4);background:rgba(169,112,255,0.08);">🛡️ ${esc(m.name || m.login)}</span>`;
+            chipsHtml += `<span class="meta-pill" style="color:#a970ff;border-color:rgba(169,112,255,0.4);background:rgba(169,112,255,0.08);">${svgIcon('shield')} ${esc(m.name || m.login)}</span>`;
         }
         chipsEl.innerHTML = chipsHtml;
         noteEl.innerHTML = `Auto-detected from Twitch API. These users automatically have mod privileges for all commands and quotes.`;
@@ -521,16 +563,69 @@ function renderSettings() {
     $('builtins').innerHTML = ['quote', 'quotes', 'addquote', 'delquote'].map(n => { const b = (s.builtins || {})[n] || {}; return `<div class="row" data-b="${n}"><code style="min-width:7rem">${s.prefix || '!'}${n}</code><label class="check">Who can use <select data-bk="access"><option value="everyone" ${b.access === 'everyone' ? 'selected' : ''}>Everyone</option><option value="subs" ${b.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${b.access === 'mods' ? 'selected' : ''}>Mods only</option><option value="disabled" ${b.access === 'disabled' ? 'selected' : ''}>Disabled</option></select></label><label class="check">Cooldown (s)<input data-bk="cooldown" type="number" min="0" value="${b.cooldown ?? ''}" placeholder="default" style="width:6rem"></label></div>`; }).join('');
 }
 
+function httpActionHtml(c) {
+    const hasHttp = Boolean(c.httpAction?.enabled || c._httpAction);
+    const httpUrl = c.httpAction?.url || '';
+    const httpMethod = c.httpAction?.method || 'GET';
+    const httpBody = c.httpAction?.body || '';
+
+    return `<div class="action-preset-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;">
+            <label class="check" style="font-weight:600;"><input type="checkbox" data-k="useHttp" ${hasHttp ? 'checked' : ''}> ${svgIcon('link')} Trigger API / Webhook / Bitfocus Companion</label>
+            <div class="row" style="margin:0;display:${hasHttp ? 'flex' : 'none'};">
+                <select data-act="preset-pick" style="padding:.2rem .4rem;font-size:.78rem;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;color:var(--text);">
+                    <option value="">Choose preset helper...</option>
+                    <option value="companion-v3">Bitfocus Companion v3 (Page / Row / Col)</option>
+                    <option value="companion-v2">Bitfocus Companion v2 (Page / Button)</option>
+                    <option value="companion-var">Bitfocus Companion: Custom Variable</option>
+                    <option value="sp-randomizer">StreamPulse: Randomizer Spin</option>
+                    <option value="sp-timer">StreamPulse: Timer Control</option>
+                    <option value="sp-alert-replay">StreamPulse: Replay Last Alert</option>
+                    <option value="sp-highlight">StreamPulse: Pin Last Highlight</option>
+                </select>
+            </div>
+        </div>
+        <div class="http-fields" style="display:${hasHttp ? 'flex' : 'none'};flex-direction:column;gap:.5rem;margin-top:.2rem;">
+            <div class="row" style="align-items:flex-end;">
+                <label class="f" style="width:5.5rem;"><span>Method</span><select data-k="httpMethod">${['GET', 'POST', 'PUT', 'DELETE'].map(m => `<option value="${m}" ${httpMethod === m ? 'selected' : ''}>${m}</option>`).join('')}</select></label>
+                <label class="f" style="flex:1;min-width:240px;"><span>Target URL (supports tokens e.g. {{user}}, {{arg.1}}, relative /api/...)</span><input data-k="httpUrl" value="${esc(httpUrl)}" placeholder="http://127.0.0.1:8000/press/bank/1/1 or /api/randomizer/spin"></label>
+                <button class="btn small" data-act="test-http" type="button" style="align-self:flex-end;">${svgIcon('send')} Test API Call</button>
+            </div>
+            <label class="f" style="width:100%;${httpMethod === 'GET' ? 'display:none;' : ''}" data-k-wrap="httpBody">
+                <span>JSON Body (for POST/PUT)</span>
+                <textarea data-k="httpBody" rows="2" maxlength="2000" placeholder='{"user": "{{user}}", "preset": "wheel"}'>${esc(httpBody)}</textarea>
+            </label>
+            <div class="http-test-status muted" style="font-size:.76rem;font-family:ui-monospace,Menlo,monospace;" data-http-status></div>
+        </div>
+    </div>`;
+}
+
+function readHttpAction(item) {
+    const useHttp = item.querySelector('[data-k="useHttp"]')?.checked || false;
+    if (!useHttp) return null;
+    return {
+        enabled: true,
+        method: item.querySelector('[data-k="httpMethod"]')?.value || 'GET',
+        url: item.querySelector('[data-k="httpUrl"]')?.value || '',
+        body: item.querySelector('[data-k="httpBody"]')?.value || ''
+    };
+}
+
 function commandHtml(c, i) {
     const aliasesArr = Array.isArray(c.aliases) ? c.aliases : String(c.aliases || '').split(',').map(s => s.trim()).filter(Boolean);
     const aliasesStr = aliasesArr.join(', ');
     const preview = String(c.response || '').split('\\n')[0].slice(0, 60);
+    const hasHttp = Boolean(c.httpAction?.enabled || c._httpAction);
+    const httpUrl = c.httpAction?.url || '';
+
     return `<details class="item" data-i="${i}" ${c._open ? 'open' : ''}>
         <summary class="item-summary">
             <div class="item-summary-left">
                 <span class="cmd-badge">${esc(c.name ? prefixOf() + c.name : 'New command')}</span>
                 ${aliasesStr ? `<span class="alias-tag">${esc(aliasesStr)}</span>` : ''}
-                <span class="sum-text">${esc(preview)}</span>
+                ${c.silent ? `<span class="meta-pill silent-pill">${svgIcon('volumeX')} Silent</span>` : ''}
+                ${hasHttp && httpUrl ? `<span class="meta-pill api-pill">${svgIcon('link')} API</span>` : ''}
+                <span class="sum-text">${esc(c.silent && !preview ? (httpUrl || 'Silent background action') : preview)}</span>
             </div>
             <div class="item-summary-right">
                 ${c.cooldown ? `<span class="meta-pill">${esc(c.cooldown)}s</span>` : ''}
@@ -539,22 +634,27 @@ function commandHtml(c, i) {
             </div>
         </summary>
         <div class="item-body">
-            <div class="grid" style="grid-template-columns: minmax(130px, 1fr) minmax(130px, 1fr) 110px 140px;">
+            <div class="grid" style="grid-template-columns: minmax(130px, 1fr) minmax(130px, 1fr) 110px 140px auto;">
                 <label class="f"><span>Command name</span><input data-k="name" value="${esc(c.name)}" placeholder="song"></label>
                 <label class="f"><span>Aliases (comma-separated)</span><input data-k="aliases" value="${esc(aliasesStr)}" placeholder="np, track"></label>
                 <label class="f"><span>Cooldown (s)</span><input data-k="cooldown" type="number" min="0" value="${c.cooldown ?? ''}" placeholder="default"></label>
                 <label class="f"><span>Who can use</span><select data-k="access"><option value="everyone">Everyone</option><option value="subs" ${c.access === 'subs' ? 'selected' : ''}>Subscribers + mods</option><option value="mods" ${c.access === 'mods' ? 'selected' : ''}>Mods only</option></select></label>
+                <label class="check" style="align-self:flex-end;padding-bottom:.55rem;" title="Suppress chat reply (execute background action or webhook quietly)"><input type="checkbox" data-k="silent" ${c.silent ? 'checked' : ''}> Silent command</label>
             </div>
             <label class="f" style="width:100%;">
                 <span style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.2rem;">
-                    <span>Command reply</span>
-                    <button type="button" class="btn small" data-act="placeholder">➕ Insert placeholder</button>
+                    <span>Command reply ${c.silent ? '<span class="muted">(optional in silent mode)</span>' : ''}</span>
+                    <button type="button" class="btn small" data-act="placeholder">${svgIcon('plus')} Insert placeholder</button>
                 </span>
-                <textarea data-k="response" rows="2" maxlength="1000" placeholder="Now playing: {{track}} by {{artist}}">${esc(c.response)}</textarea>
+                <textarea data-k="response" rows="2" maxlength="1000" placeholder="${c.silent ? 'Optional: leave blank for pure silent action' : 'Now playing: {{track}} by {{artist}}'}">${esc(c.response)}</textarea>
             </label>
             <div class="preview-box" data-preview></div>
+
+            <!-- API / Webhook Action Section -->
+            ${httpActionHtml(c)}
+
             <details class="item-advanced" ${c._advancedOpen ? 'open' : ''}>
-                <summary>⚙️ Advanced settings (limits, mod cooldown, counters)</summary>
+                <summary>${svgIcon('gear')} Advanced settings (limits, mod cooldown, counters)</summary>
                 <div class="item-advanced-body">
                     <div class="row">
                         <label class="check" title="Mod cooldown"><input data-k="modCooldown" type="number" min="0" style="width:4.5rem;" value="${c.modCooldown ?? ''}" placeholder="default"> Mod cooldown (s)</label>
@@ -572,9 +672,9 @@ function commandHtml(c, i) {
                 </div>
             </details>
             <div class="row" style="margin-top:.2rem;">
-                <button class="btn small" data-act="test" type="button">💬 Send test</button>
+                <button class="btn small" data-act="test" type="button">${svgIcon('send')} Send test</button>
                 <span style="flex:1"></span>
-                <button class="btn small danger" data-act="remove" type="button">🗑️ Remove</button>
+                <button class="btn small danger" data-act="remove" type="button">${svgIcon('trash')} Remove</button>
             </div>
         </div>
     </details>`;
@@ -587,7 +687,27 @@ function readCommands() {
         const open = item.open;
         const advancedOpen = item.querySelector('.item-advanced')?.open || false;
         const get = k => item.querySelector(`[data-k="${k}"]`);
-        return { name: get('name')?.value || '', aliases: get('aliases')?.value || '', cooldown: get('cooldown')?.value || '', response: get('response')?.value || '', enabled: get('enabled')?.checked !== false, access: get('access')?.value || 'everyone', limit: get('limit')?.value || '', modCooldown: get('modCooldown')?.value || '', limitPer: get('limitPer')?.value || 'session', random: get('random')?.checked || false, counter: get('useCounter')?.checked ? (get('counter')?.value || '') : '', _counter: get('useCounter')?.checked || false, counterAction: get('counterAction')?.value || 'increment', _open: open, _advancedOpen: advancedOpen };
+        const useHttp = get('useHttp')?.checked || false;
+        return {
+            name: get('name')?.value || '',
+            aliases: get('aliases')?.value || '',
+            cooldown: get('cooldown')?.value || '',
+            response: get('response')?.value || '',
+            silent: get('silent')?.checked || false,
+            httpAction: readHttpAction(item),
+            _httpAction: useHttp,
+            enabled: get('enabled')?.checked !== false,
+            access: get('access')?.value || 'everyone',
+            limit: get('limit')?.value || '',
+            modCooldown: get('modCooldown')?.value || '',
+            limitPer: get('limitPer')?.value || 'session',
+            random: get('random')?.checked || false,
+            counter: get('useCounter')?.checked ? (get('counter')?.value || '') : '',
+            _counter: get('useCounter')?.checked || false,
+            counterAction: get('counterAction')?.value || 'increment',
+            _open: open,
+            _advancedOpen: advancedOpen
+        };
     });
 }
 
@@ -620,11 +740,11 @@ function messageHtml(m, i) {
     return `<details class="item" data-i="${i}" ${m._open ? 'open' : ''}>
         <summary class="item-summary">
             <div class="item-summary-left">
-                <span class="cmd-badge">⏰ ${esc(m.name || 'New message')}</span>
+                <span class="cmd-badge">${svgIcon('clock')} ${esc(m.name || 'New message')}</span>
                 <span class="sum-text">${esc(schedText(m))}</span>
             </div>
             <div class="item-summary-right">
-                ${m.liveOnly ? `<span class="meta-pill live-pill">🔴 Live only</span>` : ''}
+                ${m.liveOnly ? `<span class="meta-pill live-pill"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#f85149;margin-right:4px;"></span>Live only</span>` : ''}
                 <label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-k="enabled" ${m.enabled !== false ? 'checked' : ''}> On</label>
             </div>
         </summary>
@@ -646,16 +766,16 @@ function messageHtml(m, i) {
             <label class="f" style="width:100%;">
                 <span style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.2rem;">
                     <span>Message text</span>
-                    <button type="button" class="btn small" data-act="placeholder">➕ Insert placeholder</button>
+                    <button type="button" class="btn small" data-act="placeholder">${svgIcon('plus')} Insert placeholder</button>
                 </span>
                 <textarea data-k="text" rows="2" maxlength="1000" placeholder="Enjoying the stream? Hit follow!">${esc(m.text)}</textarea>
             </label>
             <div class="preview-box" data-preview></div>
             <div class="row" style="margin-top:.2rem;">
                 <label class="check" title="One message per line; a random one is sent each time"><input type="checkbox" data-k="random" ${m.random ? 'checked' : ''}> Pick random line</label>
-                <button class="btn small" data-act="test" type="button">💬 Send test</button>
+                <button class="btn small" data-act="test" type="button">${svgIcon('send')} Send test</button>
                 <span style="flex:1"></span>
-                <button class="btn small danger" data-act="remove" type="button">🗑️ Remove</button>
+                <button class="btn small danger" data-act="remove" type="button">${svgIcon('trash')} Remove</button>
             </div>
         </div>
     </details>`;
@@ -663,11 +783,17 @@ function messageHtml(m, i) {
 function triggerHtml(t, i) {
     const wordsArr = Array.isArray(t.words) ? t.words : String(t.words || '').split(',').map(w => w.trim()).filter(Boolean);
     const wordsStr = wordsArr.join(', ');
+    const preview = String(t.text || '').split('\\n')[0].slice(0, 50);
+    const hasHttp = Boolean(t.httpAction?.enabled || t._httpAction);
+    const httpUrl = t.httpAction?.url || '';
+
     return `<details class="item" data-i="${i}" ${t._open ? 'open' : ''}>
         <summary class="item-summary">
             <div class="item-summary-left">
-                <span class="cmd-badge">🎯 ${esc(t.name || 'New trigger')}</span>
-                <span class="sum-text">${esc(wordsStr.slice(0, 50))}</span>
+                <span class="cmd-badge">${svgIcon('target')} ${esc(t.name || 'New trigger')}</span>
+                ${t.silent ? `<span class="meta-pill silent-pill">${svgIcon('volumeX')} Silent</span>` : ''}
+                ${hasHttp && httpUrl ? `<span class="meta-pill api-pill">${svgIcon('link')} API</span>` : ''}
+                <span class="sum-text">${esc(t.silent && !preview ? (httpUrl || 'Silent background action') : (preview || wordsStr.slice(0, 50)))}</span>
             </div>
             <div class="item-summary-right">
                 ${t.cooldown ? `<span class="meta-pill">${esc(t.cooldown)}s</span>` : ''}
@@ -675,22 +801,27 @@ function triggerHtml(t, i) {
             </div>
         </summary>
         <div class="item-body">
-            <div class="grid" style="grid-template-columns: minmax(130px, 1fr) 2fr 110px 140px;">
+            <div class="grid" style="grid-template-columns: minmax(130px, 1fr) 2fr 110px 140px auto;">
                 <label class="f"><span>Trigger name</span><input data-k="name" value="${esc(t.name)}" placeholder="Greeting"></label>
                 <label class="f"><span>Keywords or phrases (comma-separated)</span><input data-k="words" value="${esc(wordsStr)}" placeholder="hello, hi there"></label>
                 <label class="f"><span>Cooldown (s)</span><input data-k="cooldown" type="number" min="0" value="${t.cooldown ?? 60}"></label>
                 <label class="f"><span>Who can trigger</span><select data-k="access">${accessOpts(t.access || 'everyone')}</select></label>
+                <label class="check" style="align-self:flex-end;padding-bottom:.55rem;" title="Suppress chat reply (execute background action or webhook quietly)"><input type="checkbox" data-k="silent" ${t.silent ? 'checked' : ''}> Silent trigger</label>
             </div>
             <label class="f" style="width:100%;">
                 <span style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.2rem;">
-                    <span>Trigger reply</span>
-                    <button type="button" class="btn small" data-act="placeholder">➕ Insert placeholder</button>
+                    <span>Trigger reply ${t.silent ? '<span class="muted">(optional in silent mode)</span>' : ''}</span>
+                    <button type="button" class="btn small" data-act="placeholder">${svgIcon('plus')} Insert placeholder</button>
                 </span>
-                <textarea data-k="text" rows="2" maxlength="1000" placeholder="Welcome in, {{user}}!">${esc(t.text)}</textarea>
+                <textarea data-k="text" rows="2" maxlength="1000" placeholder="${t.silent ? 'Optional: leave blank for pure silent action' : 'Welcome in, {{user}}!'}">${esc(t.text)}</textarea>
             </label>
             <div class="preview-box" data-preview></div>
+
+            <!-- API / Webhook Action Section -->
+            ${httpActionHtml(t)}
+
             <details class="item-advanced">
-                <summary>⚙️ Advanced trigger options (limits, mod cooldown, whole words)</summary>
+                <summary>${svgIcon('gear')} Advanced trigger options (limits, mod cooldown, whole words)</summary>
                 <div class="item-advanced-body">
                     <div class="row">
                         <label class="check"><input type="checkbox" data-k="wholeWord" ${t.wholeWord !== false ? 'checked' : ''}> Whole words only</label>
@@ -701,9 +832,9 @@ function triggerHtml(t, i) {
                 </div>
             </details>
             <div class="row" style="margin-top:.2rem;">
-                <button class="btn small" data-act="test" type="button">💬 Send test</button>
+                <button class="btn small" data-act="test" type="button">${svgIcon('send')} Send test</button>
                 <span style="flex:1"></span>
-                <button class="btn small danger" data-act="remove" type="button">🗑️ Remove</button>
+                <button class="btn small danger" data-act="remove" type="button">${svgIcon('trash')} Remove</button>
             </div>
         </div>
     </details>`;
@@ -718,7 +849,10 @@ function readList(name) {
         item.querySelectorAll('[data-k]').forEach(f => { o[f.dataset.k] = f.type === 'checkbox' ? f.checked : f.value; });
         if (name === 'messages') o.days = [...item.querySelectorAll('[data-day]:checked')].map(c => Number(c.dataset.day));
         if (name === 'triggers') {
-            o.words = (Array.isArray(o.words) ? o.words : String(o.words || '').split(',')).map(w => w.trim()).filter(Boolean);
+            o.words = (Array.isArray(o.words) ? o.words : String(o.words || '')).split(',').map(w => w.trim()).filter(Boolean);
+            o.silent = item.querySelector('[data-k="silent"]')?.checked || false;
+            o.httpAction = readHttpAction(item);
+            o._httpAction = item.querySelector('[data-k="useHttp"]')?.checked || false;
         }
         return o;
     });
@@ -746,7 +880,13 @@ for (const name of Object.keys(listCfg)) {
     $(`save-${name}`).onclick = async () => {
         try {
             const list = readList(name);
-            if (list.some(x => !String(x.text).trim() || (name === 'triggers' && (!x.words || !x.words.length)))) throw new Error(name === 'triggers' ? 'Each trigger needs words and a reply' : 'Each message needs text');
+            if (name === 'triggers') {
+                if (list.some(x => (!x.words || !x.words.length) || (!String(x.text || '').trim() && (!x.httpAction || !x.httpAction.url)))) {
+                    throw new Error('Each trigger needs trigger words and either a reply message or an API action');
+                }
+            } else if (name === 'messages') {
+                if (list.some(x => !String(x.text || '').trim())) throw new Error('Each message needs text');
+            }
             applyState(await api('/api/chatbot', 'PUT', { [name]: list })); toast('Saved');
         } catch (e) { toast(e.message); }
     };
@@ -834,6 +974,49 @@ $('vars').addEventListener('change', async event => {
 });
 loadVars().then(updateCounts);
 
+async function loadActivity() {
+    const listEl = $('activity-list');
+    if (!listEl) return;
+    try {
+        const data = await api('/api/chatbot/activity');
+        const actList = (data.activity || []).slice().reverse();
+        const countEl = document.querySelector('[data-c="activity"]');
+        if (countEl) countEl.textContent = actList.length ? String(actList.length) : '';
+
+        if (!actList.length) {
+            listEl.innerHTML = '<div class="empty">No recent chat bot activity. Run a command in chat or press a Companion button to see it here.</div>';
+            return;
+        }
+
+        listEl.innerHTML = actList.map(a => {
+            const dateStr = a.time ? new Date(a.time).toLocaleTimeString() : '';
+            const kindBadge = a.kind === 'trigger' ? `<span class="meta-pill" style="border-color:rgba(59,130,246,0.4);color:#60a5fa;">${svgIcon('target')} Trigger</span>`
+                : a.kind === 'shoutout' ? `<span class="meta-pill" style="border-color:rgba(245,158,11,0.4);color:#fbbf24;">${svgIcon('crown')} Raid Shoutout</span>`
+                : `<span class="meta-pill" style="border-color:rgba(168,85,247,0.4);color:#c084fc;">${svgIcon('chat')} Command</span>`;
+            const silentBadge = a.silent ? `<span class="meta-pill silent-pill">${svgIcon('volumeX')} Silent</span>` : '';
+            const httpBadge = a.http ? `<span class="meta-pill api-pill">${svgIcon('link')} Webhook / API</span>` : '';
+            const userStr = a.user ? `@${esc(a.user)}` : '';
+            const nameStr = a.name ? (a.kind === 'command' ? `${prefixOf()}${esc(a.name)}` : esc(a.name)) : '';
+
+            return `<div class="quote" style="grid-template-columns:auto 1fr;align-items:flex-start;gap:.75rem;padding:.75rem 1rem;">
+                <div style="font-size:.78rem;font-family:ui-monospace,Menlo,monospace;color:var(--text-muted);white-space:nowrap;padding-top:.15rem;">${dateStr}</div>
+                <div style="display:flex;flex-direction:column;gap:.3rem;">
+                    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;">
+                        ${kindBadge}
+                        <b style="font-size:.95rem;">${nameStr}</b>
+                        ${userStr ? `<span class="muted" style="font-size:.84rem;">by <b>${userStr}</b></span>` : ''}
+                        ${silentBadge}
+                        ${httpBadge}
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        listEl.innerHTML = `<div class="empty muted">Failed to load activity: ${esc(e.message)}</div>`;
+    }
+}
+$('refresh-activity').onclick = loadActivity;
+
 function showTab(name) {
     if (!document.querySelector(`#tabs [data-t="${name}"]`)) name = 'commands';
     let activeBtn = null;
@@ -844,6 +1027,7 @@ function showTab(name) {
     });
     if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     if (name === 'reference') $('ref-frame').src = '/commands.html';
+    if (name === 'activity') loadActivity();
     document.querySelectorAll('.card[data-tab]').forEach(c => { c.hidden = c.dataset.tab !== name; });
     history.replaceState(null, '', `#${name}`);
 }
@@ -886,7 +1070,7 @@ document.addEventListener('input', e => { if (e.target.closest('#tab-settings, #
 document.addEventListener('change', e => { if (e.target.closest('#tab-settings, #tab-commands, #tab-messages, #tab-triggers')) dirty = true; });
 window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
 
-function applyState(data) { dirty = false; loadUsage().catch(() => {}); state = data; updateCounts(); renderBanner(); renderSettings(); renderCommands(); renderQuotes(); renderList('messages'); renderList('triggers'); }
+function applyState(data) { dirty = false; loadUsage().catch(() => {}); loadActivity().catch(() => {}); state = data; updateCounts(); renderBanner(); renderSettings(); renderCommands(); renderQuotes(); renderList('messages'); renderList('triggers'); }
 
 $('save-settings').onclick = async () => {
     try {
@@ -911,13 +1095,13 @@ $('save-settings').onclick = async () => {
 $('sync-twitch-mods').onclick = async () => {
     const btn = $('sync-twitch-mods');
     const orig = btn.textContent;
-    btn.textContent = '⏳ Syncing…';
+    btn.textContent = 'Syncing…';
     btn.disabled = true;
     try {
         const res = await api('/api/fetch', 'POST');
         const updated = await api('/api/chatbot');
         applyState(updated);
-        toast(`✓ Synced with Twitch (${res.moderators ?? updated.twitchMods?.length ?? 0} mods detected)`);
+        toast(`Synced with Twitch (${res.moderators ?? updated.twitchMods?.length ?? 0} mods detected)`);
     } catch (e) {
         toast(`Twitch sync failed: ${e.message}`);
     } finally {
@@ -950,19 +1134,125 @@ $('save-commands').onclick = async () => {
         applyState(await api('/api/chatbot', 'PUT', { commands: list })); toast('Commands saved');
     } catch (e) { toast(e.message); }
 };
-$('commands').addEventListener('change', event => {
-    if (event.target.dataset.k === 'useCounter') {
+function applyPreset(item, presetKey) {
+    const methodEl = item.querySelector('[data-k="httpMethod"]');
+    const urlEl = item.querySelector('[data-k="httpUrl"]');
+    const bodyEl = item.querySelector('[data-k="httpBody"]');
+    const wrapEl = item.querySelector('[data-k-wrap="httpBody"]');
+
+    if (presetKey === 'companion-v3') {
+        if (methodEl) methodEl.value = 'POST';
+        if (urlEl) urlEl.value = 'http://127.0.0.1:8000/api/location/1/0/0/press';
+        if (bodyEl) bodyEl.value = '{}';
+    } else if (presetKey === 'companion-v2') {
+        if (methodEl) methodEl.value = 'POST';
+        if (urlEl) urlEl.value = 'http://127.0.0.1:8000/press/bank/1/1';
+        if (bodyEl) bodyEl.value = '{}';
+    } else if (presetKey === 'companion-var') {
+        if (methodEl) methodEl.value = 'POST';
+        if (urlEl) urlEl.value = 'http://127.0.0.1:8000/api/custom-variable/my_var/value';
+        if (bodyEl) bodyEl.value = '{\n  "value": "{{user}}"\n}';
+    } else if (presetKey === 'sp-randomizer') {
+        if (methodEl) methodEl.value = 'POST';
+        if (urlEl) urlEl.value = '/api/randomizer/spin';
+        if (bodyEl) bodyEl.value = '{}';
+    } else if (presetKey === 'sp-timer') {
+        if (methodEl) methodEl.value = 'POST';
+        if (urlEl) urlEl.value = '/api/timer/toggle';
+        if (bodyEl) bodyEl.value = '{}';
+    } else if (presetKey === 'sp-alert-replay') {
+        if (methodEl) methodEl.value = 'POST';
+        if (urlEl) urlEl.value = '/api/alerts/replay';
+        if (bodyEl) bodyEl.value = '{}';
+    } else if (presetKey === 'sp-highlight') {
+        if (methodEl) methodEl.value = 'POST';
+        if (urlEl) urlEl.value = '/api/highlights';
+        if (bodyEl) bodyEl.value = '{\n  "user": "{{user}}",\n  "text": "{{arg}}"\n}';
+    }
+    if (wrapEl && methodEl) {
+        wrapEl.style.display = methodEl.value === 'GET' ? 'none' : '';
+    }
+}
+
+async function testHttpAction(item) {
+    const method = item.querySelector('[data-k="httpMethod"]')?.value || 'GET';
+    const url = item.querySelector('[data-k="httpUrl"]')?.value || '';
+    const body = item.querySelector('[data-k="httpBody"]')?.value || '';
+    const statusEl = item.querySelector('[data-http-status]');
+
+    if (!url.trim()) {
+        toast('Please enter a target URL to test');
+        return;
+    }
+    if (statusEl) {
+        statusEl.textContent = 'Testing API call…';
+        statusEl.style.color = 'var(--text-muted)';
+    }
+    try {
+        const res = await api('/api/chatbot/test-http', 'POST', {
+            action: { method, url, body },
+            user: 'Tester',
+            arg: '@sample_target'
+        });
+        if (statusEl) {
+            const statusText = `HTTP ${res.status || 'OK'}: ${res.statusText || 'Success'}`;
+            const summary = typeof res.data === 'object' ? JSON.stringify(res.data) : String(res.data || '');
+            statusEl.textContent = `${statusText} ${summary ? `· Response: ${summary.slice(0, 100)}` : ''}`;
+            statusEl.style.color = (res.status >= 200 && res.status < 400) ? 'var(--text-success, #3fb950)' : 'var(--text-warn, #f59e0b)';
+        }
+        toast(`API Test: HTTP ${res.status || 200}`);
+    } catch (e) {
+        if (statusEl) {
+            statusEl.textContent = `Error: ${e.message}`;
+            statusEl.style.color = '#f85149';
+        }
+        toast(`API Test Failed: ${e.message}`);
+    }
+}
+
+for (const containerId of ['commands', 'triggers']) {
+    const el = $(containerId);
+    if (!el) continue;
+    el.addEventListener('change', event => {
         const item = event.target.closest('.item');
-        const counterRow = item?.querySelector('.counter-fields');
-        if (counterRow) {
-            counterRow.style.display = event.target.checked ? 'flex' : 'none';
+        if (!item) return;
+        if (event.target.dataset.k === 'useCounter') {
+            const counterRow = item.querySelector('.counter-fields');
+            if (counterRow) {
+                counterRow.style.display = event.target.checked ? 'flex' : 'none';
+                if (event.target.checked) {
+                    const counterInput = counterRow.querySelector('[data-k="counter"]');
+                    if (counterInput && !counterInput.value) counterInput.focus();
+                }
+            }
+        } else if (event.target.dataset.k === 'useHttp') {
+            const fields = item.querySelector('.http-fields');
+            const picker = item.querySelector('[data-act="preset-pick"]')?.closest('.row');
+            if (fields) fields.style.display = event.target.checked ? 'flex' : 'none';
+            if (picker) picker.style.display = event.target.checked ? 'flex' : 'none';
             if (event.target.checked) {
-                const counterInput = counterRow.querySelector('[data-k="counter"]');
-                if (counterInput && !counterInput.value) counterInput.focus();
+                const urlInput = item.querySelector('[data-k="httpUrl"]');
+                if (urlInput && !urlInput.value) urlInput.focus();
+            }
+        } else if (event.target.dataset.k === 'httpMethod') {
+            const wrap = item.querySelector('[data-k-wrap="httpBody"]');
+            if (wrap) wrap.style.display = event.target.value === 'GET' ? 'none' : '';
+        } else if (event.target.dataset.act === 'preset-pick') {
+            if (event.target.value) {
+                applyPreset(item, event.target.value);
+                event.target.value = '';
             }
         }
-    }
-});
+    });
+    el.addEventListener('click', async event => {
+        const act = event.target.dataset.act;
+        const item = event.target.closest('.item');
+        if (!act || !item) return;
+        if (act === 'test-http') {
+            testHttpAction(item);
+        }
+    });
+}
 $('commands').addEventListener('click', async event => {
     const act = event.target.dataset.act, item = event.target.closest('.item');
     if (!act || !item) return;
