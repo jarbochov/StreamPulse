@@ -693,6 +693,7 @@ function createTwitchService(options = {}) {
                 const last = chatData.streamInfo[chatData.streamInfo.length - 1];
                 if (!last || last.title !== title || last.category !== category) {
                     chatData.streamInfo.push({ title, category, changedAt: now });
+                    if (chatData.streamInfo.length > 50) chatData.streamInfo.splice(0, chatData.streamInfo.length - 50);
                     log(`[Twitch] Stream info: "${title}" — ${category || '(no category)'}`);
                 }
             }

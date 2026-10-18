@@ -887,6 +887,41 @@
     let animRaf = 0;
     let isPaused = false;
 
+    function drawMediaFitted(ctx, mediaEl, w, h, fit = 'cover', fx = 0.5, fy = 0.5, blurPx = 0) {
+        const iw = mediaEl.naturalWidth || mediaEl.videoWidth || mediaEl.width || w;
+        const ih = mediaEl.naturalHeight || mediaEl.videoHeight || mediaEl.height || h;
+        if (iw <= 0 || ih <= 0) return;
+
+        ctx.clearRect(0, 0, w, h);
+        if (blurPx > 0) {
+            ctx.filter = `blur(${blurPx.toFixed(2)}px)`;
+        } else {
+            ctx.filter = 'none';
+        }
+
+        const bleed = blurPx > 0 ? Math.min(blurPx * 2, Math.min(w, h) * 0.15) : 0;
+        const targetW = w + bleed * 2;
+        const targetH = h + bleed * 2;
+
+        if (fit === 'fill') {
+            ctx.drawImage(mediaEl, -bleed, -bleed, targetW, targetH);
+        } else {
+            const scale = fit === 'contain'
+                ? Math.min(targetW / iw, targetH / ih)
+                : fit === 'none'
+                    ? 1
+                    : fit === 'scale-down'
+                        ? Math.min(1, Math.min(targetW / iw, targetH / ih))
+                        : Math.max(targetW / iw, targetH / ih);
+            const dw = iw * scale;
+            const dh = ih * scale;
+            const dx = -bleed + (targetW - dw) * fx;
+            const dy = -bleed + (targetH - dh) * fy;
+            ctx.drawImage(mediaEl, dx, dy, dw, dh);
+        }
+        ctx.filter = 'none';
+    }
+
     function animLoop(timestamp) {
         if (isPaused || typeof document === 'undefined' || document.hidden) {
             animRaf = 0;
@@ -896,13 +931,24 @@
         const tSec = timestamp * 0.001;
         for (const node of activeNodes) {
             if (!node.isConnected) {
-                activeNodes.delete(node);
+                cleanup(node);
                 continue;
             }
             const record = node._retroRecord;
             if (!record || !record.canvas) {
-                activeNodes.delete(node);
+                cleanup(node);
                 continue;
+            }
+            if (node._retroBlurCanvas && record.filter?.blur > 0) {
+                const videoEl = node.querySelector(':scope > video, video');
+                if (videoEl && videoEl.readyState >= 2 && !videoEl.paused && !videoEl.ended) {
+                    const bCan = node._retroBlurCanvas;
+                    const bCtx = bCan.getContext('2d');
+                    if (bCtx) {
+                        drawMediaFitted(bCtx, videoEl, bCan.width, bCan.height, record.filter._fit, (record.filter._focusX ?? 50) / 100, (record.filter._focusY ?? 50) / 100, record.filter.blur);
+                        bCan._fxVersion = (bCan._fxVersion || 0) + 1;
+                    }
+                }
             }
             renderRetroShader(record.canvas, record.source, record.filter, tSec);
         }
@@ -997,7 +1043,31 @@
         if (mediaEl) mediaEl.style.opacity = '0';
         if (hasFxCanvas) node._fxCanvas.style.opacity = '0';
 
-        const source = hasFxCanvas ? node._fxCanvas : (mediaEl || node);
+        // If blur is applied and no fxCanvas exists, blur the media into a pre-pass canvas before retro processing
+        let source = hasFxCanvas ? node._fxCanvas : (mediaEl || node);
+        const blurVal = Number(f.blur) || 0;
+        if (!hasFxCanvas && blurVal > 0 && mediaEl) {
+            let bCan = node._retroBlurCanvas;
+            if (!bCan) {
+                bCan = node._retroBlurCanvas = document.createElement('canvas');
+            }
+            if (bCan.width !== w || bCan.height !== h) {
+                bCan.width = w;
+                bCan.height = h;
+                bCan._blurSig = '';
+            }
+            const bCtx = bCan.getContext('2d');
+            const blurSig = `${mediaEl.currentSrc || mediaEl.src || ''}|${w}x${h}|${blurVal}|${f._fit}|${f._focusX}|${f._focusY}`;
+            if (bCtx && (bCan._blurSig !== blurSig || isVideo)) {
+                bCan._blurSig = blurSig;
+                drawMediaFitted(bCtx, mediaEl, w, h, f._fit, (f._focusX ?? 50) / 100, (f._focusY ?? 50) / 100, blurVal);
+                bCan._fxVersion = (bCan._fxVersion || 0) + 1;
+            }
+            source = bCan;
+        } else if (node._retroBlurCanvas) {
+            node._retroBlurCanvas = null;
+        }
+
         node._retroRecord = { canvas, source, filter: f };
 
         // Determine if this effect truly needs continuous 60 FPS animation
@@ -1027,6 +1097,9 @@
         if (node._retroCanvas) {
             node._retroCanvas.remove();
             node._retroCanvas = null;
+        }
+        if (node._retroBlurCanvas) {
+            node._retroBlurCanvas = null;
         }
         node._retroRecord = null;
         activeNodes.delete(node);

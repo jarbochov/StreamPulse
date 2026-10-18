@@ -536,7 +536,7 @@
             z-index: 2;
         }
         .choices-table td {
-            padding: .35rem .6rem;
+            padding: .45rem .65rem;
             border-bottom: 1px solid rgba(255,255,255,0.04);
             vertical-align: middle;
         }
@@ -552,8 +552,8 @@
             border: 1px solid transparent;
             color: var(--text);
             font: inherit;
-            padding: .2rem .35rem;
-            border-radius: 4px;
+            padding: .25rem .45rem;
+            border-radius: 6px;
         }
         .choice-name-input:focus {
             background: var(--bg-card);
@@ -563,39 +563,59 @@
         .weight-stepper {
             display: inline-flex;
             align-items: center;
-            gap: 2px;
+            gap: 4px;
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 1px;
+            border-radius: 8px;
+            padding: 2px 4px;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+        .weight-stepper:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
         }
         .weight-stepper button {
-            background: transparent;
-            border: none;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid transparent;
             color: var(--text-muted);
-            width: 22px;
-            height: 22px;
+            width: 28px;
+            height: 28px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            border-radius: 4px;
-            font-size: .8rem;
+            border-radius: 6px;
+            font-size: .95rem;
             font-weight: 700;
+            line-height: 1;
+            transition: all .12s ease;
+            user-select: none;
+            -webkit-user-select: none;
         }
         .weight-stepper button:hover {
             color: var(--text);
-            background: var(--bg-raised);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: var(--border);
+        }
+        .weight-stepper button:active {
+            transform: scale(0.92);
         }
         .weight-stepper input {
-            width: 44px;
+            width: 52px;
+            height: 28px;
             background: transparent;
             border: none;
             text-align: center;
             color: var(--text);
             font-weight: 700;
-            font-size: .76rem;
+            font-size: .84rem;
             outline: none;
+            -moz-appearance: textfield;
+        }
+        .weight-stepper input::-webkit-outer-spin-button,
+        .weight-stepper input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
         .prob-badge {
             display: inline-flex;
@@ -1742,6 +1762,53 @@
             return currentWeightsMap;
         }
 
+        function updateChoiceWeight(c, nextWeight, inputEl) {
+            const step = currentWeightSettings.step || 1;
+            const decimals = step < 1 ? 1 : 0;
+            const clamped = Math.max(0.1, Math.min(1000, Number(nextWeight) || 1));
+            const rounded = decimals > 0 ? (Math.round(clamped * 10) / 10) : Math.round(clamped);
+
+            currentWeightsMap[c] = rounded;
+            if (currentChoiceStats[c]) currentChoiceStats[c].effectiveWeight = rounded;
+
+            if (inputEl && Number(inputEl.value) !== rounded) {
+                inputEl.value = rounded;
+            }
+
+            // Recalculate effective weights and probabilities in-place without rebuilding table DOM
+            const list = choices;
+            const { weights: effWeights, totalWeight, mode } = getClientEffectiveWeights(list);
+            const avgProb = totalWeight > 0 ? (100 / list.length) : 0;
+
+            const tbody = $('choices-table-body');
+            if (tbody) {
+                const rows = tbody.querySelectorAll('tr[data-choice]');
+                rows.forEach(row => {
+                    const rowChoice = row.dataset.choice;
+                    if (!rowChoice) return;
+                    const rEffW = effWeights[rowChoice] != null ? effWeights[rowChoice] : 1;
+                    const rProb = totalWeight > 0 ? ((rEffW / totalWeight) * 100).toFixed(1) : (100 / list.length).toFixed(1);
+                    const probClass = Number(rProb) > avgProb * 1.25 ? 'high' : (Number(rProb) < avgProb * 0.75 ? 'low' : '');
+
+                    const badge = row.querySelector('.prob-badge');
+                    if (badge) {
+                        badge.className = `prob-badge ${probClass}`.trim();
+                        badge.textContent = `${rProb}%`;
+                    }
+
+                    const stats = row.querySelector('.choice-weight-stats');
+                    if (stats && (mode === 'growth' || mode === 'momentum')) {
+                        const picks = currentChoiceStats[rowChoice]?.picks || 0;
+                        const unpicked = currentChoiceStats[rowChoice]?.unpickedSpins || 0;
+                        stats.textContent = `Eff: ${rEffW}x (${picks} wins, ${unpicked} missed)`;
+                    }
+                });
+            }
+
+            syncChoicesToTextarea();
+            drawWheel(0, choices);
+        }
+
         function renderChoicesTable() {
             const tbody = $('choices-table-body');
             if (!tbody) return;
@@ -1765,6 +1832,7 @@
 
             list.forEach((c, idx) => {
                 const tr = document.createElement('tr');
+                tr.dataset.choice = c;
                 const effW = effWeights[c] != null ? effWeights[c] : 1;
                 const baseW = currentWeightsMap[c] != null ? currentWeightsMap[c] : (currentWeightSettings.base || 1);
                 const prob = totalWeight > 0 ? ((effW / totalWeight) * 100).toFixed(1) : (100 / list.length).toFixed(1);
@@ -1812,17 +1880,14 @@
                     stepper.className = 'weight-stepper';
                     const btnMinus = document.createElement('button');
                     btnMinus.type = 'button';
-                    btnMinus.textContent = '-';
-                    btnMinus.title = 'Decrease weight';
-                    btnMinus.onclick = () => {
-                        const cur = Number(baseW);
+                    btnMinus.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+                    btnMinus.title = 'Decrease weight (or press Down arrow)';
+                    btnMinus.onclick = (e) => {
+                        e.preventDefault();
+                        const cur = Number(wInput.value) || Number(baseW) || 1;
                         const step = currentWeightSettings.step || 1;
-                        const next = Math.max(0.1, Math.round((cur - step) * 10) / 10);
-                        currentWeightsMap[c] = next;
-                        if (currentChoiceStats[c]) currentChoiceStats[c].effectiveWeight = next;
-                        renderChoicesTable();
-                        syncChoicesToTextarea();
-                        drawWheel(0, choices);
+                        updateChoiceWeight(c, cur - step, wInput);
+                        wInput.focus();
                     };
 
                     const wInput = document.createElement('input');
@@ -1831,28 +1896,44 @@
                     wInput.max = '1000';
                     wInput.step = String(currentWeightSettings.step || 1);
                     wInput.value = baseW;
+                    wInput.setAttribute('aria-label', `Weight for ${c}`);
+
+                    wInput.onkeydown = (e) => {
+                        if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            const cur = Number(wInput.value) || Number(baseW) || 1;
+                            const step = currentWeightSettings.step || 1;
+                            updateChoiceWeight(c, cur + step, wInput);
+                        } else if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            const cur = Number(wInput.value) || Number(baseW) || 1;
+                            const step = currentWeightSettings.step || 1;
+                            updateChoiceWeight(c, cur - step, wInput);
+                        }
+                    };
+
+                    wInput.oninput = (e) => {
+                        const val = Number(e.target.value);
+                        if (!isNaN(val) && val > 0) {
+                            updateChoiceWeight(c, val, wInput);
+                        }
+                    };
+
                     wInput.onchange = (e) => {
                         const val = Math.max(0.1, Number(e.target.value) || 1);
-                        currentWeightsMap[c] = val;
-                        if (currentChoiceStats[c]) currentChoiceStats[c].effectiveWeight = val;
-                        renderChoicesTable();
-                        syncChoicesToTextarea();
-                        drawWheel(0, choices);
+                        updateChoiceWeight(c, val, wInput);
                     };
 
                     const btnPlus = document.createElement('button');
                     btnPlus.type = 'button';
-                    btnPlus.textContent = '+';
-                    btnPlus.title = 'Increase weight';
-                    btnPlus.onclick = () => {
-                        const cur = Number(baseW);
+                    btnPlus.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+                    btnPlus.title = 'Increase weight (or press Up arrow)';
+                    btnPlus.onclick = (e) => {
+                        e.preventDefault();
+                        const cur = Number(wInput.value) || Number(baseW) || 1;
                         const step = currentWeightSettings.step || 1;
-                        const next = Math.round((cur + step) * 10) / 10;
-                        currentWeightsMap[c] = next;
-                        if (currentChoiceStats[c]) currentChoiceStats[c].effectiveWeight = next;
-                        renderChoicesTable();
-                        syncChoicesToTextarea();
-                        drawWheel(0, choices);
+                        updateChoiceWeight(c, cur + step, wInput);
+                        wInput.focus();
                     };
 
                     stepper.appendChild(btnMinus);
@@ -1862,7 +1943,8 @@
 
                     if (mode === 'growth' || mode === 'momentum') {
                         const statsSpan = document.createElement('div');
-                        statsSpan.style.cssText = 'font-size:.66rem; color:var(--text-muted); margin-top:2px;';
+                        statsSpan.className = 'choice-weight-stats';
+                        statsSpan.style.cssText = 'font-size:.66rem; color:var(--text-muted); margin-top:3px;';
                         const picks = currentChoiceStats[c]?.picks || 0;
                         const unpicked = currentChoiceStats[c]?.unpickedSpins || 0;
                         statsSpan.textContent = `Eff: ${effW}x (${picks} wins, ${unpicked} missed)`;

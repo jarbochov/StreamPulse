@@ -348,6 +348,7 @@ function createSessionService(options = {}) {
             const lastInfo = chatData.streamInfo?.[chatData.streamInfo.length - 1];
             if (lastInfo?.endedAt) {
                 chatData.streamInfo.push({ title: lastInfo.title, category: lastInfo.category, changedAt: new Date().toISOString() });
+                if (chatData.streamInfo.length > 50) chatData.streamInfo.splice(0, chatData.streamInfo.length - 50);
             }
         }
         setSessionActive(true);

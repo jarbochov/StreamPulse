@@ -500,30 +500,42 @@
     /**
      * Draws an image or video onto a canvas while strictly respecting CSS object-fit
      * ('cover' [Fill to fit / crop], 'contain' [letterbox], 'fill', etc.) and focus point.
+     * When blurPx > 0, applies hardware-accelerated blur before drawing and expands bounds to prevent edge fading.
      */
-    function drawMediaWithFit(ctx, mediaEl, pw, ph, fit = 'cover', fx = 0.5, fy = 0.5) {
+    function drawMediaWithFit(ctx, mediaEl, pw, ph, fit = 'cover', fx = 0.5, fy = 0.5, blurPx = 0) {
         const iw = mediaEl.naturalWidth || mediaEl.videoWidth || mediaEl.width || pw;
         const ih = mediaEl.naturalHeight || mediaEl.videoHeight || mediaEl.height || ph;
         if (iw <= 0 || ih <= 0) return;
 
         ctx.clearRect(0, 0, pw, ph);
 
+        if (blurPx > 0) {
+            ctx.filter = `blur(${blurPx.toFixed(2)}px)`;
+        } else {
+            ctx.filter = 'none';
+        }
+
+        const bleed = blurPx > 0 ? Math.min(blurPx * 2, Math.min(pw, ph) * 0.15) : 0;
+        const targetW = pw + bleed * 2;
+        const targetH = ph + bleed * 2;
+
         if (fit === 'fill') {
-            ctx.drawImage(mediaEl, 0, 0, pw, ph);
+            ctx.drawImage(mediaEl, -bleed, -bleed, targetW, targetH);
         } else {
             const scale = fit === 'contain'
-                ? Math.min(pw / iw, ph / ih)
+                ? Math.min(targetW / iw, targetH / ih)
                 : fit === 'none'
                     ? 1
                     : fit === 'scale-down'
-                        ? Math.min(1, Math.min(pw / iw, ph / ih))
-                        : Math.max(pw / iw, ph / ih); // 'cover' is default (Fill, crop to fit)
+                        ? Math.min(1, Math.min(targetW / iw, targetH / ih))
+                        : Math.max(targetW / iw, targetH / ih); // 'cover' is default (Fill, crop to fit)
             const dw = iw * scale;
             const dh = ih * scale;
-            const dx = (pw - dw) * fx;
-            const dy = (ph - dh) * fy;
+            const dx = -bleed + (targetW - dw) * fx;
+            const dy = -bleed + (targetH - dh) * fy;
             ctx.drawImage(mediaEl, dx, dy, dw, dh);
         }
+        ctx.filter = 'none';
     }
 
     /**
@@ -649,12 +661,14 @@
 
         const mf = element.mediaFilter || {};
         const bake = MEDIA_TYPES.has(element.type);
-        const adjSig = bake ? `${mf.brightness ?? 100},${mf.contrast ?? 100},${mf.saturate ?? 100},${mf.grayscale ?? 0}` : '';
+        const blurVal = Number(mf.blur) || 0;
+        const blurCanvasPx = blurVal > 0 ? (blurVal * (pw / elW)) : 0;
+        const adjSig = bake ? `${mf.brightness ?? 100},${mf.contrast ?? 100},${mf.saturate ?? 100},${mf.grayscale ?? 0},${blurVal}` : `${blurVal}`;
 
         const srcSig = mediaEl
             ? `${mediaEl.currentSrc || mediaEl.src}|${fit}|${fx}|${fy}|${pw}|${ph}|${adjSig}`
             : (element.type === 'shape'
-                ? `${s.background}|${s.fill}|${JSON.stringify(s.gradient)}|${pw}|${ph}`
+                ? `${s.background}|${s.fill}|${JSON.stringify(s.gradient)}|${pw}|${ph}|${adjSig}`
                 : `${pw}|${ph}|${adjSig}`);
 
         if (canvas._srcSig !== srcSig) {
@@ -664,7 +678,7 @@
                     : (mediaEl.readyState >= 2 && mediaEl.videoWidth > 0);
 
                 if (isLoaded) {
-                    drawMediaWithFit(ctx, mediaEl, pw, ph, fit, fx, fy);
+                    drawMediaWithFit(ctx, mediaEl, pw, ph, fit, fx, fy, blurCanvasPx);
                     const readback = ctx.getImageData(0, 0, pw, ph);
                     srcPixels.set(readback.data);
                 } else {
@@ -685,6 +699,7 @@
                     fillSolidPixels(srcPixels, pw, ph, s.fill || s.background || '#ffffff');
                 }
             } else {
+                if (blurCanvasPx > 0) ctx.filter = `blur(${blurCanvasPx.toFixed(2)}px)`;
                 const subCanvas = node.querySelector('canvas.sp-pattern-canvas');
                 if (subCanvas && subCanvas !== canvas) {
                     ctx.drawImage(subCanvas, 0, 0, pw, ph);
@@ -695,6 +710,7 @@
                     ctx.fillStyle = '#808080';
                     ctx.fillRect(0, 0, pw, ph);
                 }
+                ctx.filter = 'none';
                 const readback = ctx.getImageData(0, 0, pw, ph);
                 srcPixels.set(readback.data);
             }
@@ -1206,7 +1222,11 @@
         const parts = [];
         const canvasParts = [];
         if (active) {
-            if (f.blur > 0) (replaced ? canvasParts : parts).push(`blur(${f.blur}px)`);
+            // Blur is applied before pixel/halftone quantization and before retro CRT shaders.
+            // Only add blur to CSS filter when neither halftone nor retro display engine is active.
+            if (f.blur > 0 && !hasHt && !hasRetro) {
+                (replaced ? canvasParts : parts).push(`blur(${f.blur}px)`);
+            }
             if (!replaced) {
                 if (f.brightness !== 100) parts.push(`brightness(${f.brightness}%)`);
                 if (f.contrast !== 100) parts.push(`contrast(${f.contrast}%)`);
