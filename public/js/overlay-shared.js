@@ -2263,6 +2263,13 @@
         const mode = el.textFit;
         if ((mode !== 'shrink' && mode !== 'fit') || !node.isConnected || el.random?.marquee) return;
         const base = Number(el.style?.fontSize) || 32;
+        const textKey = probeText != null ? probeText : (node._textNode ? node._textNode.nodeValue : node.textContent);
+        const fitKey = `${el.width}x${el.height}|${mode}|${base}|${el.style?.fontFamily}|${el.columns || 1}|${textKey}`;
+        if (node._fitKey === fitKey && node._fittedFontSize) {
+            node.style.fontSize = `${node._fittedFontSize}px`;
+            return;
+        }
+
         const saved = { display: node.style.display, children: probeText != null ? [...node.childNodes] : null };
         // Centered flex boxes hide overflow at the top, so measure as a normal block.
         node.style.display = 'block';
@@ -2278,10 +2285,17 @@
         };
         const fits = size => { node.style.fontSize = `${size}px`; return node.scrollHeight <= node.clientHeight + 1 && node.scrollWidth <= node.clientWidth + 1 && (!columnar || inside()); };
         let lo = 8, hi = mode === 'fit' ? 400 : base;
+        let chosen = base;
         if (!fits(hi)) {
             while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (fits(mid)) lo = mid; else hi = mid; }
+            chosen = lo;
             node.style.fontSize = `${lo}px`;
+        } else {
+            chosen = hi;
+            node.style.fontSize = `${hi}px`;
         }
+        node._fitKey = fitKey;
+        node._fittedFontSize = chosen;
         node.style.display = saved.display;
         if (saved.children) node.replaceChildren(...saved.children);
     }

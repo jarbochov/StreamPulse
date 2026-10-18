@@ -533,7 +533,20 @@ export function renderCanvas(only) {
         if (node._sig !== signature) {
             const existingVid = el.type === 'video' ? node.querySelector(':scope > video') : null;
             const canReuseVid = existingVid && node._src === el.src && node._fit === el.style?.objectFit && node._fx === el.style?.focusX && node._fy === el.style?.focusY;
-            if (canReuseVid) {
+            const existingImg = el.type === 'image' ? node.querySelector(':scope > img') : null;
+            const canReuseImg = existingImg && node._src === el.src;
+            const isPlainShape = el.type === 'shape';
+            const isTextType = el.type === 'text' && !el.random?.typewriter && !el.random?.marquee;
+            const canReuseText = isTextType && node._content === el.content && node._src === el.src;
+
+            if (canReuseImg) {
+                node._sig = signature;
+                node._fit = el.style?.objectFit;
+                node._fx = el.style?.focusX;
+                node._fy = el.style?.focusY;
+                existingImg.style.objectFit = el.style?.objectFit || 'cover';
+                existingImg.style.objectPosition = `${el.style?.focusX ?? 50}% ${el.style?.focusY ?? 50}%`;
+            } else if (canReuseVid) {
                 node._sig = signature;
                 const v = el.video || {};
                 const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
@@ -547,9 +560,15 @@ export function renderCanvas(only) {
                     delete existingVid.dataset.audioPending;
                     if (existingVid.paused) existingVid.play().catch(() => {});
                 }
+            } else if (isPlainShape) {
+                node._sig = signature;
+            } else if (canReuseText) {
+                node._sig = signature;
+                setNodeText(node, expand(shared.elementContent ? shared.elementContent(el) : el.content));
             } else {
                 node._sig = signature;
                 node._src = el.src;
+                node._content = el.content;
                 node._fit = el.style?.objectFit;
                 node._fx = el.style?.focusX;
                 node._fy = el.style?.focusY;
@@ -793,9 +812,18 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
             const sy = snapAxis([b.y + dy, b.y + dy + b.h / 2, b.y + dy + b.h], targets.ys);
             dx += sx.delta; dy += sy.delta; guideX = sx.lines; guideY = sy.lines;
         }
-        for (const item of gesture.items) { item.el.x = Math.round(item.x + dx); item.el.y = Math.round(item.y + dy); }
+        for (const item of gesture.items) {
+            item.el.x = Math.round(item.x + dx);
+            item.el.y = Math.round(item.y + dy);
+            const node = state.nodes.get(item.el.id);
+            if (node) {
+                const b = boxOf(item.el);
+                node.style.left = `${b.x}px`;
+                node.style.top = `${b.y}px`;
+            }
+        }
         showGuides(guideX, guideY);
-        renderCanvas(new Set(gesture.items.map(item => item.el.id)));
+        if (gesture.hasCutout) scheduleEditorCutoutMask();
         renderSelectionUI(gesture.items.length === 1 ? `${gesture.items[0].el.x}, ${gesture.items[0].el.y}` : undefined);
         if (onSyncGeometry) onSyncGeometry();
         if (onUpdateStatusBar) onUpdateStatusBar();
@@ -879,7 +907,35 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         setSelection([...withGroups([...gesture.base, ...hit])], { light: true });
     }
 
+    let gestureRaf = 0;
+    let pendingPointerEvent = null;
+
+    function processGesture() {
+        gestureRaf = 0;
+        if (!state.gesture || !pendingPointerEvent) return;
+        const event = pendingPointerEvent;
+        const rawDx = event.clientX - state.gesture.startX, rawDy = event.clientY - state.gesture.startY;
+        if (state.gesture.type === 'pan') {
+            state.pan.x = state.gesture.pan.x + rawDx;
+            state.pan.y = state.gesture.pan.y + rawDy;
+            state.autoFit = false;
+            applyView();
+            return;
+        }
+        if (!state.gesture.moved && Math.hypot(rawDx, rawDy) < 3) return;
+        state.gesture.moved = true;
+        if (state.gesture.type === 'move') moveGesture(event, rawDx / state.zoom, rawDy / state.zoom);
+        else if (state.gesture.type === 'resize') resizeGesture(event, rawDx / state.zoom, rawDy / state.zoom);
+        else if (state.gesture.type === 'marquee') marqueeGesture(event);
+    }
+
     function endGesture(event) {
+        if (gestureRaf) {
+            cancelAnimationFrame(gestureRaf);
+            gestureRaf = 0;
+            if (pendingPointerEvent) processGesture();
+        }
+        pendingPointerEvent = null;
         if (!state.gesture) return;
         const done = state.gesture;
         state.gesture = null;
@@ -891,6 +947,9 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
         if (done.type === 'move' && !done.moved && done.deferCollapse) setSelection([done.id]);
         if (done.type === 'marquee' && onRenderProperties) onRenderProperties();
         if ((done.type === 'move' || done.type === 'resize') && done.moved) {
+            if (done.type === 'move' && done.items) {
+                renderCanvas(new Set(done.items.map(i => i.el.id)));
+            }
             if (state.overlay.elements.some(e => e.type === 'cutout')) updateEditorCutoutMask();
             renderSelectionUI();
             changed(true);
@@ -938,7 +997,8 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
                 deferCollapse, moved: false,
                 items: movable.map(item => ({ el: item, x: item.x, y: item.y })),
                 bounds: movable.length ? boundsOf(movable) : null,
-                locked: !movable.length
+                locked: !movable.length,
+                hasCutout: movable.some(m => m.type === 'cutout')
             };
             if (el?.locked && state.selectedIds.size === 1) state.gesture.locked = true;
         } else {
@@ -951,19 +1011,10 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
 
     stage.addEventListener('pointermove', event => {
         if (!state.gesture) return;
-        const rawDx = event.clientX - state.gesture.startX, rawDy = event.clientY - state.gesture.startY;
-        if (state.gesture.type === 'pan') {
-            state.pan.x = state.gesture.pan.x + rawDx;
-            state.pan.y = state.gesture.pan.y + rawDy;
-            state.autoFit = false;
-            applyView();
-            return;
+        pendingPointerEvent = event;
+        if (!gestureRaf) {
+            gestureRaf = requestAnimationFrame(processGesture);
         }
-        if (!state.gesture.moved && Math.hypot(rawDx, rawDy) < 3) return;
-        state.gesture.moved = true;
-        if (state.gesture.type === 'move') moveGesture(event, rawDx / state.zoom, rawDy / state.zoom);
-        else if (state.gesture.type === 'resize') resizeGesture(event, rawDx / state.zoom, rawDy / state.zoom);
-        else if (state.gesture.type === 'marquee') marqueeGesture(event);
     });
 
     stage.addEventListener('pointerup', endGesture);

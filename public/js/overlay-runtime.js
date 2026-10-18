@@ -28,6 +28,8 @@
     const slideshows = new Map();
     let slideshowsKept = new Set();
     const cutoutStates = new Map();
+    const elementNodes = new Map();
+    let elementNodesKept = new Set();
     function stopSlideshows(ids) {
         for (const [id, entry] of [...slideshows]) if (!ids || ids.has(id)) { entry.handle.stop(); slideshows.delete(id); }
     }
@@ -196,6 +198,7 @@
     }
 
     function tickPlaceholders() {
+        if (document.hidden) return;
         for (const { node, element } of tickingNodes) {
             if (element.type === 'progress') shared.renderProgress(node, element, expandVariables);
             else if (element.type === 'markdown') {
@@ -228,6 +231,10 @@
 
     function playVideoElement(video) {
         if (!video || video.tagName !== 'VIDEO') return;
+        if (document.hidden) {
+            video._pausedByHidden = true;
+            return;
+        }
         const hasSound = video.dataset.hasSound === 'true';
         const targetVol = Number(video.dataset.targetVolume);
         const volume = Number.isFinite(targetVol) ? targetVol : 1;
@@ -411,6 +418,7 @@
         stopRandomTimers();
         slideshowsKept = new Set();
         embedsKept = new Set();
+        elementNodesKept = new Set();
         stopAlerts();
         tickingNodes.length = 0;
         alertNodes.length = 0;
@@ -460,6 +468,14 @@
         });
         stopSlideshows(new Set([...slideshows.keys()].filter(id => !slideshowsKept.has(id))));
         for (const id of [...embeds.keys()]) if (!embedsKept.has(id)) embeds.delete(id);
+        for (const id of [...elementNodes.keys()]) if (!elementNodesKept.has(id)) {
+            const oldNode = elementNodes.get(id);
+            if (oldNode) {
+                shared.cleanupNode(oldNode);
+                oldNode.remove();
+            }
+            elementNodes.delete(id);
+        }
         updateCutoutMask();
         refit();
         checkViewportFit(overlay);
@@ -502,8 +518,72 @@
                 return existing.node;
             }
         }
+        const existingNode = elementNodes.get(element.id);
+        if (existingNode && existingNode._elementType === element.type) {
+            elementNodesKept.add(element.id);
+            existingNode.dataset.pg = element.page || '';
+            applyElementStyle(existingNode, element);
+
+            if (element.type === 'image') {
+                const media = existingNode.querySelector(':scope > img');
+                const targetSrc = expandVariables(element.src || '');
+                if (media) {
+                    if (media.getAttribute('src') !== targetSrc) media.src = targetSrc;
+                    media.style.objectFit = element.style?.objectFit || 'cover';
+                    media.style.objectPosition = `${element.style?.focusX ?? 50}% ${element.style?.focusY ?? 50}%`;
+                }
+            } else if (element.type === 'icon') {
+                shared.renderIcon(existingNode, element.content, element.style || {});
+            } else if (element.type === 'qr') {
+                const img = existingNode.querySelector(':scope > img');
+                const targetSrc = shared.qrUrl(expandVariables(element.src || ''), element.qr);
+                if (img && img.getAttribute('src') !== targetSrc) img.src = targetSrc;
+            } else if (element.type === 'markdown') {
+                const nextHtml = renderMarkdown(shared.elementContent(element), element);
+                if (existingNode._mdHtml !== nextHtml) {
+                    existingNode._mdHtml = nextHtml;
+                    existingNode.innerHTML = nextHtml;
+                }
+            } else if (element.type === 'random-text') {
+                setRandomText(existingNode, element);
+                const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;
+                randomTimers.set(element.id, setInterval(() => setRandomText(existingNode, element), interval));
+            } else if (element.type === 'game-list') {
+                shared.renderGameList(existingNode, element, liveStatus.gamePlan);
+            } else if (element.type === 'progress') {
+                shared.renderProgress(existingNode, element, expandVariables);
+            } else if (element.type === 'alert') {
+                shared.prepareAlertNode(existingNode, element);
+                alertNodes.push({ node: existingNode, element });
+                if (isAlertPreview(element)) {
+                    existingNode._alertPreviewHandle = shared.playAlert(existingNode, element, { ...shared.alertSample(element), animIn: 'none', animOut: 'none', durationMs: 3600000 }, { sound: false });
+                }
+            } else if (element.type === 'shape') {
+                existingNode.setAttribute('aria-hidden', 'true');
+            } else if (element.type === 'cutout') {
+                existingNode.setAttribute('aria-hidden', 'true');
+                existingNode.style.pointerEvents = 'none';
+                existingNode.style.background = 'transparent';
+                shared.applyBorderEffects(existingNode, element.style || {}, element);
+                existingNode._isTopLayer = true;
+            } else {
+                setNodeText(existingNode, expandVariables(shared.elementContent(element) || ''));
+            }
+
+            const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : shared.elementContent(element);
+            if (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource)) tickingNodes.push({ node: existingNode, element });
+            if (element.textFit && element.textFit !== 'none') fitNodes.push({ node: existingNode, element });
+            shared.applyMediaFilter(existingNode, element);
+            return existingNode;
+        }
+
         {
             const node = document.createElement('div');
+            node._elementType = element.type;
+            if (element.id && !['slideshow', 'pattern', 'video', 'embed'].includes(element.type)) {
+                elementNodes.set(element.id, node);
+                elementNodesKept.add(element.id);
+            }
             node.dataset.pg = element.page || '';
             node.dataset.elementId = element.id || '';
             node.className = `overlay-element overlay-${element.type}`;
@@ -693,6 +773,7 @@
         [fitNodes, tickingNodes, alertNodes].forEach(prune);
         const prevTrigger = !!currentOverlay.pages.items.find(item => item.id === previous)?.trigger;
         for (const element of currentOverlay.elements || []) if (element.page === previous && element.page !== '*' && !(prevTrigger && element.type === 'embed')) embeds.delete(element.id);
+        for (const element of currentOverlay.elements || []) if (element.page === previous && element.page !== '*') elementNodes.delete(element.id);
         stopSlideshows(new Set((currentOverlay.elements || []).filter(element => element.page === previous && element.page !== '*').map(element => element.id)));
         for (const element of currentOverlay.elements || []) {
             if (element.page !== previous || element.page === '*') continue;
@@ -725,7 +806,11 @@
         const finish = () => {
             outgoing.forEach(node => {
                 if (prevTrigger && node.classList.contains('overlay-embed')) { node.style.animation = ''; node.style.willChange = ''; node.style.visibility = 'hidden'; node.style.pointerEvents = 'none'; }
-                else { shared.cleanupNode(node); node.remove(); }
+                else {
+                    if (node.dataset.elementId) elementNodes.delete(node.dataset.elementId);
+                    shared.cleanupNode(node);
+                    node.remove();
+                }
             });
             incoming.forEach(node => { node.style.animation = ''; node.style.willChange = ''; node.style.visibility = ''; node.style.pointerEvents = ''; });
             transitioning = false;
@@ -786,6 +871,7 @@
     }
 
     async function refreshStatus() {
+        if (document.hidden) return;
         try {
             const response = await fetch('/api/status', { cache: 'no-store' });
             if (!response.ok) return;
@@ -957,10 +1043,37 @@
         root.style.color = '#f85149';
     });
     setInterval(async () => {
+        if (document.hidden) return;
         if (currentOverlay && await shared.refreshTextSources(currentOverlay.elements)) render(currentOverlay);
     }, 3000);
     setInterval(refreshStatus, 5000);
     setInterval(tickPlaceholders, 1000);
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            root.querySelectorAll('video').forEach(v => {
+                if (!v.paused) {
+                    v._pausedByHidden = true;
+                    v.pause();
+                }
+            });
+        } else {
+            root.querySelectorAll('video').forEach(v => {
+                if (v._pausedByHidden) {
+                    delete v._pausedByHidden;
+                    playVideoElement(v);
+                }
+            });
+            tickPlaceholders();
+            refreshStatus();
+            if (currentOverlay && shared.refreshTextSources) {
+                shared.refreshTextSources(currentOverlay.elements).then(changed => {
+                    if (changed && currentOverlay) render(currentOverlay);
+                });
+            }
+        }
+    });
+
     connect();
 
     let fitInitialized = false;
@@ -1135,5 +1248,6 @@
         root.querySelectorAll('video, audio').forEach(media => { try { media.pause(); media.removeAttribute('src'); media.load(); } catch {} });
         root.querySelectorAll('iframe').forEach(frame => { frame.src = 'about:blank'; });
         root.replaceChildren();
+        elementNodes.clear();
     });
 })();
