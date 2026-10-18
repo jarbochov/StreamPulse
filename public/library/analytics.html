@@ -144,7 +144,7 @@
             </button>
             <button class="tab-btn" data-tab="crm" role="tab" aria-selected="false" aria-controls="tab-crm">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                <span>Chatters &amp; Notes</span>
+                <span>Community</span>
             </button>
             <button class="tab-btn" data-tab="growth" role="tab" aria-selected="false" aria-controls="tab-growth">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
@@ -233,20 +233,30 @@
             </section>
         </div>
 
-        <!-- TAB 3: Chatters & Notes -->
+        <!-- TAB 3: Community Directory -->
         <div id="tab-crm" class="tab-pane" role="tabpanel" hidden>
             <section class="card">
                 <div class="card-head">
-                    <h2>Chatters &amp; Community Directory</h2>
+                    <h2>Community Overview</h2>
+                    <span class="muted" id="comm-overview-updated">All-time member analytics</span>
+                </div>
+                <div class="stats static" id="community-overview-stats"></div>
+            </section>
+
+            <section class="card">
+                <div class="card-head">
+                    <h2>Community Directory</h2>
                     <span class="muted" id="crm-count"></span>
                 </div>
                 <div class="toolbar" style="margin-bottom:0.4rem;">
-                    <input id="crm-search" type="search" placeholder="Search chatters, notes, or tags&hellip;" style="min-width:240px; flex:1;" aria-label="Search chatters">
+                    <input id="crm-search" type="search" placeholder="Search members, notes, or tags&hellip;" style="min-width:240px; flex:1;" aria-label="Search community members">
                     <button class="btn" id="crm-open-btn" type="button" title="Open dossier for search query">Open Dossier</button>
                     <button class="btn" id="crm-streamer-mode-btn" type="button" title="Hide private notes from the table (useful while live on stream)">Hide Notes</button>
+                    <button class="btn" id="crm-export-btn" type="button" title="Export community roster to CSV">Export CSV</button>
                     <button class="btn" id="crm-sync-twitch-btn" type="button" title="Fetch latest VIPs, Mods, and subscriber data from Twitch">Sync Twitch</button>
                 </div>
-                <div class="crm-tags-bar" id="crm-tags-filter"></div>
+                <div class="segment-filter-bar" id="crm-segment-filter" style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;margin-top:0.6rem;"></div>
+                <div class="crm-tags-bar" id="crm-tags-filter" style="margin-top:0.4rem;"></div>
             </section>
 
             <section class="card">
@@ -258,7 +268,7 @@
                         <tbody id="crm-table-body"></tbody>
                     </table>
                 </div>
-                <p class="muted note">Click any row to view their complete Chatter Dossier, stream history, and private notes.</p>
+                <p class="muted note">Click any member to open their complete Viewer Dossier, stream history, pronouns, and notes.</p>
             </section>
         </div>
 
@@ -359,8 +369,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 window.addEventListener('hashchange', () => {
     const hash = location.hash.replace('#', '');
-    if (['sessions', 'milestones', 'crm', 'growth'].includes(hash)) {
-        switchTab(hash, false);
+    if (['sessions', 'milestones', 'crm', 'growth', 'community', 'chatters'].includes(hash)) {
+        switchTab(hash === 'community' || hash === 'chatters' ? 'crm' : hash, false);
     }
 });
 
@@ -760,21 +770,33 @@ function renderMilestonesView() {
 }
 
 // ==========================================
-// TAB 3: COMMUNITY CRM LOGIC
+// TAB 3: COMMUNITY DIRECTORY LOGIC
 // ==========================================
 let crmChatters = [];
 let crmTags = [];
 let activeTagFilter = '';
+let activeSegmentFilter = 'all';
 let searchDebounce = null;
 let crmHideNotes = localStorage.getItem('crmHideNotes') === 'true';
 
 const CRM_COLS = [
-    ['username', 'Chatter'],
-    ['tags', 'Community Tags'],
-    ['notes', 'Private Notes'],
-    ['sessionsAttended', 'Attendance', 1],
+    ['username', 'Member'],
+    ['tags', 'Badges & Tags'],
+    ['notes', 'Notes'],
+    ['sessionsAttended', 'Streams', 1],
     ['totalMessages', 'Messages', 1],
+    ['firstSeen', 'Joined'],
     ['lastSeen', 'Last Active']
+];
+
+const SEGMENTS = [
+    { id: 'all', label: 'All Members' },
+    { id: 'tonight', label: 'Active Tonight' },
+    { id: 'regulars', label: 'Regulars' },
+    { id: 'vips', label: 'VIPs & Mods' },
+    { id: 'subs', label: 'Subscribers' },
+    { id: 'new', label: 'Newcomers' },
+    { id: 'notes', label: 'With Notes' }
 ];
 
 function updateStreamerModeUI() {
@@ -793,6 +815,37 @@ function updateStreamerModeUI() {
     }
 }
 
+function renderCommunityOverview(s) {
+    const el = $('community-overview-stats');
+    if (!el || !s) return;
+    const cards = [
+        [fmt(s.totalMembers), 'Total Members'],
+        [fmt(s.activeTonight), 'Active Tonight'],
+        [fmt(s.regularsCount), 'Regulars (3+ Streams)'],
+        [fmt(s.vipsAndModsCount), 'VIPs & Mods'],
+        [fmt(s.subscribersCount), 'Subscribers'],
+        [fmt(s.withNotesCount), 'With Notes']
+    ];
+    el.innerHTML = cards.map(([val, lbl]) => `<div class="stat"><strong>${esc(val)}</strong><span>${esc(lbl)}</span></div>`).join('');
+}
+
+function renderCrmSegmentBar() {
+    const wrap = $('crm-segment-filter');
+    if (!wrap) return;
+    wrap.innerHTML = '<span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-right:2px;">Quick Views:</span>' + SEGMENTS.map(seg => {
+        const isActive = activeSegmentFilter === seg.id;
+        return `<button type="button" class="tag-chip${isActive ? ' active' : ''}" data-segment="${esc(seg.id)}">${esc(seg.label)}</button>`;
+    }).join('');
+
+    wrap.querySelectorAll('button[data-segment]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            activeSegmentFilter = btn.dataset.segment;
+            renderCrmSegmentBar();
+            loadChatters();
+        });
+    });
+}
+
 async function loadChatters() {
     updateStreamerModeUI();
     const q = $('crm-search')?.value.trim() || '';
@@ -800,33 +853,38 @@ async function loadChatters() {
     const params = new URLSearchParams();
     if (q) params.set('q', q);
     if (activeTagFilter) params.set('tag', activeTagFilter);
+    if (activeSegmentFilter && activeSegmentFilter !== 'all') params.set('segment', activeSegmentFilter);
 
     try {
         const res = await fetch(`/api/chatters?` + params.toString());
-        if (!res.ok) throw new Error('Failed to load chatters');
+        if (!res.ok) throw new Error('Failed to load community members');
         const data = await res.json();
         crmChatters = data.chatters || [];
         if (data.tags) {
             crmTags = data.tags;
             renderCrmTagsBar();
         }
+        if (data.summary) {
+            renderCommunityOverview(data.summary);
+        }
+        renderCrmSegmentBar();
         renderCrmTable();
     } catch (e) {
-        console.error('CRM load error:', e);
+        console.error('Community load error:', e);
     }
 }
 
 function renderCrmTagsBar() {
     const wrap = $('crm-tags-filter');
     if (!wrap) return;
-    const chips = ['All', ...crmTags];
-    wrap.innerHTML = chips.map(tag => {
-        const isAll = tag === 'All';
+    const chips = ['All Tags', ...crmTags];
+    wrap.innerHTML = '<span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-right:2px;">Tags:</span>' + chips.map(tag => {
+        const isAll = tag === 'All Tags';
         const isActive = isAll ? !activeTagFilter : activeTagFilter.toLowerCase() === tag.toLowerCase();
         return `<button type="button" class="tag-chip${isActive ? ' active' : ''}" data-tag="${isAll ? '' : esc(tag)}">${esc(tag)}</button>`;
     }).join('');
 
-    wrap.querySelectorAll('.tag-chip').forEach(btn => {
+    wrap.querySelectorAll('button[data-tag]').forEach(btn => {
         btn.addEventListener('click', () => {
             activeTagFilter = btn.dataset.tag;
             renderCrmTagsBar();
@@ -846,17 +904,17 @@ let crmRenderLimit = 100;
 
 function renderCrmTable() {
     renderHead('crm-head', CRM_COLS, sort.crm, key => {
-        toggleSort(sort.crm, key, ['username', 'tags', 'notes']);
+        toggleSort(sort.crm, key, ['username', 'tags', 'notes', 'firstSeen', 'lastSeen']);
         renderCrmTable();
     });
 
     const tbody = $('crm-table-body');
     if (!tbody) return;
     const totalCount = crmChatters.length;
-    $('crm-count').textContent = totalCount ? `${fmt(Math.min(crmRenderLimit, totalCount))} of ${fmt(totalCount)} chatters shown` : '';
+    $('crm-count').textContent = totalCount ? `${fmt(Math.min(crmRenderLimit, totalCount))} of ${fmt(totalCount)} members shown` : '';
 
     if (!crmChatters.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">No community members match your filter.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">No community members match your filter.</td></tr>';
         return;
     }
 
@@ -866,6 +924,7 @@ function renderCrmTable() {
     let html = visibleRows.map(c => {
         const avatarSrc = c.chatimg || FALLBACK_AVATAR;
         const lastSeenStr = c.lastSeen ? shortDate(c.lastSeen) : '—';
+        const joinedStr = c.firstSeen ? shortDate(c.firstSeen) : '—';
         let notesPreview;
         if (crmHideNotes) {
             notesPreview = c.notes ? '<span class="note-masked" title="Hidden in Streamer Mode">••••••••</span>' : '<span class="muted">—</span>';
@@ -880,6 +939,8 @@ function renderCrmTable() {
         if (c.isSubscriber) tagsHtml = `<span class="tag-badge sub">Sub${c.subMonths ? ` · ${c.subMonths}m` : ''}</span> ` + tagsHtml;
         if (!tagsHtml) tagsHtml = '<span class="muted">—</span>';
 
+        const tonightBadge = c.isTonight ? '<span class="tag-badge" style="background:rgba(63,185,80,0.15);color:#3fb950;border-color:rgba(63,185,80,0.35);margin-left:4px;">Tonight</span>' : '';
+
         return `
             <tr class="crm-row" data-chatter="${esc(c.username)}" title="Click to view ${esc(c.username)}'s dossier">
                 <td>
@@ -887,6 +948,8 @@ function renderCrmTable() {
                         <img class="chatter-avatar" src="${esc(avatarSrc)}" alt="" loading="lazy" onerror="onAvatarError(this)">
                         <div>
                             <b>${esc(c.chatname || c.username)}</b>
+                            ${c.pronouns ? `<span class="muted" style="font-size:0.74rem;font-weight:normal;margin-left:4px;">(${esc(c.pronouns)})</span>` : ''}
+                            ${tonightBadge}
                             ${c.chatname && c.chatname.toLowerCase() !== c.username.toLowerCase() ? `<br><span class="muted" style="font-size:0.72rem">@${esc(c.username)}</span>` : ''}
                         </div>
                     </div>
@@ -895,6 +958,7 @@ function renderCrmTable() {
                 <td><div class="note-preview">${notesPreview}</div></td>
                 <td class="num">${fmt(c.sessionsAttended)}</td>
                 <td class="num">${fmt(c.totalMessages)}</td>
+                <td>${esc(joinedStr)}</td>
                 <td>${esc(lastSeenStr)}</td>
             </tr>
         `;
@@ -903,7 +967,7 @@ function renderCrmTable() {
     if (rows.length > crmRenderLimit) {
         html += `
             <tr id="crm-load-more-row">
-                <td colspan="6" style="text-align:center;padding:0.85rem;background:var(--bg-inset);">
+                <td colspan="7" style="text-align:center;padding:0.85rem;background:var(--bg-inset);">
                     <button type="button" class="btn" id="crm-load-more-btn" style="padding:0.4rem 1.2rem;font-weight:600;">
                         Show more (${fmt(rows.length - crmRenderLimit)} remaining)
                     </button>
@@ -953,6 +1017,16 @@ $('crm-streamer-mode-btn')?.addEventListener('click', () => {
     renderCrmTable();
 });
 
+$('crm-export-btn')?.addEventListener('click', () => {
+    const q = $('crm-search')?.value.trim() || '';
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (activeTagFilter) params.set('tag', activeTagFilter);
+    if (activeSegmentFilter && activeSegmentFilter !== 'all') params.set('segment', activeSegmentFilter);
+    if (!crmHideNotes) params.set('includeNotes', 'true');
+    location.href = `/api/chatters/export?` + params.toString();
+});
+
 $('crm-sync-twitch-btn')?.addEventListener('click', async () => {
     const btn = $('crm-sync-twitch-btn');
     if (!btn) return;
@@ -962,16 +1036,16 @@ $('crm-sync-twitch-btn')?.addEventListener('click', async () => {
     try {
         const res = await fetch('/api/twitch/fetch-data', { method: 'POST' });
         const data = await res.json();
-        btn.textContent = `✓ Synced! (${data.moderators ?? 0} mods, ${data.vips ?? 0} VIPs)`;
+        btn.textContent = `Synced! (${data.moderators ?? 0} mods, ${data.vips ?? 0} VIPs)`;
         setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2200);
         await loadChatters();
     } catch (err) {
-        btn.textContent = '✗ Sync failed';
+        btn.textContent = 'Sync failed';
         setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2200);
     }
 });
 
-// Refresh CRM when dossier saves or closes
+// Refresh Community when dossier saves or closes
 window.addEventListener('chatter-updated', () => {
     if (!$('tab-crm').hidden) loadChatters();
 });
@@ -982,8 +1056,8 @@ window.addEventListener('chatter-dossier-closed', () => {
 // Initial Setup
 const initialHash = location.hash.replace('#', '');
 setRange(prefs.days);
-if (['sessions', 'milestones', 'crm', 'growth'].includes(initialHash)) {
-    switchTab(initialHash, false);
+if (['sessions', 'milestones', 'crm', 'growth', 'community', 'chatters'].includes(initialHash)) {
+    switchTab(initialHash === 'community' || initialHash === 'chatters' ? 'crm' : initialHash, false);
 } else {
     switchTab('sessions', false);
 }

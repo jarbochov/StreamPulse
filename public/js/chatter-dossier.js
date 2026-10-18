@@ -1,4 +1,4 @@
-// Chatter Dossier / Community CRM Modal Component for StreamPulse
+// Chatter Dossier / Community Directory Modal Component for StreamPulse
 (function() {
     let dialog = null;
     let currentChatter = null;
@@ -290,11 +290,12 @@
                 <div class="dossier-user-info">
                     <div class="dossier-username-row">
                         <span class="dossier-username" id="dos-username">User</span>
+                        <span class="dossier-pronouns" id="dos-header-pronouns" style="font-size:0.85rem;color:var(--text-muted);font-weight:500;"></span>
                         <span id="dos-badges"></span>
                     </div>
                     <div class="dossier-sub-info" id="dos-sub-info">Loading info…</div>
                 </div>
-                <button type="button" class="dossier-close-btn" id="dos-close" title="Close">✕</button>
+                <button type="button" class="dossier-close-btn" id="dos-close" title="Close" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             </div>
             <div class="dossier-body">
                 <div>
@@ -329,10 +330,14 @@
 
                 <div>
                     <div class="dossier-section-title">
-                        <span>Streamer Notes (Private CRM)</span>
+                        <span>Streamer Notes &amp; Info (Private)</span>
                         <span class="dossier-saved-hint" id="dos-saved-hint">Saved</span>
                     </div>
-                    <textarea class="dossier-notes-textarea" id="dos-notes" placeholder="Write private notes about this chatter (e.g. VIP status, preferences, friendship, stream topics)..."></textarea>
+                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                        <label for="dos-pronouns" style="font-size:0.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Pronouns:</label>
+                        <input type="text" id="dos-pronouns" placeholder="e.g. they/them, she/her, he/him" style="background:var(--bg-inset,#0d1117);border:1px solid var(--border,#30363d);border-radius:5px;padding:3px 8px;font-size:0.8rem;color:var(--text,#c9d1d9);width:200px;">
+                    </div>
+                    <textarea class="dossier-notes-textarea" id="dos-notes" placeholder="Write private notes about this member (e.g. VIP status, preferences, friendship, stream topics)..."></textarea>
                     <div style="margin-top:8px;">
                         <div class="dossier-tags-wrap" id="dos-tags-wrap"></div>
                     </div>
@@ -347,9 +352,9 @@
             </div>
             <div class="dossier-footer">
                 <div class="dossier-actions">
-                    <button type="button" class="dossier-btn" id="dos-search-btn">🔍 Search Chat Log</button>
+                    <button type="button" class="dossier-btn" id="dos-search-btn">Search Chat Log</button>
                     <a class="dossier-btn" id="dos-twitch-btn" href="#" target="_blank" rel="noopener">Twitch Channel ↗</a>
-                    <a class="dossier-btn" id="dos-viewercard-btn" href="#" target="_blank" rel="noopener" title="Open Twitch Viewer Card Popout">🪪 Viewer Card ↗</a>
+                    <a class="dossier-btn" id="dos-viewercard-btn" href="#" target="_blank" rel="noopener" title="Open Twitch Viewer Card Popout">Viewer Card ↗</a>
                 </div>
                 <button type="button" class="dossier-btn primary" id="dos-done-btn">Done</button>
             </div>
@@ -364,6 +369,13 @@
 
         document.getElementById('dos-notes').addEventListener('input', () => {
             clearTimeout(saveNoteTimer);
+            saveNoteTimer = setTimeout(saveCurrentNotes, 600);
+        });
+
+        document.getElementById('dos-pronouns').addEventListener('input', () => {
+            clearTimeout(saveNoteTimer);
+            const val = document.getElementById('dos-pronouns').value.trim();
+            document.getElementById('dos-header-pronouns').textContent = val ? `(${val})` : '';
             saveNoteTimer = setTimeout(saveCurrentNotes, 600);
         });
 
@@ -384,16 +396,17 @@
     async function saveCurrentNotes() {
         if (!currentChatter) return;
         const notes = document.getElementById('dos-notes').value;
+        const pronouns = document.getElementById('dos-pronouns').value.trim();
         try {
             await fetch(`/api/chatters/${encodeURIComponent(currentChatter.username)}/notes`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ notes, tags: currentChatter.tags })
+                body: JSON.stringify({ notes, pronouns, tags: currentChatter.tags })
             });
             const hint = document.getElementById('dos-saved-hint');
             hint.classList.add('show');
             setTimeout(() => hint.classList.remove('show'), 1500);
-            window.dispatchEvent(new CustomEvent('chatter-updated', { detail: { username: currentChatter.username, notes, tags: currentChatter.tags } }));
+            window.dispatchEvent(new CustomEvent('chatter-updated', { detail: { username: currentChatter.username, notes, pronouns, tags: currentChatter.tags } }));
         } catch (e) {
             console.warn('[Chatter Dossier] Failed to save notes:', e);
         }
@@ -448,13 +461,14 @@
                 document.getElementById('dos-avatar').src = data.chatimg;
             }
             document.getElementById('dos-username').textContent = data.username;
+            document.getElementById('dos-header-pronouns').textContent = data.pronouns ? `(${data.pronouns})` : '';
 
             let badgesHtml = '';
             if (data.isMod || (data.tags || []).some(t => t.toLowerCase() === 'mod')) {
-                badgesHtml += `<span class="dossier-badge mod">🛡️ Mod</span>`;
+                badgesHtml += `<span class="dossier-badge mod">Mod</span>`;
             }
             if (data.isVip || (data.tags || []).some(t => t.toLowerCase() === 'vip')) {
-                badgesHtml += `<span class="dossier-badge vip">★ VIP</span>`;
+                badgesHtml += `<span class="dossier-badge vip">VIP</span>`;
             }
             if (data.isSubscriber) {
                 badgesHtml += `<span class="dossier-badge sub">${data.subMonths ? `${data.subMonths}m Sub` : 'Sub'}</span>`;
@@ -473,6 +487,7 @@
             document.getElementById('dos-raids').textContent = Number(data.raidsCount || 0).toLocaleString();
 
             document.getElementById('dos-notes').value = data.notes || '';
+            document.getElementById('dos-pronouns').value = data.pronouns || '';
             renderTags();
 
             const gamesContainer = document.getElementById('dos-games');

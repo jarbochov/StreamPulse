@@ -130,6 +130,7 @@ function createCrmService({
             raidsCount,
             favoriteGames,
             recentActivity,
+            pronouns: noteEntry.pronouns || '',
             notes: noteEntry.notes || '',
             tags: noteEntry.tags || [],
             isVip,
@@ -138,14 +139,21 @@ function createCrmService({
         };
     }
 
-    function getChattersList({ query = '', tagFilter = '' } = {}) {
+    function getChattersList({ query = '', tagFilter = '', segmentFilter = '', limit = 200 } = {}) {
         const q = String(query || '').toLowerCase().trim();
         const tag = String(tagFilter || '').toLowerCase().trim();
+        const seg = String(segmentFilter || '').toLowerCase().trim();
         const statsData = getStatsData() || {};
+        const chatData = getChatData() || {};
+        const currentChatters = chatData.chatters || {};
         const vipsList = readJsonFileSafe(path.join(dataDir, 'vips.json'), { data: [] })?.data || [];
         const modsList = readJsonFileSafe(path.join(dataDir, 'moderators.json'), { data: [] })?.data || [];
         const vipSet = new Set(vipsList.map(v => (v.user_login || v.user_name || '').toLowerCase()));
         const modSet = new Set(modsList.map(m => (m.user_login || m.user_name || '').toLowerCase()));
+
+        const now = Date.now();
+        const fourteenDaysAgo = new Date(now - 14 * 86400000).toISOString().slice(0, 10);
+        const thirtyDaysAgo = new Date(now - 30 * 86400000).toISOString().slice(0, 10);
 
         const chattersList = Object.entries(statsData.chatters || {}).map(([username, d]) => {
             const days = d.days || {};
@@ -158,39 +166,81 @@ function createCrmService({
             const isTwitchMod = modSet.has(username.toLowerCase()) || Boolean(d.isMod);
             const isVip = Boolean(notes.isVip || isTwitchVip);
             const isMod = Boolean(isTwitchMod || (notes.tags || []).some(t => t.toLowerCase() === 'mod'));
+            const isTonight = Boolean(currentChatters[username.toLowerCase()] || currentChatters[username] || (d.chatname && currentChatters[d.chatname]));
+            const sessionsAttended = Object.keys(days).length;
+            const isRegular = sessionsAttended >= 3 || (d.lastSeen && d.lastSeen >= thirtyDaysAgo && sessionsAttended >= 2);
+            const isNew = sessionsAttended <= 1 || (d.firstSeen && d.firstSeen >= fourteenDaysAgo);
+            const hasNotes = Boolean(notes.notes && notes.notes.trim());
+
             return {
                 username,
                 chatname: d.chatname || username,
                 chatimg: d.chatimg || '',
                 totalMessages: totalMsgs,
-                sessionsAttended: Object.keys(days).length,
+                sessionsAttended,
                 firstSeen: d.firstSeen || null,
                 lastSeen: d.lastSeen || null,
                 isVip,
                 isMod,
                 isSubscriber,
                 subMonths,
+                pronouns: notes.pronouns || '',
                 notes: notes.notes || '',
-                tags: notes.tags || []
+                tags: notes.tags || [],
+                isTonight,
+                isRegular,
+                isNew,
+                hasNotes
             };
-        }).filter(c => {
-            if (tag) {
-                if (tag === 'vip') {
-                    if (!c.isVip) return false;
-                } else if (tag === 'mod' || tag === 'moderator') {
-                    if (!c.isMod) return false;
-                } else if (tag === 'sub' || tag === 'subscriber') {
-                    if (!c.isSubscriber) return false;
-                } else if (!(c.tags || []).some(t => t.toLowerCase() === tag)) {
-                    return false;
-                }
+        });
+
+        const summary = {
+            totalMembers: chattersList.length,
+            activeTonight: chattersList.filter(c => c.isTonight).length,
+            regularsCount: chattersList.filter(c => c.isRegular).length,
+            vipsAndModsCount: chattersList.filter(c => c.isVip || c.isMod).length,
+            subscribersCount: chattersList.filter(c => c.isSubscriber).length,
+            withNotesCount: chattersList.filter(c => c.hasNotes).length
+        };
+
+        let filtered = chattersList;
+        if (seg === 'tonight') {
+            filtered = filtered.filter(c => c.isTonight);
+        } else if (seg === 'regulars') {
+            filtered = filtered.filter(c => c.isRegular);
+        } else if (seg === 'vips' || seg === 'vips-mods') {
+            filtered = filtered.filter(c => c.isVip || c.isMod);
+        } else if (seg === 'subs' || seg === 'subscribers') {
+            filtered = filtered.filter(c => c.isSubscriber);
+        } else if (seg === 'new' || seg === 'newcomers') {
+            filtered = filtered.filter(c => c.isNew);
+        } else if (seg === 'notes' || seg === 'has-notes') {
+            filtered = filtered.filter(c => c.hasNotes);
+        }
+
+        if (tag) {
+            if (tag === 'vip') {
+                filtered = filtered.filter(c => c.isVip);
+            } else if (tag === 'mod' || tag === 'moderator') {
+                filtered = filtered.filter(c => c.isMod);
+            } else if (tag === 'sub' || tag === 'subscriber') {
+                filtered = filtered.filter(c => c.isSubscriber);
+            } else {
+                filtered = filtered.filter(c => (c.tags || []).some(t => t.toLowerCase() === tag));
             }
-            if (!q) return true;
-            return c.username.toLowerCase().includes(q)
+        }
+
+        if (q) {
+            filtered = filtered.filter(c =>
+                c.username.toLowerCase().includes(q)
                 || (c.chatname && c.chatname.toLowerCase().includes(q))
+                || (c.pronouns && c.pronouns.toLowerCase().includes(q))
                 || (c.notes && c.notes.toLowerCase().includes(q))
-                || (c.tags || []).some(t => t.toLowerCase().includes(q));
-        }).sort((a, b) => b.totalMessages - a.totalMessages);
+                || (c.tags || []).some(t => t.toLowerCase().includes(q))
+            );
+        }
+
+        filtered.sort((a, b) => b.totalMessages - a.totalMessages);
 
         const allTagsSet = new Set(['VIP', 'Mod', 'Subscriber']);
         for (const note of Object.values(chatterNotes)) {
@@ -202,9 +252,10 @@ function createCrmService({
         }
 
         return {
-            chatters: chattersList.slice(0, 150),
-            total: chattersList.length,
-            tags: Array.from(allTagsSet)
+            chatters: filtered.slice(0, Math.max(50, limit)),
+            total: filtered.length,
+            tags: Array.from(allTagsSet),
+            summary
         };
     }
 
@@ -212,6 +263,7 @@ function createCrmService({
         const key = String(username || '').toLowerCase().trim();
         chatterNotes[key] = {
             notes: String(data.notes || '').slice(0, 3000),
+            pronouns: String(data.pronouns || '').trim().slice(0, 50),
             tags: Array.isArray(data.tags)
                 ? data.tags.slice(0, 15).map(t => String(t).trim().slice(0, 30)).filter(Boolean)
                 : (chatterNotes[key]?.tags || []),
