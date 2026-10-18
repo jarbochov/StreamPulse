@@ -533,10 +533,24 @@ function createOverlayRoutes({
         // --- 6. Custom Overlays: CRUD & List ---
         if (pathname === '/api/custom-overlays' && req.method === 'GET') {
             const customOverlays = getCustomOverlays();
-            sendJson(res, Object.values(customOverlays).map(({ id, name, revision, updatedAt, createdAt, canvas, elements, pages }) => ({
-                id, name, revision, updatedAt, createdAt, canvas, elementCount: (elements || []).length, pageCount: pages?.enabled ? pages.items.length : 0,
-                hasControls: !!(pages?.enabled || (elements || []).some(e => ['slideshow', 'video', 'cutout'].includes(e.type) || (e.type === 'embed' && /youtube\.com|youtu\.be/i.test(e.src || ''))))
-            })));
+            sendJson(res, Object.values(customOverlays).map(o => {
+                const { id, name, revision, updatedAt, createdAt, canvas, elements, pages } = o;
+                let currentPage = '';
+                let currentPageName = '';
+                if (pages?.enabled) {
+                    const snap = pageSnapshot(o);
+                    currentPage = snap.page || '';
+                    currentPageName = snap.name || snap.page || '';
+                }
+                return {
+                    id, name, revision, updatedAt, createdAt, canvas,
+                    elementCount: (elements || []).length,
+                    pageCount: pages?.enabled ? pages.items.length : 0,
+                    currentPage,
+                    currentPageName,
+                    hasControls: !!(pages?.enabled || (elements || []).some(e => ['slideshow', 'video', 'cutout'].includes(e.type) || (e.type === 'embed' && /youtube\.com|youtu\.be/i.test(e.src || ''))))
+                };
+            }));
             return true;
         }
 
@@ -819,9 +833,10 @@ function createOverlayRoutes({
 
             if (req.method === 'GET') {
                 const wantsSvg = url.searchParams.get('format') === 'svg';
+                const requestedPage = url.searchParams.get('page') || undefined;
                 const cached = getOverlayThumbnailPath(id);
 
-                if (cached && !wantsSvg && cached.mime !== 'image/svg+xml; charset=utf-8') {
+                if (cached && !wantsSvg && cached.mime !== 'image/svg+xml; charset=utf-8' && !overlay.pages?.enabled) {
                     try {
                         const data = fs.readFileSync(cached.path);
                         res.writeHead(200, {
@@ -834,15 +849,18 @@ function createOverlayRoutes({
                     } catch {}
                 }
 
-                const svg = generateSvgThumbnail(overlay);
-                try {
-                    saveOverlayThumbnail(id, svg);
-                } catch {}
+                const svg = generateSvgThumbnail(overlay, { page: requestedPage });
+                if (!overlay.pages?.enabled) {
+                    try {
+                        saveOverlayThumbnail(id, svg);
+                    } catch {}
+                }
 
+                const currentP = requestedPage || (overlay.pages?.enabled ? pageSnapshot(overlay)?.page : '');
                 res.writeHead(200, {
                     'Content-Type': 'image/svg+xml; charset=utf-8',
-                    'Cache-Control': 'public, max-age=30',
-                    'ETag': `"${overlay.revision || 1}-${id}"`
+                    'Cache-Control': overlay.pages?.enabled ? 'no-cache' : 'public, max-age=30',
+                    'ETag': `"${overlay.revision || 1}-${id}${currentP ? `-${currentP}` : ''}"`
                 });
                 res.end(svg);
                 return true;

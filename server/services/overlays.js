@@ -670,7 +670,7 @@ function escapeXml(unsafe) {
         .replace(/'/g, '&apos;');
 }
 
-function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '' } = {}) {
+function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = null, activePage = null } = {}) {
     if (!overlay || !overlay.canvas) {
         return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080"><rect width="100%" height="100%" fill="#0b0f17"/></svg>';
     }
@@ -699,11 +699,20 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '' } = {}) {
         elementsSvg.push(`<rect width="100%" height="100%" fill="${escapeXml(bg)}" />`);
     }
 
+    const pagesEnabled = Boolean(overlay.pages?.enabled);
+    let targetPage = page || activePage;
+    if (!targetPage && pagesEnabled) {
+        const items = overlay.pages.items || [];
+        const first = items.find(item => item.enabled && !item.trigger) || items.find(item => item.enabled) || items[0];
+        targetPage = first ? first.id : '';
+    }
+
     const elements = Array.isArray(overlay.elements) ? [...overlay.elements] : [];
     elements.sort((a, b) => (Number(a.zIndex) || 0) - (Number(b.zIndex) || 0));
 
     elements.forEach((el, idx) => {
         if (el.visible === false) return;
+        if (pagesEnabled && targetPage && el.page && el.page !== '*' && el.page !== targetPage) return;
         const x = Number(el.x) || 0;
         const y = Number(el.y) || 0;
         const w = Math.max(1, Number(el.width) || 100);
@@ -1347,7 +1356,12 @@ function createOverlayService({
         loadRandomizerQuotePresets,
         saveRandomizerQuotePresets,
         // Thumbnail helpers
-        generateSvgThumbnail: (overlay) => generateSvgThumbnail(overlay, { customOverlayAssetsDir }),
+        generateSvgThumbnail: (overlay, opts = {}) => generateSvgThumbnail(overlay, {
+            customOverlayAssetsDir,
+            activePage: overlayPageState.get(overlay?.id)?.page,
+            ...opts
+        }),
+        getOverlayPageState: (id) => overlayPageState.get(id),
         getOverlayThumbnailPath,
         saveOverlayThumbnail,
         deleteOverlayThumbnail,

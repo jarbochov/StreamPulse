@@ -150,6 +150,7 @@
         const box = liveBtn.closest('.preview');
         if (!box) return;
         const id = liveBtn.dataset.liveId;
+        const overlay = overlays.find(o => o.id === id);
         const existing = box.querySelector('iframe');
         if (existing) {
             try { existing.src = 'about:blank'; } catch {}
@@ -167,7 +168,7 @@
             frame.dataset.w = String(width);
             frame.dataset.h = String(height);
             frame.title = `Live preview of ${id}`;
-            frame.src = `/custom-overlay.html?id=${encodeURIComponent(id)}&preview=true`;
+            frame.src = `/custom-overlay.html?id=${encodeURIComponent(id)}&preview=true${overlay?.currentPage ? `&page=${encodeURIComponent(overlay.currentPage)}` : ''}`;
             frame.style.position = 'absolute';
             frame.style.top = '50%';
             frame.style.left = '50%';
@@ -204,7 +205,7 @@
             <article class="overlay">
                 <div class="preview${prefs.previews ? '' : ' off'}" data-id="${esc(o.id)}" data-w="${o.canvas.width}" data-h="${o.canvas.height}">
                     ${prefs.previews ? `
-                        <img class="preview-thumb" src="/api/custom-overlays/${encodeURIComponent(o.id)}/thumbnail?v=${encodeURIComponent(o.updatedAt || o.revision)}" alt="Thumbnail of ${esc(o.name)}" loading="lazy">
+                        <img class="preview-thumb" src="/api/custom-overlays/${encodeURIComponent(o.id)}/thumbnail?v=${encodeURIComponent(o.updatedAt || o.revision)}${o.currentPage ? `&page=${encodeURIComponent(o.currentPage)}` : ''}" alt="Thumbnail of ${esc(o.name)}" loading="lazy">
                         <button type="button" class="preview-live-btn" data-live-id="${esc(o.id)}" title="Mount live preview frame">
                             <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><polygon points="6 4 19 12 6 20 6 4"/></svg>
                             <span>Live</span>
@@ -213,7 +214,7 @@
                 </div>
                 <div class="body">
                     <div class="title">${esc(o.name)}</div>
-                    <div class="meta">${esc(o.id)} · ${o.canvas.width}×${o.canvas.height} · ${o.elementCount} element${o.elementCount === 1 ? '' : 's'}${o.pageCount ? ` · ${o.pageCount} pages` : ''}<br>Edited ${ago(o.updatedAt)} · revision ${o.revision}</div>
+                    <div class="meta">${esc(o.id)} · ${o.canvas.width}×${o.canvas.height} · ${o.elementCount} element${o.elementCount === 1 ? '' : 's'}${o.pageCount ? ` · ${o.pageCount} pages${o.currentPageName ? ` (${esc(o.currentPageName)})` : ''}` : ''}<br>Edited ${ago(o.updatedAt)} · revision ${o.revision}</div>
                     <div class="actions">
                         <div class="act-main">
                             <a class="btn small primary" href="/custom-overlay-editor.html?id=${encodeURIComponent(o.id)}">Edit</a>
@@ -306,6 +307,36 @@
     $('overlay-list').style.setProperty('--card', `${prefs.size}px`);
     $('toggle-preview').addEventListener('click', () => { prefs.previews = !prefs.previews; savePrefs(); render(); });
     $('toggle-view').addEventListener('click', () => { prefs.view = prefs.view === 'list' ? 'grid' : 'list'; savePrefs(); render(); });
+    function connectWs() {
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const socket = new WebSocket(`${protocol}//${location.host}`);
+        socket.addEventListener('message', event => {
+            try {
+                if (typeof event.data === 'string' && (event.data.startsWith('{"type":"update"') || event.data.startsWith('{"type":"snapshot"'))) return;
+                const message = JSON.parse(event.data);
+                if (message.type === 'custom-overlay-page' && message.data?.id) {
+                    const o = overlays.find(item => item.id === message.data.id);
+                    if (o && (o.currentPage !== message.data.page || o.currentPageName !== message.data.name)) {
+                        o.currentPage = message.data.page;
+                        o.currentPageName = message.data.name;
+                        const box = document.querySelector(`.preview[data-id="${CSS.escape(o.id)}"]`);
+                        if (box) {
+                            const thumb = box.querySelector('.preview-thumb');
+                            if (thumb) thumb.src = `/api/custom-overlays/${encodeURIComponent(o.id)}/thumbnail?v=${Date.now()}&page=${encodeURIComponent(o.currentPage)}`;
+                            const meta = box.closest('.overlay')?.querySelector('.meta');
+                            if (meta) {
+                                meta.innerHTML = `${esc(o.id)} · ${o.canvas.width}×${o.canvas.height} · ${o.elementCount} element${o.elementCount === 1 ? '' : 's'}${o.pageCount ? ` · ${o.pageCount} pages${o.currentPageName ? ` (${esc(o.currentPageName)})` : ''}` : ''}<br>Edited ${ago(o.updatedAt)} · revision ${o.revision}`;
+                            }
+                        }
+                    }
+                } else if (message.type === 'custom-overlay-update') {
+                    load().catch(() => {});
+                }
+            } catch {}
+        });
+        socket.addEventListener('close', () => { setTimeout(connectWs, 3000); });
+    }
+    connectWs();
     window.addEventListener('resize', fitActiveLiveFrames);
 
     load().catch(error => { $('overlay-list').innerHTML = `<div class="empty">${esc(error.message)}</div>`; });
