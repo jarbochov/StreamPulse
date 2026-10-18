@@ -77,18 +77,18 @@
       box-shadow: 0 0 12px #6366f1;
     }
     .app-nav {
-      position: fixed;
-      top: 16px;
+      position: absolute;
+      top: 22px;
       right: 36px;
       margin: 0;
-      z-index: 40;
+      z-index: 10;
       background: rgba(15, 20, 34, 0.88);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 999px;
-      padding: 7px 18px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+      padding: 6px 16px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
       display: flex;
       align-items: center;
       gap: 4px;
@@ -106,6 +106,19 @@
     .app-nav a:hover {
       color: #ffffff;
       background: rgba(99, 102, 241, 0.15);
+    }
+    /* Never display navbar over the coverpage hero banner */
+    body:has(section.cover.show) .app-nav,
+    body.is-cover-active .app-nav,
+    section.cover.show ~ .app-nav,
+    body.sticky .app-nav,
+    .cover.show ~ .app-nav {
+      display: none !important;
+    }
+    @media (max-width: 1024px) {
+      .app-nav {
+        display: none !important;
+      }
     }
     @media (min-width: 769px) {
       .sidebar-toggle {
@@ -627,6 +640,8 @@
       plugins: [
         function(hook, vm) {
           hook.doneEach(function() {
+            var isCover = !!document.querySelector('section.cover.show');
+            document.body.classList.toggle('is-cover-active', isCover);
             if (window.pele && typeof window.pele.render === 'function') {
               document.querySelectorAll('.mermaid-diagram[data-pele-pending="true"]').forEach(function(el) {
                 var src = decodeURIComponent(el.getAttribute('data-source') || '');
