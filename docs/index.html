@@ -440,20 +440,62 @@
       color: #94a3b8;
     }
 
-    /* Mermaid Diagram Container */
-    .mermaid {
-      text-align: center;
-      margin: 2rem 0;
+    /* Pele Mermaid Diagram Container */
+    .mermaid-diagram {
+      margin: 2.25rem 0;
       background: #0f1422;
       border: 1px solid #1e293b;
-      border-radius: 8px;
-      padding: 1.5rem;
+      border-radius: 12px;
+      padding: 1.75rem;
       overflow-x: auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      --pele-bg: #0f1422;
+      --pele-fg: #f8fafc;
+      --pele-muted: #94a3b8;
+      --pele-line: #818cf8;
+      --pele-surface: #1e293b;
+      --pele-surface-alt: #161f30;
+      --pele-border: #334155;
+      --pele-accent: #6366f1;
+      --pele-radius: 8px;
+      --pele-error: #ef4444;
+      --pele-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .mermaid-diagram svg {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+    .mermaid-diagram .pele-title {
+      font-weight: 700;
+      fill: #f8fafc;
+    }
+    .mermaid-diagram .pele-cluster-label {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      fill: #818cf8;
+    }
+    .mermaid-error {
+      color: #ef4444;
+      padding: 12px;
+      font-size: 13px;
+      width: 100%;
     }
   </style>
 </head>
 <body>
   <div id="app">Loading StreamPulse Documentation...</div>
+  <!-- Pele Library for Mermaid-to-SVG compilation -->
+  <script src="vendor/pele.global.js"></script>
+  <script>
+    if (!window.pele) {
+      document.write('<script src="//cdn.jsdelivr.net/npm/pele@1/dist/pele.global.js"><\/script>');
+    }
+  </script>
   <script>
     window.$docsify = {
       name: 'StreamPulse',
@@ -493,7 +535,16 @@
         renderer: {
           code: function(code, lang) {
             if (lang === "mermaid") {
-              return '<div class="mermaid">' + code + '</div>';
+              if (window.pele && typeof window.pele.render === 'function') {
+                try {
+                  var res = window.pele.render(code, { responsive: true, autoDirection: true });
+                  return '<div class="mermaid-diagram" data-pele-rendered="true">' + res.svg + '</div>';
+                } catch (err) {
+                  console.warn("Pele render error:", err);
+                  return '<div class="mermaid-diagram mermaid-error"><pre><code>' + (err.snippet || err.message || err) + '</code></pre></div>';
+                }
+              }
+              return '<div class="mermaid-diagram" data-pele-pending="true" data-source="' + encodeURIComponent(code) + '"></div>';
             }
             return this.origin.code.apply(this, arguments);
           }
@@ -502,10 +553,19 @@
       plugins: [
         function(hook, vm) {
           hook.doneEach(function() {
-            if (window.mermaid) {
-              window.mermaid.initialize({ startOnLoad: false, theme: 'dark', darkMode: true });
-              window.mermaid.run({
-                querySelector: '.mermaid'
+            if (window.pele && typeof window.pele.render === 'function') {
+              document.querySelectorAll('.mermaid-diagram[data-pele-pending="true"]').forEach(function(el) {
+                var src = decodeURIComponent(el.getAttribute('data-source') || '');
+                if (src) {
+                  try {
+                    var res = window.pele.render(src, { responsive: true, autoDirection: true });
+                    el.innerHTML = res.svg;
+                    el.removeAttribute('data-pele-pending');
+                    el.setAttribute('data-pele-rendered', 'true');
+                  } catch (err) {
+                    el.innerHTML = '<div class="mermaid-error"><pre><code>' + (err.snippet || err.message || err) + '</code></pre></div>';
+                  }
+                }
               });
             }
           });
@@ -515,8 +575,6 @@
   </script>
   <!-- Docsify v4 -->
   <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
-  <!-- Mermaid support -->
-  <script src="//cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <!-- Search plugin -->
   <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
   <!-- Copy code plugin -->

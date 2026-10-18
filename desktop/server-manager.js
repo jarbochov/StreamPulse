@@ -7,6 +7,8 @@ class ServerManager {
     constructor(options = {}) {
         this.projectRoot = options.projectRoot || path.join(__dirname, '..');
         this.serverPath = path.join(this.projectRoot, 'server.js');
+        this.dataDir = options.dataDir || null;
+        this.configPath = options.configPath || null;
         this.port = options.port || this.getConfiguredPort();
         this.process = null;
         this.logs = [];
@@ -16,7 +18,7 @@ class ServerManager {
 
     getConfiguredPort() {
         try {
-            const configPath = path.join(this.projectRoot, 'config.json');
+            const configPath = this.configPath || path.join(this.projectRoot, 'config.json');
             if (fs.existsSync(configPath)) {
                 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
                 if (config.port && Number.isInteger(config.port)) {
@@ -49,13 +51,21 @@ class ServerManager {
         if (this.process) return;
         this.isStopping = false;
 
+        const env = {
+            ...process.env,
+            PORT: String(this.port),
+            STREAMPULSE_DESKTOP: 'true'
+        };
+        if (this.dataDir) {
+            env.STREAMPULSE_DATA_DIR = this.dataDir;
+        }
+        if (this.configPath) {
+            env.STREAMPULSE_CONFIG_PATH = this.configPath;
+        }
+
         this.process = fork(this.serverPath, [], {
             cwd: this.projectRoot,
-            env: {
-                ...process.env,
-                PORT: String(this.port),
-                STREAMPULSE_DESKTOP: 'true'
-            },
+            env,
             stdio: ['pipe', 'pipe', 'pipe', 'ipc']
         });
 

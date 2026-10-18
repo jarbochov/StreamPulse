@@ -4,10 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       publish_release:
-        description: 'Publish installers to GitHub Release?'
+        description: 'Publish installers to GitHub Pre-Release?'
         required: false
         type: boolean
         default: false
+      release_tag:
+        description: 'Target tag/version for release (e.g. v0.12.0-preview)'
+        required: false
+        type: string
+        default: 'v0.12.0-preview'
 
 permissions:
   contents: write
@@ -57,3 +62,37 @@ jobs:
             dist/*.zip
             dist/*.exe
           if-no-files-found: warn
+
+  publish-release:
+    name: Publish Pre-Release Installers
+    needs: build-desktop
+    if: github.event.inputs.publish_release == 'true' || github.event.inputs.publish_release == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: StreamPulse-Desktop-macos-latest
+          path: release-assets
+
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: StreamPulse-Desktop-windows-latest
+          path: release-assets
+
+      - name: Create or Update Pre-Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release_tag || 'v0.12.0-preview' }}
+          name: StreamPulse Desktop ${{ github.event.inputs.release_tag || 'v0.12.0-preview' }}
+          prerelease: true
+          draft: false
+          files: release-assets/*
+          body: |
+            StreamPulse Desktop App Preview Build
+            
+            Standalone desktop application for macOS and Windows.
+            - macOS: `.dmg` installer and `.zip` archive
+            - Windows: `.exe` setup installer and portable executable
+

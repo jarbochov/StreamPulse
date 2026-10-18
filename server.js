@@ -69,7 +69,7 @@ const PROCESS_STARTED_AT = new Date().toISOString();
 // CONFIG
 // ============================================================================
 
-const CONFIG_PATH = path.join(__dirname, 'config.json');
+const CONFIG_PATH = process.env.STREAMPULSE_CONFIG_PATH || path.join(__dirname, 'config.json');
 
 if (!fs.existsSync(CONFIG_PATH)) {
     console.error('Missing config.json — copy config.example.json to config.json and fill in your credentials.');
@@ -96,7 +96,7 @@ const MUSIC_CONFIG = config.music || { enabled: false, source: 'apple_music', po
 const VIEWER_TRACKING_CONFIG = config.viewer_tracking || { enabled: true, source: 'best_available', poll_seconds: 60, retain_samples: 720 };
 
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = process.env.STREAMPULSE_DATA_DIR || path.join(__dirname, 'data');
 const isLoopbackRequest = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
 
 const overlayService = createOverlayService({
@@ -1735,6 +1735,7 @@ function handleRestoreReload({ previousConfig }) {
 
 const handleBackupRoutes = createBackupRoutes({
     rootDir: __dirname,
+    dataDir: DATA_DIR,
     configPath: CONFIG_PATH,
     backupsDir: BACKUPS_DIR,
     sessionsDir: SESSIONS_DIR,

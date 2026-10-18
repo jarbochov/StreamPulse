@@ -10,20 +10,20 @@ StreamPulse is a lightweight, high-performance Node.js application built around 
 
 ```mermaid
 flowchart TD
-    subgraph Data Sources
+    subgraph DataSources["Data Sources"]
         SSN["SocialStream Ninja (WebSocket ws://127.0.0.1:8080)"]
         Twitch["Twitch Helix API (Polling & EventSub)"]
         Media["Local Media Players (Apple Music, Spotify, VLC)"]
     end
 
-    subgraph StreamPulse Core (server.js)
+    subgraph StreamPulseCore["StreamPulse Core (server.js)"]
         StaticRouter["Static Router (server/static-router.js)"]
         WSManager["WebSocket Push Server (server/ws.js)"]
         Services["Domain Services (server/services/*)"]
         Controllers["HTTP Route Controllers (server/routes/*)"]
     end
 
-    subgraph Clients & Consumers
+    subgraph Clients["Clients & Consumers"]
         AdminUI["Admin & Studio Interfaces (public/*)"]
         OBS["OBS Browser Source Overlays (public/overlays/*)"]
         Companion["Bitfocus Companion & Stream Deck"]

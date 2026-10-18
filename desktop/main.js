@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { ServerManager } = require('./server-manager');
@@ -11,13 +11,61 @@ if (!gotTheLock) {
     process.exit(0);
 }
 
+const projectRoot = path.join(__dirname, '..');
+const isPackaged = app.isPackaged;
+const userDataPath = app.getPath('userData');
+
+// In packaged app, data and config live in app.getPath('userData') so updates don't wipe data.
+// In dev, default to projectRoot/data unless explicitly specified.
+const defaultDataDir = isPackaged
+    ? path.join(userDataPath, 'data')
+    : (process.env.STREAMPULSE_DATA_DIR || path.join(projectRoot, 'data'));
+const dataDir = process.env.STREAMPULSE_DATA_DIR || defaultDataDir;
+
+const defaultConfigPath = isPackaged
+    ? path.join(userDataPath, 'config.json')
+    : (process.env.STREAMPULSE_CONFIG_PATH || path.join(projectRoot, 'config.json'));
+const configPath = process.env.STREAMPULSE_CONFIG_PATH || defaultConfigPath;
+
+function initUserData() {
+    if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+    }
+    for (const sub of ['assets', 'backups', 'sessions', 'history', 'custom-overlay-history']) {
+        const subPath = path.join(dataDir, sub);
+        if (!fs.existsSync(subPath)) {
+            fs.mkdirSync(subPath, { recursive: true });
+        }
+    }
+    const templateDataDir = path.join(projectRoot, 'data');
+    if (fs.existsSync(templateDataDir) && templateDataDir !== dataDir) {
+        const files = fs.readdirSync(templateDataDir);
+        for (const file of files) {
+            const src = path.join(templateDataDir, file);
+            const dst = path.join(dataDir, file);
+            if (!fs.existsSync(dst) && fs.statSync(src).isFile()) {
+                fs.copyFileSync(src, dst);
+            }
+        }
+    }
+    if (!fs.existsSync(configPath)) {
+        const templateConfig = path.join(projectRoot, 'config.json');
+        const exampleConfig = path.join(projectRoot, 'config.example.json');
+        if (fs.existsSync(templateConfig)) {
+            fs.copyFileSync(templateConfig, configPath);
+        } else if (fs.existsSync(exampleConfig)) {
+            fs.copyFileSync(exampleConfig, configPath);
+        }
+    }
+}
+
 let mainWindow = null;
 let appTray = null;
 let serverManager = null;
+let hasShownMinimizeNotification = false;
 app.isQuitting = false;
 
 async function createWindow() {
-    const projectRoot = path.join(__dirname, '..');
     const port = serverManager ? serverManager.port : 3000;
     const baseUrl = `http://localhost:${port}`;
 
@@ -46,6 +94,13 @@ async function createWindow() {
         if (!app.isQuitting) {
             event.preventDefault();
             mainWindow.hide();
+            if (!hasShownMinimizeNotification && Notification.isSupported()) {
+                hasShownMinimizeNotification = true;
+                new Notification({
+                    title: 'StreamPulse Minimized to Tray',
+                    body: 'StreamPulse is still running in your system tray to keep OBS overlays live. Right-click the tray icon to quit.'
+                }).show();
+            }
         }
     });
 
@@ -68,7 +123,8 @@ async function createWindow() {
     appTray = new AppTray({
         mainWindow,
         serverManager,
-        projectRoot
+        projectRoot,
+        dataDir
     });
     appTray.init();
 }
@@ -185,11 +241,18 @@ function buildMenu(baseUrl) {
                     click: () => shell.openExternal('https://github.com/jarbochov/StreamPulse')
                 },
                 {
+                    label: 'Bitfocus Companion Setup Guide',
+                    click: () => shell.openExternal('https://jarbochov.github.io/StreamPulse/#/companion')
+                },
+                {
+                    label: 'Bitfocus Module Repository',
+                    click: () => shell.openExternal('https://github.com/jarbochov/companion-module-streampulse')
+                },
+                {
                     label: 'Open Data Directory',
                     click: () => {
-                        const dataPath = path.join(__dirname, '..', 'data');
-                        if (fs.existsSync(dataPath)) {
-                            shell.openPath(dataPath);
+                        if (fs.existsSync(dataDir)) {
+                            shell.openPath(dataDir);
                         }
                     }
                 }
@@ -204,10 +267,10 @@ function buildMenu(baseUrl) {
 // IPC Handlers
 ipcMain.handle('open-external', (_, url) => shell.openExternal(url));
 ipcMain.handle('get-server-port', () => serverManager ? serverManager.port : 3000);
+ipcMain.handle('get-data-dir', () => dataDir);
 ipcMain.handle('open-data-folder', () => {
-    const dataPath = path.join(__dirname, '..', 'data');
-    if (fs.existsSync(dataPath)) {
-        shell.openPath(dataPath);
+    if (fs.existsSync(dataDir)) {
+        shell.openPath(dataDir);
     }
 });
 
@@ -228,8 +291,10 @@ app.on('activate', () => {
 });
 
 app.whenReady().then(async () => {
-    const projectRoot = path.join(__dirname, '..');
-    serverManager = new ServerManager({ projectRoot });
+    console.log(`[Desktop] Initializing persistent data directory: ${dataDir}`);
+    initUserData();
+
+    serverManager = new ServerManager({ projectRoot, dataDir, configPath });
 
     console.log('[Desktop] Booting StreamPulse background server...');
     serverManager.start();

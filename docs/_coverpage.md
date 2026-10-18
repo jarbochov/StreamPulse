@@ -28,10 +28,10 @@
       <div class="cover-feature-title">OBS GPU Accelerated</div>
       <div class="cover-feature-desc">Ultra-low CPU transparent browser sources with 60 FPS renders</div>
     </div>
-    <div class="cover-feature-pill">
+    <a href="#/companion" class="cover-feature-pill" style="text-decoration:none;">
       <div class="cover-feature-title">Tactile Hardware Control</div>
       <div class="cover-feature-desc">Pre-configured 32-key Bitfocus Companion profile for Stream Deck</div>
-    </div>
+    </a>
     <div class="cover-feature-pill">
       <div class="cover-feature-title">Multi-Platform Ingestion</div>
       <div class="cover-feature-desc">Direct Twitch API & SocialStream Ninja real-time event pipeline</div>

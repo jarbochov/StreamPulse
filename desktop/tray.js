@@ -7,6 +7,7 @@ class AppTray {
         this.mainWindow = options.mainWindow;
         this.serverManager = options.serverManager;
         this.projectRoot = options.projectRoot || path.join(__dirname, '..');
+        this.dataDir = options.dataDir || path.join(this.projectRoot, 'data');
         this.tray = null;
     }
 
@@ -130,11 +131,15 @@ class AppTray {
             {
                 label: 'Open Data Folder',
                 click: () => {
-                    const dataPath = path.join(this.projectRoot, 'data');
+                    const dataPath = this.dataDir;
                     if (fs.existsSync(dataPath)) {
                         shell.openPath(dataPath);
                     }
                 }
+            },
+            {
+                label: 'Bitfocus Companion (Stream Deck)',
+                click: () => shell.openExternal('https://github.com/jarbochov/companion-module-streampulse')
             },
             { type: 'separator' },
             {

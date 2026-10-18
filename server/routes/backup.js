@@ -6,6 +6,7 @@ const { readRequestBody, readBinaryBody, sendJson, sendError } = require('./help
 
 function createBackupRoutes({
     rootDir,
+    dataDir,
     configPath,
     backupsDir,
     sessionsDir,
@@ -193,13 +194,15 @@ function createBackupRoutes({
                     if (name === 'config.json') {
                         destPath = configPath;
                     } else if (name.startsWith('data/')) {
-                        destPath = path.join(rootDir, name);
+                        destPath = path.join(dataDir || path.join(rootDir, 'data'), name.slice(5));
                     } else {
                         continue;
                     }
 
                     // Security check
-                    if (!destPath.startsWith(rootDir)) continue;
+                    const baseAllowed = dataDir || rootDir;
+                    const normalizedDest = path.normalize(destPath);
+                    if (!normalizedDest.startsWith(path.normalize(baseAllowed)) && normalizedDest !== path.normalize(configPath)) continue;
 
                     const dir = path.dirname(destPath);
                     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
