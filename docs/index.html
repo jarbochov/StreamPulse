@@ -4,67 +4,221 @@
   <meta charset="UTF-8">
   <title>StreamPulse Documentation</title>
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
-  <meta name="description" content="Official documentation for StreamPulse - self-hosted stream companion and overlay suite for SocialStream Ninja and Twitch.">
+  <meta name="description" content="Official documentation for StreamPulse - the self-hosted stream companion and overlay suite for SocialStream Ninja and Twitch.">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify-tabs@1/dist/docsify-tabs.css">
   <style>
     :root {
       --theme-color: #6366f1;
       --base-font-size: 15px;
+      --base-line-height: 1.65;
+      --accent-color: #6366f1;
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #0d1117;
+      color: #e6edf3;
+    }
+    .content {
+      padding-top: 20px;
     }
     .sidebar {
-      background-color: #111827;
-      color: #9ca3af;
-      border-right: 1px solid #1f2937;
+      background-color: #161b22;
+      color: #8b949e;
+      border-right: 1px solid #30363d;
     }
     .sidebar-nav a {
-      color: #d1d5db;
+      color: #c9d1d9;
+      font-size: 14px;
+      transition: color 0.15s ease;
+    }
+    .sidebar-nav a:hover {
+      color: #6366f1;
+    }
+    .sidebar-nav li.active > a {
+      color: #6366f1;
+      font-weight: 600;
     }
     .sidebar-nav strong {
-      color: #9ca3af;
+      color: #8b949e;
       font-size: 11px;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
+      font-weight: 700;
+      margin-top: 1.25rem;
+      display: inline-block;
     }
     .app-name-link {
+      font-weight: 800;
+      font-size: 1.2rem;
+      color: #f0f6fc !important;
+      letter-spacing: -0.02em;
+    }
+    .app-name-link::before {
+      content: '';
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      background: #6366f1;
+      border-radius: 50%;
+      margin-right: 8px;
+      box-shadow: 0 0 10px #6366f1;
+    }
+    .app-nav {
+      margin: 1.25rem 2rem 0 0;
+    }
+    .app-nav a {
+      color: #8b949e;
+      font-size: 13px;
+      font-weight: 500;
+      transition: color 0.15s ease;
+    }
+    .app-nav a:hover {
+      color: #6366f1;
+    }
+    .markdown-section h1, .markdown-section h2, .markdown-section h3 {
+      color: #f0f6fc;
       font-weight: 700;
-      color: #f3f4f6 !important;
+      letter-spacing: -0.02em;
+    }
+    .markdown-section h1 { font-size: 2rem; border-bottom: 1px solid #21262d; padding-bottom: 0.5rem; }
+    .markdown-section h2 { font-size: 1.45rem; border-bottom: 1px solid #21262d; padding-bottom: 0.4rem; margin-top: 2rem; }
+    .markdown-section h3 { font-size: 1.15rem; margin-top: 1.5rem; }
+    .markdown-section p, .markdown-section ul, .markdown-section ol {
+      color: #c9d1d9;
     }
     .markdown-section img {
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      border: 1px solid #e5e7eb;
-      margin: 1rem 0;
+      border-radius: 10px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+      border: 1px solid #30363d;
+      margin: 1.25rem 0;
+      max-width: 100%;
+      background: #0d1117;
     }
-    .markdown-section pre>code {
-      border-radius: 6px;
+    .markdown-section pre {
+      background-color: #161b22 !important;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+    }
+    .markdown-section code {
+      background-color: rgba(110, 118, 129, 0.2);
+      color: #f0f6fc;
+      border-radius: 4px;
+      padding: 0.15em 0.35em;
+      font-size: 0.9em;
+    }
+    .markdown-section pre > code {
+      background-color: transparent !important;
+      color: #c9d1d9;
+      padding: 0;
+    }
+    .markdown-section table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1.5rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #30363d;
+    }
+    .markdown-section th {
+      background-color: #161b22;
+      color: #f0f6fc;
+      font-weight: 600;
+      padding: 10px 14px;
+      border: 1px solid #30363d;
+      text-align: left;
+    }
+    .markdown-section td {
+      padding: 10px 14px;
+      border: 1px solid #21262d;
+      color: #c9d1d9;
+    }
+    .markdown-section tr:nth-child(even) td {
+      background-color: rgba(22, 27, 34, 0.5);
+    }
+    .markdown-section blockquote {
+      border-left: 4px solid #6366f1;
+      background: rgba(99, 102, 241, 0.08);
+      color: #c9d1d9;
+      border-radius: 0 8px 8px 0;
+      padding: 12px 16px;
+      margin: 1.25rem 0;
+    }
+    .search input {
+      background: #0d1117 !important;
+      border: 1px solid #30363d !important;
+      color: #f0f6fc !important;
+      border-radius: 6px !important;
+    }
+    .search .matching-post {
+      border-bottom: 1px solid #21262d;
+    }
+    /* Tabs styling */
+    .docsify-tabs__tab {
+      background: #161b22 !important;
+      color: #8b949e !important;
+      border: 1px solid #30363d !important;
+      border-bottom: none !important;
+    }
+    .docsify-tabs__tab--active {
+      background: #0d1117 !important;
+      color: #f0f6fc !important;
+      border-top: 2px solid #6366f1 !important;
+    }
+    .docsify-tabs__content {
+      background: #0d1117 !important;
+      border: 1px solid #30363d !important;
+      border-radius: 0 0 8px 8px;
+    }
+    /* Pagination footer */
+    .pagination-item-title {
+      color: #f0f6fc !important;
+      font-weight: 600;
+    }
+    .pagination-item-subtitle {
+      color: #8b949e !important;
+      font-size: 11px !important;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
   </style>
 </head>
 <body>
-  <div id="app">Loading documentation...</div>
+  <div id="app">Loading StreamPulse Documentation...</div>
   <script>
     window.$docsify = {
       name: 'StreamPulse',
       repo: 'https://github.com/jarbochov/StreamPulse',
       loadSidebar: true,
+      loadNavbar: true,
       subMaxLevel: 3,
       auto2top: true,
       search: {
         maxAge: 86400000,
         paths: 'auto',
         placeholder: 'Search documentation...',
-        noData: 'No results found',
+        noData: 'No matching guides found',
         depth: 3
       },
       copyCode: {
         buttonText: 'Copy',
         errorText: 'Error',
         successText: 'Copied'
+      },
+      pagination: {
+        previousText: 'Previous Guide',
+        nextText: 'Next Guide',
+        crossChapter: true,
+        crossChapterText: true
+      },
+      tabs: {
+        persist: true,
+        sync: true,
+        theme: 'classic',
+        tabComments: true,
+        tabHeadings: true
       }
     }
   </script>
@@ -74,6 +228,10 @@
   <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
   <!-- Copy code plugin -->
   <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
+  <!-- Tabs plugin -->
+  <script src="//cdn.jsdelivr.net/npm/docsify-tabs@1"></script>
+  <!-- Pagination plugin -->
+  <script src="//cdn.jsdelivr.net/npm/docsify-pagination/dist/docsify-pagination.min.js"></script>
   <!-- Prism language highlighters -->
   <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>

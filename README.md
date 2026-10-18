@@ -94,14 +94,20 @@ Comprehensive technical guides, API documentation, and hardware configuration ar
 
 | Guide | Description |
 | --- | --- |
+| **[Quick Start Guide](docs/quickstart.md)** | Get up and running with OBS Studio in under 5 minutes. |
 | **[SocialStream Ninja Setup](docs/socialstream-setup.md)** | Step-by-step guide for installing, configuring, and verifying SocialStream Ninja. |
 | **[Custom Overlays Studio](docs/custom-overlays.md)** | Layer types, WebKit punchout masks, retro WebGL shaders, GPU media filters, and presets. |
+| **[Cinematic Credits Studio](docs/credits-guide.md)** | Built-in sections, order customization, Special Thanks cards, and music sync timing. |
+| **[Choice Randomizer Studio](docs/randomizer-guide.md)** | Spinning wheels, slot machine rollers, flip cards, audio cues, and active chatter population. |
+| **[Game Plan Broadcast Scheduler](docs/game-plan-guide.md)** | Calendar views, IGDB game catalog integration, and one-click Twitch category updates. |
+| **[Community Directory & Dossiers](docs/community-guide.md)** | Member rosters, smart quick-view segments, private streamer notes, and CSV exports. |
+| **[Alerts & Alert Queue Dock](docs/alerts-guide.md)** | Event rules, synthesized audio, media uploads, and the low-density OBS queue dock. |
+| **[Integrated Chat Bot](docs/chatbot-guide.md)** | Commands, aliases, cooldowns, timed messages, quotes, variables, and silent webhooks. |
 | **[Bitfocus Companion & Stream Deck](docs/companion.md)** | Hardware button actions, live stream feedbacks, dynamic variables, and setup instructions. |
 | **[HTTP API & WebSocket Reference](docs/api-reference.md)** | Complete REST API endpoints for session control, randomizer, timers, and WebSocket events. |
 | **[Architecture & Technical Overview](docs/architecture.md)** | Cascading static routing, modular services architecture, and atomic persistence. |
 | **[Developer & Contributor Guide](docs/developer-guide.md)** | Environment setup, running the test pipeline (`npm test`), and UI/UX design standards. |
-| **[Clips Detection (Beta)](docs/clips-beta.md)** | Configuring chat velocity spike detection and automated stream marker creation. |
-| **[Server Management & Backups](docs/server-management.md)** | Atomic ZIP backups, item sharing, headless execution, and process supervision. |
+| **[Troubleshooting & FAQ](docs/troubleshooting.md)** | Solutions for port conflicts, OBS browser sources, audio autoplay, and background tabs. |
 
 ---
 
