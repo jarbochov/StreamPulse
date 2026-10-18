@@ -12,18 +12,18 @@ The desktop wrapper lives directly within the StreamPulse repository inside the 
 
 ```mermaid
 flowchart TD
-    subgraph Electron Container
+    subgraph ElectronContainer["Electron Container"]
         Main["Main Process (desktop/main.js)"]
         Tray["System Tray (desktop/tray.js)"]
         Window["Native Window (1360x860)"]
     end
 
-    subgraph Background Process
+    subgraph BackgroundProcess["Background Process"]
         ServerManager["Server Manager (desktop/server-manager.js)"]
         Backend["StreamPulse Server (server.js on :3000)"]
     end
 
-    subgraph OBS & External
+    subgraph ExternalClients["OBS & External Clients"]
         OBS["OBS Studio Browser Sources"]
         Companion["Bitfocus Companion"]
     end

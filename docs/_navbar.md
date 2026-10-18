@@ -1,5 +1,5 @@
 * [Quick Start](quickstart.md)
 * [Studios](custom-overlays.md)
+* [Desktop App](desktop-app.md)
 * [API Reference](api-reference.md)
 * [Troubleshooting](troubleshooting.md)
-* [GitHub](https://github.com/jarbochov/StreamPulse)

@@ -84,3 +84,7 @@ This document provides project architecture context and mandatory UI/UX design r
 - **Never create git tags** during commits or pushes.
 - Keep commits focused, descriptive, and atomic.
 - Verify changes with existing test suites (`npm test`) before pushing.
+- **Documentation & GitHub Pages Sync**:
+  - Always update the documentation in `docs/` whenever adding, modifying, or refactoring features, studio controllers, overlays, APIs, or configurations.
+  - Maintain the live documentation site at `https://jarbochov.github.io/StreamPulse/` up to date on every change.
+  - Keep all screenshots in `docs/images/` sanitized with purely fictional dummy data (never use real names or live streamer notes). Run `node scripts/capture-screenshots.mjs` when updating visuals.

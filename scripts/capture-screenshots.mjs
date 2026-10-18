@@ -212,6 +212,66 @@ const dummyAlertEvents = [
     }
 ];
 
+const dummyAlertsState = {
+    rules: [
+        { id: 'r1', name: 'Bits Tier 2', eventType: 'bits', minAmount: 500, enabled: true },
+        { id: 'r2', name: 'Resub Chime', eventType: 'sub', enabled: true },
+        { id: 'r3', name: 'Raid Fanfare', eventType: 'raid', minAmount: 20, enabled: true },
+        { id: 'r4', name: 'New Follower Pop', eventType: 'follow', enabled: true }
+    ],
+    queue: {
+        paused: false,
+        current: null,
+        pending: 0,
+        events: [
+            {
+                id: 'ev-1',
+                at: Date.now() - 1000 * 45,
+                status: 'shown',
+                event: { type: 'bits', user: 'PixelKnight', amount: '500 bits' }
+            },
+            {
+                id: 'ev-2',
+                at: Date.now() - 1000 * 120,
+                status: 'shown',
+                event: { type: 'sub', user: 'CosmicVoyager', amount: 'Tier 1 (12 mo)' }
+            },
+            {
+                id: 'ev-3',
+                at: Date.now() - 1000 * 300,
+                status: 'shown',
+                event: { type: 'raid', user: 'RetroSamurai', amount: '45 viewers' }
+            },
+            {
+                id: 'ev-4',
+                at: Date.now() - 1000 * 600,
+                status: 'shown',
+                event: { type: 'follow', user: 'StarGazer', amount: '' }
+            }
+        ],
+        history: [
+            {
+                id: 'h-1',
+                title: 'Bits Tier 2 — PixelKnight (500 bits)',
+                shownAt: Date.now() - 1000 * 45,
+                test: false
+            },
+            {
+                id: 'h-2',
+                title: 'Resub Chime — CosmicVoyager (Tier 1)',
+                shownAt: Date.now() - 1000 * 120,
+                test: false
+            },
+            {
+                id: 'h-3',
+                title: 'Raid Fanfare — RetroSamurai (45 viewers)',
+                shownAt: Date.now() - 1000 * 300,
+                test: false
+            }
+        ]
+    }
+};
+
 async function run() {
     console.log(`Connecting to ${baseUrl} to capture sanitized documentation screenshots...`);
     const browser = await puppeteer.launch({
@@ -245,6 +305,12 @@ async function run() {
                 contentType: 'application/json',
                 body: JSON.stringify(dummyAlertEvents)
             });
+        } else if (url.endsWith('/api/alerts') || url.includes('/api/alerts?')) {
+            req.respond({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify(dummyAlertsState)
+            });
         } else {
             req.continue();
         }
@@ -257,9 +323,15 @@ async function run() {
             wait: 1500
         },
         {
-            url: `${baseUrl}/custom-overlay-editor.html`,
+            url: `${baseUrl}/custom-overlay-editor.html?id=border-showcase&select=elem-neon`,
             file: 'custom-overlay-studio.png',
-            wait: 2000
+            wait: 2500,
+            action: async (p) => {
+                await p.evaluate(() => {
+                    if (window.fitView) window.fitView(true);
+                });
+                await new Promise(r => setTimeout(r, 800));
+            }
         },
         {
             url: `${baseUrl}/randomizer-editor.html`,
@@ -322,7 +394,18 @@ async function run() {
         {
             url: `${baseUrl}/alert-queue.html`,
             file: 'alert-queue.png',
-            wait: 1500
+            wait: 1500,
+            action: async (p) => {
+                await p.setViewport({ width: 440, height: 680, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/overlays/randomizer.html?preset=jackbox`,
+            file: 'randomizer-overlay.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1280, height: 720, deviceScaleFactor: 2 });
+            }
         }
     ];
 

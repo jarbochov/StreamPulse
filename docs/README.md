@@ -1,6 +1,6 @@
 # StreamPulse Documentation
 
-[![Version](https://img.shields.io/badge/Release-v0.12.0-indigo.svg)](https://github.com/jarbochov/StreamPulse/releases)
+[![Release](https://img.shields.io/badge/Release-v0.12.0-indigo.svg)](https://github.com/jarbochov/StreamPulse/releases)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-blue.svg)](desktop-app.md)
 [![Architecture](https://img.shields.io/badge/Architecture-Self--Hosted%20%26%20Local--First-emerald.svg)](architecture.md)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/jarbochov/StreamPulse/blob/main/LICENSE)
@@ -71,6 +71,44 @@ All StreamPulse overlays run as transparent, GPU-accelerated OBS browser sources
 
 ---
 
+## System Architecture
+
+StreamPulse runs as a local-first service connecting stream data sources to your broadcast software and hardware controllers:
+
+```mermaid
+flowchart TD
+    subgraph DataSources["Data Sources"]
+        SSN["SocialStream Ninja (WebSocket :8080)"]
+        Twitch["Twitch Helix API (Polls, Tokens)"]
+    end
+
+    subgraph Host["StreamPulse Host (Port 3000)"]
+        Router["Static File Router (Cascading Resolver)"]
+        Services["Domain Services (CRM, Alerts, Goals, Music)"]
+        WS["WebSocket Server (Event Broadcasts)"]
+        Atomic["Atomic Data Storage (JSON/JSONL)"]
+    end
+
+    subgraph Outputs["Production Outputs"]
+        OBS["OBS Studio (Transparent Browser Sources)"]
+        Companion["Bitfocus Companion (Stream Deck Controls)"]
+        Docks["OBS Browser Docks (Alert Queue, Chat)"]
+    end
+
+    SSN --> Services
+    Twitch --> Services
+    Services --> Atomic
+    Services --> WS
+    WS --> OBS
+    WS --> Docks
+    Router --> OBS
+    Router --> Docks
+    Companion -->|"REST API & WS"| Services
+    Services -->|"State Updates"| Companion
+```
+
+---
+
 ## Getting Started Guides
 
 - **[Quick Start Guide](quickstart.md)**: Set up Node.js, clone the repository, and connect your first OBS browser source in under 5 minutes.
@@ -96,9 +134,12 @@ All StreamPulse overlays run as transparent, GPU-accelerated OBS browser sources
 Transparent WebKit punchout masks, WebGL retro display shaders (CRT scanlines, aperture grille, TV static snow), GPU filters, and animated sweep borders.
 ![Custom Overlay Studio](images/custom-overlay-studio.png)
 
-### Choice Randomizer Studio
-Spinning wheels, continuous vertical slot machine rollers, and card flip reveals with sound synthesis and active chatter auto-population.
+### Choice Randomizer Studio & Overlay
+Decoupled studio controller with choice weighting, winner elimination, and sound synthesis—paired with a glassmorphic OBS transparent stage.
 ![Choice Randomizer Studio](images/randomizer-studio.png)
+
+Transparent OBS browser source overlay showing the slot machine roller in action:
+![Choice Randomizer OBS Overlay](images/randomizer-overlay.png)
 
 ### Cinematic Credits Studio
 Dedicated credits configuration studio with instant live-roll testing, static card previews, and music outro synchronization.
@@ -116,9 +157,9 @@ Full month and week calendar views, 14-day schedule strips, IGDB game catalog in
 ![Game Plan Studio](images/game-plan-studio.png)
 
 ### Alert Queue Dock
-Real-time alert inspection dock with "Hide unmatched" background event filtering and one-click event replay.
+Low-density OBS browser dock with "Hide unmatched" background event filtering and one-click event replay.
 ![Alert Queue](images/alert-queue.png)
 
-### Live Stream Dashboard
+### Live Stream Command Center
 Real-time message volume charts, session stream timers, Twitch connection status, and active tool launchers.
 ![Dashboard Overview](images/dashboard.png)
