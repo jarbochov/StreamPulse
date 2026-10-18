@@ -6,7 +6,7 @@ const urlParams = overlayParams();
 const DURATION = parseFloat(urlParams.get('duration')) || null;
 const SPEED_MULTIPLIER = parseFloat(urlParams.get('speed')) || null;
 const DATA_PATH = urlParams.get('datapath') || './data';
-const PREVIEW = urlParams.get('preview') === 'true';
+const PREVIEW = urlParams.get('preview') === 'true' || urlParams.get('preview') === '1';
 let DAYS_FILTER = parseInt(urlParams.get('days')) || 30;
 const FADE_PANEL_DEFAULT_DURATION = 0;
 const FADE_PANEL_TRANSITION_MS = 1000;
