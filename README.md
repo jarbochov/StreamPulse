@@ -1,584 +1,108 @@
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Z8Z11UEY5Q)
+[![Documentation](https://img.shields.io/badge/Documentation-GitHub%20Pages-blue.svg)](https://jarbochov.github.io/StreamPulse/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 # StreamPulse
 
-**The ultimate self-hosted stream companion and overlay suite for [SocialStream Ninja](https://socialstream.ninja/) and Twitch.**
+**The ultimate self-hosted broadcast companion and overlay suite for [SocialStream Ninja](https://socialstream.ninja/) and Twitch.**
 
-StreamPulse turns your live broadcast data into cinematic OBS browser overlays, actionable community analytics, and hands-on production tools. Originally built around a cinematic **credits roll** that celebrates everyone who made your stream special (subscribers, followers, cheerers, raiders, gifters, and chatters), StreamPulse has evolved into a complete self-hosted broadcast platform:
+StreamPulse turns your live broadcast data into cinematic OBS browser overlays, actionable community analytics, and hands-on production tools. Built from the ground up for low CPU overhead and zero cloud lock-in, StreamPulse bridges multi-platform chat, subscriptions, cheers, raids, and follower milestones directly into your broadcast.
 
-- **Cinematic Credits & Dedicated Studio** — Standalone credits configuration studio with live rolling and static card previewing, custom fade sections, and deep customization.
-- **Custom Overlay Studio** — Drag-and-drop canvas designer with WebKit/Chromium punchouts, WebGL retro display shaders (CRT, scanlines, TV snow, LCD smear), GPU media filters, animated borders, mosaic patterns, and unified video playback.
-- **Choice Randomizer Studio** — Interactive spinning wheel, slot machine roller, and card flip overlays with audio effects, weightings, elimination modes, and Twitch chatter population.
-- **Community Directory & Viewer Dossiers** — Cross-session community management: attendance, streaks, cheers, gifts, raids, pronouns, private streamer notes, and smart roster segments (Moderators, VIPs, Regulars, Lapsed 30-90d, Newcomers).
-- **Stream Milestones & Streak Tracking** — Automated tracking of broadcast count, stream hours, daily/weekly streaks, unique community reach, and on-screen milestone counters.
-- **Game Plan Scheduler** — IGDB game catalog integration with box art, full month/week calendars, schedule strips, "Now Playing" and "Up Next" overlays.
-- **Timers, Music, Alerts & Chat Bot** — Named stopwatches and countdowns, "Now Playing" widgets, alert queue dock with unmatched filtering, and an integrated Chat Bot with custom variables and silent webhook actions.
-- **Bitfocus Companion Integration** — Deep Stream Deck control via the dedicated [companion-module-streampulse](https://github.com/jarbochov/companion-module-streampulse).
+---
 
-> **Powered by SocialStream Ninja:** StreamPulse seamlessly ingests live chat, subs, follows, raids, bits, and tips from SSN's WebSocket API, bridging multi-platform stream events directly into OBS without third-party cloud lock-in.
+## Visual Feature Showcase
 
-> **Hashtags** are a fun way to capture community moments in smaller streams — viewers drop `#blessed` or `#teamwipe` and they show up live on the overlay and in the credits. For larger communities, you'll want to use the built-in moderation tools (ban/purge) or disable hashtags entirely unless you have a solid moderation process.
+### Custom Overlay Studio
+A full drag-and-drop canvas designer with transparent WebKit punchouts, WebGL retro display shaders (CRT scanlines, aperture grille, TV static snow, LCD response-time smear), GPU media filters, animated sweep borders, and unified HTML5/YouTube video playback.
 
-## Installation
+![Custom Overlay Studio](docs/images/custom-overlay-studio.png)
 
-### 1. Install Node.js
+### Choice Randomizer Studio
+Decoupled studio controller and transparent OBS overlay featuring spinning wheels, continuous vertical slot machine rollers, and card flip reveals with sound effects, choice weighting, winner elimination, and Twitch live chatter auto-population.
 
-StreamPulse runs on [Node.js](https://nodejs.org/). Download and install the **LTS version** (v22.12 or newer):
+![Choice Randomizer Studio](docs/images/randomizer-studio.png)
 
-- **Mac:** Download the `.pkg` installer from [nodejs.org](https://nodejs.org/) and double-click to install
-- **Windows:** Download the `.msi` installer from [nodejs.org](https://nodejs.org/) and run through the setup wizard
+### Cinematic Credits Studio
+Dedicated credits configuration studio with instant live-roll testing, static card previews, customizable Special Thanks and custom fade sections, and timing synchronization for music outros.
 
-To verify it's installed, open **Terminal** (Mac) or **Command Prompt** (Windows) and type:
-```bash
-node --version
-```
-You should see something like `v22.x.x`.
+![Credits Studio](docs/images/credits-studio.png)
 
-### 2. Download StreamPulse
+### Community Directory & Viewer Dossiers
+Streamer-focused community management with high-level analytics cards, private streamer notes, pronouns, and smart roster segments (Moderators, VIPs, Regulars active in 3+ streams over 90 days, Lapsed viewers, and Newcomers) with 1-click CSV roster export.
 
-Go to the [Releases page](https://github.com/jarbochov/streampulse/releases) and download the **Source code (zip)** from the latest release.
+![Community Directory](docs/images/community-directory.png)
 
-1. Unzip the downloaded file
-2. Move the folder somewhere convenient (e.g. your Documents folder)
-3. Rename it to `streampulse` if you'd like
+### Game Plan Broadcast Scheduler
+Full month and week calendar views, 14-day quick calendar strips, IGDB game catalog integration with cover art, and 1-click scheduling with Play Now (auto-syncing your Twitch category), Next Up, and schedule strips.
 
-### 3. Set up credentials
+![Game Plan Broadcast Scheduler](docs/images/game-plan-studio.png)
 
-Before starting, you'll need a **SocialStream Ninja** session ID (see [Prerequisites](#prerequisites) below). Twitch is connected from inside StreamPulse, so you don't need a Twitch developer app.
+### Live Dashboard & Alert Queue Dock
+Real-time message volume charts, session stream timers, Twitch connection status, and a low-density Alert Queue dock with background chat filtering ("Hide unmatched") and one-click event replay.
 
-Open the `streampulse` folder and:
+![Dashboard Overview](docs/images/dashboard.png)
 
-1. Make a copy of `config.example.json` and name it `config.json`
-2. Open `config.json` in any text editor and fill in your credentials:
-   - `session_id` — Your SSN Session ID (you can also set it later in the Config Editor)
-   - Twitch is optional here. Leave `broadcaster_id`, `broadcaster_name` and the `twitch` fields blank and connect from the app in the next step. Only fill them in if you want to use your own Twitch application (see [Twitch](#twitch-application))
+---
 
-### 4. Install and run
+## Quick Start Guide
 
-Open **Terminal** (Mac) or **Command Prompt** (Windows), then navigate to your StreamPulse folder:
+### 1. Prerequisites
+- **Node.js**: Install the LTS version (v22.12 or newer) from [nodejs.org](https://nodejs.org/).
+- **SocialStream Ninja**: Install the free browser extension from [socialstream.ninja](https://socialstream.ninja/).
+- **OBS Studio**: For displaying browser source overlays on stream.
 
-```bash
-cd ~/Documents/streampulse
-```
+### 2. Download and Run StreamPulse
+1. Clone the repository or download the source ZIP:
+   ```bash
+   git clone https://github.com/jarbochov/StreamPulse.git
+   cd StreamPulse
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start StreamPulse:
+   - **Mac / Linux**: Run `./start-streampulse.sh` or `npm start`
+   - **Windows**: Double-click `start-streampulse.bat` or run `npm start`
+4. Open `http://localhost:3000` in your browser.
 
-> **Windows tip:** You can also type `cmd` in the File Explorer address bar while inside the folder to open a Command Prompt there.
+### 3. Connect to SocialStream Ninja
+1. Open SocialStream Ninja in your browser and verify the local API server is active on port `8080`.
+2. In StreamPulse, go to **System -> Config Editor** (`/config-editor.html`) -> **Connection & Security**.
+3. Verify your SSN WebSocket URL (default: `ws://127.0.0.1:8080`) and save.
+4. For step-by-step instructions, see the **[SocialStream Ninja Setup Guide](docs/socialstream-setup.md)**.
 
-Install dependencies (only needed the first time, or after updates):
-```bash
-npm install
-```
+### 4. Add Overlays to OBS
+1. In OBS Studio, add a new **Browser** source to your scene.
+2. Set the **URL** to the desired overlay:
+   - **Credits Roll**: `http://localhost:3000/overlays/credits.html`
+   - **Choice Randomizer**: `http://localhost:3000/overlays/randomizer.html`
+   - **Game Plan Ticker**: `http://localhost:3000/overlays/game-plan.html`
+   - **Community Goals**: `http://localhost:3000/overlays/goal.html`
+   - **Now Playing Music**: `http://localhost:3000/overlays/music.html`
+   - **Custom Overlays**: `http://localhost:3000/overlays/custom-overlay.html?id=<overlay-id>`
+3. Set the dimensions (typically `1920` width and `1080` height).
+4. Check **Shutdown source when not visible** and click **OK**.
 
-Install the bundled Chrome used for PDF exports on this machine:
-```bash
-npm run install:chrome
-```
+---
 
-Start the server:
-```bash
-npm start
-```
-
-Or double-click `start-streampulse.bat` (Windows) or run `./start-streampulse.sh` (macOS/Linux). They install dependencies on first run and start the server.
-
-On first run, open `http://localhost:3000/twitch-connect.html`, click **Connect with Twitch**, enter the code on twitch.tv and approve. Your Twitch ID and username are filled in automatically, and the token is refreshed in the background from then on.
-
-### 5. Add to OBS
-
-Add **Browser Sources** in OBS with these URLs:
-- Credits: `http://localhost:3000/credits.html`
-- Stats: `http://localhost:3000/stats.html`
-- Hashtags: `http://localhost:3000/hashtags.html`
-- Goal: `http://localhost:3000/goal.html?goal=follower-goal`
-- Goals Cycle: `http://localhost:3000/goal.html?mode=cycle`
-- Viewer Count: `http://localhost:3000/viewers.html`
-- Music: `http://localhost:3000/music.html`
-- Countdown: `http://localhost:3000/countdown.html?timer=starting-soon`
-- Stopwatch: `http://localhost:3000/stopwatch.html?timer=run-clock`
-- Layouts: add `&display=standard|compact|stacked|ring|flip|banner`; animate the box with `&gradient=ff0080,7928ca,2afadf&gradientspeed=8&gradientangle=135` (the URL Wizard builds these)
-
-**Management pages** (open in your browser, not OBS):
-- Dashboard: `http://localhost:3000/dashboard.html`
-- Sessions: `http://localhost:3000/sessions.html`
-- Highlights: `http://localhost:3000/highlights.html`
-- Clips (Beta): `http://localhost:3000/clips.html`
-- Goals: `http://localhost:3000/goals-editor.html`
-- Config: `http://localhost:3000/config-editor.html`
-- Credits: `http://localhost:3000/credits-editor.html`
-- Theme: `http://localhost:3000/theme-editor.html`
-- Overlays hub (every browser source, copy URL, customize): `http://localhost:3000/overlays.html`
-- Overlay URL Wizard: `http://localhost:3000/overlay-url-wizard.html`
-- Overlay URL parameter names are case-insensitive (`fontScale` = `fontscale`); lowercase is the documented form.
-- Credits, stats, hashtags, goal and viewer overlays share appearance overrides: `font`, `weight` (100-900), `fontscale`, `text`, `accent`, `bg` and `outline` (`none` removes the outline). The wizard has an Appearance card that adds them to any URL.
-- Custom Overlays: `http://localhost:3000/custom-overlays.html`
-- Game Plan: `http://localhost:3000/game-plan-editor.html`
-- Music Editor: `http://localhost:3000/music-editor.html`
-- Timer Manager: `http://localhost:3000/timers-editor.html`
-- Timer URL Wizard: `http://localhost:3000/timer-url-wizard.html`
-
-## Prerequisites
-
-StreamPulse requires two external services to collect live stream data. Set both up before installing.
-
-### SocialStream Ninja (SSN)
-
-SSN captures live chat messages, subscriptions, follows, raids, bits, and donations from Twitch (and YouTube, Kick, etc.) and forwards them to StreamPulse via WebSocket.
-
-**Install & Configure:**
-1. Install [SocialStream Ninja](https://socialstream.ninja/) — available as a **browser extension** or a **standalone desktop app**
-2. Open SSN settings and go to **Global Mechanics → Mechanics - Connections & Integrations**
-3. Enable **Enable remote API control of extension**
-4. Enable **Send chat messages to API server**
-5. Note your **Session ID** — visible in the `?session=` parameter of your dock.html or featured.html URL
-6. Keep the SSN dock page open during your stream (browser tab or standalone app)
-
-> **Tip:** You can test the connection using SSN's [API Sandbox](https://socialstream.ninja/sampleapi.html) — connect with your Session ID to see live messages.
-
-### Twitch Application
-
-**You don't need to create one.** StreamPulse ships with a built-in Twitch connection. Start it, open `http://localhost:3000/twitch-connect.html`, click **Connect with Twitch**, enter the code on twitch.tv and approve. This provides subscriber, follower, and bits data, and fills in your Twitch ID and username automatically. Leave the `twitch` fields in `config.json` blank.
-
-Clip creation in **Clips (Beta)** requires `clips:edit` for live clips. VOD clip creation requires broadcaster authorization with `channel:manage:clips` (or editor authorization with `editor:manage:clips`). If StreamPulse was authorized before VOD clipping was enabled, reconnect from the Twitch connect page to refresh the saved token with the new permissions.
-
-**Optional: use your own Twitch app** (for example if you host StreamPulse somewhere other than localhost):
-1. Go to [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) and create a new application
-2. Set the **OAuth Redirect URL** to the exact address StreamPulse uses (`http://localhost:3000/auth/callback`, or the value of `twitch.redirect_uri`)
-3. Put the **Client ID** and **Client Secret** in `config.json`:
-
-```json
-"twitch": {
-  "client_id": "YOUR_TWITCH_CLIENT_ID",
-  "client_secret": "YOUR_TWITCH_CLIENT_SECRET",
-  "redirect_uri": "http://localhost:3000/auth/callback"
-}
-```
-
-### Optional
-
-- **Bitfocus Companion** — Trigger API endpoints via Stream Deck buttons, or use the dedicated [companion-module-streampulse](https://github.com/jarbochov/companion-module-streampulse) module
-- **OBS Studio** — For displaying browser source overlays
-
-## Features
-
-- **Credits Roll & Dedicated Studio** — Cinematic scrolling credits with subscribers, followers, chatters, emotes, hashtags, raids, gift subs, cheerers, and optional fade-style text sections for custom sections, Special Thanks, or the closing message. Includes a dedicated Credits Studio (`public/editors/credits-editor.html`) with top-tabs architecture, live roll and static non-scrolling card previews.
-- **Custom Overlay Studio** — Full drag-and-drop overlay designer with WebKit/Chromium punchouts, WebGL retro display shaders (CRT scanlines, shadow masks, TV snow, LCD smear), GPU media filters (dithering, halftone, manga, pixelate, blur, duotone), animated borders, pattern tiles, and unified HTML5/YouTube video playback.
-- **Choice Randomizer Studio** — Spinning wheel, slot machine roller, and flip card reveal overlays with audio effects, choice weighting, winner elimination, and Twitch live chatter auto-population.
-- **Music Overlay** — "Now Playing" overlay for Apple Music, Spotify, and VLC with album art, marquee titles, and multiple display modes
-- **Named Timers** — Shared countdown and stopwatch overlays with duration or target-date countdown modes, pause/resume controls, quick add/subtract time adjustments, persistent state, and Companion-friendly field endpoints
-- **Appearance** — Dark, light or match-system mode and a custom accent color for all admin pages, set in the Config Editor (or the theme toggle in navigation). Stored per browser; shared styles live in `admin.css` and `appearance.js`. Overlays are unaffected.
-- **Alerts & Alert Queue Dock** — Rule-based on-screen alerts for follows, subs, resubs, milestones, gifted subs, bits, donations, raids, channel point redeems, finished timers, reached goals and chat words. Random/weighted variants, tiered thresholds, image/GIF/video/sound uploads, built-in synthesized sounds, animations, a queue with skip/pause, and an event queue page with "Hide unmatched" filtering and replay (usable as an OBS dock).
-- **Chat Bot (Beta)** — Chat commands with aliases, cooldowns, per-person limits and mod/subscriber permissions, quotes, timed messages, word triggers, silent commands, HTTP webhook actions, list and counter variables, usage tracking, a viewer command reference, and import/export of all settings. Replies are sent back through SocialStream. Configure it at `http://localhost:3000/chatbot.html`.
-- **Goals + Viewer Tracking** — Live viewer sampling plus configurable follower, subscriber, gift sub, bits, donation, viewer, and combined community goals with single-goal and rotating cycle overlays
-- **Game Plan** — Broadcast schedule vs. custom collections segmentation with IGDB cover art, release years, and genres. Full month and week calendars, 14-day quick calendar strip, 1-click scheduling with Play Now, Stop, Finish & Next, Move to Schedule, and period presets. Includes a dedicated OBS Browser Source overlay (`game-plan.html`) with Ticker (Now Playing & Up Next), Schedule Strip, and Checklist modes, accompanied by a visual URL Wizard (`game-plan-url-wizard.html`).
-- **Community Directory & Chatter Dossiers** — Streamer community management in Analytics (`analytics.html`) and Session History (`sessions.html`): view community overview stats, smart quick-view segments (Moderators, VIPs, Regulars 3+ in 90d, Lapsed 30-90d, Newcomers), pronouns, lifetime attendance, message counts, subscriber tenure, bits cheered, gift subs given, raids led, top categories watched, private streamer notes, and 1-click CSV roster export.
-- **Stream Milestones & Streaks Tracker** — Automated tracking of broadcast milestones: stream count (`Stream #46`), total streamed hours, daily and weekly stream streaks, unique lifetime chatters, and next goals. Exposes live overlay placeholders (`{{milestone.stream_number}}`, `{{milestone.total_hours}}`, `{{milestone.streak_days}}`, `{{milestone.streak_weeks}}`, `{{milestone.lifetime_chatters}}`).
-- **Live Stats Overlay** — Persistent top chatters, emotes, and hashtags across sessions
-- **Session History** — Browse archived sessions with full chat logs, searchable with boolean operators (`AND`, `OR`, `"exact phrase"`, `user:name`)
-- **Highlights** — Pin notable chat messages and export them per session
-- **Clip Candidates (Beta)** — Detect notable events and chat spikes, add manual markers, and request Twitch clips with edit/view links
-- **Chat Log Exports** — Export filtered chat logs and highlights as TSV, TXT, or PDF (with the same quoted phrase / AND / OR / `user:name` filtering used in search)
-- **Hashtag Tracking** — Live hashtag overlays with moderation plus a dedicated sortable admin stats page
-- **Dashboard** — Server status, session stats, message volume chart, and quick actions
-- **Fully Configurable** — All sections, titles, social links, and options editable via web UI or `config.json`
-- **Twitch Connect** — Built-in device-code sign-in (no Twitch developer app needed) with automatic background token refresh
-- **WebSocket Push** — Live data pushed to overlays in real-time
-- **Session Lifecycle** — End/start session endpoints for Companion integration
-- **Backup & Restore** — Download full data backups as ZIP, including the current live session, and restore them with restart guidance when connection settings changed
-- **Share individual items** — On the Backup page, pick specific overlays, presets, Game Plan, timers or alerts and export them as one ZIP (with the images, videos and fonts they use). Import a ZIP elsewhere and choose to keep both, replace or skip anything that already exists. Tokens, sessions and stats are never included.
-- **Update** — Check for and manually install the latest stable release, or explicitly opt in to a warned nightly `main` build from the Manage menu
-
-The updater works on Windows, macOS, and Linux when StreamPulse is run from a Git checkout with Git and Node.js/npm available. On Windows, the server uses the native `npm.cmd` command automatically. Keep the production folder writable and avoid running with uncommitted tracked code changes; data is backed up before an update.
-- **Preview Mode** — `?preview=true` renders credits without scrolling for layout testing
-- **Multipage overlays** — Turn on **Pages** in the overlay editor to build a slide deck: add, duplicate, reorder and rename pages, switch pages on or off (off pages are skipped by next/prev/auto and can't be switched to), mark elements as shared across all pages, and choose manual or automatic advance (cycle time plus per-page duration, loop, none/fade/slide transitions). Switch pages from the control panel (`/overlay-control.html?id=<id>`, usable as an OBS dock), the `POST /api/custom-overlays/:id/page` API, or pin a source with `?page=<id|name|number>`. Pages can also be set as **trigger pages** that automatically interrupt rotation on alerts, featured chat messages, chat commands, or when a Twitch poll ends or is active.
-- **Custom Overlays** — Create JSON-backed canvas overlays with text, Markdown, images, video, shapes, progress bars/rings, scannable QR codes, groups, gradients, and live WebSocket updates after saving. Text, Random Text and Markdown elements can be typed inline, loaded from an uploaded library file, or read in place from a `.txt`/`.md` file on your computer (picked with a Finder dialog; edits show up automatically). Image and video elements can also use a file in place from your computer. Text elements can auto-fit (shrink or grow) to their box. Markdown elements can flow into 2–4 columns, with a choice of which heading levels span all columns. Markdown heading size can be scaled (40–200%). Text, image and progress elements accept live `{{placeholders}}` (dates can be formatted, e.g. `{{now|MMM D, h:mm A}}`) (stream stats, clock, timers, goals, latest events, Twitch poll results, Twitch category and IGDB game data, music title/artist/cover/progress, Game Plan lists), and the **Game list** element renders your Game Plan as a cover grid, strip or text list with cover-fit and shrink-to-fit options
-
-## How It Works
-
-```
-┌─────────────┐     ┌──────────────────────────────────────────┐
-│  SSN Dock   │────▶│              server.js                   │
-│  (browser)  │ WSS │  ┌─────────────┐  ┌──────────────────┐  │
-└─────────────┘     │  │ SSN Collect  │  │ Twitch API Fetch │  │
-                    │  │ (WebSocket)  │  │ (auto-refresh)   │  │
-                    │  └──────┬──────┘  └────────┬─────────┘  │
-                    │         │ writes            │ writes     │
-                    │         ▼                   ▼            │
-                    │   data/chat.json      data/subs.json     │
-                    │   data/stats.json     data/bits.json     │
-                    │                       data/followers.json│
-                    │  ┌─────────────┐  ┌──────────────────┐   │
-                    │  │ HTTP Server │  │ WebSocket Server │   │
-                    │  └──────┬──────┘  └────────┬─────────┘   │
-                    └─────────┼──────────────────┼─────────────┘
-                              │ serves           │ pushes live data
-              ┌───────────────┼─────────┐        │
-              ▼               ▼         ▼        ▼
-    ┌──────────────┐  ┌──────────┐  ┌──────────────────┐
-    │ credits.html │  │stats.html│  │  dashboard.html   │
-    │ (OBS source) │  │(OBS src) │  │  sessions.html    │
-    └──────────────┘  └──────────┘  └──────────────────┘
-```
-
-**SSN detects these events via WebSocket:**
-- Chat messages (all platforms)
-- Subscriptions: `new_subscriber`, `resub`, `subscription_gift`
-- Follows: `follow`, `new_follower`
-- Raids: `raid`
-- Bits/Cheers: via `hasDonation` field containing "bit"
-- Donations: via `hasDonation` field
-- Emotes and hashtags: parsed from chat messages
-
-## Configuration
-
-### config.json
-
-Copy `config.example.json` to `config.json` and fill in your credentials:
-
-```json
-{
-  "port": 8080,
-  "broadcaster_id": "",
-  "broadcaster_name": "",
-  "twitch": {},
-  "ssn": {
-    "session_id": "YOUR_SSN_SESSION_ID",
-    "server": "wss://io.socialstream.ninja"
-  }
-}
-```
-
-All other settings can be edited via the [Config Editor](http://localhost:3000/config-editor.html). Most apply immediately; the SocialStream session and Twitch polling intervals need a restart, and the editor offers a **Restart now** button when you change them.
-
-### Key Options
-
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `port` | number | `8080` | HTTP server port |
-| `broadcaster_id` | string | | Your Twitch numeric broadcaster ID |
-| `broadcaster_name` | string | | Your Twitch username (filtered from sub/follower lists) |
-| `twitch_refresh_minutes` | number | `10` | Auto-refresh interval for Twitch API data (followers, subs, clips) |
-| `twitch_stream_info_seconds` | number | `30` | How often the stream title and category are polled |
-| `days_filter` | number | `30` | Only show followers from last N days |
-| `active_subs_only` | boolean | `false` | Only show subscribers who chatted this stream |
-| `exclude_users` | array | `[]` | Usernames to exclude from all data (case-insensitive) |
-| `banned_users` | array | `[]` | Usernames completely hidden from everything |
-| `hashtags_enabled` | boolean | `true` | Enable hashtag tracking |
-| `chat_log_enabled` | boolean | `true` | Enable chat log recording |
-| `auto_backup_on_session_end` | boolean | `false` | Auto-backup data when ending a session |
-| `game_plan_auto` | object | `{"enabled":true,"min_minutes":15,"skip":["Just Chatting"]}` | Auto-add streamed games to the Game Plan as Played when a session ends; `skip` lists extra categories to ignore |
-| `session_lifecycle.auto` | boolean | `true` | Auto start/end sessions from Twitch live status (needs Twitch connected) |
-| `session_lifecycle.end_grace_minutes` | number | `15` | Minutes offline before a session auto-ends; outages/API errors never count |
-| `session_lifecycle.resume_window_minutes` | number | `120` | Going live again within this window reopens the last archived session |
-| `session_lifecycle.min_session_minutes` | number | `5` | Auto-ended streams shorter than this are discarded |
-| `session_lifecycle.poll_seconds` | number | `30` | How often to check Twitch live status |
-| `music.enabled` | boolean | `false` | Enable music "Now Playing" overlay |
-| `music.source` | string | `apple_music` | Music source: `apple_music`, `spotify`, or `vlc` |
-| `music.poll_seconds` | number | `5` | How often to check for track changes |
-| `viewer_tracking.enabled` | boolean | `true` | Enable current viewer polling and session sampling |
-| `viewer_tracking.poll_seconds` | number | `60` | How often to sample current viewers |
-| `viewer_tracking.retain_samples` | number | `720` | Max session viewer samples to keep |
-| `weather.enabled` | boolean | `false` | Enable weather placeholders (`{{weather.temp}}`, `{{weather.icon}}`, …) from Open-Meteo |
-| `weather.location` | string | `""` | City to look up, e.g. `Pittsburgh, PA` |
-| `weather.extra_locations` | array | `[]` | Extra cities (max 8), used as `{{weather.<city>.temp}}` |
-| `weather.units` | string | `imperial` | `imperial` (°F, mph) or `metric` (°C, km/h) |
-| `weather.poll_minutes` | number | `15` | How often to refresh the weather |
-
-Weather placeholders beyond the current temperature: `{{weather.gusts}}`, `cloud_cover`, `pressure`, `uv`, `sunrise`, `sunset`; the next six hours as `{{weather.h1.temp}}` … `h6` (`time`, `temp`, `icon`, `icon.url`, `condition`, `precip`); and the next five days as `{{weather.d1.high}}` … `d5` (`day`, `high`, `low`, `icon`, `icon.url`, `condition`, `precip`; `d1` is tomorrow). Extra cities get the same names, e.g. `{{weather.tokyo.d1.high}}`.
-
-**Overlay editor presets:** *Add element → Presets…* opens a searchable picker (counter, clock, latest activity, now playing, game banner, and weather cards/forecasts; weather presets only show while weather is enabled). Select elements and use the **Save as preset** button in the properties panel to build your own; they are stored in `data/overlay-presets.json` and included in backups.
-
-**Show/hide any overlay:** `POST /api/overlay-visibility/<key>` with `{"action":"on"|"off"|"toggle"}` fades the whole overlay page out or in. Keys are `credits`, `goal`, `countdown`, `stopwatch`, `music` and `custom:<overlayId>`; `GET /api/overlay-visibility` lists them with their state. Visibility resets to shown when the server restarts.
-
-**Asset tags and slideshows:** In the Asset Library, give assets one or more tags (`+ Tag`, bulk *Tag N selected…*, or a tags field next to *Upload*) and filter by tag or *Untagged*. Tags are stored in `data/asset-tags.json` and included in backups. The **Slideshow** element (*Add element → Slideshow*) plays images either by tag (live: tag changes show up within ~20 seconds; match any or all tags) or from a hand-picked list. Options: seconds per image, order (newest/shuffle/random), fit, fade/slide transitions, slow zoom, and a caption (none, the asset's own caption, or the file name). Set an asset's caption with *+ Caption* in the Asset Library (`data/asset-captions.json`). With many tags, filters show the most-used ones plus a search box, and *Manage tags…* lets you rename, merge or delete a tag everywhere (slideshows using it are updated). Set *Advance* to Manually to step through slides yourself: `POST /api/custom-overlays/<id>/slideshow` with `{"action":"next"}` (also `prev`, `pause`, `play`, `toggle`; optional `"element"` id), and `GET /api/slideshows` lists every slideshow with its live paused/playing state and position while an overlay page is open, or use the editor's *live controls* buttons (they also drive the editor preview) or the popout control panel at `/overlay-control.html?id=<id>` (*Pop out controls*), which lists every slideshow in the overlay. Videos can be included (they play to the end); the editor's video picking UI is basic for now. API: `GET /api/asset-library?tags=a,b&mode=any|all&kinds=image|video|both`, `POST /api/asset-tags` (`{names, add, remove, set}`).
-
-**Filters:** Every layer except embeds has a *Filters* section in the editor (color tint is for image, video and slideshow layers only): blur, brightness (darken), contrast, saturation, grayscale, duotone, a color tint, and presets such as *Dark background* and *Duotone dusk*. Handy for backgrounds behind text.
-| `clip_candidates` | object | enabled | Beta candidate detection thresholds and event toggles |
-
-### Goals Configuration
-
-Goals are managed from **Goals Manager** (`/goals-editor.html`) and stored in `config.json` under `viewer_tracking` and `goals`.
-
-- **Viewer tracking** samples current viewers into the current session and archives those samples with the session for peak/average metrics.
-- With `source: "best_available"`, recent viewer-count packets received from SocialStream Ninja are used first; Twitch polling is used when SSN has not supplied a recent count. Set `source: "twitch"` to force Twitch polling.
-- **Goal targets are manual**, but progress is computed automatically from live session data, Twitch snapshots, and viewer samples.
-- **Persistent goals** count upward from a saved baseline until you manually reset them.
-- **Session goals** use the current stream/session totals.
-- **Viewer goals** support either **current viewers** or **peak viewers**.
-- **Community goals** use weighted points across follows, subs, gift subs, bits, and donations.
-
-### Credits Configuration
-
-Credits sections, social links, special thanks, and repeatable custom credit sections are all configurable via the Config Editor or directly in `config.json` under the `credits` key. Built-in sections support `enabled`, `title`, and `subtitle`; custom sections also support a freeform `body`, `columns`, `names`, `display_style`, and `display_duration` list/panel configuration. Use `credits.section_order` to place built-in sections, custom sections, and Special Thanks anywhere in the roll. Fade sections still fit inside the base credits `?duration=` by default, and any `display_duration` value adds extra seconds on top of that base sequence before socials.
-
-### Overlay Theme
-
-Customize the shared look of supported overlays from the dedicated [Theme Editor](http://localhost:3000/theme-editor.html):
-
-- **Font** — Choose from popular Google Fonts or enter any custom Google Font name
-- **Text / Accent Colors** — Color pickers with manual hex/rgb input
-- **Background** — Set to `transparent` for OBS (default), or pick a color for previewing
-- **Goal / Viewer Count Backgrounds** — Separate backgrounds for those full-canvas overlays
-- **Text Outline** — Toggle the shadow outline on/off, pick outline color
-- **Font Scale** — Scale all overlay text proportionally (0.5× – 2×)
-- **Theme presets** — Export or import only the shared theme as JSON
-
-## URL Parameters
-
-### credits.html
-
-| Parameter | Default | Description |
-| --- | --- | --- |
-| `duration` | `82` | Total credits duration in seconds before socials appear |
-| `speed` | | Speed multiplier (only if `duration` not set) |
-| `days` | config value | Override days_filter from config |
-| `preview` | `false` | Show all credits without scrolling |
-
-> **Syncing credits with music:** Set `?duration=` to match your base end-of-stream credits sequence before socials. For example, `?duration=75` for a 1:15 base roll. Fade sections stay inside that base duration by default, and any non-zero per-section fade duration adds extra time on top. Use a Companion/StreamDeck button to trigger both the OBS credits source and music simultaneously for a clean outro.
-
-### goal.html
-
-| Parameter | Default | Description |
-| --- | --- | --- |
-| `goal` | first enabled | Goal ID for single-goal mode |
-| `mode` | `single` | Use `cycle` to rotate through enabled goals |
-| `ids` | all enabled | Comma-separated subset of goal IDs for cycle mode |
-| `interval` | config value | Cycle interval override in seconds |
-| `skipcompleted` | config value | Override whether completed goals are skipped in cycle mode |
-| `pausecomplete` | config value | Override the extra hold time for completed goals in cycle mode |
-| `fontscale` | config theme | Override goal overlay font scale |
-
-The goal overlay fills the browser-source viewport at 100% width and height. Typography, spacing, and the progress bar scale from the smaller viewport axis, so the same URL can be placed in any size or aspect ratio without fixed-size positioning.
-
-### stats.html
-
-| Parameter | Default | Description |
-| --- | --- | --- |
-| `days` | all time | Only show stats from last N days |
-| `date` | | Single date (`YYYY-MM-DD`) |
-| `from` / `to` | | Date range |
-| `limit` | `20` | Top N items per column |
-| `refresh` | `60` | Auto-refresh interval in seconds |
-
-## API Endpoints
-
-| Endpoint | Description |
+## Documentation Hub
+
+Comprehensive technical guides, API documentation, and hardware configuration are maintained in the `docs/` directory and published on our **[Documentation Site](https://jarbochov.github.io/StreamPulse/)**:
+
+| Guide | Description |
 | --- | --- |
-| `GET /api/status` | Server health, SSN connection, data counts |
-| `GET /api/config` | Current config |
-| `PUT /api/config` | Update config (hot-reload) |
-| `GET /api/viewers` | Current/peak/average viewer summary + samples |
-| `GET /api/goals` | Computed goal snapshot with live progress |
-| `GET/PUT /api/goals/config` | Goal and viewer-tracking settings |
-| `POST /api/goals/:id/reset` | Reset a persistent goal baseline to current values |
-| `POST /api/goals/:id/toggle` | Toggle a goal enabled/disabled |
-| `GET /api/fetch` | Trigger Twitch API refresh |
-| `GET /api/reset` | Clear session chat data |
-| `GET /api/end-session` | Archive session + reset |
-| `GET /api/start-session` | Start new session |
-| `GET /api/shutdown` | Archive + graceful shutdown |
-| `GET /api/chat` | Current session data (live) |
-| `GET /api/chat-log` | Current session chat log |
-| `GET /api/chat-log/search` | Cross-session search (`?q=`, `?user=`, `?type=`, `?session=`) |
-| `GET /api/chat-log/export` | Export chat log (`?format=tsv\|txt\|pdf`, `?q=`, `?user=`, `?type=`, `?session=`) |
-| `GET /api/stats` | Persistent stats (daily buckets) |
-| `GET /api/sessions` | List archived sessions |
-| `GET/POST/DELETE /api/highlights` | Pin/unpin/list highlights |
-| `GET /api/highlights/export` | Export highlights (`?format=`, `?session=`, `?q=`) |
-| `GET/POST/DELETE /api/overlay-presets` | Saved overlay editor element presets |
-| `POST /api/share/export`, `/inspect`, `/import` | Share bundles of overlays, presets, timers, alerts and Game Plan (`GET /api/share/items` lists them) |
-| `GET /api/custom-overlays/:id/history` | Saved revisions of a custom overlay |
-| `GET /api/weather` | Current weather snapshot (`?refresh=1` to refetch) |
-| `POST /api/game-plan/backfill` | Add past streamed games to Played |
-| `GET /api/hashtags/stats` | Hashtag stats summary + table data |
-| `GET/POST/DELETE /api/hashtags/banned` | Hashtag moderation |
-| `DELETE /api/hashtags` | Delete hashtag permanently (`?tag=`) |
-| `GET /api/export` | Stats CSV export (`?type=chatters\|emotes\|all`) |
-| `GET /api/backup` | Download full data backup (ZIP) |
-| `GET /api/share/items` | List overlays, presets and settings that can be shared |
-| `POST /api/share/export` | Download a share ZIP for `{ items: ["overlay:id", "preset:id", "gameplan", "timers", "alerts"], includeHistory }` |
-| `POST /api/share/inspect` | Read a share ZIP (request body) and list its items |
-| `POST /api/share/import?items=…&conflict=copy\|replace\|skip` | Import selected items from a share ZIP (request body) |
-| `GET /api/clip-candidates` | List beta clip candidates |
-| `POST /api/clip-candidates` | Add a beta clip marker |
-| `GET/PUT /api/clip-candidates/config` | Read or update beta detection thresholds |
-| `POST /api/clip-candidates/backfill` | Rebuild candidates from current and archived chat logs (`{"rebuild":true}`) |
-| `POST /api/clip-candidates/:id/create` | Request a Twitch clip |
-| `DELETE /api/clip-candidates/:id` | Delete a beta clip candidate |
-| `GET /auth/twitch` | Start Twitch OAuth flow |
-| `GET /api/music/now-playing` | Current track info (JSON) |
-| `GET /api/music/artwork` | Current album art image |
-| `GET/PUT /api/game-plan` | Game Plan lists and games (with IGDB covers and the "playing now" match) |
-| `GET /api/qr` | QR code as SVG (`?text=`, `fg`, `bg`, `margin`, `ecc`) |
-| `GET /api/game-search` | Search IGDB for games (`?q=`) |
-| `GET /api/game` | IGDB info for a game (`?name=`, defaults to the current Twitch category) |
-| `ws://localhost:3000` | WebSocket — live data push |
+| **[SocialStream Ninja Setup](docs/socialstream-setup.md)** | Step-by-step guide for installing, configuring, and verifying SocialStream Ninja. |
+| **[Custom Overlays Studio](docs/custom-overlays.md)** | Layer types, WebKit punchout masks, retro WebGL shaders, GPU media filters, and presets. |
+| **[Bitfocus Companion & Stream Deck](docs/companion.md)** | Hardware button actions, live stream feedbacks, dynamic variables, and setup instructions. |
+| **[HTTP API & WebSocket Reference](docs/api-reference.md)** | Complete REST API endpoints for session control, randomizer, timers, and WebSocket events. |
+| **[Architecture & Technical Overview](docs/architecture.md)** | Cascading static routing, modular services architecture, and atomic persistence. |
+| **[Developer & Contributor Guide](docs/developer-guide.md)** | Environment setup, running the test pipeline (`npm test`), and UI/UX design standards. |
+| **[Clips Detection (Beta)](docs/clips-beta.md)** | Configuring chat velocity spike detection and automated stream marker creation. |
+| **[Server Management & Backups](docs/server-management.md)** | Atomic ZIP backups, item sharing, headless execution, and process supervision. |
 
-## Bitfocus Companion Integration
+---
 
-A dedicated module with StreamPulse actions, feedbacks and variables is available at [jarbochov/companion-module-streampulse](https://github.com/jarbochov/companion-module-streampulse). Or use the **Generic HTTP** module as below.
+## License
 
-
-| Action | URL |
-| --- | --- |
-| Refresh Twitch data | `GET http://localhost:3000/api/fetch` |
-| End session | `GET http://localhost:3000/api/end-session` |
-| Start new session | `GET http://localhost:3000/api/start-session` |
-| Shutdown server | `GET http://localhost:3000/api/shutdown` |
-
-## Data Persistence
-
-| File | Lifecycle | Contains |
-| --- | --- | --- |
-| `data/chat.json` | Cleared on startup (archived) | Session chatters, subs, emotes, hashtags |
-| `data/chat.json.viewerStats` | Cleared on startup (archived) | Session viewer samples plus current/peak/average viewer data |
-| `data/stats.json` | Persists across restarts | Cumulative stats with daily buckets |
-| `data/sessions/` | Persists | Archived session data + JSONL chat logs |
-| `data/highlights.json` | Persists | Pinned chat messages |
-| `data/timers.json` | Persists | Named countdowns, stopwatches, timer state, global and per-timer completion sounds (from the asset library), and per-timer HTTP action settings |
-| `data/clip-candidates.json` | Persists | Beta clip candidates and Twitch clip links |
-| `data/subs.json` | Refreshed from Twitch API | Subscriber list |
-| `data/bits.json` | Refreshed from Twitch API | Bits leaderboard |
-| `data/followers.json` | Refreshed from Twitch API | Follower list |
-| `data/.twitch-token.json` | Persists | OAuth tokens |
-
-Data is saved to disk every 5 seconds and on graceful shutdown (Ctrl+C).
-
-## Project Architecture & Directory Structure
-
-```
-streampulse/
-├── server.js                  # Application entry point & service wiring
-├── config.json                # User configuration & credentials (git-ignored)
-├── config.example.json        # Template configuration
-├── server/
-│   ├── static-router.js       # Zero-redirect cascading static router
-│   ├── ws.js                  # Overlay WebSocket live push server
-│   ├── routes/                # Modular API route controllers
-│   │   ├── system.js          # Config, health, updates, rate limits
-│   │   ├── session.js         # Session lifecycle, chat logs, resets
-│   │   ├── overlays.js        # Custom overlays, assets, presets, sharing
-│   │   ├── twitch.js          # Twitch OAuth, device code, polls, clips
-│   │   ├── crm.js             # Community CRM & chatter dossiers
-│   │   ├── highlights.js      # Pinned highlights & exports (TXT/TSV/PDF)
-│   │   ├── timers.js          # Countdown & stopwatch HTTP control
-│   │   ├── goals.js           # Goal targets, cycling & toggle
-│   │   ├── game-plan.js       # Game Plan schedule & advance
-│   │   ├── music.js           # Music status, artwork, visibility
-│   │   ├── weather.js         # Open-Meteo forecast placeholders
-│   │   └── backup.js          # ZIP backup & restore
-│   └── services/              # Domain services
-│       ├── alerts.js          # Alert engine (queue, triggers, sounds)
-│       ├── chatbot.js         # Chat Bot (commands, quotes, timed msgs)
-│       ├── crm.js             # Community dossiers & private notes
-│       ├── game-plan.js       # IGDB catalog & stream schedule
-│       ├── goals.js           # Goal calculation & rotation
-│       ├── music.js           # Apple Music, Spotify & VLC poller
-│       ├── session.js         # Session archiving & JSONL logs
-│       ├── ssn.js             # SocialStream Ninja WebSocket client
-│       ├── timers.js          # Named timer persistence & actions
-│       ├── twitch.js          # Twitch API client & token refresh
-│       ├── variables.js       # Custom variables & counters
-│       ├── viewers.js         # Viewer sampling & tracking
-│       └── weather.js         # Weather fetcher & caching
-├── public/                    # Frontend assets & interfaces
-│   ├── overlays/              # OBS browser source displays
-│   ├── editors/               # Studio controllers & configuration editors
-│   ├── wizards/               # OBS URL generators with interactive options
-│   ├── tools/                 # Production tools (Chatbot, Alerts, Variables)
-│   ├── library/               # History, archives, and analytics
-│   ├── system/                # Settings, Twitch connect, backups, hub
-│   ├── css/                   # Shared stylesheets (admin.css)
-│   └── js/                    # Client scripts (nav.js, appearance.js)
-├── scripts/                   # CLI utilities and routing tests
-└── data/                      # Generated database & logs (git-ignored)
-```
-
-## Troubleshooting
-
-### No SSN/chat data
-1. SSN dock page must be open in a browser tab
-2. Ensure **Enable remote API control of extension** and **Send chat messages to API server** are enabled in SSN under Global Mechanics → Mechanics - Connections & Integrations
-3. Verify `session_id` in `config.json` matches the `?session=` value in your SSN dock URL
-4. Check `http://localhost:3000/api/status` — `ssn.connected` should be `true`
-5. Test with the [SSN API Sandbox](https://socialstream.ninja/sampleapi.html) to verify messages are flowing
-
-### Twitch API errors (401)
-- Open `/twitch-connect.html` on the same host where StreamPulse is running and reconnect
-- If you use your own Twitch app: ensure `twitch.redirect_uri` is registered exactly as an OAuth Redirect URL, and verify `client_id` and `client_secret` in `config.json`
-
-### Credits not loading
-
-- Ensure `npm start` is running
-- OBS URL: `http://localhost:3000/credits.html`
-
-### High memory usage
-
-The live chat log is stored in `data/chat-log.jsonl`, while StreamPulse keeps only the most recent 2,000 messages in memory for live controls such as pinning the latest message. Chat history APIs, search, exports, and historical analysis read the full JSONL log when needed. Current process memory metrics are available from `/api/status` under `memory`.
-
-### Refreshing OBS sources
-
-- Right-click OBS source → "Refresh cache of current page"
-
-### PDF export says Chrome could not be found
-- Puppeteer's browser download is machine-specific
-- Run `npm run install:chrome`
-- Restart StreamPulse with `npm start`
-- If needed, reinstall dependencies first with `npm install`
-
-## Project Architecture & Static Routing
-
-Frontend files are organized into semantic directories under `public/`:
-- `public/overlays/` — OBS browser sources (`credits.html`, `randomizer.html`, `music.html`, `goal.html`, `viewers.html`, etc.)
-- `public/editors/` — Interactive studio controllers and configuration editors (`randomizer-editor.html`, `theme-editor.html`, etc.)
-- `public/wizards/` — URL builders for parameter configuration (`overlay-url-wizard.html`, `timer-url-wizard.html`, etc.)
-- `public/tools/` — Stream automation and bot tools (`chatbot.html`, `alerts.html`, `placeholders.html`, etc.)
-- `public/library/` — History, archives, and analytics (`sessions.html`, `analytics.html`, `highlights.html`, etc.)
-- `public/system/` — System settings and hub (`config-editor.html`, `overlays.html`, `backup.html`, etc.)
-- `public/css/` — Shared stylesheets (`admin.css`, etc.)
-- `public/js/` — Client-side scripts (`nav.js`, `appearance.js`, `overlay-shared.js`, etc.)
-
-### Backward Compatibility & Cascading Routing
-All URLs are **100% backward-compatible**. Existing OBS browser sources, bookmarks, and Stream Deck integrations using flat root paths (e.g. `http://localhost:3000/music.html` or `http://localhost:3000/credits.html`) continue to resolve seamlessly with zero redirects and zero latency overhead. The built-in cascading static router in `server/static-router.js` automatically resolves both root paths and structured subfolder paths (`http://localhost:3000/overlays/music.html`).
-
-### Modular Features Framework
-StreamPulse supports granular modular toggles in the [Config Editor](http://localhost:3000/config-editor.html) for non-essential features:
-- **Chat Bot** (`chatbot_enabled`)
-- **Clip Candidates** (`clip_candidates.enabled`)
-- **Hashtag Tracking** (`hashtags_enabled`)
-- **Weather Placeholders** (`weather.enabled`)
-- **Music Now Playing** (`music.enabled`)
-
-When a feature is disabled in configuration:
-1. Associated background pollers, listeners, and mutation APIs pause operations.
-2. Navigation links are dynamically pruned from the shared top navigation bar.
-3. Quick Jump entries in the Command Palette (**⌘K**) are automatically filtered out.
-4. Updates synchronize instantly across all open browser tabs without full page reloads.
-
-## Developer Setup & Verification
-
-StreamPulse includes an automated test and linting suite to guarantee code quality and routing integrity:
-
-```bash
-# Run ESLint code quality checks and Node.js syntax checks across all server files
-npm test
-
-# Run ESLint directly
-npm run lint
-
-# Verify all root and categorized static routes against a running server
-node scripts/test-static-routes.cjs
-```
-
-## Security
-
-- `config.json` contains credentials — git-ignored, never commit
-- OAuth tokens stored locally in `data/.twitch-token.json` — git-ignored
-- Server only listens on localhost
-
-## Built With
-
-- [SocialStream Ninja](https://socialstream.ninja/) by Steve Seguin
-- [Twitch API](https://dev.twitch.tv/docs/api/)
-- [OBS Studio](https://obsproject.com/)
-- [Puppeteer](https://pptr.dev/) for PDF exports
-- [Font Awesome](https://fontawesome.com/) for icons
-- [Jersey 20](https://fonts.google.com/specimen/Jersey+20) Google Font
+StreamPulse is open-source software licensed under the [MIT License](LICENSE).
