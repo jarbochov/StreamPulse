@@ -1871,11 +1871,13 @@
             const optChat = document.createElement('option');
             optChat.value = 'chatters';
             optChat.textContent = 'Active Stream Chatters (Current Session)';
+            if (currentPresetId === 'chatters') optChat.selected = true;
             optDynamic.appendChild(optChat);
 
             const optVar = document.createElement('option');
             optVar.value = 'variables';
             optVar.textContent = 'StreamPulse List Variable…';
+            if (currentPresetId === 'variables') optVar.selected = true;
             optDynamic.appendChild(optVar);
 
             sel.appendChild(optDynamic);
@@ -1889,7 +1891,7 @@
             currentPresetId = selVal;
             if ($('var-picker-row')) $('var-picker-row').style.display = selVal === 'variables' ? 'block' : 'none';
 
-            const matched = presetsList.find(p => p.id === selVal) || (presetsList.length ? presetsList[0] : null);
+            const matched = presetsList.find(p => p.id === selVal);
             if (matched) {
                 if (currentPresetId !== matched.id && $('preset-select')) $('preset-select').value = matched.id;
                 currentPresetId = matched.id;
@@ -1910,9 +1912,16 @@
                     loadSelectedQuotePreset();
                 }
             } else if (selVal === 'chatters') {
+                if ($('preset-select')) $('preset-select').value = 'chatters';
                 loadChatters();
             } else if (selVal === 'variables') {
+                if ($('preset-select')) $('preset-select').value = 'variables';
                 loadVariables();
+            } else if (presetsList.length) {
+                const fallback = presetsList[0];
+                currentPresetId = fallback.id;
+                if ($('preset-select')) $('preset-select').value = fallback.id;
+                setChoices(fallback.choices || []);
             } else {
                 setChoices(DEFAULT_FALLBACK_CHOICES);
             }
@@ -2021,7 +2030,8 @@
                 const res = await fetch('/api/randomizer/chatters').then(r => r.json());
                 if (res.chatters && res.chatters.length) {
                     setChoices(res.chatters);
-                    toast(`Loaded ${res.chatters.length} active chatters`);
+                    const label = res.sessionCount ? `${res.chatters.length} active session chatters` : `${res.chatters.length} recent chatters`;
+                    toast(`Loaded ${label}`);
                 } else {
                     toast('No active chatters recorded in session yet');
                     setChoices(['(No active chatters yet)']);

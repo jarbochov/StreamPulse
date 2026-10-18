@@ -1258,13 +1258,23 @@ function createOverlayRoutes({
                 let buttonPhrases = Array.isArray(body.buttonPhrases) ? body.buttonPhrases : [];
 
                 if (!choices.length) {
-                    const presets = loadRandomizerPresets();
-                    const matched = (presetId ? presets.find(p => p.id === presetId) : null) || presets[0];
-                    if (matched) {
-                        choices = matched.choices || [];
-                        if (!winnerHeader && matched.winnerHeader) winnerHeader = matched.winnerHeader;
-                        if (!winnerSub && matched.winnerSub) winnerSub = matched.winnerSub;
-                        if (!buttonPhrases.length && matched.buttonPhrases) buttonPhrases = matched.buttonPhrases;
+                    if (presetId === 'chatters') {
+                        const chatData = getChatData();
+                        const sessionChatters = Object.keys(chatData?.chatters || {}).map(c => c.trim()).filter(Boolean);
+                        const statsData = getStatsData();
+                        const lifetimeChatters = Object.keys(statsData?.chatters || {}).map(c => c.trim()).filter(Boolean);
+                        choices = sessionChatters.length ? [...new Set(sessionChatters)] : [...new Set(lifetimeChatters)];
+                        if (!winnerHeader) winnerHeader = 'LUCKY CHATTER CHOSEN';
+                        if (!winnerSub) winnerSub = 'The universe has selected you from chat!';
+                    } else {
+                        const presets = loadRandomizerPresets();
+                        const matched = (presetId ? presets.find(p => p.id === presetId) : null) || presets[0];
+                        if (matched) {
+                            choices = matched.choices || [];
+                            if (!winnerHeader && matched.winnerHeader) winnerHeader = matched.winnerHeader;
+                            if (!winnerSub && matched.winnerSub) winnerSub = matched.winnerSub;
+                            if (!buttonPhrases.length && matched.buttonPhrases) buttonPhrases = matched.buttonPhrases;
+                        }
                     }
                 }
 
@@ -1310,10 +1320,11 @@ function createOverlayRoutes({
 
         if (pathname === '/api/randomizer/chatters' && req.method === 'GET') {
             const chatData = getChatData();
+            const sessionChatters = Object.keys(chatData?.chatters || {}).map(c => c.trim()).filter(Boolean);
             const statsData = getStatsData();
-            const chatters = Object.keys(chatData?.chatters || {}).concat(Object.keys(statsData?.chatters || {}));
-            const unique = [...new Set(chatters.map(c => c.trim()).filter(Boolean))];
-            sendJson(res, { chatters: unique });
+            const lifetimeChatters = Object.keys(statsData?.chatters || {}).map(c => c.trim()).filter(Boolean);
+            const unique = sessionChatters.length ? [...new Set(sessionChatters)] : [...new Set(lifetimeChatters)];
+            sendJson(res, { chatters: unique, sessionCount: sessionChatters.length, totalCount: lifetimeChatters.length });
             return true;
         }
 

@@ -1104,17 +1104,28 @@
             renderInitialState();
         }
 
-        fetch('/api/randomizer/presets').then(r => r.json()).then(res => {
-            if (res.presets && Array.isArray(res.presets) && res.presets.length) {
-                const matched = res.presets.find(p => p.id === currentPresetId) || res.presets[0];
-                if (matched && matched.choices && matched.choices.length) {
+        if (currentPresetId === 'chatters') {
+            fetch('/api/randomizer/chatters').then(r => r.json()).then(res => {
+                if (res.chatters && Array.isArray(res.chatters) && res.chatters.length) {
                     if (!params.get('choices')) {
-                        choices = matched.choices;
+                        choices = res.chatters;
                     }
                     renderInitialState();
                 }
-            }
-        }).catch(() => {});
+            }).catch(() => {});
+        } else {
+            fetch('/api/randomizer/presets').then(r => r.json()).then(res => {
+                if (res.presets && Array.isArray(res.presets) && res.presets.length) {
+                    const matched = res.presets.find(p => p.id === currentPresetId) || res.presets[0];
+                    if (matched && matched.choices && matched.choices.length) {
+                        if (!params.get('choices')) {
+                            choices = matched.choices;
+                        }
+                        renderInitialState();
+                    }
+                }
+            }).catch(() => {});
+        }
 
         fetch('/api/randomizer/quote-presets').then(r => r.json()).then(res => {
             if (res.presets && Array.isArray(res.presets)) {
