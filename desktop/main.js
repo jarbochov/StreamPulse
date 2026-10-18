@@ -66,6 +66,12 @@ let hasShownMinimizeNotification = false;
 app.isQuitting = false;
 
 async function createWindow() {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        mainWindow.focus();
+        return mainWindow;
+    }
+
     const port = serverManager ? serverManager.port : 3000;
     const baseUrl = `http://localhost:${port}`;
 
@@ -105,6 +111,10 @@ async function createWindow() {
         }
     });
 
+    mainWindow.on('closed', () => {
+        mainWindow = null;
+    });
+
     // Open external links (Twitch, docs, etc.) in the user's default browser
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
         if (url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1')) {
@@ -120,14 +130,17 @@ async function createWindow() {
     // Build application menu
     buildMenu(baseUrl);
 
-    // Initialize System Tray
-    appTray = new AppTray({
-        mainWindow,
-        serverManager,
-        projectRoot,
-        dataDir
-    });
-    appTray.init();
+    return mainWindow;
+}
+
+async function ensureWindow() {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+        return mainWindow;
+    }
+    return createWindow();
 }
 
 function buildMenu(baseUrl) {
@@ -277,18 +290,11 @@ ipcMain.handle('open-data-folder', () => {
 
 // App lifecycle
 app.on('second-instance', () => {
-    if (mainWindow) {
-        if (mainWindow.isMinimized()) mainWindow.restore();
-        mainWindow.show();
-        mainWindow.focus();
-    }
+    ensureWindow();
 });
 
 app.on('activate', () => {
-    if (mainWindow) {
-        mainWindow.show();
-        mainWindow.focus();
-    }
+    ensureWindow();
 });
 
 app.whenReady().then(async () => {
@@ -297,13 +303,24 @@ app.whenReady().then(async () => {
 
     serverManager = new ServerManager({ projectRoot, dataDir, configPath });
 
-    console.log('[Desktop] Booting StreamPulse background server...');
-    serverManager.start();
+    // Initialize System Tray early with dynamic window recreation
+    appTray = new AppTray({
+        getWindow: () => mainWindow,
+        onOpenWindow: () => ensureWindow(),
+        serverManager,
+        projectRoot,
+        dataDir
+    });
+    appTray.init();
+
+    console.log('[Desktop] Booting StreamPulse in-process backend server...');
+    await serverManager.start();
 
     try {
         await serverManager.waitForReady();
         console.log(`[Desktop] Server ready on port ${serverManager.port}. Launching window...`);
-        await createWindow();
+        appTray.updateMenu();
+        await ensureWindow();
     } catch (err) {
         console.error('[Desktop] Failed starting backend server:', err.message);
         app.quit();
@@ -316,7 +333,11 @@ app.on('before-quit', async (event) => {
         app.isQuitting = true;
         console.log('[Desktop] Stopping backend server before application exit...');
         if (appTray) appTray.destroy();
-        await serverManager.stop();
+        try {
+            await serverManager.stop();
+        } catch (err) {
+            console.error('[Desktop] Error stopping backend server:', err);
+        }
         app.quit();
     }
 });

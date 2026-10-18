@@ -5,6 +5,8 @@ const fs = require('fs');
 class AppTray {
     constructor(options = {}) {
         this.mainWindow = options.mainWindow;
+        this.getWindow = options.getWindow || (() => this.mainWindow);
+        this.onOpenWindow = options.onOpenWindow || null;
         this.serverManager = options.serverManager;
         this.projectRoot = options.projectRoot || path.join(__dirname, '..');
         this.dataDir = options.dataDir || path.join(this.projectRoot, 'data');
@@ -51,13 +53,16 @@ class AppTray {
 
         this.updateMenu();
 
-        this.tray.on('click', () => {
-            if (this.mainWindow) {
-                if (this.mainWindow.isVisible()) {
-                    this.mainWindow.focus();
+        this.tray.on('click', async () => {
+            const win = this.getWindow();
+            if (win && !win.isDestroyed()) {
+                if (win.isVisible()) {
+                    win.focus();
                 } else {
-                    this.mainWindow.show();
+                    win.show();
                 }
+            } else if (typeof this.onOpenWindow === 'function') {
+                await this.onOpenWindow();
             }
         });
     }
@@ -68,11 +73,15 @@ class AppTray {
         const port = this.serverManager ? this.serverManager.port : 3000;
         const baseUrl = `http://localhost:${port}`;
 
-        const navigateTo = (route) => {
-            if (this.mainWindow) {
-                this.mainWindow.loadURL(`${baseUrl}${route}`);
-                this.mainWindow.show();
-                this.mainWindow.focus();
+        const navigateTo = async (route) => {
+            let win = this.getWindow();
+            if ((!win || win.isDestroyed()) && typeof this.onOpenWindow === 'function') {
+                win = await this.onOpenWindow();
+            }
+            if (win && !win.isDestroyed()) {
+                win.loadURL(`${baseUrl}${route}`);
+                win.show();
+                win.focus();
             }
         };
 
@@ -156,8 +165,9 @@ class AppTray {
                     if (this.serverManager) {
                         try {
                             await this.serverManager.restart();
-                            if (this.mainWindow) {
-                                this.mainWindow.reload();
+                            const win = this.getWindow();
+                            if (win && !win.isDestroyed()) {
+                                win.reload();
                             }
                         } catch (err) {
                             console.error('[Tray] Failed to restart server:', err);

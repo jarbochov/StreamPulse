@@ -8,7 +8,7 @@ http://localhost:3000/overlays/custom-overlay.html?id=my-overlay
 
 Manage and preview all saved scenes from the [Custom Overlays Directory](http://localhost:3000/custom-overlays.html), complete with live canvas cards, duplicate actions, revision histories, and direct OBS browser-source URL generators.
 
-![StreamPulse Custom Overlay Studio](images/custom-overlay-studio.png)
+![StreamPulse Custom Overlay Studio](images/custom-overlay-studio.png?v=2)
 
 ---
 
@@ -43,7 +43,7 @@ The studio provides a modern three-pane workspace designed for high-density broa
 
 StreamPulse includes 14 distinct element types organized across 4 functional categories. Access them anytime by clicking **+ Add element** in the stage toolbar:
 
-![Custom Overlay Element Types](images/overlay-elements-menu.png)
+![Custom Overlay Element Types](images/overlay-elements-menu.png?v=2)
 
 ### 1. Text & Copy
 
@@ -55,7 +55,7 @@ Direct single or multi-line text elements supporting static copy and live stream
 - **Text Stroke**: Crisp vector outlines with custom width and stroke colors.
 - **Live Placeholders**: Embed live dynamic variables like `{{stream.title}}`, `{{viewers.current}}`, or `{{latest.follower}}` directly in the content string.
 
-![Text & Typography Inspector](images/overlay-text-inspector.png)
+![Text & Typography Inspector](images/overlay-text-inspector.png?v=2)
 
 #### Random Text (`random-text`)
 Rotating phrase pools for stream rules, broadcaster quotes, tip reminders, or trivia.
@@ -124,7 +124,7 @@ Crisp vector iconography from FontAwesome and StreamPulse built-in SVG collectio
 #### Cutout / Punchthrough (`cutout`)
 Cross-browser transparent apertures designed for webcam frames, capture cards, and game window cutouts.
 
-![Camera Cutout & Punchthrough Frames](images/overlay-cutout-webcam.png)
+![Camera Cutout & Punchthrough Frames](images/overlay-cutout-webcam.png?v=2)
 
 - **Flicker-Free Masking**: Uses self-contained SVG image data URIs in CSS mask properties (`-webkit-mask-image`, `mask-image`) on underlayer containers, guaranteeing flicker-free rendering across Chromium (OBS) and WebKit (Safari).
 - **Aperture Shapes**: Rectangular, rounded rectangular, circular, or elliptical cutouts.
@@ -146,7 +146,7 @@ Integrated stream alert listener connecting directly to StreamPulse's rules engi
 #### Game Plan (`game-list`)
 Live broadcasting schedule and backlog cards driven by StreamPulse's [Game Plan Studio](http://localhost:3000/game-plan-editor.html).
 
-![Game Plan Broadcast Card Layouts](images/overlay-game-plan-cards.png)
+![Game Plan Broadcast Card Layouts](images/overlay-game-plan-cards.png?v=2)
 
 - **Layout Modes**:
   - `columns`: Kanban-style multi-column layout with one column per period or custom collection.
@@ -182,7 +182,7 @@ Sandboxed iframe embed for displaying external web applications, chats, or live 
 
 Apply real-time GPU-accelerated post-processing effects to any image, video, slideshow, or visual layer:
 
-![WebGL Retro Display Shaders & CRT Effects](images/overlay-retro-shaders.png)
+![WebGL Retro Display Shaders & CRT Effects](images/overlay-retro-shaders.png?v=2)
 
 ### CRT & Display Simulation
 - **Scanlines**: Emulates classic cathode-ray tube raster lines with adjustable density, intensity, and vertical scrolling.

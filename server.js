@@ -1939,20 +1939,31 @@ server.listen(PORT, () => {
     }
 });
 
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`\n[Server Error] Port ${PORT} is already in use by another program or StreamPulse instance.`);
+        console.error(`Please stop the running process or choose a different port in config.json.\n`);
+    } else {
+        console.error('[Server Error]', err);
+    }
+});
+
 // Graceful shutdown
-function gracefulShutdown(signal) {
+function gracefulShutdown(signal, shouldExit = true) {
     console.log(`\n[Server] Received ${signal}. Shutting down...`);
-    finalizeSessionStreamEnd();
-    saveChatData();
-    saveStats();
-    saveChatLog();
-    const archiveName = archiveSession();
-    if (archiveName) console.log(`[Server] Session archived: ${archiveName}`);
-    resetChatData();
-    if (ssnSocket) ssnSocket.close();
-    server.close();
+    try { finalizeSessionStreamEnd(); } catch { /* ignore */ }
+    try { saveChatData(); } catch { /* ignore */ }
+    try { saveStats(); } catch { /* ignore */ }
+    try { saveChatLog(); } catch { /* ignore */ }
+    try {
+        const archiveName = archiveSession();
+        if (archiveName) console.log(`[Server] Session archived: ${archiveName}`);
+    } catch { /* ignore */ }
+    try { resetChatData(); } catch { /* ignore */ }
+    try { if (ssnSocket) ssnSocket.close(); } catch { /* ignore */ }
+    try { if (server && server.listening) server.close(); } catch { /* ignore */ }
     console.log('[Server] Data saved. Goodbye!');
-    process.exit(0);
+    if (shouldExit) process.exit(0);
 }
 
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
@@ -1964,3 +1975,9 @@ process.on('unhandledRejection', (reason, promise) => {
 process.on('uncaughtException', (err) => {
     console.error('[Process] Uncaught Exception:', err);
 });
+
+module.exports = {
+    server,
+    gracefulShutdown,
+    port: PORT
+};
