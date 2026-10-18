@@ -14,7 +14,7 @@
         .header h1 { font-size: 1.3rem; font-weight: 600; }
         .header h1 span { color: var(--accent); }
         .nav { display: flex; gap: 0.75rem; }
-        .container { max-width: 1040px; margin: 0 auto; padding: 1.25rem 2rem 2.5rem; display: flex; flex-direction: column; gap: 1rem; }
+        .container { max-width: 1280px; margin: 0 auto; padding: 1.25rem 2rem 2.5rem; display: flex; flex-direction: column; gap: 1rem; }
         
         /* Modern Cards */
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem 1.4rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
@@ -112,7 +112,7 @@
     <div class="container">
         <div id="banner"></div>
         <div class="tabs-sticky-wrap">
-            <nav class="tabs-nav" id="tabs" role="tablist" aria-label="Chatbot Settings">
+            <nav class="tabs-nav compact" id="tabs" role="tablist" aria-label="Chatbot Settings">
                 <button type="button" class="tab-btn active" data-t="commands" role="tab" aria-selected="true">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
                     <span>Commands</span>
@@ -125,12 +125,12 @@
                 </button>
                 <button type="button" class="tab-btn" data-t="messages" role="tab" aria-selected="false">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                    <span>Timed messages</span>
+                    <span>Timed</span>
                     <span class="count" data-c="messages"></span>
                 </button>
                 <button type="button" class="tab-btn" data-t="triggers" role="tab" aria-selected="false">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
-                    <span>Word triggers</span>
+                    <span>Triggers</span>
                     <span class="count" data-c="triggers"></span>
                 </button>
                 <button type="button" class="tab-btn" data-t="variables" role="tab" aria-selected="false">
