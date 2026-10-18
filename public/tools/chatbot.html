@@ -24,17 +24,10 @@
         .banner { padding: .75rem 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-inset); font-size: .85rem; }
         .banner.warn { border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: color-mix(in srgb, var(--danger) 6%, var(--bg-inset)); }
         
-        /* Tabs */
-        .tabs { display: flex; gap: .35rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-page); z-index: 15; padding: .5rem .35rem; overflow-x: auto; scrollbar-width: none; }
-        .tabs::-webkit-scrollbar { display: none; }
-        .tabs button { flex-shrink: 0; display: inline-flex; align-items: center; gap: .45rem; background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text-muted); padding: .45rem .85rem; font: inherit; font-size: .85rem; font-weight: 500; cursor: pointer; transition: all .15s; white-space: nowrap; }
-        .tabs button:hover { color: var(--text); background: var(--bg-card); }
-        .tabs button[aria-selected="true"] { color: var(--text); background: var(--bg-card); border-color: var(--border); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-        .tabs button:last-child { margin-right: .5rem; }
-        .tabs .count { background: var(--bg-inset); border: 1px solid var(--border); color: var(--text-muted); font-size: .7rem; font-weight: 600; padding: .1rem .45rem; border-radius: 999px; line-height: 1.2; }
-        .tabs .count:empty { display: none; }
-        .tabs button[aria-selected="true"] .count { background: var(--accent-bg); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
-        .card[data-tab][hidden] { display: none; }
+        /* Tabs Sticky Wrap */
+        .tabs-sticky-wrap { position: sticky; top: 0; z-index: 20; background: var(--bg-page); padding: .5rem 0 .75rem; display: flex; align-items: center; }
+        .tabs-sticky-wrap .tabs-nav { width: 100%; }
+        .card[data-tab][hidden] { display: none !important; }
         
         /* Section Headers */
         .tab-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
@@ -118,17 +111,52 @@
     <div class="header"><h1>StreamPulse <span>Chat Bot</span> <span class="beta">BETA</span></h1><div id="main-nav" class="nav"></div><script src="/nav.js"></script></div>
     <div class="container">
         <div id="banner"></div>
-        <nav class="tabs" id="tabs">
-            <button type="button" data-t="commands">Commands <span class="count" data-c="commands"></span></button>
-            <button type="button" data-t="quotes">Quotes <span class="count" data-c="quotes"></span></button>
-            <button type="button" data-t="messages">Timed messages <span class="count" data-c="messages"></span></button>
-            <button type="button" data-t="triggers">Word triggers <span class="count" data-c="triggers"></span></button>
-            <button type="button" data-t="variables">Variables <span class="count" data-c="variables"></span></button>
-            <button type="button" data-t="activity">Activity <span class="count" data-c="activity"></span></button>
-            <button type="button" data-t="usage">Usage</button>
-            <button type="button" data-t="reference">Reference</button>
-            <button type="button" data-t="settings">Settings</button>
-        </nav>
+        <div class="tabs-sticky-wrap">
+            <nav class="tabs-nav" id="tabs" role="tablist" aria-label="Chatbot Settings">
+                <button type="button" class="tab-btn active" data-t="commands" role="tab" aria-selected="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                    <span>Commands</span>
+                    <span class="count" data-c="commands"></span>
+                </button>
+                <button type="button" class="tab-btn" data-t="quotes" role="tab" aria-selected="false">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path></svg>
+                    <span>Quotes</span>
+                    <span class="count" data-c="quotes"></span>
+                </button>
+                <button type="button" class="tab-btn" data-t="messages" role="tab" aria-selected="false">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <span>Timed messages</span>
+                    <span class="count" data-c="messages"></span>
+                </button>
+                <button type="button" class="tab-btn" data-t="triggers" role="tab" aria-selected="false">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    <span>Word triggers</span>
+                    <span class="count" data-c="triggers"></span>
+                </button>
+                <button type="button" class="tab-btn" data-t="variables" role="tab" aria-selected="false">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+                    <span>Variables</span>
+                    <span class="count" data-c="variables"></span>
+                </button>
+                <button type="button" class="tab-btn" data-t="activity" role="tab" aria-selected="false">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                    <span>Activity</span>
+                    <span class="count" data-c="activity"></span>
+                </button>
+                <button type="button" class="tab-btn" data-t="usage" role="tab" aria-selected="false">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                    <span>Usage</span>
+                </button>
+                <button type="button" class="tab-btn" data-t="reference" role="tab" aria-selected="false">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                    <span>Reference</span>
+                </button>
+                <button type="button" class="tab-btn" data-t="settings" role="tab" aria-selected="false">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    <span>Settings</span>
+                </button>
+            </nav>
+        </div>
 
         <!-- Activity Tab -->
         <div class="card" data-tab="activity" hidden>
@@ -1023,6 +1051,7 @@ function showTab(name) {
     document.querySelectorAll('#tabs button').forEach(b => {
         const isSel = b.dataset.t === name;
         b.setAttribute('aria-selected', String(isSel));
+        b.classList.toggle('active', isSel);
         if (isSel) activeBtn = b;
     });
     if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });

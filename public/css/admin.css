@@ -114,3 +114,105 @@ dialog.sp-dialog h3 { margin: 0 0 .5rem; font-size: 1.15rem; font-weight: 600; c
 dialog.sp-dialog p { margin: 0 0 1rem; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
 dialog.sp-dialog .sp-dialog-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.25rem; }
 dialog.sp-dialog input.input { width: 100%; margin-top: .4rem; }
+
+/* ---- Segmented Tabs Navigation (Standard Multi-Page Settings) ------------ */
+.tabs-nav {
+    display: inline-flex;
+    align-items: center;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 3px;
+    gap: 2px;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+.tabs-nav::-webkit-scrollbar { display: none; }
+.tab-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .42rem;
+    padding: .42rem .78rem;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all .15s ease;
+    white-space: nowrap;
+    user-select: none;
+    line-height: 1.25;
+}
+.tab-btn:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.04);
+}
+:root[data-theme="light"] .tab-btn:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+.tab-btn.active,
+.tab-btn[aria-selected="true"] {
+    background: var(--bg-card);
+    color: var(--accent);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    font-weight: 600;
+}
+.tab-btn .ico,
+.tab-btn svg {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+}
+.tab-btn .count,
+.tab-btn .badge,
+.tab-btn .pill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: .1rem .45rem;
+    border-radius: 999px;
+    line-height: 1.2;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+.tab-btn .count:empty,
+.tab-btn .badge:empty,
+.tab-btn .pill:empty { display: none; }
+.tab-btn.active .count,
+.tab-btn[aria-selected="true"] .count,
+.tab-btn.active .badge,
+.tab-btn[aria-selected="true"] .badge,
+.tab-btn.active .pill,
+.tab-btn[aria-selected="true"] .pill {
+    background: var(--accent-bg);
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.tabs-sticky-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--bg-page);
+    padding: .5rem 0 .75rem;
+    display: flex;
+    align-items: center;
+}
+.tabs-sticky-wrap .tabs-nav {
+    width: 100%;
+}
+.tab-pane,
+.card[data-tab] {
+    animation: tabFade .18s ease-out;
+}
+@keyframes tabFade {
+    from { opacity: 0; transform: translateY(3px); }
+    to { opacity: 1; transform: translateY(0); }
+}
