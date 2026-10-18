@@ -78,6 +78,7 @@
         .btn.danger { border-color: color-mix(in srgb, var(--danger) 31%, transparent); }
         .btn.danger:hover { border-color: var(--danger); background: var(--danger-soft-bg); }
         .btn.sm { padding: .3rem .55rem; font-size: .75rem; }
+        .ico { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; flex-shrink: 0; }
         details.danger-zone { margin-top: .6rem; border-top: 1px solid var(--bg-raised); padding-top: .5rem; }
         details.danger-zone summary { cursor: pointer; color: var(--text-muted); font-size: .75rem; margin-bottom: .5rem; }
 
@@ -131,8 +132,8 @@
             <a class="layout-btn accent" href="/sessions.html?session=__current__" target="_blank" rel="noopener" title="Open the live session in a new tab">Current session</a>
             <a class="layout-btn accent" href="/sessions.html?session=__current__&view=chat" target="_blank" rel="noopener" title="Open the live chat log in a new tab">Current chat log</a>
             <button class="layout-btn" id="density-btn" title="Smaller text and tighter spacing to fit more data">Compact</button>
-            <button class="layout-btn" id="edit-btn" title="Reorder, hide and restore panels">✎ Edit layout</button>
-            <button class="layout-btn" id="reset-btn">↺ Reset layout</button>
+            <button class="layout-btn" id="edit-btn" title="Reorder, hide and restore panels">Edit layout</button>
+            <button class="layout-btn" id="reset-btn">Reset layout</button>
         </div>
     </div>
     <div id="hidden-panels"></div>
@@ -173,7 +174,7 @@
             </div>
             <div class="detail-line" style="margin-top:.4rem"><strong>Source:</strong> <span id="viewer-source">—</span></div>
             <div class="detail-line"><strong>Live:</strong> <span id="viewer-live">—</span></div>
-            <div class="link-grid"><a class="btn sm" href="/viewers.html" target="_blank">📺 Overlay</a><a class="btn sm" href="/analytics.html">📈 Analytics</a></div>
+            <div class="link-grid"><a class="btn sm" href="/viewers.html" target="_blank">Overlay</a><a class="btn sm" href="/analytics.html">Analytics</a></div>
         </div>
 
         <div class="card" data-panel-id="goals" data-title="Goals" data-span="3">
@@ -184,9 +185,9 @@
             </div>
             <div class="detail-line" style="margin-top:.4rem"><strong>Overlay:</strong> <span id="goals-overlay-status">—</span></div>
             <div class="link-grid">
-                <a class="btn sm" href="/goals-editor.html">🎯 Manager</a>
-                <a class="btn sm" href="/goal.html" target="_blank">📺 Single</a>
-                <a class="btn sm" href="/goal.html?mode=cycle" target="_blank">🔁 Cycle</a>
+                <a class="btn sm" href="/goals-editor.html">Manager</a>
+                <a class="btn sm" href="/goal.html" target="_blank">Single</a>
+                <a class="btn sm" href="/goal.html?mode=cycle" target="_blank">Cycle</a>
             </div>
         </div>
 
@@ -199,8 +200,8 @@
                 <div class="stat"><div class="value" id="timers-stopwatches">0</div><div class="label">Stopwatches</div></div>
             </div>
             <div class="link-grid">
-                <a class="btn sm" href="/timers-editor.html">⏱ Manager</a>
-                <a class="btn sm" href="/timer-url-wizard.html">🔗 Builder</a>
+                <a class="btn sm" href="/timers-editor.html">Manager</a>
+                <a class="btn sm" href="/timer-url-wizard.html">Builder</a>
             </div>
         </div>
 
@@ -211,8 +212,8 @@
             <div class="detail-line"><strong>Track:</strong> <span id="music-track">—</span></div>
             <div class="detail-line"><strong>Artist:</strong> <span id="music-artist">—</span></div>
             <div class="link-grid">
-                <a class="btn sm" href="/music-editor.html">🎵 Settings</a>
-                <a class="btn sm" href="/music-url-wizard.html">🔗 Builder</a>
+                <a class="btn sm" href="/music-editor.html">Settings</a>
+                <a class="btn sm" href="/music-url-wizard.html">Builder</a>
             </div>
         </div>
 
@@ -223,9 +224,39 @@
                 <div class="stat"><div class="value" id="overlay-clients">0</div><div class="label">Connected</div></div>
             </div>
             <div class="link-grid">
-                <a class="btn sm" href="/overlays.html">🧩 All overlays</a>
-                <a class="btn sm" href="/custom-overlay-editor.html?new=1">＋ Custom</a>
-                <a class="btn sm" href="/credits.html?preview=true" target="_blank">🎬 Credits preview</a>
+                <a class="btn sm" href="/overlays.html">All overlays</a>
+                <a class="btn sm" href="/custom-overlay-editor.html?new=1">New custom</a>
+                <a class="btn sm" href="/credits.html?preview=true" target="_blank">Credits preview</a>
+            </div>
+        </div>
+
+        <div class="card" data-panel-id="chatbot" data-title="Chat Bot" data-span="3">
+            <h2>Chat Bot</h2>
+            <div class="indicator"><div class="dot" id="dot-chatbot"></div><span>Bot: <span id="chatbot-status">—</span></span></div>
+            <div class="status-grid">
+                <div class="stat"><div class="value" id="chatbot-commands">0</div><div class="label">Commands</div></div>
+                <div class="stat"><div class="value" id="chatbot-timed">0</div><div class="label">Timed</div></div>
+                <div class="stat"><div class="value" id="chatbot-triggers">0</div><div class="label">Triggers</div></div>
+                <div class="stat"><div class="value" id="chatbot-quotes">0</div><div class="label">Quotes</div></div>
+            </div>
+            <div class="link-grid">
+                <a class="btn sm" href="/chatbot.html">Bot Studio</a>
+                <a class="btn sm" href="/chatbot.html#commands">Commands</a>
+                <a class="btn sm" href="/chatbot.html#timed">Timed</a>
+            </div>
+        </div>
+
+        <div class="card" data-panel-id="alerts" data-title="Alerts & SFX" data-span="3">
+            <h2>Alerts &amp; SFX</h2>
+            <div class="indicator"><div class="dot" id="dot-alerts"></div><span>Alert engine: <span id="alerts-status">—</span></span></div>
+            <div class="status-grid">
+                <div class="stat"><div class="value" id="alerts-rules">0</div><div class="label">Rules</div></div>
+                <div class="stat"><div class="value" id="alerts-pending">0</div><div class="label">Queued</div></div>
+            </div>
+            <div class="link-grid">
+                <a class="btn sm" href="/alerts.html">Alert Studio</a>
+                <a class="btn sm" href="/alert-queue.html" target="_blank">OBS Dock</a>
+                <a class="btn sm" href="/custom-overlays.html">Overlays</a>
             </div>
         </div>
 
@@ -251,8 +282,8 @@
             <div class="detail-line"><strong>Banned:</strong> <span id="hashtags-banned">0</span></div>
             <div class="detail-line"><strong>Top tag:</strong> <span id="hashtags-top-tag">—</span></div>
             <div class="link-grid">
-                <a class="btn sm" href="/hashtag-stats.html"># Stats</a>
-                <a class="btn sm" href="/manage-hashtags.html">🏷️ Tools</a>
+                <a class="btn sm" href="/hashtag-stats.html">Stats</a>
+                <a class="btn sm" href="/manage-hashtags.html">Tools</a>
             </div>
         </div>
 
@@ -265,9 +296,9 @@
             <div class="detail-line" style="margin-top:.4rem"><strong>Auto-backup:</strong> <span id="backup-auto">—</span></div>
             <div class="detail-line"><strong>Backups:</strong> <span id="backup-count">0</span> · <span id="backup-latest">—</span></div>
             <div class="link-grid">
-                <a class="btn sm" href="/highlights.html">⭐ Highlights</a>
-                <a class="btn sm" href="/sessions.html">📁 Sessions</a>
-                <a class="btn sm" href="/backup.html">💾 Backups</a>
+                <a class="btn sm" href="/highlights.html">Highlights</a>
+                <a class="btn sm" href="/sessions.html">Sessions</a>
+                <a class="btn sm" href="/backup.html">Backups</a>
             </div>
         </div>
 
@@ -282,28 +313,28 @@
             <div class="detail-line" style="margin-top:.4rem"><strong>Community:</strong> <span id="milestone-community">—</span></div>
             <div class="detail-line"><strong>Next target:</strong> <span id="milestone-next-target">—</span></div>
             <div class="link-grid">
-                <a class="btn sm" href="/analytics.html#milestones">🏆 Analytics</a>
-                <a class="btn sm" href="/milestone-url-wizard.html">🔗 Builder</a>
-                <a class="btn sm" href="/milestones.html" target="_blank">📺 Overlay</a>
+                <a class="btn sm" href="/analytics.html#milestones">Analytics</a>
+                <a class="btn sm" href="/milestone-url-wizard.html">Builder</a>
+                <a class="btn sm" href="/milestones.html" target="_blank">Overlay</a>
             </div>
         </div>
 
         <div class="card" data-panel-id="quick-actions" data-title="Actions" data-span="12">
             <h2>Actions</h2>
             <div class="btn-grid">
-                <button class="btn" data-action="fetch-twitch">🔄 Fetch Twitch</button>
-                <button class="btn" data-action="reauth-twitch">🔑 Re-auth Twitch</button>
-                <a class="btn" href="/api/export?type=all" download>📥 Export CSV (all stats)</a>
-                <button class="btn" id="session-toggle-btn" data-action="toggle-session" style="border-color:color-mix(in srgb, var(--warn) 31%, transparent)">🏁 End Session</button>
-                <button class="btn" data-action="restart">↻ Restart StreamPulse</button>
-                <button class="btn danger" data-action="shutdown">⏻ Shutdown</button>
+                <button class="btn" data-action="fetch-twitch">Fetch Twitch</button>
+                <button class="btn" data-action="reauth-twitch">Re-auth Twitch</button>
+                <a class="btn" href="/api/export?type=all" download>Export CSV (all stats)</a>
+                <button class="btn" id="session-toggle-btn" data-action="toggle-session" style="border-color:color-mix(in srgb, var(--warn) 31%, transparent)">End Session</button>
+                <button class="btn" data-action="restart">Restart StreamPulse</button>
+                <button class="btn danger" data-action="shutdown">Shutdown</button>
             </div>
             <div id="lifecycle-hint" style="display:none;margin-top:10px;font-size:13px;color:var(--muted,var(--text-muted))"></div>
             <details class="danger-zone">
                 <summary>Danger zone</summary>
                 <div class="btn-grid">
-                    <button class="btn danger" data-action="reset-chat">🗑 Reset session chat</button>
-                    <button class="btn danger" data-action="reset-stats">📊 Reset all persistent stats</button>
+                    <button class="btn danger" data-action="reset-chat">Reset session chat</button>
+                    <button class="btn danger" data-action="reset-stats">Reset all persistent stats</button>
                 </div>
             </details>
         </div>
@@ -530,7 +561,7 @@
     $('edit-btn').addEventListener('click', () => {
         const editing = document.body.classList.toggle('editing');
         $('edit-btn').classList.toggle('on', editing);
-        $('edit-btn').textContent = editing ? '✓ Done' : '✎ Edit layout';
+        $('edit-btn').textContent = editing ? 'Done' : 'Edit layout';
     });
     $('reset-btn').addEventListener('click', async () => {
         if (!await StreamPulse.confirm('Reset Layout', 'Reset the dashboard layout to the default?')) return;
@@ -548,7 +579,14 @@
     });
 
     // ---- Data ------------------------------------------------------------
-    const EVENT_ICONS = { follow: '💜', sub: '⭐', gift: '🎁', bits: '💎', donation: '💵', raid: '🚀' };
+    const EVENT_ICONS = {
+        follow: '<svg class="ico" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>',
+        sub: '<svg class="ico" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
+        gift: '<svg class="ico" viewBox="0 0 24 24"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg>',
+        bits: '<svg class="ico" viewBox="0 0 24 24"><path d="M6 3h12l4 6-10 13L2 9z"></path></svg>',
+        donation: '<svg class="ico" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>',
+        raid: '<svg class="ico" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>'
+    };
     const formatUptime = seconds => {
         const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = Math.floor(seconds % 60);
         return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
@@ -647,6 +685,23 @@
         setText('backup-auto', data.backups?.autoEnabled ? 'Enabled' : 'Disabled');
         setText('backup-count', data.backups?.count || 0);
         setText('backup-latest', formatBackupName(data.backups?.latest));
+
+        const bot = data.chatbot || {};
+        const botEnabled = bot.enabled !== false && data.modules?.chatbot !== false;
+        setDot('dot-chatbot', botEnabled ? 'green' : 'yellow');
+        setText('chatbot-status', botEnabled ? 'Active' : 'Disabled');
+        setText('chatbot-commands', bot.commandsCount ?? 0);
+        setText('chatbot-timed', bot.timedCount ?? 0);
+        setText('chatbot-triggers', bot.triggersCount ?? 0);
+        setText('chatbot-quotes', bot.quotesCount ?? 0);
+
+        const al = data.alerts || {};
+        const alEnabled = al.enabled !== false;
+        setDot('dot-alerts', alEnabled ? (al.paused ? 'yellow' : 'green') : 'red');
+        setText('alerts-status', alEnabled ? (al.paused ? 'Paused' : 'Active') : 'Disabled');
+        setText('alerts-rules', al.rulesCount ?? 0);
+        setText('alerts-pending', al.queuePending ?? 0);
+
         setText('hashtags-tracked', data.hashtags?.tracked || 0);
         setText('hashtags-active-session', data.hashtags?.activeSession || 0);
         setText('hashtags-banned', data.hashtags?.banned || 0);
@@ -655,8 +710,8 @@
         const ms = data.milestones || {};
         setText('milestone-stream-num', ms.stream_number != null ? `#${ms.stream_number}` : '—');
         setText('milestone-hours', ms.total_hours != null ? `${ms.total_hours}h` : '—');
-        setText('milestone-streak-days', ms.streak_days != null ? `🔥 ${ms.streak_days}d` : '—');
-        setText('milestone-streak-weeks', ms.streak_weeks != null ? `⚡ ${ms.streak_weeks}w` : '—');
+        setText('milestone-streak-days', ms.streak_days != null ? `${ms.streak_days}d` : '—');
+        setText('milestone-streak-weeks', ms.streak_weeks != null ? `${ms.streak_weeks}w` : '—');
         const commChatters = ms.lifetime_chatters != null ? fmt(ms.lifetime_chatters) : '0';
         const commMsgs = ms.lifetime_messages != null ? fmt(ms.lifetime_messages) : '0';
         setText('milestone-community', `${commChatters} chatters · ${commMsgs} msgs`);
@@ -669,12 +724,12 @@
 
         const info = $('stream-info-dash');
         const latest = data.streamInfo?.[data.streamInfo.length - 1];
-        const infoHtml = latest ? `🎬 <strong>${escapeHtml(latest.title)}</strong>${latest.category ? `<span class="chip">${escapeHtml(latest.category)}</span>` : ''}` : '';
+        const infoHtml = latest ? `<strong>${escapeHtml(latest.title)}</strong>${latest.category ? `<span class="chip">${escapeHtml(latest.category)}</span>` : ''}` : '';
         setHtml('stream-info-dash', infoHtml);
         info.style.display = latest ? 'block' : 'none';
 
         sessionActive = !!data.sessionActive;
-        setText('session-toggle-btn', sessionActive ? '🏁 End Session' : '▶ Start Session');
+        setText('session-toggle-btn', sessionActive ? 'End Session' : 'Start Session');
         $('session-toggle-btn').style.borderColor = sessionActive ? 'color-mix(in srgb, var(--warn) 31%, transparent)' : '#23883050';
         renderLifecycle(data.lifecycle);
     }
@@ -684,10 +739,10 @@
         if (lc?.auto) {
             if (lc.state === 'ending' && lc.endsAt) {
                 const mins = Math.max(0, Math.ceil((Date.parse(lc.endsAt) - Date.now()) / 60000));
-                text = `⏳ Stream offline — session auto-ends in ~${mins} min if you don't return`;
-            } else if (lc.state === 'live') text = '🟢 Auto session: stream is live';
-            else if (lc.state === 'manual') text = '✋ Auto session paused until the stream ends (you ended it manually)';
-            else text = '⚪ Auto session: waiting for you to go live';
+                text = `Stream offline — session auto-ends in ~${mins} min if you don't return`;
+            } else if (lc.state === 'live') text = 'Auto session: stream is live';
+            else if (lc.state === 'manual') text = 'Auto session paused until the stream ends (you ended it manually)';
+            else text = 'Auto session: waiting for you to go live';
         }
         setText('lifecycle-hint', text);
         $('lifecycle-hint').style.display = text ? 'block' : 'none';

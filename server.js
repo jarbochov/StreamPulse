@@ -1599,6 +1599,13 @@ function buildStatusSnapshot() {
             count: backupFiles.length,
             latest: backupFiles[0] || null
         },
+        chatbot: chatbot.getStats ? chatbot.getStats() : { enabled: false, commandsCount: 0, timedCount: 0, quotesCount: 0, triggersCount: 0 },
+        alerts: {
+            enabled: alertEngine ? (alertEngine.getConfig()?.enabled !== false) : false,
+            rulesCount: alertEngine ? (alertEngine.getConfig()?.rules?.length || 0) : 0,
+            queuePending: alertEngine ? (alertEngine.getQueueState()?.pending || 0) : 0,
+            paused: alertEngine ? (alertEngine.getQueueState()?.paused || false) : false
+        },
         modules: {
             chatbot: config.chatbot_enabled !== false,
             clips: config.clip_candidates?.enabled !== false,

@@ -721,6 +721,25 @@
                     body: '{ "user": "raider_name", "viewers": 15 }'
                 },
                 {
+                    method: 'GET', path: '/api/chatbot/run',
+                    desc: 'Trigger or run a chat bot command via HTTP GET or Bitfocus Companion',
+                    companion: true,
+                    details: 'Executes a configured chat bot command (including silent commands that fire webhooks, Companion actions, OBS controls, or overlay events) without requiring Twitch/YouTube chat input. Perfect for Bitfocus Companion Generic HTTP buttons or stream automation. Query parameters: ?command=name (required), ?arg=custom_text (optional), ?user=Name (default: Companion), ?bypassCooldown=true (default: true).',
+                    params: [
+                        { name: 'command', desc: 'Command name or alias to execute (without prefix)', values: 'string (e.g. hydrate, shoutout, brb)', default: 'required' },
+                        { name: 'arg', desc: 'Optional argument passed to the command', values: 'string', default: 'none' },
+                        { name: 'user', desc: 'Calling username context for message interpolation', values: 'string', default: 'Companion' },
+                        { name: 'bypassCooldown', desc: 'Whether to bypass command cooldown timers', values: 'true | false', default: 'true' }
+                    ]
+                },
+                {
+                    method: 'POST', path: '/api/chatbot/run',
+                    desc: 'Execute a chat bot command via JSON payload',
+                    companion: true,
+                    details: 'Executes a configured chat bot command with full JSON body support. Returns the execution result including silent flags and triggered actions.',
+                    body: '{ "command": "hydrate", "arg": "", "bypassCooldown": true }'
+                },
+                {
                     method: 'POST', path: '/api/chatbot/send',
                     desc: 'Send a message to live chat via SocialStream Ninja',
                     companion: true,

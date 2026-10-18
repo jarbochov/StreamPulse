@@ -806,12 +806,17 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 if (out) await send(out);
                 return json(200, { sent: true, text: out }), true;
             }
-            if (pathname === '/api/chatbot/run' && req.method === 'POST') {
-                const cmdName = clean(body.command || body.name, 30).toLowerCase().replace(/^[^a-z0-9_]+/, '');
-                const arg = clean(body.arg || body.args, 500);
-                const user = clean(body.user || 'Companion', 60);
+            if (pathname === '/api/chatbot/run' && (req.method === 'POST' || req.method === 'GET')) {
+                const query = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://localhost').searchParams) : {};
+                const input = { ...query, ...body };
+                const rawCmd = input.command || input.name || input.cmd;
+                if (!rawCmd) return json(400, { error: 'Command name is required (?command=name)' }), true;
+                const cmdName = clean(rawCmd, 30).toLowerCase().replace(/^[^a-z0-9_]+/, '');
+                const arg = clean(input.arg || input.args, 500);
+                const user = clean(input.user || 'Companion', 60);
                 const msg = { chatname: user, broadcaster: true, mod: true, isBroadcaster: true, isMod: true };
-                const result = await executeCommand(cmdName, arg, msg, { bypassCooldown: body.bypassCooldown !== false });
+                const bypass = input.bypassCooldown !== false && input.bypassCooldown !== 'false';
+                const result = await executeCommand(cmdName, arg, msg, { bypassCooldown: bypass });
                 if (!result) return json(404, { error: `Command "${cmdName}" not found or disabled` }), true;
                 return json(200, result), true;
             }
@@ -857,7 +862,18 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         }
     }
 
+    function getStats() {
+        return {
+            enabled: enabled(),
+            commandsCount: (data.commands || []).filter(c => c.enabled !== false).length,
+            totalCommandsCount: (data.commands || []).length,
+            timedCount: (data.messages || []).filter(m => m.enabled !== false).length,
+            quotesCount: (data.quotes || []).length,
+            triggersCount: (data.triggers || []).filter(t => t.enabled !== false).length
+        };
+    }
+
     load();
     setInterval(() => tick().catch(() => {}), 15000).unref();
-    return { handle, handleApi, handleRaid };
+    return { handle, handleApi, handleRaid, getStats };
 };
