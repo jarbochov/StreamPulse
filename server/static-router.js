@@ -134,11 +134,18 @@ function createStaticRouter(options) {
             }
         }
 
-        // 3. Fallback to project root (e.g. /vendor/*, or backward compatibility)
+        // 3. Fallback to project root (e.g. /vendor/*, /docs/*, or backward compatibility)
         const rootCandidate = path.join(rootDir, rel);
-        if (fs.existsSync(rootCandidate) && fs.statSync(rootCandidate).isFile()) {
-            pathCache.set(pathname, rootCandidate);
-            return rootCandidate;
+        if (fs.existsSync(rootCandidate)) {
+            if (fs.statSync(rootCandidate).isFile()) {
+                pathCache.set(pathname, rootCandidate);
+                return rootCandidate;
+            }
+            const indexCandidate = path.join(rootCandidate, 'index.html');
+            if (fs.existsSync(indexCandidate) && fs.statSync(indexCandidate).isFile()) {
+                pathCache.set(pathname, indexCandidate);
+                return indexCandidate;
+            }
         }
 
         return null;

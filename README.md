@@ -104,6 +104,7 @@ Comprehensive technical guides, API documentation, and hardware configuration ar
 | **[Alerts & Alert Queue Dock](docs/alerts-guide.md)** | Event rules, synthesized audio, media uploads, and the low-density OBS queue dock. |
 | **[Integrated Chat Bot](docs/chatbot-guide.md)** | Commands, aliases, cooldowns, timed messages, quotes, variables, and silent webhooks. |
 | **[Bitfocus Companion & Stream Deck](docs/companion.md)** | Hardware button actions, live stream feedbacks, dynamic variables, and setup instructions. |
+| **[Desktop App & 1.0 Roadmap](docs/desktop-app.md)** | Electron desktop wrapper architecture, system tray controls, and automated multi-platform packaging. |
 | **[HTTP API & WebSocket Reference](docs/api-reference.md)** | Complete REST API endpoints for session control, randomizer, timers, and WebSocket events. |
 | **[Architecture & Technical Overview](docs/architecture.md)** | Cascading static routing, modular services architecture, and atomic persistence. |
 | **[Developer & Contributor Guide](docs/developer-guide.md)** | Environment setup, running the test pipeline (`npm test`), and UI/UX design standards. |

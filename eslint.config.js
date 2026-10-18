@@ -8,7 +8,7 @@ module.exports = [
         ]
     },
     {
-        files: ['server.js', 'server/**/*.js', 'scripts/**/*.{js,cjs,mjs}'],
+        files: ['server.js', 'server/**/*.js', 'scripts/**/*.{js,cjs,mjs}', 'desktop/**/*.js'],
         languageOptions: {
             ecmaVersion: 'latest',
             sourceType: 'commonjs',

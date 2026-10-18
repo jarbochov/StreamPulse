@@ -15,6 +15,7 @@
   * [Clips Detection](clips-beta.md)
 
 * **Technical Reference**
+  * [Desktop App & 1.0 Roadmap](desktop-app.md)
   * [Architecture & Routing](architecture.md)
   * [HTTP API Reference](api-reference.md)
   * [Developer Guide](developer-guide.md)

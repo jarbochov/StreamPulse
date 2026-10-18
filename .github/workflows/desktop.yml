@@ -1,0 +1,59 @@
+name: Build Desktop App
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Publish installers to GitHub Release?'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-desktop:
+    name: Build Desktop App (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Electron & Builder for packaging
+        run: npm install --no-save electron@33.2.1 electron-builder@25.1.8
+
+      - name: Run Test Suite
+        run: npm test
+
+      - name: Build macOS Application (.dmg / .zip)
+        if: runner.os == 'macOS'
+        run: npx electron-builder --mac --publish never
+
+      - name: Build Windows Application (.exe / portable)
+        if: runner.os == 'Windows'
+        run: npx electron-builder --win --publish never
+
+      - name: Upload Desktop Dist Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: StreamPulse-Desktop-${{ matrix.os }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.exe
+          if-no-files-found: warn

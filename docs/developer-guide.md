@@ -37,8 +37,8 @@ StreamPulse enforces strict code quality checks via ESLint (using ESLint Flat Co
 npm test
 ```
 This runs:
-1. `eslint server.js server/ scripts/` (linting server and tooling code).
-2. `node --check` syntax validation across all server route controllers, domain services, and entrypoints.
+1. `eslint server.js server/ scripts/ desktop/` (linting server, desktop wrapper, and tooling code).
+2. `node --check` syntax validation across all server entrypoints, Electron desktop files, route controllers, and domain services.
 
 ### Smoke Testing Editors
 

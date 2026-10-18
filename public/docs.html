@@ -80,7 +80,7 @@
 
         .checklist { list-style: none; padding: 0; }
         .checklist li { padding: 0.3rem 0; font-size: 0.85rem; }
-        .checklist li::before { content: '✅ '; }
+        .checklist li::before { content: '✓ '; color: var(--accent); font-weight: bold; }
 
         .nav .dropdown { position: relative; display: flex; align-items: center; }
         .nav .dropdown-toggle { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; }
@@ -109,6 +109,13 @@
     </div>
 
     <div class="container">
+        <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 8px; padding: 0.85rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+            <div>
+                <strong style="color: var(--accent); font-size: 0.95rem;">StreamPulse Documentation Site</strong>
+                <p style="color: var(--text-muted); font-size: 0.82rem; margin-top: 0.2rem;">Looking for searchable guides, screenshots, and tutorials? Browse the official documentation hosted on GitHub Pages.</p>
+            </div>
+            <a href="https://jarbochov.github.io/StreamPulse/" target="_blank" rel="noopener noreferrer" style="background: var(--accent); color: #fff; text-decoration: none; padding: 0.45rem 0.9rem; border-radius: 6px; font-size: 0.82rem; font-weight: 600; white-space: nowrap;">Open Online Docs</a>
+        </div>
         <div class="layout">
         <aside class="side">
             <input id="search" class="search" type="search" placeholder="Search docs…  ( / )" aria-label="Search documentation">
@@ -1184,14 +1191,14 @@
                     <div class="card-body">
                         <table>
                             <tr><th>Button Label</th><th>URL</th><th></th></tr>
-                            <tr><td>▶ Start Session</td><td><code>/api/start-session</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/start-session')">Copy URL</button></td></tr>
-                            <tr><td>🏁 End Session</td><td><code>/api/end-session</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/end-session')">Copy URL</button></td></tr>
-                            <tr><td>🔄 Refresh Twitch</td><td><code>/api/fetch</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/fetch')">Copy URL</button></td></tr>
-                            <tr><td>🗑 Reset Chat</td><td><code>/api/reset</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/reset')">Copy URL</button></td></tr>
-                            <tr><td>📊 Reset Stats</td><td><code>/api/stats/reset</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/stats/reset')">Copy URL</button></td></tr>
-                            <tr><td>⏻ Shutdown</td><td><code>/api/shutdown</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/shutdown')">Copy URL</button></td></tr>
-                            <tr><td>📋 Status Check</td><td><code>/api/status</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/status')">Copy URL</button></td></tr>
-                            <tr><td>🎲 Spin Randomizer</td><td><code>/api/randomizer/spin</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/randomizer/spin')">Copy URL</button></td></tr>
+                            <tr><td>Start Session</td><td><code>/api/start-session</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/start-session')">Copy URL</button></td></tr>
+                            <tr><td>End Session</td><td><code>/api/end-session</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/end-session')">Copy URL</button></td></tr>
+                            <tr><td>Refresh Twitch</td><td><code>/api/fetch</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/fetch')">Copy URL</button></td></tr>
+                            <tr><td>Reset Chat</td><td><code>/api/reset</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/reset')">Copy URL</button></td></tr>
+                            <tr><td>Reset Stats</td><td><code>/api/stats/reset</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/stats/reset')">Copy URL</button></td></tr>
+                            <tr><td>Shutdown</td><td><code>/api/shutdown</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/shutdown')">Copy URL</button></td></tr>
+                            <tr><td>Status Check</td><td><code>/api/status</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/status')">Copy URL</button></td></tr>
+                            <tr><td>Spin Randomizer</td><td><code>/api/randomizer/spin</code></td><td><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/randomizer/spin')">Copy URL</button></td></tr>
                         </table>
                     </div>
                 </div>`;
