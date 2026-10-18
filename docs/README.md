@@ -37,6 +37,7 @@ StreamPulse turns your live broadcast data into cinematic OBS browser overlays, 
 
 ### Community Directory & Viewer Dossier
 ![Community Directory](images/community-directory.png)
+![Chatter Dossier](images/chatter-dossier.png)
 
 ### Game Plan Broadcast Scheduler
 ![Game Plan Studio](images/game-plan-studio.png)

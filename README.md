@@ -28,9 +28,11 @@ Dedicated credits configuration studio with instant live-roll testing, static ca
 ![Credits Studio](docs/images/credits-studio.png)
 
 ### Community Directory & Viewer Dossiers
-Streamer-focused community management with high-level analytics cards, private streamer notes, pronouns, and smart roster segments (Moderators, VIPs, Regulars active in 3+ streams over 90 days, Lapsed viewers, and Newcomers) with 1-click CSV roster export.
+Streamer-focused community management with high-level analytics cards, private streamer notes, pronouns, and smart roster segments (Moderators, VIPs, Regulars active in 3+ streams over 90 days, Lapsed viewers, and Newcomers) with 1-click CSV roster export. Click any member to pop open their full dossier with category attendance, tenure, cheered bits, and personal streamer notes.
 
 ![Community Directory](docs/images/community-directory.png)
+
+![Chatter Dossier](docs/images/chatter-dossier.png)
 
 ### Game Plan Broadcast Scheduler
 Full month and week calendar views, 14-day quick calendar strips, IGDB game catalog integration with cover art, and 1-click scheduling with Play Now (auto-syncing your Twitch category), Next Up, and schedule strips.
