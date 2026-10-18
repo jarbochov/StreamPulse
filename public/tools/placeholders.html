@@ -41,8 +41,86 @@
         .bar { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
         .var-row { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: .65rem .85rem; display: grid; gap: .5rem; }
         .var-row:hover { border-color: var(--border-hover, var(--border)); }
-        .var-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; }
         .badge { font-size: .72rem; text-transform: uppercase; padding: .15rem .4rem; border-radius: 4px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); }
+
+        /* Collapsible Card */
+        details.collapsible-card {
+            padding: 0;
+            overflow: hidden;
+            transition: border-color .15s ease;
+        }
+        details.collapsible-card > summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: .85rem 1.1rem;
+            cursor: pointer;
+            user-select: none;
+            list-style: none;
+            gap: .75rem;
+            flex-wrap: wrap;
+            background: transparent;
+            transition: background .15s ease;
+        }
+        details.collapsible-card > summary::-webkit-details-marker { display: none; }
+        details.collapsible-card > summary:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        :root[data-theme="light"] details.collapsible-card > summary:hover {
+            background: rgba(0, 0, 0, 0.02);
+        }
+        details.collapsible-card[open] > summary {
+            border-bottom: 1px solid var(--border);
+        }
+        details.collapsible-card .summary-left {
+            display: flex;
+            align-items: center;
+            gap: .55rem;
+            flex: 1;
+            min-width: 220px;
+        }
+        details.collapsible-card .summary-right {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+        }
+        details.collapsible-card .summary-title {
+            font-size: .95rem;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.01em;
+        }
+        details.collapsible-card .collapsible-chevron {
+            color: var(--text-muted);
+            transition: transform .2s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: rotate(-90deg);
+            flex-shrink: 0;
+        }
+        details.collapsible-card[open] .collapsible-chevron {
+            transform: rotate(0deg);
+        }
+        details.collapsible-card .toggle-hint {
+            font-size: .75rem;
+            color: var(--text-muted);
+            user-select: none;
+        }
+        details.collapsible-card[open] .toggle-hint {
+            display: none;
+        }
+        details.collapsible-card .action-link {
+            font-size: .8rem;
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            transition: opacity .15s;
+        }
+        details.collapsible-card .action-link:hover {
+            text-decoration: underline;
+        }
+        details.collapsible-card .collapsible-body {
+            padding: 1rem 1.1rem;
+            animation: tabFade .18s ease-out;
+        }
     </style>
 </head>
 <body>
@@ -78,66 +156,76 @@
             Use any placeholder as <code>{{name}}</code> in overlay text, embeds, QR codes, alert messages and chat bot replies. Dates, timers and lists accept a format: <code>{{name|format}}</code>. Lists also take <code>.random</code> in chat bot replies, for example <code>{{var.NAME.random}}</code>. Generated live from your setup (timers, goals, variables, lists). Click any code tag to copy.
         </div>
 
-        <!-- Chat Bot Dynamic Tokens Card -->
-        <div class="card" style="margin-bottom:1rem;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;flex-wrap:wrap;gap:.5rem;">
-                <h2 style="font-size:1.05rem;margin:0;">Chat Bot Dynamic Tokens &amp; Actions</h2>
-                <a href="/chatbot.html#commands" style="font-size:.8rem;color:var(--accent);text-decoration:none;">Open in Chat Bot ↗</a>
+        <!-- Chat Bot Dynamic Tokens Card (Collapsible) -->
+        <details class="card collapsible-card" id="chat-tokens-card" style="margin-bottom:1rem;">
+            <summary>
+                <div class="summary-left">
+                    <svg class="collapsible-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                    <span class="summary-title">Chat Bot Dynamic Tokens &amp; Actions</span>
+                    <span class="badge" style="text-transform:none;font-weight:600;font-size:.7rem;">6 tokens</span>
+                </div>
+                <div class="summary-right">
+                    <span class="toggle-hint">Click to expand</span>
+                    <a href="/chatbot.html#commands" class="action-link" title="Open Chat Bot commands editor" onclick="event.stopPropagation()">Open in Chat Bot &nearr;</a>
+                </div>
+            </summary>
+            <div class="collapsible-body">
+                <p class="muted" style="margin-bottom:.75rem;">
+                    These special tokens are evaluated dynamically when a viewer runs a command or triggers a reply in chat. They resolve the caller, target user mentions, arguments, or roll random outcomes.
+                </p>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:.83rem;" id="chat-tokens-table">
+                        <thead>
+                            <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text-muted);">
+                                <th style="padding:.4rem .6rem;">Token</th>
+                                <th style="padding:.4rem .6rem;">Description</th>
+                                <th style="padding:.4rem .6rem;">Example in Command Response</th>
+                                <th style="padding:.4rem .6rem;">Example Output</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom:1px solid var(--bg-raised);">
+                                <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{user}}">{{user}}</code></td>
+                                <td style="padding:.4rem .6rem;">Username of the chatter who ran the command (or <code>$(user)</code>)</td>
+                                <td style="padding:.4rem .6rem;"><code>Hey {{user}}, welcome in!</code></td>
+                                <td style="padding:.4rem .6rem;"><em>Hey Alice, welcome in!</em></td>
+                            </tr>
+                            <tr style="border-bottom:1px solid var(--bg-raised);">
+                                <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{target}}">{{target}}</code></td>
+                                <td style="padding:.4rem .6rem;">Target user from command args (strips <code>@</code>; falls back to sender or <code>{{target:someone}}</code>; also <code>$(touser)</code>)</td>
+                                <td style="padding:.4rem .6rem;"><code>Shoutout to @{{target}}! twitch.tv/{{target}}</code></td>
+                                <td style="padding:.4rem .6rem;"><em>Shoutout to @Bob! twitch.tv/Bob</em></td>
+                            </tr>
+                            <tr style="border-bottom:1px solid var(--bg-raised);">
+                                <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{args}}">{{args}}</code></td>
+                                <td style="padding:.4rem .6rem;">All arguments / text following the command name</td>
+                                <td style="padding:.4rem .6rem;"><code>{{user}} asked: "{{args}}"</code></td>
+                                <td style="padding:.4rem .6rem;"><em>Alice asked: "how are you?"</em></td>
+                            </tr>
+                            <tr style="border-bottom:1px solid var(--bg-raised);">
+                                <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{arg.1}}">{{arg.1}}</code>, <code class="copyable" data-copy="{{arg.2}}">{{arg.2}}</code></td>
+                                <td style="padding:.4rem .6rem;">1st, 2nd, etc. space-separated word typed after the command. Supports default fallbacks like <code>{{arg.2:dogs}}</code> if omitted, and Nightbot syntax <code>$(1)</code>, <code>$(2)</code></td>
+                                <td style="padding:.4rem .6rem;"><code>🤔 {{user}} asks: {{arg.1:cats}} or {{arg.2:dogs}}?</code></td>
+                                <td style="padding:.4rem .6rem;"><em>🤔 Alice asks: tea or coffee?</em></td>
+                            </tr>
+                            <tr style="border-bottom:1px solid var(--bg-raised);">
+                                <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{random 1 6}}">{{random min max}}</code></td>
+                                <td style="padding:.4rem .6rem;">Evaluates a random integer or dice roll between min and max (inclusive)</td>
+                                <td style="padding:.4rem .6rem;"><code>🎲 {{user}} rolled a {{random 1 20}}!</code></td>
+                                <td style="padding:.4rem .6rem;"><em>🎲 Alice rolled a 19!</em></td>
+                            </tr>
+                            <tr>
+                                <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{choice Yes|No|Maybe}}">{{choice A|B|C}}</code></td>
+                                <td style="padding:.4rem .6rem;">Randomly picks one pipe-separated item (also <code>{{pick A|B|C}}</code>)</td>
+                                <td style="padding:.4rem .6rem;"><code>🎱 8-Ball: {{choice Yes!|No.|Ask again later.}}</code></td>
+                                <td style="padding:.4rem .6rem;"><em>🎱 8-Ball: Yes!</em></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <p class="muted" style="margin-bottom:.75rem;">
-                These special tokens are evaluated dynamically when a viewer runs a command or triggers a reply in chat. They resolve the caller, target user mentions, arguments, or roll random outcomes.
-            </p>
-            <div style="overflow-x:auto;">
-                <table style="width:100%;border-collapse:collapse;font-size:.83rem;">
-                    <thead>
-                        <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text-muted);">
-                            <th style="padding:.4rem .6rem;">Token</th>
-                            <th style="padding:.4rem .6rem;">Description</th>
-                            <th style="padding:.4rem .6rem;">Example in Command Response</th>
-                            <th style="padding:.4rem .6rem;">Example Output</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr style="border-bottom:1px solid var(--bg-raised);">
-                            <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{user}}">{{user}}</code></td>
-                            <td style="padding:.4rem .6rem;">Username of the chatter who ran the command (or <code>$(user)</code>)</td>
-                            <td style="padding:.4rem .6rem;"><code>Hey {{user}}, welcome in!</code></td>
-                            <td style="padding:.4rem .6rem;"><em>Hey Alice, welcome in!</em></td>
-                        </tr>
-                        <tr style="border-bottom:1px solid var(--bg-raised);">
-                            <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{target}}">{{target}}</code></td>
-                            <td style="padding:.4rem .6rem;">Target user from command args (strips <code>@</code>; falls back to sender or <code>{{target:someone}}</code>; also <code>$(touser)</code>)</td>
-                            <td style="padding:.4rem .6rem;"><code>Shoutout to @{{target}}! twitch.tv/{{target}}</code></td>
-                            <td style="padding:.4rem .6rem;"><em>Shoutout to @Bob! twitch.tv/Bob</em></td>
-                        </tr>
-                        <tr style="border-bottom:1px solid var(--bg-raised);">
-                            <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{args}}">{{args}}</code></td>
-                            <td style="padding:.4rem .6rem;">All arguments / text following the command name</td>
-                            <td style="padding:.4rem .6rem;"><code>{{user}} asked: "{{args}}"</code></td>
-                            <td style="padding:.4rem .6rem;"><em>Alice asked: "how are you?"</em></td>
-                        </tr>
-                        <tr style="border-bottom:1px solid var(--bg-raised);">
-                            <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{arg.1}}">{{arg.1}}</code>, <code class="copyable" data-copy="{{arg.2}}">{{arg.2}}</code></td>
-                            <td style="padding:.4rem .6rem;">1st, 2nd, etc. space-separated word typed after the command. Supports default fallbacks like <code>{{arg.2:dogs}}</code> if omitted, and Nightbot syntax <code>$(1)</code>, <code>$(2)</code></td>
-                            <td style="padding:.4rem .6rem;"><code>🤔 {{user}} asks: {{arg.1:cats}} or {{arg.2:dogs}}?</code></td>
-                            <td style="padding:.4rem .6rem;"><em>🤔 Alice asks: tea or coffee?</em></td>
-                        </tr>
-                        <tr style="border-bottom:1px solid var(--bg-raised);">
-                            <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{random 1 6}}">{{random min max}}</code></td>
-                            <td style="padding:.4rem .6rem;">Evaluates a random integer or dice roll between min and max (inclusive)</td>
-                            <td style="padding:.4rem .6rem;"><code>🎲 {{user}} rolled a {{random 1 20}}!</code></td>
-                            <td style="padding:.4rem .6rem;"><em>🎲 Alice rolled a 19!</em></td>
-                        </tr>
-                        <tr>
-                            <td style="padding:.4rem .6rem;"><code class="copyable" data-copy="{{choice Yes|No|Maybe}}">{{choice A|B|C}}</code></td>
-                            <td style="padding:.4rem .6rem;">Randomly picks one pipe-separated item (also <code>{{pick A|B|C}}</code>)</td>
-                            <td style="padding:.4rem .6rem;"><code>🎱 8-Ball: {{choice Yes!|No.|Ask again later.}}</code></td>
-                            <td style="padding:.4rem .6rem;"><em>🎱 8-Ball: Yes!</em></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        </details>
         <div id="out"></div>
     </div>
 
@@ -443,7 +531,51 @@ function markdown() {
     return md;
 }
 
-$('q').oninput = render;
+// Collapsible Chat Bot Tokens state & search filter
+const tokensCard = $('chat-tokens-card');
+if (tokensCard) {
+    const saved = localStorage.getItem('placeholders_tokens_open');
+    if (saved !== null) {
+        tokensCard.open = (saved === 'true');
+    } else {
+        tokensCard.open = false; // Collapsed by default to avoid clutter
+    }
+    tokensCard.addEventListener('toggle', () => {
+        if (!tokensCard._searching) {
+            localStorage.setItem('placeholders_tokens_open', String(tokensCard.open));
+        }
+    });
+}
+
+function filterDynamicTokens(q) {
+    if (!tokensCard) return;
+    const rows = tokensCard.querySelectorAll('tbody tr');
+    if (!q) {
+        tokensCard._searching = true;
+        rows.forEach(r => r.style.display = '');
+        const saved = localStorage.getItem('placeholders_tokens_open');
+        tokensCard.open = (saved === 'true');
+        tokensCard._searching = false;
+        return;
+    }
+    tokensCard._searching = true;
+    let anyMatch = false;
+    rows.forEach(r => {
+        const text = r.textContent.toLowerCase();
+        const match = text.includes(q);
+        r.style.display = match ? '' : 'none';
+        if (match) anyMatch = true;
+    });
+    if (anyMatch) {
+        tokensCard.open = true;
+    }
+    tokensCard._searching = false;
+}
+
+$('q').oninput = () => {
+    render();
+    filterDynamicTokens($('q').value.trim().toLowerCase());
+};
 $('vals').onchange = render;
 $('copy').onclick = async () => {
     try { await navigator.clipboard.writeText(markdown()); $('copy').textContent = 'Copied'; }
