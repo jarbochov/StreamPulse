@@ -1,84 +1,305 @@
-# Custom Overlays
+# Custom Overlay Studio
 
-Custom overlays are JSON-backed scenes that can be displayed in OBS or any browser source:
-
-```text
-http://localhost:3000/custom-overlay.html?id=be-right-back
-```
-
-Open `/custom-overlays.html` to create and manage overlays. The editor currently supports text, randomized text pools, Markdown, images, videos, webpage embeds, QR codes, progress bars/rings, game lists, and shapes. Elements can be positioned on a zoomable 1920×1080-style canvas, styled, reordered, aligned, snapped to canvas/element guides, and saved. The canvas can be panned with the middle mouse button, Shift-drag, or Alt-drag.
-
-Saving an overlay increments its revision, writes the definition to `data/custom-overlays.json`, and broadcasts the updated definition over StreamPulse's WebSocket. Open overlay instances update without an OBS browser-source refresh.
-
-Markdown is sanitized before rendering. It supports common formatting such as headings, emphasis, lists, links, images, and block quotes. Webpage embeds use a sandboxed iframe and may still be refused by sites that disallow framing. Overlay definitions are included in StreamPulse backups.
-
-Images and videos can be uploaded from the selected element's properties. Uploads are stored in `data/custom-overlay-assets/`, served from `/custom-overlay-assets/<filename>`, and included in backups. Individual assets are limited to 100 MB.
-
-Text and Markdown content support live variables using double braces. The editor's placeholder picker inserts these values without requiring memorization. Values refresh every five seconds in the runtime:
+StreamPulse features a visual, GPU-accelerated canvas editor for creating broadcast overlays and scenes for OBS Studio, vMix, and browser sources:
 
 ```text
-{{viewers.current}}  {{viewers.peak}}  {{viewers.average}}
-{{chatters}}  {{messages}}  {{followers}}  {{followers.session}}  {{subscribers}}  {{subscribers.session}}  {{gift_subs}}  {{gift_subs.total}}  {{bits}}  {{bits.total}}  {{donations}}  {{donations.total}}  {{hashtags}}
-{{hashtags.top}}  {{hashtags.session_top}}  {{hashtags.total}}
-{{music.title}}  {{music.artist}}  {{music.album}}  {{music.cover}}  {{music.position}}  {{music.duration}}  {{music.remaining}}  {{music.percent}}
-{{stream.title}}  {{stream.category}}  {{overlay.name}}
-{{plan.now}}  {{plan.scheduled}}  {{plan.backlog}}  {{plan.list.<list-id>}}
+http://localhost:3000/overlays/custom-overlay.html?id=my-overlay
 ```
 
-`{{music.cover}}` and `{{game.cover}}` are image URLs: put them in an Image element's source URL (use **Insert placeholder…** under the field). `{{music.percent}}` (0–100) drives a Progress element, and `music.position`, `music.remaining` and `music.percent` tick every second between player polls. Clock, timer, goal, latest-event and IGDB game placeholders are listed in the picker.
+Manage and preview all saved scenes from the [Custom Overlays Directory](http://localhost:3000/custom-overlays.html), complete with live canvas cards, duplicate actions, revision histories, and direct OBS browser-source URL generators.
 
-### Date and time formatting
+![StreamPulse Custom Overlay Studio](images/custom-overlay-studio.png)
 
-Add `|format` to a date-like placeholder: `{{now|dddd, MMMM Do [at] h:mm A}}` → *Friday, October 2nd at 1:34 PM*. Works on `now`, `time`, `date`, `game.release_date` and `timer.<id>.target` (date countdowns). Tokens: `YYYY` `YY` year · `MMMM` `MMM` `MM` `M` month · `dddd` `ddd` weekday · `Do` `DD` `D` day · `HH` `H` `hh` `h` hour · `mm` `m` · `ss` `s` · `A` `a` AM/PM · `[text]` literal. The placeholder picker has a format box that appends the format for you.
+---
 
-**Timer durations** can be formatted too. Presets: `{{timer.<id>|short}}` → *4d 3h 22m 2s* (leading zero units are dropped), `|long` → *4 days, 3 hours, 22 minutes, 2 seconds*, `|clock` → *4d 3:22:02*. Or build your own: `d` `h` `m` `s` (days, hours, minutes, seconds; double the letter to zero-pad) and `th` `tm` `ts` (total hours/minutes/seconds), with literal text in brackets, e.g. `{{timer.<id>|d[d] h:mm:ss}}`. `{{timer.<id>.ms}}` is the raw milliseconds.
+## Workspace Architecture
 
-### QR code element
+The studio provides a modern three-pane workspace designed for high-density broadcasting control:
 
-The **QR code** element turns a link or text into a scannable code (rendered by the server at `GET /api/qr?text=…`, as SVG). The link accepts placeholders, and you can choose the code color, background (or transparent), quiet zone and error correction. Keep strong contrast so phones can scan it.
+1. **Left Rail (Layers & Settings)**: Reorder layers with drag-and-drop to adjust stacking order, toggle visibility (eye icon), lock layers against accidental drag movements, switch between multi-page scenes, and configure global canvas properties (Full HD 1920×1080, 4K, vertical portrait 1080×1920, or custom aspect ratios).
+2. **Center Stage (Interactive Canvas)**: Direct manipulation viewport with 8 transform handles, aspect-ratio constraint (Shift-drag), alignment and snapping guides (bypass with Alt), marquee box multi-selection, pan (Middle-click, Space-drag, or Shift-drag), and zoom controls.
+3. **Right Rail (Context-Sensitive Inspector)**: Dynamic properties panel displaying layout coordinates, dimensional sizing, typography, fill gradients, animated sweep borders, GPU media filters, WebGL display shaders, and stream widget configurations for the currently selected layer(s).
 
-### Game list element
+### Keyboard Shortcuts
 
-The **Game list** element shows games from the Game Plan (`/game-plan-editor.html`). Choose Scheduled, Backlog, Played, any custom list, or everything; optionally filter by period; and pick a cover grid, cover strip, text list or **Columns** (a kanban-style layout with one column per period, or per list when showing everything). **Cover size** scales covers (text list and columns can grow up to 400%; grid and strip covers fill their cell, so they can only shrink — use fewer columns to enlarge them). **Cover fit** can crop, letterbox or keep natural proportions, and **Shrink everything to fit** scales the list down so it is never clipped. Heading and title sizes can be set in pixels, and long titles can wrap instead of being cut off. The game matching your current Twitch category gets a *Now playing* badge.
+| Shortcut | Action | Description |
+| --- | --- | --- |
+| `Ctrl` / `Cmd` + `S` | **Save & Push Live** | Saves scene definition and broadcasts updates over WebSocket |
+| `Ctrl` / `Cmd` + `Z` | **Undo** | Reverts the last canvas modification |
+| `Ctrl` / `Cmd` + `Shift` + `Z` / `Y` | **Redo** | Re-applies reverted action |
+| `Ctrl` / `Cmd` + `C` | **Copy** | Copies selected element(s) to internal clipboard |
+| `Ctrl` / `Cmd` + `V` | **Paste** | Pastes elements at offset, or auto-uploads dragged media files |
+| `Ctrl` / `Cmd` + `D` | **Duplicate** | Clones selected element(s) directly on canvas |
+| `Ctrl` / `Cmd` + `G` | **Group Elements** | Groups selected layers for synchronized transforms |
+| `[` / `]` | **Layer Stacking** | Moves selected layer down or up in the z-stack |
+| `Delete` / `Backspace` | **Remove** | Deletes selected layer(s) from the scene |
+| `Arrow Keys` | **Nudge** | Moves selected layer by 1px (or 10px with `Shift`) |
+| `Esc` | **Deselect** | Clears current selection |
+| `?` | **Shortcuts Dialog** | Displays interactive keyboard cheat sheet |
 
-Shapes support rectangle, circle, pill, and line variants. Text supports a curated font-family picker, size, weight, color, horizontal alignment, vertical alignment, line height, letter spacing, background, border, and opacity. Multiple elements can be selected with Ctrl/Cmd or Shift and aligned or moved as a group.
+---
 
-Random Text elements support random or entered-order display, configurable refresh intervals, typewriter animation, and marquee animation.
+## Element Types Catalog
 
-The editor is a three-pane workspace: editor settings and layers on the left, the canvas stage in the middle, and context-sensitive properties on the right.
+StreamPulse includes 14 distinct element types organized across 4 functional categories. Access them anytime by clicking **+ Add element** in the stage toolbar:
 
-- **Canvas:** scroll to pan, Ctrl/⌘+scroll to zoom, Space-drag or middle-drag to pan, and **Fit** to show the whole canvas. Fit is applied automatically until you pan or zoom manually.
-- **Direct manipulation:** drag to move, use the eight resize handles (Shift keeps aspect ratio), drag on empty space to box-select, and Shift-click to multi-select. Snapping guides can be bypassed by holding Alt.
-- **Layers:** drag to reorder (this sets stacking order), double-click to rename, and use the lock and eye toggles. Names and locked state are saved with the overlay.
-- **Shortcuts:** Ctrl/⌘+S save, Z/Y undo/redo, C/V/D copy/paste/duplicate, A select all, `[` / `]` change stacking, Delete, arrow keys to nudge, and Esc to deselect. Press `?` in the editor for the full list.
-- **Live data:** the editor previews `{{placeholders}}` with current values; toggle **Live data** to see raw placeholders instead.
-- **Assets:** upload from the Image/Video fields or drop or paste (Ctrl/⌘+V) images and videos onto the canvas, or pick an existing upload with **Library…** in the Content section. The global **Asset Library** (`/assets.html`, Manage > Assets) lists every upload, including timer sounds, with sizeable thumbnails, grid/list views, search, type and used/unused filters, sorting, audio/video preview, rename, multi-select delete, and drag-and-drop upload. Removing an element from an overlay never deletes its file. Renaming rewrites every reference in your overlays and timers and pushes the update live. The editor's **Library…** dialog has an **Upload new…** button too.
-- **Uploaded fonts:** upload a `.ttf`, `.otf`, `.woff` or `.woff2` file (from Typography > Upload font, or the Asset Library). Fonts are loaded with `@font-face` in both the editor and the runtime, so they work in Safari (which hides user-installed fonts from web pages) and in OBS on any machine. They appear under **Uploaded fonts** in the font picker, and the font name comes from the file name.
-- **Duplicate:** the Custom Overlays page has a Duplicate button that copies an overlay to `<id>-copy`, plus search, sort, and live previews.
-- **Asset API:** `GET /api/custom-overlays/assets`, `POST /api/custom-overlays/assets/:name/rename` with `{ "name": "New name" }`, and `DELETE /api/custom-overlays/assets/:name` (returns 409 for in-use assets unless `?force=1`).
-- **Fonts:** the font picker includes common system fonts plus selected Google Fonts, including Silkscreen; Google Fonts are loaded when used by the editor or runtime. Random Text typewriter mode includes a blinking cursor modeled after the existing StreamEndRandom screen.
-- **Revision history:** every save keeps the version it replaced (the last 30 per overlay, in `data/custom-overlay-history/`, included in backups). **History** in the top bar lists them; **Restore** loads one into the editor as an unsaved change, so you can review or undo it before saving it as a new revision. `GET /api/custom-overlays/:id/history` and `/history/:revision` expose them.
-- **Unsaved changes** are flagged in the top bar, and the browser warns before you leave.
+![Custom Overlay Element Types](images/overlay-elements-menu.png)
 
-The editor and runtime share `overlay-shared.js` (variables, Markdown rendering, and font loading) so previews match what OBS renders.
+### 1. Text & Copy
 
-## API
+#### Text (`text`)
+Direct single or multi-line text elements supporting static copy and live stream placeholder tokens.
+- **Typography**: Select from popular system fonts, curated Google Fonts (such as *Silkscreen*, *Poppins*, *Inter*, *Montserrat*), or uploaded custom web fonts (`.ttf`, `.otf`, `.woff`, `.woff2`).
+- **Styling**: Configure font size, weight (100–900), horizontal and vertical alignment, letter spacing, line height, text color, and gradient fills.
+- **Glow & Shadow**: Outer text shadows with configurable blur, offset, and color spread for high legibility over busy gameplay.
+- **Text Stroke**: Crisp vector outlines with custom width and stroke colors.
+- **Live Placeholders**: Embed live dynamic variables like `{{stream.title}}`, `{{viewers.current}}`, or `{{latest.follower}}` directly in the content string.
 
-- `GET /api/custom-overlays` — list definitions
-- `POST /api/custom-overlays` — create a definition
-- `GET /api/custom-overlays/:id` — read a definition
-- `PUT /api/custom-overlays/:id` — update and broadcast a definition
-- `DELETE /api/custom-overlays/:id` — delete a definition
-- `POST /api/custom-overlays/assets` — upload an image/video asset using the file bytes as the request body, with `Content-Type` and `X-Asset-Name` headers
+![Text & Typography Inspector](images/overlay-text-inspector.png)
 
-The WebSocket update message has this shape:
+#### Random Text (`random-text`)
+Rotating phrase pools for stream rules, broadcaster quotes, tip reminders, or trivia.
+- **Phrase Pool**: Supply a multi-line list of phrases or tokens.
+- **Selection Modes**: Pick phrases randomly (preventing immediate consecutive repeats) or cycle through the pool in sequential order.
+- **Interval Control**: Configurable rotation duration (in seconds).
+- **Animation Modes**: Instant transitions, smooth fade, terminal-style **Typewriter** effect (complete with blinking cursor), or continuous horizontal **Marquee** ticker.
+
+#### Markdown (`markdown`)
+Rich formatted content compiled using sanitized Markdown.
+- **Syntax Support**: Headers (`#` to `###`), bold (`**text**`), italics (`*text*`), unordered and ordered lists, links, inline code, and block quotes.
+- **Live Data Tokens**: Dynamic stream tokens can be placed inside Markdown syntax (e.g. `### Top Chatter: **{{chatter.top}}**`).
+- **File Syncing**: Optionally link a local text or markdown file (`.md` / `.txt`). StreamPulse reads the file in place without manual re-uploads, automatically updating the overlay when the file is modified on disk.
+
+---
+
+### 2. Media & Visuals
+
+#### Image (`image`)
+High-resolution static artwork, logos, channel badges, and animated GIFs.
+- **Formats**: PNG, JPG, JPEG, SVG, WebP, and animated GIF.
+- **Source Ingestion**: Choose files from the central Asset Library, enter external HTTP/HTTPS image URLs, link local computer paths, or dynamically resolve stream tokens (e.g. `{{game.cover}}` or `{{music.cover}}`).
+- **Cover Fit**: Select between `cover` (fills the element bounding box, cropping overflow), `contain` (scales proportionally without clipping), or `natural` (unconstrained 1:1 image dimensions).
+- **Styling**: Corner rounding (`borderRadius`), borders, drop shadows, and opacity.
+
+#### Video (`video`)
+Cinematic video loops, stingers, background visuals, and YouTube embeds.
+- **Playback Capabilities**:
+  - **HTML5 Videos**: Direct playback of `.mp4`, `.webm`, and `.ogg` files.
+  - **YouTube Embeds**: Full support for YouTube watch and embed links (`https://youtube.com/watch?v=...`), automatically converted into secure iframe players with `playsinline=1` and `mute=1` to guarantee WebKit/Safari autoplay compliance.
+- **Unified Controls**:
+  - `video.autoplay`: Begins playback automatically upon scene load.
+  - `video.loop`: Seamlessly replays video media upon reaching the end.
+  - `video.sound`: Master audio toggle (production overlays remain 100% clean of on-screen floating audio buttons).
+  - `video.volume`: Fine-grained audio scaling (0–100%).
+- **Hardware & Controller Discovery**: Controllable via the `/api/videos` REST endpoint and Bitfocus Companion module actions (`play`, `pause`, `toggle`, `restart`, `mute`, `unmute`).
+
+#### Slideshow (`slideshow`)
+Automated image carousel cycling through media assets.
+- **Tag Filtering**: Automatically pull all images matching specific Asset Library tags (e.g. `sponsor`, `fanart`, `game-screenshots`).
+- **Slide Duration**: Configurable delay per slide before advancing.
+- **Transitions**: Smooth cross-fade or lateral slide animations.
+
+#### Pattern Tile (`pattern`)
+Seamlessly repeating geometric or textured tile backgrounds.
+- **Tile Layout**: Grid, brick staggered, or hexagonal repetition.
+- **Motion Scrolling**: Continuous background panning with configurable scroll angle (0–360°) and travel speed.
+- **Transforms**: Per-tile rotation angles, alternating tilt, scale variation, and blend modes (`normal`, `screen`, `multiply`, `overlay`).
+
+---
+
+### 3. Geometric Shapes & Camera Cutouts
+
+#### Shape (`shape`)
+Structural primitives for scene framing, HUD panels, and lower thirds.
+- **Geometries**: Rectangle, circle, rounded pill, and horizontal/vertical divider lines.
+- **Fills**: Flat color fills or multi-stop linear and radial gradients with adjustable angles.
+- **Animated Sweep Borders**: Conic neon glow traveling around the shape perimeter with configurable rotation speed, glow spread, and accent colors.
+- **Drop & Inner Shadows**: Layered shadows providing physical depth beneath text and widgets.
+
+#### Icon (`icon`)
+Crisp vector iconography from FontAwesome and StreamPulse built-in SVG collections.
+- **Customization**: Vector stroke width, fill color, duotone accenting, and drop shadow.
+- **Placement**: Ideal for pairing with live statistics (viewer counts, chat messages, timer clocks).
+
+#### Cutout / Punchthrough (`cutout`)
+Cross-browser transparent apertures designed for webcam frames, capture cards, and game window cutouts.
+
+![Camera Cutout & Punchthrough Frames](images/overlay-cutout-webcam.png)
+
+- **Flicker-Free Masking**: Uses self-contained SVG image data URIs in CSS mask properties (`-webkit-mask-image`, `mask-image`) on underlayer containers, guaranteeing flicker-free rendering across Chromium (OBS) and WebKit (Safari).
+- **Aperture Shapes**: Rectangular, rounded rectangular, circular, or elliptical cutouts.
+- **Feathering**: Soft edge blur for smooth blending into backgrounds.
+- **Radial Glow & Borders**: Frame webcam feeds with neon borders, conic animations, and inner shadow depth bevels.
+
+---
+
+### 4. Broadcast & Interactive Widgets
+
+#### Alert Box (`alert`)
+Integrated stream alert listener connecting directly to StreamPulse's rules engine.
+- **Triggers**: Follows, new subscribers, resubs, subscriber milestones, gifted sub batches, bits cheers, donations, raids, channel point redeems, and completed timers/goals.
+- **Variant Cycling**: Cycle through multiple visual and audio variants (random, weighted, or sequential).
+- **Layouts**: Stacked (image above text), horizontal banner (image beside text), or text-only.
+- **Audio & Animations**: Configurable alert sounds, volume levels, entrance/exit animations, and duration hold times.
+- **Routing**: Filter alert boxes by event type so you can display raids on a dedicated scene while subs appear elsewhere.
+
+#### Game Plan (`game-list`)
+Live broadcasting schedule and backlog cards driven by StreamPulse's [Game Plan Studio](http://localhost:3000/game-plan-editor.html).
+
+![Game Plan Broadcast Card Layouts](images/overlay-game-plan-cards.png)
+
+- **Layout Modes**:
+  - `columns`: Kanban-style multi-column layout with one column per period or custom collection.
+  - `grid`: Responsive tile grid of game box art.
+  - `strip`: Horizontal scrolling or static ticker strip.
+  - `list`: Compact text list with micro cover thumbnails.
+- **Metadata Integration**: Live IGDB cover artwork, game titles, genres, release years, and developer credits.
+- **Status Pills**: Highlights games with badges: `Now Playing` (automatically synchronized with your live Twitch category), `Tonight`, and `Scheduled`.
+- **Scaling Controls**: Responsive `coverFit` (`cover`, `contain`, `natural`), cover scaling multiplier, and optional shrink-to-fit scaling.
+
+#### Progress Bar / Ring (`progress`)
+Dynamic visual meters for goals, music track playback, and countdown timers.
+- **Visual Display**: Linear horizontal progress bar or circular progress ring.
+- **Drive Modes**: Connect to any numerical percentage token:
+  - Stream Goals: `{{goal.<id>.percent}}`
+  - Music Track Position: `{{music.percent}}`
+  - Countdown Timers: `{{timer.<id>.percent}}`
+- **Styling**: Customizable track color, fill color (or gradient), border radius, line thickness, and centered percentage labels.
+
+#### QR Code (`qr`)
+Dynamic vector SVG QR code generator backed by the `/api/qr` endpoint.
+- **Live URLs & Tokens**: Direct viewers to tips, Discord, socials, or Twitch profiles using live tokens (e.g. `https://twitch.tv/{{streamer}}`).
+- **Styling**: Configurable foreground color, background fill (supports fully transparent `bg=transparent`), quiet zone margin, and error correction levels (`L`, `M`, `Q`, `H`).
+
+#### Webpage Embed (`embed`)
+Sandboxed iframe embed for displaying external web applications, chats, or live web dashboards.
+- **Security & Sandboxing**: Untrusted web pages are strictly sandboxed with `referrerPolicy = "no-referrer"`.
+- **Custom Zoom & Viewport**: Apply CSS scaling multipliers to fit desktop web interfaces into compact broadcast boxes.
+
+---
+
+## WebGL Retro Display Shaders & GPU Media Filters
+
+Apply real-time GPU-accelerated post-processing effects to any image, video, slideshow, or visual layer:
+
+![WebGL Retro Display Shaders & CRT Effects](images/overlay-retro-shaders.png)
+
+### CRT & Display Simulation
+- **Scanlines**: Emulates classic cathode-ray tube raster lines with adjustable density, intensity, and vertical scrolling.
+- **Aperture Grille & Shadow Mask**: Phosphor dot triads replicating vintage Sony Trinitron and arcade monitors.
+- **Screen Curvature**: Physical barrel distortion warping the layer corners into a curved glass display.
+- **TV Static & Snow**: Procedural analog static noise with customizable intensity and monochrome/color modes.
+- **Phosphor Bloom**: Soft glowing bleed around bright highlights.
+
+### Signal Degradation
+- **VHS Tape Tracking**: Magnetic tape jitter, horizontal noise bars, and color smearing.
+- **NTSC Chroma Bleed**: Composite video color phase shifting and fringing.
+- **LCD Ghosting**: Liquid-crystal display response lag and trail smear.
+- **Chromatic Aberration**: Optical lens RGB color splitting.
+
+### Halftone & Dithering Algorithms
+- **Ordered Dithering**: Bayer matrix patterns (2×2, 4×4, 8×8) and blue noise.
+- **Error Diffusion**: Floyd-Steinberg, Atkinson (classic Macintosh 1-bit style), Burkes, and Sierra dithering.
+- **Print Halftoning**: Manga-style dot screens, horizontal/vertical line screens, and crosshatching.
+- **Pixelation**: Retro 8-bit / 16-bit mosaic downsampling.
+
+---
+
+## Live Data Placeholders & Formatting
+
+Insert dynamic values anywhere in text, Markdown, image URLs, or QR codes using `{{token}}` syntax.
+
+| Category | Available Placeholders |
+| --- | --- |
+| **Viewers** | `{{viewers.current}}`, `{{viewers.peak}}`, `{{viewers.average}}` |
+| **Chat & Activity** | `{{chatters}}`, `{{messages}}`, `{{followers}}`, `{{followers.session}}`, `{{subscribers}}`, `{{subscribers.session}}`, `{{chatter.top}}`, `{{chatter.top.count}}`, `{{chatter.last}}`, `{{emotes}}`, `{{raids}}`, `{{highlights}}`, `{{clips.pending}}` |
+| **Engagement** | `{{gift_subs}}`, `{{gift_subs.total}}`, `{{bits}}`, `{{bits.total}}`, `{{donations}}`, `{{donations.total}}` |
+| **Hashtags** | `{{hashtags.top}}`, `{{hashtags.session_top}}`, `{{hashtags.top.count}}`, `{{hashtags.total}}` |
+| **Latest Events** | `{{latest.follower}}`, `{{latest.subscriber}}`, `{{latest.subscriber.tier}}`, `{{latest.gifter}}`, `{{latest.cheer}}`, `{{latest.cheer.amount}}`, `{{latest.donation}}`, `{{latest.raider}}` |
+| **Stream Info** | `{{stream.title}}`, `{{stream.category}}`, `{{stream.live}}`, `{{uptime}}`, `{{overlay.name}}`, `{{category.session_time}}` |
+| **Clock & Calendar** | `{{now}}`, `{{time}}`, `{{time.24}}`, `{{time.seconds}}`, `{{date}}`, `{{date.long}}`, `{{weekday}}`, `{{month}}`, `{{year}}` |
+| **Timers** | `{{timer.<id>}}`, `{{timer.<id>.label}}`, `{{timer.<id>.state}}`, `{{timer.<id>.target}}`, `{{timer.<id>.percent}}` |
+| **Goals** | `{{goal.<id>.title}}`, `{{goal.<id>.current}}`, `{{goal.<id>.target}}`, `{{goal.<id>.percent}}`, `{{goal.<id>.remaining}}` |
+| **Game Plan (IGDB)** | `{{game.name}}`, `{{game.url}}`, `{{game.cover}}`, `{{game.release_year}}`, `{{game.genres}}`, `{{game.developer}}`, `{{game.rating}}` |
+| **Plan Lists** | `{{plan.now}}`, `{{plan.scheduled}}`, `{{plan.backlog}}`, `{{plan.list.<list-id>}}` |
+| **Music Now-Playing** | `{{music.title}}`, `{{music.artist}}`, `{{music.album}}`, `{{music.cover}}`, `{{music.position}}`, `{{music.duration}}`, `{{music.percent}}` |
+| **Weather** | `{{weather.temp}}`, `{{weather.feels_like}}`, `{{weather.condition}}`, `{{weather.icon.url}}`, `{{weather.high}}`, `{{weather.low}}`, `{{weather.city}}` |
+| **Community Milestones** | `{{milestone.stream_number}}`, `{{milestone.total_hours}}`, `{{milestone.streak_days}}`, `{{milestone.unique_chatters}}` |
+
+### Date & Time Formatting
+Format date tokens by appending `|format`:
+- `{{date|dddd, MMMM Do}}` → *Friday, October 2nd*
+- `{{time|h:mm A}}` → *2:30 PM*
+- `{{timer.subathon.target|MMM D [at] h:mm A}}` → *Nov 12 at 4:00 PM*
+
+### Timer Countdown Formatting
+- `{{timer.<id>|short}}` → *4d 3h 22m 2s*
+- `{{timer.<id>|clock}}` → *4d 03:22:02*
+- `{{timer.<id>|long}}` → *4 days, 3 hours, 22 minutes, 2 seconds*
+
+### List Separators
+Format array tokens like `plan.scheduled` or `game.genres`:
+- `{{plan.scheduled|lines}}` — One item per line
+- `{{plan.scheduled|bullets}}` — Bulleted markdown list
+- `{{plan.scheduled|3}}` — First 3 items comma-separated
+- `{{plan.scheduled|sep: / }}` — Custom forward-slash delimiter
+
+---
+
+## Asset Library & Font Management
+
+Access the unified [Asset Library](http://localhost:3000/assets.html) (Manage → Assets) to store and manage media files:
+- **Shared Storage**: One central repository for images, video loops, audio alert chimes, and custom typography. Files are stored in `data/custom-overlay-assets/` (up to 100 MB per file) and included in ZIP backups.
+- **Uploaded Web Fonts**: Upload `.ttf`, `.otf`, `.woff`, or `.woff2` font files. StreamPulse automatically injects `@font-face` rules into both the studio editor and live OBS browser sources, guaranteeing that custom typography renders consistently without requiring local font installation on the host machine.
+- **Reference Integrity**: Renaming an asset in the library automatically updates every custom overlay and timer that references it without breaking active broadcast sources.
+
+---
+
+## OBS Studio Integration
+
+To add an overlay to OBS Studio:
+
+1. In OBS Studio, navigate to your desired scene and click **+** under **Sources**.
+2. Select **Browser** and name the source (e.g. `Custom Overlay - BRB Screen`).
+3. Set the **URL** to:
+   ```text
+   http://localhost:3000/overlays/custom-overlay.html?id=my-overlay
+   ```
+4. Set **Width** to `1920` and **Height** to `1080` (or match your canvas resolution).
+5. Check **Control audio via OBS** if your overlay contains video or alert audio.
+6. Check **Shutdown source when not visible** (recommended for transition efficiency) or leave unchecked if you want background timers to stay active.
+
+---
+
+## Developer API & WebSocket Synchronization
+
+All overlays are backed by atomic JSON storage and synchronised live across active clients over WebSockets:
+
+- `GET /api/custom-overlays` — List all overlay scene definitions
+- `POST /api/custom-overlays` — Create a new overlay definition
+- `GET /api/custom-overlays/:id` — Fetch a single overlay definition
+- `PUT /api/custom-overlays/:id` — Update definition and broadcast live update to OBS
+- `DELETE /api/custom-overlays/:id` — Delete an overlay
+- `GET /api/custom-overlays/:id/history` — List saved revision snapshots
+- `POST /api/custom-overlays/:id/history/:revision/restore` — Restore historical revision
+- `GET /api/videos` — Discover all controllable `<video>` and YouTube elements
+
+### Live WebSocket Broadcast
+Whenever an overlay is saved, StreamPulse emits a real-time event to all connected browser sources:
 
 ```json
 {
   "type": "custom-overlay-update",
   "data": {
-    "id": "be-right-back",
-    "overlay": {}
+    "id": "my-overlay",
+    "overlay": {
+      "name": "Broadcast Studio Master Scene",
+      "width": 1920,
+      "height": 1080,
+      "elements": [ ... ]
+    }
   }
 }
 ```
+
+Open overlay instances update instantly without requiring an OBS browser-source refresh cache action.

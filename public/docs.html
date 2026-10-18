@@ -593,11 +593,11 @@
             case 'getting-started': return `
             <div class="card open">
                 <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
-                    <strong style="font-size:0.9rem;">1. Install Node.js</strong>
+                    <strong style="font-size:0.9rem;">1. Install Node.js or Desktop App</strong>
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
-                    <div class="detail-text">StreamPulse runs on <a href="https://nodejs.org/" style="color:var(--accent);">Node.js</a> (LTS, v22.12 or newer). Verify with <code>node --version</code>.</div>
+                    <div class="detail-text">StreamPulse is available both as a standalone native Desktop Application (macOS &amp; Windows) and as a Node.js server. If running from source, install <a href="https://nodejs.org/" style="color:var(--accent);">Node.js</a> (LTS, v22.12 or newer). Verify with <code>node --version</code>.</div>
                 </div>
             </div>
             <div class="card open">
@@ -606,7 +606,7 @@
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
-                    <div class="detail-text">Download the <strong>Source code (zip)</strong> from the <a href="https://github.com/jarbochov/streampulse/releases" style="color:var(--accent);">Releases page</a> and unzip it.<br><br>Copy <code>config.example.json</code> to <code>config.json</code> and fill in <code>broadcaster_id</code>, <code>broadcaster_name</code>, <code>twitch.client_id</code>, <code>twitch.client_secret</code> and <code>ssn.session_id</code>. Everything else can be edited live in the <a href="/config-editor.html" style="color:var(--accent);">Config Editor</a>.</div>
+                    <div class="detail-text">Download the latest release from the <a href="https://github.com/jarbochov/StreamPulse/releases" style="color:var(--accent);">Releases page</a>.<br><br>Copy <code>config.example.json</code> to <code>config.json</code> (the Desktop App auto-initializes this on first launch). You can leave the <code>twitch</code> fields blank—StreamPulse supports 1-click device-code sign-in via <a href="/twitch-connect.html" style="color:var(--accent);">Connect Twitch</a> so you never need to register a custom developer app. Everything else can be configured live in the <a href="/config-editor.html" style="color:var(--accent);">Config Editor</a>.</div>
                 </div>
             </div>
             <div class="card open">
@@ -615,7 +615,7 @@
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
-                    <div class="detail-label">From the StreamPulse folder</div>                    <div class="code-block">npm install<br>npm run install:chrome   # bundled Chrome for PDF exports<br>npm start</div>                    <div class="detail-text">On first run a browser window opens for Twitch authorization; after that the server handles tokens automatically. Windows tip: type <code>cmd</code> in the File Explorer address bar to open a prompt in the folder.</div>
+                    <div class="detail-label">From the StreamPulse folder (CLI Mode)</div>                    <div class="code-block">npm install<br>npm run install:chrome   # bundled Chrome for PDF exports<br>npm start</div>                    <div class="detail-text">Or launch the native desktop application. On first run, open <a href="/twitch-connect.html" style="color:var(--accent);">Connect Twitch</a> to authorize; after that the server refreshes tokens automatically. Windows tip: type <code>cmd</code> in the File Explorer address bar to open a prompt in the folder.</div>
                 </div>
             </div>
             <div class="card open">
@@ -624,7 +624,7 @@
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
-                    <div class="detail-text">SSN captures live chat, subs, follows, raids, bits and donations from Twitch (and YouTube, Kick, etc.) and forwards them to StreamPulse.<br><br>1. Install <a href="https://socialstream.ninja/" style="color:var(--accent);">SocialStream Ninja</a> (browser extension or desktop app)<br>2. SSN settings → <strong>Global Mechanics → Mechanics - Connections &amp; Integrations</strong><br>3. Enable <strong>Enable remote API control of extension</strong> and <strong>Send chat messages to API server</strong><br>4. Copy your <strong>Session ID</strong> from the <code>?session=</code> value of your dock or featured URL<br>5. Keep the SSN dock page open during your stream<br><br>Test the connection with SSN's <a href="https://socialstream.ninja/sampleapi.html" style="color:var(--accent);">API Sandbox</a>.</div>
+                    <div class="detail-text">SSN captures live chat, subs, follows, raids, bits and donations from Twitch (and YouTube, Kick, etc.) and forwards them to StreamPulse.<br><br>1. Install <a href="https://socialstream.ninja/" style="color:var(--accent);">SocialStream Ninja</a> (standalone desktop app, browser extension, or OBS dock)<br>2. SSN settings → <strong>Global Mechanics → Mechanics - Connections &amp; Integrations</strong><br>3. Enable <strong>Enable remote API control of extension</strong> and <strong>Send chat messages to API server</strong><br>4. In StreamPulse Config Editor, verify the SSN WebSocket URL is <code>ws://127.0.0.1:8080</code> (or enter your <code>ssn.session_id</code> if using cloud relay)<br>5. Keep SSN open in your browser, dock, or desktop app during your stream<br><br>Test the connection with SSN's <a href="https://socialstream.ninja/sampleapi.html" style="color:var(--accent);">API Sandbox</a>.</div>
                 </div>
             </div>
             <div class="card open">
@@ -653,7 +653,7 @@
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
-                    <div class="detail-text">• <strong>Credits Roll</strong> — scrolling credits with subs, followers, chatters, emotes, hashtags, raids, gifters and cheerers, plus fade-style text sections<br>• <strong>Music Overlay</strong> — Apple Music, Spotify and VLC now-playing<br>• <strong>Named Timers</strong> — countdowns and stopwatches with pause/resume and Companion endpoints<br>• <strong>Goals + Viewer Tracking</strong> — single and rotating goal overlays<br>• <strong>Game Plan</strong> — Scheduled/Backlog/Played and custom lists with IGDB art<br>• <strong>Custom Overlays</strong> — canvas editor with live placeholders, QR codes and assets<br>• <strong>Sessions &amp; Highlights</strong> — searchable chat logs (<code>AND</code>, <code>OR</code>, <code>"exact phrase"</code>, <code>user:name</code>), pins, TSV/TXT/PDF exports<br>• <strong>Clip Candidates (Beta)</strong> — notable events and chat spikes with Twitch clip links<br>• <strong>Hashtag Tracking</strong> — live overlays plus moderation<br>• <strong>Backup &amp; Restore</strong> — ZIP backups including the live session, custom overlays and Game Plan<br>• <strong>Updater</strong> — check for and install the latest stable release from the Manage menu (Git checkout with Git and npm required; data is backed up first)<br><br><em>Hashtags tip:</em> they suit smaller streams. For larger communities use the ban/purge moderation tools or disable hashtags.</div>
+                    <div class="detail-text">• <strong>Credits Roll</strong> — scrolling credits with subs, followers, chatters, emotes, hashtags, raids, gifters and cheerers, plus fade-style text sections<br>• <strong>Custom Overlays</strong> — visual canvas editor with transparent webcam cutouts, WebGL shaders, live placeholders, QR codes and assets<br>• <strong>Choice Randomizer</strong> — interactive slot roller and spinning wheel overlays with celebration cards and active chatter pool<br>• <strong>Music Overlay</strong> — Apple Music, Spotify and VLC now-playing<br>• <strong>Named Timers</strong> — countdowns and stopwatches with pause/resume and Companion endpoints<br>• <strong>Goals + Viewer Tracking</strong> — single and rotating goal overlays<br>• <strong>Game Plan</strong> — Scheduled/Backlog/Played and custom lists with IGDB art<br>• <strong>Sessions &amp; Highlights</strong> — searchable chat logs (<code>AND</code>, <code>OR</code>, <code>"exact phrase"</code>, <code>user:name</code>), pins, TSV/TXT/PDF exports<br>• <strong>Clip Candidates (Beta)</strong> — notable events and chat spikes with Twitch clip links<br>• <strong>Hashtag Tracking</strong> — live overlays plus moderation<br>• <strong>Backup &amp; Restore</strong> — ZIP backups including the live session, custom overlays and Game Plan<br>• <strong>Updater</strong> — check for and install the latest stable release from the Manage menu (Git checkout with Git and npm required; data is backed up first)<br><br><em>Hashtags tip:</em> they suit smaller streams. For larger communities use the ban/purge moderation tools or disable hashtags.</div>
                 </div>
             </div>`;
 
@@ -891,7 +891,7 @@
         </div>
         <div class="card-body">
             <div class="detail-text">
-                Build your own overlays on a free-form canvas in the <a href="/custom-overlay-editor.html" style="color:var(--accent);">Custom Overlay Editor</a>: text, images, video, embeds, progress bars and rings, game lists, QR codes, shapes and groups. Manage them on the <a href="/custom-overlays.html" style="color:var(--accent);">Custom Overlays</a> page (search, sort, live previews, <strong>Duplicate</strong>, copy OBS URL). Each overlay is one Browser Source at its canvas size (default 1920×1080).
+                Build your own overlays on a free-form canvas in the <a href="/custom-overlay-editor.html" style="color:var(--accent);">Custom Overlay Editor</a>: text, random text pools, sanitized Markdown, images, video (HTML5 and YouTube), web embeds, QR codes, icons, geometric shapes, camera cutouts / punchouts, progress bars and rings, game lists, alert boxes, slideshows, pattern tiles, and WebGL retro shaders (CRT, scanlines, TV static). Manage them on the <a href="/custom-overlays.html" style="color:var(--accent);">Custom Overlays</a> page (search, sort, live previews, <strong>Duplicate</strong>, copy OBS URL). Each overlay is one Browser Source at its canvas size (default 1920×1080).
             </div>
             <div class="detail-label">OBS URL</div>
             <div class="url-box"><code>${BASE}/custom-overlay.html?id=my-overlay</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/custom-overlay.html?id=my-overlay')">Copy</button></div>
@@ -900,7 +900,7 @@
                 <li>Drag, drop or <strong>paste</strong> (Ctrl/⌘+V) images and videos onto the canvas to upload them automatically</li>
                 <li>Every save keeps a revision; use <strong>History</strong> to restore one into the editor</li>
                 <li>Ctrl/⌘+C / V / D copy, paste and duplicate elements; Ctrl/⌘+G groups</li>
-                <li>The <strong>Filters</strong> section (every layer except embeds) adds blur, brightness, contrast, saturation, grayscale, duotone and presets; color tint is for images, video and slideshows</li>
+                <li>The <strong>Filters</strong> section adds blur, brightness, contrast, saturation, grayscale, duotone, retro CRT shaders, and color tints</li>
             </ul></div>
     </div>    <div class="card open">
         <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
