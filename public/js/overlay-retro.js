@@ -534,10 +534,14 @@
 
             // 10. LCD Display Layer: 4-Shade Palettes & Sub-pixel Grid
             if (u_displayMode == 2) {
-                // LCD Liquid Crystal Response Persistence / Ghosting
+                // LCD Liquid Crystal Response Persistence & Directional Smear
                 if (u_lcdGhosting > 0.001) {
-                    vec4 ghostCol = sampleMedia(vec2(uv.x - u_lcdGhosting * 0.008, uv.y));
-                    col.rgb = mix(col.rgb, ghostCol.rgb, u_lcdGhosting * 0.45);
+                    float gOffset = (u_lcdGhosting * 22.0) / u_res.x;
+                    vec4 gH1 = sampleMedia(vec2(uv.x - gOffset * 0.45, uv.y));
+                    vec4 gH2 = sampleMedia(vec2(uv.x - gOffset, uv.y));
+                    vec4 gV = sampleMedia(vec2(uv.x, uv.y + (u_lcdGhosting * 10.0) / u_res.y));
+                    vec3 gColor = mix(mix(gH1.rgb, gH2.rgb, 0.5), gV.rgb, 0.25);
+                    col.rgb = mix(col.rgb, gColor, u_lcdGhosting * 0.50);
                 }
 
                 // Authentic Handheld LCD Palettes (4-shade quantization)
@@ -942,8 +946,18 @@
         // Copy rendered result to destination 2D canvas
         const ctx2d = destCanvas.getContext('2d');
         if (ctx2d) {
-            ctx2d.clearRect(0, 0, w, h);
-            ctx2d.drawImage(glCanvas, 0, 0, w, h);
+            const isVideo = sourceMedia && sourceMedia.tagName === 'VIDEO';
+            if (isVideo && retro.display === 'lcd' && retro.lcdGhosting > 0 && destCanvas._hasDrawn) {
+                // Liquid crystal temporal persistence decay trail across video frames
+                const persistence = Math.min(0.85, retro.lcdGhosting);
+                ctx2d.globalAlpha = 1.0 - persistence * 0.65;
+                ctx2d.drawImage(glCanvas, 0, 0, w, h);
+                ctx2d.globalAlpha = 1.0;
+            } else {
+                ctx2d.clearRect(0, 0, w, h);
+                ctx2d.drawImage(glCanvas, 0, 0, w, h);
+                destCanvas._hasDrawn = true;
+            }
         }
 
         return true;
@@ -1036,6 +1050,7 @@
         if (canvas.width !== w || canvas.height !== h) {
             canvas.width = w;
             canvas.height = h;
+            canvas._hasDrawn = false;
         }
 
         const isImage = element.type === 'image';
@@ -1093,6 +1108,7 @@
     function cleanup(node) {
         if (!node) return;
         if (node._retroCanvas) {
+            node._retroCanvas._hasDrawn = false;
             node._retroCanvas.remove();
             node._retroCanvas = null;
         }
