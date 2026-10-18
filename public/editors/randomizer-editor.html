@@ -437,6 +437,208 @@
             z-index: 9999;
         }
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* Weighting & Persistence UI */
+        .weight-section {
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: .75rem .85rem;
+            display: flex;
+            flex-direction: column;
+            gap: .65rem;
+        }
+        .weight-mode-nav {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 2px;
+            gap: 2px;
+        }
+        .weight-mode-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .35rem;
+            padding: .35rem .25rem;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: .72rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all .15s ease;
+        }
+        .weight-mode-btn:hover {
+            color: var(--text);
+            background: rgba(255,255,255,0.03);
+        }
+        .weight-mode-btn.active {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+        }
+        .weight-settings-bar {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            flex-wrap: wrap;
+            padding-top: .4rem;
+            border-top: 1px dashed var(--border);
+        }
+        .weight-settings-bar label {
+            display: flex;
+            align-items: center;
+            gap: .35rem;
+            font-size: .72rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .weight-settings-bar input[type="number"] {
+            width: 52px;
+            padding: .2rem .35rem;
+            font-size: .75rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            text-align: center;
+        }
+
+        /* Choices Table View */
+        .choices-table-wrap {
+            max-height: 280px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-inset);
+        }
+        .choices-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .78rem;
+        }
+        .choices-table th {
+            position: sticky;
+            top: 0;
+            background: var(--bg-card);
+            color: var(--text-muted);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: .68rem;
+            letter-spacing: .04em;
+            padding: .4rem .6rem;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            z-index: 2;
+        }
+        .choices-table td {
+            padding: .35rem .6rem;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            vertical-align: middle;
+        }
+        .choices-table tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
+        .choices-table tr.winner-row td {
+            background: color-mix(in srgb, var(--accent) 12%, transparent);
+        }
+        .choice-name-input {
+            width: 100%;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text);
+            font: inherit;
+            padding: .2rem .35rem;
+            border-radius: 4px;
+        }
+        .choice-name-input:focus {
+            background: var(--bg-card);
+            border-color: var(--accent);
+            outline: none;
+        }
+        .weight-stepper {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1px;
+        }
+        .weight-stepper button {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            width: 22px;
+            height: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: .8rem;
+            font-weight: 700;
+        }
+        .weight-stepper button:hover {
+            color: var(--text);
+            background: var(--bg-raised);
+        }
+        .weight-stepper input {
+            width: 44px;
+            background: transparent;
+            border: none;
+            text-align: center;
+            color: var(--text);
+            font-weight: 700;
+            font-size: .76rem;
+            outline: none;
+        }
+        .prob-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            padding: .15rem .45rem;
+            border-radius: 999px;
+            font-size: .68rem;
+            font-weight: 700;
+            background: color-mix(in srgb, var(--accent) 15%, transparent);
+            color: var(--accent);
+            border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+        }
+        .prob-badge.high {
+            background: color-mix(in srgb, #10b981 18%, transparent);
+            color: #10b981;
+            border-color: color-mix(in srgb, #10b981 35%, transparent);
+        }
+        .prob-badge.low {
+            background: rgba(255,255,255,0.04);
+            color: var(--text-muted);
+            border-color: var(--border);
+        }
+        .choice-del-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: .25rem;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .choice-del-btn:hover {
+            color: var(--danger, #ef4444);
+            background: rgba(239, 68, 68, 0.1);
+        }
+        .add-choice-row {
+            display: flex;
+            gap: .4rem;
+            margin-top: .4rem;
+        }
     </style>
 </head>
 <body>
@@ -507,13 +709,96 @@
                         </label>
                     </div>
 
-                    <label class="f">
-                        <span style="display:flex; justify-content:space-between; align-items:center;">
-                            Choices Pool (One per line)
-                            <span class="meta-pill" id="choices-count-pill">0 choices</span>
-                        </span>
-                        <textarea id="choices-textarea" rows="10" placeholder="Enter choices, one per line..."></textarea>
-                    </label>
+                    <!-- Weighting & Persistence Mode -->
+                    <div class="weight-section">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-muted);">Weighting &amp; Persistence</span>
+                            <span id="weight-mode-pill" class="meta-pill">Equal (1x)</span>
+                        </div>
+                        <div class="weight-mode-nav" role="tablist">
+                            <button type="button" class="weight-mode-btn active" data-mode="equal" id="wmode-equal" title="Every choice has an equal 1x chance">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 9h14M5 15h14"/></svg>
+                                Equal
+                            </button>
+                            <button type="button" class="weight-mode-btn" data-mode="manual" id="wmode-manual" title="Set individual static weights per choice">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+                                Manual
+                            </button>
+                            <button type="button" class="weight-mode-btn" data-mode="growth" id="wmode-growth" title="Pity Mode: Unchosen choices gain weight each spin; winner resets">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                                Growth
+                            </button>
+                            <button type="button" class="weight-mode-btn" data-mode="momentum" id="wmode-momentum" title="Hot Streak: Chosen winner gains more weight each spin">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                                Momentum
+                            </button>
+                        </div>
+                        <div class="weight-settings-bar" id="weight-settings-bar" style="display:none;">
+                            <label title="Weight added per spin">
+                                <span>Step:</span>
+                                <input type="number" id="weight-step-input" min="0.1" max="100" step="0.5" value="1">
+                            </label>
+                            <label title="Maximum weight cap for any choice">
+                                <span>Max Cap:</span>
+                                <input type="number" id="weight-max-input" min="1" max="1000" step="1" value="20">
+                            </label>
+                            <label title="Base baseline weight">
+                                <span>Base:</span>
+                                <input type="number" id="weight-base-input" min="0.1" max="100" step="0.5" value="1">
+                            </label>
+                            <button type="button" class="btn small" id="btn-reset-weights" title="Reset all choices back to base weight" style="margin-left:auto;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                Reset Weights
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Choices Pool (Toggle between Table with weights and Raw textarea) -->
+                    <div style="display:flex; flex-direction:column; gap:.35rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:.76rem; font-weight:600; color:var(--text-muted); display:flex; align-items:center; gap:.4rem;">
+                                Choices Pool
+                                <span class="meta-pill" id="choices-count-pill">0 choices</span>
+                            </span>
+                            <div class="pill-toggle">
+                                <button type="button" class="active" id="btn-view-table">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:3px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>Table
+                                </button>
+                                <button type="button" id="btn-view-raw">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:3px;"><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="12" x2="3" y2="12"/><line x1="21" y1="18" x2="3" y2="18"/></svg>Raw Text
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Table View -->
+                        <div id="choices-table-container">
+                            <div class="choices-table-wrap">
+                                <table class="choices-table" id="choices-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Choice</th>
+                                            <th style="width:110px; text-align:center;">Weight</th>
+                                            <th style="width:85px; text-align:center;">Win Odds</th>
+                                            <th style="width:34px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="choices-table-body"></tbody>
+                                </table>
+                            </div>
+                            <div class="add-choice-row">
+                                <input type="text" id="new-choice-input" placeholder="Type new choice and press Enter..." style="flex:1; padding:.35rem .6rem; font-size:.8rem; background:var(--bg-inset); border:1px solid var(--border); border-radius:6px; color:var(--text);">
+                                <button type="button" class="btn small" id="btn-add-choice">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Raw Textarea View -->
+                        <div id="choices-raw-container" style="display:none;">
+                            <textarea id="choices-textarea" rows="10" placeholder="Enter choices, one per line (optional format: Option : weight)..." style="width:100%; padding:.45rem .65rem; background:var(--bg-inset); border:1px solid var(--border); border-radius:6px; color:var(--text); font:inherit; font-size:.82rem;"></textarea>
+                        </div>
+                    </div>
 
                     <label class="f">
                         <span>Winner Banner Title</span>
@@ -1369,18 +1654,286 @@
             c.onclick = () => setAccentColor(c.dataset.color);
         });
 
-        // Choice Management
-        function setChoices(newChoices) {
+        // Choice Management, Weighting & Persistence Mode
+        let currentWeightMode = 'equal'; // 'equal' | 'manual' | 'growth' | 'momentum'
+        let currentWeightSettings = { step: 1, max: 20, base: 1 };
+        let currentWeightsMap = {};
+        let currentChoiceStats = {};
+        let choicesViewMode = 'table'; // 'table' | 'raw'
+
+        function getWeightSettings() {
+            return {
+                step: Math.max(0.1, Number($('weight-step-input')?.value) || 1),
+                max: Math.max(1, Number($('weight-max-input')?.value) || 20),
+                base: Math.max(0.1, Number($('weight-base-input')?.value) || 1)
+            };
+        }
+
+        function getClientEffectiveWeights(choicesList = choices) {
+            const mode = currentWeightMode || 'equal';
+            const settings = currentWeightSettings || { step: 1, max: 20, base: 1 };
+            const defaultBase = settings.base || 1;
+            const weights = {};
+            let total = 0;
+            for (const c of choicesList) {
+                let w = 1;
+                const baseW = (currentWeightsMap[c] != null && !isNaN(Number(currentWeightsMap[c]))) ? Number(currentWeightsMap[c]) : defaultBase;
+                if (mode === 'equal') {
+                    w = 1;
+                } else if (mode === 'manual') {
+                    w = Math.max(0.01, baseW);
+                } else if (mode === 'growth' || mode === 'momentum') {
+                    if (currentChoiceStats[c]?.effectiveWeight != null) {
+                        w = Math.max(0.01, Number(currentChoiceStats[c].effectiveWeight));
+                    } else {
+                        w = Math.max(0.01, baseW);
+                    }
+                }
+                weights[c] = Math.round(w * 100) / 100;
+                total += weights[c];
+            }
+            return { weights, totalWeight: Math.round(total * 100) / 100, mode };
+        }
+
+        function parseRawChoicesFromTextarea() {
+            if (!$('choices-textarea')) return { choices, weights: currentWeightsMap };
+            const lines = $('choices-textarea').value.split('\n');
+            const parsedChoices = [];
+            const parsedWeights = {};
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                const match = trimmed.match(/^(.+?)\s*[:=]\s*(\d+(?:\.\d+)?)$/);
+                if (match) {
+                    const name = match[1].trim();
+                    const w = parseFloat(match[2]);
+                    if (name) {
+                        parsedChoices.push(name);
+                        if (!isNaN(w) && w > 0) parsedWeights[name] = w;
+                    }
+                } else {
+                    parsedChoices.push(trimmed);
+                }
+            }
+            return { choices: parsedChoices, weights: parsedWeights };
+        }
+
+        function syncChoicesToTextarea() {
+            if (!$('choices-textarea')) return;
+            if (currentWeightMode === 'manual') {
+                const lines = choices.map(c => {
+                    const w = currentWeightsMap[c];
+                    if (w != null && Number(w) !== 1) {
+                        return `${c} : ${w}`;
+                    }
+                    return c;
+                });
+                $('choices-textarea').value = lines.join('\n');
+            } else {
+                $('choices-textarea').value = choices.join('\n');
+            }
+        }
+
+        function getActiveWeightsMap() {
+            if (choicesViewMode === 'raw' && $('choices-textarea')) {
+                const { weights } = parseRawChoicesFromTextarea();
+                return { ...currentWeightsMap, ...weights };
+            }
+            return currentWeightsMap;
+        }
+
+        function renderChoicesTable() {
+            const tbody = $('choices-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const list = choices;
+            const { weights: effWeights, totalWeight, mode } = getClientEffectiveWeights(list);
+
+            if ($('choices-count-pill')) {
+                $('choices-count-pill').textContent = `${list.length} choices`;
+            }
+
+            if (!list.length) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="4" style="text-align:center; padding:1.5rem; color:var(--text-muted); font-size:.8rem;">No choices yet. Add one below or switch to Raw Text.</td>`;
+                tbody.appendChild(tr);
+                return;
+            }
+
+            const avgProb = totalWeight > 0 ? (100 / list.length) : 0;
+
+            list.forEach((c, idx) => {
+                const tr = document.createElement('tr');
+                const effW = effWeights[c] != null ? effWeights[c] : 1;
+                const baseW = currentWeightsMap[c] != null ? currentWeightsMap[c] : (currentWeightSettings.base || 1);
+                const prob = totalWeight > 0 ? ((effW / totalWeight) * 100).toFixed(1) : (100 / list.length).toFixed(1);
+
+                const probClass = Number(prob) > avgProb * 1.25 ? 'high' : (Number(prob) < avgProb * 0.75 ? 'low' : '');
+
+                // Choice name td
+                const tdName = document.createElement('td');
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.className = 'choice-name-input';
+                nameInput.value = c;
+                nameInput.onchange = (e) => {
+                    const newName = e.target.value.trim();
+                    if (!newName) {
+                        renderChoicesTable();
+                        return;
+                    }
+                    if (newName !== c) {
+                        choices[idx] = newName;
+                        if (currentWeightsMap[c] != null) {
+                            currentWeightsMap[newName] = currentWeightsMap[c];
+                            delete currentWeightsMap[c];
+                        }
+                        if (currentChoiceStats[c]) {
+                            currentChoiceStats[newName] = currentChoiceStats[c];
+                            delete currentChoiceStats[c];
+                        }
+                        syncChoicesToTextarea();
+                        renderChoicesTable();
+                        drawWheel(0, choices);
+                    }
+                };
+                tdName.appendChild(nameInput);
+                tr.appendChild(tdName);
+
+                // Weight control td
+                const tdWeight = document.createElement('td');
+                tdWeight.style.textAlign = 'center';
+
+                if (mode === 'equal') {
+                    tdWeight.innerHTML = `<span style="color:var(--text-muted); font-size:.74rem; font-weight:600;">1.0&times;</span>`;
+                } else {
+                    const stepper = document.createElement('div');
+                    stepper.className = 'weight-stepper';
+                    const btnMinus = document.createElement('button');
+                    btnMinus.type = 'button';
+                    btnMinus.textContent = '-';
+                    btnMinus.title = 'Decrease weight';
+                    btnMinus.onclick = () => {
+                        const cur = Number(baseW);
+                        const step = currentWeightSettings.step || 1;
+                        const next = Math.max(0.1, Math.round((cur - step) * 10) / 10);
+                        currentWeightsMap[c] = next;
+                        if (currentChoiceStats[c]) currentChoiceStats[c].effectiveWeight = next;
+                        renderChoicesTable();
+                        syncChoicesToTextarea();
+                        drawWheel(0, choices);
+                    };
+
+                    const wInput = document.createElement('input');
+                    wInput.type = 'number';
+                    wInput.min = '0.1';
+                    wInput.max = '1000';
+                    wInput.step = String(currentWeightSettings.step || 1);
+                    wInput.value = baseW;
+                    wInput.onchange = (e) => {
+                        const val = Math.max(0.1, Number(e.target.value) || 1);
+                        currentWeightsMap[c] = val;
+                        if (currentChoiceStats[c]) currentChoiceStats[c].effectiveWeight = val;
+                        renderChoicesTable();
+                        syncChoicesToTextarea();
+                        drawWheel(0, choices);
+                    };
+
+                    const btnPlus = document.createElement('button');
+                    btnPlus.type = 'button';
+                    btnPlus.textContent = '+';
+                    btnPlus.title = 'Increase weight';
+                    btnPlus.onclick = () => {
+                        const cur = Number(baseW);
+                        const step = currentWeightSettings.step || 1;
+                        const next = Math.round((cur + step) * 10) / 10;
+                        currentWeightsMap[c] = next;
+                        if (currentChoiceStats[c]) currentChoiceStats[c].effectiveWeight = next;
+                        renderChoicesTable();
+                        syncChoicesToTextarea();
+                        drawWheel(0, choices);
+                    };
+
+                    stepper.appendChild(btnMinus);
+                    stepper.appendChild(wInput);
+                    stepper.appendChild(btnPlus);
+                    tdWeight.appendChild(stepper);
+
+                    if (mode === 'growth' || mode === 'momentum') {
+                        const statsSpan = document.createElement('div');
+                        statsSpan.style.cssText = 'font-size:.66rem; color:var(--text-muted); margin-top:2px;';
+                        const picks = currentChoiceStats[c]?.picks || 0;
+                        const unpicked = currentChoiceStats[c]?.unpickedSpins || 0;
+                        statsSpan.textContent = `Eff: ${effW}x (${picks} wins, ${unpicked} missed)`;
+                        tdWeight.appendChild(statsSpan);
+                    }
+                }
+                tr.appendChild(tdWeight);
+
+                // Win Odds td
+                const tdProb = document.createElement('td');
+                tdProb.style.textAlign = 'center';
+                tdProb.innerHTML = `<span class="prob-badge ${probClass}">${prob}%</span>`;
+                tr.appendChild(tdProb);
+
+                // Delete choice td
+                const tdDel = document.createElement('td');
+                const delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'choice-del-btn';
+                delBtn.title = `Remove "${c}"`;
+                delBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+                delBtn.onclick = () => {
+                    choices.splice(idx, 1);
+                    delete currentWeightsMap[c];
+                    delete currentChoiceStats[c];
+                    syncChoicesToTextarea();
+                    renderChoicesTable();
+                    drawWheel(0, choices);
+                };
+                tdDel.appendChild(delBtn);
+                tr.appendChild(tdDel);
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateWeightControlsUI() {
+            document.querySelectorAll('.weight-mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === currentWeightMode);
+            });
+            const pill = $('weight-mode-pill');
+            if (pill) {
+                if (currentWeightMode === 'equal') pill.textContent = 'Equal (1x)';
+                else if (currentWeightMode === 'manual') pill.textContent = 'Manual Weights';
+                else if (currentWeightMode === 'growth') pill.textContent = 'Pity / Growth Mode';
+                else if (currentWeightMode === 'momentum') pill.textContent = 'Momentum Mode';
+            }
+            const settingsBar = $('weight-settings-bar');
+            if (settingsBar) {
+                settingsBar.style.display = (currentWeightMode === 'growth' || currentWeightMode === 'momentum') ? 'flex' : 'none';
+            }
+            if ($('weight-step-input')) $('weight-step-input').value = currentWeightSettings.step || 1;
+            if ($('weight-max-input')) $('weight-max-input').value = currentWeightSettings.max || 20;
+            if ($('weight-base-input')) $('weight-base-input').value = currentWeightSettings.base || 1;
+            renderChoicesTable();
+        }
+
+        function setChoices(newChoices, weights = null, stats = null, mode = null) {
             choices = newChoices.map(c => c.trim()).filter(Boolean);
-            if ($('choices-textarea')) $('choices-textarea').value = choices.join('\n');
-            if ($('choices-count-pill')) $('choices-count-pill').textContent = `${choices.length} choices`;
+            if (weights) currentWeightsMap = { ...weights };
+            if (stats) currentChoiceStats = { ...stats };
+            if (mode) currentWeightMode = mode;
+            syncChoicesToTextarea();
+            renderChoicesTable();
             updateObsUrl();
             renderInitialState();
         }
 
         function getChoices() {
-            if ($('choices-textarea')) {
-                return $('choices-textarea').value.split('\n').map(c => c.trim()).filter(Boolean);
+            if (choicesViewMode === 'raw' && $('choices-textarea')) {
+                return parseRawChoicesFromTextarea().choices;
             }
             return choices;
         }
@@ -1507,19 +2060,49 @@
             track.style.transform = `translateY(${centerOffset - 4 * 56}px)`;
         }
 
-        function drawWheel(rotationRad = 0, list) {
+        function drawWheel(rotationRad = 0, list = getChoices(), weightsMap = null) {
             const canvas = $('wheel-canvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
             const n = Math.max(1, list.length);
-            const cx = canvas.width / 2;
-            const cy = canvas.height / 2;
-            const radius = cx - 14;
-            const sliceRad = (Math.PI * 2) / n;
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+            // Dynamic High-DPI Resolution Buffer
             const stage = $('display-stage');
+            const dpr = Math.max(1, window.devicePixelRatio || 1);
+            const stageScale = parseFloat(stage?.style.getPropertyValue('--stage-scale')) || 1;
+            const cssWidth = canvas.clientWidth || 340;
+            const targetRes = Math.max(1160, Math.min(3200, Math.round(Math.max(580, cssWidth) * dpr * Math.max(1, stageScale))));
+            if (canvas.width !== targetRes || canvas.height !== targetRes) {
+                canvas.width = targetRes;
+                canvas.height = targetRes;
+            }
+
+            const logicalSize = 580;
+            const resScale = canvas.width / logicalSize;
+            const cx = logicalSize / 2;
+            const cy = logicalSize / 2;
+            const radius = cx - 14;
+
+            ctx.save();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.scale(resScale, resScale);
+
+            // Compute slice angular distribution based on weights
+            const effWeights = weightsMap || getClientEffectiveWeights(list).weights;
+            let totalWeight = 0;
+            const sliceWeights = list.map(c => {
+                const w = (effWeights && effWeights[c] != null && Number(effWeights[c]) > 0) ? Number(effWeights[c]) : 1;
+                totalWeight += w;
+                return w;
+            });
+            if (totalWeight <= 0) totalWeight = n;
+
+            const sliceSpans = sliceWeights.map(w => (w / totalWeight) * (Math.PI * 2));
+            const cumulativeAngles = [0];
+            for (let i = 0; i < n; i++) {
+                cumulativeAngles.push(cumulativeAngles[i] + sliceSpans[i]);
+            }
+
             const accent = stage?.style.getPropertyValue('--stage-accent') || '#8b5cf6';
             const colors = (currentThemeSlices && currentThemeSlices.length) ? currentThemeSlices : [
                 accent, '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#f43f5e', '#eab308'
@@ -1535,8 +2118,9 @@
             ctx.rotate(rotationRad);
 
             for (let i = 0; i < n; i++) {
-                const start = i * sliceRad;
-                const end = start + sliceRad;
+                const start = cumulativeAngles[i];
+                const span = sliceSpans[i];
+                const end = start + span;
 
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
@@ -1548,18 +2132,19 @@
                 ctx.stroke();
 
                 ctx.save();
-                ctx.rotate(start + sliceRad / 2);
+                ctx.rotate(start + span / 2);
                 ctx.textAlign = 'right';
 
-                const fontSize = Math.max(12, Math.min(18, 380 / n));
+                const sliceDegrees = (span / (Math.PI * 2)) * 360;
+                const fontSize = Math.max(10, Math.min(20, Math.round(Math.min(380 / n, sliceDegrees * 0.75 + 7))));
                 ctx.font = `${fontWeight} ${fontSize}px ${fontFam}`;
 
                 const label = list[i] || '';
                 const textX = radius - 18;
-                const textY = 5;
+                const textY = Math.round(fontSize * 0.35);
 
                 if (textOutline && textOutline !== 'none' && textOutline !== 'transparent') {
-                    ctx.lineWidth = 3;
+                    ctx.lineWidth = 3.5;
                     ctx.strokeStyle = textOutline;
                     ctx.strokeText(label.slice(0, 24), textX, textY);
                 }
@@ -1572,11 +2157,13 @@
             }
 
             ctx.restore();
+            ctx.restore();
         }
 
         // Spin Animation Execution
         async function runSpin({
             choices: list = getChoices(),
+            weights: weightsMap = null,
             winner = null,
             winnerHeader = null,
             winnerSub = null,
@@ -1606,8 +2193,26 @@
                 winnerIdx = list.findIndex(c => c.toLowerCase() === String(winner).toLowerCase());
             }
             if (winnerIdx === -1) {
-                winnerIdx = Math.floor(Math.random() * list.length);
-                winner = list[winnerIdx];
+                const eff = weightsMap || getClientEffectiveWeights(list).weights;
+                let total = 0;
+                const entries = list.map((c, i) => {
+                    const w = eff[c] != null ? Number(eff[c]) : 1;
+                    total += w;
+                    return { choice: c, index: i, weight: w };
+                });
+                let rnd = Math.random() * total;
+                for (const e of entries) {
+                    if (rnd < e.weight) {
+                        winnerIdx = e.index;
+                        winner = e.choice;
+                        break;
+                    }
+                    rnd -= e.weight;
+                }
+                if (winnerIdx === -1) {
+                    winnerIdx = 0;
+                    winner = list[0];
+                }
             }
 
             const totalDurationMs = Math.max(3000, duration * 1000);
@@ -1734,8 +2339,22 @@
                 $('roller-view').style.display = 'none';
                 $('wheel-view').style.display = 'flex';
 
+                const effWeights = weightsMap || getClientEffectiveWeights(list).weights;
                 const n = list.length;
-                const sliceRad = (Math.PI * 2) / n;
+                let totalWeight = 0;
+                const sliceWeights = list.map(c => {
+                    const w = (effWeights && effWeights[c] != null && Number(effWeights[c]) > 0) ? Number(effWeights[c]) : 1;
+                    totalWeight += w;
+                    return w;
+                });
+                if (totalWeight <= 0) totalWeight = n;
+
+                const sliceSpans = sliceWeights.map(w => (w / totalWeight) * (Math.PI * 2));
+                const cumulativeAngles = [0];
+                for (let i = 0; i < n; i++) {
+                    cumulativeAngles.push(cumulativeAngles[i] + sliceSpans[i]);
+                }
+
                 let targetIdxInList = winnerIdx;
                 let nudgeSteps = 0;
 
@@ -1744,14 +2363,14 @@
                     targetIdxInList = (winnerIdx - nudgeSteps + list.length * 1000) % list.length;
                 }
 
-                const targetSliceCenter = targetIdxInList * sliceRad + sliceRad / 2;
+                const targetSliceCenter = cumulativeAngles[targetIdxInList] + sliceSpans[targetIdxInList] / 2;
                 const normalizedTarget = (Math.PI * 1.5 - targetSliceCenter) % (Math.PI * 2);
                 const positiveTarget = (normalizedTarget + Math.PI * 2) % (Math.PI * 2);
                 const extraRotations = 6 * Math.PI * 2;
                 const totalRotation = extraRotations + positiveTarget;
 
                 const startAt = performance.now();
-                let lastSliceIdx = -1;
+                let lastTickKey = -1;
 
                 function stepWheel(now) {
                     const elapsed = now - startAt;
@@ -1759,11 +2378,21 @@
                     const ease = 1 - Math.pow(1 - progress, 3.8);
                     const currentRot = ease * totalRotation;
 
-                    drawWheel(currentRot, list);
+                    drawWheel(currentRot, list, effWeights);
 
-                    const slicePassed = Math.floor((currentRot / sliceRad));
-                    if (slicePassed !== lastSliceIdx) {
-                        lastSliceIdx = slicePassed;
+                    const localAngle = (Math.PI * 1.5 - (currentRot % (Math.PI * 2)) + Math.PI * 4) % (Math.PI * 2);
+                    let curSlice = 0;
+                    for (let s = 0; s < n; s++) {
+                        if (localAngle >= cumulativeAngles[s] && localAngle < cumulativeAngles[s + 1]) {
+                            curSlice = s;
+                            break;
+                        }
+                    }
+                    const fullRevs = Math.floor(currentRot / (Math.PI * 2));
+                    const tickKey = fullRevs * n + curSlice;
+
+                    if (tickKey !== lastTickKey) {
+                        lastTickKey = tickKey;
                         AudioFX.tick(Math.max(0.35, 1 - progress * 0.65));
                         const ptr = $('wheel-pointer');
                         if (ptr) {
@@ -1775,7 +2404,7 @@
                     if (progress < 1) {
                         requestAnimationFrame(stepWheel);
                     } else {
-                        drawWheel(totalRotation, list);
+                        drawWheel(totalRotation, list, effWeights);
 
                         if (isTricky) {
                             setTimeout(() => {
@@ -1783,8 +2412,13 @@
                                 function doWheelNudge() {
                                     if (curNudge < nudgeSteps) {
                                         curNudge++;
-                                        const nudgeRot = totalRotation + curNudge * sliceRad;
-                                        drawWheel(nudgeRot, list);
+                                        const curNudgeTargetIdx = (targetIdxInList + curNudge) % list.length;
+                                        const nudgeSliceCenter = cumulativeAngles[curNudgeTargetIdx] + sliceSpans[curNudgeTargetIdx] / 2;
+                                        const nudgeNorm = (Math.PI * 1.5 - nudgeSliceCenter) % (Math.PI * 2);
+                                        const nudgePos = (nudgeNorm + Math.PI * 2) % (Math.PI * 2);
+                                        const nudgeRot = extraRotations + nudgePos;
+
+                                        drawWheel(nudgeRot, list, effWeights);
                                         AudioFX.tick(0.45);
                                         const ptr = $('wheel-pointer');
                                         if (ptr) {
@@ -1813,6 +2447,37 @@
             isSpinning = false;
             if ($('btn-spin')) $('btn-spin').disabled = false;
             
+            // Persistence update in studio mode
+            if (currentWeightMode === 'growth' || currentWeightMode === 'momentum') {
+                const step = currentWeightSettings.step || 1;
+                const max = currentWeightSettings.max || 20;
+                const base = currentWeightSettings.base || 1;
+                choices.forEach(c => {
+                    const isWinner = c.toLowerCase() === String(winner).toLowerCase();
+                    const baseW = currentWeightsMap[c] != null ? Number(currentWeightsMap[c]) : base;
+                    if (!currentChoiceStats[c]) currentChoiceStats[c] = { picks: 0, unpickedSpins: 0, effectiveWeight: baseW };
+                    if (currentWeightMode === 'growth') {
+                        if (isWinner) {
+                            currentChoiceStats[c].picks = (currentChoiceStats[c].picks || 0) + 1;
+                            currentChoiceStats[c].unpickedSpins = 0;
+                            currentChoiceStats[c].effectiveWeight = baseW;
+                        } else {
+                            currentChoiceStats[c].unpickedSpins = (currentChoiceStats[c].unpickedSpins || 0) + 1;
+                            currentChoiceStats[c].effectiveWeight = Math.round(Math.min(max, (currentChoiceStats[c].effectiveWeight || baseW) + step) * 100) / 100;
+                        }
+                    } else if (currentWeightMode === 'momentum') {
+                        if (isWinner) {
+                            currentChoiceStats[c].picks = (currentChoiceStats[c].picks || 0) + 1;
+                            currentChoiceStats[c].unpickedSpins = 0;
+                            currentChoiceStats[c].effectiveWeight = Math.round(Math.min(max, (currentChoiceStats[c].effectiveWeight || baseW) + step) * 100) / 100;
+                        } else {
+                            currentChoiceStats[c].unpickedSpins = (currentChoiceStats[c].unpickedSpins || 0) + 1;
+                        }
+                    }
+                });
+                renderChoicesTable();
+            }
+
             let headerText = customHeader || $('winner-header-input')?.value.trim() || 'THE UNIVERSE HAS DECIDED';
 
             let subText = customSub;
@@ -1895,7 +2560,12 @@
             if (matched) {
                 if (currentPresetId !== matched.id && $('preset-select')) $('preset-select').value = matched.id;
                 currentPresetId = matched.id;
-                setChoices(matched.choices || []);
+                currentWeightMode = matched.weightMode || 'equal';
+                currentWeightSettings = matched.weightSettings || { step: 1, max: 20, base: 1 };
+                currentWeightsMap = matched.weights || {};
+                currentChoiceStats = matched.choiceStats || {};
+                updateWeightControlsUI();
+                setChoices(matched.choices || [], currentWeightsMap, currentChoiceStats, currentWeightMode);
                 if ($('winner-header-input')) {
                     if (!isInitialLoad || !savedStudio?.winnerHeader) {
                         $('winner-header-input').value = matched.winnerHeader || 'THE UNIVERSE HAS DECIDED';
@@ -1913,16 +2583,27 @@
                 }
             } else if (selVal === 'chatters') {
                 if ($('preset-select')) $('preset-select').value = 'chatters';
+                currentWeightMode = 'equal';
+                updateWeightControlsUI();
                 loadChatters();
             } else if (selVal === 'variables') {
                 if ($('preset-select')) $('preset-select').value = 'variables';
+                currentWeightMode = 'equal';
+                updateWeightControlsUI();
                 loadVariables();
             } else if (presetsList.length) {
                 const fallback = presetsList[0];
                 currentPresetId = fallback.id;
                 if ($('preset-select')) $('preset-select').value = fallback.id;
-                setChoices(fallback.choices || []);
+                currentWeightMode = fallback.weightMode || 'equal';
+                currentWeightSettings = fallback.weightSettings || { step: 1, max: 20, base: 1 };
+                currentWeightsMap = fallback.weights || {};
+                currentChoiceStats = fallback.choiceStats || {};
+                updateWeightControlsUI();
+                setChoices(fallback.choices || [], currentWeightsMap, currentChoiceStats, currentWeightMode);
             } else {
+                currentWeightMode = 'equal';
+                updateWeightControlsUI();
                 setChoices(DEFAULT_FALLBACK_CHOICES);
             }
             updateObsUrl();
@@ -2209,7 +2890,11 @@
                         choices: currentChoices,
                         winnerHeader: $('winner-header-input')?.value.trim(),
                         buttonPreset: currentBtnPresetId,
-                        quotePreset: currentQuotePresetId
+                        quotePreset: currentQuotePresetId,
+                        weightMode: currentWeightMode,
+                        weightSettings: getWeightSettings(),
+                        weights: getActiveWeightsMap(),
+                        choiceStats: currentChoiceStats
                     })
                 }).then(r => r.json());
                 if (res.ok) {
@@ -2642,15 +3327,139 @@
         };
 
         $('choices-textarea').oninput = () => {
-            const list = getChoices();
-            if ($('choices-count-pill')) $('choices-count-pill').textContent = `${list.length} choices`;
+            const parsed = parseRawChoicesFromTextarea();
+            choices = parsed.choices;
+            currentWeightsMap = { ...currentWeightsMap, ...parsed.weights };
+            if ($('choices-count-pill')) $('choices-count-pill').textContent = `${choices.length} choices`;
             renderInitialState();
             saveStudioState();
+        };
+
+        // View Mode Toggles (Table vs Raw Text)
+        $('btn-view-table').onclick = () => {
+            choicesViewMode = 'table';
+            $('btn-view-table').classList.add('active');
+            $('btn-view-raw').classList.remove('active');
+            $('choices-table-container').style.display = 'block';
+            $('choices-raw-container').style.display = 'none';
+            const parsed = parseRawChoicesFromTextarea();
+            choices = parsed.choices;
+            currentWeightsMap = { ...currentWeightsMap, ...parsed.weights };
+            renderChoicesTable();
+            drawWheel(0, choices);
+        };
+
+        $('btn-view-raw').onclick = () => {
+            choicesViewMode = 'raw';
+            $('btn-view-raw').classList.add('active');
+            $('btn-view-table').classList.remove('active');
+            $('choices-raw-container').style.display = 'block';
+            $('choices-table-container').style.display = 'none';
+            syncChoicesToTextarea();
+        };
+
+        // Weight Mode Selector
+        document.querySelectorAll('.weight-mode-btn').forEach(btn => {
+            btn.onclick = () => {
+                const mode = btn.dataset.mode;
+                currentWeightMode = mode;
+                updateWeightControlsUI();
+                syncChoicesToTextarea();
+                drawWheel(0, choices);
+                updateObsUrl();
+                saveStudioState();
+            };
+        });
+
+        // Weight Setting Inputs
+        ['weight-step-input', 'weight-max-input', 'weight-base-input'].forEach(id => {
+            const el = $(id);
+            if (el) {
+                el.onchange = () => {
+                    currentWeightSettings = getWeightSettings();
+                    renderChoicesTable();
+                    drawWheel(0, choices);
+                    saveStudioState();
+                };
+            }
+        });
+
+        // Reset Weights Button
+        $('btn-reset-weights').onclick = async () => {
+            if (currentPresetId && currentPresetId !== 'chatters' && currentPresetId !== 'variables') {
+                try {
+                    const res = await fetch(`/api/randomizer/presets/${encodeURIComponent(currentPresetId)}/reset-weights`, {
+                        method: 'POST'
+                    }).then(r => r.json());
+                    if (res.ok && res.preset) {
+                        currentChoiceStats = res.preset.choiceStats || {};
+                        currentWeightsMap = res.preset.weights || {};
+                        currentWeightMode = res.preset.weightMode || currentWeightMode;
+                    }
+                } catch {}
+            }
+            const base = currentWeightSettings.base || 1;
+            choices.forEach(c => {
+                const b = currentWeightsMap[c] != null ? Number(currentWeightsMap[c]) : base;
+                currentChoiceStats[c] = { picks: 0, unpickedSpins: 0, effectiveWeight: b };
+            });
+            renderChoicesTable();
+            drawWheel(0, choices);
+            toast('Weights reset to baseline');
+        };
+
+        // Add Choice Button & Enter Key
+        function handleAddChoice() {
+            const input = $('new-choice-input');
+            if (!input) return;
+            const val = input.value.trim();
+            if (!val) return;
+            const match = val.match(/^(.+?)\s*[:=]\s*(\d+(?:\.\d+)?)$/);
+            let name = val;
+            let w = currentWeightSettings.base || 1;
+            if (match) {
+                name = match[1].trim();
+                w = parseFloat(match[2]) || w;
+            }
+            if (name) {
+                choices.push(name);
+                currentWeightsMap[name] = w;
+                currentChoiceStats[name] = { picks: 0, unpickedSpins: 0, effectiveWeight: w };
+                input.value = '';
+                syncChoicesToTextarea();
+                renderChoicesTable();
+                drawWheel(0, choices);
+                updateObsUrl();
+                saveStudioState();
+            }
+        }
+        $('btn-add-choice').onclick = handleAddChoice;
+        $('new-choice-input').onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAddChoice();
+            }
         };
 
         $('btn-spin').onpointerenter = () => {
             if (currentBtnPresetId !== 'static') updateButtonLabel();
         };
+
+        function pickWeightedWinnerClient(choicesList, weightsMap) {
+            if (!choicesList || !choicesList.length) return 'Winner';
+            let total = 0;
+            const entries = choicesList.map(c => {
+                const w = (weightsMap && weightsMap[c] != null) ? Number(weightsMap[c]) : 1;
+                total += Math.max(0.01, w);
+                return { choice: c, weight: Math.max(0.01, w) };
+            });
+            let rnd = Math.random() * total;
+            for (const e of entries) {
+                if (rnd < e.weight) return e.choice;
+                rnd -= e.weight;
+            }
+            return entries[entries.length - 1].choice;
+        }
 
         // Primary Live Spin Action (Studio Preview + WebSocket Broadcast to OBS)
         $('btn-spin').onclick = async () => {
@@ -2662,7 +3471,6 @@
             const theme = $('theme-select')?.value || currentTheme;
             const duration = Number($('spin-duration').value) || 6;
             const autohide = Number($('autohide-select').value);
-            const winner = list[Math.floor(Math.random() * list.length)];
             const winHeader = $('winner-header-input')?.value.trim() || 'THE UNIVERSE HAS DECIDED';
 
             let winSub = '';
@@ -2670,18 +3478,9 @@
                 winSub = activeQuotesPool[Math.floor(Math.random() * activeQuotesPool.length)];
             }
 
-            // Trigger in studio monitor
-            runSpin({
-                choices: list,
-                winner,
-                winnerHeader: winHeader,
-                winnerSub: winSub,
-                mode,
-                suspense,
-                theme,
-                duration,
-                autohide
-            });
+            const weightsMap = getActiveWeightsMap();
+            const effWeights = getClientEffectiveWeights(list).weights;
+            const weightSettings = getWeightSettings();
 
             // Broadcast to OBS overlay via API / WebSocket
             try {
@@ -2691,7 +3490,10 @@
                     body: JSON.stringify({
                         preset: currentPresetId,
                         choices: list,
-                        winner,
+                        weightMode: currentWeightMode,
+                        weightSettings,
+                        weights: weightsMap,
+                        choiceStats: currentChoiceStats,
                         winnerHeader: winHeader,
                         winnerSub: winSub,
                         mode,
@@ -2709,10 +3511,49 @@
                         outline: $('ap-outline')?.value.trim() || ''
                     })
                 }).then(r => r.json());
+
+                let selectedWinner = res?.winner;
+                if (!selectedWinner) {
+                    selectedWinner = pickWeightedWinnerClient(list, effWeights);
+                }
+                if (res?.choiceStats) {
+                    currentChoiceStats = res.choiceStats;
+                }
+                if (res?.weights) {
+                    currentWeightsMap = { ...currentWeightsMap, ...res.weights };
+                }
+
+                // Trigger in studio monitor
+                runSpin({
+                    choices: list,
+                    weights: effWeights,
+                    winner: selectedWinner,
+                    winnerHeader: winHeader,
+                    winnerSub: winSub,
+                    mode,
+                    suspense,
+                    theme,
+                    duration,
+                    autohide
+                });
+
                 if (res && res.ok) {
-                    toast(`Spinning live on stream: "${winner}"`);
+                    toast(`Spinning live on stream: "${selectedWinner}"`);
                 }
             } catch {
+                const picked = pickWeightedWinnerClient(list, effWeights);
+                runSpin({
+                    choices: list,
+                    weights: effWeights,
+                    winner: picked,
+                    winnerHeader: winHeader,
+                    winnerSub: winSub,
+                    mode,
+                    suspense,
+                    theme,
+                    duration,
+                    autohide
+                });
                 toast('Spun in studio (server broadcast offline)');
             }
         };
@@ -2745,6 +3586,13 @@
                         const msg = JSON.parse(event.data);
                         if (msg.type === 'randomizer-spin' && msg.data) {
                             const d = msg.data;
+                            if (d.weights) currentWeightsMap = { ...currentWeightsMap, ...d.weights };
+                            if (d.choiceStats) currentChoiceStats = d.choiceStats;
+                            if (d.weightMode) {
+                                currentWeightMode = d.weightMode;
+                                updateWeightControlsUI();
+                            }
+                            renderChoicesTable();
                             if (isSpinning) return;
                             AudioFX.init();
                             if (d.theme) applyTheme(d.theme, true);
@@ -2753,6 +3601,7 @@
                             if (d.mode && d.mode !== currentMode) setStyleMode(d.mode);
                             runSpin({
                                 choices: (Array.isArray(d.choices) && d.choices.length) ? d.choices : choices,
+                                weights: d.weights || currentWeightsMap,
                                 winner: d.winner,
                                 winnerHeader: d.winnerHeader,
                                 winnerSub: d.winnerSub,

@@ -447,6 +447,9 @@
         let currentSuspense = params.get('suspense') || 'normal';
         let showOverlayButton = params.get('button') === '1';
         let choices = [...DEFAULT_FALLBACK_CHOICES];
+        let currentWeights = {};
+        let currentChoiceStats = {};
+        let currentWeightMode = 'equal';
         let activeButtonPhrases = [];
         let activeQuotesPool = [];
         let isSpinning = false;
@@ -751,19 +754,49 @@
             track.style.transform = `translateY(${centerOffset - 4 * 56}px)`;
         }
 
-        function drawWheel(rotationRad = 0, list) {
+        function drawWheel(rotationRad = 0, list = choices, weightsMap = null) {
             const canvas = $('wheel-canvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
             const n = Math.max(1, list.length);
-            const cx = canvas.width / 2;
-            const cy = canvas.height / 2;
-            const radius = cx - 14;
-            const sliceRad = (Math.PI * 2) / n;
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+            // Dynamic High-DPI Resolution Buffer
             const stage = $('display-stage');
+            const dpr = Math.max(1, window.devicePixelRatio || 1);
+            const stageScale = parseFloat(stage?.style.getPropertyValue('--stage-scale')) || 1;
+            const cssWidth = canvas.clientWidth || 400;
+            const targetRes = Math.max(1160, Math.min(3200, Math.round(Math.max(580, cssWidth) * dpr * Math.max(1, stageScale))));
+            if (canvas.width !== targetRes || canvas.height !== targetRes) {
+                canvas.width = targetRes;
+                canvas.height = targetRes;
+            }
+
+            const logicalSize = 580;
+            const resScale = canvas.width / logicalSize;
+            const cx = logicalSize / 2;
+            const cy = logicalSize / 2;
+            const radius = cx - 14;
+
+            ctx.save();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.scale(resScale, resScale);
+
+            // Compute slice angular distribution based on weights
+            const effWeights = weightsMap || currentWeights || {};
+            let totalWeight = 0;
+            const sliceWeights = list.map(c => {
+                const w = (effWeights && effWeights[c] != null && Number(effWeights[c]) > 0) ? Number(effWeights[c]) : 1;
+                totalWeight += w;
+                return w;
+            });
+            if (totalWeight <= 0) totalWeight = n;
+
+            const sliceSpans = sliceWeights.map(w => (w / totalWeight) * (Math.PI * 2));
+            const cumulativeAngles = [0];
+            for (let i = 0; i < n; i++) {
+                cumulativeAngles.push(cumulativeAngles[i] + sliceSpans[i]);
+            }
+
             const accent = stage?.style.getPropertyValue('--stage-accent') || '#8b5cf6';
             const colors = (currentThemeSlices && currentThemeSlices.length) ? currentThemeSlices : [
                 accent, '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#f43f5e', '#eab308'
@@ -779,8 +812,9 @@
             ctx.rotate(rotationRad);
 
             for (let i = 0; i < n; i++) {
-                const start = i * sliceRad;
-                const end = start + sliceRad;
+                const start = cumulativeAngles[i];
+                const span = sliceSpans[i];
+                const end = start + span;
 
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
@@ -792,18 +826,19 @@
                 ctx.stroke();
 
                 ctx.save();
-                ctx.rotate(start + sliceRad / 2);
+                ctx.rotate(start + span / 2);
                 ctx.textAlign = 'right';
 
-                const fontSize = Math.max(12, Math.min(18, 380 / n));
+                const sliceDegrees = (span / (Math.PI * 2)) * 360;
+                const fontSize = Math.max(10, Math.min(20, Math.round(Math.min(380 / n, sliceDegrees * 0.75 + 7))));
                 ctx.font = `${fontWeight} ${fontSize}px ${fontFam}`;
 
                 const label = list[i] || '';
                 const textX = radius - 18;
-                const textY = 5;
+                const textY = Math.round(fontSize * 0.35);
 
                 if (textOutline && textOutline !== 'none' && textOutline !== 'transparent') {
-                    ctx.lineWidth = 3;
+                    ctx.lineWidth = 3.5;
                     ctx.strokeStyle = textOutline;
                     ctx.strokeText(label.slice(0, 24), textX, textY);
                 }
@@ -816,11 +851,13 @@
             }
 
             ctx.restore();
+            ctx.restore();
         }
 
         // Spin Animation Execution
         async function runSpin({
             choices: list = choices,
+            weights: weightsMap = currentWeights,
             winner = null,
             winnerHeader = null,
             winnerSub = null,
@@ -977,8 +1014,22 @@
                 $('roller-view').style.display = 'none';
                 $('wheel-view').style.display = 'flex';
 
+                const effWeights = weightsMap || currentWeights || {};
                 const n = list.length;
-                const sliceRad = (Math.PI * 2) / n;
+                let totalWeight = 0;
+                const sliceWeights = list.map(c => {
+                    const w = (effWeights && effWeights[c] != null && Number(effWeights[c]) > 0) ? Number(effWeights[c]) : 1;
+                    totalWeight += w;
+                    return w;
+                });
+                if (totalWeight <= 0) totalWeight = n;
+
+                const sliceSpans = sliceWeights.map(w => (w / totalWeight) * (Math.PI * 2));
+                const cumulativeAngles = [0];
+                for (let i = 0; i < n; i++) {
+                    cumulativeAngles.push(cumulativeAngles[i] + sliceSpans[i]);
+                }
+
                 let targetIdxInList = winnerIdx;
                 let nudgeSteps = 0;
 
@@ -987,14 +1038,14 @@
                     targetIdxInList = (winnerIdx - nudgeSteps + list.length * 1000) % list.length;
                 }
 
-                const targetSliceCenter = targetIdxInList * sliceRad + sliceRad / 2;
+                const targetSliceCenter = cumulativeAngles[targetIdxInList] + sliceSpans[targetIdxInList] / 2;
                 const normalizedTarget = (Math.PI * 1.5 - targetSliceCenter) % (Math.PI * 2);
                 const positiveTarget = (normalizedTarget + Math.PI * 2) % (Math.PI * 2);
                 const extraRotations = 6 * Math.PI * 2;
                 const totalRotation = extraRotations + positiveTarget;
 
                 const startAt = performance.now();
-                let lastSliceIdx = -1;
+                let lastTickKey = -1;
 
                 function stepWheel(now) {
                     const elapsed = now - startAt;
@@ -1002,11 +1053,21 @@
                     const ease = 1 - Math.pow(1 - progress, 3.8);
                     const currentRot = ease * totalRotation;
 
-                    drawWheel(currentRot, list);
+                    drawWheel(currentRot, list, effWeights);
 
-                    const slicePassed = Math.floor((currentRot / sliceRad));
-                    if (slicePassed !== lastSliceIdx) {
-                        lastSliceIdx = slicePassed;
+                    const localAngle = (Math.PI * 1.5 - (currentRot % (Math.PI * 2)) + Math.PI * 4) % (Math.PI * 2);
+                    let curSlice = 0;
+                    for (let s = 0; s < n; s++) {
+                        if (localAngle >= cumulativeAngles[s] && localAngle < cumulativeAngles[s + 1]) {
+                            curSlice = s;
+                            break;
+                        }
+                    }
+                    const fullRevs = Math.floor(currentRot / (Math.PI * 2));
+                    const tickKey = fullRevs * n + curSlice;
+
+                    if (tickKey !== lastTickKey) {
+                        lastTickKey = tickKey;
                         AudioFX.tick(Math.max(0.35, 1 - progress * 0.65));
                         const ptr = $('wheel-pointer');
                         if (ptr) {
@@ -1018,7 +1079,7 @@
                     if (progress < 1) {
                         requestAnimationFrame(stepWheel);
                     } else {
-                        drawWheel(totalRotation, list);
+                        drawWheel(totalRotation, list, effWeights);
 
                         if (isTricky) {
                             setTimeout(() => {
@@ -1026,8 +1087,13 @@
                                 function doWheelNudge() {
                                     if (curNudge < nudgeSteps) {
                                         curNudge++;
-                                        const nudgeRot = totalRotation + curNudge * sliceRad;
-                                        drawWheel(nudgeRot, list);
+                                        const curNudgeTargetIdx = (targetIdxInList + curNudge) % list.length;
+                                        const nudgeSliceCenter = cumulativeAngles[curNudgeTargetIdx] + sliceSpans[curNudgeTargetIdx] / 2;
+                                        const nudgeNorm = (Math.PI * 1.5 - nudgeSliceCenter) % (Math.PI * 2);
+                                        const nudgePos = (nudgeNorm + Math.PI * 2) % (Math.PI * 2);
+                                        const nudgeRot = extraRotations + nudgePos;
+
+                                        drawWheel(nudgeRot, list, effWeights);
                                         AudioFX.tick(0.45);
                                         const ptr = $('wheel-pointer');
                                         if (ptr) {
@@ -1121,6 +1187,9 @@
                         if (!params.get('choices')) {
                             choices = matched.choices;
                         }
+                        if (matched.weights) currentWeights = matched.weights;
+                        if (matched.choiceStats) currentChoiceStats = matched.choiceStats;
+                        currentWeightMode = matched.weightMode || 'equal';
                         renderInitialState();
                     }
                 }
@@ -1180,9 +1249,13 @@
                                 activeButtonPhrases = d.buttonPhrases;
                                 updateButtonLabel();
                             }
+                            if (d.weights) currentWeights = d.weights;
+                            if (d.choiceStats) currentChoiceStats = d.choiceStats;
+                            if (d.weightMode) currentWeightMode = d.weightMode;
                             const spinChoices = (Array.isArray(d.choices) && d.choices.length) ? d.choices : (choices.length ? choices : DEFAULT_FALLBACK_CHOICES);
                             runSpin({
                                 choices: spinChoices,
+                                weights: d.weights || currentWeights,
                                 winner: d.winner,
                                 winnerHeader: d.winnerHeader,
                                 winnerSub: d.winnerSub,

@@ -147,6 +147,168 @@ const DEFAULT_RANDOMIZER_QUOTE_PRESETS = [
     }
 ];
 
+function normalizeRandomizerPreset(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const id = String(raw.id || '').trim();
+    if (!id) return null;
+    const name = String(raw.name || id).trim();
+    const choices = Array.isArray(raw.choices) ? raw.choices.map(c => String(c).trim()).filter(Boolean) : [];
+    const validModes = ['equal', 'manual', 'growth', 'momentum'];
+    const weightMode = validModes.includes(raw.weightMode) ? raw.weightMode : 'equal';
+    const settingsRaw = raw.weightSettings || {};
+    const weightSettings = {
+        step: Math.max(0.1, Math.min(100, Number(settingsRaw.step) || 1)),
+        max: Math.max(1, Math.min(1000, Number(settingsRaw.max) || 20)),
+        base: Math.max(0.1, Math.min(100, Number(settingsRaw.base) || 1))
+    };
+    const weights = {};
+    if (raw.weights && typeof raw.weights === 'object') {
+        for (const [k, v] of Object.entries(raw.weights)) {
+            const num = Number(v);
+            if (!Number.isNaN(num) && num > 0) weights[k] = Math.round(num * 100) / 100;
+        }
+    }
+    const choiceStats = {};
+    if (raw.choiceStats && typeof raw.choiceStats === 'object') {
+        for (const [k, v] of Object.entries(raw.choiceStats)) {
+            if (v && typeof v === 'object') {
+                choiceStats[k] = {
+                    picks: Math.max(0, Number(v.picks) || 0),
+                    unpickedSpins: Math.max(0, Number(v.unpickedSpins) || 0),
+                    effectiveWeight: Math.max(0.01, Number(v.effectiveWeight) || 1)
+                };
+            }
+        }
+    }
+    return {
+        ...raw,
+        id,
+        name,
+        choices,
+        weightMode,
+        weightSettings,
+        weights,
+        choiceStats
+    };
+}
+
+function getEffectiveWeights(preset, choiceList = null) {
+    const choices = choiceList || preset?.choices || [];
+    const mode = preset?.weightMode || 'equal';
+    const baseMap = preset?.weights || {};
+    const statsMap = preset?.choiceStats || {};
+    const settings = preset?.weightSettings || { step: 1, max: 20, base: 1 };
+    const defaultBase = settings.base || 1;
+
+    const weights = {};
+    let totalWeight = 0;
+
+    for (const c of choices) {
+        let w = 1;
+        const userBase = baseMap[c] != null ? Number(baseMap[c]) : defaultBase;
+        if (mode === 'equal') {
+            w = 1;
+        } else if (mode === 'manual') {
+            w = Math.max(0.01, userBase);
+        } else if (mode === 'growth' || mode === 'momentum') {
+            if (statsMap[c]?.effectiveWeight != null) {
+                w = Math.max(0.01, Number(statsMap[c].effectiveWeight));
+            } else {
+                w = Math.max(0.01, userBase);
+            }
+        }
+        weights[c] = Math.round(w * 100) / 100;
+        totalWeight += weights[c];
+    }
+    totalWeight = Math.round(totalWeight * 100) / 100;
+    return { weights, totalWeight, mode };
+}
+
+function pickWeightedWinner(choices, weightsMap = {}) {
+    if (!choices || !choices.length) return { winner: 'Winner', winnerIndex: -1 };
+    let total = 0;
+    const entries = choices.map((c, idx) => {
+        const w = Math.max(0.01, Number(weightsMap[c]) || 1);
+        total += w;
+        return { choice: c, index: idx, weight: w };
+    });
+    let rnd = Math.random() * total;
+    for (const entry of entries) {
+        if (rnd < entry.weight) {
+            return { winner: entry.choice, winnerIndex: entry.index };
+        }
+        rnd -= entry.weight;
+    }
+    const last = entries[entries.length - 1];
+    return { winner: last.choice, winnerIndex: last.index };
+}
+
+function updatePresetWeightsAfterSpin(preset, winner) {
+    if (!preset || (preset.weightMode !== 'growth' && preset.weightMode !== 'momentum')) {
+        return preset;
+    }
+    const mode = preset.weightMode;
+    const settings = preset.weightSettings || { step: 1, max: 20, base: 1 };
+    const step = settings.step || 1;
+    const max = settings.max || 20;
+    const defaultBase = settings.base || 1;
+    const baseMap = preset.weights || {};
+    const stats = preset.choiceStats = preset.choiceStats || {};
+
+    const choices = preset.choices || [];
+    for (const c of choices) {
+        if (!stats[c]) {
+            const b = baseMap[c] != null ? Number(baseMap[c]) : defaultBase;
+            stats[c] = { picks: 0, unpickedSpins: 0, effectiveWeight: b };
+        }
+    }
+
+    if (mode === 'growth') {
+        for (const c of choices) {
+            const isWinner = c.toLowerCase() === String(winner).toLowerCase();
+            const b = baseMap[c] != null ? Number(baseMap[c]) : defaultBase;
+            if (isWinner) {
+                stats[c].picks = (stats[c].picks || 0) + 1;
+                stats[c].unpickedSpins = 0;
+                stats[c].effectiveWeight = b;
+            } else {
+                stats[c].unpickedSpins = (stats[c].unpickedSpins || 0) + 1;
+                const nextW = Math.min(max, (stats[c].effectiveWeight || b) + step);
+                stats[c].effectiveWeight = Math.round(nextW * 100) / 100;
+            }
+        }
+    } else if (mode === 'momentum') {
+        for (const c of choices) {
+            const isWinner = c.toLowerCase() === String(winner).toLowerCase();
+            const b = baseMap[c] != null ? Number(baseMap[c]) : defaultBase;
+            if (isWinner) {
+                stats[c].picks = (stats[c].picks || 0) + 1;
+                stats[c].unpickedSpins = 0;
+                const nextW = Math.min(max, (stats[c].effectiveWeight || b) + step);
+                stats[c].effectiveWeight = Math.round(nextW * 100) / 100;
+            } else {
+                stats[c].unpickedSpins = (stats[c].unpickedSpins || 0) + 1;
+            }
+        }
+    }
+
+    return preset;
+}
+
+function resetPresetWeights(preset) {
+    if (!preset) return null;
+    const defaultBase = preset.weightSettings?.base || 1;
+    const baseMap = preset.weights || {};
+    const stats = {};
+    for (const c of (preset.choices || [])) {
+        const b = baseMap[c] != null ? Number(baseMap[c]) : defaultBase;
+        stats[c] = { picks: 0, unpickedSpins: 0, effectiveWeight: b };
+    }
+    preset.choiceStats = stats;
+    return preset;
+}
+
+
 const TEXT_SOURCE_TYPES = new Set(['text', 'random-text', 'markdown']);
 const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
 const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
@@ -1127,18 +1289,22 @@ function createOverlayService({
         try {
             if (fs.existsSync(randomizerPresetsPath)) {
                 const data = JSON.parse(fs.readFileSync(randomizerPresetsPath, 'utf8'));
-                if (Array.isArray(data) && data.length) return data;
+                if (Array.isArray(data) && data.length) {
+                    return data.map(normalizeRandomizerPreset).filter(Boolean);
+                }
             }
         } catch (e) {
             warn('[Randomizer] Error loading presets:', e.message);
         }
-        safeWriteFileSync(randomizerPresetsPath, JSON.stringify(DEFAULT_RANDOMIZER_PRESETS, null, 2));
-        return DEFAULT_RANDOMIZER_PRESETS;
+        const defaults = DEFAULT_RANDOMIZER_PRESETS.map(normalizeRandomizerPreset).filter(Boolean);
+        safeWriteFileSync(randomizerPresetsPath, JSON.stringify(defaults, null, 2));
+        return defaults;
     }
 
     function saveRandomizerPresets(presets) {
         try {
-            safeWriteFileSync(randomizerPresetsPath, JSON.stringify(presets, null, 2));
+            const normalized = Array.isArray(presets) ? presets.map(normalizeRandomizerPreset).filter(Boolean) : [];
+            safeWriteFileSync(randomizerPresetsPath, JSON.stringify(normalized, null, 2));
             return true;
         } catch (e) {
             warn('[Randomizer] Error saving presets:', e.message);
@@ -1525,7 +1691,12 @@ function createOverlayService({
         CUSTOM_OVERLAY_ELEMENT_TYPES,
         DEFAULT_RANDOMIZER_PRESETS,
         DEFAULT_RANDOMIZER_BUTTON_PRESETS,
-        DEFAULT_RANDOMIZER_QUOTE_PRESETS
+        DEFAULT_RANDOMIZER_QUOTE_PRESETS,
+        normalizeRandomizerPreset,
+        getEffectiveWeights,
+        pickWeightedWinner,
+        updatePresetWeightsAfterSpin,
+        resetPresetWeights
     };
 }
 
@@ -1540,6 +1711,11 @@ module.exports = {
     normalizePages,
     normalizeCustomOverlay,
     normalizeOverlayPresets,
+    normalizeRandomizerPreset,
+    getEffectiveWeights,
+    pickWeightedWinner,
+    updatePresetWeightsAfterSpin,
+    resetPresetWeights,
     assetReferencedIn,
     rewriteAssetReferences,
     assetKind,

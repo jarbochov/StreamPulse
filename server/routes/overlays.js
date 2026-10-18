@@ -147,6 +147,11 @@ function createOverlayRoutes({
     broadcastToOverlays = () => {},
     loadRandomizerPresets = overlayService ? overlayService.loadRandomizerPresets : () => [],
     saveRandomizerPresets = overlayService ? overlayService.saveRandomizerPresets : () => true,
+    normalizeRandomizerPreset = overlayService ? overlayService.normalizeRandomizerPreset : (p) => p,
+    getEffectiveWeights = overlayService ? overlayService.getEffectiveWeights : () => ({ weights: {}, totalWeight: 0, mode: 'equal' }),
+    pickWeightedWinner = overlayService ? overlayService.pickWeightedWinner : (c) => ({ winner: c[0] || 'Winner', winnerIndex: 0 }),
+    updatePresetWeightsAfterSpin = overlayService ? overlayService.updatePresetWeightsAfterSpin : (p) => p,
+    resetPresetWeights = overlayService ? overlayService.resetPresetWeights : (p) => p,
     loadRandomizerButtonPresets = overlayService ? overlayService.loadRandomizerButtonPresets : () => [],
     saveRandomizerButtonPresets = overlayService ? overlayService.saveRandomizerButtonPresets : () => true,
     loadRandomizerQuotePresets = overlayService ? overlayService.loadRandomizerQuotePresets : () => [],
@@ -1127,11 +1132,16 @@ function createOverlayRoutes({
                 const buttonPhrases = Array.isArray(body.buttonPhrases)
                     ? body.buttonPhrases.map(s => String(s).trim()).filter(Boolean)
                     : (typeof body.buttonPhrases === 'string' ? body.buttonPhrases.split('\n').map(s => s.trim()).filter(Boolean) : undefined);
+                const weightMode = body.weightMode !== undefined ? String(body.weightMode).trim() : undefined;
+                const weightSettings = body.weightSettings && typeof body.weightSettings === 'object' ? body.weightSettings : undefined;
+                const weights = body.weights && typeof body.weights === 'object' ? body.weights : undefined;
+                const choiceStats = body.choiceStats && typeof body.choiceStats === 'object' ? body.choiceStats : undefined;
+
                 let updatedPreset;
                 if (presetId) {
                     const idx = presets.findIndex(p => p.id === presetId);
                     if (idx !== -1) {
-                        presets[idx] = {
+                        presets[idx] = normalizeRandomizerPreset({
                             ...presets[idx],
                             name,
                             choices,
@@ -1139,14 +1149,18 @@ function createOverlayRoutes({
                             ...(winnerSub !== undefined ? { winnerSub } : {}),
                             ...(buttonPreset !== undefined ? { buttonPreset } : {}),
                             ...(buttonPhrases !== undefined ? { buttonPhrases } : {}),
+                            ...(weightMode !== undefined ? { weightMode } : {}),
+                            ...(weightSettings !== undefined ? { weightSettings } : {}),
+                            ...(weights !== undefined ? { weights } : {}),
+                            ...(choiceStats !== undefined ? { choiceStats } : {}),
                             updatedAt: Date.now()
-                        };
+                        });
                         updatedPreset = presets[idx];
                     }
                 }
                 if (!updatedPreset) {
                     presetId = presetId || 'preset_' + Date.now();
-                    updatedPreset = {
+                    updatedPreset = normalizeRandomizerPreset({
                         id: presetId,
                         name,
                         choices,
@@ -1154,12 +1168,42 @@ function createOverlayRoutes({
                         winnerSub: winnerSub || '',
                         buttonPreset: buttonPreset || 'chaos',
                         buttonPhrases: buttonPhrases || [],
+                        weightMode: weightMode || 'equal',
+                        weightSettings: weightSettings || { step: 1, max: 20, base: 1 },
+                        weights: weights || {},
+                        choiceStats: choiceStats || {},
                         createdAt: Date.now()
-                    };
+                    });
                     presets.push(updatedPreset);
                 }
                 saveRandomizerPresets(presets);
                 sendJson(res, { ok: true, preset: updatedPreset, presets });
+            } catch (err) {
+                sendError(res, err.message, 400);
+            }
+            return true;
+        }
+
+        if ((pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/reset-weights') && req.method === 'POST') ||
+            (pathname === '/api/randomizer/presets/reset-weights' && req.method === 'POST')) {
+            try {
+                let idToReset = '';
+                if (pathname === '/api/randomizer/presets/reset-weights') {
+                    const raw = await readRequestBody(req);
+                    const body = JSON.parse(raw || '{}');
+                    idToReset = body.id || url.searchParams.get('id');
+                } else {
+                    idToReset = decodeURIComponent(pathname.replace('/api/randomizer/presets/', '').replace('/reset-weights', ''));
+                }
+                const presets = loadRandomizerPresets();
+                const preset = presets.find(p => p.id === idToReset);
+                if (!preset) {
+                    sendError(res, 'Preset not found', 404);
+                    return true;
+                }
+                resetPresetWeights(preset);
+                saveRandomizerPresets(presets);
+                sendJson(res, { ok: true, preset, presets });
             } catch (err) {
                 sendError(res, err.message, 400);
             }
@@ -1353,6 +1397,8 @@ function createOverlayRoutes({
                 let winnerSub = body.winnerSub || query.winSub || query.winnerSub || '';
                 let buttonPhrases = Array.isArray(body.buttonPhrases) ? body.buttonPhrases : [];
 
+                let presets = [];
+                let matched = null;
                 if (!choices.length) {
                     if (presetId === 'chatters') {
                         const chatData = getChatData();
@@ -1363,8 +1409,8 @@ function createOverlayRoutes({
                         if (!winnerHeader) winnerHeader = 'LUCKY CHATTER CHOSEN';
                         if (!winnerSub) winnerSub = 'The universe has selected you from chat!';
                     } else {
-                        const presets = loadRandomizerPresets();
-                        const matched = (presetId ? presets.find(p => p.id === presetId) : null) || presets[0];
+                        presets = loadRandomizerPresets();
+                        matched = (presetId ? presets.find(p => p.id === presetId) : null) || presets[0];
                         if (matched) {
                             choices = matched.choices || [];
                             if (!winnerHeader && matched.winnerHeader) winnerHeader = matched.winnerHeader;
@@ -1372,9 +1418,34 @@ function createOverlayRoutes({
                             if (!buttonPhrases.length && matched.buttonPhrases) buttonPhrases = matched.buttonPhrases;
                         }
                     }
+                } else if (presetId && presetId !== 'chatters') {
+                    presets = loadRandomizerPresets();
+                    matched = presets.find(p => p.id === presetId) || null;
                 }
 
-                const winner = body.winner || query.winner || (choices.length ? choices[Math.floor(Math.random() * choices.length)] : 'Winner');
+                const activePreset = matched ? { ...matched } : {
+                    id: presetId || 'custom',
+                    choices,
+                    weightMode: body.weightMode || 'equal',
+                    weightSettings: body.weightSettings || { step: 1, max: 20, base: 1 },
+                    weights: body.weights || {},
+                    choiceStats: body.choiceStats || {}
+                };
+                if (body.weightMode) activePreset.weightMode = body.weightMode;
+                if (body.weightSettings) activePreset.weightSettings = { ...activePreset.weightSettings, ...body.weightSettings };
+                if (body.weights && typeof body.weights === 'object') activePreset.weights = { ...activePreset.weights, ...body.weights };
+
+                const { weights, totalWeight, mode: effectiveWeightMode } = getEffectiveWeights(activePreset, choices);
+                const picked = choices.length ? pickWeightedWinner(choices, weights) : { winner: 'Winner', winnerIndex: -1 };
+                const winner = body.winner || query.winner || picked.winner;
+
+                if (matched && (matched.weightMode === 'growth' || matched.weightMode === 'momentum')) {
+                    updatePresetWeightsAfterSpin(matched, winner);
+                    saveRandomizerPresets(presets);
+                } else if (activePreset.weightMode === 'growth' || activePreset.weightMode === 'momentum') {
+                    updatePresetWeightsAfterSpin(activePreset, winner);
+                }
+
                 const mode = body.mode || query.mode || 'roller';
                 const suspense = body.suspense || query.suspense || 'normal';
                 const duration = Number(body.duration || query.duration) || 6;
@@ -1386,6 +1457,10 @@ function createOverlayRoutes({
                 const payload = {
                     preset: presetId,
                     choices,
+                    weights,
+                    totalWeight,
+                    weightMode: effectiveWeightMode,
+                    choiceStats: matched?.choiceStats || activePreset.choiceStats || {},
                     winner,
                     winnerHeader,
                     winnerSub,
@@ -1407,7 +1482,18 @@ function createOverlayRoutes({
                     at: Date.now()
                 };
                 broadcastToOverlays('randomizer-spin', payload);
-                sendJson(res, { ok: true, winner, preset: presetId, mode, theme, payload });
+                sendJson(res, {
+                    ok: true,
+                    winner,
+                    preset: presetId,
+                    mode,
+                    theme,
+                    weights,
+                    totalWeight,
+                    weightMode: effectiveWeightMode,
+                    choiceStats: matched?.choiceStats || activePreset.choiceStats || {},
+                    payload
+                });
             } catch (err) {
                 sendError(res, err.message, 400);
             }
