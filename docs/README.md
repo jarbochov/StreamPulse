@@ -25,7 +25,7 @@ StreamPulse turns your live broadcast data into cinematic OBS browser overlays, 
   </a>
   <a class="feature-card" href="#/randomizer-guide">
     <h4>Choice Randomizer Studio</h4>
-    <p>Decoupled studio controller and transparent OBS overlay with spinning wheels, continuous slot machines, card flip reveals, audio cues, and active chatter auto-population.</p>
+    <p>Decoupled studio controller and transparent OBS overlay with spinning wheels, continuous slot rollers, winner celebration cards, audio cues, and active chatter auto-population.</p>
   </a>
   <a class="feature-card" href="#/game-plan-guide">
     <h4>Game Plan Broadcast Scheduler</h4>
@@ -112,7 +112,7 @@ flowchart TD
 ## Getting Started Guides
 
 - **[Quick Start Guide](quickstart.md)**: Set up Node.js, clone the repository, and connect your first OBS browser source in under 5 minutes.
-- **[SocialStream Ninja Setup Guide](socialstream-setup.md)**: Step-by-step walkthrough for installing the free SocialStream extension, configuring the WebSocket API on port 8080, and verifying message flow.
+- **[SocialStream Ninja Setup Guide](socialstream-setup.md)**: Step-by-step walkthrough for installing the free SocialStream desktop app or browser extension, configuring the WebSocket API on port 8080, and verifying message flow.
 - **[Bitfocus Companion & Stream Deck](companion.md)**: Import the StreamPulse Companion profile for instant tactile control over randomizer spins, credits rolls, alerts, and timers.
 
 ---

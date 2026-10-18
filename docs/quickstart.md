@@ -43,8 +43,8 @@ Get StreamPulse running and connected to OBS Studio in under five minutes.
 ## 2. Connect Your Data Sources
 
 1. **SocialStream Ninja (Live Chat & Multi-Platform Events)**:
-   - Install the [SocialStream Ninja](https://socialstream.ninja/) browser extension.
-   - Keep SocialStream Ninja open in your browser or as an OBS dock.
+   - Install the [SocialStream Ninja](https://socialstream.ninja/) browser extension (Chrome, Firefox, Edge) or download the standalone [SocialStream Ninja Desktop App](https://github.com/steveseguin/social-stream-desktop).
+   - Keep SocialStream Ninja open in your browser, running in the background as a desktop app, or docked inside OBS Studio.
    - In StreamPulse, open **Config Editor -> Connection & Security** and verify the SSN WebSocket URL is `ws://127.0.0.1:8080`.
    - See the full [SocialStream Ninja Setup Guide](socialstream-setup.md).
 2. **Twitch Account (Broadcaster Sync & Polls)**:

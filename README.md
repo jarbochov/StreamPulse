@@ -18,7 +18,7 @@ A full drag-and-drop canvas designer with transparent WebKit punchouts, WebGL re
 ![Custom Overlay Studio](docs/images/custom-overlay-studio.png)
 
 ### Choice Randomizer Studio
-Decoupled studio controller and transparent OBS overlay featuring spinning wheels, continuous vertical slot machine rollers, and card flip reveals with sound effects, choice weighting, winner elimination, and Twitch live chatter auto-population.
+Decoupled studio controller and transparent OBS overlay featuring spinning wheels, continuous vertical slot machine rollers, and winner celebration cards with sound effects, choice weighting, winner elimination, and Twitch live chatter auto-population.
 
 ![Choice Randomizer Studio](docs/images/randomizer-studio.png)
 
@@ -50,7 +50,7 @@ Real-time message volume charts, session stream timers, Twitch connection status
 
 ### 1. Prerequisites
 - **Node.js**: Install the LTS version (v22.12 or newer) from [nodejs.org](https://nodejs.org/).
-- **SocialStream Ninja**: Install the free browser extension from [socialstream.ninja](https://socialstream.ninja/).
+- **SocialStream Ninja**: Install the free browser extension from [socialstream.ninja](https://socialstream.ninja/) or download the standalone [Desktop App](https://github.com/steveseguin/social-stream-desktop).
 - **OBS Studio**: For displaying browser source overlays on stream.
 
 ### 2. Download and Run StreamPulse
@@ -98,7 +98,7 @@ Comprehensive technical guides, API documentation, and hardware configuration ar
 | **[SocialStream Ninja Setup](docs/socialstream-setup.md)** | Step-by-step guide for installing, configuring, and verifying SocialStream Ninja. |
 | **[Custom Overlays Studio](docs/custom-overlays.md)** | Layer types, WebKit punchout masks, retro WebGL shaders, GPU media filters, and presets. |
 | **[Cinematic Credits Studio](docs/credits-guide.md)** | Built-in sections, order customization, Special Thanks cards, and music sync timing. |
-| **[Choice Randomizer Studio](docs/randomizer-guide.md)** | Spinning wheels, slot machine rollers, flip cards, audio cues, and active chatter population. |
+| **[Choice Randomizer Studio](docs/randomizer-guide.md)** | Spinning wheels, slot machine rollers, winner celebration cards, audio cues, and active chatter population. |
 | **[Game Plan Broadcast Scheduler](docs/game-plan-guide.md)** | Calendar views, IGDB game catalog integration, and one-click Twitch category updates. |
 | **[Community Directory & Dossiers](docs/community-guide.md)** | Member rosters, smart quick-view segments, private streamer notes, and CSV exports. |
 | **[Alerts & Alert Queue Dock](docs/alerts-guide.md)** | Event rules, synthesized audio, media uploads, and the low-density OBS queue dock. |

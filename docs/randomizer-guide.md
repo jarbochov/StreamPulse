@@ -1,6 +1,6 @@
 # Choice Randomizer Studio & Overlay Guide
 
-The **Choice Randomizer** is a production-ready giveaway and decision overlay featuring spinning wheels, continuous slot-machine rollers, and flip card reveals with integrated audio and Bitfocus Companion remote control.
+The **Choice Randomizer** is a production-ready giveaway and decision overlay featuring spinning wheels, continuous slot-machine rollers, celebratory winner cards, and particle confetti with integrated audio and Bitfocus Companion remote control.
 
 ![Choice Randomizer Studio](images/randomizer-studio.png)
 
@@ -17,16 +17,18 @@ The Randomizer is built with a decoupled architecture:
 
 ## 2. Display Modes
 
-Select between three visual reveal modes in the Studio:
+Select between two core animation modes in the Studio:
 
-1. **Spinning Wheel**:
-   - Classic fortune wheel with customizable sector colors and needle ticker.
-   - Smooth easing physics with deceleration and celebratory winner scale.
-2. **Vertical Slot Roller**:
-   - Continuous slot-machine roller with authentic ticking audio.
-   - Decelerates smoothly and centers precisely on the selected choice.
-3. **Flip Card Reveal**:
-   - Hidden cards that shuffle and flip open with a 3D perspective animation.
+1. **Continuous Slot Roller**:
+   - Continuous vertical carousel roller with authentic mechanical ticker audio.
+   - Smooth easing physics that decelerate and align precisely on the winner choice.
+   - Perfect for narrow OBS sidebars or vertical broadcast docks.
+2. **Fortune Spinning Wheel**:
+   - Classic wheel of fortune with customizable sector colors, center cap, and physics needle ticker.
+   - Proportional slice sizing automatically adapted to relative choice probability weights.
+   - Smooth deceleration physics with winner celebration bounce.
+
+Both modes conclude with the **Winner Celebration Card** featuring a particle confetti explosion on your stream overlay and customizable header banners.
 
 ---
 
