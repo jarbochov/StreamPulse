@@ -76,6 +76,7 @@ async function createWindow() {
         minHeight: 680,
         backgroundColor: '#0d1117',
         title: 'StreamPulse',
+        icon: path.join(__dirname, 'icon.png'),
         show: false,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),

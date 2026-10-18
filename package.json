@@ -8,7 +8,7 @@
     "desktop": "electron desktop/main.js",
     "desktop:dist": "electron-builder",
     "lint": "eslint server.js server/ scripts/ desktop/",
-    "test": "npm run lint && node --check server.js && node --check desktop/main.js && node --check desktop/server-manager.js && node --check desktop/tray.js && node --check desktop/preload.js && node --check scripts/rebuild-session.js && node --check server/static-router.js && node --check server/ws.js && node --check server/services/alerts.js && node --check server/services/chatbot.js && node --check server/services/variables.js && node --check server/services/weather.js && node --check server/services/music.js && node --check server/services/game-plan.js && node --check server/services/timers.js && node --check server/services/goals.js && node --check server/services/viewers.js && node --check server/services/twitch.js && node --check server/services/session.js && node --check server/services/ssn.js && node --check server/services/crm.js && node --check server/services/overlays.js && node --check server/services/clips.js && node --check server/routes/helpers.js && node --check server/routes/timers.js && node --check server/routes/goals.js && node --check server/routes/music.js && node --check server/routes/weather.js && node --check server/routes/game-plan.js && node --check server/routes/twitch.js && node --check server/routes/session.js && node --check server/routes/overlays.js && node --check server/routes/crm.js && node --check server/routes/system.js && node --check server/routes/highlights.js && node --check server/routes/backup.js",
+    "test": "npm run lint && node --check server.js && node --check desktop/main.js && node --check desktop/server-manager.js && node --check desktop/tray.js && node --check desktop/preload.js && node --check desktop/after-pack.cjs && node --check scripts/rebuild-session.js && node --check server/static-router.js && node --check server/ws.js && node --check server/services/alerts.js && node --check server/services/chatbot.js && node --check server/services/variables.js && node --check server/services/weather.js && node --check server/services/music.js && node --check server/services/game-plan.js && node --check server/services/timers.js && node --check server/services/goals.js && node --check server/services/viewers.js && node --check server/services/twitch.js && node --check server/services/session.js && node --check server/services/ssn.js && node --check server/services/crm.js && node --check server/services/overlays.js && node --check server/services/clips.js && node --check server/routes/helpers.js && node --check server/routes/timers.js && node --check server/routes/goals.js && node --check server/routes/music.js && node --check server/routes/weather.js && node --check server/routes/game-plan.js && node --check server/routes/twitch.js && node --check server/routes/session.js && node --check server/routes/overlays.js && node --check server/routes/crm.js && node --check server/routes/system.js && node --check server/routes/highlights.js && node --check server/routes/backup.js",
     "install:chrome": "puppeteer browsers install chrome",
     "smoke:editors": "node scripts/editor-smoke-test.mjs"
   },
@@ -50,8 +50,10 @@
     "extraMetadata": {
       "main": "desktop/main.js"
     },
+    "afterPack": "desktop/after-pack.cjs",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "**/*",
@@ -62,13 +64,30 @@
       "!scripts/editor-smoke*"
     ],
     "mac": {
+      "icon": "build/icon.icns",
       "category": "public.app-category.video",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ]
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "nsis",
         "portable"

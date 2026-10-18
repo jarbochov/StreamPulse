@@ -158,7 +158,26 @@ The workflow at `.github/workflows/desktop.yml` builds installers for both platf
    - Check **Publish installers to GitHub Pre-Release?** to attach the resulting `.dmg` and `.exe` files directly to a GitHub release.
    - Specify a tag (e.g., `v0.12.0-preview`).
 4. Click **Run workflow**.
-5. Once the build finishes, download the `.dmg` or `.exe` installer directly from the run's **Artifacts** summary or from the GitHub Releases tab!
+### macOS First-Launch & Gatekeeper Verification
+
+StreamPulse is a self-hosted, open-source broadcast suite. Pre-release builds are not signed with a paid Apple Developer Program identity ($99/year), which causes macOS Gatekeeper to flag web-downloaded binaries with:
+
+> `“StreamPulse.app” is damaged and can’t be opened. You should move it to the Trash.`
+
+This is standard macOS behavior for unsigned or ad-hoc signed open-source applications downloaded through web browsers.
+
+**To open StreamPulse on macOS:**
+1. Open the downloaded `.dmg` and drag **StreamPulse.app** into your `/Applications` folder.
+2. Open **Terminal** (press `Cmd` + `Space`, type `Terminal`, and press `Enter`).
+3. Run the following command to clear Gatekeeper's quarantine attribute:
+   ```bash
+   xattr -cr /Applications/StreamPulse.app
+   ```
+4. Launch **StreamPulse** from Applications or Spotlight. It will open immediately with full system tray and OBS server capabilities!
+
+Alternatively, Control-click (or right-click) `StreamPulse.app` in Finder, select **Open**, and when prompted, click **Open Anyway** in **System Settings** -> **Privacy & Security**.
+
+---
 
 ### Local Development Commands:
 ```bash

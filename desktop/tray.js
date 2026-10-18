@@ -12,7 +12,18 @@ class AppTray {
     }
 
     createTrayIcon() {
-        // Try creating an icon or generate a fallback native image
+        const trayPngPath = path.join(__dirname, 'tray-icon.png');
+        if (fs.existsSync(trayPngPath)) {
+            try {
+                const img = nativeImage.createFromPath(trayPngPath);
+                if (img && !img.isEmpty()) {
+                    return img;
+                }
+            } catch (err) {
+                console.warn('Could not load tray-icon.png:', err);
+            }
+        }
+
         const svgPath = path.join(this.projectRoot, 'public', 'favicon.svg');
         let icon = null;
 
@@ -25,10 +36,7 @@ class AppTray {
         }
 
         if (!icon || icon.isEmpty()) {
-            // Generate a 16x16 purple circle icon buffer
-            const size = 16;
-            const canvas = nativeImage.createEmpty();
-            icon = canvas;
+            icon = nativeImage.createEmpty();
         }
 
         return icon;

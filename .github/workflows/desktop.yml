@@ -92,9 +92,21 @@ jobs:
           draft: false
           files: release-assets/*
           body: |
-            StreamPulse Desktop App Preview Build
+            ## StreamPulse Desktop App Preview Build
             
             Standalone desktop application for macOS and Windows.
-            - macOS: `.dmg` installer and `.zip` archive
+            - macOS: `.dmg` installer and `.zip` archive (Apple Silicon and Intel)
             - Windows: `.exe` setup installer and portable executable
+            
+            ### macOS Gatekeeper Note
+            StreamPulse is an open-source, self-hosted companion. Because pre-release builds are not signed with a paid Apple Developer ID, macOS Gatekeeper may flag the download with:
+            > “StreamPulse.app” is damaged and can’t be opened. You should move it to the Trash.
+            
+            **To open on macOS:**
+            1. Open the `.dmg` and drag **StreamPulse.app** to `/Applications`.
+            2. Open **Terminal** and run:
+               ```bash
+               xattr -cr /Applications/StreamPulse.app
+               ```
+            3. Launch **StreamPulse** from Applications or Spotlight!
 
