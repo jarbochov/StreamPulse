@@ -794,9 +794,10 @@ const SEGMENTS = [
     { id: 'tonight', label: 'Active Tonight' },
     { id: 'regulars', label: 'Regulars' },
     { id: 'new', label: 'Newcomers' },
-    { id: 'vips', label: 'VIPs & Mods' },
+    { id: 'mods', label: 'Moderators' },
+    { id: 'vips', label: 'VIPs' },
     { id: 'subs', label: 'Subscribers' },
-    { id: 'lapsed', label: 'Lapsed' },
+    { id: 'lapsed', label: 'Lapsed (30-90d)' },
     { id: 'notes', label: 'With Notes' }
 ];
 
@@ -822,9 +823,11 @@ function renderCommunityOverview(s) {
     const cards = [
         [fmt(s.totalMembers), 'Total Members'],
         [fmt(s.activeTonight), 'Active Tonight'],
-        [fmt(s.regularsCount), 'Regulars (3+ Streams, Recent)'],
-        [fmt(s.vipsAndModsCount), 'VIPs & Mods'],
+        [fmt(s.regularsCount), 'Regulars (30d)'],
+        [fmt(s.modsCount), 'Moderators'],
+        [fmt(s.vipsCount), 'VIPs'],
         [fmt(s.subscribersCount), 'Subscribers'],
+        [fmt(s.lapsedCount), 'Lapsed (30-90d)'],
         [fmt(s.withNotesCount), 'With Notes']
     ];
     el.innerHTML = cards.map(([val, lbl]) => `<div class="stat"><strong>${esc(val)}</strong><span>${esc(lbl)}</span></div>`).join('');

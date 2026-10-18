@@ -154,6 +154,7 @@ function createCrmService({
         const now = Date.now();
         const fourteenDaysAgo = new Date(now - 14 * 86400000).toISOString().slice(0, 10);
         const thirtyDaysAgo = new Date(now - 30 * 86400000).toISOString().slice(0, 10);
+        const ninetyDaysAgo = new Date(now - 90 * 86400000).toISOString().slice(0, 10);
 
         const chattersList = Object.entries(statsData.chatters || {}).map(([username, d]) => {
             const days = d.days || {};
@@ -170,7 +171,8 @@ function createCrmService({
             const sessionsAttended = Object.keys(days).length;
             const isRecent = isTonight || Boolean(d.lastSeen && String(d.lastSeen).slice(0, 10) >= thirtyDaysAgo);
             const isRegular = sessionsAttended >= 3 && isRecent;
-            const isLapsed = sessionsAttended >= 3 && !isRecent;
+            // Lapsed: attended 3+ streams in the past, last seen between 30 and 90 days ago (actionable recent drop-off, not ancient history)
+            const isLapsed = sessionsAttended >= 3 && !isRecent && Boolean(d.lastSeen && String(d.lastSeen).slice(0, 10) >= ninetyDaysAgo);
             const isNew = Boolean(d.firstSeen && String(d.firstSeen).slice(0, 10) >= fourteenDaysAgo) || (sessionsAttended <= 1 && isRecent);
             const hasNotes = Boolean(notes.notes && notes.notes.trim());
 
@@ -201,6 +203,9 @@ function createCrmService({
             totalMembers: chattersList.length,
             activeTonight: chattersList.filter(c => c.isTonight).length,
             regularsCount: chattersList.filter(c => c.isRegular).length,
+            lapsedCount: chattersList.filter(c => c.isLapsed).length,
+            modsCount: chattersList.filter(c => c.isMod).length,
+            vipsCount: chattersList.filter(c => c.isVip).length,
             vipsAndModsCount: chattersList.filter(c => c.isVip || c.isMod).length,
             subscribersCount: chattersList.filter(c => c.isSubscriber).length,
             withNotesCount: chattersList.filter(c => c.hasNotes).length
@@ -213,7 +218,11 @@ function createCrmService({
             filtered = filtered.filter(c => c.isRegular);
         } else if (seg === 'lapsed') {
             filtered = filtered.filter(c => c.isLapsed);
-        } else if (seg === 'vips' || seg === 'vips-mods') {
+        } else if (seg === 'mods' || seg === 'moderators') {
+            filtered = filtered.filter(c => c.isMod);
+        } else if (seg === 'vips' || seg === 'vip') {
+            filtered = filtered.filter(c => c.isVip);
+        } else if (seg === 'vips-mods') {
             filtered = filtered.filter(c => c.isVip || c.isMod);
         } else if (seg === 'subs' || seg === 'subscribers') {
             filtered = filtered.filter(c => c.isSubscriber);
