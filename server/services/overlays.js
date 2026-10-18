@@ -744,7 +744,96 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
 
         const borderWidth = Number(style.borderWidth) || 0;
         const borderColor = style.borderColor || 'none';
-        const strokeAttr = borderWidth > 0 && borderColor !== 'none' ? ` stroke="${escapeXml(borderColor)}" stroke-width="${borderWidth}"` : '';
+        const borderAnim = style.borderAnimation || {};
+        const borderGrad = style.borderGradient || {};
+
+        let borderStroke = '';
+        let strokeDashAttr = '';
+
+        if (borderWidth > 0) {
+            if (borderGrad.enabled) {
+                const bGradId = `b-grad-${escapeXml(el.id || idx)}`;
+                const bFrom = borderGrad.from || '#1f6feb';
+                const bTo = borderGrad.to || '#8957e5';
+                const bMid = borderGrad.mid ? `<stop offset="50%" stop-color="${escapeXml(borderGrad.mid)}" />` : '';
+                defs.push(`<linearGradient id="${bGradId}" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="${escapeXml(bFrom)}" />
+                    ${bMid}
+                    <stop offset="100%" stop-color="${escapeXml(bTo)}" />
+                </linearGradient>`);
+                borderStroke = `url(#${bGradId})`;
+            } else if (borderAnim.type === 'rainbow') {
+                const rbId = `b-rb-${escapeXml(el.id || idx)}`;
+                defs.push(`<linearGradient id="${rbId}" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#ff0055" />
+                    <stop offset="17%" stop-color="#ff9900" />
+                    <stop offset="33%" stop-color="#ffee00" />
+                    <stop offset="50%" stop-color="#00ff66" />
+                    <stop offset="67%" stop-color="#00bbff" />
+                    <stop offset="83%" stop-color="#8800ff" />
+                    <stop offset="100%" stop-color="#ff0055" />
+                </linearGradient>`);
+                borderStroke = `url(#${rbId})`;
+            } else if (borderAnim.type === 'gradient') {
+                const bgAnimId = `b-an-grad-${escapeXml(el.id || idx)}`;
+                const c1 = borderColor && borderColor !== 'none' && borderColor !== 'transparent' ? borderColor : '#1f6feb';
+                const c2 = borderAnim.color2 || '#8957e5';
+                const mid = borderAnim.color3 ? `<stop offset="50%" stop-color="${escapeXml(borderAnim.color3)}" />` : '';
+                defs.push(`<linearGradient id="${bgAnimId}" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="${escapeXml(c1)}" />
+                    ${mid}
+                    <stop offset="100%" stop-color="${escapeXml(c2)}" />
+                </linearGradient>`);
+                borderStroke = `url(#${bgAnimId})`;
+            } else if (borderAnim.type === 'rotating' || borderAnim.type === 'radial') {
+                const mode = borderAnim.mode || 'spotlight';
+                if (mode === 'rainbow') {
+                    const rbId = `b-rb-${escapeXml(el.id || idx)}`;
+                    defs.push(`<linearGradient id="${rbId}" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#ff0055" />
+                        <stop offset="17%" stop-color="#ff9900" />
+                        <stop offset="33%" stop-color="#ffee00" />
+                        <stop offset="50%" stop-color="#00ff66" />
+                        <stop offset="67%" stop-color="#00bbff" />
+                        <stop offset="83%" stop-color="#8800ff" />
+                        <stop offset="100%" stop-color="#ff0055" />
+                    </linearGradient>`);
+                    borderStroke = `url(#${rbId})`;
+                } else {
+                    const beamId = `b-beam-${escapeXml(el.id || idx)}`;
+                    const head = borderAnim.color2 || (mode === 'spotlight' ? '#ffffff' : '#38bdf8');
+                    const trail = borderColor && borderColor !== 'none' && borderColor !== 'transparent' ? borderColor : '#38bdf8';
+                    const mid = borderAnim.color3 ? `<stop offset="50%" stop-color="${escapeXml(borderAnim.color3)}" />` : '';
+                    defs.push(`<linearGradient id="${beamId}" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="${escapeXml(head)}" />
+                        ${mid}
+                        <stop offset="100%" stop-color="${escapeXml(trail)}" />
+                    </linearGradient>`);
+                    borderStroke = `url(#${beamId})`;
+                }
+            } else if (borderColor && borderColor !== 'none' && borderColor !== 'transparent') {
+                borderStroke = borderColor;
+            }
+
+            if (borderAnim.type === 'marching' || style.borderStyle === 'dashed') {
+                strokeDashAttr = ' stroke-dasharray="8,6"';
+            } else if (style.borderStyle === 'dotted') {
+                strokeDashAttr = ` stroke-dasharray="${borderWidth},${borderWidth * 1.5}"`;
+            }
+        }
+
+        const renderBorderOverlay = () => {
+            if (borderWidth <= 0 || !borderStroke) return '';
+            const halfB = borderWidth / 2;
+            const bx = x + halfB;
+            const by = y + halfB;
+            const bw = Math.max(0, w - borderWidth);
+            const bh = Math.max(0, h - borderWidth);
+            const brx = Math.max(0, rx - halfB);
+            return `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="${brx}" fill="none" stroke="${escapeXml(borderStroke)}" stroke-width="${borderWidth}"${strokeDashAttr}${opacityAttr}${transform} />`;
+        };
+
+        const strokeAttr = borderWidth > 0 && borderStroke ? ` stroke="${escapeXml(borderStroke)}" stroke-width="${borderWidth}"${strokeDashAttr}` : '';
 
         if (el.type === 'shape') {
             const shape = style.shape || 'rectangle';
@@ -755,8 +844,8 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
                 const points = `${x + w / 2},${y} ${x + w},${y + h} ${x},${y + h}`;
                 elementsSvg.push(`<polygon points="${points}" fill="${escapeXml(shapeFill)}"${strokeAttr}${opacityAttr}${transform} />`);
             } else if (shape === 'line') {
-                const strokeColor = style.borderColor || style.color || '#fff';
-                elementsSvg.push(`<line x1="${x}" y1="${y + h / 2}" x2="${x + w}" y2="${y + h / 2}" stroke="${escapeXml(strokeColor)}" stroke-width="${Math.max(2, borderWidth)}"${opacityAttr}${transform} />`);
+                const strokeColor = borderStroke || style.borderColor || style.color || '#fff';
+                elementsSvg.push(`<line x1="${x}" y1="${y + h / 2}" x2="${x + w}" y2="${y + h / 2}" stroke="${escapeXml(strokeColor)}" stroke-width="${Math.max(2, borderWidth)}"${strokeDashAttr}${opacityAttr}${transform} />`);
             } else {
                 elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(shapeFill)}"${strokeAttr}${opacityAttr}${transform} />`);
             }
@@ -773,7 +862,7 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
                 const filePath = path.join(customOverlayAssetsDir, filename);
                 try {
                     const stats = fs.statSync(filePath);
-                    if (stats.size > 0 && stats.size <= 2 * 1024 * 1024) {
+                    if (stats.size > 0 && stats.size <= 50 * 1024 * 1024) {
                         const ext = path.extname(filename).toLowerCase().replace('.', '');
                         const mime = ext === 'svg' ? 'image/svg+xml' : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/png';
                         const b64 = fs.readFileSync(filePath).toString('base64');
@@ -781,17 +870,30 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
                     }
                 } catch {}
             }
-            if (bgFill !== 'none' || borderWidth > 0) {
-                elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(bgFill)}"${strokeAttr}${opacityAttr}${transform} />`);
+            if (bgFill !== 'none') {
+                elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(bgFill)}"${opacityAttr}${transform} />`);
             }
             if (href) {
-                elementsSvg.push(`<image href="${escapeXml(href)}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice"${opacityAttr}${transform} />`);
+                let clipAttr = '';
+                if (rx > 0) {
+                    const clipId = `clip-${escapeXml(el.id || idx)}`;
+                    defs.push(`<clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" /></clipPath>`);
+                    clipAttr = ` clip-path="url(#${clipId})"`;
+                }
+                const focusX = style.focusX != null ? Number(style.focusX) : 50;
+                const focusY = style.focusY != null ? Number(style.focusY) : 50;
+                const xAlign = focusX < 35 ? 'xMin' : focusX > 65 ? 'xMax' : 'xMid';
+                const yAlign = focusY < 35 ? 'YMin' : focusY > 65 ? 'YMax' : 'YMid';
+                const fit = style.objectFit === 'contain' ? 'meet' : 'slice';
+                elementsSvg.push(`<image href="${escapeXml(href)}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="${xAlign}${yAlign} ${fit}"${clipAttr}${opacityAttr}${transform} />`);
             } else {
                 elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.15)" stroke-width="1"${opacityAttr}${transform} />`);
             }
+            const borderSvg = renderBorderOverlay();
+            if (borderSvg) elementsSvg.push(borderSvg);
         } else if (['text', 'random-text', 'markdown'].includes(el.type)) {
-            if (bgFill !== 'none' || borderWidth > 0) {
-                elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(bgFill)}"${strokeAttr}${opacityAttr}${transform} />`);
+            if (bgFill !== 'none') {
+                elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(bgFill)}"${opacityAttr}${transform} />`);
             }
             const rawContent = el.content || (el.items && el.items.length ? el.items[0] : '') || el.name || '';
             if (rawContent) {
@@ -824,43 +926,82 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
                 const tspans = lines.map((line, i) => `<tspan x="${tx}" dy="${i === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`).join('');
                 elementsSvg.push(`<text x="${tx}" y="${ty}" fill="${escapeXml(textColor)}" font-family="${escapeXml(fontFamily)}" font-size="${fontSize}" font-weight="${escapeXml(fontWeight)}" text-anchor="${textAnchor}"${opacityAttr}${transform}>${tspans}</text>`);
             }
+            const borderSvg = renderBorderOverlay();
+            if (borderSvg) elementsSvg.push(borderSvg);
+        } else if (el.type === 'icon') {
+            if (bgFill !== 'none') {
+                elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${escapeXml(bgFill)}"${opacityAttr}${transform} />`);
+            }
+            const cls = String(el.content || '').trim().toLowerCase();
+            const iconColor = style.color || '#ffffff';
+            const iconSize = Math.min(w, h) * 0.7;
+            const ix = x + (w - iconSize) / 2;
+            const iy = y + (h - iconSize) / 2;
+
+            if (cls.includes('twitch')) {
+                elementsSvg.push(`<g transform="translate(${ix}, ${iy}) scale(${iconSize / 24})"${opacityAttr}${transform}>
+                    <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" fill="${escapeXml(iconColor)}" />
+                </g>`);
+            } else if (cls.includes('youtube')) {
+                elementsSvg.push(`<g transform="translate(${ix}, ${iy}) scale(${iconSize / 24})"${opacityAttr}${transform}>
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="${escapeXml(iconColor)}" />
+                </g>`);
+            } else if (cls.includes('discord')) {
+                elementsSvg.push(`<g transform="translate(${ix}, ${iy}) scale(${iconSize / 24})"${opacityAttr}${transform}>
+                    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" fill="${escapeXml(iconColor)}" />
+                </g>`);
+            } else if (cls.includes('twitter') || cls.includes('fa-x')) {
+                elementsSvg.push(`<g transform="translate(${ix}, ${iy}) scale(${iconSize / 24})"${opacityAttr}${transform}>
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill="${escapeXml(iconColor)}" />
+                </g>`);
+            } else {
+                elementsSvg.push(`<circle cx="${x + w / 2}" cy="${y + h / 2}" r="${iconSize / 2}" fill="none" stroke="${escapeXml(iconColor)}" stroke-width="2"${opacityAttr}${transform} />`);
+            }
+            const borderSvg = renderBorderOverlay();
+            if (borderSvg) elementsSvg.push(borderSvg);
         } else if (['video', 'embed'].includes(el.type)) {
             elementsSvg.push(`<g${opacityAttr}${transform}>
-                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : '#0f172a'}" stroke="${borderWidth > 0 ? escapeXml(borderColor) : 'rgba(255,255,255,0.15)'}" stroke-width="${Math.max(1, borderWidth)}" />
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : '#0f172a'}" stroke="${borderWidth > 0 && borderStroke ? escapeXml(borderStroke) : 'rgba(255,255,255,0.15)'}" stroke-width="${Math.max(1, borderWidth)}"${strokeDashAttr} />
                 <circle cx="${x + w / 2}" cy="${y + h / 2}" r="${Math.min(32, w / 4, h / 4)}" fill="rgba(255,255,255,0.12)" />
                 <polygon points="${x + w / 2 - 8},${y + h / 2 - 12} ${x + w / 2 + 14},${y + h / 2} ${x + w / 2 - 8},${y + h / 2 + 12}" fill="#ffffff" />
                 <text x="${x + w / 2}" y="${y + h / 2 + Math.min(32, w / 4, h / 4) + 20}" fill="rgba(255,255,255,0.7)" font-family="-apple-system, system-ui, sans-serif" font-size="12" font-weight="600" text-anchor="middle">${escapeXml(el.name || (el.type === 'embed' ? 'Web Embed' : 'Video Player'))}</text>
             </g>`);
         } else if (el.type === 'alert') {
-            elementsSvg.push(`<g${opacityAttr}${transform}>
-                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(30, 41, 59, 0.9)'}" stroke="${borderWidth > 0 ? escapeXml(borderColor) : 'rgba(250, 204, 21, 0.4)'}" stroke-width="${Math.max(1, borderWidth)}" />
-                <circle cx="${x + 36}" cy="${y + h / 2}" r="16" fill="rgba(250, 204, 21, 0.2)" />
-                <path d="M ${x + 36} ${y + h / 2 - 8} A 6 6 0 0 1 ${x + 42} ${y + h / 2 - 2} L ${x + 44} ${y + h / 2 + 4} L ${x + 28} ${y + h / 2 + 4} L ${x + 30} ${y + h / 2 - 2} A 6 6 0 0 1 ${x + 36} ${y + h / 2 - 8} Z" fill="#facc15" />
-                <text x="${x + 64}" y="${y + h / 2 - 4}" fill="#facc15" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="700">NEW FOLLOWER!</text>
-                <text x="${x + 64}" y="${y + h / 2 + 14}" fill="#ffffff" font-family="-apple-system, system-ui, sans-serif" font-size="12">StreamerFan123</text>
-            </g>`);
+            // Alerts are event-driven overlay popups; hide when idle unless showOnPreview is true
+            if (el.alert?.showOnPreview === true) {
+                const alertTitle = el.alert.sampleTitle || 'NEW FOLLOWER!';
+                const alertUser = el.alert.sampleUser || 'StreamerFan123';
+                const titleColor = el.alert.titleColor || '#ffd166';
+                elementsSvg.push(`<g${opacityAttr}${transform}>
+                    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(30, 41, 59, 0.9)'}" stroke="${borderWidth > 0 && borderStroke ? escapeXml(borderStroke) : 'rgba(250, 204, 21, 0.4)'}" stroke-width="${Math.max(1, borderWidth)}"${strokeDashAttr} />
+                    <circle cx="${x + 36}" cy="${y + h / 2}" r="16" fill="rgba(250, 204, 21, 0.2)" />
+                    <path d="M ${x + 36} ${y + h / 2 - 8} A 6 6 0 0 1 ${x + 42} ${y + h / 2 - 2} L ${x + 44} ${y + h / 2 + 4} L ${x + 28} ${y + h / 2 + 4} L ${x + 30} ${y + h / 2 - 2} A 6 6 0 0 1 ${x + 36} ${y + h / 2 - 8} Z" fill="#facc15" />
+                    <text x="${x + 64}" y="${y + h / 2 - 4}" fill="${escapeXml(titleColor)}" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="700">${escapeXml(alertTitle)}</text>
+                    <text x="${x + 64}" y="${y + h / 2 + 14}" fill="#ffffff" font-family="-apple-system, system-ui, sans-serif" font-size="12">${escapeXml(alertUser)}</text>
+                </g>`);
+            }
         } else if (el.type === 'pattern') {
             elementsSvg.push(`<g${opacityAttr}${transform}>
-                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : '#1e1b4b'}" stroke="${borderWidth > 0 ? escapeXml(borderColor) : 'rgba(167, 139, 250, 0.3)'}" stroke-width="${Math.max(1, borderWidth)}" />
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : '#1e1b4b'}" stroke="${borderWidth > 0 && borderStroke ? escapeXml(borderStroke) : 'rgba(167, 139, 250, 0.3)'}" stroke-width="${Math.max(1, borderWidth)}"${strokeDashAttr} />
                 <text x="${x + w / 2}" y="${y + h / 2 + 4}" fill="#c4b5fd" font-family="-apple-system, system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle">Pattern (${escapeXml(el.pattern?.layout || 'Grid')})</text>
             </g>`);
         } else if (el.type === 'game-list') {
             elementsSvg.push(`<g${opacityAttr}${transform}>
-                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(15, 23, 42, 0.8)'}" stroke="${borderWidth > 0 ? escapeXml(borderColor) : '#3fb950'}" stroke-width="${Math.max(1, borderWidth)}" />
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(15, 23, 42, 0.8)'}" stroke="${borderWidth > 0 && borderStroke ? escapeXml(borderStroke) : '#3fb950'}" stroke-width="${Math.max(1, borderWidth)}"${strokeDashAttr} />
                 <text x="${x + 16}" y="${y + 28}" fill="#3fb950" font-family="-apple-system, system-ui, sans-serif" font-size="13" font-weight="700">GAME PLAN</text>
                 <rect x="${x + 16}" y="${y + 40}" width="${Math.min(60, w / 4)}" height="${Math.min(80, h - 50)}" rx="4" fill="rgba(255,255,255,0.1)" />
                 <rect x="${x + 16 + Math.min(60, w / 4) + 12}" y="${y + 40}" width="${Math.min(60, w / 4)}" height="${Math.min(80, h - 50)}" rx="4" fill="rgba(255,255,255,0.1)" />
             </g>`);
         } else if (el.type === 'progress') {
             elementsSvg.push(`<g${opacityAttr}${transform}>
-                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(15, 23, 42, 0.6)'}" stroke="${borderWidth > 0 ? escapeXml(borderColor) : 'rgba(255,255,255,0.15)'}" stroke-width="${Math.max(1, borderWidth)}" />
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(15, 23, 42, 0.6)'}" stroke="${borderWidth > 0 && borderStroke ? escapeXml(borderStroke) : 'rgba(255,255,255,0.15)'}" stroke-width="${Math.max(1, borderWidth)}"${strokeDashAttr} />
                 <rect x="${x + 8}" y="${y + h / 2 - 4}" width="${w - 16}" height="8" rx="4" fill="rgba(255,255,255,0.18)" />
                 <rect x="${x + 8}" y="${y + h / 2 - 4}" width="${(w - 16) * 0.65}" height="8" rx="4" fill="#3fb950" />
                 <text x="${x + w / 2}" y="${y + h / 2 - 10}" fill="#ffffff" font-family="-apple-system, system-ui, sans-serif" font-size="11" font-weight="600" text-anchor="middle">65%</text>
             </g>`);
         } else if (el.type === 'qr') {
             elementsSvg.push(`<g${opacityAttr}${transform}>
-                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="#ffffff" stroke="${borderWidth > 0 ? escapeXml(borderColor) : 'none'}" stroke-width="${borderWidth}" />
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="#ffffff" stroke="${borderWidth > 0 && borderStroke ? escapeXml(borderStroke) : 'none'}" stroke-width="${borderWidth}"${strokeDashAttr} />
                 <rect x="${x + 8}" y="${y + 8}" width="${w / 3}" height="${h / 3}" fill="#000000" />
                 <rect x="${x + w - 8 - w / 3}" y="${y + 8}" width="${w / 3}" height="${h / 3}" fill="#000000" />
                 <rect x="${x + 8}" y="${y + h - 8 - h / 3}" width="${w / 3}" height="${h / 3}" fill="#000000" />
