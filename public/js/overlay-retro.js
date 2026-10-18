@@ -1028,8 +1028,8 @@
      */
     function applyRetroFilter(node, element, options = {}) {
         if (!node || !element) return false;
-        const f = element.mediaFilter || {};
-        const retro = normalizeRetro(f.retro || {});
+        const rawF = element.mediaFilter || {};
+        const retro = normalizeRetro(rawF.retro || {});
         const isRetroActive = retro.display !== 'none' || retro.vhs || retro.ntsc || retro.static;
 
         if (!isRetroActive) {
@@ -1071,9 +1071,13 @@
             }
         }
 
-        f._fit = element.style?.objectFit || 'cover';
-        f._focusX = element.style?.focusX ?? 50;
-        f._focusY = element.style?.focusY ?? 50;
+        const f = {
+            ...rawF,
+            retro,
+            _fit: element.style?.objectFit || 'cover',
+            _focusX: element.style?.focusX ?? 50,
+            _focusY: element.style?.focusY ?? 50
+        };
 
         // Hide original media and dither canvas so retro canvas displays cleanly
         if (mediaEl) mediaEl.style.opacity = '0';

@@ -1231,13 +1231,17 @@
      */
     function applyMediaFilter(node, element) {
         if (!node || !element || !FILTERABLE(element)) return;
-        const f = element.mediaFilter || {};
+        const rawF = element.mediaFilter || {};
         const defaults = defaultMediaFilter();
-        f.duotone = { ...defaults.duotone, ...(f.duotone || {}) };
-        f.grain = { ...defaults.grain, ...(f.grain || {}) };
-        f.tint = { ...defaults.tint, ...(f.tint || {}) };
-        f.halftone = { ...defaults.halftone, ...(f.halftone || {}) };
-        f.retro = { ...defaults.retro, ...(f.retro || {}) };
+        const f = {
+            ...defaults,
+            ...rawF,
+            duotone: { ...defaults.duotone, ...(rawF.duotone || {}) },
+            grain: { ...defaults.grain, ...(rawF.grain || {}) },
+            tint: { ...defaults.tint, ...(rawF.tint || {}) },
+            halftone: { ...defaults.halftone, ...(rawF.halftone || {}) },
+            retro: { ...defaults.retro, ...(rawF.retro || {}) }
+        };
         const ht = f.halftone;
         const htMode = ht.mode || 'none';
         const hasHt = htMode !== 'none';

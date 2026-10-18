@@ -4,8 +4,8 @@
 
 export const $ = id => document.getElementById(id);
 
-export const params = new URLSearchParams(location.search);
-export const initialId = params.get('id') || 'new-overlay';
+export const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
+export const initialId = params.get('id') || '';
 
 export const LIMITS = { canvasW: [1, 3840], canvasH: [1, 2160], elementW: [10, 3840], elementH: [10, 2160] };
 export const MIN_SIZE = 20;
@@ -234,8 +234,8 @@ export function getDocumentColors() {
 // ---- Central State Object ---------------------------------------------------------
 export const state = {
     overlay: {
-        id: initialId,
-        name: initialId,
+        id: initialId || uid('ov'),
+        name: initialId || 'Untitled overlay',
         revision: 1,
         canvas: { width: 1920, height: 1080, background: 'transparent' },
         pages: null,
@@ -247,7 +247,7 @@ export const state = {
     autoFit: true,
     dirty: false,
     saving: false,
-    isNew: params.get('new') === '1',
+    isNew: !params.get('id'),
     initialId,
     curPage: 'page-1',
     nodes: new Map(),

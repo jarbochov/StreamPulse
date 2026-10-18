@@ -1282,21 +1282,17 @@ export async function load() {
         }).catch(() => null);
     }
 
-    state.savedSnapshot = state.isNew ? '' : snapshot();
+    renderAll();
     state.hist.stack = [];
     state.hist.index = -1;
-
-    renderAll();
     pushHistory();
+    state.savedSnapshot = snapshot();
+    state.dirty = false;
+    updateHistoryUI();
     setRailTab(prefs.railTab === 'pages' ? 'pages' : 'layers');
 
     const selectId = params.get('select');
     if (selectId && byId(selectId)) setSelection([selectId]);
-
-    if (state.isNew) {
-        state.dirty = true;
-        updateHistoryUI();
-    }
 
     fitView(true);
     refreshLiveStatus();
