@@ -88,7 +88,7 @@ function createSystemRoutes({
                     setInterval_('twitch_refresh_minutes', 1, 1440, 10);
                     setInterval_('twitch_stream_info_seconds', 10, 3600, 30);
 
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals', 'clip_candidates'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals', 'clip_candidates', 'session_lifecycle'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             if (key === 'hashtag_max_length') {
@@ -97,6 +97,8 @@ function createSystemRoutes({
                                 current[key] = normalizeClipCandidateConfig({ ...(current.clip_candidates || {}), ...(updates[key] || {}) });
                             } else if (key === 'music' && updates[key] && typeof updates[key] === 'object') {
                                 current[key] = { ...(current.music || {}), ...updates[key] };
+                            } else if (key === 'session_lifecycle' && updates[key] && typeof updates[key] === 'object') {
+                                current[key] = { ...(current.session_lifecycle || {}), ...updates[key] };
                             } else {
                                 current[key] = updates[key];
                             }
@@ -152,7 +154,8 @@ function createSystemRoutes({
                     viewer_tracking: normalizeViewerTrackingConfig(config.viewer_tracking),
                     weather: normalizeWeatherConfig(config.weather),
                     goals: normalizeGoalsConfig(config.goals || defaultGoalsConfig),
-                    clip_candidates: normalizeClipCandidateConfig(config.clip_candidates)
+                    clip_candidates: normalizeClipCandidateConfig(config.clip_candidates),
+                    session_lifecycle: config.session_lifecycle || {}
                 });
                 return true;
             }

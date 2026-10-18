@@ -7,27 +7,18 @@ page.on('dialog', async dialog => { await dialog.accept(); });
 
 try {
     await page.goto(`${baseUrl}/config-editor.html`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForSelector('#config-editor details');
+    await page.waitForSelector('#config-editor .tab-btn');
     const configHasNoThemeControls = await page.$('#cfg-theme-font') === null;
     if (!configHasNoThemeControls) throw new Error('Config Editor still exposes Theme controls');
 
     await page.evaluate(() => {
-        const details = [...document.querySelectorAll('#config-editor details')];
-        details.forEach(section => {
-            section.open = false;
-            section.dispatchEvent(new Event('toggle'));
-        });
-        const general = details.find(section => section.querySelector('summary')?.textContent.startsWith('General'));
-        if (general) {
-            general.open = true;
-            general.dispatchEvent(new Event('toggle'));
-        }
+        const btn = document.querySelector('.tab-btn[data-tab="lifecycle"]');
+        if (btn) btn.click();
     });
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForSelector('#config-editor details');
-    const generalStayedOpen = await page.evaluate(() => [...document.querySelectorAll('#config-editor details')]
-        .find(section => section.querySelector('summary')?.textContent.startsWith('General'))?.open);
-    if (!generalStayedOpen) throw new Error('Config Editor did not retain its expanded section');
+    await page.waitForSelector('#config-editor .tab-btn');
+    const lifecycleStayedActive = await page.evaluate(() => document.querySelector('.tab-btn[data-tab="lifecycle"]')?.classList.contains('active'));
+    if (!lifecycleStayedActive) throw new Error('Config Editor did not retain its active tab');
 
     await page.goto(`${baseUrl}/credits-editor.html`, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForSelector('#cfg-order-highlights-source');

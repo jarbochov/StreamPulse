@@ -1,12 +1,1026 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0;url=/config-editor.html?section=credits">
-    <title>StreamPulse Credits</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Credits Editor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
+
+        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+        .header h1 span { color: var(--accent); }
+
+        .container { max-width: 960px; margin: 0 auto; padding: 1.25rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
+
+        /* Top Toolbar & Tabs */
+        .editor-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.85rem; }
+        .tabs-nav { display: inline-flex; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+        .tab-btn { background: transparent; border: 0; color: var(--text-muted); padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.45rem; text-decoration: none; transition: all 0.12s; }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { background: var(--bg-card); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.18); font-weight: 700; }
+        .tab-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+        .toolbar-actions { display: flex; align-items: center; gap: 0.5rem; }
+
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+        .card h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.5rem; }
+        .card h2 svg { width: 15px; height: 15px; color: var(--accent); }
+
+        .tab-pane { display: flex; flex-direction: column; gap: 1rem; }
+        .tab-pane[hidden] { display: none !important; }
+
+        .cfg-row { display: flex; align-items: center; gap: 0.75rem; }
+        .cfg-row label { font-size: 0.85rem; color: var(--text-muted); min-width: 140px; }
+        .cfg-row input, .cfg-row select, .cfg-row textarea { flex: 1; padding: 0.45rem 0.65rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; font-family: inherit; }
+        .cfg-row textarea { min-height: 60px; resize: vertical; }
+        .cfg-toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); }
+        .cfg-toggle input[type="checkbox"] { accent-color: var(--accent); }
+
+        .credits-order-row { padding: 0.65rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-inset); cursor: grab; transition: border-color 0.15s, background 0.15s; }
+        .credits-order-row:hover { border-color: var(--border-strong); }
+        .credits-order-main { display: flex; align-items: center; gap: 0.65rem; }
+        .credits-order-handle { color: var(--text-muted); font-size: 0.95rem; line-height: 1; display: inline-flex; align-items: center; cursor: grab; }
+        .credits-order-title { min-width: 140px; color: var(--text); font-size: 0.84rem; font-weight: 600; }
+        .credits-order-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.45rem; flex: 1; margin: 0.55rem 0 0 2rem; }
+        .credits-order-controls input, .credits-order-controls select { min-width: 0; padding: 0.4rem 0.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font: inherit; font-size: 0.78rem; }
+        .credits-order-badges { display: flex; align-items: center; gap: 0.35rem; margin-left: auto; }
+        .credits-order-badge { border-radius: 999px; padding: 0.15rem 0.45rem; font-size: 0.68rem; font-weight: 600; white-space: nowrap; }
+        .fade-time-note { grid-column: 1 / -1; color: var(--text-muted); font-size: 0.72rem; }
+
+        .btn { padding: 0.45rem 0.85rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-align: center; display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 500; }
+        .btn:hover { border-color: var(--accent); background: var(--accent-bg); color: #fff; }
+        .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+        .btn.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+        .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+        .icon-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.2rem 0.35rem; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; transition: color 0.15s, background 0.15s; }
+        .icon-btn:hover { color: var(--text); background: var(--bg-raised); }
+        .icon-btn.danger:hover { color: var(--danger, #f85149); background: rgba(248,81,73,0.12); }
+        .icon-btn svg { width: 13px; height: 13px; }
+
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--accent-strong); color: white; padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+        .toast.show { opacity: 1; }
+
+        .dirty-pill { font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px; background: rgba(210,153,34,0.15); border: 1px solid #d29922; color: #d29922; font-weight: 600; display: none; }
+        .dirty-pill.show { display: inline-block; }
+
+        @media (max-width: 768px) {
+            .header { flex-direction: column; gap: 0.5rem; }
+            .container { padding: 1rem; }
+            .editor-toolbar { flex-direction: column; align-items: stretch; }
+            .cfg-row { flex-direction: column; align-items: stretch; }
+            .cfg-row label { min-width: unset; }
+            .credits-order-main { flex-wrap: wrap; }
+            .credits-order-title { min-width: unset; flex: 1; }
+            .credits-order-controls { grid-template-columns: 1fr; margin-left: 0; }
+            .credits-order-badges { margin-left: 0; }
+        }
+    </style>
 </head>
 <body>
-    <p>Opening the Credits Editor…</p>
-    <script>location.replace('/config-editor.html?section=credits');</script>
+    <div class="header">
+        <h1>StreamPulse <span>Credits Editor</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/nav.js"></script>
+    </div>
+
+    <div class="container">
+        <!-- Top Sticky Toolbar with Tabs and Save Action -->
+        <div class="editor-toolbar">
+            <nav class="tabs-nav" role="tablist" aria-label="Credits Sections">
+                <button type="button" class="tab-btn active" data-tab="order" role="tab" aria-selected="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                    <span>Sections &amp; Order</span>
+                </button>
+                <button type="button" class="tab-btn" data-tab="header" role="tab" aria-selected="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                    <span>Header &amp; Spacing</span>
+                </button>
+                <button type="button" class="tab-btn" data-tab="custom" role="tab" aria-selected="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    <span>Custom &amp; Thanks</span>
+                </button>
+                <button type="button" class="tab-btn" data-tab="closing" role="tab" aria-selected="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    <span>Closing &amp; Socials</span>
+                </button>
+            </nav>
+            <div class="toolbar-actions">
+                <span class="dirty-pill" id="dirty-pill">Unsaved Changes</span>
+                <a class="btn" href="/credits.html" target="_blank" rel="noopener" title="Preview live credits overlay in new tab">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    <span>Preview Overlay</span>
+                </a>
+                <button type="button" class="btn primary" id="save-credits-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                    <span>Save Credits</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- TAB 1: SECTIONS & ROLL ORDER -->
+        <div class="tab-pane" id="pane-order">
+            <div class="card">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                    <span>Credits Roll Order &amp; Sections</span>
+                </h2>
+                <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.85rem;">
+                    Drag rows using the handle to reorder the sequence. Enable or disable sections, customize on-screen titles, and switch sections between scrolling and fade cards.
+                </p>
+                <div id="credits-order-editor" style="display:flex;flex-direction:column;gap:0.5rem;"></div>
+            </div>
+        </div>
+
+        <!-- TAB 2: HEADER & SPACING -->
+        <div class="tab-pane" id="pane-header" hidden>
+            <div class="card">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                    <span>Credits Header</span>
+                </h2>
+                <div style="display:flex;flex-direction:column;gap:0.75rem;">
+                    <div class="cfg-row">
+                        <label>Header Image</label>
+                        <input type="text" id="cfg-header-image" data-imagefield placeholder="Image URL or pick an asset">
+                    </div>
+                    <div class="cfg-row">
+                        <label>Main Title</label>
+                        <input type="text" id="cfg-header-title" placeholder="Stream Credits">
+                    </div>
+                    <div class="cfg-row">
+                        <label>Subtitle</label>
+                        <input type="text" id="cfg-header-subtitle" placeholder="Thanks for hanging out!">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                    <span>Fade Card Spacing</span>
+                </h2>
+                <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">
+                    Controls the margins around fade-style standalone credit cards. Set any value to 0 for full viewport fill.
+                </p>
+                <div style="display:flex;flex-direction:column;gap:0.75rem;">
+                    <div class="cfg-row">
+                        <label>Side Margin (vw)</label>
+                        <input type="number" id="cfg-fade-card-margin" min="0" max="20" step="0.5" value="2">
+                    </div>
+                    <div class="cfg-row">
+                        <label>Top Margin (vh)</label>
+                        <input type="number" id="cfg-fade-card-margin-top" min="0" max="50" step="0.5" value="6">
+                    </div>
+                    <div class="cfg-row">
+                        <label>Bottom Margin (vh)</label>
+                        <input type="number" id="cfg-fade-card-margin-bottom" min="0" max="50" step="0.5" value="6">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: CUSTOM SECTIONS & SPECIAL THANKS -->
+        <div class="tab-pane" id="pane-custom" hidden>
+            <div class="card">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    <span>Custom Credit Sections</span>
+                </h2>
+                <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.85rem;">
+                    Add custom credits blocks for artwork, guest streamers, tournament winners, or patron lists. Fade sections appear as standalone text cards instead of scrolling.
+                </p>
+                <div id="custom-sections-editor"></div>
+                <button type="button" class="btn" id="add-custom-section-btn" style="margin-top:0.75rem;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>Add Custom Section</span>
+                </button>
+            </div>
+
+            <div class="card">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    <span>Special Thanks Roster</span>
+                </h2>
+                <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;">
+                    Dedicated list of names for lifetime VIPs, channel benefactors, or moderators. Configure order and fade timing in the Sections tab.
+                </p>
+                <div id="special-thanks-editor"></div>
+                <button type="button" class="btn" id="add-special-thanks-btn" style="margin-top:0.75rem;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>Add Name</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- TAB 4: CLOSING & SOCIALS -->
+        <div class="tab-pane" id="pane-closing" hidden>
+            <div class="card">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                    <span>Closing Message</span>
+                </h2>
+                <div style="display:flex;flex-direction:column;gap:0.75rem;">
+                    <div class="cfg-row">
+                        <label>Closing Text</label>
+                        <textarea id="cfg-closing" placeholder="See you next stream! Have a wonderful day/night."></textarea>
+                    </div>
+                    <div class="cfg-row">
+                        <label>Display Style</label>
+                        <select id="cfg-closing-display-style">
+                            <option value="scroll">Scroll with credits</option>
+                            <option value="fade">Fade card</option>
+                        </select>
+                    </div>
+                    <div class="cfg-row" id="cfg-closing-duration-row" style="display:none;">
+                        <label>Extra Fade Time (sec)</label>
+                        <input type="number" id="cfg-closing-display-duration" min="0" value="0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    <span>Social Media Handles</span>
+                </h2>
+                <div style="display:flex;flex-direction:column;gap:0.75rem;margin-bottom:0.85rem;">
+                    <div class="cfg-row">
+                        <label>Section Title</label>
+                        <input type="text" id="cfg-social-title" placeholder="Follow the Channel">
+                    </div>
+                    <div class="cfg-row">
+                        <label>Subtitle</label>
+                        <input type="text" id="cfg-social-subtitle" placeholder="Join the community across the web">
+                    </div>
+                </div>
+                <div id="social-links-editor"></div>
+                <button type="button" class="btn" id="add-social-link-btn" style="margin-top:0.75rem;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>Add Social Link</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="/icon-picker.js"></script>
+    <script src="/image-picker.js"></script>
+    <script>
+    IconPicker.ensureFont();
+
+    const CHEVRON_UP = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
+    const CHEVRON_DOWN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+    const CLOSE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+    const PENCIL_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`;
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function initImagePreviews() {
+        document.querySelectorAll('input[data-imagefield]').forEach(input => {
+            if (input.type !== 'hidden') ImagePicker.mount(input);
+        });
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str || '';
+        return div.innerHTML;
+    }
+
+    const BUILTIN_CREDIT_SECTION_KEYS = ['subscribers', 'followers', 'donations', 'gift_subs', 'cheerers', 'raids', 'emotes', 'hashtags', 'chatters', 'highlights'];
+    const BUILTIN_CREDIT_SECTION_LABELS = {
+        subscribers: 'Subscribers',
+        followers: 'Followers',
+        donations: 'Donations',
+        gift_subs: 'Gift Subs',
+        cheerers: 'Cheerers',
+        raids: 'Raids',
+        emotes: 'Top Emotes',
+        hashtags: 'Trending Hashtags',
+        chatters: "Today's Chatters",
+        highlights: 'Featured Highlights'
+    };
+    const SPECIAL_THANKS_ORDER_ID = 'special_thanks';
+    const CREDIT_DISPLAY_STYLE_OPTIONS = ['scroll', 'fade'];
+    const DEFAULT_FADE_PANEL_DURATION = 0;
+
+    let loadedConfig = null;
+    let customSectionsState = [];
+    let creditsSectionOrderState = [];
+    let creditsSectionsState = {};
+    let isDirty = false;
+
+    function markDirty() {
+        isDirty = true;
+        document.getElementById('dirty-pill').classList.add('show');
+    }
+
+    function clearDirty() {
+        isDirty = false;
+        document.getElementById('dirty-pill').classList.remove('show');
+    }
+
+    function generateCustomSectionId() {
+        return `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    function normalizeCustomSections(sections) {
+        if (!Array.isArray(sections)) return [];
+        return sections.map(section => ({
+            id: (typeof section?.id === 'string' && section.id.trim()) ? section.id.trim() : generateCustomSectionId(),
+            enabled: section?.enabled !== false,
+            title: section?.title || '',
+            label: typeof section?.label === 'string' ? section.label : '',
+            subtitle: section?.subtitle || '',
+            image: typeof section?.image === 'string' ? section.image : '',
+            image_width: Math.min(100, Math.max(10, parseInt(section?.image_width, 10) || 60)),
+            body: section?.body || '',
+            columns: [1, 2, 3].includes(section?.columns) ? section.columns : 1,
+            display_style: CREDIT_DISPLAY_STYLE_OPTIONS.includes(section?.display_style) ? section.display_style : 'scroll',
+            display_duration: Number.isFinite(Number(section?.display_duration)) && Number(section.display_duration) >= 0 ? Number(section.display_duration) : DEFAULT_FADE_PANEL_DURATION,
+            names: Array.isArray(section?.names) ? section.names.filter(Boolean).map(name => String(name)) : []
+        }));
+    }
+
+    function buildCreditsOrderDefault(customSections) {
+        return [...BUILTIN_CREDIT_SECTION_KEYS, ...customSections.map(section => section.id), SPECIAL_THANKS_ORDER_ID];
+    }
+
+    function normalizeCreditsSectionOrder(order, customSections) {
+        const validIds = new Set(buildCreditsOrderDefault(customSections));
+        const normalized = [];
+        (Array.isArray(order) ? order : []).forEach(id => {
+            if (typeof id !== 'string' || !validIds.has(id) || normalized.includes(id)) return;
+            normalized.push(id);
+        });
+        buildCreditsOrderDefault(customSections).forEach(id => {
+            if (!normalized.includes(id)) normalized.push(id);
+        });
+        return normalized;
+    }
+
+    function syncCreditsOrderStateFromCustomSections() {
+        creditsSectionOrderState = normalizeCreditsSectionOrder(creditsSectionOrderState, customSectionsState);
+    }
+
+    function getCreditsOrderItemLabel(id) {
+        if (id === SPECIAL_THANKS_ORDER_ID) {
+            const title = document.getElementById('cfg-st-title')?.value.trim() || loadedConfig?.credits?.special_thanks?.title;
+            return title || 'Special Thanks';
+        }
+        if (BUILTIN_CREDIT_SECTION_LABELS[id]) {
+            const title = document.getElementById(`cfg-order-${id}-title`)?.value.trim() || creditsSectionsState[id]?.title;
+            return title || BUILTIN_CREDIT_SECTION_LABELS[id];
+        }
+        const card = [...document.querySelectorAll('.custom-section-card')].find(item => item.dataset.sectionId === id);
+        const customName = card?.querySelector('.custom-section-label')?.value.trim();
+        if (customName) return customName;
+        const customTitle = card?.querySelector('.custom-section-title')?.value.trim();
+        if (customTitle) return customTitle;
+        const section = customSectionsState.find(item => item.id === id);
+        if (!section) return 'Custom Section';
+        return section.label || section.title || `Custom Section ${customSectionsState.indexOf(section) + 1}`;
+    }
+
+    function getCreditsOrderItemKind(id) {
+        if (id === SPECIAL_THANKS_ORDER_ID) return 'Special';
+        if (BUILTIN_CREDIT_SECTION_LABELS[id]) return 'Built-in';
+        return 'Custom';
+    }
+
+    function getCreditsOrderItemStyle(id) {
+        if (id === SPECIAL_THANKS_ORDER_ID) {
+            return document.getElementById('cfg-st-display-style')?.value === 'fade' ? 'Fade' : 'Scroll';
+        }
+        if (id === 'highlights') {
+            return document.getElementById('cfg-order-highlights-display-style')?.value === 'fade' ? 'Fade' : 'Scroll';
+        }
+        if (!BUILTIN_CREDIT_SECTION_LABELS[id]) {
+            const section = customSectionsState.find(item => item.id === id);
+            return section?.display_style === 'fade' ? 'Fade' : 'Scroll';
+        }
+        return 'Scroll';
+    }
+
+    function toggleHighlightsSelection(source) {
+        const visible = source === 'manual';
+        const selection = document.getElementById('cfg-highlights-selection');
+        if (selection) selection.style.display = visible ? '' : 'none';
+    }
+
+    function getCreditsOrderItemControls(id) {
+        if (id === SPECIAL_THANKS_ORDER_ID) {
+            const specialThanks = loadedConfig?.credits?.special_thanks || {};
+            const value = (field, fallback = '') => document.getElementById(`cfg-st-${field}`)?.value ?? specialThanks[field] ?? fallback;
+            const displayStyle = value('display-style', specialThanks.display_style || 'scroll');
+            return `<div class="credits-order-controls">
+                <input id="cfg-st-title" type="text" value="${escapeHtml(value('title', 'Special Thanks'))}" placeholder="Title" aria-label="Special Thanks title">
+                <input id="cfg-st-subtitle" type="text" value="${escapeHtml(value('subtitle'))}" placeholder="Subtitle" aria-label="Special Thanks subtitle">
+                <select id="cfg-st-columns" aria-label="Special Thanks columns">
+                    <option value="1"${Number(value('columns', 1)) === 1 ? ' selected' : ''}>1 column</option>
+                    <option value="2"${Number(value('columns', 1)) === 2 ? ' selected' : ''}>2 columns</option>
+                    <option value="3"${Number(value('columns', 1)) === 3 ? ' selected' : ''}>3 columns</option>
+                </select>
+                <select id="cfg-st-display-style" aria-label="Special Thanks display style" onchange="renderCreditsOrderEditor()">
+                    <option value="scroll"${displayStyle === 'scroll' ? ' selected' : ''}>Scroll</option>
+                    <option value="fade"${displayStyle === 'fade' ? ' selected' : ''}>Fade</option>
+                </select>
+                ${displayStyle === 'fade' ? `<input id="cfg-st-display-duration" type="number" min="0" value="${Math.max(0, Number(value('display-duration', specialThanks.display_duration || 0)) || 0)}" placeholder="Extra fade sec" aria-label="Special Thanks extra fade seconds">` : ''}
+                ${displayStyle === 'fade' ? '<span class="fade-time-note">Extra fade time adds to the credits sequence.</span>' : ''}
+            </div>`;
+        }
+        if (!BUILTIN_CREDIT_SECTION_LABELS[id]) return '';
+        const section = creditsSectionsState[id] || {};
+        const source = ['donations', 'gift_subs', 'cheerers', 'highlights'].includes(id)
+            ? `<select id="cfg-order-${id}-source" aria-label="${id} source"${id === 'highlights' ? ' onchange="toggleHighlightsSelection(this.value)"' : ''}>
+                ${id === 'highlights'
+                    ? `<option value="none"${(section.source || (section.selected?.length ? 'manual' : 'none')) === 'none' ? ' selected' : ''}>None</option><option value="manual"${(section.source || (section.selected?.length ? 'manual' : 'none')) === 'manual' ? ' selected' : ''}>Manual</option><option value="current_session"${section.source === 'current_session' ? ' selected' : ''}>Current</option>`
+                    : `<option value="session"${(section.source || 'session') === 'session' ? ' selected' : ''}>Session</option><option value="stats"${section.source === 'stats' ? ' selected' : ''}>Last ${loadedConfig?.days_filter || 30}d</option>`}
+              </select>` : '';
+        const highlightDisplay = id === 'highlights'
+            ? `<select id="cfg-order-${id}-display-style" aria-label="${id} display style">
+               <option value="scroll"${(section.display_style || 'scroll') === 'scroll' ? ' selected' : ''}>Scroll</option>
+               <option value="fade"${section.display_style === 'fade' ? ' selected' : ''}>Fade</option>
+              </select>
+              <input id="cfg-order-${id}-display-duration" type="number" min="0" value="${Number.isFinite(Number(section.display_duration)) && Number(section.display_duration) >= 0 ? Number(section.display_duration) : 0}" placeholder="Extra fade sec" aria-label="${id} extra fade seconds">
+              <span class="fade-time-note">Extra fade time adds to the credits sequence when Fade is selected.</span>`
+            : '';
+        return `<div class="credits-order-controls">
+            ${source}
+            ${highlightDisplay}
+            <input id="cfg-order-${id}-title" type="text" value="${escapeHtml(section.title || '')}" placeholder="Title" aria-label="${id} title">
+            <input id="cfg-order-${id}-subtitle" type="text" value="${escapeHtml(section.subtitle || '')}" placeholder="Subtitle" aria-label="${id} subtitle">
+        </div>`;
+    }
+
+    function getCreditsOrderItemEnabled(id) {
+        if (id === SPECIAL_THANKS_ORDER_ID) return document.getElementById('cfg-order-special_thanks-enabled')?.checked ?? (loadedConfig?.credits?.special_thanks?.enabled !== false);
+        if (BUILTIN_CREDIT_SECTION_LABELS[id]) {
+            return document.getElementById(`cfg-order-${id}-enabled`)?.checked ?? (creditsSectionsState[id]?.enabled !== false);
+        }
+        return customSectionsState.find(item => item.id === id)?.enabled !== false;
+    }
+
+    function setCreditsOrderItemEnabled(id, enabled) {
+        if (id === SPECIAL_THANKS_ORDER_ID) {
+            const input = document.getElementById('cfg-order-special_thanks-enabled');
+            if (input) input.checked = enabled;
+        } else if (BUILTIN_CREDIT_SECTION_LABELS[id]) {
+            const input = document.getElementById(`cfg-order-${id}-enabled`);
+            if (input) input.checked = enabled;
+        } else {
+            const card = document.querySelector(`.custom-section-card[data-section-id="${CSS.escape(id)}"]`);
+            const input = card?.querySelector('.custom-section-enabled');
+            if (input) input.checked = enabled;
+            const section = customSectionsState.find(item => item.id === id);
+            if (section) section.enabled = enabled;
+        }
+        markDirty();
+    }
+
+    function creditsOrderRow(id) {
+        const highlightSelection = id === 'highlights'
+            ? `<div id="cfg-highlights-selection" style="display:none;margin:0.55rem 0 0 2rem;padding-top:0.55rem;border-top:1px solid var(--bg-raised);">
+                <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.4rem;">
+                    For Featured Highlights, enter one highlight key per line in the format <code>timestamp:username</code>. Use the Highlights page to identify starred messages.
+                </div>
+                <textarea id="cfg-highlights-selected" placeholder="timestamp:username (one per line)" style="width:100%;min-height:4rem;padding:0.4rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.8rem;">${escapeHtml((creditsSectionsState.highlights?.selected || []).join('\n'))}</textarea>
+            </div>`
+            : '';
+        return `
+            <div class="credits-order-row" draggable="true" data-order-id="${escapeHtml(id)}">
+                <div class="credits-order-main">
+                    <span class="credits-order-handle" title="Drag to reorder">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
+                    </span>
+                    <input type="checkbox" id="cfg-order-${escapeHtml(id)}-enabled" ${getCreditsOrderItemEnabled(id) ? 'checked' : ''} aria-label="Enable ${escapeHtml(getCreditsOrderItemLabel(id))}" onchange="setCreditsOrderItemEnabled('${escapeHtml(id)}', this.checked); event.stopPropagation();" style="accent-color:var(--accent);">
+                    <span class="credits-order-title">${escapeHtml(getCreditsOrderItemLabel(id))}</span>
+                    ${getCreditsOrderItemKind(id) === 'Custom' ? `<button type="button" class="icon-btn" title="Rename in this list only" aria-label="Rename" onclick="renameCreditsOrderItem('${escapeHtml(id)}')">${PENCIL_ICON}</button>` : ''}
+                    <span class="credits-order-badges">
+                        <span class="credits-order-badge" style="color:${getCreditsOrderItemStyle(id) === 'Fade' ? 'var(--warn, #f59e0b)' : 'var(--text-muted)'};background:${getCreditsOrderItemStyle(id) === 'Fade' ? 'rgba(245,158,11,0.12)' : 'var(--bg-raised)'};border:1px solid ${getCreditsOrderItemStyle(id) === 'Fade' ? 'rgba(245,158,11,0.25)' : 'var(--border)'};">${getCreditsOrderItemStyle(id)}</span>
+                        <span class="credits-order-badge" style="color:var(--accent);background:var(--accent-bg);border:1px solid color-mix(in srgb, var(--accent) 30%, transparent);">${escapeHtml(getCreditsOrderItemKind(id))}</span>
+                    </span>
+                </div>
+                ${getCreditsOrderItemControls(id)}
+                ${highlightSelection}
+            </div>`;
+    }
+
+    async function renameCreditsOrderItem(id) {
+        const card = [...document.querySelectorAll('.custom-section-card')].find(item => item.dataset.sectionId === id);
+        const input = card?.querySelector('.custom-section-label');
+        if (!input) return;
+        const next = prompt('Name for this section in the list (only shown here, not on screen). Leave empty to use its title.', input.value);
+        if (next === null) return;
+        input.value = next.trim();
+        markDirty();
+        renderCreditsOrderEditor();
+    }
+
+    function renderCreditsOrderEditor() {
+        const editor = document.getElementById('credits-order-editor');
+        if (!editor) return;
+        syncCreditsOrderStateFromCustomSections();
+        editor.innerHTML = creditsSectionOrderState.map(id => creditsOrderRow(id)).join('');
+
+        let dragId = null;
+        editor.querySelectorAll('.credits-order-row').forEach(row => {
+            row.addEventListener('dragstart', event => {
+                dragId = row.dataset.orderId;
+                row.style.opacity = '0.55';
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', dragId);
+            });
+            row.addEventListener('dragend', () => {
+                row.style.opacity = '1';
+                dragId = null;
+            });
+            row.addEventListener('dragover', event => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+            });
+            row.addEventListener('drop', event => {
+                event.preventDefault();
+                const targetId = row.dataset.orderId;
+                const sourceId = dragId || event.dataTransfer.getData('text/plain');
+                if (!sourceId || sourceId === targetId) return;
+                const nextOrder = [...creditsSectionOrderState];
+                const from = nextOrder.indexOf(sourceId);
+                const to = nextOrder.indexOf(targetId);
+                if (from === -1 || to === -1) return;
+                nextOrder.splice(to, 0, nextOrder.splice(from, 1)[0]);
+                creditsSectionOrderState = nextOrder;
+                markDirty();
+                renderCreditsOrderEditor();
+            });
+        });
+    }
+
+    function specialThanksRow(name, index) {
+        return `
+            <div class="st-row" style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--bg-raised);">
+                <span style="display:flex;flex-direction:column;gap:1px;">
+                    <button type="button" class="icon-btn" onclick="moveSpecialThanks(${index},-1)" title="Move up">${CHEVRON_UP}</button>
+                    <button type="button" class="icon-btn" onclick="moveSpecialThanks(${index},1)" title="Move down">${CHEVRON_DOWN}</button>
+                </span>
+                <input type="text" class="st-name" value="${escapeHtml(name)}" placeholder="Name" style="flex:1;padding:0.35rem 0.6rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.82rem;">
+                <button type="button" class="icon-btn danger" onclick="removeSpecialThanks(this)" title="Remove">${CLOSE_ICON}</button>
+            </div>`;
+    }
+
+    function addSpecialThanks() {
+        const editor = document.getElementById('special-thanks-editor');
+        const index = editor.querySelectorAll('.st-row').length;
+        editor.insertAdjacentHTML('beforeend', specialThanksRow('', index));
+        markDirty();
+    }
+
+    function removeSpecialThanks(btn) {
+        btn.closest('.st-row').remove();
+        markDirty();
+    }
+
+    function moveSpecialThanks(index, direction) {
+        const editor = document.getElementById('special-thanks-editor');
+        const rows = [...editor.querySelectorAll('.st-row')];
+        const target = index + direction;
+        if (target < 0 || target >= rows.length) return;
+        const names = getSpecialThanksNames();
+        [names[index], names[target]] = [names[target], names[index]];
+        editor.innerHTML = names.map((n, i) => specialThanksRow(n, i)).join('');
+        markDirty();
+    }
+
+    function getSpecialThanksNames() {
+        const names = [];
+        document.querySelectorAll('.st-row .st-name').forEach(input => {
+            if (input.value.trim()) names.push(input.value.trim());
+        });
+        return names;
+    }
+
+    function customSectionNameRow(name, index, nameIndex) {
+        return `
+            <div class="custom-section-name-row" style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0;border-bottom:1px solid var(--bg-raised);">
+                <span style="display:flex;flex-direction:column;gap:1px;">
+                    <button type="button" class="icon-btn" onclick="moveCustomSectionName(${index},${nameIndex},-1)" title="Move up">${CHEVRON_UP}</button>
+                    <button type="button" class="icon-btn" onclick="moveCustomSectionName(${index},${nameIndex},1)" title="Move down">${CHEVRON_DOWN}</button>
+                </span>
+                <input type="text" class="custom-section-name" value="${escapeHtml(name)}" placeholder="Name or credit line" style="flex:1;padding:0.35rem 0.6rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.82rem;">
+                <button type="button" class="icon-btn danger" onclick="removeCustomSectionName(${index},${nameIndex})" title="Remove">${CLOSE_ICON}</button>
+            </div>`;
+    }
+
+    function customSectionCard(section, index) {
+        return `
+            <div class="custom-section-card" data-index="${index}" data-section-id="${escapeHtml(section.id)}" style="padding:0.85rem 0 1rem;border-bottom:1px solid var(--border);">
+                <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.65rem;flex-wrap:wrap;">
+                    <label class="cfg-toggle" style="gap:0.4rem;">
+                        <input type="checkbox" class="custom-section-enabled" ${section.enabled !== false ? 'checked' : ''}>
+                        <span>Show section</span>
+                    </label>
+                    <strong style="font-size:0.85rem;color:var(--text);">Custom Section ${index + 1}</strong>
+                    <button type="button" class="icon-btn danger" onclick="removeCustomSection(${index})" style="margin-left:auto;" title="Remove section">${CLOSE_ICON}</button>
+                </div>
+                <div class="cfg-row">
+                    <label>Image</label>
+                    <input type="text" class="custom-section-image" data-imagefield value="${escapeHtml(section.image || '')}">
+                </div>
+                <input type="hidden" class="custom-section-label" value="${escapeHtml(section.label || '')}">
+                <div class="cfg-row" style="margin-top:0.5rem;">
+                    <label>Image width (%)</label>
+                    <input type="number" min="10" max="100" class="custom-section-image-width" value="${section.image_width || 60}">
+                </div>
+                <div class="cfg-row" style="margin-top:0.5rem;">
+                    <label>Title</label>
+                    <input type="text" class="custom-section-title" value="${escapeHtml(section.title || '')}" placeholder="Community Awards">
+                </div>
+                <div class="cfg-row" style="margin-top:0.5rem;">
+                    <label>Subtitle</label>
+                    <input type="text" class="custom-section-subtitle" value="${escapeHtml(section.subtitle || '')}" placeholder="optional">
+                </div>
+                <div class="cfg-row" style="margin-top:0.5rem;">
+                    <label>Statement</label>
+                    <textarea class="custom-section-body" placeholder="Optional freeform text shown above the names list.">${escapeHtml(section.body || '')}</textarea>
+                </div>
+                <div class="cfg-row" style="margin-top:0.5rem;">
+                    <label>Columns</label>
+                    <select class="custom-section-columns">
+                        <option value="1"${(section.columns || 1) === 1 ? ' selected' : ''}>1 — One per line</option>
+                        <option value="2"${section.columns === 2 ? ' selected' : ''}>2 — Two columns</option>
+                        <option value="3"${section.columns === 3 ? ' selected' : ''}>3 — Three columns</option>
+                    </select>
+                </div>
+                <div class="cfg-row" style="margin-top:0.5rem;">
+                    <label>Display Style</label>
+                    <select class="custom-section-display-style" onchange="toggleCustomSectionDuration(${index})">
+                        <option value="scroll"${(section.display_style || 'scroll') === 'scroll' ? ' selected' : ''}>Scroll with credits</option>
+                        <option value="fade"${section.display_style === 'fade' ? ' selected' : ''}>Fade card</option>
+                    </select>
+                </div>
+                <div class="cfg-row custom-section-duration-row" style="margin-top:0.5rem;display:${section.display_style === 'fade' ? 'flex' : 'none'};">
+                    <label>Extra Fade Time</label>
+                    <input type="number" min="0" class="custom-section-display-duration" value="${section.display_duration ?? DEFAULT_FADE_PANEL_DURATION}">
+                </div>
+                <div style="margin-top:0.2rem;font-size:0.75rem;color:var(--text-muted);display:${section.display_style === 'fade' ? 'block' : 'none'};" class="custom-section-duration-help">0 keeps this panel inside the base duration. Extra fade time adds to the credits sequence.</div>
+                <div style="margin-top:0.65rem;font-size:0.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Names / Lines</div>
+                <div class="custom-section-names" style="margin-top:0.2rem;">
+                    ${(section.names || []).map((name, nameIndex) => customSectionNameRow(name, index, nameIndex)).join('')}
+                </div>
+                <button type="button" class="btn" onclick="addCustomSectionName(${index})" style="margin-top:0.5rem;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>Add Name / Line</span>
+                </button>
+            </div>`;
+    }
+
+    function renderCustomSectionsEditor() {
+        const editor = document.getElementById('custom-sections-editor');
+        if (!editor) return;
+        editor.innerHTML = customSectionsState.length
+            ? customSectionsState.map((section, index) => customSectionCard(section, index)).join('')
+            : '<div style="font-size:0.8rem;color:var(--text-muted);padding:0.6rem 0;">No custom sections yet.</div>';
+        editor.querySelectorAll('.custom-section-title').forEach(input => input.addEventListener('input', renderCreditsOrderEditor));
+        renderCreditsOrderEditor();
+        initImagePreviews();
+    }
+
+    function toggleCustomSectionDuration(index) {
+        const card = document.querySelector(`.custom-section-card[data-index="${index}"]`);
+        if (!card) return;
+        const style = card.querySelector('.custom-section-display-style')?.value || 'scroll';
+        const row = card.querySelector('.custom-section-duration-row');
+        const help = card.querySelector('.custom-section-duration-help');
+        if (row) row.style.display = style === 'fade' ? 'flex' : 'none';
+        if (help) help.style.display = style === 'fade' ? 'block' : 'none';
+        markDirty();
+        renderCreditsOrderEditor();
+    }
+
+    function readCustomSectionsFromDom() {
+        const cards = [...document.querySelectorAll('.custom-section-card')];
+        if (cards.length === 0) return [];
+        return cards.map(card => {
+            const section = {
+                id: card.dataset.sectionId || generateCustomSectionId(),
+                enabled: card.querySelector('.custom-section-enabled')?.checked !== false,
+                title: card.querySelector('.custom-section-title')?.value.trim() || '',
+                subtitle: card.querySelector('.custom-section-subtitle')?.value.trim() || '',
+                label: card.querySelector('.custom-section-label')?.value.trim() || '',
+                image: card.querySelector('.custom-section-image')?.value.trim() || '',
+                image_width: Math.min(100, Math.max(10, parseInt(card.querySelector('.custom-section-image-width')?.value, 10) || 60)),
+                body: card.querySelector('.custom-section-body')?.value || '',
+                columns: parseInt(card.querySelector('.custom-section-columns')?.value, 10) || 1,
+                display_style: CREDIT_DISPLAY_STYLE_OPTIONS.includes(card.querySelector('.custom-section-display-style')?.value) ? card.querySelector('.custom-section-display-style').value : 'scroll',
+                display_duration: Math.max(0, parseInt(card.querySelector('.custom-section-display-duration')?.value, 10) || 0),
+                names: [...card.querySelectorAll('.custom-section-name')]
+                    .map(input => input.value.trim())
+                    .filter(Boolean)
+            };
+            return (section.title || section.subtitle || section.image || section.body.trim() || section.names.length > 0) ? section : null;
+        }).filter(Boolean);
+    }
+
+    function syncCustomSectionsState() {
+        customSectionsState = readCustomSectionsFromDom();
+    }
+
+    function addCustomSection() {
+        syncCustomSectionsState();
+        customSectionsState.push({
+            id: generateCustomSectionId(),
+            enabled: true,
+            title: '',
+            subtitle: '',
+            label: '',
+            image: '',
+            image_width: 60,
+            body: '',
+            columns: 1,
+            display_style: 'scroll',
+            display_duration: DEFAULT_FADE_PANEL_DURATION,
+            names: []
+        });
+        markDirty();
+        renderCustomSectionsEditor();
+    }
+
+    function removeCustomSection(index) {
+        syncCustomSectionsState();
+        customSectionsState.splice(index, 1);
+        markDirty();
+        renderCustomSectionsEditor();
+    }
+
+    function addCustomSectionName(index) {
+        syncCustomSectionsState();
+        customSectionsState[index].names.push('');
+        markDirty();
+        renderCustomSectionsEditor();
+    }
+
+    function removeCustomSectionName(index, nameIndex) {
+        syncCustomSectionsState();
+        customSectionsState[index].names.splice(nameIndex, 1);
+        markDirty();
+        renderCustomSectionsEditor();
+    }
+
+    function moveCustomSectionName(index, nameIndex, direction) {
+        syncCustomSectionsState();
+        const names = customSectionsState[index].names;
+        const target = nameIndex + direction;
+        if (target < 0 || target >= names.length) return;
+        [names[nameIndex], names[target]] = [names[target], names[nameIndex]];
+        markDirty();
+        renderCustomSectionsEditor();
+    }
+
+    function socialIconPreview(icon) {
+        const v = String(icon || '').trim();
+        if (!v) return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
+        return v.includes(' ') ? `<i class="${escapeHtml(IconPicker.normalize(v))}"></i>` : escapeHtml(v);
+    }
+
+    function refreshSocialPreview(input) {
+        input.closest('.social-link-row').querySelector('.sl-pick').innerHTML = socialIconPreview(input.value);
+    }
+
+    function pickSocialIcon(btn) {
+        const row = btn.closest('.social-link-row');
+        const input = row.querySelector('.sl-icon');
+        IconPicker.open({ value: input.value, onPick: cls => { input.value = cls; refreshSocialPreview(input); markDirty(); } });
+    }
+
+    function socialLinkRow(link, index) {
+        return `
+            <div class="social-link-row" data-index="${index}" style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--bg-raised);">
+                <span style="display:flex;flex-direction:column;gap:1px;">
+                    <button type="button" class="icon-btn" onclick="moveSocialLink(${index},-1)" title="Move up">${CHEVRON_UP}</button>
+                    <button type="button" class="icon-btn" onclick="moveSocialLink(${index},1)" title="Move down">${CHEVRON_DOWN}</button>
+                </span>
+                <button type="button" class="sl-pick" onclick="pickSocialIcon(this)" title="Pick an icon" aria-label="Pick an icon" style="width:2.2rem;height:2.2rem;flex:none;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;font-size:1rem;display:inline-flex;align-items:center;justify-content:center;">${socialIconPreview(link.icon)}</button>
+                <input type="text" class="sl-icon" oninput="refreshSocialPreview(this)" value="${escapeHtml(link.icon || '')}" placeholder="fab fa-twitch or icon class" style="width:170px;padding:0.35rem 0.6rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.82rem;">
+                <input type="text" class="sl-handle" value="${escapeHtml(link.handle || '')}" placeholder="@username" style="flex:1;padding:0.35rem 0.6rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.82rem;">
+                <button type="button" class="icon-btn danger" onclick="removeSocialLink(this)" title="Remove">${CLOSE_ICON}</button>
+            </div>`;
+    }
+
+    function moveSocialLink(index, direction) {
+        const editor = document.getElementById('social-links-editor');
+        const rows = [...editor.querySelectorAll('.social-link-row')];
+        const target = index + direction;
+        if (target < 0 || target >= rows.length) return;
+        const links = getSocialLinks();
+        [links[index], links[target]] = [links[target], links[index]];
+        editor.innerHTML = links.map((l, i) => socialLinkRow(l, i)).join('');
+        markDirty();
+    }
+
+    function addSocialLink() {
+        const editor = document.getElementById('social-links-editor');
+        const rows = editor.querySelectorAll('.social-link-row');
+        const index = rows.length;
+        editor.insertAdjacentHTML('beforeend', socialLinkRow({ icon: '', handle: '' }, index));
+        markDirty();
+    }
+
+    function removeSocialLink(btn) {
+        btn.closest('.social-link-row').remove();
+        markDirty();
+    }
+
+    function getSocialLinks() {
+        const links = [];
+        document.querySelectorAll('.social-link-row').forEach(row => {
+            const icon = row.querySelector('.sl-icon').value.trim();
+            const handle = row.querySelector('.sl-handle').value.trim();
+            if (icon || handle) links.push({ icon, handle });
+        });
+        return links;
+    }
+
+    async function loadCreditsEditor() {
+        try {
+            const res = await fetch('/api/config');
+            if (!res.ok) return;
+            const cfg = await res.json();
+            loadedConfig = cfg;
+            const credits = cfg.credits || {};
+            creditsSectionsState = credits.sections || {};
+            customSectionsState = normalizeCustomSections(credits.custom_sections || []);
+            creditsSectionOrderState = normalizeCreditsSectionOrder(credits.section_order || [], customSectionsState);
+
+            // Populate Header & Layout
+            document.getElementById('cfg-header-image').value = credits.header?.image || '';
+            document.getElementById('cfg-header-title').value = credits.header?.title || '';
+            document.getElementById('cfg-header-subtitle').value = credits.header?.subtitle || '';
+
+            document.getElementById('cfg-fade-card-margin').value = Math.max(0, Math.min(20, Number(credits.fade_card_margin) || 2));
+            document.getElementById('cfg-fade-card-margin-top').value = Math.max(0, Math.min(50, Number.isFinite(Number(credits.fade_card_margin_top)) ? Number(credits.fade_card_margin_top) : 6));
+            document.getElementById('cfg-fade-card-margin-bottom').value = Math.max(0, Math.min(50, Number.isFinite(Number(credits.fade_card_margin_bottom)) ? Number(credits.fade_card_margin_bottom) : 6));
+
+            // Populate Closing & Socials
+            document.getElementById('cfg-closing').value = credits.closing || '';
+            const closingStyle = CREDIT_DISPLAY_STYLE_OPTIONS.includes(credits.closing_display_style) ? credits.closing_display_style : 'scroll';
+            document.getElementById('cfg-closing-display-style').value = closingStyle;
+            document.getElementById('cfg-closing-display-duration').value = Number.isFinite(Number(credits.closing_display_duration)) ? Number(credits.closing_display_duration) : 0;
+            document.getElementById('cfg-closing-duration-row').style.display = closingStyle === 'fade' ? 'flex' : 'none';
+
+            document.getElementById('cfg-social-title').value = credits.social?.title || '';
+            document.getElementById('cfg-social-subtitle').value = credits.social?.subtitle || '';
+            document.getElementById('social-links-editor').innerHTML = (credits.social?.links || []).map((l, i) => socialLinkRow(l, i)).join('');
+
+            // Populate Special Thanks
+            const st = credits.special_thanks || {};
+            document.getElementById('special-thanks-editor').innerHTML = (st.names || []).map((n, i) => specialThanksRow(n, i)).join('');
+
+            renderCreditsOrderEditor();
+            toggleHighlightsSelection(creditsSectionsState.highlights?.source || 'none');
+            renderCustomSectionsEditor();
+            initImagePreviews();
+            clearDirty();
+        } catch (e) {
+            console.error('Failed to load credits config:', e);
+        }
+    }
+
+    async function saveCredits() {
+        syncCustomSectionsState();
+        syncCreditsOrderStateFromCustomSections();
+        const sec = {};
+        BUILTIN_CREDIT_SECTION_KEYS.forEach(key => {
+            const enabled = document.getElementById(`cfg-order-${key}-enabled`);
+            const title = document.getElementById(`cfg-order-${key}-title`);
+            const subtitle = document.getElementById(`cfg-order-${key}-subtitle`);
+            const source = document.getElementById(`cfg-order-${key}-source`);
+            if (!enabled && !title && !subtitle && !source) return;
+            sec[key] = {
+                enabled: enabled?.checked !== false,
+                title: title?.value.trim() || '',
+                subtitle: subtitle?.value.trim() || ''
+            };
+            if (source) sec[key].source = source.value;
+        });
+        if (sec.highlights) {
+            sec.highlights.selected = document.getElementById('cfg-highlights-selected').value
+                .split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+            sec.highlights.display_style = document.getElementById('cfg-order-highlights-display-style')?.value === 'fade' ? 'fade' : 'scroll';
+            sec.highlights.display_duration = Math.max(0, parseInt(document.getElementById('cfg-order-highlights-display-duration')?.value, 10) || 0);
+        }
+
+        const credits = {
+            ...(loadedConfig?.credits || {}),
+            header: {
+                title: document.getElementById('cfg-header-title').value,
+                subtitle: document.getElementById('cfg-header-subtitle').value,
+                image: document.getElementById('cfg-header-image').value
+            },
+            closing: document.getElementById('cfg-closing').value,
+            closing_display_style: document.getElementById('cfg-closing-display-style').value === 'fade' ? 'fade' : 'scroll',
+            closing_display_duration: Math.max(0, parseInt(document.getElementById('cfg-closing-display-duration').value, 10) || 0),
+            fade_card_margin: Math.max(0, Math.min(20, parseFloat(document.getElementById('cfg-fade-card-margin').value) || 0)),
+            fade_card_margin_top: Math.max(0, Math.min(50, parseFloat(document.getElementById('cfg-fade-card-margin-top').value) || 0)),
+            fade_card_margin_bottom: Math.max(0, Math.min(50, parseFloat(document.getElementById('cfg-fade-card-margin-bottom').value) || 0)),
+            sections: sec,
+            section_order: creditsSectionOrderState,
+            special_thanks: {
+                enabled: document.getElementById('cfg-order-special_thanks-enabled')?.checked !== false,
+                title: document.getElementById('cfg-st-title')?.value || 'Special Thanks',
+                subtitle: document.getElementById('cfg-st-subtitle')?.value || '',
+                columns: parseInt(document.getElementById('cfg-st-columns')?.value, 10) || 1,
+                display_style: document.getElementById('cfg-st-display-style')?.value === 'fade' ? 'fade' : 'scroll',
+                display_duration: Math.max(0, parseInt(document.getElementById('cfg-st-display-duration')?.value, 10) || 0),
+                names: getSpecialThanksNames()
+            },
+            custom_sections: customSectionsState,
+            social: {
+                title: document.getElementById('cfg-social-title').value,
+                subtitle: document.getElementById('cfg-social-subtitle').value,
+                links: getSocialLinks()
+            }
+        };
+
+        try {
+            const res = await fetch('/api/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ credits })
+            });
+            const data = await res.json();
+            if (data.status === 'saved') {
+                clearDirty();
+                if (loadedConfig) loadedConfig.credits = credits;
+                showToast('Credits configuration saved!');
+                window.dispatchEvent(new CustomEvent('streampulse:config-saved', { detail: { credits } }));
+            } else {
+                showToast(data.error || 'Save failed');
+            }
+        } catch {
+            showToast('Save failed');
+        }
+    }
+
+    // Tabs navigation
+    function switchTab(tabId) {
+        document.querySelectorAll('.tabs-nav .tab-btn').forEach(btn => {
+            const active = btn.dataset.tab === tabId;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-selected', active);
+        });
+        document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.hidden = pane.id !== `pane-${tabId}`;
+        });
+        localStorage.setItem('streampulse:credits:tab', tabId);
+        location.hash = tabId;
+    }
+
+    document.querySelectorAll('.tabs-nav .tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    document.getElementById('cfg-closing-display-style').addEventListener('change', function() {
+        document.getElementById('cfg-closing-duration-row').style.display = this.value === 'fade' ? 'flex' : 'none';
+        markDirty();
+    });
+
+    document.getElementById('save-credits-btn').addEventListener('click', saveCredits);
+    document.getElementById('add-custom-section-btn').addEventListener('click', addCustomSection);
+    document.getElementById('add-special-thanks-btn').addEventListener('click', addSpecialThanks);
+    document.getElementById('add-social-link-btn').addEventListener('click', addSocialLink);
+
+    document.addEventListener('input', e => {
+        if (e.target.closest('.container')) markDirty();
+    });
+    document.addEventListener('change', e => {
+        if (e.target.closest('.container')) markDirty();
+    });
+
+    window.addEventListener('beforeunload', event => {
+        if (isDirty) {
+            event.preventDefault();
+            event.returnValue = '';
+        }
+    });
+
+    const initialTab = location.hash.replace('#', '') || localStorage.getItem('streampulse:credits:tab') || 'order';
+    if (['order', 'header', 'custom', 'closing'].includes(initialTab)) {
+        switchTab(initialTab);
+    }
+
+    loadCreditsEditor();
+    </script>
 </body>
 </html>

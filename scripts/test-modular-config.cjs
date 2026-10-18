@@ -130,17 +130,21 @@ server.listen(PORT, async () => {
         console.log('Navigating to config-editor.html...');
         await page.goto(`http://localhost:${PORT}/config-editor.html`, { waitUntil: 'networkidle0' });
 
-        // Wait for details sections
-        await page.waitForSelector('#config-editor details');
+        // Wait for modules tab
+        await page.waitForSelector('#config-editor .tab-btn');
+        await page.evaluate(() => {
+            document.querySelector('.tab-btn[data-tab="modules"]')?.click();
+        });
+        await page.waitForSelector('.module-card');
 
         // Check if Chat Bot, Music section and Clip Detection section exist and have BETA tags
         const betaSummaryTags = await page.evaluate(() => {
             const results = {};
-            document.querySelectorAll('#config-editor details summary').forEach(s => {
-                const text = s.childNodes[0]?.textContent?.trim() || '';
+            document.querySelectorAll('.module-card-title').forEach(s => {
+                const text = s.querySelector('span')?.textContent?.trim() || '';
                 const hasTag = !!s.querySelector('.beta-tag');
-                if (['Chat Bot', 'Music', 'Clip Detection'].includes(text)) {
-                    results[text] = hasTag;
+                if (['Chat Bot', 'Music Now-Playing', 'Clip Detection'].includes(text)) {
+                    results[text === 'Music Now-Playing' ? 'Music' : text] = hasTag;
                 }
             });
             return results;
