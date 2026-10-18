@@ -2,7 +2,7 @@
   "name": "streampulse",
   "version": "0.12.0",
   "description": "A stream community tracking and overlay system for OBS that combines pre-fetched Twitch API data with live stream data from SocialStream Ninja (SSN).",
-  "main": "server.js",
+  "main": "desktop/main.js",
   "scripts": {
     "start": "node --max-old-space-size=400 server.js",
     "desktop": "electron desktop/main.js",
@@ -47,6 +47,9 @@
   "build": {
     "appId": "com.jarbochov.streampulse",
     "productName": "StreamPulse",
+    "extraMetadata": {
+      "main": "desktop/main.js"
+    },
     "directories": {
       "output": "dist"
     },

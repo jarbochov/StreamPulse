@@ -47,6 +47,8 @@ jobs:
 
       - name: Build macOS Application (.dmg / .zip)
         if: runner.os == 'macOS'
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npx electron-builder --mac --publish never
 
       - name: Build Windows Application (.exe / portable)
