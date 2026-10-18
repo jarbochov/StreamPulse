@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - 'v*'
+      - '[0-9]*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for release (e.g. 0.12.0 or v0.12.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,11 +19,52 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Release Metadata
+        id: meta
+        run: |
+          TAG="${{ github.event.inputs.tag_name || github.ref_name }}"
+          echo "tag_name=$TAG" >> "$GITHUB_OUTPUT"
+
+          # Pre-release check: flags tags containing -pre, -beta, -rc, -alpha, -preview
+          if [[ "$TAG" =~ -(pre|beta|rc|alpha|preview) ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "make_latest=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract Release Notes from CHANGELOG
+        run: |
+          touch RELEASE_NOTES.md
+          node -e '
+            const fs = require("fs");
+            const tag = "${{ steps.meta.outputs.tag_name }}";
+            const version = tag.replace(/^v/, "");
+            if (fs.existsSync("CHANGELOG.md")) {
+              const content = fs.readFileSync("CHANGELOG.md", "utf8");
+              const regex = new RegExp(`## \\x5b${version}\\x5d[\\s\\S]*?(?=\\n## \\x5b|$)`);
+              const match = content.match(regex);
+              if (match) {
+                const body = match[0].replace(/^## \\x5b[^\\x5d]+\\x5d[^\n]*\n+/, "").trim();
+                fs.writeFileSync("RELEASE_NOTES.md", body);
+                console.log("Extracted release notes for " + version);
+              }
+            }
+          '
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: ${{ steps.meta.outputs.tag_name }}
+          body_path: RELEASE_NOTES.md
           generate_release_notes: true
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
+          prerelease: ${{ steps.meta.outputs.is_prerelease == 'true' }}
+          make_latest: ${{ steps.meta.outputs.make_latest }}
