@@ -500,42 +500,153 @@
     /**
      * Draws an image or video onto a canvas while strictly respecting CSS object-fit
      * ('cover' [Fill to fit / crop], 'contain' [letterbox], 'fill', etc.) and focus point.
-     * When blurPx > 0, applies hardware-accelerated blur before drawing and expands bounds to prevent edge fading.
      */
-    function drawMediaWithFit(ctx, mediaEl, pw, ph, fit = 'cover', fx = 0.5, fy = 0.5, blurPx = 0) {
+    function drawMediaWithFit(ctx, mediaEl, pw, ph, fit = 'cover', fx = 0.5, fy = 0.5) {
         const iw = mediaEl.naturalWidth || mediaEl.videoWidth || mediaEl.width || pw;
         const ih = mediaEl.naturalHeight || mediaEl.videoHeight || mediaEl.height || ph;
         if (iw <= 0 || ih <= 0) return;
 
         ctx.clearRect(0, 0, pw, ph);
 
-        if (blurPx > 0) {
-            ctx.filter = `blur(${blurPx.toFixed(2)}px)`;
-        } else {
-            ctx.filter = 'none';
-        }
-
-        const bleed = blurPx > 0 ? Math.min(blurPx * 2, Math.min(pw, ph) * 0.15) : 0;
-        const targetW = pw + bleed * 2;
-        const targetH = ph + bleed * 2;
-
         if (fit === 'fill') {
-            ctx.drawImage(mediaEl, -bleed, -bleed, targetW, targetH);
+            ctx.drawImage(mediaEl, 0, 0, pw, ph);
         } else {
             const scale = fit === 'contain'
-                ? Math.min(targetW / iw, targetH / ih)
+                ? Math.min(pw / iw, ph / ih)
                 : fit === 'none'
                     ? 1
                     : fit === 'scale-down'
-                        ? Math.min(1, Math.min(targetW / iw, targetH / ih))
-                        : Math.max(targetW / iw, targetH / ih); // 'cover' is default (Fill, crop to fit)
+                        ? Math.min(1, Math.min(pw / iw, ph / ih))
+                        : Math.max(pw / iw, ph / ih);
             const dw = iw * scale;
             const dh = ih * scale;
-            const dx = -bleed + (targetW - dw) * fx;
-            const dy = -bleed + (targetH - dh) * fy;
+            const dx = (pw - dw) * fx;
+            const dy = (ph - dh) * fy;
             ctx.drawImage(mediaEl, dx, dy, dw, dh);
         }
-        ctx.filter = 'none';
+    }
+
+    function boxBlurH(scl, tcl, w, h, r) {
+        const iarr = 1 / (r + r + 1);
+        for (let i = 0; i < h; i++) {
+            let ti = i * w;
+            let li = ti;
+            let ri = ti + r;
+            let fvR = scl[ti * 4], fvG = scl[ti * 4 + 1], fvB = scl[ti * 4 + 2], fvA = scl[ti * 4 + 3];
+            let lvR = scl[(ti + w - 1) * 4], lvG = scl[(ti + w - 1) * 4 + 1], lvB = scl[(ti + w - 1) * 4 + 2], lvA = scl[(ti + w - 1) * 4 + 3];
+            let valR = (r + 1) * fvR, valG = (r + 1) * fvG, valB = (r + 1) * fvB, valA = (r + 1) * fvA;
+            for (let j = 0; j < r; j++) {
+                const idx = (ti + Math.min(w - 1, j)) * 4;
+                valR += scl[idx]; valG += scl[idx + 1]; valB += scl[idx + 2]; valA += scl[idx + 3];
+            }
+            for (let j = 0; j <= r; j++) {
+                const ridx = (ri++) * 4;
+                valR += (ri <= ti + w ? scl[ridx] : lvR) - fvR;
+                valG += (ri <= ti + w ? scl[ridx + 1] : lvG) - fvG;
+                valB += (ri <= ti + w ? scl[ridx + 2] : lvB) - fvB;
+                valA += (ri <= ti + w ? scl[ridx + 3] : lvA) - fvA;
+                const tidx = (ti++) * 4;
+                tcl[tidx] = (valR * iarr + 0.5) | 0;
+                tcl[tidx + 1] = (valG * iarr + 0.5) | 0;
+                tcl[tidx + 2] = (valB * iarr + 0.5) | 0;
+                tcl[tidx + 3] = (valA * iarr + 0.5) | 0;
+            }
+            for (let j = r + 1; j < w - r; j++) {
+                const ridx = (ri++) * 4;
+                const lidx = (li++) * 4;
+                valR += scl[ridx] - scl[lidx];
+                valG += scl[ridx + 1] - scl[lidx + 1];
+                valB += scl[ridx + 2] - scl[lidx + 2];
+                valA += scl[ridx + 3] - scl[lidx + 3];
+                const tidx = (ti++) * 4;
+                tcl[tidx] = (valR * iarr + 0.5) | 0;
+                tcl[tidx + 1] = (valG * iarr + 0.5) | 0;
+                tcl[tidx + 2] = (valB * iarr + 0.5) | 0;
+                tcl[tidx + 3] = (valA * iarr + 0.5) | 0;
+            }
+            for (let j = w - r; j < w; j++) {
+                const lidx = (li++) * 4;
+                valR += lvR - scl[lidx];
+                valG += lvG - scl[lidx + 1];
+                valB += lvB - scl[lidx + 2];
+                valA += lvA - scl[lidx + 3];
+                const tidx = (ti++) * 4;
+                tcl[tidx] = (valR * iarr + 0.5) | 0;
+                tcl[tidx + 1] = (valG * iarr + 0.5) | 0;
+                tcl[tidx + 2] = (valB * iarr + 0.5) | 0;
+                tcl[tidx + 3] = (valA * iarr + 0.5) | 0;
+            }
+        }
+    }
+
+    function boxBlurV(scl, tcl, w, h, r) {
+        const iarr = 1 / (r + r + 1);
+        for (let i = 0; i < w; i++) {
+            let ti = i;
+            let li = ti;
+            let ri = ti + r * w;
+            let fvR = scl[ti * 4], fvG = scl[ti * 4 + 1], fvB = scl[ti * 4 + 2], fvA = scl[ti * 4 + 3];
+            let lvR = scl[(ti + w * (h - 1)) * 4], lvG = scl[(ti + w * (h - 1)) * 4 + 1], lvB = scl[(ti + w * (h - 1)) * 4 + 2], lvA = scl[(ti + w * (h - 1)) * 4 + 3];
+            let valR = (r + 1) * fvR, valG = (r + 1) * fvG, valB = (r + 1) * fvB, valA = (r + 1) * fvA;
+            for (let j = 0; j < r; j++) {
+                const idx = (ti + Math.min(h - 1, j) * w) * 4;
+                valR += scl[idx]; valG += scl[idx + 1]; valB += scl[idx + 2]; valA += scl[idx + 3];
+            }
+            for (let j = 0; j <= r; j++) {
+                const ridx = ri * 4;
+                ri += w;
+                valR += (ri <= ti + w * h ? scl[ridx] : lvR) - fvR;
+                valG += (ri <= ti + w * h ? scl[ridx + 1] : lvG) - fvG;
+                valB += (ri <= ti + w * h ? scl[ridx + 2] : lvB) - fvB;
+                valA += (ri <= ti + w * h ? scl[ridx + 3] : lvA) - fvA;
+                const tidx = ti * 4;
+                ti += w;
+                tcl[tidx] = (valR * iarr + 0.5) | 0;
+                tcl[tidx + 1] = (valG * iarr + 0.5) | 0;
+                tcl[tidx + 2] = (valB * iarr + 0.5) | 0;
+                tcl[tidx + 3] = (valA * iarr + 0.5) | 0;
+            }
+            for (let j = r + 1; j < h - r; j++) {
+                const ridx = ri * 4;
+                const lidx = li * 4;
+                ri += w; li += w;
+                valR += scl[ridx] - scl[lidx];
+                valG += scl[ridx + 1] - scl[lidx + 1];
+                valB += scl[ridx + 2] - scl[lidx + 2];
+                valA += scl[ridx + 3] - scl[lidx + 3];
+                const tidx = ti * 4;
+                ti += w;
+                tcl[tidx] = (valR * iarr + 0.5) | 0;
+                tcl[tidx + 1] = (valG * iarr + 0.5) | 0;
+                tcl[tidx + 2] = (valB * iarr + 0.5) | 0;
+                tcl[tidx + 3] = (valA * iarr + 0.5) | 0;
+            }
+            for (let j = h - r; j < h; j++) {
+                const lidx = li * 4;
+                li += w;
+                valR += lvR - scl[lidx];
+                valG += lvG - scl[lidx + 1];
+                valB += lvB - scl[lidx + 2];
+                valA += lvA - scl[lidx + 3];
+                const tidx = ti * 4;
+                ti += w;
+                tcl[tidx] = (valR * iarr + 0.5) | 0;
+                tcl[tidx + 1] = (valG * iarr + 0.5) | 0;
+                tcl[tidx + 2] = (valB * iarr + 0.5) | 0;
+                tcl[tidx + 3] = (valA * iarr + 0.5) | 0;
+            }
+        }
+    }
+
+    function fastBlurRGBA(px, w, h, radius) {
+        if (!px || w <= 1 || h <= 1 || radius <= 0.4) return;
+        const r = Math.max(1, Math.min(Math.round(radius), Math.min(w, h) >> 1));
+        if (r < 1) return;
+        const tmp = new Uint8ClampedArray(px.length);
+        boxBlurH(px, tmp, w, h, r);
+        boxBlurV(tmp, px, w, h, r);
+        boxBlurH(px, tmp, w, h, r);
+        boxBlurV(tmp, px, w, h, r);
     }
 
     /**
@@ -662,7 +773,7 @@
         const mf = element.mediaFilter || {};
         const bake = MEDIA_TYPES.has(element.type);
         const blurVal = Number(mf.blur) || 0;
-        const blurCanvasPx = blurVal > 0 ? (blurVal * (pw / elW)) : 0;
+        const blurRadius = blurVal > 0 ? Math.max(1, Math.round(blurVal * (pw / elW) * 0.75)) : 0;
         const adjSig = bake ? `${mf.brightness ?? 100},${mf.contrast ?? 100},${mf.saturate ?? 100},${mf.grayscale ?? 0},${blurVal}` : `${blurVal}`;
 
         const srcSig = mediaEl
@@ -678,7 +789,7 @@
                     : (mediaEl.readyState >= 2 && mediaEl.videoWidth > 0);
 
                 if (isLoaded) {
-                    drawMediaWithFit(ctx, mediaEl, pw, ph, fit, fx, fy, blurCanvasPx);
+                    drawMediaWithFit(ctx, mediaEl, pw, ph, fit, fx, fy);
                     const readback = ctx.getImageData(0, 0, pw, ph);
                     srcPixels.set(readback.data);
                 } else {
@@ -699,7 +810,6 @@
                     fillSolidPixels(srcPixels, pw, ph, s.fill || s.background || '#ffffff');
                 }
             } else {
-                if (blurCanvasPx > 0) ctx.filter = `blur(${blurCanvasPx.toFixed(2)}px)`;
                 const subCanvas = node.querySelector('canvas.sp-pattern-canvas');
                 if (subCanvas && subCanvas !== canvas) {
                     ctx.drawImage(subCanvas, 0, 0, pw, ph);
@@ -710,10 +820,10 @@
                     ctx.fillStyle = '#808080';
                     ctx.fillRect(0, 0, pw, ph);
                 }
-                ctx.filter = 'none';
                 const readback = ctx.getImageData(0, 0, pw, ph);
                 srcPixels.set(readback.data);
             }
+            if (blurRadius > 0) fastBlurRGBA(srcPixels, pw, ph, blurRadius);
             if (bake) bakeAdjustments(srcPixels, mf);
             canvas._srcSig = srcSig;
         }
@@ -907,6 +1017,7 @@
         }
 
         ctx.putImageData(imgData, 0, 0);
+        canvas._fxVersion = (canvas._fxVersion || 0) + 1;
 
         if (fadeMode !== 'none' && fadeStyle === 'blend') {
             const maskCss = buildCssFadeGradient(ht, true);
@@ -1258,9 +1369,8 @@
             }
             if (node._retroCanvas) {
                 const retroFilter = canvasParts.join(' ');
-                const retroScale = nextScale;
                 if (node._retroCanvas.style.filter !== retroFilter) node._retroCanvas.style.filter = retroFilter;
-                if (node._retroCanvas.style.transform !== retroScale) node._retroCanvas.style.transform = retroScale;
+                if (node._retroCanvas.style.transform !== '') node._retroCanvas.style.transform = '';
             }
             if (active && node.style.overflow !== 'hidden') node.style.overflow = 'hidden';
         }

@@ -239,6 +239,7 @@
         uniform float u_staticRoll;
 
         // Surface / Color Grade
+        uniform float u_blur;
         uniform float u_grain;
         uniform int u_duoEnabled;
         uniform vec3 u_duoDark;
@@ -275,12 +276,49 @@
             return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
         }
 
-        vec4 sampleMedia(vec2 p) {
+        vec4 sampleRaw(vec2 p) {
             vec2 su = p * u_uvScale + u_uvOffset;
             if (su.x < 0.0 || su.x > 1.0 || su.y < 0.0 || su.y > 1.0) {
                 return vec4(0.0);
             }
             return texture2D(u_tex, su);
+        }
+
+        vec4 sampleMedia(vec2 p) {
+            if (u_blur <= 0.001) {
+                return sampleRaw(p);
+            }
+            vec2 b = vec2(u_blur / u_res.x, u_blur / u_res.y);
+            vec4 base = sampleRaw(p);
+            if (base.a <= 0.001) return vec4(0.0);
+
+            vec4 col = base * 0.16;
+            float totalW = 0.16;
+            vec4 s;
+
+            // Ring 1 (radius 0.35)
+            s = sampleRaw(p + vec2( b.x * 0.35, 0.0)); col += s * 0.09; totalW += (s.a > 0.0 ? 0.09 : 0.0);
+            s = sampleRaw(p + vec2(-b.x * 0.35, 0.0)); col += s * 0.09; totalW += (s.a > 0.0 ? 0.09 : 0.0);
+            s = sampleRaw(p + vec2(0.0,  b.y * 0.35)); col += s * 0.09; totalW += (s.a > 0.0 ? 0.09 : 0.0);
+            s = sampleRaw(p + vec2(0.0, -b.y * 0.35)); col += s * 0.09; totalW += (s.a > 0.0 ? 0.09 : 0.0);
+
+            // Ring 2 (radius 0.70)
+            s = sampleRaw(p + vec2( b.x * 0.50,  b.y * 0.50)); col += s * 0.06; totalW += (s.a > 0.0 ? 0.06 : 0.0);
+            s = sampleRaw(p + vec2(-b.x * 0.50,  b.y * 0.50)); col += s * 0.06; totalW += (s.a > 0.0 ? 0.06 : 0.0);
+            s = sampleRaw(p + vec2( b.x * 0.50, -b.y * 0.50)); col += s * 0.06; totalW += (s.a > 0.0 ? 0.06 : 0.0);
+            s = sampleRaw(p + vec2(-b.x * 0.50, -b.y * 0.50)); col += s * 0.06; totalW += (s.a > 0.0 ? 0.06 : 0.0);
+
+            // Ring 3 (radius 1.00)
+            s = sampleRaw(p + vec2( b.x, 0.0));        col += s * 0.03; totalW += (s.a > 0.0 ? 0.03 : 0.0);
+            s = sampleRaw(p + vec2(-b.x, 0.0));        col += s * 0.03; totalW += (s.a > 0.0 ? 0.03 : 0.0);
+            s = sampleRaw(p + vec2(0.0,  b.y));        col += s * 0.03; totalW += (s.a > 0.0 ? 0.03 : 0.0);
+            s = sampleRaw(p + vec2(0.0, -b.y));        col += s * 0.03; totalW += (s.a > 0.0 ? 0.03 : 0.0);
+            s = sampleRaw(p + vec2( b.x * 0.71,  b.y * 0.71)); col += s * 0.03; totalW += (s.a > 0.0 ? 0.03 : 0.0);
+            s = sampleRaw(p + vec2(-b.x * 0.71,  b.y * 0.71)); col += s * 0.03; totalW += (s.a > 0.0 ? 0.03 : 0.0);
+            s = sampleRaw(p + vec2( b.x * 0.71, -b.y * 0.71)); col += s * 0.03; totalW += (s.a > 0.0 ? 0.03 : 0.0);
+            s = sampleRaw(p + vec2(-b.x * 0.71, -b.y * 0.71)); col += s * 0.03; totalW += (s.a > 0.0 ? 0.03 : 0.0);
+
+            return totalW > 0.0 ? (col / totalW) : vec4(0.0);
         }
 
         void main() {
@@ -667,7 +705,7 @@
             'u_vhsEnabled', 'u_vhsJitter', 'u_vhsGlitch', 'u_vhsChroma', 'u_vhsNoise', 'u_vhsHeadNoise',
             'u_ntscEnabled', 'u_ntscBleed', 'u_ntscGhost', 'u_ntscNoise', 'u_ntscHue',
             'u_staticEnabled', 'u_staticNoise', 'u_staticScale', 'u_staticSpeed', 'u_staticPure', 'u_staticColor', 'u_staticGlitch', 'u_staticRoll',
-            'u_grain', 'u_duoEnabled', 'u_duoDark', 'u_duoLight', 'u_tintEnabled', 'u_tintColor', 'u_tintOpacity'
+            'u_blur', 'u_grain', 'u_duoEnabled', 'u_duoDark', 'u_duoLight', 'u_tintEnabled', 'u_tintColor', 'u_tintOpacity'
         ];
         for (const name of uniformNames) {
             u[name] = gl.getUniformLocation(prog, name);
@@ -869,6 +907,13 @@
             gl.uniform1f(u.u_tintOpacity, Number(tint.opacity ?? 0.4));
         }
 
+        // Blur (hardware-accelerated in WebGL fragment shader before CRT/signal effects)
+        let blurVal = Number(f.blur) || 0;
+        if (sourceMedia && (sourceMedia.classList?.contains('sp-fx-canvas') || sourceMedia._isFxCanvas)) {
+            blurVal = 0;
+        }
+        gl.uniform1f(u.u_blur, blurVal);
+
         // Draw quad
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 
@@ -887,41 +932,6 @@
     let animRaf = 0;
     let isPaused = false;
 
-    function drawMediaFitted(ctx, mediaEl, w, h, fit = 'cover', fx = 0.5, fy = 0.5, blurPx = 0) {
-        const iw = mediaEl.naturalWidth || mediaEl.videoWidth || mediaEl.width || w;
-        const ih = mediaEl.naturalHeight || mediaEl.videoHeight || mediaEl.height || h;
-        if (iw <= 0 || ih <= 0) return;
-
-        ctx.clearRect(0, 0, w, h);
-        if (blurPx > 0) {
-            ctx.filter = `blur(${blurPx.toFixed(2)}px)`;
-        } else {
-            ctx.filter = 'none';
-        }
-
-        const bleed = blurPx > 0 ? Math.min(blurPx * 2, Math.min(w, h) * 0.15) : 0;
-        const targetW = w + bleed * 2;
-        const targetH = h + bleed * 2;
-
-        if (fit === 'fill') {
-            ctx.drawImage(mediaEl, -bleed, -bleed, targetW, targetH);
-        } else {
-            const scale = fit === 'contain'
-                ? Math.min(targetW / iw, targetH / ih)
-                : fit === 'none'
-                    ? 1
-                    : fit === 'scale-down'
-                        ? Math.min(1, Math.min(targetW / iw, targetH / ih))
-                        : Math.max(targetW / iw, targetH / ih);
-            const dw = iw * scale;
-            const dh = ih * scale;
-            const dx = -bleed + (targetW - dw) * fx;
-            const dy = -bleed + (targetH - dh) * fy;
-            ctx.drawImage(mediaEl, dx, dy, dw, dh);
-        }
-        ctx.filter = 'none';
-    }
-
     function animLoop(timestamp) {
         if (isPaused || typeof document === 'undefined' || document.hidden) {
             animRaf = 0;
@@ -938,17 +948,6 @@
             if (!record || !record.canvas) {
                 cleanup(node);
                 continue;
-            }
-            if (node._retroBlurCanvas && record.filter?.blur > 0) {
-                const videoEl = node.querySelector(':scope > video, video');
-                if (videoEl && videoEl.readyState >= 2 && !videoEl.paused && !videoEl.ended) {
-                    const bCan = node._retroBlurCanvas;
-                    const bCtx = bCan.getContext('2d');
-                    if (bCtx) {
-                        drawMediaFitted(bCtx, videoEl, bCan.width, bCan.height, record.filter._fit, (record.filter._focusX ?? 50) / 100, (record.filter._focusY ?? 50) / 100, record.filter.blur);
-                        bCan._fxVersion = (bCan._fxVersion || 0) + 1;
-                    }
-                }
             }
             renderRetroShader(record.canvas, record.source, record.filter, tSec);
         }
@@ -1043,30 +1042,7 @@
         if (mediaEl) mediaEl.style.opacity = '0';
         if (hasFxCanvas) node._fxCanvas.style.opacity = '0';
 
-        // If blur is applied and no fxCanvas exists, blur the media into a pre-pass canvas before retro processing
-        let source = hasFxCanvas ? node._fxCanvas : (mediaEl || node);
-        const blurVal = Number(f.blur) || 0;
-        if (!hasFxCanvas && blurVal > 0 && mediaEl) {
-            let bCan = node._retroBlurCanvas;
-            if (!bCan) {
-                bCan = node._retroBlurCanvas = document.createElement('canvas');
-            }
-            if (bCan.width !== w || bCan.height !== h) {
-                bCan.width = w;
-                bCan.height = h;
-                bCan._blurSig = '';
-            }
-            const bCtx = bCan.getContext('2d');
-            const blurSig = `${mediaEl.currentSrc || mediaEl.src || ''}|${w}x${h}|${blurVal}|${f._fit}|${f._focusX}|${f._focusY}`;
-            if (bCtx && (bCan._blurSig !== blurSig || isVideo)) {
-                bCan._blurSig = blurSig;
-                drawMediaFitted(bCtx, mediaEl, w, h, f._fit, (f._focusX ?? 50) / 100, (f._focusY ?? 50) / 100, blurVal);
-                bCan._fxVersion = (bCan._fxVersion || 0) + 1;
-            }
-            source = bCan;
-        } else if (node._retroBlurCanvas) {
-            node._retroBlurCanvas = null;
-        }
+        const source = hasFxCanvas ? node._fxCanvas : (mediaEl || node);
 
         node._retroRecord = { canvas, source, filter: f };
 
@@ -1097,9 +1073,6 @@
         if (node._retroCanvas) {
             node._retroCanvas.remove();
             node._retroCanvas = null;
-        }
-        if (node._retroBlurCanvas) {
-            node._retroBlurCanvas = null;
         }
         node._retroRecord = null;
         activeNodes.delete(node);

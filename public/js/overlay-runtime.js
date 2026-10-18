@@ -645,7 +645,9 @@
                 }
             } else if (element.type === 'image') {
                 const media = document.createElement('img');
-                media.src = expandVariables(element.src || '');
+                const src = expandVariables(element.src || '');
+                if (src && !src.startsWith('data:')) media.crossOrigin = 'anonymous';
+                media.src = src;
                 media.draggable = false;
                 media.style.width = '100%';
                 media.style.height = '100%';

@@ -331,6 +331,7 @@ export function buildContent(node, el) {
         }
         const media = document.createElement(el.type === 'image' ? 'img' : 'video');
         if (el.type === 'image') media.decoding = 'async';
+        if (url && !url.startsWith('data:')) media.crossOrigin = 'anonymous';
         media.src = url;
         media.draggable = false;
         media.style.objectFit = el.style.objectFit || 'cover';
