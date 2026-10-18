@@ -532,15 +532,16 @@
                 }
             }
 
-            // 10. LCD Display Layer: Sub-pixel Grid & 4-Shade Palettes
+            // 10. LCD Display Layer: 4-Shade Palettes & Sub-pixel Grid
             if (u_displayMode == 2) {
-                if (u_lcdGrid > 0.001) {
-                    float pitch = mix(3.0, 16.0, u_lcdGrid);
-                    vec2 cell = fract(uv * u_res / pitch);
-                    float border = step(0.14, cell.x) * step(0.14, cell.y);
-                    col.rgb *= mix(0.4, 1.0, border);
+                // LCD Liquid Crystal Response Persistence / Ghosting
+                if (u_lcdGhosting > 0.001) {
+                    vec4 ghostCol = sampleMedia(vec2(uv.x - u_lcdGhosting * 0.008, uv.y));
+                    col.rgb = mix(col.rgb, ghostCol.rgb, u_lcdGhosting * 0.45);
                 }
+
                 // Authentic Handheld LCD Palettes (4-shade quantization)
+                // Applied before physical matrix grid lines so borders are not quantized into dark color bands
                 if (u_lcdPalette > 0) {
                     float lum = clamp(dot(col.rgb, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
                     float shade = floor(lum * 3.99);
@@ -574,6 +575,27 @@
                         else if (shade < 2.0) col.rgb = vec3(0.35, 0.00, 0.00);
                         else if (shade < 3.0) col.rgb = vec3(0.70, 0.02, 0.02);
                         else col.rgb = vec3(1.00, 0.05, 0.05);
+                    }
+                }
+
+                // Physical LCD Matrix & Sub-pixel Grid Layer
+                if (u_lcdGrid > 0.001) {
+                    float pitch = max(2.0, floor(mix(3.0, 18.0, u_lcdGrid) + 0.5));
+                    vec2 cell = mod(gl_FragCoord.xy, pitch);
+                    // Uniform 1 physical pixel gap between LCD matrix cells (eliminates thick lines and Moiré banding)
+                    float borderX = step(cell.x, 0.99);
+                    float borderY = step(cell.y, 0.99);
+                    float isBorder = max(borderX, borderY);
+                    col.rgb *= mix(1.0, 0.45, isBorder);
+
+                    // For full-color LCD panels with pitch >= 6px, add subtle RGB sub-pixel columns inside cells
+                    if (u_lcdPalette == 0 && pitch >= 6.0 && isBorder < 0.5) {
+                        float subCol = floor((cell.x - 1.0) * 3.0 / (pitch - 1.0));
+                        vec3 subRgb = vec3(0.9);
+                        if (subCol < 0.5) subRgb = vec3(1.22, 0.88, 0.88);
+                        else if (subCol < 1.5) subRgb = vec3(0.88, 1.22, 0.88);
+                        else subRgb = vec3(0.88, 0.88, 1.22);
+                        col.rgb *= subRgb;
                     }
                 }
             }
