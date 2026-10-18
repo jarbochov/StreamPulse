@@ -793,9 +793,10 @@ const SEGMENTS = [
     { id: 'all', label: 'All Members' },
     { id: 'tonight', label: 'Active Tonight' },
     { id: 'regulars', label: 'Regulars' },
+    { id: 'new', label: 'Newcomers' },
     { id: 'vips', label: 'VIPs & Mods' },
     { id: 'subs', label: 'Subscribers' },
-    { id: 'new', label: 'Newcomers' },
+    { id: 'lapsed', label: 'Lapsed' },
     { id: 'notes', label: 'With Notes' }
 ];
 
@@ -821,7 +822,7 @@ function renderCommunityOverview(s) {
     const cards = [
         [fmt(s.totalMembers), 'Total Members'],
         [fmt(s.activeTonight), 'Active Tonight'],
-        [fmt(s.regularsCount), 'Regulars (3+ Streams)'],
+        [fmt(s.regularsCount), 'Regulars (3+ Streams, Recent)'],
         [fmt(s.vipsAndModsCount), 'VIPs & Mods'],
         [fmt(s.subscribersCount), 'Subscribers'],
         [fmt(s.withNotesCount), 'With Notes']
@@ -877,8 +878,14 @@ async function loadChatters() {
 function renderCrmTagsBar() {
     const wrap = $('crm-tags-filter');
     if (!wrap) return;
+    if (!crmTags || crmTags.length === 0) {
+        wrap.style.display = 'none';
+        wrap.innerHTML = '';
+        return;
+    }
+    wrap.style.display = 'flex';
     const chips = ['All Tags', ...crmTags];
-    wrap.innerHTML = '<span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-right:2px;">Tags:</span>' + chips.map(tag => {
+    wrap.innerHTML = '<span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-right:2px;">Custom Tags:</span>' + chips.map(tag => {
         const isAll = tag === 'All Tags';
         const isActive = isAll ? !activeTagFilter : activeTagFilter.toLowerCase() === tag.toLowerCase();
         return `<button type="button" class="tag-chip${isActive ? ' active' : ''}" data-tag="${isAll ? '' : esc(tag)}">${esc(tag)}</button>`;

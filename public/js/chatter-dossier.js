@@ -432,7 +432,7 @@
         });
 
         document.getElementById('dos-add-tag').addEventListener('click', async () => {
-            const tag = prompt('Enter a new community tag (e.g. Regular, Mod, Artist, VIP):');
+            const tag = prompt('Enter a custom tag for this member (e.g. Artist, Collab, Friend, Speedrunner):');
             if (tag && tag.trim()) {
                 currentChatter.tags.push(tag.trim().slice(0, 30));
                 renderTags();

@@ -168,8 +168,10 @@ function createCrmService({
             const isMod = Boolean(isTwitchMod || (notes.tags || []).some(t => t.toLowerCase() === 'mod'));
             const isTonight = Boolean(currentChatters[username.toLowerCase()] || currentChatters[username] || (d.chatname && currentChatters[d.chatname]));
             const sessionsAttended = Object.keys(days).length;
-            const isRegular = sessionsAttended >= 3 || (d.lastSeen && d.lastSeen >= thirtyDaysAgo && sessionsAttended >= 2);
-            const isNew = sessionsAttended <= 1 || (d.firstSeen && d.firstSeen >= fourteenDaysAgo);
+            const isRecent = isTonight || Boolean(d.lastSeen && String(d.lastSeen).slice(0, 10) >= thirtyDaysAgo);
+            const isRegular = sessionsAttended >= 3 && isRecent;
+            const isLapsed = sessionsAttended >= 3 && !isRecent;
+            const isNew = Boolean(d.firstSeen && String(d.firstSeen).slice(0, 10) >= fourteenDaysAgo) || (sessionsAttended <= 1 && isRecent);
             const hasNotes = Boolean(notes.notes && notes.notes.trim());
 
             return {
@@ -189,6 +191,7 @@ function createCrmService({
                 tags: notes.tags || [],
                 isTonight,
                 isRegular,
+                isLapsed,
                 isNew,
                 hasNotes
             };
@@ -208,6 +211,8 @@ function createCrmService({
             filtered = filtered.filter(c => c.isTonight);
         } else if (seg === 'regulars') {
             filtered = filtered.filter(c => c.isRegular);
+        } else if (seg === 'lapsed') {
+            filtered = filtered.filter(c => c.isLapsed);
         } else if (seg === 'vips' || seg === 'vips-mods') {
             filtered = filtered.filter(c => c.isVip || c.isMod);
         } else if (seg === 'subs' || seg === 'subscribers') {
@@ -242,11 +247,16 @@ function createCrmService({
 
         filtered.sort((a, b) => b.totalMessages - a.totalMessages);
 
-        const allTagsSet = new Set(['VIP', 'Mod', 'Subscriber']);
+        // Tags are exclusively for custom user-defined streamer labels (e.g. artist, collab, friend)
+        const systemRoleTags = new Set(['vip', 'mod', 'moderator', 'sub', 'subscriber', 'regular']);
+        const allTagsSet = new Set();
         for (const note of Object.values(chatterNotes)) {
             if (Array.isArray(note.tags)) {
                 for (const t of note.tags) {
-                    if (t && t.trim()) allTagsSet.add(t.trim());
+                    const trimmed = (t || '').trim();
+                    if (trimmed && !systemRoleTags.has(trimmed.toLowerCase())) {
+                        allTagsSet.add(trimmed);
+                    }
                 }
             }
         }
