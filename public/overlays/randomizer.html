@@ -533,6 +533,9 @@
             pointer-events: none;
             z-index: 6;
             transform-style: flat;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .deck-riffle-card.left {
             animation: riffleDropLeft 0.32s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
@@ -666,7 +669,7 @@
                 <div class="deck-split-packet left" id="deck-split-left" style="display:none;">
                     <div class="deck-card-border-ornament"></div>
                     <div class="deck-card-pattern">
-                        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
                             <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
                             <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
                         </svg>
@@ -675,7 +678,7 @@
                 <div class="deck-split-packet right" id="deck-split-right" style="display:none;">
                     <div class="deck-card-border-ornament"></div>
                     <div class="deck-card-pattern">
-                        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
                             <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
                             <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
                         </svg>
@@ -689,7 +692,7 @@
                         <div class="deck-card-face deck-card-back">
                             <div class="deck-card-border-ornament"></div>
                             <div class="deck-card-pattern">
-                                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
                                     <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
                                     <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
                                 </svg>
@@ -1771,7 +1774,7 @@
                             card.innerHTML = `
                                 <div class="deck-card-border-ornament"></div>
                                 <div class="deck-card-pattern">
-                                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
                                         <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
                                         <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
                                     </svg>
