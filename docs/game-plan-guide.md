@@ -21,6 +21,10 @@ Manage your entire gaming broadcast schedule from a single visual dashboard:
 
 ---
 
+## Custom cover artwork
+
+Open a game's or custom segment's details and choose **Library…** beside the cover field to reuse an image from your StreamPulse Asset Library. The picker lists image assets only; search by display name, filename, or tag, or choose a tag filter. Selecting an image updates and saves the item's custom cover. Use **Upload** for a new image or **Clear** to remove the override.
+
 ## One-Click Broadcaster Actions
 
 Control your broadcast rundown in real time with quick action buttons:

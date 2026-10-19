@@ -2590,7 +2590,7 @@
             const tag = $('asset-tag-filter')?.value || '';
             const filtered = cachedAssets.filter(asset => {
                 if (tag && !(asset.tags || []).includes(tag)) return false;
-                if (q && !(asset.name || '').toLowerCase().includes(q) && !(asset.tags || []).some(t => t.toLowerCase().includes(q))) return false;
+                if (q && !(asset.label || asset.name || '').toLowerCase().includes(q) && !(asset.name || '').toLowerCase().includes(q) && !(asset.tags || []).some(t => t.toLowerCase().includes(q))) return false;
                 return true;
             });
             if (!filtered.length) {
@@ -2600,20 +2600,26 @@
             }
             status.textContent = `Showing ${filtered.length} image asset${filtered.length === 1 ? '' : 's'} — click one to use as cover artwork.`;
             grid.innerHTML = filtered.map(asset => `
-                <button type="button" class="asset-card" data-asset-url="${esc(asset.url)}" title="${esc(asset.name)}">
-                    <img src="${esc(asset.url)}" alt="${esc(asset.name)}" loading="lazy">
-                    <span class="asset-name">${esc(asset.name)}</span>
+                <button type="button" class="asset-card" data-asset-url="${esc(asset.url)}" title="${esc(asset.label || asset.name)}">
+                    <img src="${esc(asset.url)}" alt="${esc(asset.label || asset.name)}" loading="lazy">
+                    <span class="asset-name">${esc(asset.label || asset.name)}</span>
                 </button>
             `).join('');
         }
         $('cover-library').addEventListener('click', async () => {
             if (!editing) return;
+            cachedAssets = [];
+            $('asset-search').value = '';
+            $('asset-tag-filter').innerHTML = '<option value="">All tags</option>';
             $('asset-status').textContent = 'Loading Asset Library…';
             $('asset-grid').innerHTML = '';
             if (!$('asset-dlg').open) $('asset-dlg').showModal();
             try {
-                const data = await (await fetch('/api/custom-overlays/assets', { cache: 'no-store' })).json();
-                cachedAssets = (data.assets || []).filter(a => (a.contentType || '').startsWith('image/'));
+                const response = await fetch('/api/custom-overlays/assets', { cache: 'no-store' });
+                if (!response.ok) throw new Error(`Asset Library request failed (${response.status})`);
+                const data = await response.json();
+                if (!Array.isArray(data)) throw new Error('Invalid Asset Library response');
+                cachedAssets = data.filter(asset => asset.kind === 'image');
                 const allTags = [...new Set(cachedAssets.flatMap(a => a.tags || []))].sort();
                 $('asset-tag-filter').innerHTML = '<option value="">All tags</option>' + allTags.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
                 renderAssetGrid();

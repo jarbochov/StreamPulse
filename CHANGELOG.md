@@ -10,6 +10,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Custom overlay Poll element and 400 × 150 Compact poll preset: adaptive 2–5-choice result bars, native Twitch vote counts/percentages, remaining-time countdown, configurable completed-result duration, and preview-only fictional samples.
 
 ### Fixed
+- Game Plan custom-cover Library picker now reads the shared asset API's array and image kinds, shows friendly labels, clears stale filters when reopened, and reports failed loads instead of claiming the library is empty.
 - Automatic Poll active pages now honor visible Poll elements' results duration before returning to the previous page, including a bounded wait for Twitch's final status.
 
 ### Changed
