@@ -43,6 +43,20 @@ flowchart TD
 
 ---
 
+## Updating an installed desktop app
+
+The **Update** page checks stable releases and links to the desktop installers. It does not replace the running app automatically. **Nightly / Main** is available only for Git checkouts and is hidden in packaged desktop builds.
+
+1. Make a backup in **Backup & Restore**, and update while off-air.
+2. Download the installer for your OS and architecture from [the latest release](https://github.com/jarbochov/StreamPulse/releases/latest).
+3. **Quit StreamPulse fully** using the application menu or tray menu. Closing its window only hides it.
+4. On macOS, open the DMG and replace **StreamPulse.app** in `/Applications`. On Windows, run the setup installer, or replace the portable executable if you use the portable edition.
+5. Reopen StreamPulse. Your configuration and data remain in the user-data location described below, unless you explicitly configured another location.
+
+If an older version reports `ENOTDIR` with a path containing `app.asar` while updating, it tried to use the source-folder updater on a packaged application. Do not edit or unpack `app.asar`; install the new desktop version as above. Source ZIP downloads are not desktop installers.
+
+---
+
 ## 2. Where Does Data Live? (Backups, Assets & Chat Data)
 
 In a packaged desktop application, the application binary and code assets are bundled inside a read-only archive (`app.asar`). Writing persistent user data inside the app folder would fail or get erased whenever you update the app.

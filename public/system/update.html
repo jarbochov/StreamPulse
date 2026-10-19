@@ -17,22 +17,45 @@
 <body>
     <div class="header"><h1>StreamPulse <span>Update</span></h1><div id="main-nav" class="nav"></div><script src="/nav.js"></script></div>
     <main class="container">
-        <section class="card"><h2>Stable Release</h2><p class="muted">Check for the latest published release. Git and downloaded-release installations can update in place while preserving config.json and data/.</p><div class="row"><button onclick="check('release')">Check stable release</button><button id="apply-release" disabled onclick="apply('release')">Update to stable release</button></div></section>
-        <section class="card"><h2>Nightly / Main</h2><p class="warning">Nightly builds use the latest main commit and may break features or require manual fixes. Review the changes before applying.</p><div class="row"><button onclick="check('nightly')">Check nightly</button><button id="apply-nightly" disabled onclick="confirmNightly()">Update to nightly</button></div></section>
+        <section class="card"><h2>Stable Release</h2><p class="muted" id="installation-help">Checking installation type…</p><div class="row"><button onclick="check('release')">Check stable release</button><button id="apply-release" hidden disabled onclick="apply('release')">Update to stable release</button><a id="desktop-download" hidden href="https://github.com/jarbochov/StreamPulse/releases/latest" target="_blank" rel="noopener">Download desktop installer</a></div></section>
+        <section class="card" id="nightly-panel" hidden><h2>Nightly / Main</h2><p class="warning">Nightly builds use the latest main commit and may break features or require manual fixes. Review the changes before applying.</p><div class="row"><button onclick="check('nightly')">Check nightly</button><button id="apply-nightly" disabled onclick="confirmNightly()">Update to nightly</button></div></section>
         <section class="card"><h2>Status</h2><div id="result" class="muted">No update check run yet.</div></section>
     </main>
 <script>
 let available = {};
+function configureInstallation(data) {
+    const desktop = data.installation === 'desktop';
+    document.getElementById('nightly-panel').hidden = data.supportsNightly !== true;
+    document.getElementById('apply-release').hidden = data.canApply === false;
+    document.getElementById('desktop-download').hidden = !desktop;
+    document.getElementById('installation-help').textContent = desktop
+        ? data.message
+        : 'Git and downloaded-source installations can update in place while preserving config.json and data/. Nightly updates require a Git checkout.';
+}
+async function initialize() {
+    try {
+        const res = await fetch('/api/update/info');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not detect installation type');
+        configureInstallation(data);
+    } catch (err) {
+        document.getElementById('installation-help').textContent = err.message;
+    }
+}
 async function check(mode) {
     setBusy(true);
     try {
         const res = await fetch(`/api/update/check?mode=${mode}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Update check failed');
-        available[mode] = data.updateAvailable;
-        document.getElementById(`apply-${mode}`).disabled = !data.updateAvailable;
+        if (data.installation === 'desktop') configureInstallation(data);
+        available[mode] = data.canApply !== false && data.updateAvailable;
+        document.getElementById(`apply-${mode}`).disabled = !available[mode];
         const current = data.currentLabel || (data.currentSha ? data.currentSha.slice(0, 7) : 'Downloaded release folder');
-        document.getElementById('result').innerHTML = data.updateAvailable
+        if (data.installation === 'desktop') {
+            document.getElementById('result').textContent = `${data.updateAvailable ? 'Stable release available' : 'Already up to date'}: ${data.latestLabel} (installed: ${current}).\n\n${data.message}${data.updateAvailable && !data.installers?.length ? '\n\nDesktop installers are not attached yet. Check the release page again when the build finishes.' : ''}`;
+            document.getElementById('desktop-download').href = data.releaseUrl;
+        } else document.getElementById('result').innerHTML = data.updateAvailable
             ? `${mode === 'nightly' ? 'Nightly' : 'Stable release'} available: <strong>${escapeHtml(data.latestLabel)}</strong> (current: ${escapeHtml(current)})${data.downloadUrl ? `<br><br><a href="${data.downloadUrl}" target="_blank" rel="noopener">Release source archive</a>` : ''}`
             : `Already up to date: ${data.latestLabel || current}`;
     } catch (err) { document.getElementById('result').textContent = err.message; }
@@ -87,6 +110,7 @@ async function waitForReplacement(previousProcessStartedAt) {
     throw new Error('Update installed, but the restart could not be verified within 15 seconds.');
 }
 function setBusy(busy) { document.querySelectorAll('button').forEach(button => { button.disabled = busy || (button.id && button.id.startsWith('apply-') && !available[button.id.slice(6)]); }); }
+initialize();
 </script>
 </body>
 </html>

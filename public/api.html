@@ -1102,9 +1102,14 @@
                     companion: true
                 },
                 {
+                    method: 'GET', path: '/api/update/info',
+                    desc: 'Read installation update capabilities',
+                    details: 'No GitHub request. Returns installation (desktop, git, or release-folder), canApply, and supportsNightly. Desktop apps require an installer; only Git checkouts support nightly updates.'
+                },
+                {
                     method: 'GET', path: '/api/update/check',
                     desc: 'Check for a newer version',
-                    details: 'Compares the installed version with the latest release or nightly build.',
+                    details: 'Compares the installed version with the latest stable release. Nightly checks require a Git checkout. Desktop results include canApply:false, releaseUrl, installers:[{name,url}], and manual installation instructions, not a source archive download.',
                     params: [
                         { name: 'mode', desc: 'Update channel', values: 'release | nightly', default: 'release' }
                     ]
@@ -1112,7 +1117,7 @@
                 {
                     method: 'POST', path: '/api/update/apply',
                     desc: 'Apply an available update',
-                    details: 'Downloads and applies the update. Responds 409 if the update cannot be applied.',
+                    details: 'Downloads and applies a source-installation update. Packaged desktop apps always respond 409 and must use a desktop installer. Nightly requires Git.',
                     body: '{ "mode": "release" }'
                 },
                 {

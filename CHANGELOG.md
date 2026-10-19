@@ -6,6 +6,15 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-10-19
+
+### Fixed
+- Detect packaged desktop installations before updating; block source archive extraction into read-only `app.asar` and provide desktop installer instructions instead.
+- Hide Nightly / Main outside Git checkouts and hide in-place source update controls for desktop apps; show stable release checks and a desktop download link.
+
+### Changed
+- Add installation update capabilities at `/api/update/info`, with desktop installer metadata in stable-release checks.
+
 ## [0.13.1] - 2026-10-19
 
 ### Fixed

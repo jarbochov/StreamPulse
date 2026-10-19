@@ -32,6 +32,13 @@ All endpoints are hosted locally at `http://localhost:3000` (or your configured 
 
 `POST /api/restart` saves and preserves the current session while restarting the server. In desktop mode the backend restarts in-process; in CLI mode the process is replaced. `POST /api/shutdown` ends and archives the current session and exits StreamPulse.
 
+### Update capabilities and release checks
+
+- `GET /api/update/info` detects the installation without contacting GitHub. Returns `installation` (`desktop`, `git`, or `release-folder`), `canApply`, and `supportsNightly`. Desktop results include the installed version, release link, and manual-install instructions.
+- `GET /api/update/check?mode=release` checks GitHub's latest stable release. Desktop results have `canApply: false`, `releaseUrl`, and an `installers` array of `{ name, url }`; they do not advertise a source ZIP as an installer. An empty installer list can mean the release build is still running.
+- `GET /api/update/check?mode=nightly` is supported only for Git checkouts.
+- `POST /api/update/apply` with `{ "mode": "release" }` or `{ "mode": "nightly" }` applies source-installation updates. Packaged desktop apps reject both modes with HTTP `409` before any backup, download, command execution, or file replacement. Use the desktop installer instead.
+
 ---
 
 ## 2. Choice Randomizer Endpoints

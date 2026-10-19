@@ -59,8 +59,8 @@ const { createHighlightsRoutes } = require('./server/routes/highlights');
 const { createBackupRoutes } = require('./server/routes/backup');
 const { createBackupService } = require('./server/services/backup');
 const { normalizeSsnSessionId } = require('./server/ssn-config');
+const { createUpdateService } = require('./server/services/updates');
 const execFileAsync = promisify(execFile);
-const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 // Node refuses to spawn .cmd files without a shell on Windows (EINVAL); the arguments here are fixed.
 const runNpmCi = () => execFileAsync(NPM_COMMAND, ['ci', '--omit=dev'], { cwd: __dirname, timeout: 300000, shell: process.platform === 'win32' });
@@ -1226,89 +1226,11 @@ function launchReplacement() {
     process.exit(0);
 }
 
-// Release tags are "0.8" or "0.8.1" while package.json uses "0.8.0", so compare numerically.
-function sameVersion(a, b) {
-    const parts = v => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
-    const x = parts(a), y = parts(b);
-    for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return false;
-    return true;
-}
-
-async function getUpdateStatus(mode = 'release') {
-    let currentSha = null;
-    try {
-        const { stdout: current } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: __dirname });
-        currentSha = current.trim();
-    } catch {}
-    if (mode === 'nightly') {
-        if (!currentSha) throw new Error('Nightly updates require a Git checkout. Downloaded release folders support stable releases only.');
-        const remote = await getJson(`https://api.github.com/repos/${UPDATE_REPOSITORY}/commits/main`);
-        return { mode, installation: 'git', currentSha, latestSha: remote.sha, latestLabel: remote.sha.slice(0, 7), updateAvailable: remote.sha !== currentSha };
-    }
-    const release = await getJson(`https://api.github.com/repos/${UPDATE_REPOSITORY}/releases/latest`);
-    if (!currentSha) {
-        let installedVersion = '';
-        try { installedVersion = String(JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8')).version || ''); } catch {}
-        return { mode, installation: 'release-folder', currentSha: null, currentLabel: installedVersion || 'Downloaded release folder', latestSha: release.target_commitish, latestLabel: release.tag_name, releaseName: release.name || release.tag_name, releaseUrl: release.html_url, downloadUrl: release.zipball_url, updateAvailable: !installedVersion || !sameVersion(installedVersion, release.tag_name) };
-    }
-    let currentLabel = '';
-    try {
-        const result = await execFileAsync('git', ['describe', '--tags', '--exact-match', 'HEAD'], { cwd: __dirname });
-        currentLabel = result.stdout.trim();
-    } catch {}
-    return { mode, installation: 'git', currentSha, currentLabel, latestLabel: release.tag_name, updateAvailable: release.tag_name !== currentLabel, releaseName: release.name || release.tag_name, releaseUrl: release.html_url, downloadUrl: release.zipball_url };
-}
-
-async function applyUpdate(mode) {
-    if (!['release', 'nightly'].includes(mode)) throw new Error('Invalid update mode');
-    const status = await getUpdateStatus(mode);
-    if (!status.updateAvailable) return { ...status, updated: false, message: 'Already up to date.' };
-    if (status.installation === 'release-folder') {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-update-'));
-        const archivePath = path.join(tempDir, 'release.zip');
-        const extractDir = path.join(tempDir, 'extract');
-        try {
-            await performAutoBackup(true);
-            await downloadFile(status.downloadUrl, archivePath);
-            fs.mkdirSync(extractDir);
-            new AdmZip(archivePath).extractAllTo(extractDir, true);
-            const root = fs.readdirSync(extractDir, { withFileTypes: true }).find(entry => entry.isDirectory());
-            if (!root) throw new Error('Release archive did not contain an application folder.');
-            for (const entry of fs.readdirSync(path.join(extractDir, root.name))) {
-                if (['config.json', 'data', 'node_modules'].includes(entry)) continue;
-                fs.cpSync(path.join(extractDir, root.name, entry), path.join(__dirname, entry), { recursive: true, force: true });
-            }
-            await runNpmCi();
-        } finally {
-            fs.rmSync(tempDir, { recursive: true, force: true });
-        }
-        setTimeout(() => restartServer().catch(err => console.error('[Update] Restart failed:', err)), 500);
-        return { ...status, updated: true, message: 'Release installed. StreamPulse is restarting.' };
-    }
-    const { stdout: changes } = await execFileAsync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: __dirname });
-    if (changes.trim()) throw new Error('Update blocked: tracked local changes must be committed or stashed first.');
-    await performAutoBackup(true);
-    try {
-        await execFileAsync('git', ['fetch', '--tags', '--force', 'origin'], { cwd: __dirname });
-    } catch {
-        await execFileAsync('git', ['fetch', '--force', 'origin'], { cwd: __dirname });
-    }
-    if (mode === 'nightly') {
-        await execFileAsync('git', ['checkout', 'main'], { cwd: __dirname });
-        await execFileAsync('git', ['reset', '--hard', 'origin/main'], { cwd: __dirname });
-    } else {
-        await execFileAsync('git', ['checkout', status.latestLabel], { cwd: __dirname });
-    }
-    try {
-        await runNpmCi();
-    } catch (err) {
-        throw new Error(`Dependencies failed to install: ${err.message}`);
-    }
-    setTimeout(() => {
-        restartServer().catch(err => console.error('[Update] Restart failed:', err));
-    }, 500);
-    return { ...status, updated: true, message: 'Update installed. StreamPulse is restarting.' };
-}
+const { getUpdateInfo, getUpdateStatus, applyUpdate } = createUpdateService({
+    rootDir: __dirname,
+    packaged: process.env.STREAMPULSE_PACKAGED === 'true',
+    execFileAsync, getJson, downloadFile, performAutoBackup, runNpmCi, restartServer
+});
 
 
 
@@ -1680,6 +1602,7 @@ const handleSystemRoutes = createSystemRoutes({
     getStatus: buildStatusSnapshot,
     onShutdown: handleShutdown,
     onRestart: handleRestart,
+    getUpdateInfo,
     getUpdateStatus,
     applyUpdate
 });

@@ -26,6 +26,7 @@ function createSystemRoutes({
     getStatus = () => ({}),
     onShutdown = async () => ({}),
     onRestart = () => ({}),
+    getUpdateInfo = async () => ({}),
     getUpdateStatus = async () => ({}),
     applyUpdate = async () => ({})
 } = {}) {
@@ -193,6 +194,15 @@ function createSystemRoutes({
         if (pathname === '/api/restart') {
             const result = await onRestart();
             sendJson(res, result);
+            return true;
+        }
+
+        if (pathname === '/api/update/info' && req.method === 'GET') {
+            try {
+                sendJson(res, await getUpdateInfo());
+            } catch (err) {
+                sendError(res, err, 500);
+            }
             return true;
         }
 

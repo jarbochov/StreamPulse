@@ -13,6 +13,7 @@ if (!gotTheLock) {
 
 const projectRoot = path.join(__dirname, '..');
 const isPackaged = app.isPackaged;
+process.env.STREAMPULSE_PACKAGED = String(isPackaged);
 const userDataPath = app.getPath('userData');
 
 // In packaged app, data and config live in app.getPath('userData') so updates don't wipe data.

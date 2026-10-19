@@ -123,6 +123,8 @@ For developers, technical directors, and power users, StreamPulse is engineered 
 2. Launch StreamPulse. The application runs quietly in your system tray or menu bar with one-click access to all studio controllers and OBS overlay links.
 3. Open `http://localhost:3000` or use the menu bar icon to access the studio.
 
+**Updating the desktop app:** use the latest desktop installer, fully quit StreamPulse, then replace or reinstall the app. Configuration and data are stored separately. Source ZIPs and Git/nightly updates are not desktop upgrades. See the [desktop update guide](docs/desktop-app.md#updating-an-installed-desktop-app).
+
 ### Option B: Self-Hosted Node.js (CLI)
 1. Ensure **Node.js** (v22.12 or newer) is installed.
 2. Clone and install dependencies:
