@@ -1137,16 +1137,16 @@
             items: [
                 {
                     method: 'GET', path: '/api/randomizer/spin',
-                    desc: 'Spin wheel or vertical roller via Bitfocus Companion or HTTP GET',
+                    desc: 'Spin wheel, roller, or card deck via Bitfocus Companion or HTTP GET',
                     companion: true,
-                    details: 'Triggers a spin across all connected OBS overlays. Perfect for Bitfocus Companion Stream Deck buttons (Generic HTTP GET). Accepts optional query parameters: ?preset=jackbox (or decision / punishments), ?mode=roller (or wheel), ?suspense=normal (or tricky), ?duration=6, ?winner=OverrideName. Returns { ok: true, winner, preset, mode, payload }.'
+                    details: 'Triggers a spin across all connected OBS overlays. Perfect for Bitfocus Companion Stream Deck buttons (Generic HTTP GET). Accepts optional query parameters: ?preset=jackbox (or decision / punishments), ?mode=roller (or wheel, deck), ?suspense=normal (or tricky), ?duration=6, ?winner=OverrideName. Returns { ok: true, winner, preset, mode, payload }.'
                 },
                 {
                     method: 'POST', path: '/api/randomizer/spin',
                     desc: 'Trigger a spin with custom choices and announcement payload',
                     companion: true,
-                    details: 'Broadcasts a spin with custom choices list, winner, mode, and overlay styling to all OBS overlays.',
-                    body: '{ "preset": "jackbox", "mode": "roller", "suspense": "normal" }'
+                    details: 'Broadcasts a spin with custom choices list, winner, mode (roller, wheel, deck), and overlay styling to all OBS overlays.',
+                    body: '{ "preset": "jackbox", "mode": "deck", "suspense": "normal" }'
                 },
                 {
                     method: 'GET', path: '/api/randomizer/presets',

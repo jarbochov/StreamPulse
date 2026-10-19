@@ -17,18 +17,22 @@ The Randomizer is built with a decoupled architecture:
 
 ## 2. Display Modes
 
-Select between two core animation modes in the Studio:
+Select between three distinctive broadcast animation modes in the Studio:
 
-1. **Continuous Slot Roller**:
+1. **Continuous Slot Roller (`roller`)**:
    - Continuous vertical carousel roller with authentic mechanical ticker audio.
    - Smooth easing physics that decelerate and align precisely on the winner choice.
-   - Perfect for narrow OBS sidebars or vertical broadcast docks.
-2. **Fortune Spinning Wheel**:
+   - Ideal for narrow OBS sidebars, vertical broadcast docks, and quick rapid-fire choices.
+2. **Fortune Spinning Wheel (`wheel`)**:
    - Classic wheel of fortune with customizable sector colors, center cap, and physics needle ticker.
    - Proportional slice sizing automatically adapted to relative choice probability weights.
    - Smooth deceleration physics with winner celebration bounce.
+3. **Physical Playing Card Deck (`deck`)**:
+   - Physical 3D playing card deck with authentic stacked card edge shadows and live pool count badge.
+   - Teaser card-deal burns and cut animations with crisp felt-slide audio feedback.
+   - Dramatic 3D 180° flip reveal with theme-coordinated corner pips, holographic light sheen, and tricky fakeout suspense.
 
-Both modes conclude with the **Winner Celebration Card** featuring a particle confetti explosion on your stream overlay and customizable header banners.
+All three modes conclude with the **Winner Celebration Card** featuring a particle confetti explosion on your stream overlay, customizable header banners, and triumphant audio fanfare.
 
 ---
 

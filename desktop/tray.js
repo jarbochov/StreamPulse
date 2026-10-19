@@ -144,8 +144,20 @@ class AppTray {
                         click: () => copyLink('/overlays/credits.html')
                     },
                     {
-                        label: 'Choice Randomizer',
+                        label: 'Choice Randomizer (All Modes)',
                         click: () => copyLink('/overlays/randomizer.html')
+                    },
+                    {
+                        label: 'Choice Randomizer — Card Deck',
+                        click: () => copyLink('/overlays/randomizer.html?mode=deck')
+                    },
+                    {
+                        label: 'Choice Randomizer — Slot Roller',
+                        click: () => copyLink('/overlays/randomizer.html?mode=roller')
+                    },
+                    {
+                        label: 'Choice Randomizer — Wheel',
+                        click: () => copyLink('/overlays/randomizer.html?mode=wheel')
                     },
                     {
                         label: 'Game Plan Ticker',

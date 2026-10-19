@@ -82,7 +82,7 @@ All StreamPulse overlays run as transparent, GPU-accelerated OBS browser sources
 | Overlay Name | Local OBS Source URL | Default Resolution | Recommended Settings |
 | --- | --- | --- | --- |
 | **Credits Roll** | `http://localhost:3000/overlays/credits.html` | 1920 x 1080 | Shutdown source when not visible; Control audio via OBS |
-| **Choice Randomizer** | `http://localhost:3000/overlays/randomizer.html` | 1920 x 1080 | Refresh browser when scene becomes active |
+| **Choice Randomizer** | `http://localhost:3000/overlays/randomizer.html` | 1920 x 1080 | Slot Roller, Wheel, or Card Deck via `?mode=roller/wheel/deck` |
 | **Custom Overlays** | `http://localhost:3000/overlays/custom-overlay.html?id=<id>` | 1920 x 1080 | Enable transparent punchouts; Hardware acceleration on |
 | **Game Plan Ticker** | `http://localhost:3000/overlays/game-plan.html?view=ticker` | 1920 x 180 | Transparent background; CSS container queries enabled |
 | **Game Plan Schedule** | `http://localhost:3000/overlays/game-plan.html?mode=schedule` | 1280 x 540 | Responsive card layout; Auto-scroll upcoming games |
@@ -133,7 +133,7 @@ Transparent WebKit punchout masks, WebGL retro display shaders (CRT scanlines, a
 ---
 
 ### Choice Randomizer Studio & Overlay
-Decoupled studio controller with choice weighting, winner elimination, and sound synthesis—paired with a glassmorphic OBS transparent stage:
+Decoupled studio controller supporting Slot Rollers, Spinning Wheels, and 3D Card Deck Deals—with choice weighting, winner elimination, and Web Audio sound synthesis—paired with a glassmorphic OBS transparent stage:
 
 ![Choice Randomizer Studio](images/randomizer-studio.png)
 

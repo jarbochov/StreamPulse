@@ -207,6 +207,250 @@
             box-shadow: 0 0 4px rgba(0,0,0,0.4);
         }
 
+        /* 3. Playing Card Deck Draw Mode */
+        .deck-box {
+            position: relative;
+            width: 100%;
+            max-width: clamp(280px, 64vmin, 500px);
+            height: clamp(230px, 36vmin, 300px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 1200px;
+            perspective-origin: center center;
+        }
+        .deck-container {
+            position: relative;
+            width: clamp(160px, 28vmin, 200px);
+            height: clamp(220px, 38vmin, 270px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform-style: preserve-3d;
+        }
+        .deck-stack {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 14px;
+            background: linear-gradient(145deg, #181530 0%, #0a0e1a 100%);
+            border: 2px solid color-mix(in srgb, var(--stage-indicator) 85%, #fff);
+            box-shadow:
+                1px 1px 0 rgba(0,0,0,0.6),
+                2px 2px 0 color-mix(in srgb, var(--stage-accent) 55%, #0f172a),
+                3px 3px 0 rgba(0,0,0,0.6),
+                4px 4px 0 color-mix(in srgb, var(--stage-accent) 55%, #0f172a),
+                5px 5px 0 rgba(0,0,0,0.6),
+                6px 6px 0 color-mix(in srgb, var(--stage-accent) 55%, #0f172a),
+                7px 7px 0 rgba(0,0,0,0.6),
+                8px 8px 0 color-mix(in srgb, var(--stage-accent) 55%, #0f172a),
+                0 14px 34px rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transform: rotateX(12deg) rotateY(-8deg) rotateZ(-3deg);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+            user-select: none;
+            z-index: 2;
+            overflow: hidden;
+        }
+        .deck-stack.dealing {
+            transform: translateX(-48px) rotateX(8deg) rotateY(-5deg) rotateZ(-2deg);
+        }
+        .deck-card-border-ornament {
+            position: absolute;
+            inset: 6px;
+            border: 1px dashed color-mix(in srgb, var(--stage-indicator) 40%, transparent);
+            border-radius: 9px;
+            pointer-events: none;
+        }
+        .deck-card-pattern {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 2;
+        }
+        .deck-stack-badge {
+            position: absolute;
+            bottom: 12px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--stage-indicator);
+            background: rgba(0,0,0,0.65);
+            padding: 3px 10px;
+            border-radius: 999px;
+            border: 1px solid color-mix(in srgb, var(--stage-indicator) 40%, transparent);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+            z-index: 3;
+        }
+        .deck-card-watermark {
+            position: absolute;
+            bottom: 12px;
+            font-size: 0.58rem;
+            font-weight: 800;
+            letter-spacing: 0.16em;
+            color: color-mix(in srgb, var(--stage-indicator) 35%, transparent);
+            text-transform: uppercase;
+        }
+
+        /* Flying / Active Draw Card */
+        .deck-card {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            perspective: 1000px;
+            will-change: transform;
+            z-index: 10;
+        }
+        .deck-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.68s cubic-bezier(0.2, 0.85, 0.32, 1.2);
+            border-radius: 14px;
+        }
+        .deck-card.is-flipped .deck-card-inner {
+            transform: rotateY(180deg);
+        }
+        .deck-card.tricky-suspense {
+            animation: cardQuiver 0.35s infinite alternate ease-in-out;
+        }
+        @keyframes cardQuiver {
+            0% { transform: scale(1.04) rotate(-2deg); filter: drop-shadow(0 0 10px var(--stage-indicator)); }
+            100% { transform: scale(1.08) rotate(2deg); filter: drop-shadow(0 0 24px var(--stage-indicator)); }
+        }
+
+        .deck-card-face {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            border-radius: 14px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+        .deck-card-back {
+            background: linear-gradient(145deg, #181530 0%, #0a0e1a 100%);
+            border: 2px solid color-mix(in srgb, var(--stage-indicator) 85%, #fff);
+            box-shadow: 0 10px 28px rgba(0,0,0,0.65), inset 0 0 18px rgba(0,0,0,0.5);
+        }
+        .deck-card-front {
+            background: linear-gradient(145deg, color-mix(in srgb, var(--stage-accent) 22%, #1e293b) 0%, #0b1120 100%);
+            border: 2px solid var(--stage-indicator);
+            transform: rotateY(180deg);
+            box-shadow: 0 14px 40px rgba(0,0,0,0.7), 0 0 24px var(--stage-glow);
+            justify-content: space-between;
+            padding: 10px;
+        }
+        .deck-card-corner {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1px;
+            line-height: 1;
+        }
+        .deck-card-corner.top-left {
+            top: 8px;
+            left: 8px;
+        }
+        .deck-card-corner.bottom-right {
+            bottom: 8px;
+            right: 8px;
+            transform: rotate(180deg);
+        }
+        .card-pip-rank {
+            font-size: 0.85rem;
+            font-weight: 900;
+            color: var(--stage-indicator);
+            font-family: var(--stage-font);
+        }
+        .deck-card-body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            width: 100%;
+            padding: 0 12px;
+            z-index: 2;
+            margin: auto 0;
+        }
+        .deck-card-label {
+            font-size: clamp(0.6rem, 1.4vmin, 0.72rem);
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--stage-indicator);
+            margin-bottom: 6px;
+            text-shadow: 0 0 10px var(--stage-glow);
+        }
+        .deck-card-name {
+            font-size: clamp(1rem, 2.8vmin, 1.45rem);
+            font-weight: 900;
+            color: var(--stage-text);
+            text-shadow: var(--stage-outline-shadow), 0 0 18px var(--stage-glow);
+            word-break: break-word;
+            line-height: 1.25;
+            padding: 0 4px;
+        }
+        .deck-card-sheen {
+            position: absolute;
+            inset: -100%;
+            width: 300%;
+            height: 300%;
+            background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.3) 50%, transparent 60%);
+            transform: translateX(-100%);
+            pointer-events: none;
+        }
+        .deck-card.is-flipped .deck-card-sheen {
+            animation: sheenSweep 0.8s 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes sheenSweep {
+            from { transform: translateX(-100%) rotate(25deg); }
+            to { transform: translateX(100%) rotate(25deg); }
+        }
+
+        /* Teaser flyout cards */
+        .deck-discard-tray {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .deck-teaser-card {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 14px;
+            background: linear-gradient(145deg, #181530 0%, #0a0e1a 100%);
+            border: 2px solid color-mix(in srgb, var(--stage-indicator) 85%, #fff);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: teaserDeal 0.5s cubic-bezier(0.2, 0.85, 0.32, 1.2) forwards;
+        }
+        @keyframes teaserDeal {
+            0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+            100% { transform: translate3d(140px, -30px, 0) rotate(22deg); opacity: 0; }
+        }
+
         /* Winner Card */
         .winner-card {
             margin-top: 1.15rem;
@@ -298,6 +542,60 @@
             <canvas id="wheel-canvas" width="580" height="580"></canvas>
         </div>
 
+        <!-- 3D Playing Card Deck Visual -->
+        <div id="deck-view" class="deck-box" style="display:none;">
+            <div class="deck-container">
+                <!-- Stack of physical cards (tilted 3D stack) -->
+                <div class="deck-stack" id="deck-stack">
+                    <div class="deck-card-border-ornament"></div>
+                    <div class="deck-card-pattern">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
+                            <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
+                            <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                        </svg>
+                    </div>
+                    <div class="deck-stack-badge" id="deck-count-badge">14 CARDS</div>
+                </div>
+
+                <!-- Floating / Drawing Card (3D Flips face up) -->
+                <div class="deck-card active-card" id="deck-active-card" style="display:none;">
+                    <div class="deck-card-inner" id="deck-card-inner">
+                        <!-- Card Back -->
+                        <div class="deck-card-face deck-card-back">
+                            <div class="deck-card-border-ornament"></div>
+                            <div class="deck-card-pattern">
+                                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
+                                    <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
+                                    <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                                </svg>
+                            </div>
+                            <div class="deck-card-watermark">STREAMPULSE</div>
+                        </div>
+                        <!-- Card Front -->
+                        <div class="deck-card-face deck-card-front">
+                            <div class="deck-card-border-ornament"></div>
+                            <div class="deck-card-corner top-left">
+                                <span class="card-pip-rank" id="card-front-rank-tl">A</span>
+                                <svg class="card-pip-svg" width="12" height="12" viewBox="0 0 24 24" fill="var(--stage-indicator)"><polygon points="12 2 22 12 12 22 2 12"/></svg>
+                            </div>
+                            <div class="deck-card-body">
+                                <div class="deck-card-label" id="card-front-label">DESTINY DRAW</div>
+                                <div class="deck-card-name" id="card-front-name">Winner Choice</div>
+                            </div>
+                            <div class="deck-card-corner bottom-right">
+                                <span class="card-pip-rank" id="card-front-rank-br">A</span>
+                                <svg class="card-pip-svg" width="12" height="12" viewBox="0 0 24 24" fill="var(--stage-indicator)"><polygon points="12 2 22 12 12 22 2 12"/></svg>
+                            </div>
+                            <div class="deck-card-sheen"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ghost / Teaser dealing cards fly off during suspense -->
+                <div id="deck-discard-tray" class="deck-discard-tray"></div>
+            </div>
+        </div>
+
         <!-- Winner Card -->
         <div id="winner-box" class="winner-card" style="display:none;">
             <div class="winner-header" id="winner-header-text">THE UNIVERSE HAS DECIDED</div>
@@ -366,6 +664,52 @@
                         osc.start(t);
                         osc.stop(t + 0.5);
                     });
+                } catch {}
+            },
+            cardSlide() {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const bufferSize = Math.floor(this.ctx.sampleRate * 0.08);
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+                    }
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.setValueAtTime(1900, this.ctx.currentTime);
+                    filter.Q.value = 1.3;
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.09, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.075);
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    noise.start();
+                } catch {
+                    this.tick(1.3);
+                }
+            },
+            cardFlip() {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(340, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(720, this.ctx.currentTime + 0.12);
+                    gain.gain.setValueAtTime(0.11, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.14);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.14);
                 } catch {}
             }
         };
@@ -725,12 +1069,34 @@
 
             if (currentMode === 'roller') {
                 $('wheel-view').style.display = 'none';
+                $('deck-view').style.display = 'none';
                 $('roller-view').style.display = 'block';
                 renderIdleRoller(currentRollerIndex, choices);
-            } else {
+            } else if (currentMode === 'wheel') {
                 $('roller-view').style.display = 'none';
+                $('deck-view').style.display = 'none';
                 $('wheel-view').style.display = 'flex';
                 drawWheel(0, choices);
+            } else {
+                $('roller-view').style.display = 'none';
+                $('wheel-view').style.display = 'none';
+                $('deck-view').style.display = 'flex';
+                renderIdleDeck(choices);
+            }
+        }
+
+        function renderIdleDeck(list = choices) {
+            const stack = $('deck-stack');
+            const activeCard = $('deck-active-card');
+            const badge = $('deck-count-badge');
+            if (badge) badge.textContent = `${list.length} CARDS`;
+            if (stack) {
+                stack.classList.remove('dealing');
+                stack.style.display = 'flex';
+            }
+            if (activeCard && !isSpinning) {
+                activeCard.style.display = 'none';
+                activeCard.classList.remove('is-flipped', 'tricky-suspense');
             }
         }
 
@@ -895,6 +1261,7 @@
 
             if (mode === 'roller') {
                 $('wheel-view').style.display = 'none';
+                $('deck-view').style.display = 'none';
                 $('roller-view').style.display = 'block';
                 const rollerBox = $('roller-view');
                 const track = $('roller-track');
@@ -1010,8 +1377,9 @@
                 }
                 requestAnimationFrame(stepRoll);
 
-            } else {
+            } else if (mode === 'wheel') {
                 $('roller-view').style.display = 'none';
+                $('deck-view').style.display = 'none';
                 $('wheel-view').style.display = 'flex';
 
                 const effWeights = weightsMap || currentWeights || {};
@@ -1115,6 +1483,126 @@
                     }
                 }
                 requestAnimationFrame(stepWheel);
+            } else {
+                $('roller-view').style.display = 'none';
+                $('wheel-view').style.display = 'none';
+                $('deck-view').style.display = 'flex';
+
+                const stack = $('deck-stack');
+                const activeCard = $('deck-active-card');
+                const cardInner = $('deck-card-inner');
+                const tray = $('deck-discard-tray');
+                const badge = $('deck-count-badge');
+
+                if (badge) badge.textContent = `${list.length} CARDS`;
+                if (tray) tray.innerHTML = '';
+
+                // Reset active card
+                activeCard.style.display = 'none';
+                activeCard.classList.remove('is-flipped', 'tricky-suspense');
+                activeCard.style.opacity = '1';
+                cardInner.style.transform = '';
+                activeCard.style.transform = '';
+
+                // Set card face values
+                $('card-front-name').textContent = winner;
+                $('card-front-label').textContent = winnerHeader || params.get('winHeader') || 'DESTINY DRAW';
+                const rank = (winnerIdx >= 0 && winnerIdx < 13) ? ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'][winnerIdx] : `#${winnerIdx + 1}`;
+                $('card-front-rank-tl').textContent = rank;
+                $('card-front-rank-br').textContent = rank;
+
+                if (suspense === 'instant') {
+                    AudioFX.cardSlide();
+                    activeCard.style.display = 'block';
+                    activeCard.style.transform = 'translate3d(0, 0, 40px) scale(1.05)';
+                    setTimeout(() => {
+                        AudioFX.cardFlip();
+                        activeCard.classList.add('is-flipped');
+                        setTimeout(() => {
+                            finishSpin(winner, winnerHeader, winnerSub, autohide);
+                        }, 600);
+                    }, 120);
+                } else {
+                    stack.classList.add('dealing');
+                    const teaserCount = Math.min(3, Math.max(1, list.length - 1));
+                    const teaserInterval = Math.min(320, Math.floor((totalDurationMs * 0.45) / teaserCount));
+
+                    let dealt = 0;
+                    function dealNextTeaser() {
+                        if (dealt < teaserCount) {
+                            dealt++;
+                            const div = document.createElement('div');
+                            div.className = 'deck-teaser-card';
+                            div.innerHTML = `
+                                <div class="deck-card-border-ornament"></div>
+                                <div class="deck-card-pattern">
+                                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
+                                        <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
+                                        <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                                    </svg>
+                                </div>
+                            `;
+                            div.style.transformOrigin = 'bottom left';
+                            tray.appendChild(div);
+                            AudioFX.cardSlide();
+                            setTimeout(() => div.remove(), 550);
+                            setTimeout(dealNextTeaser, teaserInterval);
+                        } else {
+                            setTimeout(drawMainCard, 100);
+                        }
+                    }
+                    dealNextTeaser();
+
+                    function drawMainCard() {
+                        activeCard.style.display = 'block';
+                        activeCard.style.transform = 'translate3d(-48px, 0, 0) scale(0.95)';
+                        AudioFX.cardSlide();
+
+                        requestAnimationFrame(() => {
+                            activeCard.style.transition = 'transform 0.55s cubic-bezier(0.2, 0.85, 0.32, 1.2)';
+                            activeCard.style.transform = 'translate3d(0, 0, 50px) scale(1.06)';
+                        });
+
+                        if (isTricky) {
+                            setTimeout(() => {
+                                activeCard.classList.add('tricky-suspense');
+                                AudioFX.tick(0.6);
+                                setTimeout(() => {
+                                    activeCard.classList.remove('tricky-suspense');
+                                    activeCard.style.transition = 'transform 0.38s ease-in, opacity 0.38s';
+                                    activeCard.style.transform = 'translate3d(180px, -40px, 0) rotate(26deg) scale(0.85)';
+                                    activeCard.style.opacity = '0';
+                                    AudioFX.cardSlide();
+
+                                    setTimeout(() => {
+                                        activeCard.style.transition = 'none';
+                                        activeCard.style.opacity = '1';
+                                        activeCard.style.transform = 'translate3d(-48px, 0, 0) scale(0.95)';
+                                        void activeCard.offsetHeight;
+
+                                        AudioFX.cardSlide();
+                                        activeCard.style.transition = 'transform 0.5s cubic-bezier(0.2, 0.85, 0.32, 1.2)';
+                                        activeCard.style.transform = 'translate3d(0, 0, 50px) scale(1.08)';
+
+                                        setTimeout(flipWinnerCard, 450);
+                                    }, 380);
+                                }, 800);
+                            }, 600);
+                        } else {
+                            setTimeout(flipWinnerCard, 600);
+                        }
+                    }
+
+                    function flipWinnerCard() {
+                        AudioFX.cardFlip();
+                        activeCard.classList.add('is-flipped');
+                        stack.classList.remove('dealing');
+
+                        setTimeout(() => {
+                            finishSpin(winner, winnerHeader, winnerSub, autohide);
+                        }, 650);
+                    }
+                }
             }
         }
 
