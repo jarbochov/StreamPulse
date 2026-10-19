@@ -99,6 +99,7 @@ For developers, technical directors, and power users, StreamPulse is engineered 
 - **Cascading Static File Routing**: Built-in static router in `server/static-router.js` with cascading path resolution (`public/overlays/`, `public/editors/`, `public/wizards/`, `public/tools/`, `public/library/`, `public/system/`) providing 100% backward compatibility for flat root paths with zero redirect latency.
 - **Atomic Local Persistence**: Pure filesystem storage (`data/*.json`, `data/chat-log.jsonl`) with automated hourly backups and ZIP share packages. Zero database server (PostgreSQL/MySQL/MongoDB) required.
 - **Resource-Aware Rendering**: The editor mounts active/common layers only; Game Plan avoids unchanged DOM rebuilds and redundant polling. Historical metrics and dossiers share compact, metadata-validated archive summaries.
+- **Shared Randomizer Runtime**: Studio and OBS use the same wheel, roller, and deck animation modules. The wheel reuses a cached face during rotation, trading one additional canvas buffer for fewer repeated drawing operations.
 - **Hardware-Accelerated WebGL Shaders**: GPU-rendered CRT scanline emulation, phosphor bloom, curvature distortion, and LCD pixel response smearing. Active effects still incur rendering and CPU coordination costs.
 - **Bitfocus Companion Integration**: Official Companion module (`companion-module-streampulse`) exposing dynamic stream variables, button feedbacks, and hardware execution for Elgato Stream Deck and web remotes.
 

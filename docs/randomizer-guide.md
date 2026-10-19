@@ -13,6 +13,20 @@ The Randomizer is built with a decoupled architecture:
 - **OBS Overlay** (`/overlays/randomizer.html`): Transparent, clean browser source rendered in OBS Studio.
 - **Real-Time Synchronization**: Any spin triggered in the Studio or via Stream Deck immediately animates on the OBS overlay across WebSockets.
 
+### Shared rendering runtime
+
+The Studio monitor and OBS overlay import the same focused modules under `public/js/randomizer/`:
+- `stage-rendering.js`: idle roller/deck rendering and card logo/watermark markup.
+- `spin-animation.js`: roller, weighted wheel, and four-phase deck animation, including suspense nudges and the instant card reveal.
+- `wheel.js`: shared weighted slice geometry and canvas rendering.
+- `animation-scope.js`: spin-owned animation frames and nested timers, cancelled when a spin completes or the page is unloaded.
+
+Winner selection, preset persistence, audio controls, REST requests, and WebSocket handling remain in their existing hosts/server. The shared animator receives the selected winner; it does not select a replacement.
+
+The wheel caches one unrotated face (sectors, borders, and labels) and rotates that image during a spin instead of painting every sector and label on every frame. Choices, weights, palette, typography, outline, resolution, and completed font loads invalidate the cache. Resize/DPR and stage-scale changes refresh the current angle using the existing 1160–3200 pixel resolution policy. This trades one additional canvas buffer for fewer repeated drawing operations; it is not a measured CPU/FPS improvement or a guarantee across OBS/browser hardware. The extra RGBA buffer is approximately 5.1 MiB at 1160 square pixels, up to 39.1 MiB at the 3200-pixel cap.
+
+Run the isolated fictional browser regression with `node scripts/test-randomizer-rendering.mjs`. It exercises both consumers and all three display modes without contacting a running StreamPulse server or external services. Its deterministic clock checks rendering, winner alignment, invalidation, and callback cleanup, not real-time GPU performance or audible output.
+
 ---
 
 ## 2. Display Modes

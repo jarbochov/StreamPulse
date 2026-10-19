@@ -19,6 +19,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Read Game Plan WebSocket snapshots from their actual `data` payload and prevent stale HTTP responses from replacing newer live state.
 
 ### Changed
+- Extract shared Randomizer wheel geometry/rendering, roller/deck staging, spin animations, and callback cleanup into focused modules used by both Studio and OBS. Cache the static wheel face instead of repainting sectors/labels every frame; preserve server-selected winners and existing controls.
 - Share compact, metadata-validated session summaries across historical category totals, milestones, and chatter dossiers instead of repeatedly parsing unchanged archive JSON; invalidate on archive writes, deletion, and restore.
 - Mount only active/common editor layers, disposing inactive media, slideshow timers, and effect runners while preserving HTML5 playback intent/time and slideshow position on return.
 - Skip unchanged Game Plan DOM rebuilds, reduce healthy-WebSocket HTTP refreshes, pause hidden-document polling, and prevent overlapping requests.

@@ -54,6 +54,8 @@ The browser regressions use Puppeteer's Chrome. If it is missing, run `npm run i
 
 `node --test scripts/test-twitch-deadlines.cjs` redirects Twitch transports to an isolated local fixture with accelerated deadlines. It covers missing headers, stalled/truncated response bodies, successful responses, and refresh recovery without discarding reusable credentials. No real Twitch requests or saved tokens are used.
 
+`node scripts/test-randomizer-rendering.mjs` exercises the shared rendering modules in both Randomizer hosts with fictional choices and a deterministic clock. It covers all three modes, weighted winner alignment, wheel-cache invalidation, resize/font refresh, and spin callback cleanup. It asserts zero sector/label redraws across 120 warmed rotation frames per host; this is a drawing-work measurement, not a CPU/FPS benchmark. It is included in `npm test`.
+
 ### Smoke Testing Editors
 
 To verify browser editors and canvases in a headless browser environment:

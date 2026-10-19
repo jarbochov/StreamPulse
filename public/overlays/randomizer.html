@@ -758,7 +758,10 @@
         </button>
     </div>
 
-    <script>
+    <script type="module">
+        import { createWheelRenderer } from '/js/randomizer/wheel.js';
+        import { createStageRenderer } from '/js/randomizer/stage-rendering.js';
+        import { createSpinAnimator } from '/js/randomizer/spin-animation.js';
         const $ = id => document.getElementById(id);
         const params = new URLSearchParams(window.location.search);
 
@@ -999,39 +1002,24 @@
         let currentDeckLogo = params.get('deckLogo') || '';
         let currentDeckWatermark = params.get('deckWatermark') !== null ? params.get('deckWatermark') : 'STREAMPULSE';
 
-        function getDeckPatternHtml() {
-            if (currentDeckLogo) {
-                return `<img src="${currentDeckLogo.replace(/"/g, '&quot;')}" class="deck-card-custom-logo" alt="Card Logo" onerror="this.style.display='none';">`;
-            }
-            return `
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
-                    <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
-                    <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
-                </svg>
-            `;
-        }
-
-        function getDeckWatermarkHtml() {
-            const text = (currentDeckWatermark || '').trim();
-            if (!text) return '';
-            return `<div class="deck-card-watermark">${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</div>`;
-        }
-
-        function updateDeckVisuals() {
-            const patternHtml = getDeckPatternHtml();
-            document.querySelectorAll('#deck-view .deck-card-pattern').forEach(el => {
-                el.innerHTML = patternHtml;
-            });
-            const text = (currentDeckWatermark || '').trim();
-            document.querySelectorAll('#deck-view .deck-card-watermark').forEach(wm => {
-                if (text === '') {
-                    wm.style.display = 'none';
-                } else {
-                    wm.style.display = 'block';
-                    wm.textContent = text;
-                }
-            });
-        }
+        const stageRenderer = createStageRenderer({
+            $, getDeckLogo: () => currentDeckLogo,
+            getDeckWatermark: () => currentDeckWatermark, isSpinning: () => isSpinning
+        });
+        const { getDeckPatternHtml, getDeckWatermarkHtml, updateDeckVisuals } = stageRenderer;
+        const wheelRenderer = createWheelRenderer({
+            canvas: $('wheel-canvas'), stage: $('display-stage'), getColors: () => currentThemeSlices
+        });
+        const spinAnimator = createSpinAnimator({
+            $, AudioFX, drawWheel, getDeckPatternHtml, getDeckWatermarkHtml,
+            getRollerIndex: () => currentRollerIndex,
+            setRollerIndex: index => { currentRollerIndex = index; }, onFinish: finishSpin
+        });
+        window.addEventListener('pagehide', event => {
+            if (event.persisted) return;
+            spinAnimator.cancel();
+            wheelRenderer.dispose();
+        });
 
         // Hidden state on load only if explicitly passed via &hidden=1
         if (params.get('hidden') === '1') {
@@ -1067,7 +1055,7 @@
             }
 
             if (document.fonts && document.fonts.ready) {
-                document.fonts.ready.then(() => renderInitialState()).catch(() => {});
+                document.fonts.ready.then(() => { if (!isSpinning) renderInitialState(); }).catch(() => {});
             }
         }
 
@@ -1318,155 +1306,15 @@
         }
 
         function renderIdleDeck(list = choices) {
-            const stack = $('deck-stack');
-            const activeCard = $('deck-active-card');
-            const badge = $('deck-count-badge');
-            const cutPacket = $('deck-cut-packet');
-            const splitLeft = $('deck-split-left');
-            const splitRight = $('deck-split-right');
-            const tray = $('deck-shuffle-tray');
-            if (badge) badge.textContent = `${list.length} CARDS`;
-            if (stack) {
-                stack.classList.remove('dealing', 'squaring');
-                stack.style.display = 'flex';
-                stack.style.transform = '';
-            }
-            if (cutPacket) cutPacket.classList.remove('cutting');
-            if (splitLeft) {
-                splitLeft.classList.remove('retracting');
-                splitLeft.style.display = 'none';
-            }
-            if (splitRight) {
-                splitRight.classList.remove('retracting');
-                splitRight.style.display = 'none';
-            }
-            if (tray) tray.innerHTML = '';
-            if (activeCard && !isSpinning) {
-                activeCard.style.display = 'none';
-                activeCard.classList.remove('is-flipped', 'tricky-suspense', 'hovering');
-                activeCard.style.transform = '';
-            }
-            updateDeckVisuals();
+            stageRenderer.renderIdleDeck(list);
         }
 
         function renderIdleRoller(centerIdx, list) {
-            const track = $('roller-track');
-            if (!track) return;
-            track.innerHTML = '';
-            const n = list.length || 1;
-            for (let offset = -4; offset <= 4; offset++) {
-                const pos = (centerIdx + offset + n * 1000) % n;
-                const div = document.createElement('div');
-                div.className = 'roller-item';
-                if (offset === 0) div.className = 'roller-item active-winner';
-                else if (Math.abs(offset) === 1) div.className = 'roller-item secondary';
-                else div.className = 'roller-item tertiary';
-                div.textContent = list[pos] || '(empty)';
-                track.appendChild(div);
-            }
-            const boxHeight = $('roller-view')?.clientHeight || 240;
-            const centerOffset = (boxHeight - 56) / 2;
-            track.style.transform = `translateY(${centerOffset - 4 * 56}px)`;
+            stageRenderer.renderIdleRoller(centerIdx, list);
         }
 
         function drawWheel(rotationRad = 0, list = choices, weightsMap = null) {
-            const canvas = $('wheel-canvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            const n = Math.max(1, list.length);
-
-            // Dynamic High-DPI Resolution Buffer
-            const stage = $('display-stage');
-            const dpr = Math.max(1, window.devicePixelRatio || 1);
-            const stageScale = parseFloat(stage?.style.getPropertyValue('--stage-scale')) || 1;
-            const cssWidth = canvas.clientWidth || 400;
-            const targetRes = Math.max(1160, Math.min(3200, Math.round(Math.max(580, cssWidth) * dpr * Math.max(1, stageScale))));
-            if (canvas.width !== targetRes || canvas.height !== targetRes) {
-                canvas.width = targetRes;
-                canvas.height = targetRes;
-            }
-
-            const logicalSize = 580;
-            const resScale = canvas.width / logicalSize;
-            const cx = logicalSize / 2;
-            const cy = logicalSize / 2;
-            const radius = cx - 14;
-
-            ctx.save();
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.scale(resScale, resScale);
-
-            // Compute slice angular distribution based on weights
-            const effWeights = weightsMap || currentWeights || {};
-            let totalWeight = 0;
-            const sliceWeights = list.map(c => {
-                const w = (effWeights && effWeights[c] != null && Number(effWeights[c]) > 0) ? Number(effWeights[c]) : 1;
-                totalWeight += w;
-                return w;
-            });
-            if (totalWeight <= 0) totalWeight = n;
-
-            const sliceSpans = sliceWeights.map(w => (w / totalWeight) * (Math.PI * 2));
-            const cumulativeAngles = [0];
-            for (let i = 0; i < n; i++) {
-                cumulativeAngles.push(cumulativeAngles[i] + sliceSpans[i]);
-            }
-
-            const accent = stage?.style.getPropertyValue('--stage-accent') || '#8b5cf6';
-            const colors = (currentThemeSlices && currentThemeSlices.length) ? currentThemeSlices : [
-                accent, '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#f43f5e', '#eab308'
-            ];
-
-            const fontFam = stage?.style.getPropertyValue('--stage-font') || '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
-            const fontWeight = stage?.style.getPropertyValue('--stage-weight') || '700';
-            const textColor = stage?.style.getPropertyValue('--stage-text') || '#ffffff';
-            const textOutline = stage?.style.getPropertyValue('--stage-outline') || '';
-
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.rotate(rotationRad);
-
-            for (let i = 0; i < n; i++) {
-                const start = cumulativeAngles[i];
-                const span = sliceSpans[i];
-                const end = start + span;
-
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.arc(0, 0, radius, start, end);
-                ctx.fillStyle = colors[i % colors.length];
-                ctx.fill();
-                ctx.lineWidth = 1.5;
-                ctx.strokeStyle = '#fff';
-                ctx.stroke();
-
-                ctx.save();
-                ctx.rotate(start + span / 2);
-                ctx.textAlign = 'right';
-
-                const sliceDegrees = (span / (Math.PI * 2)) * 360;
-                const fontSize = Math.max(10, Math.min(20, Math.round(Math.min(380 / n, sliceDegrees * 0.75 + 7))));
-                ctx.font = `${fontWeight} ${fontSize}px ${fontFam}`;
-
-                const label = list[i] || '';
-                const textX = radius - 18;
-                const textY = Math.round(fontSize * 0.35);
-
-                if (textOutline && textOutline !== 'none' && textOutline !== 'transparent') {
-                    ctx.lineWidth = 3.5;
-                    ctx.strokeStyle = textOutline;
-                    ctx.strokeText(label.slice(0, 24), textX, textY);
-                }
-
-                ctx.fillStyle = textColor;
-                ctx.shadowColor = 'rgba(0,0,0,0.55)';
-                ctx.shadowBlur = 4;
-                ctx.fillText(label.slice(0, 24), textX, textY);
-                ctx.restore();
-            }
-
-            ctx.restore();
-            ctx.restore();
+            wheelRenderer.draw(rotationRad, list, weightsMap || currentWeights);
         }
 
         // Spin Animation Execution
@@ -1512,423 +1360,10 @@
             const totalDurationMs = Math.max(3000, duration * 1000);
             const isTricky = (suspense === 'tricky') && list.length > 2;
 
-            if (mode === 'roller') {
-                $('wheel-view').style.display = 'none';
-                $('deck-view').style.display = 'none';
-                $('roller-view').style.display = 'block';
-                const rollerBox = $('roller-view');
-                const track = $('roller-track');
-                rollerBox.classList.remove('tricky-suspense');
-
-                const startIdx = currentRollerIndex;
-                let nudgeSteps = 0;
-                let targetIdxInList = winnerIdx;
-
-                if (isTricky) {
-                    nudgeSteps = Math.floor(Math.random() * 2) + 1;
-                    targetIdxInList = (winnerIdx - nudgeSteps + list.length * 1000) % list.length;
-                }
-
-                const minRollItems = Math.max(32, Math.floor(totalDurationMs / 105));
-                const diff = (targetIdxInList - (startIdx % list.length) + list.length) % list.length;
-                const cycles = Math.ceil((minRollItems - diff) / list.length);
-                let finalStepCount = cycles * list.length + diff;
-                if (finalStepCount < minRollItems) finalStepCount += list.length;
-
-                track.innerHTML = '';
-                const totalItemsToRender = finalStepCount + nudgeSteps + 5;
-                for (let i = 0; i < totalItemsToRender; i++) {
-                    const itemText = list[(startIdx + i) % list.length];
-                    const div = document.createElement('div');
-                    div.className = 'roller-item';
-                    if (i === 0) div.className = 'roller-item active-winner';
-                    div.textContent = itemText;
-                    track.appendChild(div);
-                }
-
-                const boxHeight = rollerBox.clientHeight || 240;
-                const centerOffset = (boxHeight - 56) / 2;
-                track.style.transform = `translateY(${centerOffset}px)`;
-                const totalDistance = finalStepCount * 56;
-                const startAt = performance.now();
-                let lastTickIdx = 0;
-
-                function stepRoll(now) {
-                    const elapsed = now - startAt;
-                    const progress = Math.min(1, elapsed / totalDurationMs);
-                    const ease = 1 - Math.pow(1 - progress, 3.8);
-                    const currentTranslate = centerOffset - ease * totalDistance;
-                    track.style.transform = `translateY(${currentTranslate.toFixed(1)}px)`;
-
-                    const currentItem = Math.round((centerOffset - currentTranslate) / 56);
-                    if (currentItem !== lastTickIdx && currentItem >= 0 && currentItem < track.children.length) {
-                        lastTickIdx = currentItem;
-                        AudioFX.tick(Math.max(0.35, 1 - progress * 0.65));
-
-                        for (let offset = -2; offset <= 2; offset++) {
-                            const node = track.children[currentItem + offset];
-                            if (node) {
-                                if (offset === 0) node.className = 'roller-item active-winner';
-                                else if (Math.abs(offset) === 1) node.className = 'roller-item secondary';
-                                else node.className = 'roller-item tertiary';
-                            }
-                        }
-                    }
-
-                    if (progress < 1) {
-                        requestAnimationFrame(stepRoll);
-                    } else {
-                        track.style.transform = `translateY(${centerOffset - totalDistance}px)`;
-                        currentRollerIndex = targetIdxInList;
-
-                        if (isTricky) {
-                            rollerBox.classList.add('tricky-suspense');
-                            setTimeout(() => {
-                                let nudgeDone = 0;
-                                function doNudge() {
-                                    if (nudgeDone < nudgeSteps) {
-                                        nudgeDone++;
-                                        const fromY = centerOffset - (finalStepCount + nudgeDone - 1) * 56;
-                                        const toY = centerOffset - (finalStepCount + nudgeDone) * 56;
-                                        const nStart = performance.now();
-                                        const nDuration = 220;
-                                        AudioFX.tick(0.45);
-
-                                        function animNudge(nNow) {
-                                            const np = Math.min(1, (nNow - nStart) / nDuration);
-                                            const ne = 1 - Math.pow(1 - np, 2.5);
-                                            const curY = fromY + (toY - fromY) * ne;
-                                            track.style.transform = `translateY(${curY.toFixed(1)}px)`;
-
-                                            if (np < 1) {
-                                                requestAnimationFrame(animNudge);
-                                            } else {
-                                                track.style.transform = `translateY(${toY}px)`;
-                                                const curItem = finalStepCount + nudgeDone;
-                                                track.children[curItem - 1]?.classList.remove('active-winner');
-                                                track.children[curItem]?.classList.add('active-winner');
-
-                                                if (nudgeDone < nudgeSteps) {
-                                                    setTimeout(doNudge, 180);
-                                                } else {
-                                                    rollerBox.classList.remove('tricky-suspense');
-                                                    currentRollerIndex = winnerIdx;
-                                                    finishSpin(winner, winnerHeader, winnerSub, autohide);
-                                                }
-                                            }
-                                        }
-                                        requestAnimationFrame(animNudge);
-                                    }
-                                }
-                                doNudge();
-                            }, 650);
-                        } else {
-                            currentRollerIndex = winnerIdx;
-                            finishSpin(winner, winnerHeader, winnerSub, autohide);
-                        }
-                    }
-                }
-                requestAnimationFrame(stepRoll);
-
-            } else if (mode === 'wheel') {
-                $('roller-view').style.display = 'none';
-                $('deck-view').style.display = 'none';
-                $('wheel-view').style.display = 'flex';
-
-                const effWeights = weightsMap || currentWeights || {};
-                const n = list.length;
-                let totalWeight = 0;
-                const sliceWeights = list.map(c => {
-                    const w = (effWeights && effWeights[c] != null && Number(effWeights[c]) > 0) ? Number(effWeights[c]) : 1;
-                    totalWeight += w;
-                    return w;
-                });
-                if (totalWeight <= 0) totalWeight = n;
-
-                const sliceSpans = sliceWeights.map(w => (w / totalWeight) * (Math.PI * 2));
-                const cumulativeAngles = [0];
-                for (let i = 0; i < n; i++) {
-                    cumulativeAngles.push(cumulativeAngles[i] + sliceSpans[i]);
-                }
-
-                let targetIdxInList = winnerIdx;
-                let nudgeSteps = 0;
-
-                if (isTricky) {
-                    nudgeSteps = Math.floor(Math.random() * 2) + 1;
-                    targetIdxInList = (winnerIdx - nudgeSteps + list.length * 1000) % list.length;
-                }
-
-                const targetSliceCenter = cumulativeAngles[targetIdxInList] + sliceSpans[targetIdxInList] / 2;
-                const normalizedTarget = (Math.PI * 1.5 - targetSliceCenter) % (Math.PI * 2);
-                const positiveTarget = (normalizedTarget + Math.PI * 2) % (Math.PI * 2);
-                const extraRotations = 6 * Math.PI * 2;
-                const totalRotation = extraRotations + positiveTarget;
-
-                const startAt = performance.now();
-                let lastTickKey = -1;
-
-                function stepWheel(now) {
-                    const elapsed = now - startAt;
-                    const progress = Math.min(1, elapsed / totalDurationMs);
-                    const ease = 1 - Math.pow(1 - progress, 3.8);
-                    const currentRot = ease * totalRotation;
-
-                    drawWheel(currentRot, list, effWeights);
-
-                    const localAngle = (Math.PI * 1.5 - (currentRot % (Math.PI * 2)) + Math.PI * 4) % (Math.PI * 2);
-                    let curSlice = 0;
-                    for (let s = 0; s < n; s++) {
-                        if (localAngle >= cumulativeAngles[s] && localAngle < cumulativeAngles[s + 1]) {
-                            curSlice = s;
-                            break;
-                        }
-                    }
-                    const fullRevs = Math.floor(currentRot / (Math.PI * 2));
-                    const tickKey = fullRevs * n + curSlice;
-
-                    if (tickKey !== lastTickKey) {
-                        lastTickKey = tickKey;
-                        AudioFX.tick(Math.max(0.35, 1 - progress * 0.65));
-                        const ptr = $('wheel-pointer');
-                        if (ptr) {
-                            ptr.style.transform = `translateX(-50%) rotate(${Math.sin(currentRot * 10) * 16}deg)`;
-                            setTimeout(() => { ptr.style.transform = 'translateX(-50%) rotate(0deg)'; }, 40);
-                        }
-                    }
-
-                    if (progress < 1) {
-                        requestAnimationFrame(stepWheel);
-                    } else {
-                        drawWheel(totalRotation, list, effWeights);
-
-                        if (isTricky) {
-                            setTimeout(() => {
-                                let curNudge = 0;
-                                function doWheelNudge() {
-                                    if (curNudge < nudgeSteps) {
-                                        curNudge++;
-                                        const curNudgeTargetIdx = (targetIdxInList + curNudge) % list.length;
-                                        const nudgeSliceCenter = cumulativeAngles[curNudgeTargetIdx] + sliceSpans[curNudgeTargetIdx] / 2;
-                                        const nudgeNorm = (Math.PI * 1.5 - nudgeSliceCenter) % (Math.PI * 2);
-                                        const nudgePos = (nudgeNorm + Math.PI * 2) % (Math.PI * 2);
-                                        const nudgeRot = extraRotations + nudgePos;
-
-                                        drawWheel(nudgeRot, list, effWeights);
-                                        AudioFX.tick(0.45);
-                                        const ptr = $('wheel-pointer');
-                                        if (ptr) {
-                                            ptr.style.transform = 'translateX(-50%) rotate(18deg)';
-                                            setTimeout(() => { ptr.style.transform = 'translateX(-50%) rotate(0deg)'; }, 60);
-                                        }
-                                        if (curNudge < nudgeSteps) {
-                                            setTimeout(doWheelNudge, 220);
-                                        } else {
-                                            finishSpin(winner, winnerHeader, winnerSub, autohide);
-                                        }
-                                    }
-                                }
-                                doWheelNudge();
-                            }, 650);
-                        } else {
-                            finishSpin(winner, winnerHeader, winnerSub, autohide);
-                        }
-                    }
-                }
-                requestAnimationFrame(stepWheel);
-            } else {
-                $('roller-view').style.display = 'none';
-                $('wheel-view').style.display = 'none';
-                $('deck-view').style.display = 'flex';
-
-                const stack = $('deck-stack');
-                const activeCard = $('deck-active-card');
-                const cardInner = $('deck-card-inner');
-                const tray = $('deck-shuffle-tray');
-                const cutPacket = $('deck-cut-packet');
-                const splitLeft = $('deck-split-left');
-                const splitRight = $('deck-split-right');
-                const badge = $('deck-count-badge');
-
-                if (badge) badge.textContent = `${list.length} CARDS`;
-                if (tray) tray.innerHTML = '';
-                if (cutPacket) cutPacket.classList.remove('cutting');
-                if (splitLeft) splitLeft.style.display = 'none';
-                if (splitRight) splitRight.style.display = 'none';
-                if (stack) {
-                    stack.classList.remove('dealing', 'squaring');
-                    stack.style.display = 'flex';
-                }
-
-                // Reset active card
-                activeCard.style.display = 'none';
-                activeCard.classList.remove('is-flipped', 'tricky-suspense', 'hovering');
-                activeCard.style.opacity = '1';
-                cardInner.style.transform = '';
-                activeCard.style.transform = '';
-
-                // Set card face values (Choice ONLY - no repeated winner banner)
-                $('card-front-name').textContent = winner;
-                const rank = (winnerIdx >= 0 && winnerIdx < 13) ? ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'][winnerIdx] : `#${winnerIdx + 1}`;
-                $('card-front-rank-tl').textContent = rank;
-                $('card-front-rank-br').textContent = rank;
-
-                if (suspense === 'instant') {
-                    AudioFX.cardSlide();
-                    activeCard.style.display = 'block';
-                    activeCard.style.transform = 'translate3d(0, 0, 40px) scale(1.05)';
-                    setTimeout(() => {
-                        AudioFX.cardFlip();
-                        activeCard.classList.add('is-flipped');
-                        setTimeout(() => {
-                            finishSpin(winner, winnerHeader, winnerSub, autohide);
-                        }, 550);
-                    }, 120);
-                } else {
-                    // Physical 4-Phase Duration-Scaled Deck Shuffle & Deal
-                    const tTotal = totalDurationMs;
-                    const phase1End = tTotal * 0.18;
-                    const phase2End = tTotal * 0.64;
-                    const phase3End = tTotal * 0.84;
-
-                    // Phase 1: 3D Deck Cut & Split
-                    if (cutPacket) {
-                        cutPacket.classList.add('cutting');
-                        AudioFX.cardSlide();
-                    }
-
-                    setTimeout(() => {
-                        if (cutPacket) cutPacket.classList.remove('cutting');
-                        if (splitLeft) {
-                            splitLeft.classList.remove('retracting');
-                            splitLeft.style.display = 'flex';
-                            splitLeft.style.opacity = '1';
-                        }
-                        if (splitRight) {
-                            splitRight.classList.remove('retracting');
-                            splitRight.style.display = 'flex';
-                            splitRight.style.opacity = '1';
-                        }
-                        if (stack) stack.classList.add('dealing');
-
-                        // Phase 2: Tactile Riffle Interleave Cascade with decelerating tick intervals
-                        const riffleDuration = phase2End - phase1End;
-                        const cardCount = Math.max(10, Math.min(26, Math.round(riffleDuration / 115)));
-                        let cIndex = 0;
-
-                        function scheduleNextRiffleCard() {
-                            if (cIndex >= cardCount) return;
-                            const progress = cIndex / cardCount;
-                            const isLeft = cIndex % 2 === 0;
-                            cIndex++;
-
-                            const card = document.createElement('div');
-                            card.className = `deck-riffle-card ${isLeft ? 'left' : 'right'}`;
-                            const randRot = (Math.random() * 4 - 2).toFixed(1);
-                            const stackZ = Math.round(progress * 14 + 4);
-                            card.style.setProperty('--card-rot', `${randRot}deg`);
-                            card.style.setProperty('--card-z', `${stackZ}px`);
-
-                            card.innerHTML = `
-                                <div class="deck-card-border-ornament"></div>
-                                <div class="deck-card-pattern">
-                                    ${getDeckPatternHtml()}
-                                </div>
-                                ${getDeckWatermarkHtml()}
-                            `;
-                            if (tray) tray.appendChild(card);
-                            AudioFX.tick(Math.max(0.35, 0.9 - progress * 0.5));
-
-                            // Note: cards accumulate cleanly in tray without flashing or disappearing
-
-                            if (cIndex < cardCount) {
-                                const baseInterval = (riffleDuration / cardCount) * 0.55;
-                                const addedDelay = (riffleDuration / cardCount) * 0.9 * Math.pow(progress, 1.8);
-                                setTimeout(scheduleNextRiffleCard, baseInterval + addedDelay);
-                            }
-                        }
-                        scheduleNextRiffleCard();
-                    }, phase1End * 0.7);
-
-                    // Phase 3: Square Up Deck & Center Stage Deal with Suspense Hover
-                    setTimeout(() => {
-                        if (splitLeft) splitLeft.classList.add('retracting');
-                        if (splitRight) splitRight.classList.add('retracting');
-                        setTimeout(() => {
-                            if (splitLeft) splitLeft.style.display = 'none';
-                            if (splitRight) splitRight.style.display = 'none';
-                        }, 320);
-
-                        if (stack) {
-                            stack.classList.remove('dealing');
-                            stack.classList.add('squaring');
-                        }
-                        AudioFX.cardSlide();
-
-                        // Hand off: Clear riffle tray right when the deck squares up
-                        if (tray) tray.innerHTML = '';
-
-                        // Slide top card to center stage
-                        activeCard.style.display = 'block';
-                        activeCard.style.transform = 'translate3d(-52px, -8px, 0) scale(0.92)';
-                        AudioFX.cardSlide();
-
-                        requestAnimationFrame(() => {
-                            activeCard.style.transition = 'transform 0.55s cubic-bezier(0.2, 0.85, 0.32, 1.2)';
-                            activeCard.style.transform = 'translate3d(0, 0, 48px) scale(1.05)';
-                            setTimeout(() => {
-                                activeCard.classList.add('hovering');
-                            }, 550);
-                        });
-
-                        if (isTricky) {
-                            const trickyDelay = Math.max(200, (phase3End - phase2End) * 0.35);
-                            setTimeout(() => {
-                                activeCard.classList.remove('hovering');
-                                activeCard.classList.add('tricky-suspense');
-                                AudioFX.tick(0.6);
-
-                                setTimeout(() => {
-                                    activeCard.classList.remove('tricky-suspense');
-                                    activeCard.style.transition = 'transform 0.32s ease-in, opacity 0.32s';
-                                    activeCard.style.transform = 'translate3d(180px, -40px, 0) rotate(26deg) scale(0.85)';
-                                    activeCard.style.opacity = '0';
-                                    AudioFX.cardSlide();
-
-                                    setTimeout(() => {
-                                        activeCard.style.transition = 'none';
-                                        activeCard.style.opacity = '1';
-                                        activeCard.style.transform = 'translate3d(-52px, -8px, 0) scale(0.92)';
-                                        void activeCard.offsetHeight;
-
-                                        AudioFX.cardSlide();
-                                        activeCard.style.transition = 'transform 0.45s cubic-bezier(0.2, 0.85, 0.32, 1.2)';
-                                        activeCard.style.transform = 'translate3d(0, 0, 48px) scale(1.05)';
-                                        setTimeout(() => {
-                                            activeCard.classList.add('hovering');
-                                        }, 450);
-                                    }, 280);
-                                }, 450);
-                            }, trickyDelay);
-                        }
-                    }, phase2End);
-
-                    // Phase 4: 3D Flip, Sheen Sweep & Fanfare Reveal
-                    setTimeout(() => {
-                        activeCard.classList.remove('hovering');
-                        AudioFX.cardFlip();
-                        activeCard.classList.add('is-flipped');
-                    }, phase3End);
-
-                    // Exact Duration Completion (Syncs precisely with Wheel and Roller)
-                    setTimeout(() => {
-                        if (stack) stack.classList.remove('squaring');
-                        if (cutPacket) cutPacket.classList.remove('cutting');
-                        if (tray) tray.innerHTML = '';
-                        finishSpin(winner, winnerHeader, winnerSub, autohide);
-                    }, tTotal);
-                }
-            }
+            spinAnimator.play({
+                mode, list, weightsMap: weightsMap || currentWeights, winner, winnerIdx,
+                totalDurationMs, isTricky, suspense, winnerHeader, winnerSub, autohide
+            });
         }
 
         function finishSpin(winner, customHeader = null, customSub = null, autohideSec = null) {
