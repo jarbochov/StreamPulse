@@ -304,11 +304,19 @@
         .deck-card-watermark {
             position: absolute;
             bottom: 12px;
+            left: 0;
+            right: 0;
+            text-align: center;
             font-size: 0.58rem;
             font-weight: 800;
             letter-spacing: 0.16em;
             color: color-mix(in srgb, var(--stage-indicator) 35%, transparent);
             text-transform: uppercase;
+            pointer-events: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 8px;
         }
 
         /* Flying / Active Draw Card */
@@ -685,6 +693,7 @@
                             <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
                         </svg>
                     </div>
+                    <div class="deck-card-watermark">STREAMPULSE</div>
                 </div>
                 <div class="deck-split-packet right" id="deck-split-right" style="display:none;">
                     <div class="deck-card-border-ornament"></div>
@@ -694,6 +703,7 @@
                             <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
                         </svg>
                     </div>
+                    <div class="deck-card-watermark">STREAMPULSE</div>
                 </div>
 
                 <!-- Floating / Drawing Card (3D Flips face up) -->
@@ -1001,21 +1011,26 @@
             `;
         }
 
+        function getDeckWatermarkHtml() {
+            const text = (currentDeckWatermark || '').trim();
+            if (!text) return '';
+            return `<div class="deck-card-watermark">${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</div>`;
+        }
+
         function updateDeckVisuals() {
             const patternHtml = getDeckPatternHtml();
             document.querySelectorAll('#deck-view .deck-card-pattern').forEach(el => {
                 el.innerHTML = patternHtml;
             });
-            const wm = $('deck-card-watermark') || document.querySelector('#deck-active-card .deck-card-watermark');
-            if (wm) {
-                const text = (currentDeckWatermark || '').trim();
+            const text = (currentDeckWatermark || '').trim();
+            document.querySelectorAll('#deck-view .deck-card-watermark').forEach(wm => {
                 if (text === '') {
                     wm.style.display = 'none';
                 } else {
                     wm.style.display = 'block';
                     wm.textContent = text;
                 }
-            }
+            });
         }
 
         // Hidden state on load only if explicitly passed via &hidden=1
@@ -1819,6 +1834,7 @@
                                 <div class="deck-card-pattern">
                                     ${getDeckPatternHtml()}
                                 </div>
+                                ${getDeckWatermarkHtml()}
                             `;
                             if (tray) tray.appendChild(card);
                             AudioFX.tick(Math.max(0.35, 0.9 - progress * 0.5));
