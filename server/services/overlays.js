@@ -1553,7 +1553,32 @@ function createOverlayService({
         scheduleAutoAdvance(overlay);
     }
 
-    function takeoverPages(kind, name, ms) {
+    function pollResultsSeconds(overlay, page) {
+        return overlay.elements.reduce((seconds, element) => {
+            if (element.type !== 'poll' || element.visible === false || (element.page !== page.id && element.page !== '*')) return seconds;
+            return Math.max(seconds, normalizePollSettings(element.poll).resultsSeconds);
+        }, 0);
+    }
+
+    function returnFromTakeover(overlay, state) {
+        clearTimeout(state.takeoverTimer);
+        state.takeoverTimer = null;
+        if (overlay.pages.items.some(p => p.id === state.returnPage && p.enabled)) state.page = state.returnPage;
+        state.returnPage = null;
+        scheduleAutoAdvance(overlay);
+        broadcastPage(overlay);
+    }
+
+    function scheduleTakeoverReturn(overlay, state, ms) {
+        clearTimeout(state.takeoverTimer);
+        state.takeoverTimer = setTimeout(() => {
+            const live = customOverlays[overlay.id];
+            if (live) returnFromTakeover(live, state);
+        }, ms);
+        state.takeoverTimer.unref?.();
+    }
+
+    function takeoverPages(kind, name, ms, poll = {}) {
         for (const overlay of Object.values(customOverlays)) {
             if (!overlay.pages?.enabled) continue;
             const target = overlay.pages.items.find(p => p.enabled && p.trigger === kind && (kind === 'featured' || (kind === 'alert' ? !p.triggerRules.length || p.triggerRules.includes(name) : !p.triggerName || p.triggerName === String(name || '').toLowerCase())));
@@ -1563,14 +1588,14 @@ function createOverlayService({
                     if (state && state.takeoverTimer) {
                         const curPage = overlay.pages.items.find(p => p.id === state.page);
                         if (curPage && curPage.trigger === 'poll-active') {
-                            clearTimeout(state.takeoverTimer);
-                            state.takeoverTimer = null;
-                            if (overlay.pages.items.some(p => p.id === state.returnPage && p.enabled)) {
-                                state.page = state.returnPage;
+                            const resultsSeconds = curPage.triggerSeconds ? 0 : pollResultsSeconds(overlay, curPage);
+                            const endedAt = Date.parse(poll.endedAt);
+                            const remaining = (Number.isFinite(endedAt) ? endedAt : Date.now()) + resultsSeconds * 1000 - Date.now();
+                            if (resultsSeconds && remaining > 0) {
+                                scheduleTakeoverReturn(overlay, state, remaining);
+                            } else {
+                                returnFromTakeover(overlay, state);
                             }
-                            state.returnPage = null;
-                            scheduleAutoAdvance(overlay);
-                            broadcastPage(overlay);
                         }
                     }
                 }
@@ -1587,16 +1612,9 @@ function createOverlayService({
             state.returnPage = returnPage;
             state.page = target.id;
             const seconds = target.triggerSeconds || (ms ? ms / 1000 : 10);
-            state.takeoverTimer = setTimeout(() => {
-                state.takeoverTimer = null;
-                const live = customOverlays[overlay.id];
-                if (!live) return;
-                if (live.pages.items.some(p => p.id === state.returnPage && p.enabled)) state.page = state.returnPage;
-                state.returnPage = null;
-                scheduleAutoAdvance(live);
-                broadcastPage(live);
-            }, seconds * 1000);
-            state.takeoverTimer.unref?.();
+            // Twitch is polled every 10s: keep the active page mounted while waiting for its final result.
+            const pollGraceMs = kind === 'poll-active' && !target.triggerSeconds && pollResultsSeconds(overlay, target) > 0 ? 30000 : 0;
+            scheduleTakeoverReturn(overlay, state, seconds * 1000 + pollGraceMs);
             broadcastPage(overlay);
         }
     }

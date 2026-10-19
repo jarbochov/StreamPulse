@@ -539,7 +539,7 @@ export function pollSection(el) {
         <div class="grid2">${F.check('poll.showVotes', 'Vote counts', p.showVotes)}${F.check('poll.showPercent', 'Percentages', p.showPercent)}</div>
         <div class="grid2">${F.check('poll.showTimer', 'Countdown', p.showTimer)}${F.check('poll.showTotal', 'Total votes', p.showTotal)}</div>
         ${F.number('poll.resultsSeconds', 'Show results (seconds)', p.resultsSeconds, { min: 0, max: 300 })}
-        <p class="hint">0 hides completed polls. All tied winners are highlighted; a poll with no votes has no winner. Resize the element to scale it. Use a regular page to keep results visible after the active poll ends.</p>
+        <p class="hint">0 hides completed polls. All tied winners are highlighted; a poll with no votes has no winner. Resize the element to scale it. Automatic Poll active pages also stay visible for this results duration when their Show for setting is 0. A separate Poll end page takes priority.</p>
     `) + F.section('poll-preview', 'Poll preview', `
         ${F.select('poll.previewMode', 'Preview data', p.previewMode, [['auto', 'Live, or sample when unavailable'], ['sample', 'Sample only'], ['live', 'Live only']])}
         ${p.previewMode === 'live' ? '' : `<div class="grid2">${F.number('poll.sampleChoices', 'Sample choices', p.sampleChoices, { min: 2, max: 5 })}${F.select('poll.sampleState', 'Sample state', p.sampleState, [['active', 'Voting'], ['completed', 'Results'], ['tie', 'Tied results'], ['zero', 'No votes']])}</div>`}

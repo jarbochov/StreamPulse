@@ -177,7 +177,7 @@ function createTwitchRoutes({
             };
             twitchService.setLatestPoll(testPoll);
             console.log(`[Twitch] Test poll triggered: "${testPoll.title}" — Winner: "${testPoll.winner}"`);
-            takeoverPages('poll-end', testPoll.title, 15000);
+            takeoverPages('poll-end', testPoll.title, 15000, testPoll);
             broadcastToOverlays('poll-update', testPoll);
             sendJson(res, { status: 'ok', poll: testPoll });
             return true;

@@ -119,7 +119,7 @@ const customOverlays = overlayService.getCustomOverlays();
 const CUSTOM_OVERLAY_ASSETS_DIR = overlayService.customOverlayAssetsDir;
 const CUSTOM_OVERLAY_HISTORY_DIR = overlayService.customOverlayHistoryDir;
 const CUSTOM_OVERLAY_HISTORY_LIMIT = overlayService.customOverlayHistoryLimit;
-const takeoverPages = (kind, name, ms) => overlayService.takeoverPages(kind, name, ms);
+const takeoverPages = (kind, name, ms, poll) => overlayService.takeoverPages(kind, name, ms, poll);
 const assetReferencedIn = (text, name, family) => overlayService.assetReferencedIn(text, name, family);
 const rewriteAssetReferences = (text, oldName, newName, oldFamily, newFamily) => overlayService.rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily);
 const normalizeCustomOverlay = (input, idOverride) => overlayService.normalizeCustomOverlay(input, idOverride);
@@ -473,7 +473,7 @@ const twitchService = createTwitchService({
     },
     onStreamInfoChange: (category) => refreshGameInfo(category),
     onPollUpdate: (pollData) => broadcastToOverlays('poll-update', pollData),
-    onTakeover: (action, title, duration) => takeoverPages(action, title, duration),
+    onTakeover: (action, title, duration, poll) => takeoverPages(action, title, duration, poll),
     onViewerCountUpdate: () => fetchViewerCount()
 });
 const loadStoredToken = () => twitchService.loadStoredToken();

@@ -13,6 +13,9 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ### Added
 - Custom overlay Poll element and 400 × 150 Compact poll preset: adaptive 2–5-choice result bars, native Twitch vote counts/percentages, remaining-time countdown, configurable completed-result duration, and preview-only fictional samples.
 
+### Fixed
+- Automatic Poll active pages now honor visible Poll elements' results duration before returning to the previous page, including a bounded wait for Twitch's final status.
+
 ## [0.13.2] - 2026-10-19
 
 ### Fixed

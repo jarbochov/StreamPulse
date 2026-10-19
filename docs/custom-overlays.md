@@ -185,7 +185,9 @@ Display your native Twitch poll in a compact, horizontal panel. Choose **Add Ele
 
 Twitch must be connected with the `channel:read:polls` permission and your channel must support native Twitch polls. Reconnect Twitch if your existing connection lacks that permission.
 
-For an always-available panel, place it on a regular overlay page. The **Poll active** page trigger ends when voting ends, independently of this element's results duration. Use a separate **Poll end** trigger page if you want a results takeover instead.
+For automatic showing, set the page to **While a Twitch poll is active** and leave **Show for** at `0`. The page stays through voting and the Poll element's **Show results** duration, then returns to the previous page and resumes any automatic rotation. If several visible Poll elements are on the page (including shared elements), the longest results duration wins. Hidden elements and Poll elements on other pages do not extend it.
+
+The active page waits up to 30 seconds past the expected voting end for Twitch to confirm results, avoiding a page change between voting and results. The results deadline uses Twitch's actual end time, so delayed updates do not add extra display time. Set every visible Poll element's results duration to `0` for active-only behavior. A nonzero page **Show for** preserves fixed-duration behavior; a separate matching **Poll end** trigger page takes priority. Manual page changes cancel the automatic return.
 
 #### QR Code (`qr`)
 Dynamic vector SVG QR code generator backed by the `/api/qr` endpoint.

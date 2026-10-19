@@ -1,11 +1,13 @@
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const path = require('node:path');
+const fs = require('node:fs');
+const os = require('node:os');
 const { test } = require('node:test');
 const { WebSocketServer } = require('ws');
 const puppeteer = require('puppeteer');
 const widget = require('../public/js/poll-widget');
-const { normalizeCustomOverlay, normalizeOverlayPresets, generateSvgThumbnail } = require('../server/services/overlays');
+const { createOverlayService, normalizeCustomOverlay, normalizeOverlayPresets, generateSvgThumbnail } = require('../server/services/overlays');
 const { createStaticRouter } = require('../server/static-router');
 
 const poll = (count, status = 'ACTIVE', votes) => ({
@@ -71,6 +73,118 @@ test('poll elements and presets survive normalization and thumbnail generation',
     assert.equal(presets[0].elements[0].poll.accent, '#facc15');
     assert.equal(widget.settings({ sampleChoices: 99, resultsSeconds: -10 }).sampleChoices, 5);
     assert.equal(widget.settings({ resultsSeconds: -10 }).resultsSeconds, 0);
+});
+
+test('automatic poll pages keep results, respect overrides, and restore rotation without delayed-page flashes', t => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-poll-pages-'));
+    const changes = [];
+    const service = createOverlayService({ dataDir, broadcastToOverlays: (type, data) => changes.push([type, data.page]) });
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.parse('2026-10-19T12:00:00Z') });
+    t.after(() => {
+        service.stop();
+        fs.rmSync(dataDir, { recursive: true, force: true });
+    });
+    const clock = ms => t.mock.timers.tick(ms);
+    const setup = ({ results = 40, override = 0, endPage = false, elements } = {}) => {
+        service.stop();
+        changes.length = 0;
+        const overlay = normalizeCustomOverlay({
+            id: 'fixture',
+            pages: {
+                enabled: true, mode: 'auto', cycleSeconds: 10, loop: true,
+                items: [
+                    { id: 'base', name: 'Base' }, { id: 'next', name: 'Next' },
+                    { id: 'voting', name: 'Voting', trigger: 'poll-active', triggerSeconds: override },
+                    ...(endPage ? [{ id: 'results', name: 'Results', trigger: 'poll-end', triggerSeconds: 3 }] : [])
+                ]
+            },
+            elements: elements || [{ type: 'poll', page: 'voting', poll: { resultsSeconds: results } }]
+        });
+        service.setCustomOverlays({ fixture: overlay });
+        service.start();
+        return overlay;
+    };
+    let overlay = setup({
+        elements: [
+            { type: 'poll', page: 'voting', poll: { resultsSeconds: 15 } },
+            { type: 'poll', page: '*', poll: { resultsSeconds: 40 } },
+            { type: 'poll', page: 'voting', visible: false, poll: { resultsSeconds: 300 } },
+            { type: 'poll', page: 'next', poll: { resultsSeconds: 300 } }
+        ]
+    });
+    const page = () => service.pageSnapshot(overlay).page;
+    const start = () => service.takeoverPages('poll-active', 'Fictional route', 1000);
+    const end = endedAt => service.takeoverPages('poll-end', 'Fictional route', 15000, { endedAt });
+    const endedAt = new Date(Date.now() + 1000).toISOString();
+    start();
+    clock(6000);
+    assert.equal(page(), 'voting', 'no return between expected end and the next Twitch refresh');
+    end(endedAt);
+    clock(34999);
+    assert.equal(page(), 'voting', 'shared visible widget supplies the longest duration');
+    clock(1);
+    assert.equal(page(), 'base', 'return exactly at Twitch end plus results duration, not receipt plus duration');
+    assert.deepEqual(changes.map(([, id]) => id), ['voting', 'base']);
+    clock(10000);
+    assert.equal(page(), 'next', 'normal automatic rotation resumes');
+
+    overlay = setup({ results: 0 });
+    start();
+    clock(1000);
+    assert.equal(page(), 'base', 'zero results keeps active-only timing');
+
+    overlay = setup({ override: 2 });
+    start();
+    clock(2000);
+    assert.equal(page(), 'base', 'explicit Show for does not inherit results timing');
+
+    overlay = setup({ endPage: true });
+    start();
+    clock(1500);
+    end(new Date(Date.now()).toISOString());
+    assert.equal(page(), 'results', 'separate results page takes priority');
+    clock(3000);
+    assert.equal(page(), 'base', 'separate results page keeps its own duration');
+
+    overlay = setup();
+    start();
+    service.movePage(overlay, 'goto', { target: 'next' });
+    end(new Date(Date.now()).toISOString());
+    clock(5000);
+    assert.equal(page(), 'next', 'manual navigation is not hijacked by late completion');
+
+    overlay = setup();
+    start();
+    end(new Date(Date.now()).toISOString());
+    clock(1000);
+    start();
+    end(new Date(Date.now()).toISOString());
+    clock(40000);
+    assert.equal(page(), 'base', 'a new poll during results retains the original return page');
+
+    overlay = setup();
+    start();
+    clock(31000);
+    assert.notEqual(page(), 'voting', 'missing Twitch completion cannot leave an indefinite takeover');
+
+    overlay = setup({ results: 1 });
+    const oldEnd = new Date(Date.now()).toISOString();
+    start();
+    clock(3000);
+    end(oldEnd);
+    assert.equal(page(), 'base', 'already expired results do not add another display window');
+
+    overlay = setup();
+    start();
+    end(new Date(Date.now() - 60000).toISOString());
+    assert.equal(page(), 'base', 'old completion immediately returns');
+
+    overlay = setup();
+    start();
+    service.stop();
+    changes.length = 0;
+    clock(60000);
+    assert.deepEqual(changes, [], 'shutdown clears the pending automatic return');
 });
 
 test('real editor and runtime share adaptive poll rendering, live updates, styling, and safe samples', { timeout: 60000 }, async t => {

@@ -789,12 +789,12 @@ function createTwitchService(options = {}) {
                     onTakeover('poll-active', poll.title, remainingMs);
                 } else if ((poll.status === 'COMPLETED' || poll.status === 'TERMINATED') && poll.ended_at && Date.now() - Date.parse(poll.ended_at) < 30000) {
                     log(`[Twitch] Poll ended: "${poll.title}" — Winner: "${winner?.title || '(none)'}" (${winningPercent}%)`);
-                    onTakeover('poll-end', poll.title, 15000);
+                    onTakeover('poll-end', poll.title, 15000, pollData);
                 }
             } else if (statusChanged) {
                 if (poll.status === 'COMPLETED' || poll.status === 'TERMINATED') {
                     log(`[Twitch] Poll ended: "${poll.title}" — Winner: "${winner?.title || '(none)'}" (${winningPercent}%)`);
-                    onTakeover('poll-end', poll.title, 15000);
+                    onTakeover('poll-end', poll.title, 15000, pollData);
                 }
             }
 
