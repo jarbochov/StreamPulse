@@ -2,7 +2,7 @@
 
 Set up the desktop app, connect your chat, and bring your first overlay into OBS. You can add more studios later.
 
-You will need **OBS Studio**, the **StreamPulse desktop app**, and **SocialStream Ninja** for chat and supported events. A Twitch account connection is optional unless you want features that use it.
+You will need **OBS Studio**, the **StreamPulse desktop app**, and **SocialStream Ninja** for chat and supported events. StreamPulse currently focuses on Twitch. SocialStream Ninja handles unified chat, chat overlays, and featured messages; StreamPulse adds production tools and session review alongside it. A Twitch account connection is optional unless you want features that use it.
 
 ## 1. Open the desktop app
 
@@ -24,8 +24,8 @@ SocialStream Ninja gathers chat and supported events from the platforms you use.
 1. Install and open the [SocialStream Ninja desktop app](https://github.com/steveseguin/social-stream-desktop/releases). Connect the chat sources for your streaming platforms.
 2. Make sure its local WebSocket server is enabled. For other SocialStream Ninja setups, follow the [connection guide](socialstream-setup.md).
 3. In StreamPulse, open **System → Config Editor → Connection & Security**.
-4. Check the **SocialStream Ninja** connection address. The usual same-computer address is `ws://127.0.0.1:8080`; use the address configured in SocialStream Ninja if you changed it.
-5. Choose **Save Config**, then return to the dashboard.
+4. Enter your actual **SocialStream session ID**. Copy it from your SSN setup (the `session` value in its dock URL), not the example `YOUR_SSN_SESSION_ID`. The endpoint in `config.json` under `ssn.server` must match your SSN setup; see the [connection guide](socialstream-setup.md).
+5. Choose **Save Config**, then restart StreamPulse when prompted and return to the dashboard. A blank or example ID leaves SocialStream **Not configured**.
 6. Look for a connected SocialStream Ninja status and send a message in your platform's chat. Confirm the dashboard receives the activity.
 
 Keep SocialStream Ninja and the chat sources it needs running while you stream. If activity does not arrive, check the [SocialStream Ninja setup guide](socialstream-setup.md) before moving on.

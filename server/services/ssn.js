@@ -3,6 +3,7 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 const WebSocket = require('ws');
+const { normalizeSsnSessionId } = require('../ssn-config');
 
 const MAX_IN_MEMORY_CHAT_MESSAGES = 2000;
 const CHAT_WINDOWS = [5, 10, 15, 30, 60];
@@ -1154,6 +1155,7 @@ function createSsnService({
     }
 
     function scheduleSSNReconnect() {
+        if (!normalizeSsnSessionId(getSsnSessionId())) return;
         ssnAttempts++;
         const delay = Math.min(30000, 3000 * Math.pow(2, Math.min(ssnAttempts - 1, 4)));
         log(`[SSN] Disconnected. Reconnecting in ${Math.round(delay / 1000)}s...`);
@@ -1164,10 +1166,10 @@ function createSsnService({
     const isSocketLive = s => !!s && (s.readyState === WebSocket.CONNECTING || s.readyState === WebSocket.OPEN);
 
     function connectSSN() {
-        const ssnSessionId = getSsnSessionId();
+        const ssnSessionId = normalizeSsnSessionId(getSsnSessionId());
         const ssnServer = getSsnServer();
         if (!ssnSessionId) {
-            warn('[SSN] No session_id in config.json — chat collection disabled');
+            warn('[SSN] Set a real ssn.session_id in Config Editor and restart — chat collection disabled');
             return;
         }
 
@@ -1234,7 +1236,7 @@ function createSsnService({
     }
 
     function connectFeaturedListener() {
-        const ssnSessionId = getSsnSessionId();
+        const ssnSessionId = normalizeSsnSessionId(getSsnSessionId());
         const ssnServer = getSsnServer();
         if (!ssnSessionId) return;
         clearTimeout(featuredReconnectTimer);
@@ -1313,7 +1315,7 @@ function createSsnService({
         getSsnSocket: () => ssnSocket,
         getSsnStatus: () => ({
             connected: ssnSocket?.readyState === WebSocket.OPEN,
-            session: getSsnSessionId() ? 'configured' : null
+            session: normalizeSsnSessionId(getSsnSessionId()) ? 'configured' : null
         }),
         processChatMessage,
         updateStats,

@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 const { readRequestBody, sendJson, sendError } = require('./helpers');
+const { normalizeSsnSessionId } = require('../ssn-config');
 
 function createSystemRoutes({
     rootDir,
@@ -77,8 +78,9 @@ function createSystemRoutes({
                         const id = updates.ssn_session_id.trim();
                         if (id) {
                             if (!/^[\w-]{1,100}$/.test(id)) throw new Error('SocialStream session ID can only contain letters, numbers, - and _');
-                            current.ssn = { ...(current.ssn || {}), session_id: id };
+                            if (!normalizeSsnSessionId(id)) throw new Error('Replace the example SocialStream session ID with your own, or leave it blank to disable chat collection');
                         }
+                        current.ssn = { ...(current.ssn || {}), session_id: id };
                     }
                     const setInterval_ = (key, min, max, fallback) => {
                         if (updates[key] === undefined) return;
@@ -135,8 +137,8 @@ function createSystemRoutes({
                         broadcaster_name: broadcasterName,
                         broadcaster_id: config.broadcaster_id || null,
                         ssn_server: config.ssn?.server || null,
-                        ssn_session_configured: !!config.ssn?.session_id,
-                        ssn_session_id: config.ssn?.session_id || '',
+                        ssn_session_configured: !!normalizeSsnSessionId(config.ssn?.session_id),
+                        ssn_session_id: normalizeSsnSessionId(config.ssn?.session_id),
                         twitch_client_configured: !!clientId,
                         twitch_auth_mode: clientSecret ? 'own_app' : 'shared_device',
                         subs_source: config.subs_source || 'twitch',

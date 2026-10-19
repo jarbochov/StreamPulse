@@ -5,24 +5,32 @@
 
 # StreamPulse
 
-**The ultimate self-hosted broadcast companion and overlay suite for [SocialStream Ninja](https://socialstream.ninja/) and Twitch.**
+**A self-hosted broadcast companion and overlay suite for Twitch, working alongside [SocialStream Ninja](https://socialstream.ninja/).**
 
-StreamPulse turns your live broadcast data into cinematic OBS browser overlays, actionable community analytics, and hands-on production tools. Built from the ground up for low CPU overhead and zero cloud lock-in, StreamPulse bridges multi-platform chat, subscriptions, cheers, raids, and follower milestones directly into your broadcast.
+StreamPulse turns your live broadcast data into OBS browser overlays, community analytics, and hands-on production tools. It runs locally, using SocialStream Ninja for chat and supported events, and Twitch account connections for Twitch-specific data and actions.
 
 ---
 
 ## What is StreamPulse?
 
-If you stream on Twitch, YouTube, Kick, or multi-stream across platforms, you've probably noticed that most stream overlay tools rely on expensive monthly subscriptions, slow cloud dashboards, and third-party servers tracking your community's data.
+StreamPulse is currently focused on Twitch streamers who want to plan their show, run live production tools, and keep a useful record of each broadcast.
 
 **StreamPulse is different.** It is a free, self-hosted companion that runs quietly on your computer while you stream:
 
-- **100% Free & Private**: No monthly subscription fees, no third-party tracking, and no cloud servers holding your stream data. Everything lives locally in simple files on your computer.
-- **Decentralized Multi-Platform Power**: Pairs natively with SocialStream Ninja to ingest Twitch, YouTube, Kick, and Discord chat into one single stream engine.
+- **Free & Locally Stored**: No StreamPulse subscription fees. Session archives, community notes, and configuration stay in files on your computer; enabled integrations still communicate with their services, including Twitch and your chosen SSN endpoint.
+- **SocialStream Ninja Integration**: Reuses SSN's chat capture and supported events. SSN supports multiple platforms; StreamPulse's current product focus and account integrations are Twitch.
 - **Cinematic Broadcast Overlays**: Instant OBS browser sources for movie-style scrolling end credits, spinning choice randomizers, game plan broadcast schedules, community goal meters, and retro CRT animated borders.
-- **Obsessively Low Overhead**: Uses negligible CPU and RAM so your computer can focus all its power on gaming and video encoding without dropped frames.
+- **Resource-Aware Rendering**: Limits inactive overlay work and avoids unnecessary refreshes. Resource use still depends on your scenes, media, effects, and hardware.
 
 Whether you're looking for a simple, automated credits roll to thank your community at the end of each stream, or a complete production suite with Stream Deck hardware controls, StreamPulse has you covered.
+
+### What StreamPulse adds to SocialStream Ninja
+
+**SocialStream Ninja** already provides unified chat, chat overlays, featured messages, and chat capture across its supported platforms. Keep using those tools; StreamPulse is a companion, not a replacement.
+
+**StreamPulse** adds a broadcast-production and review workspace: custom overlay layouts, Game Plan scheduling, timers and goals, wheel/roller/card randomizers, alert rules and queue controls, automated closing credits, session history, community notes, and Twitch subscriber/follower analytics. OBS docks and Bitfocus Companion controls bring those actions closer to your live workflow.
+
+Some features overlap, such as alerts and bot messages. Use whichever fits your show, and avoid enabling duplicate responses in both apps. SSN's multi-platform support does not mean StreamPulse has equivalent account integrations or feature coverage outside Twitch.
 
 ---
 
@@ -132,7 +140,7 @@ For developers, technical directors, and power users, StreamPulse is engineered 
 ### Connect to SocialStream Ninja
 1. Open SocialStream Ninja in your browser and verify the local API server is active on port `8080`.
 2. In StreamPulse, navigate to **System -> Config Editor** (`/config-editor.html`) -> **Connection & Security**.
-3. Verify your SSN WebSocket URL (default: `ws://127.0.0.1:8080`) and save.
+3. Enter your actual **SocialStream session ID**, save, and restart StreamPulse. The example `YOUR_SSN_SESSION_ID` is not a working configuration; leaving the ID blank disables chat collection. Check that `ssn.server` in `config.json` matches your SSN endpoint.
 4. For step-by-step instructions, see the **[SocialStream Ninja Setup Guide](docs/socialstream-setup.md)**.
 
 ### Add Overlays to OBS Studio

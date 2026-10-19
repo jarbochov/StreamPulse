@@ -9,7 +9,7 @@
 
   # StreamPulse
 
-  <p class="cover-subtitle">The broadcast companion and overlay suite that puts streamers in total control. Cinematic OBS overlays, interactive choice randomizers, automated credits roll, and community CRM—100% self-hosted on your machine with zero cloud fees.</p>
+  <p class="cover-subtitle">A broadcast companion for Twitch, working alongside SocialStream Ninja's unified chat, chat overlays, and featured messages. Plan your show, create OBS layouts, reveal audience choices, and thank your community with closing credits—all from your own machine.</p>
 
   <div class="cover-cta-row">
     <a href="#/quickstart" class="cover-btn cover-btn-primary">Get Started</a>

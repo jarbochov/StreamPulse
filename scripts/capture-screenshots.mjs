@@ -621,7 +621,10 @@ async function run() {
         }
     ];
 
-    for (const target of targets) {
+    const only = process.argv.find(arg => arg.startsWith('--only='))?.slice('--only='.length);
+    const selectedTargets = only ? targets.filter(target => target.file === `${only}.png`) : targets;
+    if (!selectedTargets.length) throw new Error(`Unknown screenshot target: ${only}`);
+    for (const target of selectedTargets) {
         try {
             console.log(`Capturing ${target.url} -> ${target.file}...`);
             await page.goto(target.url, { waitUntil: 'networkidle2', timeout: 30000 });

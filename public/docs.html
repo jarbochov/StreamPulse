@@ -323,7 +323,7 @@
                         { param: 'broadcaster_name', type: 'string', default: '""', desc: 'Display name (used in dashboard/logs).', restart: true },
                         { param: 'twitch.client_id', type: 'string', default: '—', desc: 'Optional. Your own Twitch application client ID. Leave blank to use the shared StreamPulse Toolkit app (connect from /twitch-connect.html).', restart: true },
                         { param: 'twitch.client_secret', type: 'string', default: '—', desc: 'Optional. Only needed with your own Twitch app. Leave blank to use the shared app and device-code sign-in.', restart: true },
-                        { param: 'ssn.session_id', type: 'string', default: '""', desc: 'SocialStream Ninja session ID. Required for live chat data.', restart: true },
+                        { param: 'ssn.session_id', type: 'string', default: '""', desc: 'Your actual SocialStream Ninja session ID. Blank or example IDs disable collection; restart after changing.', restart: true },
                         { param: 'ssn.server', type: 'string', default: 'wss://io.socialstream.ninja', desc: 'SSN WebSocket server URL. Rarely needs changing.', restart: true },
                         { param: 'twitch_refresh_minutes', type: 'number', default: '10', desc: 'Auto-refresh interval for Twitch API data (subs, followers, bits).', restart: true }
                     ]
@@ -626,7 +626,7 @@
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
-                    <div class="detail-text">SSN captures live chat, subs, follows, raids, bits and donations from Twitch (and YouTube, Kick, etc.) and forwards them to StreamPulse.<br><br>1. Install <a href="https://socialstream.ninja/" style="color:var(--accent);">SocialStream Ninja</a> (standalone desktop app, browser extension, or OBS dock)<br>2. SSN settings → <strong>Global Mechanics → Mechanics - Connections &amp; Integrations</strong><br>3. Enable <strong>Enable remote API control of extension</strong> and <strong>Send chat messages to API server</strong><br>4. In StreamPulse Config Editor, verify the SSN WebSocket URL is <code>ws://127.0.0.1:8080</code> (or enter your <code>ssn.session_id</code> if using cloud relay)<br>5. Keep SSN open in your browser, dock, or desktop app during your stream<br><br>Test the connection with SSN's <a href="https://socialstream.ninja/sampleapi.html" style="color:var(--accent);">API Sandbox</a>.</div>
+                    <div class="detail-text">SSN provides unified chat, chat overlays, featured messages, and capture of supported chat/events. StreamPulse complements it with show planning, custom layouts, timers, goals, randomizers, alerts, credits, and session/community review. StreamPulse currently focuses on Twitch; SSN's other platforms do not imply equivalent StreamPulse integrations.<br><br>1. Install <a href="https://socialstream.ninja/" style="color:var(--accent);">SocialStream Ninja</a> (standalone desktop app, browser extension, or OBS dock)<br>2. SSN settings → <strong>Global Mechanics → Mechanics - Connections &amp; Integrations</strong><br>3. Enable <strong>Enable remote API control of extension</strong> and <strong>Send chat messages to API server</strong><br>4. In StreamPulse Config Editor, enter your actual SocialStream session ID, not <code>YOUR_SSN_SESSION_ID</code>. Check <code>ssn.server</code> in <code>config.json</code> matches your setup: the example uses <code>wss://io.socialstream.ninja</code>; a local server commonly uses <code>ws://127.0.0.1:8080</code>.<br>5. Save and restart StreamPulse. Keep SSN open while streaming; verify a real chat message reaches StreamPulse. An open socket alone does not prove chat is flowing.<br><br>Test the connection with SSN's <a href="https://socialstream.ninja/sampleapi.html" style="color:var(--accent);">API Sandbox</a>.</div>
                 </div>
             </div>
             <div class="card open">
@@ -848,7 +848,7 @@
                         <div class="detail-text">The server connects to SocialStream Ninja to receive live chat, follow, sub, raid, and donation events.</div>
                         <div class="detail-label">Requirements</div>
                         <div class="detail-text">
-                            • Set <code>ssn.session_id</code> in config.json<br>
+                            • Set your actual <code>ssn.session_id</code> in Config Editor or config.json, then restart. Blank or example IDs leave SSN unconfigured.<br>
                             • SSN dock page must be open in a browser tab<br>
                             • SSN Global Mechanics → Mechanics - Connections &amp; Integrations → Enable remote API control of extension and Send chat messages to API server must be enabled<br>
                             • Auto-reconnects every 5 seconds if disconnected

@@ -25,6 +25,12 @@
   </a>
 </div>
 
+## A companion to SocialStream Ninja, focused on Twitch
+
+SocialStream Ninja already handles unified chat, chat overlays, and featured messages. StreamPulse adds show planning, custom overlay layouts, timers, goals, randomizers, alerts, credits, and session/community review alongside it. Twitch is our current focus; SSN's support for other platforms does not imply equivalent StreamPulse integrations.
+
+See [what StreamPulse adds](features.md#alongside-socialstream-ninja-not-instead-of-it) before choosing the tools for your show.
+
 ## Make the show your own
 
 Build a starting screen, a gameplay layout, or a break scene in **Custom Overlay Studio**. Arrange text, artwork, video, and live information, then add your finished overlay to OBS.

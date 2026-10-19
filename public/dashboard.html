@@ -33,7 +33,11 @@
 
         .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); padding: var(--gap) 1.5rem 2rem; max-width: 1680px; margin: 0 auto; align-items: stretch; }
 
-        .card { position: relative; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--pad); display: flex; flex-direction: column; min-width: 0; grid-column: span var(--span, 3); }
+        .card { --default-span: 6; position: relative; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: var(--pad); display: flex; flex-direction: column; min-width: 0; grid-column: span var(--span, var(--default-span)); }
+        .card[data-span="8"] { --default-span: 8; }
+        .card[data-span="4"] { --default-span: 4; }
+        @media (max-width: 1000px) { .card[data-span] { --default-span: 6; } }
+        @media (max-width: 640px) { .card[data-span] { --default-span: 12; } }
         .card[hidden] { display: none; }
         .card h2 { font-size: .72rem; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); }
         .card.drag-over { border-color: var(--accent); background: var(--accent-bg); }
@@ -96,7 +100,6 @@
         .event .what { color: var(--text-muted); font-size: .74rem; white-space: nowrap; }
         .empty { color: var(--border-strong); padding: .8rem; text-align: center; }
 
-        .card:not([data-h]):has(.scroll > .empty:only-child, .chart > .empty:only-child) { align-self: start; }
         .card:not([data-h]) .chart:has(> .empty:only-child) { height: auto; min-height: 0; }
         .card:not([data-h]) .scroll:has(> .empty:only-child) { flex: none; }
         .chart { display: flex; align-items: flex-end; gap: 2px; padding-top: .5rem; flex: 1; min-height: 90px; }
@@ -207,7 +210,7 @@
             <div class="scroll" id="chatters-list"><div class="empty">No chatters yet</div></div>
         </div>
 
-        <div class="card" data-panel-id="alerts" data-title="Alerts & SFX" data-span="3">
+        <div class="card" data-panel-id="alerts" data-title="Alerts & SFX" data-span="6">
             <h2>Alerts &amp; SFX</h2>
             <div class="indicator"><div class="dot" id="dot-alerts"></div><span>Alert engine: <span id="alerts-status">—</span></span></div>
             <div class="status-grid">
@@ -221,7 +224,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="overlays" data-title="Overlays" data-span="3">
+        <div class="card" data-panel-id="overlays" data-title="Overlays" data-span="6">
             <h2>Overlays</h2>
             <div class="status-grid">
                 <div class="stat"><div class="value" id="overlay-custom-count">—</div><div class="label">Custom</div></div>
@@ -234,7 +237,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="goals" data-title="Goals" data-span="3">
+        <div class="card" data-panel-id="goals" data-title="Goals" data-span="6">
             <h2>Goals</h2>
             <div class="status-grid">
                 <div class="stat"><div class="value" id="goals-enabled-count">0</div><div class="label">Enabled</div></div>
@@ -248,7 +251,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="timers" data-title="Timers" data-span="3">
+        <div class="card" data-panel-id="timers" data-title="Timers" data-span="6">
             <h2>Timers</h2>
             <div class="status-grid">
                 <div class="stat"><div class="value" id="timers-total">0</div><div class="label">Total</div></div>
@@ -262,7 +265,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="chatbot" data-title="Chat Bot" data-span="3">
+        <div class="card" data-panel-id="chatbot" data-title="Chat Bot" data-span="6">
             <h2>Chat Bot</h2>
             <div class="indicator"><div class="dot" id="dot-chatbot"></div><span>Bot: <span id="chatbot-status">—</span></span></div>
             <div class="status-grid">
@@ -278,7 +281,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="music" data-title="Music" data-span="3">
+        <div class="card" data-panel-id="music" data-title="Music" data-span="6">
             <h2>Music</h2>
             <div class="indicator"><div class="dot" id="dot-music"></div><span>Overlay: <span id="music-status">—</span></span></div>
             <div class="detail-line"><strong>Source:</strong> <span id="music-source">—</span></div>
@@ -290,7 +293,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="milestones" data-title="Milestones & Streaks" data-span="3">
+        <div class="card" data-panel-id="milestones" data-title="Milestones & Streaks" data-span="6">
             <h2>Milestones &amp; Streaks</h2>
             <div class="status-grid">
                 <div class="stat"><div class="value" id="milestone-stream-num">—</div><div class="label">Stream #</div></div>
@@ -307,7 +310,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="library" data-title="Library & Backups" data-span="3">
+        <div class="card" data-panel-id="library" data-title="Library & Backups" data-span="6">
             <h2>Library &amp; Backups</h2>
             <div class="status-grid">
                 <div class="stat"><div class="value" id="library-highlights">0</div><div class="label">Highlights</div></div>
@@ -416,7 +419,7 @@
     function effectiveSpan(span) {
         const width = grid.clientWidth;
         if (width < 640) return 12;
-        if (width < 1000) return span <= 6 ? 6 : 12;
+        if (width < 1000) return span < 12 ? 6 : 12;
         return span;
     }
 
@@ -566,6 +569,7 @@
     $('reset-btn').addEventListener('click', async () => {
         if (!await StreamPulse.confirm('Reset Layout', 'Reset the dashboard layout to the default?')) return;
         localStorage.removeItem(LAYOUT_KEY);
+        localStorage.removeItem(LEGACY_KEY);
         layout = defaultLayout();
         defaultOrder.forEach(id => grid.appendChild(cards().find(c => c.dataset.panelId === id)));
         applyLayout();

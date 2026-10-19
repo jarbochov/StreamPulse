@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const crypto = require('crypto');
+const { normalizeSsnSessionId } = require('../ssn-config');
 
 const DEFAULT_AUTO_SHOUTOUT = {
     enabled: false,
@@ -341,12 +342,12 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             return { ok: false, error: err.message };
         }
     }
-    const sessionId = () => getConfig().ssn?.session_id;
+    const sessionId = () => normalizeSsnSessionId(getConfig().ssn?.session_id);
     const baseUrl = () => String(getConfig().ssn?.chat_base || getConfig().ssn?.server || 'https://io.socialstream.ninja').replace(/^wss:/, 'https:').replace(/^ws:/, 'http:').replace(/\/+$/, '');
 
     async function send(text) {
         const id = sessionId();
-        if (!id || /YOUR_SSN/.test(id)) throw new Error('SocialStream session ID is not set');
+        if (!id) throw new Error('SocialStream session ID is not set');
         const { tag } = data.settings;
         const lines = String(text).split(/\\n|\n/).map(l => l.trim()).filter(Boolean).slice(0, 5);
         for (let i = 0; i < lines.length; i++) {
@@ -697,7 +698,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             enabled: enabled(),
             moduleEnabled: isModuleEnabled(),
             botActive: data.settings.enabled === true,
-            ssnConfigured: !!sessionId() && !/YOUR_SSN/.test(sessionId()),
+            ssnConfigured: !!sessionId(),
             broadcaster: getBroadcaster(),
             twitchMods: getTwitchModsDetails(),
             settings: data.settings,

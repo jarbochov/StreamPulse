@@ -6,6 +6,13 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ## [Unreleased]
 
+### Fixed
+- Treat example or blank SocialStream session IDs as unconfigured across chat, featured messages, bot replies, and configuration status; allow clearing the ID in Config Editor.
+- Give the dashboard consistent default rows with Health and Actions first, readable tool panels, aligned empty states, and a reset that clears legacy layout preferences.
+
+### Changed
+- Explain how StreamPulse complements SocialStream Ninja and clarify the current Twitch focus.
+
 ## [0.13.0] - 2026-10-19
 
 ### Changed

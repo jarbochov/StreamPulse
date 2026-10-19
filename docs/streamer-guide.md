@@ -10,6 +10,8 @@ If you have not connected StreamPulse to your chat and OBS yet, follow the [quic
 
 Open StreamPulse, SocialStream Ninja, and OBS. Check the connection indicators on the StreamPulse dashboard and send a test chat message. If you use Twitch features, check that your Twitch account is connected too.
 
+The default dashboard starts with **Health** and **Actions**, followed by session activity and paired tool panels. Use **Edit layout** to customize it; your saved arrangement is preserved. **Reset layout** restores the defaults, including Health and Actions at the top.
+
 Look at the current session before you begin. If the dashboard offers **Start Session** and you are ready to collect this broadcast's activity, use it. If a session is already active, make sure it is the one you intend to use.
 
 ### 2. Decide what viewers will see

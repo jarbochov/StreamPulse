@@ -58,6 +58,7 @@ const { createSystemRoutes } = require('./server/routes/system');
 const { createHighlightsRoutes } = require('./server/routes/highlights');
 const { createBackupRoutes } = require('./server/routes/backup');
 const { createBackupService } = require('./server/services/backup');
+const { normalizeSsnSessionId } = require('./server/ssn-config');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -88,7 +89,7 @@ const TWITCH_CLIENT_ID = cleanConfigValue(config.twitch?.client_id) || DEFAULT_T
 const TWITCH_CLIENT_SECRET = cleanConfigValue(config.twitch?.client_secret);
 const TWITCH_SCOPES = DEFAULT_TWITCH_SCOPES;
 const TWITCH_REDIRECT_URI = config.twitch?.redirect_uri || `http://localhost:${PORT}/auth/callback`;
-const SSN_SESSION_ID = config.ssn?.session_id;
+const SSN_SESSION_ID = normalizeSsnSessionId(config.ssn?.session_id);
 const SSN_SERVER = config.ssn?.server || 'wss://io.socialstream.ninja';
 const REFRESH_MINUTES = config.twitch_refresh_minutes || 10;
 const STREAM_INFO_POLL_SECONDS = Math.max(10, config.twitch_stream_info_seconds || 30);

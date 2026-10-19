@@ -126,6 +126,7 @@ StreamPulse maintains its official documentation at [jarbochov.github.io/StreamP
   ```bash
   node scripts/capture-screenshots.mjs
   ```
+  To refresh only one image, use `--only=dashboard` (or another screenshot filename without `.png`). Set `STREAMPULSE_URL` to an isolated fixture server with fictional data when capturing; do not point it at a live production session.
 - **Automated Deployment**: GitHub Pages deploys automatically on every push to `main` via `.github/workflows/pages.yml`.
 
 ---

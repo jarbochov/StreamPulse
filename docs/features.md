@@ -4,6 +4,14 @@ StreamPulse helps you plan the show, put useful information on screen, involve y
 
 New here? Follow the [quick start](quickstart.md). For a complete stream routine, read the [streamer guide](streamer-guide.md).
 
+## Alongside SocialStream Ninja, not instead of it
+
+**SocialStream Ninja** provides unified chat, chat overlays, featured messages, and chat capture. Keep using it for those jobs.
+
+**StreamPulse** builds on that activity with show planning, custom overlay layouts, timers and goals, audience randomizers, alerts, closing credits, and a local record of your broadcasts and community. Twitch account connections add Twitch-specific features such as subscriber and follower analytics.
+
+**Our current focus is Twitch.** SocialStream Ninja supports other platforms, but that does not mean StreamPulse offers the same account integrations or feature coverage for them. Where the apps overlap, such as alerts or bot replies, choose which one should handle the interaction so viewers do not receive duplicates.
+
 ## Create a recognizable show
 
 ### Custom overlays
