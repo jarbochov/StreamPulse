@@ -1276,7 +1276,11 @@ async function applyUpdate(mode) {
     const { stdout: changes } = await execFileAsync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: __dirname });
     if (changes.trim()) throw new Error('Update blocked: tracked local changes must be committed or stashed first.');
     performAutoBackup(true);
-    await execFileAsync('git', ['fetch', '--tags', 'origin'], { cwd: __dirname });
+    try {
+        await execFileAsync('git', ['fetch', '--tags', '--force', 'origin'], { cwd: __dirname });
+    } catch {
+        await execFileAsync('git', ['fetch', '--force', 'origin'], { cwd: __dirname });
+    }
     if (mode === 'nightly') {
         await execFileAsync('git', ['checkout', 'main'], { cwd: __dirname });
         await execFileAsync('git', ['reset', '--hard', 'origin/main'], { cwd: __dirname });
