@@ -770,8 +770,11 @@ function createTwitchService(options = {}) {
 
             if (isNewPoll) {
                 if (poll.status === 'ACTIVE') {
-                    log(`[Twitch] Poll started: "${poll.title}"`);
-                    onTakeover('poll-active', poll.title, 15000);
+                    const durationMs = poll.duration ? poll.duration * 1000 : 60000;
+                    const elapsedMs = poll.started_at ? Math.max(0, Date.now() - Date.parse(poll.started_at)) : 0;
+                    const remainingMs = Math.max(5000, durationMs - elapsedMs);
+                    log(`[Twitch] Poll started: "${poll.title}" (duration: ${poll.duration}s, remaining: ${Math.round(remainingMs / 1000)}s)`);
+                    onTakeover('poll-active', poll.title, remainingMs);
                 } else if ((poll.status === 'COMPLETED' || poll.status === 'TERMINATED') && poll.ended_at && Date.now() - Date.parse(poll.ended_at) < 30000) {
                     log(`[Twitch] Poll ended: "${poll.title}" — Winner: "${winner?.title || '(none)'}" (${winningPercent}%)`);
                     onTakeover('poll-end', poll.title, 15000);

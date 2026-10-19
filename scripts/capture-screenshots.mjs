@@ -6,38 +6,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const docsImgDir = path.join(__dirname, '..', 'docs', 'images');
-const coversDir = path.join(docsImgDir, 'covers');
 
 const baseUrl = (process.env.STREAMPULSE_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
-
-function getCoverDataUri(filename) {
-    const fullPath = path.join(coversDir, filename);
-    if (fs.existsSync(fullPath)) {
-        return `data:image/jpeg;base64,${fs.readFileSync(fullPath).toString('base64')}`;
-    }
-    return '';
-}
-
-function makeCoverSvg(title, bg1, bg2, systemBadge) {
-    const safeTitle = title.length > 22 ? title.slice(0, 21) + '…' : title;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" width="300" height="400">
-        <defs>
-            <linearGradient id="g_${systemBadge}" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="${bg1}"/>
-                <stop offset="100%" stop-color="${bg2}"/>
-            </linearGradient>
-        </defs>
-        <rect width="300" height="400" rx="12" fill="url(#g_${systemBadge})"/>
-        <rect x="20" y="20" width="70" height="26" rx="6" fill="rgba(0,0,0,0.6)"/>
-        <text x="55" y="38" font-family="-apple-system, sans-serif" font-size="12" font-weight="800" fill="#ffffff" text-anchor="middle">${systemBadge}</text>
-        <circle cx="150" cy="180" r="56" fill="rgba(255,255,255,0.08)"/>
-        <path d="M150 142 L168 186 L132 186 Z" fill="rgba(255,255,255,0.3)"/>
-        <rect x="15" y="280" width="270" height="90" rx="8" fill="rgba(10,15,25,0.85)"/>
-        <text x="150" y="325" font-family="-apple-system, sans-serif" font-size="16" font-weight="800" fill="#ffffff" text-anchor="middle">${safeTitle}</text>
-        <text x="150" y="350" font-family="-apple-system, sans-serif" font-size="11" font-weight="600" fill="#94a3b8" text-anchor="middle">OFFICIAL EDITION</text>
-    </svg>`;
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
 
 // Fictional, engaging dummy community members
 const dummyCommunityList = {
@@ -284,79 +254,6 @@ const dummyAlertsState = {
     }
 };
 
-const dummyGamePlan = {
-    lists: [
-        { id: 'tonight', name: "Tonight's Lineup" },
-        { id: 'scheduled', name: 'Scheduled' },
-        { id: 'up-next', name: 'Up Next' },
-        { id: 'backlog', name: 'Backlog' },
-        { id: 'played', name: 'Played' }
-    ],
-    periods: ['Tonight', 'Tomorrow', 'This Friday', 'Next Week'],
-    items: [
-        {
-            id: 'gp-1',
-            name: 'Castlevania: Symphony of the Night',
-            status: 'tonight',
-            period: 'Tonight',
-            playingNow: true,
-            cover: getCoverDataUri('castlevania-sotn.jpg'),
-            streamDate: '2026-10-18',
-            streamTime: '20:00',
-            streamDuration: 180,
-            igdbId: '1197',
-            note: 'Speedrun PB attempt - 200.6% map',
-            rating: 5,
-            gameType: 'playthrough'
-        },
-        {
-            id: 'gp-2',
-            name: 'The Legend of Zelda: Ocarina of Time',
-            status: 'tonight',
-            period: 'Tonight',
-            playingNow: false,
-            cover: getCoverDataUri('zelda-oot.jpg'),
-            streamDate: '2026-10-18',
-            streamTime: '22:30',
-            streamDuration: 120,
-            igdbId: '1026',
-            note: 'Chat item-hunt randomizer run',
-            rating: 5,
-            gameType: 'playthrough'
-        },
-        {
-            id: 'gp-3',
-            name: 'Super Metroid',
-            status: 'scheduled',
-            period: 'Tomorrow',
-            playingNow: false,
-            cover: getCoverDataUri('super-metroid.jpg'),
-            streamDate: '2026-10-19',
-            streamTime: '19:00',
-            streamDuration: 180,
-            igdbId: '1074',
-            note: '100% item collection speedrun',
-            rating: 5,
-            gameType: 'playthrough'
-        },
-        {
-            id: 'gp-4',
-            name: 'Chrono Trigger',
-            status: 'scheduled',
-            period: 'This Friday',
-            playingNow: false,
-            cover: getCoverDataUri('chrono-trigger.jpg'),
-            streamDate: '2026-10-23',
-            streamTime: '20:00',
-            streamDuration: 180,
-            igdbId: '1134',
-            note: 'New Game+ all endings run',
-            rating: 5,
-            gameType: 'playthrough'
-        }
-    ]
-};
-
 const dummyChatLog = {
     session: '__current__',
     messages: [
@@ -480,8 +377,6 @@ async function run() {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyAlertEvents) });
         } else if (url.endsWith('/api/alerts') || url.includes('/api/alerts?')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyAlertsState) });
-        } else if (url.includes('/api/game-plan')) {
-            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyGamePlan) });
         } else if (url.includes('/api/chat-log')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyChatLog) });
         } else if (url.includes('/api/chat')) {
@@ -661,27 +556,27 @@ async function run() {
             }
         },
         {
-            url: `${baseUrl}/overlays/game-plan.html?view=ticker&theme=dark`,
+            url: `${baseUrl}/overlays/game-plan.html?mode=ticker&theme=dark`,
             file: 'game-plan-overlay-ticker.png',
             wait: 2000,
             action: async (p) => {
-                await p.setViewport({ width: 1280, height: 260, deviceScaleFactor: 2 });
+                await p.setViewport({ width: 1280, height: 160, deviceScaleFactor: 2 });
             }
         },
         {
-            url: `${baseUrl}/overlays/game-plan.html?mode=schedule&theme=dark`,
+            url: `${baseUrl}/overlays/game-plan.html?mode=schedule&theme=dark&max=4`,
             file: 'game-plan-overlay-schedule.png',
             wait: 2000,
             action: async (p) => {
-                await p.setViewport({ width: 1280, height: 540, deviceScaleFactor: 2 });
+                await p.setViewport({ width: 1200, height: 260, deviceScaleFactor: 2 });
             }
         },
         {
-            url: `${baseUrl}/overlays/game-plan.html?mode=checklist&theme=dark`,
+            url: `${baseUrl}/overlays/game-plan.html?mode=checklist&theme=dark&max=4`,
             file: 'game-plan-overlay-checklist.png',
             wait: 2000,
             action: async (p) => {
-                await p.setViewport({ width: 480, height: 680, deviceScaleFactor: 2 });
+                await p.setViewport({ width: 440, height: 480, deviceScaleFactor: 2 });
             }
         }
     ];

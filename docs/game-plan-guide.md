@@ -41,7 +41,7 @@ A sleek broadcast lower-third displaying your active game with box art, title, a
 ![Game Plan Ticker Overlay](images/game-plan-overlay-ticker.png)
 
 - **OBS URL**: `http://localhost:3000/overlays/game-plan.html?mode=ticker&theme=dark`
-- **Recommended OBS Source Size**: 1280 x 260 px
+- **Recommended OBS Source Size**: 1280 x 160 px
 - Displays active "Playing Now" title with IGDB box art, live stream timer, and upcoming game teasers.
 
 ---
@@ -51,8 +51,8 @@ A horizontal card strip displaying your upcoming schedule and broadcast lineup f
 
 ![Game Plan Schedule Overlay](images/game-plan-overlay-schedule.png)
 
-- **OBS URL**: `http://localhost:3000/overlays/game-plan.html?mode=schedule&theme=dark`
-- **Recommended OBS Source Size**: 1280 x 540 px
+- **OBS URL**: `http://localhost:3000/overlays/game-plan.html?mode=schedule&theme=dark&max=4`
+- **Recommended OBS Source Size**: 1200 x 260 px
 - Displays game box art, schedule status badges, dates, and custom collection tags.
 
 ---
@@ -62,8 +62,8 @@ A vertical stream rundown checklist that checks off games as you complete them d
 
 ![Game Plan Checklist Overlay](images/game-plan-overlay-checklist.png)
 
-- **OBS URL**: `http://localhost:3000/overlays/game-plan.html?mode=checklist&theme=dark`
-- **Recommended OBS Source Size**: 480 x 680 px
+- **OBS URL**: `http://localhost:3000/overlays/game-plan.html?mode=checklist&theme=dark&max=4`
+- **Recommended OBS Source Size**: 440 x 480 px
 - Automatically checks off completed games as you click "Finish & Next" in the broadcaster controller.
 
 ---

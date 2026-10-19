@@ -7,7 +7,7 @@
         { label: 'Chat', items: [['chatters', 'Chatters'], ['messages', 'Messages'], ['followers', 'Followers (current total)'], ['followers.session', 'New followers this session'], ['subscribers', 'Subscribers (current total)'], ['subscribers.session', 'Subscribers seen this session'], ['emotes', 'Different emotes used this session'], ['raids', 'Raids this session'], ['highlights', 'Saved highlights'], ['clips.pending', 'Clip candidates waiting']] },
         { label: 'Engagement', items: [['gift_subs', 'Gift subs this session'], ['gift_subs.total', 'Gift subs (lifetime)'], ['bits', 'Bits this session'], ['bits.total', 'Bits (lifetime)'], ['donations', 'Donations this session'], ['donations.total', 'Donations (lifetime)']] },
         { label: 'Hashtags', items: [['hashtags.top', 'Most popular hashtag overall'], ['hashtags.session_top', 'Most popular hashtag this session'], ['hashtags.top.count', 'Mentions of the most popular hashtag'], ['hashtags.top.2', 'Second most popular hashtag'], ['hashtags.top.3', 'Third most popular hashtag'], ['hashtags.total', 'Total hashtag mentions']] },
-        { label: 'Twitch Poll', items: [['poll.title', 'Poll question / title'], ['poll.winner', 'Winning choice title'], ['poll.winner_votes', 'Winning choice vote count'], ['poll.winner_percent', 'Winning choice percentage (e.g. 64%)'], ['poll.total_votes', 'Total votes across all choices'], ['poll.status', 'Status (ACTIVE, COMPLETED, etc.)'], ['poll.choice.1.title', 'Choice 1 title'], ['poll.choice.1.votes', 'Choice 1 votes'], ['poll.choice.1.percent', 'Choice 1 percent'], ['poll.choice.2.title', 'Choice 2 title'], ['poll.choice.2.votes', 'Choice 2 votes'], ['poll.choice.2.percent', 'Choice 2 percent'], ['poll.choice.3.title', 'Choice 3 title'], ['poll.choice.3.votes', 'Choice 3 votes'], ['poll.choice.3.percent', 'Choice 3 percent'], ['poll.choice.4.title', 'Choice 4 title'], ['poll.choice.4.votes', 'Choice 4 votes'], ['poll.choice.4.percent', 'Choice 4 percent'], ['poll.choice.5.title', 'Choice 5 title'], ['poll.choice.5.votes', 'Choice 5 votes'], ['poll.choice.5.percent', 'Choice 5 percent']] },
+        { label: 'Twitch Poll', items: [['poll.title', 'Poll question / title'], ['poll.winner', 'Winning choice title'], ['poll.winner_votes', 'Winning choice vote count'], ['poll.winner_percent', 'Winning choice percentage (e.g. 64%)'], ['poll.total_votes', 'Total votes across all choices'], ['poll.status', 'Status (ACTIVE, COMPLETED, etc.)'], ['poll.duration', 'Total poll duration (seconds)'], ['poll.remaining', 'Remaining countdown timer (e.g. 1:45)'], ['poll.choice.1.title', 'Choice 1 title'], ['poll.choice.1.votes', 'Choice 1 votes'], ['poll.choice.1.percent', 'Choice 1 percent'], ['poll.choice.2.title', 'Choice 2 title'], ['poll.choice.2.votes', 'Choice 2 votes'], ['poll.choice.2.percent', 'Choice 2 percent'], ['poll.choice.3.title', 'Choice 3 title'], ['poll.choice.3.votes', 'Choice 3 votes'], ['poll.choice.3.percent', 'Choice 3 percent'], ['poll.choice.4.title', 'Choice 4 title'], ['poll.choice.4.votes', 'Choice 4 votes'], ['poll.choice.4.percent', 'Choice 4 percent'], ['poll.choice.5.title', 'Choice 5 title'], ['poll.choice.5.votes', 'Choice 5 votes'], ['poll.choice.5.percent', 'Choice 5 percent']] },
         { label: 'Stream', items: [['music.title', 'Music title'], ['music.artist', 'Music artist'], ['music.album', 'Music album'], ['music.cover', 'Album art URL (use as an image source)'], ['music.position', 'Track position (m:ss)'], ['music.duration', 'Track length (m:ss)'], ['music.remaining', 'Track time remaining (m:ss)'], ['music.percent', 'Track progress % (for a progress element)'], ['music.state', 'Music state (playing / paused / stopped)'], ['stream.title', 'Stream title'], ['stream.category', 'Stream category (from Twitch)'], ['stream.live', 'Live on Twitch (yes / no)'], ['session.started', 'Session start time (formattable)'], ['session.duration', 'Time since the session started'], ['category.session_time', 'Time in this category, this session'], ['category.total_time', 'Time in this category, all sessions'], ['category.total_hours', 'Hours in this category, all sessions'], ['overlay.name', 'Overlay name']] }
     ];
 
@@ -256,7 +256,7 @@
         };
     }
 
-    function pollValues(status) {
+    function pollValues(status, now = Date.now()) {
         const poll = status.poll;
         if (!poll) return {};
         const p = {
@@ -265,8 +265,21 @@
             'poll.winner': poll.winner || '',
             'poll.winner_votes': poll.winningVotes !== undefined ? poll.winningVotes : '',
             'poll.winner_percent': poll.winningPercent !== undefined ? `${poll.winningPercent}%` : '',
-            'poll.total_votes': poll.totalVotes !== undefined ? poll.totalVotes : ''
+            'poll.total_votes': poll.totalVotes !== undefined ? poll.totalVotes : '',
+            'poll.duration': poll.duration ? String(poll.duration) : ''
         };
+        if (poll.status === 'ACTIVE' && poll.duration && poll.startedAt) {
+            const startedMs = Date.parse(poll.startedAt);
+            const elapsed = !isNaN(startedMs) ? Math.floor((now - startedMs) / 1000) : 0;
+            const remaining = Math.max(0, Number(poll.duration) - elapsed);
+            const m = Math.floor(remaining / 60);
+            const s = remaining % 60;
+            p['poll.remaining'] = m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `${s}s`;
+            p['poll.remaining_seconds'] = remaining;
+        } else {
+            p['poll.remaining'] = '0s';
+            p['poll.remaining_seconds'] = 0;
+        }
         (poll.choices || []).forEach((c, i) => {
             const idx = i + 1;
             p[`poll.choice.${idx}.title`] = c.title || '';
@@ -285,7 +298,7 @@
             ...musicValues(status, now),
             ...planListValues(status),
             ...weatherValues(status),
-            ...pollValues(status),
+            ...pollValues(status, now),
             ...milestoneValues(status),
             ...Object.fromEntries((status.customVars || []).map(v => [`var.${v.name}`, v.value])),
             ...Object.fromEntries((status.customVars || []).filter(v => v.type === 'list' && v.items?.length).map(v => [`var.${v.name}.random`, v.items[Math.floor(Math.random() * v.items.length)]])),

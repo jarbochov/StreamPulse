@@ -377,6 +377,10 @@ export function buildContent(node, el) {
         const v = el.video || {};
         const url = shared.embedUrl ? shared.embedUrl(rawUrl, isYt ? { autoplay: v.autoplay !== false, loop: v.loop !== false, sound: false } : { sound: false }) : rawUrl;
         if (!/^https?:\/\//i.test(url)) { node.appendChild(placeholder('Enter an http(s) webpage URL or YouTube link')); return; }
+        if (/twitch\.tv\/popout\//i.test(url)) {
+            node.appendChild(placeholder('Twitch popouts cannot be embedded in web iframes (blocked by Twitch X-Frame-Options: SAMEORIGIN). Use native Twitch Poll variables ({{poll.*}}) and the "poll-active" page trigger, or add this URL directly as an OBS Browser Source.'));
+            return;
+        }
         const frame = document.createElement('iframe');
         frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
         if (isYt) {

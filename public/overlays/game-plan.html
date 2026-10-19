@@ -135,11 +135,11 @@
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            font-size: calc(clamp(0.68rem, max(1.8vmin, 12cqh, 12vh), 1.6rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.65rem, max(1.1vmin, 2.5cqh), 0.82rem) * var(--gp-font-scale));
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            padding: clamp(2px, 0.5vmin, 6px) clamp(6px, 1.4vmin, 14px);
+            padding: clamp(2px, 0.4vmin, 4px) clamp(6px, 0.8vmin, 10px);
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.1);
             color: var(--gp-muted);
@@ -168,8 +168,8 @@
         }
 
         .cover-img {
-            width: calc(clamp(38px, max(6vmin, 55cqh, 55vh), 130px) * var(--gp-cover-scale, 1));
-            height: calc(clamp(52px, max(8vmin, 75cqh, 75vh), 180px) * var(--gp-cover-scale, 1));
+            width: calc(clamp(44px, max(5vmin, 16cqi), 68px) * var(--gp-cover-scale, 1));
+            height: calc(clamp(58px, max(6.6vmin, 22cqi), 92px) * var(--gp-cover-scale, 1));
             object-fit: var(--gp-cover-fit, cover);
             border-radius: clamp(4px, 1vmin, 8px);
             flex-shrink: 0;
@@ -177,10 +177,13 @@
             border: 1px solid var(--gp-border);
         }
         .cover-img.small {
-            width: calc(clamp(26px, max(4.5vmin, 38cqh, 38vh), 90px) * var(--gp-cover-scale, 1));
-            height: calc(clamp(34px, max(6vmin, 50cqh, 50vh), 120px) * var(--gp-cover-scale, 1));
+            width: calc(clamp(32px, max(3.5vmin, 9cqi), 48px) * var(--gp-cover-scale, 1));
+            height: calc(clamp(42px, max(4.6vmin, 12cqi), 64px) * var(--gp-cover-scale, 1));
             object-fit: var(--gp-cover-fit, cover);
             border-radius: clamp(3px, 0.8vmin, 6px);
+            flex-shrink: 0;
+            background: #161b22;
+            border: 1px solid var(--gp-border);
         }
 
         /* VIEW 1: TICKER (Lower-Third bar) */
@@ -220,14 +223,15 @@
             flex-shrink: 0;
         }
         .ticker-title {
-            font-size: calc(clamp(0.95rem, max(2.8vmin, 24cqh, 24vh), 3.5rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.95rem, max(2.2vmin, 8cqh), 1.65rem) * var(--gp-font-scale));
             font-weight: 700;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.25;
         }
         .ticker-sub {
-            font-size: calc(clamp(0.75rem, max(1.8vmin, 15cqh, 15vh), 2.2rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.75rem, max(1.4vmin, 5cqh), 1.05rem) * var(--gp-font-scale));
             color: var(--gp-muted);
             white-space: nowrap;
         }
@@ -235,9 +239,9 @@
         /* VIEW 2: SCHEDULE (Horizontal Cards Strip) */
         .view-schedule {
             display: flex;
-            align-items: stretch;
+            align-items: center;
             justify-content: center;
-            gap: clamp(8px, 2vmin, 18px);
+            gap: clamp(8px, 1.8vmin, 16px);
             width: 100%;
             height: 100%;
             max-width: 100%;
@@ -249,12 +253,12 @@
         .schedule-card {
             display: flex;
             align-items: center;
-            gap: clamp(8px, 2vmin, 16px);
+            gap: clamp(8px, 1.8vmin, 14px);
             background: var(--gp-bg);
             border: 1px solid var(--gp-border);
-            border-radius: clamp(8px, 1.8vmin, 14px);
-            padding: clamp(8px, 2vmin, 18px) clamp(10px, 2.2vmin, 20px);
-            flex: 1 1 clamp(180px, 24vmin, 340px);
+            border-radius: clamp(8px, 1.5vmin, 12px);
+            padding: clamp(8px, 1.6vmin, 14px) clamp(10px, 1.8vmin, 16px);
+            flex: 1 1 clamp(200px, 22vmin, 320px);
             max-width: 440px;
             min-width: 0;
             position: relative;
@@ -282,16 +286,19 @@
             flex: 1;
         }
         .schedule-title {
-            font-size: calc(clamp(0.85rem, max(2.5vmin, 15cqh, 15vh), 2.6rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.85rem, max(1.4vmin, 3.8cqh), 1.15rem) * var(--gp-font-scale));
             font-weight: 700;
-            white-space: nowrap;
+            line-height: 1.25;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
             overflow: hidden;
-            text-overflow: ellipsis;
+            word-break: break-word;
         }
         .schedule-meta {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
             flex-wrap: wrap;
         }
 
@@ -300,20 +307,20 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            gap: clamp(6px, 1.6vmin, 12px);
+            gap: clamp(6px, 1.4vmin, 10px);
             width: 100%;
             height: 100%;
-            max-width: 500px;
+            max-width: 520px;
             box-sizing: border-box;
         }
         .checklist-item {
             display: flex;
             align-items: center;
-            gap: clamp(8px, 2vmin, 14px);
+            gap: clamp(8px, 1.8vmin, 12px);
             background: var(--gp-bg);
             border: 1px solid var(--gp-border);
-            border-radius: clamp(6px, 1.5vmin, 12px);
-            padding: clamp(6px, 1.8vmin, 14px) clamp(10px, 2vmin, 18px);
+            border-radius: clamp(6px, 1.4vmin, 10px);
+            padding: clamp(6px, 1.4vmin, 10px) clamp(10px, 1.8vmin, 14px);
             position: relative;
             box-sizing: border-box;
         }
@@ -330,7 +337,7 @@
             opacity: 0.6;
         }
         .checklist-idx {
-            font-size: calc(clamp(0.75rem, max(2vmin, 8cqh, 8vh), 1.8rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.75rem, max(1.5vmin, 3.5cqh), 1.2rem) * var(--gp-font-scale));
             font-weight: 700;
             color: color-mix(in srgb, var(--gp-accent) 70%, var(--gp-muted));
             min-width: 20px;
@@ -341,14 +348,17 @@
             min-width: 0;
         }
         .checklist-title {
-            font-size: calc(clamp(0.85rem, max(2.4vmin, 9cqh, 9vh), 2.4rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.85rem, max(1.4vmin, 3.8cqh), 1.15rem) * var(--gp-font-scale));
             font-weight: 700;
-            white-space: nowrap;
+            line-height: 1.25;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
             overflow: hidden;
-            text-overflow: ellipsis;
+            word-break: break-word;
         }
         .checklist-note {
-            font-size: calc(clamp(0.72rem, max(1.8vmin, 7cqh, 7vh), 1.8rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.72rem, max(1.2vmin, 2.8cqh), 0.88rem) * var(--gp-font-scale));
             color: var(--gp-muted);
             white-space: nowrap;
             overflow: hidden;
@@ -359,7 +369,7 @@
         }
 
         .empty-placeholder {
-            font-size: calc(clamp(0.85rem, max(2.2vmin, 8cqh, 8vh), 2.2rem) * var(--gp-font-scale));
+            font-size: calc(clamp(0.85rem, max(1.8vmin, 4cqh), 1.3rem) * var(--gp-font-scale));
             color: var(--gp-muted);
             padding: 8px 14px;
             background: var(--gp-bg);
@@ -584,11 +594,15 @@
                 const isOneOff = item.gameType === 'one-off';
                 const customListName = listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean) || '';
 
+                const isBuiltin = ['tonight', 'scheduled', 'up-next', 'backlog', 'played'].includes(item.status);
+                const displayGroup = (customListName && !isBuiltin) ? customListName : '';
                 const statusBadge = !showStatus ? '' : isNow ? `<span class="badge badge-now">${ICONS.play} Playing</span>` : (isPlayed ? `<span class="badge badge-done">${ICONS.check} Done</span>` : (isTonight ? '<span class="badge badge-tonight">Tonight</span>' : '<span class="badge">Scheduled</span>'));
-                const groupBadge = showGroups && customListName ? `<span class="badge" style="background:rgba(139,92,246,0.2);color:#c084fc;border:1px solid rgba(139,92,246,0.4);">${ICONS.tag} ${esc(customListName)}</span>` : '';
+                const groupBadge = showGroups && displayGroup ? `<span class="badge" style="background:rgba(139,92,246,0.2);color:#c084fc;border:1px solid rgba(139,92,246,0.4);">${ICONS.tag} ${esc(displayGroup)}</span>` : '';
                 const typeBadge = isOneOff ? `<span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);">${ICONS.bolt} One-Off</span>` : '';
                 const dateBadge = showDates && item.streamDate ? `<span class="badge">${ICONS.calendar} ${esc(item.streamDate)}</span>` : '';
-                const periodBadge = showGroups && item.period ? `<span class="badge">${esc(item.period)}</span>` : '';
+                const periodLower = String(item.period || '').trim().toLowerCase();
+                const showPeriod = showGroups && item.period && (!isTonight || periodLower !== 'tonight') && (!isNow || periodLower !== 'tonight');
+                const periodBadge = showPeriod ? `<span class="badge">${esc(item.period)}</span>` : '';
 
                 html += `
                     <div class="schedule-card${isNow ? ' active' : ''}${isTonight ? ' tonight' : ''}${isPlayed ? ' played' : ''}">
@@ -626,9 +640,11 @@
                 const isTonight = item.status === 'tonight';
                 const isOneOff = item.gameType === 'one-off';
                 const customListName = listMap.get(item.status) || (item.extraLists || []).map(id => listMap.get(id)).find(Boolean) || '';
+                const isBuiltin = ['tonight', 'scheduled', 'up-next', 'backlog', 'played'].includes(item.status);
+                const displayGroup = (customListName && !isBuiltin) ? customListName : '';
 
                 const statusBadge = !showStatus ? '' : isNow ? `<span class="badge badge-now">${ICONS.play} Now</span>` : (isPlayed ? `<span class="badge badge-done">${ICONS.check}</span>` : (isTonight ? '<span class="badge badge-tonight">Tonight</span>' : '<span class="badge">Next</span>'));
-                const groupBadge = showGroups && customListName ? `<span class="badge" style="background:rgba(139,92,246,0.2);color:#c084fc;">${ICONS.tag} ${esc(customListName)}</span>` : '';
+                const groupBadge = showGroups && displayGroup ? `<span class="badge" style="background:rgba(139,92,246,0.2);color:#c084fc;">${ICONS.tag} ${esc(displayGroup)}</span>` : '';
                 const typeBadge = isOneOff ? `<span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);">${ICONS.bolt}</span>` : '';
                 const dateText = showDates && item.streamDate ? `${item.streamDate}` : '';
 

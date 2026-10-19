@@ -1537,7 +1537,25 @@ function createOverlayService({
         for (const overlay of Object.values(customOverlays)) {
             if (!overlay.pages?.enabled) continue;
             const target = overlay.pages.items.find(p => p.enabled && p.trigger === kind && (kind === 'featured' || (kind === 'alert' ? !p.triggerRules.length || p.triggerRules.includes(name) : !p.triggerName || p.triggerName === String(name || '').toLowerCase())));
-            if (!target) continue;
+            if (!target) {
+                if (kind === 'poll-end') {
+                    const state = overlayPageState.get(overlay.id);
+                    if (state && state.takeoverTimer) {
+                        const curPage = overlay.pages.items.find(p => p.id === state.page);
+                        if (curPage && curPage.trigger === 'poll-active') {
+                            clearTimeout(state.takeoverTimer);
+                            state.takeoverTimer = null;
+                            if (overlay.pages.items.some(p => p.id === state.returnPage && p.enabled)) {
+                                state.page = state.returnPage;
+                            }
+                            state.returnPage = null;
+                            scheduleAutoAdvance(overlay);
+                            broadcastPage(overlay);
+                        }
+                    }
+                }
+                continue;
+            }
             let state = overlayPageState.get(overlay.id);
             if (!state) {
                 state = { page: overlay.pages.items[0].id, auto: false, timer: null };
