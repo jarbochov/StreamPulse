@@ -28,34 +28,51 @@ const defaultConfigPath = isPackaged
 const configPath = process.env.STREAMPULSE_CONFIG_PATH || defaultConfigPath;
 
 function initUserData() {
-    if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
-    }
-    for (const sub of ['assets', 'backups', 'sessions', 'history', 'custom-overlay-history']) {
-        const subPath = path.join(dataDir, sub);
-        if (!fs.existsSync(subPath)) {
-            fs.mkdirSync(subPath, { recursive: true });
+    try {
+        if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir, { recursive: true });
         }
-    }
-    const templateDataDir = path.join(projectRoot, 'data');
-    if (fs.existsSync(templateDataDir) && templateDataDir !== dataDir) {
-        const files = fs.readdirSync(templateDataDir);
-        for (const file of files) {
-            const src = path.join(templateDataDir, file);
-            const dst = path.join(dataDir, file);
-            if (!fs.existsSync(dst) && fs.statSync(src).isFile()) {
-                fs.copyFileSync(src, dst);
+        for (const sub of ['assets', 'backups', 'sessions', 'history', 'custom-overlay-history']) {
+            const subPath = path.join(dataDir, sub);
+            if (!fs.existsSync(subPath)) {
+                fs.mkdirSync(subPath, { recursive: true });
             }
         }
-    }
-    if (!fs.existsSync(configPath)) {
-        const templateConfig = path.join(projectRoot, 'config.json');
-        const exampleConfig = path.join(projectRoot, 'config.example.json');
-        if (fs.existsSync(templateConfig)) {
-            fs.copyFileSync(templateConfig, configPath);
-        } else if (fs.existsSync(exampleConfig)) {
-            fs.copyFileSync(exampleConfig, configPath);
+        const templateDataDir = path.join(projectRoot, 'data');
+        if (fs.existsSync(templateDataDir) && templateDataDir !== dataDir) {
+            try {
+                const files = fs.readdirSync(templateDataDir);
+                for (const file of files) {
+                    const src = path.join(templateDataDir, file);
+                    const dst = path.join(dataDir, file);
+                    if (!fs.existsSync(dst) && fs.statSync(src).isFile()) {
+                        fs.copyFileSync(src, dst);
+                    }
+                }
+            } catch (copyDataErr) {
+                console.warn('[Desktop] Warning copying template data files:', copyDataErr);
+            }
         }
+        if (!fs.existsSync(configPath)) {
+            try {
+                const templateConfig = path.join(projectRoot, 'config.json');
+                const exampleConfig = path.join(projectRoot, 'config.example.json');
+                if (fs.existsSync(templateConfig)) {
+                    fs.copyFileSync(templateConfig, configPath);
+                } else if (fs.existsSync(exampleConfig)) {
+                    fs.copyFileSync(exampleConfig, configPath);
+                } else {
+                    fs.writeFileSync(configPath, JSON.stringify({ port: 3000 }, null, 2));
+                }
+            } catch (copyCfgErr) {
+                console.warn('[Desktop] Warning initializing config.json:', copyCfgErr);
+                try {
+                    fs.writeFileSync(configPath, JSON.stringify({ port: 3000 }, null, 2));
+                } catch {}
+            }
+        }
+    } catch (err) {
+        console.error('[Desktop] Error initializing user data directory:', err);
     }
 }
 
@@ -124,8 +141,23 @@ async function createWindow() {
         return { action: 'deny' };
     });
 
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+        console.warn(`[Desktop] Page failed to load: ${validatedURL} (${errorCode} - ${errorDescription})`);
+        if ([-102, -105, -106, -107, -3].includes(errorCode)) {
+            setTimeout(() => {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.loadURL(validatedURL).catch(() => {});
+                }
+            }, 1000);
+        }
+    });
+
     // Load initial dashboard
-    await mainWindow.loadURL(`${baseUrl}/dashboard.html`);
+    try {
+        await mainWindow.loadURL(`${baseUrl}/dashboard.html`);
+    } catch (loadErr) {
+        console.warn('[Desktop] Initial load error:', loadErr.message);
+    }
 
     // Build application menu
     buildMenu(baseUrl);
@@ -313,31 +345,43 @@ app.whenReady().then(async () => {
     });
     appTray.init();
 
-    console.log('[Desktop] Booting StreamPulse in-process backend server...');
-    await serverManager.start();
-
     try {
+        console.log('[Desktop] Booting StreamPulse in-process backend server...');
+        await serverManager.start();
         await serverManager.waitForReady();
         console.log(`[Desktop] Server ready on port ${serverManager.port}. Launching window...`);
         appTray.updateMenu();
         await ensureWindow();
     } catch (err) {
         console.error('[Desktop] Failed starting backend server:', err.message);
+        try {
+            const { dialog } = require('electron');
+            dialog.showErrorBox('StreamPulse Startup Error', `Failed to start stream companion backend server:\n\n${err.message}`);
+        } catch {}
         app.quit();
     }
 });
 
 app.on('before-quit', async (event) => {
-    if (serverManager && !serverManager.isStopping) {
+    if (!app.isQuitting) {
         event.preventDefault();
         app.isQuitting = true;
         console.log('[Desktop] Stopping backend server before application exit...');
-        if (appTray) appTray.destroy();
+        if (appTray) {
+            try { appTray.destroy(); } catch {}
+        }
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            try { mainWindow.destroy(); } catch {}
+        }
         try {
-            await serverManager.stop();
+            if (serverManager) {
+                await serverManager.stop();
+            }
         } catch (err) {
             console.error('[Desktop] Error stopping backend server:', err);
         }
+        // Fallback timer to ensure process exits cleanly
+        setTimeout(() => process.exit(0), 600).unref();
         app.quit();
     }
 });

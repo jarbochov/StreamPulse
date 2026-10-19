@@ -45,7 +45,7 @@ StreamPulse includes 14 distinct element types organized across 4 functional cat
 
 ![Custom Overlay Element Types](images/overlay-elements-menu.png?v=2)
 
-### 1. Text & Copy
+### Text & Copy
 
 #### Text (`text`)
 Direct single or multi-line text elements supporting static copy and live stream placeholder tokens.
@@ -72,7 +72,7 @@ Rich formatted content compiled using sanitized Markdown.
 
 ---
 
-### 2. Media & Visuals
+### Media & Visuals
 
 #### Image (`image`)
 High-resolution static artwork, logos, channel badges, and animated GIFs.
@@ -107,7 +107,7 @@ Seamlessly repeating geometric or textured tile backgrounds.
 
 ---
 
-### 3. Geometric Shapes & Camera Cutouts
+### Geometric Shapes & Camera Cutouts
 
 #### Shape (`shape`)
 Structural primitives for scene framing, HUD panels, and lower thirds.
@@ -133,7 +133,7 @@ Cross-browser transparent apertures designed for webcam frames, capture cards, a
 
 ---
 
-### 4. Broadcast & Interactive Widgets
+### Broadcast & Interactive Widgets
 
 #### Alert Box (`alert`)
 Integrated stream alert listener connecting directly to StreamPulse's rules engine.

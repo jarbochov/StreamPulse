@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const AdmZip = require('adm-zip');
-const ZipArchive = require('archiver');
 const { readRequestBody, readBinaryBody, sendJson, sendError } = require('./helpers');
 
 function createBackupRoutes({
@@ -74,9 +73,31 @@ function createBackupRoutes({
             const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             const filename = `streampulse-backup-${dateStr}.zip`;
 
+            const zip = new AdmZip();
+
+            for (const f of getBackupFileSpecs()) {
+                if (fs.existsSync(f.src)) {
+                    const destDir = path.dirname(f.dest);
+                    zip.addLocalFile(f.src, destDir === '.' ? '' : destDir);
+                }
+            }
+
+            if (sessionsDir && fs.existsSync(sessionsDir)) {
+                zip.addLocalFolder(sessionsDir, 'data/sessions');
+            }
+            if (customOverlayAssetsDir && fs.existsSync(customOverlayAssetsDir)) {
+                zip.addLocalFolder(customOverlayAssetsDir, 'data/custom-overlay-assets');
+            }
+            if (customOverlayHistoryDir && fs.existsSync(customOverlayHistoryDir)) {
+                zip.addLocalFolder(customOverlayHistoryDir, 'data/custom-overlay-history');
+            }
+
+            const buffer = zip.toBuffer();
+
             res.writeHead(200, {
                 'Content-Type': 'application/zip',
-                'Content-Disposition': `attachment; filename="${filename}"`
+                'Content-Disposition': `attachment; filename="${filename}"`,
+                'Content-Length': buffer.length
             });
 
             if (req.method === 'HEAD') {
@@ -84,26 +105,7 @@ function createBackupRoutes({
                 return true;
             }
 
-            const archive = new ZipArchive({ zlib: { level: 9 } });
-            archive.pipe(res);
-
-            for (const f of getBackupFileSpecs()) {
-                if (fs.existsSync(f.src)) {
-                    archive.file(f.src, { name: f.dest });
-                }
-            }
-
-            if (sessionsDir && fs.existsSync(sessionsDir)) {
-                archive.directory(sessionsDir, 'data/sessions');
-            }
-            if (customOverlayAssetsDir && fs.existsSync(customOverlayAssetsDir)) {
-                archive.directory(customOverlayAssetsDir, 'data/custom-overlay-assets');
-            }
-            if (customOverlayHistoryDir && fs.existsSync(customOverlayHistoryDir)) {
-                archive.directory(customOverlayHistoryDir, 'data/custom-overlay-history');
-            }
-
-            archive.finalize();
+            res.end(buffer);
             return true;
         }
 

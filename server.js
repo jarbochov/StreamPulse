@@ -8,7 +8,6 @@ const https = require('https');
 const { exec, execFile } = require('child_process');
 const { promisify } = require('util');
 const WebSocket = require('ws');
-const { ZipArchive } = require('archiver');
 const AdmZip = require('adm-zip');
 const { createGamePlanService, DEFAULT_TIERS, normalizeGamePlan, gameKey, sanitizeOverlayId } = require('./server/services/game-plan');
 const { createAlertEngine, TRIGGERS: ALERT_TRIGGERS, ANIM_IN: ALERT_ANIM_IN, ANIM_OUT: ALERT_ANIM_OUT } = require('./server/services/alerts');
@@ -1911,7 +1910,7 @@ server.listen(PORT, () => {
         setInterval(() => {
             fetchTwitchData();
             fetchStreamInfo();
-        }, REFRESH_MINUTES * 60 * 1000);
+        }, REFRESH_MINUTES * 60 * 1000).unref();
         console.log(`[Twitch] Auto-refresh every ${REFRESH_MINUTES} minutes`);
     }
     // Title and category are cheap to poll, so they stay near real time.
@@ -1929,7 +1928,7 @@ server.listen(PORT, () => {
         saveChatData();
         saveStats();
         saveChatLog();
-    }, 5000);
+    }, 5000).unref();
 
     scheduleWeather();
 
@@ -1961,7 +1960,14 @@ function gracefulShutdown(signal, shouldExit = true) {
     } catch { /* ignore */ }
     try { resetChatData(); } catch { /* ignore */ }
     try { if (ssnSocket) ssnSocket.close(); } catch { /* ignore */ }
-    try { if (server && server.listening) server.close(); } catch { /* ignore */ }
+    try {
+        if (server && server.listening) {
+            if (typeof server.closeAllConnections === 'function') {
+                server.closeAllConnections();
+            }
+            server.close();
+        }
+    } catch { /* ignore */ }
     console.log('[Server] Data saved. Goodbye!');
     if (shouldExit) process.exit(0);
 }

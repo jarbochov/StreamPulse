@@ -14,15 +14,21 @@ class AppTray {
     }
 
     createTrayIcon() {
-        const trayPngPath = path.join(__dirname, 'tray-icon.png');
-        if (fs.existsSync(trayPngPath)) {
+        const templatePath = path.join(__dirname, 'tray-iconTemplate.png');
+        const standardPath = path.join(__dirname, 'tray-icon.png');
+        const iconPath = fs.existsSync(templatePath) ? templatePath : standardPath;
+
+        if (fs.existsSync(iconPath)) {
             try {
-                const img = nativeImage.createFromPath(trayPngPath);
+                const img = nativeImage.createFromPath(iconPath);
                 if (img && !img.isEmpty()) {
+                    if (process.platform === 'darwin' && typeof img.setTemplateImage === 'function') {
+                        img.setTemplateImage(true);
+                    }
                     return img;
                 }
             } catch (err) {
-                console.warn('Could not load tray-icon.png:', err);
+                console.warn('Could not load tray icon:', err);
             }
         }
 
@@ -41,6 +47,10 @@ class AppTray {
             icon = nativeImage.createEmpty();
         }
 
+        if (process.platform === 'darwin' && typeof icon.setTemplateImage === 'function') {
+            icon.setTemplateImage(true);
+        }
+
         return icon;
     }
 
@@ -56,6 +66,7 @@ class AppTray {
         this.tray.on('click', async () => {
             const win = this.getWindow();
             if (win && !win.isDestroyed()) {
+                if (win.isMinimized()) win.restore();
                 if (win.isVisible()) {
                     win.focus();
                 } else {
@@ -74,14 +85,19 @@ class AppTray {
         const baseUrl = `http://localhost:${port}`;
 
         const navigateTo = async (route) => {
-            let win = this.getWindow();
-            if ((!win || win.isDestroyed()) && typeof this.onOpenWindow === 'function') {
-                win = await this.onOpenWindow();
-            }
-            if (win && !win.isDestroyed()) {
-                win.loadURL(`${baseUrl}${route}`);
-                win.show();
-                win.focus();
+            try {
+                let win = this.getWindow();
+                if ((!win || win.isDestroyed()) && typeof this.onOpenWindow === 'function') {
+                    win = await this.onOpenWindow();
+                }
+                if (win && !win.isDestroyed()) {
+                    if (win.isMinimized()) win.restore();
+                    win.show();
+                    win.focus();
+                    await win.loadURL(`${baseUrl}${route}`);
+                }
+            } catch (err) {
+                console.error(`[Tray] Navigation error for ${route}:`, err);
             }
         };
 

@@ -1,12 +1,43 @@
 import puppeteer from 'puppeteer';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const docsImgDir = path.join(__dirname, '..', 'docs', 'images');
+const coversDir = path.join(docsImgDir, 'covers');
 
 const baseUrl = (process.env.STREAMPULSE_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
+
+function getCoverDataUri(filename) {
+    const fullPath = path.join(coversDir, filename);
+    if (fs.existsSync(fullPath)) {
+        return `data:image/jpeg;base64,${fs.readFileSync(fullPath).toString('base64')}`;
+    }
+    return '';
+}
+
+function makeCoverSvg(title, bg1, bg2, systemBadge) {
+    const safeTitle = title.length > 22 ? title.slice(0, 21) + '…' : title;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" width="300" height="400">
+        <defs>
+            <linearGradient id="g_${systemBadge}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="${bg1}"/>
+                <stop offset="100%" stop-color="${bg2}"/>
+            </linearGradient>
+        </defs>
+        <rect width="300" height="400" rx="12" fill="url(#g_${systemBadge})"/>
+        <rect x="20" y="20" width="70" height="26" rx="6" fill="rgba(0,0,0,0.6)"/>
+        <text x="55" y="38" font-family="-apple-system, sans-serif" font-size="12" font-weight="800" fill="#ffffff" text-anchor="middle">${systemBadge}</text>
+        <circle cx="150" cy="180" r="56" fill="rgba(255,255,255,0.08)"/>
+        <path d="M150 142 L168 186 L132 186 Z" fill="rgba(255,255,255,0.3)"/>
+        <rect x="15" y="280" width="270" height="90" rx="8" fill="rgba(10,15,25,0.85)"/>
+        <text x="150" y="325" font-family="-apple-system, sans-serif" font-size="16" font-weight="800" fill="#ffffff" text-anchor="middle">${safeTitle}</text>
+        <text x="150" y="350" font-family="-apple-system, sans-serif" font-size="11" font-weight="600" fill="#94a3b8" text-anchor="middle">OFFICIAL EDITION</text>
+    </svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
 
 // Fictional, engaging dummy community members
 const dummyCommunityList = {
@@ -98,26 +129,8 @@ const dummyCommunityList = {
             isSub: false,
             subMonths: 0,
             tags: ['regular'],
-            notes: 'Consistent weekend regular, loves platformers and racing games.',
+            notes: 'High-score chaser on retro arcade games.',
             pronouns: 'he/him'
-        },
-        {
-            username: 'GlitchMage',
-            displayName: 'GlitchMage',
-            firstSeen: '2026-02-01T17:00:00.000Z',
-            lastSeen: '2026-08-25T21:00:00.000Z',
-            streamCount: 15,
-            messageCount: 680,
-            bits: 800,
-            gifts: 1,
-            raids: 0,
-            isMod: false,
-            isVip: false,
-            isSub: false,
-            subMonths: 0,
-            tags: ['lapsed'],
-            notes: 'Historical regular, currently on hiatus for college finals.',
-            pronouns: 'she/her'
         },
         {
             username: 'StarGazer',
@@ -148,7 +161,6 @@ const dummyCommunityList = {
     }
 };
 
-// Detailed dummy dossier for modal view
 const dummyDossierPixelKnight = {
     username: 'PixelKnight',
     broadcaster: 'DemoStreamer',
@@ -165,11 +177,11 @@ const dummyDossierPixelKnight = {
     giftSubsTotal: 15,
     raidsCount: 3,
     favoriteGames: [
-        { category: 'Hades II', sessions: 24, messages: 1850 },
-        { category: 'Silent Hill 2', sessions: 14, messages: 1120 },
-        { category: 'Celeste', sessions: 10, messages: 870 }
+        { category: "Castlevania: Belmont's Curse", sessions: 24, messages: 1850 },
+        { category: 'The Legend of Zelda: Ocarina of Time', sessions: 14, messages: 1120 },
+        { category: 'Super Meat Boy', sessions: 10, messages: 870 }
     ],
-    notes: 'Channel moderator & community speedrun host. Very helpful with new viewers.',
+    notes: 'Channel moderator & speedrun community host. Very helpful with new viewers.',
     tags: ['mod', 'speedrunner', 'regular']
 };
 
@@ -272,7 +284,180 @@ const dummyAlertsState = {
     }
 };
 
+const dummyGamePlan = {
+    lists: [
+        { id: 'tonight', name: "Tonight's Lineup" },
+        { id: 'scheduled', name: 'Scheduled' },
+        { id: 'up-next', name: 'Up Next' },
+        { id: 'backlog', name: 'Backlog' },
+        { id: 'played', name: 'Played' }
+    ],
+    periods: ['Tonight', 'Tomorrow', 'This Friday', 'Next Week'],
+    items: [
+        {
+            id: 'gp-1',
+            name: 'Castlevania: Symphony of the Night',
+            status: 'tonight',
+            period: 'Tonight',
+            playingNow: true,
+            cover: getCoverDataUri('castlevania-sotn.jpg'),
+            streamDate: '2026-10-18',
+            streamTime: '20:00',
+            streamDuration: 180,
+            igdbId: '1197',
+            note: 'Speedrun PB attempt - 200.6% map',
+            rating: 5,
+            gameType: 'playthrough'
+        },
+        {
+            id: 'gp-2',
+            name: 'The Legend of Zelda: Ocarina of Time',
+            status: 'tonight',
+            period: 'Tonight',
+            playingNow: false,
+            cover: getCoverDataUri('zelda-oot.jpg'),
+            streamDate: '2026-10-18',
+            streamTime: '22:30',
+            streamDuration: 120,
+            igdbId: '1026',
+            note: 'Chat item-hunt randomizer run',
+            rating: 5,
+            gameType: 'playthrough'
+        },
+        {
+            id: 'gp-3',
+            name: 'Super Metroid',
+            status: 'scheduled',
+            period: 'Tomorrow',
+            playingNow: false,
+            cover: getCoverDataUri('super-metroid.jpg'),
+            streamDate: '2026-10-19',
+            streamTime: '19:00',
+            streamDuration: 180,
+            igdbId: '1074',
+            note: '100% item collection speedrun',
+            rating: 5,
+            gameType: 'playthrough'
+        },
+        {
+            id: 'gp-4',
+            name: 'Chrono Trigger',
+            status: 'scheduled',
+            period: 'This Friday',
+            playingNow: false,
+            cover: getCoverDataUri('chrono-trigger.jpg'),
+            streamDate: '2026-10-23',
+            streamTime: '20:00',
+            streamDuration: 180,
+            igdbId: '1134',
+            note: 'New Game+ all endings run',
+            rating: 5,
+            gameType: 'playthrough'
+        }
+    ]
+};
+
+const dummyChatLog = {
+    session: '__current__',
+    messages: [
+        { id: 'm1', user: 'PixelKnight', displayName: 'PixelKnight', message: 'Welcome in everyone! Tonight we are doing the Castlevania run!', timestamp: Date.now() - 3600000, isMod: true, isSub: true, isVip: false, subMonths: 18, color: '#3b82f6', badges: ['moderator/1', 'subscriber/12'] },
+        { id: 'm2', user: 'CosmicVoyager', displayName: 'CosmicVoyager', message: 'Hype! Grab your snacks and settle in chat :D', timestamp: Date.now() - 3400000, isMod: false, isSub: true, isVip: true, subMonths: 12, color: '#ec4899', badges: ['vip/1', 'subscriber/12'] },
+        { id: 'm3', user: 'RetroSamurai', displayName: 'RetroSamurai', message: 'cheered 500 bits: Let\'s get that sub-40 minute run tonight!', timestamp: Date.now() - 3100000, isMod: false, isSub: true, isVip: true, subMonths: 9, bits: 500, color: '#eab308', badges: ['vip/1', 'bits/100'] },
+        { id: 'm4', user: 'NebulaFox', displayName: 'NebulaFox', message: 'That jump in stage 4 was insane! Clean execution!', timestamp: Date.now() - 2500000, isMod: false, isSub: true, isVip: false, subMonths: 6, color: '#10b981', badges: ['subscriber/6'] },
+        { id: 'm5', user: 'StarGazer', displayName: 'StarGazer', message: 'First time chatter here, loving the vibes in this community!', timestamp: Date.now() - 1900000, isMod: false, isSub: false, isVip: false, subMonths: 0, color: '#8b5cf6', badges: [] },
+        { id: 'm6', user: 'ArcadeHero', displayName: 'ArcadeHero', message: 'The overlay ticker looks so clean! What game is next on the schedule?', timestamp: Date.now() - 1200000, isMod: false, isSub: false, isVip: false, subMonths: 0, color: '#06b6d4', badges: [] },
+        { id: 'm7', user: 'PixelKnight', displayName: 'PixelKnight', message: 'Up next is Zelda Ocarina of Time! Check the Game Plan banner above.', timestamp: Date.now() - 600000, isMod: true, isSub: true, isVip: false, subMonths: 18, color: '#3b82f6', badges: ['moderator/1', 'subscriber/12'] }
+    ]
+};
+
+const dummySessionData = {
+    streamer: 'DemoStreamer',
+    title: 'Retro Speedruns & Community Hangout',
+    category: "Castlevania: Belmont's Curse",
+    startedAt: new Date(Date.now() - 3600000 * 3).toISOString(),
+    chatters: {
+        PixelKnight: { count: 48, first: Date.now() - 3600000 * 3, last: Date.now(), isSub: true, isMod: true, isVip: false },
+        CosmicVoyager: { count: 36, first: Date.now() - 3600000 * 3, last: Date.now(), isSub: true, isMod: false, isVip: true },
+        RetroSamurai: { count: 29, first: Date.now() - 3600000 * 2, last: Date.now(), isSub: true, isMod: false, isVip: true },
+        NebulaFox: { count: 22, first: Date.now() - 3600000 * 2, last: Date.now(), isSub: true, isMod: false, isVip: false },
+        StarGazer: { count: 12, first: Date.now() - 3600000, last: Date.now(), isSub: false, isMod: false, isVip: false },
+        ArcadeHero: { count: 14, first: Date.now() - 3600000, last: Date.now(), isSub: false, isMod: false, isVip: false }
+    },
+    subs: [
+        { name: 'PixelKnight', tier: 'Tier 3', months: 18 },
+        { name: 'CosmicVoyager', tier: 'Tier 1', months: 12 },
+        { name: 'RetroSamurai', tier: 'Tier 1', months: 9 },
+        { name: 'NebulaFox', tier: 'Tier 1', months: 6 }
+    ],
+    cheers: {
+        PixelKnight: 12500,
+        CosmicVoyager: 7500,
+        RetroSamurai: 5000
+    },
+    emotes: {
+        'streampulseHype': 24,
+        'streampulseGG': 18,
+        'streampulseHeart': 15
+    },
+    hashtags: {
+        '#speedrun': 12,
+        '#retro': 8
+    },
+    viewerStats: {
+        current: 84,
+        peak: 112,
+        average: 76,
+        samples: [45, 52, 68, 79, 94, 112, 98, 88, 84]
+    }
+};
+
+const dummyHighlights = [
+    {
+        id: 'h1',
+        ts: Date.now() - 3100000,
+        user: 'RetroSamurai',
+        message: 'cheered 500 bits: Let\'s get that sub-40 minute run tonight!',
+        pinned: true
+    }
+];
+
+const dummySessionsList = [
+    {
+        file: '__current__',
+        label: 'Current Broadcast (Live)',
+        date: '2026-10-18',
+        duration: '3h 12m',
+        category: "Castlevania: Belmont's Curse",
+        title: 'Retro Speedruns & Community Hangout',
+        chatters: 6,
+        messages: 168
+    },
+    {
+        file: 'chat-2026-10-16T20-00.json',
+        label: 'Friday Retro Night',
+        date: '2026-10-16',
+        duration: '4h 05m',
+        category: 'Super Meat Boy',
+        title: 'Dark World Gauntlet — No Death Runs',
+        chatters: 24,
+        messages: 890
+    }
+];
+
 async function run() {
+    let serverInstance = null;
+    try {
+        const check = await fetch(`${baseUrl}/api/status`).catch(() => null);
+        if (!check || !check.ok) {
+            console.log('Backend server not detected on port 3000. Launching in-process server...');
+            serverInstance = await import('../server.js');
+            await new Promise(r => setTimeout(r, 1500));
+        }
+    } catch {
+        serverInstance = await import('../server.js');
+        await new Promise(r => setTimeout(r, 1500));
+    }
+
     console.log(`Connecting to ${baseUrl} to capture sanitized documentation screenshots...`);
     const browser = await puppeteer.launch({
         headless: true,
@@ -283,34 +468,28 @@ async function run() {
     await page.setViewport({ width: 1600, height: 1000, deviceScaleFactor: 2 });
     page.on('dialog', async d => { await d.accept(); });
 
-    // Enable request interception to guarantee zero real names
+    // Enable request interception to guarantee zero real streamer or chatter data
     await page.setRequestInterception(true);
     page.on('request', req => {
         const url = req.url();
         if (url.includes('/api/chatters/PixelKnight')) {
-            req.respond({
-                status: 200,
-                contentType: 'application/json',
-                body: JSON.stringify(dummyDossierPixelKnight)
-            });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyDossierPixelKnight) });
         } else if (url.includes('/api/chatters')) {
-            req.respond({
-                status: 200,
-                contentType: 'application/json',
-                body: JSON.stringify(dummyCommunityList)
-            });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyCommunityList) });
         } else if (url.includes('/api/alerts/events') || url.includes('/api/events')) {
-            req.respond({
-                status: 200,
-                contentType: 'application/json',
-                body: JSON.stringify(dummyAlertEvents)
-            });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyAlertEvents) });
         } else if (url.endsWith('/api/alerts') || url.includes('/api/alerts?')) {
-            req.respond({
-                status: 200,
-                contentType: 'application/json',
-                body: JSON.stringify(dummyAlertsState)
-            });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyAlertsState) });
+        } else if (url.includes('/api/game-plan')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyGamePlan) });
+        } else if (url.includes('/api/chat-log')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyChatLog) });
+        } else if (url.includes('/api/chat')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummySessionData) });
+        } else if (url.includes('/api/sessions')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummySessionsList) });
+        } else if (url.includes('/api/highlights')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyHighlights) });
         } else {
             req.continue();
         }
@@ -360,7 +539,6 @@ async function run() {
             file: 'community-directory.png',
             wait: 1500,
             action: async (p) => {
-                // Switch to Community Directory tab
                 await p.evaluate(() => {
                     const crmTab = document.querySelector('.tab-btn[data-tab="crm"]');
                     if (crmTab) crmTab.click();
@@ -373,13 +551,11 @@ async function run() {
             file: 'chatter-dossier.png',
             wait: 1500,
             action: async (p) => {
-                // Switch to Community Directory tab and open Chatter Dossier for PixelKnight
                 await p.evaluate(() => {
                     const crmTab = document.querySelector('.tab-btn[data-tab="crm"]');
                     if (crmTab) crmTab.click();
                 });
                 await new Promise(r => setTimeout(r, 800));
-                // Click on PixelKnight in the table or call window.openChatterDossier
                 await p.evaluate(() => {
                     if (typeof window.openChatterDossier === 'function') {
                         window.openChatterDossier('PixelKnight');
@@ -406,6 +582,107 @@ async function run() {
             action: async (p) => {
                 await p.setViewport({ width: 1280, height: 720, deviceScaleFactor: 2 });
             }
+        },
+        {
+            url: `${baseUrl}/sessions.html`,
+            file: 'overview-chat-log.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 860, deviceScaleFactor: 2 });
+                await p.evaluate(async () => {
+                    const firstSession = document.querySelector('.session-item');
+                    if (firstSession) {
+                        firstSession.click();
+                        await new Promise(r => setTimeout(r, 800));
+                        const chatBtn = Array.from(document.querySelectorAll('.detail-header-actions button')).find(b => b.textContent.includes('Chat Log'));
+                        if (chatBtn) chatBtn.click();
+                    }
+                });
+                await new Promise(r => setTimeout(r, 1200));
+            }
+        },
+        {
+            url: `${baseUrl}/overlays/credits.html?preview=true`,
+            file: 'overview-credits-roll.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1280, height: 720, deviceScaleFactor: 2 });
+                await p.evaluate(() => {
+                    document.body.style.backgroundColor = '#0d1117';
+                    const container = document.getElementById('credits-container');
+                    if (container) {
+                        container.style.position = 'relative';
+                        container.style.top = '0';
+                        container.style.display = 'block';
+                        container.style.opacity = '1';
+                        container.style.padding = '40px 60px';
+                        container.style.maxWidth = '800px';
+                        container.style.margin = '0 auto';
+                        container.style.textAlign = 'center';
+                        container.innerHTML = `
+                            <div class="section" style="margin-bottom:32px;">
+                                <h1 style="font-size:2.8rem;margin-bottom:8px;color:#fff;letter-spacing:1px;font-family:'Jersey 20',sans-serif;">Thank you for watching!</h1>
+                                <h3 style="font-size:1.4rem;color:#8b949e;font-family:'Jersey 20',sans-serif;">Broadcast Credits · Six Year Anniversary Special</h3>
+                            </div>
+                            <div class="section" style="margin-bottom:32px;">
+                                <h2 style="font-size:1.8rem;color:#58a6ff;margin-bottom:12px;text-transform:uppercase;letter-spacing:2px;font-family:'Jersey 20',sans-serif;">Subscribers</h2>
+                                <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;font-size:1.4rem;color:#c9d1d9;font-family:'Jersey 20',sans-serif;">
+                                    <span>PixelKnight</span>
+                                    <span>CosmicVoyager</span>
+                                    <span>RetroSamurai</span>
+                                    <span>NebulaFox</span>
+                                </div>
+                            </div>
+                            <div class="section" style="margin-bottom:32px;">
+                                <h2 style="font-size:1.8rem;color:#e3b341;margin-bottom:12px;text-transform:uppercase;letter-spacing:2px;font-family:'Jersey 20',sans-serif;">Cheerers &amp; Supporters</h2>
+                                <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;font-size:1.4rem;color:#c9d1d9;font-family:'Jersey 20',sans-serif;">
+                                    <span>RetroSamurai (500 bits)</span>
+                                    <span>PixelKnight (250 bits)</span>
+                                </div>
+                            </div>
+                            <div class="section" style="margin-bottom:32px;">
+                                <h2 style="font-size:1.8rem;color:#3fb950;margin-bottom:12px;text-transform:uppercase;letter-spacing:2px;font-family:'Jersey 20',sans-serif;">Today's Chatters</h2>
+                                <div style="display:flex;justify-content:center;gap:18px;flex-wrap:wrap;font-size:1.3rem;color:#c9d1d9;font-family:'Jersey 20',sans-serif;max-width:650px;margin:0 auto;">
+                                    <span>ArcadeHero</span>
+                                    <span>StarGazer</span>
+                                    <span>CosmicVoyager</span>
+                                    <span>PixelKnight</span>
+                                    <span>NebulaFox</span>
+                                    <span>RetroSamurai</span>
+                                </div>
+                            </div>
+                            <div class="section closing" style="margin-top:36px;">
+                                <h2 style="font-size:1.8rem;color:#fff;font-family:'Jersey 20',sans-serif;">Thanks for being part of the community!</h2>
+                            </div>
+                        `;
+                    }
+                });
+                await new Promise(r => setTimeout(r, 600));
+            }
+        },
+        {
+            url: `${baseUrl}/overlays/game-plan.html?view=ticker&theme=dark`,
+            file: 'game-plan-overlay-ticker.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1280, height: 260, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/overlays/game-plan.html?mode=schedule&theme=dark`,
+            file: 'game-plan-overlay-schedule.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1280, height: 540, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/overlays/game-plan.html?mode=checklist&theme=dark`,
+            file: 'game-plan-overlay-checklist.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 480, height: 680, deviceScaleFactor: 2 });
+            }
         }
     ];
 
@@ -428,7 +705,11 @@ async function run() {
     }
 
     await browser.close();
+    if (serverInstance && typeof serverInstance.gracefulShutdown === 'function') {
+        serverInstance.gracefulShutdown('CAPTURE_DONE', false);
+    }
     console.log('All sanitized screenshots captured successfully!');
+    process.exit(0);
 }
 
 run().catch(err => {

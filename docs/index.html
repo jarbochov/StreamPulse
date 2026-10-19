@@ -77,18 +77,18 @@
       box-shadow: 0 0 12px #6366f1;
     }
     .app-nav {
-      position: absolute;
-      top: 22px;
-      right: 36px;
+      position: fixed;
+      top: 18px;
+      right: 32px;
       margin: 0;
-      z-index: 10;
-      background: rgba(15, 20, 34, 0.88);
+      z-index: 1000;
+      background: rgba(15, 20, 34, 0.92);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 999px;
       padding: 6px 16px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
       display: flex;
       align-items: center;
       gap: 4px;
@@ -107,12 +107,9 @@
       color: #ffffff;
       background: rgba(99, 102, 241, 0.15);
     }
-    /* Never display navbar over the coverpage hero banner */
-    body:has(section.cover.show) .app-nav,
+    /* Hide topbar ONLY when on the full-page cover hero banner */
     body.is-cover-active .app-nav,
-    section.cover.show ~ .app-nav,
-    body.sticky .app-nav,
-    .cover.show ~ .app-nav {
+    body:has(section.cover.show) .app-nav {
       display: none !important;
     }
     @media (max-width: 1024px) {
@@ -126,11 +123,56 @@
       }
     }
 
-    /* Markdown Document Styles */
+    /* Sidebar Accordion / Collapsible Non-Open Sections */
+    .sidebar-nav > ul > li {
+      margin-bottom: 0.6rem;
+    }
+    .sidebar-nav > ul > li > p,
+    .sidebar-nav > ul > li > strong {
+      display: flex !important;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: background 0.15s ease, color 0.15s ease;
+      margin-top: 0.5rem;
+      margin-bottom: 0.25rem;
+    }
+    .sidebar-nav > ul > li > p:hover,
+    .sidebar-nav > ul > li > strong:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #ffffff !important;
+    }
+    .sidebar-chevron {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      color: #64748b;
+      margin-left: auto;
+      pointer-events: none;
+    }
+    .sidebar-nav > ul > li.is-collapsed .sidebar-chevron {
+      transform: rotate(-90deg);
+    }
+    .sidebar-nav > ul > li:not(.is-collapsed) .sidebar-chevron {
+      transform: rotate(0deg);
+      color: #818cf8;
+    }
+    .sidebar-nav > ul > li.is-collapsed > ul {
+      display: none !important;
+    }
+
+    /* Content & Markdown Clearance */
+    .content {
+      padding-top: 16px;
+    }
     .markdown-section {
       max-width: 1040px;
       margin: 0 auto;
-      padding: 30px 25px 60px;
+      padding: 64px 32px 80px;
     }
     .markdown-section h1, .markdown-section h2, .markdown-section h3, .markdown-section h4 {
       color: #f8fafc;
@@ -642,6 +684,41 @@
           hook.doneEach(function() {
             var isCover = !!document.querySelector('section.cover.show');
             document.body.classList.toggle('is-cover-active', isCover);
+
+            // Setup / refresh sidebar collapsible accordion
+            var topSections = document.querySelectorAll('.sidebar-nav > ul > li');
+            topSections.forEach(function(section) {
+              var subList = section.querySelector('ul');
+              if (!subList) return;
+
+              var header = section.querySelector('strong') || section.querySelector('p');
+              if (!header) return;
+
+              if (!header.querySelector('.sidebar-chevron')) {
+                var chevron = document.createElement('span');
+                chevron.className = 'sidebar-chevron';
+                chevron.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+                header.appendChild(chevron);
+              }
+
+              if (!header.dataset.accordionBound) {
+                header.dataset.accordionBound = 'true';
+                header.addEventListener('click', function(e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  section.classList.toggle('is-collapsed');
+                });
+              }
+
+              // Determine if this section holds the currently active link
+              var hasActiveLink = !!section.querySelector('a.active') || !!section.querySelector('.active');
+              if (hasActiveLink) {
+                section.classList.remove('is-collapsed');
+              } else {
+                section.classList.add('is-collapsed');
+              }
+            });
+
             if (window.pele && typeof window.pele.render === 'function') {
               document.querySelectorAll('.mermaid-diagram[data-pele-pending="true"]').forEach(function(el) {
                 var src = decodeURIComponent(el.getAttribute('data-source') || '');

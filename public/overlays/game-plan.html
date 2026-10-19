@@ -379,7 +379,7 @@
         const params = overlayParams();
         const container = document.getElementById('container');
 
-        const view = (params.get('view') || 'schedule').toLowerCase();
+        const view = (params.get('view') || params.get('mode') || 'schedule').toLowerCase();
         const listFilter = params.get('list') || 'scheduled';
         const periodFilter = params.get('period') || '';
         const maxItems = Math.max(1, parseInt(params.get('max') || '5', 10));
