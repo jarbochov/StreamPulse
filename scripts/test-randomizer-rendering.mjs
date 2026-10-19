@@ -224,7 +224,16 @@ try {
         await page.evaluate(choices => window.fixture.controls.idleDeck(choices), choices);
         assert.equal(await page.$eval('#deck-count-badge', node => node.textContent), '4 CARDS');
         assert.equal(await page.$eval('#deck-stack .deck-card-custom-logo', node => node.getAttribute('src')), '/fiction.svg');
+        assert.equal(await page.$eval('#deck-cut-packet > .deck-card-watermark', node => node.textContent), 'FICTIONAL & FRIENDS', 'initial visible card must show the configured watermark before shuffling');
+        await page.$eval('#deck-view', node => { node.style.display = 'flex'; });
+        assert.equal(await page.$eval('#deck-cut-packet > .deck-card-watermark', node =>
+            node.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && node.getBoundingClientRect().height > 0), true, 'initial watermark must actually be visible, not just present in hidden markup');
         assert.equal(await page.$eval('#deck-card-watermark', node => node.textContent), 'FICTIONAL & FRIENDS');
+        await page.evaluate(() => window.fixture.controls.configure({ watermark: '' }));
+        assert.equal(await page.$eval('#deck-cut-packet > .deck-card-watermark', node => node.style.display), 'none', 'blank watermark hides the initial card label too');
+        await page.evaluate(() => window.fixture.controls.configure({ watermark: 'FICTIONAL & FRIENDS' }));
+        assert.equal(await page.$eval('#deck-cut-packet > .deck-card-watermark', node => node.textContent), 'FICTIONAL & FRIENDS');
+        assert.equal(await page.$eval('#deck-cut-packet > .deck-card-watermark', node => node.style.display), 'block', 'idle watermark returns after editing');
 
         await page.evaluate((choices, weights) => {
             window.fixture.controls.configure({ mode: 'wheel' });

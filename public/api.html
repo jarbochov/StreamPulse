@@ -150,7 +150,7 @@
                     method: 'GET', path: '/api/status',
                     desc: 'Server health, connections, session stats, hourly volume, and module states',
                     companion: true,
-                    details: 'Returns uptime, SSN connection state, Twitch token status, overlay client count, session counters, sessionActive flag, hourly message volume data, and active feature modules (chatbot, clips, weather, music, hashtags).'
+                    details: 'Returns uptime, SSN connection state, Twitch token status, session counters, sessionActive flag, hourly volume, and feature modules. overlayClients counts registered top-level overlay pages (not dashboards/editors, embedded previews or preview=true URLs); websocketClients counts all live transport connections. An overlay opened in a normal browser tab counts like an OBS source, not as an inventory of configured OBS sources.'
                 },
                 {
                     method: 'GET', path: '/api/start-session',
@@ -814,7 +814,7 @@
                     method: 'POST', path: '/api/custom-overlays/:id/slideshow',
                     desc: 'Control a slideshow element',
                     body: '{ "action": "next" | "prev" | "pause" | "play" | "toggle", "element": "optional element id (default: all slideshows)" }',
-                    details: 'Pushes the action live to every browser source of the overlay. Returns { ok, action, element, listeners } where listeners is the number of connected overlay clients. Manual-advance slideshows only change on next/prev. A control panel is at /overlay-control.html?id=<id>.'
+                    details: 'Pushes the action live to every browser source of the overlay. Returns { ok, action, element, listeners } where listeners is the number of live broadcast connections, not a count of matching overlay sources or execution acknowledgements. Manual-advance slideshows only change on next/prev. A control panel is at /overlay-control.html?id=<id>.'
                 },
                 {
                     method: 'GET', path: '/api/videos',

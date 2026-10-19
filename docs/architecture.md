@@ -117,7 +117,13 @@ Category totals, milestones, and chatter dossiers share compact in-memory sessio
 
 Metadata checks are throttled to once every ten seconds. Archives created/updated by StreamPulse, deleted through the session API, or restored from a backup invalidate the relevant cache immediately. External file edits are picked up at the next metadata check. Malformed archives are logged and skipped until changed; filesystem failures remain visible.
 
-Cold reads and metadata scans are still synchronous. This cache removes repeated archive reads/parsing; it does not move backups, exports, or cold archive loading off the server event loop.
+Cold archive reads and metadata scans are still synchronous. This cache removes repeated archive reads/parsing, not cold loading. Full-backup ZIP creation and restore processing use a separate bounded worker service; share bundles and other exports still have their existing processing paths.
+
+### Backup Worker
+
+Manual and automatic full backups and restore parsing/decompression use `server/services/backup.js` and `backup-worker.js`, keeping that ZIP work off the Node/Electron main thread. The service permits one active and two waiting operations; excess work fails explicitly rather than spawning unbounded workers. Session end/shutdown and importer flows await the required backup before resetting or replacing source data.
+
+ZIP buffers still consume memory. Restore writes are atomic per file, not a whole-backup transaction. Off-thread processing improves main-loop availability but does not eliminate filesystem load or guarantee a fixed CPU/memory cost; see [server management](server-management.md) for operational behavior.
 
 ### Twitch Network Deadlines
 

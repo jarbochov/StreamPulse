@@ -24,6 +24,11 @@
     };
     function connect() {
         const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
+        ws.onopen = () => {
+            if (window.self === window.top && new URLSearchParams(location.search).get('preview') !== 'true') {
+                ws.send(JSON.stringify({ type: 'overlay-source', key }));
+            }
+        };
         ws.onmessage = event => {
             try {
                 const msg = JSON.parse(event.data);

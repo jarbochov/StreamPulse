@@ -39,6 +39,7 @@ function createSessionRoutes({
 
         // --- 2. Session control ---
         if (pathname === '/api/reset') {
+            await sessionService.waitForPendingEnd();
             resetChatData();
             const chatData = getChatData();
             broadcastToOverlays('update', chatData);
@@ -50,7 +51,7 @@ function createSessionRoutes({
         }
 
         if (pathname === '/api/end-session') {
-            const { archiveName, streamEndedAt } = sessionService.endSessionNow();
+            const { archiveName, streamEndedAt } = await sessionService.endSessionNow();
             if (sessionService.lifecycle.liveStreak > 0) sessionService.lifecycle.suppressed = true;
             sessionService.lifecycle.liveId = null;
             sessionService.lifecycle.lastLiveAt = 0;
@@ -60,6 +61,7 @@ function createSessionRoutes({
         }
 
         if (pathname === '/api/start-session') {
+            await sessionService.waitForPendingEnd();
             sessionService.startSessionNow();
             sessionService.lifecycle.suppressed = false;
             sendJson(res, { status: 'started', startedAt: getChatData().startedAt, message: 'New session started.' });

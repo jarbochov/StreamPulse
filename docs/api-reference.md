@@ -28,6 +28,8 @@ All endpoints are hosted locally at `http://localhost:3000` (or your configured 
 - **Endpoint**: `GET /api/status`
 - **Description**: Returns server and session state, viewer metrics, category, message and chatter counts, milestones, and module health. `sessionActive` describes collection state; `viewers.live` describes observed broadcast status.
 
+`overlayClients` counts registered top-level overlay pages, not raw WebSocket connections. Dashboard/editor sockets, embedded previews, and URLs with `preview=true` are excluded. `websocketClients` reports all live transport connections for diagnostics. An ordinary browser tab opened to an overlay counts like an OBS browser source; StreamPulse cannot inspect OBS's configured source inventory. Refresh overlays left open from older versions so they register.
+
 `POST /api/restart` saves and preserves the current session while restarting the server. In desktop mode the backend restarts in-process; in CLI mode the process is replaced. `POST /api/shutdown` ends and archives the current session and exits StreamPulse.
 
 ---

@@ -57,6 +57,7 @@ const { createCrmRoutes } = require('./server/routes/crm');
 const { createSystemRoutes } = require('./server/routes/system');
 const { createHighlightsRoutes } = require('./server/routes/highlights');
 const { createBackupRoutes } = require('./server/routes/backup');
+const { createBackupService } = require('./server/services/backup');
 const execFileAsync = promisify(execFile);
 const UPDATE_REPOSITORY = 'jarbochov/StreamPulse';
 const NPM_COMMAND = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -160,6 +161,7 @@ const CHAT_LOG_PATH = path.join(DATA_DIR, 'chat-log.jsonl');
 const HIGHLIGHTS_PATH = path.join(DATA_DIR, 'highlights.jsonl');
 const CLIP_CANDIDATES_PATH = path.join(DATA_DIR, 'clip-candidates.json');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
+const backupService = createBackupService({ backupsDir: BACKUPS_DIR });
 const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
 const EMOTE_CACHE_DIR = path.join(DATA_DIR, 'emote-cache');
 const TIMERS_PATH = path.join(DATA_DIR, 'timers.json');
@@ -1265,7 +1267,7 @@ async function applyUpdate(mode) {
         const archivePath = path.join(tempDir, 'release.zip');
         const extractDir = path.join(tempDir, 'extract');
         try {
-            performAutoBackup(true);
+            await performAutoBackup(true);
             await downloadFile(status.downloadUrl, archivePath);
             fs.mkdirSync(extractDir);
             new AdmZip(archivePath).extractAllTo(extractDir, true);
@@ -1284,7 +1286,7 @@ async function applyUpdate(mode) {
     }
     const { stdout: changes } = await execFileAsync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: __dirname });
     if (changes.trim()) throw new Error('Update blocked: tracked local changes must be committed or stashed first.');
-    performAutoBackup(true);
+    await performAutoBackup(true);
     try {
         await execFileAsync('git', ['fetch', '--tags', '--force', 'origin'], { cwd: __dirname });
     } catch {
@@ -1310,40 +1312,26 @@ async function applyUpdate(mode) {
 
 
 
-function performAutoBackup(force = false) {
+async function performAutoBackup(force = false) {
     if (!force && !config.auto_backup_on_session_end) return;
     try {
-        if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
         const now = new Date();
         const stamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}`;
         const backupPath = path.join(BACKUPS_DIR, `backup-${stamp}.zip`);
-        const zip = new AdmZip();
-        for (const f of getBackupFileSpecs()) {
-            if (fs.existsSync(f.src)) zip.addLocalFile(f.src, path.dirname(f.dest), path.basename(f.dest));
-        }
-        if (fs.existsSync(SESSIONS_DIR)) {
-            zip.addLocalFolder(SESSIONS_DIR, 'data/sessions');
-        }
-        if (fs.existsSync(CUSTOM_OVERLAY_ASSETS_DIR)) {
-            zip.addLocalFolder(CUSTOM_OVERLAY_ASSETS_DIR, 'data/custom-overlay-assets');
-        }
-        if (fs.existsSync(CUSTOM_OVERLAY_HISTORY_DIR)) {
-            zip.addLocalFolder(CUSTOM_OVERLAY_HISTORY_DIR, 'data/custom-overlay-history');
-        }
-        zip.writeZip(backupPath);
+        const { removed } = await backupService.autoBackup({
+            backupPath,
+            files: getBackupFileSpecs(),
+            folders: [
+                { src: SESSIONS_DIR, dest: 'data/sessions' },
+                { src: CUSTOM_OVERLAY_ASSETS_DIR, dest: 'data/custom-overlay-assets' },
+                { src: CUSTOM_OVERLAY_HISTORY_DIR, dest: 'data/custom-overlay-history' }
+            ]
+        });
         console.log(`[Backup] Auto-backup saved → ${backupPath}`);
-
-        // Keep only last 10 auto-backups
-        const backups = fs.readdirSync(BACKUPS_DIR)
-            .filter(f => f.startsWith('backup-') && f.endsWith('.zip'))
-            .sort();
-        while (backups.length > 10) {
-            const oldest = backups.shift();
-            fs.unlinkSync(path.join(BACKUPS_DIR, oldest));
-            console.log(`[Backup] Removed old backup: ${oldest}`);
-        }
+        for (const oldest of removed) console.log(`[Backup] Removed old backup: ${oldest}`);
     } catch (err) {
         console.warn(`[Backup] Auto-backup failed: ${err.message}`);
+        throw err;
     }
 }
 
@@ -1626,7 +1614,8 @@ function buildStatusSnapshot() {
             music: !!MUSIC_CONFIG.enabled,
             hashtags: config.hashtags_enabled !== false
         },
-        overlayClients: overlayClients.size,
+        overlayClients: wsService.getSourceCount(),
+        websocketClients: wsService.getClientCount(),
         sessionActive,
         lifecycle: getLifecycleStatus(),
         sessionPhase: getSessionPhase(),
@@ -1753,6 +1742,7 @@ const handleBackupRoutes = createBackupRoutes({
     sessionsDir: SESSIONS_DIR,
     customOverlayAssetsDir: CUSTOM_OVERLAY_ASSETS_DIR,
     customOverlayHistoryDir: CUSTOM_OVERLAY_HISTORY_DIR,
+    backupService,
     getBackupFileSpecs,
     listShareItems,
     buildShareZip,
@@ -2024,6 +2014,12 @@ function stopServer({ preserveSession = false } = {}) {
         attempt(() => chatbot.stop());
         attempt(() => alertEngine.stop());
         attempt(() => overlayService.stop());
+        for (const wait of [() => sessionService.waitForPendingEnd(), () => backupService.waitForIdle()]) {
+            try { await wait(); } catch (err) {
+                errors.push(err);
+                console.error('[Shutdown] Backup/session completion failed:', err);
+            }
+        }
         if (!preserveSession) attempt(() => finalizeSessionStreamEnd());
         attempt(() => saveChatData());
         attempt(() => saveStats());

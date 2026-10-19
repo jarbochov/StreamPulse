@@ -18,7 +18,7 @@ function createOverlayWsServer({
 
     function setupConnection(ws) {
         overlayClients.add(ws);
-        log(`[WS] Overlay client connected (${overlayClients.size} total)`);
+        log(`[WS] Live client connected (${overlayClients.size} connections)`);
 
         try {
             // Send current data snapshot immediately
@@ -47,6 +47,10 @@ function createOverlayWsServer({
         ws.on('message', (raw) => {
             try {
                 const msg = JSON.parse(raw);
+                if (msg.type === 'overlay-source' && typeof msg.key === 'string' && msg.key.length > 0 && msg.key.length <= 100) {
+                    ws.overlaySource = msg.key;
+                    return;
+                }
                 if (msg.type !== 'slideshow-state' || !msg.id || !msg.element) return;
                 const key = `${String(msg.id).slice(0, 80)}::${String(msg.element).slice(0, 80)}`;
                 slideshowStates.set(key, { paused: !!msg.paused, position: Number(msg.position) || 0, count: Number(msg.count) || 0, at: Date.now() });
@@ -58,7 +62,7 @@ function createOverlayWsServer({
         ws.on('close', () => {
             for (const key of ws.slideshowKeys || []) slideshowStates.delete(key);
             overlayClients.delete(ws);
-            log(`[WS] Overlay client disconnected (${overlayClients.size} total)`);
+            log(`[WS] Live client disconnected (${overlayClients.size} connections)`);
         });
     }
 
@@ -107,7 +111,8 @@ function createOverlayWsServer({
         closeAllConnections,
         getWss: () => overlayWss,
         getSlideshowStates: () => slideshowStates,
-        getClientCount: () => overlayClients.size
+        getClientCount: () => overlayClients.size,
+        getSourceCount: () => [...overlayClients].filter(ws => ws.readyState === WebSocket.OPEN && ws.overlaySource).length
     };
 }
 

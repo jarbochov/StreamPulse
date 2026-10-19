@@ -302,7 +302,14 @@ function createSessionService(options = {}) {
         return null;
     }
 
-    function endSessionNow({ endedAtIso = null, discard = false } = {}) {
+    let pendingEnd = null;
+    function endSessionNow(options = {}) {
+        if (pendingEnd) return pendingEnd;
+        pendingEnd = finishSession(options).finally(() => { pendingEnd = null; });
+        return pendingEnd;
+    }
+
+    async function finishSession({ endedAtIso = null, discard = false } = {}) {
         const chatData = getChatData();
         if (endedAtIso && chatData) {
             const stats = normalizeViewerStats(chatData.viewerStats);
@@ -320,13 +327,20 @@ function createSessionService(options = {}) {
         saveChatLog();
         let archiveName = null;
         if (!discard) {
+            archiveName = archiveSession();
+            await performAutoBackup();
+            // SSN can collect while compression runs. Flush and refresh the archive in
+            // this synchronous turn, so those events cannot disappear at the reset.
+            saveChatData();
+            saveStats();
+            saveChatLog();
+            archiveName = archiveSession();
+            if (sessionHasData() && !archiveName) throw new Error('Session archive failed; live data was preserved');
             recordPlayedGames(
                 JSON.parse(JSON.stringify(chatData?.streamInfo || [])),
                 Date.parse(streamEndedAt || '') || Date.now(),
                 Date.parse(normalizeViewerStats(chatData?.viewerStats).streamStartedAt || '')
             ).catch(err => error('[GamePlan] Auto-add failed:', err.message));
-            archiveName = archiveSession();
-            performAutoBackup();
         }
         resetChatData();
         setSessionActive(false);
@@ -335,6 +349,7 @@ function createSessionService(options = {}) {
     }
 
     function startSessionNow() {
+        if (pendingEnd) throw new Error('Session end and backup are still in progress');
         resetChatData();
         setSessionActive(true);
         broadcastSessionState();
@@ -347,6 +362,7 @@ function createSessionService(options = {}) {
     }
 
     function resumeArchivedSession(name) {
+        if (pendingEnd) throw new Error('Session end and backup are still in progress');
         const src = path.join(sessionsDir, name);
         if (!fs.existsSync(src)) return false;
         fs.copyFileSync(src, liveChatPath);
@@ -368,7 +384,7 @@ function createSessionService(options = {}) {
         return true;
     }
 
-    function lifecycleOnLive(stream, cfg) {
+    async function lifecycleOnLive(stream, cfg) {
         lifecycle.offlineSince = 0;
         lifecycle.lastLiveAt = Date.now();
         lifecycle.liveStreak++;
@@ -394,7 +410,9 @@ function createSessionService(options = {}) {
         const lastActivity = Date.parse(chatData?.lastUpdated || '') || 0;
         const sameStream = !stats.streamStartedAt || stats.streamStartedAt === stream.started_at;
         if (!sameStream && Date.now() - lastActivity > windowMs) {
-            const ended = endSessionNow({ endedAtIso: chatData?.lastUpdated || null });
+            const generation = watcherGeneration;
+            const ended = await endSessionNow({ endedAtIso: chatData?.lastUpdated || null });
+            if (generation !== watcherGeneration) return;
             log(`[Lifecycle] Closed out stale session (${ended.archiveName || 'not archived'}) and starting a new one`);
             startSessionNow();
         } else if (!isSessionActive()) {
@@ -403,7 +421,7 @@ function createSessionService(options = {}) {
         }
     }
 
-    function lifecycleOnOffline(cfg) {
+    async function lifecycleOnOffline(cfg) {
         lifecycle.liveStreak = 0;
         lifecycle.suppressed = false;
         if (!lifecycle.lastLiveAt || !isSessionActive()) return;
@@ -414,7 +432,9 @@ function createSessionService(options = {}) {
         const startMs = Date.parse(normalizeViewerStats(chatData?.viewerStats).streamStartedAt || '');
         const endedAtIso = new Date(lifecycle.lastLiveAt).toISOString();
         const tooShort = Number.isFinite(startMs) && lifecycle.lastLiveAt - startMs < cfg.min_session_minutes * 60000;
-        const ended = endSessionNow({ endedAtIso, discard: tooShort });
+        const generation = watcherGeneration;
+        const ended = await endSessionNow({ endedAtIso, discard: tooShort });
+        if (generation !== watcherGeneration) return;
         log(tooShort
             ? `[Lifecycle] Stream was under ${cfg.min_session_minutes} min — session discarded`
             : `[Lifecycle] Offline ${cfg.end_grace_minutes} min — session ended${ended.archiveName ? ` (${ended.archiveName})` : ''}`);
@@ -435,8 +455,8 @@ function createSessionService(options = {}) {
             if (generation !== watcherGeneration) return;
             const stream = await fetchTwitchStream();
             if (generation !== watcherGeneration) return;
-            if (stream) lifecycleOnLive(stream, cfg);
-            else lifecycleOnOffline(cfg);
+            if (stream) await lifecycleOnLive(stream, cfg);
+            else await lifecycleOnOffline(cfg);
         } catch (err) {
             warn('[Lifecycle] Poll failed:', err.message);
         }
@@ -651,6 +671,7 @@ function createSessionService(options = {}) {
         finalizeSessionStreamEnd,
         archiveSession,
         endSessionNow,
+        waitForPendingEnd: () => pendingEnd || Promise.resolve(),
         startSessionNow,
         resumeArchivedSession,
         lifecycleOnLive,

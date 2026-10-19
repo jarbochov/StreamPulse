@@ -54,7 +54,21 @@ The browser regressions use Puppeteer's Chrome. If it is missing, run `npm run i
 
 `node --test scripts/test-twitch-deadlines.cjs` redirects Twitch transports to an isolated local fixture with accelerated deadlines. It covers missing headers, stalled/truncated response bodies, successful responses, and refresh recovery without discarding reusable credentials. No real Twitch requests or saved tokens are used.
 
+`node --test scripts/test-overlay-sources.cjs` uses a real local WebSocket server and isolated browser pages to distinguish registered overlay documents from ordinary live connections. It covers duplicate reports, disconnect cleanup, embedded previews, explicit previews, Music and Randomizer registration, and existing slideshow-state reporting.
+
+`node --test scripts/test-backup-worker.cjs` verifies fictional full-backup/restore contents, retention, bounded concurrency, cancellation/failure cleanup, and session/shutdown ordering. Its sizeable local fixture measures timer and localhost-request responsiveness while ZIP work runs; timings vary with the machine and are not universal latency guarantees.
+
 `node scripts/test-randomizer-rendering.mjs` exercises the shared rendering modules in both Randomizer hosts with fictional choices and a deterministic clock. It covers all three modes, weighted winner alignment, wheel-cache invalidation, resize/font refresh, and spin callback cleanup. It asserts zero sector/label redraws across 120 warmed rotation frames per host; this is a drawing-work measurement, not a CPU/FPS benchmark. It is included in `npm test`.
+
+### Bounded Resource Checks
+
+Run `node scripts/profile-overlay-resources.mjs` for a separate, one-minute synthetic Chromium workload (not part of `npm test`). It switches between fictional editor pages every two seconds, retaining common layers, and reports post-GC JavaScript heap, DOM nodes, browser task time, maximum mounted layers, and effect callback cleanup. `PROFILE_SECONDS=120` changes the duration (10–600 seconds).
+
+The fixture contains 18 image/pattern/effect layers; only 12 should mount at once. Teardown must leave zero fixture RAF chains and timers. Reported heap is JavaScript heap, not total process/GPU memory; browser task time is not overall CPU utilization. This workload does not exercise video decoding, OBS, or a multi-hour broadcast.
+
+For a manual Safari/OBS check, run `PROFILE_SECONDS=600 node scripts/profile-overlay-resources.mjs --serve` and open the printed **loopback** URL in a dedicated test tab/source. The server expires automatically; stop it when finished. In Safari's console, `window.fixture.switchPage()` changes pages, `window.fixture.sample()` reports callback/layer counts, and `window.fixture.stop()` removes every layer. Keep this separate from real OBS scenes/profiles. A full soak should also use fictional native-video sources and monitor total browser/OBS memory, CPU/GPU utilization, frame time and audio over several hours; the synthetic checks do not establish those results.
+
+The October 19, 2026 bounded run completed 30 page switches over 60 seconds in both Chromium and Safari 27.0.1, with 12 mounted layers throughout and no runtime errors. Both stopped with zero tracked effect RAF chains/timers, with no later effect frames observed in Safari. Chromium's post-GC JS heap was approximately 1.60 MB before, 1.87 MB active, and 1.74 MB after removal; DOM nodes were 93 before/active and 35 after. These single-run fixture observations are not leak-free guarantees or production process-memory measurements. OBS and a multi-hour native-video soak remain unverified.
 
 ### Smoke Testing Editors
 

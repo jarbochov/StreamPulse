@@ -11,6 +11,8 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Fixed
+- Count registered overlay pages instead of all WebSocket connections in the dashboard; exclude embedded and explicit preview pages, and expose raw connections separately as `websocketClients`.
+- Show the configured watermark on the initial visible Randomizer deck card before the shuffle, including live edits and blank-to-hide behavior.
 - Bound Twitch OAuth/device and Helix requests with 15-second deadlines, reject broken response streams, and preserve refresh credentials after transient failures.
 - Restore CRT/LCD control strength and spacing by normalizing saved retro settings only once; retain phosphor mask choices and LCD ghosting, with real-editor pixel regressions.
 - Correct milestone message totals, broadcast hours, stream counts, and streaks using observed live bounds; exclude offline empty sessions and duplicate archives.
@@ -23,6 +25,8 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Read Game Plan WebSocket snapshots from their actual `data` payload and prevent stale HTTP responses from replacing newer live state.
 
 ### Changed
+- Move full-backup ZIP creation and restore parsing/decompression to a bounded worker service; await required backups before session reset or data replacement, with retention, cancellation, and responsiveness regressions.
+- Add a bounded fictional editor resource fixture for Chromium and manual Safari/OBS checks; document one-minute Chromium/Safari observations and the remaining production-soak limits.
 - Extract shared Randomizer wheel geometry/rendering, roller/deck staging, spin animations, and callback cleanup into focused modules used by both Studio and OBS. Cache the static wheel face instead of repainting sectors/labels every frame; preserve server-selected winners and existing controls.
 - Share compact, metadata-validated session summaries across historical category totals, milestones, and chatter dossiers instead of repeatedly parsing unchanged archive JSON; invalidate on archive writes, deletion, and restore.
 - Mount only active/common editor layers, disposing inactive media, slideshow timers, and effect runners while preserving HTML5 playback intent/time and slideshow position on return.

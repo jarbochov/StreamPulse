@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const AdmZip = require('adm-zip');
+const { pipeline } = require('stream/promises');
+const { createBackupService } = require('../services/backup');
 const { readRequestBody, readBinaryBody, sendJson, sendError } = require('./helpers');
 
 function createBackupRoutes({
@@ -11,6 +12,7 @@ function createBackupRoutes({
     sessionsDir,
     customOverlayAssetsDir,
     customOverlayHistoryDir,
+    backupService = createBackupService({ backupsDir }),
     getBackupFileSpecs = () => [],
     listShareItems = () => ({}),
     buildShareZip = () => ({ buffer: Buffer.from(''), count: 0 }),
@@ -73,39 +75,32 @@ function createBackupRoutes({
             const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             const filename = `streampulse-backup-${dateStr}.zip`;
 
-            const zip = new AdmZip();
-
-            for (const f of getBackupFileSpecs()) {
-                if (fs.existsSync(f.src)) {
-                    const destDir = path.dirname(f.dest);
-                    zip.addLocalFile(f.src, destDir === '.' ? '' : destDir);
-                }
+            const controller = new AbortController();
+            const abort = () => controller.abort();
+            res.once('close', abort);
+            try {
+                await backupService.download({
+                    files: getBackupFileSpecs(),
+                    folders: [
+                        { src: sessionsDir, dest: 'data/sessions' },
+                        { src: customOverlayAssetsDir, dest: 'data/custom-overlay-assets' },
+                        { src: customOverlayHistoryDir, dest: 'data/custom-overlay-history' }
+                    ]
+                }, async ({ path: archivePath, size }, signal) => {
+                    res.writeHead(200, {
+                        'Content-Type': 'application/zip',
+                        'Content-Disposition': `attachment; filename="${filename}"`,
+                        'Content-Length': size
+                    });
+                    if (req.method === 'HEAD') res.end();
+                    else await pipeline(fs.createReadStream(archivePath), res, { signal });
+                }, { signal: controller.signal });
+            } catch (err) {
+                if (!res.destroyed && !res.headersSent) sendError(res, err, err.code === 'BACKUP_BUSY' ? 503 : 500);
+                else if (!res.destroyed) res.destroy(err);
+            } finally {
+                res.removeListener('close', abort);
             }
-
-            if (sessionsDir && fs.existsSync(sessionsDir)) {
-                zip.addLocalFolder(sessionsDir, 'data/sessions');
-            }
-            if (customOverlayAssetsDir && fs.existsSync(customOverlayAssetsDir)) {
-                zip.addLocalFolder(customOverlayAssetsDir, 'data/custom-overlay-assets');
-            }
-            if (customOverlayHistoryDir && fs.existsSync(customOverlayHistoryDir)) {
-                zip.addLocalFolder(customOverlayHistoryDir, 'data/custom-overlay-history');
-            }
-
-            const buffer = zip.toBuffer();
-
-            res.writeHead(200, {
-                'Content-Type': 'application/zip',
-                'Content-Disposition': `attachment; filename="${filename}"`,
-                'Content-Length': buffer.length
-            });
-
-            if (req.method === 'HEAD') {
-                res.end();
-                return true;
-            }
-
-            res.end(buffer);
             return true;
         }
 
@@ -174,45 +169,21 @@ function createBackupRoutes({
 
         // Full backup restore
         if (pathname === '/api/restore' && req.method === 'POST') {
+            const controller = new AbortController();
+            const abort = () => controller.abort();
+            res.once('close', abort);
             try {
-                const buffer = await readBinaryBody(req);
-                const previousConfig = JSON.parse(JSON.stringify(getConfig()));
-                const zip = new AdmZip(buffer);
-                const entries = zip.getEntries();
-
-                // Validate: must have at least stats.json
-                const hasStats = entries.some(e => e.entryName === 'data/stats.json' || e.entryName === 'stats.json');
-                if (!hasStats) {
-                    sendError(res, 'Invalid backup: missing stats.json', 400);
-                    return true;
-                }
-
-                let restored = [];
-                for (const entry of entries) {
-                    if (entry.isDirectory) continue;
-                    const name = entry.entryName;
-                    let destPath;
-
-                    if (name === 'config.json') {
-                        destPath = configPath;
-                    } else if (name.startsWith('data/')) {
-                        destPath = path.join(dataDir || path.join(rootDir, 'data'), name.slice(5));
-                    } else {
-                        continue;
-                    }
-
-                    // Security check
-                    const baseAllowed = dataDir || rootDir;
-                    const normalizedDest = path.normalize(destPath);
-                    if (!normalizedDest.startsWith(path.normalize(baseAllowed)) && normalizedDest !== path.normalize(configPath)) continue;
-
-                    const dir = path.dirname(destPath);
-                    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                    fs.writeFileSync(destPath, entry.getData());
-                    restored.push(name);
-                }
-
-                const restoreResult = await onRestore({ previousConfig, restored, entries }) || {};
+                let restored;
+                const restoreResult = await backupService.restore({
+                    dataDir: dataDir || path.join(rootDir, 'data'),
+                    configPath
+                }, req, async (result, previousConfig) => {
+                    restored = result.restored;
+                    return await onRestore({ previousConfig, ...result }) || {};
+                }, {
+                    signal: controller.signal,
+                    beforeApply: () => JSON.parse(JSON.stringify(getConfig()))
+                });
                 const restartFields = restoreResult.restartFields || [];
 
                 console.log(`[Restore] Restored ${restored.length} files`);
@@ -228,7 +199,12 @@ function createBackupRoutes({
                 });
             } catch (err) {
                 console.error('[Restore] Error:', err.message);
-                sendError(res, `Restore failed: ${err.message}`, 500);
+                if (!res.destroyed && !res.headersSent) {
+                    if (err.code === 'INVALID_BACKUP') sendError(res, err, 400);
+                    else sendError(res, `Restore failed: ${err.message}`, err.code === 'BACKUP_BUSY' ? 503 : 500);
+                }
+            } finally {
+                res.removeListener('close', abort);
             }
             return true;
         }
