@@ -52,6 +52,8 @@ The browser regressions use Puppeteer's Chrome. If it is missing, run `npm run i
 
 `node scripts/test-retro-controls.mjs` drives the real inspector controls on a fictional image. It checks visible pixel changes for CRT scanline/mask strength and scale, LCD grid spacing and edge ghosting, and pixel parity with direct shader rendering, including legacy saved settings. These are Chromium rendering checks, not an OBS or Safari compatibility guarantee.
 
+`node --test scripts/test-twitch-deadlines.cjs` redirects Twitch transports to an isolated local fixture with accelerated deadlines. It covers missing headers, stalled/truncated response bodies, successful responses, and refresh recovery without discarding reusable credentials. No real Twitch requests or saved tokens are used.
+
 ### Smoke Testing Editors
 
 To verify browser editors and canvases in a headless browser environment:

@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const DEFAULT_TWITCH_CLIENT_ID = 'gbe0673k90le0942bfhw7f7ko6t865';
+const TWITCH_REQUEST_TIMEOUT_MS = 15000;
 const DEFAULT_TWITCH_SCOPES = 'channel:read:subscriptions bits:read moderator:read:followers clips:edit channel:manage:clips channel:read:polls channel:read:vips moderation:read channel:manage:schedule channel:manage:broadcast';
 
 function safeReturnPath(value) {
@@ -12,10 +13,11 @@ function safeReturnPath(value) {
 
 function twitchFormPost(url, body) {
     return fetch(url, {
+        signal: AbortSignal.timeout(TWITCH_REQUEST_TIMEOUT_MS),
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams(body)
-    }).then(async r => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) }));
+    }).then(async r => ({ ok: r.ok, status: r.status, data: await r.json() }));
 }
 
 function createTwitchService(options = {}) {
@@ -109,12 +111,14 @@ function createTwitchService(options = {}) {
         return new Promise((resolve, reject) => {
             const postData = new URLSearchParams(body).toString();
             const req = https.request('https://id.twitch.tv/oauth2/token', {
+                signal: AbortSignal.timeout(TWITCH_REQUEST_TIMEOUT_MS),
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'Content-Length': Buffer.byteLength(postData)
                 }
             }, (res) => {
+                res.on('error', reject);
                 let data = '';
                 res.on('data', chunk => data += chunk);
                 res.on('end', () => {
@@ -219,6 +223,7 @@ function createTwitchService(options = {}) {
     async function syncBroadcasterFromToken() {
         try {
             const r = await fetch('https://api.twitch.tv/helix/users', {
+                signal: AbortSignal.timeout(TWITCH_REQUEST_TIMEOUT_MS),
                 headers: { 'Client-ID': getClientId(), Authorization: `Bearer ${twitchAccessToken}` }
             });
             const user = (await r.json()).data?.[0];
@@ -241,11 +246,13 @@ function createTwitchService(options = {}) {
             const url = `https://api.twitch.tv/helix${endpoint}${query ? '?' + query : ''}`;
 
             const req = https.request(url, {
+                signal: AbortSignal.timeout(TWITCH_REQUEST_TIMEOUT_MS),
                 headers: {
                     'Client-ID': getClientId(),
                     'Authorization': `Bearer ${twitchAccessToken}`
                 }
             }, (res) => {
+                res.on('error', reject);
                 let data = '';
                 res.on('data', chunk => data += chunk);
                 res.on('end', () => {
@@ -286,7 +293,8 @@ function createTwitchService(options = {}) {
                 headers['Content-Length'] = Buffer.byteLength(payload);
             }
 
-            const req = https.request(url, { method, headers }, (res) => {
+            const req = https.request(url, { method, headers, signal: AbortSignal.timeout(TWITCH_REQUEST_TIMEOUT_MS) }, (res) => {
+                res.on('error', reject);
                 let data = '';
                 res.on('data', chunk => { data += chunk; });
                 res.on('end', () => {
@@ -463,12 +471,14 @@ function createTwitchService(options = {}) {
         return new Promise((resolve, reject) => {
             const query = new URLSearchParams({ broadcaster_id: getBroadcasterId() }).toString();
             const req = https.request(`https://api.twitch.tv/helix/clips?${query}`, {
+                signal: AbortSignal.timeout(TWITCH_REQUEST_TIMEOUT_MS),
                 method: 'POST',
                 headers: {
                     'Client-ID': getClientId(),
                     'Authorization': `Bearer ${twitchAccessToken}`
                 }
             }, (res) => {
+                res.on('error', reject);
                 let data = '';
                 res.on('data', chunk => data += chunk);
                 res.on('end', () => {
@@ -497,12 +507,14 @@ function createTwitchService(options = {}) {
                 title: String(title || 'StreamPulse highlight').slice(0, 140)
             }).toString();
             const req = https.request(`https://api.twitch.tv/helix/videos/clips?${query}`, {
+                signal: AbortSignal.timeout(TWITCH_REQUEST_TIMEOUT_MS),
                 method: 'POST',
                 headers: {
                     'Client-ID': getClientId(),
                     'Authorization': `Bearer ${twitchAccessToken}`,
                 }
             }, (res) => {
+                res.on('error', reject);
                 let data = '';
                 res.on('data', chunk => data += chunk);
                 res.on('end', () => {

@@ -118,3 +118,9 @@ Category totals, milestones, and chatter dossiers share compact in-memory sessio
 Metadata checks are throttled to once every ten seconds. Archives created/updated by StreamPulse, deleted through the session API, or restored from a backup invalidate the relevant cache immediately. External file edits are picked up at the next metadata check. Malformed archives are logged and skipped until changed; filesystem failures remain visible.
 
 Cold reads and metadata scans are still synchronous. This cache removes repeated archive reads/parsing; it does not move backups, exports, or cold archive loading off the server event loop.
+
+### Twitch Network Deadlines
+
+OAuth/device-auth and Helix requests in `server/services/twitch.js` have a 15-second absolute deadline, including response-body consumption. Prematurely closed response streams reject instead of leaving callers pending. Existing error paths report failures; transient network failures do not clear stored refresh credentials, and a later refresh can retry. Token refresh remains single-flight.
+
+This is a per-request limit, not a timeout for a whole paginated sync. It does not cancel every background operation on server shutdown or introduce automatic retries for mutating Twitch actions.
