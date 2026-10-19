@@ -6,6 +6,8 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-19
+
 ### Fixed
 - Treat example or blank SocialStream session IDs as unconfigured across chat, featured messages, bot replies, and configuration status; allow clearing the ID in Config Editor.
 - Give the dashboard consistent default rows with Health and Actions first, readable tool panels, aligned empty states, and a reset that clears legacy layout preferences.
