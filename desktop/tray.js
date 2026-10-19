@@ -1,4 +1,4 @@
-const { app, Tray, Menu, shell, clipboard, nativeImage } = require('electron');
+const { app, Tray, Menu, shell, clipboard, nativeImage, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -14,21 +14,40 @@ class AppTray {
     }
 
     createTrayIcon() {
-        const templatePath = path.join(__dirname, 'tray-iconTemplate.png');
-        const standardPath = path.join(__dirname, 'tray-icon.png');
-        const iconPath = fs.existsSync(templatePath) ? templatePath : standardPath;
+        if (process.platform === 'darwin') {
+            const templatePath = path.join(__dirname, 'tray-iconTemplate.png');
+            const standardPath = path.join(__dirname, 'tray-icon.png');
+            const iconPath = fs.existsSync(templatePath) ? templatePath : standardPath;
 
-        if (fs.existsSync(iconPath)) {
-            try {
-                const img = nativeImage.createFromPath(iconPath);
-                if (img && !img.isEmpty()) {
-                    if (process.platform === 'darwin' && typeof img.setTemplateImage === 'function') {
-                        img.setTemplateImage(true);
+            if (fs.existsSync(iconPath)) {
+                try {
+                    const img = nativeImage.createFromPath(iconPath);
+                    if (img && !img.isEmpty()) {
+                        if (typeof img.setTemplateImage === 'function') {
+                            img.setTemplateImage(true);
+                        }
+                        return img;
                     }
-                    return img;
+                } catch (err) {
+                    console.warn('Could not load macOS tray template icon:', err);
                 }
-            } catch (err) {
-                console.warn('Could not load tray icon:', err);
+            }
+        } else {
+            // Windows & Linux: select white icon for dark taskbars, black for light taskbars
+            const isDark = nativeTheme && nativeTheme.shouldUseDarkColors;
+            const darkPath = path.join(__dirname, 'tray-icon.png');
+            const whitePath = path.join(__dirname, 'tray-icon-white.png');
+            const chosenPath = (isDark && fs.existsSync(whitePath)) ? whitePath : darkPath;
+
+            if (fs.existsSync(chosenPath)) {
+                try {
+                    const img = nativeImage.createFromPath(chosenPath);
+                    if (img && !img.isEmpty()) {
+                        return img;
+                    }
+                } catch (err) {
+                    console.warn('Could not load tray icon:', err);
+                }
             }
         }
 
@@ -60,6 +79,15 @@ class AppTray {
         const icon = this.createTrayIcon();
         this.tray = new Tray(icon);
         this.tray.setToolTip('StreamPulse - Self-Hosted Stream Companion');
+
+        // Dynamically update tray icon on Windows / Linux theme changes
+        if (process.platform !== 'darwin' && nativeTheme && typeof nativeTheme.on === 'function') {
+            nativeTheme.on('updated', () => {
+                if (this.tray && !this.tray.isDestroyed()) {
+                    this.tray.setImage(this.createTrayIcon());
+                }
+            });
+        }
 
         this.updateMenu();
 

@@ -21,6 +21,11 @@ async function generate() {
         ? fs.readFileSync(studioImgPath).toString('base64')
         : '';
 
+    const logoImgPath = path.join(docsImgDir, 'apple-touch-icon.png');
+    const logoImgBase64 = fs.existsSync(logoImgPath)
+        ? fs.readFileSync(logoImgPath).toString('base64')
+        : '';
+
     const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -64,17 +69,17 @@ async function generate() {
     .brand-icon {
       width: 44px;
       height: 44px;
-      background: #6366f1;
-      border-radius: 12px;
+      border-radius: 10px;
+      overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow: 0 0 24px rgba(99, 102, 241, 0.6);
     }
-    .brand-icon svg {
-      width: 26px;
-      height: 26px;
-      fill: #ffffff;
+    .brand-icon img {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
     .brand-name {
       font-size: 28px;
@@ -176,7 +181,7 @@ async function generate() {
   <div class='top-row'>
     <div class='brand'>
       <div class='brand-icon'>
-        <svg viewBox='0 0 24 24'><circle cx='12' cy='12' r='4'/><path d='M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41' stroke='#ffffff' stroke-width='2' stroke-linecap='round'/></svg>
+        <img src='data:image/png;base64,${logoImgBase64}' alt='StreamPulse Logo' />
       </div>
       <div class='brand-name'>StreamPulse</div>
     </div>

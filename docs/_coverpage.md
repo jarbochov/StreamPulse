@@ -3,6 +3,10 @@
 <div class="cover-hero">
   <div class="cover-pill">Self-Hosted Broadcast Suite · 100% Local-First · OBS Ready</div>
 
+  <div class="cover-logo-wrapper">
+    <img src="images/apple-touch-icon.png" alt="StreamPulse Logo" class="cover-logo-img" />
+  </div>
+
   # StreamPulse
 
   <p class="cover-subtitle">The broadcast companion and overlay suite that puts streamers in total control. Cinematic OBS overlays, interactive choice randomizers, automated credits roll, and community CRM—100% self-hosted on your machine with zero cloud fees.</p>
