@@ -144,12 +144,28 @@
 
     const tickingNodes = [];
     const alertNodes = [];
-    const activeAlerts = [];
+    const activeAlerts = new Set();
     let alertPreviewManual = null;
 
     function isAlertPreview(element) {
         if (alertPreviewManual !== null) return alertPreviewManual;
         return (params.get('preview') === 'true' && (params.get('alert') === 'true' || element.alert?.showOnPreview === true));
+    }
+
+    function showAlertPreview(node, element) {
+        if (!isAlertPreview(element) || node._alertPreviewHandle || [...activeAlerts].some(entry => entry.node === node)) return;
+        let ended = false;
+        const handle = shared.playAlert(node, element, { ...shared.alertSample(element), animIn: 'none', animOut: 'none', durationMs: 3600000 }, {
+            sound: false,
+            onEnd: () => { ended = true; node._alertPreviewHandle = null; }
+        });
+        if (!ended) node._alertPreviewHandle = handle;
+    }
+
+    function registerAlertNode(node, element) {
+        node._alertSig = JSON.stringify(element);
+        alertNodes.push({ node, element });
+        showAlertPreview(node, element);
     }
 
     function showAlert(payload) {
@@ -160,19 +176,26 @@
                 node._alertPreviewHandle.stop();
                 node._alertPreviewHandle = null;
             }
-            activeAlerts.push(shared.playAlert(node, element, payload, {
+            // Register before playAlert: an implementation may complete synchronously.
+            const entry = { node, handle: null, stopping: false };
+            activeAlerts.add(entry);
+            entry.handle = shared.playAlert(node, element, payload, {
                 onEnd: () => {
-                    if (isAlertPreview(element) && !node._alertPreviewHandle) {
-                        node._alertPreviewHandle = shared.playAlert(node, element, { ...shared.alertSample(element), animIn: 'none', animOut: 'none', durationMs: 3600000 }, { sound: false });
-                    }
+                    activeAlerts.delete(entry);
+                    if (!entry.stopping) showAlertPreview(node, element);
                 }
-            }));
+            });
         }
     }
 
-    function stopAlerts() {
-        activeAlerts.splice(0).forEach(handle => handle.stop());
-        for (const { node } of alertNodes) {
+    function stopAlerts(nodes) {
+        for (const entry of [...activeAlerts]) {
+            if (nodes && !nodes.has(entry.node)) continue;
+            entry.stopping = true;
+            activeAlerts.delete(entry);
+            entry.handle?.stop();
+        }
+        for (const node of nodes || alertNodes.map(item => item.node)) {
             if (node._alertPreviewHandle) {
                 node._alertPreviewHandle.stop();
                 node._alertPreviewHandle = null;
@@ -231,29 +254,32 @@
 
     function playVideoElement(video) {
         if (!video || video.tagName !== 'VIDEO') return;
+        video._playbackWanted = true;
+        const request = video._playRequest = (video._playRequest || 0) + 1;
         if (document.hidden) {
             video._pausedByHidden = true;
             return;
         }
-        const hasSound = video.dataset.hasSound === 'true';
-        const targetVol = Number(video.dataset.targetVolume);
-        const volume = Number.isFinite(targetVol) ? targetVol : 1;
-        if (hasSound) {
-            video.muted = false;
-            video.volume = volume;
-            const promise = video.play();
-            if (promise && promise.catch) {
-                promise.catch(() => {
+        delete video._pausedByHidden;
+        const promise = video.play();
+        if (promise && promise.catch) {
+            promise.catch(() => {
+                if (request !== video._playRequest || !video.isConnected || document.hidden) return;
+                if (!video.muted) {
                     video.dataset.audioPending = 'true';
                     video.muted = true;
                     video.play().catch(() => {});
                     showAudioUnlockNotice();
-                });
-            }
-        } else {
-            video.muted = true;
-            video.play().catch(() => {});
+                }
+            });
         }
+    }
+
+    function initializeVideoElement(video) {
+        if (!video || video._playbackInitialized) return;
+        video._playbackInitialized = true;
+        video._playbackWanted = video.autoplay;
+        if (video.autoplay) playVideoElement(video);
     }
 
     let audioNoticeEl = null;
@@ -277,20 +303,18 @@
 
     function unlockMediaAudio() {
         removeAudioUnlockNotice();
-        document.querySelectorAll('video[data-has-sound="true"]').forEach(video => {
-            const targetVol = Number(video.dataset.targetVolume);
-            const volume = Number.isFinite(targetVol) ? targetVol : 1;
+        document.querySelectorAll('video[data-audio-pending="true"]').forEach(video => {
             video.muted = false;
-            video.volume = volume;
             delete video.dataset.audioPending;
-            if (video.paused) video.play().catch(() => {});
+            if (video.paused && video._playbackWanted) playVideoElement(video);
         });
         document.querySelectorAll('iframe[data-audio-pending="true"]').forEach(frame => {
             delete frame.dataset.audioPending;
             try {
-                const vol = Number(frame.dataset.targetVolume) || 100;
+                const vol = Number(frame.dataset.targetVolume);
+                frame._ytMuted = false;
                 frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
-                frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [vol] }), '*');
+                frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [Number.isFinite(vol) ? vol : 100] }), '*');
             } catch {}
         });
     }
@@ -419,7 +443,6 @@
         slideshowsKept = new Set();
         embedsKept = new Set();
         elementNodesKept = new Set();
-        stopAlerts();
         tickingNodes.length = 0;
         alertNodes.length = 0;
         document.title = `StreamPulse — ${overlay.name}`;
@@ -454,6 +477,7 @@
 
         [...masked.children, ...top.children].forEach(child => {
             if (!built.includes(child)) {
+                stopAlerts(new Set([child]));
                 shared.cleanupNode(child);
                 child.remove();
             }
@@ -464,7 +488,7 @@
         });
         built.forEach(node => {
             const v = node.querySelector(':scope > video');
-            if (v) playVideoElement(v);
+            if (v) initializeVideoElement(v);
         });
         stopSlideshows(new Set([...slideshows.keys()].filter(id => !slideshowsKept.has(id))));
         for (const id of [...embeds.keys()]) if (!embedsKept.has(id)) embeds.delete(id);
@@ -503,24 +527,19 @@
             const existing = embeds.get(element.id);
             if (existing && existing.sig === embedSig) {
                 embedsKept.add(element.id);
-                const v = existing.node.querySelector(':scope > video');
-                if (v) {
-                    const hasSound = Boolean(element.video?.sound === true || (element.video?.sound !== false && element.video?.muted === false));
-                    const volume = Math.max(0, Math.min(1, (Number.isFinite(Number(element.video?.volume)) ? Number(element.video?.volume) : 100) / 100));
-                    v.dataset.hasSound = hasSound ? 'true' : 'false';
-                    v.dataset.targetVolume = String(volume);
-                    if (hasSound && !v.dataset.audioPending) {
-                        v.muted = false;
-                        v.volume = volume;
-                    }
-                    if (v.paused && element.video?.autoplay !== false) v.play().catch(() => {});
-                }
                 return existing.node;
             }
         }
         const existingNode = elementNodes.get(element.id);
         if (existingNode && existingNode._elementType === element.type) {
             elementNodesKept.add(element.id);
+            if (element.type === 'alert') {
+                if (existingNode._alertSig === JSON.stringify(element)) {
+                    registerAlertNode(existingNode, element);
+                    return existingNode;
+                }
+                stopAlerts(new Set([existingNode]));
+            }
             existingNode.dataset.pg = element.page || '';
             applyElementStyle(existingNode, element);
 
@@ -554,10 +573,7 @@
                 shared.renderProgress(existingNode, element, expandVariables);
             } else if (element.type === 'alert') {
                 shared.prepareAlertNode(existingNode, element);
-                alertNodes.push({ node: existingNode, element });
-                if (isAlertPreview(element)) {
-                    existingNode._alertPreviewHandle = shared.playAlert(existingNode, element, { ...shared.alertSample(element), animIn: 'none', animOut: 'none', durationMs: 3600000 }, { sound: false });
-                }
+                registerAlertNode(existingNode, element);
             } else if (element.type === 'shape') {
                 existingNode.setAttribute('aria-hidden', 'true');
             } else if (element.type === 'cutout') {
@@ -612,7 +628,7 @@
                     frame.addEventListener('load', () => {
                         try {
                             frame.contentWindow?.postMessage(JSON.stringify({ event: 'listening' }), '*');
-                            if (hasSound && isObs) {
+                            if (!frame._ytMuted && (isObs || !frame.dataset.audioPending)) {
                                 frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
                                 frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [volume] }), '*');
                             } else {
@@ -635,7 +651,16 @@
                     media.dataset.hasSound = hasSound ? 'true' : 'false';
                     media.dataset.targetVolume = String(volume);
                     media.muted = !hasSound;
-                    if (hasSound) media.volume = volume;
+                    media.volume = volume;
+                    media.addEventListener('play', () => {
+                        if (!media.paused) media._playbackWanted = true;
+                    });
+                    media.addEventListener('pause', () => {
+                        if (media.paused && !media._pausedByHidden) {
+                            media._playbackWanted = false;
+                            media._playRequest = (media._playRequest || 0) + 1;
+                        }
+                    });
                     media.draggable = false;
                     media.style.width = '100%';
                     media.style.height = '100%';
@@ -685,7 +710,7 @@
                     frame.addEventListener('load', () => {
                         try {
                             frame.contentWindow?.postMessage(JSON.stringify({ event: 'listening' }), '*');
-                            if (hasSound && isObs) {
+                            if (!frame._ytMuted && (isObs || !frame.dataset.audioPending)) {
                                 frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
                                 frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [volume] }), '*');
                             } else {
@@ -723,10 +748,7 @@
                 shared.renderProgress(node, element, expandVariables);
             } else if (element.type === 'alert') {
                 shared.prepareAlertNode(node, element);
-                alertNodes.push({ node, element });
-                if (isAlertPreview(element)) {
-                    node._alertPreviewHandle = shared.playAlert(node, element, { ...shared.alertSample(element), animIn: 'none', animOut: 'none', durationMs: 3600000 }, { sound: false });
-                }
+                registerAlertNode(node, element);
             } else if (element.type === 'shape') {
                 node.setAttribute('aria-hidden', 'true');
             } else if (element.type === 'cutout') {
@@ -761,6 +783,7 @@
         const allNodes = [...masked.children, ...top.children];
         const outgoing = allNodes.filter(node => node.dataset.pg && node.dataset.pg !== '*' && node.dataset.pg === previous);
         const gone = new Set(outgoing);
+        stopAlerts(gone);
         const prune = list => {
             for (let i = list.length - 1; i >= 0; i--) {
                 if (gone.has(list[i].node)) {
@@ -800,7 +823,7 @@
             const parent = node._layer === 'top' ? top : masked;
             if (node.parentNode !== parent) parent.appendChild(node);
             const v = node.querySelector(':scope > video');
-            if (v) playVideoElement(v);
+            if (v) initializeVideoElement(v);
         });
         outgoing.forEach(node => { if (ms) node.style.willChange = 'transform, opacity'; });
         refit();
@@ -892,26 +915,38 @@
             const video = node.querySelector('video');
             if (video) {
                 if (act === 'play') {
-                    video.play().catch(() => {});
+                    playVideoElement(video);
                 } else if (act === 'pause') {
+                    video._playbackWanted = false;
+                    delete video._pausedByHidden;
+                    video._playRequest = (video._playRequest || 0) + 1;
                     video.pause();
                 } else if (act === 'toggle') {
-                    if (video.paused) video.play().catch(() => {});
-                    else video.pause();
+                    if (video.paused && !video._pausedByHidden) playVideoElement(video);
+                    else {
+                        video._playbackWanted = false;
+                        delete video._pausedByHidden;
+                        video._playRequest = (video._playRequest || 0) + 1;
+                        video.pause();
+                    }
                 } else if (act === 'restart') {
                     video.currentTime = 0;
-                    video.play().catch(() => {});
+                    playVideoElement(video);
                 } else if (act === 'stop') {
+                    video._playbackWanted = false;
+                    delete video._pausedByHidden;
+                    video._playRequest = (video._playRequest || 0) + 1;
                     video.pause();
                     video.currentTime = 0;
                 } else if (act === 'mute') {
                     video.muted = true;
+                    delete video.dataset.audioPending;
                 } else if (act === 'unmute') {
                     video.muted = false;
                     delete video.dataset.audioPending;
                 } else if (act === 'toggle-mute') {
                     video.muted = !video.muted;
-                    if (!video.muted) delete video.dataset.audioPending;
+                    delete video.dataset.audioPending;
                 }
                 return;
             }
@@ -938,13 +973,16 @@
                         else postCmd('playVideo');
                     } else if (act === 'mute') {
                         iframe._ytMuted = true;
+                        delete iframe.dataset.audioPending;
                         postCmd('mute');
                     } else if (act === 'unmute') {
                         iframe._ytMuted = false;
+                        delete iframe.dataset.audioPending;
                         postCmd('unMute');
                     } else if (act === 'toggle-mute') {
                         const muted = iframe._ytMuted !== false;
                         iframe._ytMuted = !muted;
+                        delete iframe.dataset.audioPending;
                         postCmd(muted ? 'unMute' : 'mute');
                     }
                 } catch {}
@@ -1033,7 +1071,7 @@
                         liveStatus.overlayName = message.data.overlay.name;
                         shared.refreshTextSources(message.data.overlay.elements).finally(() => render(message.data.overlay));
                     }
-                    else root.replaceChildren();
+                    else { stopAlerts(); root.replaceChildren(); }
                 }
             } catch {}
         });
@@ -1056,6 +1094,7 @@
             root.querySelectorAll('video').forEach(v => {
                 if (!v.paused) {
                     v._pausedByHidden = true;
+                    v._playRequest = (v._playRequest || 0) + 1;
                     v.pause();
                 }
             });
@@ -1089,9 +1128,7 @@
         alertPreviewManual = !current;
         for (const { node, element } of alertNodes) {
             if (alertPreviewManual) {
-                if (!node._alertPreviewHandle) {
-                    node._alertPreviewHandle = shared.playAlert(node, element, { ...shared.alertSample(element), animIn: 'none', animOut: 'none', durationMs: 3600000 }, { sound: false });
-                }
+                showAlertPreview(node, element);
             } else {
                 if (node._alertPreviewHandle) {
                     node._alertPreviewHandle.stop();
@@ -1246,6 +1283,7 @@
     // Tear everything down on close so Safari doesn't unload live videos, iframes and timers all at once.
     addEventListener('pagehide', () => {
         closing = true;
+        stopAlerts();
         try { liveSocket?.close(); } catch {}
         root.querySelectorAll('video, audio').forEach(media => { try { media.pause(); media.removeAttribute('src'); media.load(); } catch {} });
         root.querySelectorAll('iframe').forEach(frame => { frame.src = 'about:blank'; });

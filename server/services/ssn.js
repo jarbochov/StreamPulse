@@ -362,6 +362,7 @@ function createSsnService({
     let ssnReconnectTimer = null;
     let ssnAttempts = 0;
     let featuredSocket = null;
+    let featuredReconnectTimer = null;
     let lastSavedChatData = null;
     let lastSavedStats = null;
     let statsBackupRotation = 1;
@@ -434,9 +435,9 @@ function createSsnService({
         const { lastUpdated, ...content } = chatData;
         const fingerprint = JSON.stringify(content);
         if (fingerprint === lastSavedChatData) return;
-        lastSavedChatData = fingerprint;
         chatData.lastUpdated = new Date().toISOString();
         safeWriteFileSync(liveChatPath, JSON.stringify(chatData, null, 2));
+        lastSavedChatData = fingerprint;
     }
 
     function saveChatLog() {
@@ -552,13 +553,17 @@ function createSsnService({
         const statsData = getStatsData();
         const data = JSON.stringify(statsData, null, 2);
         if (data === lastSavedStats) return;
-        lastSavedStats = data;
         safeWriteFileSync(statsPath, data);
+        lastSavedStats = data;
 
-        // Rotating backup (cycles through 1, 2, 3)
+        // Rotating backup (cycles through 1, 2, 3); a failed backup must not undo or block the primary save
         const backupPath = path.join(dataDir, `.stats-backup-${statsBackupRotation}.json`);
-        safeWriteFileSync(backupPath, data);
-        statsBackupRotation = (statsBackupRotation % 3) + 1;
+        try {
+            safeWriteFileSync(backupPath, data);
+            statsBackupRotation = (statsBackupRotation % 3) + 1;
+        } catch (err) {
+            warn(`[Stats] Backup write failed: ${err.message}`);
+        }
     }
 
     function recordSubTenure(chatname, msg, nowISO) {
@@ -1156,6 +1161,8 @@ function createSsnService({
         ssnReconnectTimer = setTimeout(connectSSN, delay);
     }
 
+    const isSocketLive = s => !!s && (s.readyState === WebSocket.CONNECTING || s.readyState === WebSocket.OPEN);
+
     function connectSSN() {
         const ssnSessionId = getSsnSessionId();
         const ssnServer = getSsnServer();
@@ -1165,6 +1172,7 @@ function createSsnService({
         }
 
         clearTimeout(ssnReconnectTimer);
+        if (isSocketLive(ssnSocket)) return;
         log(`[SSN] Connecting to ${ssnServer}...`);
         let socket;
         try {
@@ -1229,11 +1237,15 @@ function createSsnService({
         const ssnSessionId = getSsnSessionId();
         const ssnServer = getSsnServer();
         if (!ssnSessionId) return;
+        clearTimeout(featuredReconnectTimer);
+        featuredReconnectTimer = null;
+        if (isSocketLive(featuredSocket)) return;
         let socket;
         try {
             socket = new WebSocket(ssnServer, { handshakeTimeout: 15000 });
         } catch {
-            return setTimeout(connectFeaturedListener, 30000);
+            featuredReconnectTimer = setTimeout(connectFeaturedListener, 30000);
+            return;
         }
         featuredSocket = socket;
         socket.on('open', () => socket.send(JSON.stringify({ join: ssnSessionId, in: 2, out: 9 })));
@@ -1246,11 +1258,20 @@ function createSsnService({
             } catch { /* ignore */ }
         });
         socket.on('error', () => {});
-        socket.on('close', () => setTimeout(connectFeaturedListener, 15000));
+        socket.on('close', () => {
+            if (featuredSocket !== socket) return;
+            clearTimeout(featuredReconnectTimer);
+            featuredReconnectTimer = setTimeout(connectFeaturedListener, 15000);
+        });
     }
 
     function disconnectSSN() {
         clearTimeout(ssnReconnectTimer);
+        ssnReconnectTimer = null;
+        clearTimeout(featuredReconnectTimer);
+        featuredReconnectTimer = null;
+        clearTimeout(chatBroadcastTimer);
+        chatBroadcastTimer = null;
         if (ssnSocket) {
             try { ssnSocket.terminate(); } catch {}
             ssnSocket = null;

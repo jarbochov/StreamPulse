@@ -1593,8 +1593,19 @@ function createOverlayService({
 
     function dropOverlayPages(id) {
         const state = overlayPageState.get(id);
-        if (state) clearTimeout(state.timer);
+        if (state) {
+            clearTimeout(state.timer);
+            clearTimeout(state.takeoverTimer);
+        }
         overlayPageState.delete(id);
+    }
+
+    function stop() {
+        for (const id of overlayPageState.keys()) dropOverlayPages(id);
+    }
+
+    function start() {
+        for (const overlay of Object.values(customOverlays)) syncOverlayPages(overlay);
     }
 
     // Asset tags & captions
@@ -1697,6 +1708,8 @@ function createOverlayService({
             ...opts
         }),
         getOverlayPageState: (id) => overlayPageState.get(id),
+        start,
+        stop,
         getOverlayThumbnailPath,
         saveOverlayThumbnail,
         deleteOverlayThumbnail,

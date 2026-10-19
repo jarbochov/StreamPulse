@@ -16,9 +16,6 @@ flowchart TD
         Main["Main Process (desktop/main.js)"]
         Tray["System Tray (desktop/tray.js)"]
         Window["Native Window (1360x860)"]
-    end
-
-    subgraph BackgroundProcess["Background Process"]
         ServerManager["Server Manager (desktop/server-manager.js)"]
         Backend["StreamPulse Server (server.js on :3000)"]
     end
@@ -42,7 +39,7 @@ flowchart TD
 - **Zero Monorepo / Submodule Overhead**: Lives directly in `desktop/`. Backend improvements and UI updates immediately reflect in the desktop application.
 - **OBS Browser Source Continuity**: Even when running as a desktop app, the embedded server serves `http://localhost:3000/overlays/...` to OBS Studio just like before.
 - **Background Tray Minimization**: When you close the main dashboard window during a stream, StreamPulse continues running quietly in your macOS menu bar or Windows notification tray.
-- **Isolated Child Process**: The Node.js server runs in its own process, ensuring heavy visual rendering in the desktop UI never blocks chat ingestion or WebSocket broadcasts.
+- **In-Process Backend**: The server runs inside Electron's main process; the dashboard renders in a separate Chromium renderer. Backend filesystem/compression work still shares the main event loop and should be kept short.
 
 ---
 
@@ -61,13 +58,13 @@ To guarantee that your data is safe and persists across upgrades, StreamPulse au
 
 ### Contents of the Data Directory:
 - **`backups/`**: Automated and manual ZIP/JSON archives generated from the Backup & Restore studio.
-- **`assets/`**: Uploaded custom overlay images, transparent WebM/MP4 videos, custom fonts, and audio sound effects.
+- **`custom-overlay-assets/`**: Uploaded custom overlay images, transparent WebM/MP4 videos, custom fonts, and audio sound effects.
 - **`sessions/`**: Historical stream session summaries, chat archives, and viewer dossiers.
 - **`chat.json` & `chat-log.jsonl`**: Live stream chat messages ingested from SocialStream Ninja and Twitch.
-- **`crm.json` & `stats.json`**: Viewer community CRM profiles, notes, watch time, and session statistics.
+- **`chatter-notes.json` & `stats.json`**: Viewer community notes, tags, and collected activity statistics.
 - **`custom-overlays.json` & `overlay-presets.json`**: Saved custom overlay layouts, layer stacks, and shader presets.
 - **`game-plan.json`**: Game rundown catalog, scheduled games, and queue lineups.
-- **`config.json`**: Broadcaster credentials, Twitch tokens, and port configurations (stored at the root of `userData`).
+- **`config.json`**: Broadcaster settings, optional developer-app credentials, and port configuration (stored at the root of `userData`, alongside `data/`). Twitch authorization tokens are saved separately in `data/.twitch-token.json`.
 
 ### Quick Folder Access:
 You can open this directory at any time without navigating hidden system paths:
@@ -96,7 +93,7 @@ flowchart TD
     ServerActive --> OBSLive["OBS Browser Overlays Stay Live"]
     
     QuitApp --> Flush["Flush Chat Logs & Save State"]
-    Flush --> StopServer["Stop Server (SIGTERM)"]
+    Flush --> StopServer["Stop In-Process Services & Connections"]
     StopServer --> FreePort["Release Port & Exit Cleanly"]
 ```
 
@@ -113,10 +110,14 @@ flowchart TD
   - **Windows Menu**: `File` -> **Quit** (`Alt+F4`)
 - StreamPulse initiates a graceful shutdown sequence:
   1. Triggers `app.on('before-quit')`.
-  2. Issues `SIGTERM` to the background Node.js server child process.
-  3. Flushes in-memory chat buffers and session stats to disk.
-  4. Releases port `3000` so other applications can bind to it.
-  5. Destroys the system tray icon and cleanly exits the application.
+  2. Stops background polling, timers, page rotation, alerts, and SSN reconnects.
+  3. Flushes chat buffers and session stats, then archives and resets the current session.
+  4. Closes WebSocket/HTTP connections and releases the configured port.
+  5. Destroys the tray/window and exits only after backend cleanup finishes. Repeated quit requests share the same cleanup operation. Save errors are shown and live data is not intentionally reset after a failed save.
+
+### 3. Restarting the Server
+
+**Restart Server** in the tray and `POST /api/restart` use the same backend lifecycle. The desktop backend restarts in-process, preserves the active session, and recreates its connections and background timers once. OBS sources reconnect; the desktop window reloads after a tray restart. CLI restart replaces the Node.js process while preserving session data.
 
 ---
 

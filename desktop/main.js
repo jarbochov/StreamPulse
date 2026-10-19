@@ -194,7 +194,6 @@ function buildMenu(baseUrl) {
                     label: 'Quit StreamPulse',
                     accelerator: 'Command+Q',
                     click: () => {
-                        app.isQuitting = true;
                         app.quit();
                     }
                 }
@@ -362,26 +361,27 @@ app.whenReady().then(async () => {
     }
 });
 
-app.on('before-quit', async (event) => {
-    if (!app.isQuitting) {
+let quitPromise = null;
+let quitReady = false;
+app.on('before-quit', (event) => {
+    if (!quitReady) {
         event.preventDefault();
+        if (quitPromise) return;
         app.isQuitting = true;
-        console.log('[Desktop] Stopping backend server before application exit...');
-        if (appTray) {
-            try { appTray.destroy(); } catch {}
-        }
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            try { mainWindow.destroy(); } catch {}
-        }
-        try {
-            if (serverManager) {
-                await serverManager.stop();
+        quitPromise = (async () => {
+            console.log('[Desktop] Stopping backend server before application exit...');
+            try {
+                if (serverManager) await serverManager.stop();
+            } catch (err) {
+                console.error('[Desktop] Error stopping backend server:', err);
+                const { dialog } = require('electron');
+                dialog.showErrorBox('StreamPulse Shutdown Error', `Some data could not be saved:\n\n${err.message}`);
+            } finally {
+                if (appTray) appTray.destroy();
+                if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
+                quitReady = true;
+                app.quit();
             }
-        } catch (err) {
-            console.error('[Desktop] Error stopping backend server:', err);
-        }
-        // Fallback timer to ensure process exits cleanly
-        setTimeout(() => process.exit(0), 600).unref();
-        app.quit();
+        })();
     }
 });

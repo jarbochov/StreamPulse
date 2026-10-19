@@ -4,8 +4,8 @@ const fs = require('fs');
 
 /**
  * ServerManager runs the StreamPulse HTTP and WebSocket backend in-process
- * within the Electron main process. This guarantees 100% native ASAR compatibility,
- * instant startup, zero IPC latency, and clean graceful shutdowns across macOS and Windows.
+ * within the Electron main process. The backend owns its timers and connections;
+ * stop/restart must await its lifecycle methods rather than only rebinding HTTP.
  */
 class ServerManager {
     constructor(options = {}) {
@@ -18,6 +18,8 @@ class ServerManager {
         this.logs = [];
         this.maxLogs = 500;
         this.isStopping = false;
+        this.stopPromise = null;
+        this.restartPromise = null;
     }
 
     getConfiguredPort() {
@@ -52,7 +54,9 @@ class ServerManager {
     }
 
     async start() {
+        if (this.stopPromise) await this.stopPromise;
         this.isStopping = false;
+        this.stopPromise = null;
 
         process.env.PORT = String(this.port);
         process.env.STREAMPULSE_DESKTOP = 'true';
@@ -66,6 +70,7 @@ class ServerManager {
         console.log(`[ServerManager] Initializing in-process StreamPulse server on port ${this.port}...`);
         try {
             this.serverInstance = require(this.serverPath);
+            await this.serverInstance.startServer();
             this.appendLog(`[ServerManager] In-process server initialized on port ${this.port}`);
             return true;
         } catch (err) {
@@ -92,6 +97,7 @@ class ServerManager {
             try {
                 const isReady = await new Promise(resolve => {
                     const req = http.get(checkUrl, { timeout: 1000 }, res => {
+                        res.resume();
                         resolve(res.statusCode >= 200 && res.statusCode < 500);
                     });
                     req.on('error', () => resolve(false));
@@ -108,27 +114,28 @@ class ServerManager {
         throw new Error(`StreamPulse backend server timed out after ${timeoutMs}ms on port ${this.port}`);
     }
 
-    async stop() {
-        if (this.isStopping) return;
+    stop() {
+        if (this.stopPromise) return this.stopPromise;
         this.isStopping = true;
-
-        if (this.serverInstance && typeof this.serverInstance.gracefulShutdown === 'function') {
-            try {
-                console.log('[ServerManager] Triggering in-process server graceful shutdown...');
-                this.serverInstance.gracefulShutdown('DESKTOP_QUIT', false);
-            } catch (err) {
-                console.warn('[ServerManager] Error during graceful shutdown:', err);
+        this.stopPromise = (async () => {
+            if (this.restartPromise) await this.restartPromise;
+            if (this.serverInstance) {
+                console.log('[ServerManager] Stopping in-process server...');
+                await this.serverInstance.stopServer();
             }
-        }
+        })();
+        return this.stopPromise;
     }
 
-    async restart() {
-        await this.stop();
-        this.isStopping = false;
-        if (this.serverInstance && this.serverInstance.server && typeof this.serverInstance.server.listen === 'function') {
-            await new Promise(resolve => this.serverInstance.server.listen(this.port, resolve));
-            return this.waitForReady();
-        }
+    restart() {
+        if (this.isStopping) return Promise.reject(new Error('Cannot restart while StreamPulse is quitting'));
+        if (this.restartPromise) return this.restartPromise;
+        this.restartPromise = (async () => {
+            if (!this.serverInstance) throw new Error('StreamPulse server has not started');
+            await this.serverInstance.restartServer();
+            await this.waitForReady();
+        })().finally(() => { this.restartPromise = null; });
+        return this.restartPromise;
     }
 }
 

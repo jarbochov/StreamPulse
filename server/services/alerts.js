@@ -473,13 +473,25 @@ function createAlertEngine({ dataDir, broadcast, runTimerAction, log = console.l
         throw new Error('Unknown queue action');
     }
 
+    function stop() {
+        clearTimeout(currentTimer);
+        currentTimer = null;
+        current = null;
+        queue.length = 0;
+        for (const batch of gifts.values()) clearTimeout(batch.timer);
+        gifts.clear();
+        clearTimeout(saveEventsTimer);
+        saveEventsTimer = null;
+        fs.writeFileSync(eventsPath, JSON.stringify(events));
+    }
+
     return {
         TRIGGERS, ANIM_IN, ANIM_OUT, TIMER_ACTIONS,
         getConfig: () => config,
         setConfig(next) { config = normalizeConfig(next); save(); return config; },
         getQueueState: () => ({ pending: queue.length, current, paused, history, events }),
         replayEvent, replayAlert,
-        handleEvent, fireRule, noteGift, control
+        handleEvent, fireRule, noteGift, control, stop
     };
 }
 

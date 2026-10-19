@@ -15,6 +15,7 @@ module.exports = [
             globals: {
                 console: 'readonly',
                 process: 'readonly',
+                global: 'readonly',
                 Buffer: 'readonly',
                 __dirname: 'readonly',
                 __filename: 'readonly',

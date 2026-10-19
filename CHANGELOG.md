@@ -4,9 +4,26 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ---
 
-## [0.12.0] - 2026-10-18
+## [Unreleased]
+
+### Fixed
+- Correct milestone message totals, broadcast hours, stream counts, and streaks using observed live bounds; exclude offline empty sessions and duplicate archives.
+- Retry unchanged chat/stat snapshots after failed primary saves.
+- Coordinate desktop quit/restart cleanup across server connections, polling, SSN reconnects, and service timers; preserve sessions on restart.
+- Preserve video autoplay/remote-control intent and running custom-overlay alerts across ordinary live-data rerenders; release completed alert handles.
+- Make browser smoke failures return a failing exit status and add isolated accounting, persistence, lifecycle, playback, and alert regressions to `npm test`.
+- Correct API examples, desktop architecture/lifecycle documentation, and optional Chrome setup guidance.
+
+## [0.12.0] - 2026-10-19
 
 ### Added
+- **StreamPulse Official Brand Identity & Icon Suite**:
+  - **New Visual Identity**: Integrated vibrant rainbow conical gradient and 6-spoke emblem across documentation, web applications, and desktop packages.
+  - **GitHub Pages Showcase**: Featured the brand logo prominently beside the "StreamPulse" title in the sidebar header and as the hero emblem on the documentation cover page.
+  - **Universal Favicons & Touch Icons**: Generated rounded-tile squircles for `public/favicon.svg`, `docs/favicon.svg`, and `docs/images/apple-touch-icon.png`.
+  - **Multi-Platform Desktop & Menu Bar Icons**: Generated high-DPI macOS `.icns`, Windows multi-resolution `.ico`, 1024px master `icon.png`, and platform-adaptive macOS menu bar template icons (`setTemplateImage`) with dark/light mode switching on Windows and Linux.
+  - **Brand Tooling**: Unified asset generation script in `scripts/generate-icons.mjs` and refreshed Open Graph social preview (`docs/images/og-preview.png`).
+
 - **Choice Randomizer Studio & 3D Physics Overhaul**:
   - **3D Playing Card Deck Draw Mode**: Added authentic physical 3D playing card deck drawing with 3D deck cutting, split packets, tactile riffle cascade interleave, squaring up, and suspense hover card flip.
   - **Custom Card Deck Branding**: Real-time card deck logo upload (`/api/custom-overlays/assets`), clear button, and dynamic watermark text rendered consistently across split cut packets, riffle cascade cards, and dealt active card backs.

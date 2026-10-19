@@ -873,7 +873,19 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         };
     }
 
+    let tickTimer = null;
+    function start() {
+        if (tickTimer) return;
+        tickTimer = setInterval(() => tick().catch(err => console.warn('[Chatbot] Scheduled message failed:', err.message)), 15000);
+        tickTimer.unref();
+    }
+
+    function stop() {
+        clearInterval(tickTimer);
+        tickTimer = null;
+    }
+
     load();
-    setInterval(() => tick().catch(() => {}), 15000).unref();
-    return { handle, handleApi, handleRaid, getStats };
+    start();
+    return { handle, handleApi, handleRaid, getStats, start, stop };
 };

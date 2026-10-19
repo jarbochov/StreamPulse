@@ -94,7 +94,7 @@ Real-time message volume charts, session stream timers, Twitch connection status
 
 For developers, technical directors, and power users, StreamPulse is engineered with clean, modular primitives:
 
-- **In-Process Engine**: Zero-latency HTTP and WebSocket broadcast engine running on Node.js or embedded directly inside the Electron main process for desktop builds.
+- **Local Engine**: HTTP and WebSocket broadcast engine running on Node.js or embedded directly inside the Electron main process for desktop builds.
 - **SocialStream Ninja Ingest**: Native WebSocket client listening to local or remote SSN sessions, extracting chat messages, cheers, subscriptions, gift subs, and raid events in real time.
 - **Cascading Static File Routing**: Built-in static router in `server/static-router.js` with cascading path resolution (`public/overlays/`, `public/editors/`, `public/wizards/`, `public/tools/`, `public/library/`, `public/system/`) providing 100% backward compatibility for flat root paths with zero redirect latency.
 - **Atomic Local Persistence**: Pure filesystem storage (`data/*.json`, `data/chat-log.jsonl`) with automated hourly backups and ZIP share packages. Zero database server (PostgreSQL/MySQL/MongoDB) required.
@@ -178,7 +178,7 @@ Comprehensive technical guides, API documentation, and hardware configurations a
 | **[Desktop App & Architecture](docs/desktop-app.md)** | Electron desktop wrapper architecture, system tray controls, and automated multi-platform packaging. |
 | **[HTTP API & WebSocket Reference](docs/api-reference.md)** | Complete REST API endpoints for session control, randomizer, timers, and WebSocket events. |
 | **[Architecture & Technical Overview](docs/architecture.md)** | Cascading static routing, modular services architecture, and atomic persistence. |
-| **[Developer & Contributor Guide](docs/developer-guide.md)** | Environment setup, running the test pipeline (`npm test`), and UI/UX design standards. |
+| **[Developer & Contributor Guide](docs/developer-guide.md)** | Environment setup, lint/syntax and isolated behavioral/browser regressions (`npm test`), backend lifecycle, and UI/UX design standards. |
 | **[Release Changelog](docs/changelog.md)** | Detailed release notes, visual shader engine upgrades, 3D physics, and bug fixes. |
 | **[Troubleshooting & FAQ](docs/troubleshooting.md)** | Solutions for port conflicts, OBS browser sources, audio autoplay, and background tabs. |
 

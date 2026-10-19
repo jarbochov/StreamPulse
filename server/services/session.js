@@ -180,12 +180,14 @@ function createSessionService(options = {}) {
         lastLiveAt: 0,
         offlineSince: 0,
         suppressed: false,
-        timer: null
+        timer: null,
+        initialTimer: null
     };
 
     let internalSessionActive = false;
     const isSessionActive = typeof customIsSessionActive === 'function' ? customIsSessionActive : () => internalSessionActive;
     const setSessionActive = typeof customSetSessionActive === 'function' ? customSetSessionActive : (val) => { internalSessionActive = !!val; };
+    let watcherGeneration = 0;
     let milestoneCache = { at: 0, data: null };
 
     function noteArchivedSession(name) {
@@ -417,9 +419,12 @@ function createSessionService(options = {}) {
         const clientId = getTwitchClientId();
         const broadcasterId = getBroadcasterId();
         if (!cfg.auto || !clientId || !broadcasterId) return;
+        const generation = watcherGeneration;
         try {
             if (!(await ensureTwitchToken())) return;
+            if (generation !== watcherGeneration) return;
             const stream = await fetchTwitchStream();
+            if (generation !== watcherGeneration) return;
             if (stream) lifecycleOnLive(stream, cfg);
             else lifecycleOnOffline(cfg);
         } catch (err) {
@@ -452,13 +457,17 @@ function createSessionService(options = {}) {
         if (lifecycle.timer) clearInterval(lifecycle.timer);
         const config = getConfig();
         const cfg = normalizeLifecycleConfig(config?.session_lifecycle);
+        stopLifecycleWatcher();
+        watcherGeneration++;
         lifecycle.timer = setInterval(pollLifecycle, cfg.poll_seconds * 1000);
-        setTimeout(pollLifecycle, 3000);
+        lifecycle.initialTimer = setTimeout(pollLifecycle, 3000);
     }
 
     function stopLifecycleWatcher() {
-        if (!lifecycle.timer) return;
-        clearInterval(lifecycle.timer);
+        watcherGeneration++;
+        if (lifecycle.initialTimer) clearTimeout(lifecycle.initialTimer);
+        lifecycle.initialTimer = null;
+        if (lifecycle.timer) clearInterval(lifecycle.timer);
         lifecycle.timer = null;
     }
 
@@ -509,10 +518,6 @@ function createSessionService(options = {}) {
             archivedFiles = fs.readdirSync(sessionsDir).filter(f => f.startsWith('chat-') && f.endsWith('.json'));
         }
 
-        let totalDurationMs = 0;
-        const streamDates = new Set();
-        const weekSet = new Set();
-
         function getIsoWeek(d) {
             const date = new Date(d.getTime());
             date.setHours(0, 0, 0, 0);
@@ -522,36 +527,40 @@ function createSessionService(options = {}) {
             return `${date.getFullYear()}-W${String(weekNr).padStart(2, '0')}`;
         }
 
+        // Real broadcasts keyed by start time; the current session overrides its own archived copy.
+        const broadcasts = new Map();
+        const addBroadcast = (data, chatEntries, isCurrent) => {
+            const { streamStartAt, streamStopAt } = getSessionStreamTimes(data, chatEntries);
+            const startMs = Date.parse(streamStartAt || '');
+            if (!Number.isFinite(startMs)) return;
+            const vStats = normalizeViewerStats(data?.viewerStats);
+            const endMs = isCurrent && vStats.live && isSessionActive() ? nowMs : Date.parse(streamStopAt || '');
+            if (!Number.isFinite(endMs) || endMs <= startMs) return;
+            broadcasts.set(startMs, { startMs, endMs });
+        };
+
         for (const file of archivedFiles) {
             try {
                 const data = JSON.parse(fs.readFileSync(path.join(sessionsDir, file), 'utf8'));
-                const start = Date.parse(data.startedAt || '');
-                const end = Date.parse(data.lastUpdated || '');
-                if (start && end && end > start) {
-                    totalDurationMs += (end - start);
-                }
-                const dateStr = String(data.startedAt || file).slice(0, 10);
-                if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-                    streamDates.add(dateStr);
-                    weekSet.add(getIsoWeek(new Date(dateStr + 'T12:00:00Z')));
-                }
+                addBroadcast(data, [], false);
             } catch {}
         }
 
         const chatData = getChatData();
         const statsData = getStatsData();
-        if (chatData?.startedAt) {
-            const liveStart = Date.parse(chatData.startedAt);
-            const liveEnd = Date.now();
-            if (liveEnd > liveStart) {
-                totalDurationMs += (liveEnd - liveStart);
-            }
-            const todayStr = new Date().toISOString().slice(0, 10);
-            streamDates.add(todayStr);
-            weekSet.add(getIsoWeek(new Date()));
+        if (chatData?.viewerStats) addBroadcast(chatData, getChatLog(), true);
+
+        let totalDurationMs = 0;
+        const streamDates = new Set();
+        const weekSet = new Set();
+        for (const { startMs, endMs } of broadcasts.values()) {
+            totalDurationMs += endMs - startMs;
+            const startDate = new Date(startMs);
+            streamDates.add(localDateString(startDate));
+            weekSet.add(getIsoWeek(startDate));
         }
 
-        const streamNumber = archivedFiles.length + (chatData?.startedAt && !archivedFiles.some(f => f.includes(chatData.startedAt.slice(0, 10))) ? 1 : 0);
+        const streamNumber = broadcasts.size;
         const totalMinutes = Math.round(totalDurationMs / 60000);
         const totalHours = Math.floor(totalMinutes / 60);
         const remainingMinutes = totalMinutes % 60;
@@ -601,7 +610,7 @@ function createSessionService(options = {}) {
         const totalStoredMessages = typeof statsData?.totalMessages === 'object' && statsData.totalMessages !== null
             ? Object.values(statsData.totalMessages).reduce((sum, count) => sum + (Number(count) || 0), 0)
             : (Number(statsData?.totalMessages) || 0);
-        const lifetimeMessages = totalStoredMessages + (Number(chatData?.messageCount) || 0);
+        const lifetimeMessages = totalStoredMessages;
 
         const nextStreamGoal = streamNumber < 25 ? 25 : (streamNumber < 50 ? 50 : (Math.floor(streamNumber / 25) + 1) * 25);
         const nextHoursGoal = totalHours < 100 ? 100 : (Math.floor(totalHours / 100) + 1) * 100;
@@ -634,6 +643,7 @@ function createSessionService(options = {}) {
     return {
         isSessionActive,
         setSessionActive,
+        lifecycle,
         getLifecycle: () => lifecycle,
         getLifecycleMemo: () => lifecycleMemo,
         noteArchivedSession,

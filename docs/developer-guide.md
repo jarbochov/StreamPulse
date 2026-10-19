@@ -46,6 +46,9 @@ npm test
 This runs:
 1. `eslint server.js server/ scripts/ desktop/` (linting server, desktop wrapper, and tooling code).
 2. `node --check` syntax validation across all server entrypoints, Electron desktop files, route controllers, and domain services.
+3. `npm run test:regression`: isolated session/milestone and save-failure checks, desktop lifecycle checks against temporary data, browser playback/alert regressions, and legacy/static URL smoke tests.
+
+The browser regressions use Puppeteer's Chrome. If it is missing, run `npm run install:chrome` once. The regression suite starts isolated local fixtures; it does not require your production server or use your saved configuration/data. Browser exceptions and failed assertions return a nonzero exit status.
 
 ### Smoke Testing Editors
 
@@ -54,6 +57,16 @@ To verify browser editors and canvases in a headless browser environment:
 ```bash
 npm run smoke:editors
 ```
+
+This separate editor smoke check requires a running development server. Set `STREAMPULSE_URL` to use a non-default URL.
+
+### Backend Lifecycle
+
+`server.js` exports `startServer()`, `stopServer({ preserveSession })`, and `restartServer()`. Desktop startup awaits full backend initialization, not just a bound HTTP port. Stop cancels owned polling, countdown tickers, page rotation/takeovers, chatbot and alert timers, SSN reconnects, and WebSocket connections before releasing HTTP.
+
+Restart preserves session data and restarts the desktop backend in-process without installing duplicate background timers. Explicit quit ends and archives the session. Saving errors are reported rather than followed by a success message or a session reset.
+
+Milestone broadcast time uses observed live start/end bounds rather than the server's uptime. Lifetime message totals come from persistent statistics, which already include current-session messages.
 
 ---
 

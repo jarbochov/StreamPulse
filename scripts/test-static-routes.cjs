@@ -2,6 +2,7 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const puppeteer = require('puppeteer');
+const assert = require('node:assert/strict');
 const { createStaticRouter } = require('../server/static-router');
 
 const rootDir = path.resolve(__dirname, '..');
@@ -18,6 +19,24 @@ const server = http.createServer((req, res) => {
     if (url.pathname === '/api/status') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ viewers: { live: false, current: 0 }, twitch: { hasToken: false }, ssn: { connected: false } }));
+        return;
+    }
+    const fixtures = {
+        '/api/config': { theme: {}, music: { enabled: false }, credits: {} },
+        '/api/randomizer/presets': { presets: [] },
+        '/api/randomizer/button-presets': { presets: [] },
+        '/api/randomizer/quote-presets': { presets: [] },
+        '/api/randomizer/chatters': { chatters: [] },
+        '/api/variables': { variables: [] },
+        '/api/music/now-playing': { state: 'stopped' },
+        '/api/music/overlay': { visible: true },
+        '/api/chatbot': { settings: {}, commands: [], messages: [], quotes: [], triggers: [] },
+        '/api/chatbot/log': [],
+        '/api/chatbot/usage': {}
+    };
+    if (Object.hasOwn(fixtures, url.pathname)) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(fixtures[url.pathname]));
         return;
     }
     if (staticRouter.handleRequest(req, res)) {
@@ -119,8 +138,13 @@ const structuredUrlsToTest = [
     '/js/nav.js'
 ];
 
-server.listen(4829, async () => {
-    console.log('Testing server running on port 4829...');
+async function run() {
+    await new Promise((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(0, '127.0.0.1', resolve);
+    });
+    const baseUrl = `http://127.0.0.1:${server.address().port}`;
+    console.log(`Testing server running at ${baseUrl}...`);
     let passed = 0;
     let failed = 0;
 
@@ -128,7 +152,8 @@ server.listen(4829, async () => {
     console.log('\n--- 1. Testing Legacy Root URLs (HTTP 200) ---');
     for (const urlPath of legacyUrlsToTest) {
         try {
-            const res = await fetch(`http://localhost:4829${urlPath}`);
+            const res = await fetch(`${baseUrl}${urlPath}`);
+            await res.arrayBuffer();
             if (res.status === 200) {
                 passed++;
             } else {
@@ -146,7 +171,8 @@ server.listen(4829, async () => {
     console.log('\n--- 2. Testing Structured Categorized URLs ---');
     let structPassed = 0;
     for (const urlPath of structuredUrlsToTest) {
-        const res = await fetch(`http://localhost:4829${urlPath}`);
+        const res = await fetch(`${baseUrl}${urlPath}`);
+        await res.arrayBuffer();
         if (res.status === 200) {
             structPassed++;
         } else {
@@ -155,6 +181,7 @@ server.listen(4829, async () => {
         }
     }
     console.log(`Structured URLs tested: ${structuredUrlsToTest.length}, Passed: ${structPassed}`);
+    assert.equal(failed, 0, 'Static URL requests failed');
 
     // 3. Test in Puppeteer for visual rendering & console errors
     console.log('\n--- 3. Testing in Headless Browser (Puppeteer) ---');
@@ -166,46 +193,58 @@ server.listen(4829, async () => {
     try {
         const page = await browser.newPage();
         await page.setViewport({ width: 1280, height: 800 });
-
-        const consoleErrors = [];
-        page.on('console', msg => {
-            if (msg.type() === 'error') consoleErrors.push(msg.text());
+        await page.setRequestInterception(true);
+        page.on('request', request => {
+            if (/^https?:/.test(request.url()) && !request.url().startsWith(baseUrl + '/')) {
+                request.respond({ status: 204 }).catch(() => {});
+            } else {
+                request.continue().catch(() => {});
+            }
         });
+        const pageErrors = [];
+        page.on('pageerror', err => pageErrors.push(err.message));
 
         // Test dashboard at root
-        console.log('Testing http://localhost:4829/dashboard.html in browser...');
-        await page.goto('http://localhost:4829/dashboard.html', { waitUntil: 'networkidle0' });
-        const navTitle = await page.$eval('#main-nav', el => el ? true : false);
+        console.log('Testing dashboard in browser...');
+        await page.goto(`${baseUrl}/dashboard.html`, { waitUntil: 'networkidle0' });
+        assert.ok(await page.$('#main-nav'), 'Dashboard navigation is missing');
         console.log('✓ Dashboard rendered successfully with main-nav');
 
         // Test randomizer overlay at legacy root url
-        console.log('Testing http://localhost:4829/randomizer.html?mode=roller&theme=purple in browser...');
-        await page.goto('http://localhost:4829/randomizer.html?mode=roller&theme=purple', { waitUntil: 'networkidle0' });
-        const rollerExists = await page.$eval('#roller-window', el => el ? true : false);
+        console.log('Testing randomizer overlay in browser...');
+        await page.goto(`${baseUrl}/randomizer.html?mode=roller&theme=purple`, { waitUntil: 'networkidle0' });
+        assert.ok(await page.$('#roller-view'), 'Randomizer roller is missing');
         console.log('✓ Randomizer overlay rendered successfully at legacy root URL');
 
         // Test randomizer editor at legacy root url
-        console.log('Testing http://localhost:4829/randomizer-editor.html in browser...');
-        await page.goto('http://localhost:4829/randomizer-editor.html', { waitUntil: 'networkidle0' });
-        const spinBtn = await page.$eval('#btn-spin', el => el ? true : false);
+        console.log('Testing randomizer editor in browser...');
+        await page.goto(`${baseUrl}/randomizer-editor.html`, { waitUntil: 'networkidle0' });
+        assert.ok(await page.$('#btn-spin'), 'Randomizer spin control is missing');
         console.log('✓ Randomizer editor rendered successfully at legacy root URL');
 
         // Test music overlay at legacy root url
-        console.log('Testing http://localhost:4829/music.html?mode=mini in browser...');
-        await page.goto('http://localhost:4829/music.html?mode=mini', { waitUntil: 'networkidle0' });
+        console.log('Testing music overlay in browser...');
+        await page.goto(`${baseUrl}/music.html?mode=mini`, { waitUntil: 'networkidle0' });
         console.log('✓ Music overlay loaded at legacy root URL');
 
         // Test chatbot at legacy root url
-        console.log('Testing http://localhost:4829/chatbot.html in browser...');
-        await page.goto('http://localhost:4829/chatbot.html', { waitUntil: 'networkidle0' });
+        console.log('Testing chatbot in browser...');
+        await page.goto(`${baseUrl}/chatbot.html`, { waitUntil: 'networkidle0' });
         console.log('✓ Chatbot page loaded at legacy root URL');
+        assert.deepEqual(pageErrors, [], 'Browser pages reported uncaught errors');
 
         console.log('\n========================================');
         console.log('ALL PHASE 1 URL REDIRECTION TESTS PASSED!');
         console.log('========================================');
     } finally {
         await browser.close();
-        server.close();
-        process.exit(failed > 0 ? 1 : 0);
     }
+}
+
+run().catch(err => {
+    console.error(err);
+    process.exitCode = 1;
+}).finally(() => {
+    server.close();
+    server.closeAllConnections();
 });

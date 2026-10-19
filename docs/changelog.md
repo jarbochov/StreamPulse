@@ -8,6 +8,16 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- Correct milestone message totals, broadcast hours, stream counts, and streaks using observed live bounds; exclude offline empty sessions and duplicate archives.
+- Retry unchanged chat/stat snapshots after failed primary saves.
+- Coordinate desktop quit/restart cleanup across server connections, polling, SSN reconnects, and service timers; preserve sessions on restart.
+- Preserve video autoplay/remote-control intent and running custom-overlay alerts across ordinary live-data rerenders; release completed alert handles.
+- Make browser smoke failures return a failing exit status and add isolated accounting, persistence, lifecycle, playback, and alert regressions to `npm test`.
+- Correct API examples, desktop architecture/lifecycle documentation, and optional Chrome setup guidance.
+
 ## [0.12.0] - 2026-10-19
 
 ### Added

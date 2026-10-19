@@ -234,7 +234,6 @@ class AppTray {
             {
                 label: 'Quit StreamPulse',
                 click: () => {
-                    app.isQuitting = true;
                     app.quit();
                 }
             }

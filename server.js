@@ -97,6 +97,12 @@ const VIEWER_TRACKING_CONFIG = config.viewer_tracking || { enabled: true, source
 const ACTIVE_SUBS_ONLY = config.active_subs_only || false; // only show subs who chatted
 const DATA_DIR = process.env.STREAMPULSE_DATA_DIR || path.join(__dirname, 'data');
 const isLoopbackRequest = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+const backgroundIntervals = new Set();
+function repeatBackground(fn, delay) {
+    const timer = setInterval(fn, delay);
+    timer.unref();
+    backgroundIntervals.add(timer);
+}
 
 const overlayService = createOverlayService({
     dataDir: DATA_DIR,
@@ -535,7 +541,6 @@ const buildGoalMetrics = () => goalsService.buildGoalMetrics();
 const resetGoalBaseline = goalId => goalsService.resetGoalBaseline(goalId);
 const toggleGoalEnabled = (goalId, mode) => goalsService.toggleGoalEnabled(goalId, mode);
 const buildRecentEvents = limit => goalsService.buildRecentEvents(limit);
-setInterval(() => goalsService.checkGoalAlerts(), 5000).unref();
 const handleGoalsRoutes = createGoalsRoutes({
     goalsService,
     getConfig: () => config,
@@ -589,7 +594,7 @@ function checkRateLimit(req, res) {
 }
 
 // Clean up stale rate limit entries every 5 minutes
-setInterval(() => {
+function pruneRateLimits() {
     const now = Date.now();
     for (const [ip, entry] of rateLimitMap) {
         entry.reads = entry.reads.filter(t => now - t < 60000);
@@ -598,7 +603,7 @@ setInterval(() => {
             rateLimitMap.delete(ip);
         }
     }
-}, 300000);
+}
 
 function openBrowser(url) {
     const cmd = process.platform === 'darwin' ? 'open' :
@@ -1193,25 +1198,28 @@ function downloadFile(url, destination) {
     });
 }
 
+let restartPromise = null;
 function restartServer() {
-    let restarted = false;
-    const launchReplacement = () => {
-        if (restarted) return;
-        restarted = true;
-        const child = require('child_process').spawn(process.execPath, process.argv.slice(1), {
-            cwd: __dirname,
-            detached: true,
-            stdio: 'ignore'
-        });
-        child.unref();
-        process.exit(0);
-    };
+    if (restartPromise) return restartPromise;
+    restartPromise = (async () => {
+        await stopServer({ preserveSession: true });
+        if (process.env.STREAMPULSE_DESKTOP === 'true') {
+            await startServer();
+            return;
+        }
+        launchReplacement();
+    })().finally(() => { restartPromise = null; });
+    return restartPromise;
+}
 
-    if (ssnSocket) ssnSocket.terminate();
-    wsService.closeAllConnections();
-    if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
-    server.close(launchReplacement);
-    setTimeout(launchReplacement, 1500);
+function launchReplacement() {
+    const child = require('child_process').spawn(process.execPath, process.argv.slice(1), {
+        cwd: __dirname,
+        detached: true,
+        stdio: 'ignore'
+    });
+    child.unref();
+    process.exit(0);
 }
 
 // Release tags are "0.8" or "0.8.1" while package.json uses "0.8.0", so compare numerically.
@@ -1270,7 +1278,7 @@ async function applyUpdate(mode) {
         } finally {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
-        setTimeout(() => restartServer(), 500);
+        setTimeout(() => restartServer().catch(err => console.error('[Update] Restart failed:', err)), 500);
         return { ...status, updated: true, message: 'Release installed. StreamPulse is restarting.' };
     }
     const { stdout: changes } = await execFileAsync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: __dirname });
@@ -1293,7 +1301,7 @@ async function applyUpdate(mode) {
         throw new Error(`Dependencies failed to install: ${err.message}`);
     }
     setTimeout(() => {
-        restartServer();
+        restartServer().catch(err => console.error('[Update] Restart failed:', err));
     }, 500);
     return { ...status, updated: true, message: 'Update installed. StreamPulse is restarting.' };
 }
@@ -1643,10 +1651,8 @@ async function handleShutdown() {
     resetChatData();
     console.log('[API] Shutdown requested');
     setTimeout(() => {
-        if (ssnSocket) ssnSocket.close();
-        server.close();
-        console.log('[Server] Goodbye!');
-        process.exit(0);
+        if (process.env.STREAMPULSE_DESKTOP === 'true') require('electron').app.quit();
+        else gracefulShutdown('API_SHUTDOWN');
     }, 500);
     return { status: 'shutting_down', archived: archiveName, streamEndedAt, message: 'Server shutting down...' };
 }
@@ -1656,7 +1662,7 @@ function handleRestart() {
     saveStats();
     saveChatLog();
     console.log('[API] Restart requested');
-    setTimeout(() => restartServer(), 100);
+    setTimeout(() => restartServer().catch(err => console.error('[Server] Restart failed:', err)), 100);
     return { status: 'restarting', message: 'StreamPulse is restarting and will resume the active session.' };
 }
 
@@ -1849,14 +1855,15 @@ console.log('============================================');
 console.log('  StreamPulse Server');
 console.log('============================================');
 
-// WebSocket server for live overlay push
-const overlayWss = wsService.attachServer(server);
-
 // Node's 5s default keep-alive closes sockets Safari still tries to reuse, which stalls requests until the browser is restarted.
 server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
 
-server.listen(PORT, () => {
+let initialized = false;
+let shutdownPromise = null;
+let startPromise = null;
+
+function initializeServer() {
     console.log(`  HTTP:      http://localhost:${PORT}`);
     console.log(`  Credits:   http://localhost:${PORT}/credits.html`);
     console.log(`  Stats:     http://localhost:${PORT}/stats.html`);
@@ -1874,36 +1881,41 @@ server.listen(PORT, () => {
 
     // Restore the active session after a process restart. A new session is
     // created explicitly through /api/start-session or /api/end-session.
-    loadCurrentSessionStateFromDisk();
-    if (chatData.messageCount > 0 || chatLog.length > 0) {
-        sessionActive = true;
-        console.log(`[Startup] Resumed session from ${chatData.startedAt}`);
-    } else {
-        if (normalizeLifecycleConfig(config.session_lifecycle).auto) {
+    if (!initialized) {
+        loadCurrentSessionStateFromDisk();
+        if (chatData.messageCount > 0 || chatLog.length > 0) {
+            sessionActive = true;
+            console.log(`[Startup] Resumed session from ${chatData.startedAt}`);
+        } else if (normalizeLifecycleConfig(config.session_lifecycle).auto) {
             sessionActive = false;
             console.log('[Startup] No session data; waiting for the stream to go live to start one');
         } else {
             console.log('[Startup] No active session data to resume');
         }
+
+        loadStats();
+        loadTimers();
+        loadStoredToken();
+        initialized = true;
     }
 
-    // Load persistent stats
-    loadStats();
-    loadTimers();
     startTimerTicker();
+    chatbot.start();
+    overlayService.start();
+    repeatBackground(() => goalsService.checkGoalAlerts(), 5000);
+    repeatBackground(pruneRateLimits, 300000);
 
     // Start SSN collector
     connectSSN();
     connectFeaturedListener();
 
     // Load stored Twitch token and fetch data
-    loadStoredToken();
     if (twitchService.getAccessToken()) {
         fetchTwitchData();
         fetchStreamInfo();
         fetchViewerCount();
         fetchTwitchPoll();
-    } else if (TWITCH_CLIENT_ID) {
+    } else if (TWITCH_CLIENT_ID && process.env.STREAMPULSE_DESKTOP !== 'true') {
         const authUrl = `http://localhost:${PORT}/auth/twitch`;
         console.log(`[Twitch] No token found — opening browser to authorize...`);
         openBrowser(authUrl);
@@ -1911,28 +1923,28 @@ server.listen(PORT, () => {
 
     // Auto-refresh Twitch data and stream info
     if (REFRESH_MINUTES > 0) {
-        setInterval(() => {
+        repeatBackground(() => {
             fetchTwitchData();
             fetchStreamInfo();
-        }, REFRESH_MINUTES * 60 * 1000).unref();
+        }, REFRESH_MINUTES * 60 * 1000);
         console.log(`[Twitch] Auto-refresh every ${REFRESH_MINUTES} minutes`);
     }
     // Title and category are cheap to poll, so they stay near real time.
-    setInterval(fetchStreamInfo, STREAM_INFO_POLL_SECONDS * 1000).unref();
+    repeatBackground(fetchStreamInfo, STREAM_INFO_POLL_SECONDS * 1000);
     // Poll for active/completed Twitch polls every 10 seconds.
-    setInterval(fetchTwitchPoll, 10 * 1000).unref();
+    repeatBackground(fetchTwitchPoll, 10 * 1000);
     // Keep the token fresh in the background so an idle server never lets it lapse.
-    setInterval(() => { if (twitchService.getRefreshToken() && Date.now() > twitchService.getTokenExpiry() - 30 * 60000) refreshTwitchToken(); }, 5 * 60000).unref();
+    repeatBackground(() => { if (twitchService.getRefreshToken() && Date.now() > twitchService.getTokenExpiry() - 30 * 60000) refreshTwitchToken(); }, 5 * 60000);
 
     startViewerTracking();
     startLifecycleWatcher();
 
     // Save chat/stats/log to disk every 5 seconds
-    setInterval(() => {
+    repeatBackground(() => {
         saveChatData();
         saveStats();
         saveChatLog();
-    }, 5000).unref();
+    }, 5000);
 
     scheduleWeather();
 
@@ -1940,7 +1952,33 @@ server.listen(PORT, () => {
     if (MUSIC_CONFIG.enabled) {
         startMusicPolling();
     }
-});
+}
+
+function startServer() {
+    if (startPromise) return startPromise;
+    if (server.listening) return Promise.resolve();
+    shutdownPromise = null;
+    wsService.attachServer(server);
+    startPromise = new Promise((resolve, reject) => {
+        const onError = err => {
+            server.removeListener('listening', onListening);
+            reject(err);
+        };
+        const onListening = () => {
+            server.removeListener('error', onError);
+            try {
+                initializeServer();
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
+        };
+        server.once('error', onError);
+        server.once('listening', onListening);
+        server.listen(PORT);
+    }).finally(() => { startPromise = null; });
+    return startPromise;
+}
 
 server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
@@ -1951,29 +1989,74 @@ server.on('error', (err) => {
     }
 });
 
-// Graceful shutdown
-function gracefulShutdown(signal, shouldExit = true) {
-    console.log(`\n[Server] Received ${signal}. Shutting down...`);
-    try { finalizeSessionStreamEnd(); } catch { /* ignore */ }
-    try { saveChatData(); } catch { /* ignore */ }
-    try { saveStats(); } catch { /* ignore */ }
-    try { saveChatLog(); } catch { /* ignore */ }
-    try {
-        const archiveName = archiveSession();
-        if (archiveName) console.log(`[Server] Session archived: ${archiveName}`);
-    } catch { /* ignore */ }
-    try { resetChatData(); } catch { /* ignore */ }
-    try { if (ssnSocket) ssnSocket.close(); } catch { /* ignore */ }
-    try {
-        if (server && server.listening) {
-            if (typeof server.closeAllConnections === 'function') {
-                server.closeAllConnections();
+function stopServer({ preserveSession = false } = {}) {
+    if (!preserveSession && restartPromise) {
+        return restartPromise.catch(err => {
+            console.error('[Shutdown] Restart did not complete:', err);
+        }).then(() => stopServer());
+    }
+    if (shutdownPromise) return shutdownPromise;
+    shutdownPromise = (async () => {
+        const errors = [];
+        const attempt = fn => {
+            try { fn(); } catch (err) {
+                errors.push(err);
+                console.error('[Shutdown]', err);
             }
-            server.close();
+        };
+        if (startPromise) {
+            try { await startPromise; } catch (err) {
+                errors.push(err);
+                console.error('[Shutdown] Startup did not complete:', err);
+            }
         }
-    } catch { /* ignore */ }
-    console.log('[Server] Data saved. Goodbye!');
-    if (shouldExit) process.exit(0);
+        for (const timer of backgroundIntervals) clearInterval(timer);
+        backgroundIntervals.clear();
+        attempt(() => ssnService.disconnectSSN());
+        attempt(() => stopLifecycleWatcher());
+        attempt(() => stopViewerTracking());
+        attempt(() => timerService.stopTimerTicker());
+        attempt(() => stopMusicPolling());
+        attempt(() => weatherService.stop());
+        attempt(() => chatbot.stop());
+        attempt(() => alertEngine.stop());
+        attempt(() => overlayService.stop());
+        if (!preserveSession) attempt(() => finalizeSessionStreamEnd());
+        attempt(() => saveChatData());
+        attempt(() => saveStats());
+        attempt(() => saveChatLog());
+        if (!preserveSession && !errors.length) {
+            attempt(() => {
+                const archiveName = archiveSession();
+                if (sessionService.sessionHasData() && !archiveName) throw new Error('Session archive failed; live data was preserved');
+                if (archiveName) console.log(`[Server] Session archived: ${archiveName}`);
+                resetChatData();
+                sessionActive = false;
+            });
+        }
+        wsService.closeAllConnections();
+        if (server.listening) {
+            await new Promise((resolve, reject) => {
+                server.close(err => err ? reject(err) : resolve());
+                server.closeAllConnections();
+            });
+        }
+        if (errors.length) throw new AggregateError(errors, 'StreamPulse shutdown encountered errors');
+    })();
+    return shutdownPromise;
+}
+
+async function gracefulShutdown(signal, shouldExit = true) {
+    console.log(`\n[Server] Received ${signal}. Shutting down...`);
+    try {
+        await stopServer();
+        console.log('[Server] Data saved. Goodbye!');
+        if (shouldExit) process.exit(0);
+    } catch (err) {
+        console.error('[Server] Shutdown failed:', err);
+        if (shouldExit) process.exit(1);
+        throw err;
+    }
 }
 
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
@@ -1989,5 +2072,13 @@ process.on('uncaughtException', (err) => {
 module.exports = {
     server,
     gracefulShutdown,
+    startServer,
+    stopServer,
+    restartServer,
     port: PORT
 };
+
+startServer().catch(err => {
+    console.error('[Server] Startup failed:', err);
+    process.exitCode = 1;
+});
