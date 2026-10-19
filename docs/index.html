@@ -25,9 +25,6 @@
       color: #cbd5e1;
       -webkit-font-smoothing: antialiased;
     }
-    .content {
-      padding-top: 80px !important;
-    }
     .sidebar {
       background-color: #0f1422;
       color: #94a3b8;
@@ -122,6 +119,78 @@
     }
     .sidebar-nav > ul > li.is-collapsed > ul {
       display: none !important;
+    }
+
+    /* Sidebar Funding Card */
+    .sidebar-funding-card {
+      margin: 1.5rem 0.85rem 2rem;
+      padding: 14px 14px 12px;
+      background: linear-gradient(180deg, rgba(23, 31, 51, 0.75) 0%, rgba(15, 20, 34, 0.95) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+      position: relative;
+      overflow: hidden;
+    }
+    .sidebar-funding-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #ff5e5b, #ff8583);
+    }
+    .sidebar-funding-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #ff8583;
+      background: rgba(255, 94, 91, 0.12);
+      border: 1px solid rgba(255, 94, 91, 0.25);
+      border-radius: 4px;
+      padding: 2px 7px;
+      margin-bottom: 8px;
+    }
+    .sidebar-funding-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 4px;
+      letter-spacing: -0.01em;
+    }
+    .sidebar-funding-desc {
+      font-size: 11.5px;
+      line-height: 1.45;
+      color: #94a3b8;
+      margin-bottom: 12px;
+    }
+    .sidebar-funding-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #ffffff !important;
+      background: linear-gradient(135deg, #ff5e5b 0%, #fa4744 100%);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      text-decoration: none !important;
+      box-shadow: 0 2px 8px rgba(255, 94, 91, 0.35);
+      transition: all 0.15s ease;
+    }
+    .sidebar-funding-btn:hover {
+      background: linear-gradient(135deg, #fa4744 0%, #e0322f 100%);
+      box-shadow: 0 4px 14px rgba(255, 94, 91, 0.55);
+      transform: translateY(-1px);
+      color: #ffffff !important;
     }
 
     /* Content & Markdown Clearance */
@@ -430,6 +499,20 @@
       color: #ffffff !important;
       transform: translateY(-2px);
     }
+    .cover-btn-sponsor {
+      background: rgba(255, 94, 91, 0.14);
+      border: 1px solid rgba(255, 94, 91, 0.4);
+      color: #ff8583 !important;
+      backdrop-filter: blur(8px);
+      gap: 8px;
+    }
+    .cover-btn-sponsor:hover {
+      background: #ff5e5b;
+      border-color: #ff5e5b;
+      color: #ffffff !important;
+      box-shadow: 0 4px 20px rgba(255, 94, 91, 0.45);
+      transform: translateY(-2px);
+    }
     .cover-preview-card {
       max-width: 960px;
       margin: 0 auto 2.5rem auto;
@@ -592,7 +675,7 @@
       onlyCover: false,
       loadSidebar: true,
       loadNavbar: false,
-      subMaxLevel: 3,
+      subMaxLevel: 2,
       auto2top: true,
       search: {
         maxAge: 86400000,
@@ -669,14 +752,34 @@
                 });
               }
 
-              // Determine if this section holds the currently active link
+              // Do NOT auto-collapse top-level sections (Studios & Overlays, Technical Reference, etc.)
+              // If user manually collapsed a section and now visits a link inside it, expand it so it's visible.
               var hasActiveLink = !!section.querySelector('a.active') || !!section.querySelector('.active');
               if (hasActiveLink) {
                 section.classList.remove('is-collapsed');
-              } else {
-                section.classList.add('is-collapsed');
               }
             });
+
+            // Insert or refresh sidebar funding card
+            var sidebar = document.querySelector('.sidebar');
+            if (sidebar && !sidebar.querySelector('.sidebar-funding-card')) {
+              var fundingCard = document.createElement('div');
+              fundingCard.className = 'sidebar-funding-card';
+              fundingCard.innerHTML = '<div class="sidebar-funding-badge">' +
+                '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' +
+                '100% Self-Funded</div>' +
+                '<div class="sidebar-funding-title">Support StreamPulse</div>' +
+                '<p class="sidebar-funding-desc">Completely self-made and independently maintained with zero cloud fees. Support development on Ko-fi.</p>' +
+                '<a href="https://ko-fi.com/jarbochov" target="_blank" rel="noopener noreferrer" class="sidebar-funding-btn">' +
+                '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.047 3.974-4.047 3.974s-2.8-2.521-4.047-3.974c-1.332-1.554-1.218-3.83.255-5.176 1.472-1.346 3.792-.98 3.792-.98s2.32-.366 3.792.98c1.473 1.346 1.587 3.622.255 5.176zm6.326-1.545c-.495 1.579-2.072 1.639-2.072 1.639v-4.143s1.577.06 2.072 1.639c.334 1.07.135 1.956 0 2.504z"/></svg>' +
+                '<span>Support on Ko-fi</span></a>';
+              var sidebarNav = sidebar.querySelector('.sidebar-nav');
+              if (sidebarNav) {
+                sidebarNav.parentNode.insertBefore(fundingCard, sidebarNav.nextSibling);
+              } else {
+                sidebar.appendChild(fundingCard);
+              }
+            }
 
             if (window.pele && typeof window.pele.render === 'function') {
               document.querySelectorAll('.mermaid-diagram[data-pele-pending="true"]').forEach(function(el) {

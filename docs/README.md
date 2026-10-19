@@ -5,6 +5,7 @@
 [![Architecture](https://img.shields.io/badge/Architecture-Self--Hosted%20%26%20Local--First-emerald.svg)](architecture.md)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/jarbochov/StreamPulse/blob/main/LICENSE)
 [![Companion](https://img.shields.io/badge/Bitfocus%20Companion-32--Key%20Ready-purple.svg)](companion.md)
+[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20StreamPulse-ff5e5b.svg?logo=kofi&logoColor=white)](https://ko-fi.com/jarbochov)
 
 Welcome to the official documentation for **StreamPulse**, the ultimate self-hosted broadcast companion and overlay suite for [SocialStream Ninja](https://socialstream.ninja/) and Twitch.
 
@@ -20,6 +21,10 @@ StreamPulse is a lightweight, self-hosted companion that runs quietly on your co
 - **Decentralized Multi-Platform Power**: Pairs natively with SocialStream Ninja to ingest Twitch, YouTube, Kick, and Discord chat into one unified stream engine.
 - **Cinematic Broadcast Overlays**: Instant OBS browser sources for movie-style scrolling end credits, spinning choice randomizers, game plan broadcast schedules, community goal meters, and retro CRT animated borders.
 - **Obsessively Low Overhead**: Uses negligible CPU and RAM so your computer can focus all its power on gaming and video encoding without dropped frames.
+
+> [!NOTE]
+> **100% Self-Made & Independently Funded**
+> StreamPulse is completely self-made, open-source, and privately maintained without corporate sponsors, subscriptions, or telemetry. If StreamPulse enhances your live stream production, consider supporting ongoing development on [Ko-fi](https://ko-fi.com/jarbochov).
 
 ---
 
@@ -216,6 +221,18 @@ StreamPulse is built on the shoulders of giants and inspired by the open streami
 - **[Developer & Contributor Guide](developer-guide.md)**: Codebase setup, running the test pipeline (`npm test`), ESLint configuration, and strict No-Emoji design system guidelines.
 - **[Server Management & Backups](server-management.md)**: Service supervisor configuration, atomic data directory backups, and headless deployment on Linux servers.
 - **[Troubleshooting & FAQ](troubleshooting.md)**: Practical solutions for port conflicts, OBS browser source audio autoplay policies, background tab throttling, and PDF report exports.
+
+---
+
+## Community Support & Funding
+
+StreamPulse is 100% self-made, open-source, and privately self-funded. There are no corporate sponsors, paywalled features, investor boards, or monetization subscriptions.
+
+If StreamPulse brings value to your stream, helps celebrate your community, or saves you subscription costs from commercial alert tools, you can support continuous development, hosting, and hardware testing on Ko-fi:
+
+<a href="https://ko-fi.com/jarbochov" target="_blank" rel="noopener noreferrer">
+  <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support StreamPulse on Ko-fi" />
+</a>
 
 ---
 

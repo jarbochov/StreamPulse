@@ -21,3 +21,7 @@
   * [Developer Guide](developer-guide.md)
   * [Server Management](server-management.md)
   * [Troubleshooting & FAQ](troubleshooting.md)
+
+* **Community & Support**
+  * [Support on Ko-fi](https://ko-fi.com/jarbochov ':target=_blank')
+  * [GitHub Repository](https://github.com/jarbochov/StreamPulse ':target=_blank')

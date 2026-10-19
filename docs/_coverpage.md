@@ -11,7 +11,11 @@
     <a href="#/quickstart" class="cover-btn cover-btn-primary">Get Started in 5 Min</a>
     <a href="#/custom-overlays" class="cover-btn cover-btn-secondary">Explore Studios</a>
     <a href="#/desktop-app" class="cover-btn cover-btn-ghost">Desktop App (1.0)</a>
-    <a href="https://github.com/jarbochov/StreamPulse" target="_blank" class="cover-btn cover-btn-ghost">GitHub</a>
+    <a href="https://github.com/jarbochov/StreamPulse" target="_blank" rel="noopener noreferrer" class="cover-btn cover-btn-ghost">GitHub</a>
+    <a href="https://ko-fi.com/jarbochov" target="_blank" rel="noopener noreferrer" class="cover-btn cover-btn-sponsor">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="vertical-align:middle;margin-right:6px;"><path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.047 3.974-4.047 3.974s-2.8-2.521-4.047-3.974c-1.332-1.554-1.218-3.83.255-5.176 1.472-1.346 3.792-.98 3.792-.98s2.32-.366 3.792.98c1.473 1.346 1.587 3.622.255 5.176zm6.326-1.545c-.495 1.579-2.072 1.639-2.072 1.639v-4.143s1.577.06 2.072 1.639c.334 1.07.135 1.956 0 2.504z"/></svg>
+      Support on Ko-fi
+    </a>
   </div>
 
   <div class="cover-preview-card">
@@ -21,8 +25,12 @@
 
   <div class="cover-features-row">
     <div class="cover-feature-pill">
+      <div class="cover-feature-title">100% Self-Made & Funded</div>
+      <div class="cover-feature-desc">Independently built and self-supported with zero corporate backing or cloud fees</div>
+    </div>
+    <div class="cover-feature-pill">
       <div class="cover-feature-title">Zero Cloud Lock-in</div>
-      <div class="cover-feature-desc">Runs entirely on your local machine with zero external fees</div>
+      <div class="cover-feature-desc">Runs entirely on your local machine with total data ownership</div>
     </div>
     <div class="cover-feature-pill">
       <div class="cover-feature-title">OBS GPU Accelerated</div>
@@ -32,9 +40,5 @@
       <div class="cover-feature-title">Tactile Hardware Control</div>
       <div class="cover-feature-desc">Pre-configured 32-key Bitfocus Companion profile for Stream Deck</div>
     </a>
-    <div class="cover-feature-pill">
-      <div class="cover-feature-title">Multi-Platform Ingestion</div>
-      <div class="cover-feature-desc">Direct Twitch API & SocialStream Ninja real-time event pipeline</div>
-    </div>
   </div>
 </div>
