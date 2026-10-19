@@ -4,8 +4,41 @@
   <meta charset="UTF-8">
   <title>StreamPulse — The Broadcast Companion Suite</title>
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
-  <meta name="description" content="StreamPulse - The self-hosted broadcast companion and overlay suite for SocialStream Ninja and Twitch. Cinematic OBS browser overlays, choice randomizers, credits rolls, and community CRM.">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <meta name="description" content="StreamPulse is the ultimate self-hosted broadcast companion and overlay suite for SocialStream Ninja and Twitch. Cinematic OBS browser overlays, choice randomizers, credits rolls, and community CRM.">
+  <meta name="keywords" content="StreamPulse, OBS Studio, SocialStream Ninja, Twitch, streaming overlays, broadcast companion, choice randomizer, stream credits, community CRM, Bitfocus Companion">
+  <meta name="author" content="StreamPulse">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="canonical" href="https://jarbochov.github.io/StreamPulse/">
+
+  <!-- Open Graph / Facebook / Discord / iMessage -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://jarbochov.github.io/StreamPulse/">
+  <meta property="og:site_name" content="StreamPulse">
+  <meta property="og:title" content="StreamPulse — The Broadcast Companion Suite">
+  <meta property="og:description" content="Self-hosted broadcast companion and overlay suite for SocialStream Ninja and Twitch. Cinematic OBS browser overlays, choice randomizers, credits rolls, and community CRM.">
+  <meta property="og:image" content="https://jarbochov.github.io/StreamPulse/images/og-preview.png">
+  <meta property="og:image:secure_url" content="https://jarbochov.github.io/StreamPulse/images/og-preview.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="StreamPulse Broadcast Companion and Overlay Suite">
+  <meta property="og:locale" content="en_US">
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://jarbochov.github.io/StreamPulse/">
+  <meta name="twitter:title" content="StreamPulse — The Broadcast Companion Suite">
+  <meta name="twitter:description" content="Self-hosted broadcast companion and overlay suite for SocialStream Ninja and Twitch. Cinematic OBS browser overlays, choice randomizers, credits rolls, and community CRM.">
+  <meta name="twitter:image" content="https://jarbochov.github.io/StreamPulse/images/og-preview.png">
+  <meta name="twitter:image:alt" content="StreamPulse Broadcast Companion and Overlay Suite">
+
+  <!-- Apple / iOS Messages -->
+  <meta name="apple-mobile-web-app-title" content="StreamPulse">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/dark.css">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify-tabs@1/dist/docsify-tabs.css">
@@ -252,8 +285,11 @@
     }
     /* Complete Dark Mode Table Architecture */
     .markdown-section table {
-      display: table !important;
+      display: block !important;
       width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch !important;
       border-collapse: separate !important;
       border-spacing: 0 !important;
       margin: 2rem 0 !important;
@@ -261,7 +297,6 @@
       border: 1px solid #1e293b !important;
       background: #0b0f19 !important;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
-      overflow: hidden !important;
     }
     .markdown-section tr {
       background: transparent !important;
@@ -394,6 +429,12 @@
     }
 
     /* Coverpage Hero Section - ONLY displayed on homepage */
+    section.cover {
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      overflow-x: hidden !important;
+    }
     section.cover:not(.show) {
       display: none !important;
     }
@@ -405,35 +446,50 @@
       align-items: center;
       justify-content: center;
       position: relative;
+      padding: 2.5rem 1rem !important;
+      box-sizing: border-box !important;
     }
     section.cover .cover-main {
-      max-width: 1040px;
-      margin: 0 auto;
-      padding: 3rem 1.5rem;
+      width: 100% !important;
+      max-width: 1040px !important;
+      margin: 0 auto !important;
+      padding: 2rem 1rem !important;
       text-align: center;
+      box-sizing: border-box !important;
+      overflow: hidden;
     }
     .cover-hero {
       display: flex;
       flex-direction: column;
       align-items: center;
       text-align: center;
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
     }
     .cover-pill {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       background: rgba(99, 102, 241, 0.12);
       border: 1px solid rgba(99, 102, 241, 0.35);
       color: #a5b4fc;
       font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      padding: 6px 16px;
+      padding: 6px 14px;
       border-radius: 999px;
       margin-bottom: 1.5rem;
       box-shadow: 0 0 16px rgba(99, 102, 241, 0.2);
+      max-width: 100%;
+      text-align: center;
+      line-height: 1.4;
+      word-break: break-word;
+      box-sizing: border-box;
     }
     section.cover h1 {
-      font-size: clamp(2.5rem, 5.5vw, 4.2rem) !important;
+      font-size: clamp(2.2rem, 5.5vw, 4.2rem) !important;
       font-weight: 900 !important;
       letter-spacing: -0.04em !important;
       background: linear-gradient(135deg, #ffffff 30%, #c7d2fe 70%, #818cf8 100%);
@@ -442,31 +498,40 @@
       margin: 0 0 1rem 0 !important;
       border: none !important;
       line-height: 1.15;
+      max-width: 100%;
+      word-break: break-word;
     }
     .cover-subtitle {
       color: #94a3b8;
-      font-size: clamp(1rem, 2vw, 1.25rem);
+      font-size: clamp(0.95rem, 2.5vw, 1.25rem);
       max-width: 760px;
+      width: 100%;
       margin: 0 auto 2rem auto;
       line-height: 1.6;
+      box-sizing: border-box;
+      padding: 0 8px;
     }
     .cover-cta-row {
       display: flex;
-      gap: 14px;
+      gap: 12px;
       justify-content: center;
       flex-wrap: wrap;
       margin-bottom: 2.5rem;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
     }
     .cover-btn {
       text-decoration: none !important;
       font-size: 14px;
       font-weight: 700;
-      padding: 12px 24px;
+      padding: 12px 22px;
       border-radius: 8px;
       transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      box-sizing: border-box;
     }
     .cover-btn-primary {
       background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
@@ -515,6 +580,7 @@
     }
     .cover-preview-card {
       max-width: 960px;
+      width: 100%;
       margin: 0 auto 2.5rem auto;
       border-radius: 12px;
       border: 1px solid rgba(255, 255, 255, 0.15);
@@ -522,6 +588,7 @@
       overflow: hidden;
       box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85);
       transition: transform 0.25s ease, border-color 0.25s ease;
+      box-sizing: border-box;
     }
     .cover-preview-card:hover {
       transform: translateY(-4px);
@@ -548,11 +615,12 @@
     }
     .cover-features-row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+      gap: 14px;
       width: 100%;
       max-width: 960px;
       margin: 0 auto;
+      box-sizing: border-box;
     }
     .cover-feature-pill {
       background: rgba(15, 23, 42, 0.7);
@@ -561,6 +629,7 @@
       padding: 14px 18px;
       text-align: left;
       transition: border-color 0.2s ease;
+      box-sizing: border-box;
     }
     .cover-feature-pill:hover {
       border-color: rgba(99, 102, 241, 0.4);
@@ -655,6 +724,69 @@
       padding: 12px;
       font-size: 13px;
       width: 100%;
+    }
+
+    /* Mobile Responsive Architecture */
+    @media (max-width: 768px) {
+      html, body {
+        max-width: 100vw;
+        overflow-x: hidden;
+      }
+      .markdown-section {
+        padding: 24px 16px 64px !important;
+        max-width: 100% !important;
+      }
+      .markdown-section h1 { font-size: 1.8rem; }
+      .markdown-section h2 { font-size: 1.35rem; }
+      .markdown-section h3 { font-size: 1.15rem; }
+      .cover-main {
+        padding: 1.5rem 0.5rem !important;
+      }
+      .cover-cta-row {
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 10px !important;
+      }
+      .cover-btn {
+        width: 100% !important;
+        text-align: center !important;
+      }
+      .cover-features-row {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+      }
+      .feature-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+      }
+      .mermaid-diagram {
+        padding: 1rem !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+      }
+      .mermaid-diagram svg {
+        max-width: 100% !important;
+        height: auto !important;
+      }
+      .sidebar-toggle {
+        width: 44px !important;
+        height: 44px !important;
+        padding: 10px !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        background: rgba(15, 20, 34, 0.9) !important;
+        backdrop-filter: blur(8px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 8px !important;
+        bottom: 16px !important;
+        left: 16px !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5) !important;
+        z-index: 20 !important;
+      }
+      .sidebar-toggle span {
+        background-color: #f8fafc !important;
+      }
     }
   </style>
 </head>

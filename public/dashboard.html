@@ -139,8 +139,8 @@
     <div id="hidden-panels"></div>
 
     <div class="grid" id="dashboard-grid">
-        <div class="card" data-panel-id="server-status" data-title="Server Status" data-span="3">
-            <h2>Server Status</h2>
+        <div class="card" data-panel-id="server-status" data-title="Health" data-span="6">
+            <h2>Health</h2>
             <div class="indicator"><div class="dot" id="dot-server"></div><span>Server: <span id="uptime">—</span></span></div>
             <div class="indicator"><div class="dot" id="dot-ssn"></div><span>SocialStream: <span id="ssn-status">—</span></span></div>
             <div class="indicator"><div class="dot" id="dot-twitch"></div><span>Twitch token: <span id="twitch-status">—</span></span></div>
@@ -148,7 +148,27 @@
             <div class="detail-line"><strong>Memory:</strong> <span id="memory">—</span></div>
         </div>
 
-        <div class="card" data-panel-id="current-session" data-title="Current Session" data-span="6">
+        <div class="card" data-panel-id="quick-actions" data-title="Actions" data-span="6">
+            <h2>Actions</h2>
+            <div class="btn-grid">
+                <button class="btn" data-action="fetch-twitch">Fetch Twitch</button>
+                <button class="btn" data-action="reauth-twitch">Re-auth Twitch</button>
+                <a class="btn" href="/api/export?type=all" download>Export CSV (all stats)</a>
+                <button class="btn" id="session-toggle-btn" data-action="toggle-session" style="border-color:color-mix(in srgb, var(--warn) 31%, transparent)">End Session</button>
+                <button class="btn" data-action="restart">Restart StreamPulse</button>
+                <button class="btn danger" data-action="shutdown">Shutdown</button>
+            </div>
+            <div id="lifecycle-hint" style="display:none;margin-top:10px;font-size:13px;color:var(--muted,var(--text-muted))"></div>
+            <details class="danger-zone">
+                <summary>Danger zone</summary>
+                <div class="btn-grid">
+                    <button class="btn danger" data-action="reset-chat">Reset session chat</button>
+                    <button class="btn danger" data-action="reset-stats">Reset all persistent stats</button>
+                </div>
+            </details>
+        </div>
+
+        <div class="card" data-panel-id="current-session" data-title="Current Session" data-span="8">
             <h2>Current Session</h2>
             <div class="stream-info" id="stream-info-dash"></div>
             <div class="status-grid">
@@ -165,7 +185,7 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="viewer-stats" data-title="Viewer Stats" data-span="3">
+        <div class="card" data-panel-id="viewer-stats" data-title="Viewer Stats" data-span="4">
             <h2>Viewer Stats</h2>
             <div class="status-grid">
                 <div class="stat"><div class="value" id="viewer-current">0</div><div class="label">Current</div></div>
@@ -175,6 +195,43 @@
             <div class="detail-line" style="margin-top:.4rem"><strong>Source:</strong> <span id="viewer-source">—</span></div>
             <div class="detail-line"><strong>Live:</strong> <span id="viewer-live">—</span></div>
             <div class="link-grid"><a class="btn sm" href="/viewers.html" target="_blank">Overlay</a><a class="btn sm" href="/analytics.html">Analytics</a></div>
+        </div>
+
+        <div class="card" data-panel-id="recent-events" data-title="Recent Events" data-span="6">
+            <h2>Recent Events</h2>
+            <div class="scroll" id="events-list"><div class="empty">No events yet</div></div>
+        </div>
+
+        <div class="card" data-panel-id="active-chatters" data-title="Active Chatters" data-span="6">
+            <h2>Active Chatters <span id="chatter-count" style="color:var(--accent)"></span></h2>
+            <div class="scroll" id="chatters-list"><div class="empty">No chatters yet</div></div>
+        </div>
+
+        <div class="card" data-panel-id="alerts" data-title="Alerts & SFX" data-span="3">
+            <h2>Alerts &amp; SFX</h2>
+            <div class="indicator"><div class="dot" id="dot-alerts"></div><span>Alert engine: <span id="alerts-status">—</span></span></div>
+            <div class="status-grid">
+                <div class="stat"><div class="value" id="alerts-rules">0</div><div class="label">Rules</div></div>
+                <div class="stat"><div class="value" id="alerts-pending">0</div><div class="label">Queued</div></div>
+            </div>
+            <div class="link-grid">
+                <a class="btn sm" href="/alerts.html">Alert Studio</a>
+                <a class="btn sm" href="/alert-queue.html" target="_blank">OBS Dock</a>
+                <a class="btn sm" href="/custom-overlays.html">Overlays</a>
+            </div>
+        </div>
+
+        <div class="card" data-panel-id="overlays" data-title="Overlays" data-span="3">
+            <h2>Overlays</h2>
+            <div class="status-grid">
+                <div class="stat"><div class="value" id="overlay-custom-count">—</div><div class="label">Custom</div></div>
+                <div class="stat"><div class="value" id="overlay-clients">0</div><div class="label">Connected</div></div>
+            </div>
+            <div class="link-grid">
+                <a class="btn sm" href="/overlays.html">All overlays</a>
+                <a class="btn sm" href="/custom-overlay-editor.html?new=1">New custom</a>
+                <a class="btn sm" href="/credits.html?preview=true" target="_blank">Credits preview</a>
+            </div>
         </div>
 
         <div class="card" data-panel-id="goals" data-title="Goals" data-span="3">
@@ -205,31 +262,6 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="music" data-title="Music" data-span="3">
-            <h2>Music</h2>
-            <div class="indicator"><div class="dot" id="dot-music"></div><span>Overlay: <span id="music-status">—</span></span></div>
-            <div class="detail-line"><strong>Source:</strong> <span id="music-source">—</span></div>
-            <div class="detail-line"><strong>Track:</strong> <span id="music-track">—</span></div>
-            <div class="detail-line"><strong>Artist:</strong> <span id="music-artist">—</span></div>
-            <div class="link-grid">
-                <a class="btn sm" href="/music-editor.html">Settings</a>
-                <a class="btn sm" href="/music-url-wizard.html">Builder</a>
-            </div>
-        </div>
-
-        <div class="card" data-panel-id="overlays" data-title="Overlays" data-span="3">
-            <h2>Overlays</h2>
-            <div class="status-grid">
-                <div class="stat"><div class="value" id="overlay-custom-count">—</div><div class="label">Custom</div></div>
-                <div class="stat"><div class="value" id="overlay-clients">0</div><div class="label">Connected</div></div>
-            </div>
-            <div class="link-grid">
-                <a class="btn sm" href="/overlays.html">All overlays</a>
-                <a class="btn sm" href="/custom-overlay-editor.html?new=1">New custom</a>
-                <a class="btn sm" href="/credits.html?preview=true" target="_blank">Credits preview</a>
-            </div>
-        </div>
-
         <div class="card" data-panel-id="chatbot" data-title="Chat Bot" data-span="3">
             <h2>Chat Bot</h2>
             <div class="indicator"><div class="dot" id="dot-chatbot"></div><span>Bot: <span id="chatbot-status">—</span></span></div>
@@ -246,59 +278,15 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="alerts" data-title="Alerts & SFX" data-span="3">
-            <h2>Alerts &amp; SFX</h2>
-            <div class="indicator"><div class="dot" id="dot-alerts"></div><span>Alert engine: <span id="alerts-status">—</span></span></div>
-            <div class="status-grid">
-                <div class="stat"><div class="value" id="alerts-rules">0</div><div class="label">Rules</div></div>
-                <div class="stat"><div class="value" id="alerts-pending">0</div><div class="label">Queued</div></div>
-            </div>
+        <div class="card" data-panel-id="music" data-title="Music" data-span="3">
+            <h2>Music</h2>
+            <div class="indicator"><div class="dot" id="dot-music"></div><span>Overlay: <span id="music-status">—</span></span></div>
+            <div class="detail-line"><strong>Source:</strong> <span id="music-source">—</span></div>
+            <div class="detail-line"><strong>Track:</strong> <span id="music-track">—</span></div>
+            <div class="detail-line"><strong>Artist:</strong> <span id="music-artist">—</span></div>
             <div class="link-grid">
-                <a class="btn sm" href="/alerts.html">Alert Studio</a>
-                <a class="btn sm" href="/alert-queue.html" target="_blank">OBS Dock</a>
-                <a class="btn sm" href="/custom-overlays.html">Overlays</a>
-            </div>
-        </div>
-
-        <div class="card" data-panel-id="recent-events" data-title="Recent Events" data-span="4">
-            <h2>Recent Events</h2>
-            <div class="scroll" id="events-list"><div class="empty">No events yet</div></div>
-        </div>
-
-        <div class="card" data-panel-id="message-volume" data-title="Message Volume" data-span="8">
-            <h2>Message Volume (Hourly)</h2>
-            <div class="chart" id="volume-chart"><div class="empty" style="width:100%">No message data yet</div></div>
-        </div>
-
-        <div class="card" data-panel-id="active-chatters" data-title="Active Chatters" data-span="6">
-            <h2>Active Chatters <span id="chatter-count" style="color:var(--accent)"></span></h2>
-            <div class="scroll" id="chatters-list"><div class="empty">No chatters yet</div></div>
-        </div>
-
-        <div class="card" data-panel-id="hashtag-stats" data-title="Hashtags" data-span="3">
-            <h2>Hashtags</h2>
-            <div class="detail-line"><strong>Tracked:</strong> <span id="hashtags-tracked">0</span></div>
-            <div class="detail-line"><strong>This session:</strong> <span id="hashtags-active-session">0</span></div>
-            <div class="detail-line"><strong>Banned:</strong> <span id="hashtags-banned">0</span></div>
-            <div class="detail-line"><strong>Top tag:</strong> <span id="hashtags-top-tag">—</span></div>
-            <div class="link-grid">
-                <a class="btn sm" href="/hashtag-stats.html">Stats</a>
-                <a class="btn sm" href="/manage-hashtags.html">Tools</a>
-            </div>
-        </div>
-
-        <div class="card" data-panel-id="library" data-title="Library & Backups" data-span="3">
-            <h2>Library &amp; Backups</h2>
-            <div class="status-grid">
-                <div class="stat"><div class="value" id="library-highlights">0</div><div class="label">Highlights</div></div>
-                <div class="stat"><div class="value" id="library-sessions">0</div><div class="label">Sessions</div></div>
-            </div>
-            <div class="detail-line" style="margin-top:.4rem"><strong>Auto-backup:</strong> <span id="backup-auto">—</span></div>
-            <div class="detail-line"><strong>Backups:</strong> <span id="backup-count">0</span> · <span id="backup-latest">—</span></div>
-            <div class="link-grid">
-                <a class="btn sm" href="/highlights.html">Highlights</a>
-                <a class="btn sm" href="/sessions.html">Sessions</a>
-                <a class="btn sm" href="/backup.html">Backups</a>
+                <a class="btn sm" href="/music-editor.html">Settings</a>
+                <a class="btn sm" href="/music-url-wizard.html">Builder</a>
             </div>
         </div>
 
@@ -319,24 +307,36 @@
             </div>
         </div>
 
-        <div class="card" data-panel-id="quick-actions" data-title="Actions" data-span="12">
-            <h2>Actions</h2>
-            <div class="btn-grid">
-                <button class="btn" data-action="fetch-twitch">Fetch Twitch</button>
-                <button class="btn" data-action="reauth-twitch">Re-auth Twitch</button>
-                <a class="btn" href="/api/export?type=all" download>Export CSV (all stats)</a>
-                <button class="btn" id="session-toggle-btn" data-action="toggle-session" style="border-color:color-mix(in srgb, var(--warn) 31%, transparent)">End Session</button>
-                <button class="btn" data-action="restart">Restart StreamPulse</button>
-                <button class="btn danger" data-action="shutdown">Shutdown</button>
+        <div class="card" data-panel-id="library" data-title="Library & Backups" data-span="3">
+            <h2>Library &amp; Backups</h2>
+            <div class="status-grid">
+                <div class="stat"><div class="value" id="library-highlights">0</div><div class="label">Highlights</div></div>
+                <div class="stat"><div class="value" id="library-sessions">0</div><div class="label">Sessions</div></div>
             </div>
-            <div id="lifecycle-hint" style="display:none;margin-top:10px;font-size:13px;color:var(--muted,var(--text-muted))"></div>
-            <details class="danger-zone">
-                <summary>Danger zone</summary>
-                <div class="btn-grid">
-                    <button class="btn danger" data-action="reset-chat">Reset session chat</button>
-                    <button class="btn danger" data-action="reset-stats">Reset all persistent stats</button>
-                </div>
-            </details>
+            <div class="detail-line" style="margin-top:.4rem"><strong>Auto-backup:</strong> <span id="backup-auto">—</span></div>
+            <div class="detail-line"><strong>Backups:</strong> <span id="backup-count">0</span> · <span id="backup-latest">—</span></div>
+            <div class="link-grid">
+                <a class="btn sm" href="/highlights.html">Highlights</a>
+                <a class="btn sm" href="/sessions.html">Sessions</a>
+                <a class="btn sm" href="/backup.html">Backups</a>
+            </div>
+        </div>
+
+        <div class="card" data-panel-id="message-volume" data-title="Message Volume" data-span="8">
+            <h2>Message Volume (Hourly)</h2>
+            <div class="chart" id="volume-chart"><div class="empty" style="width:100%">No message data yet</div></div>
+        </div>
+
+        <div class="card" data-panel-id="hashtag-stats" data-title="Hashtags" data-span="4">
+            <h2>Hashtags</h2>
+            <div class="detail-line"><strong>Tracked:</strong> <span id="hashtags-tracked">0</span></div>
+            <div class="detail-line"><strong>This session:</strong> <span id="hashtags-active-session">0</span></div>
+            <div class="detail-line"><strong>Banned:</strong> <span id="hashtags-banned">0</span></div>
+            <div class="detail-line"><strong>Top tag:</strong> <span id="hashtags-top-tag">—</span></div>
+            <div class="link-grid">
+                <a class="btn sm" href="/hashtag-stats.html">Stats</a>
+                <a class="btn sm" href="/manage-hashtags.html">Tools</a>
+            </div>
         </div>
     </div>
 
@@ -344,8 +344,8 @@
 
     <script>
     const $ = id => document.getElementById(id);
-    const LAYOUT_KEY = 'streampulse.dashboard.layout.v2';
-    const LEGACY_KEY = 'streampulse.dashboard.layout.v1';
+    const LAYOUT_KEY = 'streampulse.dashboard.layout.v3';
+    const LEGACY_KEY = 'streampulse.dashboard.layout.v2';
     const LEGACY_SPANS = { normal: 3, wide: 6, full: 12 };
     const MIN_SPAN = 2;
     const MIN_HEIGHT = 90;
