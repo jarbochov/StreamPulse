@@ -10,6 +10,12 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-19
+
+### Changed
+- Redesign the documentation site with separate streamer feature guides and technical reference, local docsify assets, and responsive layout; the home hero is kept.
+- Desktop installer workflow can publish to stable releases.
+
 ### Fixed
 - Count registered overlay pages instead of all WebSocket connections in the dashboard; exclude embedded and explicit preview pages, and expose raw connections separately as `websocketClients`.
 - Show the configured watermark on the initial visible Randomizer deck card before the shuffle, including live edits and blank-to-hide behavior.

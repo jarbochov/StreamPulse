@@ -1,29 +1,34 @@
-* **Getting Started**
-  * [Overview](README.md)
-  * [Quick Start](quickstart.md)
-  * [SocialStream Setup](socialstream-setup.md)
-  * [Companion & Stream Deck](companion.md)
+* **For Streamers**
+  * [Home](README.md)
+  * [Get Started](quickstart.md)
+  * [Features](features.md)
+  * [Your Stream Routine](streamer-guide.md)
 
-* **Studios & Overlays**
+* **Detailed Feature Guides**
   * [Custom Overlay Studio](custom-overlays.md)
   * [Overlay URL Wizards](overlay-wizards.md)
-  * [Cinematic Credits](credits-guide.md)
+  * [Credits Studio](credits-guide.md)
   * [Choice Randomizer](randomizer-guide.md)
-  * [Game Plan Scheduler](game-plan-guide.md)
+  * [Game Plan](game-plan-guide.md)
   * [Community Directory](community-guide.md)
-  * [Alerts & Queue Dock](alerts-guide.md)
-  * [Integrated Chat Bot](chatbot-guide.md)
-  * [Clips Detection](clips-beta.md)
+  * [Alerts & Alert Queue](alerts-guide.md)
+  * [Chat Bot](chatbot-guide.md)
+  * [Clips (Beta)](clips-beta.md)
 
 * **Technical Reference**
-  * [Desktop App & 1.0 Roadmap](desktop-app.md)
-  * [Release Changelog](changelog.md)
-  * [Architecture & Routing](architecture.md)
-  * [HTTP API Reference](api-reference.md)
+  * [Find a Reference](technical-reference.md)
+  * [Desktop App](desktop-app.md)
+  * [SocialStream Ninja Setup](socialstream-setup.md)
+  * [Companion & Stream Deck](companion.md)
+  * [Server Management & Backups](server-management.md)
+  * [HTTP API & WebSocket](api-reference.md)
   * [Developer Guide](developer-guide.md)
-  * [Server Management](server-management.md)
-  * [Troubleshooting & FAQ](troubleshooting.md)
+  * [Architecture & Routing](architecture.md)
+  * [Troubleshooting](troubleshooting.md)
+  * [Changelog](changelog.md)
 
-* **Community & Support**
-  * [Support on Ko-fi](https://ko-fi.com/jarbochov ':target=_blank')
+* **Project & Support**
+  * [Download StreamPulse](https://github.com/jarbochov/StreamPulse/releases/latest ':target=_blank')
+  * [Report an Issue](https://github.com/jarbochov/StreamPulse/issues ':target=_blank')
   * [GitHub Repository](https://github.com/jarbochov/StreamPulse ':target=_blank')
+  * [Support on Ko-fi](https://ko-fi.com/jarbochov ':target=_blank')

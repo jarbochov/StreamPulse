@@ -1,84 +1,82 @@
-# Streamer Quick Start Guide
+# Get started with StreamPulse
 
-Get StreamPulse running and connected to OBS Studio in under five minutes.
+Set up the desktop app, connect your chat, and bring your first overlay into OBS. You can add more studios later.
 
----
+You will need **OBS Studio**, the **StreamPulse desktop app**, and **SocialStream Ninja** for chat and supported events. A Twitch account connection is optional unless you want features that use it.
 
-## 1. Fast Setup
+## 1. Open the desktop app
 
-<!-- tabs:start -->
+1. Visit [StreamPulse releases on GitHub](https://github.com/jarbochov/StreamPulse/releases/latest).
+2. Read the release notes and download the macOS or Windows app that matches your computer.
+3. On macOS, open the disk image and copy StreamPulse to Applications. On Windows, run the installer and follow its prompts.
+4. Open StreamPulse. The dashboard is your starting point for connection status, studios, and current session activity.
 
-#### **macOS**
+**The apps are currently unsigned.** macOS or Windows may show a security warning. Only proceed if you trust the release you downloaded from the official repository; do not disable your system's security protections. See [desktop app details](desktop-app.md) and [troubleshooting](troubleshooting.md) if launch is blocked.
 
-1. Ensure **Node.js LTS (v22.12+)** is installed from [nodejs.org](https://nodejs.org/).
-2. Clone or download StreamPulse:
-   ```bash
-   git clone https://github.com/jarbochov/StreamPulse.git
-   cd StreamPulse
-   npm run setup
-   # (or: npm install --omit=dev for lightweight server-only mode)
-   ```
-3. Launch StreamPulse:
-   ```bash
-   ./start-streampulse.sh
-   ```
-   *StreamPulse will start on `http://localhost:3000` and automatically open your dashboard.*
+You do not need to install Node.js or use a terminal for the packaged desktop app.
 
-#### **Windows**
+**Prefer to run from source or host the server yourself?** Follow the [Developer Guide](developer-guide.md) for installation, then [Server Management](server-management.md) for operation and backups. Return here when your dashboard is open.
 
-1. Ensure **Node.js LTS (v22.12+)** is installed from [nodejs.org](https://nodejs.org/).
-2. Clone or download StreamPulse:
-   ```cmd
-   git clone https://github.com/jarbochov/StreamPulse.git
-   cd StreamPulse
-   npm run setup
-   # (or: npm install --omit=dev for lightweight server-only mode)
-   ```
-3. Launch StreamPulse:
-   - Double-click **`start-streampulse.bat`** (or run `npm start` in Command Prompt).
-   *StreamPulse will start on `http://localhost:3000` and launch in your default browser.*
+## 2. Connect your chat with SocialStream Ninja
 
-<!-- tabs:end -->
+SocialStream Ninja gathers chat and supported events from the platforms you use. StreamPulse reads that activity to power chat views, alerts, community records, and credits.
 
----
+1. Install and open the [SocialStream Ninja desktop app](https://github.com/steveseguin/social-stream-desktop/releases). Connect the chat sources for your streaming platforms.
+2. Make sure its local WebSocket server is enabled. For other SocialStream Ninja setups, follow the [connection guide](socialstream-setup.md).
+3. In StreamPulse, open **System → Config Editor → Connection & Security**.
+4. Check the **SocialStream Ninja** connection address. The usual same-computer address is `ws://127.0.0.1:8080`; use the address configured in SocialStream Ninja if you changed it.
+5. Choose **Save Config**, then return to the dashboard.
+6. Look for a connected SocialStream Ninja status and send a message in your platform's chat. Confirm the dashboard receives the activity.
 
-## 2. Connect Your Data Sources
+Keep SocialStream Ninja and the chat sources it needs running while you stream. If activity does not arrive, check the [SocialStream Ninja setup guide](socialstream-setup.md) before moving on.
 
-1. **SocialStream Ninja (Live Chat & Multi-Platform Events)**:
-   - Install the [SocialStream Ninja](https://socialstream.ninja/) browser extension (Chrome, Firefox, Edge) or download the standalone [SocialStream Ninja Desktop App](https://github.com/steveseguin/social-stream-desktop).
-   - Keep SocialStream Ninja open in your browser, running in the background as a desktop app, or docked inside OBS Studio.
-   - In StreamPulse, open **Config Editor -> Connection & Security** and verify the SSN WebSocket URL is `ws://127.0.0.1:8080`.
-   - See the full [SocialStream Ninja Setup Guide](socialstream-setup.md).
-2. **Twitch Account (Broadcaster Sync & Polls)**:
-   - Navigate to **System -> Twitch Connect** (`/system/twitch-connect.html`).
-   - Click **Connect with Twitch** to authenticate using device code authorization (no developer application required).
+## 3. Connect Twitch if you use it
 
----
+For Twitch account features, open **System → Twitch Connect** and choose **Connect with Twitch**. Follow the displayed device-code instructions in your browser, review the requested permissions, and approve the account you intend to use.
 
-## 3. Adding Overlays to OBS Studio
+Return to StreamPulse and check that it shows the expected account. The standard connection does not require creating your own Twitch developer application.
 
-Every StreamPulse overlay runs as a local web page optimized for OBS browser sources.
+SocialStream Ninja and Twitch Connect have different roles: connecting your Twitch account does not replace the chat-capture setup above. Available events and actions depend on your connection and permissions.
 
-### Standard OBS Browser Source Settings
-1. Open **OBS Studio**.
-2. In your Scene, click **+ (Add Source)** and select **Browser**.
-3. Name the source (e.g., `StreamPulse Credits` or `StreamPulse Randomizer`).
-4. Enter the URL:
-   - **Credits Roll**: `http://localhost:3000/overlays/credits.html`
-   - **Choice Randomizer**: `http://localhost:3000/overlays/randomizer.html`
-   - **Game Plan Ticker**: `http://localhost:3000/overlays/game-plan.html`
-   - **Community Goals**: `http://localhost:3000/overlays/goal.html`
-   - **Now Playing Music**: `http://localhost:3000/overlays/music.html`
-   - **Custom Overlays**: `http://localhost:3000/overlays/custom-overlay.html?id=<overlayId>`
-5. Set **Width**: `1920` and **Height**: `1080` (or match your canvas resolution).
-6. Check **Shutdown source when not visible** (saves CPU when the scene is inactive).
-7. Check **Refresh browser when scene becomes active** (optional, recommended for credits).
-8. Click **OK**.
+## 4. Choose your first overlay
 
----
+Start with one overlay rather than configuring every studio.
 
-## 4. Testing Your Overlays
+- **For a countdown, goal, music display, or schedule:** open **Overlays → URL Wizards**, choose the relevant wizard, and adjust its preview.
+- **For a custom scene:** open **Custom Overlay Studio**, create or choose a layout, and preview it.
+- **For an outro:** open **Credits Studio**, choose your sections, and preview the credits.
 
-- **Credits Studio**: Open `http://localhost:3000/credits-editor.html` and click **Live Roll** to test your scrolling credits.
-- **Randomizer Studio**: Open `http://localhost:3000/randomizer-editor.html` and click **Spin** to test wheel animations and sound effects.
-- **Alerts**: Open `http://localhost:3000/alerts.html` and click **Simulate** on any rule to trigger a live test event.
+Use the studio or wizard's option to copy the **OBS overlay URL**. This is the display link for OBS, not the address of the editor or a preview-only link. Note the recommended width and height.
+
+For guidance on the choices, see [features](features.md) or the detailed [Overlay URL Wizards guide](overlay-wizards.md).
+
+## 5. Add it to OBS
+
+These steps assume OBS and StreamPulse run on the same computer.
+
+1. In OBS, select the scene where you want the overlay.
+2. Under **Sources**, choose **+ → Browser** and give the source a recognizable name.
+3. Paste the copied overlay URL into **URL**.
+4. Set **Width** and **Height** to the dimensions recommended by the studio or wizard. A full-screen layout commonly matches your OBS canvas, such as `1920 × 1080`; a ticker or timer may be smaller.
+5. Confirm the source and position it in your scene. Put it above your gameplay source if it should appear on top.
+6. If the overlay plays sound, check OBS's browser-source audio settings and test the levels in a short recording.
+
+Keep StreamPulse running while OBS uses its overlays. If you host it on another computer or change its port, use your actual StreamPulse address instead of the default `localhost:3000` address in copied links.
+
+**Scene switching matters:** “Shutdown source when not visible” unloads the overlay, and “Refresh browser when scene becomes active” reloads it. Leave these off for displays that need to keep running between scenes unless the specific overlay guide recommends otherwise.
+
+## 6. Test before going live
+
+- Send a chat message and check it reaches StreamPulse.
+- Switch OBS scenes and confirm the overlay appears where expected.
+- Try the control that drives your chosen overlay: start a timer, update a lineup, or use **Live Roll** in Credits Studio.
+- If you use alerts, test a rule while off-air and check both its appearance and audio.
+- Check the dashboard's session status before collecting the broadcast you want to keep. Tests may affect current activity.
+
+Closing the desktop window leaves StreamPulse running in the menu bar or notification tray. Use the app or tray menu to quit only when you no longer need the overlays.
+
+## Your next step
+
+Follow the [streamer guide](streamer-guide.md) to build a before, during, and after-stream routine. Browse [features](features.md) when you are ready to add another tool.
+
+For connection problems, see [troubleshooting](troubleshooting.md). For hosting, integrations, and automation, use the separate [technical reference](technical-reference.md).

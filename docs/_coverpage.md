@@ -12,7 +12,7 @@
   <p class="cover-subtitle">The broadcast companion and overlay suite that puts streamers in total control. Cinematic OBS overlays, interactive choice randomizers, automated credits roll, and community CRM—100% self-hosted on your machine with zero cloud fees.</p>
 
   <div class="cover-cta-row">
-    <a href="#/quickstart" class="cover-btn cover-btn-primary">Get Started in 5 Min</a>
+    <a href="#/quickstart" class="cover-btn cover-btn-primary">Get Started</a>
     <a href="#/custom-overlays" class="cover-btn cover-btn-secondary">Explore Studios</a>
     <a href="#/desktop-app" class="cover-btn cover-btn-ghost">Desktop App (1.0)</a>
     <a href="#/changelog" class="cover-btn cover-btn-ghost">Changelog</a>
@@ -39,7 +39,7 @@
     </div>
     <div class="cover-feature-pill">
       <div class="cover-feature-title">OBS GPU Accelerated</div>
-      <div class="cover-feature-desc">Ultra-low CPU transparent browser sources with responsive renders</div>
+      <div class="cover-feature-desc">Transparent browser sources with responsive renders</div>
     </div>
     <a href="#/companion" class="cover-feature-pill" style="text-decoration:none;">
       <div class="cover-feature-title">Bitfocus Companion Integration</div>
