@@ -79,6 +79,17 @@ function drawImage(ctx, image, box, block) {
     ctx.drawImage(image, box.x + (box.w - w) * block.focusX / 100, box.y + (box.h - h) * block.focusY / 100, w, h);
 }
 
+function drawVignette(ctx, width, height, amount) {
+    if (!amount) return;
+    const x = width / 2, y = height / 2, inner = Math.min(width, height) * .16, outer = Math.hypot(width, height) * .55;
+    const gradient = ctx.createRadialGradient(x, y, inner, x, y, outer);
+    gradient.addColorStop(0, 'rgba(0,0,0,0)');
+    gradient.addColorStop(.45, 'rgba(0,0,0,0)');
+    gradient.addColorStop(1, `rgba(0,0,0,${amount / 100 * .65})`);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+}
+
 function drawThemeBackdrop(ctx, width, height, design, pattern) {
     const colors = design.colors, theme = window.StudioThemes[design.theme];
     ctx.fillStyle = colors.background;
@@ -157,25 +168,26 @@ function drawThemeBackdrop(ctx, width, height, design, pattern) {
 
 function drawBackdrop(ctx, width, height, design, background, image) {
     if (background.mode === 'transparent') return;
-    if (background.mode === 'theme') { drawThemeBackdrop(ctx, width, height, { ...design, theme: background.theme }); return; }
-    if (background.mode === 'pattern') {
+    if (background.mode === 'theme') drawThemeBackdrop(ctx, width, height, { ...design, theme: background.theme });
+    else if (background.mode === 'pattern') {
         drawThemeBackdrop(ctx, width, height, { ...design, theme: background.theme, colors: { ...design.colors, background: background.color } }, background.pattern);
-        return;
-    }
-    ctx.fillStyle = background.color;
-    if (background.mode === 'gradient') {
-        const angle = background.angle * Math.PI / 180, dx = Math.sin(angle), dy = -Math.cos(angle);
-        const distance = (Math.abs(width * dx) + Math.abs(height * dy)) / 2;
-        const gradient = ctx.createLinearGradient(width / 2 - dx * distance, height / 2 - dy * distance, width / 2 + dx * distance, height / 2 + dy * distance);
-        gradient.addColorStop(0, background.color); gradient.addColorStop(1, background.endColor);
-        ctx.fillStyle = gradient;
-    }
-    ctx.fillRect(0, 0, width, height);
-    if (background.mode === 'image' && image) {
-        drawImage(ctx, image, { x: 0, y: 0, w: width, h: height }, background);
-        ctx.fillStyle = `rgba(0,0,0,${background.shade / 100})`;
+    } else {
+        ctx.fillStyle = background.color;
+        if (background.mode === 'gradient') {
+            const angle = background.angle * Math.PI / 180, dx = Math.sin(angle), dy = -Math.cos(angle);
+            const distance = (Math.abs(width * dx) + Math.abs(height * dy)) / 2;
+            const gradient = ctx.createLinearGradient(width / 2 - dx * distance, height / 2 - dy * distance, width / 2 + dx * distance, height / 2 + dy * distance);
+            gradient.addColorStop(0, background.color); gradient.addColorStop(1, background.endColor);
+            ctx.fillStyle = gradient;
+        }
         ctx.fillRect(0, 0, width, height);
+        if (background.mode === 'image' && image) {
+            drawImage(ctx, image, { x: 0, y: 0, w: width, h: height }, background);
+            ctx.fillStyle = `rgba(0,0,0,${background.shade / 100})`;
+            ctx.fillRect(0, 0, width, height);
+        }
     }
+    drawVignette(ctx, width, height, background.vignette);
 }
 
 export async function renderPromo(canvas, design, ratio, { preview = true } = {}) {

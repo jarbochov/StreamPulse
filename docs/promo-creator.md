@@ -27,7 +27,7 @@ Review screenshots before uploading: make sure chat, private notes, desktop noti
 
 Each format has **its own arrangement**, background, visibility, crop, type sizing, and block order. The tabs remember your last selected format across reloads; arrow keys, Home, and End work when a tab is focused. Switching formats preserves your adjustments. Auto-layout changes only the current format's blocks, never the background or the other two formats.
 
-Headline, subtitle, status text, images, Twitch URL, palette, and typeface are shared across the three formats. **Save design** stores all three compositions together. Switching designs or starting again prompts before discarding unsaved changes; saving is manual.
+Headline, subtitle, status text, images, Twitch URL, palette, and typeface are shared across the three formats. Adding game artwork enables its separate, contain-fit layer in all three formats; position, scale, and crop remain independent. **Save design** stores all three compositions together. The button changes to **Save changes** when anything needs saving, and switching designs or starting again prompts before discarding edits.
 
 ## Appearance and custom themes
 
@@ -51,8 +51,9 @@ Background controls affect only the selected ratio:
 | Transparent | No background; the preview checkerboard is not exported |
 | Image | Upload or Library, fill/crop or contain, crop focus, and darkening |
 | Pattern | Grid, geometry, orbits, hexagons, dots, diagonal lines, or checkerboard with palette accents |
+| Edge vignette | Adjustable 0–70% soft darkening; starts at a subtle 18% on new promos and is skipped for transparent backgrounds |
 
-An image background is separate from the photo and artwork blocks. A saved custom theme can include its library image; the Asset Library tracks those references too. If an image background is selected without an image, export reports the affected format instead of silently producing an incomplete pack.
+Patterns, vignette strength, image crop, and canvas corner radius save independently per format. New promos start with a subtle edge vignette; existing designs keep their previous appearance. An image background is separate from the photo and artwork blocks. A saved custom theme can include its library image and vignette; the Asset Library tracks image references too. If an image background is selected without an image, export reports the affected format instead of silently producing an incomplete pack.
 
 The **Font** chooser offers system fonts, Google Fonts, and fonts already uploaded to your Asset Library. System fonts work offline; Google Fonts need internet the first time they load. Preview and export wait for your chosen font; a failed web-font request produces an error rather than silently exporting with a substitute. Font selection applies to all three formats. Applying a theme resets its suggested font, so choose your custom font afterward.
 
@@ -60,6 +61,7 @@ The **Font** chooser offers system fonts, Google Fonts, and fonts already upload
 - **Spotlight** uses a full-bleed photo with a directional shade for readable text.
 - **Type first** starts with the photo hidden for a minimal typography-led design.
 - Choosing a **Starting layout** applies it immediately to this format. If you have modified its arrangement, confirmation protects your edits. **Rearrange this format** reapplies the current layout; neither action changes your other formats or content.
+- Starting layouts keep the headline and supporting copy in dedicated areas with a separate artwork position. Add artwork once to enable its reserved slot in all formats, then adjust each format as needed.
 - Text wraps and shrinks inside its block. Very small blocks truncate overflow; give important headlines enough space.
 - Images can fill/crop or contain without cropping. Crop focus controls choose which part of the image stays visible.
 - Select a photo/artwork block and choose **Rounded corners**, **Rectangle**, or **Circle crop / logo** in the inspector. Rounded corners have a pixel-radius control; circular crops stay perfectly round even inside a rectangular block. Shape, radius, fit, and crop focus are saved independently per format.

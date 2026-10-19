@@ -41,9 +41,9 @@
                     <div class="asset-preview logo-preview" id="artwork-preview"><span>LOGO</span></div>
                     <div class="asset-info"><strong>Game art or logo</strong><small id="artwork-name">Optional</small><div class="asset-actions"><button data-library="artwork" type="button">Library</button><button data-upload="artwork" type="button">Upload</button><button data-igdb="artwork" type="button">IGDB</button><button data-clear="artwork" type="button" aria-label="Clear game art or logo">×</button></div></div>
                 </div>
-                <p class="helper-note">Choose an IGDB cover, artwork, or screenshot. You can also paste an image.</p>
+                <p class="helper-note">Choose an IGDB cover, artwork, or screenshot. Added artwork appears in all three formats; position and crop stay independent.</p>
                 <details id="appearance-panel" class="appearance-panel">
-                    <summary><span class="appearance-title">03 <strong>Appearance</strong></span><small>Theme &amp; background</small></summary>
+                    <summary><span class="appearance-title"><strong>Appearance</strong></span><small>Optional look and lighting</small></summary>
                     <div class="appearance-content">
                         <label>Theme<select id="theme"></select></label>
                         <button id="save-theme" type="button">Save current look as a reusable theme</button>
@@ -57,6 +57,8 @@
                             <div class="inline-controls"><label>Fit<select id="background-fit"><option value="cover">Fill / crop</option><option value="contain">Contain</option></select></label><label>Darken<input id="background-shade" type="range" min="0" max="100"></label></div>
                             <div class="inline-controls"><label>Crop X<input id="background-focusX" type="range" min="0" max="100"></label><label>Crop Y<input id="background-focusY" type="range" min="0" max="100"></label></div>
                         </div>
+                        <label id="background-vignette-control">Edge vignette<input id="background-vignette" type="range" min="0" max="70" step="1"><small id="vignette-value">18%</small></label>
+                        <p class="helper-note">Pattern, vignette, image crop, and corner radius are saved per format. Select <strong>Save design</strong> to keep them.</p>
                         <label>Promo corner radius<input id="canvas-radius" type="number" min="0" max="300" value="0"></label>
                         <h3>Color palette</h3><div class="color-grid" id="colors"></div>
                         <label>Font<select id="font"></select></label>

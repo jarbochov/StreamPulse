@@ -40,6 +40,18 @@ test('promo model preserves independent layouts and validates export-safe images
     assert.throws(() => model.normalize({ layouts: { square: { background: { mode: 'image', image: 'https://example.test/image.png' } } } }), /Asset Library/);
     const background = model.background({ mode: 'gradient', angle: 900, shade: -10, focusX: 'bad' });
     assert.equal(background.angle, 360); assert.equal(background.shade, 0); assert.equal(background.focusX, 50);
+    assert.equal(model.background({ vignette: 90 }).vignette, 70);
+    assert.equal(model.normalize().layouts.square.background.vignette, 18, 'new promos start with a subtle vignette');
+    assert.equal(model.normalize({ layouts: { square: { background: { mode: 'pattern', pattern: 'hexagons' } } } }).layouts.square.background.vignette, 0, 'existing layouts do not gain a vignette during migration');
+    const fresh = model.normalize(), overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    for (const ratio of Object.keys(model.SIZES)) {
+        const blocks = fresh.layouts[ratio].blocks, art = blocks.artwork;
+        assert.equal(art.enabled, false, 'empty artwork layers start hidden');
+        assert.equal(art.fit, 'contain', 'game artwork starts uncropped');
+        for (const key of ['photo', 'badge', 'title', 'subtitle', 'url', 'qr']) {
+            assert.equal(overlaps(art, blocks[key]), false, `${ratio} artwork starts clear of ${key}`);
+        }
+    }
     assert.throws(() => model.normalizeTheme({ name: '   ' }), /name/);
 });
 
@@ -174,6 +186,7 @@ test('promo persistence, image references and actual studio export work without 
     const beforeNudge = Number(await page.$eval('#block-x', el => el.value));
     await page.focus('#stage'); await page.keyboard.down('Shift'); await page.keyboard.press('ArrowLeft'); await page.keyboard.up('Shift');
     assert.ok(Number(await page.$eval('#block-x', el => el.value)) < beforeNudge, 'keyboard nudging works after dragging');
+    await page.click('[data-select="title"]');
     await page.evaluate(() => {
         for (const [id, value] of Object.entries({ x: 12, y: 65, w: 86, h: 14 })) {
             const input = document.querySelector('#block-' + id); input.value = value; input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -183,6 +196,13 @@ test('promo persistence, image references and actual studio export work without 
     await page.waitForSelector('.promo-asset');
     await page.click('.promo-asset');
     assert.match(await page.$eval('#artwork-name', el => el.textContent), /renamed/);
+    for (const ratio of Object.keys(model.SIZES)) {
+        await page.click(`[data-ratio="${ratio}"]`);
+        await page.click('[data-select="artwork"]');
+        assert.equal(await page.$eval('#block-enabled', el => el.checked), true, `added artwork is enabled in ${ratio}`);
+    }
+    await page.click('[data-ratio="square"]');
+    await page.click('[data-select="title"]');
     await page.click('#save-design');
     await page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Design saved.'));
     const saved = await (await api(`/api/promos/${design.id}`)).json();
@@ -381,6 +401,25 @@ test('promo persistence, image references and actual studio export work without 
     assert.equal(backgroundsSaved.square.background.mode, 'gradient');
     assert.equal(backgroundsSaved.landscape.background.mode, 'transparent');
     assert.equal(backgroundsSaved.portrait.background.mode, 'image');
+    await page.click('[data-ratio="square"]');
+    await page.select('#background-mode', 'pattern');
+    await page.select('#background-pattern', 'hexagons');
+    await page.$eval('#background-vignette', el => { el.value = '42'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    assert.equal(await page.$eval('#save-design', el => el.textContent), 'Save changes', 'appearance edits visibly require saving');
+    await page.click('#save-design');
+    await page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Design saved.'));
+    let savedPattern = await (await api(`/api/promos/${design.id}`)).json();
+    assert.equal(savedPattern.layouts.square.background.mode, 'pattern');
+    assert.equal(savedPattern.layouts.square.background.pattern, 'hexagons', 'pattern selection is serialized with the saved format');
+    assert.equal(savedPattern.layouts.square.background.vignette, 42);
+    await page.reload();
+    await page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Ready.'));
+    await page.waitForFunction(() => document.querySelector('#preview').width === 1080);
+    await page.click('#appearance-panel > summary');
+    assert.equal(await page.$eval('#background-mode', el => el.value), 'pattern');
+    assert.equal(await page.$eval('#background-pattern', el => el.value), 'hexagons', 'pattern choice restores from the saved promo');
+    assert.equal(await page.$eval('#background-vignette', el => el.value), '42');
+    assert.ok(Object.values(savedPattern.layouts).every(layout => layout.blocks.artwork.enabled), 'shared artwork is enabled in all saved formats');
     const imageName = decodeURIComponent(savedTheme.background.image.split('/').pop());
     assert.ok(service.assetUsers(imageName).some(user => user.id === `promo-theme:${savedTheme.id}`));
     await page.click('#save-theme');
@@ -392,25 +431,27 @@ test('promo persistence, image references and actual studio export work without 
     const backgroundPixels = await page.evaluate(async photo => {
         const { renderPromo } = await import('/js/promo-renderer.js'), output = {};
         const patterns = ['grid', 'geometry', 'orbits', 'hexagons', 'dots', 'diagonal', 'checker'];
-        for (const mode of ['solid', 'transparent', 'gradient', 'image', ...patterns]) {
+        for (const mode of ['solid', 'transparent', 'gradient', 'image', 'vignette', ...patterns]) {
             const design = window.PromoModel.normalize();
             for (const block of Object.values(design.layouts.square.blocks)) block.enabled = false;
             design.layouts.square.background = window.PromoModel.background({
-                mode: patterns.includes(mode) ? 'pattern' : mode,
-                pattern: mode, color: '#112233', endColor: '#ff0000', angle: 90, image: photo, shade: 0
+                mode: patterns.includes(mode) ? 'pattern' : mode === 'vignette' ? 'solid' : mode,
+                pattern: mode, color: mode === 'vignette' ? '#ffffff' : '#112233', endColor: '#ff0000', angle: 90, image: photo, shade: 0,
+                vignette: ['vignette', 'transparent'].includes(mode) ? 60 : 0
             });
             const canvas = document.createElement('canvas'); await renderPromo(canvas, design, 'square', { preview: false });
             const ctx = canvas.getContext('2d');
             const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
             let fingerprint = 2166136261;
             for (let i = 0; i < data.length; i += 97) fingerprint = Math.imul(fingerprint ^ data[i], 16777619);
-            output[mode] = { samples: [10, 540, 1060].map(x => [...ctx.getImageData(x, 540, 1, 1).data]), fingerprint: fingerprint >>> 0 };
+            output[mode] = { samples: [[10, 540], [540, 540], [1060, 540]].map(([x, y]) => [...ctx.getImageData(x, y, 1, 1).data]), fingerprint: fingerprint >>> 0 };
         }
         return output;
     }, renamed.url);
     assert.deepEqual(backgroundPixels.solid.samples[1], [17, 34, 51, 255]);
     assert.equal(backgroundPixels.transparent.samples[1][3], 0, 'transparent background stays transparent in export');
     assert.ok(backgroundPixels.gradient.samples[0][0] < backgroundPixels.gradient.samples[2][0], 'gradient angle changes the colors across the canvas');
+    assert.ok(backgroundPixels.vignette.samples[1][0] > backgroundPixels.vignette.samples[0][0], 'vignette shades the edges without darkening its center');
     assert.deepEqual(backgroundPixels.image.samples[1], [255, 153, 0, 255], 'library image paints behind all blocks');
     assert.equal(new Set(['grid', 'geometry', 'orbits', 'hexagons', 'dots', 'diagonal', 'checker'].map(key => backgroundPixels[key].fingerprint)).size, 7, 'each pattern style produces distinct output');
     assert.equal(model.background({ pattern: 'hexagons' }).pattern, 'hexagons', 'hexagon pattern is persisted by normalization');

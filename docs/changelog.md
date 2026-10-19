@@ -12,11 +12,12 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ### Added
 - Promo Creator under Tools: saved designs, independent 1:1/16:9/9:16 arrangements, editable title/photo/artwork/URL/QR blocks, one-click themes, font chooser, rounded images/circular logos, IGDB artwork imported with actual-format detection, and all three PNGs downloaded together in one ZIP without social integrations.
-- Promo Creator patterned backgrounds now include hexagons, dots, diagonal lines, and checkerboard alongside grid, geometry, and orbits.
+- Promo Creator includes hexagon, dot, diagonal-line, and checkerboard patterns, adjustable vignette, and more deliberate text/artwork placements across formats.
 - Custom overlay Poll element and 400 × 150 Compact poll preset: adaptive 2–5-choice result bars, native Twitch vote counts/percentages, remaining-time countdown, configurable completed-result duration, and preview-only fictional samples.
 
 ### Fixed
 - Promo Creator preview canvas now keeps each format's aspect ratio in Safari and other short-viewport layouts.
+- Promo Creator now records select-based pattern changes and restores them with saved designs; new art enables its reserved layer across formats.
 - Game Plan custom-cover Library picker now reads the shared asset API's array and image kinds, shows friendly labels, clears stale filters when reopened, and reports failed loads instead of claiming the library is empty.
 - Automatic Poll active pages now honor visible Poll elements' results duration before returning to the previous page, including a bounded wait for Twitch's final status.
 

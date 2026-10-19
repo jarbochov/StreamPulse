@@ -19,6 +19,7 @@ const status = (message, error = false) => {
 };
 const changed = () => {
     dirty = true;
+    $('save-design').textContent = 'Save changes';
     status('Unsaved changes. Save your design to reuse it next time.');
     syncThemeSelection();
     queueRender();
@@ -158,6 +159,7 @@ async function save(copy = false) {
             method: id && !copy ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(snapshot)
         });
         id = result.id; design = M.normalize(result); dirty = false;
+        $('save-design').textContent = 'Save design';
         await loadLibrary();
         history.replaceState(null, '', `?id=${encodeURIComponent(id)}`);
         syncFields();
@@ -186,7 +188,7 @@ $('canvas-radius').addEventListener('input', () => {
     changed();
 });
 function builtinLook(theme) {
-    return M.appearance({ theme, font: theme === 'matrix' ? 'monospace' : theme === 'gold' ? 'serif' : 'sans-serif', background: { mode: 'theme' } });
+    return M.appearance({ theme, font: theme === 'matrix' ? 'monospace' : theme === 'gold' ? 'serif' : 'sans-serif', background: { mode: 'theme', vignette: 18 } });
 }
 const currentAppearance = () => M.appearance({ ...design, background: design.layouts[ratio].background });
 function syncThemeSelection() {
@@ -258,11 +260,13 @@ for (const operation of ['create', 'update', 'delete']) $(operation + '-theme').
 });
 function syncBackground() {
     const bg = design.layouts[ratio].background;
-    for (const key of ['mode', 'color', 'endColor', 'angle', 'pattern', 'fit', 'focusX', 'focusY', 'shade']) $('background-' + key).value = bg[key];
+    for (const key of ['mode', 'color', 'endColor', 'angle', 'pattern', 'vignette', 'fit', 'focusX', 'focusY', 'shade']) $('background-' + key).value = bg[key];
+    $('vignette-value').textContent = `${bg.vignette}%`;
     $('background-fill').hidden = ['theme', 'transparent'].includes(bg.mode);
     $('background-gradient').hidden = bg.mode !== 'gradient';
     $('background-pattern-control').hidden = bg.mode !== 'pattern';
     $('background-image-controls').hidden = bg.mode !== 'image';
+    $('background-vignette-control').hidden = bg.mode === 'transparent';
     $('background-name').textContent = bg.image ? decodeURIComponent(bg.image.split('/').pop()) : 'No background image';
 }
 function renderAssetPreview(host, url, label) {
@@ -278,13 +282,17 @@ function renderAssetPreview(host, url, label) {
     }
     host.classList.toggle('has-image', Boolean(url));
 }
-for (const key of ['mode', 'color', 'endColor', 'angle', 'pattern', 'fit', 'focusX', 'focusY', 'shade']) $('background-' + key).addEventListener('input', event => {
-    const bg = design.layouts[ratio].background;
-    bg[key] = ['angle', 'focusX', 'focusY', 'shade'].includes(key) ? Number(event.target.value) : event.target.value;
-    design.layouts[ratio].background = M.background(bg);
-    changed();
-    if (key === 'mode') syncBackground();
-});
+for (const key of ['mode', 'color', 'endColor', 'angle', 'pattern', 'vignette', 'fit', 'focusX', 'focusY', 'shade']) {
+    const field = $('background-' + key);
+    field.addEventListener(field.tagName === 'SELECT' ? 'change' : 'input', event => {
+        const bg = design.layouts[ratio].background;
+        bg[key] = ['angle', 'focusX', 'focusY', 'shade', 'vignette'].includes(key) ? Number(event.target.value) : event.target.value;
+        design.layouts[ratio].background = M.background(bg);
+        changed();
+        if (key === 'mode') syncBackground();
+        if (key === 'vignette') $('vignette-value').textContent = `${bg.vignette}%`;
+    });
+}
 $('colors').addEventListener('input', event => {
     if (!event.target.dataset.palette) return;
     design.colors[event.target.dataset.palette] = event.target.value;
@@ -397,7 +405,7 @@ function useImage(url, target = assetTarget, format = ratio) {
         design.layouts[format].background.mode = 'image';
     } else {
         design[target] = image;
-        design.layouts[format].blocks[target].enabled = true;
+        for (const key of target === 'artwork' ? Object.keys(M.SIZES) : [format]) design.layouts[key].blocks[target].enabled = true;
     }
     changed(); syncFields();
 }
@@ -488,8 +496,12 @@ document.querySelectorAll('[data-clear]').forEach(button => button.addEventListe
     if (button.dataset.clear === 'background') {
         design.layouts[ratio].background.image = '';
         design.layouts[ratio].background.mode = 'theme';
+    } else {
+        design[button.dataset.clear] = '';
+        if (button.dataset.clear === 'artwork') {
+            for (const layout of Object.values(design.layouts)) layout.blocks.artwork.enabled = false;
+        }
     }
-    else design[button.dataset.clear] = '';
     changed(); syncFields();
 }));
 async function upload(file) {
@@ -515,6 +527,7 @@ $('duplicate').addEventListener('click', action(() => save(true)));
 $('new-design').addEventListener('click', () => {
     if (dirty && !window.confirm('Discard unsaved changes?')) return;
     design = M.normalize(); id = ''; dirty = false; $('saved').value = '';
+    $('save-design').textContent = 'Save design';
     history.replaceState(null, '', location.pathname); syncFields(); status('New promo. Add your title, channel URL, and images.');
 });
 $('saved').addEventListener('change', () => {
@@ -524,6 +537,7 @@ $('saved').addEventListener('change', () => {
     const item = library.find(entry => entry.id === requested);
     if (!item) return;
     design = M.normalize(item); id = item.id; dirty = false;
+    $('save-design').textContent = 'Save design';
     history.replaceState(null, '', `?id=${encodeURIComponent(id)}`);
     syncFields(); status('Saved promo loaded.');
 });
@@ -532,6 +546,7 @@ $('delete-design').addEventListener('click', action(async () => {
     if (!window.confirm('Delete this saved promo? Uploaded images will remain in the Asset Library.')) return;
     await request(`/api/promos/${id}`, { method: 'DELETE' });
     id = ''; design = M.normalize(); dirty = false;
+    $('save-design').textContent = 'Save design';
     history.replaceState(null, '', location.pathname); await loadLibrary(); syncFields(); status('Promo deleted.');
 }));
 $('export').addEventListener('click', action(async () => {
@@ -565,6 +580,7 @@ await (async () => {
             if (!item) throw new Error('Saved promo not found. Use New promo to start a design.');
             design = M.normalize(item); id = item.id; $('saved').value = id;
         }
+        $('save-design').textContent = 'Save design';
         syncFields(); status(id ? 'Ready. Your saved promo is loaded.' : 'Ready. Add a headline and photo; export includes all three sizes.');
         await loadThemes();
     } catch (error) { status(error.message, true); }

@@ -37,7 +37,7 @@
         return `/custom-overlay-assets/${encodeURIComponent(filename)}`;
     }
 
-    function background(input = {}, fallbackTheme = 'midnight') {
+    function background(input = {}, fallbackTheme = 'midnight', fallbackVignette = 0) {
         if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid promo background.');
         return {
             mode: ['theme', 'solid', 'gradient', 'transparent', 'image', 'pattern'].includes(input.mode) ? input.mode : 'theme',
@@ -45,6 +45,7 @@
             color: hex(input.color, '#0b1020'), endColor: hex(input.endColor, '#4338ca'),
             angle: number(input.angle, 135, 0, 360),
             pattern: ['grid', 'geometry', 'orbits', 'hexagons', 'dots', 'diagonal', 'checker'].includes(input.pattern) ? input.pattern : 'orbits',
+            vignette: number(input.vignette, fallbackVignette, 0, 70),
             image: assetUrl(input.image), fit: input.fit === 'contain' ? 'contain' : 'cover',
             focusX: number(input.focusX, 50, 0, 100), focusY: number(input.focusY, 50, 0, 100),
             shade: number(input.shade, 35, 0, 100)
@@ -73,19 +74,19 @@
         const portrait = ratio === 'portrait', square = ratio === 'square';
         const box = (x, y, w, h, extra = {}) => ({ x, y, w, h, enabled: true, fontSize: 64, color: '', fit: 'cover', focusX: 50, focusY: 50, shape: 'rounded', radius: 24, ...extra });
         const blocks = portrait ? {
-            photo: box(5, 5, 90, 46), artwork: box(73, 43, 20, 18, { enabled: false, fit: 'contain' }),
-            badge: box(7, 55, 55, 4, { fontSize: 32 }), title: box(7, 61, 86, 14, { fontSize: 96 }),
-            subtitle: box(7, 77, 65, 7, { fontSize: 38 }), url: box(7, 90, 66, 4, { fontSize: 30 }),
+            photo: box(5, 5, 90, 46), artwork: box(76, 61, 17, 18, { enabled: false, fit: 'contain' }),
+            badge: box(7, 55, 55, 4, { fontSize: 32 }), title: box(7, 62, 66, 14, { fontSize: 88 }),
+            subtitle: box(7, 79, 63, 7, { fontSize: 36 }), url: box(7, 90, 66, 4, { fontSize: 30 }),
             qr: box(78, 86, 15, 8.4375)
         } : square ? {
-            photo: box(5, 5, 90, 49), artwork: box(74, 45, 19, 25, { enabled: false, fit: 'contain' }),
-            badge: box(7, 58, 56, 5, { fontSize: 28 }), title: box(7, 65, 86, 14, { fontSize: 72 }),
-            subtitle: box(7, 81, 62, 6, { fontSize: 28 }), url: box(7, 90, 66, 5, { fontSize: 26 }),
+            photo: box(5, 5, 90, 49), artwork: box(78, 60, 15, 19, { enabled: false, fit: 'contain' }),
+            badge: box(7, 56, 55, 5, { fontSize: 28 }), title: box(7, 65, 70, 15, { fontSize: 68 }),
+            subtitle: box(7, 82, 62, 6, { fontSize: 28 }), url: box(7, 90, 66, 5, { fontSize: 26 }),
             qr: box(79, 81, 14, 14)
         } : {
-            photo: box(43, 5, 54, 90), artwork: box(33, 66, 13, 29, { enabled: false, fit: 'contain' }),
-            badge: box(4, 8, 35, 6, { fontSize: 30 }), title: box(4, 22, 35, 32, { fontSize: 104 }),
-            subtitle: box(4, 57, 32, 12, { fontSize: 38 }), url: box(4, 86, 27, 6, { fontSize: 28 }),
+            photo: box(47, 5, 49, 90), artwork: box(4, 71, 13, 17, { enabled: false, fit: 'contain' }),
+            badge: box(4, 8, 35, 6, { fontSize: 30 }), title: box(4, 22, 38, 32, { fontSize: 88 }),
+            subtitle: box(4, 56, 38, 11, { fontSize: 34 }), url: box(4, 90, 25, 5, { fontSize: 28 }),
             qr: box(32, 81, 9, 16)
         };
         if (template === 'spotlight') {
@@ -125,7 +126,7 @@
                 };
             }
             const order = Array.isArray(source?.order) ? [...new Set(source.order.filter(key => BLOCKS.includes(key)))] : [...BLOCKS];
-            layouts[ratio] = { blocks, order: [...order, ...BLOCKS.filter(key => !order.includes(key))], template: layoutTemplate, cornerRadius: number(source?.cornerRadius, 0, 0, 300), background: background(source?.background, theme) };
+            layouts[ratio] = { blocks, order: [...order, ...BLOCKS.filter(key => !order.includes(key))], template: layoutTemplate, cornerRadius: number(source?.cornerRadius, 0, 0, 300), background: background(source?.background, theme, source ? 0 : 18) };
         }
         const style = appearance(input);
         return {
