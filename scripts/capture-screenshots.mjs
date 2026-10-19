@@ -578,6 +578,46 @@ async function run() {
             action: async (p) => {
                 await p.setViewport({ width: 440, height: 480, deviceScaleFactor: 2 });
             }
+        },
+        {
+            url: `${baseUrl}/overlay-url-wizard.html`,
+            file: 'wizard-credits-overlay.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/game-plan-url-wizard.html`,
+            file: 'wizard-game-plan.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/timer-url-wizard.html`,
+            file: 'wizard-timer.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/music-url-wizard.html`,
+            file: 'wizard-music.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+            }
+        },
+        {
+            url: `${baseUrl}/milestone-url-wizard.html`,
+            file: 'wizard-milestone.png',
+            wait: 2000,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+            }
         }
     ];
 

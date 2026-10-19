@@ -57,3 +57,9 @@ To synchronize your credits roll with an outro track:
    ```
 3. StreamPulse will automatically calculate the scroll velocity so the credits finish scrolling and transition to your closing socials right as the song reaches its finale.
 4. **Static Preview Mode**: To view the credits without waiting for the animation, add `?preview=true` (`http://localhost:3000/overlays/credits.html?preview=true`).
+
+---
+
+## 5. Visual URL Generation Wizard
+
+You can also use the interactive [Credits & Overlay URL Wizard](overlay-wizards.md#2-credits-goals--stats-wizard) (`/overlay-url-wizard.html`) to configure font overrides, color themes, timing durations, and copy-ready OBS browser source links with live canvas previews.

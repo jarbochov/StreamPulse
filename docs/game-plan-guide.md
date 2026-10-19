@@ -33,7 +33,7 @@ Control your broadcast rundown in real time with quick action buttons:
 
 ## Dedicated OBS Overlays & Box Art Display
 
-Use the visual **Game Plan URL Wizard** (`http://localhost:3000/game-plan-url-wizard.html`) to generate customized browser source overlays for your stream scenes.
+Use the visual [Game Plan URL Wizard](overlay-wizards.md#3-game-plan-schedule--checklist-wizard) (`/game-plan-url-wizard.html`) to configure and generate customized browser source overlays for your stream scenes.
 
 ### Ticker Mode (Lower-Third Banner)
 A sleek broadcast lower-third displaying your active game with box art, title, and an "Up Next" preview for incoming titles:

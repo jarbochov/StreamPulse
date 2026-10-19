@@ -35,6 +35,10 @@ StreamPulse is a lightweight, self-hosted companion that runs quietly on your co
     <h4>Custom Overlay Studio</h4>
     <p>Visual drag-and-drop layer builder, transparent WebKit punchout masks, WebGL retro display shaders (CRT, scanlines, TV static), GPU media filters, and animated sweep borders.</p>
   </a>
+  <a class="feature-card" href="#/overlay-wizards">
+    <h4>Overlay URL Wizards</h4>
+    <p>Visual zero-code URL builders with side-by-side interactive previews, recommended canvas dimensions, and 1-click OBS browser source links for Credits, Timers, Music, Game Plan, and Milestones.</p>
+  </a>
   <a class="feature-card" href="#/credits-guide">
     <h4>Cinematic Credits Studio</h4>
     <p>Post-stream scrolling credits with customizable sections, static fade cards, Special Thanks spotlights, and synchronized outro music timing.</p>
@@ -134,6 +138,15 @@ Decoupled studio controller with choice weighting, winner elimination, and sound
 ![Choice Randomizer Studio](images/randomizer-studio.png)
 
 ![Choice Randomizer OBS Overlay](images/randomizer-overlay.png)
+
+---
+
+### Interactive Overlay URL Wizards
+Zero-code URL builders with live responsive canvas previews, canvas presets, and recommended OBS dimensions for instant broadcast scene setup:
+
+![Game Plan URL Wizard](images/wizard-game-plan.png)
+
+![Timers URL Wizard](images/wizard-timer.png)
 
 ---
 

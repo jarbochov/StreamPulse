@@ -6,6 +6,7 @@
 
 * **Studios & Overlays**
   * [Custom Overlay Studio](custom-overlays.md)
+  * [Overlay URL Wizards](overlay-wizards.md)
   * [Cinematic Credits](credits-guide.md)
   * [Choice Randomizer](randomizer-guide.md)
   * [Game Plan Scheduler](game-plan-guide.md)
