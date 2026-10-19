@@ -15,7 +15,8 @@ This guide covers setting up a local development environment, running tests, adh
 ```bash
 git clone https://github.com/jarbochov/StreamPulse.git
 cd StreamPulse
-npm install
+npm run setup
+# (Select profile 1 for lightweight server development, or profile 2 for full desktop app development)
 ```
 
 ### Running the Development Server
@@ -24,6 +25,12 @@ npm install
 npm start
 ```
 The server will boot and listen at `http://localhost:3000`.
+
+### Running Desktop Development Mode
+
+```bash
+npm run desktop:dev
+```
 
 ---
 

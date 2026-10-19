@@ -118,7 +118,8 @@ For developers, technical directors, and power users, StreamPulse is engineered 
    ```bash
    git clone https://github.com/jarbochov/StreamPulse.git
    cd StreamPulse
-   npm install
+   npm run setup
+   # (Select option 1 for fast server-only mode, or run: npm install --omit=dev)
    ```
 3. Start the server:
    - **macOS / Linux**: `./start-streampulse.sh` or `npm start`

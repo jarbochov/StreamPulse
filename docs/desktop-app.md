@@ -182,8 +182,8 @@ Alternatively, Control-click (or right-click) `StreamPulse.app` in Finder, selec
 ### Local Development Commands:
 ```bash
 # Launch the desktop app locally in development mode
-npm run desktop
+npm run desktop:dev  # (or: npm run desktop)
 
 # Compile native desktop packages locally into dist/
-npm run desktop:dist
+npm run desktop:build # (or: npm run desktop:dist)
 ```

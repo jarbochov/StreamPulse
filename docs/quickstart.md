@@ -15,7 +15,8 @@ Get StreamPulse running and connected to OBS Studio in under five minutes.
    ```bash
    git clone https://github.com/jarbochov/StreamPulse.git
    cd StreamPulse
-   npm install
+   npm run setup
+   # (or: npm install --omit=dev for lightweight server-only mode)
    ```
 3. Launch StreamPulse:
    ```bash
@@ -30,7 +31,8 @@ Get StreamPulse running and connected to OBS Studio in under five minutes.
    ```cmd
    git clone https://github.com/jarbochov/StreamPulse.git
    cd StreamPulse
-   npm install
+   npm run setup
+   # (or: npm install --omit=dev for lightweight server-only mode)
    ```
 3. Launch StreamPulse:
    - Double-click **`start-streampulse.bat`** (or run `npm start` in Command Prompt).
