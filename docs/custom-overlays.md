@@ -172,6 +172,21 @@ Dynamic visual meters for goals, music track playback, and countdown timers.
   - Countdown Timers: `{{timer.<id>.percent}}`
 - **Styling**: Customizable track color, fill color (or gradient), border radius, line thickness, and centered percentage labels.
 
+#### Twitch Poll (`poll`)
+Display your native Twitch poll in a compact, horizontal panel. Choose **Add Element > Stream Widgets > Poll**, or insert the **Compact poll** preset from the Presets panel.
+
+- **400 × 150 starting size**: The question sits above slim horizontal result bars. Two to five choices fill the available space automatically; extra rows disappear when the next poll has fewer choices.
+- **Live voting**: Show vote counts, percentages, total votes, and a remaining-time countdown based on Twitch's start time and duration. The display says **Closing** at zero until Twitch confirms the result. Twitch API refreshes are not instant.
+- **Results**: Highlight every tied winner; zero votes never produce a winner. Results stay visible for 15 seconds by default. Set **Show results (seconds)** to another duration, or to `0` to hide completed polls.
+- **Your channel's style**: Adjust the font, panel background, border, and bar colors. Resizing scales the display, with text sizing limited to keep the rows inside the panel. Long questions and choice names are shortened visually rather than overflowing.
+- **Safe previews**: Choose live data, fictional sample data, or automatic fallback samples. Preview two to five choices, voting, completed, tied, or zero-vote states without creating a Twitch poll. Samples appear only in the editor and preview URLs; production OBS sources hide the entire panel when no current poll or unexpired result is available.
+
+**Create the poll and let viewers vote in Twitch.** This is a display, not an embedded Twitch voting interface. Chat Bot voting is not available yet.
+
+Twitch must be connected with the `channel:read:polls` permission and your channel must support native Twitch polls. Reconnect Twitch if your existing connection lacks that permission.
+
+For an always-available panel, place it on a regular overlay page. The **Poll active** page trigger ends when voting ends, independently of this element's results duration. Use a separate **Poll end** trigger page if you want a results takeover instead.
+
 #### QR Code (`qr`)
 Dynamic vector SVG QR code generator backed by the `/api/qr` endpoint.
 - **Live URLs & Tokens**: Direct viewers to tips, Discord, socials, or Twitch profiles using live tokens (e.g. `https://twitch.tv/{{streamer}}`).

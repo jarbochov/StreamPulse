@@ -121,7 +121,7 @@
             if (sh === 'line' && element.type === 'shape') { node.style.height = `${Math.max(1, style.borderWidth || 4)}px`; node.style.border = '0'; }
         }
         shared.applyBorderEffects(node, style, element);
-        if (element.type === 'game-list' || element.type === 'slideshow' || element.type === 'pattern') node.style.display = 'block';
+        if (element.type === 'game-list' || element.type === 'slideshow' || element.type === 'pattern' || element.type === 'poll') node.style.display = 'block';
         if (element.type === 'pattern') {
             const blend = element.pattern?.blendMode || 'normal';
             const hasFill = shared.hasBoxFill ? shared.hasBoxFill(style) : false;
@@ -223,7 +223,8 @@
     function tickPlaceholders() {
         if (document.hidden) return;
         for (const { node, element } of tickingNodes) {
-            if (element.type === 'progress') shared.renderProgress(node, element, expandVariables);
+            if (element.type === 'poll') window.PollWidget.render(node, element, liveStatus.poll, { preview: params.get('preview') === 'true' });
+            else if (element.type === 'progress') shared.renderProgress(node, element, expandVariables);
             else if (element.type === 'markdown') {
                 const nextHtml = renderMarkdown(shared.elementContent(element), element);
                 if (node._mdHtml !== nextHtml) {
@@ -569,6 +570,8 @@
                 randomTimers.set(element.id, setInterval(() => setRandomText(existingNode, element), interval));
             } else if (element.type === 'game-list') {
                 shared.renderGameList(existingNode, element, liveStatus.gamePlan);
+            } else if (element.type === 'poll') {
+                window.PollWidget.render(existingNode, element, liveStatus.poll, { preview: params.get('preview') === 'true' });
             } else if (element.type === 'progress') {
                 shared.renderProgress(existingNode, element, expandVariables);
             } else if (element.type === 'alert') {
@@ -587,7 +590,7 @@
             }
 
             const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : shared.elementContent(element);
-            if (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource)) tickingNodes.push({ node: existingNode, element });
+            if (element.type === 'poll' || (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource))) tickingNodes.push({ node: existingNode, element });
             if (element.textFit && element.textFit !== 'none') fitNodes.push({ node: existingNode, element });
             shared.applyMediaFilter(existingNode, element);
             return existingNode;
@@ -744,6 +747,8 @@
                 slideshowsKept.add(element.id);
             } else if (element.type === 'game-list') {
                 shared.renderGameList(node, element, liveStatus.gamePlan);
+            } else if (element.type === 'poll') {
+                window.PollWidget.render(node, element, liveStatus.poll, { preview: params.get('preview') === 'true' });
             } else if (element.type === 'progress') {
                 shared.renderProgress(node, element, expandVariables);
             } else if (element.type === 'alert') {
@@ -761,7 +766,7 @@
                 setNodeText(node, expandVariables(shared.elementContent(element) || ''));
             }
             const tickSource = element.type === 'progress' ? `${element.content} ${element.progress?.label}` : shared.elementContent(element);
-            if (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource)) tickingNodes.push({ node, element });
+            if (element.type === 'poll' || (['text', 'markdown', 'progress'].includes(element.type) && shared.hasTicking(tickSource))) tickingNodes.push({ node, element });
             if (element.textFit && element.textFit !== 'none') fitNodes.push({ node, element });
             if (embedSig) { embeds.set(element.id, { sig: embedSig, node }); embedsKept.add(element.id); }
             shared.applyMediaFilter(node, element);

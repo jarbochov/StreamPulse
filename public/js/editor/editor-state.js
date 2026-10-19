@@ -24,6 +24,7 @@ export const TYPE_META = {
     shape: { label: 'Shape', icon: svg('<rect x="2" y="5.5" width="7" height="7" rx="1"/><circle cx="10" cy="6" r="3.5"/>') },
     cutout: { label: 'Cutout', icon: svg('<rect x="2" y="2" width="12" height="12" rx="2"/><rect x="5" y="5" width="6" height="6" rx="1" stroke-dasharray="2 1.5"/>') },
     progress: { label: 'Progress', icon: svg('<rect x="2" y="6" width="12" height="4" rx="2"/><path d="M2 8h6" stroke-width="2.5"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/>') },
+    poll: { label: 'Poll', icon: svg('<path d="M2 4h12M2 8h8M2 12h4"/>') },
     'game-list': { label: 'Game List', icon: svg('<path d="M4 5h8a3 3 0 013 3v3a2 2 0 01-2 2h-1l-2-2H6l-2 2H3a2 2 0 01-2-2V8a3 3 0 013-3z"/><path d="M4 8.5h3M5.5 7v3"/><circle cx="11.5" cy="8" r=".7" fill="currentColor"/><circle cx="13" cy="9.5" r=".7" fill="currentColor"/>') },
     alert: { label: 'Alert Box', icon: svg('<path d="M8 2a3 3 0 00-3 3v2.5L3.5 10v1h9v-1L11 7.5V5a3 3 0 00-3-3zM6.5 12.5a1.5 1.5 0 003 0"/>') },
     slideshow: { label: 'Slideshow', icon: svg('<rect x="4.5" y="2" width="9.5" height="9.5" rx="1.5"/><path d="M2 5.5v7A1.5 1.5 0 003.5 14h7"/><path d="M7 7.5l2 2 1.5-1.5 2 2"/>') },
@@ -32,7 +33,7 @@ export const TYPE_META = {
 
 export const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
 export const FILL_TEXT_TYPES = new Set([...TEXT_TYPES, 'game-list']);
-export const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress' || el.type === 'game-list' || el.type === 'alert';
+export const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress' || el.type === 'game-list' || el.type === 'alert' || el.type === 'poll';
 export const isLine = el => el.type === 'shape' && el.style?.shape === 'line';
 
 export const CANVAS_PRESETS = [
@@ -397,6 +398,7 @@ export function normalizeLoaded(data) {
         item.random ||= { mode: 'random', intervalSeconds: 5, typewriter: false, typewriterSpeed: 110, marquee: false, marqueeSpeed: 60 };
         if (item.type === 'video') item.video = Object.assign({ autoplay: true, loop: true, sound: false, volume: 100 }, item.video);
         if (item.type === 'alert') item.alert = Object.assign({ layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, triggers: [] }, item.alert);
+        if (item.type === 'poll') item.poll = window.PollWidget.settings(item.poll);
         if (item.type === 'cutout') item.cutout = Object.assign({ shape: 'rectangle', feather: 0 }, item.cutout);
         if (item.type === 'pattern') item.pattern = Object.assign({ sourceType: 'image', layout: 'brick', tileSize: 96, gap: 16, offsetX: 50, offsetY: 0, angle: -15, tileAngle: 0, alternateFlip: 'tilt', tileOpacity: 1, altOpacity: 0.4, altScale: 100, blendMode: 'normal', wedges: 6, feather: 0, motion: 'scroll', trackMode: 'uniform', scrollAngle: 315, speed: 12, spinSpeed: 8, spinDirection: 'cw', waveAmount: 25 }, item.pattern);
         item.style ||= {};
@@ -408,13 +410,13 @@ export function createElementData(type, overrides = {}) {
     const sizes = {
         text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270],
         video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: [480, 160],
-        cutout: [480, 270], progress: [480, 48], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360], pattern: [640, 360]
+        cutout: [480, 270], progress: [480, 48], poll: [400, 150], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360], pattern: [640, 360]
     };
     const [width, height] = sizes[type] || [480, 270];
     const offset = (state.overlay.elements.length % 6) * 24;
     const data = {
         id: uid(type), name: '', locked: false, type,
-        content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', cutout: '', progress: '50', 'game-list': '', alert: '', slideshow: '', pattern: 'fa-brands fa-twitch' }[type],
+        content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', cutout: '', progress: '50', poll: '', 'game-list': '', alert: '', slideshow: '', pattern: 'fa-brands fa-twitch' }[type],
         textFit: 'none',
         columns: 1,
         headingSpan: 6,
@@ -430,6 +432,7 @@ export function createElementData(type, overrides = {}) {
         alert: { layout: 'stack', mediaFit: 'contain', mediaScale: 60, titleSize: 44, messageSize: 28, titleColor: '#ffd166', gap: 12, sound: true, videoSound: false, videoLoop: true, hideText: false, showOnPreview: false, triggers: [] },
         cutout: { shape: 'rectangle', feather: 0 },
         progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
+        poll: type === 'poll' ? window.PollWidget.settings() : undefined,
         page: pagesOn() ? state.curPage : state.overlay.pages?.items[0]?.id || 'page-1',
         src: '',
         x: Math.round((state.overlay.canvas.width - width) / 2 + offset),
@@ -437,11 +440,11 @@ export function createElementData(type, overrides = {}) {
         width, height, zIndex: state.overlay.elements.length, visible: true,
         style: {
             fontFamily: 'sans-serif',
-            fontSize: type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48,
+            fontSize: type === 'poll' ? 12 : type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : 48,
             fontWeight: type === 'alert' ? '600' : '400',
             color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0,
-            background: type === 'shape' ? '#1f6feb' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent',
-            borderColor: '#ffffff', borderWidth: 0, borderRadius: type === 'alert' ? 24 : type === 'cutout' ? 16 : 0,
+            background: type === 'shape' ? '#1f6feb' : type === 'poll' ? 'rgba(13,17,23,0.85)' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent',
+            borderColor: '#ffffff', borderWidth: 0, borderRadius: type === 'poll' ? 10 : type === 'alert' ? 24 : type === 'cutout' ? 16 : 0,
             opacity: 1, objectFit: type === 'pattern' ? 'contain' : 'cover', shape: 'rectangle', fill: '#1f6feb',
             gradient: { enabled: false, from: '#1f6feb', to: '#8957e5', angle: 135 },
             blur: 0, shadow: { blur: 0, color: 'rgba(0,0,0,0.5)' }

@@ -483,6 +483,10 @@ function presetThumb(preset) {
         if (el.type === 'progress') {
             return `<rect ${rect} rx="${el.height / 2}" fill="rgba(255,255,255,0.25)"/><rect x="${el.x}" y="${el.y}" width="${el.width * 0.6}" height="${el.height}" rx="${el.height / 2}" fill="${esc(s.color || '#3fb950')}"/>`;
         }
+        if (el.type === 'poll') {
+            const color = esc(el.poll?.accent || '#a78bfa');
+            return `<rect ${rect} rx="10" fill="${esc(s.background || '#111827')}"/><text x="${el.x + 10}" y="${el.y + 24}" font-size="14" fill="${esc(s.color || '#fff')}" font-family="sans-serif">Poll question</text>${[0.75, 0.5, 0.25].map((width, i) => `<rect x="${el.x + 10}" y="${el.y + 44 + i * 28}" width="${(el.width - 20) * width}" height="12" rx="6" fill="${color}"/>`).join('')}`;
+        }
         return `<rect ${rect} fill="rgba(128,128,128,0.25)" stroke="#8b949e" stroke-dasharray="6 4" stroke-width="2"/>`;
     }).join('');
     return `<svg viewBox="-8 -8 ${preset.width + 16} ${preset.height + 16}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g>${parts}</g></svg>`;
@@ -533,7 +537,7 @@ export function placePreset(preset) {
         el.locked = false;
         el.visible = true;
         el.zIndex = state.overlay.elements.length + index;
-        if (preset.builtin) el.group = sharedGroup;
+        if (preset.builtin) el.group = preset.elements.length > 1 ? sharedGroup : '';
         else if (copy.group) {
             if (!groupMap.has(copy.group)) groupMap.set(copy.group, uid('group'));
             el.group = groupMap.get(copy.group);
@@ -548,7 +552,7 @@ export function placePreset(preset) {
     renderLayers();
     setSelection(made.map(el => el.id));
     changed(true);
-    toast(`Added “${preset.name}”. Ungroup to tweak the pieces.`, 'info', 3500);
+    toast(preset.elements.length === 1 ? `Added “${preset.name}”. Customize it in Properties.` : `Added “${preset.name}”. Ungroup to tweak the pieces.`, 'info', 3500);
 }
 
 export function openSavePreset() {
@@ -697,8 +701,13 @@ export async function refreshLiveStatus() {
 export function connectAlertPreview() {
     const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
     socket.addEventListener('message', event => {
-        if (typeof event.data === 'string' && !event.data.includes('"alert')) return;
+        if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"')) return;
         let message; try { message = JSON.parse(event.data); } catch { return; }
+        if (message.type === 'poll-update') {
+            state.liveStatus.poll = message.data;
+            if (prefs.live) renderCanvas();
+            return;
+        }
         if (message.type === 'alert-skip' || message.type === 'alert-clear') {
             for (const node of state.nodes.values()) if (node._alertHandle) node._alertHandle.stop();
             return;

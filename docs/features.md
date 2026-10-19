@@ -48,6 +48,12 @@ Turn a list of games, challenges, or participants into a wheel, roller, or card 
 
 **Good for:** choosing the next game, drawing a participant, or adding variety to a challenge.
 
+### Twitch polls on screen
+
+Show a native Twitch poll in your custom overlay, with a question, two to five slim result bars, vote totals, and a countdown. The Compact poll preset starts at 400 × 150 and adapts to the number of choices. Preview it with fictional samples before going live.
+
+**Good for:** letting viewers follow the vote while they watch. Create polls and accept votes in Twitch; Chat Bot voting is not included.
+
 ### Alerts and the Alert Queue
 
 Choose which events deserve an on-screen celebration and how they look and sound. Keep the queue beside your stream controls to pause, skip, or replay alerts. **Hide unmatched** helps you focus on events that triggered an alert rather than background activity.

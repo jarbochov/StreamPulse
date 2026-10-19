@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { sanitizeOverlayId } = require('./game-plan');
 const { safeWriteFileSync: defaultSafeWrite } = require('../routes/helpers');
+const { settings: normalizePollSettings } = require('../../public/js/poll-widget');
 
 const DEFAULT_RANDOMIZER_PRESETS = [
     {
@@ -322,7 +323,7 @@ function resetPresetWeights(preset, mode = '') {
 const TEXT_SOURCE_TYPES = new Set(['text', 'random-text', 'markdown']);
 const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
 const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout', 'pattern']);
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'poll', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout', 'pattern']);
 const PAGE_TRANSITIONS = ['none', 'fade', 'slide'];
 const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
 const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'];
@@ -590,6 +591,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
         groupName: element.group ? String(element.groupName || '').trim().slice(0, 60) : '',
         page: element.page === '*' ? '*' : sanitizeOverlayId(element.page).slice(0, 40),
         type,
+        poll: type === 'poll' ? normalizePollSettings(element.poll) : undefined,
         mediaFilter: normalizeMediaFilter(element.mediaFilter),
         pattern: normalizePattern(element.pattern),
         slideshow: {
@@ -1163,6 +1165,14 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
                 <text x="${x + 16}" y="${y + 28}" fill="#3fb950" font-family="-apple-system, system-ui, sans-serif" font-size="13" font-weight="700">GAME PLAN</text>
                 <rect x="${x + 16}" y="${y + 40}" width="${Math.min(60, w / 4)}" height="${Math.min(80, h - 50)}" rx="4" fill="rgba(255,255,255,0.1)" />
                 <rect x="${x + 16 + Math.min(60, w / 4) + 12}" y="${y + 40}" width="${Math.min(60, w / 4)}" height="${Math.min(80, h - 50)}" rx="4" fill="rgba(255,255,255,0.1)" />
+            </g>`);
+        } else if (el.type === 'poll') {
+            const accent = escapeXml(el.poll?.accent || '#a78bfa');
+            const rowHeight = h * .18;
+            elementsSvg.push(`<g${opacityAttr}${transform}>
+                <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${bgFill !== 'none' ? escapeXml(bgFill) : 'rgba(13,17,23,0.85)'}"${strokeAttr} />
+                <text x="${x + w * .03}" y="${y + h * .17}" fill="${escapeXml(style.color || '#fff')}" font-family="sans-serif" font-size="${h * .1}" font-weight="700">Poll question</text>
+                ${[.65, .25, .1].map((fraction, i) => `<rect x="${x + w * .03}" y="${y + h * .3 + i * rowHeight}" width="${w * .94 * fraction}" height="${h * .05}" rx="2" fill="${accent}" />`).join('')}
             </g>`);
         } else if (el.type === 'progress') {
             elementsSvg.push(`<g${opacityAttr}${transform}>

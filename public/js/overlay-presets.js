@@ -60,6 +60,11 @@
 
     function list() {
         return [
+            build('compact-poll', 'Compact poll', 'Stream', '400 x 150 Twitch poll with 2-5 adaptive result bars. Sample data is preview-only.', 400, 150, [{
+                type: 'poll', name: 'Compact poll', x: 0, y: 0, width: 400, height: 150,
+                style: { ...PANEL, fontSize: 12, fontWeight: '400', color: '#ffffff', borderRadius: 10, borderWidth: 1 },
+                poll: { source: 'twitch' }
+            }]),
             build('counter', 'Counter card', 'Stream', 'Big number with a caption, such as new followers this session.', 320, 180, [
                 panel(320, 180, 'Counter panel'),
                 text('Counter value', '{{followers.session}}', 0, 18, 320, 100, { fontSize: 84, fontWeight: '700', textAlign: 'center' }),

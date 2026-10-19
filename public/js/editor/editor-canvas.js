@@ -276,7 +276,8 @@ export function applyNodeStyle(node, el, index) {
     }
     if (shared.textEffectStyle) Object.assign(node.style, shared.textEffectStyle(s, el.type));
     if (shared.shadowClipStyle) Object.assign(node.style, shared.shadowClipStyle(el));
-    if (el.type === 'game-list' || el.type === 'slideshow' || el.type === 'pattern') node.style.display = 'block';
+    if (el.type === 'game-list' || el.type === 'slideshow' || el.type === 'pattern' || el.type === 'poll') node.style.display = 'block';
+    if (el.type === 'poll') window.PollWidget.render(node, el, prefs.live ? state.liveStatus.poll : null, { preview: true });
     if (el.type === 'pattern') {
         const blend = el.pattern?.blendMode || 'normal';
         const hasFill = shared.hasBoxFill ? shared.hasBoxFill(s) : false;
@@ -433,6 +434,8 @@ export function buildContent(node, el, playback) {
         if (shared.mountPattern) node._patternHandle = shared.mountPattern(node, el, { preview: true, animate: true, expand });
     } else if (el.type === 'game-list') {
         if (shared.renderGameList) shared.renderGameList(node, el, state.liveStatus.gamePlan);
+    } else if (el.type === 'poll') {
+        window.PollWidget.render(node, el, prefs.live ? state.liveStatus.poll : null, { preview: true });
     } else if (el.type === 'progress') {
         node._progressKind = null;
         if (shared.renderProgress) shared.renderProgress(node, el, expand);
@@ -456,6 +459,7 @@ export const contentSignature = (el, live) =>
     el.type === 'pattern' ? JSON.stringify([el.type]) :
     el.type === 'cutout' ? JSON.stringify([el.type]) :
     el.type === 'shape' ? JSON.stringify([el.type]) :
+    el.type === 'poll' ? JSON.stringify([el.type]) :
     el.type === 'alert' ? JSON.stringify([
         el.type, el.alert,
         el.style?.color, el.style?.fontFamily, el.style?.fontWeight, el.style?.lineHeight,
@@ -474,9 +478,14 @@ export const contentSignature = (el, live) =>
     ]);
 
 export function tickPlaceholders() {
-    if (!prefs.live || document.hidden) return;
+    if (document.hidden) return;
     for (const el of state.overlay.elements) {
         const node = state.nodes.get(el.id);
+        if (node && el.type === 'poll') {
+            window.PollWidget.render(node, el, prefs.live ? state.liveStatus.poll : null, { preview: true });
+            continue;
+        }
+        if (!prefs.live) continue;
         if (!node || !['text', 'markdown', 'progress'].includes(el.type) || !shared.hasTicking) continue;
         const textToCheck = el.type === 'progress' ? `${el.content} ${el.progress?.label}` : (shared.elementContent ? shared.elementContent(el) : el.content);
         if (!shared.hasTicking(textToCheck)) continue;

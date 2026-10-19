@@ -39,6 +39,7 @@ export function registerInspectorCallbacks(callbacks) {
 
 // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
 export const RERENDER_PATHS = new Set([
+    'poll.previewMode',
     'cutout.shape', 'alert.showOnPreview', 'style.objectFit', 'mediaFilter.duotone.enabled',
     'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled',
     'mediaFilter.halftone.mode', 'mediaFilter.halftone.colorMode', 'mediaFilter.halftone.fadeMode',
@@ -206,8 +207,8 @@ export function typographySection(el) {
     return F.section('typography', alert ? 'Message text' : 'Typography', `
         <label class="field"><span>Font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text">${fontOptions(s.fontFamily)}</select></label>
         ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${el.textFit === 'fit' && TEXT_TYPES.has(el.type) ? '' : F.number('style.fontSize', el.textFit === 'shrink' && TEXT_TYPES.has(el.type) ? 'Max size (px)' : 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) && !(el.type === 'random-text' && el.random?.marquee) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size set here'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${el.type === 'markdown' ? F.number('headingScale', 'Heading size (% of normal)', el.headingScale ?? 100, { min: 40, max: 200, step: 5 }) + F.select('columns', 'Columns', String(el.columns || 1), [['1', '1 column'], ['2', '2 columns'], ['3', '3 columns'], ['4', '4 columns']]) + ((el.columns || 1) > 1 ? F.select('headingSpan', 'Headings spanning all columns', String(el.headingSpan ?? 6), [['6', 'All headings (H1–H6)'], ['1', 'H1 only'], ['2', 'H1–H2'], ['3', 'H1–H3'], ['4', 'H1–H4'], ['0', 'None — headings stay in a column']]) : '') : ''}${FILL_TEXT_TYPES.has(el.type) ? fillControl(s, 'textGradient', 'Text color', F.color('style.color', 'Color', s.color)) : F.color('style.color', 'Text color', s.color)}`}
-        <div class="grid2">${F.seg('style.textAlign', 'Horizontal', textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${el.type === 'markdown' && el.columns > 1 ? '' : F.seg('style.verticalAlign', 'Vertical', verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>
-        <div class="grid2">${F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>
+        ${el.type === 'poll' ? '' : `<div class="grid2">${F.seg('style.textAlign', 'Horizontal', textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${el.type === 'markdown' && el.columns > 1 ? '' : F.seg('style.verticalAlign', 'Vertical', verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>`}
+        <div class="grid2">${el.type === 'poll' ? '' : F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>
         ${fontExtras}`)
         + (FILL_TEXT_TYPES.has(el.type) || alert ? textEffectsSection(el) : '');
 }
@@ -527,6 +528,23 @@ export function contentSection(el) {
     }
     if (media) body += mediaSourceBlock(el);
     return body ? F.section('content', 'Content', body) : '';
+}
+
+export function pollSection(el) {
+    const p = window.PollWidget.settings(el.poll);
+    return F.section('poll', 'Poll display', `
+        <p class="hint">Displays the native Twitch poll; create it in Twitch. Reconnect Twitch if poll access is missing. Votes refresh with Twitch polling, not instantly. Future chat polls can use the same display model.</p>
+        <div class="grid2">${F.color('poll.accent', 'Bar color', p.accent)}${F.color('poll.winnerColor', 'Result highlight', p.winnerColor)}</div>
+        ${F.color('poll.trackColor', 'Bar track', p.trackColor)}
+        <div class="grid2">${F.check('poll.showVotes', 'Vote counts', p.showVotes)}${F.check('poll.showPercent', 'Percentages', p.showPercent)}</div>
+        <div class="grid2">${F.check('poll.showTimer', 'Countdown', p.showTimer)}${F.check('poll.showTotal', 'Total votes', p.showTotal)}</div>
+        ${F.number('poll.resultsSeconds', 'Show results (seconds)', p.resultsSeconds, { min: 0, max: 300 })}
+        <p class="hint">0 hides completed polls. All tied winners are highlighted; a poll with no votes has no winner. Resize the element to scale it. Use a regular page to keep results visible after the active poll ends.</p>
+    `) + F.section('poll-preview', 'Poll preview', `
+        ${F.select('poll.previewMode', 'Preview data', p.previewMode, [['auto', 'Live, or sample when unavailable'], ['sample', 'Sample only'], ['live', 'Live only']])}
+        ${p.previewMode === 'live' ? '' : `<div class="grid2">${F.number('poll.sampleChoices', 'Sample choices', p.sampleChoices, { min: 2, max: 5 })}${F.select('poll.sampleState', 'Sample state', p.sampleState, [['active', 'Voting'], ['completed', 'Results'], ['tie', 'Tied results'], ['zero', 'No votes']])}</div>`}
+        <p class="hint">Sample settings affect only this editor and preview=true URLs. Production always uses real poll data and hides when no poll is available.</p>
+    `);
 }
 
 export function layoutSection(el) {
@@ -1337,7 +1355,7 @@ export function renderProperties() {
         root.innerHTML = `${actionBar(items)}${sharedBlock(items)}${scaleSection(items)}${alignSection(items)}${appearanceSection(items[0], true)}${textual ? typographySection(items.find(hasText) || items[0]) : ''}`;
     } else {
         const el = items[0];
-        const specific = { 'random-text': randomSection, progress: progressSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection }[el.type];
+        const specific = { 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection }[el.type];
         root.innerHTML = `${actionBar(items)}${sharedBlock(items)}${layoutSection(el)}${contentSection(el)}${el.type === 'icon' ? iconEffectsSection(el) : ''}${specific ? specific(el) : ''}${el.type !== 'cutout' ? filterSection(el) : ''}${hasText(el) ? typographySection(el) : ''}${el.type !== 'cutout' ? fillSection(el) : ''}${el.type !== 'cutout' ? effectsSection(el) : ''}`;
     }
     if (root.parentElement) root.parentElement.scrollTop = scroll;
