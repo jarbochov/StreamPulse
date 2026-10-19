@@ -50,7 +50,7 @@ Background controls affect only the selected ratio:
 | Gradient | Start/end colors and direction angle |
 | Transparent | No background; the preview checkerboard is not exported |
 | Image | Upload or Library, fill/crop or contain, crop focus, and darkening |
-| Pattern | Grid, geometry, or orbits with a base color and palette accents |
+| Pattern | Grid, geometry, orbits, hexagons, dots, diagonal lines, or checkerboard with palette accents |
 
 An image background is separate from the photo and artwork blocks. A saved custom theme can include its library image; the Asset Library tracks those references too. If an image background is selected without an image, export reports the affected format instead of silently producing an incomplete pack.
 

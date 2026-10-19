@@ -72,7 +72,6 @@ async function draw(revision) {
         target.width = canvas.width; target.height = canvas.height;
         target.getContext('2d').drawImage(canvas, 0, 0);
         const [w, h] = M.SIZES[format];
-        $('stage').style.aspectRatio = `${w}/${h}`;
         $('stage').style.setProperty('--stage-ratio', String(w / h));
     } catch (error) {
         if (revision === renderRevision) status(error.message, true);

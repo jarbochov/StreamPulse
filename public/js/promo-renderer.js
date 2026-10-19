@@ -103,6 +103,40 @@ function drawThemeBackdrop(ctx, width, height, design, pattern) {
         ctx.stroke();
         ctx.fillStyle = colors.accent;
         ctx.fillRect(width * .92, height * .12, width * .012, height * .28);
+    } else if (pattern === 'hexagons') {
+        const radius = Math.max(24, width / 28), rowStep = Math.sqrt(3) * radius;
+        ctx.lineWidth = Math.max(1, width / 700);
+        for (let row = -1; row <= height / rowStep + 1; row++) {
+            for (let col = -1; col <= width / (radius * 1.5) + 1; col++) {
+                const cx = col * radius * 1.5 + (row & 1) * radius * .75, cy = row * rowStep;
+                ctx.beginPath();
+                for (let point = 0; point < 6; point++) {
+                    const angle = point * Math.PI / 3, x = cx + Math.cos(angle) * radius, y = cy + Math.sin(angle) * radius;
+                    if (point === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.closePath(); ctx.stroke();
+            }
+        }
+    } else if (pattern === 'dots') {
+        const step = Math.max(24, width / 24), radius = Math.max(2, width / 300);
+        ctx.fillStyle = colors.accent + '50';
+        for (let y = step / 2; y < height; y += step) {
+            for (let x = step / 2; x < width; x += step) {
+                ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+    } else if (pattern === 'diagonal') {
+        const step = Math.max(32, width / 22);
+        ctx.lineWidth = Math.max(2, width / 180);
+        ctx.beginPath();
+        for (let offset = -height; offset < width; offset += step) { ctx.moveTo(offset, 0); ctx.lineTo(offset + height, height); }
+        ctx.stroke();
+    } else if (pattern === 'checker') {
+        const step = Math.max(36, width / 18);
+        ctx.fillStyle = colors.accent; ctx.globalAlpha = .16;
+        for (let row = 0; row * step < height; row++) {
+            for (let col = row % 2; col * step < width; col += 2) ctx.fillRect(col * step, row * step, step, step);
+        }
     } else if (!pattern && design.theme === 'gold') {
         for (let i = 0; i < 6; i++) ctx.strokeRect(width * (.025 + i * .006), height * (.025 + i * .006), width * (.95 - i * .012), height * (.95 - i * .012));
     } else if (pattern === 'geometry' || (!pattern && ['fire', 'purple', 'rainbow'].includes(design.theme))) {

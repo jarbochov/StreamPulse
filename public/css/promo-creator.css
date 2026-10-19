@@ -87,7 +87,8 @@ details[open]>summary::after{content:"−"}
 #ratio-tabs small{display:inline;margin:0 0 0 4px;font-size:9px;color:var(--text-faint)}
 #composition{width:100%;display:flex;justify-content:center}
 #stage{position:relative;width:100%;max-width:min(900px,calc(70vh * var(--stage-ratio,1)));touch-action:none;outline:none;overflow:hidden;border-radius:7px;box-shadow:0 12px 35px #0003;background:repeating-conic-gradient(#ffffff0c 0% 25%,#0000000c 0% 50%) 0 0/18px 18px}
-#preview{display:block;width:100%;height:100%}
+#stage::before{content:"";display:block;padding-bottom:calc(100% / var(--stage-ratio,1));pointer-events:none}
+#preview{position:absolute;inset:0;display:block;width:100%;height:100%}
 #handles{position:absolute;inset:0}
 .promo-handle{position:absolute;border:1px solid transparent;cursor:move}
 .promo-handle:hover{border-color:#ffffff90}

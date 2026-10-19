@@ -44,7 +44,7 @@
             theme: Object.hasOwn(THEMES, input.theme) ? input.theme : fallbackTheme,
             color: hex(input.color, '#0b1020'), endColor: hex(input.endColor, '#4338ca'),
             angle: number(input.angle, 135, 0, 360),
-            pattern: ['grid', 'geometry', 'orbits'].includes(input.pattern) ? input.pattern : 'orbits',
+            pattern: ['grid', 'geometry', 'orbits', 'hexagons', 'dots', 'diagonal', 'checker'].includes(input.pattern) ? input.pattern : 'orbits',
             image: assetUrl(input.image), fit: input.fit === 'contain' ? 'contain' : 'cover',
             focusX: number(input.focusX, 50, 0, 100), focusY: number(input.focusY, 50, 0, 100),
             shade: number(input.shade, 35, 0, 100)

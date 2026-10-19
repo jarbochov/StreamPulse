@@ -121,6 +121,22 @@ test('promo persistence, image references and actual studio export work without 
     await page.goto(`${origin}/promo-creator.html?id=${design.id}`);
     await page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Ready.'));
     await page.waitForFunction(() => document.querySelector('#preview').width === 1080);
+    await page.setViewport({ width: 1024, height: 600 });
+    for (const [ratio, expected] of Object.entries({ square: 1, landscape: 16 / 9, portrait: 9 / 16 })) {
+        await page.click(`[data-ratio="${ratio}"]`);
+        await page.waitForFunction(expected => {
+            const canvas = document.querySelector('#preview');
+            return canvas.width > 0 && canvas.width / canvas.height === expected;
+        }, {}, expected);
+        const dimensions = await page.$eval('#stage', stage => {
+            const { width, height } = stage.getBoundingClientRect();
+            return { ratio: width / height, canvasWidth: stage.querySelector('canvas').getBoundingClientRect().width, width };
+        });
+        assert.ok(Math.abs(dimensions.ratio - expected) < 0.02, `${ratio} preview keeps its aspect ratio at a short viewport height`);
+        assert.ok(Math.abs(dimensions.canvasWidth - dimensions.width) < 1, `${ratio} preview canvas fills the stage width`);
+    }
+    await page.setViewport({ width: 1500, height: 1000 });
+    await page.click('[data-ratio="square"]');
     assert.equal(await page.$eval('#appearance-panel', el => el.open), false, 'theme settings stay tucked away rather than dominating the workspace');
     assert.equal(await page.$('#theme-gallery'), null);
     await page.focus('#tab-square');
@@ -375,24 +391,29 @@ test('promo persistence, image references and actual studio export work without 
     assert.equal(createPromoService({ dataDir }).list()[0].layouts.portrait.background.mode, 'image', 'deleting a theme never changes existing promo backgrounds');
     const backgroundPixels = await page.evaluate(async photo => {
         const { renderPromo } = await import('/js/promo-renderer.js'), output = {};
-        for (const mode of ['solid', 'transparent', 'gradient', 'image', 'grid', 'geometry', 'orbits']) {
+        const patterns = ['grid', 'geometry', 'orbits', 'hexagons', 'dots', 'diagonal', 'checker'];
+        for (const mode of ['solid', 'transparent', 'gradient', 'image', ...patterns]) {
             const design = window.PromoModel.normalize();
             for (const block of Object.values(design.layouts.square.blocks)) block.enabled = false;
             design.layouts.square.background = window.PromoModel.background({
-                mode: ['grid', 'geometry', 'orbits'].includes(mode) ? 'pattern' : mode,
+                mode: patterns.includes(mode) ? 'pattern' : mode,
                 pattern: mode, color: '#112233', endColor: '#ff0000', angle: 90, image: photo, shade: 0
             });
             const canvas = document.createElement('canvas'); await renderPromo(canvas, design, 'square', { preview: false });
             const ctx = canvas.getContext('2d');
-            output[mode] = [10, 540, 1060].map(x => [...ctx.getImageData(x, 540, 1, 1).data]);
+            const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            let fingerprint = 2166136261;
+            for (let i = 0; i < data.length; i += 97) fingerprint = Math.imul(fingerprint ^ data[i], 16777619);
+            output[mode] = { samples: [10, 540, 1060].map(x => [...ctx.getImageData(x, 540, 1, 1).data]), fingerprint: fingerprint >>> 0 };
         }
         return output;
     }, renamed.url);
-    assert.deepEqual(backgroundPixels.solid[1], [17, 34, 51, 255]);
-    assert.equal(backgroundPixels.transparent[1][3], 0, 'transparent background stays transparent in export');
-    assert.ok(backgroundPixels.gradient[0][0] < backgroundPixels.gradient[2][0], 'gradient angle changes the colors across the canvas');
-    assert.deepEqual(backgroundPixels.image[1], [255, 153, 0, 255], 'library image paints behind all blocks');
-    assert.equal(new Set(['grid', 'geometry', 'orbits'].map(key => JSON.stringify(backgroundPixels[key]))).size, 3, 'pattern styles produce distinct output');
+    assert.deepEqual(backgroundPixels.solid.samples[1], [17, 34, 51, 255]);
+    assert.equal(backgroundPixels.transparent.samples[1][3], 0, 'transparent background stays transparent in export');
+    assert.ok(backgroundPixels.gradient.samples[0][0] < backgroundPixels.gradient.samples[2][0], 'gradient angle changes the colors across the canvas');
+    assert.deepEqual(backgroundPixels.image.samples[1], [255, 153, 0, 255], 'library image paints behind all blocks');
+    assert.equal(new Set(['grid', 'geometry', 'orbits', 'hexagons', 'dots', 'diagonal', 'checker'].map(key => backgroundPixels[key].fingerprint)).size, 7, 'each pattern style produces distinct output');
+    assert.equal(model.background({ pattern: 'hexagons' }).pattern, 'hexagons', 'hexagon pattern is persisted by normalization');
     await page.setViewport({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'studio fits narrow screens');
     await page.click('[data-ratio="portrait"]');
