@@ -54,7 +54,7 @@
             border: 2px solid color-mix(in srgb, var(--stage-accent) 60%, rgba(255,255,255,0.2));
             border-radius: clamp(10px, 2.2vmin, 18px);
             padding: clamp(1rem, 2.5vmin, 1.75rem) clamp(0.9rem, 2vmin, 1.5rem);
-            overflow: hidden;
+            overflow: visible;
             box-shadow: 0 16px 50px rgba(0,0,0,0.6);
             margin: auto;
             transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -211,8 +211,8 @@
         .deck-box {
             position: relative;
             width: 100%;
-            max-width: clamp(280px, 64vmin, 500px);
-            height: clamp(230px, 36vmin, 300px);
+            max-width: clamp(280px, 60vmin, 460px);
+            height: clamp(200px, 32vmin, 260px);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -221,8 +221,8 @@
         }
         .deck-container {
             position: relative;
-            width: clamp(160px, 28vmin, 200px);
-            height: clamp(220px, 38vmin, 270px);
+            width: clamp(150px, 26vmin, 185px);
+            height: clamp(205px, 34vmin, 250px);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -417,7 +417,7 @@
             to { transform: translateX(100%) rotate(25deg); }
         }
 
-        /* Authentic Deck Cut & Riffle Shuffle */
+        /* Authentic 3D Deck Cut, Split & Riffle Cascade */
         .deck-cut-packet {
             position: absolute;
             inset: 0;
@@ -443,6 +443,47 @@
             100% { transform: translate3d(0, 0, 0) rotate(0deg); }
         }
 
+        /* 3D Split Packets for Riffle */
+        .deck-split-packet {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 14px;
+            background: linear-gradient(145deg, #181530 0%, #0a0e1a 100%);
+            border: 2px solid color-mix(in srgb, var(--stage-indicator) 85%, #fff);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform-style: preserve-3d;
+            z-index: 3;
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s;
+        }
+        .deck-split-packet.left {
+            transform: translate3d(-52px, -6px, 14px) rotateZ(-7deg) rotateY(14deg);
+        }
+        .deck-split-packet.right {
+            transform: translate3d(52px, -6px, 14px) rotateZ(7deg) rotateY(-14deg);
+        }
+
+        .deck-stack.squaring {
+            animation: deckSquareUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes deckSquareUp {
+            0% { transform: rotateX(12deg) rotateY(-8deg) rotateZ(-3deg) scale(0.96); }
+            50% { transform: rotateX(6deg) rotateY(-4deg) rotateZ(0deg) scale(1.04) translateY(-6px); }
+            100% { transform: rotateX(12deg) rotateY(-8deg) rotateZ(-3deg) scale(1) translateY(0); }
+        }
+
+        .deck-card.hovering {
+            animation: cardHoverFloat 1.2s infinite alternate ease-in-out;
+        }
+        @keyframes cardHoverFloat {
+            0% { transform: translate3d(0, 0, 50px) scale(1.06) rotateZ(-0.5deg); }
+            100% { transform: translate3d(0, -6px, 56px) scale(1.08) rotateZ(0.8deg); }
+        }
+
         /* Riffle Interleave cards */
         .deck-shuffle-tray {
             position: absolute;
@@ -463,20 +504,20 @@
             z-index: 5;
         }
         .deck-riffle-card.left {
-            animation: riffleLeft 0.5s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+            animation: riffleDropLeft 0.38s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
         }
         .deck-riffle-card.right {
-            animation: riffleRight 0.5s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+            animation: riffleDropRight 0.38s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
         }
-        @keyframes riffleLeft {
-            0% { transform: translate3d(-42px, -6px, 14px) rotate(-7deg); opacity: 0; }
-            40% { transform: translate3d(-20px, -3px, 10px) rotate(-3deg); opacity: 1; }
-            100% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
+        @keyframes riffleDropLeft {
+            0% { transform: translate3d(-52px, -12px, 24px) rotateZ(-8deg); opacity: 0; }
+            30% { opacity: 1; }
+            100% { transform: translate3d(0, 0, var(--card-z, 6px)) rotateZ(var(--card-rot, 0deg)); opacity: 1; }
         }
-        @keyframes riffleRight {
-            0% { transform: translate3d(42px, -6px, 14px) rotate(7deg); opacity: 0; }
-            40% { transform: translate3d(20px, -3px, 10px) rotate(3deg); opacity: 1; }
-            100% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
+        @keyframes riffleDropRight {
+            0% { transform: translate3d(52px, -12px, 24px) rotateZ(8deg); opacity: 0; }
+            30% { opacity: 1; }
+            100% { transform: translate3d(0, 0, var(--card-z, 6px)) rotateZ(var(--card-rot, 0deg)); opacity: 1; }
         }
 
         /* Winner Card */
@@ -517,21 +558,26 @@
 
         /* Optional Overlay Spin Button */
         .overlay-spin-btn {
-            margin-top: 1.25rem;
+            position: relative;
+            z-index: 30;
+            margin-top: 1rem;
             background: var(--stage-gradient);
             color: #fff;
             border: 2px solid rgba(255, 255, 255, 0.4);
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: 800;
-            padding: .75rem 1.6rem;
+            padding: .65rem 1.5rem;
             border-radius: 999px;
             cursor: pointer;
             box-shadow: 0 4px 20px var(--stage-glow);
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: .55rem;
             transition: all .2s;
             text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            flex-shrink: 0;
+            user-select: none;
         }
         .overlay-spin-btn:hover {
             transform: scale(1.04);
@@ -585,6 +631,26 @@
                         </div>
                     </div>
                     <div class="deck-stack-badge" id="deck-count-badge">14 CARDS</div>
+                </div>
+
+                <!-- 3D Split Packets for Riffle Shuffle -->
+                <div class="deck-split-packet left" id="deck-split-left" style="display:none;">
+                    <div class="deck-card-border-ornament"></div>
+                    <div class="deck-card-pattern">
+                        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
+                            <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
+                            <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                        </svg>
+                    </div>
+                </div>
+                <div class="deck-split-packet right" id="deck-split-right" style="display:none;">
+                    <div class="deck-card-border-ornament"></div>
+                    <div class="deck-card-pattern">
+                        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
+                            <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
+                            <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                        </svg>
+                    </div>
                 </div>
 
                 <!-- Floating / Drawing Card (3D Flips face up) -->
@@ -1119,17 +1185,21 @@
             const activeCard = $('deck-active-card');
             const badge = $('deck-count-badge');
             const cutPacket = $('deck-cut-packet');
+            const splitLeft = $('deck-split-left');
+            const splitRight = $('deck-split-right');
             const tray = $('deck-shuffle-tray');
             if (badge) badge.textContent = `${list.length} CARDS`;
             if (stack) {
-                stack.classList.remove('dealing');
+                stack.classList.remove('dealing', 'squaring');
                 stack.style.display = 'flex';
             }
             if (cutPacket) cutPacket.classList.remove('cutting');
+            if (splitLeft) splitLeft.style.display = 'none';
+            if (splitRight) splitRight.style.display = 'none';
             if (tray) tray.innerHTML = '';
             if (activeCard && !isSpinning) {
                 activeCard.style.display = 'none';
-                activeCard.classList.remove('is-flipped', 'tricky-suspense');
+                activeCard.classList.remove('is-flipped', 'tricky-suspense', 'hovering');
             }
         }
 
@@ -1277,7 +1347,11 @@
 
             clearTimeout(autohideTimer);
             $('display-stage')?.classList.remove('hidden-stage');
-            if ($('overlay-spin-btn')) $('overlay-spin-btn').disabled = true;
+            if ($('overlay-spin-btn')) {
+                $('overlay-spin-btn').disabled = true;
+                $('overlay-spin-btn').style.opacity = '0.55';
+                $('overlay-spin-btn').style.pointerEvents = 'none';
+            }
             $('winner-box').style.display = 'none';
 
             let winnerIdx = -1;
@@ -1526,15 +1600,23 @@
                 const cardInner = $('deck-card-inner');
                 const tray = $('deck-shuffle-tray');
                 const cutPacket = $('deck-cut-packet');
+                const splitLeft = $('deck-split-left');
+                const splitRight = $('deck-split-right');
                 const badge = $('deck-count-badge');
 
                 if (badge) badge.textContent = `${list.length} CARDS`;
                 if (tray) tray.innerHTML = '';
                 if (cutPacket) cutPacket.classList.remove('cutting');
+                if (splitLeft) splitLeft.style.display = 'none';
+                if (splitRight) splitRight.style.display = 'none';
+                if (stack) {
+                    stack.classList.remove('dealing', 'squaring');
+                    stack.style.display = 'flex';
+                }
 
                 // Reset active card
                 activeCard.style.display = 'none';
-                activeCard.classList.remove('is-flipped', 'tricky-suspense');
+                activeCard.classList.remove('is-flipped', 'tricky-suspense', 'hovering');
                 activeCard.style.opacity = '1';
                 cardInner.style.transform = '';
                 activeCard.style.transform = '';
@@ -1554,48 +1636,81 @@
                         activeCard.classList.add('is-flipped');
                         setTimeout(() => {
                             finishSpin(winner, winnerHeader, winnerSub, autohide);
-                        }, 600);
+                        }, 550);
                     }, 120);
                 } else {
-                    // Tactile 3D Deck Cut sequence
+                    // Physical 4-Phase Duration-Scaled Deck Shuffle & Deal
+                    const tTotal = totalDurationMs;
+                    const phase1End = tTotal * 0.18;
+                    const phase2End = tTotal * 0.64;
+                    const phase3End = tTotal * 0.84;
+
+                    // Phase 1: 3D Deck Cut & Split
                     if (cutPacket) {
                         cutPacket.classList.add('cutting');
                         AudioFX.cardSlide();
                     }
 
-                    // Interleave riffle flutter
                     setTimeout(() => {
-                        stack.classList.add('dealing');
-                        const rifflePairs = 4;
-                        let rCount = 0;
+                        if (cutPacket) cutPacket.classList.remove('cutting');
+                        if (splitLeft) splitLeft.style.display = 'flex';
+                        if (splitRight) splitRight.style.display = 'flex';
+                        if (stack) stack.classList.add('dealing');
 
-                        function spawnRiffleCard() {
-                            if (rCount < rifflePairs * 2) {
-                                const isLeft = rCount % 2 === 0;
-                                rCount++;
-                                const card = document.createElement('div');
-                                card.className = `deck-riffle-card ${isLeft ? 'left' : 'right'}`;
-                                card.innerHTML = `
-                                    <div class="deck-card-border-ornament"></div>
-                                    <div class="deck-card-pattern">
-                                        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
-                                            <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
-                                            <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
-                                        </svg>
-                                    </div>
-                                `;
-                                if (tray) tray.appendChild(card);
-                                AudioFX.tick(0.42);
-                                setTimeout(() => card.remove(), 550);
-                                setTimeout(spawnRiffleCard, 65);
-                            } else {
-                                setTimeout(drawMainCard, 120);
+                        // Phase 2: Tactile Riffle Interleave Cascade with decelerating tick intervals
+                        const riffleDuration = phase2End - phase1End;
+                        const cardCount = Math.max(10, Math.min(26, Math.round(riffleDuration / 115)));
+                        let cIndex = 0;
+
+                        function scheduleNextRiffleCard() {
+                            if (cIndex >= cardCount) return;
+                            const progress = cIndex / cardCount;
+                            const isLeft = cIndex % 2 === 0;
+                            cIndex++;
+
+                            const card = document.createElement('div');
+                            card.className = `deck-riffle-card ${isLeft ? 'left' : 'right'}`;
+                            const randRot = (Math.random() * 4 - 2).toFixed(1);
+                            const stackZ = Math.round(progress * 12 + 2);
+                            card.style.setProperty('--card-rot', `${randRot}deg`);
+                            card.style.setProperty('--card-z', `${stackZ}px`);
+
+                            card.innerHTML = `
+                                <div class="deck-card-border-ornament"></div>
+                                <div class="deck-card-pattern">
+                                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
+                                        <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
+                                        <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                                    </svg>
+                                </div>
+                            `;
+                            if (tray) tray.appendChild(card);
+                            AudioFX.tick(Math.max(0.35, 0.85 - progress * 0.5));
+
+                            setTimeout(() => {
+                                if (card.parentNode) card.remove();
+                            }, 500);
+
+                            if (cIndex < cardCount) {
+                                const baseInterval = (riffleDuration / cardCount) * 0.55;
+                                const addedDelay = (riffleDuration / cardCount) * 0.9 * Math.pow(progress, 1.8);
+                                setTimeout(scheduleNextRiffleCard, baseInterval + addedDelay);
                             }
                         }
-                        spawnRiffleCard();
-                    }, 750);
+                        scheduleNextRiffleCard();
+                    }, phase1End * 0.7);
 
-                    function drawMainCard() {
+                    // Phase 3: Square Up Deck & Center Stage Deal with Suspense Hover
+                    setTimeout(() => {
+                        if (splitLeft) splitLeft.style.display = 'none';
+                        if (splitRight) splitRight.style.display = 'none';
+                        if (stack) {
+                            stack.classList.remove('dealing');
+                            stack.classList.add('squaring');
+                        }
+                        AudioFX.cardSlide();
+
+                        // Slide top card to center stage
                         activeCard.style.display = 'block';
                         activeCard.style.transform = 'translate3d(-52px, -8px, 0) scale(0.92)';
                         AudioFX.cardSlide();
@@ -1603,15 +1718,21 @@
                         requestAnimationFrame(() => {
                             activeCard.style.transition = 'transform 0.55s cubic-bezier(0.2, 0.85, 0.32, 1.2)';
                             activeCard.style.transform = 'translate3d(0, 0, 50px) scale(1.06)';
+                            setTimeout(() => {
+                                activeCard.classList.add('hovering');
+                            }, 550);
                         });
 
                         if (isTricky) {
+                            const trickyDelay = Math.max(200, (phase3End - phase2End) * 0.35);
                             setTimeout(() => {
+                                activeCard.classList.remove('hovering');
                                 activeCard.classList.add('tricky-suspense');
                                 AudioFX.tick(0.6);
+
                                 setTimeout(() => {
                                     activeCard.classList.remove('tricky-suspense');
-                                    activeCard.style.transition = 'transform 0.38s ease-in, opacity 0.38s';
+                                    activeCard.style.transition = 'transform 0.32s ease-in, opacity 0.32s';
                                     activeCard.style.transform = 'translate3d(180px, -40px, 0) rotate(26deg) scale(0.85)';
                                     activeCard.style.opacity = '0';
                                     AudioFX.cardSlide();
@@ -1623,35 +1744,42 @@
                                         void activeCard.offsetHeight;
 
                                         AudioFX.cardSlide();
-                                        activeCard.style.transition = 'transform 0.5s cubic-bezier(0.2, 0.85, 0.32, 1.2)';
+                                        activeCard.style.transition = 'transform 0.45s cubic-bezier(0.2, 0.85, 0.32, 1.2)';
                                         activeCard.style.transform = 'translate3d(0, 0, 50px) scale(1.08)';
-
-                                        setTimeout(flipWinnerCard, 450);
-                                    }, 380);
-                                }, 800);
-                            }, 600);
-                        } else {
-                            setTimeout(flipWinnerCard, 600);
+                                        setTimeout(() => {
+                                            activeCard.classList.add('hovering');
+                                        }, 450);
+                                    }, 280);
+                                }, 450);
+                            }, trickyDelay);
                         }
-                    }
+                    }, phase2End);
 
-                    function flipWinnerCard() {
+                    // Phase 4: 3D Flip, Sheen Sweep & Fanfare Reveal
+                    setTimeout(() => {
+                        activeCard.classList.remove('hovering');
                         AudioFX.cardFlip();
                         activeCard.classList.add('is-flipped');
-                        stack.classList.remove('dealing');
-                        if (cutPacket) cutPacket.classList.remove('cutting');
+                    }, phase3End);
 
-                        setTimeout(() => {
-                            finishSpin(winner, winnerHeader, winnerSub, autohide);
-                        }, 650);
-                    }
+                    // Exact Duration Completion (Syncs precisely with Wheel and Roller)
+                    setTimeout(() => {
+                        if (stack) stack.classList.remove('squaring');
+                        if (cutPacket) cutPacket.classList.remove('cutting');
+                        if (tray) tray.innerHTML = '';
+                        finishSpin(winner, winnerHeader, winnerSub, autohide);
+                    }, tTotal);
                 }
             }
         }
 
         function finishSpin(winner, customHeader = null, customSub = null, autohideSec = null) {
             isSpinning = false;
-            if ($('overlay-spin-btn')) $('overlay-spin-btn').disabled = false;
+            if ($('overlay-spin-btn')) {
+                $('overlay-spin-btn').disabled = false;
+                $('overlay-spin-btn').style.opacity = '1';
+                $('overlay-spin-btn').style.pointerEvents = 'auto';
+            }
             
             let headerText = customHeader || params.get('winHeader') || 'THE UNIVERSE HAS DECIDED';
 
@@ -1783,6 +1911,13 @@
                             if (d.weights) currentWeights = d.weights;
                             if (d.choiceStats) currentChoiceStats = d.choiceStats;
                             if (d.weightMode) currentWeightMode = d.weightMode;
+                            if (d.mode) currentMode = d.mode;
+                            if (d.showButton !== undefined) {
+                                showOverlayButton = d.showButton === '1' || d.showButton === true || d.showButton === 1;
+                                if ($('overlay-spin-btn')) {
+                                    $('overlay-spin-btn').style.display = showOverlayButton ? 'inline-flex' : 'none';
+                                }
+                            }
                             const spinChoices = (Array.isArray(d.choices) && d.choices.length) ? d.choices : (choices.length ? choices : DEFAULT_FALLBACK_CHOICES);
                             runSpin({
                                 choices: spinChoices,

@@ -29,8 +29,9 @@ Select between three distinctive broadcast animation modes in the Studio:
    - Smooth deceleration physics with winner celebration bounce.
 3. **Physical Playing Card Deck (`deck`)**:
    - Physical 3D playing card deck with authentic stacked card edge shadows and live pool count badge.
-   - Teaser card-deal burns and cut animations with crisp felt-slide audio feedback.
-   - Dramatic 3D 180° flip reveal with theme-coordinated corner pips, holographic light sheen, and tricky fakeout suspense.
+   - Tactile 4-phase duration-scaled animation: 3D deck cut & packet split, physical decelerating riffle flutter cascade with realistic tick audio, deck square-up with center-stage deal and suspense hover, followed by a dramatic 3D 180° flip reveal with holographic light sheen.
+   - Strictly respects the configured spin duration (4s, 6s, 8s, 10s), synchronizing deck shuffle and card flip precisely with Wheel and Slot Roller modes.
+   - Interactive on-overlay spin button (`?button=1`) previewed live in the Studio Monitor for touchscreen and interactive OBS browser source control.
 
 All three modes conclude with the **Winner Celebration Card** featuring a particle confetti explosion on your stream overlay, customizable header banners, and triumphant audio fanfare.
 
