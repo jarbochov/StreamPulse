@@ -508,6 +508,14 @@
             text-align: center;
         }
 
+        #btn-save-preset.btn-needs-save {
+            background: var(--accent) !important;
+            color: #ffffff !important;
+            border-color: var(--accent) !important;
+            font-weight: 700 !important;
+            box-shadow: 0 0 0 2px rgba(99,102,241,0.35);
+        }
+
         /* Choices Table View */
         .choices-table-wrap {
             max-height: 280px;
@@ -754,22 +762,29 @@
                             </button>
                         </div>
                         <div class="weight-settings-bar" id="weight-settings-bar" style="display:none;">
-                            <label title="Weight added per spin">
+                            <label id="weight-step-label" title="Weight added per spin">
                                 <span>Step:</span>
                                 <input type="number" id="weight-step-input" min="0.1" max="100" step="0.5" value="1">
                             </label>
-                            <label title="Maximum weight cap for any choice">
+                            <label id="weight-max-label" title="Maximum weight cap for any choice">
                                 <span>Max Cap:</span>
                                 <input type="number" id="weight-max-input" min="1" max="1000" step="1" value="20">
                             </label>
-                            <label title="Base baseline weight">
+                            <label id="weight-base-label" title="Base baseline weight">
                                 <span>Base:</span>
                                 <input type="number" id="weight-base-input" min="0.1" max="100" step="0.5" value="1">
                             </label>
-                            <button type="button" class="btn small" id="btn-reset-weights" title="Reset all choices back to base weight" style="margin-left:auto;">
+                            <button type="button" class="btn small" id="btn-reset-weights" title="Reset choices" style="margin-left:auto;">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                                Reset Weights
+                                <span id="btn-reset-weights-text">Reset to Equal (1.0)</span>
                             </button>
+                        </div>
+                        <div class="weight-save-notice" id="weight-save-notice" style="display:none; margin-top:.45rem; font-size:.73rem; line-height:1.4; padding:.45rem .65rem; border-radius:6px; background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.25); color:var(--text-muted);">
+                            <div style="display:flex; align-items:center; gap:.4rem; font-weight:600; color:var(--accent);">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                Save Required for OBS &amp; Stream Deck
+                            </div>
+                            <span id="weight-save-notice-text" style="display:block; margin-top:.2rem;">Weighting modes and choice odds are stored in your active <strong>Choice Preset</strong>. Click <strong>Save</strong> above to activate these weights in OBS overlays and Stream Deck triggers.</span>
                         </div>
                     </div>
 
@@ -1806,6 +1821,7 @@
 
             syncChoicesToTextarea();
             drawWheel(0, choices);
+            setPresetNeedsSave(true);
         }
 
         function renderChoicesTable() {
@@ -1980,6 +1996,21 @@
             });
         }
 
+        function setPresetNeedsSave(needed) {
+            const btn = $('btn-save-preset');
+            const notice = $('weight-save-notice');
+            if (!btn) return;
+            if (needed && currentWeightMode !== 'equal') {
+                btn.classList.add('btn-needs-save');
+                btn.title = 'Unsaved weighting changes — click Save to activate in OBS & Stream Deck';
+                if (notice) notice.style.display = 'block';
+            } else if (!needed) {
+                btn.classList.remove('btn-needs-save');
+                btn.title = 'Save active preset';
+                if (notice && currentWeightMode === 'equal') notice.style.display = 'none';
+            }
+        }
+
         function updateWeightControlsUI() {
             document.querySelectorAll('.weight-mode-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.mode === currentWeightMode);
@@ -1989,11 +2020,61 @@
                 if (currentWeightMode === 'equal') pill.textContent = 'Equal (1x)';
                 else if (currentWeightMode === 'manual') pill.textContent = 'Manual Weights';
                 else if (currentWeightMode === 'growth') pill.textContent = 'Pity / Growth Mode';
-                else if (currentWeightMode === 'momentum') pill.textContent = 'Momentum Mode';
+                else if (currentWeightMode === 'momentum') pill.textContent = 'Hot Streak Mode';
             }
             const settingsBar = $('weight-settings-bar');
+            const stepLabel = $('weight-step-label');
+            const maxLabel = $('weight-max-label');
+            const baseLabel = $('weight-base-label');
+            const resetBtn = $('btn-reset-weights');
+            const resetText = $('btn-reset-weights-text');
+            const notice = $('weight-save-notice');
+            const noticeText = $('weight-save-notice-text');
+
             if (settingsBar) {
-                settingsBar.style.display = (currentWeightMode === 'growth' || currentWeightMode === 'momentum') ? 'flex' : 'none';
+                if (currentWeightMode === 'equal') {
+                    settingsBar.style.display = 'none';
+                    if (notice) notice.style.display = 'none';
+                } else if (currentWeightMode === 'manual') {
+                    settingsBar.style.display = 'flex';
+                    if (stepLabel) stepLabel.style.display = 'none';
+                    if (maxLabel) maxLabel.style.display = 'none';
+                    if (baseLabel) baseLabel.style.display = 'none';
+                    if (resetBtn) {
+                        resetBtn.title = 'Reset all choice weights back to equal 1.0 odds';
+                        if (resetText) resetText.textContent = 'Reset to Equal (1.0)';
+                    }
+                    if (notice) {
+                        notice.style.display = 'block';
+                        if (noticeText) noticeText.innerHTML = 'Manual weights are stored in your active <strong>Choice Preset</strong>. Click <strong>Save</strong> above to activate these weights in OBS overlays and Stream Deck triggers.';
+                    }
+                } else if (currentWeightMode === 'growth') {
+                    settingsBar.style.display = 'flex';
+                    if (stepLabel) stepLabel.style.display = 'flex';
+                    if (maxLabel) maxLabel.style.display = 'flex';
+                    if (baseLabel) baseLabel.style.display = 'flex';
+                    if (resetBtn) {
+                        resetBtn.title = 'Clear accrued unpicked pity weights back to baseline (does not delete custom choices)';
+                        if (resetText) resetText.textContent = 'Reset Pity Streaks';
+                    }
+                    if (notice) {
+                        notice.style.display = 'block';
+                        if (noticeText) noticeText.innerHTML = 'Growth (Pity) mode adjusts weights dynamically on each spin. Click <strong>Save</strong> above to link this mode to your active preset.';
+                    }
+                } else if (currentWeightMode === 'momentum') {
+                    settingsBar.style.display = 'flex';
+                    if (stepLabel) stepLabel.style.display = 'flex';
+                    if (maxLabel) maxLabel.style.display = 'flex';
+                    if (baseLabel) baseLabel.style.display = 'flex';
+                    if (resetBtn) {
+                        resetBtn.title = 'Clear accrued winning streak weights back to baseline (does not delete custom choices)';
+                        if (resetText) resetText.textContent = 'Reset Win Streaks';
+                    }
+                    if (notice) {
+                        notice.style.display = 'block';
+                        if (noticeText) noticeText.innerHTML = 'Momentum mode boosts repeat winners. Click <strong>Save</strong> above to link this mode and streak history to your active preset.';
+                    }
+                }
             }
             if ($('weight-step-input')) $('weight-step-input').value = currentWeightSettings.step || 1;
             if ($('weight-max-input')) $('weight-max-input').value = currentWeightSettings.max || 20;
@@ -2688,6 +2769,7 @@
                 setChoices(DEFAULT_FALLBACK_CHOICES);
             }
             updateObsUrl();
+            setPresetNeedsSave(false);
             if (!isInitialLoad) saveStudioState();
         }
 
@@ -2982,7 +3064,9 @@
                     presetsList = res.presets;
                     currentPresetId = res.preset.id;
                     populateChoicesPresetsDropdown();
-                    toast(`Saved choices preset "${res.preset.name}"`);
+                    setPresetNeedsSave(false);
+                    const modeLabel = currentWeightMode === 'equal' ? 'equal odds' : `${currentWeightMode} weighting`;
+                    toast(`Saved choices preset "${res.preset.name}" (${modeLabel})`);
                 }
             } catch (e) { toast('Failed to save preset: ' + e.message); }
         };
@@ -3449,6 +3533,7 @@
                 drawWheel(0, choices);
                 updateObsUrl();
                 saveStudioState();
+                setPresetNeedsSave(true);
             };
         });
 
@@ -3461,32 +3546,56 @@
                     renderChoicesTable();
                     drawWheel(0, choices);
                     saveStudioState();
+                    setPresetNeedsSave(true);
                 };
             }
         });
 
         // Reset Weights Button
         $('btn-reset-weights').onclick = async () => {
-            if (currentPresetId && currentPresetId !== 'chatters' && currentPresetId !== 'variables') {
-                try {
-                    const res = await fetch(`/api/randomizer/presets/${encodeURIComponent(currentPresetId)}/reset-weights`, {
-                        method: 'POST'
-                    }).then(r => r.json());
-                    if (res.ok && res.preset) {
-                        currentChoiceStats = res.preset.choiceStats || {};
-                        currentWeightsMap = res.preset.weights || {};
-                        currentWeightMode = res.preset.weightMode || currentWeightMode;
-                    }
-                } catch {}
-            }
             const base = currentWeightSettings.base || 1;
-            choices.forEach(c => {
-                const b = currentWeightsMap[c] != null ? Number(currentWeightsMap[c]) : base;
-                currentChoiceStats[c] = { picks: 0, unpickedSpins: 0, effectiveWeight: b };
-            });
-            renderChoicesTable();
-            drawWheel(0, choices);
-            toast('Weights reset to baseline');
+            if (currentWeightMode === 'manual') {
+                choices.forEach(c => {
+                    currentWeightsMap[c] = base;
+                    currentChoiceStats[c] = { picks: 0, unpickedSpins: 0, effectiveWeight: base };
+                });
+                if (currentPresetId && currentPresetId !== 'chatters' && currentPresetId !== 'variables') {
+                    try {
+                        const res = await fetch(`/api/randomizer/presets/${encodeURIComponent(currentPresetId)}/reset-weights?mode=equal`, {
+                            method: 'POST'
+                        }).then(r => r.json());
+                        if (res.ok && res.preset) {
+                            currentChoiceStats = res.preset.choiceStats || {};
+                            currentWeightsMap = res.preset.weights || {};
+                        }
+                    } catch {}
+                }
+                renderChoicesTable();
+                syncChoicesToTextarea();
+                drawWheel(0, choices);
+                setPresetNeedsSave(true);
+                toast(`All choice weights reset to equal (${base}x)`);
+            } else {
+                choices.forEach(c => {
+                    const b = currentWeightsMap[c] != null ? Number(currentWeightsMap[c]) : base;
+                    currentChoiceStats[c] = { picks: 0, unpickedSpins: 0, effectiveWeight: b };
+                });
+                if (currentPresetId && currentPresetId !== 'chatters' && currentPresetId !== 'variables') {
+                    try {
+                        const res = await fetch(`/api/randomizer/presets/${encodeURIComponent(currentPresetId)}/reset-weights?mode=streaks`, {
+                            method: 'POST'
+                        }).then(r => r.json());
+                        if (res.ok && res.preset) {
+                            currentChoiceStats = res.preset.choiceStats || {};
+                        }
+                    } catch {}
+                }
+                renderChoicesTable();
+                drawWheel(0, choices);
+                setPresetNeedsSave(true);
+                const streakLabel = currentWeightMode === 'growth' ? 'Pity streaks' : 'Win streaks';
+                toast(`${streakLabel} reset to baseline`);
+            }
         };
 
         // Add Choice Button & Enter Key

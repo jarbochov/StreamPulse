@@ -26,7 +26,7 @@
   <div class="cover-features-row">
     <div class="cover-feature-pill">
       <div class="cover-feature-title">100% Self-Made & Funded</div>
-      <div class="cover-feature-desc">Independently built and self-supported with zero corporate backing or cloud fees</div>
+      <div class="cover-feature-desc">Independently built and carefully crafted and no cloud fees</div>
     </div>
     <div class="cover-feature-pill">
       <div class="cover-feature-title">Zero Cloud Lock-in</div>
@@ -34,11 +34,11 @@
     </div>
     <div class="cover-feature-pill">
       <div class="cover-feature-title">OBS GPU Accelerated</div>
-      <div class="cover-feature-desc">Ultra-low CPU transparent browser sources with 60 FPS renders</div>
+      <div class="cover-feature-desc">Ultra-low CPU transparent browser sources with responsive renders</div>
     </div>
     <a href="#/companion" class="cover-feature-pill" style="text-decoration:none;">
-      <div class="cover-feature-title">Tactile Hardware Control</div>
-      <div class="cover-feature-desc">Pre-configured 32-key Bitfocus Companion profile for Stream Deck</div>
+      <div class="cover-feature-title">Bitfocus Companion Integration</div>
+      <div class="cover-feature-desc">Pre-configured 32-key Bitfocus Companion profile for Stream Deck with our Companion Module</div>
     </a>
   </div>
 </div>

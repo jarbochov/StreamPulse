@@ -32,9 +32,14 @@ Both modes conclude with the **Winner Celebration Card** featuring a particle co
 
 ---
 
-## 3. Choice Weighting & Elimination
+## 3. Choice Weighting, Persistence & Reset
 
-- **Custom Weights**: Assign relative probability weights to any choice (e.g. rare items at weight `1`, common choices at weight `5`). Arcs on the wheel automatically resize proportionally.
+Configure probability distributions to fit your broadcast format:
+- **Equal (1x)**: Standard uniform distribution where every choice has identical winning odds.
+- **Manual Weights**: Fine-tune custom probability multipliers per choice with 0.1 precision stepping. Wheel slice angles and percentage odds update in real time. Click **Reset to Equal (1.0)** to set all choices back to equal 1.0x odds.
+- **Growth (Pity Mode)**: Unpicked choices gain bonus weight on each spin (`step` parameter), ensuring long-neglected items eventually win. When a choice wins, its pity bonus resets. Click **Reset Pity Streaks** to wipe accrued missed-spin bonuses back to baseline without clearing custom choices.
+- **Momentum (Hot Streak)**: Winning choices gain temporary weight boosts for exciting winner-stays streaks. Click **Reset Win Streaks** to clear winning multipliers back to baseline.
+- **Preset Saving Required**: Weighting modes and choice statistics are stored within your active Choice Preset. Whenever you switch modes or tweak weights, click **Save** in the Studio to persist changes to the server and update live OBS browser sources and Stream Deck Companion triggers.
 - **Elimination Mode**: Once a choice wins, it is automatically removed from subsequent spins.
 - **Auto-Populate Active Chatters**: Click **Load Active Chatters** to instantly populate the wheel with viewers who participated in your stream chat.
 - **Persistence Across Reloads**: Preserves choices and remaining pool even if the page or browser source is refreshed.

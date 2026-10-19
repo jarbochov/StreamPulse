@@ -1188,9 +1188,14 @@ function createOverlayRoutes({
             (pathname === '/api/randomizer/presets/reset-weights' && req.method === 'POST')) {
             try {
                 let idToReset = '';
-                if (pathname === '/api/randomizer/presets/reset-weights') {
+                let resetMode = url.searchParams.get('mode') || '';
+                let body = {};
+                try {
                     const raw = await readRequestBody(req);
-                    const body = JSON.parse(raw || '{}');
+                    if (raw) body = JSON.parse(raw);
+                } catch {}
+                if (body.mode) resetMode = body.mode;
+                if (pathname === '/api/randomizer/presets/reset-weights') {
                     idToReset = body.id || url.searchParams.get('id');
                 } else {
                     idToReset = decodeURIComponent(pathname.replace('/api/randomizer/presets/', '').replace('/reset-weights', ''));
@@ -1201,7 +1206,7 @@ function createOverlayRoutes({
                     sendError(res, 'Preset not found', 404);
                     return true;
                 }
-                resetPresetWeights(preset);
+                resetPresetWeights(preset, resetMode);
                 saveRandomizerPresets(presets);
                 sendJson(res, { ok: true, preset, presets });
             } catch (err) {

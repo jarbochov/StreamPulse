@@ -295,9 +295,15 @@ function updatePresetWeightsAfterSpin(preset, winner) {
     return preset;
 }
 
-function resetPresetWeights(preset) {
+function resetPresetWeights(preset, mode = '') {
     if (!preset) return null;
     const defaultBase = preset.weightSettings?.base || 1;
+    if (mode === 'equal' || preset.weightMode === 'equal') {
+        preset.weights = {};
+        for (const c of (preset.choices || [])) {
+            preset.weights[c] = defaultBase;
+        }
+    }
     const baseMap = preset.weights || {};
     const stats = {};
     for (const c of (preset.choices || [])) {

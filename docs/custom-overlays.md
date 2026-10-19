@@ -248,7 +248,7 @@ Format array tokens like `plan.scheduled` or `game.genres`:
 
 ## Asset Library & Font Management
 
-Access the unified [Asset Library](http://localhost:3000/assets.html) (Manage → Assets) to store and manage media files:
+Access the unified [Asset Library](http://localhost:3000/assets.html) (Overlays ▾ → Overlay Assets) to store and manage media files:
 - **Shared Storage**: One central repository for images, video loops, audio alert chimes, and custom typography. Files are stored in `data/custom-overlay-assets/` (up to 100 MB per file) and included in ZIP backups.
 - **Uploaded Web Fonts**: Upload `.ttf`, `.otf`, `.woff`, or `.woff2` font files. StreamPulse automatically injects `@font-face` rules into both the studio editor and live OBS browser sources, guaranteeing that custom typography renders consistently without requiring local font installation on the host machine.
 - **Reference Integrity**: Renaming an asset in the library automatically updates every custom overlay and timer that references it without breaking active broadcast sources.
