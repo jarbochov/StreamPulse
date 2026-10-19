@@ -95,6 +95,7 @@
             { label: 'Milestones', href: '/milestone-url-wizard.html' }
         ]},
         { label: 'Tools ▾', children: [
+            { label: 'Promo Creator', href: '/promo-creator.html' },
             { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
             { label: 'Alerts & SFX', href: '/alerts.html' },
             { label: 'Placeholders & Variables', href: '/placeholders.html' },
@@ -165,6 +166,7 @@
         list.push({ label: 'Overlay Assets', href: '/assets.html', group: 'Editors & Studios' });
 
         // 3. Stream Tools & Automation
+        list.push({ label: 'Promo Creator', href: '/promo-creator.html', group: 'Stream Tools' });
         list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
         list.push({ label: 'Alerts & SFX', href: '/alerts.html', group: 'Stream Tools' });
         list.push({ label: 'Placeholders & Variables', href: '/placeholders.html', group: 'Stream Tools' });

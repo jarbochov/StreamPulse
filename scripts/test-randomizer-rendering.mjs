@@ -10,6 +10,7 @@ const moduleNames = ['wheel', 'stage-rendering', 'spin-animation', 'animation-sc
 const sources = new Map(await Promise.all(moduleNames.map(async name => [
     `/js/randomizer/${name}.js`, await readFile(new URL(`../public/js/randomizer/${name}.js`, import.meta.url), 'utf8')
 ])));
+sources.set('/js/studio-themes.js', await readFile(new URL('../public/js/studio-themes.js', import.meta.url), 'utf8'));
 const hooks = `
         window.fixture.controls = {
             spin: runSpin, draw: drawWheel,

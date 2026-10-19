@@ -28,6 +28,12 @@ Use the overlay wizards to choose a look, preview it, and copy the link into OBS
 
 **Good for:** adding one useful element to an existing OBS scene.
 
+### Promo Creator
+
+Open **Tools > Promo Creator** to make a professional stream announcement with one-click themes, IGDB game covers/artwork/screenshots, your own photo, rounded/circular images, font choices, Twitch URL, and QR code. Compose square, landscape, and portrait versions with independent arrangements, then download all three PNGs in one ZIP to share yourself. Designs save locally for next time; no social accounts or publishing integrations are involved.
+
+**Good for:** a reusable “going live” image that matches your channel. See the [Promo Creator guide](promo-creator.md).
+
 ## Plan what comes next
 
 ### Game Plan

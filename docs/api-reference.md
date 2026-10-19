@@ -4,6 +4,29 @@ StreamPulse exposes a clean, RESTful HTTP API and a real-time WebSocket protocol
 
 All endpoints are hosted locally at `http://localhost:3000` (or your configured port). This guide covers common automation calls; the server's [interactive API reference](http://localhost:3000/api.html) lists additional endpoints.
 
+## Promo Creator
+
+Promo designs are static, locally saved documents, not live overlay controls. They do not emit WebSocket events or require Companion actions. See the [Promo Creator guide](promo-creator.md) for the browser workflow.
+
+| Endpoint | Result |
+| --- | --- |
+| `GET /api/promos` | Array of saved designs, including their IDs and `updatedAt` timestamps |
+| `GET /api/promos/:id` | One saved design; `404` if missing |
+| `POST /api/promos` | Create a design; returns the normalized design with a generated UUID (`201`) |
+| `PUT /api/promos/:id` | Replace an existing design; returns the normalized design |
+| `DELETE /api/promos/:id` | Delete the saved design, keeping uploaded images; returns `{ "deleted": "<id>" }` |
+| `GET /api/promos/igdb/search?q=<title>` | IGDB game matches with IDs, names, years and cover thumbnails |
+| `GET /api/promos/igdb/games/:id` | A game's cover, artwork and screenshot choices |
+| `POST /api/promos/igdb/import` | Import `{ "gameId": "123", "imageId": "abc" }` into the local Asset Library; returns `{ url, name, game, kind }` |
+
+Write requests accept a JSON design (maximum 256 KiB). Shared fields are `name`, `title`, `subtitle`, `badge`, `url` (Twitch handle or channel URL), `photo`, `artwork`, `theme`, `colors`, and `font`. Images must be local `/custom-overlay-assets/<filename>` URLs. Omitted fields use defaults.
+
+`layouts.square`, `layouts.landscape`, and `layouts.portrait` each contain a `template` (`editorial`, `spotlight`, or `minimal`), back-to-front `order`, and `blocks` keyed by `photo`, `artwork`, `badge`, `title`, `subtitle`, `url`, and `qr`. Blocks use percentage `x/y/w/h`, `enabled`, pixel `fontSize`, optional hex `color`, `fit` (`cover` or `contain`), percentage `focusX/focusY`, image `shape` (`rectangle`, `rounded`, or `circle`), and pixel `radius`.
+
+Storage is `data/promos.json` (up to 200 designs), included in full data backups. Validation failures return `400`, missing IDs return `404`, unsupported methods return `405`, and storage failures return `500`. Export renders all three arrangements and packages their PNGs into one ZIP in the browser; there is no server export endpoint. The existing `/api/qr` and Asset Library endpoints supply QR graphics, fonts, and images.
+
+IGDB operations use the configured Twitch client credentials. Missing credentials return `409`; upstream failures return `502`; image imports over 20 MB return `413`. Imports verify that the requested image belongs to the game and download only from IGDB's fixed HTTPS image origin, without following redirects. They do not accept arbitrary remote image URLs.
+
 ---
 
 ## 1. Session Lifecycle Endpoints

@@ -2,12 +2,32 @@ import puppeteer from 'puppeteer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import promoModel from '../public/js/promo-model.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const docsImgDir = path.join(__dirname, '..', 'docs', 'images');
 
 const baseUrl = (process.env.STREAMPULSE_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
+const dummyPromo = {
+    ...promoModel.normalize({
+        name: 'Fictional expedition', title: 'Tonight,\nwe go beyond.', subtitle: 'First steps. Big discoveries.\nJoin the expedition.',
+        badge: 'LIVE TONIGHT / 8 PM', url: 'fictionalstudio42', theme: 'purple',
+        photo: '/custom-overlay-assets/promo-fictional-scene.svg'
+    }),
+    id: 'fictional-promo'
+};
+const dummyPromoImage = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<defs><linearGradient id="sky" x2=".6" y2="1"><stop stop-color="#080d29"/><stop offset=".55" stop-color="#66379d"/><stop offset="1" stop-color="#ffb382"/></linearGradient>
+<radialGradient id="moon"><stop stop-color="#ffe8bd"/><stop offset="1" stop-color="#e395d9"/></radialGradient></defs>
+<path fill="url(#sky)" d="M0 0h1600v900H0z"/><circle cx="1150" cy="300" r="175" fill="url(#moon)"/>
+<g fill="white" opacity=".8"><circle cx="200" cy="120" r="2"/><circle cx="450" cy="230" r="3"/><circle cx="800" cy="80" r="2"/><circle cx="1450" cy="160" r="2"/><circle cx="650" cy="310" r="2"/><circle cx="130" cy="350" r="2"/></g>
+<path fill="#46355f" d="M0 590 230 350 410 560 680 400 960 610 1270 470 1600 620V900H0Z"/>
+<path fill="#221c40" d="M0 710 300 560 520 740 850 520 1120 720 1440 590 1600 740V900H0Z"/>
+<path fill="#101329" d="M0 830 290 720 590 820 840 710 1180 840 1450 710 1600 800V900H0Z"/>
+<path stroke="#f3b6ff" stroke-width="3" fill="none" opacity=".55" d="m300 560 220 180 330-220 270 200"/>
+<g transform="translate(820 666)" fill="#0a1021"><circle cx="0" cy="-42" r="12"/><path d="m-10-28 20 0 8 45-35 0zM-9 12l-10 35h12L2 16l8 31h12L12 10z"/></g>
+</svg>`;
 
 // Fictional, engaging dummy community members
 const dummyCommunityList = {
@@ -369,7 +389,11 @@ async function run() {
     await page.setRequestInterception(true);
     page.on('request', req => {
         const url = req.url();
-        if (url.includes('/api/chatters/PixelKnight')) {
+        if (url.includes('/api/promos')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([dummyPromo]) });
+        } else if (url.includes('/custom-overlay-assets/promo-fictional-scene.svg')) {
+            req.respond({ status: 200, contentType: 'image/svg+xml', body: dummyPromoImage });
+        } else if (url.includes('/api/chatters/PixelKnight')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyDossierPixelKnight) });
         } else if (url.includes('/api/chatters')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyCommunityList) });
@@ -391,6 +415,14 @@ async function run() {
     });
 
     const targets = [
+        {
+            url: `${baseUrl}/promo-creator.html?id=fictional-promo`,
+            file: 'promo-creator.png',
+            wait: 1200,
+            action: async p => {
+                await p.setViewport({ width: 1600, height: 1600, deviceScaleFactor: 2 });
+            }
+        },
         {
             url: `${baseUrl}/dashboard.html`,
             file: 'dashboard.png',

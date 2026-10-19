@@ -6,6 +6,7 @@
 
 * **Detailed Feature Guides**
   * [Custom Overlay Studio](custom-overlays.md)
+  * [Promo Creator](promo-creator.md)
   * [Overlay URL Wizards](overlay-wizards.md)
   * [Credits Studio](credits-guide.md)
   * [Choice Randomizer](randomizer-guide.md)

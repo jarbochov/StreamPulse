@@ -41,6 +41,7 @@ const MIME_TYPES = {
     '.gif': 'image/gif',
     '.jpeg': 'image/jpeg',
     '.webp': 'image/webp',
+    '.avif': 'image/avif',
     '.mp4': 'video/mp4',
     '.webm': 'video/webm',
     '.ogg': 'video/ogg',
@@ -58,7 +59,7 @@ const MIME_TYPES = {
 };
 
 const ASSET_KIND_BY_EXT = {
-    '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.gif': 'image', '.webp': 'image', '.svg': 'image',
+    '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.gif': 'image', '.webp': 'image', '.avif': 'image', '.svg': 'image',
     '.mp4': 'video', '.webm': 'video', '.ogg': 'video',
     '.ttf': 'font', '.otf': 'font', '.woff': 'font', '.woff2': 'font',
     '.mp3': 'audio', '.wav': 'audio', '.m4a': 'audio', '.aac': 'audio', '.oga': 'audio',

@@ -46,6 +46,9 @@ const { createGoalsRoutes } = require('./server/routes/goals');
 const { createMusicRoutes } = require('./server/routes/music');
 const { createWeatherRoutes } = require('./server/routes/weather');
 const { createGamePlanRoutes } = require('./server/routes/game-plan');
+const { createPromoService } = require('./server/services/promos');
+const { createPromoArtworkService } = require('./server/services/promo-artwork');
+const { createPromoRoutes } = require('./server/routes/promos');
 const { createTwitchRoutes } = require('./server/routes/twitch');
 const { createSessionRoutes } = require('./server/routes/session');
 const { createOverlayRoutes } = require('./server/routes/overlays');
@@ -1429,6 +1432,15 @@ const handleSessionRoutes = createSessionRoutes({
     generatePdf
 });
 
+const promoService = createPromoService({ dataDir: DATA_DIR });
+const handlePromoRoutes = createPromoRoutes({
+    service: promoService,
+    artworkService: createPromoArtworkService({
+        assetsDir: CUSTOM_OVERLAY_ASSETS_DIR,
+        getTwitchClientId: () => TWITCH_CLIENT_ID,
+        getAppToken
+    })
+});
 const handleOverlayRoutes = createOverlayRoutes({
     overlayService,
     alertEngine,
@@ -1442,8 +1454,10 @@ const handleOverlayRoutes = createOverlayRoutes({
     timerSoundUsers,
     creditsAssetUsers,
     gamePlanAssetUsers,
+    promoAssetUsers: name => promoService.assetUsers(name),
     rewriteTimerSoundReferences,
     rewriteGamePlanReferences,
+    rewritePromoReferences: (oldName, newName) => promoService.renameAsset(oldName, newName),
     rewriteCreditsReferences,
     broadcastToOverlays,
     getChatData: () => chatData,
@@ -1745,6 +1759,7 @@ const server = http.createServer(async (req, res) => {
     if (await handleWeatherRoutes(req, res, url, pathname)) return;
 
     if (await handleGamePlanRoutes(req, res, pathname)) return;
+    if (await handlePromoRoutes(req, res, pathname)) return;
 
 
 

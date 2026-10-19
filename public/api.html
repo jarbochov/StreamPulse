@@ -988,6 +988,19 @@
             ]
         },
         {
+            section: 'Promo Creator',
+            items: [
+                { method: 'GET', path: '/api/promos', desc: 'List locally saved promo designs', details: 'Returns an array of complete static promo designs, including IDs, timestamps and independent square, landscape and portrait layouts. No live overlay state or WebSocket events.' },
+                { method: 'GET', path: '/api/promos/:id', desc: 'Read a saved promo design', details: 'Returns one design, or 404 if it does not exist.' },
+                { method: 'POST', path: '/api/promos', desc: 'Create a promo design', body: '{ "name": "Launch night", "title": "Going live", "url": "fictionalstudio" }', details: 'Returns the normalized design with a UUID (201). Supports title, subtitle, badge, local photo/artwork URLs, colors, font, and independent layouts. JSON limit 256 KiB; up to 200 designs. PNG export is browser-side in /promo-creator.html.' },
+                { method: 'PUT', path: '/api/promos/:id', desc: 'Replace a saved promo design', details: 'Uses the same design shape as POST. Missing IDs return 404; invalid Twitch URLs or non-library images return 400.' },
+                { method: 'DELETE', path: '/api/promos/:id', desc: 'Delete a saved promo design', details: 'Returns { deleted: id }. Images stay in the Asset Library; promo image references protect assets from accidental deletion and follow asset renames.' },
+                { method: 'GET', path: '/api/promos/igdb/search?q=game', desc: 'Search IGDB games for promo artwork', details: 'Uses configured Twitch client credentials. Returns { results: [{ id, name, year, cover }] }. Missing credentials return 409; upstream errors return 502.' },
+                { method: 'GET', path: '/api/promos/igdb/games/:id', desc: 'Browse game covers, artwork and screenshots', details: 'Returns { id, name, images: [{ imageId, kind, url }] }. Availability varies by game.' },
+                { method: 'POST', path: '/api/promos/igdb/import', desc: 'Import selected IGDB art into the Asset Library', body: '{ "gameId": "123", "imageId": "example" }', details: 'Verifies the image belongs to the selected game, detects the actual image format, and saves a full-resolution local image (20 MB limit). Returns { url, name, game, kind }. Saved promos and exports use the local copy; arbitrary remote URLs and redirects are not accepted.' }
+            ]
+        },
+        {
             section: 'Game Plan & QR',
             items: [
                 {

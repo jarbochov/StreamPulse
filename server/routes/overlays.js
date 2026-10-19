@@ -5,7 +5,7 @@ const { sanitizeOverlayId } = require('../services/game-plan');
 const { readRequestBody, sendJson, sendText, sendError } = require('./helpers');
 
 const ASSET_KIND_BY_EXT = {
-    '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.gif': 'image', '.webp': 'image', '.svg': 'image',
+    '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.gif': 'image', '.webp': 'image', '.avif': 'image', '.svg': 'image',
     '.mp4': 'video', '.webm': 'video', '.ogg': 'video',
     '.ttf': 'font', '.otf': 'font', '.woff': 'font', '.woff2': 'font',
     '.mp3': 'audio', '.wav': 'audio', '.m4a': 'audio', '.aac': 'audio', '.oga': 'audio',
@@ -128,8 +128,10 @@ function createOverlayRoutes({
     timerSoundUsers = () => [],
     creditsAssetUsers = () => [],
     gamePlanAssetUsers = () => [],
+    promoAssetUsers = () => [],
     rewriteTimerSoundReferences = () => false,
     rewriteGamePlanReferences = () => false,
+    rewritePromoReferences = () => false,
     rewriteCreditsReferences = () => false,
     normalizeCustomOverlay = overlayService ? overlayService.normalizeCustomOverlay : (o) => o,
     saveCustomOverlays = overlayService ? overlayService.saveCustomOverlays : () => {},
@@ -314,7 +316,8 @@ function createOverlayRoutes({
                     ...serialized.filter(o => assetReferencedIn(o.text, name, family)).map(({ id, name: overlayName }) => ({ id, name: overlayName })),
                     ...timerSoundUsers(name),
                     ...creditsAssetUsers(name),
-                    ...gamePlanAssetUsers(name)
+                    ...gamePlanAssetUsers(name),
+                    ...promoAssetUsers(name)
                 ];
                 return {
                     name,
@@ -361,7 +364,8 @@ function createOverlayRoutes({
                     ...Object.values(customOverlays).filter(o => assetReferencedIn(JSON.stringify(o), name, family)).map(o => o.id),
                     ...timerSoundUsers(name).map(u => u.id),
                     ...creditsAssetUsers(name).map(u => u.id),
-                    ...gamePlanAssetUsers(name).map(u => u.id)
+                    ...gamePlanAssetUsers(name).map(u => u.id),
+                    ...promoAssetUsers(name).map(u => u.id)
                 ];
                 if (usedBy.length && url.searchParams.get('force') !== '1') {
                     res.writeHead(409, { 'Content-Type': 'application/json' });
@@ -440,6 +444,7 @@ function createOverlayRoutes({
             }
             if (rewriteTimerSoundReferences(name, newName)) updated.push('timers');
             if (rewriteGamePlanReferences(name, newName)) updated.push('game-plan');
+            if (rewritePromoReferences(name, newName)) updated.push('promos');
             if (rewriteCreditsReferences(name, newName)) updated.push('credits');
             if (updated.some(id => customOverlays[id])) {
                 saveCustomOverlays();
@@ -455,7 +460,7 @@ function createOverlayRoutes({
         if (pathname === '/api/custom-overlays/assets' && req.method === 'POST') {
             const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
             const allowedTypes = new Set([
-                'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml',
+                'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/svg+xml',
                 'video/mp4', 'video/webm', 'video/ogg',
                 'font/ttf', 'font/otf', 'font/woff', 'font/woff2',
                 'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/ogg',

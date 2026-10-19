@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>StreamPulse - Promo Creator</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/admin.css">
+    <link rel="stylesheet" href="/css/promo-creator.css">
+    <script src="/appearance.js"></script>
+</head>
+<body>
+    <header class="promo-site-nav"><a href="/dashboard.html" class="promo-brand">StreamPulse</a><div id="main-nav" class="nav"></div></header>
+    <main>
+        <header class="promo-heading">
+            <div><p class="eyebrow">CREATE / EXPORT / SHARE YOURSELF</p><h1>Promo Creator</h1><p class="hint">Your stream, ready for its close-up. Design once, compose for every format.</p></div>
+            <div class="actions"><button id="new-design" type="button">New promo</button><button id="save-design" type="button">Save design</button><button id="export" type="button" class="primary">Export PNGs</button></div>
+        </header>
+        <div class="promo-toolbar">
+            <label>Saved design<select id="saved"><option value="">Unsaved design</option></select></label>
+            <button id="duplicate" type="button">Save a copy</button><button id="delete-design" type="button">Delete</button>
+            <label>Format<select id="ratio"><option value="square">Square / 1080 x 1080</option><option value="landscape">Landscape / 1920 x 1080</option><option value="portrait">Portrait / 1080 x 1920</option></select></label>
+        </div>
+        <p id="status" role="status" aria-live="polite">Loading your promo library...</p>
+        <section class="promo-looks" aria-label="One-click visual themes"><div><h2>Make an impression</h2><p class="hint">Pick a theme. Add your headline and image. Export.</p></div><div id="theme-gallery"></div></section>
+        <div class="promo-workspace">
+            <aside class="promo-panel">
+                <h2>Story</h2>
+                <label>Design name<input id="name" maxlength="80"></label>
+                <label>Headline<textarea id="title" maxlength="180" rows="3"></textarea></label>
+                <label>Subtitle<textarea id="subtitle" maxlength="240" rows="2" placeholder="The game, the occasion, the reason to join."></textarea></label>
+                <label>Status label<input id="badge" maxlength="40" placeholder="LIVE NOW"></label>
+                <label>Twitch channel or URL<input id="url" maxlength="100" placeholder="twitch.tv/yourchannel" autocomplete="off"></label>
+                <h2>Images</h2>
+                <div class="image-control"><span>Screenshot / photo</span><div class="actions"><button data-library="photo" type="button">Library</button><button data-upload="photo" type="button">Upload</button><button data-igdb="photo" type="button">IGDB</button><button data-clear="photo" type="button">Clear</button></div><small id="photo-name">No photo</small></div>
+                <div class="image-control"><span>Artwork / logo</span><div class="actions"><button data-library="artwork" type="button">Library</button><button data-upload="artwork" type="button">Upload</button><button data-igdb="artwork" type="button">IGDB</button><button data-clear="artwork" type="button">Clear</button></div><small id="artwork-name">No artwork</small></div>
+                <p class="hint">Paste an image anywhere outside a text field to use it as your screenshot. Images use the shared Asset Library.</p>
+                <h2>Art direction</h2>
+                <label>Font<select id="font"></select></label>
+                <label>Starting layout<select id="template"><option value="editorial">Editorial / framed photo</option><option value="spotlight">Spotlight / full-bleed photo</option><option value="minimal">Type first / minimal</option></select></label>
+                <button id="auto-layout" type="button">Rearrange this format</button>
+                <p class="hint">Only this format is rearranged. Your other two compositions stay unchanged.</p>
+                <details><summary>Fine-tune the look</summary>
+                <label>Canvas corner radius (px)<input id="canvas-radius" type="number" min="0" max="300" value="0"></label>
+                <label>Theme<select id="theme"></select></label>
+                <div class="color-grid" id="colors"></div>
+                </details>
+            </aside>
+            <section class="promo-preview" aria-label="Promo composition">
+                <div id="stage" tabindex="0" aria-label="Drag selected blocks to move them; use arrow keys to nudge">
+                    <canvas id="preview"></canvas><div id="handles"></div>
+                </div>
+                <p class="hint">Drag a block to move it. Drag its corner to resize. Arrow keys nudge; Shift moves faster. No selection borders appear in exports.</p>
+            </section>
+            <aside class="promo-panel">
+                <h2>Composition</h2><p class="hint">Top row is the frontmost block. Layout changes affect only the selected format.</p>
+                <div id="block-list"></div>
+                <h2 id="block-heading">Block</h2>
+                <label class="check"><input id="block-enabled" type="checkbox"> Show block</label>
+                <div class="geometry">
+                    <label>X (%)<input id="block-x" type="number" min="0" max="98" step=".1"></label>
+                    <label>Y (%)<input id="block-y" type="number" min="0" max="98" step=".1"></label>
+                    <label>Width (%)<input id="block-w" type="number" min="2" max="100" step=".1"></label>
+                    <label>Height (%)<input id="block-h" type="number" min="2" max="100" step=".1"></label>
+                </div>
+                <div id="text-controls"><label>Maximum font size (px)<input id="block-fontSize" type="number" min="12" max="240"></label><p class="hint">Text shrinks and wraps to stay inside its block.</p><label>Text color<input id="block-color" type="color"></label><button id="inherit-color" type="button">Use palette color</button></div>
+                <div id="image-controls"><label>Image shape<select id="block-shape"><option value="rectangle">Rectangle</option><option value="rounded">Rounded corners</option><option value="circle">Circle crop / logo</option></select></label><label id="radius-control">Corner radius (px)<input id="block-radius" type="number" min="0" max="200"></label><label>Image fit<select id="block-fit"><option value="cover">Fill / crop</option><option value="contain">Contain / no crop</option></select></label><label>Crop focus X<input id="block-focusX" type="range" min="0" max="100"></label><label>Crop focus Y<input id="block-focusY" type="range" min="0" max="100"></label></div>
+                <p id="qr-hint" class="hint" hidden>The QR uses your Twitch URL, a white quiet zone, and a square fit. Keep it large enough to scan after sharing.</p>
+                <div class="actions"><button id="move-front" type="button">Forward</button><button id="move-back" type="button">Backward</button></div>
+                <h2>Export</h2><p class="hint">All three full-resolution PNGs in one ZIP, using each format's arrangement. No posting, social login, or live overlay connection. Download and share them yourself.</p>
+            </aside>
+        </div>
+    </main>
+    <dialog id="asset-dialog">
+        <div class="actions"><h2>Choose an image</h2><button id="close-assets" type="button">Close</button></div>
+        <label>Search library<input id="asset-search" type="search" placeholder="Name or tag"></label>
+        <p id="asset-status" role="status"></p><div id="asset-grid"></div>
+    </dialog>
+    <dialog id="igdb-dialog">
+        <div class="actions"><h2>Game artwork from IGDB</h2><button id="close-igdb" type="button">Close</button></div>
+        <form id="igdb-search-form"><label>Search games<input id="igdb-query" type="search" maxlength="100" placeholder="Enter a game title" required minlength="2"></label><button type="submit">Search IGDB</button></form>
+        <p class="hint">Choose a game, then its cover, artwork, or screenshot. A full-resolution copy is saved to your Asset Library for reliable export. Availability varies by game.</p>
+        <button id="igdb-back" type="button" hidden>Back to games</button>
+        <p id="igdb-status" role="status"></p><div id="igdb-grid"></div>
+    </dialog>
+    <input id="upload-file" type="file" accept="image/png,image/jpeg,image/webp,image/avif,image/gif,image/svg+xml" hidden>
+    <script src="/js/nav.js"></script>
+    <script src="/js/studio-themes.js"></script>
+    <script src="/overlay-theme.js"></script>
+    <script src="/js/promo-model.js"></script>
+    <script type="module" src="/js/promo-creator.js"></script>
+</body>
+</html>
