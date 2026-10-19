@@ -227,6 +227,8 @@
             align-items: center;
             justify-content: center;
             transform-style: preserve-3d;
+            transform: rotateX(14deg) rotateY(-8deg) rotateZ(-3deg);
+            transition: transform 0.4s ease;
         }
         .deck-stack {
             position: absolute;
@@ -250,14 +252,14 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            transform: rotateX(12deg) rotateY(-8deg) rotateZ(-3deg);
+            transform: translate3d(0, 0, 0);
             transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
             user-select: none;
             z-index: 2;
             overflow: hidden;
         }
         .deck-stack.dealing {
-            transform: translateX(-48px) rotateX(8deg) rotateY(-5deg) rotateZ(-2deg);
+            transform: translate3d(0, 0, -4px) scale(0.98);
         }
         .deck-card-border-ornament {
             position: absolute;
@@ -342,19 +344,42 @@
             align-items: center;
             justify-content: center;
             user-select: none;
+            transform-style: flat;
+        }
+        .deck-card-pattern,
+        .deck-card-watermark,
+        .deck-card-border-ornament {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            transform-style: flat;
         }
         .deck-card-back {
             background: linear-gradient(145deg, #181530 0%, #0a0e1a 100%);
             border: 2px solid color-mix(in srgb, var(--stage-indicator) 85%, #fff);
             box-shadow: 0 10px 28px rgba(0,0,0,0.65), inset 0 0 18px rgba(0,0,0,0.5);
+            transform: rotateY(0deg) translateZ(2px);
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.15s ease 0.22s, visibility 0s linear 0.22s;
         }
         .deck-card-front {
             background: linear-gradient(145deg, color-mix(in srgb, var(--stage-accent) 22%, #1e293b) 0%, #0b1120 100%);
             border: 2px solid var(--stage-indicator);
-            transform: rotateY(180deg);
+            transform: rotateY(180deg) translateZ(2px);
             box-shadow: 0 14px 40px rgba(0,0,0,0.7), 0 0 24px var(--stage-glow);
             justify-content: space-between;
             padding: 10px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.15s ease 0.22s, visibility 0s linear 0.22s;
+        }
+        .deck-card.is-flipped .deck-card-back {
+            opacity: 0 !important;
+            visibility: hidden !important;
+        }
+        .deck-card.is-flipped .deck-card-front {
+            opacity: 1 !important;
+            visibility: visible !important;
         }
         .deck-card-corner {
             position: absolute;
@@ -457,30 +482,34 @@
             align-items: center;
             justify-content: center;
             transform-style: preserve-3d;
-            z-index: 3;
-            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s;
+            z-index: 4;
+            transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s;
         }
         .deck-split-packet.left {
-            transform: translate3d(-52px, -6px, 14px) rotateZ(-7deg) rotateY(14deg);
+            transform: translate3d(-62px, -6px, 10px) rotateZ(-6deg);
         }
         .deck-split-packet.right {
-            transform: translate3d(52px, -6px, 14px) rotateZ(7deg) rotateY(-14deg);
+            transform: translate3d(62px, -6px, 10px) rotateZ(6deg);
+        }
+        .deck-split-packet.retracting {
+            transform: translate3d(0, 0, 0) rotateZ(0deg);
+            opacity: 0;
         }
 
         .deck-stack.squaring {
-            animation: deckSquareUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            animation: deckSquareUp 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
         @keyframes deckSquareUp {
-            0% { transform: rotateX(12deg) rotateY(-8deg) rotateZ(-3deg) scale(0.96); }
-            50% { transform: rotateX(6deg) rotateY(-4deg) rotateZ(0deg) scale(1.04) translateY(-6px); }
-            100% { transform: rotateX(12deg) rotateY(-8deg) rotateZ(-3deg) scale(1) translateY(0); }
+            0% { transform: translate3d(0, 0, 0) scale(0.96); }
+            50% { transform: translate3d(0, -8px, 14px) scale(1.04); }
+            100% { transform: translate3d(0, 0, 0) scale(1); }
         }
 
         .deck-card.hovering {
             animation: cardHoverFloat 1.2s infinite alternate ease-in-out;
         }
         @keyframes cardHoverFloat {
-            0% { transform: translate3d(0, 0, 50px) scale(1.06) rotateZ(-0.5deg); }
+            0% { transform: translate3d(0, 0, 48px) scale(1.05) rotateZ(-0.5deg); }
             100% { transform: translate3d(0, -6px, 56px) scale(1.08) rotateZ(0.8deg); }
         }
 
@@ -489,7 +518,8 @@
             position: absolute;
             inset: 0;
             pointer-events: none;
-            z-index: 5;
+            z-index: 6;
+            transform-style: preserve-3d;
         }
         .deck-riffle-card {
             position: absolute;
@@ -501,23 +531,22 @@
             border: 2px solid color-mix(in srgb, var(--stage-indicator) 80%, #fff);
             box-shadow: 0 4px 14px rgba(0,0,0,0.45);
             pointer-events: none;
-            z-index: 5;
+            z-index: 6;
+            transform-style: flat;
         }
         .deck-riffle-card.left {
-            animation: riffleDropLeft 0.38s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+            animation: riffleDropLeft 0.32s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
         }
         .deck-riffle-card.right {
-            animation: riffleDropRight 0.38s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+            animation: riffleDropRight 0.32s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
         }
         @keyframes riffleDropLeft {
-            0% { transform: translate3d(-52px, -12px, 24px) rotateZ(-8deg); opacity: 0; }
-            30% { opacity: 1; }
-            100% { transform: translate3d(0, 0, var(--card-z, 6px)) rotateZ(var(--card-rot, 0deg)); opacity: 1; }
+            0% { transform: translate3d(-62px, -12px, 26px) rotateZ(-7deg) scale(0.98); opacity: 0.85; }
+            100% { transform: translate3d(0, 0, var(--card-z, 6px)) rotateZ(var(--card-rot, 0deg)) scale(1); opacity: 1; }
         }
         @keyframes riffleDropRight {
-            0% { transform: translate3d(52px, -12px, 24px) rotateZ(8deg); opacity: 0; }
-            30% { opacity: 1; }
-            100% { transform: translate3d(0, 0, var(--card-z, 6px)) rotateZ(var(--card-rot, 0deg)); opacity: 1; }
+            0% { transform: translate3d(62px, -12px, 26px) rotateZ(7deg) scale(0.98); opacity: 0.85; }
+            100% { transform: translate3d(0, 0, var(--card-z, 6px)) rotateZ(var(--card-rot, 0deg)) scale(1); opacity: 1; }
         }
 
         /* Winner Card */
@@ -715,29 +744,38 @@
             enabled: params.get('sound') !== '0',
             init() {
                 if (!this.enabled) return;
-                if (!this.ctx) {
-                    const AudioContext = window.AudioContext || window.webkitAudioContext;
-                    if (AudioContext) this.ctx = new AudioContext();
-                }
-                if (this.ctx && this.ctx.state === 'suspended') {
-                    this.ctx.resume().catch(() => {});
-                }
+                try {
+                    if (!this.ctx) {
+                        const AudioContext = window.AudioContext || window.webkitAudioContext;
+                        if (AudioContext) this.ctx = new AudioContext();
+                    }
+                    if (this.ctx && this.ctx.state === 'suspended') {
+                        this.ctx.resume().catch(() => {});
+                    }
+                } catch {}
             },
             tick(speed = 1) {
                 if (!this.enabled) return;
                 try {
                     this.init();
                     if (!this.ctx) return;
+                    const now = this.ctx.currentTime;
+                    const pitch = Math.max(0.4, Math.min(2.2, Number(speed) || 1));
+
                     const osc = this.ctx.createOscillator();
                     const gain = this.ctx.createGain();
                     osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(500 + Math.random() * 80, this.ctx.currentTime);
-                    gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.035);
+                    const baseFreq = (560 + Math.random() * 80) * pitch;
+                    osc.frequency.setValueAtTime(baseFreq * 1.5, now);
+                    osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.6, now + 0.04);
+
+                    gain.gain.setValueAtTime(0.28, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
                     osc.connect(gain);
                     gain.connect(this.ctx.destination);
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + 0.04);
+                    osc.start(now);
+                    osc.stop(now + 0.048);
                 } catch {}
             },
             fanfare() {
@@ -752,12 +790,12 @@
                         osc.type = 'sine';
                         osc.frequency.value = freq;
                         const t = this.ctx.currentTime + idx * 0.09;
-                        gain.gain.setValueAtTime(0.12, t);
-                        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+                        gain.gain.setValueAtTime(0.26, t);
+                        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
                         osc.connect(gain);
                         gain.connect(this.ctx.destination);
                         osc.start(t);
-                        osc.stop(t + 0.5);
+                        osc.stop(t + 0.55);
                     });
                 } catch {}
             },
@@ -766,25 +804,41 @@
                 try {
                     this.init();
                     if (!this.ctx) return;
-                    const bufferSize = Math.floor(this.ctx.sampleRate * 0.08);
+                    const now = this.ctx.currentTime;
+                    const bufferSize = Math.floor(this.ctx.sampleRate * 0.16);
                     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
                     const data = buffer.getChannelData(0);
                     for (let i = 0; i < bufferSize; i++) {
-                        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+                        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.4));
                     }
                     const noise = this.ctx.createBufferSource();
                     noise.buffer = buffer;
                     const filter = this.ctx.createBiquadFilter();
                     filter.type = 'bandpass';
-                    filter.frequency.setValueAtTime(1900, this.ctx.currentTime);
-                    filter.Q.value = 1.3;
+                    filter.frequency.setValueAtTime(1600, now);
+                    filter.frequency.exponentialRampToValueAtTime(480, now + 0.15);
+                    filter.Q.value = 1.4;
+
                     const gain = this.ctx.createGain();
-                    gain.gain.setValueAtTime(0.09, this.ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.075);
+                    gain.gain.setValueAtTime(0.34, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.155);
+
                     noise.connect(filter);
                     filter.connect(gain);
                     gain.connect(this.ctx.destination);
-                    noise.start();
+                    noise.start(now);
+
+                    const bodyOsc = this.ctx.createOscillator();
+                    const bodyGain = this.ctx.createGain();
+                    bodyOsc.type = 'sine';
+                    bodyOsc.frequency.setValueAtTime(320, now);
+                    bodyOsc.frequency.exponentialRampToValueAtTime(140, now + 0.14);
+                    bodyGain.gain.setValueAtTime(0.18, now);
+                    bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+                    bodyOsc.connect(bodyGain);
+                    bodyGain.connect(this.ctx.destination);
+                    bodyOsc.start(now);
+                    bodyOsc.stop(now + 0.14);
                 } catch {
                     this.tick(1.3);
                 }
@@ -794,20 +848,42 @@
                 try {
                     this.init();
                     if (!this.ctx) return;
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(340, this.ctx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(720, this.ctx.currentTime + 0.12);
-                    gain.gain.setValueAtTime(0.11, this.ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.14);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + 0.14);
+                    const now = this.ctx.currentTime;
+
+                    const snapOsc = this.ctx.createOscillator();
+                    const snapGain = this.ctx.createGain();
+                    snapOsc.type = 'triangle';
+                    snapOsc.frequency.setValueAtTime(880, now);
+                    snapOsc.frequency.exponentialRampToValueAtTime(220, now + 0.05);
+                    snapGain.gain.setValueAtTime(0.32, now);
+                    snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
+                    snapOsc.connect(snapGain);
+                    snapGain.connect(this.ctx.destination);
+                    snapOsc.start(now);
+                    snapOsc.stop(now + 0.06);
+
+                    const whooshOsc = this.ctx.createOscillator();
+                    const whooshGain = this.ctx.createGain();
+                    whooshOsc.type = 'sine';
+                    whooshOsc.frequency.setValueAtTime(260, now + 0.02);
+                    whooshOsc.frequency.exponentialRampToValueAtTime(680, now + 0.15);
+                    whooshGain.gain.setValueAtTime(0.24, now + 0.02);
+                    whooshGain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
+                    whooshOsc.connect(whooshGain);
+                    whooshGain.connect(this.ctx.destination);
+                    whooshOsc.start(now + 0.02);
+                    whooshOsc.stop(now + 0.17);
                 } catch {}
             }
         };
+
+        const unlockAudio = () => {
+            AudioFX.init();
+            window.removeEventListener('pointerdown', unlockAudio);
+            window.removeEventListener('keydown', unlockAudio);
+        };
+        window.addEventListener('pointerdown', unlockAudio, { passive: true });
+        window.addEventListener('keydown', unlockAudio, { passive: true });
 
         // Confetti Particle Engine
         const Confetti = {
@@ -1112,6 +1188,7 @@
         if (overlayBtnEl) {
             overlayBtnEl.style.display = showOverlayButton ? 'inline-flex' : 'none';
             overlayBtnEl.onclick = async () => {
+                AudioFX.init();
                 if (!isSpinning) {
                     updateButtonLabel();
                     try {
@@ -1192,14 +1269,22 @@
             if (stack) {
                 stack.classList.remove('dealing', 'squaring');
                 stack.style.display = 'flex';
+                stack.style.transform = '';
             }
             if (cutPacket) cutPacket.classList.remove('cutting');
-            if (splitLeft) splitLeft.style.display = 'none';
-            if (splitRight) splitRight.style.display = 'none';
+            if (splitLeft) {
+                splitLeft.classList.remove('retracting');
+                splitLeft.style.display = 'none';
+            }
+            if (splitRight) {
+                splitRight.classList.remove('retracting');
+                splitRight.style.display = 'none';
+            }
             if (tray) tray.innerHTML = '';
             if (activeCard && !isSpinning) {
                 activeCard.style.display = 'none';
                 activeCard.classList.remove('is-flipped', 'tricky-suspense', 'hovering');
+                activeCard.style.transform = '';
             }
         }
 
@@ -1653,8 +1738,16 @@
 
                     setTimeout(() => {
                         if (cutPacket) cutPacket.classList.remove('cutting');
-                        if (splitLeft) splitLeft.style.display = 'flex';
-                        if (splitRight) splitRight.style.display = 'flex';
+                        if (splitLeft) {
+                            splitLeft.classList.remove('retracting');
+                            splitLeft.style.display = 'flex';
+                            splitLeft.style.opacity = '1';
+                        }
+                        if (splitRight) {
+                            splitRight.classList.remove('retracting');
+                            splitRight.style.display = 'flex';
+                            splitRight.style.opacity = '1';
+                        }
                         if (stack) stack.classList.add('dealing');
 
                         // Phase 2: Tactile Riffle Interleave Cascade with decelerating tick intervals
@@ -1671,7 +1764,7 @@
                             const card = document.createElement('div');
                             card.className = `deck-riffle-card ${isLeft ? 'left' : 'right'}`;
                             const randRot = (Math.random() * 4 - 2).toFixed(1);
-                            const stackZ = Math.round(progress * 12 + 2);
+                            const stackZ = Math.round(progress * 14 + 4);
                             card.style.setProperty('--card-rot', `${randRot}deg`);
                             card.style.setProperty('--card-z', `${stackZ}px`);
 
@@ -1685,11 +1778,9 @@
                                 </div>
                             `;
                             if (tray) tray.appendChild(card);
-                            AudioFX.tick(Math.max(0.35, 0.85 - progress * 0.5));
+                            AudioFX.tick(Math.max(0.35, 0.9 - progress * 0.5));
 
-                            setTimeout(() => {
-                                if (card.parentNode) card.remove();
-                            }, 500);
+                            // Note: cards accumulate cleanly in tray without flashing or disappearing
 
                             if (cIndex < cardCount) {
                                 const baseInterval = (riffleDuration / cardCount) * 0.55;
@@ -1702,13 +1793,21 @@
 
                     // Phase 3: Square Up Deck & Center Stage Deal with Suspense Hover
                     setTimeout(() => {
-                        if (splitLeft) splitLeft.style.display = 'none';
-                        if (splitRight) splitRight.style.display = 'none';
+                        if (splitLeft) splitLeft.classList.add('retracting');
+                        if (splitRight) splitRight.classList.add('retracting');
+                        setTimeout(() => {
+                            if (splitLeft) splitLeft.style.display = 'none';
+                            if (splitRight) splitRight.style.display = 'none';
+                        }, 320);
+
                         if (stack) {
                             stack.classList.remove('dealing');
                             stack.classList.add('squaring');
                         }
                         AudioFX.cardSlide();
+
+                        // Hand off: Clear riffle tray right when the deck squares up
+                        if (tray) tray.innerHTML = '';
 
                         // Slide top card to center stage
                         activeCard.style.display = 'block';
@@ -1717,7 +1816,7 @@
 
                         requestAnimationFrame(() => {
                             activeCard.style.transition = 'transform 0.55s cubic-bezier(0.2, 0.85, 0.32, 1.2)';
-                            activeCard.style.transform = 'translate3d(0, 0, 50px) scale(1.06)';
+                            activeCard.style.transform = 'translate3d(0, 0, 48px) scale(1.05)';
                             setTimeout(() => {
                                 activeCard.classList.add('hovering');
                             }, 550);
@@ -1745,7 +1844,7 @@
 
                                         AudioFX.cardSlide();
                                         activeCard.style.transition = 'transform 0.45s cubic-bezier(0.2, 0.85, 0.32, 1.2)';
-                                        activeCard.style.transform = 'translate3d(0, 0, 50px) scale(1.08)';
+                                        activeCard.style.transform = 'translate3d(0, 0, 48px) scale(1.05)';
                                         setTimeout(() => {
                                             activeCard.classList.add('hovering');
                                         }, 450);

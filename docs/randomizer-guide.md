@@ -53,7 +53,7 @@ Configure probability distributions to fit your broadcast format:
 
 ## 4. Audio Effects & Theming
 
-- **Audio Cues**: Integrated Web Audio sound synthesis for acceleration ticks, spinning whir, and winner fanfare.
+- **Audio Cues**: Integrated Web Audio sound synthesis for acceleration ticks, physical card slide friction & snap flip effects, spinning whir, and winner fanfare with browser gesture auto-unlock.
 - **Curated Themes**:
   - `Dark`: Clean slate with subtle borders.
   - `Neon`: Glowing high-contrast cyberpunk accents.
