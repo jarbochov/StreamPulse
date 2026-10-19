@@ -389,7 +389,9 @@ async function run() {
     await page.setRequestInterception(true);
     page.on('request', req => {
         const url = req.url();
-        if (url.includes('/api/promos')) {
+        if (url.includes('/api/promo-themes')) {
+            req.respond({ status: 200, contentType: 'application/json', body: '[]' });
+        } else if (url.includes('/api/promos')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([dummyPromo]) });
         } else if (url.includes('/custom-overlay-assets/promo-fictional-scene.svg')) {
             req.respond({ status: 200, contentType: 'image/svg+xml', body: dummyPromoImage });

@@ -1,5 +1,5 @@
 const { readRequestBody, sendJson, sendError } = require('./helpers');
-const { normalize } = require('../../public/js/promo-model');
+const { normalize, normalizeTheme } = require('../../public/js/promo-model');
 
 function createPromoRoutes({ service, artworkService }) {
     return async (req, res, pathname) => {
@@ -25,24 +25,24 @@ function createPromoRoutes({ service, artworkService }) {
             }
             return true;
         }
-        const match = pathname.match(/^\/api\/promos(?:\/([a-zA-Z0-9-]+))?$/);
+        const match = pathname.match(/^\/api\/(promos|promo-themes)(?:\/([a-zA-Z0-9-]+))?$/);
         if (!match) return false;
-        const id = match[1];
+        const themes = match[1] === 'promo-themes', id = match[2];
         try {
             if (req.method === 'GET') {
-                const designs = service.list();
+                const designs = themes ? service.listThemes() : service.list();
                 const result = id ? designs.find(design => design.id === id) : designs;
-                if (!result) sendError(res, 'Promo not found', 404);
+                if (!result) sendError(res, themes ? 'Custom theme not found' : 'Promo not found', 404);
                 else sendJson(res, result);
             } else if ((req.method === 'POST' && !id) || (req.method === 'PUT' && id)) {
                 let payload;
-                try { payload = normalize(JSON.parse(await readRequestBody(req, 256 * 1024))); }
+                try { payload = (themes ? normalizeTheme : normalize)(JSON.parse(await readRequestBody(req, 256 * 1024))); }
                 catch (error) { sendError(res, error.message, 400); return true; }
-                const design = service.save(payload, id);
-                if (!design) sendError(res, 'Promo not found', 404);
+                const design = themes ? service.saveTheme(payload, id) : service.save(payload, id);
+                if (!design) sendError(res, themes ? 'Custom theme not found' : 'Promo not found', 404);
                 else sendJson(res, design, id ? 200 : 201);
             } else if (req.method === 'DELETE' && id) {
-                if (!service.remove(id)) sendError(res, 'Promo not found', 404);
+                if (!(themes ? service.removeTheme(id) : service.remove(id))) sendError(res, themes ? 'Custom theme not found' : 'Promo not found', 404);
                 else sendJson(res, { deleted: id });
             } else sendError(res, 'Method not allowed', 405);
         } catch (error) {

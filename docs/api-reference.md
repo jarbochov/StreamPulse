@@ -15,6 +15,11 @@ Promo designs are static, locally saved documents, not live overlay controls. Th
 | `POST /api/promos` | Create a design; returns the normalized design with a generated UUID (`201`) |
 | `PUT /api/promos/:id` | Replace an existing design; returns the normalized design |
 | `DELETE /api/promos/:id` | Delete the saved design, keeping uploaded images; returns `{ "deleted": "<id>" }` |
+| `GET /api/promo-themes` | Array of reusable custom themes |
+| `GET /api/promo-themes/:id` | One reusable custom theme |
+| `POST /api/promo-themes` | Create `{ name, theme, font, colors, background }`; returns the theme with UUID and `updatedAt` (`201`) |
+| `PUT /api/promo-themes/:id` | Replace a saved custom theme |
+| `DELETE /api/promo-themes/:id` | Delete a custom theme; existing promo designs remain unchanged |
 | `GET /api/promos/igdb/search?q=<title>` | IGDB game matches with IDs, names, years and cover thumbnails |
 | `GET /api/promos/igdb/games/:id` | A game's cover, artwork and screenshot choices |
 | `POST /api/promos/igdb/import` | Import `{ "gameId": "123", "imageId": "abc" }` into the local Asset Library; returns `{ url, name, game, kind }` |
@@ -23,7 +28,11 @@ Write requests accept a JSON design (maximum 256 KiB). Shared fields are `name`,
 
 `layouts.square`, `layouts.landscape`, and `layouts.portrait` each contain a `template` (`editorial`, `spotlight`, or `minimal`), back-to-front `order`, and `blocks` keyed by `photo`, `artwork`, `badge`, `title`, `subtitle`, `url`, and `qr`. Blocks use percentage `x/y/w/h`, `enabled`, pixel `fontSize`, optional hex `color`, `fit` (`cover` or `contain`), percentage `focusX/focusY`, image `shape` (`rectangle`, `rounded`, or `circle`), and pixel `radius`.
 
-Storage is `data/promos.json` (up to 200 designs), included in full data backups. Validation failures return `400`, missing IDs return `404`, unsupported methods return `405`, and storage failures return `500`. Export renders all three arrangements and packages their PNGs into one ZIP in the browser; there is no server export endpoint. The existing `/api/qr` and Asset Library endpoints supply QR graphics, fonts, and images.
+Each layout also has `cornerRadius` (pixels) and `background`: `{ mode, theme, color, endColor, angle, pattern, image, fit, focusX, focusY, shade }`. Modes are `theme` (default for older designs), `solid`, `gradient`, `transparent`, `image`, and `pattern`. Pattern choices are `grid`, `geometry`, and `orbits`; gradient angle is 0–360; shade/focus values are 0–100. Background images must be local asset URLs. The background's `theme` selects its built-in artwork independently of other ratios, defaulting to the shared promo theme when migrating older designs. Choosing a custom background does not require a named theme.
+
+Custom themes store a required name plus normalized palette/font/background settings, not content or layouts. Applying a theme in the browser copies its palette/font across the promo and its background into the current ratio. Theme changes are not live references.
+
+Storage is `data/promos.json` (up to 200 designs) and `data/promo-themes.json` (up to 100 custom themes), included in full data backups. Validation failures return `400`, missing IDs return `404`, unsupported methods return `405`, and storage failures return `500`. Export renders all three arrangements and packages their PNGs into one ZIP in the browser; there is no server export endpoint. The existing `/api/qr` and Asset Library endpoints supply QR graphics, fonts, and images.
 
 IGDB operations use the configured Twitch client credentials. Missing credentials return `409`; upstream failures return `502`; image imports over 20 MB return `413`. Imports verify that the requested image belongs to the game and download only from IGDB's fixed HTTPS image origin, without following redirects. They do not accept arbitrary remote image URLs.
 

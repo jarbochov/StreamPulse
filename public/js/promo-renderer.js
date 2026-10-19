@@ -79,7 +79,7 @@ function drawImage(ctx, image, box, block) {
     ctx.drawImage(image, box.x + (box.w - w) * block.focusX / 100, box.y + (box.h - h) * block.focusY / 100, w, h);
 }
 
-function drawBackdrop(ctx, width, height, design) {
+function drawThemeBackdrop(ctx, width, height, design, pattern) {
     const colors = design.colors, theme = window.StudioThemes[design.theme];
     ctx.fillStyle = colors.background;
     ctx.fillRect(0, 0, width, height);
@@ -95,7 +95,7 @@ function drawBackdrop(ctx, width, height, design) {
     glow(width * .1, height * .75, width * .55, colors.secondary || colors.accent, '45');
     ctx.save();
     ctx.strokeStyle = colors.accent + '35'; ctx.lineWidth = 1.5;
-    if (design.theme === 'matrix' || design.theme === 'cyberpunk') {
+    if (pattern === 'grid' || (!pattern && (design.theme === 'matrix' || design.theme === 'cyberpunk'))) {
         const step = Math.max(28, width / 32);
         ctx.beginPath();
         for (let x = 0; x < width; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, height); }
@@ -103,9 +103,9 @@ function drawBackdrop(ctx, width, height, design) {
         ctx.stroke();
         ctx.fillStyle = colors.accent;
         ctx.fillRect(width * .92, height * .12, width * .012, height * .28);
-    } else if (design.theme === 'gold') {
+    } else if (!pattern && design.theme === 'gold') {
         for (let i = 0; i < 6; i++) ctx.strokeRect(width * (.025 + i * .006), height * (.025 + i * .006), width * (.95 - i * .012), height * (.95 - i * .012));
-    } else if (design.theme === 'fire' || design.theme === 'purple' || design.theme === 'rainbow') {
+    } else if (pattern === 'geometry' || (!pattern && ['fire', 'purple', 'rainbow'].includes(design.theme))) {
         ctx.fillStyle = gradient;
         ctx.globalAlpha = .7;
         ctx.beginPath(); ctx.moveTo(width * .55, 0); ctx.lineTo(width, 0); ctx.lineTo(width, height * .8); ctx.closePath(); ctx.fill();
@@ -121,21 +121,47 @@ function drawBackdrop(ctx, width, height, design) {
     ctx.fillRect(0, 0, width, Math.max(6, height * .007));
 }
 
+function drawBackdrop(ctx, width, height, design, background, image) {
+    if (background.mode === 'transparent') return;
+    if (background.mode === 'theme') { drawThemeBackdrop(ctx, width, height, { ...design, theme: background.theme }); return; }
+    if (background.mode === 'pattern') {
+        drawThemeBackdrop(ctx, width, height, { ...design, theme: background.theme, colors: { ...design.colors, background: background.color } }, background.pattern);
+        return;
+    }
+    ctx.fillStyle = background.color;
+    if (background.mode === 'gradient') {
+        const angle = background.angle * Math.PI / 180, dx = Math.sin(angle), dy = -Math.cos(angle);
+        const distance = (Math.abs(width * dx) + Math.abs(height * dy)) / 2;
+        const gradient = ctx.createLinearGradient(width / 2 - dx * distance, height / 2 - dy * distance, width / 2 + dx * distance, height / 2 + dy * distance);
+        gradient.addColorStop(0, background.color); gradient.addColorStop(1, background.endColor);
+        ctx.fillStyle = gradient;
+    }
+    ctx.fillRect(0, 0, width, height);
+    if (background.mode === 'image' && image) {
+        drawImage(ctx, image, { x: 0, y: 0, w: width, h: height }, background);
+        ctx.fillStyle = `rgba(0,0,0,${background.shade / 100})`;
+        ctx.fillRect(0, 0, width, height);
+    }
+}
+
 export async function renderPromo(canvas, design, ratio, { preview = true } = {}) {
     const font = await promoFont(design.font);
     const [width, height] = window.PromoModel.SIZES[ratio];
     const layout = design.layouts[ratio], colors = design.colors;
+    const background = window.PromoModel.background(layout.background, design.theme);
+    if (!preview && background.mode === 'image' && !background.image) throw new Error(`Choose a background image for ${ratio}, or select another background style.`);
     const qrUrl = design.url ? `/api/qr?text=${encodeURIComponent(design.url)}&margin=4&ecc=M` : '';
-    const [photo, artwork, qr] = await Promise.all([
+    const [photo, artwork, qr, backdrop] = await Promise.all([
         layout.blocks.photo.enabled ? loadImage(design.photo) : null,
         layout.blocks.artwork.enabled ? loadImage(design.artwork) : null,
-        layout.blocks.qr.enabled ? loadImage(qrUrl, true) : null
+        layout.blocks.qr.enabled ? loadImage(qrUrl, true) : null,
+        background.mode === 'image' ? loadImage(background.image) : null
     ]);
     // Draw offscreen and publish atomically; slow image decoding cannot leave a partial export.
     const buffer = document.createElement('canvas');
     buffer.width = width; buffer.height = height;
     const ctx = buffer.getContext('2d');
-    drawBackdrop(ctx, width, height, design);
+    drawBackdrop(ctx, width, height, design, background, backdrop);
     for (const key of layout.order) {
         const block = layout.blocks[key];
         if (!block.enabled) continue;

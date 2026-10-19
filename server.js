@@ -988,6 +988,8 @@ function getBackupFileSpecs() {
         { src: ASSET_TAGS_PATH, dest: 'data/asset-tags.json' },
         { src: ASSET_CAPTIONS_PATH, dest: 'data/asset-captions.json' },
         { src: GAME_PLAN_PATH, dest: 'data/game-plan.json' },
+        { src: path.join(DATA_DIR, 'promos.json'), dest: 'data/promos.json' },
+        { src: path.join(DATA_DIR, 'promo-themes.json'), dest: 'data/promo-themes.json' },
         { src: path.join(DATA_DIR, 'alerts.json'), dest: 'data/alerts.json' }
     ];
 }

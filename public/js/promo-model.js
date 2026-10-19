@@ -37,6 +37,38 @@
         return `/custom-overlay-assets/${encodeURIComponent(filename)}`;
     }
 
+    function background(input = {}, fallbackTheme = 'midnight') {
+        if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid promo background.');
+        return {
+            mode: ['theme', 'solid', 'gradient', 'transparent', 'image', 'pattern'].includes(input.mode) ? input.mode : 'theme',
+            theme: Object.hasOwn(THEMES, input.theme) ? input.theme : fallbackTheme,
+            color: hex(input.color, '#0b1020'), endColor: hex(input.endColor, '#4338ca'),
+            angle: number(input.angle, 135, 0, 360),
+            pattern: ['grid', 'geometry', 'orbits'].includes(input.pattern) ? input.pattern : 'orbits',
+            image: assetUrl(input.image), fit: input.fit === 'contain' ? 'contain' : 'cover',
+            focusX: number(input.focusX, 50, 0, 100), focusY: number(input.focusY, 50, 0, 100),
+            shade: number(input.shade, 35, 0, 100)
+        };
+    }
+
+    function appearance(input = {}) {
+        if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid promo theme.');
+        const theme = Object.hasOwn(THEMES, input.theme) ? input.theme : 'midnight';
+        return {
+            theme,
+            font: typeof input.font === 'string' && /^[a-zA-Z0-9 -]{1,80}$/.test(input.font) ? input.font : 'sans-serif',
+            colors: Object.fromEntries(Object.entries({ secondary: THEMES[theme].accent, ...THEMES[theme] }).map(([key, value]) => [key, hex(input.colors?.[key], value)])),
+            background: background(input.background, theme)
+        };
+    }
+
+    function normalizeTheme(input = {}) {
+        const style = appearance(input);
+        const name = text(input.name, 80).trim();
+        if (!name) throw new Error('Enter a name for your custom theme.');
+        return { name, ...style };
+    }
+
     function arrangement(ratio, template = 'editorial') {
         const portrait = ratio === 'portrait', square = ratio === 'square';
         const box = (x, y, w, h, extra = {}) => ({ x, y, w, h, enabled: true, fontSize: 64, color: '', fit: 'cover', focusX: 50, focusY: 50, shape: 'rounded', radius: 24, ...extra });
@@ -93,19 +125,19 @@
                 };
             }
             const order = Array.isArray(source?.order) ? [...new Set(source.order.filter(key => BLOCKS.includes(key)))] : [...BLOCKS];
-            layouts[ratio] = { blocks, order: [...order, ...BLOCKS.filter(key => !order.includes(key))], template: layoutTemplate, cornerRadius: number(source?.cornerRadius, 0, 0, 300) };
+            layouts[ratio] = { blocks, order: [...order, ...BLOCKS.filter(key => !order.includes(key))], template: layoutTemplate, cornerRadius: number(source?.cornerRadius, 0, 0, 300), background: background(source?.background, theme) };
         }
+        const style = appearance(input);
         return {
             name: text(input.name, 80) || 'Untitled promo', title: text(input.title, 180) || 'Your next great stream.',
             subtitle: text(input.subtitle, 240), badge: text(input.badge ?? 'LIVE NOW', 40),
             url: twitchUrl(input.url), photo: assetUrl(input.photo), artwork: assetUrl(input.artwork),
-            theme, template, font: typeof input.font === 'string' && /^[a-zA-Z0-9 -]{1,80}$/.test(input.font) ? input.font : 'sans-serif',
-            colors: Object.fromEntries(Object.entries(THEMES[theme]).map(([key, value]) => [key, hex(input.colors?.[key], value)])),
+            theme, template, font: style.font, colors: style.colors,
             layouts
         };
     }
 
-    const api = { SIZES, BLOCKS, THEMES, arrangement, normalize, twitchUrl, assetUrl };
+    const api = { SIZES, BLOCKS, THEMES, arrangement, normalize, twitchUrl, assetUrl, background, appearance, normalizeTheme };
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.PromoModel = api;
 })(typeof window !== 'undefined' ? window : globalThis);

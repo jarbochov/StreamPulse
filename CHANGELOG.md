@@ -15,6 +15,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Automatic Poll active pages now honor visible Poll elements' results duration before returning to the previous page, including a bounded wait for Twitch's final status.
 
 ### Changed
+- Promo Creator now uses ratio tabs and a compact optional Appearance panel instead of the prominent theme gallery. Create reusable named custom themes and independent solid, gradient, transparent, image, or patterned backgrounds for each format. Background/theme assets follow library renames and deletion protection; full backups include promo designs and custom themes.
 - All custom overlays now prioritize automatic pages as alerts, featured messages, polls, then commands. Resume unexpired polls after interruptions; keep only latest pending events with wall-clock expiry and cancel pending takeovers on manual navigation.
 - Alert skip/clear immediately releases the alert page, and alert pages mount before their playback event is delivered.
 

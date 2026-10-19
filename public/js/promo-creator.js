@@ -7,6 +7,7 @@ const LABELS = { photo: 'Screenshot / photo', artwork: 'Artwork / logo', badge: 
 const clone = value => JSON.parse(JSON.stringify(value));
 let design = M.normalize(), library = [], id = '', selected = 'title', dirty = false, ready = false;
 let ratio = 'square', assetTarget = 'photo', assets = [], renderRevision = 0, renderTimer = null;
+let customThemes = [], themesReady = false, editingTheme = '', themeSnapshot = null;
 try {
     const saved = localStorage.getItem('streampulse.promo.ratio');
     if (Object.hasOwn(M.SIZES, saved)) ratio = saved;
@@ -19,6 +20,7 @@ const status = (message, error = false) => {
 const changed = () => {
     dirty = true;
     status('Unsaved changes. Save your design to reuse it next time.');
+    syncThemeSelection();
     queueRender();
 };
 for (const [label, fonts] of [
@@ -109,12 +111,21 @@ function syncBlock() {
 }
 
 function syncFields() {
-    for (const key of ['name', 'title', 'subtitle', 'badge', 'url', 'font', 'theme']) $(key).value = design[key];
+    for (const key of ['name', 'title', 'subtitle', 'badge', 'url', 'font']) $(key).value = design[key];
     $('template').value = design.layouts[ratio].template;
-    $('ratio').value = ratio;
+    document.querySelectorAll('[data-ratio]').forEach(tab => {
+        tab.setAttribute('aria-selected', String(tab.dataset.ratio === ratio));
+        tab.tabIndex = tab.dataset.ratio === ratio ? 0 : -1;
+    });
+    $('composition').setAttribute('aria-labelledby', `tab-${ratio}`);
+    $('format-size').textContent = `${M.SIZES[ratio].join(' x ')} px / Export includes all three formats`;
+    $('stage-hint').textContent = `${ratio === 'square' ? 'Square' : ratio === 'landscape' ? 'Landscape' : 'Portrait'} composition / drag to position, corner to resize`;
     $('canvas-radius').value = design.layouts[ratio].cornerRadius;
-    $('theme-gallery').querySelectorAll('[data-look]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.look === design.theme)));
-    for (const key of ['photo', 'artwork']) $(key + '-name').textContent = design[key] ? decodeURIComponent(design[key].split('/').pop()) : `No ${key}`;
+    syncBackground(); syncThemeSelection();
+    for (const key of ['photo', 'artwork']) {
+        $(key + '-name').textContent = design[key] ? decodeURIComponent(design[key].split('/').pop()) : (key === 'photo' ? 'Add a photo' : 'Optional');
+        renderAssetPreview($(`${key}-preview`), design[key], key);
+    }
     $('colors').replaceChildren();
     for (const [key, color] of Object.entries(design.colors)) {
         const label = document.createElement('label');
@@ -175,44 +186,137 @@ $('canvas-radius').addEventListener('input', () => {
     design.layouts[ratio].cornerRadius = Math.max(0, Math.min(300, Number($('canvas-radius').value) || 0));
     changed();
 });
-function applyLook(theme) {
-    design.theme = theme;
-    design.colors = clone(M.THEMES[design.theme]);
-    design.font = theme === 'matrix' ? 'monospace' : theme === 'gold' ? 'serif' : 'sans-serif';
+function builtinLook(theme) {
+    return M.appearance({ theme, font: theme === 'matrix' ? 'monospace' : theme === 'gold' ? 'serif' : 'sans-serif', background: { mode: 'theme' } });
+}
+const currentAppearance = () => M.appearance({ ...design, background: design.layouts[ratio].background });
+function syncThemeSelection() {
+    const signature = JSON.stringify(currentAppearance());
+    const saved = customThemes.find(theme => JSON.stringify(M.appearance(theme)) === signature);
+    $('theme').value = saved ? `saved:${saved.id}` : Object.keys(M.THEMES).find(theme => JSON.stringify(builtinLook(theme)) === signature) || 'custom';
+}
+function applyLook(style) {
+    const look = M.appearance(style);
+    design.theme = look.theme; design.colors = look.colors; design.font = look.font;
+    design.layouts[ratio].background = look.background;
     changed(); syncFields();
 }
+$('theme').appendChild(new Option('Custom / current settings', 'custom'));
+const builtinGroup = document.createElement('optgroup'); builtinGroup.label = 'Built-in themes';
 for (const theme of Object.values(window.StudioThemes)) {
     if (theme.id === 'system') continue;
-    $('theme').appendChild(new Option(theme.name, theme.id));
-    const button = document.createElement('button');
-    button.className = 'promo-look'; button.type = 'button'; button.dataset.look = theme.id;
-    button.style.setProperty('--look-gradient', theme.gradient);
-    const name = document.createElement('span'), hint = document.createElement('small');
-    name.textContent = theme.name; hint.textContent = 'APPLY LOOK';
-    button.append(name, hint); button.addEventListener('click', () => applyLook(theme.id));
-    $('theme-gallery').appendChild(button);
+    builtinGroup.appendChild(new Option(theme.name, theme.id));
 }
-$('theme').append(new Option('Studio light', 'studio'), new Option('Ember', 'ember'));
-$('theme').addEventListener('change', () => applyLook($('theme').value));
+builtinGroup.append(new Option('Studio light', 'studio'), new Option('Ember', 'ember'));
+$('theme').appendChild(builtinGroup);
+$('theme').addEventListener('change', () => {
+    const value = $('theme').value;
+    if (value === 'custom') return;
+    const style = value.startsWith('saved:') ? customThemes.find(theme => `saved:${theme.id}` === value) : builtinLook(value);
+    if (style) applyLook(style);
+});
+async function loadThemes() {
+    const data = await request('/api/promo-themes');
+    if (!Array.isArray(data)) throw new Error('Invalid custom theme library response.');
+    customThemes = data; themesReady = true;
+    $('saved-theme-options')?.remove();
+    const group = document.createElement('optgroup'); group.id = 'saved-theme-options'; group.label = 'Your themes';
+    for (const theme of customThemes) group.appendChild(new Option(theme.name, `saved:${theme.id}`));
+    if (customThemes.length) $('theme').appendChild(group);
+    syncThemeSelection();
+}
+$('save-theme').addEventListener('click', action(async () => {
+    if (!themesReady) await loadThemes();
+    editingTheme = $('theme').value.startsWith('saved:') ? $('theme').value.slice(6) : '';
+    themeSnapshot = currentAppearance();
+    $('theme-target').replaceChildren(new Option('Choose a saved theme', ''));
+    for (const theme of customThemes) $('theme-target').appendChild(new Option(theme.name, theme.id));
+    $('theme-target').value = editingTheme;
+    $('theme-name').value = customThemes.find(theme => theme.id === editingTheme)?.name || '';
+    $('update-theme').hidden = $('delete-theme').hidden = !editingTheme;
+    $('theme-status').textContent = '';
+    $('theme-dialog').showModal(); $('theme-name').focus();
+}));
+$('close-theme').addEventListener('click', () => $('theme-dialog').close());
+$('theme-target').addEventListener('change', () => {
+    editingTheme = $('theme-target').value;
+    $('update-theme').hidden = $('delete-theme').hidden = !editingTheme;
+    if (editingTheme) $('theme-name').value = customThemes.find(theme => theme.id === editingTheme).name;
+});
+for (const operation of ['create', 'update', 'delete']) $(operation + '-theme').addEventListener('click', async () => {
+    if (operation === 'delete' && !window.confirm('Delete this reusable theme? Existing promo designs keep their appearance.')) return;
+    $('theme-dialog').querySelectorAll('button,input,select').forEach(el => { el.disabled = true; });
+    try {
+        const data = operation === 'delete' ? null : M.normalizeTheme({ ...themeSnapshot, name: $('theme-name').value });
+        await request(`/api/promo-themes${operation === 'create' ? '' : `/${editingTheme}`}`, {
+            method: { create: 'POST', update: 'PUT', delete: 'DELETE' }[operation],
+            ...(data ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) } : {})
+        });
+        await loadThemes(); $('theme-dialog').close();
+        status(operation === 'delete' ? 'Custom theme deleted. Existing promos are unchanged.' : 'Custom theme saved for reuse across promos. Save your design separately to keep its edits.');
+    } catch (error) { $('theme-status').textContent = error.message; }
+    finally { $('theme-dialog').querySelectorAll('button,input,select').forEach(el => { el.disabled = false; }); }
+});
+function syncBackground() {
+    const bg = design.layouts[ratio].background;
+    for (const key of ['mode', 'color', 'endColor', 'angle', 'pattern', 'fit', 'focusX', 'focusY', 'shade']) $('background-' + key).value = bg[key];
+    $('background-fill').hidden = ['theme', 'transparent'].includes(bg.mode);
+    $('background-gradient').hidden = bg.mode !== 'gradient';
+    $('background-pattern-control').hidden = bg.mode !== 'pattern';
+    $('background-image-controls').hidden = bg.mode !== 'image';
+    $('background-name').textContent = bg.image ? decodeURIComponent(bg.image.split('/').pop()) : 'No background image';
+}
+function renderAssetPreview(host, url, label) {
+    host.replaceChildren();
+    if (url) {
+        const image = new Image();
+        image.src = url; image.alt = ''; image.loading = 'lazy';
+        host.appendChild(image);
+    } else {
+        const mark = document.createElement('span');
+        mark.textContent = label === 'photo' ? 'PHOTO' : 'LOGO';
+        host.appendChild(mark);
+    }
+    host.classList.toggle('has-image', Boolean(url));
+}
+for (const key of ['mode', 'color', 'endColor', 'angle', 'pattern', 'fit', 'focusX', 'focusY', 'shade']) $('background-' + key).addEventListener('input', event => {
+    const bg = design.layouts[ratio].background;
+    bg[key] = ['angle', 'focusX', 'focusY', 'shade'].includes(key) ? Number(event.target.value) : event.target.value;
+    design.layouts[ratio].background = M.background(bg);
+    changed();
+    if (key === 'mode') syncBackground();
+});
 $('colors').addEventListener('input', event => {
     if (!event.target.dataset.palette) return;
     design.colors[event.target.dataset.palette] = event.target.value;
     changed();
 });
-$('ratio').addEventListener('change', () => {
-    ratio = $('ratio').value;
+function changeRatio(next, focus = false) {
+    ratio = next;
     try { localStorage.setItem('streampulse.promo.ratio', ratio); } catch { /* Optional view preference. */ }
     syncFields();
+    if (focus) $(`tab-${ratio}`).focus();
+}
+$('ratio-tabs').addEventListener('click', event => {
+    const tab = event.target.closest('[data-ratio]');
+    if (tab) changeRatio(tab.dataset.ratio);
+});
+$('ratio-tabs').addEventListener('keydown', event => {
+    const keys = Object.keys(M.SIZES), at = keys.indexOf(ratio);
+    const next = { ArrowLeft: keys[(at + 2) % 3], ArrowRight: keys[(at + 1) % 3], Home: keys[0], End: keys[2] }[event.key];
+    if (next) { event.preventDefault(); changeRatio(next, true); }
 });
 function applyLayout(template) {
     const current = design.layouts[ratio];
     const baseline = M.normalize({ layouts: { [ratio]: M.arrangement(ratio, current.template) } }).layouts[ratio];
     if (design.artwork) baseline.blocks.artwork.enabled = true;
-    if (JSON.stringify(current) !== JSON.stringify(baseline) && !window.confirm('Replace your layout edits in this format? Your content and other formats will not change.')) {
+    if (JSON.stringify({ blocks: current.blocks, order: current.order }) !== JSON.stringify({ blocks: baseline.blocks, order: baseline.order }) && !window.confirm('Replace your layout edits in this format? Your content and other formats will not change.')) {
         $('template').value = current.template;
         return;
     }
     design.layouts[ratio] = M.normalize({ layouts: { [ratio]: M.arrangement(ratio, template) } }).layouts[ratio];
+    design.layouts[ratio].background = current.background;
+    design.layouts[ratio].cornerRadius = current.cornerRadius;
     if (design.artwork) design.layouts[ratio].blocks.artwork.enabled = true;
     changed(); syncFields();
 }
@@ -287,9 +391,15 @@ function renderAssets() {
     }
     $('asset-status').textContent = filtered.length ? `${filtered.length} images` : 'No matching images. Upload a PNG, JPEG, WebP, GIF, or SVG.';
 }
-function useImage(url, target = assetTarget) {
-    design[target] = M.assetUrl(url);
-    design.layouts[ratio].blocks[target].enabled = true;
+function useImage(url, target = assetTarget, format = ratio) {
+    const image = M.assetUrl(url);
+    if (target === 'background') {
+        design.layouts[format].background.image = image;
+        design.layouts[format].background.mode = 'image';
+    } else {
+        design[target] = image;
+        design.layouts[format].blocks[target].enabled = true;
+    }
     changed(); syncFields();
 }
 document.querySelectorAll('[data-library]').forEach(button => button.addEventListener('click', action(async () => {
@@ -376,14 +486,20 @@ document.querySelectorAll('[data-upload]').forEach(button => button.addEventList
     assetTarget = button.dataset.upload; $('upload-file').click();
 }));
 document.querySelectorAll('[data-clear]').forEach(button => button.addEventListener('click', () => {
-    design[button.dataset.clear] = ''; changed(); syncFields();
+    if (button.dataset.clear === 'background') {
+        design.layouts[ratio].background.image = '';
+        design.layouts[ratio].background.mode = 'theme';
+    }
+    else design[button.dataset.clear] = '';
+    changed(); syncFields();
 }));
 async function upload(file) {
-    const target = assetTarget;
+    const target = assetTarget, format = ratio, current = design;
     if (!['image/png', 'image/jpeg', 'image/webp', 'image/avif', 'image/gif', 'image/svg+xml'].includes(file.type)) throw new Error('Choose a PNG, JPEG, WebP, AVIF, GIF, or SVG image.');
     status('Uploading image...');
     const asset = await request('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': file.type, 'X-Asset-Name': file.name.replace(/[^\x20-\x7e]/g, '-') }, body: file });
-    useImage(asset.url, target);
+    if (current === design) useImage(asset.url, target, format);
+    else status('Image uploaded to the Asset Library. Choose Library to add it to this design.');
 }
 $('upload-file').addEventListener('change', action(async () => {
     const file = $('upload-file').files[0]; $('upload-file').value = '';
@@ -450,6 +566,7 @@ await (async () => {
             if (!item) throw new Error('Saved promo not found. Use New promo to start a design.');
             design = M.normalize(item); id = item.id; $('saved').value = id;
         }
-        syncFields(); status('Ready. Add your story, compose each format, and export a PNG.');
+        syncFields(); status(id ? 'Ready. Your saved promo is loaded.' : 'Ready. Add a headline and photo; export includes all three sizes.');
+        await loadThemes();
     } catch (error) { status(error.message, true); }
 })();

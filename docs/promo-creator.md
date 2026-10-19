@@ -11,7 +11,7 @@ Open **Tools > Promo Creator**.
 1. Choose **New promo** and give the design a reusable name.
 2. Write a headline, optional subtitle, and status label such as “LIVE NOW.” Enter your Twitch channel name or channel URL.
 3. Add a screenshot/photo and optional artwork/logo. Use **Library** for an existing uploaded image, **Upload** for a new one, **IGDB** to browse game covers/artwork/screenshots, or paste an image outside a text field. An OBS screenshot is simply an image you supply; StreamPulse does not connect to OBS or capture your screen.
-4. Pick a one-click visual theme from the gallery. It applies a composed background, coordinated colors, status treatment, and typography. Choose a format to refine, or export immediately.
+4. Use the **Square / Landscape / Portrait** tabs above the preview to refine each arrangement. Open **Appearance** only if you want a theme, custom colors, or a different background.
 5. Drag blocks to position them, drag a selected block's corner to resize, or enter percentage coordinates. Use the Composition list to select overlapping blocks, hide unnecessary blocks, or change their front/back order. Arrow keys nudge; Shift moves faster.
 6. **Save design** to reuse it, then **Export PNGs** to download one ZIP containing all three full-resolution images, each using its own arrangement. You do not need to switch formats and export separately.
 
@@ -25,15 +25,34 @@ Review screenshots before uploading: make sure chat, private notes, desktop noti
 | Landscape / 16:9 | 1920 × 1080 |
 | Portrait / 9:16 | 1080 × 1920 |
 
-Each format has **its own arrangement**, visibility, crop, type sizing, and block order. Switching formats preserves your adjustments. Auto-layout changes only the current format, never the other two.
+Each format has **its own arrangement**, background, visibility, crop, type sizing, and block order. The tabs remember your last selected format across reloads; arrow keys, Home, and End work when a tab is focused. Switching formats preserves your adjustments. Auto-layout changes only the current format's blocks, never the background or the other two formats.
 
 Headline, subtitle, status text, images, Twitch URL, palette, and typeface are shared across the three formats. **Save design** stores all three compositions together. Switching designs or starting again prompts before discarding unsaved changes; saving is manual.
 
-## Instant looks and art direction
+## Appearance and custom themes
 
-The gallery offers **Purple Chaos**, **Vibrant Rainbow**, **Cyberpunk Neon**, **Royal Gold & Navy**, **Fire & Magma**, **Midnight Nebula**, and **Hacker Terminal**. Each gets a static promo treatment: gradient geometry, neon grids, gold framing, or orbital accents. Nothing animates or runs in the background.
+Themes are optional starting points in the compact **Appearance > Theme** picker, not a separate gallery. Built-in choices include **Purple Chaos**, **Vibrant Rainbow**, **Cyberpunk Neon**, **Royal Gold & Navy**, **Fire & Magma**, **Midnight Nebula**, and **Hacker Terminal**, plus Studio light and Ember.
 
-Theme changes preserve your text, images, and all three custom arrangements. Hacker Terminal applies monospace typography; Royal Gold & Navy applies serif type. Other looks use bold sans serif. Open **Fine-tune the look** only when you want to change individual colors.
+Choosing a theme applies its palette and font across the promo, and its background to the **current format only**. It preserves your text, images in blocks, geometry, and other formats' background settings. Hacker Terminal suggests monospace typography; Royal Gold & Navy suggests serif type.
+
+To make your own, change the palette, font, and background, then choose **Save custom theme...** and enter a name. The saved theme is available under **Your themes** in every promo. That dialog also lets you select an existing theme to update or delete. A theme contains appearance only, not your headline, block images, or arrangement.
+
+Applying a saved theme copies its settings into the promo; later updates/deletion of the theme do not change existing designs. **Save design** separately to retain your promo edits.
+
+### Backgrounds
+
+Background controls affect only the selected ratio:
+
+| Style | Controls |
+| --- | --- |
+| Theme artwork | Built-in composed background, including its decorative accents |
+| Solid color | One flat color, with no decorative theme artwork |
+| Gradient | Start/end colors and direction angle |
+| Transparent | No background; the preview checkerboard is not exported |
+| Image | Upload or Library, fill/crop or contain, crop focus, and darkening |
+| Pattern | Grid, geometry, or orbits with a base color and palette accents |
+
+An image background is separate from the photo and artwork blocks. A saved custom theme can include its library image; the Asset Library tracks those references too. If an image background is selected without an image, export reports the affected format instead of silently producing an incomplete pack.
 
 The **Font** chooser offers system fonts, Google Fonts, and fonts already uploaded to your Asset Library. System fonts work offline; Google Fonts need internet the first time they load. Preview and export wait for your chosen font; a failed web-font request produces an error rather than silently exporting with a substitute. Font selection applies to all three formats. Applying a theme resets its suggested font, so choose your custom font afterward.
 
@@ -44,7 +63,7 @@ The **Font** chooser offers system fonts, Google Fonts, and fonts already upload
 - Text wraps and shrinks inside its block. Very small blocks truncate overflow; give important headlines enough space.
 - Images can fill/crop or contain without cropping. Crop focus controls choose which part of the image stays visible.
 - Select a photo/artwork block and choose **Rounded corners**, **Rectangle**, or **Circle crop / logo** in the inspector. Rounded corners have a pixel-radius control; circular crops stay perfectly round even inside a rectangular block. Shape, radius, fit, and crop focus are saved independently per format.
-- To round the entire promo rather than just its images, open **Fine-tune the look > Canvas corner radius**. This affects only the current format and leaves transparent PNG corners; `0` keeps a full rectangular canvas.
+- To round the entire promo rather than just its images, open **Appearance > Canvas corner radius**. This affects only the current format and leaves transparent PNG corners; `0` keeps a full rectangular canvas.
 
 ### Game artwork from IGDB
 
@@ -58,7 +77,7 @@ The QR code always points to your Twitch URL. It stays square inside its block, 
 
 ## Saved designs and exports
 
-Saved promos live in `data/promos.json`; uploaded images use the existing Asset Library. Full data backups include both. Asset usage lists include saved promos, protect referenced images from accidental deletion, and update references when you rename an asset.
+Saved promos live in `data/promos.json`, reusable custom themes in `data/promo-themes.json`, and uploaded images in the existing Asset Library. Full data backups include these files and assets. Asset usage lists include saved promos and themes, protect referenced images from accidental deletion, and update background/image references when you rename an asset.
 
 PNG generation happens in your browser using the same renderer as the preview. **Export PNGs** always includes square, landscape, and portrait PNG files in one ZIP. It uses the latest unsaved edits too, but does not save the design automatically. If any format fails, no partial ZIP is downloaded.
 

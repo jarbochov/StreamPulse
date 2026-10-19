@@ -4,6 +4,7 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
+const { Readable } = require('node:stream');
 const puppeteer = require('puppeteer');
 const AdmZip = require('adm-zip');
 const { Response } = globalThis;
@@ -13,6 +14,7 @@ const { createPromoArtworkService } = require('../server/services/promo-artwork'
 const { createPromoRoutes } = require('../server/routes/promos');
 const { createOverlayRoutes } = require('../server/routes/overlays');
 const { createStaticRouter } = require('../server/static-router');
+const { createBackupService } = require('../server/services/backup');
 
 test('promo model preserves independent layouts and validates export-safe images and Twitch destinations', () => {
     const design = model.normalize({ url: 'https://www.twitch.tv/fictionalstudio', photo: '/custom-overlay-assets/fictional.svg' });
@@ -35,6 +37,10 @@ test('promo model preserves independent layouts and validates export-safe images
     assert.equal(malformed.layouts.square.blocks.title.h, 2);
     assert.equal(malformed.theme, 'midnight');
     assert.equal(model.normalize({ layouts: { square: { template: 'minimal' } } }).layouts.square.blocks.photo.enabled, false);
+    assert.throws(() => model.normalize({ layouts: { square: { background: { mode: 'image', image: 'https://example.test/image.png' } } } }), /Asset Library/);
+    const background = model.background({ mode: 'gradient', angle: 900, shade: -10, focusX: 'bad' });
+    assert.equal(background.angle, 360); assert.equal(background.shade, 0); assert.equal(background.focusX, 50);
+    assert.throws(() => model.normalizeTheme({ name: '   ' }), /name/);
 });
 
 test('promo persistence, image references and actual studio export work without production or external requests', { timeout: 60000 }, async t => {
@@ -115,6 +121,13 @@ test('promo persistence, image references and actual studio export work without 
     await page.goto(`${origin}/promo-creator.html?id=${design.id}`);
     await page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Ready.'));
     await page.waitForFunction(() => document.querySelector('#preview').width === 1080);
+    assert.equal(await page.$eval('#appearance-panel', el => el.open), false, 'theme settings stay tucked away rather than dominating the workspace');
+    assert.equal(await page.$('#theme-gallery'), null);
+    await page.focus('#tab-square');
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await page.$eval('#tab-landscape', el => el.getAttribute('aria-selected')), 'true');
+    await page.keyboard.press('Home');
+    assert.equal(await page.$eval('#tab-square', el => el.tabIndex), 0, 'ratio tabs support arrow and Home navigation');
     assert.match(await page.$eval('#main-nav a[href="/promo-creator.html"]', el => el.closest('.dropdown').textContent), /^Tools/, 'Promo Creator is a tool, not a live overlay');
     imageData = Buffer.from(await page.evaluate(() => {
         const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64;
@@ -123,9 +136,9 @@ test('promo persistence, image references and actual studio export work without 
     }), 'base64');
     await page.$eval('#title', el => { el.value = 'Fictional launch night'; el.dispatchEvent(new Event('input', { bubbles: true })); });
     await page.$eval('#block-x', el => { el.value = '12'; el.dispatchEvent(new Event('input', { bubbles: true })); });
-    await page.select('#ratio', 'landscape');
+    await page.click('[data-ratio="landscape"]');
     assert.equal(await page.$eval('#block-x', el => el.value), '4');
-    await page.select('#ratio', 'square');
+    await page.click('[data-ratio="square"]');
     assert.equal(await page.$eval('#block-x', el => el.value), '12', 'switching formats restores the edited arrangement');
     acceptDialogs = false;
     await page.select('#template', 'spotlight');
@@ -181,15 +194,22 @@ test('promo persistence, image references and actual studio export work without 
     assert.equal((await api('/api/promos/igdb/import', 'POST', { gameId: '../private', imageId: 'art42' })).status, 400);
 
     const themes = Object.keys(require('../public/js/studio-themes')).filter(key => key !== 'system');
+    await page.$eval('#appearance-panel', el => { el.open = true; });
     for (const theme of themes) {
-        await page.click(`[data-look="${theme}"]`);
+        await page.select('#theme', theme);
         assert.equal(await page.$eval('#theme', el => el.value), theme);
         assert.equal(await page.$eval('#title', el => el.value), 'Fictional launch night', 'one-click looks preserve user content');
         assert.equal(await page.$eval('#block-x', el => el.value), '12', 'one-click looks preserve layout edits');
     }
+    await page.click('#save-design');
+    await page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Design saved.'));
+    const themedFormats = (await (await api(`/api/promos/${design.id}`)).json()).layouts;
+    assert.equal(themedFormats.square.background.theme, 'matrix');
+    assert.equal(themedFormats.landscape.background.theme, 'midnight', 'applying theme artwork to square does not change the landscape background treatment');
+    assert.equal(themedFormats.portrait.background.theme, 'midnight');
 
     for (const [ratio, [width, height]] of Object.entries(model.SIZES)) {
-        await page.select('#ratio', ratio);
+        await page.click(`[data-ratio="${ratio}"]`);
         const qrData = require('qrcode').create(withArtwork.url, { errorCorrectionLevel: 'M' }).modules;
         const exported = await page.evaluate(async ({ ratio, moduleSize }) => {
             const { renderPromo } = await import('/js/promo-renderer.js');
@@ -239,7 +259,7 @@ test('promo persistence, image references and actual studio export work without 
         assert.equal(png.readUInt32BE(16), width);
         assert.equal(png.readUInt32BE(20), height);
     }
-    await page.select('#ratio', 'square');
+    await page.click('[data-ratio="square"]');
     const other = clone(saved.layouts.landscape);
     await page.select('#template', 'minimal');
     assert.equal(await page.$eval('#block-x', el => el.value), '7', 'choosing a starting layout applies it immediately');
@@ -288,9 +308,9 @@ test('promo persistence, image references and actual studio export work without 
     await page.click('[data-select="photo"]');
     await page.select('#block-shape', 'circle');
     assert.equal(await page.$eval('#radius-control', el => el.hidden), true, 'irrelevant radius control is hidden for circles');
-    await page.select('#ratio', 'landscape');
+    await page.click('[data-ratio="landscape"]');
     assert.equal(await page.$eval('#block-shape', el => el.value), 'rounded', 'shape is independent for each arrangement');
-    await page.select('#ratio', 'square');
+    await page.click('[data-ratio="square"]');
     assert.equal(await page.$eval('#block-shape', el => el.value), 'circle');
     await page.select('#font', 'Georgia');
     await page.click('#save-design');
@@ -301,9 +321,81 @@ test('promo persistence, image references and actual studio export work without 
         catch (error) { return error.message; }
     });
     assert.match(fontError, /Could not load "Roboto"/, 'export must not silently substitute a failed web font');
+    await page.click('[data-ratio="square"]');
+    await page.select('#background-mode', 'solid');
+    await page.$eval('#background-color', el => { el.value = '#112233'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    assert.equal(await page.$eval('#theme', el => el.value), 'custom');
+    await page.click('[data-ratio="landscape"]');
+    assert.equal(await page.$eval('#background-mode', el => el.value), 'theme');
+    await page.select('#background-mode', 'transparent');
+    assert.equal(await page.$eval('#background-fill', el => el.hidden), true);
+    await page.click('[data-ratio="portrait"]');
+    await page.select('#background-mode', 'image');
+    await page.click('[data-library="background"]');
+    await page.waitForSelector('.promo-asset');
+    await page.click('.promo-asset');
+    assert.notEqual(await page.$eval('#background-name', el => el.textContent), 'No background image');
+    await page.select('#background-fit', 'contain');
+    await page.click('#save-theme');
+    await page.type('#theme-name', 'Fictional channel style');
+    await page.click('#create-theme');
+    await page.waitForFunction(() => !document.querySelector('#theme-dialog').open);
+    const savedTheme = (await (await api('/api/promo-themes')).json())[0];
+    assert.equal(savedTheme.name, 'Fictional channel style');
+    assert.equal(savedTheme.background.mode, 'image');
+    assert.equal(savedTheme.background.fit, 'contain');
+    assert.equal(savedTheme.title, undefined, 'themes store appearance, not promo content');
+    await page.click('[data-ratio="square"]');
+    assert.equal(await page.$eval('#background-color', el => el.value), '#112233');
+    const previousTitleX = await page.$eval('#block-x', el => el.value);
+    await page.select('#theme', `saved:${savedTheme.id}`);
+    assert.equal(await page.$eval('#background-mode', el => el.value), 'image');
+    assert.equal(await page.$eval('#block-x', el => el.value), previousTitleX, 'applying saved appearance never replaces layout geometry');
+    await page.select('#background-mode', 'gradient');
+    await page.click('#save-theme');
+    await page.select('#theme-target', savedTheme.id);
+    await page.click('#update-theme');
+    await page.waitForFunction(() => !document.querySelector('#theme-dialog').open);
+    assert.equal((await (await api(`/api/promo-themes/${savedTheme.id}`)).json()).background.mode, 'gradient');
+    await page.select('#template', 'spotlight');
+    assert.equal(await page.$eval('#background-mode', el => el.value), 'gradient', 'starting layouts do not reset background configuration');
+    await page.click('#save-design');
+    await page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Design saved.'));
+    const backgroundsSaved = createPromoService({ dataDir }).list()[0].layouts;
+    assert.equal(backgroundsSaved.square.background.mode, 'gradient');
+    assert.equal(backgroundsSaved.landscape.background.mode, 'transparent');
+    assert.equal(backgroundsSaved.portrait.background.mode, 'image');
+    const imageName = decodeURIComponent(savedTheme.background.image.split('/').pop());
+    assert.ok(service.assetUsers(imageName).some(user => user.id === `promo-theme:${savedTheme.id}`));
+    await page.click('#save-theme');
+    await page.select('#theme-target', savedTheme.id);
+    await page.click('#delete-theme');
+    await page.waitForFunction(() => !document.querySelector('#theme-dialog').open);
+    assert.equal((await api(`/api/promo-themes/${savedTheme.id}`)).status, 404);
+    assert.equal(createPromoService({ dataDir }).list()[0].layouts.portrait.background.mode, 'image', 'deleting a theme never changes existing promo backgrounds');
+    const backgroundPixels = await page.evaluate(async photo => {
+        const { renderPromo } = await import('/js/promo-renderer.js'), output = {};
+        for (const mode of ['solid', 'transparent', 'gradient', 'image', 'grid', 'geometry', 'orbits']) {
+            const design = window.PromoModel.normalize();
+            for (const block of Object.values(design.layouts.square.blocks)) block.enabled = false;
+            design.layouts.square.background = window.PromoModel.background({
+                mode: ['grid', 'geometry', 'orbits'].includes(mode) ? 'pattern' : mode,
+                pattern: mode, color: '#112233', endColor: '#ff0000', angle: 90, image: photo, shade: 0
+            });
+            const canvas = document.createElement('canvas'); await renderPromo(canvas, design, 'square', { preview: false });
+            const ctx = canvas.getContext('2d');
+            output[mode] = [10, 540, 1060].map(x => [...ctx.getImageData(x, 540, 1, 1).data]);
+        }
+        return output;
+    }, renamed.url);
+    assert.deepEqual(backgroundPixels.solid[1], [17, 34, 51, 255]);
+    assert.equal(backgroundPixels.transparent[1][3], 0, 'transparent background stays transparent in export');
+    assert.ok(backgroundPixels.gradient[0][0] < backgroundPixels.gradient[2][0], 'gradient angle changes the colors across the canvas');
+    assert.deepEqual(backgroundPixels.image[1], [255, 153, 0, 255], 'library image paints behind all blocks');
+    assert.equal(new Set(['grid', 'geometry', 'orbits'].map(key => JSON.stringify(backgroundPixels[key]))).size, 3, 'pattern styles produce distinct output');
     await page.setViewport({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'studio fits narrow screens');
-    await page.select('#ratio', 'portrait');
+    await page.click('[data-ratio="portrait"]');
     await page.waitForFunction(() => document.querySelector('#preview').height === 1920);
     const stageRatio = await page.$eval('#stage', el => el.clientWidth / el.clientHeight);
     assert.ok(Math.abs(stageRatio - 1080 / 1920) < .01, 'portrait preview and drag handles are not stretched on mobile');
@@ -311,11 +403,37 @@ test('promo persistence, image references and actual studio export work without 
     assert.deepEqual(external, []);
     assert.equal((await api(`/api/promos/${design.id}`, 'DELETE')).status, 200);
     assert.equal(service.list().length, 0);
+    assert.equal((await api('/api/promo-themes', 'POST', { name: ' ' })).status, 400);
+    assert.equal((await api('/api/promo-themes/missing', 'PUT', { name: 'Fictional' })).status, 404);
+    const theme = await (await api('/api/promo-themes', 'POST', { name: 'Fictional background', background: { mode: 'image', image: renamed.url } })).json();
+    const backgroundOnly = await (await api('/api/promos', 'POST', { layouts: { portrait: { background: theme.background } } })).json();
+    const backups = createBackupService({ backupsDir: path.join(dataDir, 'backups') });
+    try {
+        fs.writeFileSync(path.join(dataDir, 'stats.json'), '{}');
+        const archived = await backups.download({
+            files: ['stats.json', 'promos.json', 'promo-themes.json'].map(name => ({ src: path.join(dataDir, name), dest: `data/${name}` })),
+            folders: [{ src: assetsDir, dest: 'data/custom-overlay-assets' }]
+        }, ({ path: archive }) => fs.readFileSync(archive));
+        service.removeTheme(theme.id); service.remove(backgroundOnly.id);
+        assert.equal(service.listThemes().length, 0);
+        await backups.restore({ dataDir, configPath: path.join(dataDir, 'fixture-config.json') }, Readable.from(archived), result => result);
+        assert.equal(service.listThemes()[0].id, theme.id, 'custom themes reload immediately after a full backup restore');
+        assert.equal(service.list()[0].layouts.portrait.background.image, renamed.url);
+    } finally { await backups.close(); }
+    assert.equal(service.assetUsers('renamed.svg').length, 2);
+    assert.equal((await api('/api/custom-overlays/assets/renamed.svg', 'DELETE')).status, 409);
+    const updatedAsset = await (await api('/api/custom-overlays/assets/renamed.svg/rename', 'POST', { name: 'background-renamed' })).json();
+    assert.equal(service.list()[0].layouts.portrait.background.image, updatedAsset.url);
+    assert.equal(createPromoService({ dataDir }).listThemes()[0].background.image, updatedAsset.url);
+    assert.equal((await api(`/api/promo-themes/${theme.id}`, 'DELETE')).status, 200);
+    assert.equal((await api(`/api/promos/${backgroundOnly.id}`, 'DELETE')).status, 200);
     const messages = [];
     t.mock.method(console, 'error', (...args) => messages.push(args.join(' ')));
     fs.writeFileSync(path.join(dataDir, 'promos.json'), '{}');
     assert.equal((await api('/api/promos')).status, 500);
     assert.equal((await api('/api/promos', 'POST', {})).status, 500, 'corrupt storage is not mistaken for invalid user input');
+    fs.writeFileSync(path.join(dataDir, 'promo-themes.json'), '{}');
+    assert.equal((await api('/api/promo-themes')).status, 500);
     assert.ok(messages.some(message => message.includes('[Promos]')));
 });
 
