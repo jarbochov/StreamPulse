@@ -129,13 +129,19 @@ async function exerciseBackend() {
         const started = await fetch(base + '/api/start-session', { method: 'POST' });
         assert.equal(started.status, 200);
         assert.equal((await started.json()).status, 'started');
+        assert.equal((await (await fetch(base + '/api/status')).json()).library.sessions, 1);
+        const archiveName = fs.readdirSync(path.join(dataDir, 'sessions')).find(f => f.startsWith('chat-'));
+        const deleted = await fetch(base + '/api/sessions?session=' + encodeURIComponent(archiveName), { method: 'DELETE' });
+        assert.equal(deleted.status, 200);
+        await deleted.json();
+        assert.equal((await (await fetch(base + '/api/status')).json()).library.sessions, 0, 'deletion invalidates cached status immediately');
         const first = manager.stop();
         assert.equal(manager.stop(), first);
         await first;
         assert.equal(manager.serverInstance.server.listening, false);
         assert.equal(intervals.size, 0, 'stop must release every service interval');
         assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir, 'chat.json'), 'utf8')).messageCount, 0);
-        assert.equal(fs.readdirSync(path.join(dataDir, 'sessions')).filter(f => f.startsWith('chat-')).length, 1);
+        assert.equal(fs.readdirSync(path.join(dataDir, 'sessions')).filter(f => f.startsWith('chat-')).length, 0);
     } finally {
         await manager.stop();
         global.setInterval = originalSet;

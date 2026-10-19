@@ -17,6 +17,14 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Preserve video autoplay/remote-control intent and running custom-overlay alerts across ordinary live-data rerenders; release completed alert handles.
 - Make browser smoke failures return a failing exit status and add isolated accounting, persistence, lifecycle, playback, and alert regressions to `npm test`.
 - Correct API examples, desktop architecture/lifecycle documentation, and optional Chrome setup guidance.
+- Correct Community Directory attendance, segment, subscriber-tenure, local-note storage, and CSV-export descriptions; remove unsupported music/EventSub claims from architecture documentation.
+- Read Game Plan WebSocket snapshots from their actual `data` payload and prevent stale HTTP responses from replacing newer live state.
+
+### Changed
+- Share compact, metadata-validated session summaries across historical category totals, milestones, and chatter dossiers instead of repeatedly parsing unchanged archive JSON; invalidate on archive writes, deletion, and restore.
+- Mount only active/common editor layers, disposing inactive media, slideshow timers, and effect runners while preserving HTML5 playback intent/time and slideshow position on return.
+- Skip unchanged Game Plan DOM rebuilds, reduce healthy-WebSocket HTTP refreshes, pause hidden-document polling, and prevent overlapping requests.
+- Add isolated archive-cache, editor-activity, and Game Plan refresh regressions to `npm test`.
 
 ## [0.12.0] - 2026-10-19
 

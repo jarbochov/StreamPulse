@@ -1,14 +1,17 @@
 const fs = require('fs');
 const path = require('path');
+const { createSessionArchiveCache } = require('./session-archives');
 
 function createCrmService({
     dataDir,
-    sessionsDir,
+    sessionsDir = path.join(dataDir, 'sessions'),
     getStatsData = () => ({}),
     getChatData = () => ({}),
     getBroadcasterName = () => 'jarbochov',
-    readJsonFileSafe = (filePath, fallback) => fallback
+    readJsonFileSafe = (filePath, fallback) => fallback,
+    getArchivedSessions = null
 } = {}) {
+    const archives = getArchivedSessions || createSessionArchiveCache({ sessionsDir }).getSnapshot;
     const CHATTER_NOTES_FILE = path.join(dataDir, 'chatter-notes.json');
     let chatterNotes = {};
     try {
@@ -79,23 +82,18 @@ function createCrmService({
         const raidsCount = raidsRecord ? Object.keys(raidsRecord.days || {}).length : 0;
 
         const categoriesMap = {};
-        if (sessionsDir && fs.existsSync(sessionsDir)) {
-            for (const file of fs.readdirSync(sessionsDir).filter(f => f.startsWith('chat-') && f.endsWith('.json'))) {
-                try {
-                    const sData = JSON.parse(fs.readFileSync(path.join(sessionsDir, file), 'utf8'));
-                    const chatterEntry = Object.entries(sData.chatters || {}).find(([k]) => k.toLowerCase() === key);
-                    if (chatterEntry) {
-                        const count = chatterEntry[1]?.messageCount || 1;
-                        const cats = (sData.streamInfo || []).map(s => s.category).filter(Boolean);
-                        const uniqueCats = [...new Set(cats)];
-                        if (!uniqueCats.length && sData.category) uniqueCats.push(sData.category);
-                        for (const cat of uniqueCats) {
-                            if (!categoriesMap[cat]) categoriesMap[cat] = { category: cat, sessions: 0, messages: 0 };
-                            categoriesMap[cat].sessions++;
-                            categoriesMap[cat].messages += count;
-                        }
-                    }
-                } catch {}
+        for (const sData of archives().sessions) {
+            const chatterEntry = Object.entries(sData.chatters || {}).find(([k]) => k.toLowerCase() === key);
+            if (chatterEntry) {
+                const count = chatterEntry[1]?.messageCount || 1;
+                const cats = (sData.streamInfo || []).map(s => s.category).filter(Boolean);
+                const uniqueCats = [...new Set(cats)];
+                if (!uniqueCats.length && sData.category) uniqueCats.push(sData.category);
+                for (const cat of uniqueCats) {
+                    if (!categoriesMap[cat]) categoriesMap[cat] = { category: cat, sessions: 0, messages: 0 };
+                    categoriesMap[cat].sessions++;
+                    categoriesMap[cat].messages += count;
+                }
             }
         }
         const favoriteGames = Object.values(categoriesMap).sort((a, b) => b.messages - a.messages).slice(0, 8);

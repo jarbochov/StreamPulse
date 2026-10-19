@@ -654,7 +654,8 @@ const sessionService = createSessionService({
     recordPlayedGames: (streamInfo, endMs, startFloorMs) => recordPlayedGames(streamInfo, endMs, startFloorMs),
     performAutoBackup: (force) => performAutoBackup(force),
     isSessionActive: () => sessionActive,
-    setSessionActive: (val) => { sessionActive = !!val; }
+    setSessionActive: (val) => { sessionActive = !!val; },
+    onArchivesInvalidated: () => { statusHeavyCache = null; }
 });
 const noteArchivedSession = (name) => sessionService.noteArchivedSession(name);
 const sessionHasData = () => sessionService.sessionHasData();
@@ -1447,6 +1448,7 @@ const crmService = createCrmService({
     getStatsData: () => statsData,
     getChatData: () => chatData,
     getBroadcasterName: () => BROADCASTER_NAME,
+    getArchivedSessions: () => sessionService.getArchivedSessions(),
     readJsonFileSafe
 });
 
@@ -1707,6 +1709,7 @@ const handleHighlightsRoutes = createHighlightsRoutes({
 });
 
 function handleRestoreReload({ previousConfig }) {
+    sessionService.invalidateArchives();
     try {
         if (fs.existsSync(STATS_PATH)) {
             statsData = JSON.parse(fs.readFileSync(STATS_PATH, 'utf8'));

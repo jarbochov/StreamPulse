@@ -1028,6 +1028,8 @@
      */
     function applyRetroFilter(node, element, options = {}) {
         if (!node || !element) return false;
+        node._retroMediaWait?.();
+        node._retroMediaWait = null;
         const rawF = element.mediaFilter || {};
         const retro = normalizeRetro(rawF.retro || {});
         const isRetroActive = retro.display !== 'none' || retro.vhs || retro.ntsc || retro.static;
@@ -1066,7 +1068,12 @@
 
             if (!isLoaded) {
                 const evt = isImage ? 'load' : 'loadeddata';
-                mediaEl.addEventListener(evt, () => applyRetroFilter(node, element, options), { once: true });
+                const retry = () => {
+                    node._retroMediaWait = null;
+                    if (node.isConnected && node._retroCanvas === canvas) applyRetroFilter(node, element, options);
+                };
+                node._retroMediaWait = () => mediaEl.removeEventListener(evt, retry);
+                mediaEl.addEventListener(evt, retry, { once: true });
                 return false;
             }
         }
@@ -1111,6 +1118,8 @@
 
     function cleanup(node) {
         if (!node) return;
+        node._retroMediaWait?.();
+        node._retroMediaWait = null;
         if (node._retroCanvas) {
             node._retroCanvas._hasDrawn = false;
             node._retroCanvas.remove();
@@ -1118,6 +1127,7 @@
         }
         node._retroRecord = null;
         activeNodes.delete(node);
+        if (!activeNodes.size && animRaf) { cancelAnimationFrame(animRaf); animRaf = 0; }
         const hasFxCanvas = !!(node._fxCanvas && node._fxCanvas.parentNode === node);
         if (hasFxCanvas) {
             node._fxCanvas.style.opacity = '';

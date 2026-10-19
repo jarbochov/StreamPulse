@@ -46,7 +46,7 @@ npm test
 This runs:
 1. `eslint server.js server/ scripts/ desktop/` (linting server, desktop wrapper, and tooling code).
 2. `node --check` syntax validation across all server entrypoints, Electron desktop files, route controllers, and domain services.
-3. `npm run test:regression`: isolated session/milestone and save-failure checks, desktop lifecycle checks against temporary data, browser playback/alert regressions, and legacy/static URL smoke tests.
+3. `npm run test:regression`: isolated session/milestone, archive-cache, and save-failure checks; desktop lifecycle checks against temporary data; browser playback/alert and inactive-editor regressions; Game Plan refresh checks; and legacy/static URL smoke tests.
 
 The browser regressions use Puppeteer's Chrome. If it is missing, run `npm run install:chrome` once. The regression suite starts isolated local fixtures; it does not require your production server or use your saved configuration/data. Browser exceptions and failed assertions return a nonzero exit status.
 
@@ -67,6 +67,8 @@ This separate editor smoke check requires a running development server. Set `STR
 Restart preserves session data and restarts the desktop backend in-process without installing duplicate background timers. Explicit quit ends and archives the session. Saving errors are reported rather than followed by a success message or a session reset.
 
 Milestone broadcast time uses observed live start/end bounds rather than the server's uptime. Lifetime message totals come from persistent statistics, which already include current-session messages.
+
+The archive-cache regression uses 120 fictional sessions and asserts that warm category/milestone/dossier queries perform zero archive JSON reads, even after metadata and milestone refresh intervals expire. It also covers changed files, additions, deletions, restore invalidation, and repaired malformed archives. Its printed timing and compact-summary size are fixture measurements, not production CPU/RAM guarantees.
 
 ---
 

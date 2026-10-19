@@ -346,6 +346,7 @@ function createSessionRoutes({
                     }
                     fs.unlinkSync(sessionFile);
                     if (fs.existsSync(logFile)) fs.unlinkSync(logFile);
+                    sessionService.invalidateArchives(sessionName);
                     console.log(`[Session] Deleted archived session: ${sessionName}`);
                     sendJson(res, { status: 'deleted', session: sessionName });
                 } catch (err) {

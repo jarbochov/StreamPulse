@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { createSessionArchiveCache } = require('./session-archives');
 
 function clampNumber(value, min, max, fallback) {
     const num = Number(value);
@@ -162,6 +163,7 @@ function createSessionService(options = {}) {
         loadCurrentSessionStateFromDisk = () => {},
         recordPlayedGames = async () => {},
         performAutoBackup = () => {},
+        onArchivesInvalidated = () => {},
         isSessionActive: customIsSessionActive = null,
         setSessionActive: customSetSessionActive = null,
         log = console.log,
@@ -189,8 +191,16 @@ function createSessionService(options = {}) {
     const setSessionActive = typeof customSetSessionActive === 'function' ? customSetSessionActive : (val) => { internalSessionActive = !!val; };
     let watcherGeneration = 0;
     let milestoneCache = { at: 0, data: null };
+    const archiveCache = createSessionArchiveCache({ sessionsDir, warn });
+
+    function invalidateArchives(filename) {
+        archiveCache.invalidate(filename);
+        milestoneCache = { at: 0, data: null };
+        onArchivesInvalidated();
+    }
 
     function noteArchivedSession(name) {
+        invalidateArchives(name);
         lifecycleMemo.lastArchive = { name, endedAt: Date.now() };
         try { fs.writeFileSync(lifecyclePath, JSON.stringify(lifecycleMemo)); } catch { /* non-critical */ }
     }
@@ -473,18 +483,14 @@ function createSessionService(options = {}) {
 
     function archivedCategoryMinutes() {
         const totals = {};
-        if (!fs.existsSync(sessionsDir)) return totals;
-        for (const file of fs.readdirSync(sessionsDir).filter(f => f.startsWith('chat-') && f.endsWith('.json'))) {
-            try {
-                const data = JSON.parse(fs.readFileSync(path.join(sessionsDir, file), 'utf8'));
-                const floor = Date.parse(data.viewerStats?.streamStartedAt || '');
-                if (!Number.isFinite(floor)) continue;
-                const endMs = Date.parse(data.viewerStats?.streamEndedAt || data.lastUpdated || data.startedAt);
-                if (!Number.isFinite(endMs) || endMs <= floor) continue;
-                for (const [name, minutes] of Object.entries(categoryMinutesFor(data.streamInfo, endMs, floor))) {
-                    totals[name] = (totals[name] || 0) + minutes;
-                }
-            } catch {}
+        for (const data of archiveCache.getSnapshot().sessions) {
+            const floor = Date.parse(data.viewerStats?.streamStartedAt || '');
+            if (!Number.isFinite(floor)) continue;
+            const endMs = Date.parse(data.viewerStats?.streamEndedAt || data.lastUpdated || data.startedAt);
+            if (!Number.isFinite(endMs) || endMs <= floor) continue;
+            for (const [name, minutes] of Object.entries(categoryMinutesFor(data.streamInfo, endMs, floor))) {
+                totals[name] = (totals[name] || 0) + minutes;
+            }
         }
         return totals;
     }
@@ -509,13 +515,9 @@ function createSessionService(options = {}) {
 
     function computeMilestones() {
         const nowMs = Date.now();
-        if (milestoneCache.data && (nowMs - milestoneCache.at < 30000)) {
+        const archived = archiveCache.getSnapshot();
+        if (milestoneCache.data && milestoneCache.revision === archived.revision && (nowMs - milestoneCache.at < 30000)) {
             return milestoneCache.data;
-        }
-
-        let archivedFiles = [];
-        if (fs.existsSync(sessionsDir)) {
-            archivedFiles = fs.readdirSync(sessionsDir).filter(f => f.startsWith('chat-') && f.endsWith('.json'));
         }
 
         function getIsoWeek(d) {
@@ -539,12 +541,7 @@ function createSessionService(options = {}) {
             broadcasts.set(startMs, { startMs, endMs });
         };
 
-        for (const file of archivedFiles) {
-            try {
-                const data = JSON.parse(fs.readFileSync(path.join(sessionsDir, file), 'utf8'));
-                addBroadcast(data, [], false);
-            } catch {}
-        }
+        for (const data of archived.sessions) addBroadcast(data, [], false);
 
         const chatData = getChatData();
         const statsData = getStatsData();
@@ -636,11 +633,13 @@ function createSessionService(options = {}) {
             milestones: milestonesList
         };
 
-        milestoneCache = { at: nowMs, data: result };
+        milestoneCache = { at: nowMs, data: result, revision: archived.revision };
         return result;
     }
 
     return {
+        getArchivedSessions: () => archiveCache.getSnapshot(),
+        invalidateArchives,
         isSessionActive,
         setSessionActive,
         lifecycle,

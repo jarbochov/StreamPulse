@@ -309,8 +309,8 @@ export const placeholder = text => {
     return node;
 };
 
-export function buildContent(node, el) {
-    if (shared.cleanupMedia) shared.cleanupMedia(node);
+export function buildContent(node, el, playback) {
+    if (shared.cleanupNode) shared.cleanupNode(node);
     node.replaceChildren();
     node._textNode = null;
     node._extra = '';
@@ -340,19 +340,26 @@ export function buildContent(node, el) {
             const v = el.video || {};
             const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
             const volume = Math.max(0, Math.min(1, (Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100) / 100));
-            const auto = v.autoplay !== false;
+            const auto = playback?.video ? !playback.video.paused : v.autoplay !== false;
+            node._videoAutoplay = v.autoplay !== false;
             media.loop = v.loop !== false;
             media.autoplay = auto;
             if (!auto) media.preload = 'auto';
             media.playsInline = true;
             media.dataset.hasSound = hasSound ? 'true' : 'false';
             media.dataset.targetVolume = String(volume);
-            media.muted = !hasSound;
+            media.muted = playback?.video?.muted ?? !hasSound;
+            media.volume = playback?.video?.volume ?? volume;
+            if (playback?.video) {
+                const resume = () => { media.currentTime = playback.video.time; };
+                if (media.readyState >= 1) resume();
+                else media.addEventListener('loadedmetadata', resume, { once: true });
+            }
             if (hasSound && auto) {
-                media.volume = volume;
                 const p = media.play();
                 if (p && p.catch) {
                     p.catch(() => {
+                        if (!media.isConnected || !media.getAttribute('src')) return;
                         media.dataset.audioPending = 'true';
                         media.muted = true;
                         media.play().catch(() => {});
@@ -360,7 +367,9 @@ export function buildContent(node, el) {
                 }
             }
         }
-        media.addEventListener('error', () => { node.replaceChildren(placeholder(`Couldn't load this ${el.type}. Check the URL or upload it again.`)); });
+        media.addEventListener('error', () => {
+            if (media.parentNode === node && media.getAttribute('src')) node.replaceChildren(placeholder(`Couldn't load this ${el.type}. Check the URL or upload it again.`));
+        });
         node.appendChild(media);
     } else if (el.type === 'icon') {
         if (shared.renderIcon) shared.renderIcon(node, el.content, el.style);
@@ -418,7 +427,7 @@ export function buildContent(node, el) {
         setNodeText(node, expand(shared.elementContent ? shared.elementContent(el) : el.content));
     } else if (el.type === 'slideshow') {
         node._slideHandle?.stop();
-        if (shared.mountSlideshow) node._slideHandle = shared.mountSlideshow(node, el, { preview: true, animate: true });
+        if (shared.mountSlideshow) node._slideHandle = shared.mountSlideshow(node, el, { preview: true, animate: true, initialState: playback?.slideshow });
     } else if (el.type === 'pattern') {
         node._patternHandle?.stop();
         if (shared.mountPattern) node._patternHandle = shared.mountPattern(node, el, { preview: true, animate: true, expand });
@@ -495,20 +504,41 @@ if (document.fonts) {
 
 // Pass `only` (a set of element ids) during drags and resizes to restyle just those nodes.
 let lastLive = '';
+const pagePlayback = new Map();
 export function renderCanvas(only) {
-    const seen = new Set();
     const live = only ? lastLive : (lastLive = liveSignature());
     const activeCutouts = state.overlay.elements.filter(e => e.type === 'cutout' && e.visible !== false && inView(e));
     const maxCutoutIndex = activeCutouts.length ? Math.max(...activeCutouts.map(c => state.overlay.elements.indexOf(c))) : -1;
     const under = $('canvas-underlayer') || canvasEl;
     const top = $('canvas-toplayer') || canvasEl;
 
+    // Inactive pages retain model/playback state, never live media or effect runners.
+    const elements = new Map(state.overlay.elements.map(el => [el.id, el]));
+    for (const id of pagePlayback.keys()) {
+        if (!elements.has(id)) pagePlayback.delete(id);
+    }
+    for (const [id, node] of state.nodes) {
+        const el = elements.get(id);
+        if (el && inView(el) && el.visible !== false) continue;
+        const video = node.querySelector(':scope > video');
+        if (el && (video || node._slideHandle)) {
+            pagePlayback.set(id, {
+                overlay: state.overlay.id, signature: node._sig,
+                video: video ? { time: video.currentTime, paused: video.paused, muted: video.muted, volume: video.volume } : null,
+                slideshow: node._slideHandle?.snapshot?.()
+            });
+        }
+        if (shared.cleanupNode) shared.cleanupNode(node);
+        node.remove();
+        state.nodes.delete(id);
+    }
+
     if (!only) {
         updateEditorCutoutMask();
     }
 
     state.overlay.elements.forEach((el, index) => {
-        seen.add(el.id);
+        if (!inView(el) || el.visible === false) return;
         if (only && !only.has(el.id)) return;
         const isTop = el.type === 'cutout' || index > maxCutoutIndex;
         const targetParent = isTop ? top : under;
@@ -535,6 +565,9 @@ export function renderCanvas(only) {
             targetParent.appendChild(node);
         }
         const signature = contentSignature(el, live);
+        const saved = pagePlayback.get(el.id);
+        const playback = saved?.overlay === state.overlay.id && saved.signature === signature ? saved : null;
+        pagePlayback.delete(el.id);
         if (node._sig !== signature) {
             const existingVid = el.type === 'video' ? node.querySelector(':scope > video') : null;
             const canReuseVid = existingVid && node._src === el.src && node._fit === el.style?.objectFit && node._fx === el.style?.focusX && node._fy === el.style?.focusY;
@@ -560,10 +593,16 @@ export function renderCanvas(only) {
                 existingVid.dataset.hasSound = hasSound ? 'true' : 'false';
                 existingVid.dataset.targetVolume = String(vol);
                 existingVid.muted = !hasSound;
+                const auto = v.autoplay !== false;
+                if (node._videoAutoplay !== auto) {
+                    existingVid.autoplay = auto;
+                    if (auto) existingVid.play().catch(() => {});
+                    else existingVid.pause();
+                    node._videoAutoplay = auto;
+                }
                 if (hasSound) {
                     existingVid.volume = vol;
                     delete existingVid.dataset.audioPending;
-                    if (existingVid.paused) existingVid.play().catch(() => {});
                 }
             } else if (isPlainShape) {
                 node._sig = signature;
@@ -577,11 +616,10 @@ export function renderCanvas(only) {
                 node._fit = el.style?.objectFit;
                 node._fx = el.style?.focusX;
                 node._fy = el.style?.focusY;
-                buildContent(node, el);
+                buildContent(node, el, playback);
             }
         }
         applyNodeStyle(node, el, index);
-        if (!inView(el)) { node.style.display = 'none'; return; }
         if (TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none' && shared.fitText) {
             const probe = el.type === 'random-text' ? (shared.elementItems ? shared.elementItems(el).map(expand).reduce((a, b) => (b.length > a.length ? b : a), '') : null) : null;
             shared.fitText(node, el, probe);
@@ -591,21 +629,13 @@ export function renderCanvas(only) {
         if ([...only].some(id => byId(id)?.type === 'cutout')) scheduleEditorCutoutMask();
         return;
     }
-    for (const [id, node] of state.nodes) {
-        if (!seen.has(id)) {
-            node._slideHandle?.stop();
-            if (shared.cleanupNode) shared.cleanupNode(node);
-            node.remove();
-            state.nodes.delete(id);
-        }
-    }
     $('empty-hint')?.classList.toggle('on', !visibleElements().length);
     updateEditorCutoutMask();
     renderSelectionUI();
 }
 
 export function unlockMediaAudio() {
-    document.querySelectorAll('video[data-has-sound="true"]').forEach(video => {
+    document.querySelectorAll('video[data-has-sound="true"][data-audio-pending="true"]').forEach(video => {
         const targetVol = Number(video.dataset.targetVolume);
         const volume = Number.isFinite(targetVol) ? targetVol : 1;
         video.muted = false;

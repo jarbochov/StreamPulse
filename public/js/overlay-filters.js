@@ -796,9 +796,13 @@
                     // Not decoded yet: leave _srcSig unset so the retry after load re-samples, and keep the
                     // media visible meanwhile. Re-run the whole filter pass so canvas/media styling matches.
                     const evt = isImage ? 'load' : 'loadeddata';
-                    mediaEl.addEventListener(evt, () => {
-                        if (node._fxCanvas === canvas) applyMediaFilter(node, element);
-                    }, { once: true });
+                    node._fxMediaWait?.();
+                    const retry = () => {
+                        node._fxMediaWait = null;
+                        if (node.isConnected && node._fxCanvas === canvas) applyMediaFilter(node, element);
+                    };
+                    node._fxMediaWait = () => mediaEl.removeEventListener(evt, retry);
+                    mediaEl.addEventListener(evt, retry, { once: true });
                     node._fxSig = '';
                     canvas._mode = '';
                     return;
@@ -1382,6 +1386,10 @@
 
     function cleanupFilters(node) {
         if (!node) return;
+        node._fxMediaWait?.();
+        node._fxMediaWait = null;
+        node._fxSig = '';
+        node._fxTarget = null;
         if (node._fxCanvas) {
             node._fxCanvas.remove();
             node._fxCanvas = null;
@@ -1409,6 +1417,7 @@
         }
         node._fxAnim = null;
         fxAnimated.delete(node);
+        if (!fxAnimated.size && fxRaf) { cancelAnimationFrame(fxRaf); fxRaf = 0; }
         const img = node.querySelector(':scope > img, :scope > video');
         if (img) img.style.opacity = '';
     }

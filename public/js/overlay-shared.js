@@ -601,7 +601,7 @@
             return root.OverlayFilters.applyMediaFilter(node, element, options);
         }
         ensureOverlayFilters().then(filters => {
-            if (filters?.applyMediaFilter) {
+            if (node.isConnected && filters?.applyMediaFilter) {
                 filters.applyMediaFilter(node, element, options);
             }
         });
@@ -2190,6 +2190,11 @@
 
     function cleanupNode(node) {
         if (!node) return;
+        if (node._alertHandle) {
+            const handle = node._alertHandle;
+            node._alertHandle = null;
+            handle.stop();
+        }
         cleanupMedia(node);
         if (node._borderObserver) { node._borderObserver.disconnect(); node._borderObserver = null; }
         if (node._fitObserver) { node._fitObserver.disconnect(); node._fitObserver = null; }
@@ -2345,8 +2350,9 @@
     function mountSlideshow(node, element, options = {}) {
         const config = element.slideshow || {};
         const frozen = options.preview && !options.animate;
-        let paused = config.advance === 'manual';
+        let paused = options.initialState?.paused ?? config.advance === 'manual';
         let items = [], order = [], position = -1, timer = null, refreshTimer = null, stopped = false, current = null, token = 0;
+        const pending = new Set(), transitions = new Set();
         cleanupMedia(node);
         node.replaceChildren();
         node.style.position = node.style.position || 'absolute';
@@ -2392,10 +2398,19 @@
 
         function ready(media) {
             return new Promise(resolve => {
-                if (media.tagName === 'VIDEO') { media.addEventListener('loadeddata', () => resolve(true), { once: true }); media.addEventListener('error', () => resolve(false), { once: true }); return; }
-                if (media.complete && media.naturalWidth) return resolve(true);
-                media.addEventListener('load', () => resolve(true), { once: true });
-                media.addEventListener('error', () => resolve(false), { once: true });
+                if (media.tagName !== 'VIDEO' && media.complete && media.naturalWidth) return resolve(true);
+                const evt = media.tagName === 'VIDEO' ? 'loadeddata' : 'load';
+                const finish = success => {
+                    media.removeEventListener(evt, loaded);
+                    media.removeEventListener('error', failed);
+                    pending.delete(cancel);
+                    resolve(success);
+                };
+                const loaded = () => finish(true), failed = () => finish(false);
+                const cancel = () => { cleanupMedia(media); finish(false); };
+                pending.add(cancel);
+                media.addEventListener(evt, loaded);
+                media.addEventListener('error', failed);
             });
         }
 
@@ -2416,6 +2431,7 @@
                 const candidate = makeSlide(item);
                 if (await ready(candidate.media)) { slide = candidate; break; }
                 cleanupMedia(candidate.layer);
+                if (stopped || mine !== token) return;
             }
             if (!slide || stopped || mine !== token) {
                 if (slide) cleanupMedia(slide.layer);
@@ -2438,7 +2454,13 @@
                 const grow = Math.random() < 0.5;
                 slide.media.animate([{ transform: `scale(${grow ? 1 : 1.08})` }, { transform: `scale(${grow ? 1.08 : 1})` }], { duration: config.seconds * 1000 + ms, easing: 'linear', fill: 'both' });
             }
-            if (old) setTimeout(() => { cleanupMedia(old.layer); old.layer.remove(); }, ms + 60);
+            if (old) {
+                const timer = setTimeout(() => {
+                    transitions.delete(timer);
+                    cleanupMedia(old.layer); old.layer.remove();
+                }, ms + 60);
+                transitions.add(timer);
+            }
             note.textContent = '';
             if (frozen) return;
             if (item.kind === 'video' && items.length < 2) slide.media.loop = true;
@@ -2467,6 +2489,10 @@
             items = next;
             buildOrder();
             position = -1;
+            if (first && options.initialState?.item) {
+                const index = items.findIndex(item => item.name === options.initialState.item);
+                if (index >= 0) position = order.indexOf(index) - 1;
+            }
             if (!items.length) {
                 clearTimeout(timer);
                 cleanupMedia(stage);
@@ -2488,7 +2514,20 @@
             else if (action === 'pause') { paused = true; clearTimeout(timer); timer = null; emitState(); }
             else if (action === 'play') { paused = false; if (!timer) schedule(config.seconds * 1000); emitState(); }
         };
-        return { stop() { stopped = true; clearTimeout(timer); clearInterval(refreshTimer); cleanupMedia(stage); }, count: () => items.length, control };
+        return {
+            stop() {
+                stopped = true;
+                ++token;
+                clearTimeout(timer); clearInterval(refreshTimer);
+                transitions.forEach(clearTimeout); transitions.clear();
+                for (const cancel of pending) cancel();
+                stage.getAnimations({ subtree: true }).forEach(animation => animation.cancel());
+                cleanupMedia(stage);
+            },
+            snapshot: () => ({ paused, item: items[order[position]]?.name }),
+            count: () => items.length,
+            control
+        };
     }
 
     // ---- pattern tile (repeating mosaic & kaleidoscope motion graphics) ------------------------
@@ -3152,4 +3191,3 @@
 
     root.OverlayShared = { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, applyBorderGradient, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, BUILTIN_SOUNDS, renderGameList, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, applyMediaFilter, shadowClipStyle };
 })(window);
-

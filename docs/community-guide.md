@@ -12,9 +12,9 @@ Quickly filter your community with instant quick-view segment pills:
 
 - **Moderators**: All active channel moderators detected from Twitch.
 - **VIPs**: Channel VIP badge holders.
-- **Regulars**: Viewers who have attended **3 or more streams within the past 90 days**.
-- **Lapsed**: Historical regulars who were active 30 to 90 days ago but have not been seen recently.
-- **Newcomers**: Viewers attending their very first broadcast.
+- **Regulars**: Viewers with chat activity on at least three distinct days who are present tonight or were last seen within 30 days.
+- **Lapsed**: Viewers with chat activity on at least three distinct days, last seen 30 to 90 days ago, and not present tonight.
+- **Newcomers**: Viewers first seen within 14 days, or with no more than one recorded activity day who are present tonight or were last seen within 30 days.
 - **All Members**: Complete roster with instant search.
 
 ---
@@ -26,13 +26,15 @@ Click any username in the Community Directory or Session History to open their c
 ![Chatter Dossier](images/chatter-dossier.png)
 
 ### Dossier Capabilities:
-- **Lifetime Activity**: Total sessions attended, chat message counts, bits cheered, gift subs gifted, and raids led.
-- **Subscriber Tenure**: Exact months subscribed.
-- **Category History**: Breakdown of which games and categories the viewer watched most frequently.
-- **Private Streamer Notes**: Encrypted, local notes for remembering community member details (e.g. *"Met at TwitchCon, regular speedrunner"*).
+- **Lifetime Activity**: Recorded attendance days (displayed as sessions), chat message counts, bits cheered, gift subs gifted, and raid days. Multiple broadcasts on one day do not count as separate attendance days.
+- **Subscriber Tenure**: Highest subscription-month count observed from chat badges or resub events, not an authoritative continuously refreshed Twitch tenure.
+- **Category History**: Categories from archived sessions where the viewer chatted, ranked by message counts. A multi-category session contributes that session's chatter count to each category; this is not measured viewing time.
+- **Private Streamer Notes**: Local notes for remembering community member details. These are stored as plain JSON in `data/chatter-notes.json`, not encrypted; protect your data folder and backups.
 - **Custom CRM Tags**: Add custom chips (e.g. `speedrunner`, `vip-candidate`, `artist`).
 - **Pronouns**: Manage viewer pronouns with automatic display in chat popouts.
 - **Twitch Actions**: Instant popout link to Twitch's native Mod Viewer Card.
+
+Dossiers reuse the same compact historical-session cache as milestones and category totals. Reopening a dossier does not reread unchanged archive JSON files. StreamPulse archive changes invalidate it immediately; external archive edits are detected on the next metadata check, up to ten seconds later.
 
 ---
 
@@ -42,6 +44,6 @@ Click **Export CSV** at the top right of the directory to download a full spread
 - Username & display name
 - Mod / VIP / Subscriber status
 - First seen and last active timestamps
-- Total streams attended & messages sent
-- Bits cheered & gift subs given
-- Private streamer notes and custom tags
+- Recorded attendance days & messages sent
+- Observed subscription months, pronouns, and custom tags
+- Private streamer notes only when explicitly included

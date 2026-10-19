@@ -20,6 +20,12 @@ The studio provides a modern three-pane workspace designed for high-density broa
 2. **Center Stage (Interactive Canvas)**: Direct manipulation viewport with 8 transform handles, aspect-ratio constraint (Shift-drag), alignment and snapping guides (bypass with Alt), marquee box multi-selection, pan (Middle-click, Space-drag, or Shift-drag), and zoom controls.
 3. **Right Rail (Context-Sensitive Inspector)**: Dynamic properties panel displaying layout coordinates, dimensional sizing, typography, fill gradients, animated sweep borders, GPU media filters, WebGL display shaders, and stream widget configurations for the currently selected layer(s).
 
+### Preview Resource Use
+
+The editor mounts only the selected page's layers and common (`*`) layers. Other pages remain in the layer list but do not keep background video/audio, slideshow timers, or effect renderers running. Common layers remain mounted across page changes, and the **Effects** toggle still controls preview effect animation.
+
+Returning to a page restores HTML5 video playback intent/time and slideshow position. Embedded players reload, and slideshow transitions and motion-effect phases restart. These preview lifecycle rules do not change saved overlay definitions or production overlay URLs.
+
 ### Keyboard Shortcuts
 
 | Shortcut | Action | Description |

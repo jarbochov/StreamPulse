@@ -392,6 +392,10 @@
         const view = (params.get('view') || params.get('mode') || 'schedule').toLowerCase();
         const listFilter = params.get('list') || 'scheduled';
         const periodFilter = params.get('period') || '';
+        const dateDependentPeriod = periodFilter.split(',').some(token => [
+            '@today', 'today', 'tonight', '@tomorrow', 'tomorrow', 'next-stream', 'next stream',
+            '@this-week', 'this-week', 'thisweek', 'this week', '@upcoming', 'upcoming'
+        ].includes(token.trim().toLowerCase()));
         const maxItems = Math.max(1, parseInt(params.get('max') || '5', 10));
         const showCovers = params.get('covers') !== '0';
         const showNotes = params.get('notes') !== '0';
@@ -519,6 +523,8 @@
         }).catch(() => {});
 
         let currentPlan = null;
+        let planSignature = '';
+        let renderedSignature = '';
 
         const ICONS = {
             play: '<svg class="ico" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
@@ -745,7 +751,11 @@
         }
 
         function render() {
-            if (!currentPlan || !Array.isArray(currentPlan.items)) return;
+            if (document.hidden || !currentPlan || !Array.isArray(currentPlan.items)) return;
+
+            // Smart period filters depend on the local day even when the plan is unchanged.
+            const signature = `${planSignature}|${dateDependentPeriod ? new Date().toDateString() : ''}`;
+            if (signature === renderedSignature) return;
 
             let items = currentPlan.items;
 
@@ -824,40 +834,156 @@
             } else {
                 renderSchedule(items, playing);
             }
+            renderedSignature = signature;
         }
 
+        function updatePlan(plan) {
+            if (!plan || !Array.isArray(plan.items)) return false;
+            currentPlan = plan;
+            planSignature = JSON.stringify([plan.items, plan.lists, plan.periods]);
+            render();
+            return true;
+        }
+
+        const POLL_MS = 10000;
+        const REVALIDATE_MS = 60000;
+        let socket = null;
+        let reconnectTimer = null;
+        let pollTimer = null;
+        let request = null;
+        let requestTimeout = null;
+        let refreshAfterAbort = false;
+        let lastFetchAt = -Infinity;
+        let fetchFailed = false;
+        let planRevision = 0;
+        let disposed = false;
+
         async function fetchPlan() {
+            if (disposed || document.hidden) return;
+            if (request) {
+                if (request.signal.aborted) refreshAfterAbort = true;
+                return;
+            }
+            const controller = new AbortController();
+            request = controller;
+            const revision = planRevision;
+            lastFetchAt = Date.now();
+            requestTimeout = setTimeout(() => controller.abort(), POLL_MS);
             try {
-                const res = await fetch('/api/game-plan', { cache: 'no-store' });
-                if (res.ok) {
-                    currentPlan = await res.json();
-                    render();
-                }
+                const res = await fetch('/api/game-plan', { cache: 'no-store', signal: controller.signal });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const plan = await res.json();
+                if (!plan || !Array.isArray(plan.items)) throw new Error('Invalid game plan');
+                // A slow HTTP snapshot must not roll back a newer live update.
+                if (!disposed && revision === planRevision) updatePlan(plan);
+                fetchFailed = false;
             } catch (e) {
-                console.warn('[Game Plan Overlay] Fetch error:', e);
+                if (!disposed) {
+                    fetchFailed = true;
+                    console.warn('[Game Plan Overlay] Fetch error:', e);
+                }
+            } finally {
+                clearTimeout(requestTimeout);
+                requestTimeout = null;
+                request = null;
+                if (refreshAfterAbort) {
+                    refreshAfterAbort = false;
+                    fetchPlan();
+                }
+            }
+        }
+
+        function scheduleReconnect() {
+            if (!disposed && reconnectTimer === null) {
+                reconnectTimer = setTimeout(() => {
+                    reconnectTimer = null;
+                    connectWs();
+                }, 5000);
             }
         }
 
         function connectWs() {
+            if (disposed || socket) return;
             const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws = new WebSocket(`${proto}//${location.host}`);
+            let ws;
+            try {
+                ws = new WebSocket(`${proto}//${location.host}`);
+            } catch {
+                scheduleReconnect();
+                return;
+            }
+            socket = ws;
+            ws.onopen = () => {
+                if (socket === ws && Date.now() - lastFetchAt >= 5000) fetchPlan();
+            };
             ws.onmessage = evt => {
+                if (disposed || socket !== ws) return;
                 try {
                     const msg = JSON.parse(evt.data);
-                    if (msg.type === 'game-plan-update') {
-                        currentPlan = msg.plan;
-                        render();
+                    if (msg.type === 'game-plan-update' && updatePlan(msg.data || msg.plan)) {
+                        planRevision++;
                     }
                 } catch {}
             };
             ws.onclose = () => {
-                setTimeout(connectWs, 5000);
+                if (socket !== ws) return;
+                socket = null;
+                fetchPlan();
+                scheduleReconnect();
             };
+            ws.onerror = () => ws.close();
         }
 
-        fetchPlan();
-        connectWs();
-        setInterval(fetchPlan, 10000); // Polling heartbeat
+        function startPolling() {
+            if (disposed || document.hidden || pollTimer !== null) return;
+            pollTimer = setInterval(() => {
+                if (disposed || document.hidden) return;
+                render();
+                // An open but silent/stale socket still gets a bounded safety refresh.
+                const connected = socket?.readyState === WebSocket.OPEN && currentPlan && !fetchFailed;
+                if (!connected || Date.now() - lastFetchAt >= REVALIDATE_MS) fetchPlan();
+            }, POLL_MS);
+        }
+
+        function onVisibilityChange() {
+            if (document.hidden) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            } else {
+                render();
+                fetchPlan();
+                startPolling();
+            }
+        }
+
+        function start() {
+            disposed = false;
+            document.addEventListener('visibilitychange', onVisibilityChange);
+            render();
+            fetchPlan();
+            connectWs();
+            startPolling();
+        }
+
+        function dispose() {
+            disposed = true;
+            planRevision++;
+            refreshAfterAbort = false;
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            clearInterval(pollTimer);
+            pollTimer = null;
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+            clearTimeout(requestTimeout);
+            request?.abort();
+            const ws = socket;
+            socket = null;
+            ws?.close();
+        }
+
+        window.addEventListener('pagehide', dispose);
+        window.addEventListener('pageshow', () => { if (disposed) start(); });
+        start();
     })();
     </script>
 </body>

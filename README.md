@@ -98,7 +98,8 @@ For developers, technical directors, and power users, StreamPulse is engineered 
 - **SocialStream Ninja Ingest**: Native WebSocket client listening to local or remote SSN sessions, extracting chat messages, cheers, subscriptions, gift subs, and raid events in real time.
 - **Cascading Static File Routing**: Built-in static router in `server/static-router.js` with cascading path resolution (`public/overlays/`, `public/editors/`, `public/wizards/`, `public/tools/`, `public/library/`, `public/system/`) providing 100% backward compatibility for flat root paths with zero redirect latency.
 - **Atomic Local Persistence**: Pure filesystem storage (`data/*.json`, `data/chat-log.jsonl`) with automated hourly backups and ZIP share packages. Zero database server (PostgreSQL/MySQL/MongoDB) required.
-- **Hardware-Accelerated WebGL Shaders**: Custom fragment shaders compiled on the GPU for zero-CPU CRT scanline emulation, phosphor bloom, curvature distortion, and LCD pixel response smearing.
+- **Resource-Aware Rendering**: The editor mounts active/common layers only; Game Plan avoids unchanged DOM rebuilds and redundant polling. Historical metrics and dossiers share compact, metadata-validated archive summaries.
+- **Hardware-Accelerated WebGL Shaders**: GPU-rendered CRT scanline emulation, phosphor bloom, curvature distortion, and LCD pixel response smearing. Active effects still incur rendering and CPU coordination costs.
 - **Bitfocus Companion Integration**: Official Companion module (`companion-module-streampulse`) exposing dynamic stream variables, button feedbacks, and hardware execution for Elgato Stream Deck and web remotes.
 
 ---

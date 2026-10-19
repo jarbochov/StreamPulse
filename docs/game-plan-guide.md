@@ -66,6 +66,12 @@ A vertical stream rundown checklist that checks off games as you complete them d
 - **Recommended OBS Source Size**: 440 x 480 px
 - Automatically checks off completed games as you click "Finish & Next" in the broadcaster controller.
 
+### Live Updates & Background Activity
+
+The overlay uses WebSocket updates and leaves existing cards/covers mounted when their rendered content has not changed. Theme changes, responsive layout, and smart-date filters still update; date filters are reevaluated when the local calendar day changes.
+
+With WebSocket connected, HTTP is a safety refresh rather than a duplicate ten-second poll: a 60-second refresh threshold is checked every ten seconds. If WebSocket disconnects, visible overlays fall back to ten-second polling. Background polling pauses while the document is hidden, and returning to it refreshes the plan. HTTP requests are single-flight, bounded by a timeout, and stale responses cannot overwrite newer live data.
+
 ---
 
 ## Responsive Cover Art Controls
