@@ -46,9 +46,11 @@ npm test
 This runs:
 1. `eslint server.js server/ scripts/ desktop/` (linting server, desktop wrapper, and tooling code).
 2. `node --check` syntax validation across all server entrypoints, Electron desktop files, route controllers, and domain services.
-3. `npm run test:regression`: isolated session/milestone, archive-cache, and save-failure checks; desktop lifecycle checks against temporary data; browser playback/alert and inactive-editor regressions; Game Plan refresh checks; and legacy/static URL smoke tests.
+3. `npm run test:regression`: isolated session/milestone, archive-cache, and save-failure checks; desktop lifecycle checks against temporary data; browser playback/alert, inactive-editor, and CRT/LCD control regressions; Game Plan refresh checks; and legacy/static URL smoke tests.
 
 The browser regressions use Puppeteer's Chrome. If it is missing, run `npm run install:chrome` once. The regression suite starts isolated local fixtures; it does not require your production server or use your saved configuration/data. Browser exceptions and failed assertions return a nonzero exit status.
+
+`node scripts/test-retro-controls.mjs` drives the real inspector controls on a fictional image. It checks visible pixel changes for CRT scanline/mask strength and scale, LCD grid spacing and edge ghosting, and pixel parity with direct shader rendering, including legacy saved settings. These are Chromium rendering checks, not an OBS or Safari compatibility guarantee.
 
 ### Smoke Testing Editors
 

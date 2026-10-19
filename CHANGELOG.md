@@ -7,6 +7,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Fixed
+- Restore CRT/LCD control strength and spacing by normalizing saved retro settings only once; retain phosphor mask choices and LCD ghosting, with real-editor pixel regressions.
 - Correct milestone message totals, broadcast hours, stream counts, and streaks using observed live bounds; exclude offline empty sessions and duplicate archives.
 - Retry unchanged chat/stat snapshots after failed primary saves.
 - Coordinate desktop quit/restart cleanup across server connections, polling, SSN reconnects, and service timers; preserve sessions on restart.

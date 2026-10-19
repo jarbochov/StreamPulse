@@ -1078,9 +1078,9 @@
             }
         }
 
+        // The shader normalizes saved percentages/mask names; keep its input in the saved schema.
         const f = {
             ...rawF,
-            retro,
             _fit: element.style?.objectFit || 'cover',
             _focusX: element.style?.focusX ?? 50,
             _focusY: element.style?.focusY ?? 50

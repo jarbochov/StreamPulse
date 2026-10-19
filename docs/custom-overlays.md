@@ -191,8 +191,9 @@ Apply real-time GPU-accelerated post-processing effects to any image, video, sli
 ![WebGL Retro Display Shaders & CRT Effects](images/overlay-retro-shaders.png?v=2)
 
 ### CRT & Display Simulation
-- **Scanlines**: Emulates classic cathode-ray tube raster lines with adjustable density, intensity, and vertical scrolling.
-- **Aperture Grille & Shadow Mask**: Phosphor dot triads replicating vintage Sony Trinitron and arcade monitors.
+- **Scanlines**: Separate intensity and scale controls adjust raster-line darkness and pitch. Interlace alternates line brightness over time; it is not vertical scrolling.
+- **Aperture Grille & Shadow Mask**: Select RGB aperture stripes, slot masks, or dot triads, with separate mask scale and intensity controls.
+- **LCD Matrix**: Grid spacing adjusts cell pitch (zero disables the grid). Palette selection is independent of spacing and ghosting.
 - **Screen Curvature**: Physical barrel distortion warping the layer corners into a curved glass display.
 - **TV Static & Snow**: Procedural analog static noise with customizable intensity and monochrome/color modes.
 - **Phosphor Bloom**: Soft glowing bleed around bright highlights.
@@ -202,6 +203,8 @@ Apply real-time GPU-accelerated post-processing effects to any image, video, sli
 - **NTSC Chroma Bleed**: Composite video color phase shifting and fringing.
 - **LCD Ghosting**: Liquid-crystal display response lag and trail smear.
 - **Chromatic Aberration**: Optical lens RGB color splitting.
+
+Retro percentages and mask choices use the same saved settings in the editor and production overlay. Existing saved overlays need no conversion. LCD ghosting adds directional edge smear, with temporal persistence for native video frames; a still image has no moving-frame trail.
 
 ### Halftone & Dithering Algorithms
 - **Ordered Dithering**: Bayer matrix patterns (2×2, 4×4, 8×8) and blue noise.
