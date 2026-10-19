@@ -1,6 +1,6 @@
 # StreamPulse Documentation
 
-[![Release](https://img.shields.io/badge/Release-v0.12.0-indigo.svg)](https://github.com/jarbochov/StreamPulse/releases)
+[![Release](https://img.shields.io/badge/Release-v0.12.0-indigo.svg)](changelog.md)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-blue.svg)](desktop-app.md)
 [![Architecture](https://img.shields.io/badge/Architecture-Self--Hosted%20%26%20Local--First-emerald.svg)](architecture.md)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/jarbochov/StreamPulse/blob/main/LICENSE)
@@ -229,6 +229,7 @@ StreamPulse is built on the shoulders of giants and inspired by the open streami
 ## Technical & Architecture Documentation
 
 - **[Desktop App & Roadmap](desktop-app.md)**: Deep dive into the Electron desktop architecture, process supervision, system tray menus, and GitHub Actions multi-platform packaging.
+- **[Release Changelog](changelog.md)**: Comprehensive release history, 3D physics engine upgrades, visual shaders, new studio capabilities, and bug fixes.
 - **[Architecture & Routing](architecture.md)**: Technical breakdown of the cascading static router, modular service architecture, WebSocket broadcast pipeline, and atomic data persistence.
 - **[HTTP API & WebSocket Reference](api-reference.md)**: Complete developer documentation for all REST endpoints, WebSocket message protocols, and payload schemas.
 - **[Developer & Contributor Guide](developer-guide.md)**: Codebase setup, running the test pipeline (`npm test`), ESLint configuration, and strict No-Emoji design system guidelines.

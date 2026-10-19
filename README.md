@@ -179,6 +179,7 @@ Comprehensive technical guides, API documentation, and hardware configurations a
 | **[HTTP API & WebSocket Reference](docs/api-reference.md)** | Complete REST API endpoints for session control, randomizer, timers, and WebSocket events. |
 | **[Architecture & Technical Overview](docs/architecture.md)** | Cascading static routing, modular services architecture, and atomic persistence. |
 | **[Developer & Contributor Guide](docs/developer-guide.md)** | Environment setup, running the test pipeline (`npm test`), and UI/UX design standards. |
+| **[Release Changelog](docs/changelog.md)** | Detailed release notes, visual shader engine upgrades, 3D physics, and bug fixes. |
 | **[Troubleshooting & FAQ](docs/troubleshooting.md)** | Solutions for port conflicts, OBS browser sources, audio autoplay, and background tabs. |
 
 ---

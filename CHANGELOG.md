@@ -1,11 +1,25 @@
-# Changelog
+# StreamPulse Changelog
 
-All notable changes to StreamPulse are documented in this file.
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes to StreamPulse are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
 
 ## [0.12.0] - 2026-10-18
 
 ### Added
+- **Choice Randomizer Studio & 3D Physics Overhaul**:
+  - **3D Playing Card Deck Draw Mode**: Added authentic physical 3D playing card deck drawing with 3D deck cutting, split packets, tactile riffle cascade interleave, squaring up, and suspense hover card flip.
+  - **Custom Card Deck Branding**: Real-time card deck logo upload (`/api/custom-overlays/assets`), clear button, and dynamic watermark text rendered consistently across split cut packets, riffle cascade cards, and dealt active card backs.
+  - **Decoupled Studio & Dedicated OBS Overlay**: Independent studio monitor (`randomizer-editor.html`) and dedicated transparent broadcast overlay (`randomizer.html`) communicating in real-time over WebSockets (`/api/randomizer/spin`) and URL search params.
+  - **Interactive Display Modes**: 3D Playing Card Deck, continuous vertical slot machine roller, and customizable high-DPI spinning wheel.
+  - **Synthesized Web Audio Effects**: Procedural Web Audio oscillator synthesis for ticking, accelerating/decelerating wheel clicks, card sliding, tactile riffle drops, card flip whoosh/snaps, and celebratory fanfare. Features automatic browser audio policy unlocking.
+  - **Choice Weighting & Pity Systems**: Equal probability, manual weighting, Growth (pity odds for unpicked items), and Momentum (hot streak booster) modes with persistent streak tracking across page reloads.
+  - **Live Twitch Chatters & Curated Themes**: Auto-populate choices from active stream chatters, custom overlay button sets, announcement headers, and curated color palettes (Dark, Neon, Retro, Cyberpunk, Clean System).
+
+- **Streamlined Setup Wizard & Desktop Scripts**:
+  - **Interactive `npm run setup`**: Interactive terminal wizard allowing streamers to choose between a lean Self-Hosted Web Server installation (`npm install --omit=dev`, omitting Electron and packaging bloat) or full Desktop App Development.
+  - **Clarified Development Commands**: Dedicated scripts for desktop development (`npm run desktop:dev`) and distribution binary packaging (`npm run desktop:build`).
+
 - **Custom Overlay Studio & Visual Engine Overhaul**:
   - **Cutout Punchthrough Layers (Punchouts)**: Introduced cross-browser transparent punchouts for shapes, text, and graphics cutting through underlying media layers, video backgrounds, and color fills. Employs SVG image data URIs in CSS mask properties with zero-flash `requestAnimationFrame` caching across Chromium and WebKit/Safari.
   - **Hardware-Accelerated WebGL Retro Display Effects**: Added CRT scanline rendering, aperture grille sizing, shadow masks, authentic slow-cadence TV static white noise snow, LCD sub-pixel grid math, response-time smear, and temporal persistence blending. Animations automatically pause when the Effects toggle is disabled to conserve system resources.
@@ -17,12 +31,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - **Modular Studio Architecture**: Monolithic editor separated into dedicated ES modules (`editor-state.js`, `editor-canvas.js`, `editor-inspector.js`, `editor-layers.js`, `overlay-filters.js`, `overlay-retro.js`).
   - **Performance & Caching**: Static thumbnail caching with on-demand live toggles, elimination of render-blocking network waterfalls, WebKit memory leak fixes, and RAF coalesced rendering.
 
-- **Choice Randomizer Studio & Overlay**:
-  - **Decoupled Studio & OBS Overlay**: Decoupled studio controller (`randomizer-editor.html`) and dedicated transparent OBS overlay (`randomizer.html`).
-  - **Multiple Display Modes**: Interactive spinning wheel, continuous vertical slot machine roller, and flip card reveal modes.
-  - **Integrated Audio Effects**: Synthesized Web Audio ticking, acceleration/deceleration sounds, and celebratory fanfare on winner selection.
-  - **Choice Weighting & Persistence**: Configurable choice probabilities, weighted wheel arcs, winner elimination modes, and state persistence across page reloads.
-  - **Twitch Chatter Integration & Curated Themes**: Auto-populate choices from active stream chatters, custom button sets replicated on overlays, curated themes (Dark, Neon, Retro, Pastel, Clean System), winner announcement headers, and Bitfocus Companion integration (`/api/randomizer/spin`).
+- **Visual Overlay URL Wizards & Documentation**:
+  - **Zero-Code URL Wizards**: Added interactive side-by-side URL wizards (`docs/overlay-wizards.md`) for Credits, Timers, Music, Game Plan, and Milestones with real-time preview canvas and responsive scaling parameters.
+  - **Sanitized Visual Assets**: Comprehensive documentation overhaul with sanitized dummy data adhering strictly to privacy standards and the strict No-Emoji design system guidelines.
 
 - **Community Analytics & Viewer Directory**:
   - **Community Directory**: Overhauled community section with high-level stats cards (total tracked viewers, active regulars, VIPs, moderators, total message volume).
@@ -66,6 +77,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Twitch Token Refreshes**: Serialized token refreshes to avoid race conditions with rotating refresh tokens.
 - **Memory & Resource Optimization**: Fixed filter string accumulation leaks, eliminated render-blocking waterfalls in overlay cutouts, and resolved Safari WebKit canvas memory leaks.
 - **Graceful Shutdown**: Added SIGTERM and SIGINT handling with atomic file writes to ensure session state and metrics are preserved across restarts.
+
+---
 
 ## [0.10.0] - 2026-10-12
 
