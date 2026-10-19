@@ -1136,6 +1136,8 @@ function createOverlayRoutes({
                 const weightSettings = body.weightSettings && typeof body.weightSettings === 'object' ? body.weightSettings : undefined;
                 const weights = body.weights && typeof body.weights === 'object' ? body.weights : undefined;
                 const choiceStats = body.choiceStats && typeof body.choiceStats === 'object' ? body.choiceStats : undefined;
+                const deckLogo = body.deckLogo !== undefined ? String(body.deckLogo).trim() : undefined;
+                const deckWatermark = body.deckWatermark !== undefined ? String(body.deckWatermark).trim() : undefined;
 
                 let updatedPreset;
                 if (presetId) {
@@ -1153,6 +1155,8 @@ function createOverlayRoutes({
                             ...(weightSettings !== undefined ? { weightSettings } : {}),
                             ...(weights !== undefined ? { weights } : {}),
                             ...(choiceStats !== undefined ? { choiceStats } : {}),
+                            ...(deckLogo !== undefined ? { deckLogo } : {}),
+                            ...(deckWatermark !== undefined ? { deckWatermark } : {}),
                             updatedAt: Date.now()
                         });
                         updatedPreset = presets[idx];
@@ -1172,6 +1176,8 @@ function createOverlayRoutes({
                         weightSettings: weightSettings || { step: 1, max: 20, base: 1 },
                         weights: weights || {},
                         choiceStats: choiceStats || {},
+                        deckLogo: deckLogo || '',
+                        deckWatermark: deckWatermark !== undefined ? deckWatermark : 'STREAMPULSE',
                         createdAt: Date.now()
                     });
                     presets.push(updatedPreset);
@@ -1484,6 +1490,8 @@ function createOverlayRoutes({
                     buttonPhrases,
                     showButton: body.showButton !== undefined ? !!body.showButton : (query.button === '1'),
                     buttonText: body.buttonText || query.btnText || '',
+                    deckLogo: body.deckLogo !== undefined ? String(body.deckLogo).trim() : (query.deckLogo !== undefined ? String(query.deckLogo).trim() : (matched?.deckLogo || '')),
+                    deckWatermark: body.deckWatermark !== undefined ? String(body.deckWatermark).trim() : (query.deckWatermark !== undefined ? String(query.deckWatermark).trim() : (matched?.deckWatermark !== undefined ? String(matched.deckWatermark).trim() : 'STREAMPULSE')),
                     at: Date.now()
                 };
                 broadcastToOverlays('randomizer-spin', payload);

@@ -30,6 +30,10 @@ Select between three distinctive broadcast animation modes in the Studio:
 3. **Physical Playing Card Deck (`deck`)**:
    - Physical 3D playing card deck with authentic stacked card edge shadows and live pool count badge.
    - Tactile 4-phase duration-scaled animation: 3D deck cut & packet split, physical decelerating riffle flutter cascade with realistic tick audio, deck square-up with center-stage deal and suspense hover, followed by a dramatic 3D 180° flip reveal with holographic light sheen.
+   - **Custom Card Deck Branding**:
+     - **Custom Deck Logo**: Upload or enter any image URL (channel emblem, avatar, transparent PNG, SVG) in the Studio to replace the default diamond pattern. The logo is flex-centered across the idle deck stack, split cut packets, falling riffle cards, and the dealt card back.
+     - **Custom Deck Watermark**: Set custom bottom watermark text (e.g. channel name) or leave it blank to hide.
+     - Saved automatically within Choice Presets and passed to OBS overlays via URL parameters (`&deckLogo=...&deckWatermark=...`) or live WebSocket spin events.
    - Strictly respects the configured spin duration (4s, 6s, 8s, 10s), synchronizing deck shuffle and card flip precisely with Wheel and Slot Roller modes.
    - Interactive on-overlay spin button (`?button=1`) previewed live in the Studio Monitor for touchscreen and interactive OBS browser source control.
 

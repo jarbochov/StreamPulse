@@ -391,6 +391,17 @@
             position: relative;
             z-index: 2;
         }
+        .deck-card-custom-logo {
+            max-width: 52px;
+            max-height: 52px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.55));
+            pointer-events: none;
+            user-select: none;
+            border-radius: 6px;
+        }
         .deck-stack-badge {
             position: absolute;
             bottom: 12px;
@@ -1313,6 +1324,25 @@
                     <div class="row" style="margin-top:.4rem;">
                         <button class="btn small" id="btn-reset-overlay-theme" type="button">Reset to StreamPulse Theme</button>
                     </div>
+
+                    <div class="deck-branding-section" style="margin-top: 1.1rem; padding-top: .9rem; border-top: 1px solid var(--border);">
+                        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: .6rem;">Card Deck Branding</div>
+                        
+                        <label class="f">
+                            <span>Deck Card Logo (Image URL or Upload)</span>
+                            <div style="display:flex; gap:.4rem; align-items:center;">
+                                <input type="text" id="deck-logo-input" placeholder="e.g. /custom-overlay-assets/... or https://... (blank for default)">
+                                <button type="button" class="btn small" id="btn-upload-deck-logo" title="Upload Image">Upload</button>
+                                <button type="button" class="btn small" id="btn-clear-deck-logo" title="Reset to default emblem">Clear</button>
+                                <input type="file" id="deck-logo-file-input" accept="image/*" style="display:none;">
+                            </div>
+                        </label>
+
+                        <label class="f" style="margin-top:.4rem;">
+                            <span>Deck Card Watermark</span>
+                            <input type="text" id="deck-watermark-input" value="STREAMPULSE" placeholder="e.g. Channel Name (blank to hide)">
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Tab 3: Button Phrases -->
@@ -1533,7 +1563,7 @@
                                                         <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
                                                     </svg>
                                                 </div>
-                                                <div class="deck-card-watermark">STREAMPULSE</div>
+                                                <div class="deck-card-watermark" id="deck-card-watermark">STREAMPULSE</div>
                                             </div>
                                             <!-- Card Front (Choice ONLY - no repeated banner title) -->
                                             <div class="deck-card-face deck-card-front">
@@ -1838,6 +1868,37 @@
         let idleButtonTimer = null;
         let currentRollerIndex = 0;
         let savedOverlayConfigTheme = null;
+        let currentDeckLogo = '';
+        let currentDeckWatermark = 'STREAMPULSE';
+
+        function getDeckPatternHtml() {
+            if (currentDeckLogo) {
+                return `<img src="${currentDeckLogo.replace(/"/g, '&quot;')}" class="deck-card-custom-logo" alt="Card Logo" onerror="this.style.display='none';">`;
+            }
+            return `
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
+                    <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
+                    <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                </svg>
+            `;
+        }
+
+        function updateDeckVisuals() {
+            const patternHtml = getDeckPatternHtml();
+            document.querySelectorAll('#deck-view .deck-card-pattern').forEach(el => {
+                el.innerHTML = patternHtml;
+            });
+            const wm = $('deck-card-watermark') || document.querySelector('#deck-active-card .deck-card-watermark');
+            if (wm) {
+                const text = (currentDeckWatermark || '').trim();
+                if (text === '') {
+                    wm.style.display = 'none';
+                } else {
+                    wm.style.display = 'block';
+                    wm.textContent = text;
+                }
+            }
+        }
 
         const STORAGE_KEY = 'streampulse_randomizer_studio';
 
@@ -1867,7 +1928,9 @@
                         scale: $('overlay-scale')?.value || '1',
                         showButton: $('overlay-button-enabled')?.checked || false,
                         soundEnabled: AudioFX.enabled,
-                        activeTab: document.querySelector('.tab-btn.active')?.id?.replace('tab-btn-', '') || 'presets'
+                        activeTab: document.querySelector('.tab-btn.active')?.id?.replace('tab-btn-', '') || 'presets',
+                        deckLogo: $('deck-logo-input')?.value.trim() || '',
+                        deckWatermark: $('deck-watermark-input')?.value !== undefined ? $('deck-watermark-input').value.trim() : 'STREAMPULSE'
                     };
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
                 } catch (e) {}
@@ -1892,6 +1955,8 @@
             if (savedStudio.quotePresetId) currentQuotePresetId = savedStudio.quotePresetId;
             if (savedStudio.suspense) currentSuspense = savedStudio.suspense;
             if (savedStudio.theme) currentTheme = savedStudio.theme;
+            if (savedStudio.deckLogo !== undefined) currentDeckLogo = savedStudio.deckLogo;
+            if (savedStudio.deckWatermark !== undefined) currentDeckWatermark = savedStudio.deckWatermark;
         }
 
         Confetti.init($('confetti-canvas'));
@@ -2694,6 +2759,15 @@
                 url += `&winHeader=${encodeURIComponent(winHeader)}`;
             }
 
+            if (currentDeckLogo) {
+                url += `&deckLogo=${encodeURIComponent(currentDeckLogo)}`;
+            }
+            if (currentDeckWatermark && currentDeckWatermark !== 'STREAMPULSE') {
+                url += `&deckWatermark=${encodeURIComponent(currentDeckWatermark)}`;
+            } else if (currentDeckWatermark === '') {
+                url += `&deckWatermark=`;
+            }
+
             $('obs-url-input').textContent = url;
             if ($('btn-open-overlay')) $('btn-open-overlay').href = url;
             if ($('btn-quick-open-obs')) $('btn-quick-open-obs').href = url;
@@ -2807,6 +2881,7 @@
                 activeCard.classList.remove('is-flipped', 'tricky-suspense', 'hovering');
                 activeCard.style.transform = '';
             }
+            updateDeckVisuals();
         }
 
         function renderIdleRoller(centerIdx, list) {
@@ -3312,10 +3387,7 @@
                             card.innerHTML = `
                                 <div class="deck-card-border-ornament"></div>
                                 <div class="deck-card-pattern">
-                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
-                                        <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
-                                        <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
-                                    </svg>
+                                    ${getDeckPatternHtml()}
                                 </div>
                             `;
                             if (tray) tray.appendChild(card);
@@ -3556,6 +3628,15 @@
                     if ($('quote-preset-select')) $('quote-preset-select').value = matched.quotePreset;
                     loadSelectedQuotePreset();
                 }
+                if (matched.deckLogo !== undefined) {
+                    currentDeckLogo = matched.deckLogo;
+                    if ($('deck-logo-input')) $('deck-logo-input').value = matched.deckLogo;
+                }
+                if (matched.deckWatermark !== undefined) {
+                    currentDeckWatermark = matched.deckWatermark;
+                    if ($('deck-watermark-input')) $('deck-watermark-input').value = matched.deckWatermark;
+                }
+                updateDeckVisuals();
             } else if (selVal === 'chatters') {
                 if ($('preset-select')) $('preset-select').value = 'chatters';
                 currentWeightMode = 'equal';
@@ -3816,6 +3897,15 @@
                 $(`tab-btn-${tab}`)?.classList.add('active');
                 $(`tab-pane-${tab}`)?.classList.add('active');
             }
+            if (s.deckLogo !== undefined) {
+                currentDeckLogo = s.deckLogo;
+                if ($('deck-logo-input')) $('deck-logo-input').value = s.deckLogo;
+            }
+            if (s.deckWatermark !== undefined) {
+                currentDeckWatermark = s.deckWatermark;
+                if ($('deck-watermark-input')) $('deck-watermark-input').value = s.deckWatermark;
+            }
+            updateDeckVisuals();
         }
 
         // Startup & Listeners
@@ -3876,7 +3966,9 @@
                         weightMode: currentWeightMode,
                         weightSettings: getWeightSettings(),
                         weights: getActiveWeightsMap(),
-                        choiceStats: currentChoiceStats
+                        choiceStats: currentChoiceStats,
+                        deckLogo: currentDeckLogo,
+                        deckWatermark: currentDeckWatermark
                     })
                 }).then(r => r.json());
                 if (res.ok) {
@@ -4313,6 +4405,69 @@
             saveStudioState();
         };
 
+        if ($('deck-logo-input')) {
+            $('deck-logo-input').oninput = () => {
+                currentDeckLogo = $('deck-logo-input').value.trim();
+                updateDeckVisuals();
+                updateObsUrl();
+                saveStudioState();
+            };
+        }
+
+        if ($('deck-watermark-input')) {
+            $('deck-watermark-input').oninput = () => {
+                currentDeckWatermark = $('deck-watermark-input').value.trim();
+                updateDeckVisuals();
+                updateObsUrl();
+                saveStudioState();
+            };
+        }
+
+        if ($('btn-clear-deck-logo')) {
+            $('btn-clear-deck-logo').onclick = () => {
+                if ($('deck-logo-input')) $('deck-logo-input').value = '';
+                currentDeckLogo = '';
+                updateDeckVisuals();
+                updateObsUrl();
+                saveStudioState();
+            };
+        }
+
+        if ($('btn-upload-deck-logo')) {
+            $('btn-upload-deck-logo').onclick = () => {
+                $('deck-logo-file-input')?.click();
+            };
+        }
+
+        if ($('deck-logo-file-input')) {
+            $('deck-logo-file-input').onchange = async (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                try {
+                    const res = await fetch('/api/custom-overlays/assets', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': file.type || 'image/png',
+                            'x-asset-name': file.name || 'card-logo'
+                        },
+                        body: file
+                    }).then(r => r.json());
+                    if (res && res.url) {
+                        if ($('deck-logo-input')) $('deck-logo-input').value = res.url;
+                        currentDeckLogo = res.url;
+                        updateDeckVisuals();
+                        updateObsUrl();
+                        saveStudioState();
+                        toast('Uploaded card deck logo');
+                    } else {
+                        toast('Upload failed');
+                    }
+                } catch (err) {
+                    toast('Upload error: ' + err.message);
+                }
+            };
+        }
+
         $('choices-textarea').oninput = () => {
             const parsed = parseRawChoicesFromTextarea();
             choices = parsed.choices;
@@ -4521,7 +4676,9 @@
                         font: $('ap-font')?.value.trim() || '',
                         weight: $('ap-weight')?.value.trim() || '',
                         text: $('ap-text')?.value.trim() || '',
-                        outline: $('ap-outline')?.value.trim() || ''
+                        outline: $('ap-outline')?.value.trim() || '',
+                        deckLogo: currentDeckLogo,
+                        deckWatermark: currentDeckWatermark
                     })
                 }).then(r => r.json());
 

@@ -180,6 +180,8 @@ function normalizeRandomizerPreset(raw) {
             }
         }
     }
+    const deckLogo = raw.deckLogo !== undefined ? String(raw.deckLogo || '').trim() : undefined;
+    const deckWatermark = raw.deckWatermark !== undefined ? String(raw.deckWatermark || '').trim() : undefined;
     return {
         ...raw,
         id,
@@ -188,7 +190,9 @@ function normalizeRandomizerPreset(raw) {
         weightMode,
         weightSettings,
         weights,
-        choiceStats
+        choiceStats,
+        ...(deckLogo !== undefined ? { deckLogo } : {}),
+        ...(deckWatermark !== undefined ? { deckWatermark } : {})
     };
 }
 

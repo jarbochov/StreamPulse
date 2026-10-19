@@ -275,6 +275,17 @@
             position: relative;
             z-index: 2;
         }
+        .deck-card-custom-logo {
+            max-width: 52px;
+            max-height: 52px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.55));
+            pointer-events: none;
+            user-select: none;
+            border-radius: 6px;
+        }
         .deck-stack-badge {
             position: absolute;
             bottom: 12px;
@@ -697,7 +708,7 @@
                                     <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
                                 </svg>
                             </div>
-                            <div class="deck-card-watermark">STREAMPULSE</div>
+                            <div class="deck-card-watermark" id="deck-card-watermark">STREAMPULSE</div>
                         </div>
                         <!-- Card Front (Choice ONLY - no repeated banner title) -->
                         <div class="deck-card-face deck-card-front">
@@ -975,6 +986,37 @@
         let idleButtonTimer = null;
         let currentRollerIndex = 0;
         let savedOverlayConfigTheme = null;
+        let currentDeckLogo = params.get('deckLogo') || '';
+        let currentDeckWatermark = params.get('deckWatermark') !== null ? params.get('deckWatermark') : 'STREAMPULSE';
+
+        function getDeckPatternHtml() {
+            if (currentDeckLogo) {
+                return `<img src="${currentDeckLogo.replace(/"/g, '&quot;')}" class="deck-card-custom-logo" alt="Card Logo" onerror="this.style.display='none';">`;
+            }
+            return `
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
+                    <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
+                    <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                </svg>
+            `;
+        }
+
+        function updateDeckVisuals() {
+            const patternHtml = getDeckPatternHtml();
+            document.querySelectorAll('#deck-view .deck-card-pattern').forEach(el => {
+                el.innerHTML = patternHtml;
+            });
+            const wm = $('deck-card-watermark') || document.querySelector('#deck-active-card .deck-card-watermark');
+            if (wm) {
+                const text = (currentDeckWatermark || '').trim();
+                if (text === '') {
+                    wm.style.display = 'none';
+                } else {
+                    wm.style.display = 'block';
+                    wm.textContent = text;
+                }
+            }
+        }
 
         // Hidden state on load only if explicitly passed via &hidden=1
         if (params.get('hidden') === '1') {
@@ -1289,6 +1331,7 @@
                 activeCard.classList.remove('is-flipped', 'tricky-suspense', 'hovering');
                 activeCard.style.transform = '';
             }
+            updateDeckVisuals();
         }
 
         function renderIdleRoller(centerIdx, list) {
@@ -1774,10 +1817,7 @@
                             card.innerHTML = `
                                 <div class="deck-card-border-ornament"></div>
                                 <div class="deck-card-pattern">
-                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--stage-indicator)" stroke-width="1.8">
-                                        <polygon points="12 2 20 12 12 22 4 12" fill="color-mix(in srgb, var(--stage-accent) 25%, transparent)"></polygon>
-                                        <polyline points="7 12 10 12 12 8 14 16 16 12 18 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
-                                    </svg>
+                                    ${getDeckPatternHtml()}
                                 </div>
                             `;
                             if (tray) tray.appendChild(card);
@@ -1951,6 +1991,9 @@
                         if (matched.weights) currentWeights = matched.weights;
                         if (matched.choiceStats) currentChoiceStats = matched.choiceStats;
                         currentWeightMode = matched.weightMode || 'equal';
+                        if (matched.deckLogo && !params.get('deckLogo')) currentDeckLogo = matched.deckLogo;
+                        if (matched.deckWatermark !== undefined && params.get('deckWatermark') === null) currentDeckWatermark = matched.deckWatermark;
+                        updateDeckVisuals();
                         renderInitialState();
                     }
                 }
@@ -2014,6 +2057,9 @@
                             if (d.choiceStats) currentChoiceStats = d.choiceStats;
                             if (d.weightMode) currentWeightMode = d.weightMode;
                             if (d.mode) currentMode = d.mode;
+                            if (d.deckLogo !== undefined) currentDeckLogo = d.deckLogo;
+                            if (d.deckWatermark !== undefined) currentDeckWatermark = d.deckWatermark;
+                            updateDeckVisuals();
                             if (d.showButton !== undefined) {
                                 showOverlayButton = d.showButton === '1' || d.showButton === true || d.showButton === 1;
                                 if ($('overlay-spin-btn')) {
