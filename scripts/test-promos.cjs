@@ -22,6 +22,12 @@ test('promo model preserves independent layouts and validates export-safe images
     const restored = model.normalize(design);
     assert.equal(restored.layouts.square.blocks.title.x, 30);
     assert.equal(restored.layouts.landscape.blocks.title.x, 4);
+    assert.equal(restored.layouts.square.blocks.title.fontWeight, 600, 'new headlines use a semibold default');
+    assert.equal(restored.layouts.square.blocks.subtitle.fontWeight, 400);
+    const weighted = model.normalize({ layouts: { square: { blocks: { title: { fontWeight: 300 } } } } });
+    assert.equal(weighted.layouts.square.blocks.title.fontWeight, 300);
+    assert.equal(weighted.layouts.landscape.blocks.title.fontWeight, 600, 'text weight is independent per format');
+    assert.equal(model.normalize({ layouts: { square: { blocks: { title: { fontWeight: 550 } } } } }).layouts.square.blocks.title.fontWeight, 600, 'unsupported font weights fall back safely');
     for (const ratio of Object.keys(model.SIZES)) {
         const next = model.normalize({ layouts: { [ratio]: { blocks: { title: { x: 500, y: -40, w: 900, h: 900 } }, order: ['title', 'title', 'invalid'] } } });
         const b = next.layouts[ratio].blocks.title;
@@ -164,10 +170,13 @@ test('promo persistence, image references and actual studio export work without 
     }), 'base64');
     await page.$eval('#title', el => { el.value = 'Fictional launch night'; el.dispatchEvent(new Event('input', { bubbles: true })); });
     await page.$eval('#block-x', el => { el.value = '12'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.select('#block-fontWeight', '300');
     await page.click('[data-ratio="landscape"]');
     assert.equal(await page.$eval('#block-x', el => el.value), '4');
+    assert.equal(await page.$eval('#block-fontWeight', el => el.value), '600');
     await page.click('[data-ratio="square"]');
     assert.equal(await page.$eval('#block-x', el => el.value), '12', 'switching formats restores the edited arrangement');
+    assert.equal(await page.$eval('#block-fontWeight', el => el.value), '300', 'format switching restores the selected text weight');
     acceptDialogs = false;
     await page.select('#template', 'spotlight');
     assert.equal(await page.$eval('#template', el => el.value), 'editorial', 'canceling a layout replacement restores the dropdown');
@@ -207,8 +216,27 @@ test('promo persistence, image references and actual studio export work without 
     await page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Design saved.'));
     const saved = await (await api(`/api/promos/${design.id}`)).json();
     assert.equal(saved.layouts.square.blocks.title.x, 12);
+    assert.equal(saved.layouts.square.blocks.title.fontWeight, 300);
+    assert.equal(saved.layouts.landscape.blocks.title.fontWeight, 600);
     assert.equal(saved.title, 'Fictional launch night');
     assert.equal(saved.artwork, renamed.url);
+    const fontWeightPixels = await page.evaluate(async () => {
+        const { renderPromo } = await import('/js/promo-renderer.js');
+        const render = async fontWeight => {
+            const design = window.PromoModel.normalize({ title: 'Weight sample' });
+            for (const block of Object.values(design.layouts.square.blocks)) block.enabled = false;
+            Object.assign(design.layouts.square.blocks.title, { enabled: true, x: 10, y: 25, w: 80, h: 24, fontSize: 100, fontWeight, color: '#ffffff' });
+            design.layouts.square.background.mode = 'transparent';
+            const canvas = document.createElement('canvas');
+            await renderPromo(canvas, design, 'square');
+            return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        };
+        const [light, heavy] = await Promise.all([render(300), render(900)]);
+        let differences = 0;
+        for (let i = 0; i < light.length; i += 4) if (light[i] !== heavy[i] || light[i + 1] !== heavy[i + 1] || light[i + 2] !== heavy[i + 2]) differences++;
+        return differences;
+    });
+    assert.ok(fontWeightPixels > 0, 'changing a saved font weight changes rendered text pixels');
     await page.click('[data-igdb="artwork"]');
     await page.type('#igdb-query', 'Fictional Orbit');
     await page.click('#igdb-search-form button');
@@ -430,7 +458,7 @@ test('promo persistence, image references and actual studio export work without 
     assert.equal(createPromoService({ dataDir }).list()[0].layouts.portrait.background.mode, 'image', 'deleting a theme never changes existing promo backgrounds');
     const backgroundPixels = await page.evaluate(async photo => {
         const { renderPromo } = await import('/js/promo-renderer.js'), output = {};
-        const patterns = ['grid', 'geometry', 'orbits', 'hexagons', 'dots', 'diagonal', 'checker'];
+        const patterns = window.PromoModel.PATTERNS;
         for (const mode of ['solid', 'transparent', 'gradient', 'image', 'vignette', ...patterns]) {
             const design = window.PromoModel.normalize();
             for (const block of Object.values(design.layouts.square.blocks)) block.enabled = false;
@@ -453,8 +481,9 @@ test('promo persistence, image references and actual studio export work without 
     assert.ok(backgroundPixels.gradient.samples[0][0] < backgroundPixels.gradient.samples[2][0], 'gradient angle changes the colors across the canvas');
     assert.ok(backgroundPixels.vignette.samples[1][0] > backgroundPixels.vignette.samples[0][0], 'vignette shades the edges without darkening its center');
     assert.deepEqual(backgroundPixels.image.samples[1], [255, 153, 0, 255], 'library image paints behind all blocks');
-    assert.equal(new Set(['grid', 'geometry', 'orbits', 'hexagons', 'dots', 'diagonal', 'checker'].map(key => backgroundPixels[key].fingerprint)).size, 7, 'each pattern style produces distinct output');
+    assert.equal(new Set(model.PATTERNS.map(key => backgroundPixels[key].fingerprint)).size, model.PATTERNS.length, 'each selectable pattern produces distinct output');
     assert.equal(model.background({ pattern: 'hexagons' }).pattern, 'hexagons', 'hexagon pattern is persisted by normalization');
+    assert.equal(model.background({ pattern: 'topography' }).pattern, 'topography', 'new patterns are preserved by normalization');
     await page.setViewport({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'studio fits narrow screens');
     await page.click('[data-ratio="portrait"]');

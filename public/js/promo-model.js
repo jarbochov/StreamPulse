@@ -2,6 +2,8 @@
     const studioThemes = typeof module === 'object' && module.exports ? require('./studio-themes') : root.StudioThemes;
     const SIZES = { square: [1080, 1080], landscape: [1920, 1080], portrait: [1080, 1920] };
     const BLOCKS = ['photo', 'artwork', 'badge', 'title', 'subtitle', 'url', 'qr'];
+    const PATTERNS = ['grid', 'geometry', 'orbits', 'hexagons', 'dots', 'diagonal', 'checker', 'crosshatch', 'waves', 'rings', 'triangles', 'chevrons', 'topography', 'confetti', 'circuit'];
+    const FONT_WEIGHTS = [300, 400, 500, 600, 700, 800, 900];
     const THEMES = {
         studio: { background: '#f0eee8', panel: '#ffffff', accent: '#4338ca', text: '#141725', muted: '#51576b' },
         ember: { background: '#1b1114', panel: '#35212a', accent: '#ffb86b', text: '#fff6ee', muted: '#dbc6cd' }
@@ -44,7 +46,7 @@
             theme: Object.hasOwn(THEMES, input.theme) ? input.theme : fallbackTheme,
             color: hex(input.color, '#0b1020'), endColor: hex(input.endColor, '#4338ca'),
             angle: number(input.angle, 135, 0, 360),
-            pattern: ['grid', 'geometry', 'orbits', 'hexagons', 'dots', 'diagonal', 'checker'].includes(input.pattern) ? input.pattern : 'orbits',
+            pattern: PATTERNS.includes(input.pattern) ? input.pattern : 'orbits',
             vignette: number(input.vignette, fallbackVignette, 0, 70),
             image: assetUrl(input.image), fit: input.fit === 'contain' ? 'contain' : 'cover',
             focusX: number(input.focusX, 50, 0, 100), focusY: number(input.focusY, 50, 0, 100),
@@ -72,20 +74,20 @@
 
     function arrangement(ratio, template = 'editorial') {
         const portrait = ratio === 'portrait', square = ratio === 'square';
-        const box = (x, y, w, h, extra = {}) => ({ x, y, w, h, enabled: true, fontSize: 64, color: '', fit: 'cover', focusX: 50, focusY: 50, shape: 'rounded', radius: 24, ...extra });
+        const box = (x, y, w, h, extra = {}) => ({ x, y, w, h, enabled: true, fontSize: 64, fontWeight: 400, color: '', fit: 'cover', focusX: 50, focusY: 50, shape: 'rounded', radius: 24, ...extra });
         const blocks = portrait ? {
             photo: box(5, 5, 90, 46), artwork: box(76, 61, 17, 18, { enabled: false, fit: 'contain' }),
-            badge: box(7, 55, 55, 4, { fontSize: 32 }), title: box(7, 62, 66, 14, { fontSize: 88 }),
+            badge: box(7, 55, 55, 4, { fontSize: 32, fontWeight: 600 }), title: box(7, 62, 66, 14, { fontSize: 88, fontWeight: 600 }),
             subtitle: box(7, 79, 63, 7, { fontSize: 36 }), url: box(7, 90, 66, 4, { fontSize: 30 }),
             qr: box(78, 86, 15, 8.4375)
         } : square ? {
             photo: box(5, 5, 90, 49), artwork: box(78, 60, 15, 19, { enabled: false, fit: 'contain' }),
-            badge: box(7, 56, 55, 5, { fontSize: 28 }), title: box(7, 65, 70, 15, { fontSize: 68 }),
+            badge: box(7, 56, 55, 5, { fontSize: 28, fontWeight: 600 }), title: box(7, 65, 70, 15, { fontSize: 68, fontWeight: 600 }),
             subtitle: box(7, 82, 62, 6, { fontSize: 28 }), url: box(7, 90, 66, 5, { fontSize: 26 }),
             qr: box(79, 81, 14, 14)
         } : {
             photo: box(47, 5, 49, 90), artwork: box(4, 71, 13, 17, { enabled: false, fit: 'contain' }),
-            badge: box(4, 8, 35, 6, { fontSize: 30 }), title: box(4, 22, 38, 32, { fontSize: 88 }),
+            badge: box(4, 8, 35, 6, { fontSize: 30, fontWeight: 600 }), title: box(4, 22, 38, 32, { fontSize: 88, fontWeight: 600 }),
             subtitle: box(4, 56, 38, 11, { fontSize: 34 }), url: box(4, 90, 25, 5, { fontSize: 28 }),
             qr: box(32, 81, 9, 16)
         };
@@ -119,6 +121,7 @@
                 blocks[key] = {
                     x, y, w: number(block.w, base.w, 2, 100 - x), h: number(block.h, base.h, 2, 100 - y),
                     enabled: block.enabled !== false, fontSize: number(block.fontSize, base.fontSize, 12, 240),
+                    fontWeight: FONT_WEIGHTS.includes(Number(block.fontWeight)) ? Number(block.fontWeight) : base.fontWeight,
                     color: hex(block.color, ''), fit: block.fit === 'contain' ? 'contain' : 'cover',
                     shape: ['rectangle', 'rounded', 'circle'].includes(block.shape) ? block.shape : base.shape,
                     radius: number(block.radius, base.radius, 0, 200),
@@ -138,7 +141,7 @@
         };
     }
 
-    const api = { SIZES, BLOCKS, THEMES, arrangement, normalize, twitchUrl, assetUrl, background, appearance, normalizeTheme };
+    const api = { SIZES, BLOCKS, PATTERNS, FONT_WEIGHTS, THEMES, arrangement, normalize, twitchUrl, assetUrl, background, appearance, normalizeTheme };
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.PromoModel = api;
 })(typeof window !== 'undefined' ? window : globalThis);

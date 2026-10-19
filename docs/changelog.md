@@ -11,8 +11,8 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Promo Creator under Tools: saved designs, independent 1:1/16:9/9:16 arrangements, editable title/photo/artwork/URL/QR blocks, one-click themes, font chooser, rounded images/circular logos, IGDB artwork imported with actual-format detection, and all three PNGs downloaded together in one ZIP without social integrations.
-- Promo Creator includes hexagon, dot, diagonal-line, and checkerboard patterns, adjustable vignette, and more deliberate text/artwork placements across formats.
+- Promo Creator under Tools: saved designs, independent 1:1/16:9/9:16 arrangements, editable title/photo/artwork/URL/QR blocks, per-format text weights from 300–900, one-click themes, font chooser, rounded images/circular logos, IGDB artwork imported with actual-format detection, and all three PNGs downloaded together in one ZIP without social integrations.
+- Promo Creator includes 15 selectable patterns, adjustable vignette, and more deliberate text/artwork placements across formats.
 - Custom overlay Poll element and 400 × 150 Compact poll preset: adaptive 2–5-choice result bars, native Twitch vote counts/percentages, remaining-time countdown, configurable completed-result duration, and preview-only fictional samples.
 
 ### Fixed

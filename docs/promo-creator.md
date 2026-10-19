@@ -50,7 +50,7 @@ Background controls affect only the selected ratio:
 | Gradient | Start/end colors and direction angle |
 | Transparent | No background; the preview checkerboard is not exported |
 | Image | Upload or Library, fill/crop or contain, crop focus, and darkening |
-| Pattern | Grid, geometry, orbits, hexagons, dots, diagonal lines, or checkerboard with palette accents |
+| Pattern | 15 choices: grid, geometry, orbits, hexagons, triangles, chevrons, dots, diagonal lines, crosshatch, checkerboard, waves, concentric rings, topographic contours, confetti, or circuit board |
 | Edge vignette | Adjustable 0–70% soft darkening; starts at a subtle 18% on new promos and is skipped for transparent backgrounds |
 
 Patterns, vignette strength, image crop, and canvas corner radius save independently per format. New promos start with a subtle edge vignette; existing designs keep their previous appearance. An image background is separate from the photo and artwork blocks. A saved custom theme can include its library image and vignette; the Asset Library tracks image references too. If an image background is selected without an image, export reports the affected format instead of silently producing an incomplete pack.
@@ -62,7 +62,7 @@ The **Font** chooser offers system fonts, Google Fonts, and fonts already upload
 - **Type first** starts with the photo hidden for a minimal typography-led design.
 - Choosing a **Starting layout** applies it immediately to this format. If you have modified its arrangement, confirmation protects your edits. **Rearrange this format** reapplies the current layout; neither action changes your other formats or content.
 - Starting layouts keep the headline and supporting copy in dedicated areas with a separate artwork position. Add artwork once to enable its reserved slot in all formats, then adjust each format as needed.
-- Text wraps and shrinks inside its block. Very small blocks truncate overflow; give important headlines enough space.
+- Text wraps and shrinks inside its block. Choose a **Font weight** from Light (300) through Black (900) for the selected headline, subtitle, status, or URL block; the weight is saved independently for each format. New headlines and status labels start at a less-heavy semibold weight. Very small blocks truncate overflow; give important headlines enough space.
 - Images can fill/crop or contain without cropping. Crop focus controls choose which part of the image stays visible.
 - Select a photo/artwork block and choose **Rounded corners**, **Rectangle**, or **Circle crop / logo** in the inspector. Rounded corners have a pixel-radius control; circular crops stay perfectly round even inside a rectangular block. Shape, radius, fit, and crop focus are saved independently per format.
 - To round the entire promo rather than just its images, open **Appearance > Canvas corner radius**. This affects only the current format and leaves transparent PNG corners; `0` keeps a full rectangular canvas.

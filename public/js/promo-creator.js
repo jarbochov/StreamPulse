@@ -90,7 +90,7 @@ function syncBlock() {
     const b = block(), image = ['photo', 'artwork'].includes(selected);
     $('block-heading').textContent = LABELS[selected];
     $('block-enabled').checked = b.enabled;
-    for (const key of ['x', 'y', 'w', 'h', 'fontSize', 'focusX', 'focusY', 'radius']) $('block-' + key).value = Math.round(b[key] * 10) / 10;
+    for (const key of ['x', 'y', 'w', 'h', 'fontSize', 'fontWeight', 'focusX', 'focusY', 'radius']) $('block-' + key).value = Math.round(b[key] * 10) / 10;
     $('block-fit').value = b.fit;
     $('block-shape').value = b.shape;
     $('radius-control').hidden = b.shape !== 'rounded';
@@ -333,8 +333,9 @@ $('block-list').addEventListener('click', event => {
     const key = event.target.closest('[data-select]')?.dataset.select;
     if (key) { selected = key; syncBlock(); }
 });
-for (const key of ['x', 'y', 'w', 'h', 'fontSize', 'focusX', 'focusY', 'radius', 'shape', 'fit', 'color', 'enabled']) {
-    $('block-' + key).addEventListener('input', event => {
+for (const key of ['x', 'y', 'w', 'h', 'fontSize', 'fontWeight', 'focusX', 'focusY', 'radius', 'shape', 'fit', 'color', 'enabled']) {
+    const field = $('block-' + key);
+    field.addEventListener(field.tagName === 'SELECT' ? 'change' : 'input', event => {
         block()[key] = key === 'enabled' ? event.target.checked : ['color', 'fit', 'shape'].includes(key) ? event.target.value : Number(event.target.value);
         design.layouts = M.normalize({ ...design, url: '' }).layouts;
         changed();

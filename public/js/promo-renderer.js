@@ -148,6 +148,91 @@ function drawThemeBackdrop(ctx, width, height, design, pattern) {
         for (let row = 0; row * step < height; row++) {
             for (let col = row % 2; col * step < width; col += 2) ctx.fillRect(col * step, row * step, step, step);
         }
+    } else if (pattern === 'crosshatch') {
+        const step = Math.max(34, width / 22);
+        ctx.lineWidth = Math.max(1, width / 700);
+        ctx.beginPath();
+        for (let offset = -height; offset < width + height; offset += step) {
+            ctx.moveTo(offset, 0); ctx.lineTo(offset + height, height);
+            ctx.moveTo(offset, height); ctx.lineTo(offset + height, 0);
+        }
+        ctx.stroke();
+    } else if (pattern === 'waves') {
+        const rowStep = Math.max(36, height / 18), amplitude = Math.max(8, width / 100), wavelength = Math.max(70, width / 8);
+        ctx.lineWidth = Math.max(1.5, width / 500);
+        for (let row = 0; row <= height / rowStep; row++) {
+            const baseY = row * rowStep;
+            ctx.beginPath();
+            for (let x = 0; x <= width; x += Math.max(4, width / 180)) {
+                const y = baseY + Math.sin((x / wavelength) * Math.PI * 2 + row * .45) * amplitude;
+                if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+    } else if (pattern === 'rings') {
+        const cx = width * .5, cy = height * .5, step = Math.max(24, width / 36);
+        ctx.lineWidth = Math.max(1.5, width / 500);
+        for (let radius = step; radius < Math.hypot(width, height); radius += step) {
+            ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.stroke();
+        }
+    } else if (pattern === 'triangles') {
+        const size = Math.max(36, width / 20), rowStep = size * Math.sqrt(3) / 2;
+        ctx.lineWidth = Math.max(1, width / 700);
+        for (let row = -1; row * rowStep < height + rowStep; row++) {
+            for (let col = -1; col * size < width + size; col++) {
+                const x = col * size + (row & 1) * size / 2, y = row * rowStep;
+                ctx.beginPath();
+                ctx.moveTo(x, y + rowStep); ctx.lineTo(x + size / 2, y); ctx.lineTo(x + size, y + rowStep);
+                ctx.closePath(); ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x + size / 2, y); ctx.lineTo(x + size, y + rowStep); ctx.lineTo(x + size * 1.5, y);
+                ctx.closePath(); ctx.stroke();
+            }
+        }
+    } else if (pattern === 'chevrons') {
+        const step = Math.max(36, width / 22), rowStep = step * .65;
+        ctx.lineWidth = Math.max(1.5, width / 500);
+        ctx.beginPath();
+        for (let y = -rowStep; y < height + rowStep; y += rowStep) {
+            for (let x = -step; x < width + step; x += step) {
+                ctx.moveTo(x, y); ctx.lineTo(x + step / 2, y + rowStep / 2); ctx.lineTo(x + step, y);
+            }
+        }
+        ctx.stroke();
+    } else if (pattern === 'topography') {
+        const centers = [[.2, .25], [.76, .32], [.49, .82]], step = Math.max(16, width / 54);
+        ctx.lineWidth = Math.max(1, width / 850);
+        for (const [cx, cy] of centers) {
+            for (let ring = 1; ring <= 10; ring++) {
+                ctx.beginPath();
+                ctx.ellipse(width * cx, height * cy, step * ring, step * ring * (.58 + (ring % 3) * .08), ring * .13, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+    } else if (pattern === 'confetti') {
+        for (let i = 0; i < 180; i++) {
+            const x = (i * 157.31) % width, y = (i * 281.17) % height, size = Math.max(3, width / 180) * (1 + i % 3);
+            ctx.save(); ctx.translate(x, y); ctx.rotate(i * 2.399);
+            ctx.fillStyle = i % 2 ? colors.accent + '90' : (colors.secondary || colors.accent) + '90';
+            if (i % 3 === 0) {
+                ctx.beginPath(); ctx.arc(0, 0, size / 2, 0, Math.PI * 2); ctx.fill();
+            } else ctx.fillRect(-size / 2, -size / 4, size, size / 2);
+            ctx.restore();
+        }
+    } else if (pattern === 'circuit') {
+        const step = Math.max(52, width / 16), node = Math.max(3, width / 220);
+        ctx.lineWidth = Math.max(1.5, width / 500);
+        for (let row = 0; row * step < height + step; row++) {
+            for (let col = 0; col * step < width + step; col++) {
+                const x = col * step, y = row * step, direction = (row + col) % 2 ? 1 : -1;
+                ctx.beginPath();
+                ctx.moveTo(x, y); ctx.lineTo(x + step * .32, y);
+                ctx.lineTo(x + step * .32, y + step * .55 * direction);
+                ctx.lineTo(x + step * .78, y + step * .55 * direction);
+                ctx.stroke();
+                ctx.beginPath(); ctx.arc(x + step * .78, y + step * .55 * direction, node, 0, Math.PI * 2); ctx.stroke();
+            }
+        }
     } else if (!pattern && design.theme === 'gold') {
         for (let i = 0; i < 6; i++) ctx.strokeRect(width * (.025 + i * .006), height * (.025 + i * .006), width * (.95 - i * .012), height * (.95 - i * .012));
     } else if (pattern === 'geometry' || (!pattern && ['fire', 'purple', 'rainbow'].includes(design.theme))) {
@@ -245,12 +330,12 @@ export async function renderPromo(canvas, design, ratio, { preview = true } = {}
             const value = key === 'url' ? design.url.replace('https://', '') : design[key];
             if (value && key === 'badge') {
                 const padding = Math.min(box.h * .18, 14), size = Math.min(block.fontSize, box.h * .55);
-                ctx.font = `700 ${size}px ${font}`;
+                ctx.font = `${block.fontWeight} ${size}px ${font}`;
                 const w = Math.min(box.w, ctx.measureText(value).width + padding * 2.8);
                 ctx.fillStyle = colors.accent + '25'; ctx.strokeStyle = colors.accent + '90'; ctx.lineWidth = 1.5;
                 ctx.beginPath(); ctx.roundRect(box.x, box.y, w, box.h, 6); ctx.fill(); ctx.stroke();
-                drawText(ctx, value, { x: box.x + padding, y: box.y + padding, w: Math.max(1, w - padding * 2), h: box.h - padding * 2 }, size, block.color || colors.accent, font, 700);
-            } else if (value) drawText(ctx, value, box, block.fontSize, block.color || (key === 'subtitle' || key === 'url' ? colors.muted : colors.text), font, key === 'title' ? 700 : 400);
+                drawText(ctx, value, { x: box.x + padding, y: box.y + padding, w: Math.max(1, w - padding * 2), h: box.h - padding * 2 }, size, block.color || colors.accent, font, block.fontWeight);
+            } else if (value) drawText(ctx, value, box, block.fontSize, block.color || (key === 'subtitle' || key === 'url' ? colors.muted : colors.text), font, block.fontWeight);
         }
         ctx.restore();
     }
