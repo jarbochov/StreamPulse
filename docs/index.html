@@ -76,47 +76,6 @@
       margin-right: 8px;
       box-shadow: 0 0 12px #6366f1;
     }
-    .app-nav {
-      position: fixed;
-      top: 18px;
-      right: 32px;
-      margin: 0;
-      z-index: 1000;
-      background: rgba(15, 20, 34, 0.92);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 999px;
-      padding: 6px 16px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .app-nav a {
-      color: #94a3b8;
-      font-size: 13px;
-      font-weight: 600;
-      transition: all 0.15s ease;
-      margin: 0 0.25rem;
-      padding: 3px 8px;
-      border-radius: 6px;
-      text-decoration: none;
-    }
-    .app-nav a:hover {
-      color: #ffffff;
-      background: rgba(99, 102, 241, 0.15);
-    }
-    /* Hide topbar ONLY when on the full-page cover hero banner */
-    body.is-cover-active .app-nav,
-    body:has(section.cover.show) .app-nav {
-      display: none !important;
-    }
-    @media (max-width: 1024px) {
-      .app-nav {
-        display: none !important;
-      }
-    }
     @media (min-width: 769px) {
       .sidebar-toggle {
         display: none !important;
@@ -167,12 +126,12 @@
 
     /* Content & Markdown Clearance */
     .content {
-      padding-top: 16px;
+      padding-top: 0;
     }
     .markdown-section {
       max-width: 1040px;
       margin: 0 auto;
-      padding: 64px 32px 80px;
+      padding: 40px 32px 80px;
     }
     .markdown-section h1, .markdown-section h2, .markdown-section h3, .markdown-section h4 {
       color: #f8fafc;
@@ -632,7 +591,7 @@
       coverpage: true,
       onlyCover: false,
       loadSidebar: true,
-      loadNavbar: true,
+      loadNavbar: false,
       subMaxLevel: 3,
       auto2top: true,
       search: {

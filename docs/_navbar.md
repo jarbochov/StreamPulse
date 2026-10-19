@@ -1,6 +1,0 @@
-* [Quick Start](quickstart.md)
-* [Studios](custom-overlays.md)
-* [Desktop App](desktop-app.md)
-* [Bitfocus Companion](companion.md)
-* [API Reference](api-reference.md)
-* [Troubleshooting](troubleshooting.md)
