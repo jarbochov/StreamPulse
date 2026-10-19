@@ -47,6 +47,7 @@
           return context + html + '<footer class="page-footer"><span>StreamPulse &middot; Independent, open-source broadcast tools</span><span><a href="#/changelog">Release notes</a> &middot; <a href="https://github.com/jarbochov/StreamPulse/issues" target="_blank" rel="noopener noreferrer">Report an issue</a> &middot; <a href="https://ko-fi.com/jarbochov" target="_blank" rel="noopener noreferrer">Support the project</a></span></footer>';
         });
         hook.doneEach(function () {
+          if (window.matchMedia('(max-width: 768px)').matches) document.body.classList.remove('close');
           const article = document.querySelector('.markdown-section');
           if (article) {
             article.id = 'main-content';
@@ -71,6 +72,8 @@
           if (sidebar) { sidebar.setAttribute('aria-label', 'Documentation navigation'); sidebar.id = 'docs-navigation'; }
           const toggle = document.querySelector('.sidebar-toggle');
           if (toggle) {
+            const header = document.querySelector('.site-header');
+            if (header && toggle.parentElement !== header) header.appendChild(toggle);
             toggle.setAttribute('aria-label', 'Toggle documentation navigation');
             toggle.setAttribute('aria-controls', 'docs-navigation');
             toggle.setAttribute('aria-expanded', String(document.body.classList.contains('close')));

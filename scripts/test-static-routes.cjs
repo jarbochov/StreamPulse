@@ -7,6 +7,7 @@ const { createStaticRouter } = require('../server/static-router');
 
 const rootDir = path.resolve(__dirname, '..');
 const publicDir = path.join(rootDir, 'public');
+const docsDir = path.join(rootDir, 'docs');
 
 const staticRouter = createStaticRouter({
     rootDir,
@@ -16,6 +17,32 @@ const staticRouter = createStaticRouter({
 
 const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
+    if (url.pathname === '/docs' || url.pathname.startsWith('/docs/')) {
+        const relativePath = decodeURIComponent(url.pathname.slice('/docs'.length)).replace(/^\/+/, '') || 'index.html';
+        const docsPath = path.resolve(docsDir, relativePath);
+        if (!docsPath.startsWith(docsDir + path.sep)) {
+            res.writeHead(403);
+            res.end('Forbidden');
+            return;
+        }
+        fs.readFile(docsPath, (err, content) => {
+            if (err) {
+                res.writeHead(err.code === 'ENOENT' ? 404 : 500);
+                res.end(err.code === 'ENOENT' ? 'Not Found' : 'Internal Server Error');
+                return;
+            }
+            const contentTypes = {
+                '.css': 'text/css; charset=utf-8',
+                '.html': 'text/html; charset=utf-8',
+                '.js': 'application/javascript; charset=utf-8',
+                '.md': 'text/markdown; charset=utf-8',
+                '.svg': 'image/svg+xml'
+            };
+            res.writeHead(200, { 'Content-Type': contentTypes[path.extname(docsPath)] || 'application/octet-stream' });
+            res.end(content);
+        });
+        return;
+    }
     if (url.pathname === '/api/status') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ viewers: { live: false, current: 0 }, twitch: { hasToken: false }, ssn: { connected: false } }));
@@ -209,6 +236,60 @@ async function run() {
         await page.goto(`${baseUrl}/dashboard.html`, { waitUntil: 'networkidle0' });
         assert.ok(await page.$('#main-nav'), 'Dashboard navigation is missing');
         console.log('✓ Dashboard rendered successfully with main-nav');
+
+        // Test documentation navigation on a phone-sized viewport
+        console.log('Testing documentation mobile navigation...');
+        await page.setViewport({ width: 390, height: 844 });
+        await page.goto(`${baseUrl}/docs/`, { waitUntil: 'networkidle0' });
+        await page.waitForSelector('.sidebar-toggle');
+        await page.waitForSelector('.markdown-section h1');
+        let mobileLayout = await page.evaluate(() => {
+            const toggle = document.querySelector('.sidebar-toggle').getBoundingClientRect();
+            const sidebar = document.querySelector('.sidebar').getBoundingClientRect();
+            return {
+                viewportWidth: window.innerWidth,
+                documentWidth: document.documentElement.scrollWidth,
+                toggleRight: toggle.right,
+                toggleTop: toggle.top,
+                toggleBottom: toggle.bottom,
+                sidebarRight: sidebar.right,
+                expanded: document.querySelector('.sidebar-toggle').getAttribute('aria-expanded')
+            };
+        });
+        assert.ok(mobileLayout.documentWidth <= mobileLayout.viewportWidth, 'Documentation page overflows horizontally on mobile');
+        assert.ok(mobileLayout.toggleRight <= mobileLayout.viewportWidth && mobileLayout.toggleTop >= 0, 'Mobile navigation toggle is outside the viewport');
+        assert.ok(mobileLayout.toggleBottom <= 68, 'Mobile navigation toggle is outside the compact header');
+        assert.ok(mobileLayout.sidebarRight <= 0, 'Mobile sidebar should start closed');
+        assert.equal(mobileLayout.expanded, 'false', 'Closed mobile sidebar should report aria-expanded=false');
+
+        await page.click('.sidebar-toggle');
+        await page.waitForFunction(() => {
+            const sidebar = document.querySelector('.sidebar').getBoundingClientRect();
+            return document.body.classList.contains('close') && sidebar.left >= -1;
+        }, { timeout: 2000 });
+        assert.equal(await page.$eval('.sidebar-toggle', toggle => toggle.getAttribute('aria-expanded')), 'true');
+        await page.click('.sidebar-nav a[href="#/features"]');
+        await page.waitForFunction(() => document.querySelector('.markdown-section h1')?.textContent.includes('Features'));
+        await page.waitForFunction(() => !document.body.classList.contains('close'));
+        mobileLayout = await page.evaluate(() => ({
+            viewportWidth: window.innerWidth,
+            documentWidth: document.documentElement.scrollWidth,
+            expanded: document.querySelector('.sidebar-toggle').getAttribute('aria-expanded')
+        }));
+        assert.ok(mobileLayout.documentWidth <= mobileLayout.viewportWidth, 'Feature guide overflows horizontally on mobile');
+        assert.equal(mobileLayout.expanded, 'false', 'Mobile sidebar should close after navigating to a guide');
+        await page.setViewport({ width: 320, height: 720 });
+        mobileLayout = await page.evaluate(() => {
+            const toggle = document.querySelector('.sidebar-toggle').getBoundingClientRect();
+            return {
+                viewportWidth: window.innerWidth,
+                documentWidth: document.documentElement.scrollWidth,
+                toggleRight: toggle.right
+            };
+        });
+        assert.ok(mobileLayout.documentWidth <= mobileLayout.viewportWidth, 'Feature guide overflows horizontally at narrow mobile width');
+        assert.ok(mobileLayout.toggleRight <= mobileLayout.viewportWidth, 'Mobile navigation toggle is outside a narrow viewport');
+        console.log('✓ Mobile navigation opens, navigates, and closes without horizontal overflow');
 
         // Test randomizer overlay at legacy root url
         console.log('Testing randomizer overlay in browser...');
