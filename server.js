@@ -1283,7 +1283,12 @@ function resetChatData() {
 
 const alertEngine = createAlertEngine({
     dataDir: DATA_DIR,
-    broadcast: (type, payload) => { broadcastToOverlays(type, payload); if (type === 'alert') takeoverPages('alert', payload?.ruleId, payload?.durationMs); },
+    broadcast: (type, payload) => {
+        // Mount triggered alert pages before delivering the alert that their elements must play.
+        if (type === 'alert') takeoverPages('alert', payload?.ruleId, payload?.durationMs);
+        broadcastToOverlays(type, payload);
+        if (type === 'alert-skip' || type === 'alert-clear') overlayService.releaseTakeovers('alert');
+    },
     runTimerAction: (timerId, action, params) => applyTimerControl(getTimerOrThrow(timerId), action, params),
     log: message => console.log(message)
 });

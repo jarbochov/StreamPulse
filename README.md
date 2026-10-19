@@ -21,6 +21,7 @@ StreamPulse is currently focused on Twitch streamers who want to plan their show
 - **SocialStream Ninja Integration**: Reuses SSN's chat capture and supported events. SSN supports multiple platforms; StreamPulse's current product focus and account integrations are Twitch.
 - **Cinematic Broadcast Overlays**: Instant OBS browser sources for movie-style scrolling end credits, spinning choice randomizers, game plan broadcast schedules, community goal meters, and retro CRT animated borders. Custom overlays also include a compact native Twitch poll display with adaptive 2–5-choice bars, vote totals, and a countdown; voting remains in Twitch.
 - **Resource-Aware Rendering**: Limits inactive overlay work and avoids unnecessary refreshes. Resource use still depends on your scenes, media, effects, and hardware.
+- **Prioritized Automatic Pages**: Alerts take priority over featured messages, polls, and commands. Interrupted polls resume while still valid; expired messages and commands are discarded instead of replaying late.
 
 Whether you're looking for a simple, automated credits roll to thank your community at the end of each stream, or a complete production suite with Stream Deck hardware controls, StreamPulse has you covered.
 

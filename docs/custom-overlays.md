@@ -45,6 +45,28 @@ Returning to a page restores HTML5 video playback intent/time and slideshow posi
 
 ---
 
+## Automatic pages and trigger priority
+
+Pages in the normal rotation pause while a triggered page is on screen. All custom overlays use this order, highest first:
+
+| Priority | Trigger |
+| --- | --- |
+| 1 | Alerts |
+| 2 | Featured messages |
+| 3 | Polls, including results |
+| 4 | Chat commands / bot triggers |
+| 5 | Normal page rotation |
+
+An alert can interrupt a poll. When the alert finishes (or you skip/clear it), the overlay returns to that poll **if voting or its results window is still valid**. Featured messages also take priority over polls. Commands cannot interrupt a poll.
+
+Each overlay keeps only the latest pending event of each type, not a backlog. Display deadlines keep running while another page is shown: an event with a ten-second window that waits eight seconds has only two seconds left. Expired events are discarded, not replayed late. A newer event of the same type replaces the previous one and renews its window; it does not rebuild the page if the target page is unchanged.
+
+**Only polls resume after interruption.** Interrupted featured messages and command pages are dropped rather than restarting their media. An interrupted poll's countdown and results deadline continue; a new poll replaces the old one. A separate **Poll end** page replaces the active-poll entry at the same priority, so it does not cut off an alert or featured message.
+
+Once no eligible trigger remains, the previous normal page returns and automatic rotation starts its page duration again. Manual page navigation clears active and pending takeovers for that overlay. Deleting/disabling a trigger page removes its pending event; turning off pages clears all takeovers. Separate custom overlays operate independently. Multiple matching pages still use the first enabled match.
+
+Alerts retain their own Alert Queue; page priority does not create a second alert queue. Priority applies only when a matching triggered page exists in that overlay. A shared alert box or separate alert overlay can display without replacing a poll page.
+
 ## Element Types Catalog
 
 StreamPulse includes 14 distinct element types organized across 4 functional categories. Access them anytime by clicking **+ Add element** in the stage toolbar:
@@ -187,7 +209,7 @@ Twitch must be connected with the `channel:read:polls` permission and your chann
 
 For automatic showing, set the page to **While a Twitch poll is active** and leave **Show for** at `0`. The page stays through voting and the Poll element's **Show results** duration, then returns to the previous page and resumes any automatic rotation. If several visible Poll elements are on the page (including shared elements), the longest results duration wins. Hidden elements and Poll elements on other pages do not extend it.
 
-The active page waits up to 30 seconds past the expected voting end for Twitch to confirm results, avoiding a page change between voting and results. The results deadline uses Twitch's actual end time, so delayed updates do not add extra display time. Set every visible Poll element's results duration to `0` for active-only behavior. A nonzero page **Show for** preserves fixed-duration behavior; a separate matching **Poll end** trigger page takes priority. Manual page changes cancel the automatic return.
+The active page waits up to 30 seconds past the expected voting end for Twitch to confirm results, avoiding a page change between voting and results. The results deadline uses Twitch's actual end time, so delayed updates do not add extra display time. Set every visible Poll element's results duration to `0` for active-only behavior. A nonzero page **Show for** preserves fixed-duration behavior; a separate matching **Poll end** trigger page replaces the active-poll page at poll priority. Poll completion updates the deadline even while an alert or featured message is interrupting it. Manual page changes cancel pending automatic returns.
 
 #### QR Code (`qr`)
 Dynamic vector SVG QR code generator backed by the `/api/qr` endpoint.

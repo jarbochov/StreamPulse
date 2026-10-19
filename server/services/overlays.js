@@ -3,6 +3,7 @@ const path = require('path');
 const { sanitizeOverlayId } = require('./game-plan');
 const { safeWriteFileSync: defaultSafeWrite } = require('../routes/helpers');
 const { settings: normalizePollSettings } = require('../../public/js/poll-widget');
+const { createTakeoverScheduler } = require('./overlay-takeovers');
 
 const DEFAULT_RANDOMIZER_PRESETS = [
     {
@@ -1457,7 +1458,7 @@ function createOverlayService({
         if (!state) return;
         clearTimeout(state.timer);
         state.timer = null;
-        if (!state.auto || !overlay.pages.enabled || overlay.pages.items.filter(item => item.enabled && !item.trigger).length < 2 || state.takeoverTimer) return;
+        if (!state.auto || !overlay.pages.enabled || overlay.pages.items.filter(item => item.enabled && !item.trigger).length < 2 || state.takeovers?.active) return;
         const seconds = pageOf(overlay, state).duration || overlay.pages.cycleSeconds;
         state.timer = setTimeout(() => {
             const live = customOverlays[overlay.id];
@@ -1487,11 +1488,6 @@ function createOverlayService({
             return -1;
         };
         const manual = !auto;
-        if (manual && state.takeoverTimer) {
-            clearTimeout(state.takeoverTimer);
-            state.takeoverTimer = null;
-            state.returnPage = null;
-        }
         let next = current;
         if (action === 'next') next = step(1);
         else if (action === 'prev') next = step(-1);
@@ -1510,6 +1506,10 @@ function createOverlayService({
                 broadcastPage(overlay);
             }
             return false;
+        }
+        if (manual) {
+            state.takeovers?.clear();
+            state.returnPage = null;
         }
         state.page = items[next].id;
         scheduleAutoAdvance(overlay);
@@ -1532,7 +1532,8 @@ function createOverlayService({
         const state = overlayPageState.get(overlay.id) || { page: overlay.pages.items[0].id, auto: false, timer: null };
         overlayPageState.set(overlay.id, state);
         const items = overlay.pages.items;
-        if (!items.some(item => item.id === state.page && item.enabled && (!item.trigger || state.takeoverTimer))) {
+        state.takeovers?.prune(entry => overlay.pages.enabled && items.some(item => item.id === entry.page && item.enabled && item.trigger === entry.kind));
+        if (!items.some(item => item.id === state.page && item.enabled && (!item.trigger || state.takeovers?.active))) {
             let from = items.findIndex(item => item.id === state.page);
             if (from >= 0) from += 1;
             else {
@@ -1560,22 +1561,26 @@ function createOverlayService({
         }, 0);
     }
 
-    function returnFromTakeover(overlay, state) {
-        clearTimeout(state.takeoverTimer);
-        state.takeoverTimer = null;
-        if (overlay.pages.items.some(p => p.id === state.returnPage && p.enabled)) state.page = state.returnPage;
-        state.returnPage = null;
-        scheduleAutoAdvance(overlay);
-        broadcastPage(overlay);
+    function takeoverScheduler(overlay, state) {
+        if (!state.takeovers) state.takeovers = createTakeoverScheduler(entry => {
+            const live = customOverlays[overlay.id];
+            if (!live) return;
+            const before = state.page;
+            if (entry) {
+                state.page = entry.page;
+            } else {
+                state.page = live.pages.items.find(p => p.id === state.returnPage && p.enabled && !p.trigger)?.id
+                    || live.pages.items.find(p => p.enabled && !p.trigger)?.id || live.pages.items[0].id;
+                state.returnPage = null;
+            }
+            scheduleAutoAdvance(live);
+            if (state.page !== before) broadcastPage(live);
+        });
+        return state.takeovers;
     }
 
-    function scheduleTakeoverReturn(overlay, state, ms) {
-        clearTimeout(state.takeoverTimer);
-        state.takeoverTimer = setTimeout(() => {
-            const live = customOverlays[overlay.id];
-            if (live) returnFromTakeover(live, state);
-        }, ms);
-        state.takeoverTimer.unref?.();
+    function releaseTakeovers(kind) {
+        for (const state of overlayPageState.values()) state.takeovers?.remove(kind);
     }
 
     function takeoverPages(kind, name, ms, poll = {}) {
@@ -1585,16 +1590,17 @@ function createOverlayService({
             if (!target) {
                 if (kind === 'poll-end') {
                     const state = overlayPageState.get(overlay.id);
-                    if (state && state.takeoverTimer) {
-                        const curPage = overlay.pages.items.find(p => p.id === state.page);
-                        if (curPage && curPage.trigger === 'poll-active') {
+                    const pendingPoll = state?.takeovers?.get('poll-active');
+                    if (pendingPoll?.kind === 'poll-active') {
+                        const curPage = overlay.pages.items.find(p => p.id === pendingPoll.page && p.enabled);
+                        if (curPage) {
                             const resultsSeconds = curPage.triggerSeconds ? 0 : pollResultsSeconds(overlay, curPage);
                             const endedAt = Date.parse(poll.endedAt);
                             const remaining = (Number.isFinite(endedAt) ? endedAt : Date.now()) + resultsSeconds * 1000 - Date.now();
                             if (resultsSeconds && remaining > 0) {
-                                scheduleTakeoverReturn(overlay, state, remaining);
+                                state.takeovers.offer({ ...pendingPoll, expiresAt: Date.now() + remaining });
                             } else {
-                                returnFromTakeover(overlay, state);
+                                state.takeovers.remove('poll-active');
                             }
                         }
                     }
@@ -1606,16 +1612,14 @@ function createOverlayService({
                 state = { page: overlay.pages.items[0].id, auto: false, timer: null };
                 overlayPageState.set(overlay.id, state);
             }
-            const returnPage = state.takeoverTimer ? state.returnPage : state.page;
-            clearTimeout(state.takeoverTimer);
+            const scheduler = takeoverScheduler(overlay, state);
+            if (!scheduler.active) state.returnPage = state.page;
             clearTimeout(state.timer);
-            state.returnPage = returnPage;
-            state.page = target.id;
+            state.timer = null;
             const seconds = target.triggerSeconds || (ms ? ms / 1000 : 10);
             // Twitch is polled every 10s: keep the active page mounted while waiting for its final result.
             const pollGraceMs = kind === 'poll-active' && !target.triggerSeconds && pollResultsSeconds(overlay, target) > 0 ? 30000 : 0;
-            scheduleTakeoverReturn(overlay, state, seconds * 1000 + pollGraceMs);
-            broadcastPage(overlay);
+            scheduler.offer({ kind, page: target.id, expiresAt: Date.now() + seconds * 1000 + pollGraceMs });
         }
     }
 
@@ -1623,7 +1627,7 @@ function createOverlayService({
         const state = overlayPageState.get(id);
         if (state) {
             clearTimeout(state.timer);
-            clearTimeout(state.takeoverTimer);
+            state.takeovers?.clear();
         }
         overlayPageState.delete(id);
     }
@@ -1710,6 +1714,7 @@ function createOverlayService({
         setPageAuto,
         syncOverlayPages,
         takeoverPages,
+        releaseTakeovers,
         dropOverlayPages,
         assetReferencedIn,
         rewriteAssetReferences,

@@ -12,6 +12,10 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ### Fixed
 - Automatic Poll active pages now honor visible Poll elements' results duration before returning to the previous page, including a bounded wait for Twitch's final status.
 
+### Changed
+- All custom overlays now prioritize automatic pages as alerts, featured messages, polls, then commands. Resume unexpired polls after interruptions; keep only latest pending events with wall-clock expiry and cancel pending takeovers on manual navigation.
+- Alert skip/clear immediately releases the alert page, and alert pages mount before their playback event is delivered.
+
 ## [0.13.2] - 2026-10-19
 
 ### Fixed

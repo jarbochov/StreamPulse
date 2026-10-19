@@ -18,6 +18,8 @@ New here? Follow the [quick start](quickstart.md). For a complete stream routine
 
 Build starting, gameplay, break, and closing layouts in a visual editor. Combine text, images, video, and live information, then adjust the look to match your channel. Use pages to keep related layouts together.
 
+Automatic pages prioritize alerts, then featured messages, polls, and commands. If an alert interrupts your poll, the poll returns afterward while voting or its results are still current. Old messages and commands do not build up into a late replay queue.
+
 **Good for:** a consistent stream identity without rebuilding each scene from scratch.
 
 ### Ready-to-use overlays
