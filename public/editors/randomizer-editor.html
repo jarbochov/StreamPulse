@@ -179,8 +179,6 @@
             overflow: visible;
             box-shadow: 0 16px 50px rgba(0,0,0,0.6);
             transition: border-color .25s ease, background 0.25s ease;
-            transform: scale(var(--stage-scale, 1));
-            transform-origin: center center;
         }
 
         /* 1. Slot-Machine Roller Mode */
@@ -1438,10 +1436,6 @@
                                 <option value="tricky">Tricky Tease (Slows then nudges +1-2)</option>
                             </select>
                         </label>
-                        <label class="f">
-                            <span style="display:flex; justify-content:space-between;">Overlay Scale <span id="scale-val-label">1.0x</span></span>
-                            <input type="range" id="overlay-scale" min="0.5" max="2.0" step="0.05" value="1.0" style="accent-color:var(--accent); cursor:pointer;">
-                        </label>
                     </div>
 
                     <div style="display:flex; align-items:center; gap:.6rem; padding:.4rem 0;">
@@ -1930,7 +1924,6 @@
                         suspense: $('suspense-select')?.value || 'normal',
                         duration: $('spin-duration')?.value || '6',
                         autohide: $('autohide-select')?.value || '8',
-                        scale: $('overlay-scale')?.value || '1',
                         showButton: $('overlay-button-enabled')?.checked || false,
                         soundEnabled: AudioFX.enabled,
                         activeTab: document.querySelector('.tab-btn.active')?.id?.replace('tab-btn-', '') || 'presets',
@@ -2659,8 +2652,6 @@
             const weight = $('ap-weight')?.value.trim();
             const bg = getEffectiveBackground();
             const outline = $('ap-outline')?.value.trim();
-            const scale = $('overlay-scale')?.value || '1';
-
             let url = `${window.location.origin}/randomizer.html?mode=${encodeURIComponent(mode)}&preset=${encodeURIComponent(preset)}&suspense=${encodeURIComponent(suspense)}&autohide=${encodeURIComponent(autohide)}&duration=${encodeURIComponent(duration)}&button=${showButton}`;
 
             if (theme && theme !== 'system' && theme !== 'custom') {
@@ -2673,8 +2664,6 @@
             if (weight) url += `&weight=${encodeURIComponent(weight)}`;
             if (bg && bg !== 'glass') url += `&bg=${encodeURIComponent(bg)}`;
             if (outline) url += `&outline=${encodeURIComponent(outline)}`;
-            if (scale && parseFloat(scale) !== 1) url += `&scale=${encodeURIComponent(scale)}`;
-
             const btnPreset = currentBtnPresetId || 'chaos';
             if (btnPreset === 'static') {
                 const sText = $('btn-text-static')?.value.trim();
@@ -3255,11 +3244,6 @@
             if (s.suspense && $('suspense-select')) $('suspense-select').value = s.suspense;
             if (s.duration && $('spin-duration')) $('spin-duration').value = s.duration;
             if (s.autohide && $('autohide-select')) $('autohide-select').value = s.autohide;
-            if (s.scale && $('overlay-scale')) {
-                $('overlay-scale').value = s.scale;
-                if ($('scale-val-label')) $('scale-val-label').textContent = `${parseFloat(s.scale).toFixed(2)}x`;
-                $('display-stage')?.style.setProperty('--stage-scale', s.scale);
-            }
             if (s.showButton !== undefined && $('overlay-button-enabled')) {
                 $('overlay-button-enabled').checked = s.showButton;
                 syncOverlayButtonPreview();
@@ -3719,14 +3703,6 @@
             updateObsUrl();
             saveStudioState();
         };
-        $('overlay-scale').oninput = () => {
-            const val = $('overlay-scale').value;
-            if ($('scale-val-label')) $('scale-val-label').textContent = `${parseFloat(val).toFixed(2)}x`;
-            $('display-stage')?.style.setProperty('--stage-scale', val);
-            updateObsUrl();
-            saveStudioState();
-        };
-
         $('btn-reset-studio').onclick = () => {
             if (!confirm('Reset all Randomizer Studio settings to defaults?')) return;
             try {
@@ -3742,9 +3718,6 @@
             if ($('preview-mode-deck')) $('preview-mode-deck').classList.remove('active');
             if ($('bg-style-select')) $('bg-style-select').value = 'glass';
             if ($('custom-bg-row')) $('custom-bg-row').style.display = 'none';
-            if ($('overlay-scale')) $('overlay-scale').value = '1';
-            if ($('scale-val-label')) $('scale-val-label').textContent = '1.0x';
-            $('display-stage')?.style.removeProperty('--stage-scale');
             if ($('theme-select')) $('theme-select').value = 'system';
             if ($('suspense-select')) $('suspense-select').value = 'normal';
             if ($('spin-duration')) $('spin-duration').value = '6';
@@ -4047,7 +4020,6 @@
                         suspense,
                         theme,
                         bg: getEffectiveBackground(),
-                        scale: $('overlay-scale')?.value || '1',
                         duration,
                         autohide,
                         buttonPhrases: activeButtonPhrases,
@@ -4147,7 +4119,6 @@
                             AudioFX.init();
                             if (d.theme) applyTheme(d.theme, true);
                             if (d.bg) applyBackgroundStyle(d.bg);
-                            if (d.scale) $('display-stage')?.style.setProperty('--stage-scale', d.scale);
                             if (d.mode && d.mode !== currentMode) setStyleMode(d.mode);
                             runSpin({
                                 choices: (Array.isArray(d.choices) && d.choices.length) ? d.choices : choices,

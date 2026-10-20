@@ -84,7 +84,9 @@ Configure probability distributions to fit your broadcast format:
 
 ## 5. Bitfocus Companion & Remote Control
 
-Trigger spins directly from your Stream Deck:
+Trigger spins directly from your Stream Deck using the wheel, roller, or physical card deck. The Companion action supports 4, 6, 8, or 10-second spins. Its general Randomizer preset displays the last-used mode and duration; a separate **Draw Randomizer Card** preset is ready for deck draws.
 - Endpoint: `POST /api/randomizer/spin` (or `GET /api/randomizer/spin`)
-- Optional JSON body: `{"theme": "neon"}`
+- Optional JSON body: `{"theme": "neon", "mode": "deck", "duration": 8}`
 - When triggered, all connected OBS overlays spin simultaneously and announce the winner with fanfare.
+
+Set the overlay's display scale in its browser-source URL, for example `http://localhost:3000/overlays/randomizer.html?scale=1.2`. The Studio does not include or change scale; the setting is intentionally controlled by the URL parameter only.

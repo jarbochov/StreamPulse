@@ -85,11 +85,14 @@ IGDB operations use the configured Twitch client credentials. Missing credential
   - `choices`: JSON array of choice strings, as an alternative to a preset.
   - `winner`: Optional forced winner text; normally selected by the server's weighting rules.
   - `mode`: `roller`, `wheel`, or `deck`.
+  - `duration`: Spin duration in seconds (Studio and Companion choices: 4, 6, 8, or 10).
   - `theme`: Temporary visual theme override.
+  - `scale`: URL query parameter only; controls overlay scale and is not accepted from the JSON body.
 - **Example request**:
   ```json
-  { "choices": ["Choice A", "Choice B"], "mode": "wheel" }
+  { "choices": ["Choice A", "Choice B"], "mode": "wheel", "duration": 8 }
   ```
+- **Scale example**: `GET /api/randomizer/spin?mode=deck&scale=1.2`, or set `scale=1.2` on the OBS overlay URL. Randomizer Studio has no scale control.
 - **Response**: `{ "ok": true, "winner": "...", "preset": null, "mode": "wheel", ... }`, including weights and the broadcast `payload`.
 
 ### Get Saved Randomizer Presets

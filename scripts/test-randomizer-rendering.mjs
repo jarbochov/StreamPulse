@@ -51,7 +51,7 @@ try {
         args: ['--no-sandbox']
     });
 
-    async function open(editor) {
+    async function open(editor, overlayParams = '') {
         const page = await browser.newPage();
         const requestedModules = new Set();
         page.on('pageerror', error => errors.push(error.message));
@@ -159,7 +159,7 @@ try {
                 return new window.Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
             };
         }, choices, weights);
-        await page.goto(`http://randomizer.test/${editor ? 'randomizer-editor.html' : 'overlays/randomizer.html?button=1&sound=0&autohide=0'}`, { waitUntil: 'load' });
+        await page.goto(`http://randomizer.test/${editor ? 'randomizer-editor.html' : `overlays/randomizer.html?button=1&sound=0&autohide=0${overlayParams}`}`, { waitUntil: 'load' });
         await page.waitForFunction(() => !!window.fixture.controls);
         await page.evaluate(async () => {
             await window.fixture.layout();
@@ -167,7 +167,7 @@ try {
             window.fixture.controls.configure({
                 logo: '/fiction.svg', watermark: 'FICTIONAL & FRIENDS',
                 colors: ['#ef4444', '#00ff66', '#3b82f6', '#fbbf24'],
-                style: { '--stage-font': 'Arial', '--stage-weight': '700', '--stage-text': '#ffffff', '--stage-scale': '1', '--stage-outline': '' }
+                style: { '--stage-font': 'Arial', '--stage-weight': '700', '--stage-text': '#ffffff', '--stage-outline': '' }
             });
             await window.fixture.flush();
             await window.fixture.advance(32);
@@ -347,6 +347,7 @@ try {
         }
 
         if (index === 0) {
+            assert.equal(await page.$('#overlay-scale'), null, 'scale is not adjustable in the Randomizer Studio');
             await page.$eval('#spin-duration', node => { node.value = '4'; });
             await page.$eval('#autohide-select', node => { node.value = '0'; });
             await page.$eval('#btn-spin', node => node.click());
@@ -356,9 +357,12 @@ try {
             const request = await page.evaluate(() => window.fixture.fetches.findLast(entry => entry.url === '/api/randomizer/spin'));
             assert.equal(request.method, 'POST');
             assert.deepEqual(request.body.choices, choices);
+            assert.equal(request.body.duration, 4);
+            assert.equal(request.body.scale, undefined, 'Studio spins leave URL-controlled scale unchanged');
             assert.equal(request.body.deckLogo, '/fiction.svg');
             assert.equal(request.body.deckWatermark, 'FICTIONAL & FRIENDS');
             assert((await page.$eval('#obs-url-input', node => node.textContent)).includes('/randomizer.html?'), 'legacy OBS URL remains unchanged');
+            assert(!(await page.$eval('#obs-url-input', node => node.textContent)).includes('scale='), 'Studio URL generation leaves scale to manual URL parameters');
             await settle(page);
         }
         await start(page, { choices, weights, winner: choices[1], mode: 'deck', duration: 3, autohide: 0 });
@@ -370,6 +374,9 @@ try {
         await settle(page);
         await page.close();
     }
+    const urlScaledOverlay = await open(false, '&scale=1.25');
+    assert.equal(await urlScaledOverlay.$eval('#display-stage', node => node.style.getPropertyValue('--stage-scale')), '1.25', 'overlay scale remains configurable via URL parameters');
+    await urlScaledOverlay.close();
     assert.deepEqual(errors, [], 'no browser runtime errors');
     console.log('Randomizer rendering regression passed: both consumers, all modes/suspense paths, weighted winner parity, branding, cache invalidation, resize/DPR, and callback cleanup.');
     console.log(JSON.stringify(measurements));

@@ -21,7 +21,8 @@ StreamPulse features deep hardware control integration with [Bitfocus Companion]
 With the Companion module connected, you can bind the following actions to any Stream Deck button:
 
 - **Choice Randomizer**:
-  - `Spin Randomizer`: Triggers the wheel or slot machine roller on your stream overlay.
+  - `Spin Randomizer`: Triggers the wheel, slot machine roller, or physical card deck. Choose the animation duration (4, 6, 8, or 10 seconds); the button displays the last-used mode and duration.
+  - `Draw Randomizer Card`: A preconfigured card-deck button; its duration can be changed in the action settings.
   - `Set Preset`: Switches between saved choice sets (e.g. "Jackbox Games", "Giveaway Chatters", "Next Level").
 - **Overlay Visibility**:
   - `Toggle Overlay`: Smoothly fades any overlay (Credits, Goal, Countdown, Stopwatch, Music, Custom Overlay) in or out.
@@ -44,6 +45,7 @@ With the Companion module connected, you can bind the following actions to any S
 ## 3. Dynamic Feedbacks & Variables
 
 The StreamPulse module exposes live variables that display directly on your Stream Deck buttons:
+- `$(streampulse:randomizer_last_mode)` and `$(streampulse:randomizer_last_duration)`: Last-used Randomizer mode and spin duration in seconds.
 - `$(streampulse:viewers)`: Current live viewer count.
 - `$(streampulse:session_time)`: Formatted stream uptime (HH:MM:SS).
 - `$(streampulse:now_playing)`: Currently active game title or music track.

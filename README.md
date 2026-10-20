@@ -76,7 +76,7 @@ A full drag-and-drop canvas designer featuring transparent WebKit punchout masks
 ---
 
 ### Choice Randomizer Studio
-Decoupled studio controller and transparent OBS overlay featuring spinning wheels, continuous vertical slot machine rollers, and winner celebration cards with sound effects, choice weighting, and active live chatter auto-population.
+Decoupled studio controller and transparent OBS overlay featuring spinning wheels, continuous vertical slot machine rollers, 3D card-deck draws, and winner celebration cards with sound effects, choice weighting, and active live chatter auto-population. Companion buttons can trigger all three modes with configurable duration; overlay scale is controlled through the browser-source URL.
 
 ![Choice Randomizer Studio](docs/images/randomizer-studio.png)
 
