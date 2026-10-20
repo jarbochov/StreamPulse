@@ -79,7 +79,7 @@ The QR code always points to your Twitch URL. It stays square inside its block, 
 
 ## Saved designs and exports
 
-Saved promos live in `data/promos.json`, reusable custom themes in `data/promo-themes.json`, and uploaded images in the existing Asset Library. Full data backups include these files and assets. Asset usage lists include saved promos and themes, protect referenced images from accidental deletion, and update background/image references when you rename an asset.
+Saved promos live in `data/promos.json`, reusable custom themes in `data/promo-themes.json`, and uploaded images in the existing Asset Library. Full data backups include these files and assets. Use **Backup & Restore → Share individual items** to export a single promo scene with its referenced images and uploaded fonts, then import that ZIP on another StreamPulse installation. Copy, replace, and skip options handle scene ID conflicts. Asset usage lists include saved promos and themes, protect referenced images from accidental deletion, and update background/image references when you rename an asset.
 
 PNG generation happens in your browser using the same renderer as the preview. **Export PNGs** always includes square, landscape, and portrait PNG files in one ZIP. It uses the latest unsaved edits too, but does not save the design automatically. If any format fails, no partial ZIP is downloaded.
 

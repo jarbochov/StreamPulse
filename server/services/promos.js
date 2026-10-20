@@ -53,6 +53,16 @@ function createPromoService({ dataDir }) {
             write(designs);
             return design;
         },
+        saveImported(input, id) {
+            const designs = read();
+            const at = designs.findIndex(design => design.id === id);
+            if (at < 0 && designs.length >= 200) throw new Error('Promo library is full (200 designs). Remove an unused design first.');
+            const design = { ...normalize(input), id, updatedAt: new Date().toISOString() };
+            if (at < 0) designs.push(design);
+            else designs[at] = design;
+            write(designs);
+            return design;
+        },
         remove(id) {
             const designs = read(), next = designs.filter(design => design.id !== id);
             if (next.length === designs.length) return false;

@@ -570,7 +570,7 @@ const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function assetReferencedIn(text, name, family) {
     if (new RegExp(`/custom-overlay-assets/${escapeRegExp(encodeURIComponent(name))}${assetNameBoundary}`).test(text) || new RegExp(`/custom-overlay-assets/${escapeRegExp(name)}${assetNameBoundary}`).test(text)) return true;
-    return !!family && text.includes(`'${family}'`);
+    return !!family && (text.includes(`'${family}'`) || text.includes(JSON.stringify(family)));
 }
 
 function rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily) {
@@ -578,7 +578,10 @@ function rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily) {
     for (const [from, to] of [[encodeURIComponent(oldName), encodeURIComponent(newName)], [oldName, newName]]) {
         result = result.replace(new RegExp(`/custom-overlay-assets/${escapeRegExp(from)}${assetNameBoundary}`, 'g'), `/custom-overlay-assets/${to}`);
     }
-    if (oldFamily && newFamily && oldFamily !== newFamily) result = result.split(`'${oldFamily}'`).join(`'${newFamily}'`);
+    if (oldFamily && newFamily && oldFamily !== newFamily) {
+        result = result.split(`'${oldFamily}'`).join(`'${newFamily}'`);
+        result = result.split(JSON.stringify(oldFamily)).join(JSON.stringify(newFamily));
+    }
     return result;
 }
 

@@ -396,8 +396,8 @@ test('promo persistence, image references and actual studio export work without 
     await page.click('[data-ratio="portrait"]');
     await page.select('#background-mode', 'image');
     await page.click('[data-library="background"]');
-    await page.waitForSelector('.promo-asset');
-    await page.click('.promo-asset');
+    await page.waitForSelector('#asset-grid .promo-asset', { visible: true });
+    await page.click('#asset-grid .promo-asset');
     assert.notEqual(await page.$eval('#background-name', el => el.textContent), 'No background image');
     await page.select('#background-fit', 'contain');
     await page.click('#save-theme');

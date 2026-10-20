@@ -90,7 +90,7 @@
         <div class="card">
             <h2>📦 Create Backup</h2>
             <div class="info-box">
-                Downloads a ZIP containing your <code>config.json</code>, the current live session files (<code>data/chat.json</code> and <code>data/chat-log.jsonl</code>), all session archives, Twitch data snapshots, timers, banned hashtags, and highlights. Does <strong>not</strong> include your Twitch OAuth token (you'll need to re-auth after restore).
+                Downloads a ZIP containing your <code>config.json</code>, the current live session files (<code>data/chat.json</code> and <code>data/chat-log.jsonl</code>), all session archives, Twitch data snapshots, timers, banned hashtags, highlights, promo scenes, promo themes, and their assets. Does <strong>not</strong> include your Twitch OAuth token (you'll need to re-auth after restore).
             </div>
             <a class="btn wide primary" href="/api/backup" download>📦 Download Full Backup</a>
         </div>
@@ -112,7 +112,7 @@
         <div class="card">
             <h2>Share individual items</h2>
             <div class="info-box">
-                Export just the overlays, presets, or settings you pick into one ZIP, including the images, videos and fonts they use. Import a ZIP from this or another StreamPulse to add them. Your Twitch token, sessions and stats are never included.
+                Export selected overlays, presets, promo scenes, or settings into one ZIP, including the images, videos, and fonts they use. Import a ZIP from this or another StreamPulse to add them. Your Twitch token, sessions, and stats are never included.
             </div>
             <div class="share-grid">
                 <div class="share-col">
@@ -183,7 +183,7 @@
         const box = document.getElementById('share-export-list');
         try {
             const data = await (await fetch('/api/share/items')).json();
-            const groups = [['Overlays', data.overlays], ['Presets', data.presets], ['Settings', data.singles]];
+            const groups = [['Overlays', data.overlays], ['Presets', data.presets], ['Promo scenes', data.promos || []], ['Settings', data.singles]];
             const html = groups.filter(([, list]) => list.length).map(([title, list]) =>
                 '<div class="share-group">' + title + '</div>' + list.map(item => shareRow(item, false, item.category ? esc(item.category) : '')).join('')).join('');
             box.innerHTML = html || '<div class="share-empty">Nothing to share yet.</div>';
@@ -222,7 +222,7 @@
             const res = await fetch('/api/share/inspect', { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: file });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Could not read file');
-            const labels = { overlay: 'Overlay', preset: 'Preset' };
+            const labels = { overlay: 'Overlay', preset: 'Preset', promo: 'Promo scene' };
             box.innerHTML = data.items.length
                 ? data.items.map(item => shareRow(item, true, (labels[item.type] || 'Settings') + (item.exists ? ' - already exists' : ''))).join('')
                 : '<div class="share-empty">This file has no items.</div>';

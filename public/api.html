@@ -944,13 +944,13 @@
                 {
                     method: 'GET', path: '/api/share/items',
                     desc: 'List shareable items',
-                    details: 'Returns { overlays, presets, singles } that can go in a share bundle. singles are Game Plan, Timers and Alerts when their files exist.'
+                    details: 'Returns { overlays, presets, promos, singles } that can go in a share bundle. promos are individually saved promo scenes; singles are Game Plan, Timers and Alerts when their files exist.'
                 },
                 {
                     method: 'POST', path: '/api/share/export',
                     desc: 'Export a share bundle (ZIP)',
-                    details: 'Returns a ZIP with the chosen items plus the assets and fonts they use. Items are "overlay:<id>", "preset:<id>", "gameplan", "timers" or "alerts". Set includeHistory to also include overlay revisions.',
-                    body: '{ "items": ["overlay:my-overlay", "preset:lower-third", "timers"], "includeHistory": false }'
+                    details: 'Returns a ZIP with the chosen items plus the assets and fonts they use. Items are "overlay:<id>", "preset:<id>", "promo:<id>", "gameplan", "timers" or "alerts". Set includeHistory to also include overlay revisions.',
+                    body: '{ "items": ["overlay:my-overlay", "preset:lower-third", "promo:my-scene", "timers"], "includeHistory": false }'
                 },
                 {
                     method: 'POST', path: '/api/share/inspect',

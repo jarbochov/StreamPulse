@@ -47,12 +47,14 @@ const { createMusicRoutes } = require('./server/routes/music');
 const { createWeatherRoutes } = require('./server/routes/weather');
 const { createGamePlanRoutes } = require('./server/routes/game-plan');
 const { createPromoService } = require('./server/services/promos');
+const { createPromoShareService } = require('./server/services/promo-share');
+const { createShareAssetCodec } = require('./server/services/share-assets');
 const { createPromoArtworkService } = require('./server/services/promo-artwork');
 const { createPromoRoutes } = require('./server/routes/promos');
 const { createTwitchRoutes } = require('./server/routes/twitch');
 const { createSessionRoutes } = require('./server/routes/session');
 const { createOverlayRoutes } = require('./server/routes/overlays');
-const { createOverlayService, TEXT_SOURCE_TYPES, TEXT_SOURCE_EXTS, TEXT_SOURCE_MAX_BYTES, CUSTOM_OVERLAY_ELEMENT_TYPES, assetFontFamily } = require('./server/services/overlays');
+const { createOverlayService, TEXT_SOURCE_TYPES, TEXT_SOURCE_EXTS, TEXT_SOURCE_MAX_BYTES, CUSTOM_OVERLAY_ELEMENT_TYPES } = require('./server/services/overlays');
 const { createClipService, normalizeClipCandidateConfig, DEFAULT_CLIP_CANDIDATE_CONFIG } = require('./server/services/clips');
 const { safeWriteFileSync, escapeHtml } = require('./server/routes/helpers');
 const { createCrmService } = require('./server/services/crm');
@@ -1002,7 +1004,7 @@ const SHARE_SINGLES = {
     timers: { label: 'Timers', path: () => TIMERS_PATH, entry: 'timers.json' },
     alerts: { label: 'Alerts', path: () => path.join(DATA_DIR, 'alerts.json'), entry: 'alerts.json' }
 };
-const FONT_EXTENSIONS = new Set(['.ttf', '.otf', '.woff', '.woff2']);
+const shareAssetCodec = createShareAssetCodec({ assetsDir: CUSTOM_OVERLAY_ASSETS_DIR });
 
 function readBinaryBody(req, limit = SHARE_MAX_BYTES) {
     return new Promise((resolve, reject) => {
@@ -1025,14 +1027,9 @@ function listShareItems() {
     return {
         overlays: Object.values(customOverlays).map(o => ({ type: 'overlay', id: o.id, name: o.name })),
         presets: overlayService.getOverlayPresets().map(p => ({ type: 'preset', id: p.id, name: p.name, category: p.category })),
+        promos: promoShareService.listItems(),
         singles
     };
-}
-
-function shareAssetNames(text) {
-    if (!fs.existsSync(CUSTOM_OVERLAY_ASSETS_DIR)) return [];
-    return fs.readdirSync(CUSTOM_OVERLAY_ASSETS_DIR).filter(name =>
-        assetReferencedIn(text, name, FONT_EXTENSIONS.has(path.extname(name).toLowerCase()) ? assetFontFamily(name) : ''));
 }
 
 function buildShareZip(selection, includeHistory) {
@@ -1047,14 +1044,18 @@ function buildShareZip(selection, includeHistory) {
             const text = JSON.stringify(overlay, null, 2);
             zip.addFile(`overlays/${overlay.id}.json`, Buffer.from(text));
             manifest.items.push({ type, id: overlay.id, name: overlay.name });
-            shareAssetNames(text).forEach(n => assets.add(n));
+            shareAssetCodec.referencedNames(text).forEach(n => assets.add(n));
             if (includeHistory && fs.existsSync(historyFile(overlay.id))) zip.addLocalFile(historyFile(overlay.id), 'overlays', `${overlay.id}.history.json`);
         } else if (type === 'preset') {
             const preset = overlayService.getOverlayPresets().find(p => p.id === id);
             if (!preset) continue;
             presetsOut.push(preset);
             manifest.items.push({ type, id: preset.id, name: preset.name });
-            shareAssetNames(JSON.stringify(preset)).forEach(n => assets.add(n));
+            shareAssetCodec.referencedNames(JSON.stringify(preset)).forEach(n => assets.add(n));
+        } else if (type === 'promo') {
+            const promo = promoShareService.get(id);
+            if (!promo) continue;
+            promoShareService.addToArchive(zip, manifest, promo, assets);
         } else if (SHARE_SINGLES[type] && fs.existsSync(SHARE_SINGLES[type].path())) {
             zip.addLocalFile(SHARE_SINGLES[type].path(), '', SHARE_SINGLES[type].entry);
             manifest.items.push({ type, name: SHARE_SINGLES[type].label });
@@ -1086,32 +1087,7 @@ function importShareZip(buffer, selected, conflict) {
     const wanted = new Set(selected);
     const results = [];
     const entryText = name => { const e = zip.getEntry(name); return e ? e.getData().toString('utf8') : null; };
-
-    // Copy used assets in, renaming only when a different file already has that name.
-    const assetMap = {};
-    const importAssets = text => {
-        let out = text;
-        for (const entry of zip.getEntries()) {
-            if (!entry.entryName.startsWith('assets/') || entry.isDirectory) continue;
-            const name = path.basename(entry.entryName);
-            if (name !== entry.entryName.slice('assets/'.length)) continue;
-            const family = FONT_EXTENSIONS.has(path.extname(name).toLowerCase()) ? assetFontFamily(name) : '';
-            if (!assetReferencedIn(text, name, family)) continue;
-            if (!(name in assetMap)) {
-                const data = entry.getData();
-                const dest = path.join(CUSTOM_OVERLAY_ASSETS_DIR, name);
-                if (!fs.existsSync(dest)) { fs.writeFileSync(dest, data); assetMap[name] = name; }
-                else if (fs.readFileSync(dest).equals(data)) assetMap[name] = name;
-                else {
-                    const renamed = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}-${name.replace(/^[a-z0-9]{6,}-/, '')}`;
-                    fs.writeFileSync(path.join(CUSTOM_OVERLAY_ASSETS_DIR, renamed), data);
-                    assetMap[name] = renamed;
-                }
-            }
-            if (assetMap[name] !== name) out = rewriteAssetReferences(out, name, assetMap[name], family, FONT_EXTENSIONS.has(path.extname(name).toLowerCase()) ? assetFontFamily(assetMap[name]) : '');
-        }
-        return out;
-    };
+    const importAssets = shareAssetCodec.createImporter(zip);
 
     for (const item of manifest.items || []) {
         const key = item.id ? `${item.type}:${item.id}` : item.type;
@@ -1150,6 +1126,9 @@ function importShareZip(buffer, selected, conflict) {
                 overlayService.setOverlayPresets([...presetsList.filter(p => p.id !== targetId), preset]);
                 saveOverlayPresets();
                 results.push({ key, status: exists ? (targetId === source.id ? 'replaced' : 'copied') : 'added', id: targetId });
+            } else if (item.type === 'promo') {
+                const raw = entryText(`promos/${item.id}.json`);
+                results.push(promoShareService.importItem(item, raw, conflict, importAssets, freeId));
             } else if (SHARE_SINGLES[item.type]) {
                 const def = SHARE_SINGLES[item.type];
                 const raw = entryText(def.entry);
@@ -1435,6 +1414,7 @@ const handleSessionRoutes = createSessionRoutes({
 });
 
 const promoService = createPromoService({ dataDir: DATA_DIR });
+const promoShareService = createPromoShareService({ promoService, shareAssets: shareAssetCodec });
 const handlePromoRoutes = createPromoRoutes({
     service: promoService,
     artworkService: createPromoArtworkService({
@@ -1697,6 +1677,7 @@ const handleBackupRoutes = createBackupRoutes({
     getConfig: () => config,
     getCustomOverlays: () => customOverlays,
     getOverlayPresets: () => overlayService.getOverlayPresets(),
+    promoExists: id => promoShareService.exists(id),
     sanitizeOverlayId,
     shareSingles: SHARE_SINGLES
 });

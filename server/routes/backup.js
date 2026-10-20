@@ -22,6 +22,7 @@ function createBackupRoutes({
     getConfig = () => ({}),
     getCustomOverlays = () => ({}),
     getOverlayPresets = () => [],
+    promoExists = () => false,
     sanitizeOverlayId = (id) => id,
     shareSingles = {}
 } = {}) {
@@ -144,6 +145,7 @@ function createBackupRoutes({
                     ...item,
                     exists: item.type === 'overlay' ? !!customOverlays[sanitizeOverlayId(item.id)]
                         : item.type === 'preset' ? overlayPresets.some(p => p.id === item.id)
+                        : item.type === 'promo' ? promoExists(item.id)
                         : !!shareSingles[item.type] && fs.existsSync(shareSingles[item.type].path())
                 }));
                 sendJson(res, { items });

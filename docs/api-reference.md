@@ -32,7 +32,9 @@ Each layout also has `cornerRadius` (pixels) and `background`: `{ mode, theme, c
 
 Custom themes store a required name plus normalized palette/font/background settings, not content or layouts. Applying a theme in the browser copies its palette/font across the promo and its background into the current ratio. Theme changes are not live references.
 
-Storage is `data/promos.json` (up to 200 designs) and `data/promo-themes.json` (up to 100 custom themes), included in full data backups. Validation failures return `400`, missing IDs return `404`, unsupported methods return `405`, and storage failures return `500`. Export renders all three arrangements and packages their PNGs into one ZIP in the browser; there is no server export endpoint. The existing `/api/qr` and Asset Library endpoints supply QR graphics, fonts, and images.
+Storage is `data/promos.json` (up to 200 designs) and `data/promo-themes.json` (up to 100 custom themes), included in full data backups. The Backup & Restore share endpoints can also list, export, inspect, and import individual scenes using `promo:<id>` item keys. Scene ZIPs include referenced local images and uploaded fonts; import supports `copy`, `replace`, or `skip` conflicts and rewrites asset references if filenames collide.
+
+Validation failures return `400`, missing IDs return `404`, unsupported methods return `405`, and storage failures return `500`. Export renders all three arrangements and packages their PNGs into one ZIP in the browser; there is no server PNG export endpoint. The existing `/api/qr` and Asset Library endpoints supply QR graphics, fonts, and images.
 
 IGDB operations use the configured Twitch client credentials. Missing credentials return `409`; upstream failures return `502`; image imports over 20 MB return `413`. Imports verify that the requested image belongs to the game and download only from IGDB's fixed HTTPS image origin, without following redirects. They do not accept arbitrary remote image URLs.
 
