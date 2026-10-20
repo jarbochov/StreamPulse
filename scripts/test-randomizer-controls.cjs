@@ -17,7 +17,7 @@ test('randomizer scale is accepted from URL parameters, not JSON bodies', async 
     t.after(() => new Promise(resolve => server.close(resolve)));
     const origin = `http://127.0.0.1:${server.address().port}`;
 
-    const body = { choices: ['Fictional Harbor', 'Fictional Meadow'], mode: 'deck', duration: 8, scale: '2' };
+    const body = { choices: ['Fictional Harbor', 'Fictional Meadow'], mode: 'deck', duration: 8, autohide: 0, scale: '2' };
     const withoutQuery = await fetch(`${origin}/api/randomizer/spin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -26,6 +26,7 @@ test('randomizer scale is accepted from URL parameters, not JSON bodies', async 
     assert.equal(withoutQuery.status, 200);
     assert.equal(broadcasts[0].type, 'randomizer-spin');
     assert.equal(broadcasts[0].payload.duration, 8);
+    assert.equal(broadcasts[0].payload.autohide, 0, 'zero keeps the winner visible indefinitely');
     assert.equal(broadcasts[0].payload.mode, 'deck');
     assert.equal(broadcasts[0].payload.scale, '');
 

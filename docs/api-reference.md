@@ -86,6 +86,7 @@ IGDB operations use the configured Twitch client credentials. Missing credential
   - `winner`: Optional forced winner text; normally selected by the server's weighting rules.
   - `mode`: `roller`, `wheel`, or `deck`.
   - `duration`: Spin duration in seconds (Studio and Companion choices: 4, 6, 8, or 10).
+  - `autohide`: Seconds to keep the winner on screen; `0` keeps it visible indefinitely (default `8`).
   - `theme`: Temporary visual theme override.
   - `scale`: URL query parameter only; controls overlay scale and is not accepted from the JSON body.
 - **Example request**:
