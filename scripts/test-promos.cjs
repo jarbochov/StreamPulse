@@ -474,6 +474,31 @@ test('promo persistence, image references and actual studio export work without 
             for (let i = 0; i < data.length; i += 97) fingerprint = Math.imul(fingerprint ^ data[i], 16777619);
             output[mode] = { samples: [[10, 540], [540, 540], [1060, 540]].map(([x, y]) => [...ctx.getImageData(x, y, 1, 1).data]), fingerprint: fingerprint >>> 0 };
         }
+        const hexDesign = window.PromoModel.normalize();
+        for (const block of Object.values(hexDesign.layouts.square.blocks)) block.enabled = false;
+        hexDesign.layouts.square.background = window.PromoModel.background({
+            mode: 'pattern', pattern: 'hexagons', color: '#112233', vignette: 0
+        });
+        const hexCanvas = document.createElement('canvas');
+        await renderPromo(hexCanvas, hexDesign, 'square', { preview: false });
+        const hexCtx = hexCanvas.getContext('2d');
+        const radius = Math.max(24, 1080 / 28), rowStep = Math.sqrt(3) * radius;
+        const center = { x: 8 * radius * 1.5, y: 8 * rowStep };
+        const pixel = (x, y) => [...hexCtx.getImageData(Math.round(x), Math.round(y), 1, 1).data].slice(0, 3);
+        output.hexGridEdgeContrast = Array.from({ length: 6 }, (_, edge) => {
+            const angle = (edge + .5) * Math.PI / 3;
+            const normal = { x: Math.cos(angle), y: Math.sin(angle) };
+            const apothem = radius * Math.cos(Math.PI / 6);
+            const midpoint = { x: center.x + normal.x * apothem, y: center.y + normal.y * apothem };
+            const outside = [pixel(midpoint.x - normal.x * 6, midpoint.y - normal.y * 6), pixel(midpoint.x + normal.x * 6, midpoint.y + normal.y * 6)];
+            const reference = outside[0].map((value, channel) => (value + outside[1][channel]) / 2);
+            let contrast = 0;
+            for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
+                const candidate = pixel(midpoint.x + dx, midpoint.y + dy);
+                contrast = Math.max(contrast, Math.hypot(...candidate.map((value, channel) => value - reference[channel])));
+            }
+            return contrast;
+        });
         return output;
     }, renamed.url);
     assert.deepEqual(backgroundPixels.solid.samples[1], [17, 34, 51, 255]);
@@ -482,6 +507,7 @@ test('promo persistence, image references and actual studio export work without 
     assert.ok(backgroundPixels.vignette.samples[1][0] > backgroundPixels.vignette.samples[0][0], 'vignette shades the edges without darkening its center');
     assert.deepEqual(backgroundPixels.image.samples[1], [255, 153, 0, 255], 'library image paints behind all blocks');
     assert.equal(new Set(model.PATTERNS.map(key => backgroundPixels[key].fingerprint)).size, model.PATTERNS.length, 'each selectable pattern produces distinct output');
+    assert.ok(backgroundPixels.hexGridEdgeContrast.every(contrast => contrast > 8), 'all six edges around an interior hexagon are drawn in a connected tessellation');
     assert.equal(model.background({ pattern: 'hexagons' }).pattern, 'hexagons', 'hexagon pattern is persisted by normalization');
     assert.equal(model.background({ pattern: 'topography' }).pattern, 'topography', 'new patterns are preserved by normalization');
     await page.setViewport({ width: 390, height: 844 });

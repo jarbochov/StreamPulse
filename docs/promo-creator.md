@@ -50,7 +50,7 @@ Background controls affect only the selected ratio:
 | Gradient | Start/end colors and direction angle |
 | Transparent | No background; the preview checkerboard is not exported |
 | Image | Upload or Library, fill/crop or contain, crop focus, and darkening |
-| Pattern | 15 choices: grid, geometry, orbits, hexagons, triangles, chevrons, dots, diagonal lines, crosshatch, checkerboard, waves, concentric rings, topographic contours, confetti, or circuit board |
+| Pattern | 15 choices: grid, geometry, orbits, hexagons, triangles, chevrons, dots, diagonal lines, crosshatch, checkerboard, waves, concentric rings, topographic contours, confetti, or circuit board. Hexagons form a flat-top, staggered lattice: neighboring cells share edges without gaps or overlaps. |
 | Edge vignette | Adjustable 0–70% soft darkening; starts at a subtle 18% on new promos and is skipped for transparent backgrounds |
 
 Patterns, vignette strength, image crop, and canvas corner radius save independently per format. New promos start with a subtle edge vignette; existing designs keep their previous appearance. An image background is separate from the photo and artwork blocks. A saved custom theme can include its library image and vignette; the Asset Library tracks image references too. If an image background is selected without an image, export reports the affected format instead of silently producing an incomplete pack.

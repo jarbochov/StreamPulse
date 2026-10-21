@@ -116,18 +116,21 @@ function drawThemeBackdrop(ctx, width, height, design, pattern) {
         ctx.fillRect(width * .92, height * .12, width * .012, height * .28);
     } else if (pattern === 'hexagons') {
         const radius = Math.max(24, width / 28), rowStep = Math.sqrt(3) * radius;
+        const columnStep = radius * 1.5;
         ctx.lineWidth = Math.max(1, width / 700);
-        for (let row = -1; row <= height / rowStep + 1; row++) {
-            for (let col = -1; col <= width / (radius * 1.5) + 1; col++) {
-                const cx = col * radius * 1.5 + (row & 1) * radius * .75, cy = row * rowStep;
-                ctx.beginPath();
+        // Flat-top hexagons tile with half-row offsets between adjacent columns.
+        ctx.beginPath();
+        for (let col = -1; col <= width / columnStep + 1; col++) {
+            for (let row = -1; row <= height / rowStep + 1; row++) {
+                const cx = col * columnStep, cy = row * rowStep + (col & 1) * rowStep / 2;
                 for (let point = 0; point < 6; point++) {
                     const angle = point * Math.PI / 3, x = cx + Math.cos(angle) * radius, y = cy + Math.sin(angle) * radius;
                     if (point === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                 }
-                ctx.closePath(); ctx.stroke();
+                ctx.closePath();
             }
         }
+        ctx.stroke();
     } else if (pattern === 'dots') {
         const step = Math.max(24, width / 24), radius = Math.max(2, width / 300);
         ctx.fillStyle = colors.accent + '50';
