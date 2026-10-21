@@ -121,7 +121,7 @@ When contributing UI controls, views, or editors, all changes must strictly adhe
 StreamPulse maintains its official documentation at [jarbochov.github.io/StreamPulse](https://jarbochov.github.io/StreamPulse/). Keeping documentation in lockstep with the codebase is a mandatory development rule:
 
 - **Document alongside code**: When adding, modifying, or refactoring features, overlays, APIs, or settings, always update the relevant guide in `docs/` in the same pull request or commit.
-- **Changelog Maintenance**: Update both `CHANGELOG.md` and `docs/changelog.md` following [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) standards when releasing new features, enhancements, or bug fixes.
+- **Changelog Maintenance**: Update both `CHANGELOG.md` and `docs/changelog.md` following [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) standards when releasing new features, enhancements, or bug fixes. Unreleased features get a single short entry; describe changes only for features already shipped.
 - **Sanitized Visuals**: Never commit screenshots containing real chatter names, broadcaster notes, or private channels. Always use the automated capture script to generate sanitized screenshots:
   ```bash
   node scripts/capture-screenshots.mjs

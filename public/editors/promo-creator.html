@@ -3,107 +3,87 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>StreamPulse - Promo Creator</title>
+    <title>Promo Creator - StreamPulse</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/admin.css">
+    <link rel="stylesheet" href="/css/custom-overlay-editor.css">
     <link rel="stylesheet" href="/css/promo-creator.css">
     <script src="/appearance.js"></script>
 </head>
 <body>
-    <header class="promo-site-nav"><a href="/dashboard.html" class="promo-brand">StreamPulse</a><div id="main-nav" class="nav"></div></header>
-    <main>
-        <header class="promo-heading">
-            <div><p class="eyebrow">PROMO STUDIO <span class="eyebrow-dot"></span> THREE FORMATS, ONE DOWNLOAD</p><h1>Make your next stream <span>unmissable.</span></h1><p class="hint">A polished promo for every screen. Designed once, ready to share.</p></div>
-            <div class="actions heading-actions"><button id="new-design" type="button">New</button><button id="save-design" type="button">Save design</button><button id="export" type="button" class="primary"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M10 2v10m0 0 4-4m-4 4L6 8M3 13v4h14v-4"/></svg>Export 3 PNGs</button></div>
-        </header>
-        <div class="promo-toolbar">
-            <label><span class="toolbar-label">YOUR PROMOS</span><select id="saved"><option value="">Unsaved design</option></select></label>
-            <button id="duplicate" type="button" aria-label="Save a copy">Duplicate</button><button id="delete-design" type="button">Delete</button>
+<div class="app">
+    <header class="topbar">
+        <a class="back" href="/dashboard.html" title="Back to dashboard">← Dashboard</a>
+        <input id="name" class="name-input" aria-label="Promo name" placeholder="Promo name" maxlength="80" autocomplete="off">
+        <select id="saved" class="saved-select" aria-label="Saved promos"><option value="">Unsaved design</option></select>
+        <span id="dirty" class="dirty-badge" hidden>Unsaved changes</span><button id="undo" class="icon" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo" disabled></button><button id="redo" class="icon" title="Redo (Shift+Ctrl/Cmd+Z)" aria-label="Redo" disabled></button><span class="spacer"></span>
+        <button id="new-design" type="button">New</button><button id="duplicate" type="button">Duplicate</button><button id="delete-design" type="button" class="danger">Delete</button>
+        <span class="divider"></span>
+        <button id="animation-export" type="button" title="Seamless 6-second loop of this format">Export MP4</button>
+        <button id="save-design" type="button">Save</button>
+        <button id="export" type="button" class="primary">Export 3 PNGs</button>
+    </header>
+    <aside class="rail left" aria-label="Promo layers and settings">
+        <div class="rail-tabs" id="promo-rail-tabs" role="tablist">
+            <button id="rail-tab-layers" type="button" role="tab" data-rail-tab="layers" aria-controls="layers-panel" aria-selected="true">Layers</button>
+            <button id="rail-tab-content" type="button" role="tab" data-rail-tab="content" aria-controls="promo-content-panel" aria-selected="false">Content</button>
+            <button id="rail-tab-appearance" type="button" role="tab" data-rail-tab="appearance" aria-controls="appearance-panel" aria-selected="false">Style</button>
         </div>
-        <p id="status" role="status" aria-live="polite">Loading your promo library...</p>
-        <div class="promo-workspace">
-            <aside class="promo-panel promo-content-panel">
-                <div class="panel-heading"><div><span class="step-mark">01</span><h2>Your story</h2></div><small>Start with the words</small></div>
-                <label class="design-name-label">Design name<input id="name" maxlength="80"></label>
-                <label class="headline-field"><span>THE HEADLINE</span><textarea id="title" maxlength="180" rows="3" placeholder="Give them a reason to tune in."></textarea></label>
-                <label>Subtitle<textarea id="subtitle" maxlength="240" rows="2" placeholder="The game, the occasion, the reason to join."></textarea></label>
-                <details class="optional-fields"><summary>Channel &amp; extra details</summary>
-                    <label>Status label<input id="badge" maxlength="40" placeholder="LIVE TONIGHT / 8 PM"></label>
-                    <label>Twitch channel or URL<input id="url" maxlength="100" placeholder="twitch.tv/yourchannel" autocomplete="off"></label>
-                </details>
-                <div class="section-divider"></div>
-                <div class="panel-heading"><div><span class="step-mark">02</span><h2>Bring it to life</h2></div><small>Use your own or game art</small></div>
-                <div class="asset-field">
-                    <div class="asset-preview" id="photo-preview"><span>PHOTO</span></div>
-                    <div class="asset-info"><strong>Stream photo</strong><small id="photo-name">Not added</small><div class="asset-actions"><button data-library="photo" type="button">Library</button><button data-upload="photo" type="button">Upload</button><button data-igdb="photo" type="button">IGDB</button><button data-clear="photo" type="button" aria-label="Clear stream photo">×</button></div></div>
-                </div>
-                <div class="asset-field">
-                    <div class="asset-preview logo-preview" id="artwork-preview"><span>LOGO</span></div>
-                    <div class="asset-info"><strong>Game art or logo</strong><small id="artwork-name">Optional</small><div class="asset-actions"><button data-library="artwork" type="button">Library</button><button data-upload="artwork" type="button">Upload</button><button data-igdb="artwork" type="button">IGDB</button><button data-clear="artwork" type="button" aria-label="Clear game art or logo">×</button></div></div>
-                </div>
-                <p class="helper-note">Choose an IGDB cover, artwork, or screenshot. Added artwork appears in all three formats; position and crop stay independent.</p>
-                <details id="appearance-panel" class="appearance-panel">
-                    <summary><span class="appearance-title"><strong>Appearance</strong></span><small>Optional look and lighting</small></summary>
-                    <div class="appearance-content">
-                        <label>Theme<select id="theme"></select></label>
-                        <button id="save-theme" type="button">Save current look as a reusable theme</button>
-                        <div class="section-divider"></div>
-                        <label>Background style<select id="background-mode"><option value="theme">Use theme background</option><option value="solid">Solid color</option><option value="gradient">Gradient</option><option value="transparent">Transparent</option><option value="image">Use an image</option><option value="pattern">Pattern</option></select></label>
-                        <div id="background-fill"><label>Base color<input id="background-color" type="color"></label></div>
-                        <div id="background-gradient" class="inline-controls" hidden><label>End color<input id="background-endColor" type="color"></label><label>Angle<input id="background-angle" type="number" min="0" max="360"></label></div>
-                        <label id="background-pattern-control" hidden>Pattern<select id="background-pattern">
-                            <optgroup label="Geometric"><option value="grid">Grid</option><option value="geometry">Geometry</option><option value="orbits">Orbits</option><option value="hexagons">Hexagons</option><option value="triangles">Triangles</option><option value="chevrons">Chevrons</option><option value="dots">Dots</option><option value="diagonal">Diagonal lines</option><option value="crosshatch">Crosshatch</option><option value="checker">Checkerboard</option></optgroup>
-                            <optgroup label="Organic"><option value="waves">Waves</option><option value="rings">Concentric rings</option><option value="topography">Topographic contours</option></optgroup>
-                            <optgroup label="Playful &amp; tech"><option value="confetti">Confetti</option><option value="circuit">Circuit board</option></optgroup>
-                        </select></label>
-                        <div id="background-image-controls" hidden>
-                            <div class="asset-actions background-actions"><button data-library="background" type="button">Choose image</button><button data-upload="background" type="button">Upload</button><button data-clear="background" type="button">Clear</button><small id="background-name">No background image</small></div>
-                            <div class="inline-controls"><label>Fit<select id="background-fit"><option value="cover">Fill / crop</option><option value="contain">Contain</option></select></label><label>Darken<input id="background-shade" type="range" min="0" max="100"></label></div>
-                            <div class="inline-controls"><label>Crop X<input id="background-focusX" type="range" min="0" max="100"></label><label>Crop Y<input id="background-focusY" type="range" min="0" max="100"></label></div>
-                        </div>
-                        <label id="background-vignette-control">Edge vignette<input id="background-vignette" type="range" min="0" max="70" step="1"><small id="vignette-value">18%</small></label>
-                        <p class="helper-note">Pattern, vignette, image crop, and corner radius are saved per format. Select <strong>Save design</strong> to keep them.</p>
-                        <label>Promo corner radius<input id="canvas-radius" type="number" min="0" max="300" value="0"></label>
-                        <h3>Color palette</h3><div class="color-grid" id="colors"></div>
-                        <label>Font<select id="font"></select></label>
-                    </div>
-                </details>
-            </aside>
-            <section class="promo-preview" aria-label="Promo composition">
-                <div id="ratio-tabs" role="tablist" aria-label="Aspect ratio">
-                    <button id="tab-square" type="button" role="tab" data-ratio="square" aria-controls="composition" aria-selected="true">Square <small>1:1</small></button>
-                    <button id="tab-landscape" type="button" role="tab" data-ratio="landscape" aria-controls="composition" aria-selected="false" tabindex="-1">Landscape <small>16:9</small></button>
-                    <button id="tab-portrait" type="button" role="tab" data-ratio="portrait" aria-controls="composition" aria-selected="false" tabindex="-1">Portrait <small>9:16</small></button>
-                </div>
-                <div id="composition" role="tabpanel" aria-labelledby="tab-square">
-                <div id="stage" tabindex="0" aria-label="Drag selected blocks to move them; use arrow keys to nudge">
-                    <canvas id="preview"></canvas><div id="handles"></div>
-                </div>
-                </div>
-                <p id="format-size" class="hint"></p>
-                <p id="stage-hint" class="hint">Drag a block to move it. Drag its corner to resize. Arrow keys nudge; Shift moves faster.</p>
-            </section>
-            <aside class="promo-panel">
-                <div class="panel-heading"><div><span class="step-mark">03</span><h2>Fine-tune</h2></div><small>Optional adjustments</small></div>
-                <label class="layout-label">Starting composition<select id="template"><option value="editorial">Editorial / framed photo</option><option value="spotlight">Spotlight / full-bleed photo</option><option value="minimal">Type first / minimal</option></select></label>
-                <button id="auto-layout" class="quiet-action" type="button">Reapply this composition</button>
-                <div class="section-divider"></div>
-                <h3 class="subsection-title">Layer order <span>TOP IS IN FRONT</span></h3>
-                <div id="block-list"></div>
-                <details id="block-settings" class="block-settings" open><summary><span id="block-heading">Block</span><span class="settings-chevron">Edit</span></summary>
-                <label class="check"><input id="block-enabled" type="checkbox"> Show this layer</label>
-                <details id="position-settings"><summary>Size &amp; position</summary><div class="geometry">
-                    <label>X (%)<input id="block-x" type="number" min="0" max="98" step=".1"></label><label>Y (%)<input id="block-y" type="number" min="0" max="98" step=".1"></label>
-                    <label>Width (%)<input id="block-w" type="number" min="2" max="100" step=".1"></label><label>Height (%)<input id="block-h" type="number" min="2" max="100" step=".1"></label>
-                </div></details>
-                <div id="text-controls"><label>Font weight<select id="block-fontWeight"><option value="300">Light · 300</option><option value="400">Regular · 400</option><option value="500">Medium · 500</option><option value="600">Semibold · 600</option><option value="700">Bold · 700</option><option value="800">Extra bold · 800</option><option value="900">Black · 900</option></select></label><label>Maximum font size (px)<input id="block-fontSize" type="number" min="12" max="240"></label><p class="hint">Weight and size apply to this text block in this format. Text shrinks and wraps to fit.</p><label>Text color<input id="block-color" type="color"></label><button id="inherit-color" type="button">Use palette color</button></div>
-                <div id="image-controls"><label>Shape<select id="block-shape"><option value="rounded">Rounded corners</option><option value="rectangle">Rectangle</option><option value="circle">Circle crop / logo</option></select></label><label id="radius-control">Corner radius<input id="block-radius" type="number" min="0" max="200"></label><label>Image fit<select id="block-fit"><option value="cover">Fill / crop</option><option value="contain">Contain / no crop</option></select></label><details><summary>Adjust image crop</summary><label>Horizontal focus<input id="block-focusX" type="range" min="0" max="100"></label><label>Vertical focus<input id="block-focusY" type="range" min="0" max="100"></label></details></div>
-                <p id="qr-hint" class="hint" hidden>The QR uses your Twitch URL, a white quiet zone, and a square fit. Keep it large enough to scan after sharing.</p>
-                <div class="actions"><button id="move-front" type="button">Forward</button><button id="move-back" type="button">Backward</button></div>
-                </details>
-            </aside>
+        <section id="layers-panel" role="tabpanel">
+            <div class="layers-head"><span>Layers</span><span class="add-menu" id="add-menu"><button type="button" id="add-element" class="primary" aria-haspopup="true" aria-expanded="false">+ Add element</button>
+                <span class="menu-panel" role="menu"><span class="menu-panel-col"><span class="menu-section">
+                    <button type="button" class="menu-item-btn" role="menuitem" data-add-element="text"><span class="menu-item-icon" data-icon="text"></span><span class="menu-item-text"><span class="menu-item-title">Text</span><span class="menu-item-desc">Headline, caption or label</span></span></button>
+                    <button type="button" class="menu-item-btn" role="menuitem" data-add-element="image"><span class="menu-item-icon" data-icon="image"></span><span class="menu-item-text"><span class="menu-item-title">Image</span><span class="menu-item-desc">Screenshot, logo or game art</span></span></button>
+                    <button type="button" class="menu-item-btn" role="menuitem" data-add-element="qr"><span class="menu-item-icon" data-icon="qr"></span><span class="menu-item-text"><span class="menu-item-title">QR code</span><span class="menu-item-desc">Links to your channel</span></span></button>
+                    <button type="button" class="menu-item-btn" role="menuitem" data-add-element="shape"><span class="menu-item-icon" data-icon="shape"></span><span class="menu-item-text"><span class="menu-item-title">Shape</span><span class="menu-item-desc">Box, pill or circle</span></span></button>
+                    <button type="button" class="menu-item-btn" role="menuitem" data-add-element="icon"><span class="menu-item-icon" data-icon="icon"></span><span class="menu-item-text"><span class="menu-item-title">Icon</span><span class="menu-item-desc">Star, heart, bolt and more</span></span></button>
+                </span></span></span></span></div>
+            <div id="block-list" class="layers"></div>
+            <div class="sect-body">
+                <label class="field"><span>Starting composition</span><select id="template"><option value="editorial">Editorial / framed photo</option><option value="spotlight">Spotlight / full-bleed photo</option><option value="minimal">Type first / minimal</option></select></label>
+                <button id="auto-layout" type="button">Auto-fit this format</button>
+            </div>
+        </section>
+        <section id="promo-content-panel" role="tabpanel" class="sect-body" hidden>
+            <label class="field headline-field"><span>Headline</span><textarea id="title" maxlength="180" rows="3" placeholder="Give them a reason to tune in."></textarea></label>
+            <label class="field"><span>Subtitle</span><textarea id="subtitle" maxlength="240" rows="2" placeholder="The game, the occasion, the reason to join."></textarea></label>
+            <label class="field"><span>Status label</span><input id="badge" maxlength="40" placeholder="LIVE TONIGHT / 8 PM"></label>
+            <label class="field"><span>Twitch channel or URL</span><input id="url" maxlength="100" placeholder="twitch.tv/yourchannel" autocomplete="off"></label>
+            <div class="sub-head">Artwork</div>
+            <div class="asset-field">
+                <div class="asset-preview" id="photo-preview"><span>PHOTO</span></div>
+                <div class="asset-info"><strong>Stream photo</strong><small id="photo-name">Not added</small><div class="asset-actions"><button data-library="photo" type="button">Library</button><button data-upload="photo" type="button">Upload</button><button data-igdb="photo" type="button">IGDB</button><button data-clear-asset="photo" type="button" aria-label="Clear stream photo">Clear</button></div></div>
+            </div>
+            <div class="asset-field">
+                <div class="asset-preview logo-preview" id="artwork-preview"><span>LOGO</span></div>
+                <div class="asset-info"><strong>Game art or logo</strong><small id="artwork-name">Optional</small><div class="asset-actions"><button data-library="artwork" type="button">Library</button><button data-upload="artwork" type="button">Upload</button><button data-igdb="artwork" type="button">IGDB</button><button data-clear-asset="artwork" type="button" aria-label="Clear game art or logo">Clear</button></div></div>
+            </div>
+            <p class="hint">Added artwork appears in all three formats; position and crop stay independent per format.</p>
+        </section>
+        <section id="appearance-panel" role="tabpanel" class="sect-body" hidden>
+            <label class="field"><span>Theme</span><select id="theme"></select></label>
+            <button id="save-theme" type="button">Save current look as a reusable theme</button>
+            <div id="style-fields"></div>
+        </section>
+    </aside>
+    <main class="stage-col">
+        <div class="stage-toolbar">
+            <div id="ratio-tabs" class="seg" role="tablist" aria-label="Aspect ratio">
+                <button id="tab-square" type="button" role="tab" data-ratio="square" aria-controls="composition" aria-selected="true">Square 1:1</button>
+                <button id="tab-landscape" type="button" role="tab" data-ratio="landscape" aria-controls="composition" aria-selected="false">Landscape 16:9</button>
+                <button id="tab-portrait" type="button" role="tab" data-ratio="portrait" aria-controls="composition" aria-selected="false">Portrait 9:16</button>
+            </div>
+            <span class="zoom-ctl"><button id="zoom-out" type="button" class="icon" title="Zoom out" aria-label="Zoom out">&minus;</button><button id="zoom-fit" type="button" title="Fit to window">Fit</button><button id="zoom-in" type="button" class="icon" title="Zoom in" aria-label="Zoom in">+</button></span><span id="format-size" class="hint"></span><span id="animation-hint" class="hint"></span>
         </div>
+        <div id="composition" role="tabpanel">
+            <div id="stage" tabindex="0" aria-label="Drag selected elements to move them; use arrow keys to nudge">
+                <canvas id="preview"></canvas><div id="els"></div><div id="snap-guides" aria-hidden="true"></div>
+            </div>
+        </div>
+        <div class="statusbar"><span class="info" id="status" role="status" aria-live="polite">Loading…</span><span class="tips" id="stage-hint"></span></div>
     </main>
+    <aside class="rail right" aria-label="Properties"><div id="properties" class="props"></div></aside>
+</div>
     <dialog id="asset-dialog">
         <div class="actions"><h2>Choose an image</h2><button id="close-assets" type="button">Close</button></div>
         <label>Search library<input id="asset-search" type="search" placeholder="Name or tag"></label>
@@ -111,7 +91,7 @@
     </dialog>
     <dialog id="theme-dialog">
         <div class="actions"><h2>Custom theme</h2><button id="close-theme" type="button">Close</button></div>
-        <p class="hint">Save this palette, font, and the current format's background for other promos. Your text, images in blocks, and arrangement are not included. Applying a theme copies its settings, so existing promos stay independent.</p>
+        <p class="hint">Save this palette, font, and the current format's background for other promos. Element content, images, and arrangement are not included. Applying a theme copies its settings, so existing promos stay independent.</p>
         <label>Theme name<input id="theme-name" maxlength="80" placeholder="My channel style"></label>
         <label>Saved theme to update or delete<select id="theme-target"><option value="">Choose a saved theme</option></select></label>
         <div class="actions"><button id="create-theme" type="button">Save as new</button><button id="update-theme" type="button" hidden>Update saved theme</button><button id="delete-theme" type="button" hidden>Delete saved theme</button></div>
@@ -125,9 +105,11 @@
         <p id="igdb-status" role="status"></p><div id="igdb-grid"></div>
     </dialog>
     <input id="upload-file" type="file" accept="image/png,image/jpeg,image/webp,image/avif,image/gif,image/svg+xml" hidden>
+    <script src="/vendor/Sortable.min.js"></script>
     <script src="/js/nav.js"></script>
     <script src="/js/studio-themes.js"></script>
     <script src="/overlay-theme.js"></script>
+    <script src="/overlay-shared.js"></script>
     <script src="/js/promo-model.js"></script>
     <script type="module" src="/js/promo-creator.js"></script>
 </body>

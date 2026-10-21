@@ -30,9 +30,8 @@ test('promo scene share bundles include referenced assets and import with copy, 
     const sourceShare = createPromoShareService({ promoService: sourceService, shareAssets: sourceCodec });
     const promo = sourceService.save({
         name: 'Launch scene',
-        title: 'Going live',
         font: 'sample font',
-        photo: '/custom-overlay-assets/scene.png'
+        elements: [{ id: 'headline', type: 'text', content: 'Going live' }, { id: 'scene', type: 'image', src: '/custom-overlay-assets/scene.png' }]
     });
     const manifest = { format: 'streampulse-share', version: 1, items: [] };
     const archive = new AdmZip();
@@ -59,7 +58,7 @@ test('promo scene share bundles include referenced assets and import with copy, 
     assert.deepEqual(destinationShare.importItem(item, raw, 'copy', importAssets, freeId), {
         key: `promo:${promo.id}`, status: 'added', id: promo.id
     });
-    assert.equal(destinationService.list()[0].photo, '/custom-overlay-assets/scene.png');
+    assert.equal(destinationService.list()[0].elements[1].src, '/custom-overlay-assets/scene.png');
     assert.equal(destinationService.list()[0].font, 'sample font');
     assert.deepEqual(fs.readFileSync(path.join(destinationAssets, 'scene.png')), image);
     assert.deepEqual(fs.readFileSync(path.join(destinationAssets, 'abcdef-sample-font.woff2')), font);
@@ -71,9 +70,9 @@ test('promo scene share bundles include referenced assets and import with copy, 
     assert.equal(copied.id, `${promo.id}-2`);
     const copy = destinationService.list().find(design => design.id === copied.id);
     assert.equal(copy.name, 'Launch scene (imported)');
-    assert.notEqual(copy.photo, '/custom-overlay-assets/scene.png');
+    assert.notEqual(copy.elements[1].src, '/custom-overlay-assets/scene.png');
     assert.equal(copy.font, 'sample font');
-    assert.ok(fs.existsSync(path.join(destinationAssets, decodeURIComponent(copy.photo.split('/').pop()))));
+    assert.ok(fs.existsSync(path.join(destinationAssets, decodeURIComponent(copy.elements[1].src.split('/').pop()))));
     assert.ok(fs.readdirSync(destinationAssets).some(name =>
         name !== 'abcdef-sample-font.woff2' && name.endsWith('-sample-font.woff2') &&
         fs.readFileSync(path.join(destinationAssets, name)).equals(font)
@@ -87,5 +86,5 @@ test('promo scene share bundles include referenced assets and import with copy, 
     const replaced = destinationShare.importItem(item, raw.replace('Going live', 'Updated headline'), 'replace', destinationCodec.createImporter(bundle), freeId);
     assert.equal(replaced.status, 'replaced');
     assert.equal(replaced.id, promo.id);
-    assert.equal(destinationService.list().find(design => design.id === promo.id).title, 'Updated headline');
+    assert.equal(destinationService.list().find(design => design.id === promo.id).elements[0].content, 'Updated headline');
 });

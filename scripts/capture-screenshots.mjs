@@ -17,6 +17,9 @@ const dummyPromo = {
     }),
     id: 'fictional-promo'
 };
+dummyPromo.layouts.square.background = promoModel.background({
+    ...dummyPromo.layouts.square.background, mode: 'pattern', pattern: 'hexagons', motion: 'sweep'
+});
 const dummyPromoImage = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
 <defs><linearGradient id="sky" x2=".6" y2="1"><stop stop-color="#080d29"/><stop offset=".55" stop-color="#66379d"/><stop offset="1" stop-color="#ffb382"/></linearGradient>
 <radialGradient id="moon"><stop stop-color="#ffe8bd"/><stop offset="1" stop-color="#e395d9"/></radialGradient></defs>
@@ -423,6 +426,7 @@ async function run() {
             wait: 1200,
             action: async p => {
                 await p.setViewport({ width: 1600, height: 1600, deviceScaleFactor: 2 });
+                await p.click('#rail-tab-appearance');
             }
         },
         {

@@ -30,7 +30,7 @@ Use the overlay wizards to choose a look, preview it, and copy the link into OBS
 
 ### Promo Creator
 
-Open **Tools > Promo Creator** to make a professional stream announcement with optional built-in or reusable custom themes, solid/gradient/transparent/image backgrounds, 15 selectable patterns, adjustable vignettes, IGDB artwork, your own photo, rounded/circular images, fonts, per-format text-weight controls, Twitch URL, and QR code. Square, landscape, and portrait tabs keep arrangements and backgrounds independent; download all three PNGs in one ZIP. Designs and custom themes save locally for next time; no social accounts or publishing integrations are involved.
+Open **Tools > Promo Creator** to build announcements from shared Text, Image, and QR elements with independent square, landscape, and portrait placements. It includes reusable themes, 23 patterns with loopable motion, IGDB artwork, per-format typography and image crops, and all-format PNG ZIP or seamless MP4 export. Designs and custom themes save locally, and the editor reopens your last saved design.
 
 **Good for:** a reusable “going live” image that matches your channel. See the [Promo Creator guide](promo-creator.md).
 

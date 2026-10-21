@@ -88,3 +88,4 @@ This document provides project architecture context and mandatory UI/UX design r
   - Always update the documentation in `docs/` whenever adding, modifying, or refactoring features, studio controllers, overlays, APIs, or configurations.
   - Maintain the live documentation site at `https://jarbochov.github.io/StreamPulse/` up to date on every change.
   - Keep all screenshots in `docs/images/` sanitized with purely fictional dummy data (never use real names or live streamer notes). Run `node scripts/capture-screenshots.mjs` when updating visuals.
+- **Changelog**: Unreleased features get one short entry describing what exists (under Added). Only describe changes or fixes (Changed/Fixed) for features already shipped in a release. Keep entries terse while a feature is in development.

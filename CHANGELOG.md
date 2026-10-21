@@ -7,18 +7,14 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Promo Creator under Tools: saved designs, independent 1:1/16:9/9:16 arrangements, editable title/photo/artwork/URL/QR blocks, one-click themes, font chooser, rounded images/circular logos, IGDB artwork imported with actual-format detection, and all three PNGs downloaded together in one ZIP without social integrations.
-- Promo Creator includes hexagon, dot, diagonal-line, and checkerboard patterns, adjustable vignette, and more deliberate text/artwork placements across formats.
+- Promo Creator under Tools: build reusable social promos with Text, Image, QR, Shape and Icon elements, layers, undo/redo and independent square, landscape and portrait layouts. Includes themes, 20 patterns with scale, motion and gradient animation, a configurable accent bar and vignette, IGDB artwork, and PNG ZIP or seamless MP4 export.
 - Custom overlay Poll element and 400 × 150 Compact poll preset: adaptive 2–5-choice result bars, native Twitch vote counts/percentages, remaining-time countdown, configurable completed-result duration, and preview-only fictional samples.
 
 ### Fixed
-- Promo Creator preview canvas now keeps each format's aspect ratio in Safari and other short-viewport layouts.
-- Promo Creator now records select-based pattern changes and restores them with saved designs; new art enables its reserved layer across formats.
 - Game Plan custom-cover Library picker now reads the shared asset API's array and image kinds, shows friendly labels, clears stale filters when reopened, and reports failed loads instead of claiming the library is empty.
 - Automatic Poll active pages now honor visible Poll elements' results duration before returning to the previous page, including a bounded wait for Twitch's final status.
 
 ### Changed
-- Promo Creator now uses ratio tabs and a compact optional Appearance panel instead of the prominent theme gallery. Create reusable named custom themes and independent solid, gradient, transparent, image, or patterned backgrounds for each format. Background/theme assets follow library renames and deletion protection; full backups include promo designs and custom themes.
 - All custom overlays now prioritize automatic pages as alerts, featured messages, polls, then commands. Resume unexpired polls after interruptions; keep only latest pending events with wall-clock expiry and cancel pending takeovers on manual navigation.
 - Alert skip/clear immediately releases the alert page, and alert pages mount before their playback event is delivered.
 

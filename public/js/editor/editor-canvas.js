@@ -8,6 +8,7 @@ import {
     primary, inView, visibleElements, withGroups, setSelection, changed,
     expand, liveSignature, alertSample, toast
 } from './editor-state.js';
+import { snapAxis as findSnapAxis } from '../editor-geometry.js';
 
 const shared = window.OverlayShared || {};
 
@@ -822,22 +823,7 @@ export function snapTargets(excludeIds) {
 }
 
 export function snapAxis(candidates, targets) {
-    const threshold = 6 / state.zoom;
-    let best = null;
-    for (const c of candidates) {
-        for (const t of targets) {
-            const d = t - c;
-            if (Math.abs(d) <= threshold && (best === null || Math.abs(d) < Math.abs(best))) best = d;
-        }
-    }
-    if (best === null) return { delta: 0, lines: [] };
-    const lines = new Set();
-    for (const c of candidates) {
-        for (const t of targets) {
-            if (Math.abs(t - (c + best)) < 0.5) lines.add(t);
-        }
-    }
-    return { delta: best, lines: [...lines] };
+    return findSnapAxis(candidates, targets, 6 / state.zoom);
 }
 
 // ---- Canvas Gestures Setup --------------------------------------------------------

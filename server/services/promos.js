@@ -21,7 +21,10 @@ function createPromoService({ dataDir }) {
         return themes;
     };
     const writeThemes = themes => safeWriteFileSync(themeFile, JSON.stringify(themes, null, 2));
-    const imageRefs = design => [design.photo, design.artwork, ...Object.values(design.layouts || {}).map(layout => layout.background?.image), design.background?.image];
+    const imageRefs = design => [
+        ...(design.elements || []).filter(element => element.type === 'image').map(element => element.src),
+        design.background?.image
+    ];
     return {
         list: read,
         listThemes: readThemes,
@@ -81,7 +84,7 @@ function createPromoService({ dataDir }) {
             const designs = read(), themes = readThemes();
             let changed = false;
             for (const design of [...designs, ...themes]) {
-                const refs = [[design, 'photo'], [design, 'artwork'], ...Object.values(design.layouts || {}).filter(layout => layout.background).map(layout => [layout.background, 'image'])];
+                const refs = [...(design.elements || []).filter(element => element.type === 'image').map(element => [element, 'src'])];
                 if (design.background) refs.push([design.background, 'image']);
                 for (const [object, key] of refs) if (object[key] === url) {
                     object[key] = `/custom-overlay-assets/${encodeURIComponent(newName)}`;

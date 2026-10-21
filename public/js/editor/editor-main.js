@@ -29,6 +29,7 @@ import {
     renderSettings, renderProperties, syncGeometryInputs,
     initInspectorEvents, registerInspectorCallbacks, loadAssetTags
 } from './editor-inspector.js';
+import { alignmentOffset } from '../editor-geometry.js';
 
 const shared = window.OverlayShared || {};
 window.editorState = state;
@@ -227,12 +228,9 @@ export function alignSelection(mode) {
         : { x: 0, y: 0, w: state.overlay.canvas.width, h: state.overlay.canvas.height };
     for (const el of items) {
         const b = visualBoxOf(el);
-        if (mode === 'left') el.x += relative.x - b.x;
-        else if (mode === 'center') el.x += (relative.x + (relative.w - b.w) / 2) - b.x;
-        else if (mode === 'right') el.x += (relative.x + relative.w - b.w) - b.x;
-        else if (mode === 'top') el.y += relative.y - b.y;
-        else if (mode === 'middle') el.y += (relative.y + (relative.h - b.h) / 2) - b.y;
-        else el.y += (relative.y + relative.h - b.h) - b.y;
+        const offset = alignmentOffset(b, relative, mode);
+        el.x += offset.x;
+        el.y += offset.y;
         el.x = Math.round(el.x);
         el.y = Math.round(el.y);
     }
