@@ -163,6 +163,7 @@ function createOverlayRoutes({
     listOverlayVisibility = () => [],
     setOverlayVisibility = () => null
 } = {}) {
+    let lastStudioRandomizerSettings = null;
     return async function handleOverlayRoutes(req, res, url, pathname) {
         // --- 1. Alerts endpoints ---
         if (pathname === '/api/alerts' && req.method === 'GET') {
@@ -1399,6 +1400,23 @@ function createOverlayRoutes({
             return true;
         }
 
+        if (pathname === '/api/randomizer/state' && req.method === 'POST') {
+            try {
+                const raw = await readRequestBody(req);
+                const body = JSON.parse(raw || '{}');
+                if (!body || typeof body !== 'object' || Array.isArray(body) || !Array.isArray(body.choices)) {
+                    throw new Error('Randomizer state must include a choices array');
+                }
+                const choices = body.choices.map(choice => String(choice).trim()).filter(Boolean);
+                if (!choices.length) throw new Error('Randomizer state must include at least one choice');
+                lastStudioRandomizerSettings = { ...body, choices };
+                sendJson(res, { ok: true });
+            } catch (err) {
+                sendError(res, err.message, 400);
+            }
+            return true;
+        }
+
         if (pathname === '/api/randomizer/spin' && (req.method === 'POST' || req.method === 'GET')) {
             try {
                 let body = {};
@@ -1407,11 +1425,23 @@ function createOverlayRoutes({
                     body = JSON.parse(raw || '{}');
                 }
                 const query = Object.fromEntries(url.searchParams.entries());
+                const inheritedCompanionOverrides = body.inheritStudioSettings && !body.preset ? { ...body } : null;
+                if (body.inheritStudioSettings && !body.preset && lastStudioRandomizerSettings) {
+                    body = { ...lastStudioRandomizerSettings, ...body };
+                    if (inheritedCompanionOverrides.buttonPreset && !inheritedCompanionOverrides.buttonPhrases) {
+                        body.buttonPhrases = undefined;
+                    }
+                } else if (!body.inheritStudioSettings && Array.isArray(body.choices) && body.choices.length) {
+                    lastStudioRandomizerSettings = { ...body };
+                }
                 const presetId = body.preset || query.preset || null;
                 let choices = Array.isArray(body.choices) ? body.choices.map(c => String(c).trim()).filter(Boolean) : [];
-                let winnerHeader = body.winnerHeader || query.winHeader || query.winnerHeader || '';
-                let winnerSub = body.winnerSub || query.winSub || query.winnerSub || '';
-                let buttonPhrases = Array.isArray(body.buttonPhrases) ? body.buttonPhrases : [];
+                let winnerHeader = body.winnerHeader !== undefined ? String(body.winnerHeader) : (query.winHeader || query.winnerHeader || undefined);
+                let winnerSub = body.winnerSub !== undefined ? String(body.winnerSub) : (query.winSub || query.winnerSub || undefined);
+                let buttonPhrases = Array.isArray(body.buttonPhrases)
+                    ? body.buttonPhrases.map(phrase => String(phrase).trim()).filter(Boolean)
+                    : undefined;
+                const buttonPreset = body.buttonPreset || query.btnPreset || undefined;
 
                 let presets = [];
                 let matched = null;
@@ -1429,9 +1459,11 @@ function createOverlayRoutes({
                         matched = (presetId ? presets.find(p => p.id === presetId) : null) || presets[0];
                         if (matched) {
                             choices = matched.choices || [];
-                            if (!winnerHeader && matched.winnerHeader) winnerHeader = matched.winnerHeader;
-                            if (!winnerSub && matched.winnerSub) winnerSub = matched.winnerSub;
-                            if (!buttonPhrases.length && matched.buttonPhrases) buttonPhrases = matched.buttonPhrases;
+                            if (winnerHeader === undefined && matched.winnerHeader) winnerHeader = matched.winnerHeader;
+                            if (winnerSub === undefined && matched.winnerSub) winnerSub = matched.winnerSub;
+                            if (buttonPhrases === undefined && !body.inheritStudioSettings && matched.buttonPhrases) {
+                                buttonPhrases = matched.buttonPhrases;
+                            }
                         }
                     }
                 } else if (presetId && presetId !== 'chatters') {
@@ -1462,13 +1494,18 @@ function createOverlayRoutes({
                     updatePresetWeightsAfterSpin(activePreset, winner);
                 }
 
-                const mode = body.mode || query.mode || 'roller';
-                const suspense = body.suspense || query.suspense || 'normal';
-                const duration = Number(body.duration || query.duration) || 6;
-                const autohide = body.autohide !== undefined ? Number(body.autohide) : (query.autohide !== undefined ? Number(query.autohide) : 8);
-                const theme = body.theme || query.theme || '';
+                const mode = body.mode || query.mode || undefined;
+                const suspense = body.suspense || query.suspense || undefined;
+                const duration = body.duration !== undefined ? Number(body.duration) : (query.duration !== undefined ? Number(query.duration) : undefined);
+                const autohide = body.autohide !== undefined ? Number(body.autohide) : (query.autohide !== undefined ? Number(query.autohide) : undefined);
+                const theme = body.theme || query.theme || undefined;
                 const accent = body.accent || query.accent || '';
                 const font = body.font || query.font || '';
+                if (buttonPhrases === undefined && buttonPreset && buttonPreset !== 'static' && buttonPreset !== 'custom') {
+                    const selectedButtonPreset = loadRandomizerButtonPresets().find(preset => preset.id === buttonPreset);
+                    if (!selectedButtonPreset) throw new Error('Unknown randomizer button phrase preset');
+                    buttonPhrases = selectedButtonPreset.phrases || [];
+                }
 
                 const payload = {
                     preset: presetId,
@@ -1478,13 +1515,13 @@ function createOverlayRoutes({
                     weightMode: effectiveWeightMode,
                     choiceStats: matched?.choiceStats || activePreset.choiceStats || {},
                     winner,
-                    winnerHeader,
-                    winnerSub,
-                    mode,
-                    suspense,
-                    theme,
-                    duration,
-                    autohide,
+                    ...(winnerHeader !== undefined ? { winnerHeader } : {}),
+                    ...(winnerSub !== undefined ? { winnerSub } : {}),
+                    ...(mode !== undefined ? { mode } : {}),
+                    ...(suspense !== undefined ? { suspense } : {}),
+                    ...(theme !== undefined ? { theme } : {}),
+                    ...(duration !== undefined ? { duration } : {}),
+                    ...(autohide !== undefined ? { autohide } : {}),
                     accent,
                     font,
                     weight: body.weight || query.weight || '',
@@ -1492,9 +1529,12 @@ function createOverlayRoutes({
                     outline: body.outline || query.outline || '',
                     bg: body.bg || query.bg || '',
                     scale: query.scale || '',
-                    buttonPhrases,
-                    showButton: body.showButton !== undefined ? !!body.showButton : (query.button === '1'),
-                    buttonText: body.buttonText || query.btnText || '',
+                    ...(buttonPreset !== undefined ? { buttonPreset } : {}),
+                    ...(buttonPhrases !== undefined ? { buttonPhrases } : {}),
+                    ...(body.showButton !== undefined
+                        ? { showButton: !!body.showButton }
+                        : (query.button !== undefined ? { showButton: query.button === '1' || query.button === 'true' } : {})),
+                    ...(body.buttonText !== undefined ? { buttonText: String(body.buttonText) } : {}),
                     deckLogo: body.deckLogo !== undefined ? String(body.deckLogo).trim() : (query.deckLogo !== undefined ? String(query.deckLogo).trim() : (matched?.deckLogo || '')),
                     deckWatermark: body.deckWatermark !== undefined ? String(body.deckWatermark).trim() : (query.deckWatermark !== undefined ? String(query.deckWatermark).trim() : (matched?.deckWatermark !== undefined ? String(matched.deckWatermark).trim() : 'STREAMPULSE')),
                     at: Date.now()

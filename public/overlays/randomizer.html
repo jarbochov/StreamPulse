@@ -987,6 +987,7 @@
         let currentMode = params.get('mode') || 'roller';
         let currentPresetId = params.get('preset') || 'jackbox';
         let currentBtnPresetId = params.get('btnPreset') || params.get('btnSet') || 'chaos';
+        let currentButtonText = params.get('btnText') || 'Spin Now!';
         let currentQuotePresetId = params.get('quotePreset') || 'multiverse';
         let currentSuspense = params.get('suspense') || 'normal';
         let showOverlayButton = params.get('button') === '1';
@@ -1223,10 +1224,10 @@
 
         function updateButtonLabel() {
             let label = 'Let Chaos Reign!';
-            const presetVal = params.get('btnPreset') || currentBtnPresetId || 'chaos';
+            const presetVal = currentBtnPresetId || params.get('btnPreset') || 'chaos';
 
             if (presetVal === 'static') {
-                label = params.get('btnText') || 'Spin Now!';
+                label = currentButtonText || params.get('btnText') || 'Spin Now!';
             } else if (activeButtonPhrases && activeButtonPhrases.length) {
                 label = activeButtonPhrases[Math.floor(Math.random() * activeButtonPhrases.length)];
             }
@@ -1463,8 +1464,13 @@
                                     ? `-1px -1px 0 ${d.outline}, 1px -1px 0 ${d.outline}, -1px 1px 0 ${d.outline}, 1px 1px 0 ${d.outline}, 0 2px 8px rgba(0,0,0,0.6)`
                                     : '0 2px 8px rgba(0,0,0,0.4)');
                             }
-                            if (Array.isArray(d.buttonPhrases) && d.buttonPhrases.length) {
+                            if (d.buttonPreset !== undefined) currentBtnPresetId = d.buttonPreset;
+                            if (Array.isArray(d.buttonPhrases)) {
                                 activeButtonPhrases = d.buttonPhrases;
+                                updateButtonLabel();
+                            }
+                            if (d.buttonText !== undefined) {
+                                currentButtonText = String(d.buttonText) || 'Spin Now!';
                                 updateButtonLabel();
                             }
                             if (d.weights) currentWeights = d.weights;
@@ -1490,7 +1496,7 @@
                                 mode: d.mode || currentMode,
                                 suspense: d.suspense || currentSuspense,
                                 theme: d.theme || currentTheme,
-                                duration: d.duration || 6,
+                                duration: d.duration,
                                 autohide: d.autohide
                             });
                         }

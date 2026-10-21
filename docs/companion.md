@@ -21,8 +21,8 @@ StreamPulse features deep hardware control integration with [Bitfocus Companion]
 With the Companion module connected, you can bind the following actions to any Stream Deck button:
 
 - **Choice Randomizer**:
-  - `Spin Randomizer`: Triggers the wheel, slot machine roller, or physical card deck. Choose the animation duration (4, 6, 8, or 10 seconds) and winner auto-hide after 8, 15, or 30 seconds, or set it to never; the button displays the last-used mode and spin duration.
-  - `Draw Randomizer Card`: A preconfigured card-deck button; its duration and auto-hide behavior can be changed in the action settings.
+  - `Spin Randomizer`: Triggers the wheel, slot machine roller, or physical card deck. Mode, duration, suspense, auto-hide, button visibility and phrase preset inherit the current Studio/overlay settings unless explicitly overridden. It also supports a custom phrase pool and winner headline/subtitle. The key displays the last-used mode and spin duration.
+  - `Draw Randomizer Card`: A preconfigured card-deck button; duration and auto-hide can inherit the current Studio/overlay settings or be changed in the action settings.
   - `Set Preset`: Switches between saved choice sets (e.g. "Jackbox Games", "Giveaway Chatters", "Next Level").
 - **Overlay Visibility**:
   - `Toggle Overlay`: Smoothly fades any overlay (Credits, Goal, Countdown, Stopwatch, Music, Custom Overlay) in or out.

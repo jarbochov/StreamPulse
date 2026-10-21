@@ -11,7 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Changed
-- Add the card-deck mode, selectable 4/6/8/10-second spin duration, and winner auto-hide choices (8/15/30 seconds or never) to the Companion Randomizer button; display the last-used mode and duration on the key. Randomizer scale is now URL-parameter-only and is no longer configurable from the Studio.
+- Add the card-deck mode, selectable 4/6/8/10-second spin duration, and winner auto-hide choices (8/15/30 seconds or never) to the Companion Randomizer button; display the last-used mode and duration on the key. The Studio syncs its settings without spinning so omitted Companion options inherit them, with controls for button visibility/phrases and winner text. Randomizer scale remains URL-parameter-only.
 
 ### Added
 - Promo Creator under Tools: saved designs, independent 1:1/16:9/9:16 arrangements, editable title/photo/artwork/URL/QR blocks, per-format text weights from 300–900, one-click themes, font chooser, rounded images/circular logos, IGDB artwork imported with actual-format detection, and all three PNGs downloaded together in one ZIP without social integrations.

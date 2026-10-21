@@ -1902,6 +1902,8 @@
         const STORAGE_KEY = 'streampulse_randomizer_studio';
 
         let _saveStudioTimer = null;
+        let studioSettingsSync = Promise.resolve();
+        let studioSettingsReady = false;
         function saveStudioState() {
             clearTimeout(_saveStudioTimer);
             _saveStudioTimer = setTimeout(() => {
@@ -1931,6 +1933,7 @@
                         deckWatermark: $('deck-watermark-input')?.value !== undefined ? $('deck-watermark-input').value.trim() : 'STREAMPULSE'
                     };
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                    syncStudioSettingsToServer();
                 } catch (e) {}
             }, 200);
         }
@@ -2635,6 +2638,52 @@
             return choices;
         }
 
+        function syncStudioSettingsToServer() {
+            const choices = getChoices();
+            if (!choices.length) return studioSettingsSync;
+            let winnerSub = '';
+            if (activeQuotesPool.length) winnerSub = activeQuotesPool[Math.floor(Math.random() * activeQuotesPool.length)];
+            const state = {
+                preset: currentPresetId,
+                choices,
+                weightMode: currentWeightMode,
+                weightSettings: getWeightSettings(),
+                weights: getActiveWeightsMap(),
+                choiceStats: currentChoiceStats,
+                winnerHeader: $('winner-header-input')?.value.trim() || 'THE UNIVERSE HAS DECIDED',
+                winnerSub,
+                buttonPreset: currentBtnPresetId,
+                mode: currentMode,
+                suspense: $('suspense-select')?.value || currentSuspense,
+                theme: $('theme-select')?.value || currentTheme,
+                bg: getEffectiveBackground(),
+                duration: Number($('spin-duration')?.value) || 6,
+                autohide: Number($('autohide-select')?.value) || 0,
+                buttonPhrases: activeButtonPhrases,
+                buttonText: currentBtnPresetId === 'static' ? ($('btn-text-static')?.value.trim() || '') : '',
+                showButton: !!$('overlay-button-enabled')?.checked,
+                accent: $('display-stage')?.style.getPropertyValue('--stage-accent') || '',
+                font: $('ap-font')?.value.trim() || '',
+                weight: $('ap-weight')?.value.trim() || '',
+                text: $('ap-text')?.value.trim() || '',
+                outline: $('ap-outline')?.value.trim() || '',
+                deckLogo: currentDeckLogo,
+                deckWatermark: currentDeckWatermark
+            };
+            studioSettingsSync = studioSettingsSync.catch(() => {}).then(async () => {
+                const response = await fetch('/api/randomizer/state', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(state)
+                });
+                const result = await response.json();
+                if (!response.ok || !result.ok) {
+                    throw new Error(result.error || `HTTP ${response.status}`);
+                }
+            }).catch(error => console.error('Failed to sync Randomizer Studio settings:', error));
+            return studioSettingsSync;
+        }
+
         // Update OBS and Bitfocus Companion URLs
         function updateObsUrl() {
             if (!$('obs-url-input')) return;
@@ -3276,9 +3325,11 @@
         setChoices(DEFAULT_FALLBACK_CHOICES);
         applySavedStudioUI(savedStudio);
         loadOverlayTheme();
-        fetchChoicesPresets();
-        fetchButtonPresets();
-        fetchQuotePresets();
+        Promise.all([fetchChoicesPresets(), fetchButtonPresets(), fetchQuotePresets()])
+            .then(() => {
+                studioSettingsReady = true;
+                return syncStudioSettingsToServer();
+            });
         setTimeout(() => { isInitialLoad = false; }, 400);
 
         // 1. Choices Preset Actions
@@ -4016,6 +4067,7 @@
                         choiceStats: currentChoiceStats,
                         winnerHeader: winHeader,
                         winnerSub: winSub,
+                        buttonPreset: currentBtnPresetId,
                         mode,
                         suspense,
                         theme,
@@ -4023,6 +4075,7 @@
                         duration,
                         autohide,
                         buttonPhrases: activeButtonPhrases,
+                        buttonText: currentBtnPresetId === 'static' ? ($('btn-text-static')?.value.trim() || '') : '',
                         showButton: $('overlay-button-enabled')?.checked ? 1 : 0,
                         accent: $('display-stage')?.style.getPropertyValue('--stage-accent') || '',
                         font: $('ap-font')?.value.trim() || '',
@@ -4102,6 +4155,9 @@
             try {
                 const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const ws = new WebSocket(`${proto}//${location.host}`);
+                ws.onopen = () => {
+                    if (studioSettingsReady) syncStudioSettingsToServer();
+                };
                 ws.onmessage = event => {
                     try {
                         if (typeof event.data === 'string' && !event.data.includes('"randomizer-spin"')) return;
@@ -4120,6 +4176,33 @@
                             if (d.theme) applyTheme(d.theme, true);
                             if (d.bg) applyBackgroundStyle(d.bg);
                             if (d.mode && d.mode !== currentMode) setStyleMode(d.mode);
+                            let buttonPhraseChanged = false;
+                            if (d.showButton !== undefined && $('overlay-button-enabled')) {
+                                $('overlay-button-enabled').checked = !!d.showButton;
+                                syncOverlayButtonPreview();
+                            }
+                            if (d.buttonPreset !== undefined) {
+                                currentBtnPresetId = d.buttonPreset;
+                                if ($('btn-preset-select') && Array.from($('btn-preset-select').options).some(option => option.value === d.buttonPreset)) {
+                                    $('btn-preset-select').value = d.buttonPreset;
+                                }
+                                buttonPhraseChanged = true;
+                            }
+                            if (Array.isArray(d.buttonPhrases)) {
+                                activeButtonPhrases = d.buttonPhrases;
+                                if ($('btn-phrases-textarea')) $('btn-phrases-textarea').value = d.buttonPhrases.join('\n');
+                                if ($('btn-phrases-count-pill')) $('btn-phrases-count-pill').textContent = `${d.buttonPhrases.length} phrases`;
+                                buttonPhraseChanged = true;
+                            }
+                            if (d.buttonText !== undefined) {
+                                const staticText = $('btn-text-static');
+                                if (staticText) staticText.value = String(d.buttonText);
+                                buttonPhraseChanged = true;
+                            }
+                            if (buttonPhraseChanged) {
+                                updateButtonLabel();
+                                syncOverlayButtonPreview();
+                            }
                             runSpin({
                                 choices: (Array.isArray(d.choices) && d.choices.length) ? d.choices : choices,
                                 weights: d.weights || currentWeightsMap,
@@ -4129,7 +4212,7 @@
                                 mode: d.mode || currentMode,
                                 suspense: d.suspense || currentSuspense,
                                 theme: d.theme || currentTheme,
-                                duration: d.duration || 6,
+                                duration: d.duration,
                                 autohide: d.autohide
                             });
                         }

@@ -86,19 +86,33 @@ IGDB operations use the configured Twitch client credentials. Missing credential
   - `winner`: Optional forced winner text; normally selected by the server's weighting rules.
   - `mode`: `roller`, `wheel`, or `deck`.
   - `duration`: Spin duration in seconds (Studio and Companion choices: 4, 6, 8, or 10).
-  - `autohide`: Seconds to keep the winner on screen; `0` keeps it visible indefinitely (default `8`).
+  - `autohide`: Seconds to keep the winner on screen; `0` keeps it visible indefinitely. Omitted Companion options preserve the latest Studio settings; otherwise the overlay's own defaults apply.
   - `theme`: Temporary visual theme override.
+  - `inheritStudioSettings`: When `true`, omitted Companion options inherit the latest Studio settings synced to the server.
+  - `showButton`: Explicitly show or hide the overlay's spin button. Omit to preserve its current visibility.
+  - `buttonPreset`, `buttonPhrases`, `buttonText`: Select a saved button phrase preset, provide a custom phrase array, or set a fixed label.
+  - `winnerHeader`, `winnerSub`: Optional winner headline and subtitle overrides.
   - `scale`: URL query parameter only; controls overlay scale and is not accepted from the JSON body.
 - **Example request**:
   ```json
   { "choices": ["Choice A", "Choice B"], "mode": "wheel", "duration": 8 }
   ```
 - **Scale example**: `GET /api/randomizer/spin?mode=deck&scale=1.2`, or set `scale=1.2` on the OBS overlay URL. Randomizer Studio has no scale control.
+- **Companion inheritance**: Send `{ "inheritStudioSettings": true }` with only the desired overrides. The Studio automatically syncs settings when opened, reconnected, or changed. Without a Studio sync since server startup, omitted fields stay omitted and each overlay retains its own settings.
+
+### Sync Randomizer Studio Settings
+- **Endpoint**: `POST /api/randomizer/state`
+- **Description**: Updates the server's in-memory settings snapshot without triggering a spin. The Randomizer Studio calls this on startup, WebSocket reconnection, and settings changes so Companion can inherit the latest choices and presentation options.
+- **Body**: A Studio spin settings object containing a non-empty `choices` array.
 - **Response**: `{ "ok": true, "winner": "...", "preset": null, "mode": "wheel", ... }`, including weights and the broadcast `payload`.
 
 ### Get Saved Randomizer Presets
 - **Endpoint**: `GET /api/randomizer/presets`
 - **Description**: Returns `{ "presets": [...] }` with saved choices, weights, and weighting settings. There is no `/api/randomizer/state` endpoint.
+
+### Get Randomizer Button Phrase Presets
+- **Endpoint**: `GET /api/randomizer/button-presets`
+- **Description**: Returns `{ "presets": [...] }` with IDs, names, and phrases for Companion's dynamic button phrase selector.
 
 ---
 
