@@ -3,12 +3,6 @@
     const SIZES = { square: [1080, 1080], landscape: [1920, 1080], portrait: [1080, 1920] };
     const ELEMENT_TYPES = ['text', 'image', 'qr', 'shape', 'icon'];
     const TYPE_NAMES = { text: 'Text', image: 'Image', qr: 'QR code', shape: 'Shape', icon: 'Icon' };
-    const ICONS = {
-        star: 'M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21l1.2-6.9-5-4.9 6.9-1z', heart: 'M12 21s-8-5.3-8-11a4.5 4.5 0 018-2.8A4.5 4.5 0 0120 10c0 5.7-8 11-8 11z',
-        bolt: 'M13 2L4 14h7l-1 8 9-12h-7z', play: 'M7 4l13 8-13 8z', check: 'M9 16.2L4.8 12l-1.8 1.8L9 19.8 21 7.8 19.2 6z',
-        arrow: 'M4 11h12.2l-5.6-5.6L12 4l8 8-8 8-1.4-1.4 5.6-5.6H4z', bell: 'M12 22a2 2 0 002-2h-4a2 2 0 002 2zm6-6V11a6 6 0 00-5-5.9V4a1 1 0 00-2 0v1.1A6 6 0 006 11v5l-2 2v1h16v-1z',
-        crown: 'M3 18h18v2H3zM3 8l5 4 4-7 4 7 5-4-2 9H5z'
-    };
     const ELEMENT_ROLES = ['photo', 'artwork', 'badge', 'title', 'subtitle', 'url', 'qr'];
     const PATTERNS = ['grid', 'geometry', 'orbits', 'hexagons', 'diamonds', 'isometric', 'mesh', 'sunburst', 'triangles', 'chevrons', 'checker', 'waves', 'rings', 'scales', 'topography', 'starfield', 'sparkles', 'dots', 'confetti', 'circuit'];
     const MOTIONS = ['none', 'drift', 'pulse', 'sweep', 'aurora', 'flow', 'sway', 'orbit', 'pan', 'rotate'];
@@ -161,11 +155,10 @@
         const element = {
             id, type: input.type, role,
             name: text(input.name, 80).trim() || TYPE_NAMES[input.type],
-            content: ['text', 'qr'].includes(input.type) && source !== 'channel-url' ? text(input.content, 500) : '',
+            content: input.type === 'icon' ? text(input.content, 120).trim() || 'fa-solid fa-star' : ['text', 'qr'].includes(input.type) && source !== 'channel-url' ? text(input.content, 500) : '',
             source, src: input.type === 'image' ? assetUrl(input.src) : '', locked: input.locked === true,
             style: normalizeStyle(input.type, role, input.style)
         };
-        if (input.type === 'icon') element.icon = Object.hasOwn(ICONS, input.icon) ? input.icon : 'star';
         if (input.type === 'qr') {
             element.qr = {
                 fg: hex(input.qr?.fg, '#000000'), bg: hex(input.qr?.bg, '#ffffff'),
@@ -259,8 +252,8 @@
         if (!prefix) throw new Error(`Unsupported promo element type: ${text(type, 32)}.`);
         const uniqueId = id || `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
         return normalizeElement({
-            id: uniqueId, type, name: TYPE_NAMES[type], icon: type === 'icon' ? 'star' : undefined,
-            content: type === 'text' ? 'Text element' : '', src: '',
+            id: uniqueId, type, name: TYPE_NAMES[type],
+            content: type === 'text' ? 'Text element' : type === 'icon' ? 'fa-solid fa-star' : '', src: '',
             source: type === 'qr' ? 'channel-url' : 'content',
             qr: type === 'qr' ? { fg: '#000000', bg: '#ffffff', margin: 4, ecc: 'M' } : undefined,
             style: {}
@@ -300,7 +293,7 @@
         };
     }
 
-    const api = { ICONS, normalizeStyle,  SIZES, ELEMENT_TYPES, TYPE_NAMES, ELEMENT_ROLES, PATTERNS, MOTIONS, FONT_WEIGHTS, THEMES, DEFAULT_ELEMENTS, arrangement, createElement, normalize, normalizeElement, twitchUrl, assetUrl, background, appearance, normalizeTheme };
+    const api = { normalizeStyle,  SIZES, ELEMENT_TYPES, TYPE_NAMES, ELEMENT_ROLES, PATTERNS, MOTIONS, FONT_WEIGHTS, THEMES, DEFAULT_ELEMENTS, arrangement, createElement, normalize, normalizeElement, twitchUrl, assetUrl, background, appearance, normalizeTheme };
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.PromoModel = api;
 })(typeof window !== 'undefined' ? window : globalThis);

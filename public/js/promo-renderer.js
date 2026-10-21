@@ -483,6 +483,20 @@ export async function makeBackdrop(design, ratio, time = 0, preview = true) {
     return buffer;
 }
 
+function iconGlyph(value) {
+    const cls = String(value || '').trim().replace(/^fab\b/, 'fa-brands').replace(/^fas\b/, 'fa-solid').replace(/^far\b/, 'fa-regular');
+    if (!cls) return null;
+    if (/^[a-z0-9 -]+$/i.test(cls) && /\bfa-[a-z0-9-]+/i.test(cls)) {
+        const probe = document.createElement('i'); probe.className = cls; probe.style.cssText = 'position:absolute;visibility:hidden';
+        document.body.append(probe);
+        const after = getComputedStyle(probe, '::before'), content = after.content.replace(/^["']|["']$/g, '');
+        const glyph = { text: content, family: after.fontFamily, weight: after.fontWeight, fa: true };
+        probe.remove();
+        return content && content !== 'none' && content !== 'normal' ? glyph : null;
+    }
+    return { text: [...cls].slice(0, 4).join(''), family: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', weight: 400, fa: false };
+}
+
 export function shapeBox(box, s, type) {
     if ((type === 'image' || type === 'shape') && s.shape === 'circle') {
         const size = Math.min(box.w, box.h);
@@ -505,6 +519,7 @@ export async function renderPromo(canvas, design, ratio, { preview = true, time 
         const params = new URLSearchParams({ text: value, fg: item.qr.fg, bg: item.qr.bg, margin: String(item.qr.margin), ecc: item.qr.ecc });
         return [item.id, await loadImage(`/api/qr?${params}`, true)];
     })));
+    if (design.elements.some(item => item.type === 'icon') && document.fonts) { window.IconPicker?.ensureFont?.(); await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]); }
     const base = backdrop || await makeBackdrop(design, ratio, time, preview);
     // Draw offscreen and publish atomically; slow image decoding cannot leave a partial export.
     const buffer = document.createElement('canvas');
@@ -562,9 +577,12 @@ export async function renderPromo(canvas, design, ratio, { preview = true, time 
             ctx.save(); ctx.shadowBlur = s.shadow.blur; ctx.shadowColor = s.shadow.color; ctx.fillStyle = s.background; path(); ctx.fill(); ctx.restore();
             border();
         } else if (item.type === 'icon') {
-            const side = Math.min(box.w, box.h);
-            ctx.save(); ctx.translate(box.x + (box.w - side) / 2, box.y + (box.h - side) / 2); ctx.scale(side / 24, side / 24);
-            ctx.shadowBlur = s.shadow.blur; ctx.shadowColor = s.shadow.color; ctx.fillStyle = s.color; ctx.fill(new Path2D(window.PromoModel.ICONS[item.icon])); ctx.restore();
+            const side = Math.min(box.w, box.h), glyph = iconGlyph(item.content);
+            if (glyph) {
+                ctx.save(); ctx.shadowBlur = s.shadow.blur; ctx.shadowColor = s.shadow.color; ctx.fillStyle = s.color;
+                ctx.font = `${glyph.weight} ${side * (glyph.fa ? 1 : .88)}px ${glyph.family}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(glyph.text, box.x + box.w / 2, box.y + box.h / 2 + side * .04); ctx.restore();
+            }
         } else if (item.type === 'text') {
             const value = item.source === 'channel-url' ? design.url.replace(/^https?:\/\//, '') : item.content;
             const font = fonts[s.fontFamily] || defaultFont;

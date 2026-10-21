@@ -157,8 +157,10 @@ function paint(node, item, p) {
         border();
     } else if (item.type === 'icon') {
         const side = Math.min(box.w, box.h);
-        pb.style.overflow = 'visible'; pb.style.display = 'grid'; pb.style.placeItems = 'center';
-        pb.innerHTML = `<svg viewBox="0 0 24 24" width="${side}" height="${side}" style="${s.shadow.blur > 0 ? `filter:drop-shadow(0 0 ${s.shadow.blur}px ${s.shadow.color})` : ''}"><path fill="${esc(s.color)}" d="${M.ICONS[item.icon]}"/></svg>`;
+        const holder = document.createElement('div');
+        holder.style.cssText = `position:absolute;left:${(box.w - side) / 2}px;top:${(box.h - side) / 2}px;width:${side}px;height:${side}px;color:${s.color};${s.shadow.blur > 0 ? `filter:drop-shadow(0 0 ${s.shadow.blur}px ${s.shadow.color})` : ''}`;
+        window.OverlayShared.renderIcon(holder, item.content, { textAlign: 'center', verticalAlign: 'middle' });
+        pb.style.overflow = 'visible'; pb.append(holder);
     } else if (item.type === 'qr') {
         const value = item.source === 'channel-url' ? design.url : item.content;
         if (!value) return;
@@ -365,7 +367,7 @@ function renderProps() {
     let content = F.text('name', 'Layer name', item.name, 'maxlength="80"');
     if (item.type === 'text') content += item.source === 'channel-url' ? '<p class="hint">Shows your Twitch channel from the Content tab.</p>' : `<label class="field"><span>Text</span><textarea data-path="content" data-kind="text" maxlength="500" rows="3">${esc(item.content)}</textarea></label>`;
     if (item.type === 'qr') content += F.select('source', 'Encodes', item.source, [['channel-url', 'Twitch channel URL'], ['content', 'Custom text']]) + (item.source === 'content' ? F.text('content', 'Custom text', item.content, 'maxlength="500"') : '');
-    if (item.type === 'icon') content += F.select('icon', 'Icon', item.icon, Object.keys(M.ICONS).map(k => [k, k[0].toUpperCase() + k.slice(1)]));
+    if (item.type === 'icon') content += `${F.text('content', 'Font Awesome icon or emoji', item.content, 'placeholder="fa-brands fa-twitch or paste an emoji" spellcheck="false"')}<div class="field"><span>Icon</span><button type="button" id="pick-icon">Choose icon…</button></div>`;
     if (item.type === 'image') content += `<p class="hint">${item.src ? esc(decodeURIComponent(item.src.split('/').pop())) : 'No image selected'}</p>${assetButtons}`;
     const align = ['left', 'center', 'right', 'top', 'middle', 'bottom'].map(m => `<button type="button" data-align="${m}" title="Align ${m} on canvas" aria-label="Align ${m} on canvas">${ICON['align' + m[0].toUpperCase() + m.slice(1)]}</button>`).join('');
     const layout = `<div class="grid2">${F.number('x', 'X (px)', Math.round(p.x), { min: 0, max: 3840 })}${F.number('y', 'Y (px)', Math.round(p.y), { min: 0, max: 2160 })}</div>
@@ -410,6 +412,11 @@ bindFields($('properties'), () => { const item = element(); return item ? [targe
     if (structural(event)) { renderProps(); renderLayers(); }
 });
 $('properties').addEventListener('click', event => {
+    if (event.target.closest('#pick-icon') && window.IconPicker) {
+        const input = $('properties').querySelector('[data-path="content"]');
+        window.IconPicker.open({ value: input?.value, onPick: cls => { input.value = cls; input.dispatchEvent(new Event('input', { bubbles: true })); } });
+        return;
+    }
     const act = event.target.closest('[data-act]')?.dataset.act, mode = event.target.closest('[data-align]')?.dataset.align;
     if (act === 'remove') removeElement();
     else if (act === 'duplicate') duplicateElement();
