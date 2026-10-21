@@ -553,12 +553,20 @@ function createSessionService(options = {}) {
         const broadcasts = new Map();
         const addBroadcast = (data, chatEntries, isCurrent) => {
             const { streamStartAt, streamStopAt } = getSessionStreamTimes(data, chatEntries);
-            const startMs = Date.parse(streamStartAt || '');
+            const streamStartMs = Date.parse(streamStartAt || '');
+            const startMs = Number.isFinite(streamStartMs)
+                ? streamStartMs
+                : (!isCurrent ? Date.parse(data?.startedAt || '') : NaN);
             if (!Number.isFinite(startMs)) return;
             const vStats = normalizeViewerStats(data?.viewerStats);
-            const endMs = isCurrent && vStats.live && isSessionActive() ? nowMs : Date.parse(streamStopAt || '');
-            if (!Number.isFinite(endMs) || endMs <= startMs) return;
-            broadcasts.set(startMs, { startMs, endMs });
+            let endMs = isCurrent && vStats.live && isSessionActive()
+                ? nowMs
+                : Date.parse(streamStopAt || '');
+            if (!Number.isFinite(endMs) && !isCurrent) endMs = Date.parse(data?.lastUpdated || '');
+            broadcasts.set(startMs, {
+                startMs,
+                endMs: Number.isFinite(endMs) && endMs > startMs ? endMs : null
+            });
         };
 
         for (const data of archived.sessions) addBroadcast(data, [], false);
@@ -571,7 +579,7 @@ function createSessionService(options = {}) {
         const streamDates = new Set();
         const weekSet = new Set();
         for (const { startMs, endMs } of broadcasts.values()) {
-            totalDurationMs += endMs - startMs;
+            if (endMs) totalDurationMs += endMs - startMs;
             const startDate = new Date(startMs);
             streamDates.add(localDateString(startDate));
             weekSet.add(getIsoWeek(startDate));

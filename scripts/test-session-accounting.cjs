@@ -36,6 +36,17 @@ const broadcast = (startMs, endMs, extra = {}) => ({
     assert.strictEqual(r.stream_number, 1);
     assert.strictEqual(r.total_minutes, 120);
 
+    // Legacy archives without viewerStats stream timestamps still count from archive timestamps.
+    r = milestones({
+        archived: [
+            { startedAt: iso(now - 48 * H), lastUpdated: iso(now - 46 * H) },
+            { startedAt: iso(now - 24 * H), lastUpdated: iso(now - 21 * H) },
+            { startedAt: iso(now - 12 * H) }
+        ]
+    });
+    assert.strictEqual(r.stream_number, 3);
+    assert.strictEqual(r.total_minutes, 300, 'only archives with a valid end timestamp contribute duration');
+
     // Inactive, never-live current session adds nothing.
     r = milestones({ current: { startedAt: iso(now - 3 * H), messageCount: 5, viewerStats: { live: false, samples: [] } }, active: false });
     assert.strictEqual(r.stream_number, 0);
