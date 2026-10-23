@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import puppeteer from 'puppeteer';
 
 const names = [
-    'overlay-shared.js', 'overlay-filters.js', 'overlay-retro.js',
+    'overlay-shared.js', 'overlay-filters.js', 'overlay-retro.js', 'editor-geometry.js',
     ...['state', 'canvas', 'form', 'layers', 'inspector'].map(name => `editor/editor-${name}.js`)
 ];
 const sources = new Map(await Promise.all(names.map(async name =>

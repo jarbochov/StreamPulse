@@ -6,7 +6,7 @@ import puppeteer from 'puppeteer';
 
 // Only these source files and fictional assets are served; no application/config/data access.
 const sources = new Map(await Promise.all([
-    'overlay-shared.js', 'overlay-filters.js', 'overlay-retro.js',
+    'overlay-shared.js', 'overlay-filters.js', 'overlay-retro.js', 'editor-geometry.js',
     'editor/editor-state.js', 'editor/editor-canvas.js'
 ].map(async name => [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')])));
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#38bdf8"/></svg>';
@@ -350,5 +350,5 @@ try {
     if (browser) await browser.close();
     for (const response of heldAssets) response.end(svg);
     await new Promise(done => server.close(done));
-    await rm(profile, { recursive: true, force: true });
+    await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

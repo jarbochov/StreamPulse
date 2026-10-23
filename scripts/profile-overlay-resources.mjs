@@ -7,7 +7,7 @@ import puppeteer from 'puppeteer';
 const serveOnly = process.argv.includes('--serve');
 const seconds = Number(process.env.PROFILE_SECONDS || 60);
 if (!Number.isFinite(seconds) || seconds < 10 || seconds > 600) throw new Error('PROFILE_SECONDS must be 10–600');
-const files = ['overlay-shared.js', 'overlay-retro.js', 'overlay-filters.js', 'editor/editor-state.js', 'editor/editor-canvas.js'];
+const files = ['overlay-shared.js', 'overlay-retro.js', 'overlay-filters.js', 'editor-geometry.js', 'editor/editor-state.js', 'editor/editor-canvas.js'];
 const sources = new Map(await Promise.all(files.map(async name => [
     `/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')
 ])));

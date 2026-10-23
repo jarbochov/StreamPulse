@@ -20,3 +20,6 @@ Thumbs.db
 
 # IDE
 .nova/
+
+# Test temporary profiles
+scripts/.editor-activity-browser-*
