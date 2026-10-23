@@ -829,12 +829,19 @@
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
         /* Elimination Mode UI */
-        .elim-section { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 9px; padding: .75rem .85rem; display: flex; flex-direction: column; gap: .55rem; }
+        .elim-section { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 9px; padding: .4rem .65rem; display: flex; align-items: center; gap: .5rem; }
         .elim-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
         .elim-micro { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
         .elim-toggle { display: flex; align-items: center; gap: .5rem; font-size: .78rem; cursor: pointer; }
         .elim-actions { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-        .elim-history { display: flex; flex-direction: column; gap: 3px; }
+        .elim-history { display: flex; flex-direction: column; gap: 3px; max-height: 240px; overflow-y: auto; }
+        .history-panel { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 9px; padding: .5rem .7rem; }
+        .history-panel summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; list-style: none; }
+        .history-panel summary::-webkit-details-marker { display: none; }
+        .history-panel[open] summary { margin-bottom: .5rem; }
+        .history-tools { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
+        .history-limit { display: flex; align-items: center; gap: .4rem; font-size: .72rem; color: var(--text-muted); }
+        .history-limit select { padding: .15rem .3rem; font-size: .72rem; }
         .elim-history-row { display: flex; align-items: center; gap: .5rem; font-size: .74rem; padding: .2rem .35rem; border-radius: 5px; background: var(--bg-card); }
         .elim-history-row .elim-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .elim-history-row .elim-time { color: var(--text-muted); font-size: .66rem; }
@@ -1109,10 +1116,6 @@
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path></svg>
                         Quotes
                     </button>
-                    <button class="tab-btn" id="tab-btn-history" type="button" role="tab">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                        History
-                    </button>
                     <button class="tab-btn" id="tab-btn-obs" type="button" role="tab">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
                         OBS / Stream
@@ -1201,22 +1204,12 @@
 
                     <!-- Elimination Mode -->
                     <div class="elim-section">
-                        <div class="elim-head">
-                            <span class="elim-micro">Elimination</span>
-                            <span id="elim-count-pill" class="meta-pill">Off</span>
-                        </div>
-                        <label class="elim-toggle" title="Once a choice is selected it is removed from the pool until reset (works with every weighting mode)">
+                        <label class="elim-toggle" title="Once a choice is selected it is removed from the pool until restored (works with every weighting mode)">
                             <input type="checkbox" id="elim-toggle">
-                            <span>Remove each choice after it is selected</span>
+                            <span class="elim-micro">Elimination</span>
                         </label>
-                        <div class="elim-actions" id="elim-actions" style="display:none;">
-                            <span style="font-size:.72rem; color:var(--text-muted);">Eliminated choices stay out until restored.</span>
-                            <button type="button" class="btn small" id="btn-reset-elim">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                                Restore All
-                            </button>
-                        </div>
-                        <span style="font-size:.7rem; color:var(--text-muted);">Spin and removal history is on the History tab.</span>
+                        <span id="elim-count-pill" class="meta-pill" style="margin-left:auto;">Off</span>
+                        <button type="button" class="btn small" id="btn-reset-elim" style="display:none;" title="Put every removed choice back in the pool">Restore All</button>
                     </div>
 
                     <!-- Choices Pool (Toggle between Table with weights and Raw textarea) -->
@@ -1447,14 +1440,6 @@
                 </div>
 
                 <!-- Tab 5: OBS & Companion -->
-                <div class="tab-pane" id="tab-pane-history">
-                    <div class="elim-head">
-                        <span class="elim-micro">Spin &amp; Removal History</span>
-                        <span id="history-count-pill" class="meta-pill">0 entries</span>
-                    </div>
-                    <div class="elim-history" id="elim-history"></div>
-                </div>
-
                 <div class="tab-pane" id="tab-pane-obs">
                     <div class="row">
                         <label class="f">
@@ -1679,6 +1664,27 @@
                             Preview Tab
                         </a>
                     </div>
+
+                    <!-- Spin History (collapsible) -->
+                    <details class="history-panel" id="history-panel">
+                        <summary>
+                            <span class="elim-micro">History</span>
+                            <span id="history-count-pill" class="meta-pill">0 entries</span>
+                        </summary>
+                        <div class="history-tools">
+                            <label class="history-limit" title="Oldest entries are dropped once this limit is reached">
+                                <span>Keep last</span>
+                                <select id="history-limit-select">
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                    <option value="250">250</option>
+                                </select>
+                            </label>
+                            <button type="button" class="btn small" id="btn-clear-history" style="color:var(--danger, #ef4444);">Clear History</button>
+                        </div>
+                        <div class="elim-history" id="elim-history"></div>
+                    </details>
                 </div>
             </div>
         </div>
@@ -2285,6 +2291,7 @@
         let currentEliminated = [];
         let currentSpinHistory = [];
         let pendingEliminationState = null;
+        let currentHistoryLimit = 100;
 
         function isEliminated(c) {
             return currentEliminated.some(e => e.toLowerCase() === String(c).toLowerCase());
@@ -2297,15 +2304,17 @@
         function renderEliminationUI() {
             const toggle = $('elim-toggle');
             if (toggle) toggle.checked = currentEliminationMode;
-            const actions = $('elim-actions');
-            if (actions) actions.style.display = (currentEliminationMode || currentEliminated.length) ? 'flex' : 'none';
+            const restoreBtn = $('btn-reset-elim');
+            if (restoreBtn) restoreBtn.style.display = currentEliminated.length ? '' : 'none';
             const pill = $('elim-count-pill');
             if (pill) {
                 const total = choices.length;
                 pill.textContent = (currentEliminationMode || currentEliminated.length) ? `${playableChoices(choices).length} of ${total} left` : 'Off';
             }
             const countPill = $('history-count-pill');
-            if (countPill) countPill.textContent = `${currentSpinHistory.length} entries`;
+            if (countPill) countPill.textContent = `${currentSpinHistory.length} ${currentSpinHistory.length === 1 ? 'entry' : 'entries'}`;
+            const limitSel = $('history-limit-select');
+            if (limitSel) limitSel.value = String(currentHistoryLimit);
             const box = $('elim-history');
             if (!box) return;
             box.innerHTML = '';
@@ -2335,7 +2344,8 @@
                 }
                 const time = document.createElement('span');
                 time.className = 'elim-time';
-                time.textContent = h.at ? new Date(h.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                time.style.whiteSpace = 'nowrap';
+                time.textContent = h.at ? new Date(h.at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
                 row.append(badge, name, time);
                 box.appendChild(row);
             });
@@ -2346,9 +2356,17 @@
             if (d.eliminationMode !== undefined) currentEliminationMode = !!d.eliminationMode;
             if (Array.isArray(d.eliminated)) currentEliminated = [...d.eliminated];
             if (Array.isArray(d.spinHistory)) currentSpinHistory = [...d.spinHistory];
+            if (d.historyLimit) currentHistoryLimit = d.historyLimit;
             renderEliminationUI();
             renderChoicesTable();
             if (redraw && !isSpinning) renderInitialState();
+        }
+
+        async function refreshPresetsListQuietly() {
+            try {
+                const res = await fetch('/api/randomizer/presets').then(r => r.json());
+                if (Array.isArray(res.presets)) presetsList = res.presets;
+            } catch {}
         }
 
         async function setChoiceOut(choice, out) {
@@ -2819,6 +2837,8 @@
                 weightSettings: getWeightSettings(),
                 weights: getActiveWeightsMap(),
                 choiceStats: currentChoiceStats,
+                eliminationMode: currentEliminationMode,
+                eliminated: currentEliminated,
                 winnerHeader: $('winner-header-input')?.value.trim() || 'THE UNIVERSE HAS DECIDED',
                 winnerSub,
                 buttonPreset: currentBtnPresetId,
@@ -3079,7 +3099,7 @@
                 const pending = pendingEliminationState;
                 pendingEliminationState = null;
                 applyEliminationState(pending, { redraw: false });
-                fetchChoicesPresets();
+                refreshPresetsListQuietly();
             }
             if ($('btn-spin')) $('btn-spin').disabled = false;
             if ($('overlay-spin-btn')) {
@@ -3208,6 +3228,7 @@
                 currentEliminationMode = !!matched.eliminationMode;
                 currentEliminated = matched.eliminated || [];
                 currentSpinHistory = matched.spinHistory || [];
+                currentHistoryLimit = matched.historyLimit || 100;
                 updateWeightControlsUI();
                 setChoices(matched.choices || [], currentWeightsMap, currentChoiceStats, currentWeightMode);
                 if ($('winner-header-input')) {
@@ -3257,6 +3278,7 @@
                 currentEliminationMode = !!fallback.eliminationMode;
                 currentEliminated = fallback.eliminated || [];
                 currentSpinHistory = fallback.spinHistory || [];
+                currentHistoryLimit = fallback.historyLimit || 100;
                 updateWeightControlsUI();
                 setChoices(fallback.choices || [], currentWeightsMap, currentChoiceStats, currentWeightMode);
             } else {
@@ -3567,7 +3589,10 @@
                         weights: getActiveWeightsMap(),
                         choiceStats: currentChoiceStats,
                         deckLogo: currentDeckLogo,
-                        deckWatermark: currentDeckWatermark
+                        deckWatermark: currentDeckWatermark,
+                        eliminationMode: currentEliminationMode,
+                        eliminated: currentEliminated,
+                        historyLimit: currentHistoryLimit
                     })
                 }).then(r => r.json());
                 if (res.ok) {
@@ -4163,6 +4188,40 @@
             }
         };
 
+        // History controls
+        $('btn-clear-history').onclick = async () => {
+            if (!currentSpinHistory.length) return;
+            if (!confirm('Clear the spin history for this preset?')) return;
+            if (currentPresetId && presetsList.some(p => p.id === currentPresetId)) {
+                try {
+                    const res = await fetch(`/api/randomizer/presets/${encodeURIComponent(currentPresetId)}/clear-history`, { method: 'POST' }).then(r => r.json());
+                    if (res.ok) {
+                        presetsList = res.presets;
+                        applyEliminationState(res.preset, { redraw: false });
+                    }
+                } catch {}
+            } else {
+                currentSpinHistory = [];
+                renderEliminationUI();
+            }
+            toast('History cleared');
+        };
+        $('history-limit-select').onchange = async e => {
+            currentHistoryLimit = Number(e.target.value) || 100;
+            currentSpinHistory = currentSpinHistory.slice(-currentHistoryLimit);
+            renderEliminationUI();
+            const existing = presetsList.find(p => p.id === currentPresetId);
+            if (!existing) return;
+            try {
+                const res = await fetch('/api/randomizer/presets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: existing.id, name: existing.name, choices: existing.choices, historyLimit: currentHistoryLimit })
+                }).then(r => r.json());
+                if (res.ok) presetsList = res.presets;
+            } catch {}
+        };
+
         // Elimination Mode
         $('elim-toggle').onchange = e => {
             currentEliminationMode = e.target.checked;
@@ -4297,7 +4356,10 @@
                         text: $('ap-text')?.value.trim() || '',
                         outline: $('ap-outline')?.value.trim() || '',
                         deckLogo: currentDeckLogo,
-                        deckWatermark: currentDeckWatermark
+                        deckWatermark: currentDeckWatermark,
+                        eliminationMode: currentEliminationMode,
+                        eliminated: currentEliminated,
+                        historyLimit: currentHistoryLimit
                     })
                 }).then(r => r.json());
 
@@ -4382,7 +4444,10 @@
                             if (d.preset !== currentPresetId) return;
                             currentWeightsMap = { ...(d.baseWeights || {}) };
                             currentChoiceStats = d.choiceStats || {};
-                            if (d.weightMode) currentWeightMode = d.weightMode;
+                            if (d.weightMode) {
+                                currentWeightMode = d.weightMode;
+                                updateWeightControlsUI();
+                            }
                             applyEliminationState(d);
                             return;
                         }

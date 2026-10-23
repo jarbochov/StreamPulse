@@ -32,11 +32,11 @@ function rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily) {
 }
 
 
-const RANDOMIZER_HISTORY_LIMIT = 100;
+const RANDOMIZER_HISTORY_LIMITS = [25, 50, 100, 250];
 
 function randomizerRecordHistory(preset, entry) {
     preset.spinHistory = [...(Array.isArray(preset.spinHistory) ? preset.spinHistory : []), { at: Date.now(), ...entry }]
-        .slice(-RANDOMIZER_HISTORY_LIMIT);
+        .slice(-(RANDOMIZER_HISTORY_LIMITS.includes(Number(preset.historyLimit)) ? Number(preset.historyLimit) : 100));
 }
 
 function randomizerStatePayload(preset, effective) {
@@ -50,7 +50,8 @@ function randomizerStatePayload(preset, effective) {
         choiceStats: preset.choiceStats || {},
         eliminationMode: !!preset.eliminationMode,
         eliminated: preset.eliminated || [],
-        spinHistory: (preset.spinHistory || []).slice(-50)
+        historyLimit: preset.historyLimit || 100,
+        spinHistory: preset.spinHistory || []
     };
 }
 
@@ -1168,6 +1169,8 @@ function createOverlayRoutes({
                 const deckLogo = body.deckLogo !== undefined ? String(body.deckLogo).trim() : undefined;
                 const deckWatermark = body.deckWatermark !== undefined ? String(body.deckWatermark).trim() : undefined;
                 const eliminationMode = body.eliminationMode !== undefined ? !!body.eliminationMode : undefined;
+                const eliminated = Array.isArray(body.eliminated) ? body.eliminated : undefined;
+                const historyLimit = body.historyLimit !== undefined ? Number(body.historyLimit) : undefined;
 
                 let updatedPreset;
                 if (presetId) {
@@ -1188,6 +1191,8 @@ function createOverlayRoutes({
                             ...(deckLogo !== undefined ? { deckLogo } : {}),
                             ...(deckWatermark !== undefined ? { deckWatermark } : {}),
                             ...(eliminationMode !== undefined ? { eliminationMode } : {}),
+                            ...(eliminated !== undefined ? { eliminated } : {}),
+                            ...(historyLimit !== undefined ? { historyLimit } : {}),
                             updatedAt: Date.now()
                         });
                         updatedPreset = presets[idx];
@@ -1210,11 +1215,14 @@ function createOverlayRoutes({
                         deckLogo: deckLogo || '',
                         deckWatermark: deckWatermark !== undefined ? deckWatermark : 'STREAMPULSE',
                         eliminationMode: !!eliminationMode,
+                        eliminated: eliminated || [],
+                        historyLimit: historyLimit !== undefined ? historyLimit : 100,
                         createdAt: Date.now()
                     });
                     presets.push(updatedPreset);
                 }
                 saveRandomizerPresets(presets);
+                broadcastToOverlays('randomizer-state', randomizerStatePayload(updatedPreset, getEffectiveWeights(updatedPreset)));
                 sendJson(res, { ok: true, preset: updatedPreset, presets });
             } catch (err) {
                 sendError(res, err.message, 400);
@@ -1249,11 +1257,41 @@ function createOverlayRoutes({
             return true;
         }
 
-        if (pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/reset-eliminated') && req.method === 'POST') {
+        if (pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/clear-history') && req.method === 'POST') {
             try {
-                const idToReset = decodeURIComponent(pathname.replace('/api/randomizer/presets/', '').replace('/reset-eliminated', ''));
+                const idToClear = decodeURIComponent(pathname.replace('/api/randomizer/presets/', '').replace('/clear-history', ''));
                 const presets = loadRandomizerPresets();
-                const preset = presets.find(p => p.id === idToReset);
+                const preset = presets.find(p => p.id === idToClear);
+                if (!preset) {
+                    sendError(res, 'Preset not found', 404);
+                    return true;
+                }
+                preset.spinHistory = [];
+                saveRandomizerPresets(presets);
+                broadcastToOverlays('randomizer-state', randomizerStatePayload(preset, getEffectiveWeights(preset)));
+                sendJson(res, { ok: true, preset, presets });
+            } catch (err) {
+                sendError(res, err.message, 400);
+            }
+            return true;
+        }
+
+        if ((pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/reset-eliminated') && req.method === 'POST') ||
+            (pathname === '/api/randomizer/presets/reset-eliminated' && req.method === 'POST')) {
+            try {
+                let idToReset = '';
+                let body = {};
+                try {
+                    const raw = await readRequestBody(req);
+                    if (raw) body = JSON.parse(raw);
+                } catch {}
+                if (pathname === '/api/randomizer/presets/reset-eliminated') {
+                    idToReset = body.id || url.searchParams.get('id') || lastStudioRandomizerSettings?.preset || '';
+                } else {
+                    idToReset = decodeURIComponent(pathname.replace('/api/randomizer/presets/', '').replace('/reset-eliminated', ''));
+                }
+                const presets = loadRandomizerPresets();
+                const preset = (idToReset ? presets.find(p => p.id === idToReset) : null) || presets[0];
                 if (!preset) {
                     sendError(res, 'Preset not found', 404);
                     return true;
@@ -1563,7 +1601,7 @@ function createOverlayRoutes({
                     : (query.elimination !== undefined ? (query.elimination === '1' || query.elimination === 'true') : !!activePreset.eliminationMode);
                 const eliminatedBefore = matched
                     ? (Array.isArray(matched.eliminated) ? matched.eliminated : [])
-                    : (Array.isArray(body.eliminated) ? body.eliminated.map(c => String(c).trim()) : []);
+                    : (Array.isArray(body.eliminated) ? body.eliminated.map(c => String(c).trim()) : (Array.isArray(lastStudioRandomizerSettings?.eliminated) ? lastStudioRandomizerSettings.eliminated : []));
                 if (eliminatedBefore.length) {
                     const gone = new Set(eliminatedBefore.map(c => c.toLowerCase()));
                     choices = choices.filter(c => !gone.has(c.toLowerCase()));
@@ -1614,7 +1652,7 @@ function createOverlayRoutes({
                     eliminationMode: eliminationRequested,
                     eliminated: eliminatedAfter,
                     winnerEliminated: eliminationRequested,
-                    spinHistory: matched ? (matched.spinHistory || []).slice(-50) : undefined,
+                    spinHistory: matched ? (matched.spinHistory || []) : undefined,
                     winner,
                     ...(winnerHeader !== undefined ? { winnerHeader } : {}),
                     ...(winnerSub !== undefined ? { winnerSub } : {}),

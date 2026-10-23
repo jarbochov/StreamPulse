@@ -1223,9 +1223,9 @@
                                 autohide: params.get('autohide') !== null ? Number(params.get('autohide')) : 8
                             })
                         }).then(r => r.json());
-                        if (!res || !res.ok) runSpin();
+                        if (!res && playableChoices().length) runSpin();
                     } catch {
-                        runSpin();
+                        if (playableChoices().length) runSpin();
                     }
                 }
             };
@@ -1285,6 +1285,7 @@
         }
 
         function drawWheel(rotationRad = 0, list = choices, weightsMap = null) {
+            list = playableChoices(list);
             wheelRenderer.draw(rotationRad, list, weightsMap || currentWeights);
         }
 
@@ -1463,6 +1464,7 @@
                         if (msg.type === 'randomizer-state' && msg.data) {
                             const d = msg.data;
                             if (d.preset && d.preset !== currentPresetId) return;
+                            if (Array.isArray(d.choices)) choices = d.choices;
                             if (d.weights) currentWeights = d.weights;
                             if (d.choiceStats) currentChoiceStats = d.choiceStats;
                             if (d.weightMode) currentWeightMode = d.weightMode;

@@ -14,7 +14,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Add the card-deck mode, selectable 4/6/8/10-second spin duration, and winner auto-hide choices (8/15/30 seconds or never) to the Companion Randomizer button; display the last-used mode and duration on the key. The Studio syncs its settings without spinning so omitted Companion options inherit them, with controls for button visibility/phrases and winner text. Randomizer scale remains URL-parameter-only.
 
 ### Added
-- Randomizer elimination mode for every weighting mode: selected choices are removed until restored, with per-choice take-out and a History tab showing what was selected and removed.
+- Randomizer elimination mode for every weighting mode: selected choices are removed until restored, with per-choice take-out and a collapsible History panel showing what was selected and removed.
 - Promo Creator under Tools: build reusable social promos with Text, Image, QR, Shape and Icon elements, layers, undo/redo and independent square, landscape and portrait layouts. Includes themes, 20 patterns with scale, motion and gradient animation, a configurable accent bar and vignette, IGDB artwork, and PNG ZIP or seamless MP4 export.
 - Custom overlay Poll element and 400 × 150 Compact poll preset: adaptive 2–5-choice result bars, native Twitch vote counts/percentages, remaining-time countdown, configurable completed-result duration, and preview-only fictional samples.
 

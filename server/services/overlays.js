@@ -149,7 +149,7 @@ const DEFAULT_RANDOMIZER_QUOTE_PRESETS = [
     }
 ];
 
-const RANDOMIZER_HISTORY_LIMIT = 100;
+const RANDOMIZER_HISTORY_LIMITS = [25, 50, 100, 250];
 
 function normalizeRandomizerPreset(raw) {
     if (!raw || typeof raw !== 'object') return null;
@@ -190,8 +190,9 @@ function normalizeRandomizerPreset(raw) {
     const eliminated = Array.isArray(raw.eliminated)
         ? [...new Set(raw.eliminated.map(c => String(c).trim()).filter(c => c && choices.includes(c)))]
         : [];
+    const historyLimit = RANDOMIZER_HISTORY_LIMITS.includes(Number(raw.historyLimit)) ? Number(raw.historyLimit) : 100;
     const spinHistory = Array.isArray(raw.spinHistory)
-        ? raw.spinHistory.filter(h => h && typeof h === 'object').slice(-RANDOMIZER_HISTORY_LIMIT).map(h => ({
+        ? raw.spinHistory.filter(h => h && typeof h === 'object').slice(-historyLimit).map(h => ({
             type: ['reset', 'manual'].includes(h.type) ? h.type : 'spin',
             winner: String(h.winner || ''),
             eliminated: !!h.eliminated,
@@ -205,6 +206,7 @@ function normalizeRandomizerPreset(raw) {
         choices,
         eliminationMode,
         eliminated,
+        historyLimit,
         spinHistory,
         weightMode,
         weightSettings,
