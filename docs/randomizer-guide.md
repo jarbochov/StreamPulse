@@ -64,6 +64,12 @@ Configure probability distributions to fit your broadcast format:
 - **Growth (Pity Mode)**: Unpicked choices gain bonus weight on each spin (`step` parameter), ensuring long-neglected items eventually win. When a choice wins, its pity bonus resets. Click **Reset Pity Streaks** to wipe accrued missed-spin bonuses back to baseline without clearing custom choices.
 - **Momentum (Hot Streak)**: Winning choices gain temporary weight boosts for exciting winner-stays streaks. Click **Reset Win Streaks** to clear winning multipliers back to baseline.
 - **Preset Saving Required**: Weighting modes and choice statistics are stored within your active Choice Preset. Whenever you switch modes or tweak weights, click **Save** in the Studio to persist changes to the server and update live OBS browser sources and Stream Deck Companion triggers.
+
+### Elimination Mode
+
+Turn on **Elimination** in the Studio to remove each choice once it is selected, regardless of weighting mode. Eliminated choices are dimmed in the table, leave the wheel, roller, and deck, and are excluded from win odds. Click **Restore All** to bring them back; the reset updates the Studio and OBS overlay immediately. A spin history beside the toggle lists each selection as *Selected* or *Selected, removed*, and records restores. Elimination state and history are stored in the Choice Preset (the last 100 entries). Spins from the overlay button or Companion respect the setting, and `/api/randomizer/spin` accepts `eliminationMode` (or `?elimination=1`). `POST /api/randomizer/presets/:id/reset-eliminated` restores a preset's choices. When every choice is eliminated, spins return an error until restored.
+
+Weight and streak resets (`POST /api/randomizer/presets/:id/reset-weights`) broadcast a `randomizer-state` WebSocket event so open overlays refresh without reloading.
 - **Elimination Mode**: Once a choice wins, it is automatically removed from subsequent spins.
 - **Auto-Populate Active Chatters**: Click **Load Active Chatters** to instantly populate the wheel with viewers who participated in your stream chat.
 - **Persistence Across Reloads**: Preserves choices and remaining pool even if the page or browser source is refreshed.

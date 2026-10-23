@@ -149,6 +149,8 @@ const DEFAULT_RANDOMIZER_QUOTE_PRESETS = [
     }
 ];
 
+const RANDOMIZER_HISTORY_LIMIT = 100;
+
 function normalizeRandomizerPreset(raw) {
     if (!raw || typeof raw !== 'object') return null;
     const id = String(raw.id || '').trim();
@@ -184,11 +186,26 @@ function normalizeRandomizerPreset(raw) {
     }
     const deckLogo = raw.deckLogo !== undefined ? String(raw.deckLogo || '').trim() : undefined;
     const deckWatermark = raw.deckWatermark !== undefined ? String(raw.deckWatermark || '').trim() : undefined;
+    const eliminationMode = !!raw.eliminationMode;
+    const eliminated = Array.isArray(raw.eliminated)
+        ? [...new Set(raw.eliminated.map(c => String(c).trim()).filter(c => c && choices.includes(c)))]
+        : [];
+    const spinHistory = Array.isArray(raw.spinHistory)
+        ? raw.spinHistory.filter(h => h && typeof h === 'object').slice(-RANDOMIZER_HISTORY_LIMIT).map(h => ({
+            type: h.type === 'reset' ? 'reset' : 'spin',
+            winner: String(h.winner || ''),
+            eliminated: !!h.eliminated,
+            at: Number(h.at) || 0
+        }))
+        : [];
     return {
         ...raw,
         id,
         name,
         choices,
+        eliminationMode,
+        eliminated,
+        spinHistory,
         weightMode,
         weightSettings,
         weights,

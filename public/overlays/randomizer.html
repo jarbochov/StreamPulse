@@ -994,6 +994,18 @@
         let choices = [...DEFAULT_FALLBACK_CHOICES];
         let currentWeights = {};
         let currentChoiceStats = {};
+        let eliminationMode = false;
+        let eliminatedChoices = [];
+        let pendingEliminationState = null;
+        function playableChoices(list = choices) {
+            if (!eliminationMode) return list;
+            const gone = new Set(eliminatedChoices.map(c => c.toLowerCase()));
+            return list.filter(c => !gone.has(c.toLowerCase()));
+        }
+        function applyEliminationState(d) {
+            if (d.eliminationMode !== undefined) eliminationMode = !!d.eliminationMode;
+            if (Array.isArray(d.eliminated)) eliminatedChoices = [...d.eliminated];
+        }
         let currentWeightMode = 'equal';
         let activeButtonPhrases = [];
         let activeQuotesPool = [];
@@ -1250,17 +1262,17 @@
                 $('wheel-view').style.display = 'none';
                 $('deck-view').style.display = 'none';
                 $('roller-view').style.display = 'block';
-                renderIdleRoller(currentRollerIndex, choices);
+                renderIdleRoller(currentRollerIndex, playableChoices());
             } else if (currentMode === 'wheel') {
                 $('roller-view').style.display = 'none';
                 $('deck-view').style.display = 'none';
                 $('wheel-view').style.display = 'flex';
-                drawWheel(0, choices);
+                drawWheel(0, playableChoices());
             } else {
                 $('roller-view').style.display = 'none';
                 $('wheel-view').style.display = 'none';
                 $('deck-view').style.display = 'flex';
-                renderIdleDeck(choices);
+                renderIdleDeck(playableChoices());
             }
         }
 
@@ -1290,7 +1302,7 @@
             autohide = null
         } = {}) {
             if (isSpinning) return;
-            if (!list || !list.length) list = choices.length ? choices : DEFAULT_FALLBACK_CHOICES;
+            if (!list || !list.length) list = playableChoices().length ? playableChoices() : (choices.length ? [] : DEFAULT_FALLBACK_CHOICES);
             if (!list.length) return;
 
             if (theme && theme !== currentTheme) {
@@ -1327,6 +1339,10 @@
 
         function finishSpin(winner, customHeader = null, customSub = null, autohideSec = null) {
             isSpinning = false;
+            if (pendingEliminationState) {
+                applyEliminationState(pendingEliminationState);
+                pendingEliminationState = null;
+            }
             if ($('overlay-spin-btn')) {
                 $('overlay-spin-btn').disabled = false;
                 $('overlay-spin-btn').style.opacity = '1';
@@ -1398,6 +1414,8 @@
                         if (!params.get('choices')) {
                             choices = matched.choices;
                         }
+                        eliminationMode = !!matched.eliminationMode;
+                        eliminatedChoices = matched.eliminated || [];
                         if (matched.weights) currentWeights = matched.weights;
                         if (matched.choiceStats) currentChoiceStats = matched.choiceStats;
                         currentWeightMode = matched.weightMode || 'equal';
@@ -1442,6 +1460,16 @@
                 ws.onmessage = event => {
                     try {
                         const msg = JSON.parse(event.data);
+                        if (msg.type === 'randomizer-state' && msg.data) {
+                            const d = msg.data;
+                            if (d.preset && d.preset !== currentPresetId) return;
+                            if (d.weights) currentWeights = d.weights;
+                            if (d.choiceStats) currentChoiceStats = d.choiceStats;
+                            if (d.weightMode) currentWeightMode = d.weightMode;
+                            applyEliminationState(d);
+                            if (!isSpinning) renderInitialState();
+                            return;
+                        }
                         if (msg.type === 'randomizer-spin' && msg.data) {
                             const d = msg.data;
                             AudioFX.init();
@@ -1475,6 +1503,7 @@
                             }
                             if (d.weights) currentWeights = d.weights;
                             if (d.choiceStats) currentChoiceStats = d.choiceStats;
+                            if (d.eliminationMode !== undefined || d.eliminated) pendingEliminationState = d;
                             if (d.weightMode) currentWeightMode = d.weightMode;
                             if (d.mode) currentMode = d.mode;
                             if (d.deckLogo !== undefined) currentDeckLogo = d.deckLogo;

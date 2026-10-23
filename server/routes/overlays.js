@@ -31,6 +31,29 @@ function rewriteAssetReferences(text, oldName, newName, oldFamily, newFamily) {
     return result;
 }
 
+
+const RANDOMIZER_HISTORY_LIMIT = 100;
+
+function randomizerRecordHistory(preset, entry) {
+    preset.spinHistory = [...(Array.isArray(preset.spinHistory) ? preset.spinHistory : []), { at: Date.now(), ...entry }]
+        .slice(-RANDOMIZER_HISTORY_LIMIT);
+}
+
+function randomizerStatePayload(preset, effective) {
+    return {
+        preset: preset.id,
+        choices: preset.choices || [],
+        weights: effective.weights,
+        baseWeights: preset.weights || {},
+        totalWeight: effective.totalWeight,
+        weightMode: effective.mode,
+        choiceStats: preset.choiceStats || {},
+        eliminationMode: !!preset.eliminationMode,
+        eliminated: preset.eliminated || [],
+        spinHistory: (preset.spinHistory || []).slice(-50)
+    };
+}
+
 const historyFile = (historyDir, id) => path.join(historyDir, `${sanitizeOverlayId(id)}.json`);
 
 function readOverlayHistory(historyDir, id) {
@@ -1144,6 +1167,7 @@ function createOverlayRoutes({
                 const choiceStats = body.choiceStats && typeof body.choiceStats === 'object' ? body.choiceStats : undefined;
                 const deckLogo = body.deckLogo !== undefined ? String(body.deckLogo).trim() : undefined;
                 const deckWatermark = body.deckWatermark !== undefined ? String(body.deckWatermark).trim() : undefined;
+                const eliminationMode = body.eliminationMode !== undefined ? !!body.eliminationMode : undefined;
 
                 let updatedPreset;
                 if (presetId) {
@@ -1163,6 +1187,7 @@ function createOverlayRoutes({
                             ...(choiceStats !== undefined ? { choiceStats } : {}),
                             ...(deckLogo !== undefined ? { deckLogo } : {}),
                             ...(deckWatermark !== undefined ? { deckWatermark } : {}),
+                            ...(eliminationMode !== undefined ? { eliminationMode } : {}),
                             updatedAt: Date.now()
                         });
                         updatedPreset = presets[idx];
@@ -1184,12 +1209,34 @@ function createOverlayRoutes({
                         choiceStats: choiceStats || {},
                         deckLogo: deckLogo || '',
                         deckWatermark: deckWatermark !== undefined ? deckWatermark : 'STREAMPULSE',
+                        eliminationMode: !!eliminationMode,
                         createdAt: Date.now()
                     });
                     presets.push(updatedPreset);
                 }
                 saveRandomizerPresets(presets);
                 sendJson(res, { ok: true, preset: updatedPreset, presets });
+            } catch (err) {
+                sendError(res, err.message, 400);
+            }
+            return true;
+        }
+
+        if (pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/reset-eliminated') && req.method === 'POST') {
+            try {
+                const idToReset = decodeURIComponent(pathname.replace('/api/randomizer/presets/', '').replace('/reset-eliminated', ''));
+                const presets = loadRandomizerPresets();
+                const preset = presets.find(p => p.id === idToReset);
+                if (!preset) {
+                    sendError(res, 'Preset not found', 404);
+                    return true;
+                }
+                const restored = (preset.eliminated || []).length;
+                preset.eliminated = [];
+                if (restored) randomizerRecordHistory(preset, { type: 'reset', winner: '', eliminated: false });
+                saveRandomizerPresets(presets);
+                broadcastToOverlays('randomizer-state', randomizerStatePayload(preset, getEffectiveWeights(preset)));
+                sendJson(res, { ok: true, preset, presets });
             } catch (err) {
                 sendError(res, err.message, 400);
             }
@@ -1220,6 +1267,7 @@ function createOverlayRoutes({
                 }
                 resetPresetWeights(preset, resetMode);
                 saveRandomizerPresets(presets);
+                broadcastToOverlays('randomizer-state', randomizerStatePayload(preset, getEffectiveWeights(preset)));
                 sendJson(res, { ok: true, preset, presets });
             } catch (err) {
                 sendError(res, err.message, 400);
@@ -1483,12 +1531,34 @@ function createOverlayRoutes({
                 if (body.weightSettings) activePreset.weightSettings = { ...activePreset.weightSettings, ...body.weightSettings };
                 if (body.weights && typeof body.weights === 'object') activePreset.weights = { ...activePreset.weights, ...body.weights };
 
+                const eliminationRequested = body.eliminationMode !== undefined
+                    ? !!body.eliminationMode
+                    : (query.elimination !== undefined ? (query.elimination === '1' || query.elimination === 'true') : !!activePreset.eliminationMode);
+                const eliminatedBefore = matched
+                    ? (Array.isArray(matched.eliminated) ? matched.eliminated : [])
+                    : (Array.isArray(body.eliminated) ? body.eliminated.map(c => String(c).trim()) : []);
+                if (eliminationRequested) {
+                    const gone = new Set(eliminatedBefore.map(c => c.toLowerCase()));
+                    choices = choices.filter(c => !gone.has(c.toLowerCase()));
+                    if (!choices.length) throw new Error('Every choice has been eliminated. Reset the randomizer to restore them.');
+                }
+
                 const { weights, totalWeight, mode: effectiveWeightMode } = getEffectiveWeights(activePreset, choices);
                 const picked = choices.length ? pickWeightedWinner(choices, weights) : { winner: 'Winner', winnerIndex: -1 };
                 const winner = body.winner || query.winner || picked.winner;
 
-                if (matched && (matched.weightMode === 'growth' || matched.weightMode === 'momentum')) {
-                    updatePresetWeightsAfterSpin(matched, winner);
+                let eliminatedAfter = eliminatedBefore;
+                if (eliminationRequested) {
+                    const canonical = choices.find(c => c.toLowerCase() === String(winner).toLowerCase()) || String(winner);
+                    eliminatedAfter = [...eliminatedBefore.filter(c => c.toLowerCase() !== canonical.toLowerCase()), canonical];
+                }
+                if (matched) {
+                    if (matched.weightMode === 'growth' || matched.weightMode === 'momentum') {
+                        updatePresetWeightsAfterSpin(matched, winner);
+                    }
+                    if (body.eliminationMode !== undefined) matched.eliminationMode = !!body.eliminationMode;
+                    matched.eliminated = eliminatedAfter;
+                    randomizerRecordHistory(matched, { type: 'spin', winner: String(winner), eliminated: eliminationRequested });
                     saveRandomizerPresets(presets);
                 } else if (activePreset.weightMode === 'growth' || activePreset.weightMode === 'momentum') {
                     updatePresetWeightsAfterSpin(activePreset, winner);
@@ -1514,6 +1584,10 @@ function createOverlayRoutes({
                     totalWeight,
                     weightMode: effectiveWeightMode,
                     choiceStats: matched?.choiceStats || activePreset.choiceStats || {},
+                    eliminationMode: eliminationRequested,
+                    eliminated: eliminatedAfter,
+                    winnerEliminated: eliminationRequested,
+                    spinHistory: matched ? (matched.spinHistory || []).slice(-50) : undefined,
                     winner,
                     ...(winnerHeader !== undefined ? { winnerHeader } : {}),
                     ...(winnerSub !== undefined ? { winnerSub } : {}),
@@ -1550,6 +1624,9 @@ function createOverlayRoutes({
                     totalWeight,
                     weightMode: effectiveWeightMode,
                     choiceStats: matched?.choiceStats || activePreset.choiceStats || {},
+                    eliminationMode: eliminationRequested,
+                    eliminated: eliminatedAfter,
+                    spinHistory: payload.spinHistory,
                     payload
                 });
             } catch (err) {
