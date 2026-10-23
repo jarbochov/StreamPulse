@@ -585,7 +585,7 @@
 
         const isLive = filename === '__current__';
         const dateMatch = filename.match(/chat-(\d{4}-\d{2}-\d{2})/);
-        const title = isLive ? '<span class="status-dot live" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fb950;margin-right:6px;"></span>Current Session' : (dateMatch ? `Session — ${dateMatch[1]}` : filename);
+        const titleHtml = isLive ? '<span class="status-dot live" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fb950;margin-right:6px;"></span>Current Session' : escapeHtml(dateMatch ? `Session — ${dateMatch[1]}` : filename);
 
         const chatters = Object.keys(data.chatters || {}).length;
         const messages = data.messageCount || 0;
@@ -654,7 +654,7 @@
 
         panel.innerHTML = `
             <div class="detail-header">
-                <h2>${escapeHtml(title)}</h2>
+                <h2>${titleHtml}</h2>
                 <div class="detail-header-actions">
                     ${toolPanes.map(t => `<button onclick="switchTool('${t.id}', this)">${t.label}</button>`).join('')}
                     ${!isLive ? `<button class="danger" onclick="deleteArchivedSession()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle; margin-right:3px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete</button>` : ''}
@@ -1055,7 +1055,11 @@
         grid.style.display = 'grid';
         closeDetail();
 
-        const getLabel = f => { const m = f.match(/chat-(\d{4}-\d{2}-\d{2})/); return m ? m[1] : f; };
+        const getLabel = f => {
+            if (f === '__current__') return 'Current Session';
+            const m = f.match(/chat-(\d{4}-\d{2}-\d{2})/);
+            return m ? m[1] : f;
+        };
         const metrics = [
             { label: 'Messages', fn: d => d.messageCount || 0 },
             { label: 'Chatters', fn: d => Object.keys(d.chatters || {}).length },
@@ -1143,7 +1147,11 @@
         if (m.donation) badges += `<span class="chat-badge badge-donation">${escapeHtml(m.donation)}</span>`;
         if (m.membership) badges += `<span class="chat-badge badge-sub">${escapeHtml(m.membership)}</span>`;
 
-        const sessionTag = showSession ? `<div class="chat-session-tag">${escapeHtml(m.session || '')}</div>` : '';
+        const isCurrentSession = (m.session === 'current' || m.session === '__current__' || sessionName === 'Current Session' || sessionName === 'current' || sessionName === '__current__');
+        const sessionDisplay = isCurrentSession
+            ? '<span class="status-dot live" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fb950;margin-right:6px;"></span>Current Session'
+            : escapeHtml(m.session || '');
+        const sessionTag = showSession ? `<div class="chat-session-tag">${sessionDisplay}</div>` : '';
 
         const isPinned = highlightsCache && highlightsCache.some(h => h.ts === m.ts && h.user === m.user);
         const pinStar = isPinned ? '★' : '☆';
@@ -1531,8 +1539,6 @@
                 container.innerHTML = '<div class="empty">No results found</div>';
             } else {
                 container.innerHTML = results.map(m => {
-                    const sessionLabel = m.session === 'current' ? '<span class="status-dot live" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fb950;margin-right:6px;"></span>Current Session' : m.session;
-                    m.session = sessionLabel;
                     if (type === 'links') return renderLinkResult(m);
                     return renderChatMessage(m, true, m.session);
                 }).join('');
