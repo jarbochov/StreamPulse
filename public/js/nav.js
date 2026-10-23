@@ -124,7 +124,12 @@
     const pageParentMap = {
         '/custom-overlay-editor.html': '/custom-overlays.html',
         '/alert-queue.html': '/alerts.html',
-        '/commands.html': '/chatbot.html'
+        '/commands.html': '/chatbot.html',
+        '/overlay-url-wizard.html': '/overlays.html',
+        '/timer-url-wizard.html': '/timers-editor.html',
+        '/music-url-wizard.html': '/music-editor.html',
+        '/game-plan-url-wizard.html': '/game-plan-editor.html',
+        '/milestone-url-wizard.html': '/analytics.html'
     };
 
     function isActive(href) {
@@ -133,6 +138,9 @@
         const cleanCurrent = currentPath.split('?')[0].split('#')[0];
         if (cleanCurrent === cleanHref) return true;
         if (pageParentMap[cleanCurrent] === cleanHref) return true;
+        const rootCurrent = cleanCurrent.replace(/^\/(?:system|tools|editors|wizards|library|overlays)\//, '/');
+        if (rootCurrent === cleanHref) return true;
+        if (pageParentMap[rootCurrent] === cleanHref) return true;
         return false;
     }
 

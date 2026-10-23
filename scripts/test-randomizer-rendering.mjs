@@ -11,6 +11,7 @@ const sources = new Map(await Promise.all(moduleNames.map(async name => [
     `/js/randomizer/${name}.js`, await readFile(new URL(`../public/js/randomizer/${name}.js`, import.meta.url), 'utf8')
 ])));
 sources.set('/js/studio-themes.js', await readFile(new URL('../public/js/studio-themes.js', import.meta.url), 'utf8'));
+sources.set('/css/randomizer-editor.css', await readFile(new URL('../public/css/randomizer-editor.css', import.meta.url), 'utf8'));
 const hooks = `
         window.fixture.controls = {
             spin: runSpin, draw: drawWheel,
@@ -63,7 +64,7 @@ try {
             if (moduleNames.some(name => url.pathname === `/js/randomizer/${name}.js`)) requestedModules.add(url.pathname);
             request.respond({
                 status: 200,
-                contentType: source ? (url.pathname.endsWith('.html') ? 'text/html' : 'text/javascript')
+                contentType: source ? (url.pathname.endsWith('.html') ? 'text/html' : url.pathname.endsWith('.css') ? 'text/css' : 'text/javascript')
                     : url.pathname.endsWith('.js') ? 'text/javascript' : url.pathname.endsWith('.css') ? 'text/css' : 'image/svg+xml',
                 body: source || (url.pathname.endsWith('.js') || url.pathname.endsWith('.css') ? ''
                     : '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"/>')

@@ -443,33 +443,44 @@
         const goalRem = Math.max(0, goalTarget - goalCur);
         const goalPct = Math.min(100, Math.max(0, Math.round((goalCur / goalTarget) * 100)));
 
+        const ICONS = {
+            fire: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>',
+            clock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
+            chat: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
+            mail: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>',
+            calendar: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>',
+            stream: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>',
+            target: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>',
+            trophy: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v2h10v-2h-2c-.55 0-1-.45-1-1v-2.34c3.27-.47 5.8-3.15 5.98-6.49L20 4H4l.02 4.17c.18 3.34 2.71 6.02 5.98 6.49z"></path></svg>'
+        };
+
         if (mode === 'card') {
             root.innerHTML = `
                 <div class="card-top">
                     <span class="card-title">${customTitle}</span>
                     ${!hideStreak ? `
                         <div class="streak-pill" title="${streakDays} consecutive broadcast days">
-                            <span class="icon">🔥</span>
+                            <span class="icon">${ICONS.fire}</span>
                             <span>${streakDays} ${streakDays === 1 ? 'Day' : 'Days'}</span>
                         </div>
                     ` : ''}
                 </div>
                 <div class="card-main">
                     <div class="stream-num">Stream #${streamNum}</div>
-                    ${!hideHours ? `<div class="stream-hours"><span>⏱️</span> ${totalTime}</div>` : ''}
+                    ${!hideHours ? `<div class="stream-hours"><span>${ICONS.clock}</span> ${totalTime}</div>` : ''}
                 </div>
                 ${!hideStats ? `
                     <div class="card-meta">
-                        <span>💬 ${chatters} Chatters</span>
-                        <span>📨 ${messages} Msgs</span>
-                        ${streakWeeks > 1 ? `<span>📅 ${streakWeeks} Wk Streak</span>` : ''}
+                        <span>${ICONS.chat} ${chatters} Chatters</span>
+                        <span>${ICONS.mail} ${messages} Msgs</span>
+                        ${streakWeeks > 1 ? `<span>${ICONS.calendar} ${streakWeeks} Wk Streak</span>` : ''}
                     </div>
                 ` : ''}
                 ${!hideGoal ? `
                     <div class="goal-section">
                         <div class="goal-header">
                             <span class="goal-name">Target: ${goalTitle}</span>
-                            <span class="goal-rem">${goalRem > 0 ? `${goalRem} ${goalUnit} to go (${goalPct}%)` : '🎉 Reached!'}</span>
+                            <span class="goal-rem">${goalRem > 0 ? `${goalRem} ${goalUnit} to go (${goalPct}%)` : `${ICONS.trophy} Reached!`}</span>
                         </div>
                         <div class="goal-bar">
                             <div class="goal-fill" style="width: ${goalPct}%;"></div>
@@ -479,31 +490,31 @@
             `;
         } else if (mode === 'pill') {
             root.innerHTML = `
-                <div class="stream-pill-item accent">🎬 Stream #${streamNum}</div>
+                <div class="stream-pill-item accent">${ICONS.stream} Stream #${streamNum}</div>
                 ${!hideStreak ? `
                     <span class="sep">•</span>
-                    <div class="stream-pill-item" style="color:var(--ms-fire)">🔥 ${streakDays} ${streakDays === 1 ? 'Day' : 'Days'}</div>
+                    <div class="stream-pill-item" style="color:var(--ms-fire)">${ICONS.fire} ${streakDays} ${streakDays === 1 ? 'Day' : 'Days'}</div>
                 ` : ''}
                 ${!hideHours ? `
                     <span class="sep">•</span>
-                    <div class="stream-pill-item">⏱️ ${totalTime}</div>
+                    <div class="stream-pill-item">${ICONS.clock} ${totalTime}</div>
                 ` : ''}
             `;
         } else if (mode === 'streak') {
             root.innerHTML = `
-                <span style="font-size:1.3rem">🔥</span>
+                <span style="display:inline-flex; align-items:center; justify-content:center;">${ICONS.fire}</span>
                 <span class="streak-val">${streakDays}</span>
                 <span class="streak-sub">${streakDays === 1 ? 'Day Streak' : 'Days Streak'}</span>
             `;
         } else if (mode === 'stream_num') {
             root.innerHTML = `
-                <span>🎬</span>
+                <span>${ICONS.stream}</span>
                 <span>Stream #${streamNum}</span>
             `;
         } else if (mode === 'goal') {
             root.innerHTML = `
                 <div class="goal-header" style="font-size:0.85rem">
-                    <span class="goal-name" style="font-size:1rem; font-weight:700">🎯 ${goalTitle}</span>
+                    <span class="goal-name" style="font-size:1rem; font-weight:700">${ICONS.target} ${goalTitle}</span>
                     <span class="goal-rem" style="font-size:0.8rem"><b>${goalCur}</b> / ${goalTarget} ${goalUnit} (${goalRem} to go)</span>
                 </div>
                 <div class="goal-bar" style="height:12px">

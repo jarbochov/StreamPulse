@@ -220,10 +220,10 @@
             <div class="sidebar">
                 <div class="sidebar-header">
                     <h2>Sessions</h2>
-                    <button class="compare-btn" id="compare-toggle" onclick="toggleCompareMode()" style="background: var(--bg-raised); color: var(--text-muted); font-size: 0.75rem; padding: 0.3rem 0.6rem;">📊 Compare</button>
+                    <button class="compare-btn" id="compare-toggle" onclick="toggleCompareMode()" style="background: var(--bg-raised); color: var(--text-muted); font-size: 0.75rem; padding: 0.3rem 0.6rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:3px;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Compare</button>
                 </div>
                 <div class="global-search">
-                    <input type="text" id="global-search-input" placeholder="🔍 Search all chats (* and ? wildcards)..." onkeydown="if(event.key==='Enter')globalSearch()">
+                    <input type="text" id="global-search-input" placeholder="Search all chats (* and ? wildcards)..." onkeydown="if(event.key==='Enter')globalSearch()">
                     <button onclick="globalSearch()">Search</button>
                 </div>
                 <details class="search-hints">
@@ -241,9 +241,9 @@
                     </div>
                 </details>
                 <div style="display:flex;gap:0.35rem;margin-bottom:0.5rem;flex-wrap:wrap;">
-                    <button class="filter-toggle" onclick="globalSearchType('links', this)">🔗 Links</button>
-                    <button class="filter-toggle" onclick="globalSearchType('events', this)">📢 Events</button>
-                    <button class="filter-toggle" onclick="globalSearchType('donations', this)">💰 Donations</button>
+                    <button class="filter-toggle" onclick="globalSearchType('links', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg> Links</button>
+                    <button class="filter-toggle" onclick="globalSearchType('events', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Events</button>
+                    <button class="filter-toggle" onclick="globalSearchType('donations', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> Donations</button>
                 </div>
                 <div class="session-list" id="session-list">
                     <div class="empty">Loading sessions...</div>
@@ -333,7 +333,7 @@
             let html = `<div class="session-item${currentRange ? ' has-subtitle' : ''}" data-file="__current__" onclick="handleSessionClick('__current__', this)" style="border-color: var(--success-strong); background: var(--bg-inset);">
                 <input type="checkbox" class="session-checkbox" style="display: none;" onclick="event.stopPropagation(); toggleCompareSelection('__current__')">
                 <div style="display:flex;align-items:center;gap:0.5rem;width:100%;">
-                    <span class="session-date">🟢 Current Session</span>
+                    <span class="session-date"><span class="status-dot live" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fb950;margin-right:6px;"></span>Current Session</span>
                     <span class="session-meta">Live</span>
                 </div>
                 ${currentRange ? `<div class="session-time-range">${currentRange}</div>` : ''}
@@ -585,7 +585,7 @@
 
         const isLive = filename === '__current__';
         const dateMatch = filename.match(/chat-(\d{4}-\d{2}-\d{2})/);
-        const title = isLive ? '🟢 Current Session' : (dateMatch ? `Session — ${dateMatch[1]}` : filename);
+        const title = isLive ? '<span class="status-dot live" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fb950;margin-right:6px;"></span>Current Session' : (dateMatch ? `Session — ${dateMatch[1]}` : filename);
 
         const chatters = Object.keys(data.chatters || {}).length;
         const messages = data.messageCount || 0;
@@ -630,8 +630,8 @@
 
         // Chat Log and Highlights are action buttons, not stat tabs
         const toolPanes = [
-            { id: 'chatlog', label: '💬 Chat Log' },
-            { id: 'highlights', label: '⭐ Highlights' }
+            { id: 'chatlog', label: 'Chat Log' },
+            { id: 'highlights', label: 'Highlights' }
         ];
 
         // Build stream info banner
@@ -657,7 +657,7 @@
                 <h2>${escapeHtml(title)}</h2>
                 <div class="detail-header-actions">
                     ${toolPanes.map(t => `<button onclick="switchTool('${t.id}', this)">${t.label}</button>`).join('')}
-                    ${!isLive ? `<button class="danger" onclick="deleteArchivedSession()">🗑 Delete</button>` : ''}
+                    ${!isLive ? `<button class="danger" onclick="deleteArchivedSession()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle; margin-right:3px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete</button>` : ''}
                 </div>
             </div>
             ${streamInfoHtml}
@@ -681,16 +681,16 @@
         const exportSession = isLive ? 'current' : encodeURIComponent(filename);
         document.getElementById('pane-chatlog').innerHTML = `
             <div class="export-bar">
-                <button class="export-btn" onclick="exportChatLog('tsv')">📄 Export TSV</button>
-                <button class="export-btn" onclick="exportChatLog('txt')">📝 Export Text</button>
-                <button class="export-btn" onclick="exportChatLog('pdf')">📕 Export PDF</button>
+                <button class="export-btn" onclick="exportChatLog('tsv')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> Export TSV</button>
+                <button class="export-btn" onclick="exportChatLog('txt')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg> Export Text</button>
+                <button class="export-btn" onclick="exportChatLog('pdf')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> Export PDF</button>
             </div>
             <div class="chat-search">
                 <input type="text" id="chatlog-filter" placeholder='Filter messages (*, ? wildcards), @user, "phrase", OR...' onkeydown="if(event.key==='Enter')applyChatLogFilter()">
                 <button onclick="applyChatLogFilter()">Filter</button>
-                <button class="filter-toggle" id="links-toggle" onclick="toggleChatLogFilter('links', this)">🔗 Links</button>
-                <button class="filter-toggle" id="events-toggle" onclick="toggleChatLogFilter('events', this)">📢 Events</button>
-                <button class="filter-toggle" id="donations-toggle" onclick="toggleChatLogFilter('donations', this)">💰 Donations</button>
+                <button class="filter-toggle" id="links-toggle" onclick="toggleChatLogFilter('links', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg> Links</button>
+                <button class="filter-toggle" id="events-toggle" onclick="toggleChatLogFilter('events', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Events</button>
+                <button class="filter-toggle" id="donations-toggle" onclick="toggleChatLogFilter('donations', this)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> Donations</button>
                 <select class="chat-filter-select" onchange="setChatLogSort(this.value)"><option value="desc">Newest first</option><option value="asc">Oldest first</option></select>
             </div>
             <div class="chat-log-info" id="chatlog-info"></div>
@@ -977,7 +977,7 @@
 
         if (compareMode) {
             bar.classList.add('show');
-            toggle.textContent = '✕ Cancel Compare';
+            toggle.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:3px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Cancel Compare';
             toggle.style.background = 'color-mix(in srgb, var(--danger) 19%, transparent)';
             toggle.style.color = '#f85149';
             checkboxes.forEach(cb => { cb.style.display = 'inline'; cb.checked = false; });
@@ -994,7 +994,7 @@
         compareSelections = [];
         document.getElementById('compare-bar').classList.remove('show');
         const toggle = document.getElementById('compare-toggle');
-        toggle.textContent = '📊 Compare Sessions';
+        toggle.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:3px;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Compare Sessions';
         toggle.style.background = 'var(--bg-raised)';
         toggle.style.color = 'var(--text-muted)';
         document.querySelectorAll('.session-checkbox').forEach(cb => { cb.style.display = 'none'; cb.checked = false; });
@@ -1146,7 +1146,7 @@
         const sessionTag = showSession ? `<div class="chat-session-tag">${escapeHtml(m.session || '')}</div>` : '';
 
         const isPinned = highlightsCache && highlightsCache.some(h => h.ts === m.ts && h.user === m.user);
-        const pinStar = isPinned ? '⭐' : '☆';
+        const pinStar = isPinned ? '★' : '☆';
         const pinClass = isPinned ? 'pin-btn pinned' : 'pin-btn';
         const sName = sessionName || m.session || (activeSessionFile === '__current__' ? currentSessionName() : activeSessionFile) || '';
         const pinData = `data-ts="${m.ts}" data-user="${escapeHtml(m.user)}" data-msg="${escapeHtml(m.message || '')}" data-html="${escapeHtml(m.messageHtml || '')}" data-avatar="${escapeHtml(m.avatar || '')}" data-session="${escapeHtml(sName)}"`;
@@ -1491,7 +1491,7 @@
 
         panel.innerHTML = `
             <div class="detail-header">
-                <h2>🔍 Search Results</h2>
+                <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:6px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>Search Results</h2>
             </div>
             <div style="padding: 1.25rem;">
                 <div class="chat-log-loading">Searching all sessions...</div>
@@ -1515,12 +1515,12 @@
 
             panel.innerHTML = `
                 <div class="detail-header">
-                    <h2>🔍 Search: ${label}</h2>
+                    <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:6px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>Search: ${label}</h2>
                     <span style="color: var(--text-muted); font-size: 0.85rem;">${data.total} result${data.total !== 1 ? 's' : ''}</span>
                     <div class="export-bar" style="margin-left:auto;">
-                        <button class="export-btn" onclick="exportSearchResults('tsv')">📄 TSV</button>
-                        <button class="export-btn" onclick="exportSearchResults('txt')">📝 TXT</button>
-                        <button class="export-btn" onclick="exportSearchResults('pdf')">📕 PDF</button>
+                        <button class="export-btn" onclick="exportSearchResults('tsv')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> TSV</button>
+                        <button class="export-btn" onclick="exportSearchResults('txt')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg> TXT</button>
+                        <button class="export-btn" onclick="exportSearchResults('pdf')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> PDF</button>
                     </div>
                 </div>
                 <div style="padding: 1.25rem; overflow-y: auto; flex: 1;" id="search-results"></div>
@@ -1531,7 +1531,7 @@
                 container.innerHTML = '<div class="empty">No results found</div>';
             } else {
                 container.innerHTML = results.map(m => {
-                    const sessionLabel = m.session === 'current' ? '🟢 Current Session' : m.session;
+                    const sessionLabel = m.session === 'current' ? '<span class="status-dot live" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fb950;margin-right:6px;"></span>Current Session' : m.session;
                     m.session = sessionLabel;
                     if (type === 'links') return renderLinkResult(m);
                     return renderChatMessage(m, true, m.session);
@@ -1578,7 +1578,7 @@
             }
         } catch {
             panel.innerHTML = `
-                <div class="detail-header"><h2>🔍 Search</h2></div>
+                <div class="detail-header"><h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:6px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>Search</h2></div>
                 <div style="padding: 1.25rem;"><div class="empty">Search failed. Make sure the server is running.</div></div>
             `;
         }
