@@ -192,7 +192,7 @@ function normalizeRandomizerPreset(raw) {
         : [];
     const spinHistory = Array.isArray(raw.spinHistory)
         ? raw.spinHistory.filter(h => h && typeof h === 'object').slice(-RANDOMIZER_HISTORY_LIMIT).map(h => ({
-            type: h.type === 'reset' ? 'reset' : 'spin',
+            type: ['reset', 'manual'].includes(h.type) ? h.type : 'spin',
             winner: String(h.winner || ''),
             eliminated: !!h.eliminated,
             at: Number(h.at) || 0

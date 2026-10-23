@@ -998,7 +998,7 @@
         let eliminatedChoices = [];
         let pendingEliminationState = null;
         function playableChoices(list = choices) {
-            if (!eliminationMode) return list;
+            if (!eliminatedChoices.length) return list;
             const gone = new Set(eliminatedChoices.map(c => c.toLowerCase()));
             return list.filter(c => !gone.has(c.toLowerCase()));
         }

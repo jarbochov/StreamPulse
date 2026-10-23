@@ -1222,6 +1222,33 @@ function createOverlayRoutes({
             return true;
         }
 
+        if (pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/eliminated') && req.method === 'POST') {
+            try {
+                const idToEdit = decodeURIComponent(pathname.replace('/api/randomizer/presets/', '').replace('/eliminated', ''));
+                const body = JSON.parse((await readRequestBody(req)) || '{}');
+                const presets = loadRandomizerPresets();
+                const preset = presets.find(p => p.id === idToEdit);
+                if (!preset) {
+                    sendError(res, 'Preset not found', 404);
+                    return true;
+                }
+                const choice = (preset.choices || []).find(c => c.toLowerCase() === String(body.choice || '').trim().toLowerCase());
+                if (!choice) {
+                    sendError(res, 'Choice not found in preset', 404);
+                    return true;
+                }
+                const current = (preset.eliminated || []).filter(c => c.toLowerCase() !== choice.toLowerCase());
+                preset.eliminated = body.out ? [...current, choice] : current;
+                randomizerRecordHistory(preset, { type: 'manual', winner: choice, eliminated: !!body.out });
+                saveRandomizerPresets(presets);
+                broadcastToOverlays('randomizer-state', randomizerStatePayload(preset, getEffectiveWeights(preset)));
+                sendJson(res, { ok: true, preset, presets });
+            } catch (err) {
+                sendError(res, err.message, 400);
+            }
+            return true;
+        }
+
         if (pathname.startsWith('/api/randomizer/presets/') && pathname.endsWith('/reset-eliminated') && req.method === 'POST') {
             try {
                 const idToReset = decodeURIComponent(pathname.replace('/api/randomizer/presets/', '').replace('/reset-eliminated', ''));
@@ -1537,10 +1564,10 @@ function createOverlayRoutes({
                 const eliminatedBefore = matched
                     ? (Array.isArray(matched.eliminated) ? matched.eliminated : [])
                     : (Array.isArray(body.eliminated) ? body.eliminated.map(c => String(c).trim()) : []);
-                if (eliminationRequested) {
+                if (eliminatedBefore.length) {
                     const gone = new Set(eliminatedBefore.map(c => c.toLowerCase()));
                     choices = choices.filter(c => !gone.has(c.toLowerCase()));
-                    if (!choices.length) throw new Error('Every choice has been eliminated. Reset the randomizer to restore them.');
+                    if (!choices.length) throw new Error('Every choice has been removed. Restore them to spin again.');
                 }
 
                 const { weights, totalWeight, mode: effectiveWeightMode } = getEffectiveWeights(activePreset, choices);

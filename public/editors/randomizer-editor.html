@@ -834,7 +834,7 @@
         .elim-micro { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
         .elim-toggle { display: flex; align-items: center; gap: .5rem; font-size: .78rem; cursor: pointer; }
         .elim-actions { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-        .elim-history { display: flex; flex-direction: column; gap: 2px; max-height: 150px; overflow-y: auto; }
+        .elim-history { display: flex; flex-direction: column; gap: 3px; }
         .elim-history-row { display: flex; align-items: center; gap: .5rem; font-size: .74rem; padding: .2rem .35rem; border-radius: 5px; background: var(--bg-card); }
         .elim-history-row .elim-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .elim-history-row .elim-time { color: var(--text-muted); font-size: .66rem; }
@@ -1109,6 +1109,10 @@
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path></svg>
                         Quotes
                     </button>
+                    <button class="tab-btn" id="tab-btn-history" type="button" role="tab">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        History
+                    </button>
                     <button class="tab-btn" id="tab-btn-obs" type="button" role="tab">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
                         OBS / Stream
@@ -1212,7 +1216,7 @@
                                 Restore All
                             </button>
                         </div>
-                        <div class="elim-history" id="elim-history"></div>
+                        <span style="font-size:.7rem; color:var(--text-muted);">Spin and removal history is on the History tab.</span>
                     </div>
 
                     <!-- Choices Pool (Toggle between Table with weights and Raw textarea) -->
@@ -1241,7 +1245,7 @@
                                             <th>Choice</th>
                                             <th style="width:110px; text-align:center;">Weight</th>
                                             <th style="width:85px; text-align:center;">Win Odds</th>
-                                            <th style="width:34px;"></th>
+                                            <th style="width:66px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="choices-table-body"></tbody>
@@ -1443,6 +1447,14 @@
                 </div>
 
                 <!-- Tab 5: OBS & Companion -->
+                <div class="tab-pane" id="tab-pane-history">
+                    <div class="elim-head">
+                        <span class="elim-micro">Spin &amp; Removal History</span>
+                        <span id="history-count-pill" class="meta-pill">0 entries</span>
+                    </div>
+                    <div class="elim-history" id="elim-history"></div>
+                </div>
+
                 <div class="tab-pane" id="tab-pane-obs">
                     <div class="row">
                         <label class="f">
@@ -2275,27 +2287,33 @@
         let pendingEliminationState = null;
 
         function isEliminated(c) {
-            return currentEliminationMode && currentEliminated.some(e => e.toLowerCase() === String(c).toLowerCase());
+            return currentEliminated.some(e => e.toLowerCase() === String(c).toLowerCase());
         }
 
         function playableChoices(list = choices) {
-            return currentEliminationMode ? list.filter(c => !isEliminated(c)) : list;
+            return currentEliminated.length ? list.filter(c => !isEliminated(c)) : list;
         }
 
         function renderEliminationUI() {
             const toggle = $('elim-toggle');
             if (toggle) toggle.checked = currentEliminationMode;
             const actions = $('elim-actions');
-            if (actions) actions.style.display = currentEliminationMode ? 'flex' : 'none';
+            if (actions) actions.style.display = (currentEliminationMode || currentEliminated.length) ? 'flex' : 'none';
             const pill = $('elim-count-pill');
             if (pill) {
                 const total = choices.length;
-                pill.textContent = currentEliminationMode ? `${playableChoices(choices).length} of ${total} left` : 'Off';
+                pill.textContent = (currentEliminationMode || currentEliminated.length) ? `${playableChoices(choices).length} of ${total} left` : 'Off';
             }
+            const countPill = $('history-count-pill');
+            if (countPill) countPill.textContent = `${currentSpinHistory.length} entries`;
             const box = $('elim-history');
             if (!box) return;
             box.innerHTML = '';
-            const entries = currentSpinHistory.slice(-10).reverse();
+            if (!currentSpinHistory.length) {
+                box.innerHTML = '<div style="padding:1.2rem; text-align:center; font-size:.78rem; color:var(--text-muted);">No spins yet. Selections and removals will appear here.</div>';
+                return;
+            }
+            const entries = currentSpinHistory.slice().reverse();
             entries.forEach(h => {
                 const row = document.createElement('div');
                 row.className = 'elim-history-row';
@@ -2306,6 +2324,10 @@
                     badge.className = 'elim-badge restored';
                     badge.textContent = 'Restored';
                     name.textContent = 'All choices restored';
+                } else if (h.type === 'manual') {
+                    badge.className = 'elim-badge ' + (h.eliminated ? 'out' : 'restored');
+                    badge.textContent = h.eliminated ? 'Removed' : 'Restored';
+                    name.textContent = h.winner;
                 } else {
                     badge.className = 'elim-badge ' + (h.eliminated ? 'out' : 'picked');
                     badge.textContent = h.eliminated ? 'Selected, removed' : 'Selected';
@@ -2327,6 +2349,29 @@
             renderEliminationUI();
             renderChoicesTable();
             if (redraw && !isSpinning) renderInitialState();
+        }
+
+        async function setChoiceOut(choice, out) {
+            if (isSpinning) return;
+            if (currentPresetId && presetsList.some(p => p.id === currentPresetId)) {
+                try {
+                    const res = await fetch(`/api/randomizer/presets/${encodeURIComponent(currentPresetId)}/eliminated`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ choice, out })
+                    }).then(r => r.json());
+                    if (res.ok) {
+                        presetsList = res.presets;
+                        applyEliminationState(res.preset);
+                        return;
+                    }
+                } catch {}
+                return toast('Could not update the choice');
+            }
+            const rest = currentEliminated.filter(e => e.toLowerCase() !== choice.toLowerCase());
+            currentEliminated = out ? [...rest, choice] : rest;
+            currentSpinHistory = [...currentSpinHistory, { type: 'manual', winner: choice, eliminated: out, at: Date.now() }];
+            applyEliminationState({});
         }
 
         async function persistEliminationMode() {
@@ -2625,8 +2670,18 @@
                     : `<span class="prob-badge ${probClass}">${prob}%</span>`;
                 tr.appendChild(tdProb);
 
-                // Delete choice td
+                // Out / restore + delete td
                 const tdDel = document.createElement('td');
+                tdDel.style.whiteSpace = 'nowrap';
+                const outBtn = document.createElement('button');
+                outBtn.type = 'button';
+                outBtn.className = 'choice-del-btn';
+                outBtn.title = out ? `Put "${c}" back in the pool` : `Take "${c}" out of the pool (keeps the choice)`;
+                outBtn.innerHTML = out
+                    ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`
+                    : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/></svg>`;
+                outBtn.onclick = () => setChoiceOut(c, !out);
+                tdDel.appendChild(outBtn);
                 const delBtn = document.createElement('button');
                 delBtn.type = 'button';
                 delBtn.className = 'choice-del-btn';
@@ -3024,6 +3079,7 @@
                 const pending = pendingEliminationState;
                 pendingEliminationState = null;
                 applyEliminationState(pending, { redraw: false });
+                fetchChoicesPresets();
             }
             if ($('btn-spin')) $('btn-spin').disabled = false;
             if ($('overlay-spin-btn')) {
