@@ -1,5 +1,5 @@
 'use strict';
-/* global renderMatchup, currentMatchup, updateMatchupOverlayUrl, updateTourneyOverlayUrl, localStorage */
+/* global renderMatchup, currentMatchup, updateMatchupOverlayUrl, updateTourneyOverlayUrl, localStorage, switchTab, setPreviewMode, setPreviewBackdrop, setPreviewSampleData, setTourneyFitWholeBracket, setPreviewViewport, previewBackdrop, previewUseSample, tourneyFitWholeBracket, previewMode, currentViewportW, currentViewportH */
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -397,6 +397,111 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         const dockEstText = await page.$eval('.clock-dock-pill .clock-est', el => el.textContent.trim());
         assert.ok(dockEstText.includes('EST'), 'Bottom dock estimated time should be marked as EST');
         assert.ok(!dockEstText.startsWith('/'), 'Bottom dock estimated time should not be formatted as a division slash');
+
+        // 34. Versus Live Overlay preview settings persistence across tab switches and reloads
+        await page.goto(VERSUS_TOOL_URL, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#matchup-opt-layout');
+
+        await page.evaluate(() => {
+            switchTab('overlays');
+            setPreviewMode('tourney-tree');
+            setPreviewBackdrop('checkerboard');
+            setPreviewSampleData(false);
+            setTourneyFitWholeBracket(true);
+            setPreviewViewport(1280, 220, document.getElementById('chip-vp-race'));
+        });
+
+        // Switch tabs away from overlays and back
+        await page.evaluate(() => {
+            switchTab('matchup');
+            switchTab('tourney');
+            switchTab('overlays');
+        });
+
+        const stateAfterTabSwitches = await page.evaluate(() => ({
+            previewMode,
+            previewBackdrop,
+            previewUseSample,
+            tourneyFitWholeBracket,
+            currentViewportW,
+            currentViewportH,
+            activeChipId: document.querySelector('#prev-viewport-chips .preset-chip-btn.active')?.id,
+            storedTab: localStorage.getItem('versus-overlay-tab'),
+            storedBackdrop: localStorage.getItem('versus-preview-backdrop'),
+            storedSample: localStorage.getItem('versus-preview-sample'),
+            storedFit: localStorage.getItem('versus-tourney-fit-whole-bracket'),
+            storedVpTree: localStorage.getItem('versus-viewport-tourney-tree'),
+        }));
+
+        assert.equal(stateAfterTabSwitches.previewMode, 'tourney-tree', 'Preview mode should remain tourney-tree after switching tabs');
+        assert.equal(stateAfterTabSwitches.previewBackdrop, 'checkerboard', 'Canvas backdrop should remain checkerboard');
+        assert.equal(stateAfterTabSwitches.previewUseSample, false, 'Sample data should remain OFF');
+        assert.equal(stateAfterTabSwitches.tourneyFitWholeBracket, true, 'Whole bracket fit should remain ON');
+        assert.equal(stateAfterTabSwitches.currentViewportW, 1280, 'Viewport width should remain 1280');
+        assert.equal(stateAfterTabSwitches.currentViewportH, 220, 'Viewport height should remain 220');
+        assert.equal(stateAfterTabSwitches.activeChipId, 'chip-vp-race', 'Active chip should remain chip-vp-race');
+        assert.equal(stateAfterTabSwitches.storedTab, 'tourney-tree');
+        assert.equal(stateAfterTabSwitches.storedBackdrop, 'checkerboard');
+        assert.equal(stateAfterTabSwitches.storedSample, '0');
+        assert.equal(stateAfterTabSwitches.storedFit, '1');
+
+        // Reload page to verify persistence across page reloads
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#matchup-opt-layout');
+
+        const stateAfterReload = await page.evaluate(() => {
+            switchTab('overlays');
+            return {
+                previewMode,
+                previewBackdrop,
+                previewUseSample,
+                tourneyFitWholeBracket,
+                currentViewportW,
+                currentViewportH,
+                activeChipId: document.querySelector('#prev-viewport-chips .preset-chip-btn.active')?.id
+            };
+        });
+
+        assert.equal(stateAfterReload.previewMode, 'tourney-tree', 'Preview mode should be restored as tourney-tree after page reload');
+        assert.equal(stateAfterReload.previewBackdrop, 'checkerboard', 'Canvas backdrop should be restored as checkerboard after reload');
+        assert.equal(stateAfterReload.previewUseSample, false, 'Sample data should be restored as OFF after reload');
+        assert.equal(stateAfterReload.tourneyFitWholeBracket, true, 'Whole bracket fit should be restored as ON after reload');
+        assert.equal(stateAfterReload.currentViewportW, 1280, 'Viewport width should be restored as 1280 after reload');
+        assert.equal(stateAfterReload.currentViewportH, 220, 'Viewport height should be restored as 220 after reload');
+        assert.equal(stateAfterReload.activeChipId, 'chip-vp-race', 'Active chip should be restored as chip-vp-race after reload');
+
+        // 35. Polls Live Overlay preview mode persistence across tab switches and reloads
+        const POLLS_TOOL_URL = 'file://' + path.resolve(__dirname, '../public/tools/polls.html');
+        await page.goto(POLLS_TOOL_URL, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#poll-opt-theme');
+
+        await page.evaluate(() => {
+            switchTab('overlays');
+            setPreviewMode('active');
+        });
+
+        assert.equal(
+            await page.evaluate(() => localStorage.getItem('polls-overlay-preview-mode')),
+            'active',
+            'Polls preview mode active should be stored in localStorage'
+        );
+
+        // Switch to poll tab and back to overlays tab
+        await page.evaluate(() => {
+            switchTab('poll');
+            switchTab('overlays');
+        });
+
+        const pollPreviewModeAfterTabSwitch = await page.evaluate(() => previewMode);
+        assert.equal(pollPreviewModeAfterTabSwitch, 'active', 'Polls preview mode should remain active after switching tabs');
+
+        // Reload page
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#poll-opt-theme');
+        await page.evaluate(() => switchTab('overlays'));
+
+        const pollPreviewModeAfterReload = await page.evaluate(() => previewMode);
+        assert.equal(pollPreviewModeAfterReload, 'active', 'Polls preview mode should be restored as active after reload');
 
     } finally {
         if (browser) await browser.close();

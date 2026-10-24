@@ -1546,9 +1546,9 @@
             $('panel-presets').style.display = tab === 'presets' ? 'block' : 'none';
             $('panel-history').style.display = tab === 'history' ? 'block' : 'none';
 
-            if (tab === 'tourney') setPreviewMode('tourney-tree');
-            else if (tab === 'matchup') setPreviewMode('matchup');
-            else if (tab === 'overlays') {
+            if (tab === 'overlays') {
+                const savedPreview = localStorage.getItem('versus-overlay-tab') || previewMode || 'matchup';
+                setPreviewMode(savedPreview);
                 applyViewportScale();
             } else if (tab === 'presets') {
                 loadTournamentPresets();
@@ -1563,12 +1563,18 @@
         let previewBackdrop = 'dark';
         let tourneyFitWholeBracket = false;
 
-        function toggleTourneyFitWholeBracket() {
-            tourneyFitWholeBracket = !tourneyFitWholeBracket;
+        function setTourneyFitWholeBracket(enabled) {
+            tourneyFitWholeBracket = Boolean(enabled);
             const btn = $('btn-tourney-fit-toggle');
             if (btn) btn.textContent = tourneyFitWholeBracket ? 'Fit Whole Bracket: ON' : 'Fit Whole Bracket: OFF';
             if ($('tourney-opt-fit')) $('tourney-opt-fit').checked = tourneyFitWholeBracket;
+            try { localStorage.setItem('versus-tourney-fit-whole-bracket', tourneyFitWholeBracket ? '1' : '0'); } catch {}
+            saveVersusOverlayPrefs();
             updateTourneyOverlayUrl();
+        }
+
+        function toggleTourneyFitWholeBracket() {
+            setTourneyFitWholeBracket(!tourneyFitWholeBracket);
         }
 
         function syncTourneyOptFromMain(key, val) {
@@ -1584,15 +1590,14 @@
             if (key === 'pipstyle' && $('prev-ctrl-tourney-pipstyle')) $('prev-ctrl-tourney-pipstyle').value = val;
             if (key === 'roundpipstyle' && $('prev-ctrl-tourney-roundpipstyle')) $('prev-ctrl-tourney-roundpipstyle').value = val;
             if (key === 'fit') {
-                tourneyFitWholeBracket = val === '1';
-                const btn = $('btn-tourney-fit-toggle');
-                if (btn) btn.textContent = tourneyFitWholeBracket ? 'Fit Whole Bracket: ON' : 'Fit Whole Bracket: OFF';
+                setTourneyFitWholeBracket(val === '1');
+                return;
             }
             updateTourneyOverlayUrl();
         }
 
-        function togglePreviewBackdrop() {
-            previewBackdrop = previewBackdrop === 'dark' ? 'checkerboard' : 'dark';
+        function setPreviewBackdrop(mode) {
+            previewBackdrop = (mode === 'checkerboard' || mode === 'grid') ? 'checkerboard' : 'dark';
             const boxes = [$('matchup-preview-box'), $('tourney-tree-box'), $('tourney-hud-box')];
             boxes.forEach(b => {
                 if (!b) return;
@@ -1601,24 +1606,62 @@
             });
             const btn = $('prev-btn-bg');
             if (btn) btn.textContent = previewBackdrop === 'dark' ? 'Canvas: Dark' : 'Canvas: Grid';
+            try { localStorage.setItem('versus-preview-backdrop', previewBackdrop); } catch {}
+            saveVersusOverlayPrefs();
+        }
+
+        function togglePreviewBackdrop() {
+            setPreviewBackdrop(previewBackdrop === 'dark' ? 'checkerboard' : 'dark');
+        }
+
+        function setPreviewSampleData(enabled) {
+            previewUseSample = Boolean(enabled);
+            const btn = $('prev-btn-sample');
+            if (btn) btn.textContent = previewUseSample ? 'Sample: ON' : 'Sample: OFF';
+            try { localStorage.setItem('versus-preview-sample', previewUseSample ? '1' : '0'); } catch {}
+            saveVersusOverlayPrefs();
+            updateMatchupOverlayUrl();
+            updateTourneyOverlayUrl();
         }
 
         function togglePreviewSampleData() {
-            previewUseSample = !previewUseSample;
-            const btn = $('prev-btn-sample');
-            if (btn) btn.textContent = previewUseSample ? 'Sample: ON' : 'Sample: OFF';
-            updateMatchupOverlayUrl();
-            updateTourneyOverlayUrl();
+            setPreviewSampleData(!previewUseSample);
         }
 
         let currentViewportW = 1100;
         let currentViewportH = 100;
 
-        function setPreviewViewport(w, h, btn) {
+        function setPreviewViewport(w, h, btn, shouldSave = true) {
             document.querySelectorAll('#prev-viewport-chips .preset-chip-btn').forEach(b => b.classList.remove('active'));
+            if (!btn && (w !== undefined || h !== undefined)) {
+                const chips = Array.from(document.querySelectorAll('#prev-viewport-chips .preset-chip-btn'));
+                btn = chips.find(b => {
+                    if (w === null && h === 560 && b.id === 'chip-vp-bracket') return true;
+                    if (w === 1100 && (h === 100 || h === 110) && b.id === 'chip-vp-topbar') return true;
+                    if (w === 800 && h === 130 && b.id === 'chip-vp-hud') return true;
+                    if (w === 1280 && h === 220 && b.id === 'chip-vp-race') return true;
+                    if (w === 480 && h === 120 && b.id === 'chip-vp-narrow') return true;
+                    if (w === 340 && h === 200 && b.id === 'chip-vp-mobile') return true;
+                    if (w === 1280 && (h === 720 || h === 120) && b.id === 'chip-vp-169') return true;
+                    if (w === 380 && h === 120 && b.id === 'chip-vp-bug') return true;
+                    if (w === 420 && h === 360 && b.id === 'chip-vp-pillar') return true;
+                    if (w === 900 && h === 80 && b.id === 'chip-vp-topbar') return true;
+                    return false;
+                });
+            }
             if (btn) btn.classList.add('active');
             currentViewportW = w;
             currentViewportH = h;
+            if (shouldSave) {
+                try {
+                    localStorage.setItem('versus-viewport-' + previewMode, JSON.stringify({
+                        w,
+                        h,
+                        chipId: btn ? btn.id : ''
+                    }));
+                } catch {}
+                saveVersusOverlayPrefs();
+            }
             applyViewportScale();
         }
 
@@ -1723,17 +1766,36 @@
                 else if (mode === 'tourney-hud') labelEl.textContent = 'Tournament Active Match HUD Preview (Unified)';
             }
 
+            let hasSavedViewport = false;
+            try {
+                const rawVp = localStorage.getItem('versus-viewport-' + mode);
+                if (rawVp) {
+                    const savedVp = JSON.parse(rawVp);
+                    if (savedVp && (savedVp.w !== undefined || savedVp.h !== undefined)) {
+                        const chip = savedVp.chipId ? $(savedVp.chipId) : null;
+                        setPreviewViewport(savedVp.w, savedVp.h, chip, false);
+                        hasSavedViewport = true;
+                    }
+                }
+            } catch {}
+
+            if (!hasSavedViewport) {
+                if (mode === 'tourney-tree') {
+                    setPreviewViewport(null, 560, $('chip-vp-bracket'), false);
+                } else if (mode === 'tourney-hud') {
+                    setPreviewViewport(1100, 100, $('chip-vp-topbar'), false);
+                } else {
+                    const curLayout = $('matchup-opt-layout')?.value || 'top';
+                    onPreviewOptionChange('layout', curLayout);
+                }
+            }
+
             if (mode === 'tourney-tree') {
-                setPreviewViewport(null, 560, $('chip-vp-bracket'));
                 updateTourneyOverlayUrl();
-            } else if (mode === 'tourney-hud') {
-                setPreviewViewport(1100, 100, $('chip-vp-topbar'));
-                updateMatchupOverlayUrl();
             } else {
-                const curLayout = $('matchup-opt-layout')?.value || 'top';
-                onPreviewOptionChange('layout', curLayout);
                 updateMatchupOverlayUrl();
             }
+            saveVersusOverlayPrefs();
         }
 
         function updateTourneyOverlayUrl() {
@@ -1977,6 +2039,14 @@
             if (isRestoringVersusPrefs) return;
             try {
                 const prefs = {
+                    preview: {
+                        mode: previewMode,
+                        backdrop: previewBackdrop,
+                        useSample: previewUseSample,
+                        tourneyFitWholeBracket: tourneyFitWholeBracket,
+                        viewportW: currentViewportW,
+                        viewportH: currentViewportH,
+                    },
                     matchup: {
                         layout: $('matchup-opt-layout')?.value,
                         theme: $('matchup-opt-theme')?.value,
@@ -2034,9 +2104,23 @@
         function restoreVersusOverlayPrefs() {
             try {
                 const raw = localStorage.getItem(VERSUS_OVERLAY_PREFS_KEY);
-                if (!raw) return;
-                const prefs = JSON.parse(raw);
+                const prefs = raw ? JSON.parse(raw) : {};
                 isRestoringVersusPrefs = true;
+
+                const savedBackdrop = prefs.preview?.backdrop || localStorage.getItem('versus-preview-backdrop');
+                if (savedBackdrop) setPreviewBackdrop(savedBackdrop);
+
+                const savedSample = prefs.preview?.useSample !== undefined ? prefs.preview.useSample : (localStorage.getItem('versus-preview-sample') !== null ? localStorage.getItem('versus-preview-sample') === '1' : undefined);
+                if (savedSample !== undefined) setPreviewSampleData(savedSample);
+
+                const savedFit = prefs.preview?.tourneyFitWholeBracket !== undefined ? prefs.preview.tourneyFitWholeBracket : (localStorage.getItem('versus-tourney-fit-whole-bracket') !== null ? localStorage.getItem('versus-tourney-fit-whole-bracket') === '1' : undefined);
+                if (savedFit !== undefined) setTourneyFitWholeBracket(savedFit);
+
+                const savedMode = prefs.preview?.mode || localStorage.getItem('versus-overlay-tab');
+                if (savedMode && ['matchup', 'tourney-tree', 'tourney-hud'].includes(savedMode)) {
+                    previewMode = savedMode;
+                }
+
                 if (prefs.matchup) {
                     const m = prefs.matchup;
                     if (m.layout !== undefined && $('matchup-opt-layout')) $('matchup-opt-layout').value = m.layout;
@@ -2067,9 +2151,8 @@
                         const el = $('tourney-opt-' + k);
                         if (el && t[k] !== undefined) el.checked = Boolean(t[k]);
                     });
-                    if (t.tourneyFitWholeBracket !== undefined && typeof tourneyFitWholeBracket !== 'undefined') {
-                        tourneyFitWholeBracket = Boolean(t.tourneyFitWholeBracket);
-                        if ($('tourney-opt-fit')) $('tourney-opt-fit').checked = tourneyFitWholeBracket;
+                    if (t.tourneyFitWholeBracket !== undefined) {
+                        setTourneyFitWholeBracket(Boolean(t.tourneyFitWholeBracket));
                     }
                 }
             } catch { /* ignore parse error */ } finally {
@@ -5403,6 +5486,7 @@
 
         // Start everything
         restoreVersusOverlayPrefs();
+        setPreviewMode(previewMode);
         loadMatchup();
         loadTournament();
         loadTournamentDrafts();

@@ -692,6 +692,9 @@
             if (isRestoringPollsPrefs) return;
             try {
                 const prefs = {
+                    preview: {
+                        mode: previewMode,
+                    },
                     poll: {
                         theme: $('poll-opt-theme')?.value,
                         customBg: $('poll-opt-custom-bg')?.value,
@@ -718,9 +721,14 @@
         function restorePollsOverlayPrefs() {
             try {
                 const raw = localStorage.getItem(POLLS_OVERLAY_PREFS_KEY);
-                if (!raw) return;
-                const prefs = JSON.parse(raw);
+                const prefs = raw ? JSON.parse(raw) : {};
                 isRestoringPollsPrefs = true;
+
+                const savedMode = prefs.preview?.mode || localStorage.getItem('polls-overlay-preview-mode');
+                if (savedMode && ['poll', 'tree', 'active'].includes(savedMode)) {
+                    previewMode = savedMode;
+                }
+
                 if (prefs.poll) {
                     const p = prefs.poll;
                     if (p.theme !== undefined && $('poll-opt-theme')) $('poll-opt-theme').value = p.theme;
@@ -921,10 +929,9 @@
             if ($('poll-steps')) $('poll-steps').style.display = (tab === 'poll' || tab === 'tourney') ? '' : 'none';
             if (tab === 'tourney') {
                 loadTournament();
-            } else if (tab === 'poll') {
-                setPreviewMode('poll');
             } else if (tab === 'overlays') {
-                setPreviewMode(['poll', 'tree', 'active'].includes(previewMode) ? previewMode : 'poll');
+                const savedMode = localStorage.getItem('polls-overlay-preview-mode') || previewMode || 'poll';
+                setPreviewMode(['poll', 'tree', 'active'].includes(savedMode) ? savedMode : 'poll');
             } else if (tab === 'templates') {
                 loadPresets();
                 loadHistory();
@@ -933,6 +940,7 @@
 
         function setPreviewMode(mode) {
             previewMode = mode;
+            try { localStorage.setItem('polls-overlay-preview-mode', mode); } catch {}
             const isTourney = mode !== 'poll';
             $('btn-preview-poll')?.classList.toggle('active', mode === 'poll');
             $('btn-preview-tree')?.classList.toggle('active', mode === 'tree');
@@ -945,6 +953,7 @@
                 $('tourney-opt-layout').value = mode === 'active' ? 'active' : 'tree';
                 updateTourneyOverlayUrl();
             }
+            savePollsOverlayPrefs();
         }
 
         // Choices management (Up to 10 choices)
@@ -1906,6 +1915,7 @@
         // Init page
         (async () => {
             restorePollsOverlayPrefs();
+            setPreviewMode(previewMode);
             addChoiceField('Zelda: Tears of the Kingdom');
             addChoiceField('Elden Ring');
             addChoiceField('Metroid Prime Remastered');
