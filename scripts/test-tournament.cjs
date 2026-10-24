@@ -197,7 +197,7 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
             progressionMode: 'manual',
             scoringType: 'bestOf',
             bestOf: 3,
-            entrants: ['Daigo', 'Justin Wong', 'Tokido', 'Punk']
+            entrants: ['Daigo [Ryu]', 'Justin Wong [Chun-Li]', 'Tokido (Ken)', 'MenaRD, Zangief']
         });
         assert.equal(manualTourney.progressionMode, 'manual');
         assert.equal(manualTourney.bestOf, 3);
@@ -205,7 +205,9 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
 
         const m1 = manualTourney.matches[0];
         assert.equal(m1.entrant1.name, 'Daigo');
-        assert.equal(m1.entrant2.name, 'Punk');
+        assert.equal(m1.entrant1.tag, 'Ryu');
+        assert.equal(m1.entrant2.name, 'MenaRD');
+        assert.equal(m1.entrant2.tag, 'Zangief');
 
         // Score Game 1: Daigo wins (1 - 0)
         let res = service.updateMatchScore(m1.id, { entrant1Score: 1, entrant2Score: 0, matchDetails: 'Game 1' });
@@ -223,9 +225,10 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
         assert.equal(res.match.status, 'COMPLETED');
         assert.equal(res.match.winner, 'Daigo');
 
-        // Daigo should be placed in Grand Finals
+        // Daigo should be placed in Grand Finals with his tag preserved
         const finalsMatch = manualTourney.matches.find(m => m.roundName === 'Grand Finals');
         assert.equal(finalsMatch.entrant1.name, 'Daigo');
+        assert.equal(finalsMatch.entrant1.tag, 'Ryu');
 
         // 6. Select Active Match
         const m2 = manualTourney.matches[1]; // Justin Wong vs Tokido

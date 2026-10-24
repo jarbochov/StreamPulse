@@ -471,6 +471,24 @@
             font-weight: 600;
         }
 
+        .entrant-tag {
+            font-size: calc(0.68rem * var(--tourney-scale));
+            font-weight: 700;
+            color: var(--tourney-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.85;
+            flex-shrink: 0;
+        }
+
+        .hud-entrant-tag {
+            font-size: calc(0.72rem * var(--tourney-scale));
+            color: var(--tourney-muted);
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+
         .entrant-score-box {
             display: flex;
             align-items: center;
@@ -915,6 +933,7 @@
                                 <div class="hud-score-display">${isVote ? (e1.votes || 0) : (e1.score || 0)}</div>
                                 <div>
                                     <div class="hud-entrant-name">${esc(e1.name)}</div>
+                                    ${e1.tag ? `<div class="hud-entrant-tag">${esc(e1.tag)}</div>` : ''}
                                     ${!isVote && targetScore > 0 ? renderPips(e1.score || 0) : ''}
                                 </div>
                             </div>
@@ -923,6 +942,7 @@
                                 <div class="hud-score-display">${isVote ? (e2.votes || 0) : (e2.score || 0)}</div>
                                 <div>
                                     <div class="hud-entrant-name">${esc(e2.name)}</div>
+                                    ${e2.tag ? `<div class="hud-entrant-tag">${esc(e2.tag)}</div>` : ''}
                                     ${!isVote && targetScore > 0 ? renderPips(e2.score || 0) : ''}
                                 </div>
                             </div>
@@ -1025,6 +1045,7 @@
                                 <div class="entrant-info">
                                     ${e1.seed > 0 ? `<span class="seed-pill">#${e1.seed}</span>` : ''}
                                     <span class="entrant-name">${esc(e1.name)}</span>
+                                    ${e1.tag ? `<span class="entrant-tag">${esc(e1.tag)}</span>` : ''}
                                 </div>
                                 <div class="entrant-score-box">
                                     ${showScoresParam ? `
@@ -1040,6 +1061,7 @@
                                 <div class="entrant-info">
                                     ${e2.seed > 0 ? `<span class="seed-pill">#${e2.seed}</span>` : ''}
                                     <span class="entrant-name">${esc(e2.name)}</span>
+                                    ${e2.tag ? `<span class="entrant-tag">${esc(e2.tag)}</span>` : ''}
                                 </div>
                                 <div class="entrant-score-box">
                                     ${showScoresParam ? `
@@ -1142,6 +1164,7 @@
                             <div class="entrant-row${e1Winner ? ' winner' : ''}">
                                 <div class="entrant-info">
                                     <span class="entrant-name">${esc(e1.name)}</span>
+                                    ${e1.tag ? `<span class="entrant-tag">${esc(e1.tag)}</span>` : ''}
                                 </div>
                                 <div class="entrant-score-box">
                                     <span class="score-badge">${e1.score || 0}</span>
@@ -1150,6 +1173,7 @@
                             <div class="entrant-row${e2Winner ? ' winner' : ''}">
                                 <div class="entrant-info">
                                     <span class="entrant-name">${esc(e2.name)}</span>
+                                    ${e2.tag ? `<span class="entrant-tag">${esc(e2.tag)}</span>` : ''}
                                 </div>
                                 <div class="entrant-score-box">
                                     <span class="score-badge">${e2.score || 0}</span>

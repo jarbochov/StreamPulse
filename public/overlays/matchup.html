@@ -1265,11 +1265,14 @@
         }
         setInterval(() => {
             if (!liveM) return;
+            const clockRunning = liveM.clock && liveM.clock.enabled !== false && liveM.clock.isRunning;
+            const anyRunnerRunning = Array.isArray(liveM.competitors) && liveM.competitors.some(c => c.timer && c.timer.isRunning && !c.timer.finished);
+            if (!clockRunning && !anyRunnerRunning) return;
             const dt = (Date.now() - liveAt) / 1000;
             document.querySelectorAll('[data-live]').forEach(el => {
                 const k = el.dataset.live;
                 if (k === 'clock') {
-                    const c = liveM.clock; if (!c) return;
+                    const c = liveM.clock; if (!c || c.enabled === false) return;
                     el.textContent = fmtMs((c.elapsed || 0) + (c.isRunning ? dt : 0));
                 } else {
                     const t = (liveM.competitors || [])[parseInt(k, 10)]?.timer;
@@ -1324,8 +1327,12 @@
         function renderPipsHtml(comp, target, color) {
             const score = typeof comp === 'object' ? (comp.score || 0) : comp;
             if (!showPips || !target || target <= 0) return '';
+            const rb = Number(currentMatchup && currentMatchup.roundsBestOf) || 0;
             if (pipStyle === 'digit' || pipStyle === 'number') {
-                return `<div class="pip-digit-badge" style="${color ? `color:${color};` : ''}">${score} / ${target}</div>`;
+                const roundsSub = (typeof comp === 'object' && rb > 0)
+                    ? `<span style="font-size:0.65em;opacity:0.8;margin-left:0.25rem;">R: ${comp.rounds || 0}/${Math.ceil(rb / 2)}</span>`
+                    : '';
+                return `<div class="pip-digit-badge" style="${color ? `color:${color};` : ''}">${score} / ${target}${roundsSub}</div>`;
             }
             const isBar = pipStyle === 'bar' || pipStyle === 'block';
             const mk = (n, total, extra) => {
@@ -1335,7 +1342,6 @@
                 }
                 return h + '</div>';
             };
-            const rb = Number(currentMatchup && currentMatchup.roundsBestOf) || 0;
             if (typeof comp === 'object' && rb > 0) {
                 return `<div class="pips-stack">${mk(score, target, '')}${mk(comp.rounds || 0, Math.ceil(rb / 2), ' rounds')}</div>`;
             }
@@ -1402,6 +1408,7 @@
             const comps = m.competitors || [];
             const clock = m.clock || {};
             const est = clock.estimate || '';
+            const clockOff = !showClock || (m.clock && m.clock.enabled === false);
 
             container.innerHTML = `
                 <div class="race-panel">
@@ -1410,7 +1417,7 @@
                             <span class="match-phase-badge">${esc(m.phase || m.title || 'Speedrun Race')}</span>
                             ${m.details ? `<span style="font-size: 0.78rem; color: var(--matchup-muted); font-weight: 600;">${esc(m.details)}</span>` : ''}
                         </div>
-                        ${est ? `
+                        ${est && !clockOff ? `
                             <div class="race-est-badge">
                                 <span style="opacity: 0.75; font-size: 0.68rem; text-transform: uppercase;">EST</span>
                                 <span>${esc(est)}</span>
@@ -1423,20 +1430,21 @@
                             const t = c.timer || { elapsed: 0, isRunning: false, finished: false, finishTime: null, delta: null };
                             const isFin = t.finished;
                             const isRun = t.isRunning;
-                            const clockOff = m.clock && m.clock.enabled === false;
                             const timeStr = clockOff ? '' : isFin ? (t.finishTime || fmtMs(t.elapsed)) : fmtMs(t.elapsed || 0);
 
                             let badgeHtml = '';
-                            if (isFin) {
-                                if (t.delta === 'WINNER' || !t.delta) {
-                                    badgeHtml = `<span class="race-finish-badge finish-win">1st · Finish</span>`;
+                            if (!clockOff) {
+                                if (isFin) {
+                                    if (t.delta === 'WINNER' || !t.delta) {
+                                        badgeHtml = `<span class="race-finish-badge finish-win">1st · Finish</span>`;
+                                    } else {
+                                        badgeHtml = `<span class="race-finish-badge finish-delta">${esc(t.delta)}</span>`;
+                                    }
+                                } else if (isRun) {
+                                    badgeHtml = `<span class="race-finish-badge finish-running">Live</span>`;
                                 } else {
-                                    badgeHtml = `<span class="race-finish-badge finish-delta">${esc(t.delta)}</span>`;
+                                    badgeHtml = `<span class="race-finish-badge finish-delta">Ready</span>`;
                                 }
-                            } else if (isRun) {
-                                badgeHtml = `<span class="race-finish-badge finish-running">Live</span>`;
-                            } else {
-                                badgeHtml = `<span class="race-finish-badge finish-delta">Ready</span>`;
                             }
 
                             return `
@@ -1450,8 +1458,7 @@
                                         ${target > 0 ? renderPipsHtml(c, target, c.color) : ''}
                                     </div>
                                     <div class="race-timer-hero">
-                                        ${clockOff ? '' : `<div class="race-timer-digits"${isFin ? '' : ' data-live="' + i + '"'}>${timeStr}</div>`}
-                                        ${badgeHtml}
+                                        ${clockOff ? '' : `<div class="race-timer-digits"${isFin ? '' : ' data-live="' + i + '"'}>${timeStr}</div>${badgeHtml}`}
                                     </div>
                                 </div>
                             `;
@@ -1895,8 +1902,8 @@
                 details: match.matchDetails || match.details || `${tournament.format === 'roundRobin' ? 'Round Robin' : 'Bracket'} · Best of ${bestOf}`,
                 competitorCount: 2,
                 competitors: [
-                    { id: 'c1', name: e1Name, tag: '', color: customP1Color || '#ef4444', score: s1 },
-                    { id: 'c2', name: e2Name, tag: '', color: customP2Color || '#3b82f6', score: s2 }
+                    { id: 'c1', name: e1Name, tag: match.entrant1?.tag || '', color: customP1Color || '#ef4444', score: s1 },
+                    { id: 'c2', name: e2Name, tag: match.entrant2?.tag || '', color: customP2Color || '#3b82f6', score: s2 }
                 ],
                 format: tournament.scoringType === 'points' ? 'points' : 'bestOf',
                 bestOf,
@@ -1916,7 +1923,10 @@
             if (forceSample) {
                 fetch('/api/matchup').then(r => r.json()).then(d => {
                     const c = (d.matchup || d).clock;
-                    if (c && c.enabled === false) { SAMPLE_MATCHUP.clock.enabled = false; renderMatchup(SAMPLE_MATCHUP); }
+                    if (c) {
+                        SAMPLE_MATCHUP.clock.enabled = c.enabled !== false;
+                        renderMatchup(SAMPLE_MATCHUP);
+                    }
                 }).catch(() => {});
                 renderMatchup(SAMPLE_MATCHUP);
                 return;

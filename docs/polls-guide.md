@@ -68,6 +68,7 @@ StreamPulse includes an advanced **Tournament Bracket** engine designed for comm
   - **Best of 3**: First to 2 wins.
   - **Best of 5**: First to 3 wins.
   - **Best of 7**: First to 4 wins.
+- **Player Tags & Character Support**: Enter competitors using familiar formats like `Daigo [Ryu]`, `FOX | SonicFox`, or `Tokido (Ken)`. StreamPulse automatically parses tags, displays them on bracket match cards, and forwards them to active matchup overlays.
 - **Auto-Advancement on Target Score**: In best-of series, reaching the required target score (e.g. 2 wins in Best of 3) automatically crowns the matchup winner and moves them to the next round slot!
 - **Match Advancement Undo & Recursive Bracket Rollback**: Made a mistake or scored the wrong winner on a tournament match? Broadcasters can click **Undo / Edit** on any completed match in Versus (`/api/tournament/rollback`). The match winner is cleared, scores reset, and all downstream matches that depended on that match are recursively reverted back to `TBD` and `PENDING`, clearing any premature champion declarations.
 - **In-Progress Tournament Drafts & Checkpoints**: Streamers can save tournament snapshots at any point during a broadcast (**Save Draft** / `/api/tournament/drafts/save`). Switch games or pause your stream, then resume your exact bracket progression later via **Checkpoints** (`/api/tournament/drafts/restore`).
@@ -88,9 +89,11 @@ For broadcasts featuring fighting games (Street Fighter, Smash, Tekken), speedru
   - **Live Delta Badges**: The first runner to finish is awarded the green `WINNER` badge; subsequent finishers display exact positive split deltas (`+MM:SS.ss`) on stream.
   - **Target EST Display**: Set and display the estimated target time (`Target EST: 45:00`).
   - **Dedicated GDQ Race Layout**: Responsive multi-runner overlay layout (`?layout=race`) supporting 2, 3, or 4 runners with individual split clocks, runner tags, and status cards.
-- **Dual-Mode Match Clocks & Timers (EVO & GDQ)**:
+- **Dual-Mode Match Clocks & Timers (EVO, GDQ & None)**:
   - **Round Countdown Timer**: Authentic fighting game clock (99s EVO / 60s Tekken) with amber LED digits that pulse red with high-urgency glow when under 10 seconds.
   - **Speedrun Stopwatch**: Marathon/GDQ-style elapsed runtime clock (`MM:SS` or `HH:MM:SS`) with optional target estimate display (e.g. `/ EST 45:00`).
+  - **Hide Clock (`None`)**: Instantly hides the clock across broadcast overlays and studio controls when timers aren't required.
+  - **Rounds per Game Pips**: Best-of rounds (e.g. Best of 3 rounds per game) render stacked sub-pips directly under game win pips.
   - **Auto-Pause on Set Win**: Concluding a set automatically pauses the match clock to capture exact final clear times.
   - Full API controls: `/api/matchup/clock/start`, `/api/matchup/clock/pause`, `/api/matchup/clock/reset`, and `/api/matchup/clock/set`.
 - **2, 3, or 4 Competitors / Teams**: Switch seamlessly between 1v1 duel, 3-way triple threat, or 4-player free-for-all or squads.
@@ -171,6 +174,7 @@ Renders live competitor scores, names, character tags, and series pips across fi
 - **Minimal / Center-Less (`?layout=minimal`)**: Ultra-compact, center-less score strip where player names and score numbers touch directly without center badges or bulky backplates.
 - **Esports Lower-Third HUD (`?layout=bottom`)**: Docked at the bottom of the stream screen.
 - **Compact Score Bug (`?layout=compact`)**: Floating score bug for placing in screen corners.
+- **Angular Slash (`?layout=angular`)**: High-contrast symmetrical esports banner with polygon cuts, italic typography, and center VS badge.
 - **Versus Screen Card (`?layout=versus`)**: Full-screen or large intro card showcasing competitors facing off with prominent VS emblem.
 
 #### Responsive Self-Sizing & Sizing Bounds:
@@ -185,8 +189,8 @@ Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup
 #### Matchup URL Customization Parameters:
 | Parameter | Default | Description |
 | --- | --- | --- |
-| `?layout=top\|fgc\|split\|pillar\|minimal\|bottom\|compact\|versus` | `top` | Display layout style (Fighting game top bar, modern FGC EVO style, dual corner split with open center, vertical pillar stack, minimal center-less strip, lower-third HUD, compact bug, or versus intro card). |
-| `?overlay=<theme\|hash>` | `card` | Container styling theme (`card`, `championship`, `fgc-evo`, `cyber`, `glass`, `clean-light`, `minimal-dark`, `border`, `solid`, `transparent`, `pill`, `neon`, `retro`) or custom hex color (e.g. `?overlay=0d1117`). |
+| `?layout=top\|fgc\|split\|race\|pillar\|minimal\|bottom\|compact\|angular\|versus` | `top` | Display layout style (Fighting game top bar, modern FGC EVO style, dual corner split with open center, speedrun race, vertical pillar stack, minimal center-less strip, lower-third HUD, compact bug, angular slash banner, or versus intro card). |
+| `?overlay=<theme\|hash>` | `card` | Container styling theme (`card`, `championship`, `fgc-evo`, `cyber`, `glass`, `clean-light`, `minimal-dark`, `border`, `solid`, `transparent`, `pill`, `neon`, `retro`, `ember`, `aurora`, `ocean`, `sunset`, `violet`, `forest`) or custom hex color (e.g. `?overlay=0d1117`). |
 | `?source=auto\|matchup\|tournament` | `auto` | Data source binding: automatically display active tournament match during brackets, or lock to standalone matchup. |
 | `?pipstyle=circle\|bar\|digit` | `circle` | Pip presentation format: round dots (`circle`), segmented rectangular bars (`bar`), or numerical indicator (`digit`). |
 | `?fit=content` | off | Shrinkwrap container to fit tightly within the OBS browser source without canvas margins. |

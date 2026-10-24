@@ -619,6 +619,35 @@ function createPollService({
     }
 
     // --- Tournament Bracket Generation & Management ---
+    function parseEntrant(item) {
+        if (!item) return null;
+        if (typeof item === 'object') {
+            const name = String(item.name || '').trim();
+            const tag = String(item.tag || '').trim();
+            return name ? { name, tag } : null;
+        }
+        const raw = String(item).trim();
+        if (!raw) return null;
+
+        // Pattern 1: Name [Tag] e.g. Daigo [Ryu]
+        let m = raw.match(/^(.*?)\s*\[(.*?)\]$/);
+        if (m && m[1].trim()) return { name: m[1].trim(), tag: m[2].trim() };
+
+        // Pattern 2: Tag | Name e.g. FOX | SonicFox
+        m = raw.match(/^(.*?)\s*\|\s*(.*)$/);
+        if (m && m[1].trim() && m[2].trim()) return { name: m[2].trim(), tag: m[1].trim() };
+
+        // Pattern 3: Name (Tag) e.g. Tokido (Ken)
+        m = raw.match(/^(.*?)\s*\((.*?)\)$/);
+        if (m && m[1].trim()) return { name: m[1].trim(), tag: m[2].trim() };
+
+        // Pattern 4: Name, Tag e.g. MenaRD, Zangief
+        m = raw.match(/^(.*?)\s*,\s*(.*?)$/);
+        if (m && m[1].trim()) return { name: m[1].trim(), tag: m[2].trim() };
+
+        return { name: raw, tag: '' };
+    }
+
     function generateSeedPairs(size) {
         if (size <= 2) return [[1, 2]];
         let rounds = [1, 2];
@@ -648,17 +677,21 @@ function createPollService({
 
         for (let r = 0; r < numRounds; r++) {
             for (let i = 0; i < half; i++) {
-                const e1Name = list[i];
-                const e2Name = list[list.length - 1 - i];
-                if (e1Name && e2Name) {
+                const e1 = list[i];
+                const e2 = list[list.length - 1 - i];
+                if (e1 && e2) {
+                    const e1Name = typeof e1 === 'object' ? e1.name : e1;
+                    const e1Tag = typeof e1 === 'object' ? (e1.tag || '') : '';
+                    const e2Name = typeof e2 === 'object' ? e2.name : e2;
+                    const e2Tag = typeof e2 === 'object' ? (e2.tag || '') : '';
                     matches.push({
                         id: `rr_${r + 1}_${matches.length + 1}`,
                         round: r + 1,
                         roundName: `Round ${r + 1}`,
                         bracket: 'roundRobin',
                         matchIndex: matches.length,
-                        entrant1: { name: e1Name, seed: entrants.indexOf(e1Name) + 1, score: 0, votes: 0, percent: 0 },
-                        entrant2: { name: e2Name, seed: entrants.indexOf(e2Name) + 1, score: 0, votes: 0, percent: 0 },
+                        entrant1: { name: e1Name, tag: e1Tag, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e1Name) + 1, score: 0, votes: 0, percent: 0 },
+                        entrant2: { name: e2Name, tag: e2Tag, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e2Name) + 1, score: 0, votes: 0, percent: 0 },
                         entrants: [e1Name, e2Name],
                         scores: [0, 0],
                         targetScore,
@@ -730,7 +763,7 @@ function createPollService({
         subMultiplier = 1
     } = {}) {
         const cleanEntrants = (Array.isArray(entrants) ? entrants : [])
-            .map(e => typeof e === 'string' ? e.trim() : String(e.name || '').trim())
+            .map(parseEntrant)
             .filter(Boolean);
 
         if (cleanEntrants.length < 2) {
@@ -742,8 +775,9 @@ function createPollService({
         if (format === 'roundRobin' || format === 'round-robin') {
             const rawEntrants = [...cleanEntrants];
             const rrMatches = generateRoundRobinRounds(rawEntrants, bestOf, targetScore);
-            const standings = rawEntrants.map((name, idx) => ({
-                name,
+            const standings = rawEntrants.map((e, idx) => ({
+                name: e.name,
+                tag: e.tag || '',
                 seed: idx + 1,
                 played: 0,
                 won: 0,
@@ -770,7 +804,7 @@ function createPollService({
                 champion: null,
                 createdAt: new Date().toISOString(),
                 matches: rrMatches,
-                entrantsList: rawEntrants,
+                entrantsList: rawEntrants.map(e => e.tag ? `${e.name} [${e.tag}]` : e.name),
                 standings
             };
 
@@ -787,7 +821,7 @@ function createPollService({
         }
 
         while (cleanEntrants.length < bracketSize) {
-            cleanEntrants.push('BYE');
+            cleanEntrants.push({ name: 'BYE', tag: '' });
         }
 
         const seedPairs = generateSeedPairs(bracketSize);
@@ -810,22 +844,26 @@ function createPollService({
 
             for (let m = 0; m < mCount; m++) {
                 const id = `m_${r + 1}_${m + 1}`;
-                let entrant1 = { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 };
-                let entrant2 = { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 };
+                let entrant1 = { name: 'TBD', tag: '', seed: 0, score: 0, votes: 0, percent: 0 };
+                let entrant2 = { name: 'TBD', tag: '', seed: 0, score: 0, votes: 0, percent: 0 };
 
                 if (r === 0) {
                     const pair = seedPairs[m];
                     const s1 = pair[0];
                     const s2 = pair[1];
+                    const e1 = cleanEntrants[s1 - 1];
+                    const e2 = cleanEntrants[s2 - 1];
                     entrant1 = {
-                        name: cleanEntrants[s1 - 1] || `Seed ${s1}`,
+                        name: e1?.name || `Seed ${s1}`,
+                        tag: e1?.tag || '',
                         seed: s1,
                         score: 0,
                         votes: 0,
                         percent: 0
                     };
                     entrant2 = {
-                        name: cleanEntrants[s2 - 1] || `Seed ${s2}`,
+                        name: e2?.name || `Seed ${s2}`,
+                        tag: e2?.tag || '',
                         seed: s2,
                         score: 0,
                         votes: 0,
@@ -1026,7 +1064,8 @@ function createPollService({
             activeMatchId: firstPlayable ? firstPlayable.id : (allMatches[0]?.id || null),
             champion: null,
             createdAt: new Date().toISOString(),
-            matches: allMatches
+            matches: allMatches,
+            entrantsList: cleanEntrants.filter(e => e.name !== 'BYE').map(e => e.tag ? `${e.name} [${e.tag}]` : e.name)
         };
 
         save();
@@ -1126,7 +1165,7 @@ function createPollService({
         } else if (match.nextMatchId) {
             const nextMatch = activeTournament.matches.find(m => m.id === match.nextMatchId);
             if (nextMatch) {
-                const targetObj = { name: wName, seed: winnerObj?.seed || 0, score: 0, votes: 0, percent: 0 };
+                const targetObj = { name: wName, tag: winnerObj?.tag || '', seed: winnerObj?.seed || 0, score: 0, votes: 0, percent: 0 };
                 if (match.nextSlot === 1) nextMatch.entrant1 = targetObj;
                 else nextMatch.entrant2 = targetObj;
                 nextMatch.entrants = [nextMatch.entrant1?.name || 'TBD', nextMatch.entrant2?.name || 'TBD'];

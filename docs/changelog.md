@@ -10,27 +10,12 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 
 ## [Unreleased]
 
-### Changed
-- Add the card-deck mode, selectable 4/6/8/10-second spin duration, and winner auto-hide choices (8/15/30 seconds or never) to the Companion Randomizer button; display the last-used mode and duration on the key. The Studio syncs its settings without spinning so omitted Companion options inherit them, with controls for button visibility/phrases and winner text. Randomizer scale remains URL-parameter-only.
-
 ### Added
-- Versus: optional rounds per game (best of 3/5/7) shown as small pips under game pips on every layout; Fit Content now shrinks every layout to its content.
-- Versus and Poll Manager: Versus Studio and Poll Studio renamed, with consistent compact buttons and pills.
-- Poll Studio Overlays tab split into poll, bracket tree and match HUD tabs with the same options and themes as Versus Studio; clocks update every 250 ms.
-- Versus Studio: scoreboard, speedrun race clocks and manual brackets split from Poll Studio, with Save Progress snapshots, event-log history, per-element overlay toggles (title, phase, clock, tags, details, pips, winner banner), six new vibrant themes (Ember, Aurora, Ocean, Sunset, Violet, Forest), an Angular Slash scoreboard layout, a Set up / Run live / Review flow on the Bracket tab, an Overlays tab with per-type tabs (scoreboard, match HUD, bracket tree) and a sticky live preview, and manual bracket winner confirmation.
-- Poll Studio & Native Polls with multi-platform chat voting, Blind Mode, subscriber multiplier, fanfare and confetti celebrations, alongside dedicated Versus Studio for esports tournament brackets (single/double elim, round robin, non-power-of-2 BYEs, recursive undo rollback, in-progress draft checkpoints, whole-bracket auto-fitting), Speedrun Battle race clocks (multi-runner synchronized timers, splits, delta badges, target estimates), Fight Card queues, dedicated full-width overlay preview studios, presets, and self-sizing broadcast overlays (/poll.html, /tournament.html, /matchup.html).
-- Randomizer elimination mode for every weighting mode: selected choices are removed until restored, with per-choice take-out and a collapsible History panel showing what was selected and removed.
-- Promo Creator under Tools: build reusable social promos with Text, Image, QR, Shape and Icon elements, layers, undo/redo and independent square, landscape and portrait layouts. Includes themes, 20 patterns with scale, motion and gradient animation, a configurable accent bar and vignette, IGDB artwork, and PNG ZIP or seamless MP4 export.
-- Custom overlay Poll element and 400 × 150 Compact poll preset: adaptive 2–5-choice result bars, native Twitch vote counts/percentages, remaining-time countdown, configurable completed-result duration, and preview-only fictional samples.
-
-### Fixed
-- Randomizer weight and streak resets now update the studio and OBS overlay live without a refresh.
-- Game Plan custom-cover Library picker now reads the shared asset API's array and image kinds, shows friendly labels, clears stale filters when reopened, and reports failed loads instead of claiming the library is empty.
-- Automatic Poll active pages now honor visible Poll elements' results duration before returning to the previous page, including a bounded wait for Twitch's final status.
-
-### Changed
-- All custom overlays now prioritize automatic pages as alerts, featured messages, polls, then commands. Resume unexpired polls after interruptions; keep only latest pending events with wall-clock expiry and cancel pending takeovers on manual navigation.
-- Alert skip/clear immediately releases the alert page, and alert pages mount before their playback event is delivered.
+- Versus: Scoreboard and bracket studio with 1v1 to 4-player layouts (including Angular Slash), rounds-per-game pips, speedrun battle race clocks with multi-runner splits and deltas, bracket BYEs and player tags, save progress snapshots, presets, and broadcast overlays.
+- Poll Manager: Native multi-platform chat polls, audience voting brackets with blind mode and subscriber multipliers, presets, and broadcast overlays.
+- Randomizer Elimination Mode: Weight-based choice randomizer with optional choice elimination until restored, Companion controls, and collapsible history logging.
+- Promo Creator: Reusable social promos under Tools with multi-layer text, images, QR codes, shapes, patterns, animations, and MP4/PNG export.
+- Custom Overlay Poll Element: Compact poll element with real-time Twitch vote counts, percentage bars, countdown timer, and completed-result duration.
 
 ## [0.13.2] - 2026-10-19
 
