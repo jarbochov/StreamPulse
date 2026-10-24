@@ -35,15 +35,15 @@
         <div class="studio-tabs" style="margin-bottom: 1.25rem;">
             <button type="button" class="studio-tab-btn active" id="tab-btn-tourney" onclick="switchTab('tourney')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
-                Tournament Bracket
+                Bracket
             </button>
             <button type="button" class="studio-tab-btn" id="tab-btn-matchup" onclick="switchTab('matchup')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><line x1="16" y1="10" x2="16" y2="14"/><line x1="14" y1="12" x2="18" y2="12"/></svg>
-                Versus &amp; Speedruns
+                Match &amp; Race
             </button>
             <button type="button" class="studio-tab-btn" id="tab-btn-overlays" onclick="switchTab('overlays')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                Overlays &amp; Live Preview
+                Overlays
             </button>
             <button type="button" class="studio-tab-btn" id="tab-btn-presets" onclick="switchTab('presets')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
@@ -128,7 +128,7 @@
                             <div class="micro-heading" style="margin-bottom: 0;">Bracket Matches &amp; Rollback History</div>
                             <span style="font-size: 0.72rem; color: var(--text-muted);">Click any match to score or undo advancements</span>
                         </div>
-                        <div id="tourney-bracket-overview" style="max-height: 280px; overflow-y: auto; background: var(--bg-inset); padding: 0.6rem; border-radius: 6px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.4rem;"></div>
+                        <div id="tourney-bracket-overview" style="max-height: 60vh; overflow-y: auto; background: var(--bg-inset); padding: 0.6rem; border-radius: 6px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.4rem;"></div>
                     </div>
 
                     <!-- Create Tournament Form -->
