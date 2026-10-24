@@ -57,7 +57,11 @@ StreamPulse includes an advanced **Tournament Bracket** engine designed for comm
 ### Flexible Tournament Capabilities:
 - **Participant Scaling & Non-Multiples of 2 (2 to 32 Entrants)**: Enter any number of competitors, including odd or non-power-of-2 numbers (e.g. 3, 5, 6, 7, 9, 11, 13).
   - **Single Elimination with Clean BYEs**: Top seeds automatically receive 1st Round **BYEs** that cleanly advance directly to the subsequent round slot without ghost matches, fake scores, or confusing voting prompts. The overlay highlights these as sleek `1st Round BYE` cards.
-  - **Round Robin (All vs All)**: Perfect for 3 to 8 participants. Every entrant plays every other entrant across balanced tournament rounds. The overlay and studio feature an auto-updating Standings Table tracking Played, W-L records, and points.
+  - **Round Robin (Single & Double Legs, Points & Draws)**: Perfect for all-play-all competitions. Supports **Single Round Robin (1 leg)** or **Double Round Robin (2 legs, Home & Away)**, with customizable point systems:
+    - **Standard League (3-1-0)**: 3 points for a win, 1 for a draw, 0 for a loss.
+    - **Simple Win-Only (1-0-0)**: 1 point for a win, 0 for draw or loss.
+    - **Traditional Sports / Chess (2-1-0)**: 2 points for a win, 1 for a draw, 0 for a loss.
+    - **Ties / Draws**: Record match ties directly via **Record Tie / Draw**; standings automatically calculate matches played, W-D-L records, points, and score differential.
   - **Double Elimination**: Full winners and losers bracket progression with Grand Finals reset capabilities.
 - **Two Progression Modes**:
   1. **Audience Chat Vote** (in Poll Manager): Each matchup runs as an interactive chat poll where viewers vote live in stream chat.
@@ -68,7 +72,10 @@ StreamPulse includes an advanced **Tournament Bracket** engine designed for comm
   - **Best of 3**: First to 2 wins.
   - **Best of 5**: First to 3 wins.
   - **Best of 7**: First to 4 wins.
-- **Player Tags & Character Support**: Enter competitors using familiar formats like `Daigo [Ryu]`, `FOX | SonicFox`, or `Tokido (Ken)`. StreamPulse automatically parses tags, displays them on bracket match cards, and forwards them to active matchup overlays.
+- **Entrant Entry: Bulk Paste vs. Name & Tag Table**: Broadcasters can toggle between **Bulk Paste** text mode and an interactive **Name & Tag Table** where competitor names and character/sub-tags are entered in separate columns, auto-syncing seamlessly in real-time. Formats like `Daigo [Ryu]`, `FOX | SonicFox`, or `Tokido (Ken)` are automatically parsed.
+- **Dynamic Orthogonal Connector Lines & Spacing**:
+  - **Lines (`?lines=glow|solid|minimal`)**: Smooth orthogonal stepped connector lines featuring luminous glow with cyan drop-shadow (`glow`), high-contrast solid connectors (`solid`), or minimal borders (`minimal`).
+  - **Spacing Density (`?spacing=normal|compact|spacious`)**: Adjust bracket gap width and match card padding to fit any screen resolution.
 - **Auto-Advancement on Target Score**: In best-of series, reaching the required target score (e.g. 2 wins in Best of 3) automatically crowns the matchup winner and moves them to the next round slot!
 - **Match Advancement Undo & Recursive Bracket Rollback**: Made a mistake or scored the wrong winner on a tournament match? Broadcasters can click **Undo / Edit** on any completed match in Versus (`/api/tournament/rollback`). The match winner is cleared, scores reset, and all downstream matches that depended on that match are recursively reverted back to `TBD` and `PENDING`, clearing any premature champion declarations.
 - **In-Progress Tournament Drafts & Checkpoints**: Streamers can save tournament snapshots at any point during a broadcast (**Save Draft** / `/api/tournament/drafts/save`). Switch games or pause your stream, then resume your exact bracket progression later via **Checkpoints** (`/api/tournament/drafts/restore`).
@@ -89,11 +96,13 @@ For broadcasts featuring fighting games (Street Fighter, Smash, Tekken), speedru
   - **Live Delta Badges**: The first runner to finish is awarded the green `WINNER` badge; subsequent finishers display exact positive split deltas (`+MM:SS.ss`) on stream.
   - **Target EST Display**: Set and display the estimated target time (`Target EST: 45:00`).
   - **Dedicated GDQ Race Layout**: Responsive multi-runner overlay layout (`?layout=race`) supporting 2, 3, or 4 runners with individual split clocks, runner tags, and status cards.
-- **Dual-Mode Match Clocks & Timers (EVO, GDQ & None)**:
+- **Active Tournament Match Binding on Versus Scoreboard**: When an esports tournament is currently active, the Matchup Scoreboard (`/versus.html`) displays the tournament's active match with a dedicated match control banner. Broadcasters can switch matches with previous/next buttons or a dropdown selector, record match ties/draws, advance winners, and toggle between tournament matches and standalone exhibition sets with 1 click.
+- **Separated Game Pips & Round Pips**: Game/set wins and rounds-within-a-game are clearly separated into distinct visual docks in the studio, each featuring its own steppers, direct number inputs, and distinct pips (`● ● ○` for games, `◆ ◇` for rounds).
+- **Match Clock Styles & Modes (EVO, GDQ, Bottom Dock & None)**:
   - **Round Countdown Timer**: Authentic fighting game clock (99s EVO / 60s Tekken) with amber LED digits that pulse red with high-urgency glow when under 10 seconds.
   - **Speedrun Stopwatch**: Marathon/GDQ-style elapsed runtime clock (`MM:SS` or `HH:MM:SS`) with optional target estimate display (e.g. `/ EST 45:00`).
+  - **Clock Styles**: Choose from integrated center badge (`clockstyle=badge`), bottom dock timer (`clockstyle=bottom`), floating pill (`clockstyle=pill`), or EVO big digits (`clockstyle=fgc`).
   - **Hide Clock (`None`)**: Instantly hides the clock across broadcast overlays and studio controls when timers aren't required.
-  - **Rounds per Game Pips**: Best-of rounds (e.g. Best of 3 rounds per game) render stacked sub-pips directly under game win pips.
   - **Auto-Pause on Set Win**: Concluding a set automatically pauses the match clock to capture exact final clear times.
   - Full API controls: `/api/matchup/clock/start`, `/api/matchup/clock/pause`, `/api/matchup/clock/reset`, and `/api/matchup/clock/set`.
 - **2, 3, or 4 Competitors / Teams**: Switch seamlessly between 1v1 duel, 3-way triple threat, or 4-player free-for-all or squads.
@@ -196,6 +205,9 @@ Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup
 | `?fit=content` | off | Shrinkwrap container to fit tightly within the OBS browser source without canvas margins. |
 | `?p1color=<hex>` | default | Custom theme accent color override for Player 1 / Left team. |
 | `?p2color=<hex>` | default | Custom theme accent color override for Player 2 / Right team. |
+| `?clockstyle=badge\|bottom\|pill\|fgc` | `badge` | Match clock styling presentation: center integrated badge, bottom dock timer (`00:00 / 45:00`), floating pill, or EVO big digits. |
+| `?showest=1\|0` | `1` | Show or hide target EST timer (e.g. `00:00 / 45:00`) on clock displays. |
+| `?title=1\|0` | `1` | Show or hide event / game title. |
 | `?center=1\|0` | `1` | Show or hide the center match phase badge. Set `?center=0` to create completely center-less overlays that leave the middle of your screen 100% clear. |
 | `?pips=1\|0` | `1` | Show or hide series win pips (`● ● ○`). |
 | `?tags=1\|0` | `1` | Show or hide competitor character/sub-tags. |

@@ -126,7 +126,7 @@ export function actionBar(items) {
     const allLocked = items.every(el => el.locked), allHidden = items.every(el => el.visible === false);
     const btn = (act, icon, text, cls = '') => `<button type="button" class="icon ${cls}" data-act="${act}" title="${text}" aria-label="${text}">${icon}</button>`;
     return `<div class="action-bar"><div class="title">${label}<span class="spacer"></span>${link}</div>
-        <div class="btn-cluster">${btn('duplicate', ICON.copy, 'Duplicate (Ctrl/⌘+D)')}${btn('copy-style', ICON.paint, 'Copy style (Ctrl/⌘+Alt+C)')}${btn('paste-style', ICON.clipboard, 'Paste style (Ctrl/⌘+Alt+V)')}${btn('preset', ICON.preset, 'Save selection as a preset…')}${btn('delete', ICON.trash, 'Delete (Del)', 'danger')}</div>
+        <div class="btn-cluster">${btn('duplicate', ICON.copy, 'Duplicate (Ctrl/⌘+D)')}${btn('copy-style', ICON.paint, 'Copy style (Ctrl/⌘+⌥/Alt+C)')}${btn('paste-style', ICON.clipboard, 'Paste style (Ctrl/⌘+⌥/Alt+V)')}${btn('preset', ICON.preset, 'Save selection as a preset…')}${btn('delete', ICON.trash, 'Delete (Del)', 'danger')}</div>
         <div class="btn-cluster">${btn('front', ICON.toFront, 'Bring to front')}${btn('forward', ICON.forward, 'Bring forward')}${btn('backward', ICON.backward, 'Send backward')}${btn('back', ICON.toBack, 'Send to back')}</div>
         <div class="btn-cluster">${btn('lock', allLocked ? ICON.lock : ICON.unlock, allLocked ? 'Unlock' : 'Lock')}${btn('hide', allHidden ? ICON.eyeOff : ICON.eye, allHidden ? 'Show' : 'Hide')}</div></div>`;
 }

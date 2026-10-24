@@ -11,7 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Versus: Scoreboard and bracket studio with 1v1 to 4-player layouts (including Angular Slash), rounds-per-game pips, speedrun battle race clocks with multi-runner splits and deltas, bracket BYEs and player tags, save progress snapshots, presets, and broadcast overlays.
+- Versus & Tournament Studio: Scoreboard and bracket management supporting Single/Double Elimination and Round Robin with configurable legs/points/draws, live tournament match scoring with separated game and round pips, player tags table, speedrun race clocks, orthogonal connector lines and spacing, and broadcast overlays.
 - Poll Manager: Native multi-platform chat polls, audience voting brackets with blind mode and subscriber multipliers, presets, and broadcast overlays.
 - Randomizer Elimination Mode: Weight-based choice randomizer with optional choice elimination until restored, Companion controls, and collapsible history logging.
 - Promo Creator: Reusable social promos under Tools with multi-layer text, images, QR codes, shapes, patterns, animations, and MP4/PNG export.

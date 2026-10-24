@@ -319,6 +319,32 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
         assert.ok(archivedRR, 'Round Robin tournament should be found in history');
         assert.equal(archivedRR.champion, 'Chrono Trigger');
 
+        // 12. Double Round Robin & Draw Handling
+        const tDoubleRR = service.createTournament({
+            title: 'Premier League Mini',
+            entrants: ['Arsenal', 'Chelsea', 'Liverpool'],
+            format: 'roundRobin',
+            roundRobinLegs: 2,
+            pointsSystem: '3-1-0',
+            bestOf: 1
+        });
+        assert.equal(tDoubleRR.roundRobinLegs, 2);
+        assert.equal(tDoubleRR.matches.length, 6, '3 entrants double round robin generates 6 matches');
+        assert.equal(tDoubleRR.matches[3].leg, 2, 'Matches 4-6 are Leg 2');
+
+        // Match 1: Chelsea vs Liverpool -> DRAW
+        service.updateMatchScore(tDoubleRR.matches[0].id, { entrant1Score: 1, entrant2Score: 1 });
+        service.advanceTournamentMatch(tDoubleRR.matches[0].id, 'DRAW');
+        assert.equal(tDoubleRR.matches[0].winner, 'DRAW');
+        assert.equal(tDoubleRR.matches[0].isDraw, true);
+
+        const chelseaStat = tDoubleRR.standings.find(s => s.name === 'Chelsea');
+        const liverpoolStat = tDoubleRR.standings.find(s => s.name === 'Liverpool');
+        assert.equal(chelseaStat.draws, 1);
+        assert.equal(chelseaStat.points, 1);
+        assert.equal(liverpoolStat.draws, 1);
+        assert.equal(liverpoolStat.points, 1);
+
         // Restore tournament from history
         const restored = service.restoreTournament(archivedRR.id);
         assert.equal(restored.title, 'Retro Trio Round Robin');

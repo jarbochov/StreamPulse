@@ -19,6 +19,9 @@
             --tourney-backdrop: blur(12px);
             --tourney-text-shadow: none;
             --tourney-scale: 1;
+            --round-gap: clamp(1rem, 2.5vw, 2.5rem);
+            --match-gap: clamp(0.75rem, 1.8vh, 1.75rem);
+            --round-min-width: 210px;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -152,27 +155,90 @@
         }
 
         /* Spacing Variations */
-        .spacing-compact {
-            --round-min-width: 170px;
-            --round-gap: clamp(0.5rem, 1.2vw, 1.2rem);
-            --match-gap: clamp(0.4rem, 1vh, 0.9rem);
+        body.spacing-compact {
+            --round-min-width: 165px;
+            --round-gap: clamp(0.35rem, 1vw, 0.9rem);
+            --match-gap: clamp(0.3rem, 0.8vh, 0.7rem);
+        }
+        body.spacing-compact .entrant-row {
+            padding: 0.35rem 0.55rem;
+        }
+        body.spacing-compact .round-header {
+            margin-bottom: 0.2rem;
+            font-size: 0.68rem;
         }
 
-        .spacing-spacious {
-            --round-min-width: 250px;
-            --round-gap: clamp(1.5rem, 3.5vw, 3.5rem);
-            --match-gap: clamp(1.2rem, 2.5vh, 2.5rem);
+        body.spacing-spacious {
+            --round-min-width: 255px;
+            --round-gap: clamp(1.75rem, 4vw, 4.2rem);
+            --match-gap: clamp(1.4rem, 3vh, 3.2rem);
+        }
+        body.spacing-spacious .entrant-row {
+            padding: 0.75rem 0.95rem;
+        }
+
+        /* Bracket Connector Lines */
+        #bracket-connectors {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: visible;
+            z-index: 1;
+        }
+
+        .bracket-line {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.25);
+            stroke-width: 2px;
+            stroke-linejoin: round;
+            stroke-linecap: round;
+            transition: stroke 0.3s ease, filter 0.3s ease;
+        }
+
+        .bracket-line.active-line {
+            stroke: var(--tourney-accent);
+            stroke-width: 2.5px;
+        }
+
+        .bracket-line.winner-line {
+            stroke: var(--tourney-winner, #3fb950);
+            stroke-width: 2px;
         }
 
         /* Line Styles */
+        .lines-glow .bracket-line {
+            stroke: var(--tourney-accent);
+            stroke-width: 2px;
+            filter: drop-shadow(0 0 6px rgba(88, 166, 255, 0.75));
+        }
+        .lines-glow .bracket-line.winner-line {
+            stroke: var(--tourney-winner, #3fb950);
+            filter: drop-shadow(0 0 6px rgba(63, 185, 80, 0.75));
+        }
         .lines-glow .match-card.active {
             box-shadow: 0 0 28px rgba(88, 166, 255, 0.6), inset 0 0 12px rgba(88, 166, 255, 0.2);
         }
 
+        .lines-solid .bracket-line {
+            stroke: rgba(255, 255, 255, 0.45);
+            stroke-width: 2px;
+            filter: none;
+        }
+        .lines-solid .bracket-line.active-line {
+            stroke: var(--tourney-accent);
+            stroke-width: 2.5px;
+        }
         .lines-solid .match-card {
             border-width: 2px;
         }
 
+        .lines-minimal .bracket-line {
+            stroke: rgba(255, 255, 255, 0.15);
+            stroke-width: 1px;
+            filter: none;
+        }
         .lines-minimal .match-card {
             border-style: solid;
             border-width: 1px;
@@ -246,7 +312,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: clamp(1rem, 2.5vw, 2.5rem);
+            gap: var(--round-gap);
             width: 100%;
             position: relative;
         }
@@ -255,10 +321,12 @@
             display: flex;
             flex-direction: column;
             justify-content: space-around;
-            gap: clamp(0.75rem, 1.8vh, 1.75rem);
-            min-width: 210px;
+            gap: var(--match-gap);
+            min-width: var(--round-min-width);
             flex: 1;
-            max-width: 320px;
+            max-width: 340px;
+            position: relative;
+            z-index: 2;
         }
 
         .round-header {
@@ -774,11 +842,11 @@
             else if (overlayVal === 'forest') document.body.classList.add('theme-forest');
             else if (overlayVal === 'border') document.body.classList.add('theme-border');
 
-            const spacing = (params.get('spacing') || '').toLowerCase();
+            const spacing = (params.get('spacing') || 'normal').toLowerCase();
             if (spacing === 'compact') document.body.classList.add('spacing-compact');
             else if (spacing === 'spacious') document.body.classList.add('spacing-spacious');
 
-            const lines = (params.get('lines') || '').toLowerCase();
+            const lines = (params.get('lines') || 'glow').toLowerCase();
             if (lines) document.body.classList.add('lines-' + lines);
 
             const rh = (params.get('roundheaders') || '').toLowerCase();
@@ -887,8 +955,12 @@
                 stage.style.transform = `scale(${scaleVal})`;
                 stage.style.transformOrigin = 'center center';
             }
+            requestAnimationFrame(drawBracketConnectors);
         }
-        window.addEventListener('resize', adjustScaleAndFit);
+        window.addEventListener('resize', () => {
+            adjustScaleAndFit();
+            drawBracketConnectors();
+        });
 
         // Render Esports Lower-Third / Active Match HUD
         function renderActiveMatchHud(tournament) {
@@ -995,7 +1067,7 @@
             }
 
             // Bracket Tree Columns
-            html += `<div class="bracket-tree">`;
+            html += `<div class="bracket-tree"><svg id="bracket-connectors"></svg>`;
             for (let r = 1; r <= maxRound; r++) {
                 const roundMatches = roundsMap.get(r) || [];
                 const roundTitle = roundMatches[0]?.roundName || `Round ${r}`;
@@ -1080,6 +1152,68 @@
             html += `</div>`;
 
             container.innerHTML = html;
+            requestAnimationFrame(drawBracketConnectors);
+            setTimeout(drawBracketConnectors, 60);
+        }
+
+        function drawBracketConnectors() {
+            const tree = document.querySelector('.bracket-tree');
+            if (!tree) return;
+            let svg = document.getElementById('bracket-connectors');
+            if (!svg) {
+                svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.id = 'bracket-connectors';
+                tree.insertBefore(svg, tree.firstChild);
+            }
+            svg.innerHTML = '';
+
+            const treeRect = tree.getBoundingClientRect();
+            if (!treeRect.width || !treeRect.height) return;
+
+            svg.setAttribute('viewBox', `0 0 ${treeRect.width} ${treeRect.height}`);
+
+            const rounds = Array.from(tree.querySelectorAll('.bracket-round'));
+            if (rounds.length < 2) return;
+
+            for (let r = 0; r < rounds.length - 1; r++) {
+                const curRoundEl = rounds[r];
+                const nextRoundEl = rounds[r + 1];
+
+                const curCards = Array.from(curRoundEl.querySelectorAll('.match-card'));
+                const nextCards = Array.from(nextRoundEl.querySelectorAll('.match-card'));
+
+                curCards.forEach((fromCard, idx) => {
+                    const nextIdx = Math.floor(idx / 2);
+                    const toCard = nextCards[nextIdx];
+                    if (!toCard) return;
+
+                    const fromRect = fromCard.getBoundingClientRect();
+                    const toRect = toCard.getBoundingClientRect();
+
+                    const x1 = fromRect.right - treeRect.left;
+                    const y1 = fromRect.top + fromRect.height / 2 - treeRect.top;
+
+                    const x2 = toRect.left - treeRect.left;
+                    const isUpper = (idx % 2 === 0);
+                    const y2 = toRect.top + (isUpper ? toRect.height * 0.32 : toRect.height * 0.68) - treeRect.top;
+
+                    const xm = x1 + (x2 - x1) * 0.5;
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', `M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`);
+
+                    const fromId = fromCard.dataset.matchId;
+                    const matchObj = currentTournament?.matches?.find(m => m.id === fromId);
+                    const isActive = matchObj?.status === 'ACTIVE' || fromCard.classList.contains('active');
+
+                    let cls = 'bracket-line';
+                    if (matchObj?.winner) cls += ' winner-line';
+                    else if (isActive) cls += ' active-line';
+                    path.setAttribute('class', cls);
+
+                    svg.appendChild(path);
+                });
+            }
         }
 
         // Render Round Robin View (Standings Table + Match Schedule)
@@ -1187,6 +1321,68 @@
 
             html += `</div></div>`;
             container.innerHTML = html;
+            requestAnimationFrame(drawBracketConnectors);
+            setTimeout(drawBracketConnectors, 60);
+        }
+
+        function drawBracketConnectors() {
+            const tree = document.querySelector('.bracket-tree');
+            if (!tree) return;
+            let svg = document.getElementById('bracket-connectors');
+            if (!svg) {
+                svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.id = 'bracket-connectors';
+                tree.insertBefore(svg, tree.firstChild);
+            }
+            svg.innerHTML = '';
+
+            const treeRect = tree.getBoundingClientRect();
+            if (!treeRect.width || !treeRect.height) return;
+
+            svg.setAttribute('viewBox', `0 0 ${treeRect.width} ${treeRect.height}`);
+
+            const rounds = Array.from(tree.querySelectorAll('.bracket-round'));
+            if (rounds.length < 2) return;
+
+            for (let r = 0; r < rounds.length - 1; r++) {
+                const curRoundEl = rounds[r];
+                const nextRoundEl = rounds[r + 1];
+
+                const curCards = Array.from(curRoundEl.querySelectorAll('.match-card'));
+                const nextCards = Array.from(nextRoundEl.querySelectorAll('.match-card'));
+
+                curCards.forEach((fromCard, idx) => {
+                    const nextIdx = Math.floor(idx / 2);
+                    const toCard = nextCards[nextIdx];
+                    if (!toCard) return;
+
+                    const fromRect = fromCard.getBoundingClientRect();
+                    const toRect = toCard.getBoundingClientRect();
+
+                    const x1 = fromRect.right - treeRect.left;
+                    const y1 = fromRect.top + fromRect.height / 2 - treeRect.top;
+
+                    const x2 = toRect.left - treeRect.left;
+                    const isUpper = (idx % 2 === 0);
+                    const y2 = toRect.top + (isUpper ? toRect.height * 0.32 : toRect.height * 0.68) - treeRect.top;
+
+                    const xm = x1 + (x2 - x1) * 0.5;
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', `M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`);
+
+                    const fromId = fromCard.dataset.matchId;
+                    const matchObj = currentTournament?.matches?.find(m => m.id === fromId);
+                    const isActive = matchObj?.status === 'ACTIVE' || fromCard.classList.contains('active');
+
+                    let cls = 'bracket-line';
+                    if (matchObj?.winner) cls += ' winner-line';
+                    else if (isActive) cls += ' active-line';
+                    path.setAttribute('class', cls);
+
+                    svg.appendChild(path);
+                });
+            }
         }
 
         // Particle Confetti

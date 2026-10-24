@@ -344,7 +344,7 @@ function createMatchupService({
         return -1;
     }
 
-    function updateScore(indexOrId, { delta, score, roundDelta } = {}) {
+    function updateScore(indexOrId, { delta, score, roundDelta, rounds } = {}) {
         if (!activeMatchup) load();
         const idx = resolveIndex(indexOrId);
         if (idx === -1) {
@@ -359,11 +359,19 @@ function createMatchupService({
             comp.score = Math.max(0, parseInt(score, 10) || 0);
         }
         const rb = Number(activeMatchup.roundsBestOf) || 0;
-        if (roundDelta !== undefined && rb > 0) {
+        if (roundDelta !== undefined) {
             const rd = parseInt(roundDelta, 10) || 0;
             comp.rounds = Math.max(0, (comp.rounds || 0) + rd);
             logEvent('round', `${comp.name} rounds ${comp.rounds}`);
-            if (comp.rounds >= Math.ceil(rb / 2)) {
+            if (rb > 0 && comp.rounds >= Math.ceil(rb / 2)) {
+                activeMatchup.competitors.forEach(c => { c.rounds = 0; });
+                comp.score = (comp.score || 0) + 1;
+                logEvent('game', `${comp.name} won the game`);
+            }
+        } else if (rounds !== undefined) {
+            comp.rounds = Math.max(0, parseInt(rounds, 10) || 0);
+            logEvent('round', `${comp.name} rounds ${comp.rounds}`);
+            if (rb > 0 && comp.rounds >= Math.ceil(rb / 2)) {
                 activeMatchup.competitors.forEach(c => { c.rounds = 0; });
                 comp.score = (comp.score || 0) + 1;
                 logEvent('game', `${comp.name} won the game`);

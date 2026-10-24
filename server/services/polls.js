@@ -667,7 +667,7 @@ function createPollService({
         return pairs;
     }
 
-    function generateRoundRobinRounds(entrants, bestOf, targetScore) {
+    function generateRoundRobinRounds(entrants, bestOf, targetScore, legs = 1) {
         const list = [...entrants];
         const isOdd = list.length % 2 !== 0;
         if (isOdd) list.push(null);
@@ -675,6 +675,7 @@ function createPollService({
         const half = list.length / 2;
         const matches = [];
 
+        // Leg 1
         for (let r = 0; r < numRounds; r++) {
             for (let i = 0; i < half; i++) {
                 const e1 = list[i];
@@ -685,11 +686,12 @@ function createPollService({
                     const e2Name = typeof e2 === 'object' ? e2.name : e2;
                     const e2Tag = typeof e2 === 'object' ? (e2.tag || '') : '';
                     matches.push({
-                        id: `rr_${r + 1}_${matches.length + 1}`,
+                        id: `rr_1_${r + 1}_${matches.length + 1}`,
                         round: r + 1,
-                        roundName: `Round ${r + 1}`,
+                        roundName: legs > 1 ? `Round ${r + 1} (Leg 1)` : `Round ${r + 1}`,
                         bracket: 'roundRobin',
                         matchIndex: matches.length,
+                        leg: 1,
                         entrant1: { name: e1Name, tag: e1Tag, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e1Name) + 1, score: 0, votes: 0, percent: 0 },
                         entrant2: { name: e2Name, tag: e2Tag, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e2Name) + 1, score: 0, votes: 0, percent: 0 },
                         entrants: [e1Name, e2Name],
@@ -707,34 +709,96 @@ function createPollService({
             rest.unshift(rest.pop());
             list.splice(0, list.length, fixed, ...rest);
         }
+
+        // Leg 2 (Double Round Robin: Home & Away reversed)
+        if (legs > 1) {
+            const leg2List = [...entrants];
+            if (isOdd) leg2List.push(null);
+            for (let r = 0; r < numRounds; r++) {
+                for (let i = 0; i < half; i++) {
+                    const e2 = leg2List[i];
+                    const e1 = leg2List[leg2List.length - 1 - i];
+                    if (e1 && e2) {
+                        const e1Name = typeof e1 === 'object' ? e1.name : e1;
+                        const e1Tag = typeof e1 === 'object' ? (e1.tag || '') : '';
+                        const e2Name = typeof e2 === 'object' ? e2.name : e2;
+                        const e2Tag = typeof e2 === 'object' ? (e2.tag || '') : '';
+                        matches.push({
+                            id: `rr_2_${r + 1}_${matches.length + 1}`,
+                            round: numRounds + r + 1,
+                            roundName: `Round ${numRounds + r + 1} (Leg 2)`,
+                            bracket: 'roundRobin',
+                            matchIndex: matches.length,
+                            leg: 2,
+                            entrant1: { name: e1Name, tag: e1Tag, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e1Name) + 1, score: 0, votes: 0, percent: 0 },
+                            entrant2: { name: e2Name, tag: e2Tag, seed: entrants.findIndex(x => (typeof x === 'object' ? x.name : x) === e2Name) + 1, score: 0, votes: 0, percent: 0 },
+                            entrants: [e1Name, e2Name],
+                            scores: [0, 0],
+                            targetScore,
+                            bestOf: Number(bestOf) || 0,
+                            matchDetails: '',
+                            status: 'PENDING',
+                            winner: null
+                        });
+                    }
+                }
+                const fixed = leg2List[0];
+                const rest = leg2List.slice(1);
+                rest.unshift(rest.pop());
+                leg2List.splice(0, leg2List.length, fixed, ...rest);
+            }
+        }
+
         return matches;
     }
 
     function recalculateRoundRobinStandings(tournament) {
         if (!tournament || tournament.format !== 'roundRobin') return;
         const stats = {};
+        const winPts = tournament.pointsPerWin !== undefined ? tournament.pointsPerWin : 3;
+        const drawPts = tournament.pointsPerDraw !== undefined ? tournament.pointsPerDraw : 1;
+        const lossPts = tournament.pointsPerLoss !== undefined ? tournament.pointsPerLoss : 0;
+
         (tournament.entrantsList || []).forEach(name => {
-            stats[name] = { name, played: 0, won: 0, lost: 0, points: 0 };
+            const parsed = parseEntrant(name);
+            const rawName = parsed ? parsed.name : name;
+            stats[rawName] = { name: rawName, tag: parsed?.tag || '', played: 0, won: 0, lost: 0, draws: 0, scoreFor: 0, scoreAgainst: 0, diff: 0, points: 0 };
         });
 
         for (const m of tournament.matches) {
-            if (m.status === 'COMPLETED' && m.winner) {
+            if (m.status === 'COMPLETED' && (m.winner || m.isDraw)) {
                 const e1 = m.entrant1?.name;
                 const e2 = m.entrant2?.name;
-                if (stats[e1]) stats[e1].played++;
-                if (stats[e2]) stats[e2].played++;
+                const s1 = m.entrant1?.score || (Array.isArray(m.scores) ? m.scores[0] : 0) || 0;
+                const s2 = m.entrant2?.score || (Array.isArray(m.scores) ? m.scores[1] : 0) || 0;
 
-                if (m.winner === e1) {
-                    if (stats[e1]) { stats[e1].won++; stats[e1].points += 3; }
-                    if (stats[e2]) { stats[e2].lost++; }
+                if (stats[e1]) {
+                    stats[e1].played++;
+                    stats[e1].scoreFor += s1;
+                    stats[e1].scoreAgainst += s2;
+                    stats[e1].diff = stats[e1].scoreFor - stats[e1].scoreAgainst;
+                }
+                if (stats[e2]) {
+                    stats[e2].played++;
+                    stats[e2].scoreFor += s2;
+                    stats[e2].scoreAgainst += s1;
+                    stats[e2].diff = stats[e2].scoreFor - stats[e2].scoreAgainst;
+                }
+
+                if (m.winner === 'DRAW' || m.isDraw) {
+                    if (stats[e1]) { stats[e1].draws++; stats[e1].points += drawPts; }
+                    if (stats[e2]) { stats[e2].draws++; stats[e2].points += drawPts; }
+                } else if (m.winner === e1) {
+                    if (stats[e1]) { stats[e1].won++; stats[e1].points += winPts; }
+                    if (stats[e2]) { stats[e2].lost++; stats[e2].points += lossPts; }
                 } else if (m.winner === e2) {
-                    if (stats[e2]) { stats[e2].won++; stats[e2].points += 3; }
-                    if (stats[e1]) { stats[e1].lost++; }
+                    if (stats[e2]) { stats[e2].won++; stats[e2].points += winPts; }
+                    if (stats[e1]) { stats[e1].lost++; stats[e1].points += lossPts; }
                 }
             }
         }
 
-        const sorted = Object.values(stats).sort((a, b) => b.won - a.won || b.points - a.points);
+        const sorted = Object.values(stats).sort((a, b) => b.points - a.points || b.won - a.won || b.diff - a.diff || b.scoreFor - a.scoreFor);
         tournament.standings = sorted;
 
         const allFinished = tournament.matches.every(m => m.status === 'COMPLETED');
@@ -760,7 +824,13 @@ function createPollService({
         bestOf = 0,
         matchDuration = 60,
         blind = false,
-        subMultiplier = 1
+        subMultiplier = 1,
+        roundRobinLegs = 1,
+        pointsSystem = '3-1-0',
+        pointsPerWin,
+        pointsPerDraw,
+        pointsPerLoss = 0,
+        allowDraws = true
     } = {}) {
         const cleanEntrants = (Array.isArray(entrants) ? entrants : [])
             .map(parseEntrant)
@@ -774,7 +844,15 @@ function createPollService({
 
         if (format === 'roundRobin' || format === 'round-robin') {
             const rawEntrants = [...cleanEntrants];
-            const rrMatches = generateRoundRobinRounds(rawEntrants, bestOf, targetScore);
+            const legs = Math.max(1, Math.min(2, parseInt(roundRobinLegs, 10) || 1));
+            let winPts = 3, drawPts = 1, lossPts = 0;
+            if (pointsSystem === '1-0-0') { winPts = 1; drawPts = 0; lossPts = 0; }
+            else if (pointsSystem === '2-1-0') { winPts = 2; drawPts = 1; lossPts = 0; }
+            if (pointsPerWin !== undefined) winPts = Number(pointsPerWin) || 0;
+            if (pointsPerDraw !== undefined) drawPts = Number(pointsPerDraw) || 0;
+            if (pointsPerLoss !== undefined) lossPts = Number(pointsPerLoss) || 0;
+
+            const rrMatches = generateRoundRobinRounds(rawEntrants, bestOf, targetScore, legs);
             const standings = rawEntrants.map((e, idx) => ({
                 name: e.name,
                 tag: e.tag || '',
@@ -782,6 +860,10 @@ function createPollService({
                 played: 0,
                 won: 0,
                 lost: 0,
+                draws: 0,
+                scoreFor: 0,
+                scoreAgainst: 0,
+                diff: 0,
                 points: 0
             }));
 
@@ -793,6 +875,12 @@ function createPollService({
                 scoringType,
                 bestOf: Number(bestOf) || 0,
                 targetScore,
+                roundRobinLegs: legs,
+                pointsSystem,
+                pointsPerWin: winPts,
+                pointsPerDraw: drawPts,
+                pointsPerLoss: lossPts,
+                allowDraws: Boolean(allowDraws),
                 entrantCount: rawEntrants.length,
                 bracketSize: rawEntrants.length,
                 roundCount: Math.max(...rrMatches.map(m => m.round || 1)),
@@ -1116,12 +1204,14 @@ function createPollService({
         if (!match) return null;
 
         const wName = String(winnerName || match.entrant1?.name || '').trim();
+        const isDraw = wName === 'DRAW' || wName === 'TIE';
         match.status = 'COMPLETED';
-        match.winner = wName;
+        match.winner = isDraw ? 'DRAW' : wName;
+        match.isDraw = isDraw;
 
-        const isEntrant1Winner = match.entrant1?.name === wName;
-        const winnerObj = isEntrant1Winner ? match.entrant1 : match.entrant2;
-        const loserObj = isEntrant1Winner ? match.entrant2 : match.entrant1;
+        const isEntrant1Winner = !isDraw && match.entrant1?.name === wName;
+        const winnerObj = isDraw ? null : (isEntrant1Winner ? match.entrant1 : match.entrant2);
+        const loserObj = isDraw ? null : (isEntrant1Winner ? match.entrant2 : match.entrant1);
 
         // Cleanly conclude any running match poll linked to this match
         if (activePoll && activePoll.tournamentMatchId === match.id && activePoll.status === 'ACTIVE') {
@@ -1224,7 +1314,7 @@ function createPollService({
         return activeTournament;
     }
 
-    function updateMatchScore(matchId, { entrant1Score, entrant2Score, entrant, score, winner, matchDetails } = {}) {
+    function updateMatchScore(matchId, { entrant1Score, entrant2Score, entrant, score, winner, matchDetails, entrant1Tag, entrant2Tag, entrant1Rounds, entrant2Rounds, rounds, roundDelta } = {}) {
         if (!activeTournament) throw new Error('No active tournament');
         const match = activeTournament.matches.find(m => m.id === matchId);
         if (!match) throw new Error(`Match ${matchId} not found`);
@@ -1232,6 +1322,11 @@ function createPollService({
         if (entrant !== undefined && score !== undefined) {
             if (match.entrant1?.name === entrant) entrant1Score = score;
             else if (match.entrant2?.name === entrant) entrant2Score = score;
+        }
+
+        if (entrant !== undefined && rounds !== undefined) {
+            if (match.entrant1?.name === entrant) entrant1Rounds = rounds;
+            else if (match.entrant2?.name === entrant) entrant2Rounds = rounds;
         }
 
         if (entrant1Score !== undefined) {
@@ -1243,6 +1338,26 @@ function createPollService({
             const s2 = Math.max(0, parseInt(entrant2Score, 10) || 0);
             if (match.entrant2) match.entrant2.score = s2;
             if (Array.isArray(match.scores)) match.scores[1] = s2;
+        }
+        if (entrant1Rounds !== undefined && match.entrant1) {
+            match.entrant1.rounds = Math.max(0, parseInt(entrant1Rounds, 10) || 0);
+        }
+        if (entrant2Rounds !== undefined && match.entrant2) {
+            match.entrant2.rounds = Math.max(0, parseInt(entrant2Rounds, 10) || 0);
+        }
+        if (roundDelta !== undefined && entrant !== undefined) {
+            const rd = parseInt(roundDelta, 10) || 0;
+            if (match.entrant1?.name === entrant) {
+                match.entrant1.rounds = Math.max(0, (match.entrant1.rounds || 0) + rd);
+            } else if (match.entrant2?.name === entrant) {
+                match.entrant2.rounds = Math.max(0, (match.entrant2.rounds || 0) + rd);
+            }
+        }
+        if (entrant1Tag !== undefined && match.entrant1) {
+            match.entrant1.tag = String(entrant1Tag).trim();
+        }
+        if (entrant2Tag !== undefined && match.entrant2) {
+            match.entrant2.tag = String(entrant2Tag).trim();
         }
         if (matchDetails !== undefined) {
             match.matchDetails = String(matchDetails).trim();

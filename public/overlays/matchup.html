@@ -119,97 +119,166 @@
         .ang-center .match-details-badge { font-size:.6rem; color:var(--matchup-muted); }
 
         /* Themes */
-        .theme-ember { --matchup-bg: linear-gradient(135deg,#2a0f0a,#12060a); --matchup-border: #ff6a3d; --matchup-accent: #ff6a3d; }
-        .theme-ember .matchup-panel, .theme-ember .fgc-side, .theme-ember .split-corner-card, .theme-ember .minimal-bar { border-color: #ff6a3d !important; box-shadow: 0 0 18px #ff6a3d55; }
-        .theme-aurora { --matchup-bg: linear-gradient(135deg,#06232b,#0b1a3a); --matchup-border: #2dd4bf; --matchup-accent: #2dd4bf; }
-        .theme-aurora .matchup-panel, .theme-aurora .fgc-side, .theme-aurora .split-corner-card, .theme-aurora .minimal-bar { border-color: #2dd4bf !important; box-shadow: 0 0 18px #2dd4bf55; }
-        .theme-ocean { --matchup-bg: linear-gradient(135deg,#071c3a,#04101f); --matchup-border: #38bdf8; --matchup-accent: #38bdf8; }
-        .theme-ocean .matchup-panel, .theme-ocean .fgc-side, .theme-ocean .split-corner-card, .theme-ocean .minimal-bar { border-color: #38bdf8 !important; box-shadow: 0 0 18px #38bdf855; }
-        .theme-sunset { --matchup-bg: linear-gradient(135deg,#3b0f3a,#2a0d1a); --matchup-border: #fb7185; --matchup-accent: #fbbf24; }
-        .theme-sunset .matchup-panel, .theme-sunset .fgc-side, .theme-sunset .split-corner-card, .theme-sunset .minimal-bar { border-color: #fb7185 !important; box-shadow: 0 0 18px #fb718555; }
-        .theme-violet { --matchup-bg: linear-gradient(135deg,#1e1038,#0d0820); --matchup-border: #a78bfa; --matchup-accent: #c084fc; }
-        .theme-violet .matchup-panel, .theme-violet .fgc-side, .theme-violet .split-corner-card, .theme-violet .minimal-bar { border-color: #a78bfa !important; box-shadow: 0 0 18px #a78bfa55; }
-        .theme-forest { --matchup-bg: linear-gradient(135deg,#0a2316,#06120b); --matchup-border: #4ade80; --matchup-accent: #4ade80; }
-        .theme-forest .matchup-panel, .theme-forest .fgc-side, .theme-forest .split-corner-card, .theme-forest .minimal-bar { border-color: #4ade80 !important; box-shadow: 0 0 18px #4ade8055; }
-        .theme-glass .matchup-panel,
-        .theme-glass .fgc-side,
-        .theme-glass .split-corner-card,
-        .theme-glass .minimal-bar {
+        .theme-ember {
+            --matchup-bg: linear-gradient(135deg, #2a0f0a, #12060a);
+            --matchup-border: #ff6a3d;
+            --matchup-accent: #ff6a3d;
+            --matchup-text: #fff;
+            --matchup-muted: #ff9d7d;
+        }
+        .theme-ember .topbar-panel, .theme-ember .fgc-side, .theme-ember .split-corner-card, .theme-ember .minimal-bar, .theme-ember .race-runner-card, .theme-ember .pillar-panel, .theme-ember .bottom-hud-card, .theme-ember .compact-bug, .theme-ember .versus-card-stage, .theme-ember .ang-center, .theme-ember .clock-dock-pill {
+            border-color: #ff6a3d !important;
+            box-shadow: 0 0 18px rgba(255, 106, 61, 0.35) !important;
+        }
+
+        .theme-aurora {
+            --matchup-bg: linear-gradient(135deg, #06232b, #0b1a3a);
+            --matchup-border: #2dd4bf;
+            --matchup-accent: #2dd4bf;
+            --matchup-text: #fff;
+            --matchup-muted: #99f6e4;
+        }
+        .theme-aurora .topbar-panel, .theme-aurora .fgc-side, .theme-aurora .split-corner-card, .theme-aurora .minimal-bar, .theme-aurora .race-runner-card, .theme-aurora .pillar-panel, .theme-aurora .bottom-hud-card, .theme-aurora .compact-bug, .theme-aurora .versus-card-stage, .theme-aurora .ang-center, .theme-aurora .clock-dock-pill {
+            border-color: #2dd4bf !important;
+            box-shadow: 0 0 18px rgba(45, 212, 191, 0.35) !important;
+        }
+
+        .theme-ocean {
+            --matchup-bg: linear-gradient(135deg, #071c3a, #04101f);
+            --matchup-border: #38bdf8;
+            --matchup-accent: #38bdf8;
+            --matchup-text: #fff;
+            --matchup-muted: #bae6fd;
+        }
+        .theme-ocean .topbar-panel, .theme-ocean .fgc-side, .theme-ocean .split-corner-card, .theme-ocean .minimal-bar, .theme-ocean .race-runner-card, .theme-ocean .pillar-panel, .theme-ocean .bottom-hud-card, .theme-ocean .compact-bug, .theme-ocean .versus-card-stage, .theme-ocean .ang-center, .theme-ocean .clock-dock-pill {
+            border-color: #38bdf8 !important;
+            box-shadow: 0 0 18px rgba(56, 189, 248, 0.35) !important;
+        }
+
+        .theme-sunset {
+            --matchup-bg: linear-gradient(135deg, #3b0f3a, #2a0d1a);
+            --matchup-border: #fb7185;
+            --matchup-accent: #fbbf24;
+            --matchup-text: #fff;
+            --matchup-muted: #fecdd3;
+        }
+        .theme-sunset .topbar-panel, .theme-sunset .fgc-side, .theme-sunset .split-corner-card, .theme-sunset .minimal-bar, .theme-sunset .race-runner-card, .theme-sunset .pillar-panel, .theme-sunset .bottom-hud-card, .theme-sunset .compact-bug, .theme-sunset .versus-card-stage, .theme-sunset .ang-center, .theme-sunset .clock-dock-pill {
+            border-color: #fb7185 !important;
+            box-shadow: 0 0 18px rgba(251, 113, 133, 0.35) !important;
+        }
+
+        .theme-violet {
+            --matchup-bg: linear-gradient(135deg, #1e1038, #0d0820);
+            --matchup-border: #a78bfa;
+            --matchup-accent: #c084fc;
+            --matchup-text: #fff;
+            --matchup-muted: #ddd6fe;
+        }
+        .theme-violet .topbar-panel, .theme-violet .fgc-side, .theme-violet .split-corner-card, .theme-violet .minimal-bar, .theme-violet .race-runner-card, .theme-violet .pillar-panel, .theme-violet .bottom-hud-card, .theme-violet .compact-bug, .theme-violet .versus-card-stage, .theme-violet .ang-center, .theme-violet .clock-dock-pill {
+            border-color: #a78bfa !important;
+            box-shadow: 0 0 18px rgba(167, 139, 250, 0.35) !important;
+        }
+
+        .theme-forest {
+            --matchup-bg: linear-gradient(135deg, #0a2316, #06120b);
+            --matchup-border: #4ade80;
+            --matchup-accent: #4ade80;
+            --matchup-text: #fff;
+            --matchup-muted: #bbf7d0;
+        }
+        .theme-forest .topbar-panel, .theme-forest .fgc-side, .theme-forest .split-corner-card, .theme-forest .minimal-bar, .theme-forest .race-runner-card, .theme-forest .pillar-panel, .theme-forest .bottom-hud-card, .theme-forest .compact-bug, .theme-forest .versus-card-stage, .theme-forest .ang-center, .theme-forest .clock-dock-pill {
+            border-color: #4ade80 !important;
+            box-shadow: 0 0 18px rgba(74, 222, 128, 0.35) !important;
+        }
+
+        .theme-glass {
+            --matchup-bg: rgba(13, 17, 23, 0.65);
+            --matchup-border: rgba(255, 255, 255, 0.18);
+        }
+        .theme-glass .topbar-panel, .theme-glass .fgc-side, .theme-glass .split-corner-card, .theme-glass .minimal-bar, .theme-glass .race-runner-card, .theme-glass .pillar-panel, .theme-glass .bottom-hud-card, .theme-glass .compact-bug, .theme-glass .versus-card-stage, .theme-glass .ang-center, .theme-glass .clock-dock-pill {
             background: rgba(13, 17, 23, 0.65) !important;
             backdrop-filter: blur(14px) saturate(180%);
             -webkit-backdrop-filter: blur(14px) saturate(180%);
             border-color: rgba(255, 255, 255, 0.18) !important;
         }
 
-        .theme-solid .matchup-panel,
-        .theme-solid .fgc-side,
-        .theme-solid .split-corner-card,
-        .theme-solid .minimal-bar {
+        .theme-solid {
+            --matchup-bg: #0d1117;
+            --matchup-border: #30363d;
+        }
+        .theme-solid .topbar-panel, .theme-solid .fgc-side, .theme-solid .split-corner-card, .theme-solid .minimal-bar, .theme-solid .race-runner-card, .theme-solid .pillar-panel, .theme-solid .bottom-hud-card, .theme-solid .compact-bug, .theme-solid .versus-card-stage, .theme-solid .ang-center, .theme-solid .clock-dock-pill {
             background: #0d1117 !important;
             border-color: #30363d !important;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
         }
 
-        .theme-transparent .matchup-panel,
-        .theme-transparent .fgc-side,
-        .theme-transparent .split-corner-card,
-        .theme-transparent .minimal-bar {
+        .theme-transparent {
+            --matchup-bg: transparent;
+            --matchup-border: transparent;
+        }
+        .theme-transparent .topbar-panel, .theme-transparent .fgc-side, .theme-transparent .split-corner-card, .theme-transparent .minimal-bar, .theme-transparent .race-runner-card, .theme-transparent .pillar-panel, .theme-transparent .bottom-hud-card, .theme-transparent .compact-bug, .theme-transparent .versus-card-stage, .theme-transparent .ang-center, .theme-transparent .clock-dock-pill {
             background: transparent !important;
             border-color: transparent !important;
             box-shadow: none !important;
         }
 
-        .theme-pill .matchup-panel,
-        .theme-pill .minimal-bar {
+        .theme-pill .topbar-panel, .theme-pill .minimal-bar, .theme-pill .bottom-hud-card, .theme-pill .clock-dock-pill {
             border-radius: 9999px !important;
             padding-left: 1.5rem !important;
             padding-right: 1.5rem !important;
         }
 
-        .theme-neon .matchup-panel,
-        .theme-neon .fgc-side,
-        .theme-neon .split-corner-card,
-        .theme-neon .minimal-bar {
-            border-color: var(--matchup-accent) !important;
-            box-shadow: 0 0 16px rgba(88, 166, 255, 0.35), inset 0 0 10px rgba(88, 166, 255, 0.15);
+        .theme-neon {
+            --matchup-bg: #090d16;
+            --matchup-border: #00f0ff;
+            --matchup-accent: #00f0ff;
+        }
+        .theme-neon .topbar-panel, .theme-neon .fgc-side, .theme-neon .split-corner-card, .theme-neon .minimal-bar, .theme-neon .race-runner-card, .theme-neon .pillar-panel, .theme-neon .bottom-hud-card, .theme-neon .compact-bug, .theme-neon .versus-card-stage, .theme-neon .ang-center, .theme-neon .clock-dock-pill {
+            border-color: #00f0ff !important;
+            box-shadow: 0 0 16px rgba(0, 240, 255, 0.4), inset 0 0 10px rgba(0, 240, 255, 0.15) !important;
         }
 
-        .theme-retro .matchup-panel,
-        .theme-retro .fgc-side,
-        .theme-retro .split-corner-card,
-        .theme-retro .minimal-bar {
+        .theme-retro {
+            --matchup-bg: #150a20;
+            --matchup-border: #ffcc00;
+            --matchup-accent: #ffcc00;
+        }
+        .theme-retro .topbar-panel, .theme-retro .fgc-side, .theme-retro .split-corner-card, .theme-retro .minimal-bar, .theme-retro .race-runner-card, .theme-retro .pillar-panel, .theme-retro .bottom-hud-card, .theme-retro .compact-bug, .theme-retro .versus-card-stage, .theme-retro .ang-center, .theme-retro .clock-dock-pill {
             border-radius: 0 !important;
             border: 3px solid #ffcc00 !important;
-            box-shadow: 4px 4px 0 #000, 0 0 0 2px #000;
+            box-shadow: 4px 4px 0 #000, 0 0 0 2px #000 !important;
             image-rendering: pixelated;
         }
 
-        .theme-fgc-evo .matchup-panel,
-        .theme-fgc-evo .fgc-side,
-        .theme-fgc-evo .split-corner-card,
-        .theme-fgc-evo .minimal-bar {
+        .theme-fgc-evo {
+            --matchup-bg: linear-gradient(180deg, #1b222d 0%, #0a0e14 100%);
+            --matchup-border: rgba(255, 255, 255, 0.2);
+            --matchup-accent: #ffd700;
+        }
+        .theme-fgc-evo .topbar-panel, .theme-fgc-evo .fgc-side, .theme-fgc-evo .split-corner-card, .theme-fgc-evo .minimal-bar, .theme-fgc-evo .race-runner-card, .theme-fgc-evo .pillar-panel, .theme-fgc-evo .bottom-hud-card, .theme-fgc-evo .compact-bug, .theme-fgc-evo .versus-card-stage, .theme-fgc-evo .ang-center, .theme-fgc-evo .clock-dock-pill {
             background: linear-gradient(180deg, #1b222d 0%, #0a0e14 100%) !important;
             border-color: rgba(255, 255, 255, 0.2) !important;
             box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 0, 0, 0.5) !important;
         }
 
-        .theme-cyber .matchup-panel,
-        .theme-cyber .fgc-side,
-        .theme-cyber .split-corner-card,
-        .theme-cyber .minimal-bar {
+        .theme-cyber {
+            --matchup-bg: #050811;
+            --matchup-border: #00f0ff;
+            --matchup-accent: #ff0055;
+        }
+        .theme-cyber .topbar-panel, .theme-cyber .fgc-side, .theme-cyber .split-corner-card, .theme-cyber .minimal-bar, .theme-cyber .race-runner-card, .theme-cyber .pillar-panel, .theme-cyber .bottom-hud-card, .theme-cyber .compact-bug, .theme-cyber .versus-card-stage, .theme-cyber .ang-center, .theme-cyber .clock-dock-pill {
             background: #050811 !important;
             border-color: #00f0ff !important;
             box-shadow: 0 0 20px rgba(0, 240, 255, 0.35), inset 0 0 15px rgba(0, 240, 255, 0.1) !important;
         }
 
-        .theme-championship .matchup-panel,
-        .theme-championship .fgc-side,
-        .theme-championship .split-corner-card,
-        .theme-championship .minimal-bar,
-        .theme-gold .matchup-panel,
-        .theme-gold .fgc-side,
-        .theme-gold .split-corner-card,
-        .theme-gold .minimal-bar {
+        .theme-championship, .theme-gold {
+            --matchup-bg: linear-gradient(180deg, #1f1a0e 0%, #0d0b06 100%);
+            --matchup-border: #ffd700;
+            --matchup-accent: #ffd700;
+        }
+        .theme-championship .topbar-panel, .theme-championship .fgc-side, .theme-championship .split-corner-card, .theme-championship .minimal-bar, .theme-championship .race-runner-card, .theme-championship .pillar-panel, .theme-championship .bottom-hud-card, .theme-championship .compact-bug, .theme-championship .versus-card-stage, .theme-championship .ang-center, .theme-championship .clock-dock-pill,
+        .theme-gold .topbar-panel, .theme-gold .fgc-side, .theme-gold .split-corner-card, .theme-gold .minimal-bar, .theme-gold .race-runner-card, .theme-gold .pillar-panel, .theme-gold .bottom-hud-card, .theme-gold .compact-bug, .theme-gold .versus-card-stage, .theme-gold .ang-center, .theme-gold .clock-dock-pill {
             background: linear-gradient(180deg, #1f1a0e 0%, #0d0b06 100%) !important;
             border-color: #ffd700 !important;
             box-shadow: 0 0 20px rgba(255, 215, 0, 0.35), inset 0 0 10px rgba(255, 215, 0, 0.15) !important;
@@ -221,16 +290,23 @@
             color: #ffd700 !important;
         }
 
-        .theme-clean-light .matchup-panel,
-        .theme-clean-light .fgc-side,
-        .theme-clean-light .split-corner-card,
-        .theme-clean-light .minimal-bar {
+        .theme-clean-light {
+            --matchup-bg: #ffffff;
+            --matchup-border: #d0d7de;
+            --matchup-text: #1f2328;
+            --matchup-muted: #656d76;
+            --matchup-accent: #0969da;
+        }
+        .theme-clean-light .topbar-panel, .theme-clean-light .fgc-side, .theme-clean-light .split-corner-card, .theme-clean-light .minimal-bar, .theme-clean-light .race-runner-card, .theme-clean-light .pillar-panel, .theme-clean-light .bottom-hud-card, .theme-clean-light .compact-bug, .theme-clean-light .versus-card-stage, .theme-clean-light .ang-center, .theme-clean-light .clock-dock-pill {
             background: #ffffff !important;
             border-color: #d0d7de !important;
             color: #1f2328 !important;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
         }
-        .theme-clean-light .competitor-name {
+        .theme-clean-light .competitor-name,
+        .theme-clean-light .match-title-badge,
+        .theme-clean-light .clock-val,
+        .theme-clean-light .clock-digits {
             color: #1f2328 !important;
         }
         .theme-clean-light .score-box {
@@ -238,20 +314,27 @@
             color: #1f2328 !important;
             border-color: #d0d7de !important;
         }
+        .theme-clean-light .ang-center {
+            background: #f6f8fa !important;
+            border-top: 3px solid #0969da !important;
+        }
 
-        .theme-minimal-dark .matchup-panel,
-        .theme-minimal-dark .fgc-side,
-        .theme-minimal-dark .split-corner-card,
-        .theme-minimal-dark .minimal-bar {
+        .theme-minimal-dark {
+            --matchup-bg: #000000;
+            --matchup-border: #222222;
+            --matchup-text: #f0f6fc;
+            --matchup-accent: #58a6ff;
+        }
+        .theme-minimal-dark .topbar-panel, .theme-minimal-dark .fgc-side, .theme-minimal-dark .split-corner-card, .theme-minimal-dark .minimal-bar, .theme-minimal-dark .race-runner-card, .theme-minimal-dark .pillar-panel, .theme-minimal-dark .bottom-hud-card, .theme-minimal-dark .compact-bug, .theme-minimal-dark .versus-card-stage, .theme-minimal-dark .ang-center, .theme-minimal-dark .clock-dock-pill {
             background: #000000 !important;
             border-color: #222222 !important;
             box-shadow: none !important;
         }
 
-        .theme-border .matchup-panel,
-        .theme-border .fgc-side,
-        .theme-border .split-corner-card,
-        .theme-border .minimal-bar {
+        .theme-border {
+            --matchup-border: var(--matchup-accent);
+        }
+        .theme-border .topbar-panel, .theme-border .fgc-side, .theme-border .split-corner-card, .theme-border .minimal-bar, .theme-border .race-runner-card, .theme-border .pillar-panel, .theme-border .bottom-hud-card, .theme-border .compact-bug, .theme-border .versus-card-stage, .theme-border .ang-center, .theme-border .clock-dock-pill {
             border: 3px solid var(--matchup-accent) !important;
             border-radius: 8px !important;
         }
@@ -662,14 +745,18 @@
         }
 
         .match-title-badge {
-            font-size: 0.82rem;
-            font-weight: 700;
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
             color: var(--matchup-text);
-            margin-top: 0.15rem;
+            margin-bottom: 0.15rem;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 220px;
+            max-width: 240px;
+            line-height: 1.15;
         }
 
         .match-details-badge {
@@ -960,6 +1047,71 @@
             color: #6e7681;
         }
 
+        .bottom-clock-dock {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            margin-top: 0.6rem;
+        }
+
+        .clock-dock-pill {
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 999px;
+            padding: 0.4rem 1.1rem;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .clock-dock-pill .clock-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--matchup-muted);
+        }
+
+        .clock-dock-pill .clock-val {
+            font-family: monospace;
+            font-weight: 900;
+            font-size: 1.15rem;
+            color: var(--matchup-accent);
+        }
+
+        .clock-dock-pill .clock-est {
+            font-size: 0.85rem;
+            color: var(--matchup-muted);
+            font-weight: 700;
+        }
+
+        .split-center-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            pointer-events: none;
+            margin: 0 1rem;
+        }
+
+        .minimal-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.35rem;
+            width: 100%;
+        }
+
+        .minimal-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.82rem;
+            padding: 0.2rem 0.6rem;
+        }
+
         /* ----------------------------------------------------
            SPEEDRUN BATTLE / RACE LAYOUT (?layout=race)
            ---------------------------------------------------- */
@@ -1148,7 +1300,16 @@
         const showTags = params.get('tags') !== '0';
         const showDetails = params.get('details') !== '0';
         const showClock = params.get('clock') !== '0';
-        const hideCss = [params.get('phase') === '0' && '.match-phase-badge', params.get('title') === '0' && '.match-title-badge, .match-title-inline', params.get('banner') === '0' && '.winner-banner'].filter(Boolean);
+        const clockStyle = (params.get('clockstyle') || 'badge').toLowerCase(); // 'badge' | 'bottom' | 'pill' | 'fgc'
+        const showEst = params.get('showest') !== '0';
+        const showTitle = params.get('title') !== '0';
+        const showPhase = params.get('phase') !== '0';
+        const hideCss = [
+            !showPhase && '.match-phase-badge',
+            !showTitle && '.match-title-badge, .match-title-inline',
+            !showClock && '.clock-pill, .fgc-clock-box, .bottom-clock-dock, .race-timer-hero, .clock-dock-pill, .race-est-badge',
+            params.get('banner') === '0' && '.winner-banner'
+        ].filter(Boolean);
         if (hideCss.length) { const st = document.createElement('style'); st.textContent = hideCss.map(x => x + '{display:none !important}').join(''); document.head.appendChild(st); }
         const enableConfetti = params.get('confetti') !== '0' && params.get('confetti') !== 'false';
         const scaleVal = parseFloat(params.get('scale') || params.get('fontscale') || '1');
@@ -1238,7 +1399,7 @@
             targetScore: 5,
             status: 'ACTIVE',
             winner: null,
-            clock: { enabled: true, mode: layout === 'race' ? 'race' : 'stopwatch', duration: 99, remaining: 99, elapsed: 754.32, isRunning: true, estimate: '18:30' }
+            clock: { enabled: showClock, mode: layout === 'race' ? 'race' : 'stopwatch', duration: 99, remaining: 99, elapsed: 754.32, isRunning: true, estimate: '18:30' }
         };
         if (layout === 'race') {
             SAMPLE_MATCHUP.competitors[0].timer = { elapsed: 754.32, isRunning: true, finished: false };
@@ -1301,16 +1462,31 @@
             liveM = m; liveAt = Date.now();
             const clock = m?.clock;
             if (!clock || clock.enabled === false || !showClock) return '';
+            if (clockStyle === 'bottom' && styleType !== 'bottom') return '';
+
             const isStopwatch = clock.mode === 'stopwatch' || clock.mode === 'race';
             const displayVal = isStopwatch ? fmtMs(clock.elapsed) : (clock.remaining !== undefined ? formatClockTime(clock.remaining, clock.duration >= 60) : '99');
             const isLow = !isStopwatch && clock.remaining !== undefined && clock.remaining <= 10 && clock.remaining > 0;
             const isOver = !isStopwatch && clock.remaining === 0;
 
+            if (styleType === 'bottom') {
+                return `
+                    <div class="bottom-clock-dock">
+                        <div class="clock-pill clock-dock-pill${isLow ? ' clock-low' : ''}${isOver ? ' clock-over' : ''}${clock.isRunning ? ' clock-running' : ''}" title="${isStopwatch ? 'Speedrun Timer' : 'Round Timer'}">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <span class="clock-label" style="font-size:0.62rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:var(--matchup-muted);">TIME</span>
+                            <span class="clock-val"${isStopwatch ? ' data-live="clock"' : ''} style="font-family:monospace; font-weight:900; font-size:1.15rem;">${displayVal}</span>
+                            ${(showEst && clock.estimate) ? `<span class="clock-est" style="font-size:0.85rem; color:var(--matchup-muted); font-weight:700;">/ ${esc(clock.estimate)}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
             if (styleType === 'fgc-center') {
                 return `
                     <div class="fgc-clock-box${isLow ? ' clock-low' : ''}${isOver ? ' clock-over' : ''}${clock.isRunning ? ' clock-running' : ''}" title="${isStopwatch ? 'Speedrun Timer' : 'Round Timer'}">
                         <span class="fgc-clock-digits"${isStopwatch ? ' data-live="clock"' : ''}>${displayVal}</span>
-                        ${clock.estimate ? `<span class="fgc-clock-est">EST ${esc(clock.estimate)}</span>` : ''}
+                        ${(showEst && clock.estimate) ? `<span class="fgc-clock-est">EST ${esc(clock.estimate)}</span>` : ''}
                     </div>
                 `;
             }
@@ -1319,7 +1495,7 @@
                 <div class="clock-pill${isLow ? ' clock-low' : ''}${isOver ? ' clock-over' : ''}${clock.isRunning ? ' clock-running' : ''}" title="${isStopwatch ? 'Speedrun Stopwatch' : 'Round Countdown'}">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     <span class="clock-val"${isStopwatch ? ' data-live="clock"' : ''}>${displayVal}</span>
-                    ${clock.estimate ? `<span class="clock-est">/ ${esc(clock.estimate)}</span>` : ''}
+                    ${(showEst && clock.estimate) ? `<span class="clock-est">/ ${esc(clock.estimate)}</span>` : ''}
                 </div>
             `;
         }
@@ -1330,7 +1506,7 @@
             const rb = Number(currentMatchup && currentMatchup.roundsBestOf) || 0;
             if (pipStyle === 'digit' || pipStyle === 'number') {
                 const roundsSub = (typeof comp === 'object' && rb > 0)
-                    ? `<span style="font-size:0.65em;opacity:0.8;margin-left:0.25rem;">R: ${comp.rounds || 0}/${Math.ceil(rb / 2)}</span>`
+                    ? `<span class="pip-digit-rounds" style="font-size:0.65em;opacity:0.8;margin-left:0.35rem;font-weight:700;">R: ${comp.rounds || 0}/${Math.ceil(rb / 2)}</span>`
                     : '';
                 return `<div class="pip-digit-badge" style="${color ? `color:${color};` : ''}">${score} / ${target}${roundsSub}</div>`;
             }
@@ -1394,7 +1570,12 @@
             } else {
                 renderTopBar(m, target, count);
             }
-            if (showClock && m.clock && m.clock.enabled !== false && !container.querySelector('.clock-pill, .fgc-clock-box')) {
+            if (showClock && m.clock && m.clock.enabled !== false && clockStyle === 'bottom') {
+                const wrap = document.createElement('div');
+                wrap.style.cssText = 'display:flex;justify-content:center;margin-top:0.6rem;width:100%;';
+                wrap.innerHTML = renderClockHtml(m, 'bottom');
+                container.appendChild(wrap);
+            } else if (showClock && m.clock && m.clock.enabled !== false && !container.querySelector('.clock-pill, .fgc-clock-box')) {
                 const wrap = document.createElement('div');
                 wrap.style.cssText = 'display:flex;justify-content:center;margin-top:0.5rem;';
                 wrap.innerHTML = renderClockHtml(m, 'pill');
@@ -1414,10 +1595,12 @@
                 <div class="race-panel">
                     <div class="race-header">
                         <div style="display: flex; align-items: center; gap: 0.6rem;">
-                            <span class="match-phase-badge">${esc(m.phase || m.title || 'Speedrun Race')}</span>
+                            ${m.title ? `<span class="match-title-badge" style="font-weight: 800; font-size: 0.95rem;">${esc(m.title)}</span>` : ''}
+                            ${(m.title && m.phase) ? `<span style="opacity: 0.4;">·</span>` : ''}
+                            <span class="match-phase-badge">${esc(m.phase || 'Speedrun Battle')}</span>
                             ${m.details ? `<span style="font-size: 0.78rem; color: var(--matchup-muted); font-weight: 600;">${esc(m.details)}</span>` : ''}
                         </div>
-                        ${est && !clockOff ? `
+                        ${est && !clockOff && showEst ? `
                             <div class="race-est-badge">
                                 <span style="opacity: 0.75; font-size: 0.68rem; text-transform: uppercase;">EST</span>
                                 <span>${esc(est)}</span>
@@ -1535,9 +1718,9 @@
                     <!-- Center Badge (toggleable via ?center=0) -->
                     ${showCenter ? `
                         <div class="topbar-center-badge">
-                            ${renderClockHtml(m, 'badge')}
-                            <div class="match-phase-badge">${esc(m.phase || (target > 0 ? `First to ${target}` : 'Match'))}</div>
                             ${m.title ? `<div class="match-title-badge">${esc(m.title)}</div>` : ''}
+                            <div class="match-phase-badge">${esc(m.phase || (target > 0 ? `First to ${target}` : 'Match'))}</div>
+                            ${renderClockHtml(m, 'badge')}
                             ${showDetails && m.details ? `<div class="match-details-badge">${esc(m.details)}</div>` : ''}
                         </div>
                     ` : (renderClockHtml(m, 'badge') || '<div class="center-divider"></div>')}
@@ -1581,9 +1764,9 @@
                     <!-- Center Badge (optional via ?center=1/0) -->
                     ${showCenter ? `
                         <div class="topbar-center-badge" style="flex: 0 0 auto; gap: 0.25rem;">
+                            ${m.title ? `<div class="match-title-badge">${esc(m.title)}</div>` : ''}
                             ${renderClockHtml(m, 'fgc-center')}
                             <div class="match-phase-badge">${esc(m.phase || (target > 0 ? `FT${target}` : 'FGC'))}</div>
-                            ${m.title ? `<div class="match-title-badge">${esc(m.title)}</div>` : ''}
                             ${showDetails && m.details ? `<div class="match-details-badge">${esc(m.details)}</div>` : ''}
                         </div>
                     ` : renderClockHtml(m, 'fgc-center')}
@@ -1623,7 +1806,11 @@
                         </div>
                     </div>
 
-                    ${renderClockHtml(m, 'pill')}
+                    <div class="split-center-header" style="display: flex; flex-direction: column; align-items: center; gap: 0.2rem; pointer-events: none;">
+                        ${renderClockHtml(m, 'pill')}
+                        ${m.title ? `<div class="match-title-badge" style="text-shadow: 0 2px 8px rgba(0,0,0,0.85); font-weight: 800;">${esc(m.title)}</div>` : ''}
+                        ${m.phase ? `<div class="match-phase-badge" style="text-shadow: 0 2px 8px rgba(0,0,0,0.85);">${esc(m.phase)}</div>` : ''}
+                    </div>
 
                     <!-- Top-Right Corner (P2) -->
                     <div class="split-corner-card p2${p2Won ? ' winner' : ''}" style="--p2-color: ${p2.color || '#3b82f6'};">
@@ -1658,12 +1845,14 @@
                             ${showTags && p1.tag ? `<div class="competitor-tag">${esc(p1.tag)}</div>` : ''}
                         </div>
                         ${renderPipsHtml(p1, target, p1.color)}
-                        <div class="score-box" style="font-size:1.2rem; min-width:2rem; height:2.2rem;">${p1.score}</div>
+                        <div class="score-box" id="p1-score" style="font-size:1.2rem; min-width:2rem; height:2.2rem;">${p1.score}</div>
                     </div>
+
+                    ${renderClockHtml(m, 'badge') || '<div class="center-divider"></div>'}
 
                     <!-- P2 -->
                     <div class="minimal-side p2${p2Won ? ' winner' : ''}">
-                        <div class="score-box" style="font-size:1.2rem; min-width:2rem; height:2.2rem;">${p2.score}</div>
+                        <div class="score-box" id="p2-score" style="font-size:1.2rem; min-width:2rem; height:2.2rem;">${p2.score}</div>
                         ${renderPipsHtml(p2, target, p2.color)}
                         <div class="competitor-meta" style="text-align:left;">
                             <div class="competitor-name" style="font-size:1rem;">${esc(p2.name)}</div>
@@ -1684,9 +1873,9 @@
             container.innerHTML = `
                 <div class="topbar-panel" style="flex-direction: column;">
                     <div class="compact-header" style="justify-content: center; gap: 0.75rem;">
-                        <span>${esc(m.title || 'Versus')}</span>
-                        <span>·</span>
-                        <span>${esc(m.phase || (target > 0 ? `Target: ${target}` : 'Scores'))}</span>
+                        ${m.title ? `<span class="match-title-badge">${esc(m.title)}</span>` : ''}
+                        ${(m.title && m.phase) ? `<span>·</span>` : ''}
+                        <span class="match-phase-badge">${esc(m.phase || (target > 0 ? `Target: ${target}` : 'Scores'))}</span>
                     </div>
                     <div class="multi-competitor-grid">
                         ${m.competitors.map((c, i) => `
@@ -1715,8 +1904,8 @@
             container.innerHTML = `
                 <div class="bottom-hud-card">
                     <div class="hud-top-meta">
-                        <span style="color:var(--matchup-accent);">${esc(m.phase || 'Matchup')}</span>
-                        <span>${esc(m.title || 'Esports')} ${m.details ? `· ${esc(m.details)}` : ''}</span>
+                        <span class="match-phase-badge" style="color:var(--matchup-accent);">${esc(m.phase || 'Matchup')}</span>
+                        <span class="match-title-badge">${esc(m.title || 'Esports')} ${m.details ? `· ${esc(m.details)}` : ''}</span>
                     </div>
                     <div class="hud-grid">
                         ${comps.map((c, idx) => `
@@ -1749,7 +1938,8 @@
             container.innerHTML = `
                 <div class="compact-bug">
                     <div class="compact-header">
-                        <span>${esc(m.phase || m.title || 'Scoreboard')}</span>
+                        <span class="match-title-badge">${esc(m.title || 'Scoreboard')}</span>
+                        ${m.phase ? `<span class="match-phase-badge">${esc(m.phase)}</span>` : ''}
                         <span>${target > 0 ? `FT${target}` : ''}</span>
                     </div>
                     ${m.competitors.map(c => `
@@ -1797,8 +1987,8 @@
             container.innerHTML = `
                 <div class="versus-card-stage">
                     <div class="compact-header" style="background:none; font-size:0.85rem;">
-                        <span>${esc(m.title || 'Versus Showdown')}</span>
-                        <span>${esc(m.phase || '')}</span>
+                        <span class="match-title-badge">${esc(m.title || 'Versus Showdown')}</span>
+                        <span class="match-phase-badge">${esc(m.phase || '')}</span>
                     </div>
                     <div class="versus-card-grid">
                         <div class="versus-side">
@@ -1924,10 +2114,11 @@
                 fetch('/api/matchup').then(r => r.json()).then(d => {
                     const c = (d.matchup || d).clock;
                     if (c) {
-                        SAMPLE_MATCHUP.clock.enabled = c.enabled !== false;
+                        SAMPLE_MATCHUP.clock.enabled = showClock && c.enabled !== false;
                         renderMatchup(SAMPLE_MATCHUP);
                     }
                 }).catch(() => {});
+                SAMPLE_MATCHUP.clock.enabled = showClock;
                 renderMatchup(SAMPLE_MATCHUP);
                 return;
             }
@@ -2013,7 +2204,7 @@
                     try {
                         const sm = JSON.parse(event.data);
                         if (sm.type === 'matchup-update' && sm.data && sm.data.clock) {
-                            SAMPLE_MATCHUP.clock.enabled = sm.data.clock.enabled !== false;
+                            SAMPLE_MATCHUP.clock.enabled = showClock && sm.data.clock.enabled !== false;
                             renderMatchup(SAMPLE_MATCHUP);
                         }
                     } catch { /* ignore */ }
