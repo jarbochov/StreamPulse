@@ -378,13 +378,14 @@ Control live polls, tournament matchups, and scoreboard sets directly from your 
 ## Versus: History, Progress Saves and Overlay Options
 
 - **Save Progress** snapshots the live matchup (scores, clocks, runner times and event log) into History at any time; Restore resumes it.
-- Completed matches are recorded with final times, deltas and a timestamped event log.
+- Completed matches are recorded with final times, deltas and a timestamped event log. Completed tournaments remain active and reviewable across both Versus and Tournament Manager until explicitly reset or cleared.
 - Matchup overlay URLs accept `title=0`, `phase=0`, `clock=0`, `tags=0`, `details=0`, `pips=0` and `center=0` to hide individual elements; the Overlays tab has a toggle for each.
 - All overlay customization checkboxes and live overlay preview settings (active preview sub-tab, canvas backdrop grid/dark mode, sample data toggle, whole bracket fit toggle, and selected resolution/aspect viewport chips) are automatically persisted in `localStorage`, maintaining your exact preview and framing when switching between studio tabs or reloading.
+- Confetti celebration is opt-in (`?confetti=1`, turned off by default) on bracket overlays.
 
 ## Poll Manager: Overlay Tabs and Themes
 
 - The Overlays tab has Standard Poll, Bracket Tree and Active Match HUD tabs, each with its own preview and URL builder, with preview sub-tab selection persisted in `localStorage`.
-- Tournament overlays accept `spacing`, `lines`, `showtitle=0` and `showrounds=0`.
+- Tournament overlays accept `spacing`, `lines`, `gap`, `accent`, `badgecolor`, `pipstyle`, `showtitle=0`, `showrounds=0`, `showseeds`, `showtags`, `showbadges`, `showformat`, `showmode`, `showentrants`, `showstatus`, `champion`, `confetti`, and `fit`.
 - Poll and tournament overlays share the Versus themes (Championship, Cyber, Clean Light, OLED Black, Ember, Aurora, Ocean, Sunset, Violet, Forest).
 - Stopwatch and race clocks broadcast every 250 ms and display milliseconds.

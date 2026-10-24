@@ -223,6 +223,19 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
         assert.equal(tourneyColorStyles.accent, '#e11d48', '--tourney-accent should be set to #e11d48');
         assert.equal(tourneyColorStyles.badgeBg, '#fbbf24', '--tourney-badge-bg should be set to #fbbf24');
 
+        // 18. Confetti default is OFF unless explicitly requested (?confetti=1)
+        await page.goto(`${OVERLAY_URL}?preview=1`, { waitUntil: 'domcontentloaded' });
+        const confettiDefaultOff = await page.evaluate(() => {
+            return typeof window.enableConfetti !== 'undefined' ? window.enableConfetti : false;
+        });
+        assert.equal(confettiDefaultOff, false, 'Confetti should be disabled by default on tournament overlay');
+
+        await page.goto(`${OVERLAY_URL}?preview=1&confetti=1`, { waitUntil: 'domcontentloaded' });
+        const confettiExplicitOn = await page.evaluate(() => {
+            return typeof window.enableConfetti !== 'undefined' ? window.enableConfetti : false;
+        });
+        assert.equal(confettiExplicitOn, true, 'Confetti should be enabled when ?confetti=1');
+
     } finally {
         if (browser) await browser.close();
     }

@@ -1408,6 +1408,10 @@
                                         <span>Show Champion Celebration Card (<code>?champion=1</code>)</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-confetti" onchange="syncTourneyOptFromMain('confetti', this.checked ? '1' : '0')">
+                                        <span>Victory Confetti Celebration (<code>?confetti=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="tourney-opt-fit" onchange="syncTourneyOptFromMain('fit', this.checked ? '1' : '0')">
                                         <span>Auto-scale entire bracket to browser viewport (<code>?fit=1</code>)</span>
                                     </label>
@@ -1909,6 +1913,8 @@
                     else urlParams.set('show' + k, '0');
                 }
             });
+            const confettiCheck = $('prev-ctrl-tourney-confetti') ? $('prev-ctrl-tourney-confetti').value === '1' : ($('tourney-opt-confetti')?.checked ?? false);
+            if (confettiCheck) urlParams.set('confetti', '1');
             const highlightEl = $('tourney-opt-highlight');
             if (highlightEl && !highlightEl.checked) urlParams.set('highlight', '0');
             const showLogoEl = $('tourney-opt-showlogo');
@@ -2183,6 +2189,7 @@
                         tags: $('tourney-opt-tags')?.checked,
                         badges: $('tourney-opt-badges')?.checked,
                         champion: $('tourney-opt-champion')?.checked,
+                        confetti: $('tourney-opt-confetti')?.checked,
                         fit: $('tourney-opt-fit')?.checked,
                         tourneyFitWholeBracket: typeof tourneyFitWholeBracket !== 'undefined' ? tourneyFitWholeBracket : false,
                     }
@@ -2254,7 +2261,7 @@
                         syncColorPicker('tourney-opt-badgecolor', 'tourney-opt-badgecolor-picker');
                     }
                     if (t.logosize !== undefined && $('tourney-opt-logosize')) $('tourney-opt-logosize').value = t.logosize;
-                    ['showlogo', 'highlight', 'center', 'title', 'format', 'mode', 'entrants', 'scores', 'rounds', 'seeds', 'tags', 'badges', 'champion', 'fit'].forEach(k => {
+                    ['showlogo', 'highlight', 'center', 'title', 'format', 'mode', 'entrants', 'scores', 'rounds', 'seeds', 'tags', 'badges', 'champion', 'confetti', 'fit'].forEach(k => {
                         const el = $('tourney-opt-' + k);
                         if (el && t[k] !== undefined) el.checked = Boolean(t[k]);
                     });
@@ -4448,7 +4455,7 @@
                 el.classList.toggle('active', el.dataset.step === stepState);
                 el.classList.toggle('done', order.indexOf(el.dataset.step) < order.indexOf(stepState));
             });
-            if (!t || t.status === 'COMPLETED' || !t.matches) {
+            if (!t || !t.matches || t.matches.length === 0) {
                 if (monitorCard) monitorCard.style.display = 'none';
                 if (createCard) createCard.style.display = 'block';
                 return;
@@ -4457,7 +4464,8 @@
             if (monitorCard) monitorCard.style.display = 'block';
             if (createCard) createCard.style.display = 'none';
 
-            if ($('tourney-active-title')) $('tourney-active-title').textContent = t.title || 'Live Tournament';
+            const isComp = t.status === 'COMPLETED';
+            if ($('tourney-active-title')) $('tourney-active-title').textContent = isComp ? `${t.title || 'Tournament'} (Completed)` : (t.title || 'Live Tournament');
             const liveLogoThumb = $('tourney-active-logo-thumb');
             const liveLogoLabel = $('btn-live-tourney-logo-label');
             if (liveLogoThumb) {
@@ -4513,6 +4521,7 @@
             // Active Match
             const activeMatch = (t.matches || []).find(m => m.id === t.activeMatchId) ||
                                 (t.matches || []).find(m => !m.isBye && !m.winner) ||
+                                (isComp ? [...(t.matches || [])].reverse().find(m => m.roundName === 'Grand Finals' || m.roundName === 'Finals' || m.winner) : null) ||
                                 t.matches[0];
 
             if (activeMatch) {

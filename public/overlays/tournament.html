@@ -1170,7 +1170,8 @@
         const showStandings = params.get('showstandings') !== '0' && params.get('standings') !== '0';
         const showMatches = params.get('showmatches') !== '0' && params.get('matches') !== '0';
         const showLines = params.get('lines') !== 'none' && params.get('showlines') !== '0';
-        const enableConfetti = params.get('confetti') !== '0' && params.get('confetti') !== 'false';
+        const enableConfetti = params.get('confetti') === '1' || params.get('confetti') === 'true';
+        window.enableConfetti = enableConfetti;
         const scaleVal = parseFloat(params.get('scale') || params.get('fontscale') || '1');
         const customAccent = params.get('accent');
         const customWinner = params.get('winner');

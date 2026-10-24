@@ -9,7 +9,8 @@
         .nav .dropdown { position: relative; display: flex; align-items: center; }
         .nav .dropdown-toggle { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.75rem; border-radius: 6px; transition: all 0.2s; cursor: pointer; display: block; user-select: none; }
         .nav .dropdown-toggle:hover { color: var(--text); background: var(--bg-raised); }
-        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0; min-width: 210px; max-height: 80vh; overflow-y: auto; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .nav .dropdown-menu { display: none; position: absolute; top: 100%; right: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0; min-width: 210px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        @media (max-height: 480px) { .nav .dropdown-menu { max-height: 80vh; overflow-y: auto; } }
         .nav .dropdown::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 8px; }
         .nav .dropdown:hover .dropdown-menu, .nav .dropdown.open .dropdown-menu { display: block; }
         .nav .dropdown-menu a { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
@@ -18,6 +19,18 @@
         .nav .menu-heading { padding: 0.55rem 1rem 0.2rem; margin-top: 0.25rem; border-top: 1px solid var(--bg-raised); color: var(--text-faint); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
         .nav a.active, .nav .dropdown-toggle.active { color: var(--text) !important; background: var(--bg-raised); }
         .nav .dropdown-menu a.active { color: var(--accent) !important; background: var(--bg-card); }
+
+        /* Nested submenus */
+        .nav .dropdown-submenu { position: relative; }
+        .nav .dropdown-submenu-toggle { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; transition: all 0.15s; cursor: pointer; }
+        .nav .dropdown-submenu-toggle:hover, .nav .dropdown-submenu.open > .dropdown-submenu-toggle { color: var(--text); background: var(--bg-raised); }
+        .nav .dropdown-submenu-toggle.active { color: var(--accent) !important; background: var(--bg-card); }
+        .nav .dropdown-submenu-menu { display: none; position: absolute; top: -0.35rem; left: 100%; margin-left: 2px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0; min-width: 200px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 60; }
+        .nav .dropdown-submenu:hover > .dropdown-submenu-menu, .nav .dropdown-submenu.open > .dropdown-submenu-menu { display: block; }
+        .nav .dropdown-submenu::after { content: ''; position: absolute; top: 0; left: 100%; width: 8px; height: 100%; }
+        .nav .dropdown-submenu-menu a { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; transition: all 0.15s; }
+        .nav .dropdown-submenu-menu a:hover { color: var(--text); background: var(--bg-raised); }
+        .nav .dropdown-submenu-menu a.active { color: var(--accent) !important; background: var(--bg-card); }
         
         /* Status pill */
         .nav-status-pill { display: inline-flex; align-items: center; gap: 0.38rem; font-size: 0.72rem; font-weight: 600; padding: 0.22rem 0.55rem; border-radius: 999px; text-decoration: none; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border); transition: all 0.2s; white-space: nowrap; }
@@ -96,8 +109,10 @@
         ]},
         { label: 'Tools ▾', children: [
             { label: 'Poll Manager', href: '/polls.html', module: 'polls' },
-            { label: 'Versus', href: '/versus.html', module: 'versus' },
-            { label: 'Tournament Scorekeeper', href: '/tournament-admin.html', module: 'versus' },
+            { label: 'Versus', href: '/versus.html', module: 'versus', children: [
+                { label: 'Versus Studio', href: '/versus.html' },
+                { label: 'Tournament Manager', href: '/tournament-admin.html' }
+            ]},
             { label: 'Promo Creator', href: '/promo-creator.html' },
             { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
             { label: 'Alerts & SFX', href: '/alerts.html' },
@@ -181,6 +196,8 @@
         // 3. Stream Tools & Automation
         list.push({ label: 'Poll Manager', href: '/polls.html', group: 'Stream Tools', module: 'polls' });
         list.push({ label: 'Versus', href: '/versus.html', group: 'Stream Tools', module: 'versus' });
+        list.push({ label: 'Versus Studio', href: '/versus.html', group: 'Stream Tools', module: 'versus' });
+        list.push({ label: 'Tournament Manager', href: '/tournament-admin.html', group: 'Stream Tools', module: 'versus' });
         list.push({ label: 'Tournament Multi-Match Scorekeeper', href: '/tournament-admin.html', group: 'Stream Tools', module: 'versus' });
         list.push({ label: 'Promo Creator', href: '/promo-creator.html', group: 'Stream Tools' });
         list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
@@ -511,12 +528,27 @@
 
                 if (!cleaned.some(c => !c.heading)) continue;
 
-                const anyActive = cleaned.some(c => !c.heading && isActive(c.href));
+                const anyActive = cleaned.some(c => !c.heading && (isActive(c.href) || (c.children && c.children.some(sc => isActive(sc.href)))));
                 html += `<div class="dropdown">`;
                 html += `<a href="#" class="dropdown-toggle${anyActive ? ' active' : ''}" role="button" aria-haspopup="true" aria-expanded="false">${item.label}</a>`;
                 html += `<div class="dropdown-menu">`;
                 for (const child of cleaned) {
                     if (child.heading) { html += `<div class="menu-heading">${child.heading}</div>`; continue; }
+                    if (child.children && child.children.length > 0) {
+                        const subVisible = child.children.filter(sc => isModuleActive(sc.module));
+                        if (subVisible.length > 0) {
+                            const subAnyActive = isActive(child.href) || subVisible.some(sc => isActive(sc.href));
+                            html += `<div class="dropdown-submenu">`;
+                            html += `<a href="${child.href}" class="dropdown-submenu-toggle${subAnyActive ? ' active' : ''}"><span>${child.label}</span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="submenu-arrow" style="margin-left: 0.5rem; opacity: 0.6;"><polyline points="9 18 15 12 9 6"></polyline></svg></a>`;
+                            html += `<div class="dropdown-submenu-menu">`;
+                            for (const sub of subVisible) {
+                                const subActive = isActive(sub.href) ? ' class="active"' : '';
+                                html += `<a href="${sub.href}"${subActive}><span>${sub.label}</span></a>`;
+                            }
+                            html += `</div></div>`;
+                            continue;
+                        }
+                    }
                     const active = isActive(child.href) ? ' class="active"' : '';
                     const target = child.target ? ` target="${child.target}" rel="noopener"` : '';
                     const ext = child.target === '_blank' ? `<span class="ext-icon" aria-hidden="true">↗</span>` : '';
@@ -563,6 +595,21 @@
             });
         });
 
+        // Submenu click & tap toggle support
+        container.querySelectorAll('.dropdown-submenu-toggle').forEach(btn => {
+            btn.addEventListener('click', event => {
+                const submenu = btn.closest('.dropdown-submenu');
+                const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+                if (isTouch || event.target.closest('.submenu-arrow')) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const wasOpen = submenu.classList.contains('open');
+                    container.querySelectorAll('.dropdown-submenu.open').forEach(s => s.classList.remove('open'));
+                    if (!wasOpen) submenu.classList.add('open');
+                }
+            });
+        });
+
         // Theme toggle logic
         const toggle = document.getElementById('nav-theme-toggle');
         const ap = window.StreamPulseAppearance;
@@ -581,6 +628,9 @@
             document.querySelectorAll('.nav .dropdown.open').forEach(d => {
                 d.classList.remove('open');
                 d.querySelector('.dropdown-toggle')?.setAttribute('aria-expanded', 'false');
+            });
+            document.querySelectorAll('.nav .dropdown-submenu.open').forEach(s => {
+                s.classList.remove('open');
             });
         }
     });

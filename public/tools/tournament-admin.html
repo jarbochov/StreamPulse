@@ -615,9 +615,10 @@
             }
         }
 
-        function renderAdminPage() {
+        function renderAdminPage(overrideData) {
+            if (overrideData !== undefined) tournamentData = overrideData;
             const t = tournamentData;
-            const hasTourney = Boolean(t && Array.isArray(t.matches) && t.matches.length > 0 && t.status !== 'COMPLETED');
+            const hasTourney = Boolean(t && Array.isArray(t.matches) && t.matches.length > 0);
 
             $('admin-empty-state').style.display = hasTourney ? 'none' : 'block';
             $('admin-summary-bar').style.display = hasTourney ? 'grid' : 'none';
@@ -626,21 +627,23 @@
             $('admin-series-ctrl').style.display = hasTourney ? 'inline-flex' : 'none';
             $('admin-rounds-ctrl').style.display = hasTourney ? 'inline-flex' : 'none';
             $('btn-admin-save-draft').style.display = hasTourney ? 'inline-flex' : 'none';
-            $('admin-live-dot').style.opacity = hasTourney ? '1' : '0.35';
+            $('admin-live-dot').style.opacity = hasTourney ? (t.status === 'COMPLETED' ? '0.6' : '1') : '0.35';
 
             if ($('admin-group-mode')) $('admin-group-mode').value = currentGroupMode;
 
             if (!hasTourney) {
-                $('admin-tourney-title').textContent = t && t.status === 'COMPLETED' ? `${t.title || 'Tournament'} (Completed)` : 'No Active Tournament';
+                $('admin-tourney-title').textContent = 'No Active Tournament';
                 $('admin-tourney-format-badge').style.display = 'none';
                 $('btn-admin-unpin').disabled = true;
                 return;
             }
 
-            $('admin-tourney-title').textContent = t.title || 'Live Tournament';
+            const isComp = t.status === 'COMPLETED';
+            $('admin-tourney-title').textContent = isComp ? `${t.title || 'Tournament'} (Completed)` : (t.title || 'Live Tournament');
             const fmtBadge = $('admin-tourney-format-badge');
             fmtBadge.style.display = 'inline-flex';
-            fmtBadge.textContent = t.format === 'double' ? 'Double Elimination' : (t.format === 'roundRobin' ? 'Round Robin' : 'Single Elimination');
+            const fmtName = t.format === 'double' ? 'Double Elimination' : (t.format === 'roundRobin' ? 'Round Robin' : 'Single Elimination');
+            fmtBadge.textContent = isComp ? `${fmtName} · Finished` : fmtName;
 
             // Sync live Series Format select
             const seriesSel = $('admin-series-select');

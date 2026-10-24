@@ -565,6 +565,41 @@
                                             <option value="retro">Retro Arcade (?overlay=retro)</option><option value="championship">Championship Gold</option><option value="cyber">Cyberpunk</option><option value="clean-light">Clean Light</option><option value="minimal-dark">OLED Black</option><option value="ember">Ember (?overlay=ember)</option><option value="aurora">Aurora (?overlay=aurora)</option><option value="ocean">Ocean (?overlay=ocean)</option><option value="sunset">Sunset (?overlay=sunset)</option><option value="violet">Violet (?overlay=violet)</option><option value="forest">Forest (?overlay=forest)</option>
                                         </select>
                                     </div>
+                                    <div>
+                                        <label for="tourney-opt-pipstyle" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Pip Style (?pipstyle=)</label>
+                                        <select id="tourney-opt-pipstyle" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="circle" selected>Dot / Circle (●)</option>
+                                            <option value="diamond">Diamond (◆)</option>
+                                            <option value="star">Star (★)</option>
+                                            <option value="bar">Segment Bar (▮)</option>
+                                            <option value="pill">Rounded Pill</option>
+                                            <option value="digit">Numeric Counter (1 / 2)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-gap" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Opponent / Center Spacing (?gap=)</label>
+                                        <select id="tourney-opt-gap" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateTourneyOverlayUrl()">
+                                            <option value="" selected>Auto (Default)</option>
+                                            <option value="intact">Keep Center Space Intact (160px)</option>
+                                            <option value="80px">Compact Gap (80px)</option>
+                                            <option value="240px">Wide Gap (240px)</option>
+                                            <option value="360px">Extra Wide Split (360px)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-accent" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Accent Color (?accent=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="tourney-opt-accent-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-accent').value = this.value; updateTourneyOverlayUrl();">
+                                            <input type="text" id="tourney-opt-accent" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-accent', 'tourney-opt-accent-picker'); updateTourneyOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-badgecolor" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Match Badge Color (?badgecolor=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="tourney-opt-badgecolor-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-badgecolor').value = this.value; updateTourneyOverlayUrl();">
+                                            <input type="text" id="tourney-opt-badgecolor" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-badgecolor', 'tourney-opt-badgecolor-picker'); updateTourneyOverlayUrl();">
+                                        </div>
+                                    </div>
                                     <div style="grid-column: span 2;">
                                         <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Header Logo Above Title (?logo=)</label>
                                         <div style="display: flex; align-items: center; gap: 0.4rem;">
@@ -594,16 +629,60 @@
                                         <span>Show Header Logo Above Title (<code>?showlogo=1</code>)</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-scores" checked onchange="updateTourneyOverlayUrl()">
-                                        <span>Show Match Scores &amp; Votes (<code>?showscores=1</code>)</span>
+                                        <input type="checkbox" id="tourney-opt-highlight" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Highlight Live Match on Bracket (<code>?highlight=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-center" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show Center Phase Badge (<code>?center=1</code>)</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="tourney-opt-title" checked onchange="updateTourneyOverlayUrl()">
-                                        <span>Show tournament title header (<code>?showtitle=1</code>)</span>
+                                        <span>Show Tournament Title Header (<code>?showtitle=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-format" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show Elimination Format Pill (<code>?showformat=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-mode" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show Series Mode / Best-Of Pill (<code>?showmode=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-entrants" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show Participants Count (<code>?showentrants=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-status" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show Status Badge (Finished / In Progress) (<code>?showstatus=1</code>)</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="tourney-opt-rounds" checked onchange="updateTourneyOverlayUrl()">
-                                        <span>Show round name headers (<code>?showrounds=1</code>)</span>
+                                        <span>Show Round Column Headers (<code>?showrounds=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-scores" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show Entrant Scores &amp; Votes (<code>?showscores=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-seeds" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show Entrant Seed Numbers (<code>?showseeds=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-tags" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show Option / Competitor Tags (<code>?showtags=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-badges" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show Live / Voting Badges on Cards (<code>?showbadges=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-champion" checked onchange="updateTourneyOverlayUrl()">
+                                        <span>Show Champion Celebration Card (<code>?champion=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-confetti" onchange="updateTourneyOverlayUrl()">
+                                        <span>Victory Confetti Celebration (<code>?confetti=1</code>)</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="tourney-opt-fit" checked onchange="updateTourneyOverlayUrl()">
@@ -685,6 +764,13 @@
             savePollsOverlayPrefs();
         }
 
+        function syncColorPicker(textId, pickerId) {
+            const val = $(textId)?.value?.trim();
+            if (/^#[0-9a-fA-F]{6}$/.test(val) && $(pickerId)) {
+                $(pickerId).value = val;
+            }
+        }
+
         const POLLS_OVERLAY_PREFS_KEY = 'streampulse_polls_overlay_prefs';
         let isRestoringPollsPrefs = false;
 
@@ -706,11 +792,26 @@
                         customBg: $('tourney-opt-custom-bg')?.value,
                         spacing: $('tourney-opt-spacing')?.value,
                         lines: $('tourney-opt-lines')?.value,
+                        pipstyle: $('tourney-opt-pipstyle')?.value,
+                        gap: $('tourney-opt-gap')?.value,
+                        accent: $('tourney-opt-accent')?.value,
+                        badgecolor: $('tourney-opt-badgecolor')?.value,
                         logosize: $('tourney-opt-logosize')?.value,
                         showlogo: $('tourney-opt-showlogo')?.checked,
-                        scores: $('tourney-opt-scores')?.checked,
+                        highlight: $('tourney-opt-highlight')?.checked,
+                        center: $('tourney-opt-center')?.checked,
                         title: $('tourney-opt-title')?.checked,
+                        format: $('tourney-opt-format')?.checked,
+                        mode: $('tourney-opt-mode')?.checked,
+                        entrants: $('tourney-opt-entrants')?.checked,
+                        status: $('tourney-opt-status')?.checked,
                         rounds: $('tourney-opt-rounds')?.checked,
+                        scores: $('tourney-opt-scores')?.checked,
+                        seeds: $('tourney-opt-seeds')?.checked,
+                        tags: $('tourney-opt-tags')?.checked,
+                        badges: $('tourney-opt-badges')?.checked,
+                        champion: $('tourney-opt-champion')?.checked,
+                        confetti: $('tourney-opt-confetti')?.checked,
                         fit: $('tourney-opt-fit')?.checked,
                     }
                 };
@@ -742,8 +843,18 @@
                     if (t.customBg !== undefined && $('tourney-opt-custom-bg')) $('tourney-opt-custom-bg').value = t.customBg;
                     if (t.spacing !== undefined && $('tourney-opt-spacing')) $('tourney-opt-spacing').value = t.spacing;
                     if (t.lines !== undefined && $('tourney-opt-lines')) $('tourney-opt-lines').value = t.lines;
+                    if (t.pipstyle !== undefined && $('tourney-opt-pipstyle')) $('tourney-opt-pipstyle').value = t.pipstyle;
+                    if (t.gap !== undefined && $('tourney-opt-gap')) $('tourney-opt-gap').value = t.gap;
+                    if (t.accent !== undefined && $('tourney-opt-accent')) {
+                        $('tourney-opt-accent').value = t.accent;
+                        syncColorPicker('tourney-opt-accent', 'tourney-opt-accent-picker');
+                    }
+                    if (t.badgecolor !== undefined && $('tourney-opt-badgecolor')) {
+                        $('tourney-opt-badgecolor').value = t.badgecolor;
+                        syncColorPicker('tourney-opt-badgecolor', 'tourney-opt-badgecolor-picker');
+                    }
                     if (t.logosize !== undefined && $('tourney-opt-logosize')) $('tourney-opt-logosize').value = t.logosize;
-                    ['showlogo', 'scores', 'title', 'rounds', 'fit'].forEach(k => {
+                    ['showlogo', 'highlight', 'center', 'title', 'format', 'mode', 'entrants', 'status', 'rounds', 'scores', 'seeds', 'tags', 'badges', 'champion', 'confetti', 'fit'].forEach(k => {
                         const el = $('tourney-opt-' + k);
                         if (el && t[k] !== undefined) el.checked = Boolean(t[k]);
                     });
@@ -779,16 +890,40 @@
             const spacingEl = $('tourney-opt-spacing'), linesEl = $('tourney-opt-lines');
             if (spacingEl && spacingEl.value !== 'normal') urlParams.set('spacing', spacingEl.value);
             if (linesEl && linesEl.value !== 'glow') urlParams.set('lines', linesEl.value);
+
+            const pipStyleEl = $('tourney-opt-pipstyle');
+            if (pipStyleEl && pipStyleEl.value && pipStyleEl.value !== 'circle') urlParams.set('pipstyle', pipStyleEl.value);
+
+            const gapEl = $('tourney-opt-gap');
+            if (gapEl && gapEl.value) urlParams.set('gap', gapEl.value);
+
+            const accentEl = $('tourney-opt-accent');
+            if (accentEl && accentEl.value.trim()) urlParams.set('accent', accentEl.value.trim());
+
+            const badgeColorEl = $('tourney-opt-badgecolor');
+            if (badgeColorEl && badgeColorEl.value.trim()) urlParams.set('badgecolor', badgeColorEl.value.trim());
+
+            if ($('tourney-opt-highlight') && !$('tourney-opt-highlight').checked) urlParams.set('highlight', '0');
+            if ($('tourney-opt-center') && !$('tourney-opt-center').checked) urlParams.set('center', '0');
             if ($('tourney-opt-title') && !$('tourney-opt-title').checked) urlParams.set('showtitle', '0');
+            if ($('tourney-opt-format') && !$('tourney-opt-format').checked) urlParams.set('showformat', '0');
+            if ($('tourney-opt-mode') && !$('tourney-opt-mode').checked) urlParams.set('showmode', '0');
+            if ($('tourney-opt-entrants') && !$('tourney-opt-entrants').checked) urlParams.set('showentrants', '0');
+            if ($('tourney-opt-status') && !$('tourney-opt-status').checked) urlParams.set('showstatus', '0');
+            if ($('tourney-opt-rounds') && !$('tourney-opt-rounds').checked) urlParams.set('showrounds', '0');
+            if (scoresCheck && !scoresCheck.checked) {
+                urlParams.set('showscores', '0');
+            }
+            if ($('tourney-opt-seeds') && !$('tourney-opt-seeds').checked) urlParams.set('showseeds', '0');
+            if ($('tourney-opt-tags') && !$('tourney-opt-tags').checked) urlParams.set('showtags', '0');
+            if ($('tourney-opt-badges') && !$('tourney-opt-badges').checked) urlParams.set('showbadges', '0');
+            if ($('tourney-opt-champion') && !$('tourney-opt-champion').checked) urlParams.set('champion', '0');
+            if ($('tourney-opt-confetti') && $('tourney-opt-confetti').checked) urlParams.set('confetti', '1');
             if ($('tourney-opt-showlogo') && !$('tourney-opt-showlogo').checked) urlParams.set('showlogo', '0');
             const logoInput = $('tourney-opt-logo');
             if (logoInput && logoInput.value.trim()) urlParams.set('logo', logoInput.value.trim());
             const logoSizeEl = $('tourney-opt-logosize');
             if (logoSizeEl && logoSizeEl.value && logoSizeEl.value !== '56px') urlParams.set('logosize', logoSizeEl.value);
-            if ($('tourney-opt-rounds') && !$('tourney-opt-rounds').checked) urlParams.set('showrounds', '0');
-            if (scoresCheck && !scoresCheck.checked) {
-                urlParams.set('showscores', '0');
-            }
             const fitCheck = $('tourney-opt-fit');
             if (fitCheck && fitCheck.checked) {
                 urlParams.set('fit', '1');
