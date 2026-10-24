@@ -218,16 +218,10 @@
                             </div>
                         </div>
 
-                        <div style="margin-bottom: 0.85rem;">
-                            <div class="micro-heading" style="margin-bottom: 0.35rem;">Quick Matchup Templates</div>
-                            <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
-                                <button type="button" class="preset-chip-btn" onclick="applyMatchupQuickChip('sf6-ft10')">SF6 FT10</button>
-                                <button type="button" class="preset-chip-btn" onclick="applyMatchupQuickChip('tekken-bo5')">Tekken 8 Bo5</button>
-                                <button type="button" class="preset-chip-btn" onclick="applyMatchupQuickChip('smash-bo3')">Smash Bo3</button>
-                                <button type="button" class="preset-chip-btn" onclick="applyMatchupQuickChip('mariokart-4p')">Mario Kart 4P FFA</button>
-                                <button type="button" class="preset-chip-btn" onclick="applyMatchupQuickChip('speedrun-1v1')">Speedrun 1v1</button>
-                                <button type="button" class="preset-chip-btn" onclick="applyMatchupQuickChip('rocketleague-3v3')">Rocket League 3v3</button>
-                            </div>
+                        <!-- Competitor Cards Grid -->
+                        <div class="card-section">
+                            <div class="micro-heading" style="margin-bottom: 0.6rem;">Competitors &amp; Live Scoring</div>
+                            <div id="matchup-competitors-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;"></div>
                         </div>
 
                         <!-- Match Clock & Speedrun Timers -->
@@ -286,6 +280,20 @@
                             </div>
                         </div>
 
+                        <details class="card-section" id="matchup-setup" style="margin-bottom: 1rem;">
+                            <summary style="cursor:pointer;font-size:0.8rem;font-weight:700;color:var(--text-muted);margin-bottom:0.75rem;">Match setup: templates, title, phase, format</summary>
+                        <div style="margin-bottom: 0.85rem;">
+                            <div class="micro-heading" style="margin-bottom: 0.35rem;">Quick Matchup Templates</div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+                                <button type="button" class="preset-chip-btn" onclick="applyMatchupQuickChip('sf6-ft10')">SF6 FT10</button>
+                                <button type="button" class="preset-chip-btn" onclick="applyMatchupQuickChip('tekken-bo5')">Tekken 8 Bo5</button>
+                                <button type="button" class="preset-chip-btn" onclick="applyMatchupQuickChip('smash-bo3')">Smash Bo3</button>
+                                <button type="button" class="preset-chip-btn" onclick="applyMatchupQuickChip('mariokart-4p')">Mario Kart 4P FFA</button>
+                                <button type="button" class="preset-chip-btn" onclick="applyMatchupQuickChip('speedrun-1v1')">Speedrun 1v1</button>
+                                <button type="button" class="preset-chip-btn" onclick="applyMatchupQuickChip('rocketleague-3v3')">Rocket League 3v3</button>
+                            </div>
+                        </div>
+
                         <!-- Match Context Info -->
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.75rem;">
                             <div>
@@ -332,11 +340,7 @@
                             <input type="text" id="matchup-details" class="form-control" placeholder="e.g. Game 3 · Metro City or Decider Match" onchange="saveMatchupSettings()">
                         </div>
 
-                        <!-- Competitor Cards Grid -->
-                        <div class="card-section">
-                            <div class="micro-heading" style="margin-bottom: 0.6rem;">Competitors &amp; Live Scoring</div>
-                            <div id="matchup-competitors-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;"></div>
-                        </div>
+                        </details>
 
                         <!-- Fight Card / Matchup Queue Section -->
                         <div class="card-section" style="margin-top: 1.25rem; border-top: 1px solid var(--border); padding-top: 1rem;">
