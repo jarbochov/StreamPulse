@@ -312,3 +312,10 @@ Control live polls, tournament matchups, and scoreboard sets directly from your 
 - **Save Progress** snapshots the live matchup (scores, clocks, runner times and event log) into History at any time; Restore resumes it.
 - Completed matches are recorded with final times, deltas and a timestamped event log.
 - Matchup overlay URLs accept `title=0`, `phase=0`, `clock=0`, `tags=0`, `details=0`, `pips=0` and `center=0` to hide individual elements; the Overlays tab has a toggle for each.
+
+## Poll Studio: Overlay Tabs and Themes
+
+- The Overlays tab has Standard Poll, Bracket Tree and Active Match HUD tabs, each with its own preview and URL builder.
+- Tournament overlays accept `spacing`, `lines`, `showtitle=0` and `showrounds=0`.
+- Poll and tournament overlays share the Versus themes (Championship, Cyber, Clean Light, OLED Black, Ember, Aurora, Ocean, Sunset, Violet, Forest).
+- Stopwatch and race clocks broadcast every 250 ms and display milliseconds.

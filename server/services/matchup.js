@@ -683,6 +683,7 @@ function createMatchupService({
     // One shared, drift-corrected ticker drives countdown, stopwatch and race clocks.
     // Stopwatch / race elapsed time advances by real wall-clock delta so long runs
     // stay accurate even when the event loop is briefly busy.
+    let countdownAcc = 0;
     function tickClock() {
         const clock = activeMatchup && activeMatchup.clock;
         if (!clock || !clock.isRunning) {
@@ -710,7 +711,11 @@ function createMatchupService({
         } else if (clock.mode === 'stopwatch') {
             clock.elapsed += dt;
         } else if (clock.remaining > 0) {
-            clock.remaining -= 1;
+            countdownAcc += dt;
+            const whole = Math.floor(countdownAcc);
+            if (whole < 1) return;
+            countdownAcc -= whole;
+            clock.remaining -= whole;
             if (clock.remaining <= 0) {
                 clock.remaining = 0;
                 clock.isRunning = false;
@@ -726,7 +731,8 @@ function createMatchupService({
     function ensureTicker() {
         stopTicker();
         lastTickAt = Date.now();
-        clockTimer = setInterval(tickClock, 1000);
+        countdownAcc = 0;
+        clockTimer = setInterval(tickClock, 250);
         if (clockTimer.unref) clockTimer.unref();
     }
 
