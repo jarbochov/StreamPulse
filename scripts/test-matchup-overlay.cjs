@@ -587,6 +587,86 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         assert.equal(persistedTourneyAccent, '#a855f7', 'Tournament accent color should persist across reload');
         assert.equal(persistedTourneyBadge, '#f59e0b', 'Tournament badge color should persist across reload');
 
+        // 40. Individual Player Pods Theme Rendering (?player=1..4 & ?overlay=...)
+        // 40a. Clean Light Theme with Player Pod
+        await page.goto(`${OVERLAY_URL}?preview=1&player=1&overlay=clean-light`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod');
+        const cleanLightPod = await page.evaluate(() => {
+            const pod = document.querySelector('.single-player-pod');
+            const name = pod.querySelector('.competitor-name');
+            const score = pod.querySelector('.score-box');
+            const csPod = getComputedStyle(pod);
+            const csName = getComputedStyle(name);
+            const csScore = getComputedStyle(score);
+            return {
+                bg: csPod.backgroundColor,
+                textColor: csName.color,
+                scoreBg: csScore.backgroundColor,
+                scoreColor: csScore.color
+            };
+        });
+        assert.ok(cleanLightPod.bg.includes('255, 255, 255'), 'Single player pod should have white background in clean-light theme');
+        assert.ok(cleanLightPod.textColor.includes('31, 35, 40'), 'Single player pod text should be dark high-contrast in clean-light theme');
+        assert.ok(cleanLightPod.scoreColor.includes('31, 35, 40'), 'Single player pod score should be dark in clean-light theme');
+
+        // 40b. Retro Theme with Player Pod
+        await page.goto(`${OVERLAY_URL}?preview=1&player=2&overlay=retro`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod');
+        const retroPod = await page.evaluate(() => {
+            const pod = document.querySelector('.single-player-pod');
+            const score = pod.querySelector('.score-box');
+            const csPod = getComputedStyle(pod);
+            const csScore = getComputedStyle(score);
+            return {
+                borderRadius: csPod.borderRadius,
+                scoreRadius: csScore.borderRadius,
+                border: csPod.borderColor
+            };
+        });
+        assert.equal(retroPod.borderRadius, '0px', 'Single player pod should have 0px border-radius in retro theme');
+        assert.equal(retroPod.scoreRadius, '0px', 'Score box should have 0px border-radius in retro theme');
+
+        // 40c. Neon Theme with Player Pod
+        await page.goto(`${OVERLAY_URL}?preview=1&player=3&overlay=neon`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod');
+        const neonPod = await page.evaluate(() => {
+            const pod = document.querySelector('.single-player-pod');
+            const csPod = getComputedStyle(pod);
+            return {
+                border: csPod.borderColor,
+                boxShadow: csPod.boxShadow
+            };
+        });
+        assert.ok(neonPod.border.includes('0, 240, 255') || neonPod.border.includes('#00f0ff'), 'Single player pod should have cyan neon border in neon theme');
+        assert.ok(neonPod.boxShadow.includes('0, 240, 255') || neonPod.boxShadow.includes('rgba('), 'Single player pod should have cyan neon glow in neon theme');
+
+        // 40d. Championship Gold Theme with Player Pod
+        await page.goto(`${OVERLAY_URL}?preview=1&player=1&overlay=championship`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod');
+        const goldPod = await page.evaluate(() => {
+            const pod = document.querySelector('.single-player-pod');
+            const score = pod.querySelector('.score-box');
+            return {
+                border: getComputedStyle(pod).borderColor,
+                scoreColor: getComputedStyle(score).color
+            };
+        });
+        assert.ok(goldPod.border.includes('255, 215, 0'), 'Single player pod should have gold border in championship theme');
+        assert.ok(goldPod.scoreColor.includes('255, 215, 0'), 'Single player pod score should be gold in championship theme');
+
+        // 40e. Glass Theme with Player Pod
+        await page.goto(`${OVERLAY_URL}?preview=1&player=1&overlay=glass`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod');
+        const glassPod = await page.evaluate(() => {
+            const pod = document.querySelector('.single-player-pod');
+            const csPod = getComputedStyle(pod);
+            return {
+                bg: csPod.backgroundColor,
+                backdrop: csPod.backdropFilter || csPod.webkitBackdropFilter
+            };
+        });
+        assert.ok(glassPod.bg.includes('rgba(13, 17, 23, 0.65)'), 'Single player pod should have frosted glass background in glass theme');
+
     } finally {
         if (browser) await browser.close();
     }
