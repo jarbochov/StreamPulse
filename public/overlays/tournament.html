@@ -955,6 +955,31 @@
             ]
         };
 
+        const SAMPLE_RR_TOURNAMENT = {
+            id: 'sample-rr-tourney',
+            title: 'Retro Community League',
+            format: 'roundRobin',
+            bracketSize: 4,
+            roundCount: 3,
+            progressionMode: 'manual',
+            bestOf: 3,
+            targetScore: 2,
+            status: 'IN_PROGRESS',
+            activeMatchId: 'rr_2_1',
+            standings: [
+                { name: 'Chrono Trigger', tag: 'Square', seed: 1, played: 2, won: 2, lost: 0, draws: 0, scoreFor: 4, scoreAgainst: 1, diff: 3, points: 6 },
+                { name: 'EarthBound', tag: 'Ape', seed: 2, played: 2, won: 1, lost: 1, draws: 0, scoreFor: 3, scoreAgainst: 2, diff: 1, points: 3 },
+                { name: 'Final Fantasy VI', tag: 'Square', seed: 3, played: 2, won: 1, lost: 1, draws: 0, scoreFor: 2, scoreAgainst: 3, diff: -1, points: 3 },
+                { name: 'Lufia II', tag: 'Neverland', seed: 4, played: 2, won: 0, lost: 2, draws: 0, scoreFor: 1, scoreAgainst: 4, diff: -3, points: 0 }
+            ],
+            matches: [
+                { id: 'rr_1_1', round: 1, roundName: 'Round 1', entrant1: { name: 'Chrono Trigger', tag: 'Square', score: 2 }, entrant2: { name: 'EarthBound', tag: 'Ape', score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'Chrono Trigger' },
+                { id: 'rr_1_2', round: 1, roundName: 'Round 1', entrant1: { name: 'Final Fantasy VI', tag: 'Square', score: 2 }, entrant2: { name: 'Lufia II', tag: 'Neverland', score: 0 }, scores: [2, 0], status: 'COMPLETED', winner: 'Final Fantasy VI' },
+                { id: 'rr_2_1', round: 2, roundName: 'Round 2', entrant1: { name: 'Chrono Trigger', tag: 'Square', score: 1 }, entrant2: { name: 'Final Fantasy VI', tag: 'Square', score: 0 }, scores: [1, 0], status: 'ACTIVE' },
+                { id: 'rr_2_2', round: 2, roundName: 'Round 2', entrant1: { name: 'EarthBound', tag: 'Ape', score: 2 }, entrant2: { name: 'Lufia II', tag: 'Neverland', score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'EarthBound' }
+            ]
+        };
+
         function esc(str) {
             return String(str || '').replace(/[&<>"']/g, c => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -964,7 +989,9 @@
         function renderTournament(tournament) {
             if (!tournament || !Array.isArray(tournament.matches)) {
                 if (isPreview) {
-                    tournament = SAMPLE_TOURNAMENT;
+                    tournament = (layoutMode === 'roundrobin' || layoutMode === 'rr' || params.get('format') === 'roundRobin')
+                        ? SAMPLE_RR_TOURNAMENT
+                        : SAMPLE_TOURNAMENT;
                 } else {
                     container.innerHTML = `
                         <div class="empty-placeholder">
@@ -989,7 +1016,7 @@
             // Check layout mode: HUD / Active match vs Bracket Tree
             if (layoutMode === 'active' || layoutMode === 'hud' || layoutMode === 'match') {
                 renderActiveMatchHud(tournament);
-            } else if (tournament.format === 'roundRobin') {
+            } else if (tournament.format === 'roundRobin' || layoutMode === 'roundrobin' || layoutMode === 'rr') {
                 renderRoundRobinView(tournament);
             } else {
                 renderBracketTree(tournament);
@@ -1490,8 +1517,9 @@
 
         // Fetch initial tournament data
         async function loadInitial() {
+            const fallbackSample = (layoutMode === 'roundrobin' || layoutMode === 'rr' || params.get('format') === 'roundRobin') ? SAMPLE_RR_TOURNAMENT : SAMPLE_TOURNAMENT;
             if (forceSample) {
-                renderTournament(SAMPLE_TOURNAMENT);
+                renderTournament(fallbackSample);
                 return;
             }
             try {
@@ -1505,7 +1533,7 @@
             } catch (err) {
                 console.warn('[Tournament Overlay] Error fetching initial state:', err);
             }
-            if (isPreview) renderTournament(SAMPLE_TOURNAMENT);
+            if (isPreview) renderTournament(fallbackSample);
         }
         loadInitial();
 
