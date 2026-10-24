@@ -345,34 +345,9 @@
                                 <input type="text" id="tourney-title" class="form-control" placeholder="e.g. Retro Game Championship" required autocomplete="off">
                             </div>
 
-                            <!-- Progression Mode: Chat Vote vs Manual Scored -->
-                            <div class="form-group">
-                                <label>Tournament Progression Mode</label>
-                                <div class="segmented-control">
-                                    <button type="button" class="segmented-btn active" id="btn-mode-vote" onclick="setCreateTourneyMode('vote')">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                                        Audience Chat Vote
-                                    </button>
-                                    <button type="button" class="segmented-btn" id="btn-mode-manual" onclick="setCreateTourneyMode('manual')">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 15h6"/></svg>
-                                        Manual Scored Bracket
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Manual Scored Settings -->
-                            <div id="group-manual-settings" style="display: none; background: var(--bg-inset); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 0.85rem;">
-                                <div class="micro-heading" style="margin-bottom: 0.4rem;">Manual Scoring Options</div>
-                                <div class="form-group" style="margin-bottom: 0;">
-                                    <label for="tourney-bestof">Series Format</label>
-                                    <select id="tourney-bestof" class="form-control">
-                                        <option value="0">Free Points (Open score tally, e.g. 10 - 7)</option>
-                                        <option value="1">Single Game (Best of 1)</option>
-                                        <option value="3" selected>Best of 3 (First to 2 wins)</option>
-                                        <option value="5">Best of 5 (First to 3 wins)</option>
-                                        <option value="7">Best of 7 (First to 4 wins)</option>
-                                    </select>
-                                </div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.85rem;">
+                                <span>Viewers vote each matchup in chat. For scored brackets with series scores, use Versus Studio.</span>
+                                <a href="/versus.html" class="btn-secondary" style="font-size:0.72rem;padding:0.2rem 0.55rem;white-space:nowrap;">Versus Studio &rarr;</a>
                             </div>
 
                             <!-- Audience Chat Vote Settings -->
@@ -1147,10 +1122,6 @@
 
         function setCreateTourneyMode(mode) {
             currentCreateTourneyMode = mode;
-            $('btn-mode-vote').classList.toggle('active', mode === 'vote');
-            $('btn-mode-manual').classList.toggle('active', mode === 'manual');
-            $('group-vote-settings').style.display = mode === 'vote' ? 'block' : 'none';
-            $('group-manual-settings').style.display = mode === 'manual' ? 'block' : 'none';
         }
 
         function updateEntrantsCalc() {
@@ -1224,14 +1195,14 @@
             if (!title) { toast('Please enter a tournament title.'); return; }
             if (entrants.length < 2) { toast('Please enter at least 2 participants.'); return; }
 
-            const isManual = currentCreateTourneyMode === 'manual';
+            const isManual = false;
             const payload = {
                 title,
                 format,
                 entrants,
                 progressionMode: currentCreateTourneyMode,
                 scoringType: isManual ? 'bestOf' : 'points',
-                bestOf: isManual ? (parseInt($('tourney-bestof').value, 10) || 0) : 0,
+                bestOf: 0,
                 matchDuration: !isManual ? (parseInt($('tourney-duration').value, 10) || 60) : 0,
                 blind: !isManual ? $('tourney-blind').checked : false
             };
