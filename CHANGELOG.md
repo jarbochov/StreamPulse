@@ -13,6 +13,9 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Promo Creator: Social promo generator with multi-layer layout, animations, and image export.
 - Custom Overlay Poll Element: Real-time Twitch poll widget for custom overlays.
 
+### Fixed
+- Alerts Simulator: Add subscription tier selector and remove username substring check for Prime subs.
+
 ## [0.13.2] - 2026-10-19
 
 ### Fixed

@@ -472,6 +472,12 @@
 
                     <div class="sim-form-grid">
                         <div class="row"><label>Event Trigger</label><select id="sim-type"></select></div>
+                        <div class="row" id="sim-tier-row" style="display:none;"><label>Subscription Tier</label><select id="sim-tier">
+                            <option value="1000" selected>Tier 1</option>
+                            <option value="2000">Tier 2</option>
+                            <option value="3000">Tier 3</option>
+                            <option value="prime">Prime</option>
+                        </select></div>
                         <div class="row"><label>User Name</label><input id="sim-user" value="TestViewer"></div>
                         <div class="row"><label>Amount / Months / Viewers</label><input id="sim-amount" type="number" min="0" value="100"></div>
                         <div class="row"><label>Message / Reward / Word</label><input id="sim-text" value="hello there!"></div>
@@ -1151,8 +1157,16 @@
         if (b && rule()) b.textContent = summary(rule());
     }
 
+    function updateSimVisibility() {
+        const type = $('sim-type')?.value;
+        const isSub = ['sub', 'resub', 'milestone', 'gift'].includes(type);
+        const row = $('sim-tier-row');
+        if (row) row.style.display = isSub ? '' : 'none';
+    }
+
     function renderAll() {
         $('sim-type').innerHTML = Object.entries(TRIGGERS).map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
+        updateSimVisibility();
         renderSettings();
         renderRules();
         renderEditor();
@@ -1523,14 +1537,16 @@
     // Simulator presets
     const SIM_PRESETS = {
         'follow': { type: 'follow', user: 'AlexStreams', amount: 0, text: '' },
-        'sub': { type: 'sub', user: 'SamGamer', amount: 1, text: 'Hype stream!' },
-        'resub-prime': { type: 'resub', user: 'JordanPrime', amount: 6, text: '6 months strong with Prime!' },
+        'sub': { type: 'sub', user: 'SamGamer', amount: 1, tier: '1000', text: 'Hype stream!' },
+        'resub-prime': { type: 'resub', user: 'Jordan', amount: 6, tier: 'prime', text: '6 months strong with Prime!' },
         'bits-100': { type: 'bits', user: 'CheerMaster', amount: 100, text: 'cheer100 great gameplay!' },
         'bits-1000': { type: 'bits', user: 'BigSpender', amount: 1000, text: 'cheer1000 GG!' },
         'raid': { type: 'raid', user: 'RaidLeader', amount: 42, text: '' },
-        'gift': { type: 'gift', user: 'GenerousDonor', amount: 5, text: '' },
+        'gift': { type: 'gift', user: 'GenerousDonor', amount: 5, tier: '1000', text: '' },
         'chat-command': { type: 'chat_command', user: 'CoolChatter', amount: 0, text: '!hype let\'s go team!' }
     };
+
+    $('sim-type')?.addEventListener('change', updateSimVisibility);
 
     document.addEventListener('click', e => {
         const btn = e.target.closest('[data-sim-preset]');
@@ -1541,6 +1557,8 @@
             $('sim-user').value = preset.user;
             $('sim-amount').value = preset.amount;
             $('sim-text').value = preset.text;
+            if ($('sim-tier')) $('sim-tier').value = preset.tier || '1000';
+            updateSimVisibility();
             $('sim-go').click();
         }
     });
@@ -1549,8 +1567,11 @@
     $('sim-go').addEventListener('click', guard(async () => {
         if (dirty) await save();
         const type = $('sim-type').value, amount = Number($('sim-amount').value) || 0, text = $('sim-text').value;
-        const tier = type === 'resub' && $('sim-user').value.toLowerCase().includes('prime') ? 'prime' : '1000';
-        const body = { type, user: $('sim-user').value || 'TestViewer', amount, count: amount, months: amount, viewers: amount, tier, tierLabel: tier === 'prime' ? 'Prime' : 'Tier 1', message: text, reward: text, keyword: text, name: text };
+        const isSub = ['sub', 'resub', 'milestone', 'gift'].includes(type);
+        const tier = isSub ? ($('sim-tier')?.value || '1000') : '';
+        const tierLabels = { 'prime': 'Prime', '1000': 'Tier 1', '2000': 'Tier 2', '3000': 'Tier 3' };
+        const tierLabel = isSub ? (tierLabels[tier] || 'Tier 1') : '';
+        const body = { type, user: $('sim-user').value || 'TestViewer', amount, count: amount, months: amount, viewers: amount, tier, tierLabel, message: text, reward: text, keyword: text, name: text };
         if (type === 'chat_word') body.message = text;
         if (type === 'chat_command') {
             const clean = text.replace(/^!+/, '').trim();
