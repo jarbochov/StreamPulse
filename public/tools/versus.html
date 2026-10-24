@@ -2945,7 +2945,7 @@
                             <div style="display: flex; flex-direction: column; min-width: 0;">
                                 <div style="display: flex; align-items: center; gap: 0.4rem;">
                                     <span style="font-weight: 800; color: ${isCur ? 'var(--accent)' : 'var(--text)'};">${esc(m.roundName || `R${m.round}`)}</span>
-                                    <span style="color: var(--text-muted); font-size: 0.72rem;">${esc(e1)} ${isBye ? '(BYE)' : `vs ${esc(e2)}`}</span>
+                                    ${m.pendingWinner && !m.winner ? `<span class="badge-studio" style="font-size: 0.6rem; padding: 0.05rem 0.35rem;">${esc(m.pendingWinner)} reached target</span>` : ''}<span style="color: var(--text-muted); font-size: 0.72rem;">${esc(e1)} ${isBye ? '(BYE)' : `vs ${esc(e2)}`}</span>
                                     ${isCur ? '<span class="badge-studio" style="font-size: 0.6rem; padding: 0.05rem 0.35rem;">Live</span>' : ''}
                                 </div>
                                 <div style="font-size: 0.72rem; margin-top: 0.15rem;">

@@ -7,6 +7,12 @@ const path = require('path');
 const os = require('os');
 const { createPollService } = require('../server/services/polls.js');
 
+function scoreAndAdvance(svc, id, o) {
+    const r = svc.updateMatchScore(id, o);
+    if (r.match.pendingWinner) svc.advanceTournamentMatch(id, r.match.pendingWinner);
+    return r;
+}
+
 test('Poll Service: string payload parsing, up to 10 choices, presets, and tournaments', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-poll-test-'));
     let lastTakeover = null;
@@ -210,7 +216,10 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
 
         // Score Game 2: Daigo wins again (2 - 0) -> Target score 2 reached!
         res = service.updateMatchScore(m1.id, { entrant1Score: 2, entrant2Score: 0, matchDetails: 'Game 2 · Clean Sweep' });
-        assert.equal(res.autoAdvanced, true, 'Reaching 2 wins in best-of-3 auto-advances winner');
+        assert.equal(res.autoAdvanced, false, 'Reaching target does not auto-advance');
+        assert.equal(res.match.pendingWinner, 'Daigo');
+        assert.equal(res.match.status, 'ACTIVE');
+        service.advanceTournamentMatch(m1.id, 'Daigo');
         assert.equal(res.match.status, 'COMPLETED');
         assert.equal(res.match.winner, 'Daigo');
 
@@ -225,6 +234,8 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
 
         // Score Match 2
         service.updateMatchScore(m2.id, { entrant1Score: 1, entrant2Score: 2, matchDetails: 'Game 3 Decider' });
+        assert.equal(m2.pendingWinner, 'Tokido');
+        service.advanceTournamentMatch(m2.id, 'Tokido');
         assert.equal(m2.winner, 'Tokido');
         assert.equal(finalsMatch.entrant2.name, 'Tokido');
 
@@ -259,13 +270,13 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
         assert.equal(tOdd3.matches[2].entrant1.name, 'Harry', 'Harry should already be waiting in Grand Finals');
 
         // Play Ron vs Hermione
-        service.updateMatchScore(tOdd3.matches[1].id, { entrant1Score: 0, entrant2Score: 2 });
+        scoreAndAdvance(service, tOdd3.matches[1].id, { entrant1Score: 0, entrant2Score: 2 });
         assert.equal(tOdd3.matches[1].winner, 'Hermione');
         assert.equal(tOdd3.matches[2].entrant2.name, 'Hermione', 'Hermione advances to Finals against Harry');
         assert.equal(tOdd3.activeMatchId, tOdd3.matches[2].id, 'Active match should automatically flow to Grand Finals');
 
         // Play Grand Finals
-        service.updateMatchScore(tOdd3.matches[2].id, { entrant1Score: 2, entrant2Score: 1 });
+        scoreAndAdvance(service, tOdd3.matches[2].id, { entrant1Score: 2, entrant2Score: 1 });
         assert.equal(tOdd3.status, 'COMPLETED');
         assert.equal(tOdd3.champion, 'Harry');
 
@@ -282,16 +293,16 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
         assert.equal(tRR.standings[0].name, 'Chrono Trigger');
 
         // Match 1: EarthBound vs Final Fantasy VI -> EarthBound wins
-        service.updateMatchScore(tRR.matches[0].id, { entrant1Score: 2, entrant2Score: 0 });
+        scoreAndAdvance(service, tRR.matches[0].id, { entrant1Score: 2, entrant2Score: 0 });
         assert.equal(tRR.matches[0].winner, 'EarthBound');
         assert.equal(tRR.standings.find(s => s.name === 'EarthBound').won, 1);
 
         // Match 2: Chrono Trigger vs Final Fantasy VI -> Chrono Trigger wins
-        service.updateMatchScore(tRR.matches[1].id, { entrant1Score: 2, entrant2Score: 1 });
+        scoreAndAdvance(service, tRR.matches[1].id, { entrant1Score: 2, entrant2Score: 1 });
         assert.equal(tRR.matches[1].winner, 'Chrono Trigger');
 
         // Match 3: Chrono Trigger vs EarthBound -> Chrono Trigger wins (2-0 overall)
-        service.updateMatchScore(tRR.matches[2].id, { entrant1Score: 2, entrant2Score: 0 });
+        scoreAndAdvance(service, tRR.matches[2].id, { entrant1Score: 2, entrant2Score: 0 });
         assert.equal(tRR.matches[2].winner, 'Chrono Trigger');
         assert.equal(tRR.status, 'COMPLETED');
         assert.equal(tRR.champion, 'Chrono Trigger');
@@ -355,17 +366,17 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
         const rollFinals = tRoll.matches[2]; // Finals
 
         // Win M1 for Daigo
-        service.updateMatchScore(rollM1.id, { entrant1Score: 2, entrant2Score: 0 });
+        scoreAndAdvance(service, rollM1.id, { entrant1Score: 2, entrant2Score: 0 });
         assert.equal(rollM1.winner, 'Daigo');
         assert.equal(rollFinals.entrant1.name, 'Daigo');
 
         // Win M2 for Tokido
-        service.updateMatchScore(rollM2.id, { entrant1Score: 2, entrant2Score: 1 });
+        scoreAndAdvance(service, rollM2.id, { entrant1Score: 2, entrant2Score: 1 });
         assert.equal(rollM2.winner, 'Tokido');
         assert.equal(rollFinals.entrant2.name, 'Tokido');
 
         // Win Finals for Daigo -> tournament completes
-        service.updateMatchScore(rollFinals.id, { entrant1Score: 2, entrant2Score: 0 });
+        scoreAndAdvance(service, rollFinals.id, { entrant1Score: 2, entrant2Score: 0 });
         assert.equal(tRoll.status, 'COMPLETED');
         assert.equal(tRoll.champion, 'Daigo');
 
@@ -395,7 +406,7 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
         assert.ok(draftsList.some(d => d.id === draft.id));
 
         // Advance M1 again with correct winner (Punk)
-        service.updateMatchScore(rollM1.id, { entrant1Score: 0, entrant2Score: 2 });
+        scoreAndAdvance(service, rollM1.id, { entrant1Score: 0, entrant2Score: 2 });
         assert.equal(rollM1.winner, 'Punk');
         assert.equal(rollFinals.entrant1.name, 'Punk');
 

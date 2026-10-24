@@ -1214,14 +1214,11 @@ function createPollService({
             match.status = 'ACTIVE';
         }
 
-        // If targetScore is set (Best of series) and winner not explicitly declared,
-        // auto-detect if someone achieved the winning targetScore!
+        // Reaching the target score only flags a pending winner; the operator confirms the advance.
+        match.pendingWinner = null;
         if (!winner && match.targetScore > 0) {
-            if (match.entrant1.score >= match.targetScore && match.entrant1.name !== 'TBD') {
-                winner = match.entrant1.name;
-            } else if (match.entrant2.score >= match.targetScore && match.entrant2.name !== 'TBD') {
-                winner = match.entrant2.name;
-            }
+            if (match.entrant1.score >= match.targetScore && match.entrant1.name !== 'TBD') match.pendingWinner = match.entrant1.name;
+            else if (match.entrant2.score >= match.targetScore && match.entrant2.name !== 'TBD') match.pendingWinner = match.entrant2.name;
         }
 
         if (winner) {
