@@ -97,13 +97,11 @@
                                         <input type="number" id="t-score-input-1" class="score-val-input" min="0" value="0" onchange="setTourneyScoreDirect(1, this.value)">
                                         <button type="button" class="score-btn" onclick="stepTourneyScore(1, 1)">+</button>
                                     </div>
-                                    <button type="button" class="btn-secondary" style="font-size: 0.68rem; padding: 0.2rem 0.45rem;" onclick="stepTourneyScore(1, 1)">+ Win</button>
                                 </div>
 
                                 <div style="font-size: 0.78rem; font-weight: 800; color: var(--text-muted); padding: 0 0.4rem;">VS</div>
 
                                 <div style="display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem; text-align: left;">
-                                    <button type="button" class="btn-secondary" style="font-size: 0.68rem; padding: 0.2rem 0.45rem;" onclick="stepTourneyScore(2, 1)">+ Win</button>
                                     <div class="score-stepper">
                                         <button type="button" class="score-btn" onclick="stepTourneyScore(2, -1)">-</button>
                                         <input type="number" id="t-score-input-2" class="score-val-input" min="0" value="0" onchange="setTourneyScoreDirect(2, this.value)">
@@ -1220,7 +1218,6 @@
                             </span>
                             <div style="display: flex; align-items: center; gap: 0.35rem;">
                                 <input type="color" value="${c.color || '#fff'}" style="width: 22px; height: 22px; border: none; cursor: pointer; border-radius: 4px;" onchange="updateCompetitorColor(${i}, this.value)" title="Change player color">
-                                <button type="button" class="btn-secondary" style="font-size: 0.68rem; padding: 0.15rem 0.45rem;" onclick="stepMatchupScore(${i}, 1)">+ Win</button>
                             </div>
                         </div>
 
