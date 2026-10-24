@@ -641,9 +641,16 @@
             transition: all 0.3s ease;
         }
 
-        .pips-stack { display:flex; flex-direction:column; gap:.2rem; align-items:center; }
-        .pip.pip-round { width:5px; height:5px; opacity:.85; }
-        .pip.pip-round.pip-bar { width:4px; height:8px; }
+        .pips-stack { display:inline-flex; flex-direction:column; gap:.25rem; align-items:center; justify-content:center; }
+        .pip.pip-round {
+            width: 6px;
+            height: 6px;
+            transform: rotate(45deg);
+            border-radius: 1px;
+            margin: 1px 2px;
+            opacity: 0.9;
+        }
+        .pip.pip-round.pip-bar { width:4px; height:8px; transform:none; border-radius:1px; }
         .pip.pip-bar {
             width: 5px;
             height: 12px;
@@ -1296,6 +1303,7 @@
         const layout = (params.get('layout') || params.get('mode') || 'top').toLowerCase(); // 'top' | 'fgc' | 'split' | 'minimal' | 'bottom' | 'compact' | 'versus' | 'pillar' | 'vertical'
         const showCenter = params.get('center') !== '0';
         const showPips = params.get('pips') !== '0';
+        const showRoundPips = params.get('roundpips') === '1' || (showPips && params.get('roundpips') !== '0' && params.get('rounds') !== '0' && params.get('showrounds') !== '0');
         const pipStyle = (params.get('pipstyle') || params.get('pips_style') || 'circle').toLowerCase(); // 'circle' | 'bar' | 'digit'
         const showTags = params.get('tags') !== '0';
         const showDetails = params.get('details') !== '0';
@@ -1390,9 +1398,10 @@
             phase: 'Grand Finals',
             details: 'First to 5 (FT5) · Metro City Decider',
             competitorCount: 2,
+            roundsBestOf: 3,
             competitors: [
-                { id: 'c1', name: 'Daigo', tag: 'Ken', color: '#ef4444', score: 4 },
-                { id: 'c2', name: 'Justin Wong', tag: 'Chun-Li', color: '#3b82f6', score: 3 }
+                { id: 'c1', name: 'Daigo', tag: 'Ken', color: '#ef4444', score: 4, rounds: 1 },
+                { id: 'c2', name: 'Justin Wong', tag: 'Chun-Li', color: '#3b82f6', score: 3, rounds: 0 }
             ],
             format: 'bestOf',
             bestOf: 9,
@@ -1502,26 +1511,48 @@
 
         function renderPipsHtml(comp, target, color) {
             const score = typeof comp === 'object' ? (comp.score || 0) : comp;
-            if (!showPips || !target || target <= 0) return '';
-            const rb = Number(currentMatchup && currentMatchup.roundsBestOf) || 0;
+            const rb = Number(currentMatchup && currentMatchup.roundsBestOf) || (typeof comp === 'object' && comp.rounds > 0 ? 3 : 0);
+            const roundTarget = rb > 0 ? Math.ceil(rb / 2) : 2;
+            const roundsWon = typeof comp === 'object' ? (comp.rounds || 0) : 0;
+            const hasRounds = showRoundPips && (rb > 0 || (typeof comp === 'object' && comp.rounds !== undefined && comp.rounds > 0));
+            const hasGamePips = showPips && target && target > 0;
+
+            if (!hasGamePips && !hasRounds) return '';
+
             if (pipStyle === 'digit' || pipStyle === 'number') {
-                const roundsSub = (typeof comp === 'object' && rb > 0)
-                    ? `<span class="pip-digit-rounds" style="font-size:0.65em;opacity:0.8;margin-left:0.35rem;font-weight:700;">R: ${comp.rounds || 0}/${Math.ceil(rb / 2)}</span>`
+                const roundsSub = hasRounds
+                    ? `<span class="pip-digit-rounds" style="font-size:0.7em;opacity:0.85;margin-left:0.35rem;font-weight:700;">◆ ${roundsWon}/${roundTarget}</span>`
                     : '';
+                if (!hasGamePips && hasRounds) {
+                    return `<div class="pip-digit-badge" style="${color ? `color:${color};` : ''}">${roundsSub}</div>`;
+                }
                 return `<div class="pip-digit-badge" style="${color ? `color:${color};` : ''}">${score} / ${target}${roundsSub}</div>`;
             }
+
             const isBar = pipStyle === 'bar' || pipStyle === 'block';
-            const mk = (n, total, extra) => {
-                let h = `<div class="pips-container${extra}">`;
-                for (let i = 0; i < total; i++) {
-                    h += `<span class="pip${isBar ? ' pip-bar' : ''}${extra ? ' pip-round' : ''}${i < n ? ' won' : ''}" style="${i < n && color ? `background:${color};border-color:${color};box-shadow:0 0 6px ${color};` : ''}"></span>`;
+            const mkGames = () => {
+                if (!hasGamePips) return '';
+                let h = `<div class="pips-container">`;
+                for (let i = 0; i < target; i++) {
+                    h += `<span class="pip${isBar ? ' pip-bar' : ''}${i < score ? ' won' : ''}" style="${i < score && color ? `background:${color};border-color:${color};box-shadow:0 0 6px ${color};` : ''}"></span>`;
                 }
                 return h + '</div>';
             };
-            if (typeof comp === 'object' && rb > 0) {
-                return `<div class="pips-stack">${mk(score, target, '')}${mk(comp.rounds || 0, Math.ceil(rb / 2), ' rounds')}</div>`;
+
+            const mkRounds = () => {
+                if (!hasRounds) return '';
+                let h = `<div class="pips-container pips-rounds-container" title="Rounds won (${roundsWon}/${roundTarget})">`;
+                for (let i = 0; i < roundTarget; i++) {
+                    h += `<span class="pip pip-round${i < roundsWon ? ' won' : ''}" style="${i < roundsWon && color ? `background:${color};border-color:${color};box-shadow:0 0 6px ${color};` : ''}"></span>`;
+                }
+                return h + '</div>';
+            };
+
+            if (hasGamePips && hasRounds) {
+                return `<div class="pips-stack">${mkGames()}${mkRounds()}</div>`;
             }
-            return mk(score, target, '');
+            if (hasRounds) return mkRounds();
+            return mkGames();
         }
 
         function renderMatchup(m) {
@@ -2091,9 +2122,10 @@
                 phase: match.roundName || `Round ${match.round || 1}`,
                 details: match.matchDetails || match.details || `${tournament.format === 'roundRobin' ? 'Round Robin' : 'Bracket'} · Best of ${bestOf}`,
                 competitorCount: 2,
+                roundsBestOf: match.roundsBestOf || tournament.roundsBestOf || 0,
                 competitors: [
-                    { id: 'c1', name: e1Name, tag: match.entrant1?.tag || '', color: customP1Color || '#ef4444', score: s1 },
-                    { id: 'c2', name: e2Name, tag: match.entrant2?.tag || '', color: customP2Color || '#3b82f6', score: s2 }
+                    { id: 'c1', name: e1Name, tag: match.entrant1?.tag || '', color: customP1Color || '#ef4444', score: s1, rounds: match.entrant1?.rounds || 0 },
+                    { id: 'c2', name: e2Name, tag: match.entrant2?.tag || '', color: customP2Color || '#3b82f6', score: s2, rounds: match.entrant2?.rounds || 0 }
                 ],
                 format: tournament.scoringType === 'points' ? 'points' : 'bestOf',
                 bestOf,

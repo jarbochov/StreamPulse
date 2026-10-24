@@ -165,7 +165,7 @@
                                 <input type="text" id="tourney-title" class="form-control" placeholder="e.g. Street Fighter 6 Showdown or Mario Kart Cup" required>
                             </div>
 
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
                                 <div class="form-group">
                                     <label for="tourney-format">Bracket Format</label>
                                     <select id="tourney-format" class="form-control" onchange="handleTourneyFormatChange(this.value)">
@@ -183,6 +183,14 @@
                                         <option value="bestOf-7">Best of 7 (First to 4 wins)</option>
                                         <option value="firstTo-10">First to 10 (FT10 Set)</option>
                                         <option value="points">Free Points (Open Tally)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="tourney-rounds">Rounds per Game (FGC Sets)</label>
+                                    <select id="tourney-rounds" class="form-control">
+                                        <option value="0" selected>None (Count games only)</option>
+                                        <option value="3">Best of 3 (First to 2 rounds)</option>
+                                        <option value="5">Best of 5 (First to 3 rounds)</option>
                                     </select>
                                 </div>
                             </div>
@@ -647,10 +655,31 @@
                                 </select>
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Format:</span>
+                                <select id="prev-ctrl-tourney-format" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
+                                    <option value="1">Show Format</option>
+                                    <option value="0">Hide Format</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
                                 <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rounds:</span>
                                 <select id="prev-ctrl-tourney-rounds" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
                                     <option value="1">Show Round Headers</option>
                                     <option value="0">Hide Round Headers</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Seeds:</span>
+                                <select id="prev-ctrl-tourney-seeds" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
+                                    <option value="1">Show Seeds</option>
+                                    <option value="0">Hide Seeds</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Tags:</span>
+                                <select id="prev-ctrl-tourney-tags" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onTourneyPreviewOptionChange()">
+                                    <option value="1">Show Tags</option>
+                                    <option value="0">Hide Tags</option>
                                 </select>
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.3rem;">
@@ -805,6 +834,10 @@
                                         <span>Show score pips</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-roundpips" checked onchange="updateMatchupOverlayUrl()">
+                                        <span>Show round pips (<code>?roundpips=1</code>, diamond pips)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="matchup-opt-fit" onchange="updateMatchupOverlayUrl()">
                                         <span>Auto-fit tight bounding box (<code>?fit=content</code>)</span>
                                     </label>
@@ -884,16 +917,52 @@
                                 </div>
                                 <div style="display: flex; flex-direction: column; gap: 0.4rem;">
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
-                                        <input type="checkbox" id="tourney-opt-scores" checked onchange="syncTourneyOptFromMain('scores', this.checked ? '1' : '0')">
-                                        <span>Show Entrant Scores in Matches (<code>?showscores=1</code>)</span>
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="tourney-opt-title" checked onchange="syncTourneyOptFromMain('title', this.checked ? '1' : '0')">
                                         <span>Show Tournament Title Header (<code>?showtitle=1</code>)</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-format" checked onchange="syncTourneyOptFromMain('format', this.checked ? '1' : '0')">
+                                        <span>Show Elimination Format Pill (<code>?showformat=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-mode" checked onchange="syncTourneyOptFromMain('mode', this.checked ? '1' : '0')">
+                                        <span>Show Series Mode / Best-Of Pill (<code>?showmode=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-entrants" checked onchange="syncTourneyOptFromMain('entrants', this.checked ? '1' : '0')">
+                                        <span>Show Participants Count (<code>?showentrants=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-status" checked onchange="syncTourneyOptFromMain('status', this.checked ? '1' : '0')">
+                                        <span>Show Status Badge (Finished / In Progress) (<code>?showstatus=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="tourney-opt-rounds" checked onchange="syncTourneyOptFromMain('rounds', this.checked ? '1' : '0')">
-                                        <span>Show Round Name Headers (<code>?showrounds=1</code>)</span>
+                                        <span>Show Round Column Headers (<code>?showrounds=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-scores" checked onchange="syncTourneyOptFromMain('scores', this.checked ? '1' : '0')">
+                                        <span>Show Entrant Scores in Matches (<code>?showscores=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-roundpips" checked onchange="syncTourneyOptFromMain('roundpips', this.checked ? '1' : '0')">
+                                        <span>Show Round Pips in Match Cards (<code>?roundpips=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-seeds" checked onchange="syncTourneyOptFromMain('seeds', this.checked ? '1' : '0')">
+                                        <span>Show Entrant Seed Numbers (<code>?showseeds=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-tags" checked onchange="syncTourneyOptFromMain('tags', this.checked ? '1' : '0')">
+                                        <span>Show Player / Character Tags (<code>?showtags=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-badges" checked onchange="syncTourneyOptFromMain('badges', this.checked ? '1' : '0')">
+                                        <span>Show Live / Voting Badges on Cards (<code>?showbadges=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="tourney-opt-champion" checked onchange="syncTourneyOptFromMain('champion', this.checked ? '1' : '0')">
+                                        <span>Show Champion Celebration Card (<code>?champion=1</code>)</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="tourney-opt-fit" onchange="syncTourneyOptFromMain('fit', this.checked ? '1' : '0')">
@@ -1125,7 +1194,10 @@
             if (key === 'lines' && $('prev-ctrl-tourney-lines')) $('prev-ctrl-tourney-lines').value = val;
             if (key === 'scores' && $('prev-ctrl-tourney-scores')) $('prev-ctrl-tourney-scores').value = val;
             if (key === 'title' && $('prev-ctrl-tourney-title')) $('prev-ctrl-tourney-title').value = val;
+            if (key === 'format' && $('prev-ctrl-tourney-format')) $('prev-ctrl-tourney-format').value = val;
             if (key === 'rounds' && $('prev-ctrl-tourney-rounds')) $('prev-ctrl-tourney-rounds').value = val;
+            if (key === 'seeds' && $('prev-ctrl-tourney-seeds')) $('prev-ctrl-tourney-seeds').value = val;
+            if (key === 'tags' && $('prev-ctrl-tourney-tags')) $('prev-ctrl-tourney-tags').value = val;
             if (key === 'fit') {
                 tourneyFitWholeBracket = val === '1';
                 const btn = $('btn-tourney-fit-toggle');
@@ -1228,6 +1300,10 @@
             if ($('tourney-opt-lines') && $('prev-ctrl-tourney-lines')) $('tourney-opt-lines').value = $('prev-ctrl-tourney-lines').value;
             if ($('tourney-opt-scores') && $('prev-ctrl-tourney-scores')) $('tourney-opt-scores').checked = $('prev-ctrl-tourney-scores').value === '1';
             if ($('tourney-opt-title') && $('prev-ctrl-tourney-title')) $('tourney-opt-title').checked = $('prev-ctrl-tourney-title').value === '1';
+            if ($('tourney-opt-format') && $('prev-ctrl-tourney-format')) $('tourney-opt-format').checked = $('prev-ctrl-tourney-format').value === '1';
+            if ($('tourney-opt-rounds') && $('prev-ctrl-tourney-rounds')) $('tourney-opt-rounds').checked = $('prev-ctrl-tourney-rounds').value === '1';
+            if ($('tourney-opt-seeds') && $('prev-ctrl-tourney-seeds')) $('tourney-opt-seeds').checked = $('prev-ctrl-tourney-seeds').value === '1';
+            if ($('tourney-opt-tags') && $('prev-ctrl-tourney-tags')) $('tourney-opt-tags').checked = $('prev-ctrl-tourney-tags').value === '1';
             updateTourneyOverlayUrl();
         }
 
@@ -1279,11 +1355,27 @@
 
             const urlParams = new URLSearchParams();
             if (themeSelect && themeSelect.value !== 'card') urlParams.set('overlay', themeSelect.value);
-            if (spacingSelect) urlParams.set('spacing', spacingSelect.value);
-            if (linesSelect) urlParams.set('lines', linesSelect.value);
+            if (spacingSelect && spacingSelect.value !== 'normal') urlParams.set('spacing', spacingSelect.value);
+            if (linesSelect && linesSelect.value !== 'glow') urlParams.set('lines', linesSelect.value);
             if (scoresSelect && String(scoresSelect.value) === '0') urlParams.set('showscores', '0');
             if (titleSelect && String(titleSelect.value) === '0') urlParams.set('showtitle', '0');
             if (roundsSelect && String(roundsSelect.value) === '0') urlParams.set('showrounds', '0');
+
+            const formatCheck = $('prev-ctrl-tourney-format') ? $('prev-ctrl-tourney-format').value === '1' : ($('tourney-opt-format')?.checked ?? true);
+            if (!formatCheck) urlParams.set('showformat', '0');
+            const seedsCheck = $('prev-ctrl-tourney-seeds') ? $('prev-ctrl-tourney-seeds').value === '1' : ($('tourney-opt-seeds')?.checked ?? true);
+            if (!seedsCheck) urlParams.set('showseeds', '0');
+            const tagsCheck = $('prev-ctrl-tourney-tags') ? $('prev-ctrl-tourney-tags').value === '1' : ($('tourney-opt-tags')?.checked ?? true);
+            if (!tagsCheck) urlParams.set('showtags', '0');
+
+            ['mode', 'entrants', 'status', 'roundpips', 'badges', 'champion'].forEach(k => {
+                const el = $('tourney-opt-' + k);
+                if (el && !el.checked) {
+                    if (k === 'roundpips') urlParams.set('roundpips', '0');
+                    else if (k === 'champion') urlParams.set('champion', '0');
+                    else urlParams.set('show' + k, '0');
+                }
+            });
             if (tourneyFitWholeBracket) urlParams.set('fit', '1');
 
             const qs = urlParams.toString();
@@ -1326,7 +1418,7 @@
             if (sourceSelect && sourceSelect.value !== 'auto') urlParams.set('source', sourceSelect.value);
             if (pipStyleSelect && pipStyleSelect.value !== 'circle') urlParams.set('pipstyle', pipStyleSelect.value);
             if (centerCheck && !centerCheck.checked) urlParams.set('center', '0');
-            ['title', 'phase', 'clock', 'tags', 'details', 'pips', 'banner'].forEach(k => { const el = $('matchup-opt-' + k); if (el && !el.checked) urlParams.set(k, '0'); });
+            ['title', 'phase', 'clock', 'tags', 'details', 'pips', 'banner', 'roundpips'].forEach(k => { const el = $('matchup-opt-' + k); if (el && !el.checked) urlParams.set(k, '0'); });
             if (showEstCheck && !showEstCheck.checked) urlParams.set('showest', '0');
             if (fitCheck && fitCheck.checked) urlParams.set('fit', 'content');
             if (confettiCheck && !confettiCheck.checked) urlParams.set('confetti', '0');
@@ -1784,7 +1876,9 @@
             if ($('matchup-details')) $('matchup-details').value = tourneyActive ? (activeMatch?.matchDetails || '') : (m.details || '');
             if ($('matchup-competitor-count')) $('matchup-competitor-count').value = tourneyActive ? '2' : String(m.competitorCount || 2);
 
-            if ($('matchup-rounds')) $('matchup-rounds').value = String(m.roundsBestOf || 0);
+            const tourneyRoundsBestOf = (tourneyActive ? (activeMatch?.roundsBestOf || activeTourneyData?.roundsBestOf) : null);
+            const effectiveRoundsBestOf = (tourneyRoundsBestOf !== null && tourneyRoundsBestOf !== undefined) ? tourneyRoundsBestOf : (m.roundsBestOf || 0);
+            if ($('matchup-rounds')) $('matchup-rounds').value = String(effectiveRoundsBestOf || 0);
             const fmtSelect = $('matchup-format');
             const targetRow = $('matchup-custom-target-row');
             if (fmtSelect && !tourneyActive) {
@@ -1831,7 +1925,7 @@
             const target = tourneyActive
                 ? (activeMatch?.targetScore || activeTourneyData?.targetScore || (activeTourneyData?.bestOf > 0 ? Math.ceil(activeTourneyData.bestOf / 2) : 0))
                 : (m.targetScore || (m.bestOf > 0 ? Math.ceil(m.bestOf / 2) : 0));
-            const roundTarget = (m.roundsBestOf > 0 ? Math.ceil(m.roundsBestOf / 2) : 2);
+            const roundTarget = (effectiveRoundsBestOf > 0 ? Math.ceil(effectiveRoundsBestOf / 2) : 2);
 
             grid.style.gridTemplateColumns = competitorsToRender.length > 2 ? 'repeat(2, 1fr)' : '1fr 1fr';
 
@@ -3702,6 +3796,7 @@
                 entrants,
                 scoringType,
                 bestOf,
+                roundsBestOf: parseInt($('tourney-rounds')?.value, 10) || 0,
                 targetScore,
                 progressionMode: 'manual'
             };

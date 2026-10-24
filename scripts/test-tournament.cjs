@@ -478,6 +478,39 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
         const delPresetRes = service.deleteTournamentPreset(newPreset.id);
         assert.equal(delPresetRes.ok, true);
         assert.ok(!service.getTournamentPresets().some(p => p.id === newPreset.id));
+
+        // 16. Tournament Rounds-per-Game (FGC) and Auto Game Score Advancement
+        const fgcTourney = service.createTournament({
+            title: 'EVO 2026 Pools',
+            format: 'single',
+            entrants: ['Daigo', 'Justin Wong'],
+            bestOf: 3, // First to 2 games
+            roundsBestOf: 3 // Best of 3 rounds per game (first to 2 rounds)
+        });
+        assert.equal(fgcTourney.roundsBestOf, 3);
+        const fgcMatch = fgcTourney.matches[0];
+        assert.equal(fgcMatch.roundsBestOf, 3);
+        assert.equal(fgcMatch.entrant1.rounds, 0);
+        assert.equal(fgcMatch.entrant2.rounds, 0);
+
+        // Win round 1 for Daigo
+        service.updateMatchScore(fgcMatch.id, { entrant: 'Daigo', roundDelta: 1 });
+        assert.equal(fgcMatch.entrant1.rounds, 1);
+        assert.equal(fgcMatch.entrant1.score, 0);
+
+        // Win round 2 for Daigo -> triggers game 1 win (2 rounds out of 3)!
+        service.updateMatchScore(fgcMatch.id, { entrant: 'Daigo', roundDelta: 1 });
+        assert.equal(fgcMatch.entrant1.score, 1, 'Game score should advance to 1');
+        assert.equal(fgcMatch.entrant1.rounds, 0, 'Rounds should reset to 0 for game 2');
+        assert.equal(fgcMatch.entrant2.rounds, 0);
+
+        // Game 2: Daigo wins 2 more rounds -> triggers game 2 win and reaches match targetScore 2!
+        service.updateMatchScore(fgcMatch.id, { entrant: 'Daigo', roundDelta: 1 });
+        assert.equal(fgcMatch.entrant1.rounds, 1);
+        service.updateMatchScore(fgcMatch.id, { entrant: 'Daigo', roundDelta: 1 });
+        assert.equal(fgcMatch.entrant1.score, 2, 'Game score should advance to 2');
+        assert.equal(fgcMatch.entrant1.rounds, 0);
+        assert.equal(fgcMatch.pendingWinner, 'Daigo', 'Target score reached -> pendingWinner should be Daigo');
     } finally {
         service.destroy();
         fs.rmSync(tmpDir, { recursive: true, force: true });

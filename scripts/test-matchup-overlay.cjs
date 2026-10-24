@@ -138,6 +138,12 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         const sampleP1 = await page.$eval('.topbar-competitor.c1 .competitor-name', el => el.textContent.trim());
         assert.equal(sampleP1, 'Daigo');
 
+        // 19. Round Pips: Diamond round pips (?roundpips=1)
+        await page.goto(`${OVERLAY_URL}?preview=1&roundpips=1`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.pip-round');
+        const roundPips = await page.$$('.pip-round');
+        assert.ok(roundPips.length > 0, 'Matchup overlay should render diamond round pips');
+
     } finally {
         if (browser) await browser.close();
     }

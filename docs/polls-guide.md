@@ -76,6 +76,8 @@ StreamPulse includes an advanced **Tournament Bracket** engine designed for comm
 - **Dynamic Orthogonal Connector Lines & Spacing**:
   - **Lines (`?lines=glow|solid|minimal`)**: Smooth orthogonal stepped connector lines featuring luminous glow with cyan drop-shadow (`glow`), high-contrast solid connectors (`solid`), or minimal borders (`minimal`).
   - **Spacing Density (`?spacing=normal|compact|spacious`)**: Adjust bracket gap width and match card padding to fit any screen resolution.
+- **Rounds per Game (FGC Sets & Auto-Advancement)**: Configure rounds-within-a-game (`roundsBestOf`: Best of 1, Best of 3, Best of 5, Best of 7). Scoring target rounds (e.g. 2 rounds in Best of 3) automatically increments the game score by 1, resets rounds to 0-0, and completes the match upon reaching the target game score. Round pips render as distinct diamond markers (`◆ ◇`) in match cards and the active match HUD.
+- **Centered Header & Granular Show/Hide Controls**: The bracket header (title banner, elimination format, series mode, and entrant count) is centered horizontally above the bracket. Broadcasters can independently toggle any element on the overlay (title, metadata pills, round headers, scores, round pips, seeds, tags, live badges, connector lines, and champion card) via URL parameters or studio checkboxes.
 - **Auto-Advancement on Target Score**: In best-of series, reaching the required target score (e.g. 2 wins in Best of 3) automatically crowns the matchup winner and moves them to the next round slot!
 - **Match Advancement Undo & Recursive Bracket Rollback**: Made a mistake or scored the wrong winner on a tournament match? Broadcasters can click **Undo / Edit** on any completed match in Versus (`/api/tournament/rollback`). The match winner is cleared, scores reset, and all downstream matches that depended on that match are recursively reverted back to `TBD` and `PENDING`, clearing any premature champion declarations.
 - **In-Progress Tournament Drafts & Checkpoints**: Streamers can save tournament snapshots at any point during a broadcast (**Save Draft** / `/api/tournament/drafts/save`). Switch games or pause your stream, then resume your exact bracket progression later via **Checkpoints** (`/api/tournament/drafts/restore`).
@@ -163,8 +165,21 @@ Renders the tournament bracket with flexible layouts, responsive auto-scaling, s
 | `?overlay=<theme\|hash>` | `card` | Container styling theme (`card`, `championship`, `fgc-evo`, `cyber`, `glass`, `clean-light`, `minimal-dark`, `solid`, `transparent`, `pill`, `neon`, `retro`) or hex color hash (e.g. `?overlay=0d1117`). |
 | `?fit=1\|0` | `0` | **Fit Entire Bracket**: Auto-scales and centers the whole bracket tree within the OBS browser viewport so all rounds fit on-screen without scrollbars. |
 | `?showtitle=1\|0` | `1` | Show or hide tournament title banner at the top of the bracket overlay (`?showtitle=0` removes header to save vertical space). |
+| `?showmeta=1\|0` | `1` | Show or hide header metadata pill container (format, series mode, entrant count, status). |
+| `?showformat=1\|0` | `1` | Show or hide tournament format pill (e.g. Single Elimination, Double Elimination, Round Robin). |
+| `?showmode=1\|0` | `1` | Show or hide series mode pill (e.g. Best of 3, Best of 5, Free Points). |
+| `?showentrants=1\|0` | `1` | Show or hide total entrants count badge. |
+| `?showstatus=1\|0` | `1` | Show or hide tournament status indicator (Live, In Progress, Completed). |
 | `?showrounds=1\|0` | `1` | Show or hide round header labels ("Round of 16", "Semifinals", "Grand Finals"). |
 | `?showscores=1\|0` | `1` | Show or hide numerical scores and series win pips on match cards. |
+| `?roundpips=1\|0` | `1` | Show or hide diamond round pips (`◆ ◇`) in match cards and active match HUD. |
+| `?showseeds=1\|0` | `1` | Show or hide entrant seed numbers (`#1`, `#2`) on bracket cards. |
+| `?showtags=1\|0` | `1` | Show or hide competitor player/character tags (`[Ryu]`, `[Ken]`). |
+| `?showbadges=1\|0` | `1` | Show or hide match card live/upcoming status badges. |
+| `?showchampion=1\|0` | `1` | Show or hide champion card banner at bracket completion. |
+| `?showlines=1\|0` | `1` | Show or hide bracket connector lines. |
+| `?showstandings=1\|0` | `1` | Show or hide standings table in Round Robin view. |
+| `?showmatches=1\|0` | `1` | Show or hide round-by-round match list in Round Robin view. |
 | `?lines=glow\|solid\|minimal` | `glow` | Bracket line style: luminous glow, solid high-contrast connectors, or minimal borders. |
 | `?spacing=normal\|compact\|spacious` | `normal` | Bracket match and column spacing density. |
 | `?confetti=1\|0` | `1` | Enable or disable celebration confetti burst when champion is crowned. |
@@ -210,6 +225,7 @@ Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup
 | `?title=1\|0` | `1` | Show or hide event / game title. |
 | `?center=1\|0` | `1` | Show or hide the center match phase badge. Set `?center=0` to create completely center-less overlays that leave the middle of your screen 100% clear. |
 | `?pips=1\|0` | `1` | Show or hide series win pips (`● ● ○`). |
+| `?roundpips=1\|0` | `1` | Show or hide diamond round pips (`◆ ◇`) alongside or stacked with game score pips. |
 | `?tags=1\|0` | `1` | Show or hide competitor character/sub-tags. |
 | `?details=1\|0` | `1` | Show or hide match phase badge and series subtitle. |
 | `?confetti=1\|0` | `1` | Enable or disable confetti burst when a set winner is crowned (`?confetti=0` silences confetti). |

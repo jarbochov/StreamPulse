@@ -261,9 +261,26 @@
         }
 
         /* Header */
+        #stage {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        #tournament-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            text-align: center;
+        }
+
         .tournament-header {
             text-align: center;
-            margin-bottom: clamp(1rem, 3cqi, 1.75rem);
+            margin: 0 auto clamp(1rem, 3cqi, 1.75rem) auto;
             background: var(--tourney-bg);
             backdrop-filter: var(--tourney-backdrop);
             -webkit-backdrop-filter: var(--tourney-backdrop);
@@ -274,6 +291,7 @@
             display: inline-flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             gap: 0.35rem;
             text-shadow: var(--tourney-text-shadow);
         }
@@ -285,18 +303,23 @@
             color: var(--tourney-text);
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 0.6rem;
+            text-align: center;
+            width: 100%;
         }
 
         .tournament-meta {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 0.6rem;
             font-size: calc(0.72rem * var(--tourney-scale));
             color: var(--tourney-muted);
             text-transform: uppercase;
             letter-spacing: 0.05em;
             font-weight: 700;
+            flex-wrap: wrap;
         }
 
         .meta-pill {
@@ -595,6 +618,35 @@
             box-shadow: 0 0 6px var(--tourney-accent);
         }
 
+        .match-round-pips {
+            display: inline-flex;
+            gap: 3px;
+            align-items: center;
+            margin-right: 0.35rem;
+        }
+
+        .match-round-pip {
+            width: 6px;
+            height: 6px;
+            transform: rotate(45deg);
+            border-radius: 1px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            display: inline-block;
+        }
+
+        .match-round-pip.won {
+            background: var(--tourney-accent);
+            border-color: var(--tourney-accent);
+            box-shadow: 0 0 6px var(--tourney-accent);
+        }
+
+        .champion-card {
+            margin: 0 auto 1.5rem auto;
+            text-align: center;
+            align-self: center;
+        }
+
         .entrant-pct {
             font-size: 0.72rem;
             color: var(--tourney-muted);
@@ -798,9 +850,22 @@
         const forceSample = params.get('sample') === '1';
         const isPreview = params.get('preview') === '1' || params.get('sample') === '1';
         const layoutMode = (params.get('layout') || params.get('mode') || 'tree').toLowerCase(); // 'tree' | 'active' | 'hud' | 'compact'
-        const showScoresParam = params.get('showscores') !== '0';
+        const showScoresParam = params.get('showscores') !== '0' && params.get('scores') !== '0';
         const showTitle = params.get('showtitle') !== '0' && params.get('title') !== '0' && params.get('header') !== '0';
+        const showMeta = params.get('showmeta') !== '0' && params.get('meta') !== '0';
+        const showFormat = params.get('showformat') !== '0' && params.get('format') !== '0';
+        const showMode = params.get('showmode') !== '0' && params.get('mode') !== '0';
+        const showEntrants = params.get('showentrants') !== '0' && params.get('entrants') !== '0' && params.get('participants') !== '0';
+        const showStatus = params.get('showstatus') !== '0' && params.get('status') !== '0';
         const showRounds = params.get('showrounds') !== '0' && params.get('roundheaders') !== '0' && params.get('roundheaders') !== 'none';
+        const showSeeds = params.get('showseeds') !== '0' && params.get('seeds') !== '0';
+        const showTags = params.get('showtags') !== '0' && params.get('tags') !== '0';
+        const showBadges = params.get('showbadges') !== '0' && params.get('badges') !== '0' && params.get('badge') !== '0';
+        const showRoundPips = params.get('roundpips') !== '0' && params.get('rounds') !== '0' && params.get('showroundpips') !== '0';
+        const showChampion = params.get('champion') !== '0' && params.get('showchampion') !== '0';
+        const showStandings = params.get('showstandings') !== '0' && params.get('standings') !== '0';
+        const showMatches = params.get('showmatches') !== '0' && params.get('matches') !== '0';
+        const showLines = params.get('lines') !== 'none' && params.get('showlines') !== '0';
         const enableConfetti = params.get('confetti') !== '0' && params.get('confetti') !== 'false';
         const scaleVal = parseFloat(params.get('scale') || params.get('fontscale') || '1');
         const customAccent = params.get('accent');
@@ -872,20 +937,21 @@
             roundCount: 3,
             progressionMode: 'manual',
             bestOf: 3,
+            roundsBestOf: 3,
             targetScore: 2,
             status: 'IN_PROGRESS',
             activeMatchId: 'm_2_1',
             matches: [
                 // Round 1
-                { id: 'm_1_1', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'Chrono Trigger', seed: 1, score: 2 }, entrant2: { name: 'Secret of Mana', seed: 8, score: 0 }, scores: [2, 0], status: 'COMPLETED', winner: 'Chrono Trigger', bestOf: 3, targetScore: 2 },
-                { id: 'm_1_2', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'EarthBound', seed: 4, score: 2 }, entrant2: { name: 'Super Mario RPG', seed: 5, score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'EarthBound', bestOf: 3, targetScore: 2 },
-                { id: 'm_1_3', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'Final Fantasy VI', seed: 2, score: 2 }, entrant2: { name: 'Breath of Fire II', seed: 7, score: 0 }, scores: [2, 0], status: 'COMPLETED', winner: 'Final Fantasy VI', bestOf: 3, targetScore: 2 },
-                { id: 'm_1_4', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'Lufia II', seed: 3, score: 2 }, entrant2: { name: 'Dragon Quest V', seed: 6, score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'Lufia II', bestOf: 3, targetScore: 2 },
+                { id: 'm_1_1', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'Chrono Trigger', tag: 'Square', seed: 1, score: 2, rounds: 0 }, entrant2: { name: 'Secret of Mana', tag: 'Square', seed: 8, score: 0, rounds: 0 }, scores: [2, 0], status: 'COMPLETED', winner: 'Chrono Trigger', bestOf: 3, targetScore: 2 },
+                { id: 'm_1_2', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'EarthBound', tag: 'Ape', seed: 4, score: 2, rounds: 0 }, entrant2: { name: 'Super Mario RPG', tag: 'Square', seed: 5, score: 1, rounds: 0 }, scores: [2, 1], status: 'COMPLETED', winner: 'EarthBound', bestOf: 3, targetScore: 2 },
+                { id: 'm_1_3', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'Final Fantasy VI', tag: 'Square', seed: 2, score: 2, rounds: 0 }, entrant2: { name: 'Breath of Fire II', tag: 'Capcom', seed: 7, score: 0, rounds: 0 }, scores: [2, 0], status: 'COMPLETED', winner: 'Final Fantasy VI', bestOf: 3, targetScore: 2 },
+                { id: 'm_1_4', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'Lufia II', tag: 'Neverland', seed: 3, score: 2, rounds: 0 }, entrant2: { name: 'Dragon Quest V', tag: 'Chunsoft', seed: 6, score: 1, rounds: 0 }, scores: [2, 1], status: 'COMPLETED', winner: 'Lufia II', bestOf: 3, targetScore: 2 },
                 // Round 2 (Semifinals)
-                { id: 'm_2_1', round: 2, roundName: 'Semifinals', entrant1: { name: 'Chrono Trigger', seed: 1, score: 1 }, entrant2: { name: 'EarthBound', seed: 4, score: 1 }, scores: [1, 1], status: 'ACTIVE', matchDetails: 'Game 3 · Decider', bestOf: 3, targetScore: 2 },
-                { id: 'm_2_2', round: 2, roundName: 'Semifinals', entrant1: { name: 'Final Fantasy VI', seed: 2, score: 0 }, entrant2: { name: 'Lufia II', seed: 3, score: 0 }, scores: [0, 0], status: 'PENDING', bestOf: 3, targetScore: 2 },
+                { id: 'm_2_1', round: 2, roundName: 'Semifinals', entrant1: { name: 'Chrono Trigger', tag: 'Square', seed: 1, score: 1, rounds: 1 }, entrant2: { name: 'EarthBound', tag: 'Ape', seed: 4, score: 1, rounds: 0 }, scores: [1, 1], status: 'ACTIVE', matchDetails: 'Game 3 · Decider', bestOf: 3, targetScore: 2, roundsBestOf: 3 },
+                { id: 'm_2_2', round: 2, roundName: 'Semifinals', entrant1: { name: 'Final Fantasy VI', tag: 'Square', seed: 2, score: 0, rounds: 0 }, entrant2: { name: 'Lufia II', tag: 'Neverland', seed: 3, score: 0, rounds: 0 }, scores: [0, 0], status: 'PENDING', bestOf: 3, targetScore: 2 },
                 // Finals
-                { id: 'm_3_1', round: 3, roundName: 'Grand Finals', entrant1: { name: 'TBD', seed: 0, score: 0 }, entrant2: { name: 'TBD', seed: 0, score: 0 }, scores: [0, 0], status: 'PENDING', bestOf: 3, targetScore: 2 }
+                { id: 'm_3_1', round: 3, roundName: 'Grand Finals', entrant1: { name: 'TBD', seed: 0, score: 0, rounds: 0 }, entrant2: { name: 'TBD', seed: 0, score: 0, rounds: 0 }, scores: [0, 0], status: 'PENDING', bestOf: 3, targetScore: 2 }
             ]
         };
 
@@ -975,22 +1041,34 @@
                 return;
             }
 
-            const e1 = activeMatch.entrant1 || { name: 'TBD', seed: 0, score: 0, votes: 0 };
-            const e2 = activeMatch.entrant2 || { name: 'TBD', seed: 0, score: 0, votes: 0 };
+            const e1 = activeMatch.entrant1 || { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0 };
+            const e2 = activeMatch.entrant2 || { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0 };
             const bestOf = activeMatch.bestOf || tournament.bestOf || 0;
             const targetScore = activeMatch.targetScore || (bestOf > 0 ? Math.ceil(bestOf / 2) : 0);
+            const rb = activeMatch.roundsBestOf || tournament.roundsBestOf || 0;
+            const targetRounds = rb > 0 ? Math.ceil(rb / 2) : 0;
             const isVote = tournament.progressionMode === 'vote';
             const totalVotes = (Number(e1.votes) || 0) + (Number(e2.votes) || 0);
             const e1Pct = totalVotes > 0 ? Math.round(((Number(e1.votes) || 0) / totalVotes) * 100) : 50;
 
             function renderPips(score) {
                 if (!targetScore) return '';
-                let pips = '<div class="win-pips">';
+                let pips = '<div class="win-pips" title="Game wins">';
                 for (let i = 0; i < targetScore; i++) {
                     pips += `<span class="win-pip${i < score ? ' won' : ''}"></span>`;
                 }
                 pips += '</div>';
                 return pips;
+            }
+
+            function renderHudRoundPips(rounds) {
+                if (!showRoundPips || !targetRounds) return '';
+                let p = '<div class="match-round-pips" style="margin-top:0.25rem;" title="Rounds won">';
+                for (let i = 0; i < targetRounds; i++) {
+                    p += `<span class="match-round-pip${i < rounds ? ' won' : ''}"></span>`;
+                }
+                p += '</div>';
+                return p;
             }
 
             container.innerHTML = `
@@ -1002,20 +1080,22 @@
                         </div>
                         <div class="hud-match-grid">
                             <div class="hud-entrant e1">
-                                <div class="hud-score-display">${isVote ? (e1.votes || 0) : (e1.score || 0)}</div>
+                                <div class="hud-score-display">${isVote ? (e1.votes || 0) : (showScoresParam ? (e1.score || 0) : '')}</div>
                                 <div>
                                     <div class="hud-entrant-name">${esc(e1.name)}</div>
-                                    ${e1.tag ? `<div class="hud-entrant-tag">${esc(e1.tag)}</div>` : ''}
+                                    ${showTags && e1.tag ? `<div class="hud-entrant-tag">${esc(e1.tag)}</div>` : ''}
                                     ${!isVote && targetScore > 0 ? renderPips(e1.score || 0) : ''}
+                                    ${!isVote && targetRounds > 0 ? renderHudRoundPips(e1.rounds || 0) : ''}
                                 </div>
                             </div>
                             <div class="hud-vs-pill">VS</div>
                             <div class="hud-entrant e2">
-                                <div class="hud-score-display">${isVote ? (e2.votes || 0) : (e2.score || 0)}</div>
+                                <div class="hud-score-display">${isVote ? (e2.votes || 0) : (showScoresParam ? (e2.score || 0) : '')}</div>
                                 <div>
                                     <div class="hud-entrant-name">${esc(e2.name)}</div>
-                                    ${e2.tag ? `<div class="hud-entrant-tag">${esc(e2.tag)}</div>` : ''}
+                                    ${showTags && e2.tag ? `<div class="hud-entrant-tag">${esc(e2.tag)}</div>` : ''}
                                     ${!isVote && targetScore > 0 ? renderPips(e2.score || 0) : ''}
+                                    ${!isVote && targetRounds > 0 ? renderHudRoundPips(e2.rounds || 0) : ''}
                                 </div>
                             </div>
                         </div>
@@ -1041,23 +1121,35 @@
                 roundsMap.set(r, matches.filter(m => m.round === r));
             }
 
+            function renderMatchRoundPips(roundsWon, rTarget) {
+                if (!showRoundPips || !rTarget || rTarget <= 0) return '';
+                let p = '<div class="match-round-pips" title="Rounds won">';
+                for (let i = 0; i < rTarget; i++) {
+                    p += `<span class="match-round-pip${i < roundsWon ? ' won' : ''}"></span>`;
+                }
+                p += '</div>';
+                return p;
+            }
+
             let html = showTitle ? `
                 <div class="tournament-header">
                     <div class="tournament-title">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
                         ${esc(tournament.title)}
                     </div>
+                    ${showMeta ? `
                     <div class="tournament-meta">
-                        <span class="meta-pill">${formatLabel}</span>
-                        <span class="meta-pill">${modeLabel}</span>
-                        <span>${tournament.entrantCount || tournament.bracketSize} Participants</span>
-                        ${tournament.status === 'COMPLETED' ? '<span style="color: var(--tourney-winner);">Finished</span>' : '<span>In Progress</span>'}
+                        ${showFormat ? `<span class="meta-pill">${formatLabel}</span>` : ''}
+                        ${showMode ? `<span class="meta-pill">${modeLabel}</span>` : ''}
+                        ${showEntrants ? `<span>${tournament.entrantCount || tournament.bracketSize} Participants</span>` : ''}
+                        ${showStatus ? (tournament.status === 'COMPLETED' ? '<span style="color: var(--tourney-winner);">Finished</span>' : '<span>In Progress</span>') : ''}
                     </div>
+                    ` : ''}
                 </div>
             ` : '';
 
             // If Champion declared
-            if (tournament.status === 'COMPLETED' && tournament.champion) {
+            if (showChampion && tournament.status === 'COMPLETED' && tournament.champion) {
                 html += `
                     <div class="champion-card">
                         <div class="champion-title">Tournament Champion</div>
@@ -1074,7 +1166,7 @@
 
                 html += `
                     <div class="bracket-round">
-                        <div class="round-header">${esc(roundTitle)}</div>
+                        ${showRounds ? `<div class="round-header">${esc(roundTitle)}</div>` : ''}
                 `;
 
                 for (const match of roundMatches) {
@@ -1084,8 +1176,9 @@
                             <div class="match-card bye-card" data-match-id="${match.id}">
                                 <div class="entrant-row winner">
                                     <div class="entrant-info">
-                                        ${real?.seed > 0 ? `<span class="seed-pill">#${real.seed}</span>` : ''}
+                                        ${showSeeds && real?.seed > 0 ? `<span class="seed-pill">#${real.seed}</span>` : ''}
                                         <span class="entrant-name">${esc(real?.name || 'BYE')}</span>
+                                        ${showTags && real?.tag ? `<span class="entrant-tag">${esc(real.tag)}</span>` : ''}
                                     </div>
                                     <span class="bye-badge">1st Round BYE</span>
                                 </div>
@@ -1098,8 +1191,10 @@
                     const isCompleted = match.status === 'COMPLETED';
                     const hasWinner = match.winner;
 
-                    const e1 = match.entrant1 || { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 };
-                    const e2 = match.entrant2 || { name: 'TBD', seed: 0, score: 0, votes: 0, percent: 0 };
+                    const e1 = match.entrant1 || { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
+                    const e2 = match.entrant2 || { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
+                    const rb = match.roundsBestOf || tournament.roundsBestOf || 0;
+                    const rTarget = rb > 0 ? Math.ceil(rb / 2) : 0;
 
                     const e1Winner = isCompleted && hasWinner === e1.name;
                     const e2Winner = isCompleted && hasWinner === e2.name;
@@ -1110,16 +1205,17 @@
 
                     html += `
                         <div class="match-card${isActive ? ' active' : ''}${isCompleted ? ' completed' : ''}" data-match-id="${match.id}">
-                            ${isActive ? `<span class="match-card-badge">${isVote ? 'Voting' : 'Live'}</span>` : ''}
+                            ${showBadges && isActive ? `<span class="match-card-badge">${isVote ? 'Voting' : 'Live'}</span>` : ''}
                             
                             <div class="entrant-row${e1Winner ? ' winner' : ''}${e1Loser ? ' loser' : ''}">
                                 ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e1.percent || 0}%;"></div>` : ''}
                                 <div class="entrant-info">
-                                    ${e1.seed > 0 ? `<span class="seed-pill">#${e1.seed}</span>` : ''}
+                                    ${showSeeds && e1.seed > 0 ? `<span class="seed-pill">#${e1.seed}</span>` : ''}
                                     <span class="entrant-name">${esc(e1.name)}</span>
-                                    ${e1.tag ? `<span class="entrant-tag">${esc(e1.tag)}</span>` : ''}
+                                    ${showTags && e1.tag ? `<span class="entrant-tag">${esc(e1.tag)}</span>` : ''}
                                 </div>
                                 <div class="entrant-score-box">
+                                    ${rTarget > 0 ? renderMatchRoundPips(e1.rounds || 0, rTarget) : ''}
                                     ${showScoresParam ? `
                                         ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e1.votes || 0}</span><span class="entrant-pct">${e1.percent || 0}%</span>` : '') : `
                                             <span class="score-badge">${e1.score || 0}</span>
@@ -1131,11 +1227,12 @@
                             <div class="entrant-row${e2Winner ? ' winner' : ''}${e2Loser ? ' loser' : ''}">
                                 ${isActive && isVote ? `<div class="vote-fill-bar" style="width: ${e2.percent || 0}%;"></div>` : ''}
                                 <div class="entrant-info">
-                                    ${e2.seed > 0 ? `<span class="seed-pill">#${e2.seed}</span>` : ''}
+                                    ${showSeeds && e2.seed > 0 ? `<span class="seed-pill">#${e2.seed}</span>` : ''}
                                     <span class="entrant-name">${esc(e2.name)}</span>
-                                    ${e2.tag ? `<span class="entrant-tag">${esc(e2.tag)}</span>` : ''}
+                                    ${showTags && e2.tag ? `<span class="entrant-tag">${esc(e2.tag)}</span>` : ''}
                                 </div>
                                 <div class="entrant-score-box">
+                                    ${rTarget > 0 ? renderMatchRoundPips(e2.rounds || 0, rTarget) : ''}
                                     ${showScoresParam ? `
                                         ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e2.votes || 0}</span><span class="entrant-pct">${e2.percent || 0}%</span>` : '') : `
                                             <span class="score-badge">${e2.score || 0}</span>
@@ -1166,6 +1263,7 @@
                 tree.insertBefore(svg, tree.firstChild);
             }
             svg.innerHTML = '';
+            if (!showLines || params.get('lines') === 'none') return;
 
             const treeRect = tree.getBoundingClientRect();
             if (!treeRect.width || !treeRect.height) return;
@@ -1227,16 +1325,18 @@
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
                         ${esc(tournament.title)}
                     </div>
+                    ${showMeta ? `
                     <div class="tournament-meta">
-                        <span class="meta-pill">Round Robin (All vs All)</span>
-                        <span class="meta-pill">${tournament.bestOf > 0 ? `Best of ${tournament.bestOf}` : 'Scored'}</span>
-                        <span>${tournament.entrantCount || standings.length} Participants</span>
-                        ${tournament.status === 'COMPLETED' ? '<span style="color: var(--tourney-winner);">Finished</span>' : '<span>In Progress</span>'}
+                        ${showFormat ? `<span class="meta-pill">Round Robin (All vs All)</span>` : ''}
+                        ${showMode ? `<span class="meta-pill">${tournament.bestOf > 0 ? `Best of ${tournament.bestOf}` : 'Scored'}</span>` : ''}
+                        ${showEntrants ? `<span>${tournament.entrantCount || standings.length} Participants</span>` : ''}
+                        ${showStatus ? (tournament.status === 'COMPLETED' ? '<span style="color: var(--tourney-winner);">Finished</span>' : '<span>In Progress</span>') : ''}
                     </div>
+                    ` : ''}
                 </div>
             ` : '';
 
-            if (tournament.status === 'COMPLETED' && tournament.champion) {
+            if (showChampion && tournament.status === 'COMPLETED' && tournament.champion) {
                 html += `
                     <div class="champion-card">
                         <div class="champion-title">Tournament Champion</div>
@@ -1247,143 +1347,90 @@
 
             html += `
                 <div class="rr-stage">
+                    ${showStandings ? `
                     <div class="rr-standings-card">
                         <table class="rr-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 3.5rem;">Rank</th>
+                                    <th style="width: 40px; text-align: center;">#</th>
                                     <th>Participant</th>
-                                    <th style="text-align:center; width: 4.5rem;">Played</th>
-                                    <th style="text-align:center; width: 4.5rem;">W - L</th>
-                                    <th style="text-align:right; width: 5rem;">Points</th>
+                                    <th style="text-align: center;">P</th>
+                                    <th style="text-align: center;">W</th>
+                                    <th style="text-align: center;">D</th>
+                                    <th style="text-align: center;">L</th>
+                                    <th style="text-align: center;">Diff</th>
+                                    <th style="text-align: right; padding-right: 1.25rem;">PTS</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${standings.map((s, idx) => `
-                                    <tr class="${idx === 0 && (s.won > 0 || tournament.status === 'COMPLETED') ? 'leader' : ''}">
-                                        <td><span class="rr-rank-badge">${idx + 1}</span></td>
-                                        <td style="font-weight: 700;">${esc(s.name)}</td>
-                                        <td style="text-align:center;">${s.played}</td>
-                                        <td style="text-align:center; font-family: monospace;">${s.won} - ${s.lost}</td>
-                                        <td style="text-align:right; font-weight: 800; color: var(--tourney-accent);">${s.points}</td>
+                                    <tr class="${idx === 0 && s.played > 0 ? 'leader' : ''}">
+                                        <td style="text-align: center;">
+                                            <span class="rr-rank-badge">${idx + 1}</span>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                <span style="font-weight: 700;">${esc(s.name)}</span>
+                                                ${showTags && s.tag ? `<span class="entrant-tag">${esc(s.tag)}</span>` : ''}
+                                            </div>
+                                        </td>
+                                        <td style="text-align: center;">${s.played}</td>
+                                        <td style="text-align: center; color: var(--tourney-winner); font-weight: 700;">${s.won}</td>
+                                        <td style="text-align: center; color: var(--tourney-muted);">${s.draws || 0}</td>
+                                        <td style="text-align: center; opacity: 0.7;">${s.lost}</td>
+                                        <td style="text-align: center; font-variant-numeric: tabular-nums;">${s.diff > 0 ? `+${s.diff}` : s.diff}</td>
+                                        <td style="text-align: right; padding-right: 1.25rem; font-weight: 800; color: var(--tourney-accent); font-size: 1.05rem;">
+                                            ${s.points}
+                                        </td>
                                     </tr>
                                 `).join('')}
                             </tbody>
                         </table>
                     </div>
+                    ` : ''}
 
-                    <!-- Match list -->
-                    <div class="bracket-tree" style="flex-wrap: wrap; gap: 0.75rem;">
-            `;
-
-            const maxRound = Math.max(...matches.map(m => m.round || 1));
-            for (let r = 1; r <= maxRound; r++) {
-                const rMatches = matches.filter(m => m.round === r);
-                html += `
-                    <div class="bracket-round" style="min-width: 240px; flex: 1;">
-                        <div class="round-header">Round ${r}</div>
-                `;
-                for (const match of rMatches) {
-                    const isActive = match.status === 'ACTIVE' || match.id === tournament.activeMatchId;
-                    const isCompleted = match.status === 'COMPLETED';
-                    const hasWinner = match.winner;
-                    const e1 = match.entrant1 || { name: 'TBD', score: 0 };
-                    const e2 = match.entrant2 || { name: 'TBD', score: 0 };
-                    const e1Winner = isCompleted && hasWinner === e1.name;
-                    const e2Winner = isCompleted && hasWinner === e2.name;
-
-                    html += `
-                        <div class="match-card${isActive ? ' active' : ''}${isCompleted ? ' completed' : ''}" data-match-id="${match.id}">
-                            ${isActive ? '<span class="match-card-badge">Live</span>' : ''}
-                            <div class="entrant-row${e1Winner ? ' winner' : ''}">
-                                <div class="entrant-info">
-                                    <span class="entrant-name">${esc(e1.name)}</span>
-                                    ${e1.tag ? `<span class="entrant-tag">${esc(e1.tag)}</span>` : ''}
-                                </div>
-                                <div class="entrant-score-box">
-                                    <span class="score-badge">${e1.score || 0}</span>
-                                </div>
-                            </div>
-                            <div class="entrant-row${e2Winner ? ' winner' : ''}">
-                                <div class="entrant-info">
-                                    <span class="entrant-name">${esc(e2.name)}</span>
-                                    ${e2.tag ? `<span class="entrant-tag">${esc(e2.tag)}</span>` : ''}
-                                </div>
-                                <div class="entrant-score-box">
-                                    <span class="score-badge">${e2.score || 0}</span>
-                                </div>
-                            </div>
+                    ${showMatches ? `
+                    <div class="rr-matches-card">
+                        <div class="rr-matches-header">
+                            <span style="font-weight: 800; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--tourney-muted);">
+                                Match Schedule &amp; Results (${matches.filter(m => m.status === 'COMPLETED').length}/${matches.length})
+                            </span>
                         </div>
-                    `;
-                }
-                html += `</div>`;
-            }
-
-            html += `</div></div>`;
+                        <div class="rr-matches-grid">
+                            ${matches.map(m => {
+                                const isAct = m.status === 'ACTIVE' || m.id === tournament.activeMatchId;
+                                const isComp = m.status === 'COMPLETED';
+                                const e1 = m.entrant1 || { name: 'TBD', score: 0 };
+                                const e2 = m.entrant2 || { name: 'TBD', score: 0 };
+                                const s1 = e1.score ?? (Array.isArray(m.scores) ? m.scores[0] : 0) ?? 0;
+                                const s2 = e2.score ?? (Array.isArray(m.scores) ? m.scores[1] : 0) ?? 0;
+                                return `
+                                    <div class="rr-match-item${isAct ? ' active' : ''}${isComp ? ' completed' : ''}">
+                                        <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--tourney-muted); margin-bottom: 0.25rem; font-weight: 700; text-transform: uppercase;">
+                                            <span>${esc(m.roundName || ('Round ' + m.round))}</span>
+                                            ${showBadges && isAct ? '<span style="color: var(--tourney-accent);">LIVE</span>' : ''}
+                                            ${isComp ? (m.winner === 'DRAW' ? '<span style="color: var(--tourney-muted);">DRAW</span>' : `<span style="color: var(--tourney-winner);">WIN: ${esc(m.winner)}</span>`) : ''}
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
+                                            <span style="font-weight: ${m.winner === e1.name ? '800' : '500'}; color: ${m.winner === e1.name ? 'var(--tourney-winner)' : 'inherit'};">
+                                                ${esc(e1.name)}${showTags && e1.tag ? ` <span style="font-size:0.68em;opacity:0.75;">(${esc(e1.tag)})</span>` : ''}
+                                            </span>
+                                            ${showScoresParam ? `<span style="font-weight: 800; font-variant-numeric: tabular-nums;">${s1} — ${s2}</span>` : '<span>vs</span>'}
+                                            <span style="font-weight: ${m.winner === e2.name ? '800' : '500'}; color: ${m.winner === e2.name ? 'var(--tourney-winner)' : 'inherit'};">
+                                                ${esc(e2.name)}${showTags && e2.tag ? ` <span style="font-size:0.68em;opacity:0.75;">(${esc(e2.tag)})</span>` : ''}
+                                            </span>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
             container.innerHTML = html;
-            requestAnimationFrame(drawBracketConnectors);
-            setTimeout(drawBracketConnectors, 60);
         }
-
-        function drawBracketConnectors() {
-            const tree = document.querySelector('.bracket-tree');
-            if (!tree) return;
-            let svg = document.getElementById('bracket-connectors');
-            if (!svg) {
-                svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.id = 'bracket-connectors';
-                tree.insertBefore(svg, tree.firstChild);
-            }
-            svg.innerHTML = '';
-
-            const treeRect = tree.getBoundingClientRect();
-            if (!treeRect.width || !treeRect.height) return;
-
-            svg.setAttribute('viewBox', `0 0 ${treeRect.width} ${treeRect.height}`);
-
-            const rounds = Array.from(tree.querySelectorAll('.bracket-round'));
-            if (rounds.length < 2) return;
-
-            for (let r = 0; r < rounds.length - 1; r++) {
-                const curRoundEl = rounds[r];
-                const nextRoundEl = rounds[r + 1];
-
-                const curCards = Array.from(curRoundEl.querySelectorAll('.match-card'));
-                const nextCards = Array.from(nextRoundEl.querySelectorAll('.match-card'));
-
-                curCards.forEach((fromCard, idx) => {
-                    const nextIdx = Math.floor(idx / 2);
-                    const toCard = nextCards[nextIdx];
-                    if (!toCard) return;
-
-                    const fromRect = fromCard.getBoundingClientRect();
-                    const toRect = toCard.getBoundingClientRect();
-
-                    const x1 = fromRect.right - treeRect.left;
-                    const y1 = fromRect.top + fromRect.height / 2 - treeRect.top;
-
-                    const x2 = toRect.left - treeRect.left;
-                    const isUpper = (idx % 2 === 0);
-                    const y2 = toRect.top + (isUpper ? toRect.height * 0.32 : toRect.height * 0.68) - treeRect.top;
-
-                    const xm = x1 + (x2 - x1) * 0.5;
-
-                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path.setAttribute('d', `M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`);
-
-                    const fromId = fromCard.dataset.matchId;
-                    const matchObj = currentTournament?.matches?.find(m => m.id === fromId);
-                    const isActive = matchObj?.status === 'ACTIVE' || fromCard.classList.contains('active');
-
-                    let cls = 'bracket-line';
-                    if (matchObj?.winner) cls += ' winner-line';
-                    else if (isActive) cls += ' active-line';
-                    path.setAttribute('class', cls);
-
-                    svg.appendChild(path);
-                });
-            }
-        }
+        window.renderTournament = renderTournament;
 
         // Particle Confetti
         function burstConfetti() {

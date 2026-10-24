@@ -98,6 +98,34 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
         const byeBadgeText = await page.$eval('.bye-badge', el => el.textContent.trim());
         assert.equal(byeBadgeText, '1st Round BYE');
 
+        // 8. Title Centering & Show/Hide Controls
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=tree`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.tournament-header');
+        const headerAlign = await page.$eval('.tournament-header', el => getComputedStyle(el).textAlign);
+        assert.equal(headerAlign, 'center', 'Tournament header text-align should be centered');
+
+        // 9. Hide Title: ?showtitle=0
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=tree&showtitle=0`, { waitUntil: 'domcontentloaded' });
+        const titleEl = await page.$('.tournament-header');
+        assert.equal(titleEl, null, 'Tournament header should be omitted when ?showtitle=0');
+
+        // 10. Hide Format Pill: ?showformat=0
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=tree&showformat=0`, { waitUntil: 'domcontentloaded' });
+        const formatPills = await page.$$eval('.meta-pill', pills => pills.map(p => p.textContent.trim()));
+        assert.ok(!formatPills.includes('Single Elimination'), 'Elimination mode pill should be hidden when ?showformat=0');
+
+        // 11. Hide Seeds & Tags: ?showseeds=0&showtags=0
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=tree&showseeds=0&showtags=0`, { waitUntil: 'domcontentloaded' });
+        const seedsCount = await page.evaluate(() => document.querySelectorAll('.seed-pill').length);
+        const tagsCount = await page.evaluate(() => document.querySelectorAll('.entrant-tag').length);
+        assert.equal(seedsCount, 0, 'Seeds should be hidden when ?showseeds=0');
+        assert.equal(tagsCount, 0, 'Tags should be hidden when ?showtags=0');
+
+        // 12. Round Pips in Tournament Match Cards
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=tree&roundpips=1`, { waitUntil: 'domcontentloaded' });
+        const roundPips = await page.$$('.match-round-pip');
+        assert.ok(roundPips.length > 0, 'Match card should display diamond round pips when ?roundpips=1 and roundsBestOf > 0');
+
     } finally {
         if (browser) await browser.close();
     }
