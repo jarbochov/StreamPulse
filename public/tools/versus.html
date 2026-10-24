@@ -1567,6 +1567,7 @@
             }
         }
 
+        let lastMatchupSig = '';
         function renderMatchupStudio(m) {
             if (!m) return;
             activeMatchupData = m;
@@ -3368,8 +3369,13 @@
                         activeTourneyData = msg.data;
                         renderTournamentStudio(activeTourneyData);
                     } else if (msg.type === 'matchup-update') {
-                        activeMatchupData = msg.data;
-                        renderMatchupStudio(activeMatchupData);
+                        const d = msg.data;
+                        const sig = JSON.stringify(d, (k, v) => (k === 'elapsed' || k === 'remaining' || k === 'startedAt' || k === 'estimate') ? undefined : v);
+                        const same = sig === lastMatchupSig;
+                        lastMatchupSig = sig;
+                        activeMatchupData = d;
+                        if (same) { if (d && d.clock) syncClockStudioUi(d.clock); }
+                        else renderMatchupStudio(d);
                     }
                 } catch { /* ignore */ }
             };
