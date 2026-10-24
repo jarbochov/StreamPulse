@@ -20,10 +20,40 @@
             padding: 0.85rem 1rem;
             margin-bottom: 1rem;
         }
+        .round-group-section {
+            margin-bottom: 1.35rem;
+        }
+        .round-group-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.65rem;
+            padding: 0.45rem 0.75rem;
+            margin-bottom: 0.65rem;
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 8px;
+        }
+        .round-group-title {
+            font-size: 0.82rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
         .match-admin-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(410px, 1fr));
             gap: 0.85rem;
+        }
+        @media (max-width: 520px) {
+            .match-admin-grid {
+                grid-template-columns: 1fr;
+            }
         }
         .match-admin-card {
             background: var(--bg-card);
@@ -40,7 +70,7 @@
             box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35), 0 8px 24px -8px rgba(59, 130, 246, 0.25);
         }
         .match-admin-card.is-completed {
-            opacity: 0.88;
+            opacity: 0.9;
             background: var(--bg-inset);
         }
         .match-admin-header {
@@ -51,19 +81,65 @@
             border-bottom: 1px solid var(--border);
             padding-bottom: 0.5rem;
         }
-        .entrant-admin-row {
+        .entrant-admin-box {
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.55rem 0.65rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+        .entrant-admin-box.is-winner {
+            border-color: rgba(63, 185, 80, 0.55);
+            background: rgba(63, 185, 80, 0.08);
+        }
+        .entrant-top-bar {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 0.5rem;
-            background: var(--bg-inset);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.5rem 0.65rem;
         }
-        .entrant-admin-row.is-winner {
-            border-color: rgba(63, 185, 80, 0.5);
-            background: rgba(63, 185, 80, 0.08);
+        .entrant-scoring-cols {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            border-top: 1px solid var(--border);
+            padding-top: 0.45rem;
+        }
+        .scoring-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .scoring-col.games-col {
+            border-right: 1px solid var(--border);
+            padding-right: 0.4rem;
+        }
+        .scoring-col.rounds-col {
+            padding-left: 0.4rem;
+        }
+        .scoring-col-label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 0.2rem;
+        }
+        .pips-preview {
+            font-size: 0.76rem;
+            letter-spacing: 0.08rem;
+            font-weight: 800;
+            margin-top: 0.2rem;
+            line-height: 1.1;
+        }
+        .sub-count-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-top: 0.1rem;
         }
         .status-pill {
             display: inline-flex;
@@ -123,6 +199,33 @@
             font-weight: 800;
             color: var(--text);
         }
+        .inline-rule-ctrl {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.2rem 0.5rem;
+            font-size: 0.72rem;
+        }
+        .inline-rule-ctrl label {
+            margin: 0;
+            font-size: 0.66rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+        .inline-rule-ctrl select {
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-size: 0.74rem;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0.1rem 0.2rem;
+        }
     </style>
 </head>
 <body>
@@ -145,28 +248,58 @@
                     <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                         <h2 id="admin-tourney-title" style="margin: 0; font-size: 1.05rem;">No Active Tournament</h2>
                         <span id="admin-tourney-format-badge" class="badge-studio" style="display: none;">Single Elim</span>
-                        <span id="admin-tourney-series-badge" class="badge-studio" style="display: none;">Bo3</span>
                     </div>
                     <div id="admin-tourney-subtitle" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">
-                        Simultaneous score entry and match administration across all concurrent tournament games.
+                        Simultaneous game &amp; round score entry across all concurrent tournament matches.
                     </div>
                 </div>
             </div>
 
-            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
-                <label style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.76rem; color: var(--text); cursor: pointer; background: var(--bg-inset); padding: 0.35rem 0.65rem; border-radius: 6px; border: 1px solid var(--border); margin: 0;" title="Disable when multiple matches run simultaneously and no single match should be highlighted as Live on the bracket overlay">
+            <!-- Live Series & Rounds Format Controls + Broadcast Highlight -->
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <div class="inline-rule-ctrl" id="admin-series-ctrl" style="display: none;" title="Change series win target for all matches">
+                    <label for="admin-series-select">Series:</label>
+                    <select id="admin-series-select" onchange="updateLiveSeriesFormat(this.value)">
+                        <option value="bestOf-1">Best of 1 (FT1)</option>
+                        <option value="bestOf-3">Best of 3 (FT2)</option>
+                        <option value="bestOf-5">Best of 5 (FT3)</option>
+                        <option value="bestOf-7">Best of 7 (FT4)</option>
+                        <option value="firstTo-10">First to 10 (FT10)</option>
+                        <option value="points">Open Points</option>
+                    </select>
+                </div>
+
+                <div class="inline-rule-ctrl" id="admin-rounds-ctrl" style="display: none;" title="Enable or change Rounds per Game (FGC round pips ◆)">
+                    <label for="admin-rounds-select">Rounds / Game:</label>
+                    <select id="admin-rounds-select" onchange="updateLiveRoundsFormat(this.value)">
+                        <option value="0">Off (Games Only)</option>
+                        <option value="3">Best of 3 (FT2 Rounds)</option>
+                        <option value="5">Best of 5 (FT3 Rounds)</option>
+                    </select>
+                </div>
+
+                <label style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.74rem; color: var(--text); cursor: pointer; background: var(--bg-inset); padding: 0.32rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); margin: 0;" title="Disable when multiple matches run simultaneously and no single match should be highlighted as Live on the bracket overlay">
                     <input type="checkbox" id="admin-highlight-live" checked onchange="toggleLiveHighlight(this.checked)">
-                    <span>Highlight Live Match on Bracket</span>
+                    <span>Highlight Live Match</span>
                 </label>
+
                 <button type="button" class="btn-secondary btn-sm" id="btn-admin-unpin" onclick="pinMatch(null)" title="Clear the pinned live match so no single game is highlighted">
-                    Unpin Live Match
+                    Unpin Live
                 </button>
+
+                <button type="button" class="btn-secondary btn-sm" id="btn-admin-save-draft" style="display: none;" onclick="saveDraftPrompt()" title="Save tournament checkpoint draft">
+                    Save Draft
+                </button>
+
                 <a href="/versus.html" class="btn-secondary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem;">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                     Versus Studio
                 </a>
                 <a href="/overlays/tournament.html" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none;">
                     Bracket Overlay &nearr;
+                </a>
+                <a href="/overlays/matchup.html?source=tournament" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none;">
+                    Match HUD &nearr;
                 </a>
             </div>
         </div>
@@ -191,14 +324,14 @@
             </div>
         </div>
 
-        <!-- Filter & Search Bar -->
+        <!-- Filter, Grouping & Search Bar -->
         <div class="admin-toolbar" id="admin-filter-bar" style="display: none; padding: 0.65rem 0.85rem;">
             <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;" id="filter-chips">
-                <button type="button" class="preset-chip-btn active" data-filter="playable" onclick="setMatchFilter('playable')">
-                    Playable Now (<span id="count-playable">0</span>)
+                <button type="button" class="preset-chip-btn active" data-filter="all" onclick="setMatchFilter('all')">
+                    All Bracket Rounds (<span id="count-all">0</span>)
                 </button>
-                <button type="button" class="preset-chip-btn" data-filter="all" onclick="setMatchFilter('all')">
-                    All Matches (<span id="count-all">0</span>)
+                <button type="button" class="preset-chip-btn" data-filter="playable" onclick="setMatchFilter('playable')">
+                    Playable Now (<span id="count-playable">0</span>)
                 </button>
                 <button type="button" class="preset-chip-btn" data-filter="upcoming" onclick="setMatchFilter('upcoming')">
                     Upcoming / TBD (<span id="count-upcoming">0</span>)
@@ -209,8 +342,12 @@
             </div>
 
             <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                <select id="admin-round-filter" class="form-control" style="font-size: 0.75rem; padding: 0.3rem 0.5rem; min-width: 150px;" onchange="setRoundFilter(this.value)">
+                <select id="admin-round-filter" class="form-control" style="font-size: 0.75rem; padding: 0.3rem 0.5rem; min-width: 155px;" onchange="setRoundFilter(this.value)">
                     <option value="all">All Rounds / Stages</option>
+                </select>
+                <select id="admin-group-mode" class="form-control" style="font-size: 0.75rem; padding: 0.3rem 0.5rem;" onchange="setGroupMode(this.value)">
+                    <option value="round">Group by Bracket Round</option>
+                    <option value="flat">Flat Match Grid</option>
                 </select>
                 <input type="text" id="admin-search-input" class="form-control" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; min-width: 200px;" placeholder="Search player, tag, or station..." oninput="renderAdminMatches()">
             </div>
@@ -219,24 +356,24 @@
         <!-- Empty / No Active Tournament State -->
         <div id="admin-empty-state" class="card" style="display: none; text-align: center; padding: 2.5rem 1.5rem;">
             <div style="display: inline-flex; width: 48px; height: 48px; border-radius: 12px; background: rgba(59, 130, 246, 0.12); color: var(--accent); align-items: center; justify-content: center; margin-bottom: 0.75rem;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 15.79 13.88"/></svg>
             </div>
             <h2 style="margin-bottom: 0.35rem;">No Active Tournament Running</h2>
-            <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 480px; margin: 0 auto 1.25rem;">
-                Start a Single Elimination, Double Elimination, or Round Robin bracket in Versus Studio, or launch a quick bracket below to begin multi-match scorekeeping.
+            <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 500px; margin: 0 auto 1.25rem;">
+                Start a Single Elimination, Double Elimination, or Round Robin bracket in Versus Studio, or launch a sample bracket below to begin multi-match game &amp; round scorekeeping.
             </p>
             <div style="display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap;">
                 <a href="/versus.html" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem;">
                     Open Versus Studio
                 </a>
                 <button type="button" class="btn-secondary" onclick="quickStartSampleBracket(8)">
-                    Quick Start 8-Player Bracket
+                    Quick Start 8-Player FGC Bracket (Bo3 Games + Bo3 Rounds)
                 </button>
             </div>
         </div>
 
-        <!-- Multi-Match Cards Grid -->
-        <div id="admin-matches-grid" class="match-admin-grid"></div>
+        <!-- Multi-Match Container (Grouped by Round or Flat Grid) -->
+        <div id="admin-matches-container"></div>
     </main>
 
     <div id="toast" class="toast"></div>
@@ -244,8 +381,9 @@
     <script>
         const $ = id => document.getElementById(id);
         let tournamentData = null;
-        let currentFilter = localStorage.getItem('tourney-admin-filter') || 'playable';
+        let currentFilter = localStorage.getItem('tourney-admin-filter') || 'all';
         let currentRoundFilter = 'all';
+        let currentGroupMode = localStorage.getItem('tourney-admin-group') || 'round';
 
         function esc(str) {
             return String(str ?? '')
@@ -279,6 +417,12 @@
             renderAdminMatches();
         }
 
+        function setGroupMode(mode) {
+            currentGroupMode = mode === 'flat' ? 'flat' : 'round';
+            try { localStorage.setItem('tourney-admin-group', currentGroupMode); } catch {}
+            renderAdminMatches();
+        }
+
         function classifyMatch(m) {
             const isBye = Boolean(m.isBye || m.entrant2?.name === 'BYE');
             if (isBye) return 'bye';
@@ -308,13 +452,17 @@
             $('admin-empty-state').style.display = hasTourney ? 'none' : 'block';
             $('admin-summary-bar').style.display = hasTourney ? 'grid' : 'none';
             $('admin-filter-bar').style.display = hasTourney ? 'flex' : 'none';
-            $('admin-matches-grid').style.display = hasTourney ? 'grid' : 'none';
+            $('admin-matches-container').style.display = hasTourney ? 'block' : 'none';
+            $('admin-series-ctrl').style.display = hasTourney ? 'inline-flex' : 'none';
+            $('admin-rounds-ctrl').style.display = hasTourney ? 'inline-flex' : 'none';
+            $('btn-admin-save-draft').style.display = hasTourney ? 'inline-flex' : 'none';
             $('admin-live-dot').style.opacity = hasTourney ? '1' : '0.35';
+
+            if ($('admin-group-mode')) $('admin-group-mode').value = currentGroupMode;
 
             if (!hasTourney) {
                 $('admin-tourney-title').textContent = t && t.status === 'COMPLETED' ? `${t.title || 'Tournament'} (Completed)` : 'No Active Tournament';
                 $('admin-tourney-format-badge').style.display = 'none';
-                $('admin-tourney-series-badge').style.display = 'none';
                 $('btn-admin-unpin').disabled = true;
                 return;
             }
@@ -324,16 +472,29 @@
             fmtBadge.style.display = 'inline-flex';
             fmtBadge.textContent = t.format === 'double' ? 'Double Elimination' : (t.format === 'roundRobin' ? 'Round Robin' : 'Single Elimination');
 
-            const serBadge = $('admin-tourney-series-badge');
-            serBadge.style.display = 'inline-flex';
-            const rb = Number(t.roundsBestOf) || 0;
-            const baseSeries = t.scoringType === 'points' ? 'Open Points' : (t.scoringType === 'firstTo' ? `FT${t.targetScore || 2}` : `Bo${t.bestOf || 3}`);
-            serBadge.textContent = rb > 0 ? `${baseSeries} · Bo${rb} Rounds` : baseSeries;
+            // Sync live Series Format select
+            const seriesSel = $('admin-series-select');
+            if (seriesSel) {
+                if (t.scoringType === 'points' || (!t.bestOf && !t.targetScore)) {
+                    seriesSel.value = 'points';
+                } else if (t.scoringType === 'firstTo' || t.targetScore === 10) {
+                    seriesSel.value = 'firstTo-10';
+                } else {
+                    const bo = Number(t.bestOf) || 3;
+                    seriesSel.value = `bestOf-${[1, 3, 5, 7].includes(bo) ? bo : 3}`;
+                }
+            }
+
+            // Sync live Rounds per Game select
+            const roundsSel = $('admin-rounds-select');
+            if (roundsSel) {
+                const rb = Number(t.roundsBestOf) || 0;
+                roundsSel.value = String([0, 3, 5].includes(rb) ? rb : (rb > 0 ? 3 : 0));
+            }
 
             $('admin-highlight-live').checked = t.highlightLive !== false;
-            const hasPinned = Boolean(t.activeMatchId && t.highlightLive !== false);
             $('btn-admin-unpin').disabled = !t.activeMatchId;
-            $('btn-admin-unpin').textContent = t.activeMatchId ? 'Unpin Live Match' : 'No Match Pinned';
+            $('btn-admin-unpin').textContent = t.activeMatchId ? 'Unpin Live' : 'No Match Pinned';
 
             // Populate round filter options while preserving selection
             const roundSelect = $('admin-round-filter');
@@ -345,7 +506,7 @@
                     if (!roundNames.includes(rn)) roundNames.push(rn);
                 });
                 const prevVal = currentRoundFilter;
-                roundSelect.innerHTML = `<option value="all">All Rounds (${roundNames.length})</option>` +
+                roundSelect.innerHTML = `<option value="all">All Bracket Rounds (${roundNames.length})</option>` +
                     roundNames.map(rn => `<option value="${esc(rn)}" ${rn === prevVal ? 'selected' : ''}>${esc(rn)}</option>`).join('');
                 if (prevVal !== 'all' && !roundNames.includes(prevVal)) {
                     currentRoundFilter = 'all';
@@ -353,12 +514,162 @@
                 }
             }
 
-            // Sync filter chip active state
             document.querySelectorAll('#filter-chips .preset-chip-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.filter === currentFilter);
             });
 
             renderAdminMatches();
+        }
+
+        function buildMatchCardHtml(m, t, globalRb, allowDraws) {
+            const state = classifyMatch(m);
+            const isPinned = t.highlightLive !== false && m.id === t.activeMatchId;
+            const e1 = m.entrant1?.name || m.entrants?.[0] || 'TBD';
+            const e2 = m.entrant2?.name || m.entrants?.[1] || 'TBD';
+            const t1 = m.entrant1?.tag || '';
+            const t2 = m.entrant2?.tag || '';
+            const c1 = m.entrant1?.color || '#ef4444';
+            const c2 = m.entrant2?.color || '#3b82f6';
+            const s1 = m.entrant1?.score ?? (m.scores?.[0] ?? 0);
+            const s2 = m.entrant2?.score ?? (m.scores?.[1] ?? 0);
+            const r1 = m.entrant1?.rounds || 0;
+            const r2 = m.entrant2?.rounds || 0;
+            const target = m.targetScore || Math.ceil((m.bestOf || 3) / 2);
+            const rb = Number(m.roundsBestOf ?? globalRb) || 0;
+            const roundTarget = rb > 0 ? Math.ceil(rb / 2) : 0;
+            const notes = m.matchDetails || m.details || '';
+            const canScore = state === 'playable';
+            const isWinner1 = m.winner && m.winner === e1;
+            const isWinner2 = m.winner && m.winner === e2;
+
+            let statusBadge = '';
+            if (isPinned) {
+                statusBadge = `<span class="status-pill pinned">Pinned Live</span>`;
+            } else if (state === 'playable') {
+                statusBadge = `<span class="status-pill playable">Playable</span>`;
+            } else if (state === 'completed') {
+                statusBadge = `<span class="status-pill completed">${m.winner === 'DRAW' ? 'Draw' : 'Completed'}</span>`;
+            } else {
+                statusBadge = `<span class="status-pill upcoming">Waiting TBD</span>`;
+            }
+
+            const gamePips1 = target > 0 && target <= 10
+                ? Array.from({ length: target }, (_, i) => i < s1 ? '●' : '○').join(' ')
+                : `${s1} pts`;
+            const gamePips2 = target > 0 && target <= 10
+                ? Array.from({ length: target }, (_, i) => i < s2 ? '●' : '○').join(' ')
+                : `${s2} pts`;
+
+            const roundPips1 = roundTarget > 0
+                ? Array.from({ length: roundTarget }, (_, i) => i < r1 ? '◆' : '◇').join(' ')
+                : '◇ ◇';
+            const roundPips2 = roundTarget > 0
+                ? Array.from({ length: roundTarget }, (_, i) => i < r2 ? '◆' : '◇').join(' ')
+                : '◇ ◇';
+
+            function renderEntrantBox(idx, name, tag, color, score, rounds, gamePips, roundPips, isWinner) {
+                return `
+                    <div class="entrant-admin-box ${isWinner ? 'is-winner' : ''}">
+                        <div class="entrant-top-bar">
+                            <div style="display: flex; align-items: center; gap: 0.4rem; min-width: 0; flex: 1;">
+                                <input type="color" value="${esc(color)}" style="width: 22px; height: 22px; border: none; border-radius: 4px; cursor: pointer; flex-shrink: 0;" onchange="updateEntrantMeta('${m.id}', ${idx}, 'color', this.value)" ${!canScore ? 'disabled' : ''} title="Change entrant color">
+                                <div style="font-weight: 800; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${name === 'TBD' ? 'var(--text-muted)' : 'var(--text)'};">
+                                    ${esc(name)}
+                                </div>
+                            </div>
+                            <input type="text" class="form-control" style="font-size: 0.68rem; padding: 0.12rem 0.4rem; height: 22px; max-width: 125px; text-align: right;" placeholder="Tag / Character" value="${esc(tag)}" onchange="updateEntrantMeta('${m.id}', ${idx}, 'tag', this.value)" ${!canScore ? 'disabled' : ''}>
+                        </div>
+
+                        <div class="entrant-scoring-cols">
+                            <!-- Games Won Column -->
+                            <div class="scoring-col games-col">
+                                <div class="scoring-col-label">Games Won</div>
+                                <div class="score-stepper" style="gap: 0.2rem;">
+                                    <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepScore('${m.id}', ${idx}, -1)" ${!canScore ? 'disabled' : ''}>-</button>
+                                    <input type="number" class="score-val-input" style="width: 42px; height: 26px; font-size: 0.85rem;" min="0" value="${score}" onchange="setScoreDirect('${m.id}', ${idx}, this.value)" ${!canScore ? 'disabled' : ''}>
+                                    <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepScore('${m.id}', ${idx}, 1)" ${!canScore ? 'disabled' : ''}>+</button>
+                                </div>
+                                <div class="pips-preview" style="color: var(--accent);">${gamePips}</div>
+                                <div class="sub-count-label">${target > 0 ? `${score} / ${target} GAMES` : `${score} GAMES`}</div>
+                            </div>
+
+                            <!-- Rounds in Game Column -->
+                            <div class="scoring-col rounds-col">
+                                <div class="scoring-col-label">Rounds in Game</div>
+                                ${roundTarget > 0 ? `
+                                    <div class="score-stepper" style="gap: 0.2rem;">
+                                        <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepRound('${m.id}', ${idx}, -1)" ${!canScore ? 'disabled' : ''}>-</button>
+                                        <input type="number" class="score-val-input" style="width: 42px; height: 26px; font-size: 0.85rem;" min="0" max="${Math.max(0, roundTarget - 1)}" value="${Math.min(Math.max(0, roundTarget - 1), rounds)}" onchange="setRoundDirect('${m.id}', ${idx}, this.value)" ${!canScore ? 'disabled' : ''}>
+                                        <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepRound('${m.id}', ${idx}, 1)" ${!canScore ? 'disabled' : ''}>+</button>
+                                    </div>
+                                    <div class="pips-preview" style="color: #ffd700;">${roundPips}</div>
+                                    <div class="sub-count-label">${Math.min(Math.max(0, roundTarget - 1), rounds)} / ${roundTarget} ROUNDS</div>
+                                ` : `
+                                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.25rem 0; gap: 0.25rem;">
+                                        <span style="font-size: 0.68rem; color: var(--text-muted); font-style: italic;">Rounds Off</span>
+                                        <button type="button" class="btn-secondary btn-sm" style="font-size: 0.62rem; padding: 0.12rem 0.45rem;" onclick="updateLiveRoundsFormat(3)" title="Enable Best of 3 Rounds per Game for this tournament">
+                                            Enable Bo3 Rounds
+                                        </button>
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="match-admin-card ${isPinned ? 'is-pinned' : ''} ${state === 'completed' ? 'is-completed' : ''}">
+                    <div class="match-admin-header">
+                        <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                            <span style="font-size: 0.78rem; font-weight: 800; color: var(--accent); text-transform: uppercase;">${esc(m.roundName || ('Round ' + m.round))}</span>
+                            <span style="font-size: 0.68rem; color: var(--text-muted); font-family: monospace;">#${esc(m.id)}</span>
+                            <span style="font-size: 0.68rem; color: var(--text-muted);">${target > 0 ? `Bo${m.bestOf || (target * 2 - 1)} (FT${target})` : 'Open Points'}${roundTarget > 0 ? ` · Bo${rb} Rds` : ''}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.35rem;">
+                            ${statusBadge}
+                            ${state !== 'completed' ? `
+                                <button type="button" class="btn-secondary btn-sm" style="font-size: 0.66rem; padding: 0.15rem 0.45rem;" onclick="pinMatch(${isPinned ? 'null' : `'${m.id}'`})" title="${isPinned ? 'Unpin from broadcast HUD' : 'Pin this match as the active broadcast match'}">
+                                    ${isPinned ? 'Unpin' : 'Pin Live'}
+                                </button>
+                            ` : `
+                                <button type="button" class="btn-secondary btn-sm" style="font-size: 0.66rem; padding: 0.15rem 0.45rem; color: #f59e0b;" onclick="rollbackMatch('${m.id}')" title="Undo advancement and reopen this match">
+                                    Undo
+                                </button>
+                            `}
+                        </div>
+                    </div>
+
+                    ${renderEntrantBox(1, e1, t1, c1, s1, r1, gamePips1, roundPips1, isWinner1)}
+                    ${renderEntrantBox(2, e2, t2, c2, s2, r2, gamePips2, roundPips2, isWinner2)}
+
+                    <!-- Footer / Station Note & Advancement -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; padding-top: 0.15rem;">
+                        <input type="text" class="form-control" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; flex: 1;" placeholder="Station / Stream / Note (e.g. Station 2 · Map 1)" value="${esc(notes)}" onchange="saveMatchNote('${m.id}', this.value)">
+                        ${canScore ? `
+                            <div style="display: flex; align-items: center; gap: 0.3rem;">
+                                <button type="button" class="btn-secondary btn-sm" style="font-size: 0.68rem; padding: 0.25rem 0.45rem;" onclick="resetMatchScore('${m.id}')" title="Reset this match's scores and rounds to 0-0">
+                                    Reset
+                                </button>
+                                ${allowDraws ? `
+                                    <button type="button" class="btn-secondary btn-sm" style="font-size: 0.68rem; padding: 0.25rem 0.45rem;" onclick="recordDraw('${m.id}')">
+                                        Draw
+                                    </button>
+                                ` : ''}
+                                <button type="button" class="btn-primary btn-sm" style="font-size: 0.7rem; padding: 0.25rem 0.55rem; white-space: nowrap;" onclick="advanceMatch('${m.id}')">
+                                    Advance Winner &rarr;
+                                </button>
+                            </div>
+                        ` : (state === 'completed' ? `
+                            <span style="font-size: 0.72rem; font-weight: 800; color: #3fb950; white-space: nowrap;">
+                                ${m.winner === 'DRAW' ? 'Recorded Draw' : `Won: ${esc(m.winner)}`}
+                            </span>
+                        ` : `
+                            <span style="font-size: 0.7rem; color: var(--text-muted); white-space: nowrap;">Awaiting Entrants</span>
+                        `)}
+                    </div>
+                </div>
+            `;
         }
 
         function renderAdminMatches() {
@@ -413,12 +724,12 @@
                 return true;
             });
 
-            const grid = $('admin-matches-grid');
+            const container = $('admin-matches-container');
             if (!filtered.length) {
-                grid.innerHTML = `
-                    <div style="grid-column: 1 / -1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 1.75rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                container.innerHTML = `
+                    <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 1.75rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
                         No matches match the current filter (<strong>${esc(currentFilter)}</strong>).
-                        ${currentFilter === 'playable' && nonBye.length > 0 ? `<div style="margin-top: 0.6rem;"><button type="button" class="btn-secondary btn-sm" onclick="setMatchFilter('all')">Show All ${nonBye.length} Matches</button></div>` : ''}
+                        ${currentFilter !== 'all' && nonBye.length > 0 ? `<div style="margin-top: 0.6rem;"><button type="button" class="btn-secondary btn-sm" onclick="setMatchFilter('all')">Show All ${nonBye.length} Matches</button></div>` : ''}
                     </div>
                 `;
                 return;
@@ -427,169 +738,120 @@
             const globalRb = Number(t.roundsBestOf) || 0;
             const allowDraws = t.format === 'roundRobin' || Boolean(t.allowDraws);
 
-            grid.innerHTML = filtered.map(m => {
-                const state = classifyMatch(m);
-                const isPinned = t.highlightLive !== false && m.id === t.activeMatchId;
-                const e1 = m.entrant1?.name || m.entrants?.[0] || 'TBD';
-                const e2 = m.entrant2?.name || m.entrants?.[1] || 'TBD';
-                const t1 = m.entrant1?.tag || '';
-                const t2 = m.entrant2?.tag || '';
-                const c1 = m.entrant1?.color || '#ef4444';
-                const c2 = m.entrant2?.color || '#3b82f6';
-                const s1 = m.entrant1?.score ?? (m.scores?.[0] ?? 0);
-                const s2 = m.entrant2?.score ?? (m.scores?.[1] ?? 0);
-                const r1 = m.entrant1?.rounds || 0;
-                const r2 = m.entrant2?.rounds || 0;
-                const target = m.targetScore || Math.ceil((m.bestOf || 3) / 2);
-                const rb = Number(m.roundsBestOf || globalRb) || 0;
-                const roundTarget = rb > 0 ? Math.ceil(rb / 2) : 0;
-                const notes = m.matchDetails || m.details || '';
-                const canScore = state === 'playable';
-                const isWinner1 = m.winner && m.winner === e1;
-                const isWinner2 = m.winner && m.winner === e2;
+            if (currentGroupMode === 'round') {
+                const groups = [];
+                const groupMap = new Map();
+                filtered.forEach(m => {
+                    const rn = m.roundName || `Round ${m.round || 1}`;
+                    if (!groupMap.has(rn)) {
+                        const grp = { roundName: rn, matches: [] };
+                        groupMap.set(rn, grp);
+                        groups.push(grp);
+                    }
+                    groupMap.get(rn).matches.push(m);
+                });
 
-                let statusBadge = '';
-                if (isPinned) {
-                    statusBadge = `<span class="status-pill pinned">Pinned Live</span>`;
-                } else if (state === 'playable') {
-                    statusBadge = `<span class="status-pill playable">Active / Playable</span>`;
-                } else if (state === 'completed') {
-                    statusBadge = `<span class="status-pill completed">${m.winner === 'DRAW' ? 'Draw' : 'Completed'}</span>`;
-                } else {
-                    statusBadge = `<span class="status-pill upcoming">Waiting TBD</span>`;
-                }
-
-                const pips1 = target > 0 && target <= 10
-                    ? Array.from({ length: target }, (_, i) => i < s1 ? '●' : '○').join(' ')
-                    : `${s1} pts`;
-                const pips2 = target > 0 && target <= 10
-                    ? Array.from({ length: target }, (_, i) => i < s2 ? '●' : '○').join(' ')
-                    : `${s2} pts`;
-
-                return `
-                    <div class="match-admin-card ${isPinned ? 'is-pinned' : ''} ${state === 'completed' ? 'is-completed' : ''}">
-                        <div class="match-admin-header">
-                            <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
-                                <span style="font-size: 0.78rem; font-weight: 800; color: var(--accent); text-transform: uppercase;">${esc(m.roundName || ('Round ' + m.round))}</span>
-                                <span style="font-size: 0.68rem; color: var(--text-muted); font-family: monospace;">#${esc(m.id)}</span>
-                                <span style="font-size: 0.68rem; color: var(--text-muted);">${target > 0 ? `FT${target}` : 'Points'}${roundTarget > 0 ? ` · Bo${rb} Rds` : ''}</span>
+                container.innerHTML = groups.map(grp => {
+                    const playableCount = grp.matches.filter(m => classifyMatch(m) === 'playable').length;
+                    const doneCount = grp.matches.filter(m => classifyMatch(m) === 'completed').length;
+                    return `
+                        <div class="round-group-section">
+                            <div class="round-group-header">
+                                <div class="round-group-title">
+                                    <span>${esc(grp.roundName)}</span>
+                                    <span class="badge-studio" style="font-size: 0.62rem;">${grp.matches.length} Match${grp.matches.length === 1 ? '' : 'es'}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--text-muted);">
+                                    ${playableCount > 0 ? `<span style="color: #38bdf8; font-weight: 700;">${playableCount} Playable</span>` : ''}
+                                    <span>${doneCount} / ${grp.matches.length} Completed</span>
+                                </div>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 0.35rem;">
-                                ${statusBadge}
-                                ${state !== 'completed' ? `
-                                    <button type="button" class="btn-secondary btn-sm" style="font-size: 0.66rem; padding: 0.15rem 0.45rem;" onclick="pinMatch(${isPinned ? 'null' : `'${m.id}'`})" title="${isPinned ? 'Unpin from broadcast HUD' : 'Pin this match as the active broadcast match'}">
-                                        ${isPinned ? 'Unpin' : 'Pin Live'}
-                                    </button>
-                                ` : `
-                                    <button type="button" class="btn-secondary btn-sm" style="font-size: 0.66rem; padding: 0.15rem 0.45rem; color: #f59e0b;" onclick="rollbackMatch('${m.id}')" title="Undo advancement and reopen this match">
-                                        Undo
-                                    </button>
-                                `}
+                            <div class="match-admin-grid">
+                                ${grp.matches.map(m => buildMatchCardHtml(m, t, globalRb, allowDraws)).join('')}
                             </div>
                         </div>
-
-                        <!-- Entrant 1 -->
-                        <div class="entrant-admin-row ${isWinner1 ? 'is-winner' : ''}">
-                            <div style="display: flex; align-items: center; gap: 0.4rem; min-width: 0; flex: 1;">
-                                <input type="color" value="${esc(c1)}" style="width: 20px; height: 20px; border: none; border-radius: 4px; cursor: pointer; flex-shrink: 0;" onchange="updateEntrantMeta('${m.id}', 1, 'color', this.value)" ${!canScore ? 'disabled' : ''}>
-                                <div style="min-width: 0; flex: 1;">
-                                    <div style="font-weight: 800; font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${e1 === 'TBD' ? 'var(--text-muted)' : 'var(--text)'};">
-                                        ${esc(e1)}
-                                    </div>
-                                    <div style="display: flex; align-items: center; gap: 0.35rem; margin-top: 0.15rem;">
-                                        <input type="text" class="form-control" style="font-size: 0.66rem; padding: 0.1rem 0.35rem; height: 20px; max-width: 115px;" placeholder="Tag / Char" value="${esc(t1)}" onchange="updateEntrantMeta('${m.id}', 1, 'tag', this.value)" ${!canScore ? 'disabled' : ''}>
-                                        <span style="font-size: 0.68rem; color: var(--accent); font-weight: 800; letter-spacing: 0.05em;">${pips1}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div style="display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0;">
-                                ${roundTarget > 0 ? `
-                                    <div style="display: flex; flex-direction: column; align-items: center; padding-right: 0.35rem; border-right: 1px solid var(--border);">
-                                        <span style="font-size: 0.56rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted);">Rounds</span>
-                                        <div style="display: inline-flex; align-items: center; gap: 0.18rem; margin-top: 0.1rem;">
-                                            <button type="button" class="score-btn" style="width: 22px; height: 22px; font-size: 0.75rem;" onclick="stepRound('${m.id}', 1, -1)" ${!canScore ? 'disabled' : ''}>-</button>
-                                            <span style="font-size: 0.76rem; font-weight: 800; color: #ffd700; min-width: 18px; text-align: center;">${r1}</span>
-                                            <button type="button" class="score-btn" style="width: 22px; height: 22px; font-size: 0.75rem;" onclick="stepRound('${m.id}', 1, 1)" ${!canScore ? 'disabled' : ''}>+</button>
-                                        </div>
-                                    </div>
-                                ` : ''}
-                                <div style="display: flex; flex-direction: column; align-items: center;">
-                                    <span style="font-size: 0.56rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted);">Games</span>
-                                    <div class="score-stepper" style="gap: 0.2rem; margin-top: 0.1rem;">
-                                        <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepScore('${m.id}', 1, -1)" ${!canScore ? 'disabled' : ''}>-</button>
-                                        <input type="number" class="score-val-input" style="width: 40px; height: 26px; font-size: 0.85rem;" min="0" value="${s1}" onchange="setScoreDirect('${m.id}', 1, this.value)" ${!canScore ? 'disabled' : ''}>
-                                        <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepScore('${m.id}', 1, 1)" ${!canScore ? 'disabled' : ''}>+</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Entrant 2 -->
-                        <div class="entrant-admin-row ${isWinner2 ? 'is-winner' : ''}">
-                            <div style="display: flex; align-items: center; gap: 0.4rem; min-width: 0; flex: 1;">
-                                <input type="color" value="${esc(c2)}" style="width: 20px; height: 20px; border: none; border-radius: 4px; cursor: pointer; flex-shrink: 0;" onchange="updateEntrantMeta('${m.id}', 2, 'color', this.value)" ${!canScore ? 'disabled' : ''}>
-                                <div style="min-width: 0; flex: 1;">
-                                    <div style="font-weight: 800; font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${e2 === 'TBD' ? 'var(--text-muted)' : 'var(--text)'};">
-                                        ${esc(e2)}
-                                    </div>
-                                    <div style="display: flex; align-items: center; gap: 0.35rem; margin-top: 0.15rem;">
-                                        <input type="text" class="form-control" style="font-size: 0.66rem; padding: 0.1rem 0.35rem; height: 20px; max-width: 115px;" placeholder="Tag / Char" value="${esc(t2)}" onchange="updateEntrantMeta('${m.id}', 2, 'tag', this.value)" ${!canScore ? 'disabled' : ''}>
-                                        <span style="font-size: 0.68rem; color: var(--accent); font-weight: 800; letter-spacing: 0.05em;">${pips2}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div style="display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0;">
-                                ${roundTarget > 0 ? `
-                                    <div style="display: flex; flex-direction: column; align-items: center; padding-right: 0.35rem; border-right: 1px solid var(--border);">
-                                        <span style="font-size: 0.56rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted);">Rounds</span>
-                                        <div style="display: inline-flex; align-items: center; gap: 0.18rem; margin-top: 0.1rem;">
-                                            <button type="button" class="score-btn" style="width: 22px; height: 22px; font-size: 0.75rem;" onclick="stepRound('${m.id}', 2, -1)" ${!canScore ? 'disabled' : ''}>-</button>
-                                            <span style="font-size: 0.76rem; font-weight: 800; color: #ffd700; min-width: 18px; text-align: center;">${r2}</span>
-                                            <button type="button" class="score-btn" style="width: 22px; height: 22px; font-size: 0.75rem;" onclick="stepRound('${m.id}', 2, 1)" ${!canScore ? 'disabled' : ''}>+</button>
-                                        </div>
-                                    </div>
-                                ` : ''}
-                                <div style="display: flex; flex-direction: column; align-items: center;">
-                                    <span style="font-size: 0.56rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted);">Games</span>
-                                    <div class="score-stepper" style="gap: 0.2rem; margin-top: 0.1rem;">
-                                        <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepScore('${m.id}', 2, -1)" ${!canScore ? 'disabled' : ''}>-</button>
-                                        <input type="number" class="score-val-input" style="width: 40px; height: 26px; font-size: 0.85rem;" min="0" value="${s2}" onchange="setScoreDirect('${m.id}', 2, this.value)" ${!canScore ? 'disabled' : ''}>
-                                        <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepScore('${m.id}', 2, 1)" ${!canScore ? 'disabled' : ''}>+</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Footer / Station Note & Advancement -->
-                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; padding-top: 0.2rem;">
-                            <input type="text" class="form-control" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; flex: 1;" placeholder="Station / Stream / Note (e.g. Station 2)" value="${esc(notes)}" onchange="saveMatchNote('${m.id}', this.value)">
-                            ${canScore ? `
-                                <div style="display: flex; align-items: center; gap: 0.3rem;">
-                                    <button type="button" class="btn-secondary btn-sm" style="font-size: 0.68rem; padding: 0.25rem 0.45rem;" onclick="resetMatchScore('${m.id}')" title="Reset this match's scores to 0-0">
-                                        Reset
-                                    </button>
-                                    ${allowDraws ? `
-                                        <button type="button" class="btn-secondary btn-sm" style="font-size: 0.68rem; padding: 0.25rem 0.45rem;" onclick="recordDraw('${m.id}')">
-                                            Draw
-                                        </button>
-                                    ` : ''}
-                                    <button type="button" class="btn-primary btn-sm" style="font-size: 0.7rem; padding: 0.25rem 0.55rem; white-space: nowrap;" onclick="advanceMatch('${m.id}')">
-                                        Advance &rarr;
-                                    </button>
-                                </div>
-                            ` : (state === 'completed' ? `
-                                <span style="font-size: 0.72rem; font-weight: 800; color: #3fb950; white-space: nowrap;">
-                                    ${m.winner === 'DRAW' ? 'Recorded Draw' : `Won: ${esc(m.winner)}`}
-                                </span>
-                            ` : `
-                                <span style="font-size: 0.7rem; color: var(--text-muted); white-space: nowrap;">Awaiting Entrants</span>
-                            `)}
-                        </div>
+                    `;
+                }).join('');
+            } else {
+                container.innerHTML = `
+                    <div class="match-admin-grid">
+                        ${filtered.map(m => buildMatchCardHtml(m, t, globalRb, allowDraws)).join('')}
                     </div>
                 `;
-            }).join('');
+            }
+        }
+
+        async function updateLiveSeriesFormat(seriesVal) {
+            let bestOf = 3;
+            let targetScore = 2;
+            let scoringType = 'bestOf';
+            if (seriesVal === 'points') {
+                scoringType = 'points';
+                bestOf = 0;
+                targetScore = 0;
+            } else if (seriesVal === 'firstTo-10') {
+                scoringType = 'firstTo';
+                bestOf = 0;
+                targetScore = 10;
+            } else if (seriesVal.startsWith('bestOf-')) {
+                scoringType = 'bestOf';
+                bestOf = parseInt(seriesVal.replace('bestOf-', ''), 10) || 3;
+                targetScore = Math.ceil(bestOf / 2);
+            }
+            try {
+                const res = await fetch('/api/tournament/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scoringType, bestOf, targetScore })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    tournamentData = data.tournament;
+                    renderAdminPage();
+                    toast(`Series format updated (${seriesVal})`);
+                }
+            } catch {
+                toast('Error updating series format');
+            }
+        }
+
+        async function updateLiveRoundsFormat(roundsVal) {
+            const roundsBestOf = Math.max(0, parseInt(roundsVal, 10) || 0);
+            try {
+                const res = await fetch('/api/tournament/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ roundsBestOf })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    tournamentData = data.tournament;
+                    renderAdminPage();
+                    toast(roundsBestOf > 0 ? `Enabled Best of ${roundsBestOf} Rounds per Game` : 'Rounds per Game turned off');
+                }
+            } catch {
+                toast('Error updating rounds per game');
+            }
+        }
+
+        async function saveDraftPrompt() {
+            if (!tournamentData) return;
+            const defaultName = `${tournamentData.title || 'Tournament'} — Checkpoint`;
+            const name = prompt('Checkpoint Name / Note:', defaultName);
+            if (!name) return;
+            try {
+                const res = await fetch('/api/tournament/drafts/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    toast('Saved tournament draft checkpoint!');
+                }
+            } catch {
+                toast('Error saving draft');
+            }
         }
 
         async function toggleLiveHighlight(enabled) {
@@ -678,6 +940,29 @@
                 }
             } catch {
                 toast('Error updating rounds');
+            }
+        }
+
+        async function setRoundDirect(matchId, entrantIdx, roundVal) {
+            if (!tournamentData) return;
+            const m = (tournamentData.matches || []).find(x => x.id === matchId);
+            if (!m) return;
+            const entrantName = entrantIdx === 1 ? (m.entrant1?.name || m.entrants?.[0]) : (m.entrant2?.name || m.entrants?.[1]);
+            if (!entrantName || entrantName === 'TBD' || entrantName === 'BYE') return;
+            const rounds = Math.max(0, parseInt(roundVal, 10) || 0);
+            try {
+                const res = await fetch('/api/tournament/score', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matchId, entrant: entrantName, rounds, preserveActiveMatch: true })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    tournamentData = data.tournament;
+                    renderAdminPage();
+                }
+            } catch {
+                toast('Error setting rounds');
             }
         }
 

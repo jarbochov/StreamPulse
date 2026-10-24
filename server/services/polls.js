@@ -1661,10 +1661,18 @@ function createPollService({
         if (settings.scoringType) targetTourney.scoringType = settings.scoringType;
         if (settings.bestOf !== undefined) {
             targetTourney.bestOf = Number(settings.bestOf) || 0;
-            const targetScore = targetTourney.bestOf > 0 ? Math.ceil(targetTourney.bestOf / 2) : 0;
+            const targetScore = settings.targetScore !== undefined
+                ? (Number(settings.targetScore) || 0)
+                : (targetTourney.bestOf > 0 ? Math.ceil(targetTourney.bestOf / 2) : 0);
             targetTourney.targetScore = targetScore;
             targetTourney.matches.forEach(m => {
                 m.bestOf = targetTourney.bestOf;
+                m.targetScore = targetScore;
+            });
+        } else if (settings.targetScore !== undefined) {
+            const targetScore = Number(settings.targetScore) || 0;
+            targetTourney.targetScore = targetScore;
+            targetTourney.matches.forEach(m => {
                 m.targetScore = targetScore;
             });
         }

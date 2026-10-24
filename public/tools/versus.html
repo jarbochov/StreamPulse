@@ -89,10 +89,18 @@
                                 <button type="button" class="preset-chip-btn active" id="btn-tourney-view-single" onclick="setTourneyStudioViewMode('single')">Single Match HUD</button>
                                 <button type="button" class="preset-chip-btn" id="btn-tourney-view-multi" onclick="setTourneyStudioViewMode('multi')">All Active Matches (<span id="tourney-playable-count">0</span>)</button>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;">
+                                <div style="display: inline-flex; align-items: center; gap: 0.3rem;">
+                                    <span style="font-size: 0.66rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rounds/Game:</span>
+                                    <select id="tourney-live-rounds-select" class="form-control" style="font-size: 0.72rem; padding: 0.15rem 0.35rem; height: 24px;" onchange="updateTournamentLiveRounds(this.value)">
+                                        <option value="0">Off (Games Only)</option>
+                                        <option value="3">Best of 3 (FT2 Rds)</option>
+                                        <option value="5">Best of 5 (FT3 Rds)</option>
+                                    </select>
+                                </div>
                                 <label style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: var(--text); cursor: pointer; margin: 0;" title="When unchecked, no single match is highlighted as Live on the bracket overlay (ideal when multiple games run simultaneously)">
                                     <input type="checkbox" id="tourney-highlight-live-toggle" checked onchange="toggleTournamentLiveHighlight(this.checked)">
-                                    <span>Highlight Live Match on Bracket</span>
+                                    <span>Highlight Live Match</span>
                                 </label>
                                 <button type="button" class="btn-secondary btn-sm" id="btn-tourney-unpin-live" onclick="selectTourneyMatchDirect(null)" style="font-size: 0.68rem; padding: 0.2rem 0.45rem;" title="Clear the pinned live match so no specific match is highlighted on the bracket">
                                     Unpin Live Match
@@ -147,7 +155,10 @@
                                                 <div id="t-round-pips-1" style="font-size: 0.78rem; letter-spacing: 0.1rem; color: #ffd700; margin-top: 0.25rem; font-weight: 800; text-align: center;">◇ ◇</div>
                                                 <div id="t-round-label-1" style="font-size: 0.62rem; font-weight: 700; color: var(--text-muted); margin-top: 0.1rem; text-align: center;">0 / 2 ROUNDS</div>
                                             </div>
-                                            <div id="t-round-off-1" style="display: none; font-size: 0.7rem; color: var(--text-muted); font-style: italic; padding: 0.4rem 0;">Rounds Off</div>
+                                            <div id="t-round-off-1" style="display: none; text-align: center; padding: 0.25rem 0;">
+                                                <div style="font-size: 0.68rem; color: var(--text-muted); font-style: italic; margin-bottom: 0.2rem;">Rounds Off</div>
+                                                <button type="button" class="btn-secondary btn-sm" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;" onclick="updateTournamentLiveRounds(3)">Enable Bo3 Rds</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -190,7 +201,10 @@
                                                 <div id="t-round-pips-2" style="font-size: 0.78rem; letter-spacing: 0.1rem; color: #ffd700; margin-top: 0.25rem; font-weight: 800; text-align: center;">◇ ◇</div>
                                                 <div id="t-round-label-2" style="font-size: 0.62rem; font-weight: 700; color: var(--text-muted); margin-top: 0.1rem; text-align: center;">0 / 2 ROUNDS</div>
                                             </div>
-                                            <div id="t-round-off-2" style="display: none; font-size: 0.7rem; color: var(--text-muted); font-style: italic; padding: 0.4rem 0;">Rounds Off</div>
+                                            <div id="t-round-off-2" style="display: none; text-align: center; padding: 0.25rem 0;">
+                                                <div style="font-size: 0.68rem; color: var(--text-muted); font-style: italic; margin-bottom: 0.2rem;">Rounds Off</div>
+                                                <button type="button" class="btn-secondary btn-sm" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;" onclick="updateTournamentLiveRounds(3)">Enable Bo3 Rds</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -3672,6 +3686,27 @@
             }
         }
 
+        async function updateTournamentLiveRounds(roundsVal) {
+            if (!activeTourneyData) return;
+            const roundsBestOf = Math.max(0, parseInt(roundsVal, 10) || 0);
+            try {
+                const res = await fetch('/api/tournament/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ roundsBestOf })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                    if (activeMatchupData) renderMatchupStudio(activeMatchupData);
+                    toast(roundsBestOf > 0 ? `Enabled Best of ${roundsBestOf} Rounds per Game` : 'Rounds per Game turned off');
+                }
+            } catch {
+                toast('Error updating rounds per game');
+            }
+        }
+
         function renderTournamentStudio(t) {
             activeTourneyData = t;
             const monitorCard = $('active-tourney-card');
@@ -3693,6 +3728,10 @@
             if (createCard) createCard.style.display = 'none';
 
             if ($('tourney-active-title')) $('tourney-active-title').textContent = t.title || 'Live Tournament';
+            if ($('tourney-live-rounds-select')) {
+                const rb = Number(t.roundsBestOf) || 0;
+                $('tourney-live-rounds-select').value = String([0, 3, 5].includes(rb) ? rb : (rb > 0 ? 3 : 0));
+            }
             if ($('tourney-highlight-live-toggle')) $('tourney-highlight-live-toggle').checked = t.highlightLive !== false;
             if ($('btn-tourney-unpin-live')) {
                 const hasPinned = Boolean(t.activeMatchId);
