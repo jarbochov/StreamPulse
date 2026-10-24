@@ -2320,18 +2320,14 @@
                             <button type="button" class="btn-primary btn-sm" onclick="launchTournamentPresetDirect('${p.id}')" title="Launch tournament immediately">
                                 Launch
                             </button>
-                            ${isCustom ? `
-                                <button type="button" class="btn-secondary btn-sm" onclick="openEditTournamentPresetModal('${p.id}')" title="Edit preset rules and seeds">
+                            ${isCustom ? `<button type="button" class="btn-secondary btn-sm" onclick="openEditTournamentPresetModal('${p.id}')" title="Edit preset rules and seeds">
                                     Edit
-                                </button>
-                                <button type="button" class="btn-secondary btn-sm" onclick="deleteTournamentPreset('${p.id}')" title="Delete preset">
+                                </button>` : `<button type="button" class="btn-secondary btn-sm" onclick="duplicateBuiltInTournamentPreset('${p.id}')" title="Duplicate to custom preset">
+                                    Duplicate
+                                </button>`}
+                            <button type="button" class="btn-secondary btn-sm" onclick="deleteTournamentPreset('${p.id}')" title="Delete preset">
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                 </button>
-                            ` : `
-                                <button type="button" class="btn-secondary btn-sm" onclick="duplicateBuiltInTournamentPreset('${p.id}')" title="Duplicate to custom preset">
-                                    Duplicate
-                                </button>
-                            `}
                         </div>
                     </div>
                 `;

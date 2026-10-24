@@ -147,7 +147,7 @@ function createPollService({
             if (Array.isArray(data.tournamentHistory)) {
                 tournamentHistory = data.tournamentHistory.slice(0, 30);
             }
-            if (Array.isArray(data.tournamentPresets) && data.tournamentPresets.length > 0) {
+            if (Array.isArray(data.tournamentPresets)) {
                 tournamentPresets = data.tournamentPresets;
             }
             if (Array.isArray(data.tournamentDrafts)) {
