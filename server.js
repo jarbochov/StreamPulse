@@ -1560,7 +1560,9 @@ function buildStatusSnapshot() {
             clips: config.clip_candidates?.enabled !== false,
             weather: config.weather?.enabled === true,
             music: !!MUSIC_CONFIG.enabled,
-            hashtags: config.hashtags_enabled !== false
+            hashtags: config.hashtags_enabled !== false,
+            polls: config.polls_enabled !== false,
+            versus: config.versus_enabled !== false
         },
         overlayClients: wsService.getSourceCount(),
         websocketClients: wsService.getClientCount(),

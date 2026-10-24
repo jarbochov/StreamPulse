@@ -7,8 +7,8 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- Versus & Tournament Studio: Scoreboard and bracket management supporting Single/Double Elimination and Round Robin with configurable legs/points/draws, live tournament match scoring with opponent color customization, separated game and round pips with diamond options and equalized sizing, player tags table, speedrun race clocks, orthogonal connector lines and spacing, responsive container queries for narrow sidebars and 4K streams, and broadcast overlays.
-- Poll Manager: Native multi-platform chat polls, dedicated audience voting tournaments separate from esports brackets with blind mode and subscriber multipliers, presets, and broadcast overlays.
+- Versus & Tournament Studio: Scoreboard and bracket management supporting Single/Double Elimination and Round Robin with configurable legs/points/draws, multi-match concurrent scoring (`/tournament-admin.html`) with optional unpinned/disabled live bracket highlight, live tournament match scoring with opponent color customization, separated game and round pips with diamond options and equalized sizing, adjustable opponent center spacing (`?gap=`), player tags table, speedrun race clocks, orthogonal connector lines and spacing, responsive container queries for narrow sidebars and 4K streams, modular enable/disable toggles in Config Editor, and broadcast overlays.
+- Poll Manager: Native multi-platform chat polls, dedicated audience voting tournaments separate from esports brackets with blind mode and subscriber multipliers, modular enable/disable toggle in Config Editor, presets, and broadcast overlays.
 - Randomizer Elimination Mode: Weight-based choice randomizer with optional choice elimination until restored, Companion controls, and collapsible history logging.
 - Promo Creator: Reusable social promos under Tools with multi-layer text, images, QR codes, shapes, patterns, animations, and MP4/PNG export.
 - Custom Overlay Poll Element: Compact poll element with real-time Twitch vote counts, percentage bars, countdown timer, and completed-result duration.

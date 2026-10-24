@@ -373,6 +373,45 @@
                         <a class="btn" href="/clips.html" style="text-decoration:none;">Open Clip Settings →</a>
                     </div>
                 </div>
+
+                <!-- Poll Manager Card -->
+                <div class="module-card">
+                    <div class="module-card-head">
+                        <div class="module-card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                            <span>Poll Manager</span>
+                        </div>
+                        <span class="module-badge" id="badge-polls">Active</span>
+                    </div>
+                    <p class="hint">Interactive audience polls, multi-choice chat voting, and viewer-voted elimination tournament brackets.</p>
+                    <div class="cfg-toggle" style="margin-top:auto;">
+                        <input type="checkbox" id="cfg-polls-enabled" checked>
+                        <label for="cfg-polls-enabled">Enable Poll Manager module</label>
+                    </div>
+                    <div style="margin-top:0.5rem;">
+                        <a class="btn" href="/polls.html" style="text-decoration:none;">Open Poll Manager →</a>
+                    </div>
+                </div>
+
+                <!-- Versus & Tournaments Card -->
+                <div class="module-card">
+                    <div class="module-card-head">
+                        <div class="module-card-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+                            <span>Versus &amp; Tournaments</span>
+                        </div>
+                        <span class="module-badge" id="badge-versus">Active</span>
+                    </div>
+                    <p class="hint">Competitive head-to-head scoreboards, fighting game HUDs, speedrun race timers, and tournament brackets.</p>
+                    <div class="cfg-toggle" style="margin-top:auto;">
+                        <input type="checkbox" id="cfg-versus-enabled" checked>
+                        <label for="cfg-versus-enabled">Enable Versus &amp; Tournaments module</label>
+                    </div>
+                    <div style="margin-top:0.5rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+                        <a class="btn" href="/versus.html" style="text-decoration:none;">Open Versus Studio →</a>
+                        <a class="btn" href="/tournament-admin.html" style="text-decoration:none;">Multi-Match Admin →</a>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -614,6 +653,8 @@
         updateBadge('badge-music', document.getElementById('cfg-music-enabled')?.checked);
         updateBadge('badge-weather', document.getElementById('cfg-wx-enabled')?.checked);
         updateBadge('badge-clips', document.getElementById('cfg-clips-enabled')?.checked);
+        updateBadge('badge-polls', document.getElementById('cfg-polls-enabled')?.checked);
+        updateBadge('badge-versus', document.getElementById('cfg-versus-enabled')?.checked);
     }
 
     async function loadConfig() {
@@ -663,6 +704,8 @@
 
             const clips = cfg.clip_candidates || {};
             document.getElementById('cfg-clips-enabled').checked = clips.enabled !== false;
+            document.getElementById('cfg-polls-enabled').checked = cfg.polls_enabled !== false;
+            document.getElementById('cfg-versus-enabled').checked = cfg.versus_enabled !== false;
 
             updateModuleBadges();
 
@@ -716,6 +759,8 @@
                 viewer_label: document.getElementById('cfg-viewer-label').value.trim() || 'viewers'
             },
             chatbot_enabled: document.getElementById('cfg-chatbot-enabled').checked,
+            polls_enabled: document.getElementById('cfg-polls-enabled').checked,
+            versus_enabled: document.getElementById('cfg-versus-enabled').checked,
             music: {
                 ...(loadedConfig?.music || {}),
                 enabled: document.getElementById('cfg-music-enabled').checked,
@@ -791,7 +836,7 @@
     document.getElementById('ssn-session-toggle').addEventListener('click', toggleSsnSession);
 
     // Module toggles update badges live
-    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled'].forEach(id => {
+    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateModuleBadges);
     });
 

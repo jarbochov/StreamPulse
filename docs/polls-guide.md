@@ -184,6 +184,9 @@ Renders the tournament bracket with flexible layouts, responsive auto-scaling, s
 | `?showseeds=1\|0` | `1` | Show or hide entrant seed numbers (`#1`, `#2`) on bracket cards. |
 | `?showtags=1\|0` | `1` | Show or hide competitor player/character tags (`[Ryu]`, `[Ken]`). |
 | `?showbadges=1\|0` | `1` | Show or hide match card live/upcoming status badges. |
+| `?highlight=1\|0` | `1` | Highlight the currently pinned live match on the bracket (`?highlight=0` disables live match highlighting when multiple tournament games run concurrently). |
+| `?center=1\|0` | `1` | Show or hide the center phase badge in active HUD mode (`?center=0` hides the badge). |
+| `?gap=intact\|<px>` | `auto` | Keep center spacing intact (`?gap=intact` for `160px`) or set custom spacing (`?gap=80px`, `?gap=240px`, `?gap=360px`) between opponents when `?center=0`. |
 | `?showchampion=1\|0` | `1` | Show or hide champion card banner at bracket completion. |
 | `?showlines=1\|0` | `1` | Show or hide bracket connector lines. |
 | `?showstandings=1\|0` | `1` | Show or hide standings table in Round Robin view. |
@@ -245,6 +248,7 @@ Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup
 | `?showest=1\|0` | `1` | Show or hide target EST timer (e.g. `00:00 / 45:00`) on clock displays. |
 | `?title=1\|0` | `1` | Show or hide event / game title. |
 | `?center=1\|0` | `1` | Show or hide the center match phase badge. Set `?center=0` to create completely center-less overlays that leave the middle of your screen 100% clear. |
+| `?gap=intact\|<px>` | `auto` | Keep center spacing intact (`?gap=intact` for `160px`) or set custom opponent spacing (`?gap=80px`, `?gap=240px`, `?gap=360px`) when `?center=0` or across split/HUD layouts. |
 | `?pips=1\|0` | `1` | Show or hide series win pips (`● ● ○`). |
 | `?roundpips=1\|0` | `1` | Show or hide round pips alongside or stacked with game score pips. |
 | `?roundpipstyle=diamond\|circle\|bar\|digit` | `diamond` | Round pip presentation format: diamonds (`diamond`), round dots (`circle`), segmented rectangular bars (`bar`), or numerical indicator (`digit`). Sized equally to game score pips (8px). |

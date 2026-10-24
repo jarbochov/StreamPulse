@@ -892,6 +892,10 @@
         let lastCelebratedChampion = null;
 
         // Custom parameters
+        const tourneySource = (params.get('source') || 'tournament').toLowerCase(); // 'tournament' | 'poll'
+        const isPollSource = tourneySource === 'poll' || tourneySource === 'polls';
+        const tourneyEndpoint = isPollSource ? '/api/polls/tournament' : '/api/tournament';
+        const tourneyWsEvent = isPollSource ? 'poll-tournament-update' : 'tournament-update';
         const forceSample = params.get('sample') === '1';
         const isPreview = params.get('preview') === '1' || params.get('sample') === '1';
         const layoutMode = (params.get('layout') || params.get('mode') || 'tree').toLowerCase(); // 'tree' | 'active' | 'hud' | 'compact'
@@ -906,7 +910,10 @@
         const showSeeds = params.get('showseeds') !== '0' && params.get('seeds') !== '0';
         const showTags = params.get('showtags') !== '0' && params.get('tags') !== '0';
         const showBadges = params.get('showbadges') !== '0' && params.get('badges') !== '0' && params.get('badge') !== '0';
-        const showRoundPips = params.get('roundpips') !== '0' && params.get('rounds') !== '0' && params.get('showroundpips') !== '0';
+        const showHighlight = params.get('highlight') !== '0' && params.get('showlive') !== '0' && params.get('highlightlive') !== '0';
+        const showCenter = params.get('center') !== '0' && params.get('showcenter') !== '0' && params.get('vs') !== '0';
+        const customGap = (params.get('gap') || params.get('centerspace') || '').trim().toLowerCase();
+        const showRoundPips = !isPollSource && params.get('roundpips') !== '0' && params.get('rounds') !== '0' && params.get('showroundpips') !== '0';
         const pipStyle = (params.get('pipstyle') || params.get('pips_style') || 'circle').toLowerCase();
         const roundPipStyle = (params.get('roundpipstyle') || params.get('round_pipstyle') || 'diamond').toLowerCase();
         const showChampion = params.get('champion') !== '0' && params.get('showchampion') !== '0';
@@ -917,6 +924,15 @@
         const scaleVal = parseFloat(params.get('scale') || params.get('fontscale') || '1');
         const customAccent = params.get('accent');
         const customWinner = params.get('winner');
+
+        if (!showCenter) {
+            document.body.classList.add('no-center-badge');
+        }
+        if (customGap && customGap !== '0' && customGap !== 'none' && customGap !== 'auto') {
+            const gapCss = (customGap === 'intact' || customGap === 'keep') ? '160px' : (/^\d+$/.test(customGap) ? `${customGap}px` : customGap);
+            document.documentElement.style.setProperty('--tourney-center-gap', gapCss);
+            document.body.classList.add('has-center-gap');
+        }
 
         if (scaleVal && Number.isFinite(scaleVal) && scaleVal > 0) {
             document.documentElement.style.setProperty('--tourney-scale', scaleVal);
@@ -1002,6 +1018,32 @@
             ]
         };
 
+        const SAMPLE_POLL_TOURNAMENT = {
+            id: 'sample-poll-tourney',
+            title: 'Audience Choice Showdown',
+            format: 'single',
+            bracketSize: 8,
+            roundCount: 3,
+            progressionMode: 'vote',
+            bestOf: 0,
+            roundsBestOf: 0,
+            targetScore: 0,
+            status: 'IN_PROGRESS',
+            activeMatchId: 'm_2_1',
+            matches: [
+                // Round 1
+                { id: 'm_1_1', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'Chrono Trigger', tag: 'SNES', seed: 1, votes: 142, percent: 68 }, entrant2: { name: 'Secret of Mana', tag: 'SNES', seed: 8, votes: 67, percent: 32 }, status: 'COMPLETED', winner: 'Chrono Trigger' },
+                { id: 'm_1_2', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'EarthBound', tag: 'SNES', seed: 4, votes: 118, percent: 56 }, entrant2: { name: 'Super Mario RPG', tag: 'SNES', seed: 5, votes: 92, percent: 44 }, status: 'COMPLETED', winner: 'EarthBound' },
+                { id: 'm_1_3', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'Final Fantasy VI', tag: 'SNES', seed: 2, votes: 155, percent: 74 }, entrant2: { name: 'Breath of Fire II', tag: 'SNES', seed: 7, votes: 54, percent: 26 }, status: 'COMPLETED', winner: 'Final Fantasy VI' },
+                { id: 'm_1_4', round: 1, roundName: 'Quarterfinals', entrant1: { name: 'Lufia II', tag: 'SNES', seed: 3, votes: 109, percent: 53 }, entrant2: { name: 'Dragon Quest V', tag: 'SFC', seed: 6, votes: 96, percent: 47 }, status: 'COMPLETED', winner: 'Lufia II' },
+                // Round 2 (Semifinals)
+                { id: 'm_2_1', round: 2, roundName: 'Semifinals', entrant1: { name: 'Chrono Trigger', tag: 'SNES', seed: 1, votes: 94, percent: 58 }, entrant2: { name: 'EarthBound', tag: 'SNES', seed: 4, votes: 68, percent: 42 }, status: 'ACTIVE', matchDetails: 'Chat Voting Live' },
+                { id: 'm_2_2', round: 2, roundName: 'Semifinals', entrant1: { name: 'Final Fantasy VI', tag: 'SNES', seed: 2, votes: 0, percent: 0 }, entrant2: { name: 'Lufia II', tag: 'SNES', seed: 3, votes: 0, percent: 0 }, status: 'PENDING' },
+                // Finals
+                { id: 'm_3_1', round: 3, roundName: 'Grand Finals', entrant1: { name: 'TBD', seed: 0, votes: 0, percent: 0 }, entrant2: { name: 'TBD', seed: 0, votes: 0, percent: 0 }, status: 'PENDING' }
+            ]
+        };
+
         const SAMPLE_RR_TOURNAMENT = {
             id: 'sample-rr-tourney',
             title: 'Retro Community League',
@@ -1033,12 +1075,18 @@
             }[c]));
         }
 
+        function getFallbackSample() {
+            if (isPollSource) return SAMPLE_POLL_TOURNAMENT;
+            if (layoutMode === 'roundrobin' || layoutMode === 'rr' || params.get('format') === 'roundRobin') {
+                return SAMPLE_RR_TOURNAMENT;
+            }
+            return SAMPLE_TOURNAMENT;
+        }
+
         function renderTournament(tournament) {
             if (!tournament || !Array.isArray(tournament.matches)) {
                 if (isPreview) {
-                    tournament = (layoutMode === 'roundrobin' || layoutMode === 'rr' || params.get('format') === 'roundRobin')
-                        ? SAMPLE_RR_TOURNAMENT
-                        : SAMPLE_TOURNAMENT;
+                    tournament = getFallbackSample();
                 } else {
                     container.innerHTML = `
                         <div class="empty-placeholder">
@@ -1162,24 +1210,24 @@
                             <span>${esc(activeMatch.roundName)} ${bestOf > 0 ? `· Best of ${bestOf}` : ''}</span>
                             <span>${activeMatch.matchDetails ? esc(activeMatch.matchDetails) : esc(tournament.title)}</span>
                         </div>
-                        <div class="hud-match-grid">
+                        <div class="hud-match-grid" style="gap: var(--tourney-center-gap, 1rem);${!showCenter ? ' grid-template-columns: 1fr 1fr;' : ''}">
                             <div class="hud-entrant e1" style="${e1.color ? `border-left: 4px solid ${e1.color};` : ''}">
                                 <div class="hud-score-display">${isVote ? (e1.votes || 0) : (showScoresParam ? (e1.score || 0) : '')}</div>
                                 <div>
                                     <div class="hud-entrant-name" style="${e1.color ? `color:${e1.color};` : ''}">${esc(e1.name)}</div>
                                     ${showTags && e1.tag ? `<div class="hud-entrant-tag">${esc(e1.tag)}</div>` : ''}
-                                    ${!isVote && targetScore > 0 ? renderPips(e1.score || 0, e1.color) : ''}
-                                    ${!isVote && targetRounds > 0 ? renderHudRoundPips(e1.rounds || 0, e1.color) : ''}
+                                    ${!isVote && !isPollSource && targetScore > 0 ? renderPips(e1.score || 0, e1.color) : ''}
+                                    ${!isVote && !isPollSource && targetRounds > 0 ? renderHudRoundPips(e1.rounds || 0, e1.color) : ''}
                                 </div>
                             </div>
-                            <div class="hud-vs-pill">VS</div>
+                            ${showCenter ? '<div class="hud-vs-pill">VS</div>' : ''}
                             <div class="hud-entrant e2" style="${e2.color ? `border-right: 4px solid ${e2.color};` : ''}">
                                 <div class="hud-score-display">${isVote ? (e2.votes || 0) : (showScoresParam ? (e2.score || 0) : '')}</div>
                                 <div>
                                     <div class="hud-entrant-name" style="${e2.color ? `color:${e2.color};` : ''}">${esc(e2.name)}</div>
                                     ${showTags && e2.tag ? `<div class="hud-entrant-tag">${esc(e2.tag)}</div>` : ''}
-                                    ${!isVote && targetScore > 0 ? renderPips(e2.score || 0, e2.color) : ''}
-                                    ${!isVote && targetRounds > 0 ? renderHudRoundPips(e2.rounds || 0, e2.color) : ''}
+                                    ${!isVote && !isPollSource && targetScore > 0 ? renderPips(e2.score || 0, e2.color) : ''}
+                                    ${!isVote && !isPollSource && targetRounds > 0 ? renderHudRoundPips(e2.rounds || 0, e2.color) : ''}
                                 </div>
                             </div>
                         </div>
@@ -1276,21 +1324,24 @@
                         continue;
                     }
 
-                    const isActive = match.status === 'ACTIVE' || match.id === tournament.activeMatchId;
+                    const isActive = showHighlight && tournament.highlightLive !== false && (
+                        Object.prototype.hasOwnProperty.call(tournament, 'activeMatchId')
+                            ? Boolean(tournament.activeMatchId) && match.id === tournament.activeMatchId
+                            : match.status === 'ACTIVE'
+                    );
                     const isCompleted = match.status === 'COMPLETED';
                     const hasWinner = match.winner;
 
                     const e1 = match.entrant1 || { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
                     const e2 = match.entrant2 || { name: 'TBD', seed: 0, score: 0, rounds: 0, votes: 0, percent: 0 };
-                    const rb = match.roundsBestOf || tournament.roundsBestOf || 0;
+                    const isVote = tournament.progressionMode === 'vote' || isPollSource;
+                    const rb = (!isVote && !isPollSource) ? (match.roundsBestOf || tournament.roundsBestOf || 0) : 0;
                     const rTarget = rb > 0 ? Math.ceil(rb / 2) : 0;
 
                     const e1Winner = isCompleted && hasWinner === e1.name;
                     const e2Winner = isCompleted && hasWinner === e2.name;
                     const e1Loser = isCompleted && hasWinner && hasWinner !== e1.name;
                     const e2Loser = isCompleted && hasWinner && hasWinner !== e2.name;
-
-                    const isVote = tournament.progressionMode === 'vote';
 
                     html += `
                         <div class="match-card${isActive ? ' active' : ''}${isCompleted ? ' completed' : ''}" data-match-id="${match.id}">
@@ -1305,7 +1356,7 @@
                                     ${showTags && e1.tag ? `<span class="entrant-tag">${esc(e1.tag)}</span>` : ''}
                                 </div>
                                 <div class="entrant-score-box">
-                                    ${rTarget > 0 ? renderMatchRoundPips(e1.rounds || 0, rTarget, e1.color) : ''}
+                                    ${!isVote && !isPollSource && rTarget > 0 ? renderMatchRoundPips(e1.rounds || 0, rTarget, e1.color) : ''}
                                     ${showScoresParam ? `
                                         ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e1.votes || 0}</span><span class="entrant-pct">${e1.percent || 0}%</span>` : '') : `
                                             <span class="score-badge">${e1.score || 0}</span>
@@ -1323,7 +1374,7 @@
                                     ${showTags && e2.tag ? `<span class="entrant-tag">${esc(e2.tag)}</span>` : ''}
                                 </div>
                                 <div class="entrant-score-box">
-                                    ${rTarget > 0 ? renderMatchRoundPips(e2.rounds || 0, rTarget, e2.color) : ''}
+                                    ${!isVote && !isPollSource && rTarget > 0 ? renderMatchRoundPips(e2.rounds || 0, rTarget, e2.color) : ''}
                                     ${showScoresParam ? `
                                         ${isVote ? (isActive || isCompleted ? `<span class="score-badge">${e2.votes || 0}</span><span class="entrant-pct">${e2.percent || 0}%</span>` : '') : `
                                             <span class="score-badge">${e2.score || 0}</span>
@@ -1489,7 +1540,11 @@
                         </div>
                         <div class="rr-matches-grid">
                             ${matches.map(m => {
-                                const isAct = m.status === 'ACTIVE' || m.id === tournament.activeMatchId;
+                                const isAct = showHighlight && tournament.highlightLive !== false && (
+                                    Object.prototype.hasOwnProperty.call(tournament, 'activeMatchId')
+                                        ? Boolean(tournament.activeMatchId) && m.id === tournament.activeMatchId
+                                        : m.status === 'ACTIVE'
+                                );
                                 const isComp = m.status === 'COMPLETED';
                                 const e1 = m.entrant1 || { name: 'TBD', score: 0 };
                                 const e2 = m.entrant2 || { name: 'TBD', score: 0 };
@@ -1570,13 +1625,9 @@
             requestAnimationFrame(frame);
         }
 
-        const tourneySource = (params.get('source') || 'tournament').toLowerCase(); // 'tournament' | 'poll'
-        const tourneyEndpoint = tourneySource === 'poll' ? '/api/polls/tournament' : '/api/tournament';
-        const tourneyWsEvent = tourneySource === 'poll' ? 'poll-tournament-update' : 'tournament-update';
-
         // Fetch initial tournament data
         async function loadInitial() {
-            const fallbackSample = (layoutMode === 'roundrobin' || layoutMode === 'rr' || params.get('format') === 'roundRobin') ? SAMPLE_RR_TOURNAMENT : SAMPLE_TOURNAMENT;
+            const fallbackSample = getFallbackSample();
             if (forceSample) {
                 renderTournament(fallbackSample);
                 return;

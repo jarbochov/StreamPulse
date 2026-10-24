@@ -228,6 +228,26 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         const fgcFlexDir = await page.$eval('.fgc-panel', el => getComputedStyle(el).flexDirection);
         assert.equal(fgcFlexDir, 'column', 'FGC panel should stack into column layout at narrow widths');
 
+        // 27. Center Phase Badge Disabled with Intact / Adjustable Gap (?center=0&gap=intact and ?center=0&gap=240px)
+        await page.setViewport({ width: 1280, height: 720 });
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=top&center=0&gap=intact`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.topbar-panel');
+        const gapIntactState = await page.evaluate(() => ({
+            noCenter: document.body.classList.contains('no-center-badge'),
+            hasGap: document.body.classList.contains('has-center-gap'),
+            gapVar: document.documentElement.style.getPropertyValue('--center-gap'),
+            panelGap: getComputedStyle(document.querySelector('.topbar-panel')).gap
+        }));
+        assert.equal(gapIntactState.noCenter, true, 'Body should have no-center-badge class when ?center=0');
+        assert.equal(gapIntactState.hasGap, true, 'Body should have has-center-gap class when ?gap=intact');
+        assert.equal(gapIntactState.gapVar, '160px', '--center-gap should be 160px for ?gap=intact');
+        assert.equal(gapIntactState.panelGap, '160px', '.topbar-panel computed gap should be 160px');
+
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=top&center=0&gap=240px`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.topbar-panel');
+        const gap240 = await page.$eval('.topbar-panel', el => getComputedStyle(el).gap);
+        assert.equal(gap240, '240px', '.topbar-panel computed gap should be 240px for ?gap=240px');
+
     } finally {
         if (browser) await browser.close();
     }

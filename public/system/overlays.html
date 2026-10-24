@@ -53,20 +53,26 @@
     <div id="toast" role="status"></div>
     <script>
         const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true };
+        try {
+            const cached = localStorage.getItem('streampulse:modules');
+            if (cached) Object.assign(moduleState, JSON.parse(cached));
+        } catch {}
+
         const groups = [
             { title: 'Credits & stats', manage: ['Credits editor', '/credits-editor.html'], items: [
                 { name: 'Credits', desc: 'Scrolling end-of-stream credits. Add ?preview=true to preview with sample data.', path: '/credits.html', customize: ['/overlay-url-wizard.html', 'Customize'], size: '1920×1080' },
                 { name: 'Stats', desc: 'Chat and community statistics. Supports days, date, from and to filters.', path: '/stats.html', customize: ['/overlay-url-wizard.html?overlay=stats', 'Customize'] },
                 { name: 'Viewer count', desc: 'Live viewer count with optional label and font scale.', path: '/viewers.html', customize: ['/overlay-url-wizard.html?overlay=viewers', 'Customize'] }
             ] },
-            { title: 'Hashtags', manage: ['Hashtag tools', '/manage-hashtags.html'], items: [
+            { title: 'Hashtags', module: 'hashtags', manage: ['Hashtag tools', '/manage-hashtags.html'], items: [
                 { name: 'Hashtags', desc: 'Hashtag leaderboard. Views: scroll, grid (tiles) or cloud; sort, columns, limit, days and refresh parameters.', path: '/hashtags.html', customize: ['/overlay-url-wizard.html?overlay=hashtags', 'Customize'] }
             ] },
             { title: 'Goals', manage: ['Goals manager', '/goals-editor.html'], items: [
                 { name: 'Goal — single', desc: 'One goal. Add ?goal=<id> to pick which.', path: '/goal.html', customize: ['/overlay-url-wizard.html?overlay=goals', 'Customize'] },
                 { name: 'Goal — cycle', desc: 'Rotates through enabled goals. Supports ids, interval, skipcompleted and pausecomplete.', path: '/goal.html?mode=cycle', customize: ['/overlay-url-wizard.html?overlay=goals', 'Customize'] }
             ] },
-            { title: 'Music', badge: 'beta', manage: ['Music settings', '/music-editor.html'], items: [
+            { title: 'Music', module: 'music', badge: 'beta', manage: ['Music settings', '/music-editor.html'], items: [
                 { name: 'Music — full', desc: 'Album art with title, artist and album.', path: '/music.html?mode=full', customize: ['/music-url-wizard.html', 'Customize'] },
                 { name: 'Music — art only', desc: 'Album art with a brief title overlay on track change.', path: '/music.html?mode=art', customize: ['/music-url-wizard.html', 'Customize'] },
                 { name: 'Music — mini bar', desc: 'Compact text-only now-playing bar.', path: '/music.html?mode=mini', customize: ['/music-url-wizard.html', 'Customize'] }
@@ -91,10 +97,13 @@
                 { name: 'Alert Box (Custom Overlays)', desc: 'Display alerts, sound effects, celebrations, and text animations via Alert Box elements placed in any custom overlay.', path: '/custom-overlays.html', customize: ['/alerts.html', 'Manage Alerts'] },
                 { name: 'Alert Queue & Event Monitor', desc: 'Dockable OBS live queue inspector with instant skip, replay, and event status.', path: '/alert-queue.html', customize: ['/alert-queue.html', 'Open Dock'] }
             ] },
-            { title: 'Community Polls & Tournaments', manage: ['Poll Manager', '/polls.html'], items: [
+            { title: 'Community Polls', module: 'polls', manage: ['Poll Manager', '/polls.html'], items: [
                 { name: 'Live Poll Overlay', desc: 'Real-time voting bars with percentages, timer countdown, winning fanfare, and chat voting instructions footer. Supports ?overlay=hash and ?howtovote=1.', path: '/poll.html', customize: ['/polls.html', 'Poll Manager'] },
-                { name: 'Tournament Bracket Overlay', desc: 'Live single and double elimination tournament bracket with matchup voting and champion victory ceremony.', path: '/tournament.html', customize: ['/polls.html', 'Poll Manager'] },
-                { name: 'Matchup Scoreboard Overlay', desc: 'Versus and match scoreboard for 2–4 players/teams. Top bar, lower-third, compact bug, and full versus card layouts.', path: '/matchup.html', customize: ['/overlay-url-wizard.html?overlay=matchup', 'Customize'] }
+                { name: 'Poll Tournament Bracket Overlay', desc: 'Audience-voted single and double elimination bracket with live vote percentages and champion ceremony.', path: '/tournament.html?source=poll', customize: ['/polls.html', 'Poll Manager'] }
+            ] },
+            { title: 'Versus & Tournaments', module: 'versus', manage: ['Versus Studio', '/versus.html'], items: [
+                { name: 'Matchup Scoreboard Overlay', desc: 'Versus and match scoreboard for 2–4 players/teams. Top bar, EVO FGC, split corners, speedrun race, lower-third, compact bug, and versus card layouts.', path: '/matchup.html', customize: ['/versus.html', 'Versus Studio'] },
+                { name: 'Tournament Bracket Overlay', desc: 'Live single/double elimination and round robin tournament bracket with game/round pips and champion victory ceremony.', path: '/tournament.html', customize: ['/versus.html', 'Versus Studio'] }
             ] },
             { id: 'timers', title: 'Timers', manage: ['Timer manager', '/timers-editor.html'], items: [] },
             { id: 'custom', title: 'Custom overlays', manage: ['All custom overlays & assets', '/custom-overlays.html'], items: [] }
@@ -103,7 +112,7 @@
 
         function render() {
             const query = document.getElementById('filter').value.trim().toLowerCase();
-            const html = groups.map(group => {
+            const html = groups.filter(group => !group.module || moduleState[group.module] !== false).map(group => {
                 const items = group.items.filter(item => !query || `${item.name} ${item.desc} ${group.title}`.toLowerCase().includes(query));
                 if (!items.length && (query || group.id === undefined)) return '';
                 const body = items.length ? items.map(item => {
@@ -127,10 +136,14 @@
         }
 
         async function loadDynamic() {
-            const [timers, customs] = await Promise.all([
+            const [timers, customs, statusData] = await Promise.all([
                 fetch('/api/timers', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ timers: {} })),
-                fetch('/api/custom-overlays', { cache: 'no-store' }).then(r => r.json()).catch(() => [])
+                fetch('/api/custom-overlays', { cache: 'no-store' }).then(r => r.json()).catch(() => []),
+                fetch('/api/status', { cache: 'no-store' }).then(r => r.json()).catch(() => null)
             ]);
+            if (statusData && statusData.modules && typeof statusData.modules === 'object') {
+                Object.assign(moduleState, statusData.modules);
+            }
             groups.find(g => g.id === 'timers').items = Object.values(timers.timers || {}).map(timer => {
                 const kind = timer.kind === 'stopwatch' ? 'stopwatch' : 'countdown';
                 return { name: timer.label || timer.id, desc: `${kind === 'stopwatch' ? 'Stopwatch' : 'Countdown'} · ${timer.state || 'idle'} · id ${timer.id}`, path: `/${kind}.html?timer=${encodeURIComponent(timer.id)}`, customize: timerCustomize(timer) };

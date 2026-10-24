@@ -91,7 +91,7 @@ function createSystemRoutes({
                     setInterval_('twitch_refresh_minutes', 1, 1440, 10);
                     setInterval_('twitch_stream_info_seconds', 10, 3600, 30);
 
-                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals', 'clip_candidates', 'session_lifecycle'];
+                    const safeFields = ['days_filter', 'active_subs_only', 'exclude_users', 'banned_users', 'hashtags_enabled', 'hashtag_max_length', 'chat_log_enabled', 'chatbot_enabled', 'polls_enabled', 'versus_enabled', 'credits', 'auto_backup_on_session_end', 'rate_limit', 'theme', 'music', 'viewer_tracking', 'weather', 'goals', 'clip_candidates', 'session_lifecycle'];
                     for (const key of safeFields) {
                         if (updates[key] !== undefined) {
                             if (key === 'hashtag_max_length') {
@@ -131,6 +131,8 @@ function createSystemRoutes({
                     hashtags_enabled: config.hashtags_enabled !== false,
                     hashtag_max_length: Number(config.hashtag_max_length) || 50,
                     chatbot_enabled: config.chatbot_enabled !== false,
+                    polls_enabled: config.polls_enabled !== false,
+                    versus_enabled: config.versus_enabled !== false,
                     chat_log_enabled: config.chat_log_enabled !== false,
                     broadcaster_name: broadcasterName,
                     connection: {

@@ -932,6 +932,7 @@ function createPollService({
                 subMultiplier: Number(subMultiplier) || 1,
                 status: 'READY',
                 activeMatchId: rrMatches[0]?.id || null,
+                highlightLive: true,
                 champion: null,
                 createdAt: new Date().toISOString(),
                 matches: rrMatches,
@@ -1211,6 +1212,7 @@ function createPollService({
             subMultiplier: Number(subMultiplier) || 1,
             status: 'READY',
             activeMatchId: firstPlayable ? firstPlayable.id : (allMatches[0]?.id || null),
+            highlightLive: true,
             champion: null,
             createdAt: new Date().toISOString(),
             matches: allMatches,
@@ -1303,7 +1305,9 @@ function createPollService({
         if (targetTourney.format === 'roundRobin') {
             recalculateRoundRobinStandings(targetTourney);
             const nextPending = targetTourney.matches.find(m => m.status === 'PENDING');
-            targetTourney.activeMatchId = nextPending ? nextPending.id : null;
+            if (targetTourney.highlightLive !== false && targetTourney.activeMatchId === match.id) {
+                targetTourney.activeMatchId = nextPending ? nextPending.id : null;
+            }
             if (!nextPending) {
                 targetTourney.status = 'COMPLETED';
                 targetTourney.champion = targetTourney.standings?.[0]?.name || null;
@@ -1340,7 +1344,9 @@ function createPollService({
                 m.entrant1?.name && m.entrant1.name !== 'TBD' && m.entrant1.name !== 'BYE' &&
                 m.entrant2?.name && m.entrant2.name !== 'TBD' && m.entrant2.name !== 'BYE'
             );
-            targetTourney.activeMatchId = nextPlayable ? nextPlayable.id : null;
+            if (targetTourney.highlightLive !== false && targetTourney.activeMatchId === match.id) {
+                targetTourney.activeMatchId = nextPlayable ? nextPlayable.id : null;
+            }
         } else {
             // Grand Finals completed! Crown tournament champion!
             targetTourney.status = 'COMPLETED';
@@ -1394,7 +1400,7 @@ function createPollService({
     function updateMatchScore(matchId, {
         entrant1Score, entrant2Score, entrant, score, winner, matchDetails,
         entrant1Tag, entrant2Tag, entrant1Rounds, entrant2Rounds, rounds, roundDelta,
-        entrant1Color, entrant2Color, color, isPoll = false
+        entrant1Color, entrant2Color, color, preserveActiveMatch = false, isPoll = false
     } = {}) {
         const isPollTourney = isPoll || Boolean(activePollTournament?.matches?.some(m => m.id === matchId));
         const targetTourney = isPollTourney ? activePollTournament : activeTournament;
@@ -1492,9 +1498,14 @@ function createPollService({
             match.matchDetails = String(matchDetails).trim();
         }
 
-        targetTourney.activeMatchId = match.id;
+        if (!preserveActiveMatch && targetTourney.highlightLive !== false) {
+            targetTourney.activeMatchId = match.id;
+        }
         if (match.status === 'PENDING') {
             match.status = 'ACTIVE';
+        }
+        if (targetTourney.status === 'READY') {
+            targetTourney.status = 'IN_PROGRESS';
         }
 
         match.pendingWinner = null;
@@ -1515,9 +1526,18 @@ function createPollService({
     }
 
     function selectActiveMatch(matchId, { isPoll = false } = {}) {
-        const isPollTourney = isPoll || Boolean(activePollTournament?.matches?.some(m => m.id === matchId));
+        const isPollTourney = isPoll || Boolean(matchId && activePollTournament?.matches?.some(m => m.id === matchId));
         const targetTourney = isPollTourney ? activePollTournament : activeTournament;
         if (!targetTourney) throw new Error('No active tournament');
+
+        if (!matchId || matchId === 'none' || matchId === 'null') {
+            targetTourney.activeMatchId = null;
+            save();
+            if (isPollTourney) broadcastPollTournamentUpdate();
+            else broadcastTournamentUpdate();
+            return { match: null, tournament: targetTourney };
+        }
+
         const match = targetTourney.matches.find(m => m.id === matchId);
         if (!match) throw new Error(`Match ${matchId} not found`);
 
@@ -1657,6 +1677,10 @@ function createPollService({
         }
         if (settings.matchDuration !== undefined) targetTourney.matchDuration = Number(settings.matchDuration) || 60;
         if (settings.blind !== undefined) targetTourney.blind = Boolean(settings.blind);
+        if (settings.highlightLive !== undefined) targetTourney.highlightLive = Boolean(settings.highlightLive);
+        if (settings.activeMatchId !== undefined) {
+            targetTourney.activeMatchId = (settings.activeMatchId === null || settings.activeMatchId === 'none' || settings.activeMatchId === '') ? null : String(settings.activeMatchId);
+        }
         save();
         if (isPoll) broadcastPollTournamentUpdate();
         else broadcastTournamentUpdate();

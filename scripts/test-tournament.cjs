@@ -563,6 +563,31 @@ test('Tournament Service: Variable bracket sizes, manual scoring, series best-of
         assert.equal(service.getPollTournament(), null);
         assert.ok(service.getTournament(), 'Actual tournament must survive poll tournament reset');
         assert.equal(service.getTournament().title, 'Pro Championship 2026');
+
+        // 19. Multi-Match Tournament: Unpinning activeMatchId, highlightLive toggle, and preserveActiveMatch scoring
+        const multiTourney = service.createTournament({
+            title: 'Multi-Station Open',
+            format: 'single',
+            entrants: ['P1', 'P2', 'P3', 'P4'],
+            bestOf: 3
+        });
+        assert.equal(multiTourney.highlightLive, true, 'highlightLive should default to true');
+        const mA = multiTourney.matches[0];
+        const mB = multiTourney.matches[1];
+        assert.equal(multiTourney.activeMatchId, mA.id);
+
+        // Score match B with preserveActiveMatch: true -> should NOT hijack activeMatchId from mA
+        service.updateMatchScore(mB.id, { entrant1Score: 1, preserveActiveMatch: true });
+        assert.equal(multiTourney.activeMatchId, mA.id, 'preserveActiveMatch should keep mA pinned while scoring mB');
+        assert.equal(mB.entrant1.score, 1);
+
+        // Unpin active match completely (multi-game mode with no single pinned match)
+        const unpinRes = service.selectActiveMatch(null);
+        assert.equal(unpinRes.tournament.activeMatchId, null, 'selectActiveMatch(null) should clear activeMatchId');
+
+        // Disable live highlight on bracket via settings
+        const hlRes = service.updateTournamentSettings({ highlightLive: false });
+        assert.equal(hlRes.highlightLive, false, 'updateTournamentSettings should update highlightLive to false');
     } finally {
         service.destroy();
         fs.rmSync(tmpDir, { recursive: true, force: true });

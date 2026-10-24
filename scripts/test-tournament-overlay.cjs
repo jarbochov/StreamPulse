@@ -175,6 +175,30 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
         const colorDot = await page.$('.entrant-color-dot');
         assert.ok(colorDot, 'Entrant row should display color dot');
 
+        // 14. Poll Tournament (?source=poll) should NEVER show round pips even if roundpips=1 is passed
+        await page.goto(`${OVERLAY_URL}?preview=1&source=poll&roundpips=1`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.match-card');
+        const pollRoundPips = await page.$$('.match-round-pips');
+        assert.equal(pollRoundPips.length, 0, 'Poll tournament (?source=poll) should never render round pips');
+
+        // 15. Multi-Match Highlight Disable (?highlight=0 and highlightLive: false)
+        await page.goto(`${OVERLAY_URL}?preview=1&highlight=0`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.match-card');
+        const activeCardsWhenHighlightOff = await page.$$('.match-card.active');
+        assert.equal(activeCardsWhenHighlightOff.length, 0, 'No match card should have .active class when ?highlight=0');
+
+        // 16. Center Phase Badge Disabled with Intact Gap (?layout=active&center=0&gap=intact)
+        await page.goto(`${OVERLAY_URL}?preview=1&layout=active&center=0&gap=intact`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.match-hud-card');
+        const tourneyGapState = await page.evaluate(() => ({
+            noCenter: document.body.classList.contains('no-center-badge'),
+            hasGap: document.body.classList.contains('has-center-gap'),
+            gapVar: document.documentElement.style.getPropertyValue('--tourney-center-gap')
+        }));
+        assert.equal(tourneyGapState.noCenter, true, 'Body should have no-center-badge class when ?center=0');
+        assert.equal(tourneyGapState.hasGap, true, 'Body should have has-center-gap class when ?gap=intact');
+        assert.equal(tourneyGapState.gapVar, '160px', '--tourney-center-gap should be 160px when ?gap=intact');
+
     } finally {
         if (browser) await browser.close();
     }

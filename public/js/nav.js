@@ -56,7 +56,7 @@
     document.head.appendChild(style);
 
     const MODULE_STORAGE_KEY = 'streampulse:modules';
-    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true };
+    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true };
     try {
         const cached = localStorage.getItem(MODULE_STORAGE_KEY);
         if (cached) {
@@ -95,8 +95,9 @@
             { label: 'Milestones', href: '/milestone-url-wizard.html' }
         ]},
         { label: 'Tools ▾', children: [
-            { label: 'Poll Manager', href: '/polls.html' },
-            { label: 'Versus', href: '/versus.html' },
+            { label: 'Poll Manager', href: '/polls.html', module: 'polls' },
+            { label: 'Versus', href: '/versus.html', module: 'versus' },
+            { label: 'Tournament Scorekeeper', href: '/tournament-admin.html', module: 'versus' },
             { label: 'Promo Creator', href: '/promo-creator.html' },
             { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
             { label: 'Alerts & SFX', href: '/alerts.html' },
@@ -124,7 +125,7 @@
     const currentPath = window.location.pathname;
 
     const pageParentMap = {
-        '/tournaments.html': '/versus.html', '/competitions.html': '/versus.html',
+        '/tournaments.html': '/versus.html', '/competitions.html': '/versus.html', '/tournament-admin.html': '/versus.html',
         '/custom-overlay-editor.html': '/custom-overlays.html',
         '/alert-queue.html': '/alerts.html',
         '/commands.html': '/chatbot.html',
@@ -177,8 +178,9 @@
         list.push({ label: 'Overlay Assets', href: '/assets.html', group: 'Editors & Studios' });
 
         // 3. Stream Tools & Automation
-        list.push({ label: 'Poll Manager', href: '/polls.html', group: 'Stream Tools' });
-        list.push({ label: 'Versus', href: '/versus.html', group: 'Stream Tools' });
+        list.push({ label: 'Poll Manager', href: '/polls.html', group: 'Stream Tools', module: 'polls' });
+        list.push({ label: 'Versus', href: '/versus.html', group: 'Stream Tools', module: 'versus' });
+        list.push({ label: 'Tournament Multi-Match Scorekeeper', href: '/tournament-admin.html', group: 'Stream Tools', module: 'versus' });
         list.push({ label: 'Promo Creator', href: '/promo-creator.html', group: 'Stream Tools' });
         list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
         list.push({ label: 'Alerts & SFX', href: '/alerts.html', group: 'Stream Tools' });
@@ -634,6 +636,14 @@
             }
             if (event.detail.music?.enabled !== undefined && moduleState.music !== (event.detail.music.enabled === true)) {
                 moduleState.music = event.detail.music.enabled === true;
+                changed = true;
+            }
+            if (event.detail.polls_enabled !== undefined && moduleState.polls !== (event.detail.polls_enabled !== false)) {
+                moduleState.polls = event.detail.polls_enabled !== false;
+                changed = true;
+            }
+            if (event.detail.versus_enabled !== undefined && moduleState.versus !== (event.detail.versus_enabled !== false)) {
+                moduleState.versus = event.detail.versus_enabled !== false;
                 changed = true;
             }
             if (changed) {

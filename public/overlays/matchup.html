@@ -366,7 +366,7 @@
             justify-content: space-between;
             width: 100%;
             max-width: 1200px;
-            gap: 1.5rem;
+            gap: var(--center-gap, 1.5rem);
             position: relative;
         }
 
@@ -485,7 +485,7 @@
             justify-content: space-between;
             align-items: center;
             width: 100%;
-            gap: 1rem;
+            gap: var(--center-gap, 1rem);
             position: relative;
         }
 
@@ -884,7 +884,85 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 0.75rem;
+            gap: var(--center-gap, 0.75rem);
+        }
+
+        /* Center / Opponent Gap Overrides (?gap=intact|160px|240px) */
+        body.has-center-gap .topbar-center-badge {
+            min-width: var(--center-gap, clamp(80px, 16cqw, 150px));
+        }
+
+        body.has-center-gap.no-center-badge .topbar-panel {
+            background: transparent !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+            gap: var(--center-gap, 160px);
+            overflow: visible;
+        }
+
+        body.has-center-gap.no-center-badge .topbar-competitor {
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 12px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+            overflow: hidden;
+        }
+
+        body.has-center-gap.no-center-badge .topbar-panel .center-divider {
+            display: none !important;
+        }
+
+        body.has-center-gap.no-center-badge.theme-retro .topbar-competitor,
+        body.has-center-gap.no-center-badge.theme-retro .minimal-side {
+            border-radius: 0 !important;
+            border: 3px solid #ffcc00 !important;
+            box-shadow: 4px 4px 0 #000, 0 0 0 2px #000 !important;
+        }
+
+        body.has-center-gap.no-center-badge.theme-border .topbar-competitor,
+        body.has-center-gap.no-center-badge.theme-border .minimal-side {
+            border: 3px solid var(--matchup-accent) !important;
+            border-radius: 8px !important;
+        }
+
+        body.has-center-gap.no-center-badge.theme-pill .topbar-competitor,
+        body.has-center-gap.no-center-badge.theme-pill .minimal-side {
+            border-radius: 9999px !important;
+            padding-left: 1.25rem !important;
+            padding-right: 1.25rem !important;
+        }
+
+        body.has-center-gap.no-center-badge .minimal-bar {
+            background: transparent !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+            gap: var(--center-gap, 160px);
+            overflow: visible;
+        }
+
+        body.has-center-gap.no-center-badge .minimal-side {
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 8px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+        }
+
+        body.has-center-gap.no-center-badge .minimal-bar .center-divider {
+            display: none !important;
+        }
+
+        body.has-center-gap .ang-row {
+            gap: var(--center-gap, 0px);
+        }
+
+        body.has-center-gap.no-center-badge .ang-side.l,
+        body.has-center-gap.no-center-badge .ang-side.r {
+            margin-left: 0;
+            margin-right: 0;
+        }
+
+        body.has-center-gap .versus-card-grid {
+            gap: var(--center-gap, 2rem);
         }
 
         .vs-divider {
@@ -1633,7 +1711,8 @@
         const isPreview = params.get('preview') === '1' || params.get('sample') === '1';
         const sourceMode = (params.get('source') || 'auto').toLowerCase(); // 'auto' | 'tournament' | 'matchup'
         const layout = (params.get('layout') || params.get('mode') || 'top').toLowerCase(); // 'top' | 'fgc' | 'split' | 'minimal' | 'bottom' | 'compact' | 'versus' | 'pillar' | 'vertical'
-        const showCenter = params.get('center') !== '0';
+        const showCenter = params.get('center') !== '0' && params.get('showcenter') !== '0';
+        const customGap = (params.get('gap') || params.get('centerspace') || params.get('spacing') || '').trim().toLowerCase();
         const showPips = params.get('pips') !== '0';
         const showRoundPips = params.get('roundpips') === '1' || (showPips && params.get('roundpips') !== '0' && params.get('rounds') !== '0' && params.get('showrounds') !== '0');
         const pipStyle = (params.get('pipstyle') || params.get('pips_style') || 'circle').toLowerCase(); // 'circle' | 'diamond' | 'bar' | 'digit'
@@ -1666,6 +1745,14 @@
         const fitParam = params.get('fit');
 
         document.body.className = `layout-${layout}`;
+        if (!showCenter) {
+            document.body.classList.add('no-center-badge');
+        }
+        if (customGap && customGap !== '0' && customGap !== 'none' && customGap !== 'auto') {
+            const gapCss = (customGap === 'intact' || customGap === 'keep') ? '160px' : (/^\d+$/.test(customGap) ? `${customGap}px` : customGap);
+            document.documentElement.style.setProperty('--center-gap', gapCss);
+            document.body.classList.add('has-center-gap');
+        }
         if (fitParam === 'content' || fitParam === '1' || fitParam === 'tight') {
             document.body.classList.add('fit-content');
         }
@@ -2316,7 +2403,7 @@
                                     </div>
                                 `}
                             </div>
-                            ${idx < comps.length - 1 && comps.length === 2 ? '<div class="vs-divider">VS</div>' : ''}
+                            ${idx < comps.length - 1 && comps.length === 2 && showCenter ? '<div class="vs-divider">VS</div>' : ''}
                         `).join('')}
                     </div>
                 </div>
@@ -2363,7 +2450,7 @@
                 <div class="ang-stage">
                     <div class="ang-row">
                         ${side(p1, 'l')}
-                        ${showCenter ? `<div class="ang-center"><div class="ang-vs">VS</div>${renderClockHtml(m, 'badge')}<div class="match-phase-badge">${esc(m.phase || (target > 0 ? `First to ${target}` : ''))}</div>${m.title ? `<div class="match-title-badge">${esc(m.title)}</div>` : ''}${showDetails && m.details ? `<div class="match-details-badge">${esc(m.details)}</div>` : ''}</div>` : '<div class="ang-center"><div class="ang-vs">VS</div></div>'}
+                        ${showCenter ? `<div class="ang-center"><div class="ang-vs">VS</div>${renderClockHtml(m, 'badge')}<div class="match-phase-badge">${esc(m.phase || (target > 0 ? `First to ${target}` : ''))}</div>${m.title ? `<div class="match-title-badge">${esc(m.title)}</div>` : ''}${showDetails && m.details ? `<div class="match-details-badge">${esc(m.details)}</div>` : ''}</div>` : (renderClockHtml(m, 'badge') ? `<div class="ang-center">${renderClockHtml(m, 'badge')}</div>` : '')}
                         ${side(p2, 'r')}
                     </div>
                     ${m.status === 'COMPLETED' && m.winner ? `<div class="winner-banner">Winner: ${esc(m.winner)}</div>` : ''}
