@@ -41,6 +41,11 @@
             </button>
         </div>
 
+                <div id="poll-steps" class="bracket-steps">
+                    <div class="bstep" data-step="setup"><span>1</span>Set up</div>
+                    <div class="bstep" data-step="live"><span>2</span>Run live</div>
+                    <div class="bstep" data-step="review"><span>3</span>Review <a href="#" onclick="switchTab('templates'); return false;">History &rarr;</a></div>
+                </div>
                 <!-- Active Poll Card (Always visible when a poll is running) -->
                 <div id="active-poll-card" class="card active-poll-card" style="display: none;">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
@@ -824,6 +829,12 @@
         // Live Poll Monitor Renderer
         function renderActivePollMonitor(poll) {
             const card = $('active-poll-card');
+            const pollStep = poll && poll.status === 'ACTIVE' ? 'live' : (poll && poll.status === 'CLOSED' ? 'review' : 'setup');
+            document.querySelectorAll('#poll-steps .bstep').forEach(el => {
+                const order = ['setup', 'live', 'review'];
+                el.classList.toggle('active', el.dataset.step === pollStep);
+                el.classList.toggle('done', order.indexOf(el.dataset.step) < order.indexOf(pollStep));
+            });
             if (!poll || poll.status !== 'ACTIVE') {
                 card.style.display = 'none';
                 return;

@@ -46,6 +46,11 @@
 
         <!-- Tab 1: Tournament Bracket Controller -->
         <div id="panel-tourney" style="display: block;">
+                    <div id="bracket-steps" class="bracket-steps">
+                        <div class="bstep" data-step="setup"><span>1</span>Set up</div>
+                        <div class="bstep" data-step="live"><span>2</span>Run live</div>
+                        <div class="bstep" data-step="review"><span>3</span>Review <a href="#" onclick="switchTab('history'); return false;">History &rarr;</a></div>
+                    </div>
                     <!-- Active Tournament Running Monitor -->
                     <div id="active-tourney-card" class="card active-poll-card" style="display: none;">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
@@ -655,6 +660,10 @@
                                         <input type="checkbox" id="matchup-opt-phase" checked onchange="updateMatchupOverlayUrl()">
                                         <span>Show phase / stage</span>
                                     </label>
+                                <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-banner" checked onchange="updateMatchupOverlayUrl()">
+                                        <span>Show winner banner</span>
+                                    </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="matchup-opt-clock" checked onchange="updateMatchupOverlayUrl()">
                                         <span>Show match clock / timers</span>
@@ -1181,7 +1190,7 @@
             if (sourceSelect && sourceSelect.value !== 'auto') urlParams.set('source', sourceSelect.value);
             if (pipStyleSelect && pipStyleSelect.value !== 'circle') urlParams.set('pipstyle', pipStyleSelect.value);
             if (centerCheck && !centerCheck.checked) urlParams.set('center', '0');
-            ['title', 'phase', 'clock', 'tags', 'details', 'pips'].forEach(k => { const el = $('matchup-opt-' + k); if (el && !el.checked) urlParams.set(k, '0'); });
+            ['title', 'phase', 'clock', 'tags', 'details', 'pips', 'banner'].forEach(k => { const el = $('matchup-opt-' + k); if (el && !el.checked) urlParams.set(k, '0'); });
             if (fitCheck && fitCheck.checked) urlParams.set('fit', 'content');
             if (confettiCheck && !confettiCheck.checked) urlParams.set('confetti', '0');
 
@@ -2897,6 +2906,12 @@
             const monitorCard = $('active-tourney-card');
             const createCard = $('card-create-tourney');
 
+            const stepState = !t || !t.matches ? 'setup' : (t.status === 'COMPLETED' ? 'review' : 'live');
+            document.querySelectorAll('#bracket-steps .bstep').forEach(el => {
+                const order = ['setup', 'live', 'review'];
+                el.classList.toggle('active', el.dataset.step === stepState);
+                el.classList.toggle('done', order.indexOf(el.dataset.step) < order.indexOf(stepState));
+            });
             if (!t || t.status === 'COMPLETED' || !t.matches) {
                 if (monitorCard) monitorCard.style.display = 'none';
                 if (createCard) createCard.style.display = 'block';
