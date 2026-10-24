@@ -1450,7 +1450,7 @@
                                         ${target > 0 ? renderPipsHtml(c, target, c.color) : ''}
                                     </div>
                                     <div class="race-timer-hero">
-                                        <div class="race-timer-digits"${isFin ? '' : ' data-live="' + i + '"'}>${timeStr}</div>
+                                        ${clockOff ? '' : `<div class="race-timer-digits"${isFin ? '' : ' data-live="' + i + '"'}>${timeStr}</div>`}
                                         ${badgeHtml}
                                     </div>
                                 </div>
@@ -1914,6 +1914,10 @@
 
         function resolveActiveState() {
             if (forceSample) {
+                fetch('/api/matchup').then(r => r.json()).then(d => {
+                    const c = (d.matchup || d).clock;
+                    if (c && c.enabled === false) { SAMPLE_MATCHUP.clock.enabled = false; renderMatchup(SAMPLE_MATCHUP); }
+                }).catch(() => {});
                 renderMatchup(SAMPLE_MATCHUP);
                 return;
             }
@@ -1995,7 +1999,16 @@
             };
 
             ws.onmessage = (event) => {
-                if (forceSample) return;
+                if (forceSample) {
+                    try {
+                        const sm = JSON.parse(event.data);
+                        if (sm.type === 'matchup-update' && sm.data && sm.data.clock) {
+                            SAMPLE_MATCHUP.clock.enabled = sm.data.clock.enabled !== false;
+                            renderMatchup(SAMPLE_MATCHUP);
+                        }
+                    } catch { /* ignore */ }
+                    return;
+                }
                 try {
                     const msg = JSON.parse(event.data);
                     if (msg.type === 'matchup-update') {
