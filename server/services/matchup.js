@@ -277,6 +277,11 @@ function createMatchupService({
         if (data.details !== undefined) activeMatchup.details = String(data.details || '').trim();
         if (data.format !== undefined) activeMatchup.format = data.format === 'points' ? 'points' : (data.format === 'firstTo' ? 'firstTo' : 'bestOf');
 
+        if (data.roundsBestOf !== undefined) {
+            activeMatchup.roundsBestOf = Math.max(0, parseInt(data.roundsBestOf, 10) || 0);
+            activeMatchup.competitors.forEach(c => { c.rounds = 0; });
+        }
+
         if (data.bestOf !== undefined) {
             activeMatchup.bestOf = Math.max(0, parseInt(data.bestOf, 10) || 0);
             if (activeMatchup.format === 'bestOf') {
@@ -339,7 +344,7 @@ function createMatchupService({
         return -1;
     }
 
-    function updateScore(indexOrId, { delta, score } = {}) {
+    function updateScore(indexOrId, { delta, score, roundDelta } = {}) {
         if (!activeMatchup) load();
         const idx = resolveIndex(indexOrId);
         if (idx === -1) {
@@ -353,7 +358,19 @@ function createMatchupService({
         } else if (score !== undefined) {
             comp.score = Math.max(0, parseInt(score, 10) || 0);
         }
-        logEvent('score', `${comp.name} score ${comp.score}`);
+        const rb = Number(activeMatchup.roundsBestOf) || 0;
+        if (roundDelta !== undefined && rb > 0) {
+            const rd = parseInt(roundDelta, 10) || 0;
+            comp.rounds = Math.max(0, (comp.rounds || 0) + rd);
+            logEvent('round', `${comp.name} rounds ${comp.rounds}`);
+            if (comp.rounds >= Math.ceil(rb / 2)) {
+                activeMatchup.competitors.forEach(c => { c.rounds = 0; });
+                comp.score = (comp.score || 0) + 1;
+                logEvent('game', `${comp.name} won the game`);
+            }
+        } else {
+            logEvent('score', `${comp.name} score ${comp.score}`);
+        }
 
         checkWinnerCondition();
         save();
@@ -393,7 +410,7 @@ function createMatchupService({
 
     function resetScores() {
         if (!activeMatchup) load();
-        activeMatchup.competitors.forEach(c => { c.score = 0; });
+        activeMatchup.competitors.forEach(c => { c.score = 0; c.rounds = 0; });
         activeMatchup.winner = null;
         activeMatchup.status = 'ACTIVE';
         save();

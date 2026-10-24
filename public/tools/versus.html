@@ -325,6 +325,17 @@
                             </div>
                         </div>
 
+                        <div style="margin-bottom: 0.75rem;">
+                            <label for="matchup-rounds">Rounds per game (optional)</label>
+                            <select id="matchup-rounds" class="form-control" onchange="saveMatchupSettings()">
+                                <option value="0">Off (games only)</option>
+                                <option value="3">Best of 3 rounds</option>
+                                <option value="5">Best of 5 rounds</option>
+                                <option value="7">Best of 7 rounds</option>
+                            </select>
+                            <div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem;">Round wins fill small pips under each game pip; winning enough rounds awards a game.</div>
+                        </div>
+
                         <div id="matchup-custom-target-row" style="display: none; margin-bottom: 0.75rem;">
                             <label for="matchup-target-input">Target Score to Win Set</label>
                             <input type="number" id="matchup-target-input" class="form-control" min="1" value="5" onchange="saveMatchupSettings()">
@@ -1578,6 +1589,7 @@
             if ($('matchup-details')) $('matchup-details').value = m.details || '';
             if ($('matchup-competitor-count')) $('matchup-competitor-count').value = String(m.competitorCount || 2);
 
+            if ($('matchup-rounds')) $('matchup-rounds').value = String(m.roundsBestOf || 0);
             const fmtSelect = $('matchup-format');
             const targetRow = $('matchup-custom-target-row');
             if (fmtSelect) {
@@ -1661,6 +1673,7 @@
                                 <input type="number" class="score-val-input" min="0" value="${c.score || 0}" onchange="setMatchupScoreDirect(${i}, this.value)">
                                 <button type="button" class="score-btn" onclick="stepMatchupScore(${i}, 1)">+</button>
                             </div>
+                            ${m.roundsBestOf > 0 ? `<div class="score-stepper" title="Rounds won in the current game"><button type="button" class="score-btn" onclick="stepMatchupRound(${i}, -1)">-</button><span class="score-val-input" style="text-align:center;min-width:3.2rem;">R ${c.rounds || 0}</span><button type="button" class="score-btn" onclick="stepMatchupRound(${i}, 1)">+</button></div>` : ''}
                             <div style="text-align: right;">
                                 ${target > 0 ? `<div style="font-size: 0.85rem; letter-spacing: 0.15rem; color: ${c.color || '#fff'}; line-height: 1.1;">${pips}</div>` : ''}
                                 <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">
@@ -1708,6 +1721,14 @@
             if (!activeMatchupData || !activeMatchupData.competitors[index]) return;
             activeMatchupData.competitors[index].color = color;
             saveMatchupSettings();
+        }
+
+        async function stepMatchupRound(index, roundDelta) {
+            try {
+                const res = await fetch('/api/matchup/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index, roundDelta }) });
+                const data = await res.json();
+                if (data.status === 'ok') renderMatchupStudio(data.matchup);
+            } catch { toast('Error updating round'); }
         }
 
         async function stepMatchupScore(index, delta) {
@@ -1816,6 +1837,7 @@
                 details: ($('matchup-details')?.value || '').trim(),
                 competitors: activeMatchupData.competitors
             };
+            payload.roundsBestOf = parseInt($('matchup-rounds')?.value, 10) || 0;
             const fmtVal = $('matchup-format')?.value || 'bestOf-5';
             if (fmtVal === 'firstTo-custom') {
                 payload.targetScore = parseInt($('matchup-target-input')?.value, 10) || 5;

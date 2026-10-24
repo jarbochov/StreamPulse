@@ -14,6 +14,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - Add the card-deck mode, selectable 4/6/8/10-second spin duration, and winner auto-hide choices (8/15/30 seconds or never) to the Companion Randomizer button; display the last-used mode and duration on the key. The Studio syncs its settings without spinning so omitted Companion options inherit them, with controls for button visibility/phrases and winner text. Randomizer scale remains URL-parameter-only.
 
 ### Added
+- Versus: optional rounds per game (best of 3/5/7) shown as small pips under game pips on every layout; Fit Content now shrinks every layout to its content.
 - Versus and Poll Manager: Versus Studio and Poll Studio renamed, with consistent compact buttons and pills.
 - Poll Studio Overlays tab split into poll, bracket tree and match HUD tabs with the same options and themes as Versus Studio; clocks update every 250 ms.
 - Versus Studio: scoreboard, speedrun race clocks and manual brackets split from Poll Studio, with Save Progress snapshots, event-log history, per-element overlay toggles (title, phase, clock, tags, details, pips, winner banner), six new vibrant themes (Ember, Aurora, Ocean, Sunset, Violet, Forest), an Angular Slash scoreboard layout, a Set up / Run live / Review flow on the Bracket tab, an Overlays tab with per-type tabs (scoreboard, match HUD, bracket tree) and a sticky live preview, and manual bracket winner confirmation.

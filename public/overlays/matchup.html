@@ -98,6 +98,7 @@
             height: max-content;
         }
         body.fit-content #matchup-container {
+            container-type: normal;
             width: max-content !important;
             max-width: 100% !important;
         }
@@ -557,6 +558,9 @@
             transition: all 0.3s ease;
         }
 
+        .pips-stack { display:flex; flex-direction:column; gap:.2rem; align-items:center; }
+        .pip.pip-round { width:5px; height:5px; opacity:.85; }
+        .pip.pip-round.pip-bar { width:4px; height:8px; }
         .pip.pip-bar {
             width: 5px;
             height: 12px;
@@ -1317,18 +1321,25 @@
             `;
         }
 
-        function renderPipsHtml(score, target, color) {
+        function renderPipsHtml(comp, target, color) {
+            const score = typeof comp === 'object' ? (comp.score || 0) : comp;
             if (!showPips || !target || target <= 0) return '';
             if (pipStyle === 'digit' || pipStyle === 'number') {
                 return `<div class="pip-digit-badge" style="${color ? `color:${color};` : ''}">${score} / ${target}</div>`;
             }
             const isBar = pipStyle === 'bar' || pipStyle === 'block';
-            let html = '<div class="pips-container">';
-            for (let i = 0; i < target; i++) {
-                html += `<span class="pip${isBar ? ' pip-bar' : ''}${i < score ? ' won' : ''}" style="${i < score && color ? `background:${color};border-color:${color};box-shadow:0 0 6px ${color};` : ''}"></span>`;
+            const mk = (n, total, extra) => {
+                let h = `<div class="pips-container${extra}">`;
+                for (let i = 0; i < total; i++) {
+                    h += `<span class="pip${isBar ? ' pip-bar' : ''}${extra ? ' pip-round' : ''}${i < n ? ' won' : ''}" style="${i < n && color ? `background:${color};border-color:${color};box-shadow:0 0 6px ${color};` : ''}"></span>`;
+                }
+                return h + '</div>';
+            };
+            const rb = Number(currentMatchup && currentMatchup.roundsBestOf) || 0;
+            if (typeof comp === 'object' && rb > 0) {
+                return `<div class="pips-stack">${mk(score, target, '')}${mk(comp.rounds || 0, Math.ceil(rb / 2), ' rounds')}</div>`;
             }
-            html += '</div>';
-            return html;
+            return mk(score, target, '');
         }
 
         function renderMatchup(m) {
@@ -1435,7 +1446,7 @@
                                             <div class="race-runner-name">${esc(c.name)}</div>
                                             ${showTags && c.tag ? `<div class="race-runner-tag">${esc(c.tag)}</div>` : ''}
                                         </div>
-                                        ${target > 0 ? renderPipsHtml(c.score, target, c.color) : ''}
+                                        ${target > 0 ? renderPipsHtml(c, target, c.color) : ''}
                                     </div>
                                     <div class="race-timer-hero">
                                         <div class="race-timer-digits"${isFin ? '' : ' data-live="' + i + '"'}>${timeStr}</div>
@@ -1470,7 +1481,7 @@
                             ${showTags && p1.tag ? `<div class="competitor-tag">${esc(p1.tag)}</div>` : ''}
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.6rem;">
-                            ${renderPipsHtml(p1.score, target, p1.color || 'var(--p1-color)')}
+                            ${renderPipsHtml(p1, target, p1.color || 'var(--p1-color)')}
                             <div class="score-box">${p1.score}</div>
                         </div>
                     </div>
@@ -1480,7 +1491,7 @@
                             ${showTags && p2.tag ? `<div class="competitor-tag">${esc(p2.tag)}</div>` : ''}
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.6rem;">
-                            ${renderPipsHtml(p2.score, target, p2.color || 'var(--p2-color)')}
+                            ${renderPipsHtml(p2, target, p2.color || 'var(--p2-color)')}
                             <div class="score-box">${p2.score}</div>
                         </div>
                     </div>
@@ -1509,7 +1520,7 @@
                             <div class="competitor-name">${esc(p1.name)}</div>
                             ${showTags && p1.tag ? `<div class="competitor-tag">${esc(p1.tag)}</div>` : ''}
                         </div>
-                        ${renderPipsHtml(p1.score, target, p1.color || 'var(--p1-color)')}
+                        ${renderPipsHtml(p1, target, p1.color || 'var(--p1-color)')}
                         <div class="score-box" id="p1-score">${p1.score}</div>
                     </div>
 
@@ -1527,7 +1538,7 @@
                     <div class="topbar-competitor c2${p2Won ? ' winner' : ''}">
                         <div class="competitor-accent-strip" style="background: ${p2.color || 'var(--p2-color)'};"></div>
                         <div class="score-box" id="p2-score">${p2.score}</div>
-                        ${renderPipsHtml(p2.score, target, p2.color || 'var(--p2-color)')}
+                        ${renderPipsHtml(p2, target, p2.color || 'var(--p2-color)')}
                         <div class="competitor-meta">
                             <div class="competitor-name">${esc(p2.name)}</div>
                             ${showTags && p2.tag ? `<div class="competitor-tag">${esc(p2.tag)}</div>` : ''}
@@ -1555,7 +1566,7 @@
                             <div class="fgc-player-name">${esc(p1.name)}</div>
                             ${showTags && p1.tag ? `<span class="fgc-char-badge">${esc(p1.tag)}</span>` : ''}
                         </div>
-                        ${renderPipsHtml(p1.score, target, p1.color || '#ef4444')}
+                        ${renderPipsHtml(p1, target, p1.color || '#ef4444')}
                         <div class="fgc-score-counter" id="p1-score">${p1.score}</div>
                     </div>
 
@@ -1572,7 +1583,7 @@
                     <!-- Player 2 Side -->
                     <div class="fgc-side p2${p2Won ? ' winner' : ''}" style="--p2-color: ${p2.color || '#3b82f6'};">
                         <div class="fgc-score-counter" id="p2-score">${p2.score}</div>
-                        ${renderPipsHtml(p2.score, target, p2.color || '#3b82f6')}
+                        ${renderPipsHtml(p2, target, p2.color || '#3b82f6')}
                         <div class="fgc-name-wrap">
                             <div class="fgc-player-name">${esc(p2.name)}</div>
                             ${showTags && p2.tag ? `<span class="fgc-char-badge">${esc(p2.tag)}</span>` : ''}
@@ -1597,7 +1608,7 @@
                     <!-- Top-Left Corner (P1) -->
                     <div class="split-corner-card p1${p1Won ? ' winner' : ''}" style="--p1-color: ${p1.color || '#ef4444'};">
                         <div class="score-box" id="p1-score">${p1.score}</div>
-                        ${renderPipsHtml(p1.score, target, p1.color || '#ef4444')}
+                        ${renderPipsHtml(p1, target, p1.color || '#ef4444')}
                         <div class="competitor-meta">
                             <div class="competitor-name">${esc(p1.name)}</div>
                             ${showTags && p1.tag ? `<div class="competitor-tag">${esc(p1.tag)}</div>` : ''}
@@ -1609,7 +1620,7 @@
                     <!-- Top-Right Corner (P2) -->
                     <div class="split-corner-card p2${p2Won ? ' winner' : ''}" style="--p2-color: ${p2.color || '#3b82f6'};">
                         <div class="score-box" id="p2-score">${p2.score}</div>
-                        ${renderPipsHtml(p2.score, target, p2.color || '#3b82f6')}
+                        ${renderPipsHtml(p2, target, p2.color || '#3b82f6')}
                         <div class="competitor-meta">
                             <div class="competitor-name">${esc(p2.name)}</div>
                             ${showTags && p2.tag ? `<div class="competitor-tag">${esc(p2.tag)}</div>` : ''}
@@ -1638,14 +1649,14 @@
                             <div class="competitor-name" style="font-size:1rem;">${esc(p1.name)}</div>
                             ${showTags && p1.tag ? `<div class="competitor-tag">${esc(p1.tag)}</div>` : ''}
                         </div>
-                        ${renderPipsHtml(p1.score, target, p1.color)}
+                        ${renderPipsHtml(p1, target, p1.color)}
                         <div class="score-box" style="font-size:1.2rem; min-width:2rem; height:2.2rem;">${p1.score}</div>
                     </div>
 
                     <!-- P2 -->
                     <div class="minimal-side p2${p2Won ? ' winner' : ''}">
                         <div class="score-box" style="font-size:1.2rem; min-width:2rem; height:2.2rem;">${p2.score}</div>
-                        ${renderPipsHtml(p2.score, target, p2.color)}
+                        ${renderPipsHtml(p2, target, p2.color)}
                         <div class="competitor-meta" style="text-align:left;">
                             <div class="competitor-name" style="font-size:1rem;">${esc(p2.name)}</div>
                             ${showTags && p2.tag ? `<div class="competitor-tag">${esc(p2.tag)}</div>` : ''}
@@ -1680,7 +1691,7 @@
                                     </div>
                                 </div>
                                 <div style="display:flex; align-items:center; gap:0.4rem;">
-                                    ${renderPipsHtml(c.score, target, c.color)}
+                                    ${renderPipsHtml(c, target, c.color)}
                                     <div class="score-box" style="font-size:1.15rem; min-width:1.8rem; height:2rem;">${c.score}</div>
                                 </div>
                             </div>
@@ -1707,11 +1718,11 @@
                                         <div class="competitor-name">${esc(c.name)}</div>
                                         ${showTags && c.tag ? `<div class="competitor-tag">${esc(c.tag)}</div>` : ''}
                                     </div>
-                                    ${renderPipsHtml(c.score, target, c.color)}
+                                    ${renderPipsHtml(c, target, c.color)}
                                     <div class="score-box">${c.score}</div>
                                 ` : `
                                     <div class="score-box">${c.score}</div>
-                                    ${renderPipsHtml(c.score, target, c.color)}
+                                    ${renderPipsHtml(c, target, c.color)}
                                     <div>
                                         <div class="competitor-name">${esc(c.name)}</div>
                                         ${showTags && c.tag ? `<div class="competitor-tag">${esc(c.tag)}</div>` : ''}
@@ -1741,7 +1752,7 @@
                                 ${showTags && c.tag ? `<span style="font-size:0.68rem; color:var(--matchup-muted);">(${esc(c.tag)})</span>` : ''}
                             </div>
                             <div style="display:flex; align-items:center; gap:0.35rem;">
-                                ${renderPipsHtml(c.score, target, c.color)}
+                                ${renderPipsHtml(c, target, c.color)}
                                 <span class="compact-score">${c.score}</span>
                             </div>
                         </div>
@@ -1757,7 +1768,7 @@
             const side = (p, cls) => `
                 <div class="ang-side ${cls}" style="--c: ${p.color || (cls === 'l' ? 'var(--p1-color)' : 'var(--p2-color)')};">
                     <div style="min-width:0;"><div class="ang-name">${esc(p.name)}</div>${showTags && p.tag ? `<div class="ang-tag">${esc(p.tag)}</div>` : ''}</div>
-                    ${showPips ? renderPipsHtml(p.score, target, '#fff') : ''}
+                    ${showPips ? renderPipsHtml(p, target, '#fff') : ''}
                     <div class="ang-score">${p.score}</div>
                 </div>`;
             container.innerHTML = `
@@ -1786,7 +1797,7 @@
                             <div class="versus-big-name" style="color: ${p1.color || 'var(--p1-color)'};">${esc(p1.name)}</div>
                             ${showTags && p1.tag ? `<div class="competitor-tag">${esc(p1.tag)}</div>` : ''}
                             <div class="versus-big-score">${p1.score}</div>
-                            ${renderPipsHtml(p1.score, target, p1.color)}
+                            ${renderPipsHtml(p1, target, p1.color)}
                         </div>
 
                         <div class="versus-badge-big">VS</div>
@@ -1795,7 +1806,7 @@
                             <div class="versus-big-name" style="color: ${p2.color || 'var(--p2-color)'};">${esc(p2.name)}</div>
                             ${showTags && p2.tag ? `<div class="competitor-tag">${esc(p2.tag)}</div>` : ''}
                             <div class="versus-big-score">${p2.score}</div>
-                            ${renderPipsHtml(p2.score, target, p2.color)}
+                            ${renderPipsHtml(p2, target, p2.color)}
                         </div>
                     </div>
                     ${showDetails && m.details ? `
