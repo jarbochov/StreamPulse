@@ -104,6 +104,11 @@
             align-items: center;
         }
 
+        body.mode-single-pod #matchup-container,
+        body.mode-clock-only #matchup-container {
+            align-items: var(--matchup-align, center);
+        }
+
         /* Auto-Fit / Tight Content Box Mode (?fit=content or ?fit=1) */
         body.fit-content #stage {
             padding: 0;
@@ -1141,6 +1146,59 @@
             border-radius: 9999px;
             padding-left: clamp(1rem, 2.5cqw, 1.5rem);
             padding-right: clamp(1rem, 2.5cqw, 1.5rem);
+        }
+
+        /* ----------------------------------------------------
+           Mirrored / Reflected Pod Elements (?mirror=1 / ?side=right)
+           ---------------------------------------------------- */
+        .single-player-pod.mirrored {
+            flex-direction: row-reverse;
+        }
+        .single-player-pod.mirrored .competitor-accent-strip {
+            left: auto;
+            right: 0;
+        }
+        .single-player-pod.mirrored .competitor-meta {
+            text-align: right;
+            align-items: flex-end;
+        }
+        .single-player-pod.mirrored .pips-container {
+            flex-direction: row-reverse;
+        }
+        .single-player-pod.mirrored.pod-angular {
+            transform: skewX(10deg);
+        }
+        .single-player-pod.mirrored.pod-angular > * {
+            transform: skewX(-10deg);
+        }
+        .single-player-pod.mirrored.pod-fgc {
+            clip-path: polygon(16px 0, 100% 0, 100% 100%, 0 100%);
+            padding-right: clamp(0.6rem, 2cqw, 1.1rem);
+            padding-left: clamp(1.2rem, 3cqw, 1.8rem);
+        }
+        .single-player-pod.mirrored.pod-race {
+            border-left: none;
+            border-right: 4px solid var(--matchup-accent);
+            background: linear-gradient(-90deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.85));
+        }
+        .single-player-pod.mirrored.pod-pillar,
+        .single-player-pod.mirrored.pod-vertical {
+            align-items: flex-end;
+            text-align: right;
+        }
+        .single-player-pod.mirrored.pod-pillar .competitor-meta,
+        .single-player-pod.mirrored.pod-vertical .competitor-meta {
+            align-items: flex-end;
+            text-align: right;
+        }
+        .single-player-pod.mirrored.pod-pillar .competitor-accent-strip,
+        .single-player-pod.mirrored.pod-vertical .competitor-accent-strip {
+            left: auto;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            height: 100%;
         }
 
         /* ----------------------------------------------------
@@ -2191,8 +2249,11 @@
         const customP2Color = params.get('p2color');
         const customBadgeColor = params.get('badgecolor') || params.get('centerbadge') || params.get('badge_color');
         const playerFilterParam = (params.get('player') || params.get('competitor') || params.get('slot') || '').trim().toLowerCase();
-        const alignParam = params.get('align');
-        const valignParam = params.get('valign');
+        const alignParam = (params.get('align') || params.get('justify') || '').trim().toLowerCase();
+        const valignParam = (params.get('valign') || params.get('v_align') || '').trim().toLowerCase();
+        const sideParam = (params.get('side') || '').trim().toLowerCase(); // 'left' | 'right'
+        const mirrorRaw = (params.get('mirror') || params.get('flip') || params.get('reflect') || params.get('reverse') || '').trim().toLowerCase();
+        const isMirrored = (mirrorRaw === '1' || mirrorRaw === 'true' || mirrorRaw === 'yes' || mirrorRaw === 'on' || sideParam === 'right' || (alignParam === 'right' && mirrorRaw !== '0' && mirrorRaw !== 'false' && mirrorRaw !== 'off'));
         const fitParam = params.get('fit');
 
         document.body.className = `layout-${layout}`;
@@ -2213,13 +2274,23 @@
             document.body.classList.add('mode-single-pod');
         }
 
-        if (alignParam === 'left') document.documentElement.style.setProperty('--matchup-align', 'flex-start');
-        else if (alignParam === 'right') document.documentElement.style.setProperty('--matchup-align', 'flex-end');
-        else if (alignParam === 'center') document.documentElement.style.setProperty('--matchup-align', 'center');
+        if (sideParam === 'right' && !alignParam) {
+            document.documentElement.style.setProperty('--matchup-align', 'flex-end');
+        } else if (sideParam === 'left' && !alignParam) {
+            document.documentElement.style.setProperty('--matchup-align', 'flex-start');
+        }
 
-        if (valignParam === 'top') document.documentElement.style.setProperty('--matchup-valign', 'flex-start');
-        else if (valignParam === 'bottom') document.documentElement.style.setProperty('--matchup-valign', 'flex-end');
-        else if (valignParam === 'center') document.documentElement.style.setProperty('--matchup-valign', 'center');
+        if (alignParam === 'left' || alignParam === 'start') document.documentElement.style.setProperty('--matchup-align', 'flex-start');
+        else if (alignParam === 'right' || alignParam === 'end') document.documentElement.style.setProperty('--matchup-align', 'flex-end');
+        else if (alignParam === 'center' || alignParam === 'middle') document.documentElement.style.setProperty('--matchup-align', 'center');
+
+        if (valignParam === 'top' || valignParam === 'start') document.documentElement.style.setProperty('--matchup-valign', 'flex-start');
+        else if (valignParam === 'bottom' || valignParam === 'end') document.documentElement.style.setProperty('--matchup-valign', 'flex-end');
+        else if (valignParam === 'center' || valignParam === 'middle') document.documentElement.style.setProperty('--matchup-valign', 'center');
+
+        if (isMirrored) {
+            document.body.classList.add('is-mirrored');
+        }
 
         if (scaleVal && Number.isFinite(scaleVal) && scaleVal > 0) {
             document.documentElement.style.setProperty('--matchup-scale', scaleVal);
@@ -2559,9 +2630,10 @@
             const runnerTimerHtml = renderRunnerInlineTimerHtml(m, comp, idx);
             const pipsHtml = renderPipsHtml(comp, target, compColor);
             const podLayoutClass = (layout && !['pod', 'single', 'top'].includes(layout)) ? ` pod-${layout}` : '';
+            const mirrorClass = isMirrored ? ' mirrored' : '';
 
             container.innerHTML = `
-                <div class="single-player-pod${podLayoutClass}${isWinner ? ' winner' : ''}">
+                <div class="single-player-pod${podLayoutClass}${mirrorClass}${isWinner ? ' winner' : ''}">
                     <div class="competitor-accent-strip" style="background: ${compColor};"></div>
                     <div class="player-slot-pill" style="background: color-mix(in srgb, ${compColor} 20%, transparent); color: ${compColor}; border: 1px solid color-mix(in srgb, ${compColor} 45%, transparent);">
                         ${comp.seed ? `#${comp.seed}` : slotLabel}

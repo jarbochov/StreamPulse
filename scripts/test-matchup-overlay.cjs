@@ -704,6 +704,54 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         const pillRadius = await page.$eval('.single-player-pod', el => getComputedStyle(el).borderRadius);
         assert.equal(pillRadius, '9999px', 'Pill layout pod should have 9999px border-radius');
 
+        // 42. Pod Alignment, Mirroring, and Reflection (?side=right, ?mirror=1, ?align=right)
+        // 42a. Mirror Pod with ?side=right
+        await page.goto(`${OVERLAY_URL}?preview=1&player=1&side=right`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod.mirrored');
+        const podFlexDir = await page.$eval('.single-player-pod', el => getComputedStyle(el).flexDirection);
+        const metaTextAlign = await page.$eval('.single-player-pod .competitor-meta', el => getComputedStyle(el).textAlign);
+        assert.equal(podFlexDir, 'row-reverse', 'Mirrored pod should use flex-direction row-reverse');
+        assert.equal(metaTextAlign, 'right', 'Mirrored pod competitor-meta should align text to the right');
+
+        // 42b. Angular Pod Mirroring (?player=2&layout=angular&mirror=1)
+        await page.goto(`${OVERLAY_URL}?preview=1&player=2&layout=angular&mirror=1`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod.pod-angular.mirrored');
+        const isAngularMirrored = await page.$eval('.single-player-pod', el => el.classList.contains('pod-angular') && el.classList.contains('mirrored'));
+        assert.ok(isAngularMirrored, 'Angular pod should have both .pod-angular and .mirrored classes');
+
+        // 42c. Auto-mirroring with align=right (?player=3&align=right)
+        await page.goto(`${OVERLAY_URL}?preview=1&player=3&align=right`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod.mirrored');
+        const autoMirrored = await page.$eval('.single-player-pod', el => el.classList.contains('mirrored'));
+        assert.ok(autoMirrored, 'Pod should auto-mirror when align=right without explicit mirror=0');
+
+        // 42d. Explicit un-mirrored with align=right (?player=4&align=right&mirror=0)
+        await page.goto(`${OVERLAY_URL}?preview=1&player=4&align=right&mirror=0`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod');
+        const unmirroredOnRight = await page.$eval('.single-player-pod', el => el.classList.contains('mirrored'));
+        assert.equal(unmirroredOnRight, false, 'Pod should NOT be mirrored when mirror=0 is explicitly passed');
+
+        // 42e. Versus Studio options: Right Side Mirrored dropdown and persistence
+        const VERSUS_URL = 'file://' + path.resolve(__dirname, '../public/tools/versus.html');
+        await page.goto(VERSUS_URL, { waitUntil: 'domcontentloaded' });
+        await page.evaluate(() => {
+            switchTab('overlays');
+            const alignSel = document.getElementById('matchup-opt-align');
+            if (alignSel) {
+                alignSel.value = 'right-mirrored';
+                alignSel.dispatchEvent(new Event('change'));
+            }
+        });
+        const matchupUrlAfterAlign = await page.$eval('#url-matchup-overlay', el => el.value);
+        assert.ok(matchupUrlAfterAlign.includes('align=right'), 'Matchup overlay URL should include align=right');
+        assert.ok(matchupUrlAfterAlign.includes('mirror=1'), 'Matchup overlay URL should include mirror=1');
+
+        // Persistence across reload
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.evaluate(() => switchTab('overlays'));
+        const persistedAlign = await page.$eval('#matchup-opt-align', el => el.value);
+        assert.equal(persistedAlign, 'right-mirrored', 'Pod alignment setting should persist in localStorage across reloads');
+
     } finally {
         if (browser) await browser.close();
     }

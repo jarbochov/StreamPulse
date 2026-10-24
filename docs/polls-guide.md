@@ -389,6 +389,10 @@ Control live polls, tournament matchups, and scoreboard sets directly from your 
   - `?layout=pill`: Full capsule border radius.
   - `?layout=top` / `?layout=pod`: Classic horizontal score pod.
   All 18 overlay themes and custom accent colors (`?accent=`, `?badgecolor=`) apply seamlessly across individual pods.
+- **Pod Alignment, Justification & Screen Mirroring**: Broadcasters can position and mirror competitor pods based on which side of the broadcast they are placed (`?align=left|right|center`, `?valign=top|bottom|center`, `?mirror=1`, or `?side=left|right`):
+  - **Left Side (`?side=left` or `?align=left`)**: Standard orientation with color strip, slot badge, and avatar on the left, left-justified name, and score box facing right.
+  - **Right Side Mirrored (`?side=right` or `?align=right&mirror=1`)**: Fully reflected orientation with score box on the inside facing the game screen, right-justified name and tag, avatar and slot badge on the right, and the color strip pinned to the outer right edge.
+  - **Symmetric Layout Reflection**: In mirrored mode, `pod-angular` slants symmetrically inward (`skewX(10deg)`), `pod-fgc` chamfers the inner corner (`polygon(16px 0, 100% 0, ...)`), `pod-race` shifts the accent border and gradient to the right, and pips fill inward from the score box.
 - All overlay customization checkboxes and live overlay preview settings (active preview sub-tab, canvas backdrop grid/dark mode, sample data toggle, whole bracket fit toggle, and selected resolution/aspect viewport chips) are automatically persisted in `localStorage`, maintaining your exact preview and framing when switching between studio tabs or reloading.
 - Confetti celebration is opt-in (`?confetti=1`, turned off by default) on bracket overlays.
 
