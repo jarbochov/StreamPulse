@@ -47,52 +47,126 @@
         }
         .match-admin-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(410px, 1fr));
-            gap: 0.85rem;
+            grid-template-columns: repeat(auto-fill, minmax(560px, 1fr));
+            gap: 1.1rem;
         }
-        @media (max-width: 520px) {
+        @media (max-width: 640px) {
             .match-admin-grid {
                 grid-template-columns: 1fr;
             }
         }
         .match-admin-card {
             background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 0.85rem;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 0.95rem 1rem;
             display: flex;
             flex-direction: column;
-            gap: 0.6rem;
-            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            gap: 0.75rem;
+            box-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+        }
+        .match-admin-card:hover {
+            border-color: rgba(255, 255, 255, 0.22);
+            box-shadow: 0 14px 34px -8px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.35);
+        }
+        .match-admin-card.is-playable {
+            border-color: rgba(56, 189, 248, 0.35);
         }
         .match-admin-card.is-pinned {
             border-color: var(--accent);
-            box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35), 0 8px 24px -8px rgba(59, 130, 246, 0.25);
+            box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.4), 0 12px 32px -6px rgba(59, 130, 246, 0.32);
         }
         .match-admin-card.is-win-ready {
             border-color: #22c55e;
-            box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.45), 0 10px 28px -8px rgba(34, 197, 94, 0.35);
+            box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.5), 0 12px 32px -6px rgba(34, 197, 94, 0.38);
         }
         .match-admin-card.is-completed {
-            opacity: 0.9;
+            opacity: 0.86;
             background: var(--bg-inset);
+            box-shadow: 0 4px 14px -6px rgba(0, 0, 0, 0.35);
         }
         .match-admin-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 0.5rem;
+            background: var(--bg-inset);
+            margin: -0.95rem -1rem 0 -1rem;
+            padding: 0.6rem 1rem;
             border-bottom: 1px solid var(--border);
-            padding-bottom: 0.5rem;
+            border-radius: 11px 11px 0 0;
+        }
+        .match-versus-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+            gap: 0.6rem;
+            align-items: stretch;
+        }
+        @media (max-width: 560px) {
+            .match-versus-row {
+                grid-template-columns: 1fr;
+            }
+            .match-vs-divider {
+                padding: 0.15rem 0 !important;
+            }
+        }
+        .match-vs-divider {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0 0.1rem;
+            user-select: none;
+        }
+        .match-vs-badge {
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.65rem;
+            font-weight: 900;
+            letter-spacing: 0.04em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
         }
         .entrant-admin-box {
             background: var(--bg-inset);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.55rem 0.65rem;
+            border-radius: 9px;
+            padding: 0.65rem 0.7rem;
             display: flex;
             flex-direction: column;
-            gap: 0.45rem;
+            justify-content: space-between;
+            gap: 0.5rem;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+        }
+        body.popout-mode header.header,
+        body.popout-mode #admin-toolbar-main,
+        body.popout-mode #admin-summary-bar,
+        body.popout-mode #admin-filter-bar {
+            display: none !important;
+        }
+        body.popout-mode main.container {
+            max-width: 960px;
+            padding-top: 0.75rem;
+        }
+        .popout-Utility-bar {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.65rem 0.9rem;
+            margin-bottom: 0.85rem;
+            box-shadow: 0 6px 20px -6px rgba(0, 0, 0, 0.45);
         }
         .entrant-admin-box.is-winner {
             border-color: rgba(63, 185, 80, 0.55);
@@ -271,8 +345,25 @@
     <script src="/nav.js"></script>
 
     <main class="container">
+        <!-- Pop-Out / Focused Single-Match Utility Bar -->
+        <div id="popout-utility-bar" class="popout-Utility-bar">
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <span class="live-dot"></span>
+                <span id="popout-tourney-title" style="font-size: 0.85rem; font-weight: 800; color: var(--text);">Match Scorekeeper</span>
+                <select id="popout-match-select" class="form-control" style="font-size: 0.76rem; padding: 0.25rem 0.5rem; min-width: 220px;" onchange="setFocusedMatch(this.value)"></select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+                <button type="button" class="btn-secondary btn-sm" onclick="focusNextPlayableMatch()" title="Jump to next playable match">
+                    Next Playable &rarr;
+                </button>
+                <button type="button" class="btn-secondary btn-sm" id="btn-exit-focus" onclick="setFocusedMatch(null)">
+                    All Matches Grid
+                </button>
+            </div>
+        </div>
+
         <!-- Top Action & Tournament Status Bar -->
-        <div class="admin-toolbar">
+        <div class="admin-toolbar" id="admin-toolbar-main">
             <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
                 <span class="live-dot" id="admin-live-dot"></span>
                 <div>
@@ -418,6 +509,51 @@
         let currentFilter = localStorage.getItem('tourney-admin-filter') || 'all';
         let currentRoundFilter = 'all';
         let currentGroupMode = localStorage.getItem('tourney-admin-group') || 'round';
+        const urlParams = new URLSearchParams(window.location.search);
+        let focusedMatchId = urlParams.get('match') || null;
+        const isPopoutWindow = urlParams.get('popout') === '1';
+        if (isPopoutWindow) {
+            document.body.classList.add('popout-mode');
+        }
+
+        function setFocusedMatch(matchId) {
+            focusedMatchId = matchId || null;
+            const nextUrl = new URL(window.location.href);
+            if (focusedMatchId) {
+                nextUrl.searchParams.set('match', focusedMatchId);
+            } else {
+                nextUrl.searchParams.delete('match');
+                nextUrl.searchParams.delete('popout');
+                document.body.classList.remove('popout-mode');
+            }
+            window.history.replaceState({}, '', nextUrl.toString());
+            renderAdminPage();
+        }
+
+        function focusNextPlayableMatch() {
+            if (!tournamentData || !Array.isArray(tournamentData.matches)) return;
+            const playable = tournamentData.matches.filter(m => classifyMatch(m) === 'playable');
+            if (!playable.length) {
+                toast('No playable matches remaining');
+                return;
+            }
+            const curIdx = playable.findIndex(m => m.id === focusedMatchId);
+            const nextM = playable[(curIdx + 1) % playable.length];
+            setFocusedMatch(nextM.id);
+        }
+
+        function popOutMatchWindow(matchId) {
+            const url = `/tournament-admin.html?match=${encodeURIComponent(matchId)}&popout=1`;
+            const win = window.open(
+                url,
+                `streampulse_match_${matchId}`,
+                'width=820,height=470,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes'
+            );
+            if (!win) {
+                setFocusedMatch(matchId);
+                toast('Focused match view (pop-up blocked by browser)');
+            }
+        }
 
         function esc(str) {
             return String(str ?? '')
@@ -612,16 +748,16 @@
                 const canStepGameUp = canScore && !isMatchWinReady && (target <= 0 || score < target);
                 const canStepRoundUp = canScore && !isMatchWinReady;
                 return `
-                    <div class="entrant-admin-box ${isWinner ? 'is-winner' : ''} ${isWinReady ? 'is-win-ready' : ''}">
+                    <div class="entrant-admin-box ${isWinner ? 'is-winner' : ''} ${isWinReady ? 'is-win-ready' : ''}" style="border-top: 3px solid ${esc(color)};">
                         <div class="entrant-top-bar">
                             <div style="display: flex; align-items: center; gap: 0.4rem; min-width: 0; flex: 1;">
                                 <input type="color" value="${esc(color)}" style="width: 22px; height: 22px; border: none; border-radius: 4px; cursor: pointer; flex-shrink: 0;" onchange="updateEntrantMeta('${m.id}', ${idx}, 'color', this.value)" ${!canScore ? 'disabled' : ''} title="Change entrant color">
-                                <div style="font-weight: 800; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${name === 'TBD' ? 'var(--text-muted)' : 'var(--text)'};">
+                                <div style="font-weight: 800; font-size: 0.94rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${name === 'TBD' ? 'var(--text-muted)' : 'var(--text)'};" title="${esc(name)}">
                                     ${esc(name)}
                                 </div>
-                                ${isWinReady ? `<span class="status-pill completed" style="font-size: 0.58rem; padding: 0.08rem 0.38rem;">Winner Ready</span>` : ''}
+                                ${isWinReady ? `<span class="status-pill completed" style="font-size: 0.56rem; padding: 0.06rem 0.35rem; flex-shrink: 0;">Win Ready</span>` : ''}
                             </div>
-                            <input type="text" class="form-control" style="font-size: 0.68rem; padding: 0.12rem 0.4rem; height: 22px; max-width: 125px; text-align: right;" placeholder="Tag / Character" value="${esc(tag)}" onchange="updateEntrantMeta('${m.id}', ${idx}, 'tag', this.value)" ${!canScore ? 'disabled' : ''}>
+                            <input type="text" class="form-control" style="font-size: 0.68rem; padding: 0.12rem 0.35rem; height: 22px; max-width: 105px; text-align: right;" placeholder="Tag / Char" value="${esc(tag)}" onchange="updateEntrantMeta('${m.id}', ${idx}, 'tag', this.value)" ${!canScore ? 'disabled' : ''}>
                         </div>
 
                         <div class="entrant-scoring-cols">
@@ -630,7 +766,7 @@
                                 <div class="scoring-col-label">Games Won</div>
                                 <div class="score-stepper" style="gap: 0.2rem;">
                                     <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepScore('${m.id}', ${idx}, -1)" ${!canScore || score <= 0 ? 'disabled' : ''}>-</button>
-                                    <input type="number" class="score-val-input" style="width: 42px; height: 26px; font-size: 0.85rem;" min="0" ${maxGameAllowed !== '' ? `max="${maxGameAllowed}"` : ''} value="${score}" onchange="setScoreDirect('${m.id}', ${idx}, this.value)" ${!canScore ? 'disabled' : ''}>
+                                    <input type="number" class="score-val-input" style="width: 40px; height: 26px; font-size: 0.85rem;" min="0" ${maxGameAllowed !== '' ? `max="${maxGameAllowed}"` : ''} value="${score}" onchange="setScoreDirect('${m.id}', ${idx}, this.value)" ${!canScore ? 'disabled' : ''}>
                                     <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepScore('${m.id}', ${idx}, 1)" ${!canStepGameUp ? 'disabled' : ''} title="${isMatchWinReady ? 'Series win target already reached' : 'Add game win'}">+</button>
                                 </div>
                                 <div class="pips-preview" style="color: ${isWinReady ? '#4ade80' : 'var(--accent)'};">${gamePips}</div>
@@ -643,7 +779,7 @@
                                 ${roundTarget > 0 ? `
                                     <div class="score-stepper" style="gap: 0.2rem;">
                                         <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepRound('${m.id}', ${idx}, -1)" ${!canScore || rounds <= 0 ? 'disabled' : ''}>-</button>
-                                        <input type="number" class="score-val-input" style="width: 42px; height: 26px; font-size: 0.85rem;" min="0" max="${Math.max(0, roundTarget - 1)}" value="${Math.min(Math.max(0, roundTarget - 1), rounds)}" onchange="setRoundDirect('${m.id}', ${idx}, this.value)" ${!canStepRoundUp ? 'disabled' : ''}>
+                                        <input type="number" class="score-val-input" style="width: 40px; height: 26px; font-size: 0.85rem;" min="0" max="${Math.max(0, roundTarget - 1)}" value="${Math.min(Math.max(0, roundTarget - 1), rounds)}" onchange="setRoundDirect('${m.id}', ${idx}, this.value)" ${!canStepRoundUp ? 'disabled' : ''}>
                                         <button type="button" class="score-btn" style="width: 26px; height: 26px;" onclick="stepRound('${m.id}', ${idx}, 1)" ${!canStepRoundUp ? 'disabled' : ''} title="${isMatchWinReady ? 'Series win target already reached' : 'Add round win'}">+</button>
                                     </div>
                                     <div class="pips-preview" style="color: #ffd700;">${roundPips}</div>
@@ -651,8 +787,8 @@
                                 ` : `
                                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.25rem 0; gap: 0.25rem;">
                                         <span style="font-size: 0.68rem; color: var(--text-muted); font-style: italic;">Rounds Off</span>
-                                        <button type="button" class="btn-secondary btn-sm" style="font-size: 0.62rem; padding: 0.12rem 0.45rem;" onclick="updateLiveRoundsFormat(3)" title="Enable Best of 3 Rounds per Game for this tournament">
-                                            Enable Bo3 Rounds
+                                        <button type="button" class="btn-secondary btn-sm" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;" onclick="updateLiveRoundsFormat(3)" title="Enable Best of 3 Rounds per Game for this tournament">
+                                            Enable Bo3 Rds
                                         </button>
                                     </div>
                                 `}
@@ -663,37 +799,47 @@
             }
 
             return `
-                <div class="match-admin-card ${isPinned ? 'is-pinned' : ''} ${isMatchWinReady ? 'is-win-ready' : ''} ${state === 'completed' ? 'is-completed' : ''}">
+                <div class="match-admin-card ${state === 'playable' ? 'is-playable' : ''} ${isPinned ? 'is-pinned' : ''} ${isMatchWinReady ? 'is-win-ready' : ''} ${state === 'completed' ? 'is-completed' : ''}">
                     <div class="match-admin-header">
-                        <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
-                            <span style="font-size: 0.78rem; font-weight: 800; color: var(--accent); text-transform: uppercase;">${esc(m.roundName || ('Round ' + m.round))}</span>
+                        <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                            <span style="font-size: 0.8rem; font-weight: 800; color: var(--accent); text-transform: uppercase;">${esc(m.roundName || ('Round ' + m.round))}</span>
                             <span style="font-size: 0.68rem; color: var(--text-muted); font-family: monospace;">#${esc(m.id)}</span>
-                            <span style="font-size: 0.68rem; color: var(--text-muted);">${target > 0 ? `Bo${m.bestOf || (target * 2 - 1)} (FT${target})` : 'Open Points'}${roundTarget > 0 ? ` · Bo${rb} Rds` : ''}</span>
+                            <span style="font-size: 0.68rem; color: var(--text-muted); font-weight: 600;">${target > 0 ? `Bo${m.bestOf || (target * 2 - 1)} (FT${target})` : 'Open Points'}${roundTarget > 0 ? ` · Bo${rb} Rds` : ''}</span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 0.35rem;">
+                        <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
                             ${statusBadge}
                             ${state !== 'completed' ? `
-                                <button type="button" class="btn-secondary btn-sm" style="font-size: 0.66rem; padding: 0.15rem 0.45rem;" onclick="pinMatch(${isPinned ? 'null' : `'${m.id}'`})" title="${isPinned ? 'Unpin from broadcast HUD' : 'Pin this match as the active broadcast match'}">
+                                <button type="button" class="btn-secondary btn-sm" style="font-size: 0.65rem; padding: 0.15rem 0.45rem;" onclick="pinMatch(${isPinned ? 'null' : `'${m.id}'`})" title="${isPinned ? 'Unpin from broadcast HUD' : 'Pin this match as the active broadcast match'}">
                                     ${isPinned ? 'Unpin' : 'Pin Live'}
                                 </button>
                             ` : `
-                                <button type="button" class="btn-secondary btn-sm" style="font-size: 0.66rem; padding: 0.15rem 0.45rem; color: #f59e0b;" onclick="rollbackMatch('${m.id}')" title="Undo advancement and reopen this match">
+                                <button type="button" class="btn-secondary btn-sm" style="font-size: 0.65rem; padding: 0.15rem 0.45rem; color: #f59e0b;" onclick="rollbackMatch('${m.id}')" title="Undo advancement and reopen this match">
                                     Undo
                                 </button>
                             `}
+                            <button type="button" class="btn-secondary btn-sm" style="font-size: 0.65rem; padding: 0.15rem 0.45rem; display: inline-flex; align-items: center; gap: 0.25rem;" onclick="popOutMatchWindow('${m.id}')" title="Pop out this match into its own floating scorekeeper window">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                Pop Out
+                            </button>
                         </div>
                     </div>
 
-                    ${renderEntrantBox(1, e1, t1, c1, s1, r1, gamePips1, roundPips1, isWinner1, isWinReady1, isWinReady2)}
-                    ${renderEntrantBox(2, e2, t2, c2, s2, r2, gamePips2, roundPips2, isWinner2, isWinReady2, isWinReady1)}
+                    <!-- Side-by-Side Left vs Right Matchup Layout -->
+                    <div class="match-versus-row">
+                        ${renderEntrantBox(1, e1, t1, c1, s1, r1, gamePips1, roundPips1, isWinner1, isWinReady1, isWinReady2)}
+                        <div class="match-vs-divider">
+                            <span class="match-vs-badge">VS</span>
+                        </div>
+                        ${renderEntrantBox(2, e2, t2, c2, s2, r2, gamePips2, roundPips2, isWinner2, isWinReady2, isWinReady1)}
+                    </div>
 
                     ${isMatchWinReady ? `
                         <div class="win-ready-banner">
-                            <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.76rem; font-weight: 800; color: #4ade80;">
+                            <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 800; color: #4ade80;">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                                 <span>${esc(readyWinnerName)} reached ${target} game${target === 1 ? '' : 's'} (${s1}&ndash;${s2})</span>
                             </div>
-                            <button type="button" class="btn-primary btn-sm btn-advance-prominent" style="font-size: 0.75rem; padding: 0.32rem 0.75rem;" onclick="advanceMatch('${m.id}')">
+                            <button type="button" class="btn-primary btn-sm btn-advance-prominent" style="font-size: 0.76rem; padding: 0.34rem 0.8rem;" onclick="advanceMatch('${m.id}')">
                                 Confirm &amp; Advance ${esc(readyWinnerName)} &rarr;
                             </button>
                         </div>
@@ -763,6 +909,47 @@
 
             const q = ($('admin-search-input')?.value || '').trim().toLowerCase();
 
+            // Pop-Out / Focused Single-Match Utility Bar
+            const popoutBar = $('popout-utility-bar');
+            const popoutSelect = $('popout-match-select');
+            const popoutTitle = $('popout-tourney-title');
+            if (popoutTitle) {
+                popoutTitle.textContent = t.title ? `${t.title} — Scorekeeper` : 'Match Scorekeeper';
+            }
+            if (popoutBar) {
+                if (focusedMatchId || isPopoutWindow) {
+                    popoutBar.style.display = 'flex';
+                    if (popoutSelect) {
+                        popoutSelect.innerHTML = `<option value="">-- All Matches Grid (${nonBye.length}) --</option>` +
+                            nonBye.map(m => {
+                                const st = classifyMatch(m);
+                                const stTag = st === 'playable' ? '[LIVE]' : (st === 'completed' ? '[DONE]' : '[TBD]');
+                                const rn = m.roundName || `R${m.round || 1}`;
+                                const label = `${stTag} ${rn} #${m.matchNumber || '?'}: ${m.entrant1?.name || 'TBD'} vs ${m.entrant2?.name || 'TBD'} (${m.score1 || 0}-${m.score2 || 0})`;
+                                return `<option value="${esc(m.id)}" ${m.id === focusedMatchId ? 'selected' : ''}>${esc(label)}</option>`;
+                            }).join('');
+                    }
+                } else {
+                    popoutBar.style.display = 'none';
+                }
+            }
+
+            const globalRb = Number(t.roundsBestOf) || 0;
+            const allowDraws = t.format === 'roundRobin' || Boolean(t.allowDraws);
+            const container = $('admin-matches-container');
+
+            if (focusedMatchId) {
+                const targetMatch = nonBye.find(m => m.id === focusedMatchId);
+                if (targetMatch) {
+                    container.innerHTML = `
+                        <div style="max-width: 880px; margin: 0 auto;">
+                            ${buildMatchCardHtml(targetMatch, t, globalRb, allowDraws)}
+                        </div>
+                    `;
+                    return;
+                }
+            }
+
             const filtered = nonBye.filter(m => {
                 const st = classifyMatch(m);
                 if (currentFilter !== 'all' && st !== currentFilter) return false;
@@ -782,7 +969,6 @@
                 return true;
             });
 
-            const container = $('admin-matches-container');
             if (!filtered.length) {
                 container.innerHTML = `
                     <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 1.75rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
@@ -792,9 +978,6 @@
                 `;
                 return;
             }
-
-            const globalRb = Number(t.roundsBestOf) || 0;
-            const allowDraws = t.format === 'roundRobin' || Boolean(t.allowDraws);
 
             if (currentGroupMode === 'round') {
                 const groups = [];
