@@ -59,6 +59,12 @@
         }
 
         /* Themes */
+        .theme-ember { --tourney-bg: linear-gradient(135deg,#2a0f0a,#12060a); --tourney-card-bg: rgba(10,14,24,.88); --tourney-border: #ff6a3d; --tourney-accent: #ff6a3d; }
+        .theme-aurora { --tourney-bg: linear-gradient(135deg,#06232b,#0b1a3a); --tourney-card-bg: rgba(10,14,24,.88); --tourney-border: #2dd4bf; --tourney-accent: #2dd4bf; }
+        .theme-ocean { --tourney-bg: linear-gradient(135deg,#071c3a,#04101f); --tourney-card-bg: rgba(10,14,24,.88); --tourney-border: #38bdf8; --tourney-accent: #38bdf8; }
+        .theme-sunset { --tourney-bg: linear-gradient(135deg,#3b0f3a,#2a0d1a); --tourney-card-bg: rgba(10,14,24,.88); --tourney-border: #fb7185; --tourney-accent: #fbbf24; }
+        .theme-violet { --tourney-bg: linear-gradient(135deg,#1e1038,#0d0820); --tourney-card-bg: rgba(10,14,24,.88); --tourney-border: #a78bfa; --tourney-accent: #c084fc; }
+        .theme-forest { --tourney-bg: linear-gradient(135deg,#0a2316,#06120b); --tourney-card-bg: rgba(10,14,24,.88); --tourney-border: #4ade80; --tourney-accent: #4ade80; }
         .theme-glass {
             --tourney-bg: rgba(13, 17, 23, 0.65);
             --tourney-card-bg: rgba(22, 27, 34, 0.65);
@@ -742,6 +748,12 @@
             else if (overlayVal === 'fgc-evo' || overlayVal === 'evo') document.body.classList.add('theme-fgc-evo');
             else if (overlayVal === 'clean-light' || overlayVal === 'light') document.body.classList.add('theme-clean-light');
             else if (overlayVal === 'minimal-dark' || overlayVal === 'dark') document.body.classList.add('theme-minimal-dark');
+            else if (overlayVal === 'ember') document.body.classList.add('theme-ember');
+            else if (overlayVal === 'aurora') document.body.classList.add('theme-aurora');
+            else if (overlayVal === 'ocean') document.body.classList.add('theme-ocean');
+            else if (overlayVal === 'sunset') document.body.classList.add('theme-sunset');
+            else if (overlayVal === 'violet') document.body.classList.add('theme-violet');
+            else if (overlayVal === 'forest') document.body.classList.add('theme-forest');
             else if (overlayVal === 'border') document.body.classList.add('theme-border');
 
             const spacing = (params.get('spacing') || '').toLowerCase();
