@@ -91,11 +91,25 @@
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;">
                                 <div style="display: inline-flex; align-items: center; gap: 0.3rem;">
+                                    <span style="font-size: 0.66rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Series:</span>
+                                    <select id="tourney-live-series-select" class="form-control" style="font-size: 0.72rem; padding: 0.15rem 0.35rem; height: 24px;" onchange="updateTournamentLiveSeries(this.value)">
+                                        <option value="bestOf-1">Single Game (Best of 1)</option>
+                                        <option value="bestOf-3">Best of 3 (First to 2 wins)</option>
+                                        <option value="bestOf-5">Best of 5 (First to 3 wins)</option>
+                                        <option value="bestOf-7">Best of 7 (First to 4 wins)</option>
+                                        <option value="bestOf-9">Best of 9 (First to 5 wins)</option>
+                                        <option value="firstTo-10">First to 10 (FT10 Set)</option>
+                                        <option value="firstTo-custom">Custom Target Score...</option>
+                                        <option value="points">Free Points (Open Tally)</option>
+                                    </select>
+                                </div>
+                                <div style="display: inline-flex; align-items: center; gap: 0.3rem;">
                                     <span style="font-size: 0.66rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rounds/Game:</span>
                                     <select id="tourney-live-rounds-select" class="form-control" style="font-size: 0.72rem; padding: 0.15rem 0.35rem; height: 24px;" onchange="updateTournamentLiveRounds(this.value)">
-                                        <option value="0">Off (Games Only)</option>
-                                        <option value="3">Best of 3 (FT2 Rds)</option>
-                                        <option value="5">Best of 5 (FT3 Rds)</option>
+                                        <option value="0">Off (Count games only)</option>
+                                        <option value="3">Best of 3 (First to 2 rounds)</option>
+                                        <option value="5">Best of 5 (First to 3 rounds)</option>
+                                        <option value="7">Best of 7 (First to 4 rounds)</option>
                                     </select>
                                 </div>
                                 <label style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: var(--text); cursor: pointer; margin: 0;" title="When unchecked, no single match is highlighted as Live on the bracket overlay (ideal when multiple games run simultaneously)">
@@ -274,18 +288,26 @@
                                         <option value="bestOf-1">Single Game (Best of 1)</option>
                                         <option value="bestOf-5">Best of 5 (First to 3 wins)</option>
                                         <option value="bestOf-7">Best of 7 (First to 4 wins)</option>
+                                        <option value="bestOf-9">Best of 9 (First to 5 wins)</option>
                                         <option value="firstTo-10">First to 10 (FT10 Set)</option>
+                                        <option value="firstTo-custom">Custom Target Score...</option>
                                         <option value="points">Free Points (Open Tally)</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
                                     <label for="tourney-rounds">Rounds per Game (FGC Sets)</label>
                                     <select id="tourney-rounds" class="form-control">
-                                        <option value="0" selected>None (Count games only)</option>
+                                        <option value="0" selected>Off (Count games only)</option>
                                         <option value="3">Best of 3 (First to 2 rounds)</option>
                                         <option value="5">Best of 5 (First to 3 rounds)</option>
+                                        <option value="7">Best of 7 (First to 4 rounds)</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            <div id="tourney-custom-target-row" style="display: none; margin-bottom: 0.75rem;">
+                                <label for="tourney-target-input">Target Score to Win Set</label>
+                                <input type="number" id="tourney-target-input" class="form-control" min="1" value="5">
                             </div>
 
                             <!-- Round Robin Options (Expanded when format is roundRobin) -->
@@ -518,14 +540,14 @@
                         </div>
 
                         <div style="margin-bottom: 0.75rem;">
-                            <label for="matchup-rounds">Rounds per game (optional)</label>
+                            <label for="matchup-rounds">Rounds per Game (FGC Sets)</label>
                             <select id="matchup-rounds" class="form-control" onchange="saveMatchupSettings()">
-                                <option value="0">Off (games only)</option>
-                                <option value="3">Best of 3 rounds</option>
-                                <option value="5">Best of 5 rounds</option>
-                                <option value="7">Best of 7 rounds</option>
+                                <option value="0">Off (Count games only)</option>
+                                <option value="3">Best of 3 (First to 2 rounds)</option>
+                                <option value="5">Best of 5 (First to 3 rounds)</option>
+                                <option value="7">Best of 7 (First to 4 rounds)</option>
                             </select>
-                            <div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem;">Round wins fill small pips under each game pip; winning enough rounds awards a game.</div>
+                            <div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem;">Round wins fill diamond pips under each game pip; winning enough rounds awards a game.</div>
                         </div>
 
                         <div id="matchup-custom-target-row" style="display: none; margin-bottom: 0.75rem;">
@@ -2136,21 +2158,24 @@
             if ($('matchup-rounds')) $('matchup-rounds').value = String(effectiveRoundsBestOf || 0);
             const fmtSelect = $('matchup-format');
             const targetRow = $('matchup-custom-target-row');
-            if (fmtSelect && !tourneyActive) {
-                if (m.format === 'points') {
+            if (fmtSelect) {
+                const srcFmt = tourneyActive ? (activeTourneyData.scoringType || 'bestOf') : (m.format || 'bestOf');
+                const srcBestOf = tourneyActive ? (activeMatch?.bestOf ?? activeTourneyData.bestOf ?? 3) : (m.bestOf || 5);
+                const srcTarget = tourneyActive ? (activeMatch?.targetScore ?? activeTourneyData.targetScore ?? 2) : (m.targetScore || 3);
+                if (srcFmt === 'points' || (!srcBestOf && !srcTarget)) {
                     fmtSelect.value = 'points';
                     if (targetRow) targetRow.style.display = 'none';
-                } else if (m.format === 'firstTo') {
-                    if (m.targetScore === 10) {
+                } else if (srcFmt === 'firstTo' || (!srcBestOf && srcTarget > 0)) {
+                    if (srcTarget === 10) {
                         fmtSelect.value = 'firstTo-10';
                         if (targetRow) targetRow.style.display = 'none';
                     } else {
                         fmtSelect.value = 'firstTo-custom';
                         if (targetRow) targetRow.style.display = 'block';
-                        $('matchup-target-input').value = m.targetScore || 5;
+                        if ($('matchup-target-input')) $('matchup-target-input').value = srcTarget || 5;
                     }
                 } else {
-                    fmtSelect.value = `bestOf-${m.bestOf || 5}`;
+                    fmtSelect.value = `bestOf-${[1, 3, 5, 7, 9].includes(Number(srcBestOf)) ? Number(srcBestOf) : 3}`;
                     if (targetRow) targetRow.style.display = 'none';
                 }
             }
@@ -2510,6 +2535,25 @@
                 if (targetRow) targetRow.style.display = 'block';
             }
 
+            if (isTournamentMatchActive()) {
+                try {
+                    const tRes = await fetch('/api/tournament/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            scoringType: format,
+                            bestOf,
+                            targetScore
+                        })
+                    });
+                    const tData = await tRes.json();
+                    if (tData.status === 'ok') {
+                        activeTourneyData = tData.tournament;
+                        renderTournamentStudio(activeTourneyData);
+                    }
+                } catch {}
+            }
+
             try {
                 const res = await fetch('/api/matchup', {
                     method: 'POST',
@@ -2542,14 +2586,25 @@
 
             if (isTournamentMatchActive()) {
                 try {
-                    await fetch('/api/tournament/settings', {
+                    const tSettings = {
+                        title: payload.title,
+                        roundsBestOf: payload.roundsBestOf
+                    };
+                    if (fmtVal === 'firstTo-custom' && payload.targetScore) {
+                        tSettings.scoringType = 'firstTo';
+                        tSettings.bestOf = 0;
+                        tSettings.targetScore = payload.targetScore;
+                    }
+                    const tRes = await fetch('/api/tournament/settings', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            title: payload.title,
-                            roundsBestOf: payload.roundsBestOf
-                        })
+                        body: JSON.stringify(tSettings)
                     });
+                    const tData = await tRes.json();
+                    if (tData.status === 'ok') {
+                        activeTourneyData = tData.tournament;
+                        renderTournamentStudio(activeTourneyData);
+                    }
                 } catch (e) {
                     console.warn('Failed to sync settings to active tournament:', e);
                 }
@@ -3686,6 +3741,48 @@
             }
         }
 
+        async function updateTournamentLiveSeries(seriesVal) {
+            if (!activeTourneyData) return;
+            let bestOf = 3;
+            let targetScore = 2;
+            let scoringType = 'bestOf';
+            if (seriesVal === 'points') {
+                scoringType = 'points';
+                bestOf = 0;
+                targetScore = 0;
+            } else if (seriesVal === 'firstTo-10') {
+                scoringType = 'firstTo';
+                bestOf = 0;
+                targetScore = 10;
+            } else if (seriesVal === 'firstTo-custom') {
+                const customVal = prompt('Enter custom target score to win set:', String(activeTourneyData.targetScore || 5));
+                if (!customVal) return;
+                scoringType = 'firstTo';
+                bestOf = 0;
+                targetScore = Math.max(1, parseInt(customVal, 10) || 5);
+            } else if (seriesVal.startsWith('bestOf-')) {
+                scoringType = 'bestOf';
+                bestOf = parseInt(seriesVal.replace('bestOf-', ''), 10) || 3;
+                targetScore = Math.ceil(bestOf / 2);
+            }
+            try {
+                const res = await fetch('/api/tournament/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scoringType, bestOf, targetScore })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    activeTourneyData = data.tournament;
+                    renderTournamentStudio(activeTourneyData);
+                    if (activeMatchupData) renderMatchupStudio(activeMatchupData);
+                    toast('Series format updated');
+                }
+            } catch {
+                toast('Error updating series format');
+            }
+        }
+
         async function updateTournamentLiveRounds(roundsVal) {
             if (!activeTourneyData) return;
             const roundsBestOf = Math.max(0, parseInt(roundsVal, 10) || 0);
@@ -3728,9 +3825,19 @@
             if (createCard) createCard.style.display = 'none';
 
             if ($('tourney-active-title')) $('tourney-active-title').textContent = t.title || 'Live Tournament';
+            if ($('tourney-live-series-select')) {
+                if (t.scoringType === 'points' || (!t.bestOf && !t.targetScore)) {
+                    $('tourney-live-series-select').value = 'points';
+                } else if (t.scoringType === 'firstTo' || (!t.bestOf && t.targetScore > 0)) {
+                    $('tourney-live-series-select').value = t.targetScore === 10 ? 'firstTo-10' : 'firstTo-custom';
+                } else {
+                    const bo = Number(t.bestOf) || 3;
+                    $('tourney-live-series-select').value = `bestOf-${[1, 3, 5, 7, 9].includes(bo) ? bo : 3}`;
+                }
+            }
             if ($('tourney-live-rounds-select')) {
                 const rb = Number(t.roundsBestOf) || 0;
-                $('tourney-live-rounds-select').value = String([0, 3, 5].includes(rb) ? rb : (rb > 0 ? 3 : 0));
+                $('tourney-live-rounds-select').value = String([0, 3, 5, 7].includes(rb) ? rb : (rb > 0 ? 3 : 0));
             }
             if ($('tourney-highlight-live-toggle')) $('tourney-highlight-live-toggle').checked = t.highlightLive !== false;
             if ($('btn-tourney-unpin-live')) {
@@ -4218,6 +4325,13 @@
             }
         }
 
+        function handleTourneySeriesChange(val) {
+            const customRow = $('tourney-custom-target-row');
+            if (customRow) {
+                customRow.style.display = val === 'firstTo-custom' ? 'flex' : 'none';
+            }
+        }
+
         async function handleCreateTournament(e) {
             e.preventDefault();
             if (currentEntrantMode === 'table') syncEntrantsTableToText();
@@ -4247,6 +4361,10 @@
             } else if (seriesVal === 'firstTo-10') {
                 scoringType = 'firstTo';
                 targetScore = 10;
+                bestOf = 0;
+            } else if (seriesVal === 'firstTo-custom') {
+                scoringType = 'firstTo';
+                targetScore = Math.max(1, parseInt($('tourney-target-input')?.value, 10) || 5);
                 bestOf = 0;
             }
 

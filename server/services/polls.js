@@ -861,6 +861,7 @@ function createPollService({
         scoringType = 'points',
         bestOf = 0,
         roundsBestOf = 0,
+        targetScore: rawTargetScore = 0,
         matchDuration = 60,
         blind = false,
         subMultiplier = 1,
@@ -880,7 +881,9 @@ function createPollService({
             throw new Error('Tournament requires at least 2 participants');
         }
 
-        const targetScore = (Number(bestOf) > 0) ? Math.ceil(Number(bestOf) / 2) : 0;
+        const targetScore = (Number(bestOf) > 0)
+            ? Math.ceil(Number(bestOf) / 2)
+            : Math.max(0, parseInt(rawTargetScore, 10) || 0);
         const numRoundsBestOf = Math.max(0, parseInt(roundsBestOf, 10) || 0);
 
         if (format === 'roundRobin' || format === 'round-robin') {
