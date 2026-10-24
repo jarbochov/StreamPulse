@@ -210,6 +210,19 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
         assert.equal(tourneyGapState.hasGap, true, 'Body should have has-center-gap class when ?gap=intact');
         assert.equal(tourneyGapState.gapVar, '160px', '--tourney-center-gap should be 160px when ?gap=intact');
 
+        // 17. Custom Bracket Accent Color & Center Match Badge Color (?accent=...&badgecolor=...)
+        await page.goto(`${OVERLAY_URL}?preview=1&accent=%23e11d48&badgecolor=%23fbbf24`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.match-card');
+        const tourneyColorStyles = await page.evaluate(() => {
+            const el = document.documentElement;
+            return {
+                accent: el.style.getPropertyValue('--tourney-accent'),
+                badgeBg: el.style.getPropertyValue('--tourney-badge-bg')
+            };
+        });
+        assert.equal(tourneyColorStyles.accent, '#e11d48', '--tourney-accent should be set to #e11d48');
+        assert.equal(tourneyColorStyles.badgeBg, '#fbbf24', '--tourney-badge-bg should be set to #fbbf24');
+
     } finally {
         if (browser) await browser.close();
     }

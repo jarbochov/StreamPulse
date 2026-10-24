@@ -759,7 +759,23 @@
                                     <option value="pillar">Vertical Pillar Stack</option>
                                     <option value="bottom">Lower-Third HUD</option>
                                     <option value="compact">Compact Score Bug</option>
-                                    <option value="angular">Angular Slash (Esports)</option><option value="versus">Versus Screen Card</option>
+                                    <option value="angular">Angular Slash (Esports)</option>
+                                    <option value="versus">Versus Screen Card</option>
+                                    <option value="pod">Single Player Pod</option>
+                                    <option value="clock">Clock Only</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.3rem;" title="Filter by Competitor / Single Player Pod">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Slot:</span>
+                                <select id="prev-ctrl-player" class="form-control" style="font-size: 0.72rem; padding: 0.2rem 0.4rem;" onchange="onPreviewOptionChange('player', this.value)">
+                                    <option value="" selected>All</option>
+                                    <option value="1">P1 Pod</option>
+                                    <option value="2">P2 Pod</option>
+                                    <option value="3">P3 Pod</option>
+                                    <option value="4">P4 Pod</option>
+                                    <option value="1,2">P1 + P2</option>
+                                    <option value="3,4">P3 + P4</option>
+                                    <option value="none">Clock Only</option>
                                 </select>
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.3rem;">
@@ -1022,8 +1038,38 @@
                                             <option value="pillar">Vertical Pillar Stack (?layout=pillar)</option>
                                             <option value="bottom">Esports Lower-Third HUD (?layout=bottom)</option>
                                             <option value="compact">Compact Score Bug (?layout=compact)</option>
-                                            <option value="angular">Angular Slash (?layout=angular)</option><option value="versus">Versus Screen Card (?layout=versus)</option>
+                                            <option value="angular">Angular Slash (?layout=angular)</option>
+                                            <option value="versus">Versus Screen Card (?layout=versus)</option>
+                                            <option value="pod">Single Player Pod (?layout=pod)</option>
+                                            <option value="clock">Master Clock Only (?layout=clock)</option>
                                         </select>
+                                    </div>
+                                    <div>
+                                        <label for="matchup-opt-player" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Competitor Slot / Filter (?player=)</label>
+                                        <select id="matchup-opt-player" class="form-control" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" onchange="updateMatchupOverlayUrl()">
+                                            <option value="" selected>All Competitors (Full Matchup)</option>
+                                            <option value="1">Player 1 Solo Pod (?player=1)</option>
+                                            <option value="2">Player 2 Solo Pod (?player=2)</option>
+                                            <option value="3">Player 3 Solo Pod (?player=3)</option>
+                                            <option value="4">Player 4 Solo Pod (?player=4)</option>
+                                            <option value="1,2">Players 1 & 2 / Team Left (?player=1,2)</option>
+                                            <option value="3,4">Players 3 & 4 / Team Right (?player=3,4)</option>
+                                            <option value="none">Master Clock & Round Only (?player=none)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="matchup-opt-accent" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Accent Color (?accent=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="matchup-opt-accent-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-accent').value = this.value; updateMatchupOverlayUrl();">
+                                            <input type="text" id="matchup-opt-accent" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-accent', 'matchup-opt-accent-picker'); updateMatchupOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="matchup-opt-badgecolor" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Center Match Badge Color (?badgecolor=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="matchup-opt-badgecolor-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('matchup-opt-badgecolor').value = this.value; updateMatchupOverlayUrl();">
+                                            <input type="text" id="matchup-opt-badgecolor" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('matchup-opt-badgecolor', 'matchup-opt-badgecolor-picker'); updateMatchupOverlayUrl();">
+                                        </div>
                                     </div>
                                     <div>
                                         <label for="matchup-opt-theme" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Theme (?overlay=)</label>
@@ -1263,6 +1309,20 @@
                                             <option value="240px">Wide Gap (240px)</option>
                                             <option value="360px">Extra Wide Split (360px)</option>
                                         </select>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-accent" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Bracket Accent Color (?accent=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="tourney-opt-accent-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-accent').value = this.value; updateTourneyOverlayUrl();">
+                                            <input type="text" id="tourney-opt-accent" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-accent', 'tourney-opt-accent-picker'); updateTourneyOverlayUrl();">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="tourney-opt-badgecolor" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Match Badge Color (?badgecolor=)</label>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                            <input type="color" id="tourney-opt-badgecolor-picker" value="#58a6ff" style="width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;" oninput="document.getElementById('tourney-opt-badgecolor').value = this.value; updateTourneyOverlayUrl();">
+                                            <input type="text" id="tourney-opt-badgecolor" class="form-control" placeholder="#58a6ff or empty" style="font-size: 0.75rem; padding: 0.35rem 0.5rem; flex: 1;" oninput="syncColorPicker('tourney-opt-badgecolor', 'tourney-opt-badgecolor-picker'); updateTourneyOverlayUrl();">
+                                        </div>
                                     </div>
                                     <div style="grid-column: span 2;">
                                         <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Header Logo Above Title (?logo=)</label>
@@ -1701,6 +1761,13 @@
 
         window.addEventListener('resize', applyViewportScale);
 
+        function syncColorPicker(textId, pickerId) {
+            const val = $(textId)?.value?.trim();
+            if (/^#[0-9a-fA-F]{6}$/.test(val) && $(pickerId)) {
+                $(pickerId).value = val;
+            }
+        }
+
         function onPreviewOptionChange(opt, val) {
             if (opt === 'layout') {
                 if ($('matchup-opt-layout')) $('matchup-opt-layout').value = val;
@@ -1714,6 +1781,13 @@
                 else if (val === 'compact') setPreviewViewport(380, 120, $('chip-vp-bug'));
                 else if (val === 'angular') setPreviewViewport(1100, 100, $('chip-vp-topbar'));
                 else if (val === 'versus') setPreviewViewport(1280, 720, $('chip-vp-169'));
+                else if (val === 'pod') setPreviewViewport(380, 90, $('chip-vp-bug'));
+                else if (val === 'clock') setPreviewViewport(460, 110, $('chip-vp-bug'));
+            }
+            if (opt === 'player') {
+                if ($('matchup-opt-player')) $('matchup-opt-player').value = val;
+                if (['1', '2', '3', '4'].includes(val)) setPreviewViewport(380, 90, $('chip-vp-bug'));
+                else if (val === 'none') setPreviewViewport(460, 110, $('chip-vp-bug'));
             }
             if (opt === 'theme' && $('matchup-opt-theme')) $('matchup-opt-theme').value = val;
             if (opt === 'clockstyle' && $('matchup-opt-clockstyle')) $('matchup-opt-clockstyle').value = val;
@@ -1847,6 +1921,10 @@
             if (centerEl && !centerEl.checked) urlParams.set('center', '0');
             const gapEl = $('tourney-opt-gap');
             if (gapEl && gapEl.value) urlParams.set('gap', gapEl.value);
+            const tourneyAccentInput = $('tourney-opt-accent');
+            if (tourneyAccentInput && tourneyAccentInput.value.trim()) urlParams.set('accent', tourneyAccentInput.value.trim());
+            const tourneyBadgeColorInput = $('tourney-opt-badgecolor');
+            if (tourneyBadgeColorInput && tourneyBadgeColorInput.value.trim()) urlParams.set('badgecolor', tourneyBadgeColorInput.value.trim());
             if (tourneyFitWholeBracket) urlParams.set('fit', '1');
 
             const qs = urlParams.toString();
@@ -1972,8 +2050,12 @@
             const confettiCheck = $('matchup-opt-confetti');
             const showEstCheck = $('matchup-opt-showest');
             const splitsCheck = $('matchup-opt-splits');
+            const playerSelect = $('matchup-opt-player');
+            const accentInput = $('matchup-opt-accent');
+            const badgeColorInput = $('matchup-opt-badgecolor');
 
             if ($('prev-ctrl-layout') && layoutSelect) $('prev-ctrl-layout').value = layoutSelect.value;
+            if ($('prev-ctrl-player') && playerSelect) $('prev-ctrl-player').value = playerSelect.value;
             if ($('prev-ctrl-theme') && themeSelect) $('prev-ctrl-theme').value = themeSelect.value;
             if ($('prev-ctrl-clockstyle') && clockStyleSelect) $('prev-ctrl-clockstyle').value = clockStyleSelect.value;
             if ($('prev-ctrl-runnertimers') && runnerTimersSelect) $('prev-ctrl-runnertimers').value = runnerTimersSelect.value;
@@ -1986,7 +2068,10 @@
 
             const urlParams = new URLSearchParams();
             if (layoutSelect && layoutSelect.value !== 'top') urlParams.set('layout', layoutSelect.value);
+            if (playerSelect && playerSelect.value) urlParams.set('player', playerSelect.value);
             if (themeSelect && themeSelect.value !== 'card') urlParams.set('overlay', themeSelect.value);
+            if (accentInput && accentInput.value.trim()) urlParams.set('accent', accentInput.value.trim());
+            if (badgeColorInput && badgeColorInput.value.trim()) urlParams.set('badgecolor', badgeColorInput.value.trim());
             if (clockStyleSelect && clockStyleSelect.value && clockStyleSelect.value !== 'badge') urlParams.set('clockstyle', clockStyleSelect.value);
             if (runnerTimersSelect && runnerTimersSelect.value && runnerTimersSelect.value !== 'finish') urlParams.set('runnertimers', runnerTimersSelect.value);
             if (sourceSelect && sourceSelect.value !== 'auto') urlParams.set('source', sourceSelect.value);
@@ -2049,6 +2134,9 @@
                     },
                     matchup: {
                         layout: $('matchup-opt-layout')?.value,
+                        player: $('matchup-opt-player')?.value,
+                        accent: $('matchup-opt-accent')?.value,
+                        badgecolor: $('matchup-opt-badgecolor')?.value,
                         theme: $('matchup-opt-theme')?.value,
                         clockstyle: $('matchup-opt-clockstyle')?.value,
                         runnertimers: $('matchup-opt-runnertimers')?.value,
@@ -2079,6 +2167,8 @@
                         pipstyle: $('tourney-opt-pipstyle')?.value,
                         roundpipstyle: $('tourney-opt-roundpipstyle')?.value,
                         gap: $('tourney-opt-gap')?.value,
+                        accent: $('tourney-opt-accent')?.value,
+                        badgecolor: $('tourney-opt-badgecolor')?.value,
                         logosize: $('tourney-opt-logosize')?.value,
                         showlogo: $('tourney-opt-showlogo')?.checked,
                         highlight: $('tourney-opt-highlight')?.checked,
@@ -2124,6 +2214,15 @@
                 if (prefs.matchup) {
                     const m = prefs.matchup;
                     if (m.layout !== undefined && $('matchup-opt-layout')) $('matchup-opt-layout').value = m.layout;
+                    if (m.player !== undefined && $('matchup-opt-player')) $('matchup-opt-player').value = m.player;
+                    if (m.accent !== undefined && $('matchup-opt-accent')) {
+                        $('matchup-opt-accent').value = m.accent;
+                        syncColorPicker('matchup-opt-accent', 'matchup-opt-accent-picker');
+                    }
+                    if (m.badgecolor !== undefined && $('matchup-opt-badgecolor')) {
+                        $('matchup-opt-badgecolor').value = m.badgecolor;
+                        syncColorPicker('matchup-opt-badgecolor', 'matchup-opt-badgecolor-picker');
+                    }
                     if (m.theme !== undefined && $('matchup-opt-theme')) $('matchup-opt-theme').value = m.theme;
                     if (m.clockstyle !== undefined && $('matchup-opt-clockstyle')) $('matchup-opt-clockstyle').value = m.clockstyle;
                     if (m.runnertimers !== undefined && $('matchup-opt-runnertimers')) $('matchup-opt-runnertimers').value = m.runnertimers;
@@ -2146,6 +2245,14 @@
                     if (t.pipstyle !== undefined && $('tourney-opt-pipstyle')) $('tourney-opt-pipstyle').value = t.pipstyle;
                     if (t.roundpipstyle !== undefined && $('tourney-opt-roundpipstyle')) $('tourney-opt-roundpipstyle').value = t.roundpipstyle;
                     if (t.gap !== undefined && $('tourney-opt-gap')) $('tourney-opt-gap').value = t.gap;
+                    if (t.accent !== undefined && $('tourney-opt-accent')) {
+                        $('tourney-opt-accent').value = t.accent;
+                        syncColorPicker('tourney-opt-accent', 'tourney-opt-accent-picker');
+                    }
+                    if (t.badgecolor !== undefined && $('tourney-opt-badgecolor')) {
+                        $('tourney-opt-badgecolor').value = t.badgecolor;
+                        syncColorPicker('tourney-opt-badgecolor', 'tourney-opt-badgecolor-picker');
+                    }
                     if (t.logosize !== undefined && $('tourney-opt-logosize')) $('tourney-opt-logosize').value = t.logosize;
                     ['showlogo', 'highlight', 'center', 'title', 'format', 'mode', 'entrants', 'scores', 'rounds', 'seeds', 'tags', 'badges', 'champion', 'fit'].forEach(k => {
                         const el = $('tourney-opt-' + k);

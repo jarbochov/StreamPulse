@@ -185,6 +185,8 @@ Renders the tournament bracket with flexible layouts, responsive auto-scaling, s
 | `?showseeds=1\|0` | `1` | Show or hide entrant seed numbers (`#1`, `#2`) on bracket cards. |
 | `?showtags=1\|0` | `1` | Show or hide competitor player/character tags (`[Ryu]`, `[Ken]`). |
 | `?showbadges=1\|0` | `1` | Show or hide match card live/upcoming status badges. |
+| `?accent=<color>` | `#58a6ff` | Bracket connector line glow, active match border, and UI highlight accent color (e.g. `?accent=#ff0055`). |
+| `?badgecolor=<color>` | theme default | Custom color for match card status badges (`.match-card-badge`, `.rr-badge-live`) and header metadata pills. |
 | `?highlight=1\|0` | `1` | Highlight the currently pinned live match on the bracket (`?highlight=0` disables live match highlighting when multiple tournament games run concurrently). |
 | `?center=1\|0` | `1` | Show or hide the center phase badge in active HUD mode (`?center=0` hides the badge). |
 | `?gap=intact\|<px>` | `auto` | Keep center spacing intact (`?gap=intact` for `160px`) or set custom spacing (`?gap=80px`, `?gap=240px`, `?gap=360px`) between opponents when `?center=0`. |
@@ -212,6 +214,8 @@ Renders live competitor scores, names, character tags, and series pips across fi
 - **Compact Score Bug (`?layout=compact`)**: Floating score bug for placing in screen corners.
 - **Angular Slash (`?layout=angular`)**: High-contrast symmetrical esports banner with polygon cuts, italic typography, and center VS badge.
 - **Versus Screen Card (`?layout=versus`)**: Full-screen or large intro card showcasing competitors facing off with prominent VS emblem.
+- **Single Player Pod (`?layout=pod` or `?layout=single`)**: Floating independent score bug displaying an individual competitor's nameplate, color strip, slot pill (`P1`, `P2`, `P3`, `P4` or seed `#N`), score box, round/game pips, and runner finish times/deltas. Ideal for positioning over individual camera windows or player gameplay captures in 4-player games (Mario Kart, Smash FFA, 4-way races).
+- **Master Clock & Phase Only (`?layout=clock`)**: Displays only the event title, match phase badge, master race/round clock with live ticker, and EST estimate without player cards.
 
 #### Responsive Self-Sizing, Container Queries & Narrow Viewports:
 Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup.html` dynamically sizes itself to whatever OBS browser source dimensions you configure (e.g. 700×70, 1100×90, 480×120, 340×200).
@@ -235,8 +239,11 @@ Unlike traditional full-screen overlays locked to 1920×1080 canvases, `/matchup
 #### Matchup URL Customization Parameters:
 | Parameter | Default | Description |
 | --- | --- | --- |
-| `?layout=top\|fgc\|split\|race\|pillar\|minimal\|bottom\|compact\|angular\|versus` | `top` | Display layout style (Fighting game top bar, modern FGC EVO style, dual corner split with open center, speedrun race, vertical pillar stack, minimal center-less strip, lower-third HUD, compact bug, angular slash banner, or versus intro card). |
+| `?layout=top\|fgc\|split\|race\|pillar\|minimal\|bottom\|compact\|angular\|versus\|pod\|clock` | `top` | Display layout style (Fighting game top bar, modern FGC EVO style, dual corner split with open center, speedrun race, vertical pillar stack, minimal center-less strip, lower-third HUD, compact bug, angular slash banner, versus intro card, single player pod, or master clock panel). |
+| `?player=1\|2\|3\|4\|1,2\|3,4\|none` | all | Filter matchup display by competitor slot. `1`..`4` renders that single player's pod, `1,2` or `3,4` renders team groups, and `none` displays the master clock and phase badge only. |
 | `?overlay=<theme\|hash>` | `card` | Container styling theme (`card`, `championship`, `fgc-evo`, `cyber`, `glass`, `clean-light`, `minimal-dark`, `border`, `solid`, `transparent`, `pill`, `neon`, `retro`, `ember`, `aurora`, `ocean`, `sunset`, `violet`, `forest`) or custom hex color (e.g. `?overlay=0d1117`). |
+| `?accent=<color>` | `#58a6ff` | Custom accent color override for borders, clock icons, and highlights. |
+| `?badgecolor=<color>` | theme default | Custom color for the center match badge (`.match-phase-badge`, `.topbar-center-badge`). |
 | `?source=auto\|matchup\|tournament` | `auto` | Data source binding: automatically display active tournament match during brackets, or lock to standalone matchup. |
 | `?pipstyle=circle\|diamond\|bar\|digit` | `circle` | Pip presentation format: round dots (`circle`), diamonds (`diamond`), segmented rectangular bars (`bar`), or numerical indicator (`digit`). |
 | `?fit=content` | off | Shrinkwrap container to fit tightly within the OBS browser source without canvas margins. |

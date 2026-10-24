@@ -503,6 +503,90 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         const pollPreviewModeAfterReload = await page.evaluate(() => previewMode);
         assert.equal(pollPreviewModeAfterReload, 'active', 'Polls preview mode should be restored as active after reload');
 
+        // 36. Single Player Pod layout & Player Filtering (?player=1 and ?player=4)
+        await page.goto(`${OVERLAY_URL}?preview=1&player=1`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod');
+        const p1PodName = await page.$eval('.single-player-pod .competitor-name', el => el.textContent.trim());
+        const p1PodSlot = await page.$eval('.single-player-pod .player-slot-pill', el => el.textContent.trim());
+        assert.equal(p1PodName, 'Daigo', 'Player 1 pod should display competitor name Daigo');
+        assert.equal(p1PodSlot, 'P1', 'Player 1 pod should display P1 slot badge');
+
+        await page.goto(`${OVERLAY_URL}?preview=1&player=4`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.single-player-pod');
+        const p4PodName = await page.$eval('.single-player-pod .competitor-name', el => el.textContent.trim());
+        const p4PodSlot = await page.$eval('.single-player-pod .player-slot-pill', el => el.textContent.trim());
+        assert.equal(p4PodName, 'Punk', 'Player 4 pod should display competitor name Punk');
+        assert.equal(p4PodSlot, 'P4', 'Player 4 pod should display P4 slot badge');
+
+        // 37. Master Clock Only layout & Filtering (?player=none / ?layout=clock)
+        await page.goto(`${OVERLAY_URL}?preview=1&player=none`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.master-clock-panel');
+        const clockDigits = await page.$eval('.clock-digits-hero', el => el.textContent.trim());
+        assert.ok(clockDigits.length > 0, 'Master clock panel should display clock digits');
+        const compsInClockOnly = await page.$$('.competitor-name, .single-player-pod, .topbar-competitor');
+        assert.equal(compsInClockOnly.length, 0, 'Master clock mode should not render competitor score cards');
+
+        // 38. Custom Accent Color & Center Match Badge Color (?accent=...&badgecolor=...)
+        await page.goto(`${OVERLAY_URL}?preview=1&accent=%23e11d48&badgecolor=%2310b981`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.topbar-panel');
+        const styles = await page.evaluate(() => {
+            const el = document.documentElement;
+            return {
+                accent: el.style.getPropertyValue('--matchup-accent'),
+                badgeColor: el.style.getPropertyValue('--matchup-badge-color')
+            };
+        });
+        assert.equal(styles.accent, '#e11d48', 'Custom accent color should be applied to --matchup-accent');
+        assert.equal(styles.badgeColor, '#10b981', 'Custom badge color should be applied to --matchup-badge-color');
+
+        // 39. Versus Studio Overlay Generator: Slot Filter, Accent Color, and Badge Color Persistence
+        await page.goto(VERSUS_TOOL_URL, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#matchup-opt-layout');
+        await page.evaluate(() => switchTab('overlays'));
+
+        await page.evaluate(() => {
+            const playerSelect = document.getElementById('matchup-opt-player');
+            const accentInput = document.getElementById('matchup-opt-accent');
+            const badgeInput = document.getElementById('matchup-opt-badgecolor');
+            const tourneyAccentInput = document.getElementById('tourney-opt-accent');
+            const tourneyBadgeInput = document.getElementById('tourney-opt-badgecolor');
+
+            if (playerSelect) { playerSelect.value = '3'; }
+            if (accentInput) { accentInput.value = '#e11d48'; }
+            if (badgeInput) { badgeInput.value = '#10b981'; }
+            if (tourneyAccentInput) { tourneyAccentInput.value = '#a855f7'; }
+            if (tourneyBadgeInput) { tourneyBadgeInput.value = '#f59e0b'; }
+
+            updateMatchupOverlayUrl();
+            updateTourneyOverlayUrl();
+        });
+
+        const matchupUrl = await page.$eval('#url-matchup-overlay', el => el.value);
+        assert.ok(matchupUrl.includes('player=3'), 'Matchup overlay URL should include player=3');
+        assert.ok(matchupUrl.includes('accent=%23e11d48') || matchupUrl.includes('accent=#e11d48'), 'Matchup overlay URL should include accent=#e11d48');
+        assert.ok(matchupUrl.includes('badgecolor=%2310b981') || matchupUrl.includes('badgecolor=#10b981'), 'Matchup overlay URL should include badgecolor=#10b981');
+
+        const tourneyUrl = await page.$eval('#url-tourney-overlay', el => el.value);
+        assert.ok(tourneyUrl.includes('accent=%23a855f7') || tourneyUrl.includes('accent=#a855f7'), 'Tournament overlay URL should include accent=#a855f7');
+        assert.ok(tourneyUrl.includes('badgecolor=%23f59e0b') || tourneyUrl.includes('badgecolor=#f59e0b'), 'Tournament overlay URL should include badgecolor=#f59e0b');
+
+        // Reload to verify persistence in localStorage
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#matchup-opt-layout');
+        await page.evaluate(() => switchTab('overlays'));
+
+        const persistedMatchupPlayer = await page.$eval('#matchup-opt-player', el => el.value);
+        const persistedMatchupAccent = await page.$eval('#matchup-opt-accent', el => el.value);
+        const persistedMatchupBadge = await page.$eval('#matchup-opt-badgecolor', el => el.value);
+        const persistedTourneyAccent = await page.$eval('#tourney-opt-accent', el => el.value);
+        const persistedTourneyBadge = await page.$eval('#tourney-opt-badgecolor', el => el.value);
+
+        assert.equal(persistedMatchupPlayer, '3', 'Matchup player slot selection should persist across reload');
+        assert.equal(persistedMatchupAccent, '#e11d48', 'Matchup accent color should persist across reload');
+        assert.equal(persistedMatchupBadge, '#10b981', 'Matchup badge color should persist across reload');
+        assert.equal(persistedTourneyAccent, '#a855f7', 'Tournament accent color should persist across reload');
+        assert.equal(persistedTourneyBadge, '#f59e0b', 'Tournament badge color should persist across reload');
+
     } finally {
         if (browser) await browser.close();
     }

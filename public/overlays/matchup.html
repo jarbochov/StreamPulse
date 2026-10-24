@@ -13,6 +13,9 @@
             --matchup-muted: #8b949e;
             --matchup-accent: #58a6ff;
             --matchup-winner: #3fb950;
+            --matchup-badge-color: var(--matchup-accent);
+            --matchup-badge-bg: rgba(0, 0, 0, 0.28);
+            --matchup-badge-border: var(--matchup-border);
             --matchup-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             --p1-color: #ef4444;
             --p2-color: #3b82f6;
@@ -893,9 +896,9 @@
             align-items: center;
             justify-content: center;
             padding: 0.35rem clamp(0.4rem, 1.5cqw, 1.1rem);
-            background: rgba(0, 0, 0, 0.28);
-            border-left: 1px solid var(--matchup-border);
-            border-right: 1px solid var(--matchup-border);
+            background: var(--matchup-badge-bg, rgba(0, 0, 0, 0.28));
+            border-left: 1px solid var(--matchup-badge-border, var(--matchup-border));
+            border-right: 1px solid var(--matchup-badge-border, var(--matchup-border));
             min-width: clamp(80px, 16cqw, 150px);
             text-align: center;
         }
@@ -905,7 +908,7 @@
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            color: var(--matchup-accent);
+            color: var(--matchup-badge-color, var(--matchup-accent));
             line-height: 1.1;
         }
 
@@ -933,9 +936,114 @@
             text-overflow: ellipsis;
             max-width: clamp(100px, 25cqw, 240px);
         }
+
+        /* ----------------------------------------------------
+           Single Competitor Pod / Score Bug (?player=1..4 / ?layout=pod)
+           ---------------------------------------------------- */
+        .single-player-pod {
+            display: inline-flex;
+            align-items: center;
+            gap: clamp(0.5rem, 1.5cqw, 0.85rem);
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 10px;
+            padding: clamp(0.4rem, 1.2cqw, 0.65rem) clamp(0.6rem, 2cqw, 1.1rem);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            min-width: clamp(160px, 28cqw, 360px);
+            max-width: 100%;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.25s ease;
+        }
+
+        .single-player-pod.winner {
+            border-color: color-mix(in srgb, var(--matchup-winner) 60%, var(--matchup-border));
+            box-shadow: 0 0 20px color-mix(in srgb, var(--matchup-winner) 30%, transparent);
+        }
+
+        .single-player-pod .competitor-accent-strip {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+        }
+
+        .single-player-pod .player-slot-pill {
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+
+        .single-player-pod .competitor-meta {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .single-player-pod .competitor-name {
+            font-size: clamp(0.95rem, 2cqw, 1.25rem);
+            font-weight: 800;
+            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 220px;
+        }
+
+        .single-player-pod .competitor-tag {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--matchup-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .single-player-pod .single-pod-winner-badge {
+            font-size: 0.65rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 0.2rem 0.5rem;
+            border-radius: 9999px;
+            background: var(--matchup-winner);
+            color: #0b0f16;
+            flex-shrink: 0;
+        }
+
+        /* ----------------------------------------------------
+           Master Clock / Match Phase Only Panel (?player=none / ?layout=clock)
+           ---------------------------------------------------- */
+        .master-clock-panel {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            background: var(--matchup-bg);
+            border: 1px solid var(--matchup-border);
+            border-radius: 12px;
+            padding: clamp(0.5rem, 1.5cqw, 0.85rem) clamp(0.8rem, 2.5cqw, 1.5rem);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            text-align: center;
+        }
+
+        .master-clock-panel .clock-digits-hero {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: clamp(1.4rem, 3.5cqw, 2.2rem);
+            font-weight: 900;
+            letter-spacing: 0.02em;
+            color: var(--matchup-text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         /* ----------------------------------------------------
@@ -1954,6 +2062,8 @@
         const customWinner = params.get('winner');
         const customP1Color = params.get('p1color');
         const customP2Color = params.get('p2color');
+        const customBadgeColor = params.get('badgecolor') || params.get('centerbadge') || params.get('badge_color');
+        const playerFilterParam = (params.get('player') || params.get('competitor') || params.get('slot') || '').trim().toLowerCase();
         const alignParam = params.get('align');
         const valignParam = params.get('valign');
         const fitParam = params.get('fit');
@@ -1969,6 +2079,11 @@
         }
         if (fitParam === 'content' || fitParam === '1' || fitParam === 'tight') {
             document.body.classList.add('fit-content');
+        }
+        if (playerFilterParam === 'none' || playerFilterParam === 'clock' || playerFilterParam === 'timer' || layout === 'clock') {
+            document.body.classList.add('mode-clock-only');
+        } else if (['1', '2', '3', '4'].includes(playerFilterParam) || layout === 'pod' || layout === 'single') {
+            document.body.classList.add('mode-single-pod');
         }
 
         if (alignParam === 'left') document.documentElement.style.setProperty('--matchup-align', 'flex-start');
@@ -1998,6 +2113,11 @@
         if (customWinner) document.documentElement.style.setProperty('--matchup-winner', customWinner);
         if (customP1Color) document.documentElement.style.setProperty('--p1-color', customP1Color);
         if (customP2Color) document.documentElement.style.setProperty('--p2-color', customP2Color);
+        if (customBadgeColor) {
+            document.documentElement.style.setProperty('--matchup-badge-color', customBadgeColor);
+            document.documentElement.style.setProperty('--matchup-badge-bg', `color-mix(in srgb, ${customBadgeColor} 18%, rgba(0, 0, 0, 0.4))`);
+            document.documentElement.style.setProperty('--matchup-badge-border', `color-mix(in srgb, ${customBadgeColor} 50%, rgba(255, 255, 255, 0.12))`);
+        }
 
         // Styling via ?overlay=theme or ?bg=hex
         function applyStyling() {
@@ -2042,17 +2162,27 @@
 
         // Sample Data for OBS Studio positioning and URL wizard
         const sampleClockMode = (layout === 'race' || params.get('clockmode') === 'race') ? 'race' : 'stopwatch';
+        const SAMPLE_ALL_COMPETITORS = [
+            { id: 'c1', name: 'Daigo', tag: layout === 'race' ? 'PB 41:12' : 'Ken', color: '#ef4444', score: layout === 'race' ? 1 : 4, rounds: layout === 'race' ? 0 : 1 },
+            { id: 'c2', name: 'Justin Wong', tag: layout === 'race' ? 'PB 41:45' : 'Chun-Li', color: '#3b82f6', score: layout === 'race' ? 0 : 3, rounds: 0 },
+            { id: 'c3', name: 'Tokido', tag: layout === 'race' ? 'PB 42:30' : 'Akuma', color: '#10b981', score: layout === 'race' ? 0 : 2, rounds: 0 },
+            { id: 'c4', name: 'Punk', tag: layout === 'race' ? 'PB 42:45' : 'Cammy', color: '#f59e0b', score: layout === 'race' ? 0 : 1, rounds: 0 }
+        ];
+        if (layout === 'race' || sampleClockMode === 'race' || runnerTimersParam) {
+            SAMPLE_ALL_COMPETITORS[0].timer = { elapsed: 2512.80, finishSeconds: 2512.80, isRunning: false, finished: true, finishTime: '41:52.80', place: 1, delta: 'WINNER' };
+            SAMPLE_ALL_COMPETITORS[1].timer = { elapsed: 2525.45, finishSeconds: 2525.45, isRunning: false, finished: true, finishTime: '42:05.45', place: 2, deltaSeconds: 12.65, delta: '+00:12.65' };
+            SAMPLE_ALL_COMPETITORS[2].timer = { elapsed: 2548.10, finishSeconds: 2548.10, isRunning: false, finished: true, finishTime: '42:28.10', place: 3, deltaSeconds: 35.30, delta: '+00:35.30' };
+            SAMPLE_ALL_COMPETITORS[3].timer = { elapsed: 2538.45, isRunning: true, finished: false };
+        }
+        const needs4Comps = Boolean(playerFilterParam && (playerFilterParam.includes('3') || playerFilterParam.includes('4') || playerFilterParam === '3' || playerFilterParam === '4'));
         const SAMPLE_MATCHUP = {
             id: 'sample-matchup',
             title: layout === 'race' ? 'Super Metroid Any%' : 'Street Fighter 6',
             phase: layout === 'race' ? 'Speedrun Race Finals' : 'Grand Finals',
-            details: layout === 'race' ? '1v1 Live Race · Target EST 45:00' : 'First to 5 (FT5) · Metro City Decider',
-            competitorCount: 2,
+            details: layout === 'race' ? (needs4Comps ? '4-Way Live Race · Target EST 45:00' : '1v1 Live Race · Target EST 45:00') : (needs4Comps ? '4-Player Championship · Decider' : 'First to 5 (FT5) · Metro City Decider'),
+            competitorCount: needs4Comps ? 4 : 2,
             roundsBestOf: layout === 'race' ? 0 : 3,
-            competitors: [
-                { id: 'c1', name: 'Daigo', tag: layout === 'race' ? 'PB 41:12' : 'Ken', color: '#ef4444', score: layout === 'race' ? 1 : 4, rounds: layout === 'race' ? 0 : 1 },
-                { id: 'c2', name: 'Justin Wong', tag: layout === 'race' ? 'PB 41:45' : 'Chun-Li', color: '#3b82f6', score: layout === 'race' ? 0 : 3, rounds: 0 }
-            ],
+            competitors: needs4Comps ? SAMPLE_ALL_COMPETITORS.slice(0, 4) : SAMPLE_ALL_COMPETITORS.slice(0, 2),
             format: 'bestOf',
             bestOf: layout === 'race' ? 1 : 9,
             targetScore: layout === 'race' ? 1 : 5,
@@ -2070,10 +2200,6 @@
                 estimate: layout === 'race' ? '45:00' : '18:30'
             }
         };
-        if (layout === 'race' || sampleClockMode === 'race' || runnerTimersParam) {
-            SAMPLE_MATCHUP.competitors[0].timer = { elapsed: 2512.80, finishSeconds: 2512.80, isRunning: false, finished: true, finishTime: '41:52.80', place: 1, delta: 'WINNER' };
-            SAMPLE_MATCHUP.competitors[1].timer = { elapsed: 2525.45, finishSeconds: 2525.45, isRunning: false, finished: true, finishTime: '42:05.45', place: 2, deltaSeconds: 12.65, delta: '+00:12.65' };
-        }
 
         let currentMatchup = null;
         let lastCelebratedWinner = null;
@@ -2277,13 +2403,14 @@
             if (!t) return '';
             const mode = getRunnerTimersMode(m);
             if (mode === 'off') return '';
+            const origIdx = comp?._origIdx !== undefined ? comp._origIdx : idx;
             const splitsOn = isSplitsEnabled(m);
             if (t.finished) {
                 const timeStr = t.finishTime || fmtMs(t.elapsed || 0);
                 if (!splitsOn) {
                     return `<span class="runner-finish-pill place-1" title="Finish Time"><span>${esc(timeStr)}</span></span>`;
                 }
-                const { place, deltaStr } = computeRunnerDeltaInfo(m, comp, idx);
+                const { place, deltaStr } = computeRunnerDeltaInfo(m, comp, origIdx);
                 const ord = formatOrdinal(place || 1);
                 if (place === 1 || !deltaStr) {
                     return `<span class="runner-finish-pill place-1" title="Finished ${ord}"><span>${ord}</span><span>·</span><span>${esc(timeStr)}</span></span>`;
@@ -2291,13 +2418,79 @@
                 return `<span class="runner-finish-pill place-other" title="Finished ${ord} (${deltaStr})"><span>${ord}</span><span>·</span><span>${esc(timeStr)}</span><span class="runner-delta-tag">${esc(deltaStr)}</span></span>`;
             }
             if (mode === 'always' && (t.isRunning || (t.elapsed || 0) > 0)) {
-                return `<span class="runner-finish-pill running-live"><span data-live="${idx}">${fmtMs(t.elapsed || 0)}</span></span>`;
+                return `<span class="runner-finish-pill running-live"><span data-live="${origIdx}">${fmtMs(t.elapsed || 0)}</span></span>`;
             }
             return '';
         }
 
+        // Single Competitor Floating Score Pod (?player=1..4 or ?layout=pod)
+        function renderSinglePlayerPod(m, comp, idx, target) {
+            liveM = m; liveAt = Date.now();
+            const compColor = comp.color || (idx === 0 ? 'var(--p1-color)' : (idx === 1 ? 'var(--p2-color)' : (idx === 2 ? 'var(--p3-color)' : 'var(--p4-color)')));
+            const isWinner = (m.status === 'COMPLETED' && m.winner === comp.name);
+            const slotLabel = `P${idx + 1}`;
+            const runnerTimerHtml = renderRunnerInlineTimerHtml(m, comp, idx);
+            const pipsHtml = renderPipsHtml(comp, target, compColor);
+
+            container.innerHTML = `
+                <div class="single-player-pod${isWinner ? ' winner' : ''}">
+                    <div class="competitor-accent-strip" style="background: ${compColor};"></div>
+                    <div class="player-slot-pill" style="background: color-mix(in srgb, ${compColor} 20%, transparent); color: ${compColor}; border: 1px solid color-mix(in srgb, ${compColor} 45%, transparent);">
+                        ${comp.seed ? `#${comp.seed}` : slotLabel}
+                    </div>
+                    ${comp.avatar ? `<img src="${esc(comp.avatar)}" class="competitor-avatar" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,0.2);" alt="">` : ''}
+                    <div class="competitor-meta">
+                        <div class="competitor-name">${esc(comp.name)}</div>
+                        ${showTags && comp.tag ? `<div class="competitor-tag">${esc(comp.tag)}</div>` : ''}
+                    </div>
+                    ${runnerTimerHtml ? `<div style="display:flex;align-items:center;">${runnerTimerHtml}</div>` : ''}
+                    ${pipsHtml ? `<div style="display:flex;align-items:center;">${pipsHtml}</div>` : ''}
+                    <div class="score-box" style="border-color: color-mix(in srgb, ${compColor} 50%, rgba(255,255,255,0.15));">${comp.score ?? 0}</div>
+                    ${isWinner ? `<div class="single-pod-winner-badge">WINNER</div>` : ''}
+                </div>
+            `;
+        }
+
+        // Master Clock & Match Phase Only Panel (?player=none or ?layout=clock)
+        function renderMasterClockOnly(m) {
+            liveM = m; liveAt = Date.now();
+            const clock = m?.clock || {};
+            const isStopwatch = clock.mode === 'stopwatch' || clock.mode === 'race';
+            const displayVal = isStopwatch ? fmtMs(clock.elapsed) : (clock.remaining !== undefined ? formatClockTime(clock.remaining, clock.duration >= 60) : '99');
+            const isRunning = Boolean(clock.isRunning);
+            const est = clock.estimate;
+
+            container.innerHTML = `
+                <div class="master-clock-panel">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 0.6rem; flex-wrap: wrap;">
+                        ${showTitle && m.title ? `<span class="match-title-badge" style="margin-bottom:0;">${esc(m.title)}</span>` : ''}
+                        ${(showTitle && m.title && showPhase && m.phase) ? `<span style="opacity: 0.4;">·</span>` : ''}
+                        ${showPhase && m.phase ? `<span class="match-phase-badge">${esc(m.phase)}</span>` : ''}
+                    </div>
+                    <div class="clock-digits-hero">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${isRunning ? '#3fb950' : 'var(--matchup-accent)'}" stroke-width="2.5" style="${isRunning ? 'animation: pulse 1.5s infinite;' : ''}"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span ${isStopwatch ? 'data-live="clock"' : ''}>${displayVal}</span>
+                        ${(showEst && est) ? `
+                            <span class="clock-est" title="Estimated Time" style="font-size: 0.75rem; font-family: var(--matchup-font); font-weight: 700; padding: 0.2rem 0.55rem; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 9999px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                <span class="clock-est-label" style="opacity: 0.7; font-size: 0.65rem; text-transform: uppercase;">EST</span>
+                                <span>${esc(est)}</span>
+                            </span>
+                        ` : ''}
+                    </div>
+                    ${showDetails && m.details ? `<div class="match-details-badge" style="font-size:0.75rem; color:var(--matchup-muted); font-weight:600; margin-top:0;">${esc(m.details)}</div>` : ''}
+                    ${m.status === 'COMPLETED' && m.winner ? `
+                        <div class="winner-banner" style="margin-top:0.35rem; padding:0.25rem 0.8rem; font-size:0.8rem;">Winner: ${esc(m.winner)}</div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
         function renderMatchup(m) {
-            if (!m || !Array.isArray(m.competitors) || m.competitors.length < 2) {
+            const isClockOnly = playerFilterParam === 'none' || playerFilterParam === 'clock' || playerFilterParam === 'timer' || layout === 'clock';
+            const isSinglePlayerReq = ['1', '2', '3', '4'].includes(playerFilterParam) || layout === 'pod' || layout === 'single';
+
+            const minReq = isClockOnly ? 0 : (isSinglePlayerReq ? 1 : 2);
+            if (!m || !Array.isArray(m.competitors) || m.competitors.length < minReq) {
                 if (isPreview) {
                     m = SAMPLE_MATCHUP;
                 } else {
@@ -2317,30 +2510,81 @@
                 lastCelebratedWinner = null;
             }
 
-            const count = m.competitorCount || m.competitors.length;
             const target = m.targetScore || (m.bestOf > 0 ? Math.ceil(m.bestOf / 2) : 0);
+
+            // Clock-only mode
+            if (isClockOnly) {
+                renderMasterClockOnly(m);
+                return;
+            }
+
+            // Competitor filtering (?player=1, ?player=2, ?player=1,2, ?player=name)
+            let selectedIndices = null;
+            if (playerFilterParam && playerFilterParam !== 'all' && playerFilterParam !== '*') {
+                const tokens = playerFilterParam.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+                selectedIndices = [];
+                tokens.forEach(tok => {
+                    if (/^[1-9]\d*$/.test(tok)) {
+                        const idx = parseInt(tok, 10) - 1;
+                        if (idx < m.competitors.length) selectedIndices.push(idx);
+                    } else if (tok === '0') {
+                        if (m.competitors.length > 0) selectedIndices.push(0);
+                    } else {
+                        const idx = m.competitors.findIndex(c => (c.id && c.id.toLowerCase() === tok) || (c.name && c.name.toLowerCase() === tok));
+                        if (idx >= 0) selectedIndices.push(idx);
+                    }
+                });
+                selectedIndices = [...new Set(selectedIndices)];
+            }
+
+            // Single player pod layout
+            if (selectedIndices && selectedIndices.length === 1) {
+                const origIdx = selectedIndices[0];
+                const comp = m.competitors[origIdx];
+                renderSinglePlayerPod(m, comp, origIdx, target);
+                return;
+            }
+
+            if (layout === 'pod' || layout === 'single') {
+                const origIdx = (selectedIndices && selectedIndices.length > 0) ? selectedIndices[0] : 0;
+                const comp = m.competitors[origIdx] || m.competitors[0];
+                renderSinglePlayerPod(m, comp, origIdx, target);
+                return;
+            }
+
+            // Subset of 2+ competitors
+            let matchToRender = m;
+            let count = m.competitorCount || m.competitors.length;
+            if (selectedIndices && selectedIndices.length > 1) {
+                matchToRender = {
+                    ...m,
+                    competitors: selectedIndices.map(i => ({ ...m.competitors[i], _origIdx: i })),
+                    competitorCount: selectedIndices.length
+                };
+                count = selectedIndices.length;
+            }
 
             // Select Layout (explicit ?layout= always respected; race clock works across all layouts!)
             if (layout === 'race') {
-                renderSpeedrunRace(m, target, count);
+                renderSpeedrunRace(matchToRender, target, count);
             } else if (layout === 'fgc' || layout === 'evo') {
-                renderFgcBar(m, target, count);
+                renderFgcBar(matchToRender, target, count);
             } else if (layout === 'split') {
-                renderSplitCorners(m, target);
+                renderSplitCorners(matchToRender, target);
             } else if (layout === 'minimal') {
-                renderMinimalBar(m, target);
+                renderMinimalBar(matchToRender, target);
             } else if (layout === 'pillar' || layout === 'vertical') {
-                renderPillar(m, target);
+                renderPillar(matchToRender, target);
             } else if (layout === 'bottom') {
-                renderBottomHud(m, target);
+                renderBottomHud(matchToRender, target);
             } else if (layout === 'compact' || layout === 'corner') {
-                renderCompactBug(m, target);
+                renderCompactBug(matchToRender, target);
             } else if (layout === 'angular' || layout === 'angle') {
-                renderAngular(m, target);
+                renderAngular(matchToRender, target);
             } else if (layout === 'versus' || layout === 'card') {
-                renderVersusCard(m, target);
+                renderVersusCard(matchToRender, target);
             } else {
-                renderTopBar(m, target, count);
+                renderTopBar(matchToRender, target, count);
             }
             if (showClock && m.clock && m.clock.enabled !== false && clockStyle === 'bottom') {
                 const wrap = document.createElement('div');

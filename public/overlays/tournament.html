@@ -11,6 +11,8 @@
             --tourney-text: #f0f6fc;
             --tourney-muted: #8b949e;
             --tourney-accent: #58a6ff;
+            --tourney-badge-bg: var(--tourney-accent);
+            --tourney-badge-color: #0d1117;
             --tourney-winner: #3fb950;
             --tourney-bg: rgba(13, 17, 23, 0.92);
             --tourney-card-bg: rgba(22, 27, 34, 0.88);
@@ -425,9 +427,9 @@
         }
 
         .meta-pill {
-            background: rgba(88, 166, 255, 0.12);
-            color: var(--tourney-accent);
-            border: 1px solid rgba(88, 166, 255, 0.25);
+            background: color-mix(in srgb, var(--tourney-badge-bg) 14%, transparent);
+            color: var(--tourney-badge-bg);
+            border: 1px solid color-mix(in srgb, var(--tourney-badge-bg) 28%, transparent);
             padding: 0.15rem 0.5rem;
             border-radius: 4px;
         }
@@ -510,9 +512,9 @@
             text-transform: uppercase;
             padding: 0.15rem 0.45rem;
             border-radius: 9999px;
-            background: rgba(88, 166, 255, 0.15);
-            color: var(--tourney-accent);
-            border: 1px solid rgba(88, 166, 255, 0.3);
+            background: color-mix(in srgb, var(--tourney-badge-bg) 15%, transparent);
+            color: var(--tourney-badge-bg);
+            border: 1px solid color-mix(in srgb, var(--tourney-badge-bg) 30%, transparent);
             white-space: nowrap;
         }
 
@@ -641,7 +643,7 @@
         }
 
         .rr-badge-live {
-            color: var(--tourney-accent);
+            color: var(--tourney-badge-bg);
             font-weight: 800;
         }
 
@@ -732,8 +734,8 @@
             position: absolute;
             top: -1px;
             right: 8px;
-            background: var(--tourney-accent);
-            color: #0d1117;
+            background: var(--tourney-badge-bg);
+            color: var(--tourney-badge-color);
             font-size: 0.62rem;
             font-weight: 800;
             letter-spacing: 0.05em;
@@ -1172,6 +1174,7 @@
         const scaleVal = parseFloat(params.get('scale') || params.get('fontscale') || '1');
         const customAccent = params.get('accent');
         const customWinner = params.get('winner');
+        const customBadgeColor = params.get('badgecolor') || params.get('centerbadge') || params.get('badge_color');
 
         if (!showCenter) {
             document.body.classList.add('no-center-badge');
@@ -1188,6 +1191,10 @@
         if (!showRounds) document.body.classList.add('roundheaders-hidden');
         if (customAccent) document.documentElement.style.setProperty('--tourney-accent', customAccent);
         if (customWinner) document.documentElement.style.setProperty('--tourney-winner', customWinner);
+        if (customBadgeColor) {
+            document.documentElement.style.setProperty('--tourney-badge-bg', customBadgeColor);
+            document.documentElement.style.setProperty('--tourney-badge-color', '#0d1117');
+        }
 
         // Styling via ?overlay=hash... or ?bg=... or ?theme=...
         function applyStyling() {
