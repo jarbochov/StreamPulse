@@ -1116,6 +1116,9 @@
         const pipStyle = (params.get('pipstyle') || params.get('pips_style') || 'circle').toLowerCase(); // 'circle' | 'bar' | 'digit'
         const showTags = params.get('tags') !== '0';
         const showDetails = params.get('details') !== '0';
+        const showClock = params.get('clock') !== '0';
+        const hideCss = [params.get('phase') === '0' && '.match-phase-badge', params.get('title') === '0' && '.match-title-badge, .match-title-inline'].filter(Boolean);
+        if (hideCss.length) { const st = document.createElement('style'); st.textContent = hideCss.map(x => x + '{display:none !important}').join(''); document.head.appendChild(st); }
         const enableConfetti = params.get('confetti') !== '0' && params.get('confetti') !== 'false';
         const scaleVal = parseFloat(params.get('scale') || params.get('fontscale') || '1');
         const customAccent = params.get('accent');
@@ -1226,7 +1229,7 @@
 
         function renderClockHtml(m, styleType = 'badge') {
             const clock = m?.clock;
-            if (!clock || clock.enabled === false) return '';
+            if (!clock || clock.enabled === false || !showClock) return '';
             const isStopwatch = clock.mode === 'stopwatch' || clock.mode === 'race';
             const displayVal = isStopwatch ? formatClockTime(clock.elapsed, true) : (clock.remaining !== undefined ? formatClockTime(clock.remaining, clock.duration >= 60) : '99');
             const isLow = !isStopwatch && clock.remaining !== undefined && clock.remaining <= 10 && clock.remaining > 0;
@@ -1385,7 +1388,7 @@
                     ${showCenter ? `
                         <div class="pillar-center-bar">
                             <span class="match-phase-badge">${esc(m.phase || (target > 0 ? `First to ${target}` : 'Match'))}</span>
-                            ${m.title ? `<span style="font-size: 0.72rem; color: var(--matchup-muted); font-weight: 600;">${esc(m.title)}</span>` : ''}
+                            ${m.title ? `<span class="match-title-inline" style="font-size: 0.72rem; color: var(--matchup-muted); font-weight: 600;">${esc(m.title)}</span>` : ''}
                         </div>
                     ` : ''}
                     <div class="pillar-competitor c1${p1Won ? ' winner' : ''}">

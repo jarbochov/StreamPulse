@@ -209,6 +209,9 @@
                                 <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="swapMatchupSides()" title="Swap Player 1 &amp; Player 2 sides">
                                     Swap P1 &harr; P2
                                 </button>
+                                <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="saveMatchupProgress()" title="Save a snapshot of the current match, clocks and log to History">
+                                    Save Progress
+                                </button>
                                 <button type="button" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="resetMatchupScores()" title="Reset scores back to 0-0 without clearing names">
                                     Reset Scores (0-0)
                                 </button>
@@ -653,6 +656,30 @@
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="matchup-opt-center" checked onchange="updateMatchupOverlayUrl()">
                                         <span>Show Center Phase Badge (<code>?center=1</code>)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-title" checked onchange="updateMatchupOverlayUrl()">
+                                        <span>Show event title</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-phase" checked onchange="updateMatchupOverlayUrl()">
+                                        <span>Show phase / stage</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-clock" checked onchange="updateMatchupOverlayUrl()">
+                                        <span>Show match clock / timers</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-tags" checked onchange="updateMatchupOverlayUrl()">
+                                        <span>Show tags / characters</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-details" checked onchange="updateMatchupOverlayUrl()">
+                                        <span>Show sub-details</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
+                                        <input type="checkbox" id="matchup-opt-pips" checked onchange="updateMatchupOverlayUrl()">
+                                        <span>Show score pips</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.75rem; color: var(--text);">
                                         <input type="checkbox" id="matchup-opt-fit" onchange="updateMatchupOverlayUrl()">
@@ -1159,6 +1186,7 @@
             if (sourceSelect && sourceSelect.value !== 'auto') urlParams.set('source', sourceSelect.value);
             if (pipStyleSelect && pipStyleSelect.value !== 'circle') urlParams.set('pipstyle', pipStyleSelect.value);
             if (centerCheck && !centerCheck.checked) urlParams.set('center', '0');
+            ['title', 'phase', 'clock', 'tags', 'details', 'pips'].forEach(k => { const el = $('matchup-opt-' + k); if (el && !el.checked) urlParams.set(k, '0'); });
             if (fitCheck && fitCheck.checked) urlParams.set('fit', 'content');
             if (confettiCheck && !confettiCheck.checked) urlParams.set('confetti', '0');
 
@@ -2765,8 +2793,10 @@
                                     ${esc(competitorsText)}
                                 </div>
                                 <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">
-                                    Completed ${date}
+                                    ${item.status === 'IN_PROGRESS' ? 'Saved in progress' : 'Completed'} ${date}
                                 </div>
+                                ${(item.competitors || []).some(c => c.timer && c.timer.finishTime) ? `<div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">${(item.competitors || []).filter(c => c.timer && c.timer.finishTime).map(c => esc(c.name) + ' ' + esc(c.timer.finishTime)).join(' · ')}</div>` : ''}
+                                ${(item.log || []).length ? `<details style="margin-top:0.3rem;"><summary style="font-size:0.7rem;color:var(--text-muted);cursor:pointer;">Event log (${item.log.length})</summary><div style="font-size:0.7rem;color:var(--text-muted);max-height:140px;overflow:auto;margin-top:0.25rem;">${item.log.map(l => `<div>${new Date(l.ts).toLocaleTimeString()} &middot; ${esc(l.text)}</div>`).join('')}</div></details>` : ''}
                             </div>
                             <div style="display: flex; gap: 0.35rem; align-items: center;">
                                 <button type="button" class="btn-primary" style="font-size: 0.72rem; padding: 0.2rem 0.55rem;" onclick="restoreMatchupFromHistory('${item.id}')" title="Restore this matchup to active scoreboard">
@@ -2780,6 +2810,14 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        async function saveMatchupProgress() {
+            try {
+                const res = await fetch('/api/matchup/history/snapshot', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'ok') { toast('Progress saved to History'); loadMatchupHistory(); }
+            } catch { toast('Error saving progress'); }
         }
 
         async function restoreMatchupFromHistory(id) {

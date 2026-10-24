@@ -189,6 +189,41 @@ function createMatchupService({
         broadcastToOverlays('matchup-update', activeMatchup);
     }
 
+    function logEvent(type, text) {
+        if (!activeMatchup) return;
+        if (!Array.isArray(activeMatchup.log)) activeMatchup.log = [];
+        activeMatchup.log.push({ ts: new Date().toISOString(), clock: activeMatchup.clock ? Math.round((activeMatchup.clock.elapsed || 0) * 10) / 10 : 0, type, text });
+        if (activeMatchup.log.length > 500) activeMatchup.log.splice(0, activeMatchup.log.length - 500);
+    }
+
+    function snapshotRecord(status) {
+        const m = activeMatchup;
+        return {
+            id: `mh_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+            timestamp: new Date().toISOString(),
+            status,
+            title: m.title, phase: m.phase, details: m.details, format: m.format,
+            bestOf: m.bestOf, targetScore: m.targetScore,
+            winner: m.winner || null,
+            clock: m.clock ? JSON.parse(JSON.stringify(m.clock)) : null,
+            competitors: m.competitors.map(c => ({
+                name: c.name, score: c.score, tag: c.tag, color: c.color,
+                timer: c.timer ? { elapsed: c.timer.elapsed, finished: c.timer.finished, finishTime: c.timer.finishTime, delta: c.timer.delta } : null
+            })),
+            log: (m.log || []).slice()
+        };
+    }
+
+    function saveProgress() {
+        if (!activeMatchup) load();
+        const rec = snapshotRecord('IN_PROGRESS');
+        activeMatchup.history.unshift(rec);
+        if (activeMatchup.history.length > 100) activeMatchup.history.length = 100;
+        logEvent('save', 'Progress saved');
+        save();
+        return rec;
+    }
+
     function checkWinnerCondition() {
         if (!activeMatchup) return false;
         const target = activeMatchup.targetScore;
@@ -206,16 +241,9 @@ function createMatchupService({
                     if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
                 }
                 if (!Array.isArray(activeMatchup.history)) activeMatchup.history = [];
-                activeMatchup.history.unshift({
-                    id: `mh_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-                    timestamp: new Date().toISOString(),
-                    title: activeMatchup.title,
-                    phase: activeMatchup.phase,
-                    format: activeMatchup.format,
-                    winner: leader.name,
-                    competitors: activeMatchup.competitors.map(c => ({ name: c.name, score: c.score, tag: c.tag, color: c.color }))
-                });
-                if (activeMatchup.history.length > 50) activeMatchup.history.length = 50;
+                logEvent('winner', `${leader.name} won the set`);
+                activeMatchup.history.unshift(snapshotRecord('COMPLETED'));
+                activeMatchup.history.length = Math.min(activeMatchup.history.length, 100);
 
                 log(`[Matchup] Competitor "${leader.name}" won the set (${leader.score} wins)!`);
                 onAlert({
@@ -325,6 +353,7 @@ function createMatchupService({
         } else if (score !== undefined) {
             comp.score = Math.max(0, parseInt(score, 10) || 0);
         }
+        logEvent('score', `${comp.name} score ${comp.score}`);
 
         checkWinnerCondition();
         save();
@@ -596,6 +625,17 @@ function createMatchupService({
         }));
         activeMatchup.status = 'ACTIVE';
         activeMatchup.winner = null;
+        if (item.status === 'IN_PROGRESS') {
+            if (item.clock) activeMatchup.clock = Object.assign({}, item.clock, { isRunning: false });
+            activeMatchup.competitors.forEach((c, i) => {
+                const t = item.competitors[i] && item.competitors[i].timer;
+                if (t) c.timer = Object.assign({ isRunning: false }, t, { isRunning: false });
+            });
+            activeMatchup.log = (item.log || []).slice();
+        } else {
+            activeMatchup.log = [];
+        }
+        logEvent('restore', 'Restored from history');
         save();
         broadcastUpdate();
         return activeMatchup;
@@ -886,6 +926,7 @@ function createMatchupService({
         comp.timer.finished = true;
         comp.timer.isRunning = false;
         comp.timer.finishTime = formatPrecise(comp.timer.elapsed);
+        logEvent('finish', `${comp.name} finished ${comp.timer.finishTime}`);
 
         const otherFinishers = activeMatchup.competitors.filter(c => c !== comp && c.timer?.finished);
         if (otherFinishers.length > 0) {
@@ -975,6 +1016,7 @@ function createMatchupService({
     load();
 
     return {
+        saveProgress,
         getMatchup,
         updateMatchup,
         updateScore,

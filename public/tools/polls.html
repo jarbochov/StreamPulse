@@ -21,17 +21,6 @@
     <script src="/nav.js"></script>
 
     <main class="container">
-        <!-- Versus Studio Banner -->
-        <div style="background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.9rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
-            <div style="font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                <span>Managing chat audience polls here. Looking for manual scoring, esports brackets, fighting game scoreboards, or fight cards?</span>
-            </div>
-            <a href="/versus.html" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.6rem; text-decoration: none; white-space: nowrap;">
-                Open Versus Studio &rarr;
-            </a>
-        </div>
-
         <!-- Navigation Tabs (Full Width Studio) -->
         <div class="studio-tabs" style="margin-bottom: 1.25rem;">
             <button type="button" class="studio-tab-btn active" id="tab-btn-poll" onclick="switchTab('poll')">
@@ -343,11 +332,6 @@
                             <div class="form-group">
                                 <label for="tourney-title">Tournament Title</label>
                                 <input type="text" id="tourney-title" class="form-control" placeholder="e.g. Retro Game Championship" required autocomplete="off">
-                            </div>
-
-                            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;font-size:0.75rem;color:var(--text-muted);margin-bottom:0.85rem;">
-                                <span>Viewers vote each matchup in chat. For scored brackets with series scores, use Versus Studio.</span>
-                                <a href="/versus.html" class="btn-secondary" style="font-size:0.72rem;padding:0.2rem 0.55rem;white-space:nowrap;">Versus Studio &rarr;</a>
                             </div>
 
                             <!-- Audience Chat Vote Settings -->

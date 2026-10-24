@@ -895,6 +895,15 @@ function createTwitchRoutes({
             return true;
         }
 
+        if (pathname === '/api/matchup/history/snapshot' && req.method === 'POST') {
+            if (!matchupService) {
+                sendError(res, 501, 'Matchup service not available');
+                return true;
+            }
+            sendJson(res, { status: 'ok', record: matchupService.saveProgress() });
+            return true;
+        }
+
         if (pathname === '/api/matchup/history/restore' && req.method === 'POST') {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');

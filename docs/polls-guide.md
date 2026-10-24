@@ -306,3 +306,9 @@ Control live polls, tournament matchups, and scoreboard sets directly from your 
 - `POST /api/matchup/history/restore` — Restores a past matchup set to the live scoreboard: `{ id }`.
 - `DELETE /api/matchup/history/:id` — Deletes a past matchup history record.
 - `POST /api/matchup/history/clear` — Clears all matchup fight sets history.
+
+## Versus Studio: History, Progress Saves and Overlay Options
+
+- **Save Progress** snapshots the live matchup (scores, clocks, runner times and event log) into History at any time; Restore resumes it.
+- Completed matches are recorded with final times, deltas and a timestamped event log.
+- Matchup overlay URLs accept `title=0`, `phase=0`, `clock=0`, `tags=0`, `details=0`, `pips=0` and `center=0` to hide individual elements; the Overlays tab has a toggle for each.
