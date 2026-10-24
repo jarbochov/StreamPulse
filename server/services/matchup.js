@@ -138,6 +138,15 @@ function createMatchupService({
     const matchupFile = dataDir ? path.join(dataDir, 'matchup.json') : null;
     let activeMatchup = null;
     let clockTimer = null;
+    let lastTickAt = Date.now();
+
+    // Clocks never survive a restart in a running state (the ticker is gone).
+    function settleClocksAfterLoad(data) {
+        if (data.clock) data.clock.isRunning = false;
+        for (const c of (data.competitors || [])) {
+            if (c.timer) c.timer.isRunning = false;
+        }
+    }
 
     function load() {
         if (!matchupFile) {
@@ -153,6 +162,7 @@ function createMatchupService({
                     if (!Array.isArray(data.presets)) data.presets = createDefaultMatchup().presets;
                     if (!Array.isArray(data.history)) data.history = [];
                     if (!data.clock) data.clock = createDefaultMatchup().clock;
+                    settleClocksAfterLoad(data);
                     activeMatchup = data;
                     return;
                 }
@@ -623,6 +633,63 @@ function createMatchupService({
         }
     }
 
+    function stopTicker() {
+        if (clockTimer) {
+            clearInterval(clockTimer);
+            clockTimer = null;
+        }
+    }
+
+    // One shared, drift-corrected ticker drives countdown, stopwatch and race clocks.
+    // Stopwatch / race elapsed time advances by real wall-clock delta so long runs
+    // stay accurate even when the event loop is briefly busy.
+    function tickClock() {
+        const clock = activeMatchup && activeMatchup.clock;
+        if (!clock || !clock.isRunning) {
+            stopTicker();
+            return;
+        }
+        const now = Date.now();
+        const dt = Math.max(0, (now - lastTickAt) / 1000);
+        lastTickAt = now;
+
+        if (clock.mode === 'race') {
+            clock.elapsed += dt;
+            const comps = activeMatchup.competitors || [];
+            let anyRunning = false;
+            for (const c of comps) {
+                if (c.timer && c.timer.isRunning && !c.timer.finished) {
+                    c.timer.elapsed += dt;
+                    anyRunning = true;
+                }
+            }
+            if (!anyRunning && comps.length > 0 && comps.every(c => c.timer && c.timer.finished)) {
+                clock.isRunning = false;
+                stopTicker();
+            }
+        } else if (clock.mode === 'stopwatch') {
+            clock.elapsed += dt;
+        } else if (clock.remaining > 0) {
+            clock.remaining -= 1;
+            if (clock.remaining <= 0) {
+                clock.remaining = 0;
+                clock.isRunning = false;
+                stopTicker();
+            }
+        } else {
+            clock.isRunning = false;
+            stopTicker();
+        }
+        broadcastUpdate();
+    }
+
+    function ensureTicker() {
+        stopTicker();
+        lastTickAt = Date.now();
+        clockTimer = setInterval(tickClock, 1000);
+        if (clockTimer.unref) clockTimer.unref();
+    }
+
     function startClock() {
         if (!activeMatchup) load();
         ensureClock();
@@ -631,29 +698,7 @@ function createMatchupService({
         activeMatchup.clock.isRunning = true;
         activeMatchup.clock.startedAt = Date.now();
         activeMatchup.clock.enabled = true;
-
-        if (clockTimer) clearInterval(clockTimer);
-        clockTimer = setInterval(() => {
-            if (!activeMatchup || !activeMatchup.clock || !activeMatchup.clock.isRunning) {
-                if (clockTimer) clearInterval(clockTimer);
-                clockTimer = null;
-                return;
-            }
-
-            if (activeMatchup.clock.mode === 'stopwatch') {
-                activeMatchup.clock.elapsed += 1;
-            } else {
-                if (activeMatchup.clock.remaining > 0) {
-                    activeMatchup.clock.remaining -= 1;
-                } else {
-                    activeMatchup.clock.isRunning = false;
-                    if (clockTimer) clearInterval(clockTimer);
-                    clockTimer = null;
-                }
-            }
-            broadcastUpdate();
-        }, 1000);
-        if (clockTimer.unref) clockTimer.unref();
+        ensureTicker();
 
         save();
         broadcastUpdate();
@@ -726,6 +771,15 @@ function createMatchupService({
         return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
 
+    // Speedrun-grade precision: M:SS.cc (or H:MM:SS.cc past one hour).
+    function formatPrecise(totalSeconds) {
+        const clamped = Math.max(0, Number(totalSeconds) || 0);
+        const centis = Math.floor(clamped * 100);
+        const cs = centis % 100;
+        const base = formatTime(Math.floor(centis / 100));
+        return `${base}.${String(cs).padStart(2, '0')}`;
+    }
+
     function ensureCompetitorTimers() {
         if (!activeMatchup) load();
         if (!Array.isArray(activeMatchup.competitors)) return;
@@ -742,44 +796,44 @@ function createMatchupService({
         }
     }
 
+    function findRaceCompetitor(compIdentifier) {
+        const comps = activeMatchup.competitors || [];
+        if (typeof compIdentifier === 'number') return comps[compIdentifier] || null;
+        if (typeof compIdentifier === 'string' && /^\d+$/.test(compIdentifier) && !comps.some(c => c.id === compIdentifier)) {
+            return comps[Number(compIdentifier)] || null;
+        }
+        return comps.find(c => c.id === compIdentifier || c.name === compIdentifier) || null;
+    }
+
+    function syncRaceClockState() {
+        const comps = activeMatchup.competitors || [];
+        const anyRunning = comps.some(c => c.timer && c.timer.isRunning && !c.timer.finished);
+        if (anyRunning) {
+            if (!activeMatchup.clock.isRunning || !clockTimer) {
+                activeMatchup.clock.mode = 'race';
+                activeMatchup.clock.isRunning = true;
+                activeMatchup.clock.startedAt = Date.now();
+                ensureTicker();
+            }
+        } else if (activeMatchup.clock.isRunning) {
+            activeMatchup.clock.isRunning = false;
+            stopTicker();
+        }
+    }
+
     function startAllRace() {
         if (!activeMatchup) load();
         ensureClock();
         ensureCompetitorTimers();
         activeMatchup.clock.mode = 'race';
-        activeMatchup.clock.isRunning = true;
         activeMatchup.clock.enabled = true;
-        activeMatchup.clock.startedAt = Date.now();
 
         for (const c of activeMatchup.competitors) {
-            if (!c.timer.finished) {
-                c.timer.isRunning = true;
-            }
+            if (!c.timer.finished) c.timer.isRunning = true;
         }
-
-        if (clockTimer) clearInterval(clockTimer);
-        clockTimer = setInterval(() => {
-            if (!activeMatchup || !activeMatchup.clock || !activeMatchup.clock.isRunning) {
-                if (clockTimer) clearInterval(clockTimer);
-                clockTimer = null;
-                return;
-            }
-            activeMatchup.clock.elapsed += 1;
-            let anyRunning = false;
-            for (const c of (activeMatchup.competitors || [])) {
-                if (c.timer && c.timer.isRunning && !c.timer.finished) {
-                    c.timer.elapsed += 1;
-                    anyRunning = true;
-                }
-            }
-            if (!anyRunning && (activeMatchup.competitors || []).length > 0 && activeMatchup.competitors.every(c => c.timer?.finished)) {
-                activeMatchup.clock.isRunning = false;
-                if (clockTimer) clearInterval(clockTimer);
-                clockTimer = null;
-            }
-            broadcastUpdate();
-        }, 1000);
-        if (clockTimer.unref) clockTimer.unref();
+        activeMatchup.clock.isRunning = true;
+        activeMatchup.clock.startedAt = Date.now();
+        ensureTicker();
 
         save();
         broadcastUpdate();
@@ -794,10 +848,7 @@ function createMatchupService({
         for (const c of activeMatchup.competitors) {
             c.timer.isRunning = false;
         }
-        if (clockTimer) {
-            clearInterval(clockTimer);
-            clockTimer = null;
-        }
+        stopTicker();
         save();
         broadcastUpdate();
         return activeMatchup;
@@ -816,10 +867,7 @@ function createMatchupService({
             c.timer.finishTime = null;
             c.timer.delta = null;
         }
-        if (clockTimer) {
-            clearInterval(clockTimer);
-            clockTimer = null;
-        }
+        stopTicker();
         save();
         broadcastUpdate();
         return activeMatchup;
@@ -830,23 +878,20 @@ function createMatchupService({
         ensureClock();
         ensureCompetitorTimers();
 
-        let comp = null;
-        if (typeof compIdentifier === 'number') {
-            comp = activeMatchup.competitors[compIdentifier];
-        } else {
-            comp = activeMatchup.competitors.find(c => c.id === compIdentifier || c.name === compIdentifier);
-        }
-        if (!comp) return activeMatchup;
+        const comp = findRaceCompetitor(compIdentifier);
+        if (!comp || comp.timer.finished) return activeMatchup;
+        // A runner that was never started cannot finish.
+        if (!comp.timer.isRunning && !(comp.timer.elapsed > 0)) return activeMatchup;
 
         comp.timer.finished = true;
         comp.timer.isRunning = false;
-        comp.timer.finishTime = formatTime(comp.timer.elapsed);
+        comp.timer.finishTime = formatPrecise(comp.timer.elapsed);
 
-        const otherFinishers = activeMatchup.competitors.filter(c => c.id !== comp.id && c.timer?.finished);
+        const otherFinishers = activeMatchup.competitors.filter(c => c !== comp && c.timer?.finished);
         if (otherFinishers.length > 0) {
             const firstFinisher = otherFinishers.reduce((min, cur) => cur.timer.elapsed < min.timer.elapsed ? cur : min, otherFinishers[0]);
             const diff = comp.timer.elapsed - firstFinisher.timer.elapsed;
-            comp.timer.delta = diff > 0 ? `+${formatTime(diff)}` : null;
+            comp.timer.delta = diff > 0 ? `+${formatPrecise(diff)}` : null;
         } else {
             comp.timer.delta = 'WINNER';
             if (activeMatchup.format === 'bestOf' || activeMatchup.format === 'firstTo') {
@@ -866,13 +911,9 @@ function createMatchupService({
             } catch { /* ignore */ }
         }
 
-        const allFinished = activeMatchup.competitors.every(c => c.timer?.finished);
-        if (allFinished) {
+        if (activeMatchup.competitors.every(c => c.timer?.finished)) {
             activeMatchup.clock.isRunning = false;
-            if (clockTimer) {
-                clearInterval(clockTimer);
-                clockTimer = null;
-            }
+            stopTicker();
         }
 
         save();
@@ -885,12 +926,7 @@ function createMatchupService({
         ensureClock();
         ensureCompetitorTimers();
 
-        let comp = null;
-        if (typeof compIdentifier === 'number') {
-            comp = activeMatchup.competitors[compIdentifier];
-        } else {
-            comp = activeMatchup.competitors.find(c => c.id === compIdentifier || c.name === compIdentifier);
-        }
+        const comp = findRaceCompetitor(compIdentifier);
         if (!comp) return activeMatchup;
 
         if (comp.timer.finished) {
@@ -898,42 +934,8 @@ function createMatchupService({
             comp.timer.finishTime = null;
             comp.timer.delta = null;
         }
-
         comp.timer.isRunning = !comp.timer.isRunning;
-
-        const anyRunning = activeMatchup.competitors.some(c => c.timer.isRunning);
-        if (anyRunning && !activeMatchup.clock.isRunning) {
-            activeMatchup.clock.isRunning = true;
-            if (clockTimer) clearInterval(clockTimer);
-            clockTimer = setInterval(() => {
-                if (!activeMatchup || !activeMatchup.clock || !activeMatchup.clock.isRunning) {
-                    if (clockTimer) clearInterval(clockTimer);
-                    clockTimer = null;
-                    return;
-                }
-                activeMatchup.clock.elapsed += 1;
-                let active = false;
-                for (const c of (activeMatchup.competitors || [])) {
-                    if (c.timer && c.timer.isRunning && !c.timer.finished) {
-                        c.timer.elapsed += 1;
-                        active = true;
-                    }
-                }
-                if (!active && (activeMatchup.competitors || []).length > 0 && activeMatchup.competitors.every(c => c.timer?.finished)) {
-                    activeMatchup.clock.isRunning = false;
-                    if (clockTimer) clearInterval(clockTimer);
-                    clockTimer = null;
-                }
-                broadcastUpdate();
-            }, 1000);
-            if (clockTimer.unref) clockTimer.unref();
-        } else if (!anyRunning && activeMatchup.clock.isRunning) {
-            activeMatchup.clock.isRunning = false;
-            if (clockTimer) {
-                clearInterval(clockTimer);
-                clockTimer = null;
-            }
-        }
+        syncRaceClockState();
 
         save();
         broadcastUpdate();
@@ -945,12 +947,7 @@ function createMatchupService({
         ensureClock();
         ensureCompetitorTimers();
 
-        let comp = null;
-        if (typeof compIdentifier === 'number') {
-            comp = activeMatchup.competitors[compIdentifier];
-        } else {
-            comp = activeMatchup.competitors.find(c => c.id === compIdentifier || c.name === compIdentifier);
-        }
+        const comp = findRaceCompetitor(compIdentifier);
         if (!comp) return activeMatchup;
 
         comp.timer.elapsed = 0;
@@ -958,11 +955,13 @@ function createMatchupService({
         comp.timer.finished = false;
         comp.timer.finishTime = null;
         comp.timer.delta = null;
+        syncRaceClockState();
 
         save();
         broadcastUpdate();
         return activeMatchup;
     }
+
 
     function setTargetEstimate(estimate) {
         if (!activeMatchup) load();

@@ -62,9 +62,9 @@ Run interactive audience votes directly from **Tools > Poll Studio**. StreamPuls
 
 **Good for:** letting viewers decide what comes next, running challenges, and celebrating community decisions live on stream. See the [Live Polls guide](polls-guide.md).
 
-### Competitions Studio, Brackets & Matchups
+### Versus Studio, Brackets & Matchups
 
-Run community tournaments, esports showdowns, and fighting game match sets from **Tools > Competitions Studio**. StreamPulse provides an interactive bracket controller (Single Elimination with automatic BYEs for non-power-of-2 entrant counts, Double Elimination, and Round Robin standings), plus a dedicated **Versus Scoreboard** (1v1, 3-way, 4-way FFA) with series win pips, side swapping (`P1 ⇄ P2`), Fight Card queues, and preset saving. Dedicated, self-sizing broadcast overlays (`/matchup.html` and `/tournament.html`) adapt seamlessly to any OBS browser source dimensions without letterboxing or fixed aspect ratio constraints.
+Run community tournaments, esports showdowns, and fighting game match sets from **Tools > Versus Studio**. StreamPulse provides an interactive bracket controller (Single Elimination with automatic BYEs for non-power-of-2 entrant counts, Double Elimination, and Round Robin standings), plus a dedicated **Versus Scoreboard** (1v1, 3-way, 4-way FFA) with series win pips, side swapping (`P1 ⇄ P2`), Fight Card queues, and preset saving. Dedicated, self-sizing broadcast overlays (`/matchup.html` and `/tournament.html`) adapt seamlessly to any OBS browser source dimensions without letterboxing or fixed aspect ratio constraints.
 
 **Good for:** fighting games, community tournaments, speedrun races, game night brackets, and esports score bugs. See the [Competitions & Polls guide](polls-guide.md).
 

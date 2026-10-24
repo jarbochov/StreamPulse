@@ -742,7 +742,7 @@ function createTwitchRoutes({
             try {
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
-                const idOrIdx = body.competitorId !== undefined ? body.competitorId : body.index;
+                const idOrIdx = body.competitor !== undefined ? body.competitor : (body.competitorId !== undefined ? body.competitorId : body.index);
                 const matchup = matchupService.finishCompetitorRace(idOrIdx);
                 sendJson(res, { status: 'ok', matchup, clock: matchup.clock });
             } catch (err) {
@@ -759,7 +759,7 @@ function createTwitchRoutes({
             try {
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
-                const idOrIdx = body.competitorId !== undefined ? body.competitorId : body.index;
+                const idOrIdx = body.competitor !== undefined ? body.competitor : (body.competitorId !== undefined ? body.competitorId : body.index);
                 const matchup = matchupService.toggleCompetitorRace(idOrIdx);
                 sendJson(res, { status: 'ok', matchup, clock: matchup.clock });
             } catch (err) {
@@ -776,7 +776,7 @@ function createTwitchRoutes({
             try {
                 const raw = await readRequestBody(req);
                 const body = raw ? JSON.parse(raw) : {};
-                const idOrIdx = body.competitorId !== undefined ? body.competitorId : body.index;
+                const idOrIdx = body.competitor !== undefined ? body.competitor : (body.competitorId !== undefined ? body.competitorId : body.index);
                 const matchup = matchupService.resetCompetitorRace(idOrIdx);
                 sendJson(res, { status: 'ok', matchup, clock: matchup.clock });
             } catch (err) {
@@ -785,7 +785,7 @@ function createTwitchRoutes({
             return true;
         }
 
-        if (pathname === '/api/matchup/clock/estimate' && req.method === 'POST') {
+        if ((pathname === '/api/matchup/clock/estimate' || pathname === '/api/matchup/clock/race/estimate') && req.method === 'POST') {
             if (!matchupService) {
                 sendError(res, 501, 'Matchup service not available');
                 return true;

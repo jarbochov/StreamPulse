@@ -123,6 +123,7 @@ const legacyUrlsToTest = [
 
     // Tools
     '/polls.html',
+    '/versus.html',
     '/competitions.html',
     '/tournaments.html',
     '/chatbot.html',

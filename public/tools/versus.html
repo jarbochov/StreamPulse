@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StreamPulse — Competitions &amp; Tournament Studio</title>
+    <title>StreamPulse — Versus Studio</title>
     <link rel="stylesheet" href="/admin.css">
     <link rel="stylesheet" href="/css/poll-studio.css">
     <script src="/appearance.js"></script>
@@ -12,7 +12,7 @@
     <header class="header">
         <h1>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
-            StreamPulse <span>Competitions Studio</span>
+            StreamPulse <span>Versus Studio</span>
             <span class="badge-studio">Esports &amp; Versus</span>
         </h1>
         <div id="main-nav" class="nav"></div>
@@ -792,7 +792,7 @@
                     </div>
                 </div>
 
-                <!-- Tab 4: Competition History Panel -->
+                <!-- Tab 4: History Panel -->
                 <div id="panel-history" style="display: none;">
                     <div class="card" style="margin-bottom: 1rem;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
@@ -948,7 +948,7 @@
                 applyViewportScale();
             } else if (tab === 'presets') {
                 loadTournamentPresets();
-                loadMatchupPresets();
+                loadMatchup();
             } else if (tab === 'history') {
                 loadTournamentHistory();
                 loadMatchupHistory();

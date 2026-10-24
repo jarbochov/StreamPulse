@@ -323,7 +323,7 @@
         {
             id: 'competitions',
             group: 'Overlays & Features',
-            title: 'Competitions Studio & Matchups',
+            title: 'Versus Studio & Matchups',
             custom: true
         },
         {
@@ -742,7 +742,7 @@
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
-                    <div class="detail-text">• <strong>Credits Roll</strong> — scrolling credits with subs, followers, chatters, emotes, hashtags, raids, gifters and cheerers, plus fade-style text sections<br>• <strong>Custom Overlays</strong> — visual canvas editor with transparent webcam cutouts, WebGL shaders, live placeholders, QR codes and assets<br>• <strong>Choice Randomizer</strong> — interactive slot roller, spinning wheel, and card deck with elimination mode, dynamic odds, and chatter pool<br>• <strong>Poll Studio &amp; Audience Voting</strong> — multi-platform chat voting, blind mode, subscriber vote multiplier, confetti celebration, and winner fanfare<br>• <strong>Competitions Studio &amp; Matchups</strong> — esports tournament brackets (single/double elim, round robin, non-power-of-2 BYEs), versus scoreboards (1v1 to 4P), side swapping, Fight Card queue, and self-sizing overlays<br>• <strong>Promo Creator</strong> — multi-format announcements (1:1, 16:9, 9:16) with 23 animated procedural patterns, IGDB artwork, and seamless MP4/PNG export<br>• <strong>Music Overlay</strong> — Apple Music, Spotify and VLC now-playing<br>• <strong>Named Timers</strong> — countdowns and stopwatches with pause/resume and Companion endpoints<br>• <strong>Goals + Viewer Tracking</strong> — single and rotating goal overlays<br>• <strong>Game Plan</strong> — Scheduled/Backlog/Played and custom lists with IGDB art<br>• <strong>Sessions &amp; Highlights</strong> — searchable chat logs (<code>AND</code>, <code>OR</code>, <code>"exact phrase"</code>, <code>user:name</code>), pins, TSV/TXT/PDF exports<br>• <strong>Clip Candidates (Beta)</strong> — notable events and chat spikes with Twitch clip links<br>• <strong>Hashtag Tracking</strong> — live overlays plus moderation<br>• <strong>Backup &amp; Restore</strong> — ZIP backups including the live session, custom overlays and Game Plan<br>• <strong>Updater</strong> — check for and install the latest stable release from the Manage menu (Git checkout with Git and npm required; data is backed up first)<br><br><em>Hashtags tip:</em> they suit smaller streams. For larger communities use the ban/purge moderation tools or disable hashtags.</div>
+                    <div class="detail-text">• <strong>Credits Roll</strong> — scrolling credits with subs, followers, chatters, emotes, hashtags, raids, gifters and cheerers, plus fade-style text sections<br>• <strong>Custom Overlays</strong> — visual canvas editor with transparent webcam cutouts, WebGL shaders, live placeholders, QR codes and assets<br>• <strong>Choice Randomizer</strong> — interactive slot roller, spinning wheel, and card deck with elimination mode, dynamic odds, and chatter pool<br>• <strong>Poll Studio &amp; Audience Voting</strong> — multi-platform chat voting, blind mode, subscriber vote multiplier, confetti celebration, and winner fanfare<br>• <strong>Versus Studio &amp; Matchups</strong> — esports tournament brackets (single/double elim, round robin, non-power-of-2 BYEs), versus scoreboards (1v1 to 4P), side swapping, Fight Card queue, and self-sizing overlays<br>• <strong>Promo Creator</strong> — multi-format announcements (1:1, 16:9, 9:16) with 23 animated procedural patterns, IGDB artwork, and seamless MP4/PNG export<br>• <strong>Music Overlay</strong> — Apple Music, Spotify and VLC now-playing<br>• <strong>Named Timers</strong> — countdowns and stopwatches with pause/resume and Companion endpoints<br>• <strong>Goals + Viewer Tracking</strong> — single and rotating goal overlays<br>• <strong>Game Plan</strong> — Scheduled/Backlog/Played and custom lists with IGDB art<br>• <strong>Sessions &amp; Highlights</strong> — searchable chat logs (<code>AND</code>, <code>OR</code>, <code>"exact phrase"</code>, <code>user:name</code>), pins, TSV/TXT/PDF exports<br>• <strong>Clip Candidates (Beta)</strong> — notable events and chat spikes with Twitch clip links<br>• <strong>Hashtag Tracking</strong> — live overlays plus moderation<br>• <strong>Backup &amp; Restore</strong> — ZIP backups including the live session, custom overlays and Game Plan<br>• <strong>Updater</strong> — check for and install the latest stable release from the Manage menu (Git checkout with Git and npm required; data is backed up first)<br><br><em>Hashtags tip:</em> they suit smaller streams. For larger communities use the ban/purge moderation tools or disable hashtags.</div>
                 </div>
             </div>`;
 
@@ -1207,15 +1207,15 @@
             case 'competitions': return `
             <div class="card open">
                 <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
-                    <strong style="font-size:0.9rem;">Competitions Studio: Esports Brackets &amp; Versus Matchups</strong>
+                    <strong style="font-size:0.9rem;">Versus Studio: Esports Brackets &amp; Versus Matchups</strong>
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
                     <div class="detail-text">
-                        The <a href="/competitions.html" style="color:var(--accent);">Competitions Studio</a> (Tools ▾ → Competitions Studio) is StreamPulse's dedicated controller for community game nights, esports competitions, fighting game sets, and speedrun showdowns. It separates competitive tournament scoring from audience chat polls while keeping them connected when desired.
+                        The <a href="/versus.html" style="color:var(--accent);">Versus Studio</a> (Tools ▾ → Versus Studio) is StreamPulse's dedicated controller for community game nights, esports competitions, fighting game sets, and speedrun showdowns. It separates competitive tournament scoring from audience chat polls while keeping them connected when desired.
                     </div>
-                    <div class="detail-label">Competitions Studio Controller URL</div>
-                    <div class="url-box"><code>${BASE}/competitions.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/competitions.html')">Copy</button></div>
+                    <div class="detail-label">Versus Studio Controller URL</div>
+                    <div class="url-box"><code>${BASE}/versus.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/versus.html')">Copy</button></div>
                     <div class="detail-label">Responsive Matchup Scoreboard Overlay URL</div>
                     <div class="url-box"><code>${BASE}/matchup.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/matchup.html')">Copy</button></div>
                     <div class="detail-label">Tournament Bracket Overlay URL</div>

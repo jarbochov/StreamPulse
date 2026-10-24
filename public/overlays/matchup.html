@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Matchup Scoreboard Overlay — StreamPulse</title>
-    <link rel="stylesheet" href="/overlay-theme.css">
     <style>
         :root {
             --matchup-scale: 1;
@@ -1228,7 +1227,7 @@
         function renderClockHtml(m, styleType = 'badge') {
             const clock = m?.clock;
             if (!clock || clock.enabled === false) return '';
-            const isStopwatch = clock.mode === 'stopwatch';
+            const isStopwatch = clock.mode === 'stopwatch' || clock.mode === 'race';
             const displayVal = isStopwatch ? formatClockTime(clock.elapsed, true) : (clock.remaining !== undefined ? formatClockTime(clock.remaining, clock.duration >= 60) : '99');
             const isLow = !isStopwatch && clock.remaining !== undefined && clock.remaining <= 10 && clock.remaining > 0;
             const isOver = !isStopwatch && clock.remaining === 0;
@@ -1337,7 +1336,7 @@
                             const t = c.timer || { elapsed: 0, isRunning: false, finished: false, finishTime: null, delta: null };
                             const isFin = t.finished;
                             const isRun = t.isRunning;
-                            const timeStr = isFin ? (t.finishTime || formatTime(t.elapsed)) : formatTime(t.elapsed || 0);
+                            const timeStr = isFin ? (t.finishTime || formatClockTime(t.elapsed, true)) : formatClockTime(t.elapsed || 0, true);
 
                             let badgeHtml = '';
                             if (isFin) {

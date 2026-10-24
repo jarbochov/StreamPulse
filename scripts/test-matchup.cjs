@@ -428,19 +428,25 @@ test('Matchup Service Unit Tests', async (t) => {
     assert.equal(started.competitors[1].timer.isRunning, true);
 
     // Simulate elapsed time on runner 1 and finish
-    started.competitors[0].timer.elapsed = 120500; // 2m 0.5s
+    started.competitors[0].timer.elapsed = 120.5; // 2:00.50
     const mAfterFinish1 = service.finishCompetitorRace(0);
     assert.equal(mAfterFinish1.competitors[0].timer.finished, true);
     assert.equal(mAfterFinish1.competitors[0].timer.isRunning, false);
     assert.equal(mAfterFinish1.competitors[0].timer.delta, 'WINNER');
+    assert.equal(mAfterFinish1.competitors[0].timer.finishTime, '02:00.50');
 
     // Runner 2 finishes 1.5s later
-    mAfterFinish1.competitors[1].timer.elapsed = 122000;
+    mAfterFinish1.competitors[1].timer.elapsed = 122;
     const mAfterFinish2 = service.finishCompetitorRace(1);
     assert.equal(mAfterFinish2.competitors[1].timer.finished, true);
     assert.equal(mAfterFinish2.competitors[1].timer.isRunning, false);
-    assert.ok(mAfterFinish2.competitors[1].timer.delta.startsWith('+'));
+    assert.equal(mAfterFinish2.competitors[1].timer.delta, '+00:01.50');
     assert.equal(mAfterFinish2.clock.isRunning, false, 'Clock should stop when all runners have finished');
+
+    // Finishing twice is a no-op (no double scoring)
+    const scoreAfter = service.getMatchup().competitors[0].score;
+    service.finishCompetitorRace(0);
+    assert.equal(service.getMatchup().competitors[0].score, scoreAfter);
 
     // Reset competitor 2
     service.resetCompetitorRace(1);
@@ -453,5 +459,14 @@ test('Matchup Service Unit Tests', async (t) => {
     assert.equal(service.getMatchup().clock.isRunning, false);
     assert.equal(service.getMatchup().competitors[0].timer.finished, false);
     assert.equal(service.getMatchup().competitors[1].timer.finished, false);
+
+    // A runner that was never started cannot finish; numeric-string indexes resolve
+    service.finishCompetitorRace('1');
+    assert.equal(service.getMatchup().competitors[1].timer.finished, false);
+    service.toggleCompetitorRace('1');
+    assert.equal(service.getMatchup().competitors[1].timer.isRunning, true);
+    assert.equal(service.getMatchup().clock.isRunning, true, 'Starting one runner starts the master clock');
+    service.resetAllRace();
+    service.destroy();
   });
 });

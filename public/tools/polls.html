@@ -21,14 +21,14 @@
     <script src="/nav.js"></script>
 
     <main class="container">
-        <!-- Competitions Studio Banner -->
+        <!-- Versus Studio Banner -->
         <div style="background: var(--bg-inset); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.9rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
             <div style="font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 <span>Managing chat audience polls here. Looking for manual scoring, esports brackets, fighting game scoreboards, or fight cards?</span>
             </div>
-            <a href="/competitions.html" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.6rem; text-decoration: none; white-space: nowrap;">
-                Open Competitions Studio &rarr;
+            <a href="/versus.html" class="btn-secondary" style="font-size: 0.72rem; padding: 0.2rem 0.6rem; text-decoration: none; white-space: nowrap;">
+                Open Versus Studio &rarr;
             </a>
         </div>
 
@@ -435,22 +435,6 @@
                     </div>
                 </div>
 
-                <!-- Tab 3: Competitions & Versus Redirect Card -->
-                <div id="panel-matchup" style="display: none;">
-                    <div class="card" style="text-align: center; padding: 2.5rem 1.5rem;">
-                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: rgba(88, 166, 255, 0.15); border: 1px solid var(--accent); margin-bottom: 1rem; color: var(--accent);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><line x1="16" y1="10" x2="16" y2="14"/><line x1="14" y1="12" x2="18" y2="12"/></svg>
-                        </div>
-                        <h2 style="margin-bottom: 0.5rem;">Competitions &amp; Versus Studio</h2>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 440px; margin: 0 auto 1.25rem;">
-                            Matchup scoreboards, fighting game HUDs, side swapping, and exhibition fight cards have moved to their own dedicated Competitions Studio.
-                        </p>
-                        <a href="/competitions.html" class="btn-primary" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1.2rem; font-size: 0.88rem; text-decoration: none;">
-                            Open Competitions Studio &rarr;
-                        </a>
-                    </div>
-                </div>
-
                 <!-- Tab 4: Templates & History Panel -->
                 <div id="panel-templates" style="display: none;">
                     <div class="card">
@@ -614,7 +598,6 @@
 
         let activePollData = null;
         let activeTourneyData = null;
-        let activeMatchupData = null;
         let savedPresetsList = [];
         let selectedDuration = 60;
         let choiceCount = 0;
@@ -627,7 +610,6 @@
         const baseUrl = window.location.origin;
         $('url-poll-overlay').value = `${baseUrl}/overlays/poll.html`;
         $('url-tourney-overlay').value = `${baseUrl}/overlays/tournament.html`;
-        $('url-matchup-overlay').value = `${baseUrl}/overlays/matchup.html`;
 
         function updatePollOverlayUrl() {
             const origin = window.location.origin;
@@ -645,7 +627,7 @@
             }
 
             const urlParams = new URLSearchParams();
-            if (theme === 'custom') {
+            if (theme === 'custom' && customBgInput) {
                 const hex = customBgInput.value.trim().replace(/^#/, '');
                 if (hex) urlParams.set('overlay', hex);
             } else if (theme !== 'card') {
@@ -683,11 +665,7 @@
 
             if (!themeSelect) return;
             const theme = themeSelect.value;
-            if (theme === 'custom') {
-                customBgWrap.style.display = 'block';
-            } else {
-                customBgWrap.style.display = 'none';
-            }
+            if (customBgWrap) customBgWrap.style.display = theme === 'custom' ? 'block' : 'none';
 
             const urlParams = new URLSearchParams();
             if (layoutSelect && layoutSelect.value !== 'tree') {
@@ -725,63 +703,7 @@
             }
         }
 
-        function updateMatchupOverlayUrl() {
-            const origin = window.location.origin;
-            const layoutSelect = $('matchup-opt-layout');
-            const themeSelect = $('matchup-opt-theme');
-            const customBgWrap = $('matchup-opt-custom-bg-wrap');
-            const customBgInput = $('matchup-opt-custom-bg');
-            const pipsCheck = $('matchup-opt-pips');
-            const tagsCheck = $('matchup-opt-tags');
-
-            if (!themeSelect) return;
-            const theme = themeSelect.value;
-            if (theme === 'custom') {
-                customBgWrap.style.display = 'block';
-            } else {
-                customBgWrap.style.display = 'none';
-            }
-
-            const urlParams = new URLSearchParams();
-            if (layoutSelect && layoutSelect.value !== 'top') {
-                urlParams.set('layout', layoutSelect.value);
-            }
-            if (theme === 'custom') {
-                const hex = customBgInput.value.trim().replace(/^#/, '');
-                if (hex) urlParams.set('overlay', hex);
-            } else if (theme !== 'card') {
-                urlParams.set('overlay', theme);
-            }
-
-            if (pipsCheck && !pipsCheck.checked) {
-                urlParams.set('pips', '0');
-            }
-            if (tagsCheck && !tagsCheck.checked) {
-                urlParams.set('tags', '0');
-            }
-            const centerCheck = $('matchup-opt-center');
-            if (centerCheck && !centerCheck.checked) {
-                urlParams.set('center', '0');
-            }
-
-            const qs = urlParams.toString();
-            const fullUrl = `${origin}/overlays/matchup.html${qs ? `?${qs}` : ''}`;
-            if ($('url-matchup-overlay')) $('url-matchup-overlay').value = fullUrl;
-            if ($('btn-open-matchup-overlay')) $('btn-open-matchup-overlay').href = fullUrl;
-
-            // Live preview iframe update
-            const previewIframe = $('matchup-preview-iframe');
-            if (previewIframe) {
-                const previewParams = new URLSearchParams(urlParams);
-                previewParams.set('preview', '1');
-                const targetSrc = `/overlays/matchup.html?${previewParams.toString()}`;
-                if (previewIframe.getAttribute('src') !== targetSrc) {
-                    previewIframe.src = targetSrc;
-                }
-            }
-        }
-
-        function updatePreview() {
+        function updateOverlayUrls() {
             updatePollOverlayUrl();
             updateTourneyOverlayUrl();
         }
@@ -986,6 +908,7 @@
 
         // Preview box renderer
         function updatePreview() {
+            updateOverlayUrls();
             const box = $('poll-preview-box');
             if (!box) return;
 
@@ -1693,422 +1616,6 @@
             }
         }
 
-        // --- Matchup Scoreboard / Versus Studio Functions ---
-        async function loadMatchup() {
-            try {
-                const res = await fetch('/api/matchup');
-                if (res.ok) {
-                    const data = await res.json();
-                    activeMatchupData = data.matchup;
-                    renderMatchupStudio(activeMatchupData);
-                }
-            } catch (err) {
-                console.warn('Error loading matchup:', err);
-            }
-        }
-
-        function renderMatchupStudio(m) {
-            if (!m) return;
-            activeMatchupData = m;
-
-            if ($('matchup-title')) $('matchup-title').value = m.title || '';
-            if ($('matchup-phase')) $('matchup-phase').value = m.phase || '';
-            if ($('matchup-details')) $('matchup-details').value = m.details || '';
-            if ($('matchup-competitor-count')) $('matchup-competitor-count').value = String(m.competitorCount || 2);
-
-            // Format dropdown selection
-            const fmtSelect = $('matchup-format');
-            const targetRow = $('matchup-custom-target-row');
-            if (fmtSelect) {
-                if (m.format === 'points') {
-                    fmtSelect.value = 'points';
-                    if (targetRow) targetRow.style.display = 'none';
-                } else if (m.format === 'firstTo') {
-                    if (m.targetScore === 10) {
-                        fmtSelect.value = 'firstTo-10';
-                        if (targetRow) targetRow.style.display = 'none';
-                    } else {
-                        fmtSelect.value = 'firstTo-custom';
-                        if (targetRow) targetRow.style.display = 'block';
-                        $('matchup-target-input').value = m.targetScore || 5;
-                    }
-                } else {
-                    fmtSelect.value = `bestOf-${m.bestOf || 5}`;
-                    if (targetRow) targetRow.style.display = 'none';
-                }
-            }
-
-            // Render Competitors Grid
-            const grid = $('matchup-competitors-grid');
-            if (!grid) return;
-
-            const target = m.targetScore || (m.bestOf > 0 ? Math.ceil(m.bestOf / 2) : 0);
-            grid.style.gridTemplateColumns = m.competitors.length > 2 ? 'repeat(2, 1fr)' : '1fr 1fr';
-
-            grid.innerHTML = m.competitors.map((c, i) => {
-                const isWinner = m.status === 'COMPLETED' && m.winner === c.name;
-                const pips = target > 0 ? Array.from({ length: target }, (_, p) => p < c.score ? '●' : '○').join(' ') : '';
-
-                return `
-                    <div class="matchup-competitor-card${isWinner ? ' winner' : ''}">
-                        <div class="matchup-card-strip" style="background: ${c.color || '#fff'};"></div>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">
-                                Player ${i + 1}${isWinner ? ' · WINNER' : ''}
-                            </span>
-                            <div style="display: flex; align-items: center; gap: 0.35rem;">
-                                <input type="color" value="${c.color || '#fff'}" style="width: 22px; height: 22px; border: none; cursor: pointer; border-radius: 4px;" onchange="updateCompetitorColor(${i}, this.value)" title="Change player color">
-                            </div>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;">
-                            <input type="text" class="form-control" style="font-size: 0.8rem; padding: 0.3rem 0.5rem;" value="${esc(c.name)}" placeholder="Player ${i + 1} Name" onchange="updateCompetitorName(${i}, this.value)">
-                            <input type="text" class="form-control" style="font-size: 0.8rem; padding: 0.3rem 0.5rem;" value="${esc(c.tag)}" placeholder="Character / Tag" onchange="updateCompetitorTag(${i}, this.value)">
-                        </div>
-
-                        <div class="matchup-score-hero">
-                            <div class="score-stepper">
-                                <button type="button" class="score-btn" onclick="stepMatchupScore(${i}, -1)">-</button>
-                                <input type="number" class="score-val-input" min="0" value="${c.score || 0}" onchange="setMatchupScoreDirect(${i}, this.value)">
-                                <button type="button" class="score-btn" onclick="stepMatchupScore(${i}, 1)">+</button>
-                            </div>
-                            <div style="text-align: right;">
-                                ${target > 0 ? `<div style="font-size: 0.85rem; letter-spacing: 0.15rem; color: ${c.color || '#fff'}; line-height: 1.1;">${pips}</div>` : ''}
-                                <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">
-                                    ${c.score || 0} ${target > 0 ? `/ ${target} wins` : 'pts'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            // Render Fight Card / Exhibition Queue
-            renderMatchupQueue(m.queue || [], m.activeQueueIndex ?? 0);
-        }
-
-        function renderMatchupQueue(queue, activeQueueIndex) {
-            const container = $('matchup-queue-container');
-            if (!container) return;
-
-            if (!queue || queue.length === 0) {
-                container.innerHTML = `
-                    <div style="padding: 1rem; text-align: center; color: var(--text-muted); background: var(--bg-inset); border-radius: 6px; font-size: 0.78rem;">
-                        No matches in the fight card queue. Add matches to easily step through an exhibition card or tournament schedule.
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = queue.map((item, idx) => {
-                const isActive = idx === activeQueueIndex;
-                const c1 = (item.competitors && item.competitors[0]) || { name: 'Player 1', score: 0 };
-                const c2 = (item.competitors && item.competitors[1]) || { name: 'Player 2', score: 0 };
-                const isCompleted = item.status === 'COMPLETED';
-
-                let statusBadge = '';
-                if (isActive) {
-                    statusBadge = '<span class="matchup-queue-status live">Live Now</span>';
-                } else if (isCompleted) {
-                    statusBadge = '<span class="matchup-queue-status completed">Done</span>';
-                } else {
-                    statusBadge = '<span class="matchup-queue-status upcoming">Queued</span>';
-                }
-
-                return `
-                    <div class="matchup-queue-item${isActive ? ' active' : ''}">
-                        <div class="matchup-queue-meta">
-                            <span class="matchup-queue-idx">#${idx + 1}</span>
-                            <div style="display: flex; flex-direction: column; min-width: 0;">
-                                <div style="display: flex; align-items: center; gap: 0.4rem;">
-                                    <span style="font-size: 0.75rem; font-weight: 700; color: ${isActive ? 'var(--accent)' : 'var(--text)'};">
-                                        ${esc(item.title || 'Exhibition Match')}
-                                    </span>
-                                    ${item.phase ? `<span style="font-size: 0.7rem; color: var(--text-muted);">· ${esc(item.phase)}</span>` : ''}
-                                    ${statusBadge}
-                                </div>
-                                <div class="matchup-queue-names">
-                                    <span>${esc(c1.name)}${c1.tag ? ` <span class="matchup-queue-tag">(${esc(c1.tag)})</span>` : ''}</span>
-                                    <span style="color: var(--text-muted); font-size: 0.75rem; font-weight: 800;">${c1.score ?? 0} — ${c2.score ?? 0}</span>
-                                    <span>${esc(c2.name)}${c2.tag ? ` <span class="matchup-queue-tag">(${esc(c2.tag)})</span>` : ''}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.35rem;">
-                            ${!isActive ? `
-                                <button type="button" class="btn-secondary" style="font-size: 0.68rem; padding: 0.15rem 0.45rem;" onclick="selectMatchupQueue('${item.id}')" title="Load this match to overlay">
-                                    Load
-                                </button>
-                            ` : ''}
-                            <button type="button" class="btn-secondary" style="font-size: 0.68rem; padding: 0.15rem 0.45rem; color: #ef4444;" onclick="deleteMatchupQueue('${item.id}')" title="Delete from fight card">
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function toggleAddMatchupQueueModal(show) {
-            const drawer = $('matchup-add-queue-drawer');
-            if (drawer) drawer.style.display = show ? 'block' : 'none';
-        }
-
-        async function submitAddMatchupQueue() {
-            const title = ($('queue-add-title')?.value || '').trim() || 'Exhibition Match';
-            const phase = ($('queue-add-phase')?.value || '').trim() || 'Match';
-            const p1Name = ($('queue-add-p1-name')?.value || '').trim() || 'Player 1';
-            const p1Tag = ($('queue-add-p1-tag')?.value || '').trim();
-            const p2Name = ($('queue-add-p2-name')?.value || '').trim() || 'Player 2';
-            const p2Tag = ($('queue-add-p2-tag')?.value || '').trim();
-            const loadImmediately = $('queue-add-load-now')?.checked || false;
-
-            const newMatch = {
-                title,
-                phase,
-                competitors: [
-                    { name: p1Name, tag: p1Tag, score: 0 },
-                    { name: p2Name, tag: p2Tag, score: 0 }
-                ]
-            };
-
-            try {
-                const res = await fetch('/api/matchup/queue', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ match: newMatch, loadImmediately })
-                });
-                const data = await res.json();
-                if (data.status === 'ok') {
-                    if ($('queue-add-title')) $('queue-add-title').value = '';
-                    if ($('queue-add-phase')) $('queue-add-phase').value = '';
-                    if ($('queue-add-p1-name')) $('queue-add-p1-name').value = '';
-                    if ($('queue-add-p1-tag')) $('queue-add-p1-tag').value = '';
-                    if ($('queue-add-p2-name')) $('queue-add-p2-name').value = '';
-                    if ($('queue-add-p2-tag')) $('queue-add-p2-tag').value = '';
-                    toggleAddMatchupQueueModal(false);
-                    if (data.matchup) renderMatchupStudio(data.matchup);
-                    toast('Match added to fight card!');
-                }
-            } catch {
-                toast('Error adding match to queue');
-            }
-        }
-
-        async function selectMatchupQueue(id) {
-            try {
-                const res = await fetch('/api/matchup/queue/select', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id })
-                });
-                const data = await res.json();
-                if (data.status === 'ok') {
-                    if (data.matchup) renderMatchupStudio(data.matchup);
-                    toast('Loaded fight from queue');
-                }
-            } catch {
-                toast('Error selecting queue match');
-            }
-        }
-
-        async function stepMatchupQueue(direction) {
-            const endpoint = direction > 0 ? '/api/matchup/queue/next' : '/api/matchup/queue/prev';
-            try {
-                const res = await fetch(endpoint, { method: 'POST' });
-                const data = await res.json();
-                if (data.status === 'ok') {
-                    if (data.matchup) renderMatchupStudio(data.matchup);
-                    toast(direction > 0 ? 'Advanced to next match' : 'Returned to previous match');
-                }
-            } catch {
-                toast('Error stepping queue');
-            }
-        }
-
-        async function deleteMatchupQueue(id) {
-            try {
-                const res = await fetch(`/api/matchup/queue/${encodeURIComponent(id)}`, { method: 'DELETE' });
-                const data = await res.json();
-                if (data.status === 'ok') {
-                    loadMatchup();
-                    toast('Match removed from queue');
-                }
-            } catch {
-                toast('Error deleting match');
-            }
-        }
-
-        async function stepMatchupScore(index, delta) {
-            try {
-                const res = await fetch('/api/matchup/score', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ index, delta })
-                });
-                const data = await res.json();
-                if (data.status === 'ok') {
-                    renderMatchupStudio(data.matchup);
-                    if (data.matchup.status === 'COMPLETED' && data.matchup.winner) {
-                        toast(`Set won by ${data.matchup.winner}!`);
-                    }
-                }
-            } catch {
-                toast('Error updating score');
-            }
-        }
-
-        async function setMatchupScoreDirect(index, scoreVal) {
-            const score = Math.max(0, parseInt(scoreVal, 10) || 0);
-            try {
-                const res = await fetch('/api/matchup/score', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ index, score })
-                });
-                const data = await res.json();
-                if (data.status === 'ok') {
-                    renderMatchupStudio(data.matchup);
-                }
-            } catch {
-                toast('Error setting score');
-            }
-        }
-
-        async function updateCompetitorName(index, name) {
-            if (!activeMatchupData || !activeMatchupData.competitors[index]) return;
-            activeMatchupData.competitors[index].name = name.trim();
-            saveMatchupSettings();
-        }
-
-        async function updateCompetitorTag(index, tag) {
-            if (!activeMatchupData || !activeMatchupData.competitors[index]) return;
-            activeMatchupData.competitors[index].tag = tag.trim();
-            saveMatchupSettings();
-        }
-
-        async function updateCompetitorColor(index, color) {
-            if (!activeMatchupData || !activeMatchupData.competitors[index]) return;
-            activeMatchupData.competitors[index].color = color;
-            saveMatchupSettings();
-        }
-
-        async function changeMatchupCompetitorCount(countVal) {
-            const count = parseInt(countVal, 10) || 2;
-            try {
-                const res = await fetch('/api/matchup', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ competitorCount: count })
-                });
-                const data = await res.json();
-                if (data.status === 'ok') {
-                    renderMatchupStudio(data.matchup);
-                    toast(`Updated to ${count} competitors`);
-                }
-            } catch {
-                toast('Error updating competitor count');
-            }
-        }
-
-        async function changeMatchupFormat(fmtVal) {
-            const targetRow = $('matchup-custom-target-row');
-            let format = 'bestOf';
-            let bestOf = 5;
-            let targetScore = 3;
-
-            if (fmtVal === 'points') {
-                format = 'points';
-                bestOf = 0;
-                targetScore = 0;
-                if (targetRow) targetRow.style.display = 'none';
-            } else if (fmtVal.startsWith('bestOf-')) {
-                format = 'bestOf';
-                bestOf = parseInt(fmtVal.replace('bestOf-', ''), 10) || 5;
-                targetScore = Math.ceil(bestOf / 2);
-                if (targetRow) targetRow.style.display = 'none';
-            } else if (fmtVal === 'firstTo-10') {
-                format = 'firstTo';
-                targetScore = 10;
-                bestOf = 0;
-                if (targetRow) targetRow.style.display = 'none';
-            } else if (fmtVal === 'firstTo-custom') {
-                format = 'firstTo';
-                targetScore = parseInt($('matchup-target-input').value, 10) || 5;
-                bestOf = 0;
-                if (targetRow) targetRow.style.display = 'block';
-            }
-
-            try {
-                const res = await fetch('/api/matchup', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ format, bestOf, targetScore })
-                });
-                const data = await res.json();
-                if (data.status === 'ok') {
-                    renderMatchupStudio(data.matchup);
-                }
-            } catch {
-                toast('Error updating format');
-            }
-        }
-
-        async function saveMatchupSettings() {
-            if (!activeMatchupData) return;
-            const payload = {
-                title: $('matchup-title').value.trim(),
-                phase: $('matchup-phase').value.trim(),
-                details: $('matchup-details').value.trim(),
-                competitors: activeMatchupData.competitors
-            };
-            const fmtVal = $('matchup-format').value;
-            if (fmtVal === 'firstTo-custom') {
-                payload.targetScore = parseInt($('matchup-target-input').value, 10) || 5;
-            }
-
-            try {
-                const res = await fetch('/api/matchup', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                if (data.status === 'ok') {
-                    renderMatchupStudio(data.matchup);
-                }
-            } catch {
-                toast('Error saving matchup');
-            }
-        }
-
-        async function swapMatchupSides() {
-            try {
-                const res = await fetch('/api/matchup/swap', { method: 'POST' });
-                const data = await res.json();
-                if (data.status === 'ok') {
-                    renderMatchupStudio(data.matchup);
-                    toast('Swapped P1 ⇄ P2');
-                }
-            } catch {
-                toast('Error swapping sides');
-            }
-        }
-
-        async function resetMatchupScores() {
-            if (!confirm('Reset all scores back to 0-0?')) return;
-            try {
-                const res = await fetch('/api/matchup/reset-scores', { method: 'POST' });
-                const data = await res.json();
-                if (data.status === 'ok') {
-                    renderMatchupStudio(data.matchup);
-                    toast('Scores reset to 0-0');
-                }
-            } catch {
-                toast('Error resetting scores');
-            }
-        }
-
         // History
         async function loadHistory() {
             try {
@@ -2178,9 +1685,6 @@
                     } else if (msg.type === 'tournament-update') {
                         activeTourneyData = msg.data;
                         renderTournamentStudio(activeTourneyData);
-                    } else if (msg.type === 'matchup-update') {
-                        activeMatchupData = msg.data;
-                        renderMatchupStudio(activeMatchupData);
                     }
                 } catch { /* ignore parse error */ }
             };
@@ -2205,7 +1709,6 @@
 
             loadPresets();
             loadTournament();
-            loadMatchup();
             loadHistory();
             updateEntrantsCalc();
             updatePreview();

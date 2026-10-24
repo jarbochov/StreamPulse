@@ -52,7 +52,7 @@ Open **Tools -> Poll Studio** (`/polls.html`):
 
 ## 3. Tournament Bracket Engine (Audience & Esports)
 
-StreamPulse includes an advanced **Tournament Bracket** engine designed for community showdowns, esports competitions, retro game tournaments, and interactive viewer brackets. Tournaments can be managed from either **Competitions Studio** (`/competitions.html`) for esports/manual brackets or **Poll Studio** (`/polls.html`) for audience chat brackets.
+StreamPulse includes an advanced **Tournament Bracket** engine designed for community showdowns, esports competitions, retro game tournaments, and interactive viewer brackets. Tournaments can be managed from either **Versus Studio** (`/versus.html`) for esports/manual brackets or **Poll Studio** (`/polls.html`) for audience chat brackets.
 
 ### Flexible Tournament Capabilities:
 - **Participant Scaling & Non-Multiples of 2 (2 to 32 Entrants)**: Enter any number of competitors, including odd or non-power-of-2 numbers (e.g. 3, 5, 6, 7, 9, 11, 13).
@@ -61,7 +61,7 @@ StreamPulse includes an advanced **Tournament Bracket** engine designed for comm
   - **Double Elimination**: Full winners and losers bracket progression with Grand Finals reset capabilities.
 - **Two Progression Modes**:
   1. **Audience Chat Vote** (in Poll Studio): Each matchup runs as an interactive chat poll where viewers vote live in stream chat.
-  2. **Manual Scored Bracket** (in Competitions Studio): Broadcaster or tournament admin manually enters match scores, series scores, and match notes directly from Competitions Studio.
+  2. **Manual Scored Bracket** (in Versus Studio): Broadcaster or tournament admin manually enters match scores, series scores, and match notes directly from Versus Studio.
 - **Series Formats**:
   - **Free Points**: Open score tally (e.g., basketball, pinball, 15 vs 12).
   - **Single Game (Best of 1)**: Winner takes all.
@@ -69,7 +69,7 @@ StreamPulse includes an advanced **Tournament Bracket** engine designed for comm
   - **Best of 5**: First to 3 wins.
   - **Best of 7**: First to 4 wins.
 - **Auto-Advancement on Target Score**: In best-of series, reaching the required target score (e.g. 2 wins in Best of 3) automatically crowns the matchup winner and moves them to the next round slot!
-- **Match Advancement Undo & Recursive Bracket Rollback**: Made a mistake or scored the wrong winner on a tournament match? Broadcasters can click **Undo / Edit** on any completed match in Competitions Studio (`/api/tournament/rollback`). The match winner is cleared, scores reset, and all downstream matches that depended on that match are recursively reverted back to `TBD` and `PENDING`, clearing any premature champion declarations.
+- **Match Advancement Undo & Recursive Bracket Rollback**: Made a mistake or scored the wrong winner on a tournament match? Broadcasters can click **Undo / Edit** on any completed match in Versus Studio (`/api/tournament/rollback`). The match winner is cleared, scores reset, and all downstream matches that depended on that match are recursively reverted back to `TBD` and `PENDING`, clearing any premature champion declarations.
 - **In-Progress Tournament Drafts & Checkpoints**: Streamers can save tournament snapshots at any point during a broadcast (**Save Draft** / `/api/tournament/drafts/save`). Switch games or pause your stream, then resume your exact bracket progression later via **Checkpoints** (`/api/tournament/drafts/restore`).
 - **Interactive Match Selection & Resets**: Click any match card in the studio overview to immediately inspect, score, advance, or reset it.
 - **Saved Tournament Presets & Categories**: Categorized preset browser for Fighting Games (EVO SF6 8P, Tekken 16P), Speedrunning (GDQ League Round Robin), Party / FFA (Smash 6P, Rocket League 4P), and Custom Saved brackets. Broadcasters can edit existing custom presets (`PUT /api/tournament/presets/:id`), duplicate built-in presets to tweak configurations, and delete unwanted presets.
@@ -77,9 +77,9 @@ StreamPulse includes an advanced **Tournament Bracket** engine designed for comm
 
 ---
 
-## 4. Matchup Scoreboard & Versus Engine (Competitions Studio)
+## 4. Matchup Scoreboard & Versus Engine (Versus Studio)
 
-For broadcasts featuring fighting games (Street Fighter, Smash, Tekken), speedrun races, Mario Kart showdowns, or 1v1 to 4-player casual sets, StreamPulse provides a standalone **Matchup Scoreboard** in **Tools -> Competitions Studio** (`/competitions.html`). It tracks match points, series win pips, and competitor side positions without requiring an elimination bracket.
+For broadcasts featuring fighting games (Street Fighter, Smash, Tekken), speedrun races, Mario Kart showdowns, or 1v1 to 4-player casual sets, StreamPulse provides a standalone **Matchup Scoreboard** in **Tools -> Versus Studio** (`/versus.html`). It tracks match points, series win pips, and competitor side positions without requiring an elimination bracket.
 
 ### Key Matchup Features:
 - **Speedrun Battle (GDQ Race Mode) with Multi-Runner Clocks**:
@@ -98,10 +98,10 @@ For broadcasts featuring fighting games (Street Fighter, Smash, Tekken), speedru
   - **Best of 1, 3, 5, 7, 9**: Win pips automatically update as scores change.
   - **First to 10 (or custom target)**: Target score required to take the set.
   - **Free Points**: Open scoreboard with no upper score cap.
-- **Side Swapping (`P1 ⇄ P2`)**: Instantly swaps Player 1 and Player 2 names, character/sub-tags, custom team colors, and current scores with 1 click in Competitions Studio.
+- **Side Swapping (`P1 ⇄ P2`)**: Instantly swaps Player 1 and Player 2 names, character/sub-tags, custom team colors, and current scores with 1 click in Versus Studio.
 - **Character & Sub-Tags**: Tag players with their chosen character, clan, or handicap (e.g. `Ryu`, `Fox`, `Blue Team`).
 - **Custom Player / Team Colors**: Assign distinct hex colors to each competitor; score boxes and accents adapt dynamically.
-- **Score Steppers & Direct Input**: Click `+` / `-` in Competitions Studio or type any score directly into the competitor card.
+- **Score Steppers & Direct Input**: Click `+` / `-` in Versus Studio or type any score directly into the competitor card.
 - **Auto Set Winner Detection & Fanfare**: Reaching the series target score crowns the set winner, triggers optional victory audio fanfare, and fires celebratory particle confetti.
 - **Fight Card & Exhibition Queue**: Schedule a sequential list of matches to step through during your stream:
   - Step forward (`Next Match`) or backward (`Prev Match`) with 1 click or Stream Deck button.
