@@ -817,6 +817,11 @@ function createMatchupService({
         }
         if (params.enabled !== undefined) {
             activeMatchup.clock.enabled = Boolean(params.enabled);
+            if (!activeMatchup.clock.enabled) {
+                activeMatchup.clock.isRunning = false;
+                (activeMatchup.competitors || []).forEach(c => { if (c.timer) c.timer.isRunning = false; });
+                stopTicker();
+            }
         }
         save();
         broadcastUpdate();

@@ -1367,7 +1367,7 @@
             const target = m.targetScore || (m.bestOf > 0 ? Math.ceil(m.bestOf / 2) : 0);
 
             // Select Layout
-            if (layout === 'race' || m.clock?.mode === 'race') {
+            if (layout === 'race' || (m.clock?.mode === 'race' && m.clock?.enabled !== false)) {
                 renderSpeedrunRace(m, target, count);
             } else if (layout === 'fgc' || layout === 'evo') {
                 renderFgcBar(m, target, count);
@@ -1423,7 +1423,8 @@
                             const t = c.timer || { elapsed: 0, isRunning: false, finished: false, finishTime: null, delta: null };
                             const isFin = t.finished;
                             const isRun = t.isRunning;
-                            const timeStr = isFin ? (t.finishTime || fmtMs(t.elapsed)) : fmtMs(t.elapsed || 0);
+                            const clockOff = m.clock && m.clock.enabled === false;
+                            const timeStr = clockOff ? '' : isFin ? (t.finishTime || fmtMs(t.elapsed)) : fmtMs(t.elapsed || 0);
 
                             let badgeHtml = '';
                             if (isFin) {
