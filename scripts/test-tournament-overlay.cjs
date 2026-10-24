@@ -59,7 +59,20 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
         const scoresPresent = await page.evaluate(() => document.querySelectorAll('.score-badge').length);
         assert.equal(scoresPresent, 0, 'Score badges should not be rendered when ?showscores=0');
 
-        // 6. Round Robin Standings Table in overlay
+        // 6. Round Robin Standings Table & Aligned Match Schedule in overlay
+        await page.goto(`${OVERLAY_URL}?preview=1&format=roundRobin&showseeds=1`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.rr-table');
+        const hasRRTable = await page.$('.rr-table');
+        assert.ok(hasRRTable, 'Round Robin layout should render standings table');
+
+        const rrSeedPills = await page.$$('.seed-pill');
+        assert.ok(rrSeedPills.length >= 4, 'Round Robin should render seed pills in standings and match schedule when ?showseeds=1');
+
+        const scorePills = await page.$$('.rr-score-pill');
+        assert.ok(scorePills.length >= 2, 'Round Robin matches should render aligned score pills');
+        const scoreText = await page.$eval('.rr-score-pill', el => el.textContent.trim());
+        assert.ok(scoreText.includes('—'), 'Score pill should format as score — score');
+
         await page.evaluate(() => {
             window.renderTournament({
                 id: 'rr-test',
@@ -67,17 +80,15 @@ test('tournament overlay renders tree layout, active HUD layout, theme presets, 
                 format: 'roundRobin',
                 entrantCount: 3,
                 standings: [
-                    { name: 'Chrono', played: 2, won: 2, lost: 0, points: 6 },
-                    { name: 'Zelda', played: 2, won: 1, lost: 1, points: 3 },
-                    { name: 'Mario', played: 2, won: 0, lost: 2, points: 0 }
+                    { name: 'Chrono', seed: 1, played: 2, won: 2, lost: 0, points: 6 },
+                    { name: 'Zelda', seed: 2, played: 2, won: 1, lost: 1, points: 3 },
+                    { name: 'Mario', seed: 3, played: 2, won: 0, lost: 2, points: 0 }
                 ],
                 matches: [
-                    { id: 'rr_1_1', round: 1, entrant1: { name: 'Chrono', score: 2 }, entrant2: { name: 'Zelda', score: 1 }, status: 'COMPLETED', winner: 'Chrono' }
+                    { id: 'rr_1_1', round: 1, entrant1: { name: 'Chrono', score: 2 }, entrant2: { name: 'Zelda', score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'Chrono' }
                 ]
             });
         });
-        const hasRRTable = await page.$('.rr-table');
-        assert.ok(hasRRTable, 'Round Robin layout should render standings table');
 
         // 7. BYE match rendering in single elim (odd participant count)
         await page.evaluate(() => {

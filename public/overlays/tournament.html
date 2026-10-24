@@ -173,6 +173,23 @@
             border-color: var(--tourney-border);
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
         }
+        .theme-clean-light .rr-matches-card {
+            background: #ffffff;
+            border-color: var(--tourney-border);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+        .theme-clean-light .rr-matches-header {
+            border-bottom-color: var(--tourney-border);
+        }
+        .theme-clean-light .rr-match-item {
+            background: #f6f8fa;
+            border-color: var(--tourney-border);
+        }
+        .theme-clean-light .rr-score-pill {
+            background: rgba(0, 0, 0, 0.06);
+            border-color: rgba(0, 0, 0, 0.08);
+            color: var(--tourney-text);
+        }
         .theme-clean-light .rr-table th {
             background: #f6f8fa;
             border-bottom: 1px solid var(--tourney-border);
@@ -566,6 +583,149 @@
         .leader .rr-rank-badge {
             background: #f59e0b;
             color: #0d1117;
+        }
+
+        /* Round Robin Matches Grid & Schedule */
+        .rr-matches-card {
+            background: var(--tourney-card-bg, rgba(22, 27, 34, 0.85));
+            border: 1px solid var(--tourney-border, rgba(255, 255, 255, 0.12));
+            border-radius: var(--tourney-radius, 10px);
+            padding: 0.9rem 1.1rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .rr-matches-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.45rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .rr-matches-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+            gap: 0.65rem;
+        }
+
+        .rr-match-item {
+            background: rgba(13, 17, 23, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 0.55rem 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            transition: all 0.2s ease;
+        }
+
+        .rr-match-item.active {
+            border-color: var(--tourney-accent);
+            box-shadow: 0 0 10px color-mix(in srgb, var(--tourney-accent) 25%, transparent);
+        }
+
+        .rr-match-item.completed {
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .rr-match-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.65rem;
+            color: var(--tourney-muted);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .rr-badge-live {
+            color: var(--tourney-accent);
+            font-weight: 800;
+        }
+
+        .rr-badge-draw {
+            color: var(--tourney-muted);
+            font-weight: 700;
+        }
+
+        .rr-badge-win {
+            color: var(--tourney-winner);
+            font-weight: 800;
+        }
+
+        .rr-match-row {
+            display: grid;
+            grid-template-columns: 1fr 64px 1fr;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.84rem;
+            width: 100%;
+        }
+
+        .rr-entrant {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .rr-entrant-1 {
+            justify-content: flex-end;
+            text-align: right;
+        }
+
+        .rr-entrant-2 {
+            justify-content: flex-start;
+            text-align: left;
+        }
+
+        .rr-entrant .entrant-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        .rr-entrant.winner .entrant-name {
+            font-weight: 800;
+            color: var(--tourney-winner);
+        }
+
+        .rr-score-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 64px;
+            flex-shrink: 0;
+        }
+
+        .rr-score-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 58px;
+            padding: 0.18rem 0;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--tourney-text);
+            font-weight: 800;
+            font-size: 0.82rem;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.04em;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            text-align: center;
+        }
+
+        .rr-vs-pill {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--tourney-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-align: center;
         }
 
         .match-card-badge {
@@ -1150,10 +1310,10 @@
                 { name: 'Lufia II', tag: 'Neverland', seed: 4, played: 2, won: 0, lost: 2, draws: 0, scoreFor: 1, scoreAgainst: 4, diff: -3, points: 0 }
             ],
             matches: [
-                { id: 'rr_1_1', round: 1, roundName: 'Round 1', entrant1: { name: 'Chrono Trigger', tag: 'Square', score: 2 }, entrant2: { name: 'EarthBound', tag: 'Ape', score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'Chrono Trigger' },
-                { id: 'rr_1_2', round: 1, roundName: 'Round 1', entrant1: { name: 'Final Fantasy VI', tag: 'Square', score: 2 }, entrant2: { name: 'Lufia II', tag: 'Neverland', score: 0 }, scores: [2, 0], status: 'COMPLETED', winner: 'Final Fantasy VI' },
-                { id: 'rr_2_1', round: 2, roundName: 'Round 2', entrant1: { name: 'Chrono Trigger', tag: 'Square', score: 1 }, entrant2: { name: 'Final Fantasy VI', tag: 'Square', score: 0 }, scores: [1, 0], status: 'ACTIVE' },
-                { id: 'rr_2_2', round: 2, roundName: 'Round 2', entrant1: { name: 'EarthBound', tag: 'Ape', score: 2 }, entrant2: { name: 'Lufia II', tag: 'Neverland', score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'EarthBound' }
+                { id: 'rr_1_1', round: 1, roundName: 'Round 1', entrant1: { name: 'Chrono Trigger', tag: 'Square', seed: 1, score: 2 }, entrant2: { name: 'EarthBound', tag: 'Ape', seed: 2, score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'Chrono Trigger' },
+                { id: 'rr_1_2', round: 1, roundName: 'Round 1', entrant1: { name: 'Final Fantasy VI', tag: 'Square', seed: 3, score: 2 }, entrant2: { name: 'Lufia II', tag: 'Neverland', seed: 4, score: 0 }, scores: [2, 0], status: 'COMPLETED', winner: 'Final Fantasy VI' },
+                { id: 'rr_2_1', round: 2, roundName: 'Round 2', entrant1: { name: 'Chrono Trigger', tag: 'Square', seed: 1, score: 1 }, entrant2: { name: 'Final Fantasy VI', tag: 'Square', seed: 3, score: 0 }, scores: [1, 0], status: 'ACTIVE' },
+                { id: 'rr_2_2', round: 2, roundName: 'Round 2', entrant1: { name: 'EarthBound', tag: 'Ape', seed: 2, score: 2 }, entrant2: { name: 'Lufia II', tag: 'Neverland', seed: 4, score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'EarthBound' }
             ]
         };
 
@@ -1624,6 +1784,7 @@
                                         </td>
                                         <td>
                                             <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                                ${showSeeds && s.seed > 0 ? `<span class="seed-pill">#${s.seed}</span>` : ''}
                                                 <span style="font-weight: 700;">${esc(s.name)}</span>
                                                 ${showTags && s.tag ? `<span class="entrant-tag">${esc(s.tag)}</span>` : ''}
                                             </div>
@@ -1662,21 +1823,30 @@
                                 const e2 = m.entrant2 || { name: 'TBD', score: 0 };
                                 const s1 = e1.score ?? (Array.isArray(m.scores) ? m.scores[0] : 0) ?? 0;
                                 const s2 = e2.score ?? (Array.isArray(m.scores) ? m.scores[1] : 0) ?? 0;
+                                const seed1 = e1.seed || (standings.find(s => s.name === e1.name)?.seed) || (Array.isArray(tournament.entrants) ? tournament.entrants.findIndex(x => (x.name || x) === e1.name) + 1 : 0);
+                                const seed2 = e2.seed || (standings.find(s => s.name === e2.name)?.seed) || (Array.isArray(tournament.entrants) ? tournament.entrants.findIndex(x => (x.name || x) === e2.name) + 1 : 0);
+
                                 return `
                                     <div class="rr-match-item${isAct ? ' active' : ''}${isComp ? ' completed' : ''}">
-                                        <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--tourney-muted); margin-bottom: 0.25rem; font-weight: 700; text-transform: uppercase;">
+                                        <div class="rr-match-header">
                                             <span>${esc(m.roundName || ('Round ' + m.round))}</span>
-                                            ${showBadges && isAct ? '<span style="color: var(--tourney-accent);">LIVE</span>' : ''}
-                                            ${isComp ? (m.winner === 'DRAW' ? '<span style="color: var(--tourney-muted);">DRAW</span>' : `<span style="color: var(--tourney-winner);">WIN: ${esc(m.winner)}</span>`) : ''}
+                                            ${showBadges && isAct ? '<span class="rr-badge-live">LIVE</span>' : ''}
+                                            ${isComp ? (m.winner === 'DRAW' ? '<span class="rr-badge-draw">DRAW</span>' : `<span class="rr-badge-win">WIN: ${esc(m.winner)}</span>`) : ''}
                                         </div>
-                                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem;">
-                                            <span style="font-weight: ${m.winner === e1.name ? '800' : '500'}; color: ${m.winner === e1.name ? 'var(--tourney-winner)' : 'inherit'};">
-                                                ${esc(e1.name)}${showTags && e1.tag ? ` <span style="font-size:0.68em;opacity:0.75;">(${esc(e1.tag)})</span>` : ''}
-                                            </span>
-                                            ${showScoresParam ? `<span style="font-weight: 800; font-variant-numeric: tabular-nums;">${s1} — ${s2}</span>` : '<span>vs</span>'}
-                                            <span style="font-weight: ${m.winner === e2.name ? '800' : '500'}; color: ${m.winner === e2.name ? 'var(--tourney-winner)' : 'inherit'};">
-                                                ${esc(e2.name)}${showTags && e2.tag ? ` <span style="font-size:0.68em;opacity:0.75;">(${esc(e2.tag)})</span>` : ''}
-                                            </span>
+                                        <div class="rr-match-row">
+                                            <div class="rr-entrant rr-entrant-1${m.winner === e1.name ? ' winner' : ''}">
+                                                ${showSeeds && seed1 > 0 ? `<span class="seed-pill">#${seed1}</span>` : ''}
+                                                <span class="entrant-name">${esc(e1.name)}</span>
+                                                ${showTags && e1.tag ? `<span class="entrant-tag">${esc(e1.tag)}</span>` : ''}
+                                            </div>
+                                            <div class="rr-score-wrap">
+                                                ${showScoresParam ? `<span class="rr-score-pill">${s1} — ${s2}</span>` : '<span class="rr-vs-pill">vs</span>'}
+                                            </div>
+                                            <div class="rr-entrant rr-entrant-2${m.winner === e2.name ? ' winner' : ''}">
+                                                ${showSeeds && seed2 > 0 ? `<span class="seed-pill">#${seed2}</span>` : ''}
+                                                <span class="entrant-name">${esc(e2.name)}</span>
+                                                ${showTags && e2.tag ? `<span class="entrant-tag">${esc(e2.tag)}</span>` : ''}
+                                            </div>
                                         </div>
                                     </div>
                                 `;
